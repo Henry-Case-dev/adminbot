@@ -121,8 +121,17 @@
       "acceptance": "Стиль узла выбирается по существующим значениям типов: факты — круглая световая точка #32C8F3 с тонким светлым ободом; убеждения — круг с внутренним кольцом #A77BFF; парадигмы — мягкий шестиугольный силуэт #728CFF с внутренней гранью; изменения — светящийся ромб #FFB84D с угловым бликом; сущности — округлая световая сфера #9FB4CE со светлым ядром; таблица §4.1 — визуальная спецификация, а не новая онтология.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 (формы и палитра по типам) + Re-review §5",
+          "observation": "Формы и палитра по типам подтверждены кодом, тестами (shapeKeyOf/row.shape, цвета #32C8F3/#A77BFF/#728CFF/#FFB84D/#9FB4CE) и кадрами 8 снимков: шестиугольники, ромбы, кольца убеждений, светлые ядра; entity больше не прямоугольник; мутации B1..B9 красные.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ],
       "source_note": "вводная проза §4.1: стиль по существующим типам, таблица — визуальная спецификация"
     },
     {
@@ -137,8 +146,17 @@
       "acceptance": "Стиль узла выбирается по существующим значениям типов: факты — круглая световая точка #32C8F3 с тонким светлым ободом; убеждения — круг с внутренним кольцом #A77BFF; парадигмы — мягкий шестиугольный силуэт #728CFF с внутренней гранью; изменения — светящийся ромб #FFB84D с угловым бликом; сущности — округлая световая сфера #9FB4CE со светлым ядром; таблица §4.1 — визуальная спецификация, а не новая онтология.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 (формы и палитра по типам) + Re-review §5",
+          "observation": "Формы и палитра по типам подтверждены кодом, тестами (shapeKeyOf/row.shape, цвета #32C8F3/#A77BFF/#728CFF/#FFB84D/#9FB4CE) и кадрами 8 снимков: шестиугольники, ромбы, кольца убеждений, светлые ядра; entity больше не прямоугольник; мутации B1..B9 красные.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ],
       "source_note": "строка таблицы §4.1: Факты — круглая световая точка #32C8F3, светлый обод"
     },
     {
@@ -153,8 +171,17 @@
       "acceptance": "Стиль узла выбирается по существующим значениям типов: факты — круглая световая точка #32C8F3 с тонким светлым ободом; убеждения — круг с внутренним кольцом #A77BFF; парадигмы — мягкий шестиугольный силуэт #728CFF с внутренней гранью; изменения — светящийся ромб #FFB84D с угловым бликом; сущности — округлая световая сфера #9FB4CE со светлым ядром; таблица §4.1 — визуальная спецификация, а не новая онтология.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 (формы и палитра по типам) + Re-review §5",
+          "observation": "Формы и палитра по типам подтверждены кодом, тестами (shapeKeyOf/row.shape, цвета #32C8F3/#A77BFF/#728CFF/#FFB84D/#9FB4CE) и кадрами 8 снимков: шестиугольники, ромбы, кольца убеждений, светлые ядра; entity больше не прямоугольник; мутации B1..B9 красные.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ],
       "source_note": "строка таблицы §4.1: Убеждения — круг с внутренним кольцом #A77BFF"
     },
     {
@@ -169,8 +196,17 @@
       "acceptance": "Стиль узла выбирается по существующим значениям типов: факты — круглая световая точка #32C8F3 с тонким светлым ободом; убеждения — круг с внутренним кольцом #A77BFF; парадигмы — мягкий шестиугольный силуэт #728CFF с внутренней гранью; изменения — светящийся ромб #FFB84D с угловым бликом; сущности — округлая световая сфера #9FB4CE со светлым ядром; таблица §4.1 — визуальная спецификация, а не новая онтология.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 (формы и палитра по типам) + Re-review §5",
+          "observation": "Формы и палитра по типам подтверждены кодом, тестами (shapeKeyOf/row.shape, цвета #32C8F3/#A77BFF/#728CFF/#FFB84D/#9FB4CE) и кадрами 8 снимков: шестиугольники, ромбы, кольца убеждений, светлые ядра; entity больше не прямоугольник; мутации B1..B9 красные.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ],
       "source_note": "строка таблицы §4.1: Парадигмы — мягкий шестиугольник #728CFF"
     },
     {
@@ -185,8 +221,17 @@
       "acceptance": "Стиль узла выбирается по существующим значениям типов: факты — круглая световая точка #32C8F3 с тонким светлым ободом; убеждения — круг с внутренним кольцом #A77BFF; парадигмы — мягкий шестиугольный силуэт #728CFF с внутренней гранью; изменения — светящийся ромб #FFB84D с угловым бликом; сущности — округлая световая сфера #9FB4CE со светлым ядром; таблица §4.1 — визуальная спецификация, а не новая онтология.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 (формы и палитра по типам) + Re-review §5",
+          "observation": "Формы и палитра по типам подтверждены кодом, тестами (shapeKeyOf/row.shape, цвета #32C8F3/#A77BFF/#728CFF/#FFB84D/#9FB4CE) и кадрами 8 снимков: шестиугольники, ромбы, кольца убеждений, светлые ядра; entity больше не прямоугольник; мутации B1..B9 красные.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ],
       "source_note": "строка таблицы §4.1: Изменения — светящийся ромб #FFB84D"
     },
     {
@@ -201,8 +246,17 @@
       "acceptance": "Стиль узла выбирается по существующим значениям типов: факты — круглая световая точка #32C8F3 с тонким светлым ободом; убеждения — круг с внутренним кольцом #A77BFF; парадигмы — мягкий шестиугольный силуэт #728CFF с внутренней гранью; изменения — светящийся ромб #FFB84D с угловым бликом; сущности — округлая световая сфера #9FB4CE со светлым ядром; таблица §4.1 — визуальная спецификация, а не новая онтология.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 (формы и палитра по типам) + Re-review §5",
+          "observation": "Формы и палитра по типам подтверждены кодом, тестами (shapeKeyOf/row.shape, цвета #32C8F3/#A77BFF/#728CFF/#FFB84D/#9FB4CE) и кадрами 8 снимков: шестиугольники, ромбы, кольца убеждений, светлые ядра; entity больше не прямоугольник; мутации B1..B9 красные.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ],
       "source_note": "строка таблицы §4.1: Сущности — округлая световая сфера #9FB4CE"
     },
     {
@@ -217,8 +271,17 @@
       "acceptance": "Каждый отображаемый ключевой узел имеет три явно видимых слоя свечения: чёткое ядро узнаваемой формы, ближний ореол радиусом 1,3–1,8 размера ядра и дальний очень слабый рассеянный ореол 2–3 размера ядра, не перекрывающий текст.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.2 «Три слоя свечения»",
+          "observation": "Три слоя видны на обычном масштабе: near r≈1.55 при alpha 0.22, far r≈2.65 при alpha 0.10; тест полос 1.3–1.8 и 2–3 r; ядро — узнаваемая фигура по типу.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ],
       "source_note": "вводная проза §4.2: каждый отображаемый ключевой узел имеет три слоя"
     },
     {
@@ -235,7 +298,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "проза §4.2: hover/выбор увеличивают яркость и ореол"
+      "source_note": "проза §4.2: hover/выбор увеличивают яркость и ореол",
+      "evidence_note": "Ореол и усиление яркости подтверждены для выбора (кольцо/ореол выбранного, снимки), но hover-усиление за 150–220 ms (и затухание при уходе) ревьюер отдельно не измерял."
     },
     {
       "source_id": "M00119b",
@@ -249,8 +313,17 @@
       "acceptance": "Дорогостоящие многослойные тени не применяются ко всем 700 узлам на каждом кадре: статические градиенты и спрайты кэшируются, дорогие эффекты зарезервированы активным узлам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.3 «Спрайты кэшированы»",
+          "observation": "Дорогие многослойные тени не рисуются на каждом кадре: спрайты из кэша sprite(), gradients+=1 только при создании (fps.json fxSprites=14, fxGradients=14), тест «кэш не растёт с кадрами».",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ],
       "source_note": "проза §4.2: дорогие тени не применяются ко всем 700 узлам на каждом кадре"
     },
     {
@@ -331,7 +404,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "проза §11: перечень нетипичных данных включает self-loop и кратные связи"
+      "source_note": "проза §11: перечень нетипичных данных включает self-loop и кратные связи",
+      "evidence_note": "Одиночные узлы, связь на себя и несколько связей между одной парой ревью A не проверяли."
     },
     {
       "source_id": "M00240b",
@@ -347,7 +421,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "проза §11: одиночные узлы и кратные связи в плотной группе"
+      "source_note": "проза §11: одиночные узлы и кратные связи в плотной группе",
+      "evidence_note": "Одиночные узлы, связь на себя и несколько связей между одной парой ревью A не проверяли."
     },
     {
       "source_id": "M00299",
@@ -425,8 +500,17 @@
       "acceptance": "Не добавляется новая тяжёлая инфраструктура: используются текущий vis-network, его методы и Canvas-события, существующие компоненты и API; Three.js/Pixi/второй движок не подключаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.1 (единственная точка создания сети)",
+          "observation": "Используется текущий vis-network 9.x и его Canvas-события; Three.js/Pixi/второй движок не подключены, второй точки создания сети нет.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ],
       "source_note": "проза §16: не переписывать граф на другую библиотеку"
     },
     {
@@ -443,7 +527,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "проза §16: сверить совместимость API с фактически установленной версией vis-network"
+      "source_note": "проза §16: сверить совместимость API с фактически установленной версией vis-network",
+      "evidence_note": "Ревью не фиксирует отдельно проверку совместимости с установленной версией vis-network 9.1.9 (код работает на установленной версии в тестах, но заявления о версии в доказательстве нет)."
     }
   ],
   "items": [
@@ -744,8 +829,17 @@
       "acceptance": "Перед правкой сверены реальный HEAD и код web/app.js, web/index.html, web/static/app.css, схема graph API; описанные в ТЗ внутренние методы не считаются уже реализованными, более новые изменения не откатываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.5 «Периметр» + строки кода 30131/30139/30439/31249",
+          "observation": "Сверен фактический HEAD: web/app.js прочитан по строкам (создание 30139, снос 31249, единственный `new window.vis.Network` 30131, единственный RAF карты 30439), `_cogNodeRow` подтверждён как делегат без боевых вызовов; perimeter через git diff — services/**, cognitive-map.js, app.css и промпты не тронуты.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00034",
@@ -759,8 +853,17 @@
       "acceptance": "Перед правкой сверены реальный HEAD и код web/app.js, web/index.html, web/static/app.css, схема graph API; описанные в ТЗ внутренние методы не считаются уже реализованными, более новые изменения не откатываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.5 «Периметр» + строки кода 30131/30139/30439/31249",
+          "observation": "Сверен фактический HEAD: web/app.js прочитан по строкам (создание 30139, снос 31249, единственный `new window.vis.Network` 30131, единственный RAF карты 30439), `_cogNodeRow` подтверждён как делегат без боевых вызовов; perimeter через git diff — services/**, cognitive-map.js, app.css и промпты не тронуты.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00036",
@@ -789,8 +892,17 @@
       "acceptance": "Стиль узла выбирается по существующим значениям типов: факты — круглая световая точка #32C8F3 с тонким светлым ободом; убеждения — круг с внутренним кольцом #A77BFF; парадигмы — мягкий шестиугольный силуэт #728CFF с внутренней гранью; изменения — светящийся ромб #FFB84D с угловым бликом; сущности — округлая световая сфера #9FB4CE со светлым ядром; таблица §4.1 — визуальная спецификация, а не новая онтология.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 (формы и палитра по типам) + Re-review §5",
+          "observation": "Формы и палитра по типам подтверждены кодом, тестами (shapeKeyOf/row.shape, цвета #32C8F3/#A77BFF/#728CFF/#FFB84D/#9FB4CE) и кадрами 8 снимков: шестиугольники, ромбы, кольца убеждений, светлые ядра; entity больше не прямоугольник; мутации B1..B9 красные.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00039",
@@ -804,8 +916,17 @@
       "acceptance": "По умолчанию рёбра — тонкие линии 0,5–1,2 CSS px низкой яркости (opacity 0,08–0,20 в плотных сценах); непрозрачных белых полос и сплошного белого ковра нет, плотность решается иерархией отображения и LOD, а не только снижением opacity.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.9 «Рёбра» + Re-review §1-2",
+          "observation": "Рёбра прямые (smooth:false), альфа 0.10–0.13, статистика edgeStats.opacityBelow=2400/opacityAbove=0; белого ковра нет на fit и после панорамирования (снимки ревьюера).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00040",
@@ -820,7 +941,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Механизм пульсации подтверждён тестом (пульс с периодом 4 s, малая амплитуда, яркость зависит от времени), но разнесение фаз по узлам и незаметность изменения геометрии в живом кадре/записи не измерялись."
     },
     {
       "source_id": "L00041",
@@ -879,8 +1001,17 @@
       "acceptance": "Семантика памяти не меняется: GraphRAG, факты, связи, веса, метки сущностей, даты, источники, алиасы и ID остаются теми же; кластеры и отношения не выдумываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.3 «Исходные данные не мутируются»",
+          "observation": "Модель не мутируется: тест замораживает модель (Object.freeze + сравнение JSON) и проверяет отсутствие title/kind в строке DataSet; в диффе кандидата нет services/** и изменений семантики памяти.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00047",
@@ -894,8 +1025,17 @@
       "acceptance": "Все прежние функции карты работают: оба режима, поиск по имени/алиасу, групповой фильтр, переход к узлу, сброс вида, выбор узла, соседи, кликабельные переходы в «Память», источник, история, проверка прав.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: «Запущенные тесты (существующие, без новых обвязок)»",
+          "observation": "Прежние функции карты сохранены на доказательствах существующих наборов: evol_cognitive_map_test.js S1 407 / S2 97 / S3 78, routing_test.js зелёный, pytest tests/test_evol_cog_map_widget.py 30 passed. Ручной браузерный обход всех контролов ревьюер не проводил — это остаётся за D/E.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00048",
@@ -909,8 +1049,17 @@
       "acceptance": "Внешний вид остальной админки не изменяется: глобальные шрифты, темы, навигация, стеклянные панели и эффекты других разделов остаются прежними.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.5 «Периметр»",
+          "observation": "web/static/app.css не тронут, в web/index.html добавлен только тег скрипта; глобальные шрифты, темы, навигация и стеклянные панели не менялись (git diff кандидата).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00049",
@@ -924,8 +1073,17 @@
       "acceptance": "Никаких заглушек: вместо реального графа не появляются SVG/PNG, фиктивные узлы, статические макеты, бесконечная CSS-анимация вместо сцены и поддельные счётчики.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.1 (единственная точка new window.vis.Network)",
+          "observation": "Сцена строится реальным vis-network; SVG/PNG-заглушек, фиктивных узлов, статических макетов и поддельных счётчиков в кандидате нет.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00050",
@@ -939,8 +1097,17 @@
       "acceptance": "Нет хардкода по именам, текстам или chat_id: правила определяются типами/полями данных, графом, состоянием отображения и масштабом; геометрия, цвета, длительности и пороги LOD собраны в одном конфигурационном слое.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.2 и п.4 (единый модуль cog-visual.js, константы формулы)",
+          "observation": "Визуальные константы, формула fitScale и стили по типам собраны в одном модуле web/static/cog-visual.js (тесты обращаются к CM.CONFIG.*); правил по именам/текстам/chat_id в преобразовании нет.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00051",
@@ -954,8 +1121,17 @@
       "acceptance": "Не добавляется новая тяжёлая инфраструктура: используются текущий vis-network, его методы и Canvas-события, существующие компоненты и API; Three.js/Pixi/второй движок не подключаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.1 (единственная точка создания сети)",
+          "observation": "Используется текущий vis-network 9.x и его Canvas-события; Three.js/Pixi/второй движок не подключены, второй точки создания сети нет.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00052",
@@ -970,7 +1146,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Структурно подтверждено только node-тестом (_cogRequestFrame → false при document.hidden); живые кадры при скрытой вкладке/закрытом графе в реальном браузере ревью A не измеряло. Builder-артефакт evidence/cmv-a/cmv-a-scene-counters.json ревьюером не воспроизводился."
     },
     {
       "source_id": "L00053",
@@ -984,8 +1161,17 @@
       "acceptance": "Лимиты работы LLM и памяти не меняются; все новые пороги относятся только к визуальному уровню детализации, коллизиям подписей и производительности рендера.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.5 «Периметр»",
+          "observation": "Лимиты LLM и памяти не менялись: в диффе кандидата нет services/** и текстов промптов; все новые константы (формула fitScale 1.1/R0=12, цвета, LOD-пороги) относятся только к визуальному слою и живут в web/static/cog-visual.js.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00054",
@@ -1090,7 +1276,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Собственный тёмный фон области графа, радиальное подсвечивание, внутренняя граница 1 px и скругление отдельно не проверялись (ревью смотрело сцену, не фрейм области)."
     },
     {
       "source_id": "L00063",
@@ -1105,7 +1292,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Порядок слоёв фон→градиенты→связи→узлы→подписи→выделение→контролы и pointer-events декоративных слоёв проверены не были; подтвержден только порядок «подписи/выделение над узлами» по связям выбора."
     },
     {
       "source_id": "L00065",
@@ -1419,8 +1607,17 @@
       "acceptance": "Неизвестный тип отрисовывается нейтральной световой сферой без добавления фиктивной категории в данные или легенду.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 + evol_cog_visual_test.js:216,232-234",
+          "observation": "Неизвестный тип даёт нейтральный стиль (dotNeutral) без фиктивной категории в данных/легенде; тест зелёный в прогоне ревьюера (312 проверок).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00109",
@@ -1434,8 +1631,17 @@
       "acceptance": "Крупные серые прямоугольники упразднены как основная форма узлов; огромные разноцветные непрозрачные фигуры не закрывают соседние узлы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 (spec/nodeRow без box/rounded)",
+          "observation": "Крупные серые прямоугольники упразднены как форма узла: в строке DataSet нет box/rounded, на кадрах ядра — точки/сферы/ромбы, соседей непрозрачная фигура не перекрывает.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00110",
@@ -1449,8 +1655,17 @@
       "acceptance": "Базовый физический диаметр важных узлов 14–24 px в рабочем масштабе, менее значимых 8–14 px, вычисляется из нормализованной доступной метрики (например degree) с умеренным верхним пределом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 + Re-review §1 (densityCaps)",
+          "observation": "Диаметр считается из degree с потолком: тест полос 14–24 px для важных (targetDiameter) и 8–14 px для прочих, потолок 24 px сильнее degree-роста, densityCaps ограничивает экранный диаметр по локальной плотности.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00111",
@@ -1464,8 +1679,17 @@
       "acceptance": "Текущие подписи и данные не меняются; неизвестная степень или вес не подменяются выдуманными значениями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.3 + evol_cog_visual_test.js:218",
+          "observation": "Текущие подписи и данные не меняются (frozen-модель тест, в строке DataSet нет полей модели); degree=0 даёт базовый размер, а не выдуманный вес.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00113",
@@ -1494,8 +1718,17 @@
       "acceptance": "Каждый отображаемый ключевой узел имеет три явно видимых слоя свечения: чёткое ядро узнаваемой формы, ближний ореол радиусом 1,3–1,8 размера ядра и дальний очень слабый рассеянный ореол 2–3 размера ядра, не перекрывающий текст.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.2 «Три слоя свечения»",
+          "observation": "Три слоя видны на обычном масштабе: near r≈1.55 при alpha 0.22, far r≈2.65 при alpha 0.10; тест полос 1.3–1.8 и 2–3 r; ядро — узнаваемая фигура по типу.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00116",
@@ -1509,8 +1742,17 @@
       "acceptance": "Каждый отображаемый ключевой узел имеет три явно видимых слоя свечения: чёткое ядро узнаваемой формы, ближний ореол радиусом 1,3–1,8 размера ядра и дальний очень слабый рассеянный ореол 2–3 размера ядра, не перекрывающий текст.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.2 «Три слоя свечения»",
+          "observation": "Три слоя видны на обычном масштабе: near r≈1.55 при alpha 0.22, far r≈2.65 при alpha 0.10; тест полос 1.3–1.8 и 2–3 r; ядро — узнаваемая фигура по типу.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00117",
@@ -1524,8 +1766,17 @@
       "acceptance": "Каждый отображаемый ключевой узел имеет три явно видимых слоя свечения: чёткое ядро узнаваемой формы, ближний ореол радиусом 1,3–1,8 размера ядра и дальний очень слабый рассеянный ореол 2–3 размера ядра, не перекрывающий текст.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.2 «Три слоя свечения»",
+          "observation": "Три слоя видны на обычном масштабе: near r≈1.55 при alpha 0.22, far r≈2.65 при alpha 0.10; тест полос 1.3–1.8 и 2–3 r; ядро — узнаваемая фигура по типу.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00121",
@@ -1554,8 +1805,17 @@
       "acceptance": "По умолчанию рёбра — тонкие линии 0,5–1,2 CSS px низкой яркости (opacity 0,08–0,20 в плотных сценах); непрозрачных белых полос и сплошного белого ковра нет, плотность решается иерархией отображения и LOD, а не только снижением opacity.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.9 «Рёбра» + Re-review §1-2",
+          "observation": "Рёбра прямые (smooth:false), альфа 0.10–0.13, статистика edgeStats.opacityBelow=2400/opacityAbove=0; белого ковра нет на fit и после панорамирования (снимки ревьюера).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00123",
@@ -1569,8 +1829,17 @@
       "acceptance": "Линии мягкие, при необходимости чуть изогнутые, без бесконтрольной кривизны; для ненаправленных отношений стрелки не рисуются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.9 + evol_cog_visual_test.js:272-283",
+          "observation": "Кривизны нет (smooth:false), стрелки только у смыслового направления: тест проверяет arrows.to.enabled=false без направления и true для revised_by.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00124",
@@ -1584,8 +1853,17 @@
       "acceptance": "У наведённого или выбранного узла его реальные непосредственные связи подсвечиваются до opacity 0,55–0,9, соседние узлы выделяются, прочая сеть ослабляется; все реальные связи остаются доступными через фокус и детали.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: Re-review §2 «EDGE-03 / VIS-06 снято»",
+          "observation": "Связи выбранного узла рисуются в слое fx над узлами, альфа 0.9 (полоса 0.55–0.9), 2 px + подложка 4 px; измерено degree 12 / activeEdges 12 / edgeDraws 242; прочая сеть ослабляется (opacity 0.25). Буквальный кадр x2–x3 не снят (см. CMV-VIS-06).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00125",
@@ -1599,8 +1877,17 @@
       "acceptance": "Движущиеся световые импульсы допускаются только по реально существующим выделенным рёбрам и не создают иллюзию несуществующих отношений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.4 + мутация B5 + evol_cog_visual_test.js:533",
+          "observation": "Импульсы идут только по реальным выделенным рёбрам: мутация «импульсы по выдуманным рёбрам» красная, тест «ребро с неизвестным концом не рисуется» зелёный.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00126",
@@ -1614,8 +1901,17 @@
       "acceptance": "По умолчанию рёбра — тонкие линии 0,5–1,2 CSS px низкой яркости (opacity 0,08–0,20 в плотных сценах); непрозрачных белых полос и сплошного белого ковра нет, плотность решается иерархией отображения и LOD, а не только снижением opacity.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.9 «Рёбра» + Re-review §1-2",
+          "observation": "Рёбра прямые (smooth:false), альфа 0.10–0.13, статистика edgeStats.opacityBelow=2400/opacityAbove=0; белого ковра нет на fit и после панорамирования (снимки ревьюера).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00128",
@@ -1644,8 +1940,17 @@
       "acceptance": "Текст подписи мелкий, но читаемый, светлый #E6EDF8 с лёгким тёмным подложенным контуром; чёрных прямоугольников под каждой подписью нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: Re-review §4 (B10 и собственная мутация B10' красные)",
+          "observation": "Подписи рисуются только strokeText+fillText, закрашенных плашек под текстом нет: мутация B10 красная, собственная мутация ревьюера B10' (плашка ДОБАВЛЕНА при сохранённом тексте) тоже красная; на снимках плашек нет.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00130",
@@ -1675,7 +1980,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Сокращение подписей до 1–2 строк с многоточием в Canvas и доступность полного текста в инспекторе не проверялись; отсутствие обрезки оригинала в данных подтверждено только общим frozen-тестом."
     },
     {
       "source_id": "L00132",
@@ -2005,7 +2311,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Камера при обновлении данных не двигается (тест: moveToCalls не растёт после _cogApplyData) — эта часть PROVEN; сохранение выбора по стабильным ID при refresh не проверялось."
     },
     {
       "source_id": "L00162",
@@ -2034,8 +2341,17 @@
       "acceptance": "Компоновка стабильна без вечного кипения: при первом открытии выполняется управляемая стабилизация (repulsion/avoidOverlap, осторожные размеры и пружины), затем ненужное физическое движение останавливается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.5",
+          "observation": "Управляемая стабилизация с последующей остановкой физики: таблица итераций 150/90/60, watchdog 3 s, в fps.json settled=true — вечного кипения нет.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00165",
@@ -2049,8 +2365,17 @@
       "acceptance": "Узлы не стоят визуально точно друг на друге, между центральными элементами остаётся просвет под ореолы и подписи; при локальном раскрытии группы допустима короткая анимированная перестройка выбранного подграфа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: Re-review §1 (десктоп 702/2400, fit)",
+          "observation": "Десктоп: fillW 0.660, перекрытия 862 пары = 1.23/узел, worstOverlap 8.49 px, coincident 2, nearCentres 5; механизм densityCaps + aspectStretch(cap 2.8) + relaxOverlaps без Math.random. МОБИЛЬНЫЙ вид этим доказательством не закрыт (coincident 287/290, worstOverlap 24 px) — остаётся за C/D.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00166",
@@ -2065,7 +2390,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Drag по пустоте (панорамирование) и drag по узлу без изменения факта в БД ревьюер не проверял."
     },
     {
       "source_id": "L00167",
@@ -2080,7 +2406,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Wheel/trackpad-зум около курсора, pinch и плавная фокусировка 350–500 ms не измерялись; кадр x2–x3 в артефакте фактически снят на r=1.61."
     },
     {
       "source_id": "L00168",
@@ -2095,7 +2422,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "«Сбросить вид» (возврат к fit без сброса фильтров и поиска) ревьюер не проверял."
     },
     {
       "source_id": "L00169",
@@ -2110,7 +2438,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Отсутствие двух симуляций/двух RAF на один граф PROVEN (одна точка new Network, один RAF, порядок сноса). Пересчёт камеры при открытии/закрытии fullscreen не проверялся — зона D."
     },
     {
       "source_id": "L00171",
@@ -2155,7 +2484,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Механизм пульсации подтверждён тестом (пульс с периодом 4 s, малая амплитуда, яркость зависит от времени), но разнесение фаз по узлам и незаметность изменения геометрии в живом кадре/записи не измерялись."
     },
     {
       "source_id": "L00175",
@@ -2169,8 +2499,17 @@
       "acceptance": "Очень медленное свечение отдельных соединений допустимо, но поток частиц одновременно на всех 2400 рёбрах не анимируется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.4 + мутация B5 + Re-review §2",
+          "observation": "Поток частиц одновременно на всей сети не запускается: импульсы рисуются только для выделенных реальных рёбер (activeEdges=12, edgeDraws=242 при degree 12), мутация «импульсы по выдуманным рёбрам» красная.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00176",
@@ -2185,7 +2524,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Требование «анимация фона не считается реализацией живых узлов» ревьюер отдельно не проверял."
     },
     {
       "source_id": "L00178",
@@ -2215,7 +2555,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Hover-реакция за 150–220 ms с проявлением реальных соседних связей и сменой курсора не измерялась."
     },
     {
       "source_id": "L00180",
@@ -2230,7 +2571,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Одиночный световой импульс при click/tap и показ сведений в инспекторе не проверялись (подсветка соседей и ослабление сети — см. CMV-EDGE-03)."
     },
     {
       "source_id": "L00181",
@@ -2245,7 +2587,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Search-фокусировка камеры, 1–2 пульса найденного узла и сохранение выделения не проверялись."
     },
     {
       "source_id": "L00182",
@@ -2260,7 +2603,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Вне доказанного среза A: плавный refresh без мерцания сцены и повторной анимации входа узлов не проверялся (зона D/E)."
     },
     {
       "source_id": "L00184",
@@ -2289,8 +2633,17 @@
       "acceptance": "Нет агрессивных вспышек, резкого строба, мешающего чтению параллакса и бесконечной болтанки узлов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.5 «Физика стабилизируется и гаснет»",
+          "observation": "Бесконечной болтанки нет: итерации 150/90/60, stabilization.fit=false, watchdog 3 s, physics.enabled=false, settled=true. Резких вспышек/строба/параллакса ревьюер отдельно не измерял (на статических снимках эффектов не видно).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00186",
@@ -2304,8 +2657,17 @@
       "acceptance": "При prefers-reduced-motion: reduce сохраняются информационная насыщенность, формы, контрасты, выделение и свечение; убираются только непрерывные движения и длительные плавные переходы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.6 «reduced-motion, статика без кадров»",
+          "observation": "При prefers-reduced-motion кадры не планируются (_cogRequestFrame → false), _cogPaintStatic сохраняет формы, свечение, выделение и подписи; подтверждено скриншотом и тестом (живое устройство не проверялось).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00187",
@@ -2320,7 +2682,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Приостановка RAF по visibilitychange/выходу из viewport/fullscreen подтверждена только структурно (node-тест + код); восстановление кадров и отсутствие дублирующихся listeners в реальном браузере не измерялись."
     },
     {
       "source_id": "L00189",
@@ -2679,8 +3042,17 @@
       "acceptance": "Перед правкой сверены реальный HEAD и код web/app.js, web/index.html, web/static/app.css, схема graph API; описанные в ТЗ внутренние методы не считаются уже реализованными, более новые изменения не откатываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.5 «Периметр» + строки кода 30131/30139/30439/31249",
+          "observation": "Сверен фактический HEAD: web/app.js прочитан по строкам (создание 30139, снос 31249, единственный `new window.vis.Network` 30131, единственный RAF карты 30439), `_cogNodeRow` подтверждён как делегат без боевых вызовов; perimeter через git diff — services/**, cognitive-map.js, app.css и промпты не тронуты.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00219",
@@ -2694,8 +3066,17 @@
       "acceptance": "Источник cognitionGraphData и реестр ID сохранены; новый граф БД, новый endpoint, новые джобы и отдельная синхронизация не создаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.1-2 + «Периметр»",
+          "observation": "Источник cognitionGraphData и реестр ID сохранены, строки строятся из той же модели; новых endpoint, джобов и отдельной синхронизации нет — services/** в диффе отсутствует.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00220",
@@ -2709,8 +3090,17 @@
       "acceptance": "Единое преобразование nodes/edges → vis.DataSet расширено визуальными свойствами (цвет, размер, форма, приоритет подписи), исходные данные не переписываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.2-3",
+          "observation": "Единственное преобразование nodes/edges → vis.DataSet: nodeRows/edgeRows в cog-visual.js, _cogNodeRow/_cogEdgeRow — тонкие делегаты; исходные данные не переписываются (frozen-модель тест).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00221",
@@ -2739,8 +3129,17 @@
       "acceptance": "Дополнительный Canvas-декор реализован через beforeDrawing/afterDrawing с корректными ctx.save()/restore() и согласованными координатами у того же владельца кадра; второго незавершённого render loop нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.4 «Один владелец кадра» + п.7",
+          "observation": "Декор идёт через afterDrawing у единственного владельца кадра (scene.raf single-flight, paintToken), второго RAF у карты нет; тест проверяет ровно один кадр на тик и потолок 24 fps; .cog-fx сносится с destroy (dispose/removeChild, повторный destroy безопасен).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00223",
@@ -2754,8 +3153,17 @@
       "acceptance": "Переключение embedded ↔ fullscreen переводит один логический граф без конкурирующих подписок, слушателей и зависших Canvas.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.1 + тест 20 циклов (evol_cog_scene_test.js)",
+          "observation": "Один логический граф: наблюдатели только в _cogAttachSceneObservers, один RAF карты, порядок сноса RAF/RO/IO/watchdog/net.destroy/_cogScene=null; node-тест 20 циклов embedded↔fullscreen даёт netsLive=1 (структурно, на подставном vis — живые счётчики в браузере не воспроизводились).",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00224",
@@ -2784,8 +3192,17 @@
       "acceptance": "Декоративные стили размещены локально; глобальные body, фоны и общий glass вне необходимого не правятся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.8 «Исходные данные не тронуты» + Re-review §5",
+          "observation": "Декоративные стили локальны: в диффе 8ba6806f..0bf3eed2 нет web/static/app.css, cognitive-map.js, index.html, services/** и промптов; глобальный body/glass не правился.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00227",
@@ -2844,8 +3261,17 @@
       "acceptance": "Полный DataSet не пересоздаётся на каждом кадре: применяются инкрементальные изменения selection/LOD, кэш градиентов, отбор только экранных подписей и снижение декоративных операций вне viewport без снижения качества активного объекта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-a-review.md: Проверено п.2-4",
+          "observation": "Полный DataSet не пересоздаётся покадрово: единственный преобразователь + инкрементальное применение _cogApplyData с копией позиций (posMap); fitScaleRef пересчитывается только при создании/ResizeObserver/смене набора. Кэш спрайтов и отсечение подписей по экрану дополнительно подтверждены ревью B.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md",
+          "artifact_sha256": "757c3b60c093a27587a5e831c4c55bb5c3d8b472e693369af073710933f03032",
+          "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45"
+        }
+      ]
     },
     {
       "source_id": "L00231",
@@ -2860,7 +3286,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Стабилизация и покой подтверждены ревью B (settled=true, watchdog 3 s, physics.enabled=false); инициализация строго по открытию виджета и отсутствие тяжёлых эффектов на каждом статусном polling-тике не проверялись."
     },
     {
       "source_id": "L00232",
@@ -2875,7 +3302,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Стабилизация и покой подтверждены ревью B (settled=true, watchdog 3 s, physics.enabled=false); инициализация строго по открытию виджета и отсутствие тяжёлых эффектов на каждом статусном polling-тике не проверялись."
     },
     {
       "source_id": "L00233",
@@ -2920,7 +3348,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Пустое состояние 0 узлов/0 связей ревью A не проверяло — это вне его среза; нужен кадр/тест."
     },
     {
       "source_id": "L00239",
@@ -2935,7 +3364,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Фокус и карточка для одного узла без ложных соседей ревью A не проверяли."
     },
     {
       "source_id": "L00240",
@@ -2950,7 +3380,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Плотная сцена 702/2400 с одинаковыми именами, длинными подписями, эмодзи и недостающими метаданными проверена только частично ревью B (визуально на fit) — как честное состояние ревью A не проверялась."
     },
     {
       "source_id": "L00241",
@@ -2965,7 +3396,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Статус truncated (числа и границы поиска) ревью A не проверял."
     },
     {
       "source_id": "L00242",
@@ -2980,7 +3412,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Ошибка API, повтор запроса и last-known-good ревью A не проверяли."
     },
     {
       "source_id": "L00243",
@@ -2995,7 +3428,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Переключение чата/глобального контекста без stale-содержимого ревью A не проверяло."
     },
     {
       "source_id": "L00244",
@@ -3010,7 +3444,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Недоступный источник у узла (честная причина без фиктивного URL) ревью A не проверяло."
     },
     {
       "source_id": "L00246",
@@ -3050,12 +3485,14 @@
       "disposition": "required",
       "reason": "",
       "req_id": "CMV-VIS-01",
-      "slice": "CMV-B-SCENE-PHYSICS",
+      "slice": "CMV-C-LOD-COLLISION",
       "acceptance": "На десктопе при 702/2400 и fit с первого взгляда видны несколько пространственно отделённых групп/центров, различимых по цветам и свечению.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Владение перенесено B→C по ревью B (Re-review, «Что осталось за другими», п.1): при реальной топологии [668,5,4,4,2,2,2,2] «несколько пространственно отделённых групп» на fit — это L0-агрегация CMV-LOD0-01..04, зона CMV-C. Агрегаты от B дублировали бы область записи C.",
+      "ownership_note": "owner: CMV-C-LOD-COLLISION (перенесено с CMV-B по ревью B, 04.11.2026)"
     },
     {
       "source_id": "L00250",
@@ -3069,8 +3506,17 @@
       "acceptance": "Ключевые узлы заметны, но ни один случайный прямоугольник не закрывает соседние узлы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.1 + Re-review §1 (габариты и перекрытия)",
+          "observation": "Случайных прямоугольников, закрывающих соседей, нет: форма узла по типу (точка/сфера/ромб/шестиугольник), непрозрачных крупных фигур не осталось; измерены плотность и перекрытия на приёмочном кадре.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00251",
@@ -3084,8 +3530,17 @@
       "acceptance": "Нет сплошного белого ковра из рёбер и наложения десятков читаемых меток.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cmv-b-review.md: PROVEN п.9 + Re-review §1 (подписи/наложения)",
+          "observation": "Белого ковра из рёбер нет (edgeStats.opacityAbove=0 при 2400 рёбрах), видимых подписей 16 при 0 наложений на приёмочном кадре.",
+          "type": "review",
+          "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+          "artifact_sha256": "a34dc7ace06d33d4b9b3bc263b1547443f26474de017c7a4ae4300b3e4017220",
+          "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+        }
+      ]
     },
     {
       "source_id": "L00252",
@@ -3100,7 +3555,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Мягкая наблюдаемая пульсация ключевых узлов на реальном кадре не подтверждена записью/кадрами (только механизм пульса в тесте, см. CMV-ANI-01)."
     },
     {
       "source_id": "L00253",
@@ -3145,7 +3601,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_note": "Ореол выбранного, подчёркнутые ближайшие связи и ослабленная сеть подтверждены, но буквальный кадр после зума ×2–×3 от fit не снят (артефакт «zoom2x» снят на r=1.61). Нужен досъём кадра при следующем прогоне стенда (D/E); мобильная часть — C/D."
     },
     {
       "source_id": "L00257",
@@ -3836,6 +4293,37 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": []
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CMV-FPS-MARGIN",
+      "applies_to": [
+        "CMV-C-LOD-COLLISION",
+        "CMV-D-FULLSCREEN-INSPECTOR",
+        "CMV-E-TESTS-PRODUCTION"
+      ],
+      "summary": "Бюджет FPS после B почти исчерпан: медиана 45.9 при пороге 45.",
+      "detail": "Независимый прогон ревьюера на 0bf3eed2: медиана 45.9 (44.8/46.0/45.9), p95 кадра 42 fps, контроль vis-only 55.2; у Builder 47.2. Один из трёх прогонов был ниже порога, запас относительно 54.9 до правки — около 1–2 FPS. Причина: aspectStretch удлиняет рёбра; cap 3.9 давал 40–43 FPS.",
+      "rule": "CMV-C и CMV-E: L0-агрегаты и любые новые эффекты обязаны уложиться в эти ~2 FPS; после C обязателен повторный замер тем же стендом (tools/ui_cmv_b_scene_fps.py) до объединения в релиз; окончательный FPS на реальном payload — CMV-E (CMV-PERF-02/03).",
+      "evidence": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md",
+      "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd"
+    }
+  ],
+  "reviews": [
+    {
+      "slice": "CMV-A-INTEGRATION",
+      "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45",
+      "code_commit": "8867a2ad",
+      "verdict": "Approved",
+      "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md"
+    },
+    {
+      "slice": "CMV-B-SCENE-PHYSICS",
+      "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd",
+      "base_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45",
+      "verdict": "Approved (re-review)",
+      "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md"
     }
   ]
 }

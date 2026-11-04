@@ -39,7 +39,7 @@
       "acceptance": "Пять типов узлов различимы формой и цветом по §4.1; три слоя свечения видны на обычном масштабе и кэшируются; рёбра 0.5–1.2 px без белого ковра; подписи светлые с контуром без плашек; «Сбросить вид» не сбрасывает фильтры и поиск; физика стабилизируется и останавливается.",
       "risk": "R2",
       "next_role": "Builder",
-      "req_ids": ["CMV-EMB-03", "CMV-EMB-04", "CMV-NODE-01", "CMV-NODE-02", "CMV-NODE-03", "CMV-NODE-04", "CMV-GLOW-01", "CMV-GLOW-02", "CMV-GLOW-03", "CMV-EDGE-01", "CMV-EDGE-02", "CMV-EDGE-03", "CMV-EDGE-04", "CMV-LBL-01", "CMV-LBL-03", "CMV-PHY-01", "CMV-PHY-02", "CMV-PHY-03", "CMV-PHY-04", "CMV-PHY-05", "CMV-ANI-01", "CMV-ANI-02", "CMV-ANI-03", "CMV-AI-01", "CMV-AI-02", "CMV-AI-03", "CMV-AM-01", "CMV-AM-02", "CMV-INT-05", "CMV-INT-08", "CMV-VIS-01", "CMV-VIS-02", "CMV-VIS-03", "CMV-VIS-04", "CMV-VIS-06"]
+      "req_ids": ["CMV-EMB-03", "CMV-EMB-04", "CMV-NODE-01", "CMV-NODE-02", "CMV-NODE-03", "CMV-NODE-04", "CMV-GLOW-01", "CMV-GLOW-02", "CMV-GLOW-03", "CMV-EDGE-01", "CMV-EDGE-02", "CMV-EDGE-03", "CMV-EDGE-04", "CMV-LBL-01", "CMV-LBL-03", "CMV-PHY-01", "CMV-PHY-02", "CMV-PHY-03", "CMV-PHY-04", "CMV-PHY-05", "CMV-ANI-01", "CMV-ANI-02", "CMV-ANI-03", "CMV-AI-01", "CMV-AI-02", "CMV-AI-03", "CMV-AM-01", "CMV-AM-02", "CMV-INT-05", "CMV-INT-08", "CMV-VIS-02", "CMV-VIS-03", "CMV-VIS-04", "CMV-VIS-06"]
     },
     {
       "id": "CMV-C-LOD-COLLISION",
@@ -47,10 +47,10 @@
       "wave": "W2",
       "depends_on": ["CMV-A-INTEGRATION"],
       "write_scope": ["web/static/cognitive-map.js", "tests/js/evol_cognitive_map_test.js"],
-      "acceptance": "Уровни LOD считаются от fitScale с гистерезисом 10–15%; ноль пересечений подписей на детерминированных прогонах; выбранный и найденный узел подписаны всегда и не теряются при агрегировании; агрегат помечен как визуальное объединение с реальными счётчиками; бюджет подписей монотонен по площади и длине текста.",
+      "acceptance": "Уровни LOD считаются от fitScale с гистерезисом 10–15%; ноль пересечений подписей на детерминированных прогонах; выбранный и найденный узел подписаны всегда и не теряются при агрегировании; агрегат помечен как визуальное объединение с реальными счётчиками; бюджет подписей монотонен по площади и длине текста; новые агрегаты укладываются в остаток FPS-бюджета ~1-2 FPS от CMV-B (см. constraints.CMV-FPS-MARGIN); CMV-VIS-01 (несколько отделённых групп на fit) принадлежит этому срезу.",
       "risk": "R2",
       "next_role": "Builder",
-      "req_ids": ["CMV-LOD-01", "CMV-LOD-02", "CMV-LOD0-01", "CMV-LOD0-02", "CMV-LOD0-03", "CMV-LOD0-04", "CMV-LOD1-01", "CMV-LOD1-02", "CMV-LOD1-03", "CMV-LOD2-01", "CMV-LOD2-02", "CMV-LOD2-03", "CMV-LODB-01", "CMV-LODB-02", "CMV-LODB-03", "CMV-LODB-05", "CMV-LBL-02", "CMV-LBL-04", "CMV-LBL-05", "CMV-NAV-03", "CMV-INT-04", "CMV-INT-07", "CMV-VIS-08"]
+      "req_ids": ["CMV-LOD-01", "CMV-LOD-02", "CMV-LOD0-01", "CMV-LOD0-02", "CMV-LOD0-03", "CMV-LOD0-04", "CMV-LOD1-01", "CMV-LOD1-02", "CMV-LOD1-03", "CMV-LOD2-01", "CMV-LOD2-02", "CMV-LOD2-03", "CMV-LODB-01", "CMV-LODB-02", "CMV-LODB-03", "CMV-LODB-05", "CMV-LBL-02", "CMV-LBL-04", "CMV-LBL-05", "CMV-NAV-03", "CMV-INT-04", "CMV-INT-07", "CMV-VIS-08", "CMV-VIS-01"]
     },
     {
       "id": "CMV-D-FULLSCREEN-INSPECTOR",
@@ -69,10 +69,37 @@
       "wave": "W0",
       "depends_on": [],
       "write_scope": ["tools/**", "plans/features/evol/evidence/**", "plans/features/evol/audit/**"],
-      "acceptance": "Расширены существующие cog-фикстуры и e2e (tools/ui_evol_w15_composition_e2e.py, tools/ui_evol_w9_responsive_e2e.py, tools/ui_asap8_w2_fullscreen_e2e.py) до 10/100/702 узлов и 2400 рёбер; один и тот же payload проигран на deployed 2.58.151 и на кандидате для снимков до/после; измерены FPS и утечки после 20 циклов; приложены кадры анимации; после PASS приложен SHA и read-only проверка production.",
+      "acceptance": "Расширены существующие cog-фикстуры и e2e (tools/ui_evol_w15_composition_e2e.py, tools/ui_evol_w9_responsive_e2e.py, tools/ui_asap8_w2_fullscreen_e2e.py) до 10/100/702 узлов и 2400 рёбер; один и тот же payload проигран на deployed 2.58.151 и на кандидате для снимков до/после; измерены FPS и утечки после 20 циклов; приложены кадры анимации; после PASS приложен SHA и read-only проверка production; FPS и 20-цикловые счётчики снимаются после CMV-C в остатке бюджета ~1-2 FPS (см. constraints.CMV-FPS-MARGIN).",
       "risk": "R2",
       "next_role": "Builder",
       "req_ids": ["CMV-INV-10", "CMV-PERF-01", "CMV-PERF-02", "CMV-PERF-03", "CMV-PERF-06", "CMV-VIS-13", "CMV-VIS-14", "CMV-VIS-15", "CMV-REP-01", "CMV-REP-02", "CMV-REP-03", "CMV-GATE-01", "CMV-GATE-02", "CMV-GATE-03", "CMV-GATE-04", "CMV-GATE-05", "CMV-GATE-06", "CMV-GATE-07", "CMV-GATE-08", "CMV-GATE-09", "CMV-GATE-10", "CMV-GATE-11", "CMV-GATE-12", "CMV-GATE-13", "CMV-GATE-14", "CMV-GATE-15", "CMV-GATE-16", "CMV-GATE-17", "CMV-GATE-18", "CMV-GATE-19", "CMV-GATE-20", "CMV-GATE-21"]
     }
-  ]
+  ],
+  "reviews": [
+      {
+        "slice": "CMV-A-INTEGRATION",
+        "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45",
+        "verdict": "Approved",
+        "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md"
+      },
+      {
+        "slice": "CMV-B-SCENE-PHYSICS",
+        "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd",
+        "verdict": "Approved (re-review)",
+        "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md"
+      }
+    ],
+    "constraints": [
+      {
+        "id": "CMV-FPS-MARGIN",
+        "measured": "медиана 45.9 FPS (44.8/46.0/45.9) при пороге 45; p95 кадра 42 fps; vis-only 55.2; до правки 54.9; cap 3.9 давал 40-43 FPS",
+        "applies_to": [
+          "CMV-C-LOD-COLLISION",
+          "CMV-D-FULLSCREEN-INSPECTOR",
+          "CMV-E-TESTS-PRODUCTION"
+        ],
+        "rule": "остаток бюджета ~1-2 FPS: L0-агрегаты и любые новые эффекты обязаны уложиться; после CMV-C обязателен повторный замер tools/ui_cmv_b_scene_fps.py; окончательный FPS на реальном payload - CMV-E",
+        "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md"
+      }
+    ]
 }
