@@ -1,0 +1,910 @@
+{
+ "fixture": 702,
+ "fixture_sha256": "6f796fca78c8f987d981458ac3789535ae3d7ef8eebd53d021f136ded1590f95",
+ "frame_gap_ms": 250,
+ "started_at": "2026-11-05T01:33:06",
+ "candidate": {
+  "animation": {
+   "revision": "986c06ca",
+   "target": {
+    "id": "paradigm:-1001234567890:184",
+    "degree": 13
+   },
+   "selection": {
+    "selected": "paradigm:-1001234567890:184",
+    "clicked": true
+   },
+   "frame_gap_ms": 250,
+   "frames": [
+    {
+     "i": 0,
+     "diff": {
+      "w": 192,
+      "h": 152,
+      "delta": null,
+      "changedShare": null,
+      "meanLuma": 152.8
+     },
+     "activeEdges": 13,
+     "pulse": 24,
+     "fxPaints": 74,
+     "shot": "cmv-e-anim-node-00.png"
+    },
+    {
+     "i": 1,
+     "diff": {
+      "w": 192,
+      "h": 152,
+      "delta": 1.224,
+      "changedShare": 0.0481,
+      "meanLuma": 152.9
+     },
+     "activeEdges": 13,
+     "pulse": 24,
+     "fxPaints": 81,
+     "shot": "cmv-e-anim-node-01.png"
+    },
+    {
+     "i": 2,
+     "diff": {
+      "w": 192,
+      "h": 152,
+      "delta": 1.309,
+      "changedShare": 0.0508,
+      "meanLuma": 152.9
+     },
+     "activeEdges": 13,
+     "pulse": 24,
+     "fxPaints": 87,
+     "shot": "cmv-e-anim-node-02.png"
+    },
+    {
+     "i": 3,
+     "diff": {
+      "w": 192,
+      "h": 152,
+      "delta": 1.772,
+      "changedShare": 0.0642,
+      "meanLuma": 153.1
+     },
+     "activeEdges": 13,
+     "pulse": 24,
+     "fxPaints": 93,
+     "shot": "cmv-e-anim-node-03.png"
+    },
+    {
+     "i": 4,
+     "diff": {
+      "w": 192,
+      "h": 152,
+      "delta": 1.703,
+      "changedShare": 0.0628,
+      "meanLuma": 152.7
+     },
+     "activeEdges": 13,
+     "pulse": 24,
+     "fxPaints": 99,
+     "shot": "cmv-e-anim-node-04.png"
+    },
+    {
+     "i": 5,
+     "diff": {
+      "w": 192,
+      "h": 152,
+      "delta": 1.295,
+      "changedShare": 0.0648,
+      "meanLuma": 152.7
+     },
+     "activeEdges": 13,
+     "pulse": 24,
+     "fxPaints": 106,
+     "shot": "cmv-e-anim-node-05.png"
+    },
+    {
+     "i": 6,
+     "diff": {
+      "w": 192,
+      "h": 152,
+      "delta": 1.352,
+      "changedShare": 0.0607,
+      "meanLuma": 152.9
+     },
+     "activeEdges": 13,
+     "pulse": 24,
+     "fxPaints": 112,
+     "shot": "cmv-e-anim-node-06.png"
+    },
+    {
+     "i": 7,
+     "diff": {
+      "w": 192,
+      "h": 152,
+      "delta": 1.36,
+      "changedShare": 0.0438,
+      "meanLuma": 153
+     },
+     "activeEdges": 13,
+     "pulse": 24,
+     "fxPaints": 118,
+     "shot": "cmv-e-anim-node-07.png"
+    },
+    {
+     "i": 8,
+     "diff": {
+      "w": 192,
+      "h": 152,
+      "delta": 1.736,
+      "changedShare": 0.0512,
+      "meanLuma": 153.2
+     },
+     "activeEdges": 13,
+     "pulse": 24,
+     "fxPaints": 125,
+     "shot": "cmv-e-anim-node-08.png"
+    },
+    {
+     "i": 9,
+     "diff": {
+      "w": 192,
+      "h": 152,
+      "delta": 1.707,
+      "changedShare": 0.0612,
+      "meanLuma": 152.7
+     },
+     "activeEdges": 13,
+     "pulse": 24,
+     "fxPaints": 131,
+     "shot": "cmv-e-anim-node-09.png"
+    }
+   ],
+   "filmstrip": "cmv-e-anim-filmstrip.png",
+   "stats": {
+    "frames": 10,
+    "deltas": [
+     1.224,
+     1.309,
+     1.772,
+     1.703,
+     1.295,
+     1.352,
+     1.36,
+     1.736,
+     1.707
+    ],
+    "deltas_after_first": [
+     1.309,
+     1.772,
+     1.703,
+     1.295,
+     1.352,
+     1.36,
+     1.736,
+     1.707
+    ],
+    "changed_share": [
+     0.0481,
+     0.0508,
+     0.0642,
+     0.0628,
+     0.0648,
+     0.0607,
+     0.0438,
+     0.0512,
+     0.0612
+    ],
+    "max_delta": 1.772,
+    "moving_frames": 8,
+    "pulse": 24,
+    "active_edges": 13
+   }
+  }
+ },
+ "after": {
+  "records": [
+   {
+    "rev": "986c06ca",
+    "state": "fit",
+    "ratio": 1.0,
+    "selected": null,
+    "card": false,
+    "full": false,
+    "lod": 0,
+    "hidden": 696,
+    "labels": 6,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 35,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1252,
+     418
+    ],
+    "cardRect": null,
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-after-fit.png"
+   },
+   {
+    "rev": "986c06ca",
+    "state": "selected",
+    "ratio": 1.8,
+    "target": "paradigm:-1001234567890:184",
+    "selected": "ent:-1001234567890:569",
+    "clicked": true,
+    "card": true,
+    "full": false,
+    "lod": 1,
+    "hidden": 0,
+    "labels": 16,
+    "activeEdges": 9,
+    "edgeDraws": 198,
+    "fxPaints": 76,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1252,
+     418
+    ],
+    "cardRect": [
+     249,
+     738,
+     1254,
+     384
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-after-selected.png"
+   },
+   {
+    "rev": "986c06ca",
+    "state": "zoom",
+    "ratio": 2.6,
+    "target": "paradigm:-1001234567890:184",
+    "selected": "ent:-1001234567890:569",
+    "card": true,
+    "full": false,
+    "lod": 2,
+    "hidden": 0,
+    "labels": 26,
+    "activeEdges": 9,
+    "edgeDraws": 369,
+    "fxPaints": 95,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1252,
+     418
+    ],
+    "cardRect": [
+     249,
+     738,
+     1254,
+     384
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-after-zoom.png"
+   },
+   {
+    "rev": "986c06ca",
+    "state": "fullscreen",
+    "ratio": 1.8,
+    "target": "paradigm:-1001234567890:184",
+    "selected": "ent:-1001234567890:569",
+    "card": true,
+    "full": true,
+    "lod": 2,
+    "hidden": 0,
+    "labels": 16,
+    "activeEdges": 9,
+    "edgeDraws": 405,
+    "fxPaints": 45,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1140,
+     826
+    ],
+    "cardRect": [
+     1164,
+     76,
+     360,
+     876
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-after-fullscreen.png"
+   },
+   {
+    "rev": "986c06ca",
+    "state": "fullscreen-clean",
+    "ratio": 1.8,
+    "selected": "ent:-1001234567890:569",
+    "card": true,
+    "full": true,
+    "lod": 2,
+    "hidden": 0,
+    "labels": 16,
+    "activeEdges": 9,
+    "edgeDraws": 666,
+    "fxPaints": 74,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1140,
+     826
+    ],
+    "cardRect": [
+     1164,
+     76,
+     360,
+     876
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-after-fullscreen-clean.png"
+   },
+   {
+    "rev": "986c06ca",
+    "state": "mobile390",
+    "viewport": [
+     390,
+     844
+    ],
+    "dpr": 2,
+    "selected": null,
+    "card": false,
+    "full": false,
+    "lod": 0,
+    "hidden": 698,
+    "labels": 4,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 25,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     338,
+     386
+    ],
+    "cardRect": null,
+    "shot": "cmv-e-after-mobile390.png"
+   },
+   {
+    "rev": "986c06ca",
+    "state": "mobile360",
+    "viewport": [
+     360,
+     780
+    ],
+    "dpr": 2,
+    "selected": null,
+    "card": false,
+    "full": false,
+    "lod": 0,
+    "hidden": 698,
+    "labels": 4,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 26,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     308,
+     357
+    ],
+    "cardRect": null,
+    "shot": "cmv-e-after-mobile360.png"
+   }
+  ]
+ },
+ "before": {
+  "records": [
+   {
+    "rev": "9e238d06",
+    "state": "fit",
+    "ratio": 1.0,
+    "selected": null,
+    "card": false,
+    "full": false,
+    "lod": null,
+    "hidden": 0,
+    "labels": 0,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 0,
+    "pulse": 0,
+    "canvases": 3,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1252,
+     318
+    ],
+    "cardRect": null,
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-before-fit.png"
+   },
+   {
+    "rev": "9e238d06",
+    "state": "selected",
+    "ratio": 1.8,
+    "target": "paradigm:-1001234567890:184",
+    "selected": "paradigm:-1001234567890:184",
+    "clicked": true,
+    "card": true,
+    "full": false,
+    "lod": null,
+    "hidden": 0,
+    "labels": 0,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 0,
+    "pulse": 0,
+    "canvases": 3,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1252,
+     318
+    ],
+    "cardRect": [
+     1180,
+     74,
+     344,
+     593
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-before-selected.png"
+   },
+   {
+    "rev": "9e238d06",
+    "state": "zoom",
+    "ratio": 2.6,
+    "target": "paradigm:-1001234567890:184",
+    "selected": "paradigm:-1001234567890:184",
+    "card": true,
+    "full": false,
+    "lod": null,
+    "hidden": 0,
+    "labels": 0,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 0,
+    "pulse": 0,
+    "canvases": 3,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1252,
+     318
+    ],
+    "cardRect": [
+     1180,
+     74,
+     344,
+     593
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-before-zoom.png"
+   },
+   {
+    "rev": "9e238d06",
+    "state": "fullscreen",
+    "ratio": 1.8,
+    "target": "paradigm:-1001234567890:184",
+    "selected": "paradigm:-1001234567890:184",
+    "card": true,
+    "full": true,
+    "lod": null,
+    "hidden": 0,
+    "labels": 0,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 0,
+    "pulse": 0,
+    "canvases": 3,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1510,
+     794
+    ],
+    "cardRect": [
+     1180,
+     74,
+     344,
+     593
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-before-fullscreen.png"
+   },
+   {
+    "rev": "9e238d06",
+    "state": "fullscreen-clean",
+    "ratio": 1.8,
+    "selected": "paradigm:-1001234567890:184",
+    "card": true,
+    "full": true,
+    "lod": null,
+    "hidden": 0,
+    "labels": 0,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 0,
+    "pulse": 0,
+    "canvases": 3,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1510,
+     794
+    ],
+    "cardRect": [
+     1180,
+     74,
+     344,
+     593
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-before-fullscreen-clean.png"
+   },
+   {
+    "rev": "9e238d06",
+    "state": "mobile390",
+    "viewport": [
+     390,
+     844
+    ],
+    "dpr": 2,
+    "selected": null,
+    "card": false,
+    "full": false,
+    "lod": null,
+    "hidden": 0,
+    "labels": 0,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 0,
+    "pulse": 0,
+    "canvases": 3,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     338,
+     318
+    ],
+    "cardRect": null,
+    "shot": "cmv-e-before-mobile390.png"
+   },
+   {
+    "rev": "9e238d06",
+    "state": "mobile360",
+    "viewport": [
+     360,
+     780
+    ],
+    "dpr": 2,
+    "selected": null,
+    "card": false,
+    "full": false,
+    "lod": null,
+    "hidden": 0,
+    "labels": 0,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 0,
+    "pulse": 0,
+    "canvases": 3,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     308,
+     318
+    ],
+    "cardRect": null,
+    "shot": "cmv-e-before-mobile360.png"
+   }
+  ]
+ },
+ "before_fullscreen": {
+  "records": [
+   {
+    "rev": "dfba4080",
+    "state": "fit",
+    "ratio": 1.0,
+    "selected": null,
+    "card": false,
+    "full": false,
+    "lod": 0,
+    "hidden": 697,
+    "labels": 5,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 36,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1252,
+     318
+    ],
+    "cardRect": null,
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-beforefull-fit.png"
+   },
+   {
+    "rev": "dfba4080",
+    "state": "selected",
+    "ratio": 1.8,
+    "target": "paradigm:-1001234567890:184",
+    "selected": "paradigm:-1001234567890:184",
+    "clicked": true,
+    "card": true,
+    "full": false,
+    "lod": 1,
+    "hidden": 0,
+    "labels": 16,
+    "activeEdges": 13,
+    "edgeDraws": 299,
+    "fxPaints": 77,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1252,
+     318
+    ],
+    "cardRect": [
+     1180,
+     74,
+     344,
+     593
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-beforefull-selected.png"
+   },
+   {
+    "rev": "dfba4080",
+    "state": "zoom",
+    "ratio": 2.6,
+    "target": "paradigm:-1001234567890:184",
+    "selected": "paradigm:-1001234567890:184",
+    "card": true,
+    "full": false,
+    "lod": 2,
+    "hidden": 0,
+    "labels": 26,
+    "activeEdges": 13,
+    "edgeDraws": 533,
+    "fxPaints": 95,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1252,
+     318
+    ],
+    "cardRect": [
+     1180,
+     74,
+     344,
+     593
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-beforefull-zoom.png"
+   },
+   {
+    "rev": "dfba4080",
+    "state": "fullscreen",
+    "ratio": 1.8,
+    "target": "paradigm:-1001234567890:184",
+    "selected": "paradigm:-1001234567890:184",
+    "card": true,
+    "full": true,
+    "lod": 1,
+    "hidden": 0,
+    "labels": 6,
+    "activeEdges": 13,
+    "edgeDraws": 546,
+    "fxPaints": 42,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1510,
+     794
+    ],
+    "cardRect": [
+     1180,
+     74,
+     344,
+     593
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-beforefull-fullscreen.png"
+   },
+   {
+    "rev": "dfba4080",
+    "state": "fullscreen-clean",
+    "ratio": 1.8,
+    "selected": "paradigm:-1001234567890:184",
+    "card": true,
+    "full": true,
+    "lod": 1,
+    "hidden": 0,
+    "labels": 6,
+    "activeEdges": 13,
+    "edgeDraws": 897,
+    "fxPaints": 69,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     1510,
+     794
+    ],
+    "cardRect": [
+     1180,
+     74,
+     344,
+     593
+    ],
+    "dpr": 1,
+    "viewport": [
+     1536,
+     960
+    ],
+    "shot": "cmv-e-beforefull-fullscreen-clean.png"
+   },
+   {
+    "rev": "dfba4080",
+    "state": "mobile390",
+    "viewport": [
+     390,
+     844
+    ],
+    "dpr": 2,
+    "selected": null,
+    "card": false,
+    "full": false,
+    "lod": 0,
+    "hidden": 698,
+    "labels": 4,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 26,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     338,
+     318
+    ],
+    "cardRect": null,
+    "shot": "cmv-e-beforefull-mobile390.png"
+   },
+   {
+    "rev": "dfba4080",
+    "state": "mobile360",
+    "viewport": [
+     360,
+     780
+    ],
+    "dpr": 2,
+    "selected": null,
+    "card": false,
+    "full": false,
+    "lod": 0,
+    "hidden": 698,
+    "labels": 4,
+    "activeEdges": 0,
+    "edgeDraws": 0,
+    "fxPaints": 26,
+    "pulse": 24,
+    "canvases": 4,
+    "scenes": 1,
+    "visNetworks": 1,
+    "hScroll": 0,
+    "canvasSize": [
+     308,
+     318
+    ],
+    "cardRect": null,
+    "shot": "cmv-e-beforefull-mobile360.png"
+   }
+  ]
+ }
+}
