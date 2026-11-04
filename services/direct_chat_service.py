@@ -2690,95 +2690,35 @@ async def _evidence_context(chat_id: int, required_caps=(), *,
 #: считается в «прочем» ДО упаковки (иначе evidence забирает её место).
 _EVIDENCE_NOTE_RESERVE_CHARS = 260
 
-#: Одна машинная инструкция для единственной повторной генерации (§2.3).
-EVIDENCE_EGRESS_HINT = (
-    "[SYSTEM] В предыдущем ответе есть существенное внешнее утверждение, "
-    "которого нет в доставленных доказательствах. Убери это утверждение "
-    "(или замени на подтверждённое) и сохрани остальной текст: тон, шутку и "
-    "форму. Не пиши, что ты что-то проверял, если проверки не было; "
-    "«ничего не найдено» не означает «не существует».")
-
+#: BGS-02: guard больше НЕ подсказывает Writer'у убрать claim (повторной
+#: генерации нет), поэтому прежняя машинная подсказка удалена.
 
 async def _run_evidence_egress_guard(*, answer, decision, evidence_text="",
-                                     delivered_keys=(), lookup=None,
-                                     rewrite=None, drop_allowed: bool = True
-                                     ) -> tuple[str, dict]:
-    """Bounded outbound guard (§2.3): ≤1 lookup, ≤1 regeneration, затем
-    детерминированное удаление ТОЛЬКО неподтверждённого предложения.
+                                     delivered_keys=()) -> tuple[str, dict]:
+    """Наблюдение egress-проверки (§2.3/BGS-02): код + место, 0 правок текста.
 
-    Второго Writer'а нет: ``rewrite`` — существующий Writer-вызов хода
-    (hint-ретрай), ``lookup`` — существующий tool-путь (один адресный
-    запрос). При недоступности проверки ответ НЕ превращается в «данных
-    недостаточно»: максимум честная пометка в статистике события.
-    Возврат ``(answer, stats)``; никогда не бросает."""
-    stats: dict = {"guard_action": _evp.GUARD_NONE, "lookup_used": 0,
-                   "retry_used": 0, "dropped_claim": 0, "reason_code": "",
-                   "note": ""}
+    Раньше здесь были адресный lookup, повторная генерация и детерминированное
+    удаление неподтверждённого предложения. BGS-02 снимает смысловую
+    постцензуру: готовый ответ доставляется байт-в-байт, второй поиск после
+    Writer'а не запускается, а неподтверждённое утверждение остаётся с честной
+    пометкой в событии (неопределённость формулирует L2, а не алгоритм).
+    Техническая санитаризация машинных маркеров живёт отдельно
+    (``outgoing_guard.sanitize_outgoing``) и этим guard'ом не затрагивается.
+
+    Возврат ``(answer, stats)``: ``answer`` — ровно входной текст. Никогда не
+    бросает."""
+    stats: dict = {"observed": 0, "code": _evp.GUARD_NONE,
+                   "sentence_index": -1, "char_start": -1, "char_end": -1,
+                   "claim_key": "", "reason_code": "", "note": ""}
     if decision is None or not str(answer or "").strip() \
             or not _evp.egress_guard_enabled():
         return answer, stats
-    text = str(answer)
-    extra = ""
     try:
-        lookup_used = False
-        retry_used = False
-        verdict = _evp.guard_egress(
-            answer=text, decision=decision, evidence_text=evidence_text,
+        observation = _evp.guard_egress(
+            answer=str(answer), decision=decision, evidence_text=evidence_text,
             delivered_keys=delivered_keys)
-        stats["guard_action"] = verdict.action
-        stats["note"] = verdict.note
-        if verdict.action == _evp.GUARD_NONE:
-            return text, stats
-        # 1. Один адресный lookup по существу claim (существующий tool-путь).
-        if verdict.lookup_allowed and lookup is not None:
-            lookup_used = True
-            stats["lookup_used"] = 1
-            try:
-                fetched = await lookup(verdict.sentence)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                fetched = ""
-            extra = str(fetched or "")
-            verdict = _evp.guard_egress(
-                answer=text, decision=decision,
-                evidence_text=(str(evidence_text or "") + "\n" + extra),
-                delivered_keys=delivered_keys, lookup_used=True)
-            stats["guard_action"] = verdict.action
-            stats["note"] = verdict.note
-            if verdict.action == _evp.GUARD_NONE:
-                return text, stats
-        # 2. Одна повторная генерация тем же Writer'ом (взаимоисключающе с
-        #    freshness-ретраем — решает вызывающий).
-        if verdict.rewrite_allowed and rewrite is not None:
-            retry_used = True
-            stats["retry_used"] = 1
-            try:
-                new_text = await rewrite(EVIDENCE_EGRESS_HINT,
-                                         str(evidence_text or "") + extra)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                new_text = None
-            if new_text and str(new_text).strip():
-                text = str(new_text).strip()
-                verdict = _evp.guard_egress(
-                    answer=text, decision=decision,
-                    evidence_text=(str(evidence_text or "") + "\n" + extra),
-                    delivered_keys=delivered_keys, lookup_used=lookup_used,
-                    retry_used=True)
-                stats["guard_action"] = verdict.action
-                stats["note"] = verdict.note
-                if verdict.action == _evp.GUARD_NONE:
-                    return text, stats
-        # 3. Удаление только высокорискового предложения (остальной текст —
-        #    тон/шутка/ритм — сохраняется).
-        if drop_allowed and verdict.drop_allowed:
-            text = _evp.drop_claim_sentence(text, verdict.sentence)
-            stats["dropped_claim"] = 1
-            stats["guard_action"] = _evp.GUARD_DROP_CLAIM
-            stats["reason_code"] = _evp.REASON_EVIDENCE_CLAIM_REMOVED
-        return text, stats
+        stats.update(observation.event_fields())
+        return answer, stats
     except asyncio.CancelledError:
         raise
     except Exception:      # pragma: no cover - защитная ветка
@@ -5369,66 +5309,30 @@ class DirectChatService:
                     "fallback=%s", chat_id,
                     bool(_numeric_stats.get("corrected")),
                     bool(_numeric_stats.get("fallback")))
-            # ── ASAP-EVIDENCE-ROUTING-01 v3 (§2.3): bounded outbound guard.
-            # Ровно один раз, после L2 и до отправки. Неподтверждённое
-            # существенное внешнее утверждение → максимум один адресный
-            # lookup + одна регенерация, затем детерминированное удаление
-            # только этого предложения. Второго Writer'а нет; ответ не
-            # превращается в «данных недостаточно».
-            _evidence_retry_used_here = False
+            # ── BGS-02: egress-проверка — ТОЛЬКО наблюдение. Раньше здесь
+            # были адресный lookup, повторная генерация и удаление
+            # неподтверждённого предложения; смысловая постцензура снята:
+            # готовый ответ доставляется байт-в-байт, а наблюдение уходит
+            # в событие EVIDENCE_EGRESS_CHECK (код + место).
             if _evidence_decision is not None and _evp.egress_guard_enabled():
-                async def _ev_lookup(claim):
-                    return await self._evidence_lookup(
-                        tool_ctx, claim, chat_id=chat_id,
-                        correlation_id=correlation_id,
-                        lore=bool(lore_enabled),
-                        image=bool(image_enabled),
-                        decision=_evidence_decision,
-                        user_forbids=bool(_evp.is_external_forbidden(query)))
-
-                async def _ev_rewrite(hint, extra_evidence):
-                    return await self._evidence_rewrite(
-                        chat_id, query, plan_block=_plan_block,
-                        user_blocks=user_blocks,
-                        response_plan=response_plan,
-                        character_block=character_block,
-                        style_directives=style_directives,
-                        numeric_contract=numeric_contract,
-                        time_line=time_line,
-                        evidence=(_evidence + "\n" + extra_evidence).strip(),
-                        lessons_block=_lessons_block,
-                        speech_block=_speech_block,
-                        temperature=temperature,
-                        correlation_id=correlation_id,
-                        hint=hint,
-                        max_tokens=(longform_max_tokens
-                                    if response_plan is not None
-                                    and response_plan.is_longform()
-                                    else None),
-                        # EVOL v5 §4.5: повтор идёт по тем же речевым блокам —
-                        # манифест объявляет ТО ЖЕ представление, что ушло.
-                        speech=_speech_projection)
-
-                _answer_guarded, _ev_egress = \
+                # ``_answer_delivered`` — ТОТ ЖЕ answer байт-в-байт: guard
+                # ничего не вырезает, поэтому доставляется исходный текст.
+                _answer_delivered, _ev_egress = \
                     await _run_evidence_egress_guard(
                         answer=answer, decision=_evidence_decision,
                         evidence_text=_evidence_delivered,
                         delivered_keys=_evp.delivered_claim_keys(
-                            _evidence_decision, _evidence_delivered),
-                        lookup=_ev_lookup, rewrite=_ev_rewrite)
-                if _answer_guarded != answer:
-                    answer = _answer_guarded
-                    _evidence_retry_used_here = bool(
-                        _ev_egress.get("retry_used"))
+                            _evidence_decision, _evidence_delivered))
                 self._emit_evidence_egress_event(
                     chat_id, correlation_id, _ev_egress)
-                if _ev_egress.get("reason_code"):
+                if _ev_egress.get("observed"):
                     logger.info(
-                        "[direct] evidence egress | chat=%s | action=%s | "
-                        "lookup=%s | retry=%s", chat_id,
-                        _ev_egress.get("guard_action"),
-                        _ev_egress.get("lookup_used"),
-                        _ev_egress.get("retry_used"))
+                        "[direct] evidence egress observed | chat=%s | "
+                        "code=%s | sentence=%s | chars=%s-%s", chat_id,
+                        _ev_egress.get("code"),
+                        _ev_egress.get("sentence_index"),
+                        _ev_egress.get("char_start"),
+                        _ev_egress.get("char_end"))
             if not answer:
                 if coordinator is not None:
                     _log_coordinator_outcome(
@@ -5447,8 +5351,10 @@ class DirectChatService:
             # (loop запрещён). Exemptions §18 — детерминированные тексты.
             # Paraphrase-postprocessor НЕ создаётся (инвариант тестом).
             _freshness_retry_used = False
-            if _fresh.freshness_guard_enabled() and self.db is not None \
-                    and not _evidence_retry_used_here:
+            # BGS-02: evidence-guard больше не перегенерирует ответ, поэтому
+            # взаимоисключение с freshness-ретраем (§2.3) больше не нужно —
+            # единственный оставшийся повтор это duplicate-guard.
+            if _fresh.freshness_guard_enabled() and self.db is not None:
                 try:
                     _recent = await self.db.list_recent_bot_outputs(
                         chat_id, limit=1)
@@ -6520,126 +6426,41 @@ class DirectChatService:
         except Exception:      # pragma: no cover - защитная ветка
             return ""
 
-    async def _evidence_lookup(self, tool_ctx, claim_text: str, *,
-                               chat_id: int, correlation_id, lore: bool,
-                               image: bool, decision=None,
-                               user_forbids: bool = False) -> str:
-        """Один адресный read-only lookup для egress-guard (§2.3).
-
-        Тот же существующий tool-путь (`run_simple_tools`, 0 LLM-вызовов) с
-        единственным шагом web_search по существу claim. Ровно один раз на
-        ход; сбой → пустая выдержка (guard деградирует честно, а не молчит).
-
-        Lookup НЕ обходит §1.5: адресный запрос разрешён только когда
-        `web_search` уже входит в `required_caps` решения политики, и заново
-        проходит ту же точку :func:`evidence_policy.allowed` (RBAC → запрет
-        сети/явный запрет пользователя → провайдер/ключ → квота). Иначе — 0
-        сетевых вызовов и честный лог вместо обхода рубильника."""
-        if self.tool_router is None:
-            return ""
-        caps = tuple(getattr(decision, "required_caps", ()) or ())
-        if decision is not None and "web_search" not in caps:
-            return ""
-        try:
-            context = await _evidence_context(
-                chat_id, ("web_search",), user_forbids=bool(user_forbids))
-            ok, code = _evp.allowed("web_search", context)
-            if not ok:
-                logger.info(
-                    "[direct] evidence lookup blocked — no network call | "
-                    "chat=%s | code=%s", chat_id, code or "-")
-                return ""
-        except asyncio.CancelledError:
-            raise
-        except Exception:      # pragma: no cover - защитная ветка
-            return ""
-        try:
-            plan = _l1.L1Plan(action="reply", execution_mode="simple_tools",
-                              confidence=1.0, confidence_bucket="high",
-                              source="llm")
-            plan.capabilities_needed = ("web_search",)
-            schemas = active_tools(bool(lore), bool(image))
-            announced = {t["function"]["name"] for t in schemas
-                         if isinstance(t, dict) and t.get("function")}
-            result = await _dx.run_simple_tools(
-                plan=plan, router=self.tool_router, ctx=tool_ctx,
-                query=str(claim_text or "")[:256], chat_id=chat_id,
-                correlation_id=correlation_id, announced=announced)
-            if result is None:
-                return ""
-            pack = _dx.build_evidence_pack(
-                result, None, capacity_chars=_l1.evidence_max_chars())
-            return str(pack.text or "")
-        except asyncio.CancelledError:
-            raise
-        except Exception:      # pragma: no cover - защитная ветка
-            return ""
-
-    async def _evidence_rewrite(self, chat_id: int, query: str, *,
-                                plan_block: str, user_blocks, response_plan,
-                                character_block: str, style_directives: str,
-                                numeric_contract, time_line: str,
-                                evidence: str, lessons_block: str,
-                                speech_block: str, temperature,
-                                correlation_id, hint: str, max_tokens=None,
-                                speech=None
-                                ) -> str | None:
-        """Единственная повторная генерация egress-guard (§2.3).
-
-        Тот же Writer (`_l2_write_answer`), тот же route — второго Writer'а
-        нет; ``hint`` едет одним user-блоком в том же payload. Вызывается не
-        более одного раза и взаимоисключающе с freshness-ретраем.
-
-        ``speech`` (EVOL v5 §4.5/§9.4): ТА ЖЕ проекция прогона, что у первого
-        вызова — повтор идёт по тем же user-блокам, поэтому манифест обязан
-        записать то же представление контекста, что реально ушло (иначе
-        ``internal`` при речевом payload — ложь манифеста, сц.70)."""
-        try:
-            blocks = list(user_blocks or []) + [str(hint or "")]
-            out = await self._l2_write_answer(
-                chat_id, query, temperature=temperature,
-                correlation_id=correlation_id,
-                character_block=character_block,
-                style_directives=style_directives,
-                numeric_contract=numeric_contract,
-                response_plan=response_plan,
-                plan_block=plan_block, user_blocks=blocks,
-                time_line=time_line, evidence=evidence,
-                lessons_block=lessons_block, speech_block=speech_block,
-                max_tokens=max_tokens, speech=speech)
-            if out is None:
-                return None
-            text, _mode = out
-            return strip_reasoning_tags(str(text or "").strip())
-        except asyncio.CancelledError:
-            raise
-        except Exception:      # pragma: no cover - защитная ветка
-            return None
-
     def _emit_evidence_egress_event(self, chat_id: int, correlation_id,
                                     stats: dict) -> None:
-        """`EVIDENCE_EGRESS_CHECK` (§4.5) — только enum/числа (R17)."""
+        """`EVIDENCE_EGRESS_CHECK` (§4.5) — НАБЛЮДЕНИЕ: код + место (R17).
+
+        BGS-02: событие больше не сообщает об удалении/повторе (их нет), а
+        фиксирует факт «в готовом тексте осталось неподтверждённое
+        high-risk-утверждение» — диагностика без правки доставленного текста.
+        Только enum/числа: пользовательский текст в поле ``sentence`` не едет.
+        """
         try:
-            outcome = "success" if stats.get("guard_action") == _evp.GUARD_NONE \
-                else ("skipped" if stats.get("note") else "success")
+            observed = int(stats.get("observed") or 0)
             emit_agentic_event(
                 _EVIDENCE_EVENT_EGRESS, run_id=correlation_id,
                 chat_id=chat_id,
-                guard_action=str(stats.get("guard_action") or ""),
-                lookup_used=int(stats.get("lookup_used") or 0),
-                retry_used=int(stats.get("retry_used") or 0),
-                dropped_claim=int(stats.get("dropped_claim") or 0),
-                reason=str(stats.get("reason_code") or ""))
+                observed=observed,
+                code=str(stats.get("code") or _evp.GUARD_NONE),
+                sentence_index=int(stats.get("sentence_index") or -1),
+                char_start=int(stats.get("char_start") or -1),
+                char_end=int(stats.get("char_end") or -1),
+                reason=str(stats.get("reason_code") or ""),
+                note=str(stats.get("note") or ""))
             _mca_events.emit_mca_event(
-                "evidence_egress_check", outcome=outcome,
+                "evidence_egress_check", outcome="success",
                 component="direct_chat", stage=_evp.EVIDENCE_STAGE,
                 reason_code=stats.get("reason_code") or None,
                 chat_id=chat_id,
-                usage_json={"guard_action": str(
-                    stats.get("guard_action") or ""),
-                    "lookup_used": int(stats.get("lookup_used") or 0),
-                    "retry_used": int(stats.get("retry_used") or 0),
-                    "dropped_claim": int(stats.get("dropped_claim") or 0)})
+                usage_json={"observed": observed,
+                            "code": str(stats.get("code")
+                                        or _evp.GUARD_NONE),
+                            "sentence_index": int(
+                                stats.get("sentence_index") or -1),
+                            "char_start": int(stats.get("char_start") or -1),
+                            "char_end": int(stats.get("char_end") or -1),
+                            "claim_key": str(stats.get("claim_key") or ""),
+                            "note": str(stats.get("note") or "")})
         except Exception:      # pragma: no cover - телеметрия не рвёт чат
             pass
 
@@ -13149,48 +12970,22 @@ class DirectChatService:
                 evidence=_initiative_evidence,
                 writer="initiative_writer", max_tokens=700,
                 speech=_init_speech)
-            # Bounded egress-guard того же класса/теми же средствами: ≤1
-            # адресный lookup (разрешённый политикой), ≤1 регенерация тем же
-            # Writer'ом, затем удаление только неподтверждённого предложения.
+            # BGS-02: то же наблюдение, что в Direct (единый postprocess):
+            # без адресного lookup, без повторной генерации и без удаления
+            # предложения. Инициатива не получает «отдельного» режима.
             if result and _initiative_decision is not None \
                     and _evp.egress_guard_enabled():
-                async def _init_lookup(claim):
-                    return await self._evidence_lookup(
-                        _init_tool_ctx, claim, chat_id=chat_id,
-                        correlation_id=correlation_id, lore=False,
-                        image=False, decision=_initiative_decision,
-                        user_forbids=bool(
-                            _evp.is_external_forbidden(_goal_query)))
-
-                async def _init_rewrite(hint, extra_evidence):
-                    return await self._evidence_rewrite(
-                        chat_id, _goal_query, plan_block=plan_block,
-                        user_blocks=_initiative_blocks,
-                        response_plan=response_plan,
-                        character_block=persona_block, style_directives="",
-                        numeric_contract=None, time_line="",
-                        evidence=(_initiative_evidence + "\n"
-                                  + extra_evidence).strip(),
-                        lessons_block="", speech_block="",
-                        temperature=temperature,
-                        correlation_id=correlation_id, hint=hint,
-                        max_tokens=700,
-                        # EVOL v5 §4.5: та же проекция — манифест повтора
-                        # объявляет реальное представление контекста.
-                        speech=_init_speech)
-
-                _init_guarded, _init_egress = \
+                # ``_init_delivered`` == исходный Writer-текст (guard не
+                # мутирует), поэтому результат хода не подменяется.
+                _init_delivered, _init_egress = \
                     await _run_evidence_egress_guard(
                         answer=str(result[0] or ""),
                         decision=_initiative_decision,
                         evidence_text=_initiative_evidence,
                         delivered_keys=_evp.delivered_claim_keys(
-                            _initiative_decision, _initiative_evidence),
-                        lookup=_init_lookup, rewrite=_init_rewrite)
+                            _initiative_decision, _initiative_evidence))
                 self._emit_evidence_egress_event(
                     chat_id, correlation_id, _init_egress)
-                if _init_guarded != str(result[0] or ""):
-                    result = (_init_guarded, result[1])
         except Exception:
             logger.warning(
                 "[f6] initiative writer failed | chat=%s", chat_id,

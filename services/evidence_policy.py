@@ -42,14 +42,15 @@ __all__ = [
     "classify_claims", "claims_coverage", "delivered_claim_keys",
     "skip_reason_code",
     "failure_reason_code", "blocked_reason_code", "policy_enabled",
-    "egress_guard_enabled", "guard_egress", "drop_claim_sentence",
-    "EgressVerdict", "GUARD_NONE", "GUARD_HINT_RETRY",
-    "GUARD_ONE_LOOKUP", "GUARD_DROP_CLAIM", "GUARD_SKIP_CLASSES",
+    "egress_guard_enabled", "guard_egress", "EgressObservation",
+    "GUARD_NONE", "GUARD_OBSERVED_UNVERIFIED", "GUARD_ACTIONS",
+    "GUARD_SKIP_CLASSES",
     "runtime_source_note",
     "is_runtime_self_question", "is_external_forbidden",
     "is_attributed_speech", "claims_query",
     "REASON_EVIDENCE_SKIPPED",
-    "REASON_EVIDENCE_REUSED", "REASON_EVIDENCE_CLAIM_REMOVED",
+    "REASON_EVIDENCE_REUSED", "REASON_EVIDENCE_CLAIM_OBSERVED",
+    "REASON_EVIDENCE_CLAIM_REMOVED",
     "EVIDENCE_STAGE", "CAPABILITY_SOURCE_READ",
 ]
 
@@ -171,6 +172,11 @@ _BLOCK_TO_FAILURE = {
 #: Три НОВЫХ кода ``mca_events.REASON_CODES`` (ровно столько, §1.4).
 REASON_EVIDENCE_SKIPPED = "evidence_skipped"
 REASON_EVIDENCE_REUSED = "evidence_reused"
+#: BGS-02: egress-проверка больше не удаляет предложения — код означает
+#: НАБЛЮДЕНИЕ неподтверждённого high-risk claim'а (текст не меняется).
+REASON_EVIDENCE_CLAIM_OBSERVED = "evidence_unverified_claim_observed"
+#: LEGACY (только декодер старых событий): код прежнего удаления предложения.
+#: Новые события его НЕ генерируют — активного производителя нет (BGS-02.1).
 REASON_EVIDENCE_CLAIM_REMOVED = "evidence_unverified_claim_removed"
 
 #: Имя стадии для событий политики (R17-safe).
@@ -910,14 +916,19 @@ def claims_coverage(decision: EvidenceDecision, delivered_keys) -> dict:
 
 
 # ── §2.3: bounded outbound guard (egress) ───────────────────────────────────
+#
+# BGS-02: guard — ТОЛЬКО наблюдение. Прежние действия (адресный lookup,
+# повторная генерация, детерминированное удаление предложения) удалены как
+# смысловая постцензура: неподтверждённое утверждение в свободном ответе —
+# неопределённость, а не повод вырезать готовую мысль. Текст ответа guard не
+# меняет ни на байт; наружу уходят код и место срабатывания.
 
 GUARD_NONE = "none"
-GUARD_HINT_RETRY = "hint_retry"
-GUARD_ONE_LOOKUP = "one_lookup_then_hint_retry"
-GUARD_DROP_CLAIM = "drop_unsupported_high_risk_claim"
+#: Единственное наблюдение: high-risk внешний claim без подтверждения в
+#: доставленных выдержках. Код события, не команда на правку текста.
+GUARD_OBSERVED_UNVERIFIED = "observed_unverified_claim"
 
-GUARD_ACTIONS = (GUARD_NONE, GUARD_HINT_RETRY, GUARD_ONE_LOOKUP,
-                 GUARD_DROP_CLAIM)
+GUARD_ACTIONS = (GUARD_NONE, GUARD_OBSERVED_UNVERIFIED)
 
 #: Классы повышенного риска (§2.3): существование/версия/цена/дата/число/
 #: характеристика/категорическое опровержение. Метафора и чужая
@@ -1069,33 +1080,44 @@ def _supported(sentence: str, evidence_text: str) -> bool:
 
 
 @dataclass(frozen=True)
-class EgressVerdict:
-    """Детерминированное решение исходящей проверки (§2.3)."""
+class EgressObservation:
+    """Наблюдение исходящей проверки (§2.3): КОД + МЕСТО, текст не меняется.
+
+    BGS-02: раньше это был вердикт с правом удалить предложение. Теперь
+    результат — только диагностика: ``sentence`` (что заметили),
+    ``sentence_index``/``char_start``/``char_end`` (где именно в готовом
+    тексте), ``claim_key`` (для телеметрии claim↔evidence). Ни одно поле не
+    является инструкцией изменить доставленный ответ."""
 
     action: str = GUARD_NONE
     sentence: str = ""
+    sentence_index: int = -1
+    char_start: int = -1
+    char_end: int = -1
     claim_key: str = ""
     reason_code: str = ""
     note: str = ""
 
     @property
-    def rewrite_allowed(self) -> bool:
-        return self.action in (GUARD_HINT_RETRY, GUARD_ONE_LOOKUP)
+    def observed(self) -> bool:
+        return self.action != GUARD_NONE
 
     @property
-    def lookup_allowed(self) -> bool:
-        return self.action == GUARD_ONE_LOOKUP
-
-    @property
-    def drop_allowed(self) -> bool:
-        return self.action == GUARD_DROP_CLAIM
+    def location(self) -> dict:
+        """Место срабатывания в готовом тексте (0-based, -1 = не найдено)."""
+        return {"sentence_index": int(self.sentence_index),
+                "char_start": int(self.char_start),
+                "char_end": int(self.char_end)}
 
     def event_fields(self) -> dict:
+        """R17-safe поля события (enum/числа, без пользовательского текста)."""
         return {
-            "guard_action": self.action,
-            "lookup_used": int(self.action == GUARD_ONE_LOOKUP),
-            "retry_used": int(self.rewrite_allowed),
-            "dropped_claim": int(self.action == GUARD_DROP_CLAIM),
+            "observed": int(self.observed),
+            "code": self.action,
+            "sentence_index": int(self.sentence_index),
+            "char_start": int(self.char_start),
+            "char_end": int(self.char_end),
+            "claim_key": self.claim_key,
             "reason_code": self.reason_code,
             "note": self.note,
         }
@@ -1119,98 +1141,75 @@ GUARD_SKIP_CLASSES = ("background", "transformation", "historical", "runtime")
 
 
 def guard_egress(*, answer, decision: EvidenceDecision | None = None,
-                 evidence_text: str = "", delivered_keys=(),
-                 lookup_used: bool = False, retry_used: bool = False
-                 ) -> EgressVerdict:
-    """Неподтверждённый существенный внешний claim в готовом ответе (§2.3).
+                 evidence_text: str = "", delivered_keys=()
+                 ) -> EgressObservation:
+    """Наблюдение: неподтверждённый существенный внешний claim (§2.3/BGS-02).
 
     Проверяются ТОЛЬКО высокорисковые предложения (существование/версия/
     цена/дата/число/характеристика/категорическое опровержение); метафора и
-    мат — вне проверки, а чужая атрибутированная речь/цитата вырезается
+    мат — вне проверки, а чужая атрибутированная речь/цитата пропускается
     ПОПРЕДЛОЖЕНЧЕСКИ (``_attributed``): пересказ чужих слов не наш claim.
     Класс-уровневый skip (``GUARD_SKIP_CLASSES``) узкий: шутка (``social``) и
     пересказ (``attributed``) проверяются, потому что добавленный Writer'ом
-    новый внешний факт — всё равно наш claim. Действия ограничены
-    ``GuardAction``: максимум один адресный lookup и одна повторная генерация,
-    затем детерминированное удаление только этого предложения (остальной текст
-    — тон, шутка, ритм — сохраняется).
+    новый внешний факт — всё равно наш claim.
+
+    Контракт выхода (BGS-02): результат — НАБЛЮДЕНИЕ (код + место), а не
+    приказ. Текст ответа не меняется ни на байт, повторный lookup и повторная
+    генерация не запрашиваются, ничего не удаляется: отсутствие подтверждения
+    в свободном ответе означает неопределённость, которую формулирует L2.
+    Проверка claim↔evidence остаётся (здесь для телеметрии и в фактчеке —
+    как доказательный контракт). ``GUARD_DROP_CLAIM`` и
+    ``drop_claim_sentence`` удалены как смысловая постцензура.
 
     ``source_fetched ≠ verified``: подтверждением считается лишь реально
     доставленная Writer'у выдержка (``evidence_text``), а не факт вызова
     инструмента. Никогда не бросает."""
     try:
-        body = str(answer or "").strip()
-        if not body:
-            return EgressVerdict()
+        body = str(answer or "")
+        if not body.strip():
+            return EgressObservation()
         if decision is not None:
             klass = str(getattr(decision, "evidence_class", "") or "")
             # Класс без собственного внешнего claim (§1.2 п.3/4/5) —
-            # guard не применяется: проверять нечего.
-            #
-            # Флаг ``required`` здесь НЕ проверяется (review fix 2): решение
-            # политики «проверка не требуется» относится к ПЛАНИРУЕМОМУ
-            # содержанию, а guard смотрит УЖЕ написанный текст. Writer легко
-            # добавляет новый внешний факт мимо плана — и в шутке, и в
-            # атрибутированном пересказе (сценарии 16/24) — и именно его
-            # обязан поймать ограниченный выходной guard.
+            # проверять нечего.
             if klass in GUARD_SKIP_CLASSES:
-                return EgressVerdict(note="not_externally_factual")
+                return EgressObservation(note="not_externally_factual")
         planned = _plan_claims_text(decision)
-        delivered = {str(k or "") for k in (delivered_keys or ()) if k}
-        for sentence in _SENTENCE_SPLIT_RE.split(body):
-            piece = str(sentence or "").strip()
+        cursor = 0
+        for index, raw in enumerate(_SENTENCE_SPLIT_RE.split(body)):
+            piece = str(raw or "").strip()
+            if not piece:
+                continue
+            start = body.find(piece, cursor)
+            if start < 0:
+                start = cursor
+            cursor = start + len(piece)
             if len(piece) < 8 or not _high_risk(piece):
                 continue
             if _attributed(piece):
                 continue
             if _supported(piece, evidence_text):
                 continue
-            if planned and _supported(piece, planned):
-                # Планируемый claim — часть плана, не «новая добавка Writer'а»;
-                # но подтверждения в пакете нет → та же честная реакция.
-                pass
+            # Планируемый claim — часть плана, не «новая добавка Writer'а»;
+            # но подтверждения в пакете нет → та же честная неопределённость.
+            # Различие остаётся только в наблюдаемом коде причины.
+            planned_unconfirmed = bool(planned and _supported(piece, planned))
             key = ""
             try:
                 from services.search_aggregator import _numbers_in
                 key = ",".join(sorted(_numbers_in(piece)))[:32]
             except Exception:      # pragma: no cover - защитная ветка
                 key = ""
-            if not lookup_used:
-                return EgressVerdict(
-                    action=GUARD_ONE_LOOKUP, sentence=piece[:240],
-                    claim_key=key, note="unsupported_claim_lookup")
-            if not retry_used:
-                return EgressVerdict(
-                    action=GUARD_HINT_RETRY, sentence=piece[:240],
-                    claim_key=key, note="unsupported_claim_retry")
-            return EgressVerdict(
-                action=GUARD_DROP_CLAIM, sentence=piece[:240],
-                claim_key=key, reason_code=REASON_EVIDENCE_CLAIM_REMOVED,
-                note="unsupported_claim_dropped")
-        return EgressVerdict()
+            return EgressObservation(
+                action=GUARD_OBSERVED_UNVERIFIED, sentence=piece[:240],
+                sentence_index=index, char_start=start,
+                char_end=start + len(piece), claim_key=key,
+                reason_code=REASON_EVIDENCE_CLAIM_OBSERVED,
+                note=("planned_claim_unobserved" if planned_unconfirmed
+                      else "unsupported_claim_observed"))
+        return EgressObservation()
     except Exception:      # pragma: no cover - защитная ветка
-        return EgressVerdict()
-
-
-def drop_claim_sentence(answer, sentence) -> str:
-    """Детерминированно удалить ТОЛЬКО это предложение (§2.3).
-
-    Остальной текст (шутка/ритм/метафора) сохраняется; пустой результат —
-    честная тишина вызывающего, а не «данных недостаточно»."""
-    body = str(answer or "")
-    piece = str(sentence or "").strip()
-    if not piece:
-        return body
-    out = body.replace(piece, "")
-    if out == body:
-        # Предложение с обрезанным хвостом/иной пунктуацией — ищем по началу.
-        head = piece[:40]
-        idx = body.find(head)
-        if idx >= 0:
-            out = body[:idx] + body[idx + len(piece):]
-    out = re.sub(r"[ \t]{2,}", " ", out)
-    out = re.sub(r"\n{3,}", "\n\n", out).strip()
-    return out
+        return EgressObservation()
 
 
 # ── §5.6: runtime-источник для вопроса о себе ───────────────────────────────
