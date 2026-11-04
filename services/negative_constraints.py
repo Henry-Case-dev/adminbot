@@ -60,12 +60,42 @@ FORM_GUARD_LEAK_BLOCKED = "form_guard_leak_blocked"
 # `sanitize_outgoing` (неизменный egress-канон).
 # G2: числа (пробелы/NBSP/разделители тысяч/десятичная запятая) и отрицание
 # в окне ±40 символов (закрытый список).
+# G2b (BGS-04.10): отрицание ЦЕЛИКОМ — множества куэ-токенов источника и
+# результата трансформации обязаны совпасть.
 # G3: новые имена ростера (регистронезависимо, границы слов).
 _NEGATION_WINDOW = 40
 _NUMBER_TOKEN_RE = re.compile(r"\d+(?:[ \u00a0\u202f'.,]\d+)*")
 _NEGATION_RE = re.compile(
     r"(?<![0-9a-zа-яё_])(?:не|ни|никогда|без|нет)(?![0-9a-zа-яё_])")
 _NAME_BOUNDARY_CHARS = r"0-9a-zа-яё_"
+
+# ── G2b (BGS-04.10): отрицание вне числового окна ──────────────────────────
+# Закрытый СПИСОК куэ-токенов, а не префикс: слова на «не-/ни-», которые не
+# являются отрицанием («неделя», «низкий», «небо», «немного», «нибудь»),
+# в перечислении отсутствуют и по определению не считаются. Куэ-токен
+# обязан быть отдельным словом (границы `_NAME_BOUNDARY_CHARS`).
+_NEGATION_CUES: tuple[str, ...] = tuple(sorted((
+    "не",                    # частица
+    "ни",                    # усилительная частица отрицания
+    "нет", "нету",           # предикативное отрицание (в т.ч. стяжённое)
+    "нельзя",                # модальное отрицание
+    "никогда", "никуда", "нигде", "ничуть", "нисколько",   # ни- наречия
+    "некуда", "негде", "некому", "нечего", "нечем",        # не- наречия/мест.
+    "без",                   # отрицание-предлог («без ответа»)
+), key=len, reverse=True))
+_NEGATION_CUE_RE = re.compile(
+    r"(?<![0-9a-zа-яё_])(?:" + "|".join(_NEGATION_CUES)
+    + r")(?![0-9a-zа-яё_])")
+
+# Эквивалентное двойное отрицание: пара куэ взаимно гасится, иначе
+# «не мог не сказать» → «сказал» давал бы ложный отказ. Список закрытый:
+# только устойчивые конструкции, где два отрицания дают утверждение.
+_DOUBLE_NEGATION_RE = re.compile(
+    r"(?<![0-9a-zа-яё_])не\s+"
+    r"(?:мог|могла|могли|могут|может|могу|можешь|можем"
+    r"|хотел|хотела|хотели|хотелось|умел|умела|умели)\s+не(?![0-9a-zа-яё_])"
+    r"|(?<![0-9a-zа-яё_])нельзя\s+не(?![0-9a-zа-яё_])"
+    r"|(?<![0-9a-zа-яё_])не\s+без(?![0-9a-zа-яё_])")
 
 
 @dataclass(frozen=True)
@@ -108,6 +138,21 @@ def _number_signature(text: str) -> tuple[dict[str, int], dict[str, int]]:
     return counts, negated
 
 
+def _negation_signature(text: str) -> frozenset[str]:
+    """Множество куэ-токенов отрицания текста (G2b, BGS-04.10).
+
+    Сравниваются НАБОРЫ, а не количество: перефраз вправе повторить «не» в
+    другом месте, но не вправе потерять или добавить отрицание. Перед
+    подсчётом снимаются locked-конструкции двойного отрицания (их два куэ
+    взаимно гасятся), поэтому эквивалентная замена «не мог не сказать» →
+    «сказал» отказа не даёт. Обычные слова на «не-/ни-» («неделя», «низкий»,
+    «небо») в закрытый список не входят.
+    """
+    source = _DOUBLE_NEGATION_RE.sub(" ", str(text or "").casefold())
+    return frozenset(
+        match.group() for match in _NEGATION_CUE_RE.finditer(source))
+
+
 def check_form_contract(candidate: str, contract: FormContract, *,
                         scrubber: Scrubber = sanitize_outgoing
                         ) -> str | None:
@@ -120,6 +165,9 @@ def check_form_contract(candidate: str, contract: FormContract, *,
         counts_cand, neg_cand = _number_signature(text)
         if counts_src != counts_cand or neg_src != neg_cand:
             return FORM_GUARD_REJECTED              # G2
+        if _negation_signature(contract.source_text) \
+                != _negation_signature(text):
+            return FORM_GUARD_REJECTED              # G2b (BGS-04.10)
         if contract.roster_names:                   # G3
             low_src = str(contract.source_text or "").casefold()
             low_cand = text.casefold()
