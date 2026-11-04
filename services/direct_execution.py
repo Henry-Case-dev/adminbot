@@ -231,6 +231,10 @@ class EvidenceSource:
     truncated: bool = False
     delivered: bool = False
     round_index: int = 0
+    #: UNIFIED-REPLY UR-07.4: адрес ПОЛНОГО текста источника (вне payload).
+    #: В L2 идёт отобранный фрагмент, а маркер обрезки ссылается на ref —
+    #: срез не выдаётся за полную статью.
+    content_ref: str = ""
 
 
 @dataclass
@@ -278,8 +282,9 @@ _QUERY_CAPS: dict[str, tuple[str, ...]] = {
 
 def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                         ctx=None, announced=(), addressee: str = "",
-                        max_fetch_steps: int = 3,
-                        required_caps=()) -> tuple[list[dict], list[str]]:
+                        max_fetch_steps: int = 3, required_caps=(),
+                        search_query: str | None = None
+                        ) -> tuple[list[dict], list[str]]:
     """Детерминированные шаги simple_tools из L1 capabilities (0 LLM).
 
     Возврат ``(steps, limitations)``: шаги — тот же контракт, что
@@ -290,13 +295,22 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
     ASAP-EVIDENCE-ROUTING-01 v3 (§2.1): ``required_caps`` — runtime-обязательные
     read-only capabilities, деривируемые и при ПУСТОМ L1-плане (технический
     вопрос без «погугли» не должен остаться без проверки из-за
-    ``capabilities_needed=[]``/``tool_policy=none``)."""
+    ``capabilities_needed=[]``/``tool_policy=none``).
+
+    UNIFIED-REPLY UR-07: ``search_query`` — публичная поисковая формулировка
+    (``build_search_query``). Она уходит в инструмент ВЕРБАТИМ (внутренние
+    инструменты по-прежнему получают исходный ``query``); сырой текст вопроса
+    в поисковик не попадает. Без неё — структурный срез по границе слова,
+    а не буквальный ``[:256]``."""
     steps: list[dict] = []
     limitations: list[str] = []
     try:
         active = {str(t or "").strip() for t in (announced or ())}
         q = str(query or "").strip()
-        q_bounded = q[:256]
+        # UR-07/UR-10.4: публичная формулировка не режется по символам;
+        # legacy-путь — срез по границе токена (сущность не рвётся пополам).
+        q_bounded = str(search_query or "").strip() \
+            or _boundary_cut(q, 256)
         reply = str(reply_text or "")
         urls: list[str] = []
         try:
@@ -436,11 +450,17 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
             for tool in mapping:
                 if tool in active:
                     index += 1
+                    if tool == "compile_lore_story":
+                        args = {"topic": q[:200]}
+                    elif tool == "execute_web_search":
+                        # UR-07: в сеть — только публичная формулировка.
+                        args = {"query": q_bounded}
+                    else:
+                        # Внутренние инструменты видят исходный вопрос.
+                        args = {"query": _boundary_cut(q, 256)}
                     steps.append({
                         "step_id": f"{cap}_{index}", "tool": tool,
-                        "arguments": ({"topic": q[:200]} if tool ==
-                                      "compile_lore_story"
-                                      else {"query": q_bounded}),
+                        "arguments": args,
                         "depends_on": [], "failure_policy": "optional"})
         # §38-семантика: шаги вне runtime-набора выбрасываются с limitation.
         allowed = {str(t or "").strip() for t in (announced or ())}
@@ -627,7 +647,8 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
             error_code=str(info.get("error_code") or ""),
             content=str(output or ""), total_chars=len(output or ""),
             truncated=bool(info.get("truncated")), delivered=False,
-            round_index=round_index))
+            round_index=round_index,
+            content_ref=_content_ref(name, str(output or ""))))
         if not ok:
             err = str(info.get("error_code") or info.get("error_type")
                       or "error")[:64]
@@ -656,7 +677,8 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
     evidence_sources.append(EvidenceSource(
         tool=name, status=str(info.get("status") or "ok"),
         content=str(output or ""), total_chars=len(output or ""),
-        delivered=False, round_index=round_index))
+        delivered=False, round_index=round_index,
+        content_ref=_content_ref(name, str(output or ""))))
     logger.info(
         "[direct-exec] duplicate skipped | tool=%s | reason=%s", name,
         cached_reason)
@@ -665,7 +687,8 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
 async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
                            correlation_id, announced=(), addressee: str = "",
                            reply_text: str = "",
-                           required_caps=()) -> ChainResult | None:
+                           required_caps=(), search_query: str | None = None
+                           ) -> ChainResult | None:
     """simple_tools (§18C.7): детерминированные/параллельные tools →
     evidence sources. 0 LLM-вызовов (третий вызов запрещён). Шаги без
     зависимостей исполняются волной (asyncio.gather). Возврат ``None``
@@ -679,7 +702,7 @@ async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
         steps, limitations = derive_simple_steps(
             plan, query=query, reply_text=reply_text, ctx=ctx,
             announced=announced, addressee=addressee,
-            required_caps=required_caps)
+            required_caps=required_caps, search_query=search_query)
         if not steps:
             for line in limitations:
                 logger.info("[direct-exec] simple skip | %s", line)
@@ -803,15 +826,19 @@ def _orchestrator_messages(*, query: str, allowlist, evidence_sources,
                 f"[{src.tool} | status={src.status or 'ok'} | "
                 f"delivered={int(src.delivered_chars or 0)}/"
                 f"{int(src.total_chars or 0)} | "
-                f"truncated={'yes' if src.truncated else 'no'}]")
+                f"truncated={'yes' if src.truncated else 'no'}"
+                + (f" | ref={src.content_ref}" if src.content_ref else "")
+                + "]")
             snippet = _UNTRUSTED_WRAPPING.format(
-                str(src.content or "")[:ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS])
+                _boundary_cut(str(src.content or ""),
+                              ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS))
             evidence_lines.append(f"{header}\n{snippet}")
         steps_lines = [
             f"{idx + 1}. {s.get('tool')} ({s.get('reason') or '-'})"
             for idx, s in enumerate(steps_done or [])]
         user = (
-            f"ЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n{str(query or '')[:ORCHESTRATOR_QUERY_CHARS]}\n\n"
+            f"ЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n"
+            f"{_boundary_cut(str(query or ''), ORCHESTRATOR_QUERY_CHARS)}\n\n"
             f"ALLOWED TOOLS:\n{chr(10).join(tools_lines) or 'нет'}\n\n"
             f"СДЕЛАННЫЕ ШАГИ:\n{chr(10).join(steps_lines) or 'нет'}\n\n"
             f"EVIDENCE SO FAR:\n{chr(10).join(evidence_lines) or 'нет'}\n\n"
@@ -821,7 +848,8 @@ def _orchestrator_messages(*, query: str, allowlist, evidence_sources,
     except Exception:      # pragma: no cover - защитная ветка
         return [{"role": "system", "content": ORCHESTRATOR_SYSTEM_PROMPT},
                 {"role": "user",
-                 "content": str(query or "")[:ORCHESTRATOR_QUERY_CHARS]}]
+                 "content": _boundary_cut(str(query or ""),
+                                          ORCHESTRATOR_QUERY_CHARS)}]
 
 
 def _parse_orchestrator_decision(raw) -> dict:
@@ -996,6 +1024,849 @@ def _safe_count_tokens(text: str) -> int:
         return int(count_tokens(text))
     except Exception:      # pragma: no cover - защитная ветка
         return max(1, len(str(text or "")) // 4)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# UNIFIED-REPLY UR-B (owner input 2026-11-05 §4): единая tool-фаза,
+# Search-first инвариант, приватный поисковый запрос, ToolEvidence + трасса.
+#
+# Один исполнитель для Direct и Initiative: `run_tool_phase` использует
+# существующие `resolve_execution_mode` / `run_simple_tools` /
+# `run_adaptive_chain` / `build_evidence_pack` (второй tool-фазы нет).
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Закрытый набор фактического статуса поиска (UR-08).
+SEARCH_STATUS_OK = "ok"
+SEARCH_STATUS_EMPTY = "empty"
+SEARCH_STATUS_TIMEOUT = "timeout"
+SEARCH_STATUS_CONTRADICTORY = "contradictory"
+SEARCH_STATUS_PRIVACY_BLOCKED = "privacy_blocked"
+SEARCH_STATUS_UNAVAILABLE = "unavailable"
+SEARCH_STATUS_SKIPPED = "skipped_not_required"
+SEARCH_STATUSES = (SEARCH_STATUS_OK, SEARCH_STATUS_EMPTY, SEARCH_STATUS_TIMEOUT,
+                   SEARCH_STATUS_CONTRADICTORY, SEARCH_STATUS_PRIVACY_BLOCKED,
+                   SEARCH_STATUS_UNAVAILABLE, SEARCH_STATUS_SKIPPED)
+
+#: machine-причины пропуска/невыполнения (трасса; не текст для пользователя).
+SKIP_PARTICIPATION_WITHOUT_TEXT = "participation_without_text"
+SKIP_INTENT_NOT_APPLICABLE = "search_intent_not_applicable"
+SKIP_NO_TOOLS = "no_resolved_tools"
+SKIP_TOOL_ABSENT = "search_tool_absent"
+SKIP_PRIVACY = "privacy_blocked"
+SKIP_REUSE = "qualified_verified_reuse"
+
+#: Инструменты, чья выдача — ВНЕШНИЙ источник (тот же контракт, что у
+#: `EXTERNAL_EVIDENCE_TOOLS` ниже; отдельная константа нужна раньше по файлу).
+_EXTERNAL_TOOLS = ("execute_web_search", "fetch_article")
+
+#: Имя capability существующего runtime-слоя (одно значение, не дублируем).
+SEARCH_CAPABILITY_NAME = "web_search"
+
+#: Публичная поисковая формулировка: смысловой предел формулировки (НЕ срез
+#: доказательств). Полный исходный запрос остаётся в `SearchTask.source_request`
+#: и доступен вне payload (`ToolEvidence.search_task`).
+SEARCH_QUERY_MAX_CHARS = 512
+
+#: Участок приватности: id/ссылки/телефоны/упоминания наружу не уходят.
+_PRIVATE_TG_LINK_RE = re.compile(
+    r"(?:https?://)?(?:t\.me|telegram\.me|tg://)\S*", re.IGNORECASE)
+_PRIVATE_URL_RE = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
+_PRIVATE_MENTION_RE = re.compile(r"@[A-Za-z0-9_]{3,}")
+_PRIVATE_EMAIL_RE = re.compile(r"\S+@\S+\.\S+")
+_PRIVATE_PHONE_RE = re.compile(r"\+?\d(?:[\d\s().\-]*\d){8,}")
+_PRIVATE_LONG_ID_RE = re.compile(r"\b\d{6,}\b")
+_SEARCH_TOKEN_RE = re.compile(r"[0-9A-Za-zА-Яа-яЁё][0-9A-Za-zА-Яа-яЁё_.+\-]*")
+#: Служебные слова просьбы о поиске — не публичные сущности.
+_SEARCH_REQUEST_WORDS = frozenset({
+    "проверь", "проверить", "проверяй", "поищи", "поискать", "найди", "найти",
+    "загугли", "погугли", "интернете", "интернет", "поиск", "поиске", "сети",
+    "сеть", "пожалуйста", "плиз", "можешь", "может", "сейчас", "сегодня",
+    "актуальные", "актуально", "последние", "последние", "данные", "данным",
+    "check", "search", "google", "latest", "current", "please", "look", "up",
+})
+#: Слова личного пересказа/цитирования: сами по себе не публичный якорь.
+#: Если после очистки остались ТОЛЬКО они (и приватные маркеры) — это личная
+#: переписка, а не поисковый вопрос: `privacy_blocked`, сеть не трогаем.
+_PRIVATE_RETELL_WORDS = frozenset({
+    "перескажи", "пересказать", "пересказ", "перескажи-ка", "цитата", "цитату",
+    "цитируй", "процитируй", "писала", "писал", "писали", "написала",
+    "написал", "сказала", "сказал", "сказали", "говорила", "говорил", "шутка",
+    "шутку", "шутил", "шутила", "пошутил", "анекдот", "мем", "вспомни",
+    "напомни", "переписка", "переписку", "чат", "сообщение", "сообщения",
+    "спросил", "спросила", "спросили", "ответил", "ответила",
+})
+
+
+def _boundary_cut(text: str, limit: int) -> str:
+    """Срез по границе слова (никогда не рвёт токен/сущность пополам)."""
+    try:
+        body = " ".join(str(text or "").split())
+        cap = int(limit)
+        if cap <= 0:
+            return ""
+        if len(body) <= cap:
+            return body
+        window = body[:cap]
+        cut = max(window.rfind(" "), window.rfind("\n"))
+        if cut >= max(1, cap // 2):
+            return window[:cut].rstrip(" ,;:.-")
+        return window
+    except (TypeError, ValueError):      # pragma: no cover - защитная ветка
+        return str(text or "")
+
+
+@dataclass(frozen=True)
+class SearchTask:
+    """Поисковая задача хода: публичная формулировка + полный исходник.
+
+    ``query`` — единственное, что уходит в сеть (публичные сущности/термины).
+    ``source_request`` — полный исходный запрос хода: остаётся доступным
+    (трасса/точечный fetch), но НИКОГДА не отправляется как есть. Пустая
+    ``query`` при ``blocked_reason="privacy_blocked"`` — честный отказ, а не
+    фиктивный успех."""
+
+    query: str = ""
+    source_request: str = ""
+    terms: tuple[str, ...] = ()
+    blocked_reason: str = ""
+    removed_count: int = 0
+
+    @property
+    def blocked(self) -> bool:
+        return bool(self.blocked_reason)
+
+
+def _strip_private(text: str, private_terms=()) -> tuple[str, int]:
+    """Убрать из текста приватные маркеры и известные приватные термины.
+
+    Возврат ``(clean, removed)``. ``private_terms`` — алиасы/имена/uid/id чата,
+    которые вызывающий собрал из существующего контекста (алиасы, автор,
+    reply-текст). Числовые id, телефоны, упоминания, почта и ссылки удаляются
+    всегда — они не являются публичной сущностью запроса. Никогда не бросает.
+    """
+    body = str(text or "")
+    removed = 0
+    for pattern in (_PRIVATE_TG_LINK_RE, _PRIVATE_URL_RE, _PRIVATE_MENTION_RE,
+                    _PRIVATE_EMAIL_RE, _PRIVATE_PHONE_RE,
+                    _PRIVATE_LONG_ID_RE):
+        body, count = pattern.subn(" ", body)
+        removed += count
+    for term in (private_terms or ()):
+        value = str(term or "").strip()
+        if len(value) < 3:
+            continue
+        try:
+            body, count = re.subn(re.escape(value), " ", body,
+                                  flags=re.IGNORECASE)
+        except re.error:      # pragma: no cover - защитная ветка
+            continue
+        removed += count
+    return body, removed
+
+
+def build_search_query(plan, *, query: str = "", private_terms=(),
+                       claims=(), max_terms: int = 12) -> SearchTask:
+    """Публичная поисковая формулировка (UR-07) — БЕЗ приватных данных.
+
+    Источники публичных сущностей в порядке доверия:
+    1. claim-аннотация L1 (`external_claims`/``claims``): сущность + версия +
+       дата + метрика — это уже публичные имена/термины, их НЕ режем;
+    2. содержательные термины вопроса (существующий
+       ``search_aggregator.content_terms``), очищенные от id/телефонов/
+       упоминаний/ссылок и известных приватных терминов.
+
+    Если после очистки публичных сущностей/терминов нет — ``privacy_blocked``
+    (запрос не отправляется; вызывающий не имеет права на «я проверил»).
+    Полный запрос остаётся в ``source_request`` (вне сети). Никогда не бросает.
+    """
+    try:
+        source_request = str(query or "")
+        removed_total = 0
+        entities: list[str] = []
+        raw_claims = list(claims or ())
+        if not raw_claims:
+            try:
+                raw_claims = list(getattr(plan, "external_claims", ()) or ())
+            except Exception:      # pragma: no cover - защитная ветка
+                raw_claims = []
+        for claim in raw_claims:
+            if isinstance(claim, dict):
+                entity = str(claim.get("entity") or "").strip()
+                extra = " ".join(
+                    str(claim.get(name) or "").strip()
+                    for name in ("version", "date", "metric"))
+            else:
+                entity = str(getattr(claim, "entity", "") or "").strip()
+                extra = " ".join(
+                    str(getattr(claim, name, "") or "").strip()
+                    for name in ("version", "date", "metric"))
+            text = " ".join(part for part in (entity, extra) if part)
+            if not text:
+                continue
+            clean, removed = _strip_private(text, private_terms)
+            removed_total += removed
+            clean = " ".join(clean.split())
+            if clean and clean not in entities:
+                entities.append(clean)
+        # Содержательные термины вопроса (порядок сохраняется).
+        clean_body, removed = _strip_private(source_request, private_terms)
+        removed_total += removed
+        terms: list[str] = []
+        try:
+            from services.search_aggregator import content_terms
+            candidates = content_terms(clean_body, limit=max(1, int(max_terms)))
+        except Exception:      # pragma: no cover - защитная ветка
+            candidates = [t.lower() for t in _SEARCH_TOKEN_RE.findall(clean_body)]
+        for raw in candidates:
+            word = str(raw or "").strip().lower()
+            if not word or word in _SEARCH_REQUEST_WORDS \
+                    or word in _PRIVATE_RETELL_WORDS:
+                continue
+            if len(word) < 3 and not word.isdigit():
+                continue
+            if word not in terms:
+                terms.append(word)
+        # Публичный якорь обязателен: только служебная просьба/приватный текст
+        # не образуют запрос (иначе приватная цитата ушла бы в поисковик).
+        if not entities and not terms:
+            return SearchTask(source_request=source_request,
+                              blocked_reason="privacy_blocked",
+                              removed_count=removed_total)
+        parts: list[str] = []
+        for entity in entities:
+            if entity and entity not in parts:
+                parts.append(entity)
+        head = " ".join(parts)
+        budget = max(0, SEARCH_QUERY_MAX_CHARS - len(head))
+        tail: list[str] = []
+        for term in terms:
+            probe = " ".join(tail + [term])
+            if len(probe) > budget:
+                continue
+            tail.append(term)
+            if len(tail) >= max(1, int(max_terms)):
+                break
+        query_text = (head + (" " if head and tail else "") + " ".join(tail)).strip()
+        if not query_text:
+            return SearchTask(source_request=source_request,
+                              blocked_reason="privacy_blocked",
+                              removed_count=removed_total)
+        # Финальная защита: в готовой формулировке не должно остаться маркеров.
+        verified, _ = _strip_private(query_text, private_terms)
+        if not verified.strip() or verified.strip() != query_text:
+            safe = " ".join(verified.split())
+            if not safe:
+                return SearchTask(source_request=source_request,
+                                  blocked_reason="privacy_blocked",
+                                  removed_count=removed_total)
+            query_text = safe
+        return SearchTask(query=query_text, source_request=source_request,
+                          terms=tuple(parts + tail),
+                          removed_count=removed_total)
+    except Exception:      # pragma: no cover - защитная ветка
+        return SearchTask(source_request=str(query or ""),
+                          blocked_reason="privacy_blocked")
+
+
+@dataclass(frozen=True)
+class SourceRecord:
+    """Источник внешней выдачи (payload-безопасная мета + адрес полного текста)."""
+
+    source_id: str = ""
+    tool: str = ""
+    url: str = ""
+    title: str = ""
+    published_at: str = ""
+    snippet: str = ""
+    content_ref: str = ""
+    truncated: bool = False
+    status: str = "ok"
+
+
+def _content_ref(tool: str, text: str, url: str = "") -> str:
+    """Устойчивый короткий ref полного текста источника (вне payload)."""
+    try:
+        import hashlib
+        raw = f"{tool}\x00{url}\x00{str(text or '')}"
+        return "ev:" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+    except Exception:      # pragma: no cover - защитная ветка
+        return ""
+
+
+def _search_blocks(content: str) -> list[str]:
+    """Блоки выдачи поиска (существующий формат aggregator._format_hits)."""
+    body = str(content or "").strip()
+    if not body:
+        return []
+    lines = body.splitlines()
+    if lines and lines[0].startswith("Результаты поиска"):
+        body = "\n".join(lines[1:]).strip()
+    return [b.strip() for b in re.split(r"\n\s*\n", body) if b.strip()]
+
+
+def _parse_search_sources(content: str, *, tool: str,
+                          content_sink: dict | None = None
+                          ) -> list[SourceRecord]:
+    """Разбор выдачи поиска на per-source записи (уже существующий формат).
+
+    ``SearchAggregator._format_hits`` даёт блоки ``title\\nsnippet\\nurl`` через
+    пустую строку; префикс «Результаты поиска по запросу …:» отбрасывается.
+    Даты публикации поиск не возвращает — поле остаётся пустым (не выдумываем).
+    ``content_sink`` — карта ``content_ref → полный блок`` (полные тексты живут
+    вне payload и доступны по ref). Никогда не бросает."""
+    try:
+        out: list[SourceRecord] = []
+        for idx, block in enumerate(_search_blocks(content)):
+            rows = [row.strip() for row in block.splitlines() if row.strip()]
+            if not rows:
+                continue
+            url = ""
+            if re.match(r"^(?:https?://|www\.)", rows[-1], re.IGNORECASE):
+                url = rows[-1]
+            title = rows[0] if url and len(rows) >= 2 else ""
+            snippet = " ".join(rows[1:-1] if url else rows)
+            ref = _content_ref(tool, block, url)
+            if content_sink is not None and ref:
+                content_sink[ref] = block
+            suffix = ref.split(":", 1)[-1] if ref else str(idx)
+            out.append(SourceRecord(
+                source_id=f"web:{suffix}", tool=tool, url=url,
+                title=title[:200], snippet=snippet[:600], content_ref=ref))
+        return out
+    except Exception:      # pragma: no cover - защитная ветка
+        return []
+
+
+def _contradicts(claim_text: str, blocks) -> bool:
+    """Все содержательные внешние блоки утверждают ПРОТИВОПОЛОЖНОЕ.
+
+    Детерминированно через существующий ``search_aggregator.claim_relevance``
+    (морфология направления/числа/единицы, без LLM). «Противоречие» — только
+    когда ни один блок не подтверждает тезис, но есть явные противоречащие;
+    иначе False (честный `ok`). Блоки передаются БЕЗ эха поискового запроса:
+    иначе слова вопроса («почему упал») сами делали источник «двунаправленным».
+    Никогда не бросает."""
+    body = str(claim_text or "").strip()
+    if not body:
+        return False
+    try:
+        from services.search_aggregator import (
+            EVIDENCE_ROLE_CONTRADICTS, EVIDENCE_ROLE_IRRELEVANT,
+            claim_relevance)
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+    contradictions = 0
+    for text in (blocks or ()):
+        try:
+            verdict = claim_relevance(str(text or ""), claim_text=body)
+        except Exception:      # pragma: no cover - защитная ветка
+            continue
+        role = getattr(verdict, "role", "")
+        if role == EVIDENCE_ROLE_CONTRADICTS:
+            contradictions += 1
+        elif role != EVIDENCE_ROLE_IRRELEVANT:
+            return False        # есть подтверждение/уточнение — не противоречие
+    return contradictions > 0
+
+
+@dataclass
+class ToolEvidence:
+    """Единая структура результата tool-этапа (UR-03/UR-08).
+
+    Одинакова для Direct и Initiative. ``sources`` содержит метаданные и
+    ``content_ref``; ПОЛНЫЕ тексты лежат в ``_content`` (вне payload) и
+    доступны через :meth:`full_text` / :meth:`fragment`. В L2 уходят только
+    отобранные фрагменты (evidence pack) — срез источника не выдаётся за
+    полную статью (ref в маркере обрезки).
+    """
+
+    search_intent: str = "not_applicable"
+    search_called: bool = False
+    search_status: str = SEARCH_STATUS_SKIPPED
+    search_skip_reason: str = ""
+    source_ids: tuple[str, ...] = ()
+    source_count: int = 0
+    evidence_used: bool = False
+    sources: tuple[SourceRecord, ...] = ()
+    tool_trace: tuple[dict, ...] = ()
+    knowledge_origin: str = ""
+    search_axis_source: str = ""
+    search_query: str = ""
+    search_task: str = ""
+    mode: str = EXECUTION_NONE
+    demote_reason: str = ""
+    _content: dict = field(default_factory=dict, repr=False,
+                           compare=False)
+
+    def full_text(self, content_ref: str) -> str:
+        """Полный текст источника по ref (вне payload). "" — нет такого."""
+        return str(self._content.get(str(content_ref or ""), "") or "")
+
+    def fragment(self, content_ref: str, limit: int) -> str:
+        """Отобранный фрагмент источника под бюджет (не «полная статья»)."""
+        return _boundary_cut(self.full_text(content_ref), int(limit or 0))
+
+    @property
+    def search_performed(self) -> bool:
+        """Реальный tool event поиска был (независимо от результата)."""
+        return bool(self.search_called and self.search_status not in (
+            SEARCH_STATUS_SKIPPED, SEARCH_STATUS_PRIVACY_BLOCKED))
+
+    @property
+    def required_unmet(self) -> bool:
+        """`required`, но действительного поиска не было."""
+        return (self.search_intent == "required"
+                and self.search_status not in (
+                    SEARCH_STATUS_OK, SEARCH_STATUS_EMPTY,
+                    SEARCH_STATUS_CONTRADICTORY))
+
+    @property
+    def can_claim_verified(self) -> bool:
+        """Можно ли утверждать «проверил/нашёл» (UR-08).
+
+        Только реальная полезная выдача, реально доставленная Writer'у.
+        Пусто/timeout/противоречие/privacy_blocked/skipped → False."""
+        return (self.search_status == SEARCH_STATUS_OK
+                and self.source_count > 0 and bool(self.evidence_used))
+
+    @property
+    def claim_policy(self) -> str:
+        """Машинный гейт заявления о проверке для L2/egress (UR-08)."""
+        if self.can_claim_verified:
+            return "claim_allowed"
+        if self.required_unmet:
+            return ("claim_forbidden_no_search" if not self.search_called
+                    else "claim_forbidden_no_evidence")
+        return "claim_forbidden_no_evidence"
+
+    def trace_fields(self) -> dict:
+        """R17-safe трасса хода (UR-08): только enum/числа/id-ссылки."""
+        return {
+            "search_intent": str(self.search_intent or ""),
+            "search_called": bool(self.search_called),
+            "search_status": str(self.search_status or ""),
+            "source_ids": list(self.source_ids),
+            "source_count": int(self.source_count),
+            "search_skip_reason": str(self.search_skip_reason or ""),
+            "evidence_used": bool(self.evidence_used),
+        }
+
+
+@dataclass
+class ToolPhaseResult:
+    """Выход единого tool-этапа: raw цепочка + evidence + пакет для L2."""
+
+    raw: ChainResult | None = None
+    evidence: ToolEvidence = field(default_factory=ToolEvidence)
+    pack: EvidencePack | None = None
+    mode: str = EXECUTION_NONE
+    demote_reason: str = ""
+
+
+def _merge_chain_results(first, second) -> ChainResult | None:
+    """Объединить два прогона цепочки (search-first + plan-mode) без потерь."""
+    if first is None:
+        return second
+    if second is None:
+        return first
+    try:
+        sources = list(getattr(first, "evidence_sources", []) or []) + list(
+            getattr(second, "evidence_sources", []) or [])
+        trace = list(getattr(first, "tool_trace", []) or []) + list(
+            getattr(second, "tool_trace", []) or [])
+        results = list(getattr(first, "tool_results", []) or []) + list(
+            getattr(second, "tool_results", []) or [])
+        meta = dict(getattr(first, "chain_meta", {}) or {})
+        meta.update(getattr(second, "chain_meta", {}) or {})
+        meta["steps"] = len(sources)
+        meta["ok"] = sum(1 for s in sources if str(getattr(s, "status", ""))
+                         in (tool_result.STATUS_OK, tool_result.STATUS_EMPTY))
+        meta["search_first"] = True
+        return ChainResult(
+            "", rounds_used=(int(getattr(first, "rounds_used", 0) or 0)
+                             + int(getattr(second, "rounds_used", 0) or 0)),
+            degraded=bool(getattr(first, "degraded", False)
+                          or getattr(second, "degraded", False)),
+            reason=str(getattr(second, "reason", "") or ""),
+            tool_trace=trace, tool_context="\n".join(
+                s.content for s in sources if getattr(s, "content", "")),
+            tool_results=results, evidence_sources=sources, chain_meta=meta)
+    except Exception:      # pragma: no cover - защитная ветка
+        return second or first
+
+
+def _search_status_from(raw) -> tuple[bool, str, str]:
+    """(called, status, skip_reason) из actual tool events (никогда не врёт)."""
+    sources = [s for s in (getattr(raw, "evidence_sources", []) or [])
+               if str(getattr(s, "tool", "") or "") in _EXTERNAL_TOOLS]
+    searches = [s for s in sources
+                if str(getattr(s, "tool", "") or "") == "execute_web_search"]
+    if not searches:
+        return (False, SEARCH_STATUS_SKIPPED, "")
+    statuses = [str(getattr(s, "status", "") or "") for s in searches]
+    codes = [str(getattr(s, "error_code", "") or "") for s in searches]
+    errors = [str(getattr(s, "error_type", "") or "") for s in searches]
+    if any(st == tool_result.STATUS_TIMEOUT or "timeout" in code.lower()
+           for st, code in zip(statuses, codes)):
+        return (True, SEARCH_STATUS_TIMEOUT, "search_timeout")
+    if any(code == "contradictory" for code in codes):
+        return (True, SEARCH_STATUS_CONTRADICTORY, "search_contradictory")
+    good = [s for s in searches
+            if str(getattr(s, "status", "") or "") in (tool_result.STATUS_OK,
+                                                       tool_result.STATUS_EMPTY)]
+    if not good:
+        code = (codes[0] if codes else "") or (errors[0] if errors else "")
+        blob = " ".join(codes + errors + [
+            str(getattr(s, "content", "") or "")[:200] for s in searches
+            if str(getattr(s, "status", "") or "") == tool_result.STATUS_ERROR
+        ]).lower()
+        if "empty" in blob:
+            return (True, SEARCH_STATUS_EMPTY, "search_empty")
+        return (True, SEARCH_STATUS_UNAVAILABLE, (code or "search_failed")[:64])
+    content = "\n".join(str(getattr(s, "content", "") or "") for s in good)
+    if not content.strip() or all(
+            str(getattr(s, "status", "") or "") == tool_result.STATUS_EMPTY
+            for s in good):
+        return (True, SEARCH_STATUS_EMPTY, "search_empty")
+    return (True, SEARCH_STATUS_OK, "")
+
+
+def _tool_evidence_from(raw, *, axis, search_task: SearchTask,
+                        action: str = "reply", reuse_used: bool = False,
+                        reuse_sources=()) -> ToolEvidence:
+    """Собрать :class:`ToolEvidence` из фактического прогона цепочки."""
+    meta = dict(getattr(raw, "chain_meta", None) or {})
+    evidence = ToolEvidence(
+        search_intent=str(getattr(axis, "search_intent", "") or ""),
+        knowledge_origin=str(getattr(axis, "knowledge_origin", "") or ""),
+        search_axis_source=str(getattr(axis, "source", "") or ""),
+        search_query=search_task.query, search_task=search_task.source_request,
+        mode=str(meta.get("mode", "") or EXECUTION_NONE),
+        demote_reason=str(meta.get("demote_reason", "") or ""),
+    )
+    trace = tuple(dict(item) for item in
+                  (getattr(raw, "tool_trace", []) or ()))
+    evidence.tool_trace = trace
+    if str(action or "reply").lower() in ("silent", "react"):
+        evidence.search_status = SEARCH_STATUS_SKIPPED
+        evidence.search_skip_reason = SKIP_PARTICIPATION_WITHOUT_TEXT
+        return evidence
+    if search_task.blocked and evidence.search_intent in ("required",
+                                                          "beneficial"):
+        evidence.search_status = SEARCH_STATUS_PRIVACY_BLOCKED
+        evidence.search_skip_reason = SKIP_PRIVACY
+        return evidence
+    called, status, skip_reason = _search_status_from(raw)
+    evidence.search_called = called
+    evidence.search_status = status
+    evidence.search_skip_reason = skip_reason
+    sources: list[SourceRecord] = []
+    content: dict[str, str] = {}
+    for src in (getattr(raw, "evidence_sources", []) or ()):
+        tool = str(getattr(src, "tool", "") or "")
+        if tool not in _EXTERNAL_TOOLS:
+            continue
+        status = str(getattr(src, "status", "") or "ok")
+        body = str(getattr(src, "content", "") or "")
+        if not body.strip() or status not in (tool_result.STATUS_OK,
+                                              tool_result.STATUS_EMPTY) \
+                or body.lstrip().startswith("ОШИБКА"):
+            # Неуспешный инструмент не создаёт «источник»: URL/сниппет из
+            # текста ошибки были бы выдуманным доказательством.
+            continue
+        ref = _content_ref(tool, body)
+        if tool == "execute_web_search":
+            sources.extend(_parse_search_sources(
+                body, tool=tool, content_sink=content))
+        else:
+            content[ref] = body
+            url = ""
+            try:
+                from services.smartmodule_urls import extract_urls
+                found = extract_urls(body)
+                url = found[0] if found else ""
+            except Exception:      # pragma: no cover - защитная ветка
+                url = ""
+            sources.append(SourceRecord(
+                source_id=f"src:{ref.split(':', 1)[-1]}", tool=tool, url=url,
+                title="", snippet=_boundary_cut(body, 600), content_ref=ref,
+                status=str(getattr(src, "status", "") or "ok")))
+    if evidence.search_status == SEARCH_STATUS_OK and search_task.query:
+        blocks: list[str] = []
+        for src in (getattr(raw, "evidence_sources", []) or ()):
+            if str(getattr(src, "tool", "") or "") != "execute_web_search":
+                continue
+            blocks.extend(_search_blocks(str(getattr(src, "content", "") or "")))
+        if _contradicts(search_task.query, blocks):
+            evidence.search_status = SEARCH_STATUS_CONTRADICTORY
+            evidence.search_skip_reason = "search_contradictory"
+    if evidence.search_intent == "not_applicable" and not called:
+        evidence.search_status = SEARCH_STATUS_SKIPPED
+        evidence.search_skip_reason = SKIP_INTENT_NOT_APPLICABLE
+    # Reuse: источник уже прочитан в этом ходе (fresh source_reuse) — это
+    # evidence, но НЕ новый сетевой вызов. Записи добавляем, чтобы
+    # source_count/адресуемость не теряли доставленную выдержку.
+    for src in (reuse_sources or ()):
+        tool = str(getattr(src, "tool", "") or "")
+        body = str(getattr(src, "content", "") or "")
+        if tool not in _EXTERNAL_TOOLS or not body.strip():
+            continue
+        ref = _content_ref(tool, body)
+        content[ref] = body
+        sources.append(SourceRecord(
+            source_id=f"src:{ref.split(':', 1)[-1]}", tool=tool,
+            snippet=_boundary_cut(body, 600), content_ref=ref,
+            status=str(getattr(src, "status", "") or "ok")))
+    if reuse_used and not called:
+        evidence.search_status = SEARCH_STATUS_OK
+        evidence.search_skip_reason = SKIP_REUSE
+    evidence.sources = tuple(sources)
+    evidence.source_ids = tuple(s.source_id for s in sources
+                                if s.source_id)
+    evidence.source_count = len(sources)
+    evidence._content = content
+    return evidence
+
+
+def emit_search_trace(evidence: ToolEvidence, *, chat_id=None,
+                      correlation_id=None, stage: str = "search") -> dict | None:
+    """Записать R17-safe трассу поиска в существующий MCA-контракт.
+
+    Поля UR-08 едут в разрешённый JSON-слот ``source_ref_json`` (новых полей
+    схемы и новых reason-кодов не заводим); приватные тексты не пишутся.
+    Никогда не бросает."""
+    try:
+        from services import mca_events
+        status = str(evidence.search_status or "")
+        if status == SEARCH_STATUS_OK:
+            outcome = (mca_events.OUTCOME_SUCCESS if evidence.evidence_used
+                       else mca_events.OUTCOME_SKIPPED)
+        elif status == SEARCH_STATUS_SKIPPED:
+            outcome = mca_events.OUTCOME_SKIPPED
+        else:
+            outcome = mca_events.OUTCOME_FAILED
+        return mca_events.emit_mca_event(
+            "reply_search_evidence", outcome=outcome, chat_id=chat_id,
+            trace_id=correlation_id, component="direct_chat", stage=stage,
+            source_ref_json=evidence.trace_fields())
+    except Exception:      # pragma: no cover - телеметрия не рвёт чат
+        return None
+
+
+async def _run_search_first(*, plan, router, ctx, query: str, chat_id,
+                            correlation_id, announced, search_query: str
+                            ) -> ChainResult | None:
+    """Детерминированный первый шаг: ОДИН реальный поиск до L2 (UR-06).
+
+    Использует тот же `run_simple_tools`/`derive_simple_steps` (не второй
+    executor). Неуспех — честный tool event, а не исключение."""
+    try:
+        return await run_simple_tools(
+            plan=plan, router=router, ctx=ctx, query=query, chat_id=chat_id,
+            correlation_id=correlation_id, announced=announced,
+            required_caps=(SEARCH_CAPABILITY_NAME,), search_query=search_query)
+    except asyncio.CancelledError:
+        raise
+    except Exception:      # pragma: no cover - защитная ветка
+        logger.warning("[direct-exec] search-first failed — honest status",
+                       exc_info=True)
+        return None
+
+
+async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
+                         correlation_id, tool_schemas, llm=None,
+                         required_caps=(), explicit_request=False,
+                         announced=None, addressee: str = "",
+                         reply_text: str = "", private_terms=(),
+                         capacity_chars: int | None = None,
+                         prepend_sources=(), emit_trace: bool = True
+                         ) -> ToolPhaseResult:
+    """ЕДИНЫЙ tool-этап Direct и Initiative (UR-03) + Search-first (UR-06).
+
+    Порядок:
+    1. ось `knowledge_origin`/`search_intent` (нормализована в L1Plan);
+    2. SILENT/REACT → 0 tool-вызовов (поиск ради отчётности запрещён);
+    3. публичный поисковый запрос строится из claim-сущностей/терминов;
+       невозможен → `privacy_blocked`, сеть не трогается;
+    4. `required|beneficial` → минимум один реальный `execute_web_search`
+       ДО L2 (для adaptive — дет. первый шаг, дальше обычный режим без
+       повторного поиска: не более одного поиска за ход);
+    5. evidence pack строится здесь же (полные тексты вне payload, в L2 —
+       отобранные фрагменты под capacity);
+    6. ToolEvidence отдаёт честный статус и machine-гейт «проверил/нашёл».
+
+    Второй tool-фазы/второго Router нет: всё исполняется существующими
+    `run_simple_tools`/`run_adaptive_chain`/`build_evidence_pack`.
+    CancelledError — проброс."""
+    from services import direct_l1 as _l1
+
+    plan = plan or _l1.L1Plan()
+    action = str(getattr(plan, "action", "reply") or "reply").lower()
+    axis = _l1.resolve_search_axis(plan, required_caps=required_caps,
+                                   explicit_request=explicit_request)
+    announced = (set(announced) if announced is not None else {
+        str(((schema or {}).get("function") or {}).get("name") or "")
+        for schema in (tool_schemas or [])})
+    announced.discard("")
+    result = ToolPhaseResult(evidence=ToolEvidence(
+        search_intent=axis.search_intent,
+        knowledge_origin=axis.knowledge_origin,
+        search_axis_source=axis.source))
+    if action in ("silent", "react"):
+        # Участие решено до tool-фазы: ни платного поиска, ни инструментов.
+        result.evidence.search_status = SEARCH_STATUS_SKIPPED
+        result.evidence.search_skip_reason = SKIP_PARTICIPATION_WITHOUT_TEXT
+        if emit_trace:
+            emit_search_trace(result.evidence, chat_id=chat_id,
+                              correlation_id=correlation_id)
+        return result
+    if router is None or not tool_schemas:
+        result.evidence.search_status = SEARCH_STATUS_SKIPPED
+        result.evidence.search_skip_reason = SKIP_NO_TOOLS
+        if axis.search_intent == "required":
+            # required без инструментов — честно «не выполнено», не «ок».
+            result.evidence.search_status = SEARCH_STATUS_UNAVAILABLE
+            result.evidence.search_skip_reason = SKIP_TOOL_ABSENT
+        if emit_trace:
+            emit_search_trace(result.evidence, chat_id=chat_id,
+                              correlation_id=correlation_id)
+        return result
+    # ── публичный поисковый запрос ──────────────────────────────────────────
+    search_task = SearchTask()
+    if axis.search_expected:
+        search_task = build_search_query(
+            plan, query=query, private_terms=private_terms)
+    search_query = search_task.query
+    reuse_sources = list(prepend_sources or ())
+    reuse_used = bool(reuse_sources) and not search_task.blocked
+    search_needed = (axis.search_expected and not search_task.blocked
+                     and not reuse_used
+                     and "execute_web_search" in announced)
+    if axis.search_expected and search_task.blocked:
+        # Приватный запрос: сеть не трогаем; честный статус, не фиктивный успех.
+        result.evidence.search_status = SEARCH_STATUS_PRIVACY_BLOCKED
+        result.evidence.search_skip_reason = SKIP_PRIVACY
+        result.evidence.search_query = ""
+        result.evidence.search_task = search_task.source_request
+    if axis.search_expected and not search_task.blocked \
+            and not reuse_used and "execute_web_search" not in announced:
+        result.evidence.search_status = SEARCH_STATUS_UNAVAILABLE
+        result.evidence.search_skip_reason = SKIP_TOOL_ABSENT
+    # ── исполнение ──────────────────────────────────────────────────────────
+    # Поиск ради отчётности запрещён: при `not_applicable`/privacy-блоке
+    # web_search вычищается из capabilities плана и из runtime-набора, а
+    # внутренние инструменты (история/лор/фактчек) остаются.
+    suppress_search = (axis.search_intent == "not_applicable"
+                       or search_task.blocked)
+    plan_view = plan
+    if suppress_search:
+        try:
+            from dataclasses import replace as _replace
+            caps = tuple(c for c in
+                         (tuple(getattr(plan, "capabilities_needed", ()) or ()))
+                         if str(c or "").strip().lower() != "web_search")
+            plan_view = _replace(plan, capabilities_needed=caps,
+                                 execution_mode=_l1.derive_execution_mode(caps))
+        except Exception:      # pragma: no cover - защитная ветка
+            plan_view = plan
+    exec_required = tuple(
+        c for c in (required_caps or ())
+        if not (suppress_search
+                and str(c or "").strip().lower() == "web_search"))
+    if search_needed:
+        exec_required = exec_required + (SEARCH_CAPABILITY_NAME,)
+    mode, demote_reason = resolve_execution_mode(
+        plan_view, tool_schemas, required_caps=exec_required)
+    if search_task.blocked:
+        mode, demote_reason = EXECUTION_NONE, "privacy_blocked"
+    raw = None
+    try:
+        if mode == EXECUTION_ADAPTIVE:
+            if search_needed:
+                # Search-first: реальный дет. поиск, затем adaptive по остальным
+                # (не более одного поиска за ход — второй не дублируется).
+                raw = await _run_search_first(
+                    plan=plan_view, router=router, ctx=ctx, query=query,
+                    chat_id=chat_id, correlation_id=correlation_id,
+                    announced=announced, search_query=search_query)
+                remaining = [
+                    schema for schema in (tool_schemas or ())
+                    if str(((schema or {}).get("function") or {}).get("name")
+                           or "") != "execute_web_search"]
+                second = None
+                try:
+                    second = await run_adaptive_chain(
+                        llm=llm, router=router, ctx=ctx, plan=plan_view,
+                        query=query, tool_schemas=remaining, chat_id=chat_id,
+                        correlation_id=correlation_id)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:      # поиск уже выполнен — не теряем его
+                    logger.warning(
+                        "[direct-exec] adaptive continuation failed | chat=%s",
+                        chat_id, exc_info=True)
+                raw = _merge_chain_results(raw, second)
+            else:
+                raw = await run_adaptive_chain(
+                    llm=llm, router=router, ctx=ctx, plan=plan_view,
+                    query=query, tool_schemas=tool_schemas, chat_id=chat_id,
+                    correlation_id=correlation_id)
+            if raw is None:
+                demote_reason = "orchestrator_unavailable"
+                mode = EXECUTION_SIMPLE
+        if raw is None and (mode in (EXECUTION_SIMPLE, EXECUTION_NONE)
+                            or demote_reason == "orchestrator_unavailable"):
+            raw = await run_simple_tools(
+                plan=plan_view, router=router, ctx=ctx, query=query,
+                chat_id=chat_id, correlation_id=correlation_id,
+                announced=announced, addressee=addressee,
+                reply_text=reply_text, required_caps=exec_required,
+                search_query=search_query or None)
+            if raw is not None:
+                mode = EXECUTION_SIMPLE
+    except asyncio.CancelledError:
+        raise
+    except Exception:      # паритет fail-soft прежнего tool-пути
+        logger.warning("[direct-exec] unified tool phase failed — fail-soft",
+                       exc_info=True)
+        raw = None
+    evidence = _tool_evidence_from(raw, axis=axis, search_task=search_task,
+                                   action=action, reuse_used=reuse_used,
+                                   reuse_sources=reuse_sources)
+    if search_task.blocked:
+        evidence.search_status = SEARCH_STATUS_PRIVACY_BLOCKED
+        evidence.search_skip_reason = SKIP_PRIVACY
+    pack = None
+    if raw is not None or reuse_sources:
+        pack = build_evidence_pack(
+            raw, plan, capacity_chars=capacity_chars,
+            prepend_sources=reuse_sources)
+        delivered_external = any(
+            int(getattr(src, "delivered_chars", 0) or 0) > 0
+            and str(getattr(src, "tool", "") or "") in _EXTERNAL_TOOLS
+            for src in (getattr(pack, "sources", None) or ()))
+        evidence.evidence_used = bool(
+            delivered_external
+            and evidence.search_status in (SEARCH_STATUS_OK,)
+            and evidence.source_count > 0)
+        if evidence.search_status == SEARCH_STATUS_CONTRADICTORY:
+            # Противоречие — не подтверждение: L2 видит источники, но
+            # машинный гейт заявления «проверил» закрыт + честная причина.
+            evidence.evidence_used = False
+            pack.limitations.append(
+                "источники противоречат тезису — не считать подтверждением")
+            pack.complete = False
+    if evidence.search_status == SEARCH_STATUS_CONTRADICTORY:
+        evidence.evidence_used = False
+    result.raw = raw
+    result.evidence = evidence
+    result.pack = pack
+    result.mode = mode
+    result.demote_reason = demote_reason
+    if emit_trace:
+        emit_search_trace(evidence, chat_id=chat_id,
+                          correlation_id=correlation_id)
+    return result
 
 
 # ── Evidence pack: per-source fair allocation (§18C.2) ───────────────────────
@@ -1284,8 +2155,10 @@ def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
             marker = ""
             if floor < len(piece):
                 src.truncated = True
+                ref_note = (f"; полный текст: {src.content_ref}"
+                            if src.content_ref else "")
                 marker = (f"\n[…обрезано: показано {floor}/{len(piece)} "
-                          f"симв.]")
+                          f"симв.{ref_note}]")
                 limitations.append(
                     f"{src.tool}: результат обрезан ({floor}/{len(piece)})")
             blocks.append(
@@ -1425,4 +2298,12 @@ __all__ = [
     "build_reuse_evidence_pack", "delivered_chars_by_claim",
     "build_l2_fallback_adapter", "DEFAULT_EVIDENCE_CAP_CHARS",
     "EVIDENCE_FLOOR_CHARS",
+    # UNIFIED-REPLY UR-B: единая tool-фаза + Search-first + ToolEvidence.
+    "SEARCH_STATUSES", "SEARCH_STATUS_OK", "SEARCH_STATUS_EMPTY",
+    "SEARCH_STATUS_TIMEOUT", "SEARCH_STATUS_CONTRADICTORY",
+    "SEARCH_STATUS_PRIVACY_BLOCKED", "SEARCH_STATUS_UNAVAILABLE",
+    "SEARCH_STATUS_SKIPPED", "SEARCH_CAPABILITY_NAME",
+    "SEARCH_QUERY_MAX_CHARS", "SearchTask", "SourceRecord", "ToolEvidence",
+    "ToolPhaseResult", "build_search_query", "run_tool_phase",
+    "emit_search_trace",
 ]
