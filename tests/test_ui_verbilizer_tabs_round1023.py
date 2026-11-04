@@ -102,7 +102,14 @@ class TestCatalogDelta:
             assert spec.stage == stage, key
             assert spec.progressive_level == "advanced", key
             assert spec.code_source, key
-            assert spec.hidden is False
+            if key == "prompts.direct_chat_synthesizer_system_prompt":
+                # RLR-05-ADMIN (REMOVE-LEGACY-REPHRASING §6.2): путь
+                # _synthesize_direct_answer снят, карточка deprecated_compat
+                # скрыта из редактируемого каталога (значение/история живы).
+                assert spec.hidden is True, key
+                assert spec.migration_class == "deprecated_compat", key
+            else:
+                assert spec.hidden is False, key
 
     def test_prompts_count_and_all_have_code_source(self):
         prompts = [s for s in pc.REGISTRY.values()

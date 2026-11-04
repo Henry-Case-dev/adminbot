@@ -379,8 +379,12 @@ class TestCatalogConsistency:
 
     def test_hidden_and_api_only_documented(self):
         hidden = {s.pg_key for s in pc.REGISTRY.values() if s.hidden}
+        # RLR-05-ADMIN (REMOVE-LEGACY-REPHRASING §6.2): синтезатор прямого
+        # чата — deprecated_compat, путь снят; карточка скрыта, но значение
+        # и история версий остаются читаемыми (get_by_pg_key).
         assert hidden == {"limits.factcheck_context_messages",
-                          "prompts.summary_cover_style_id"}
+                          "prompts.summary_cover_style_id",
+                          "prompts.direct_chat_synthesizer_system_prompt"}
         api_only = {s.pg_key for s in pc.REGISTRY.values()
                     if s.category is None}
         assert len(api_only) == 25
