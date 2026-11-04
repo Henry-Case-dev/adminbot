@@ -292,43 +292,46 @@ class TestFactcheckRuntimeHotGet:
 
 
 class TestDirectRuntimeHotGet:
-    @staticmethod
-    def _svc(side_effect):
-        from services.direct_chat_service import DirectChatService
-        svc = DirectChatService.__new__(DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=side_effect)
-        return svc
-
-    @staticmethod
-    def _raw():
-        from services.tool_loop import ToolLoopResult
-        return ToolLoopResult(
-            "финал", rounds_used=1,
-            tool_trace=[{"round": 1, "tool": "execute_web_search", "ok": True,
-                         "out_chars": 5}],
-            tool_context="логи")
-
     @pytest.mark.asyncio
-    async def test_stage_prompts_from_cache(self):
+    async def test_stage_prompts_from_cache(self, monkeypatch):
+        """PG-значение доезжает до ФАКТИЧЕСКИХ авторов хода.
+
+        RLR-02-LEGACY: здесь раньше проверялась пара «Синтезатор →
+        Вербализатор» (`_synthesize_direct_answer`). Второй автор текста
+        удалён физически, поэтому контракт «правка промпта из UI работает без
+        рестарта» закреплён на выживших стадиях: L1-планировщик
+        (`prompts.direct_l1_planner_system_prompt`) и единственный Writer хода
+        (`prompts.direct_chat_verbalizer_system_prompt`).
+        """
+        from tests.test_soul1_composer_parity_off import (
+            StubLLM, StubMessage, build_service)
         from services import prompt_factory as pf
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "false")
         cache = _FakeCache({
-            "prompts.direct_chat_synthesizer_system_prompt": "SYNTH_FROM_PG",
+            "prompts.direct_l1_planner_system_prompt": "PLANNER_FROM_PG",
         })
         hot.set_config_cache(cache)
-        # SOUL-1 (W1 fix-pass, review-w1 BLOCKER-1): канон «Вербализатора»
-        # действует как значение, записанное через API реестра.
-        await pf.write_speech_value("direct.base.l2_writer", "VERB_FROM_PG",
+        # SOUL-1 (W1 fix-pass, review-w1 BLOCKER-1): значение канона пишется
+        # через API реестра — иначе persisted-значение удерживается
+        # (provenance_missing) и действует заводская редакция.
+        await pf.write_speech_value("direct.base.l2_writer", "WRITER_FROM_PG",
                                     cache=cache)
-        svc = self._svc([_direct_json(), "ответ"])
-        text, mode = await svc._synthesize_direct_answer(
-            -100, "q", self._raw(), None)
-        assert (text, mode) == ("ответ", "casual")
-        stage1 = svc.llm.generate.await_args_list[0].args[0][0]["content"]
-        stage2 = svc.llm.generate.await_args_list[1].args[0][0]["content"]
-        assert stage1 == "SYNTH_FROM_PG"
-        assert stage2.startswith("VERB_FROM_PG")
-        assert svc.llm.generate.await_count == 2
+        Stub, D = build_service()
+        llm = StubLLM()
+        await D._plan_direct_l1(
+            Stub(llm), 12345, StubMessage(), "почему упал сервис", None,
+            bundle=None, target_name="Аня", user_id=None,
+            character_block="", lore_enabled=False, image_enabled=False,
+            force_required=False, reply_bot=False)
+        planner = [c for c in llm.captured if c["step"] == "l1_planner"]
+        assert planner, "L1-планировщик не вызвался"
+        assert planner[0]["messages"][0]["content"] == "PLANNER_FROM_PG"
+
+        await D._l2_write_answer(
+            Stub(llm), 12345, "почему упал сервис", temperature=0.7,
+            character_block="")
+        writer_system = llm.captured[-1]["messages"][0]["content"]
+        assert writer_system.startswith("WRITER_FROM_PG"), writer_system
 
 
 # ── B2. Fail-safe на пустое PG-значение (review iter1, Low) ─────────────────
@@ -378,15 +381,30 @@ class TestEmptyPgFallback:
         assert stage1 == FACTCHECK_ANALYST_SYSTEM_PROMPT
 
     @pytest.mark.asyncio
-    async def test_direct_empty_synth_falls_back(self):
-        from services.chat_prompts import DIRECT_SYNTHESIZER_SYSTEM_PROMPT
+    async def test_direct_empty_planner_falls_back(self, monkeypatch):
+        """Пустое/whitespace PG-значение → код-канон на живой стадии Direct.
+
+        RLR-02-LEGACY: прежняя пара «Синтезатор → Вербализатор» удалена,
+        инвариант §4.1 (пустота не «обнуляет» system-промпт) проверяется на
+        выжившей стадии, которая реально читает свой ключ.
+        """
+        from services.chat_prompts import DIRECT_L1_PLANNER_SYSTEM_PROMPT
+        from tests.test_soul1_composer_parity_off import (
+            StubLLM, StubMessage, build_service)
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "false")
         hot.set_config_cache(_FakeCache({
-            "prompts.direct_chat_synthesizer_system_prompt": "\n "}))
-        svc = TestDirectRuntimeHotGet._svc([_direct_json(), "ответ"])
-        await svc._synthesize_direct_answer(
-            -100, "q", TestDirectRuntimeHotGet._raw(), None)
-        stage1 = svc.llm.generate.await_args_list[0].args[0][0]["content"]
-        assert stage1 == DIRECT_SYNTHESIZER_SYSTEM_PROMPT
+            "prompts.direct_l1_planner_system_prompt": "\n "}))
+        Stub, D = build_service()
+        llm = StubLLM()
+        await D._plan_direct_l1(
+            Stub(llm), 12345, StubMessage(), "q", None,
+            bundle=None, target_name="Аня", user_id=None,
+            character_block="", lore_enabled=False, image_enabled=False,
+            force_required=False, reply_bot=False)
+        planner = [c for c in llm.captured if c["step"] == "l1_planner"]
+        assert planner, "L1-планировщик не вызвался"
+        assert planner[0]["messages"][0]["content"] == \
+            DIRECT_L1_PLANNER_SYSTEM_PROMPT
 
 
 # ── C. API/UI: аддитивная отдача stage и маркеры фронта ─────────────────────

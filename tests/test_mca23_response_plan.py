@@ -497,7 +497,69 @@ def _tool_raw(text="финал tool-loop"):
 
 
 class TestPromptConflictScrubLive:
-    """PG-кастом со старым cap + longform-план → фраза вычищена из сборки."""
+    """PG-кастом со старым cap + longform-план → фраза вычищена из сборки.
+
+    RLR-02-LEGACY: контракт §11 не изменился, изменился ИСПОЛНИТЕЛЬ — теперь
+    это единственный автор хода (L2 Writer). Раньше он проверялся на удалённой
+    паре «Синтезатор → Вербализатор»; сборка финального system и владелец
+    скраба (`response_extent.scrub_for_plan`) те же, поэтому живое покрытие
+    перенесено без ослабления: точный счётчик удалённых cap-фраз, extent-блок
+    в сборке и WARN со стадией `l2_writer`.
+    """
+
+    @pytest.mark.asyncio
+    async def test_pg_cap_custom_scrubbed_with_warn(self, monkeypatch, caplog):
+        from services import hot_config as hot
+        from services import prompt_factory as pf
+        from tests.test_soul1_composer_parity_off import (
+            build_service, StubLLM)
+
+        class _FakeCache:
+            pg_available = True
+
+            def __init__(self, values):
+                self.values = dict(values)
+
+            def get(self, key, default=None):
+                return self.values.get(key, default)
+
+            async def set(self, key, value, category):
+                self.values[key] = value
+
+        # Композер OFF — сборку делает владелец `compose_verbalizer_system`
+        # (тот же канал, что у легаси Stage-2; паритет байт-в-байт).
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "false")
+        pg_prompt = (PREV_CHAT_VERBALIZER_R1023
+                     + "\n\n" + TYPOGRAPHY_BLOCK)  # прод-канон 10.23 с cap
+        cache = _FakeCache({
+            "prompts.direct_chat_verbalizer_system_prompt": pg_prompt})
+        hot.set_config_cache(cache)
+        # SOUL-1 (W1 fix-pass, review-w1 BLOCKER-1): значение канона старой
+        # личности действует только как записанное через API реестра.
+        await pf.write_speech_value(
+            "direct.base.l2_writer", pg_prompt, cache=cache)
+        try:
+            plan = ResponsePlan(task_kind="creative_writing",
+                                extent="longform", structure="story",
+                                delivery_hint="plain", tool_policy="none")
+            Stub, D = build_service()
+            llm = StubLLM()
+            with caplog.at_level(logging.WARNING,
+                                 logger="services.direct_chat_service"):
+                await D._l2_write_answer(
+                    Stub(llm), 12345, "что там", temperature=0.7,
+                    character_block="", response_plan=plan)
+            system = llm.captured[-1]["messages"][0]["content"]
+            # cap-фраза вычищена из ФИНАЛЬНОЙ сборки (extent-блок жив).
+            assert "одно-два предложения" not in system
+            assert "ОЖИДАЕМАЯ ПОЛНОТА: РАЗВЁРНУТЫЙ ТЕКСТ" in system
+            assert "Форма результата: история." in system
+            assert any("extent-conflict scrub" in r.message
+                       and "stage=l2_writer" in r.message
+                       for r in caplog.records)
+        finally:
+            hot.set_config_cache(None)
+
 
 # ── §Delivery Router: rich-опция с честным fallback ──────────────────────────
 
