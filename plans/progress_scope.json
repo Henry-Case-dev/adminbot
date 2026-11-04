@@ -421,6 +421,22 @@
       "coverage_complete": true,
       "source_note": "Карта PM f21644b4: 261 обязательная строка (UR-01..UR-30 + подтребования, §11 чеклисты A-Д как UR-ACC-*, §12 запреты UR-BAN-*), 9 срезов UR-A..UR-G + подпакеты времени UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28), 3 live-строки (UR-ACC-E9/UR-30.7 postdeploy, UR-08.2 preprod). План-гейт 0 ошибок. ARCHITECT_REQUIRED до Builder на UR-A/C/C-CLOCK/C-SCHED/D/F (контракт 4359b966). Размещение: UR-B и контекстная часть UR-C стартуют сейчас параллельно CMV-D/E (свободные backend-файлы); UR-A — после освобождения direct_chat_service.py остатком RC v5; UR-F — только после мержа CMV-D+E (один писатель на web/app.js, web/index.html, web/static/app.css). Статус: UR-18 (метаданные генерации) принят и влит (3ad5036e); UR-B в работе.",
       "updated": "2026-11-05"
+    },
+    {
+      "id": "pvr-fc-corrective-01",
+      "ticket": "PVR-FC-CORRECTIVE-01",
+      "title": "Взрослый UX истории версий промптов + достоверный фактчек",
+      "status": "BLOCKED",
+      "blocked_by": [
+        "unified-reply"
+      ],
+      "queue_position": "immediately_after:unified-reply",
+      "source_path": "plans/owner_inputs/2026-11-05-pvr-fc-corrective-01.md",
+      "source_sha256": "671E6711CA9408501CAEB306AA5FEB37BB9F7C54D48C15410915567EAC8ED078",
+      "maps": [],
+      "coverage_complete": false,
+      "source_note": "Зарегистрирован как один эпик, разработку не начинать до завершения UNIFIED-REPLY. Пакеты внутри: PVR-01..06 (backend-модель состояния и единый UI истории) и FC-01..07 (качество фактчека). Конфликты с UNIFIED-REPLY: те же файлы prompt-версионирования и фактчека (prompt_release_policy, web/api/routes, web/app.js/index.html/app.css, factcheck_planner/temporal_factcheck/service/orchestrator/renderer), а также ChatClock и Search-first, которые UR вводит. Интеграция — только после UR, с его актуальным HEAD.",
+      "updated": "2026-11-05"
     }
   ],
   "owner_inputs": [
@@ -993,6 +1009,17 @@
       "reconciled_on": "2026-11-05",
       "reconciled_by": "PM",
       "reconciled_in_commit": "f21644b4"
+    },
+    {
+      "id": "OI-2026-11-05-PVR-FC-CORRECTIVE-01",
+      "source_path": "plans/owner_inputs/2026-11-05-pvr-fc-corrective-01.md",
+      "source_sha256": "671E6711CA9408501CAEB306AA5FEB37BB9F7C54D48C15410915567EAC8ED078",
+      "kind": "new_task",
+      "target_task_ids": [
+        "pvr-fc-corrective-01"
+      ],
+      "reconciled": false,
+      "note": "Один эпик из двух блоков: PVR (однозначная модель состояния версий, разделение revision и activation, идемпотентное сохранение, конкурентные правки, единый взрослый UI истории на всех редакторах, mobile) и FC (смысловая цель вместо OCR-ключей, semantic claim-evidence binding, отказ от off-topic ссылок, корректная модель вердиктов supported/refuted/mixed/insufficient, честные технические исходы, подача без монолога, provenance и безопасность). Переиспользовать существующий журнал и фактчек-пайплайн; не менять ручные промпты, историю и память. Зависимость: после UNIFIED-REPLY, интеграция с его актуальной версией (Web Search, ChatClock, L1/Tools/L2, context/capacity, prompt UX), а не с release/2.58.155."
     }
   ]
 }
