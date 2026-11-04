@@ -1,0 +1,246 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "note": "Планировочный граф PVR-FC-CORRECTIVE-01: два блока (PVR — версионирование и UI, FC — качество фактчека) за внешним барьером UNIFIED-REPLY. Слайсы отражают порядок §C2 источника, но остаются независимо приёмочными; stage-1 (оба backend) может идти параллельно, stage-2 (UI и renderer) — параллельно, stage-3 (E2E) — параллельно, финальный join — EPIC-CLOSE.",
+  "purpose": "Дать Builder независимые исполнимые срезы с одним владельцем на файл, явными join-барьерами и без пересечения писателей.",
+  "external_barriers": {
+    "UR-BARRIER": "Завершение UNIFIED-REPLY (UR-01..UR-30, включая ChatClock, Search-first, единый L1/Tools/L2 и actual payload trace). Это не работа, которую можно обойти: интеграция выполняется уже в его HEAD, общие контракты не форкаются (источник A3.5, C1.5, C1.14, C2.1)."
+  },
+  "release_order": [
+    "UR-BARRIER",
+    "PVR-BACKEND",
+    "FC-BACKEND",
+    "PVR-UI",
+    "FC-RENDER",
+    "PVR-E2E",
+    "FC-E2E",
+    "EPIC-CLOSE"
+  ],
+  "waves": {
+    "W0": [
+      "UR-BARRIER"
+    ],
+    "W1": [
+      "PVR-BACKEND",
+      "FC-BACKEND"
+    ],
+    "W2": [
+      "PVR-UI",
+      "FC-RENDER"
+    ],
+    "W3": [
+      "PVR-E2E",
+      "FC-E2E"
+    ],
+    "W4": [
+      "EPIC-CLOSE"
+    ]
+  },
+  "shared_file_note": "Единственный реально спорный файл — services/prompt_registry.py (FACTORY_REVISION_SEALS: печать sha12 заводского текста). Он закреплён за FC-BACKEND и FC-RENDER (последовательно, FC-RENDER позже), потому что только эти срезы меняют байты промптов фактчека; PVR-BACKEND использует реестр только на чтение через prompt_release_policy. web/app.js, web/index.html, web/static/app.css — один писатель (PVR-UI), внешний барьер их освобождения — завершение UR-F и CMV-D/E. web/api/routes.py — только PVR-BACKEND.",
+  "architecture": "ARCHITECT_REQUIRED до Builder для PVR-BACKEND, PVR-UI, FC-BACKEND, FC-RENDER (контракт эффективного состояния и сохранения, Visual Preservation Map, claim↔evidence↔verdict).",
+  "parallel_safety": {
+    "parallel_safe": [
+      {
+        "pair": [
+          "PVR-BACKEND",
+          "FC-BACKEND"
+        ],
+        "statement": "Наборы файлов не пересекаются: PVR — services/prompt_release_policy.py, web/api/routes.py, services/database.py, tests/test_pvr_*; FC — services/factcheck_*, services/search_aggregator.py, services/temporal_factcheck.py, services/prompt_registry.py, tests/test_fc_*. Проверено по факту дерева на HEAD 720ef838."
+      },
+      {
+        "pair": [
+          "PVR-UI",
+          "FC-RENDER"
+        ],
+        "statement": "PVR-UI пишет web/* и tests/js/pvr_*; FC-RENDER пишет services/factcheck_renderer.py, services/factcheck_prompts.py и tests/test_fc_c06_*. Пересечений нет."
+      },
+      {
+        "pair": [
+          "PVR-E2E",
+          "FC-E2E"
+        ],
+        "statement": "Разные каталоги отчётов (reports/pvr/**, reports/fc/**), разные тестовые и инструментальные файлы."
+      }
+    ],
+    "not_parallel": [
+      "PVR-BACKEND и FC-BACKEND не должны одновременно править services/prompt_registry.py: файл закреплён за FC-*, а PVR работает с ним read-only. Если PVR-06 выявит необходимость правки печати — правку выполняет владелец файла, отдельным актом.",
+      "PVR-UI и FC-RENDER делят только время, а не файлы, но оба зависят от Architect-решений; старт до заморозки контрактов запрещён.",
+      "PVR-BACKEND и PVR-UI на web/api/routes.py/UI не пишут одновременно: PVR-UI зависит от PVR-BACKEND."
+    ]
+  },
+  "slices": [
+    {
+      "id": "UR-BARRIER",
+      "title": "Внешний барьер: завершение UNIFIED-REPLY (L1/Tools/L2, Search-first, ChatClock, context/capacity, prompt UX)",
+      "wave": "W0",
+      "external": true,
+      "depends_on": [],
+      "write_scope": [],
+      "acceptance": "UNIFIED-REPLY завершён и принят: единый L1/Tools/L2, Search-first, ChatClock, context/capacity и actual payload trace доступны в актуальном HEAD; срезов PVR-FC не стартуют до этого состояния, а интеграция идёт в его HEAD без форка контрактов.",
+      "can_parallel_with": [],
+      "join_barrier": "единственный вход для PVR-BACKEND и FC-BACKEND",
+      "risk": "R0",
+      "next_role": "Orchestrator (ожидание завершения unified-reply)",
+      "why_one_slice": "Это не работа эпика, а внешнее условие: оформлено отдельным узлом, чтобы зависимость была машинно проверяемой, а не оговоркой в прозе."
+    },
+    {
+      "id": "PVR-BACKEND",
+      "title": "Backend истории версий: эффективное состояние, revision vs activation, атомарное идемпотентное сохранение, конкурентность, полнота и RBAC",
+      "wave": "W1",
+      "depends_on": [
+        "UR-BARRIER"
+      ],
+      "write_scope": [
+        "services/prompt_release_policy.py",
+        "web/api/routes.py",
+        "services/database.py",
+        "tests/test_pvr_c01_state_model.py",
+        "tests/test_pvr_c01_effective_resolver.py",
+        "tests/test_pvr_c02_revision_vs_activation.py",
+        "tests/test_pvr_c03_atomic_save_concurrency.py",
+        "tests/test_pvr_c05_history_pagination_rbac.py"
+      ],
+      "acceptance": "API состояния отдаёт полный набор полей PVR-01 (включая отдельные journal_* и baseline/factory) и вычисляет effective_* тем же resolver'ом, что и LLM-payload; на одной паре block_id/scope/chat_id не более одной «действует», при drift — ни одной; основная лента — только редакции, события вторичны; Save атомарен и идемпотентен по operation ID, конкурентная запись даёт 409 без потери черновика; 1000+ редакций проходятся курсором без полных тел; чужой X-Chat-Id не читает промпт.",
+      "can_parallel_with": [
+        "FC-BACKEND"
+      ],
+      "join_barrier": "до PVR-UI (контракт состояния) и до PVR-E2E",
+      "risk": "R3",
+      "next_role": "Architect (контракт состояния и сохранения) -> Builder",
+      "why_one_slice": "Один связный результат — однозначная правда о действующей редакции и безопасное сохранение; разделение дало бы две конкурирующие модели статуса."
+    },
+    {
+      "id": "FC-BACKEND",
+      "title": "Фактчек: смысловые тезисы, семантический поиск, claim-aware evidence, классификация источника, модель вердиктов и технические исходы",
+      "wave": "W1",
+      "depends_on": [
+        "UR-BARRIER"
+      ],
+      "write_scope": [
+        "services/factcheck_planner.py",
+        "services/factcheck_service.py",
+        "services/factcheck_orchestrator.py",
+        "services/temporal_factcheck.py",
+        "services/search_aggregator.py",
+        "services/safe_fetch.py",
+        "services/prompt_registry.py",
+        "tests/test_fc_c01_semantic_target.py",
+        "tests/test_fc_c03_claim_binding.py",
+        "tests/test_fc_c04_verdict_model.py",
+        "tests/test_fc_c05_error_outcomes.py",
+        "tests/test_fc_c07_provenance.py"
+      ],
+      "acceptance": "Тезисы извлекаются из смысла публикации, служебные данные OCR не становятся запросом; кандидат проходит claim-aware проверку relation/strength и off-topic не попадает в evidence; source_kind не повышается за факт fetch; validator может понизить вывод, агрегатор не возвращает ошибочный статус после сверки evidence↔claim, positive/mixed без direct supporting evidence запрещён; технические исходы отличимы от refuted; кеш инвалидируется версионно только в затронутых путях.",
+      "can_parallel_with": [
+        "PVR-BACKEND"
+      ],
+      "join_barrier": "до FC-RENDER (контракт вердикта и evidence) и до FC-E2E",
+      "risk": "R3",
+      "next_role": "Architect (контракт claim/evidence/verdict) -> Builder",
+      "why_one_slice": "Один результат — доказательность решения по каждому тезису; тезисы, поиск и вердикт связаны одним контрактом, и раздельная их правка снова разведёт validator и aggregator."
+    },
+    {
+      "id": "PVR-UI",
+      "title": "Единая карточка и история версий: desktop-панель, mobile sheet, взрослый визуальный язык, покрытие всех промптов",
+      "wave": "W2",
+      "depends_on": [
+        "PVR-BACKEND"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "tests/js/pvr_c04_history_card_test.js",
+        "tests/ui_pvr_c04_history_e2e.py"
+      ],
+      "acceptance": "Одна карточка с заголовком, компактной строкой области/сохранения, единственной primary-кнопкой и вторичным пунктом «История»; в панели 420-540 px один блок «Сейчас действует», дальше хронология редакций с датой в TZ чата, источником и максимум одним статусом, selection ≠ active; на mobile fullscreen sheet с detail-screen и safe area; проверено на 360/390/768/1366/1536; карточка одна и та же во всех промптах, legacy-панели нет.",
+      "can_parallel_with": [
+        "FC-RENDER"
+      ],
+      "join_barrier": "до PVR-E2E; внешний барьер — свободные web/app.js, web/index.html, web/static/app.css",
+      "risk": "R3",
+      "next_role": "Architect (Visual Preservation Map) -> Builder",
+      "why_one_slice": "Один результат — единый читаемый интерфейс истории; резка по экранам снова породит конкурирующие представления одного состояния."
+    },
+    {
+      "id": "FC-RENDER",
+      "title": "Подача вердикта: порядок вывод→части→источники, нейтрализация технических деталей, роль источника",
+      "wave": "W2",
+      "depends_on": [
+        "FC-BACKEND"
+      ],
+      "write_scope": [
+        "services/factcheck_renderer.py",
+        "services/factcheck_prompts.py",
+        "tests/test_fc_c06_renderer.py"
+      ],
+      "acceptance": "Ответ начинается с вывода по существу и содержит 1-3 источника с объяснением роли только когда они реально есть; «Подтверждается частично» не появляется без прямого подтверждения значимой части, а частичный случай формулируется точно; OCR/JSON/ID/budget/названия инструментов не попадают в публичный текст; режимы casual/serious/deep_research дают одинаковые факты при разной полноте; off-topic URL не выводится даже в footer.",
+      "can_parallel_with": [
+        "PVR-UI"
+      ],
+      "join_barrier": "до FC-E2E",
+      "risk": "R2",
+      "next_role": "Architect (контракт подачи вердикта) -> Builder",
+      "why_one_slice": "Один результат — что именно видит пользователь; заголовок, части и список источников нельзя разносить по разным правкам, они конкурируют за один текст."
+    },
+    {
+      "id": "PVR-E2E",
+      "title": "Приёмка PVR: 12 обязательных тестов, негативные сценарии, payload-паритет и визуальные эталоны",
+      "wave": "W3",
+      "depends_on": [
+        "PVR-UI"
+      ],
+      "write_scope": [
+        "plans/features/pvr-fc-corrective-01/reports/pvr/**",
+        "tests/test_pvr_c3_acceptance_matrix.py",
+        "tools/pvr_payload_parity_probe.py"
+      ],
+      "acceptance": "Пункты C3.1-C3.12 выполнены на одном кандидате: дубли событий и сохранений не создаются, наследование и drift честны, 1000+ редакций читаются курсором, ошибки PG/RBAC/409 сохраняют черновик, визуальные эталоны пройдены, а реальный LLM-payload побайтно совпадает с показанной действующей версией.",
+      "can_parallel_with": [
+        "FC-E2E"
+      ],
+      "join_barrier": "до EPIC-CLOSE",
+      "risk": "R2",
+      "next_role": "Builder (тесты) -> Reviewer (независимо)",
+      "why_one_slice": "Один результат — доказанная приёмка всего блока PVR; разбиение по отдельным тестам дало бы параллельные вердикты на одном кандидате."
+    },
+    {
+      "id": "FC-E2E",
+      "title": "Приёмка FC: 14 обязательных тестов, матрица тем и режимов, трасса реального запроса",
+      "wave": "W3",
+      "depends_on": [
+        "FC-RENDER"
+      ],
+      "write_scope": [
+        "plans/features/pvr-fc-corrective-01/reports/fc/**",
+        "tests/test_fc_c4_acceptance_matrix.py",
+        "tools/factcheck_acceptance_probe.py"
+      ],
+      "acceptance": "Пункты C4.1-C4.14 и C5.3 выполнены на одном кандидате: четыре ячейки разложены на тезисы без OCR-пересказа, Reddit отвергнут как off-topic, комбинации unknown/refuted/supported дают правильные заголовки, breakage поиска даёт технический исход, темы и режимы вне гормонов держат качество, а трасса реального прогона показывает claim → query → candidates → opened → relation → verdict → cited.",
+      "can_parallel_with": [
+        "PVR-E2E"
+      ],
+      "join_barrier": "до EPIC-CLOSE",
+      "risk": "R2",
+      "next_role": "Builder (тесты) -> Reviewer (независимо)",
+      "why_one_slice": "Один результат — доказанная приёмка блока FC на живом прогоне; отдельные прогоны по темам не дадут согласованного вердикта по кандидату."
+    },
+    {
+      "id": "EPIC-CLOSE",
+      "title": "Финальный join: сводка конфликтов C1, критерии DONE C5, деплой и постдеплойная проверка",
+      "wave": "W4",
+      "depends_on": [
+        "PVR-E2E",
+        "FC-E2E"
+      ],
+      "write_scope": [
+        "plans/features/pvr-fc-corrective-01/reports/epic/**"
+      ],
+      "acceptance": "Все 14 конфликтов C1 закрыты наблюдением, критерии C5.1-C5.5 подтверждены на развёрнутом кандидате, запреты A3.1-A3.5 не нарушены, UNIFIED-REPLY не регрессировал; деплой и постдеплойная проверка выполнены и зафиксированы, а незакрытые строки остаются PENDING/FAILED без искусственного DONE.",
+      "can_parallel_with": [],
+      "join_barrier": "финальный барьер эпика: после приёмки обоих блоков",
+      "risk": "R2",
+      "next_role": "Reviewer (независимо) -> DevOps",
+      "why_one_slice": "Один результат — целостное подтверждение эпика на одном развёрнутом кандидате; C1/C5 пересекают оба блока и не могут приниматься внутри одного из них."
+    }
+  ]
+}
