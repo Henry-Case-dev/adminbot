@@ -1,0 +1,1194 @@
+{
+ "started_at": "2026-11-05T01:10:58",
+ "passes": 3,
+ "ms_per_sample": 1500,
+ "roots": [
+  {
+   "label": "cand",
+   "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d4502162",
+   "revision": "986c06ca9145b8d44be50bc8f042feced915b21d"
+  },
+  {
+   "label": "pcmv",
+   "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-107cf367",
+   "revision": "9e238d06271de2400ce57ffdbea680144b084e7c"
+  },
+  {
+   "label": "dbase",
+   "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-84e6da31",
+   "revision": "dfba408021bc4fc14ec0e9a87b3aa17615bbd128"
+  }
+ ],
+ "fixtures": "10,100,702",
+ "fullscreen_fixtures": "702",
+ "env": {
+  "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.7922.34 Safari/537.36",
+  "renderer": "ANGLE (Intel, Intel(R) Graphics (0x00007D67) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "cores": 24,
+  "memory": 32,
+  "dpr": 1,
+  "vw": 1536,
+  "vh": 960
+ },
+ "host": {
+  "platform": {
+   "platform": "Windows-11-10.0.26300-SP0",
+   "python": "3.12.0"
+  },
+  "render_mode": "headless-gpu",
+  "launch_args": [
+   "--enable-gpu",
+   "--enable-gpu-rasterization",
+   "--ignore-gpu-blocklist",
+   "--use-angle=d3d11"
+  ]
+ },
+ "fixture_sha256": {
+  "10": "136ba9277facc276950e205aa2f880132b79659fa9c6bed68391598b334e1efa",
+  "100": "fb096103d29e90ebf81ef2e6bc36cf79a55901d6b322a2198c5f23ac54a6a5d3",
+  "702": "6f796fca78c8f987d981458ac3789535ae3d7ef8eebd53d021f136ded1590f95"
+ },
+ "cases": {
+  "10|embedded|overview": {
+   "cand": {
+    "median": 60.2,
+    "p95": 53.5,
+    "p99": 48.8,
+    "worst": 25.3,
+    "jank": 1,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 53.8,
+      "p99": 51.8
+     },
+     {
+      "median": 58.8,
+      "p95": 34.7,
+      "p99": 32.2
+     },
+     {
+      "median": 60.2,
+      "p95": 53.5,
+      "p99": 48.8
+     }
+    ],
+    "canvas": [
+     1252,
+     418
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.0
+   },
+   "pcmv": {
+    "median": 59.9,
+    "p95": 54.3,
+    "p99": 53.2,
+    "worst": 46.7,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 54.3,
+      "p99": 53.2
+     },
+     {
+      "median": 59.9,
+      "p95": 55.2,
+      "p99": 53.8
+     },
+     {
+      "median": 59.9,
+      "p95": 54.3,
+      "p99": 52.6
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 1.0
+   },
+   "dbase": {
+    "median": 60.2,
+    "p95": 55.9,
+    "p99": 51.8,
+    "worst": 45.5,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 55.9,
+      "p99": 51.8
+     },
+     {
+      "median": 59.9,
+      "p95": 56.2,
+      "p99": 54.3
+     },
+     {
+      "median": 60.6,
+      "p95": 50.0,
+      "p99": 45.7
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.0
+   }
+  },
+  "10|embedded|working": {
+   "cand": {
+    "median": 60.2,
+    "p95": 48.1,
+    "p99": 38.2,
+    "worst": 21.0,
+    "jank": 3,
+    "per_pass": [
+     {
+      "median": 57.6,
+      "p95": 32.1,
+      "p99": 26.3
+     },
+     {
+      "median": 60.6,
+      "p95": 48.1,
+      "p99": 38.2
+     },
+     {
+      "median": 60.2,
+      "p95": 54.3,
+      "p99": 51.3
+     }
+    ],
+    "canvas": [
+     1252,
+     418
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.6
+   },
+   "pcmv": {
+    "median": 59.5,
+    "p95": 34.1,
+    "p99": 27.0,
+    "worst": 16.5,
+    "jank": 16,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 55.6,
+      "p99": 54.6
+     },
+     {
+      "median": 59.5,
+      "p95": 34.1,
+      "p99": 27.0
+     },
+     {
+      "median": 59.5,
+      "p95": 19.3,
+      "p99": 16.6
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 1.6
+   },
+   "dbase": {
+    "median": 59.9,
+    "p95": 54.6,
+    "p99": 47.2,
+    "worst": 37.0,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 59.9,
+      "p95": 54.6,
+      "p99": 47.2
+     },
+     {
+      "median": 59.9,
+      "p95": 51.0,
+      "p99": 44.8
+     },
+     {
+      "median": 60.2,
+      "p95": 54.6,
+      "p99": 53.5
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.6
+   }
+  },
+  "10|embedded|detail": {
+   "cand": {
+    "median": 59.9,
+    "p95": 52.9,
+    "p99": 48.3,
+    "worst": 32.2,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 52.9,
+      "p99": 48.3
+     },
+     {
+      "median": 59.9,
+      "p95": 53.5,
+      "p99": 49.5
+     },
+     {
+      "median": 59.5,
+      "p95": 45.2,
+      "p99": 37.5
+     }
+    ],
+    "canvas": [
+     1252,
+     418
+    ],
+    "hidden": 0,
+    "lod": 2,
+    "ratio_got": 2.6
+   },
+   "pcmv": {
+    "median": 60.2,
+    "p95": 53.2,
+    "p99": 51.5,
+    "worst": 45.7,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 55.2,
+      "p99": 52.4
+     },
+     {
+      "median": 60.2,
+      "p95": 52.9,
+      "p99": 46.3
+     },
+     {
+      "median": 60.2,
+      "p95": 53.2,
+      "p99": 51.5
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 4.16
+   },
+   "dbase": {
+    "median": 60.2,
+    "p95": 54.1,
+    "p99": 50.3,
+    "worst": 46.1,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 59.9,
+      "p95": 54.1,
+      "p99": 50.3
+     },
+     {
+      "median": 60.2,
+      "p95": 54.1,
+      "p99": 52.4
+     },
+     {
+      "median": 60.2,
+      "p95": 52.4,
+      "p99": 47.4
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": 2,
+    "ratio_got": 2.6
+   }
+  },
+  "100|embedded|overview": {
+   "cand": {
+    "median": 60.6,
+    "p95": 54.3,
+    "p99": 47.2,
+    "worst": 44.6,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.6,
+      "p95": 54.3,
+      "p99": 46.3
+     },
+     {
+      "median": 60.2,
+      "p95": 54.9,
+      "p99": 47.2
+     },
+     {
+      "median": 60.6,
+      "p95": 54.1,
+      "p99": 49.3
+     }
+    ],
+    "canvas": [
+     1252,
+     418
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.0
+   },
+   "pcmv": {
+    "median": 60.6,
+    "p95": 54.9,
+    "p99": 49.5,
+    "worst": 44.6,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.6,
+      "p95": 54.9,
+      "p99": 47.6
+     },
+     {
+      "median": 59.9,
+      "p95": 54.9,
+      "p99": 52.9
+     },
+     {
+      "median": 60.6,
+      "p95": 52.4,
+      "p99": 49.5
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 1.0
+   },
+   "dbase": {
+    "median": 60.2,
+    "p95": 54.1,
+    "p99": 52.4,
+    "worst": 48.1,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 53.5,
+      "p99": 52.4
+     },
+     {
+      "median": 60.2,
+      "p95": 54.1,
+      "p99": 52.9
+     },
+     {
+      "median": 59.9,
+      "p95": 55.2,
+      "p99": 49.0
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.0
+   }
+  },
+  "100|embedded|working": {
+   "cand": {
+    "median": 60.2,
+    "p95": 51.5,
+    "p99": 47.6,
+    "worst": 41.5,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 50.0,
+      "p99": 47.6
+     },
+     {
+      "median": 59.9,
+      "p95": 54.9,
+      "p99": 52.1
+     },
+     {
+      "median": 60.2,
+      "p95": 51.5,
+      "p99": 46.9
+     }
+    ],
+    "canvas": [
+     1252,
+     418
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.6
+   },
+   "pcmv": {
+    "median": 60.2,
+    "p95": 53.8,
+    "p99": 49.5,
+    "worst": 44.1,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 53.5,
+      "p99": 47.2
+     },
+     {
+      "median": 60.2,
+      "p95": 53.8,
+      "p99": 49.5
+     },
+     {
+      "median": 60.6,
+      "p95": 55.2,
+      "p99": 50.8
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 1.6
+   },
+   "dbase": {
+    "median": 60.6,
+    "p95": 52.6,
+    "p99": 51.0,
+    "worst": 44.8,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 54.9,
+      "p99": 51.0
+     },
+     {
+      "median": 60.6,
+      "p95": 52.4,
+      "p99": 47.6
+     },
+     {
+      "median": 60.6,
+      "p95": 52.6,
+      "p99": 51.8
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.6
+   }
+  },
+  "100|embedded|detail": {
+   "cand": {
+    "median": 60.2,
+    "p95": 54.3,
+    "p99": 48.5,
+    "worst": 46.1,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 61.0,
+      "p95": 52.4,
+      "p99": 49.3
+     },
+     {
+      "median": 60.2,
+      "p95": 56.2,
+      "p99": 47.6
+     },
+     {
+      "median": 60.2,
+      "p95": 54.3,
+      "p99": 48.5
+     }
+    ],
+    "canvas": [
+     1252,
+     418
+    ],
+    "hidden": 0,
+    "lod": 2,
+    "ratio_got": 2.6
+   },
+   "pcmv": {
+    "median": 60.2,
+    "p95": 52.4,
+    "p99": 46.9,
+    "worst": 42.4,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 52.4,
+      "p99": 46.9
+     },
+     {
+      "median": 60.2,
+      "p95": 51.3,
+      "p99": 46.7
+     },
+     {
+      "median": 60.6,
+      "p95": 54.3,
+      "p99": 48.8
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 4.16
+   },
+   "dbase": {
+    "median": 60.2,
+    "p95": 52.6,
+    "p99": 50.0,
+    "worst": 45.7,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 52.6,
+      "p99": 46.9
+     },
+     {
+      "median": 60.2,
+      "p95": 53.2,
+      "p99": 51.8
+     },
+     {
+      "median": 59.9,
+      "p95": 52.6,
+      "p99": 50.0
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": 2,
+    "ratio_got": 2.6
+   }
+  },
+  "702|embedded|overview": {
+   "cand": {
+    "median": 60.2,
+    "p95": 55.6,
+    "p99": 54.1,
+    "worst": 52.1,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 57.1,
+      "p99": 56.5
+     },
+     {
+      "median": 60.6,
+      "p95": 55.2,
+      "p99": 54.1
+     },
+     {
+      "median": 60.2,
+      "p95": 55.6,
+      "p99": 53.8
+     }
+    ],
+    "canvas": [
+     1252,
+     418
+    ],
+    "hidden": 695,
+    "lod": 0,
+    "ratio_got": 1.0
+   },
+   "pcmv": {
+    "median": 60.2,
+    "p95": 49.3,
+    "p99": 44.1,
+    "worst": 38.6,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 47.8,
+      "p99": 45.5
+     },
+     {
+      "median": 56.5,
+      "p95": 49.3,
+      "p99": 44.1
+     },
+     {
+      "median": 60.6,
+      "p95": 52.4,
+      "p99": 43.5
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 1.0
+   },
+   "dbase": {
+    "median": 60.2,
+    "p95": 55.6,
+    "p99": 54.6,
+    "worst": 52.4,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 56.2,
+      "p99": 55.9
+     },
+     {
+      "median": 60.2,
+      "p95": 55.2,
+      "p99": 53.2
+     },
+     {
+      "median": 60.2,
+      "p95": 55.6,
+      "p99": 54.6
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 698,
+    "lod": 0,
+    "ratio_got": 1.0
+   }
+  },
+  "702|embedded|working": {
+   "cand": {
+    "median": 58.8,
+    "p95": 43.1,
+    "p99": 40.7,
+    "worst": 38.0,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 58.8,
+      "p95": 43.1,
+      "p99": 40.7
+     },
+     {
+      "median": 59.9,
+      "p95": 45.0,
+      "p99": 41.5
+     },
+     {
+      "median": 57.8,
+      "p95": 42.2,
+      "p99": 40.2
+     }
+    ],
+    "canvas": [
+     1252,
+     418
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.6
+   },
+   "pcmv": {
+    "median": 60.2,
+    "p95": 52.1,
+    "p99": 45.9,
+    "worst": 43.1,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 59.9,
+      "p95": 51.0,
+      "p99": 43.9
+     },
+     {
+      "median": 60.2,
+      "p95": 53.2,
+      "p99": 45.9
+     },
+     {
+      "median": 60.2,
+      "p95": 52.1,
+      "p99": 47.4
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 1.6
+   },
+   "dbase": {
+    "median": 54.1,
+    "p95": 42.0,
+    "p99": 38.8,
+    "worst": 31.0,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 54.1,
+      "p95": 42.0,
+      "p99": 38.8
+     },
+     {
+      "median": 57.5,
+      "p95": 44.8,
+      "p99": 41.0
+     },
+     {
+      "median": 51.4,
+      "p95": 39.8,
+      "p99": 38.5
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.6
+   }
+  },
+  "702|embedded|detail": {
+   "cand": {
+    "median": 60.6,
+    "p95": 50.8,
+    "p99": 42.7,
+    "worst": 41.7,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.8,
+      "p95": 44.1,
+      "p99": 42.7
+     },
+     {
+      "median": 60.2,
+      "p95": 51.3,
+      "p99": 42.6
+     },
+     {
+      "median": 60.6,
+      "p95": 50.8,
+      "p99": 44.6
+     }
+    ],
+    "canvas": [
+     1252,
+     418
+    ],
+    "hidden": 0,
+    "lod": 2,
+    "ratio_got": 2.6
+   },
+   "pcmv": {
+    "median": 60.6,
+    "p95": 52.1,
+    "p99": 43.7,
+    "worst": 42.9,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 61.0,
+      "p95": 52.1,
+      "p99": 43.7
+     },
+     {
+      "median": 60.6,
+      "p95": 48.3,
+      "p99": 43.7
+     },
+     {
+      "median": 60.6,
+      "p95": 54.3,
+      "p99": 47.8
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 4.16
+   },
+   "dbase": {
+    "median": 60.1,
+    "p95": 47.8,
+    "p99": 41.7,
+    "worst": 38.6,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 59.9,
+      "p95": 51.5,
+      "p99": 43.5
+     },
+     {
+      "median": 60.6,
+      "p95": 47.8,
+      "p99": 40.5
+     },
+     {
+      "median": 60.1,
+      "p95": 43.9,
+      "p99": 41.7
+     }
+    ],
+    "canvas": [
+     1252,
+     318
+    ],
+    "hidden": 0,
+    "lod": 2,
+    "ratio_got": 2.6
+   }
+  },
+  "702|fullscreen|overview": {
+   "cand": {
+    "median": 60.2,
+    "p95": 55.6,
+    "p99": 54.1,
+    "worst": 50.5,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 55.2,
+      "p99": 52.1
+     },
+     {
+      "median": 59.9,
+      "p95": 55.9,
+      "p99": 54.6
+     },
+     {
+      "median": 60.2,
+      "p95": 55.6,
+      "p99": 54.1
+     }
+    ],
+    "canvas": [
+     1510,
+     822
+    ],
+    "hidden": 697,
+    "lod": 0,
+    "ratio_got": 1.0
+   },
+   "pcmv": {
+    "median": 58.1,
+    "p95": 46.3,
+    "p99": 40.8,
+    "worst": 30.1,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 59.2,
+      "p95": 46.5,
+      "p99": 32.3
+     },
+     {
+      "median": 57.8,
+      "p95": 45.2,
+      "p99": 40.8
+     },
+     {
+      "median": 58.1,
+      "p95": 46.3,
+      "p99": 41.5
+     }
+    ],
+    "canvas": [
+     1510,
+     794
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 1.0
+   },
+   "dbase": {
+    "median": 60.2,
+    "p95": 55.9,
+    "p99": 54.6,
+    "worst": 51.5,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 55.2,
+      "p99": 52.6
+     },
+     {
+      "median": 60.2,
+      "p95": 55.9,
+      "p99": 54.6
+     },
+     {
+      "median": 60.2,
+      "p95": 55.9,
+      "p99": 54.6
+     }
+    ],
+    "canvas": [
+     1510,
+     794
+    ],
+    "hidden": 697,
+    "lod": 0,
+    "ratio_got": 1.0
+   }
+  },
+  "702|fullscreen|working": {
+   "cand": {
+    "median": 59.9,
+    "p95": 52.1,
+    "p99": 42.4,
+    "worst": 36.5,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.6,
+      "p95": 49.0,
+      "p99": 42.4
+     },
+     {
+      "median": 59.9,
+      "p95": 52.6,
+      "p99": 42.0
+     },
+     {
+      "median": 59.5,
+      "p95": 52.1,
+      "p99": 45.5
+     }
+    ],
+    "canvas": [
+     1510,
+     822
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.6
+   },
+   "pcmv": {
+    "median": 59.9,
+    "p95": 45.5,
+    "p99": 42.2,
+    "worst": 38.6,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 44.2,
+      "p99": 42.2
+     },
+     {
+      "median": 52.9,
+      "p95": 45.5,
+      "p99": 41.8
+     },
+     {
+      "median": 59.9,
+      "p95": 51.3,
+      "p99": 47.8
+     }
+    ],
+    "canvas": [
+     1510,
+     794
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 1.6
+   },
+   "dbase": {
+    "median": 60.2,
+    "p95": 49.3,
+    "p99": 42.2,
+    "worst": 35.1,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 49.3,
+      "p99": 45.9
+     },
+     {
+      "median": 60.2,
+      "p95": 43.1,
+      "p99": 40.0
+     },
+     {
+      "median": 60.6,
+      "p95": 51.0,
+      "p99": 42.2
+     }
+    ],
+    "canvas": [
+     1510,
+     794
+    ],
+    "hidden": 0,
+    "lod": 1,
+    "ratio_got": 1.6
+   }
+  },
+  "702|fullscreen|detail": {
+   "cand": {
+    "median": 60.6,
+    "p95": 48.3,
+    "p99": 41.7,
+    "worst": 33.8,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 48.3,
+      "p99": 42.2
+     },
+     {
+      "median": 61.0,
+      "p95": 50.8,
+      "p99": 41.7
+     },
+     {
+      "median": 60.6,
+      "p95": 45.9,
+      "p99": 40.7
+     }
+    ],
+    "canvas": [
+     1510,
+     822
+    ],
+    "hidden": 0,
+    "lod": 2,
+    "ratio_got": 2.6
+   },
+   "pcmv": {
+    "median": 60.2,
+    "p95": 51.8,
+    "p99": 45.5,
+    "worst": 44.4,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 60.2,
+      "p95": 51.8,
+      "p99": 45.0
+     },
+     {
+      "median": 60.2,
+      "p95": 51.8,
+      "p99": 45.5
+     },
+     {
+      "median": 60.2,
+      "p95": 54.9,
+      "p99": 47.8
+     }
+    ],
+    "canvas": [
+     1510,
+     794
+    ],
+    "hidden": 0,
+    "lod": null,
+    "ratio_got": 4.16
+   },
+   "dbase": {
+    "median": 59.9,
+    "p95": 49.3,
+    "p99": 42.2,
+    "worst": 30.5,
+    "jank": 0,
+    "per_pass": [
+     {
+      "median": 61.0,
+      "p95": 49.3,
+      "p99": 46.5
+     },
+     {
+      "median": 58.1,
+      "p95": 39.2,
+      "p99": 37.7
+     },
+     {
+      "median": 59.9,
+      "p95": 50.8,
+      "p99": 42.2
+     }
+    ],
+    "canvas": [
+     1510,
+     794
+    ],
+    "hidden": 0,
+    "lod": 2,
+    "ratio_got": 2.6
+   }
+  }
+ },
+ "per_run_dir": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\temp\\intelligence\\adminbot-ccef72c25768\\tmp\\cmv-e-fps-ogzig8zw"
+}
