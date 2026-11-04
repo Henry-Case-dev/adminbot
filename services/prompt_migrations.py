@@ -74,6 +74,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_EVR0,    PREV_CHAT_VERBALIZER_PA5W2,
     PREV_DIRECT_L1_PLANNER_EVR1,
     PREV_DIRECT_L1_PLANNER_EVR2,
+    PREV_DIRECT_L1_PLANNER_EVR3,
     PREV_CHAT_W2_SYSTEM_PROMPT,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
@@ -266,6 +267,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # ace6246bd360 (deploy-миграция 07:26) — на рестарте уедет на новый
     # канон этой ступенью.
     "prompts.direct_l1_planner_system_prompt": [
+        # UNIFIED-REPLY UR-06/UR-03 (05.11.2026, §4 owner_inputs): байты
+        # ревизии EVR3 (правило статуса профиля решений) ведут на ревизию
+        # EVR4 — поля оси поиска `knowledge_origin`/`search_intent` в схеме
+        # L1 и абзац их контракта. Только точное совпадение байт; кастом
+        # владельца ступень не трогает.
+        (PREV_DIRECT_L1_PLANNER_EVR3, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         # ASAP-FC-VOICE-01 / B (02.11.2026, §5 owner_inputs): байты прода
         # 2.58.148 (ревизия EVR2) ведут на ревизию EVR3 — правило статуса
         # секции `[ПРОФИЛЬ РЕШЕНИЙ]` (характер как данные решения: не меняет
@@ -579,9 +586,12 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # в правиле 4 — на активные байты ред.5 (PREV_..._PA5W2 = канон W1);
     # стек прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
-        # ступень 0 (ASAP-FC-VOICE-01 / B): активный канон EVR3 → прод-байты
-        # 2.58.148 (PREV_..._EVR2 = EVR2 без правила профиля решений)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR2),
+        # ступень 0 (UNIFIED-REPLY UR-06/UR-03): активный канон EVR4 → байты
+        # EVR3 (правило статуса профиля решений, без полей оси поиска)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR3),
+        # ступень 1 (ASAP-FC-VOICE-01 / B): байты EVR3 → прод-байты 2.58.148
+        # (PREV_..._EVR2 = EVR2 без правила профиля решений)
+        (PREV_DIRECT_L1_PLANNER_EVR3, PREV_DIRECT_L1_PLANNER_EVR2),
         # ступень 0 (EVOL W17): активный канон EVR2 → прод-байты 2.58.147
         # (PREV_..._EVR1 = EVR1 с external_claims + recheck)
         (PREV_DIRECT_L1_PLANNER_EVR2, PREV_DIRECT_L1_PLANNER_EVR1),

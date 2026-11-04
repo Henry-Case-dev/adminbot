@@ -2210,13 +2210,17 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     block = "direct.base.l1_planner"
     label, seal = pr.FACTORY_REVISION_SEALS[block]
     assert pr.FACTORY_REVISION_LABELS[block] == label
-    assert "l1-planner-decision-profile" in label
+    # Метка ревизии EVR4 (UR-06/UR-03): ось поиска в схеме L1.
+    assert label == "l1-planner-search-axis"
     assert pr.sha12(pr.factory_text(block)) == seal
     assert pr.seal_integrity() == {}
+    assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR2) == "09f3d533d173"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR0) == "14743d288ea3"
     steps = pm.PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"]
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR3,
+            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) in steps
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR2,
             cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) in steps
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR1,
@@ -2224,6 +2228,8 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     rollback = pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"]
     assert (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+            cp.PREV_DIRECT_L1_PLANNER_EVR3) in rollback
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR3,
             cp.PREV_DIRECT_L1_PLANNER_EVR2) in rollback
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR2,
             cp.PREV_DIRECT_L1_PLANNER_EVR1) in rollback

@@ -602,12 +602,18 @@ def test_canon_revision_keeps_deployed_bytes_as_rollback_target():
     deployed_sha12 = hashlib.sha256(
         cp.PREV_DIRECT_L1_PLANNER_EVR2.encode("utf-8")).hexdigest()[:12]
     assert deployed_sha12 == "09f3d533d173"
-    assert CANON.startswith(cp.PREV_DIRECT_L1_PLANNER_EVR2)
-    # правило добавлено ОДНОЙ секцией, а не переписыванием канона
-    assert len(CANON) > len(cp.PREV_DIRECT_L1_PLANNER_EVR2)
-    assert CANON.replace(
-        CANON[len(cp.PREV_DIRECT_L1_PLANNER_EVR2):], "") == \
-        cp.PREV_DIRECT_L1_PLANNER_EVR2
+    # UNIFIED-REPLY UR-06/UR-03: правило профиля решений — по-прежнему одна
+    # секция поверх байтов EVR2; ось поиска добавлена ПОСЛЕ неё (EVR4), и она
+    # трогает ещё и схему JSON. Поэтому дельта проверяется снятием РОВНО
+    # добавленного: секция оси + две строки схемы → должны остаться байты EVR3.
+    assert cp._DIRECT_L1_DECISION_PROFILE_EVR3 in CANON
+    assert cp._DIRECT_L1_SEARCH_AXIS_EVR4 in CANON
+    assert len(CANON) > len(cp.PREV_DIRECT_L1_PLANNER_EVR3)
+    assert CANON.replace(cp._DIRECT_L1_SEARCH_AXIS_EVR4, "").replace(
+        ' "recheck": false,\n'
+        ' "knowledge_origin": "",\n'
+        ' "search_intent": ""}',
+        ' "recheck": false}', 1) == cp.PREV_DIRECT_L1_PLANNER_EVR3
 
 
 def test_migration_and_rollback_only_match_exact_deployed_bytes():
@@ -615,13 +621,16 @@ def test_migration_and_rollback_only_match_exact_deployed_bytes():
         (old, new) for old, new in
         pm.PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"])
     assert forward[cp.PREV_DIRECT_L1_PLANNER_EVR2] == CANON
+    assert forward[cp.PREV_DIRECT_L1_PLANNER_EVR3] == CANON
     rollback = dict(
         pm.ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"])
-    assert rollback[CANON] == cp.PREV_DIRECT_L1_PLANNER_EVR2
+    assert rollback[CANON] == cp.PREV_DIRECT_L1_PLANNER_EVR3
+    assert rollback[cp.PREV_DIRECT_L1_PLANNER_EVR3] == \
+        cp.PREV_DIRECT_L1_PLANNER_EVR2
     # печать и метка заводской ревизии согласованы с активными байтами
     assert pr.seal_integrity() == {}
     label, sealed = pr.FACTORY_REVISION_SEALS["direct.base.l1_planner"]
-    assert label == "l1-planner-decision-profile"
+    assert label == "l1-planner-search-axis"
     assert sealed == pr.sha12(CANON)
     assert pr.sealed_factory_revision("direct.base.l1_planner").endswith(
         pr.sha12(label))

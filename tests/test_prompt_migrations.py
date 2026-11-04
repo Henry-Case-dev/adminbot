@@ -58,6 +58,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_EVR0,
     PREV_DIRECT_L1_PLANNER_EVR1,
     PREV_DIRECT_L1_PLANNER_EVR2,
+    PREV_DIRECT_L1_PLANNER_EVR3,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -333,7 +334,10 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # ASAP-FC-VOICE-01 / B (02.11.2026): первый откат снимает ТОЛЬКО правило
     # статуса секции [ПРОФИЛЬ РЕШЕНИЙ] → байты прода 2.58.148
     # (PREV_DIRECT_L1_PLANNER_EVR2); стек ступеней цел.
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_EVR2,
+    # UNIFIED-REPLY UR-06/UR-03 (05.11.2026): первый откат снимает ТОЛЬКО ось
+    # поиска (knowledge_origin/search_intent) → байты EVR3
+    # (PREV_DIRECT_L1_PLANNER_EVR3, ef61a9dd6798); стек ступеней цел.
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_EVR3,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     # ASAP-FC-VOICE-01 / A (02.11.2026): первый откат снимает ТОЛЬКО новый
     # канон голоса → байты прода 2.58.148 (PREV_FACTCHECK_VERBALIZER_VOICE01).
@@ -949,10 +953,13 @@ class TestMca23Migration:
         # EVOL v5 §12.2 (04.11.2026): L2-канон получил секцию «ВОЗРАЖЕНИЕ И
         # СВОЙ ПРЕДЫДУЩИЙ ОТВЕТ» → 44736968bc76; байты L1 не менялись,
         # целевые байты отката прежние (журнал ревизий, не лестница).
+        # UNIFIED-REPLY UR-06/UR-03 (05.11.2026): L1-планер — ревизия EVR4
+        # (8d172f40241d, поля оси поиска knowledge_origin/search_intent);
+        # L2-канон не менялся.
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("ef61a9dd6798", "44736968bc76")
+            ("8d172f40241d", "44736968bc76")
 
         # лестница снята: любые вызовы — отказ без записи
         assert await rollback_prompt_canons(cache) == {}
