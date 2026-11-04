@@ -1,5 +1,5 @@
 {
- "label": "candB",
+ "label": "base",
  "revision": null,
  "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\cmv-perf-2c5e1c77472b-3391b92c",
  "ms": 2000,
@@ -37,7 +37,7 @@
   "--ignore-gpu-blocklist",
   "--use-angle=d3d11"
  ],
- "started_at": "2026-11-05T03:41:03",
+ "started_at": "2026-11-05T03:11:07",
  "cases": [
   {
    "fixture": 702,
@@ -45,7 +45,7 @@
    "state": "overview",
    "ratio_want": 1.0,
    "ratio_got": 1.0,
-   "fit": 0.10309,
+   "fit": 0.12451,
    "canvas": [
     1252,
     418
@@ -57,51 +57,51 @@
    "rows": 702,
    "edges": 2400,
    "trimmed": false,
-   "hidden": 695,
+   "hidden": 696,
    "lod": 0,
-   "labels": 7,
+   "labels": 6,
    "stats": {
     "frames": 121,
-    "median": 60.2,
-    "p95": 55.6,
-    "p99": 53.8,
-    "worst": 53.8,
-    "p50ms": 16.6,
-    "p95ms": 18,
-    "p99ms": 18.6,
+    "median": 59.9,
+    "p95": 54.9,
+    "p99": 54.1,
+    "worst": 52.6,
+    "p50ms": 16.7,
+    "p95ms": 18.2,
+    "p99ms": 18.5,
     "jank": 0,
-    "paintedFps": 59.5,
+    "paintedFps": 59.8,
     "moves": 121,
-    "drift": 323.7
+    "drift": 319.9
    },
    "runs": [
     {
      "frames": 121,
-     "median": 60.2,
-     "p95": 55.6,
-     "p99": 53.8,
-     "worst": 53.8,
-     "p50ms": 16.6,
-     "p95ms": 18,
-     "p99ms": 18.6,
+     "median": 59.9,
+     "p95": 54.9,
+     "p99": 54.1,
+     "worst": 52.6,
+     "p50ms": 16.7,
+     "p95ms": 18.2,
+     "p99ms": 18.5,
      "jank": 0,
-     "paintedFps": 59.5,
+     "paintedFps": 59.8,
      "moves": 121,
-     "drift": 323.7
+     "drift": 319.9
     },
     {
      "frames": 121,
-     "median": 59.5,
+     "median": 59.9,
      "p95": 55.9,
      "p99": 54.3,
-     "worst": 53.8,
-     "p50ms": 16.8,
+     "worst": 52.9,
+     "p50ms": 16.7,
      "p95ms": 17.9,
      "p99ms": 18.4,
      "jank": 0,
      "paintedFps": 60.1,
      "moves": 121,
-     "drift": 323.0
+     "drift": 322.6
     }
    ]
   },
@@ -111,7 +111,7 @@
    "state": "working",
    "ratio_want": 1.6,
    "ratio_got": 1.6,
-   "fit": 0.10309,
+   "fit": 0.12451,
    "canvas": [
     1252,
     418
@@ -127,47 +127,85 @@
    "lod": 1,
    "labels": 16,
    "stats": {
-    "frames": 107,
-    "median": 56.5,
-    "p95": 39.7,
-    "p99": 33.4,
-    "worst": 15.0,
-    "p50ms": 17.7,
-    "p95ms": 25.2,
-    "p99ms": 29.9,
-    "jank": 1,
-    "paintedFps": 52.6,
-    "moves": 107,
-    "drift": 323.5
+    "frames": 115,
+    "median": 59.5,
+    "p95": 49.3,
+    "p99": 24.7,
+    "worst": 16.4,
+    "p50ms": 16.8,
+    "p95ms": 20.3,
+    "p99ms": 40.5,
+    "jank": 2,
+    "paintedFps": 56.9,
+    "moves": 115,
+    "drift": 318.7
    },
    "runs": [
     {
-     "frames": 107,
-     "median": 56.5,
-     "p95": 39.7,
-     "p99": 33.4,
-     "worst": 15.0,
-     "p50ms": 17.7,
-     "p95ms": 25.2,
-     "p99ms": 29.9,
-     "jank": 1,
-     "paintedFps": 52.6,
-     "moves": 107,
-     "drift": 323.5
+     "frames": 115,
+     "median": 59.5,
+     "p95": 49.3,
+     "p99": 24.7,
+     "worst": 16.4,
+     "p50ms": 16.8,
+     "p95ms": 20.3,
+     "p99ms": 40.5,
+     "jank": 2,
+     "paintedFps": 56.9,
+     "moves": 115,
+     "drift": 318.7
     },
     {
-     "frames": 102,
-     "median": 54.1,
-     "p95": 40.3,
-     "p99": 38.0,
-     "worst": 36.8,
-     "p50ms": 18.5,
-     "p95ms": 24.8,
-     "p99ms": 26.3,
+     "frames": 120,
+     "median": 59.5,
+     "p95": 52.4,
+     "p99": 48.1,
+     "worst": 48.1,
+     "p50ms": 16.8,
+     "p95ms": 19.1,
+     "p99ms": 20.8,
      "jank": 0,
-     "paintedFps": 50.9,
-     "moves": 102,
-     "drift": 319.4
+     "paintedFps": 59.9,
+     "moves": 120,
+     "drift": 318.3
+    }
+   ]
+  },
+  {
+   "fixture": 702,
+   "mode": "embedded",
+   "state": "working",
+   "variant": "no-fx",
+   "stats": {
+    "frames": 121,
+    "median": 60.2,
+    "p95": 53.8,
+    "p99": 51.3,
+    "worst": 46.7,
+    "p50ms": 16.6,
+    "p95ms": 18.6,
+    "p99ms": 19.5,
+    "jank": 0,
+    "paintedFps": 59.6
+   },
+   "canvas": [
+    1252,
+    418
+   ],
+   "hidden": 0,
+   "lod": 1,
+   "runs": [
+    {
+     "frames": 121,
+     "median": 60.2,
+     "p95": 53.8,
+     "p99": 51.3,
+     "worst": 46.7,
+     "p50ms": 16.6,
+     "p95ms": 18.6,
+     "p99ms": 19.5,
+     "jank": 0,
+     "paintedFps": 59.6
     }
    ]
   },
@@ -177,7 +215,7 @@
    "state": "detail",
    "ratio_want": 2.6,
    "ratio_got": 2.6,
-   "fit": 0.10309,
+   "fit": 0.12451,
    "canvas": [
     1252,
     418
@@ -193,47 +231,47 @@
    "lod": 2,
    "labels": 26,
    "stats": {
-    "frames": 116,
-    "median": 59.2,
-    "p95": 43.7,
-    "p99": 36.8,
-    "worst": 36.6,
-    "p50ms": 16.9,
-    "p95ms": 22.9,
-    "p99ms": 27.2,
+    "frames": 121,
+    "median": 59.9,
+    "p95": 52.1,
+    "p99": 45.9,
+    "worst": 43.1,
+    "p50ms": 16.7,
+    "p95ms": 19.2,
+    "p99ms": 21.8,
     "jank": 0,
-    "paintedFps": 57.6,
-    "moves": 116,
-    "drift": 323.6
+    "paintedFps": 60.1,
+    "moves": 121,
+    "drift": 323.2
    },
    "runs": [
     {
-     "frames": 99,
-     "median": 51.5,
-     "p95": 36.1,
-     "p99": 34.1,
-     "worst": 32.1,
-     "p50ms": 19.4,
-     "p95ms": 27.7,
-     "p99ms": 29.3,
-     "jank": 0,
-     "paintedFps": 48.6,
-     "moves": 99,
-     "drift": 323.9
-    },
-    {
      "frames": 116,
      "median": 59.2,
-     "p95": 43.7,
-     "p99": 36.8,
-     "worst": 36.6,
+     "p95": 48.8,
+     "p99": 25.3,
+     "worst": 22.7,
      "p50ms": 16.9,
-     "p95ms": 22.9,
-     "p99ms": 27.2,
-     "jank": 0,
-     "paintedFps": 57.6,
+     "p95ms": 20.5,
+     "p99ms": 39.6,
+     "jank": 2,
+     "paintedFps": 58.0,
      "moves": 116,
-     "drift": 323.6
+     "drift": 317.1
+    },
+    {
+     "frames": 121,
+     "median": 59.9,
+     "p95": 52.1,
+     "p99": 45.9,
+     "worst": 43.1,
+     "p50ms": 16.7,
+     "p95ms": 19.2,
+     "p99ms": 21.8,
+     "jank": 0,
+     "paintedFps": 60.1,
+     "moves": 121,
+     "drift": 323.2
     }
    ]
   },
@@ -253,15 +291,15 @@
    "cpu_throttle": 4,
    "stats": {
     "frames": 121,
-    "median": 59.9,
+    "median": 60.2,
     "p95": 54.1,
-    "p99": 51.5,
-    "worst": 50.8,
-    "p50ms": 16.7,
+    "p99": 47.6,
+    "worst": 46.7,
+    "p50ms": 16.6,
     "p95ms": 18.5,
-    "p99ms": 19.4,
+    "p99ms": 21,
     "jank": 0,
-    "paintedFps": 59.9
+    "paintedFps": 59.8
    }
   },
   {
@@ -279,16 +317,16 @@
    "lod": 1,
    "cpu_throttle": 4,
    "stats": {
-    "frames": 58,
-    "median": 30.0,
-    "p95": 21.4,
-    "p99": 17.5,
-    "worst": 16.8,
-    "p50ms": 33.3,
-    "p95ms": 46.8,
-    "p99ms": 57.1,
-    "jank": 28,
-    "paintedFps": 28.3
+    "frames": 54,
+    "median": 28.1,
+    "p95": 20.9,
+    "p99": 19.8,
+    "worst": 14.9,
+    "p50ms": 35.55,
+    "p95ms": 47.9,
+    "p99ms": 50.6,
+    "jank": 44,
+    "paintedFps": 26.3
    }
   },
   {
@@ -306,16 +344,16 @@
    "lod": 2,
    "cpu_throttle": 4,
    "stats": {
-    "frames": 74,
-    "median": 38.0,
-    "p95": 27.0,
-    "p99": 24.5,
-    "worst": 23.6,
-    "p50ms": 26.35,
-    "p95ms": 37,
-    "p99ms": 40.8,
+    "frames": 84,
+    "median": 45.0,
+    "p95": 28.5,
+    "p99": 27.6,
+    "worst": 25.4,
+    "p50ms": 22.2,
+    "p95ms": 35.1,
+    "p99ms": 36.2,
     "jank": 10,
-    "paintedFps": 35.9
+    "paintedFps": 41.1
    }
   }
  ],
