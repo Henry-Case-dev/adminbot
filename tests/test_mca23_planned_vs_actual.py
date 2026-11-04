@@ -80,7 +80,10 @@ ROUTES_SHA256_F11 = (
     # `events`/`event_names` публикации). Новых `@router`-маршрутов нет,
     # Δ routes-инвентарь = 0. Копия канона: канон пина —
     # tests/test_round1025_f8_registry.py (L-F11S-1).
-    "cfd1a41c489665f8fc8dce6d74bc6d64b8eaac4d848b7c882dd7c7d06a470b4f")
+    # EPIC-PROMPT-VERSIONING-UX-01 (2.58.155): переутверждён вместе с
+    # каноном tests/test_round1025_f8_registry.py (L-F11S-1) —
+    # +4 аддитивных маршрута карточки версий/базовой ревизии промпта.
+    "dc8a3a6318ab5578bb8e573d8e979b2fd7af525f2a9ddba5d8a3c64166b23a89")
 
 
 @pytest.fixture(autouse=True)
