@@ -439,6 +439,16 @@
       "coverage_complete": true,
       "source_note": "Карта PM b38940c3: 154 строки (97 инвентарных + 57 прозаических/табличных), 128 обязательных, 26 context, 0 duplicate. PVR-01..06 + подтребования, FC-01..07 + подтребования, приёмка C1 (14 конфликтов), C3 (12 тестов), C4 (14 тестов), C5 (5 критериев DONE), запреты A3.1-A3.5. 8 срезов: UR-BARRIER (внешний барьер), PVR-BACKEND 34, PVR-UI 26, PVR-E2E 6, FC-BACKEND 42, FC-RENDER 10, FC-E2E 5, EPIC-CLOSE 5. Live-строки 3: C3.12/C4.14 preprod, C5.4 postdeploy. ARCHITECT_REQUIRED до Builder на PVR-BACKEND/PVR-UI/FC-BACKEND/FC-RENDER. План-гейт 0 ошибок. Параллельно безопасно: PVR-BACKEND || FC-BACKEND (services/prompt_registry.py закреплён за FC-*), PVR-UI || FC-RENDER, PVR-E2E || FC-E2E. Разработка не начата: ждёт завершения unified-reply.",
       "updated": "2026-11-05"
+    },
+    {
+      "id": "goodmorning-quantum-media",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-05-goodmorning-quantum-media.md",
+      "source_sha256": "D5CD6E725AE82DD7569761BC19ED693D91DDF0EEBDCF35E9F3DFD6C3FCF4598F",
+      "maps": [],
+      "coverage_complete": true,
+      "source_note": "Правка существующей функции GoodMorning: причина отсутствия новых медиа + выбор медиа и подписи через существующий квантовый рандом на каждую отправку; сохранить таймаут/дедуп/target-гейты и не ломать совместимость с UR-28 (per-chat timezone scheduling).",
+      "updated": "2026-11-05"
     }
   ],
   "owner_inputs": [
@@ -1026,6 +1036,17 @@
       "reconciled_on": "2026-11-05",
       "reconciled_by": "PM",
       "reconciled_in_commit": "b38940c3"
+    },
+    {
+      "id": "OI-2026-11-05-GOODMORNING-QUANTUM-MEDIA",
+      "source_path": "plans/owner_inputs/2026-11-05-goodmorning-quantum-media.md",
+      "source_sha256": "D5CD6E725AE82DD7569761BC19ED693D91DDF0EEBDCF35E9F3DFD6C3FCF4598F",
+      "kind": "amendment",
+      "target_task_ids": [
+        "goodmorning-quantum-media"
+      ],
+      "reconciled": true,
+      "note": "Проверить, почему новые медиафайлы не попадают в рассылку GoodMorning (выпадает или баг), и подключить существующий квантовый рандом (mca_random_source) к выбору медиа+подписи на каждую отправку. Без нового RandomSource."
     }
   ]
 }
