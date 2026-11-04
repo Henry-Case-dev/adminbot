@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md",
   "source_sha256": "8dc7751c893704b895b4fcfd8475b504e668294e6966688a278ab6e261bb3f22",
-  "candidate_commit": "",
+  "candidate_commit": "d49b10ac",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -690,7 +690,7 @@
       "source_text_sha256": "f50764c4971b8c2583e3910730666c9224edb7bda10f5f5395b6d68c594a4c03",
       "source_excerpt": "| BGS-05/BGS-06 | Бюджеты и админка соответствуют реальности | Не добавлять новых фиксированных лимитов; убрать/объяснить dead controls |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Админская часть доказана (dead controls скрыты или объяснены, новых фиксированных лимитов не добавлено, подпись форм-гарда честная — см. evidence R-ADM.2/R-ADM.3), но требование составное: соответствие бюджетов реальности — это BGS-05-BUDGET, который в этом срезе не выполнялся. PENDING до бюджетной полосы (RLR-04/BGS-05).",
       "req_id": "R-CONF.9",
       "slice": "RLR-05-ADMIN",
       "acceptance": "BGS-05/BGS-06: бюджеты и админка соответствуют реальности, новых фиксированных лимитов не добавлено, dead controls убраны или объяснены.",
@@ -726,8 +726,23 @@
       "acceptance": "PVR-01–PVR-06 сохранены: история промптов, единый контроль версий, текущие значения и назначенные базовые версии не изменены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Скрытие deprecated-карточки не меняет историю, текущие значения и базовые версии",
+          "observation": "test_synthesizer_prompt_is_hidden_but_readable_and_untouched подтверждает, что запись остаётся в реестре и PG-сид-списке, а текст промпта и code_source не переписаны; git show --stat d49b10ac не содержит изменений хранилища промптов, API версий и назначения базовых версий. Изменена только видимость одной deprecated-карточки (санкционировано R-ADM.3). Прогон после слияния a4593936: tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_admin_manifest.py",
+          "candidate_commit": "d49b10ac"
+        },
+        {
+          "ref": "Правила миграции: тексты/фабричные baseline не правятся, значения ключей в PG не мигрировали",
+          "observation": "admin-migration-manifest.md явно фиксирует: тексты ручных промптов, factory baseline и прежние версии не изменяются, новая активная редакция из-за изменения кода не создаётся, значения удалённых ключей в PG не мигрировали (ключи env-only), DML/миграций данных срез не выполняет.",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/admin-migration-manifest.md",
+          "candidate_commit": "d49b10ac"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00155",
@@ -735,7 +750,7 @@
       "source_text_sha256": "5c62ca9b8c5bdde56c7bf1585e43ae34def631e18056cd7f86a0b5d65ae95085",
       "source_excerpt": "| Speech/Character owner rules | Владелец управляет тоном, матом, пунктуацией | Сохранить; ручные тексты/версии не переписывать |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Реальный риск для Speech/Character-правил возникает при снятии пост-правок в RLR-04 (free-form retry, numeric post-edit). Срез RLR-05-ADMIN не касался Speech/Character-модулей и текстов, но это лишь отсутствие изменений, а не доказательство, что владелец по-прежнему управляет тоном/матом/пунктуацией и ручные тексты не переписаны. PENDING до RLR-04.",
       "req_id": "R-CONF.12",
       "slice": "RLR-05-ADMIN",
       "acceptance": "Speech/Character owner rules сохранены: владелец управляет тоном, матом, пунктуацией; ручные тексты и версии не переписываются.",
@@ -2207,7 +2222,7 @@
       "source_text_sha256": "000e139d7caa25d5dd37c275933cdfd0462d4c17faffa5ab0a5c49bcf4238070",
       "source_excerpt": "1. Удаление/изменение поведения **обязательно** должно быть отражено в UI выбранного чата, глобальных настройках, API, схеме конфигурации, диагностике, документации параметров и тестах. Никаких «мертвых» переключателей, которые обещают нову",
       "disposition": "required",
-      "reason": "",
+      "reason": "Срез RLR-05-ADMIN (кандидат d49b10ac) закрыл серверную часть требования: рабочие подписи и потребители в каталоге параметров, скрытие removed/deprecated_compat, миграционный манифест и тесты. Не закрыто и остаётся PENDING: отражение изменения в UI выбранного чата и в диагностике — web/** этим срезом не менялся (UI уходит в волну UR-F/PVR), диагностика одного ответа — RLR-06-OBSERVABILITY. Перепроверка после слияния UR-F/PVR и RLR-06.",
       "req_id": "R-ADM.1",
       "slice": "RLR-05-ADMIN",
       "acceptance": "Удаление/изменение поведения отражено в UI выбранного чата, глобальных настройках, API, схеме конфигурации, диагностике, документации параметров и тестах; «мёртвых» переключателей, обещающих новую перегенерацию, нет.",
@@ -2228,8 +2243,23 @@
       "acceptance": "Параметры старого пути (`SYSTEM2_DIRECT_ENABLED`, старые form/validator retries, duplicate-content regeneration и др.) классифицированы в migration manifest по категориям `removed`/`retained_as_technical`/`retained_for_explicit_transform`/`retained_for_specialized_pipe`/`deprecated_compat`; удаление не делается по совпадению слова `guard`.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Манифест покрывает 8 ключей и 8 снятых поведений, классы держатся закрытыми",
+          "observation": "test_manifest_covers_all_removed_path_keys_and_behaviours требует полный набор ключей и поведений без пересечений; test_manifest_rows_are_classified_and_explained проверяет, что класс каждой строки входит в зафиксированный набор пяти классов и что у каждой строки есть реальный потребитель либо явное «нет» плюс человеческая подпись; test_no_catalog_entry_has_unexplained_migration_class не даёт пометить запись каталога без строки манифеста. Прогон после слияния a4593936: tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_admin_manifest.py",
+          "candidate_commit": "d49b10ac"
+        },
+        {
+          "ref": "JSON-зеркало совпадает с кодом; guard'ы не удалены по совпадению слова guard",
+          "observation": "test_json_manifest_matches_code_source сравнивает keys/behaviours/classes JSON-манифеста с services.param_catalog.LEGACY_REPHRASING_MIGRATION; test_technical_guards_remain_present_and_functional подтверждает, что sanitize_outgoing, egress/SSRF-guard, tool-delivery, send-recheck, форм-гард и лимит детектора клише остаются рабочими, то есть записи классов retained_as_technical / retained_for_explicit_transform не удалялись по слову guard.",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/migration-manifest.json",
+          "candidate_commit": "d49b10ac"
+        }
+      ]
     },
     {
       "source_id": "L00163",
@@ -2243,8 +2273,23 @@
       "acceptance": "Сохранённое пользовательское значение удалённого ключа остаётся в историческом/миграционном журнале и ревизиях, но выведено из активного UI; текущие тексты ручных промптов, factory baseline и прежние версии не изменены, новая активная редакция из-за изменения кода не создаётся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Deprecated-карточка синтезатора скрыта из редактируемого каталога, текст и источник не переписаны",
+          "observation": "test_synthesizer_prompt_is_hidden_but_readable_and_untouched: hidden=True, класс deprecated_compat, ключа нет среди редактируемых спецификаций, но get_by_pg_key возвращает ту же запись и она остаётся в iter_pg_only (PG-сид), текст промпта и code_source не изменены; вербализатор не скрыт и не классифицирован. Прогон после слияния a4593936: tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_admin_manifest.py",
+          "candidate_commit": "d49b10ac"
+        },
+        {
+          "ref": "Скрытие означает вывод из UI/API, а не удаление значения или ревизий; DML нет",
+          "observation": "test_removed_and_deprecated_keys_have_no_editable_control проверяет отсутствие редактируемого контрола при сохранённой читаемости записи; перенос hidden для классов removed/deprecated_compat выполнен пост-обработкой REGISTRY в services/param_catalog.py без изменения значений и ревизий; admin-migration-manifest.md фиксирует, что DML и миграции данных не выполняются, а откат делается через git revert.",
+          "type": "static",
+          "artifact_path": "services/param_catalog.py",
+          "candidate_commit": "d49b10ac"
+        }
+      ]
     },
     {
       "source_id": "L00164",
@@ -2258,8 +2303,23 @@
       "acceptance": "Старый ключ БД читается без ошибки и игнорируется для нового маршрута: `false`, `0` или null по нему не активируют двойную архитектуру; migration scripts обратимы и не затрагивают данные памяти/эмбеддингов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Старый ключ не активирует двойной Writer ни при каком сыром значении",
+          "observation": "test_deprecated_key_resolves_off_for_every_raw_value прогоняет 13 сырых значений (False, 0, None, '', '0', 'false', 'off', 'no', True, 1, 'true', 'on' и пустая строка) и требует False; test_env_cannot_enable_legacy_gate_even_without_autouse_patch заново загружает config.settings с SYSTEM2_DIRECT_ENABLED=true и =1 и получает Settings.SYSTEM2_DIRECT_ENABLED=False, то есть env не включает legacy в обход autouse-патча. Прогон после слияния a4593936: tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_admin_manifest.py",
+          "candidate_commit": "d49b10ac"
+        },
+        {
+          "ref": "Ключ читается без ошибки, остаётся env-only, данные памяти/эмбеддингов не затрагиваются",
+          "observation": "resolve_legacy_rephrasing_env_flag возвращает False только для имён из LEGACY_REPHRASING_DEPRECATED_ENV и не меняет поведение прочих ключей; Settings.SYSTEM2_DIRECT_ENABLED остаётся env-only ClassVar и не мигрирует в PG, поэтому ни чтение, ни откат не пишут в память и эмбеддинги; манифест фиксирует отсутствие DML/миграций данных и обратимость через git revert.",
+          "type": "static",
+          "artifact_path": "config/settings.py",
+          "candidate_commit": "d49b10ac"
+        }
+      ]
     },
     {
       "source_id": "L00165",
@@ -2267,7 +2327,7 @@
       "source_text_sha256": "c0b116c0ab251d8ea6a7015a3e2d5a75a62478e1e40328f970d7768f2c96a453",
       "source_excerpt": "5. Отобразить понятную **диагностику одного ответа**: L1 → tools → Writer → фактические разрешённые deterministic ops → delivery; причина fallback, extra attempts, фактический модуль, количество вызовов LLM и источник временного контекста. ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Диагностика одного ответа (L1 → tools → Writer → фактически разрешённые deterministic ops → delivery, причина fallback, extra attempts, фактический модуль, число вызовов LLM, источник временного контекста) — это RLR-06-OBSERVABILITY плюс отображение в интерфейсе волны UR-F/PVR. Срез RLR-05-ADMIN только классифицировал параметры, диагностику не строил. PENDING до этих волн.",
       "req_id": "R-ADM.5",
       "slice": "RLR-05-ADMIN",
       "acceptance": "Диагностика одного ответа показывает L1 → tools → Writer → фактические разрешённые deterministic ops → delivery, причину fallback, extra attempts, фактический модуль, количество вызовов LLM и источник временного контекста; ни одна UI-метка «прошла проверка» не скрывает произошедший retry/замену текста.",
@@ -2282,7 +2342,7 @@
       "source_text_sha256": "758089a5ce19e9a453e20ab2bb3efe13c3ff14ed9e11b39cc4a7ac7af66d0e42",
       "source_excerpt": "6. Пользовательские формулировки: «Единое написание ответа»; «Сохранение исходного смысла при явном редактировании» (если доступно); «Техническая очистка сообщений» — не навязывать новую панель с десятками машинных флагов. Отражать только р",
       "disposition": "required",
-      "reason": "",
+      "reason": "Пользовательские формулировки и отказ от панели десятков машинных флагов — §6.6, UI-часть в web/**. Срез подготовил в манифесте подписи `ui` (что админка должна показывать владельцу и что не показывать), но сам интерфейс в кандидате d49b10ac не менялся. Отображение «только реально управляемого» проверяется в волне UR-F/PVR (Playwright + Browser Use).",
       "req_id": "R-ADM.6",
       "slice": "RLR-05-ADMIN",
       "acceptance": "Пользовательские формулировки ограничены «Единое написание ответа», «Сохранение исходного смысла при явном редактировании», «Техническая очистка сообщений»; панель с десятками машинных флагов не навязывается, отражается только реально управляемое.",
@@ -2297,7 +2357,7 @@
       "source_text_sha256": "17fed013f6c695fd34ddd0551dd36e3c4150a2847d94556f508e0185861d5dc2",
       "source_excerpt": "7. На мобильном и десктопе существующие редакторы промптов и история версий должны оставаться работоспособны. Не «улучшать» старый UI глобальным редизайном в рамках этой коррекции; это отдельный PVR.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Работоспособность существующих редакторов промптов и истории версий на мобильном и десктопе — обязательная UI-проверка волны UR-F/PVR (Playwright + Browser Use). Срез web/** не менял, но отсутствие изменений не доказывает работоспособность редакторов; редизайн старого UI в рамках коррекции не выполнялся (это отдельный PVR).",
       "req_id": "R-ADM.7",
       "slice": "RLR-05-ADMIN",
       "acceptance": "На мобильном и десктопе существующие редакторы промптов и история версий остаются работоспособны; глобальный редизайн старого UI в рамках этой коррекции не выполняется.",
@@ -2642,7 +2702,7 @@
       "source_text_sha256": "61954fb3ad3b5f930448b7ac5753dca09213c72c63cfa5724aff778244e39557",
       "source_excerpt": "4. Удалить dead consumers, обновить конфиги/админку/описания, миграционный manifest и тесты. Не перестраивать память/эмбеддинги, не редактировать user prompts/version history.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Dead consumers ещё не удалены: манифест честно фиксирует активные call sites (direct_chat_service.py:5414 duplicate_guard_retry, :5328 apply_numeric_guard) и их снятие в RLR-02 / RLR-04. Срез обновил миграционный манифест, описания и тесты, не перестраивал память/эмбеддинги и не трогал user prompts и историю версий. Полное закрытие — после RLR-02/RLR-04.",
       "req_id": "R-PROC.4",
       "slice": "RLR-05-ADMIN",
       "acceptance": "Dead consumers удалены, конфиги/админка/описания/миграционный manifest и тесты обновлены; память/эмбеддинги не перестраиваются, user prompts и история версий не редактируются.",
@@ -2847,7 +2907,7 @@
       "evidence": []
     }
   ],
-  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл); для стабильных отчётов добавляется artifact_sha256. Плановые строки остаются PENDING с пустым evidence и candidate_commit=\"\" до появления реального кандидата. Зелёные тесты без утверждения о наблюдаемом поведении, устное заверение и внешний документ доказательством не считаются (R-09.5).",
+  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл); для стабильных отчётов добавляется artifact_sha256. Плановые строки остаются PENDING с пустым evidence и candidate_commit=\"\" до появления реального кандидата. Зелёные тесты без утверждения о наблюдаемом поведении, устное заверение и внешний документ доказательством не считаются (R-09.5). Привязка среза RLR-05-ADMIN: строки R-ADM.2/R-ADM.3/R-ADM.4/R-CONF.11 привязаны к d49b10ac с указанием реальных путей; artifact_sha256 намеренно не проставлялся, потому что манифест и каталог правятся следующими волнами (UI UR-F/PVR) и хеш-привязка дала бы ложно-красные проверки; стабильность подтверждается прогоном 61 passed после слияния a4593936.",
   "live_policy_note": "PET_PROJECT: деплой и прод-проверка разрешены после независимого ревью без отдельного согласования владельца. На этапе планирования live_required=false у всех строк: обязательные проверки исполняются агентом локально/на стенде, а post-deploy проверка (R-PROC.5, R-DOD.9) добавляется как live/production evidence на release-стадии по фактическому кандидату. Ручное участие владельца гейтом не является.",
   "supersedes_in_other_maps": [
     {
@@ -2893,7 +2953,7 @@
   "architecture_classification": "ARCH_REUSE_CONFIRMED",
   "architecture_note": "Коррекция — демонтаж существующего поведения, а не новый интерфейс. Опирается на уже существующие контракты: TurnRequest/L1/L2 и ToolEvidence из UNIFIED-REPLY (UR-A/UR-B), services/direct_chat_service.py как единственный владелец финального маршрута, services/negative_constraints.py (verbalize_validated), services/evidence_policy.py (allowed/guard_egress), services/public_speech_guard.py, services/param_catalog.py + services/config_migrations.py для конфиг-миграции, services/mca_trace.py/services/oversight.py + web/api/oversight.py для трассы. Новых общих границ не замораживается: поля трассы §7 аддитивны к существующему payload, migration manifest §6.2 классифицирует существующие ключи. Если Builder обнаружит потребность в новом общем контракте (новый статус ToolEvidence, новая версия схемы трассы, общий валидатор на несколько подсистем) — работа останавливается по этой границе и вопрос уходит Architect; PM контракт не изобретает. Один писатель на services/direct_chat_service.py зафиксирован цепочкой зависимостей графа.",
   "placement": "Волна 1 (параллельно): RLR-01-ROUTE (единственный писатель direct_chat_service.py) и backend-часть RLR-05-ADMIN (param_catalog/config_migrations, UI — после UR-F/PVR). RLR-07-PROOF в это время выполняет только read-only baseline (R-PROC.1). Волна 2: RLR-02-LEGACY. Волна 3: RLR-03-FORMCONTRACT. Волна 4: RLR-04-REROLL. Волна 5: RLR-06-OBSERVABILITY (поля трассы описывают уже финальный маршрут). Волна 6: RLR-07-PROOF (матрица маршрутов, 21 сценарий R-08, реальный LLM). Волна 7: RLR-08-DOD (сверка DoD, конфликтная матрица, релизная проверка).",
-  "merge_state": "Планирование. Ни одна строка не реализована и не проверена: все required-строки PENDING, evidence пустое, candidate_commit пустой.",
+  "merge_state": "RLR-05-ADMIN (backend-часть): манифест миграции, классы, скрытие removed/deprecated_compat из редактируемого каталога при сохранённой читаемости, отключение SYSTEM2_DIRECT_ENABLED при любом сыром значении и честные подписи реализованы в d49b10ac, приняты Reviewer (Approved) и слиты мёржом a4593936; после слияния tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed. Доказаны R-ADM.2, R-ADM.3, R-ADM.4 и сохранность PVR-истории/версий (R-CONF.11). Остаются PENDING: UI-часть среза (R-ADM.1 UI/диагностика, R-ADM.5, R-ADM.6, R-ADM.7) — ждёт волну UR-F/PVR и RLR-06; dead consumers (R-PROC.4) — RLR-02/RLR-04; бюджетная часть R-CONF.9 — BGS-05; Speech/Character-перепроверка (R-CONF.12) — после RLR-04. Остальные срезы карты не начаты.",
   "blocked_by_upstream": [
     "unified-reply:UR-B/UR-D/UR-E — незавершённые лейны делят services/direct_chat_service.py и services/direct_execution.py; интеграция в одно безопасное окно (§9.3), второй владелец файла запрещён.",
     "unified-reply:UR-F / PVR UI — UI-часть RLR-05-ADMIN (web/app.js, web/index.html) выполняется после их слияния; backend-часть не блокируется.",
