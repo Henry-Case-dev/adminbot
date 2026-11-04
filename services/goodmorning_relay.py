@@ -19,6 +19,12 @@ debug-skip. Пустая/отсутствующая папка → WARNING + Fal
     (ANU) либо его штатный pseudorandom-фолбэк. Второго энтропийного стека
     нет; `random` используется только как аварийный фолбэк, когда источник
     недоступен/выключен, и это честно помечается в журнале (`fallback_reason`);
+  * метка `quantum` ставится ТОЛЬКО при реальном draw провайдера (есть
+    `draw_id`). Выбор без расхода значения — единственный оставшийся в цикле
+    файл (`n == 1`), выключенный/отложенный гейт, отказ источника — пишется
+    как `pseudorandom` + `fallback_reason` (`disabled`, `single_candidate`,
+    `provider_unavailable`, …): журнал не приписывает quantum там, где его
+    не было;
   * каждый выбор = отдельный draw (медиа и подпись — разные draw'ы), журнал
     `mca_random_draws` получает source/provider/draw_id/created_at/pool;
   * цикл: внутри цикла файл (и подпись) не повторяются; новый файл попадает
@@ -250,10 +256,32 @@ class GoodmorningRelay:
                 diag["fallback_reason"] = diag["reason"] or "no_draw"
             return None, diag
         try:
-            return max(0, min(int(index), n - 1)), diag
+            bounded = max(0, min(int(index), n - 1))
         except (TypeError, ValueError):
             diag["fallback_reason"] = "validation_failed"
             return None, diag
+        self._honest_label(diag, n)
+        return bounded, diag
+
+    @staticmethod
+    def _honest_label(diag: dict, n: int) -> None:
+        """`quantum` — только при реальном draw провайдера (`draw_id` есть).
+
+        Выбор без расхода значения (`n == 1`: единственный оставшийся в цикле
+        файл; гейт выключен/отложен; источник вернул индекс, не сходив в ANU)
+        — это НЕ quantum-выбор: подпись источника понижается до
+        `pseudorandom`, а причина пишется в `fallback_reason`. Иначе журнал
+        врал бы (`source=quantum`, `draw_id=None`).
+        """
+        if diag.get("source") == SOURCE_PSEUDORANDOM:
+            return
+        if diag.get("draw_id"):
+            return
+        diag["source"] = SOURCE_PSEUDORANDOM
+        if not diag.get("fallback_reason"):
+            diag["fallback_reason"] = (
+                diag.get("reason")
+                or ("single_candidate" if n <= 1 else "no_provider_draw"))
 
     @staticmethod
     def _allowed(keys: list[str], used: list[str]) -> tuple[list[int], bool]:

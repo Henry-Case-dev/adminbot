@@ -617,6 +617,121 @@ class TestGoodmorningRandomSourceIntegration:
         # quantum-партия реально израсходована (2 значения), запаса не осталось
         assert await store.reserve_remaining() == 0
 
+    # ── GM-05: метка `quantum` без реального draw провайдера ──────────────
+    @pytest.mark.asyncio
+    async def test_single_file_pool_with_gate_off_is_not_labelled_quantum(
+            self, tmp_path, monkeypatch, caplog):
+        """Один файл + выключенный гейт: draw'а ANU не было → не quantum.
+
+        Регрессия GM-05: `draw_index(n=1)` возвращает индекс 0 без расхода
+        значения, а прежний лог печатал `media_source=quantum`,
+        `media_draw_id=None`, `media_fallback=None` — квант, которого не было.
+        """
+        from services import mca_gates
+        from services import mca_random_source as mrs
+        from services.database import DatabaseService
+
+        db = DatabaseService(str(tmp_path / "gm_gate_off.db"))
+        await db.initialize()
+        try:
+            store = mrs.RandomStore(db)
+            # запас ЕСТЬ: метка не должна зависеть от пустоты запаса
+            await store.insert_batch(
+                mrs.AnuBatch(values=[0, 40], data_type="uint16", length=2))
+            await self._quantum_selected(monkeypatch)
+            monkeypatch.setattr(mca_gates, "random_source_enabled",
+                                lambda: False)
+            service = mrs.RandomSourceService(db, auto_refill=False)
+
+            media_dir = tmp_path / "gm_one"
+            media_dir.mkdir()
+            (media_dir / "only.jpg").write_text("a")
+            bot = AsyncMock()
+            bot.send_photo = AsyncMock(
+                return_value=SimpleNamespace(message_id=1))
+            relay = GoodmorningRelay(bot, str(media_dir),
+                                     random_source=service,
+                                     state_path=tmp_path / "state.json")
+
+            with caplog.at_level(logging.INFO):
+                assert await relay.send_goodmorning(chat_id=43) is True
+
+            assert _sent_media_name(bot) == "only.jpg"
+            assert _sent_caption(bot) in GOODMORNING_CAPTIONS
+            # метки честные: quantum не приписан ни медиа, ни подписи
+            assert "media_source=quantum" not in caplog.text
+            assert "caption_source=quantum" not in caplog.text
+            assert "media_source=pseudorandom" in caplog.text
+            assert "caption_source=pseudorandom" in caplog.text
+            assert "media_draw_id=None" in caplog.text
+            assert "media_fallback=disabled" in caplog.text
+            assert "caption_fallback=disabled" in caplog.text
+            # и это правда: ни одного значения из запаса не израсходовано
+            assert await store.reserve_remaining() == 2
+            assert await store.recent_draws(limit=10) == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_forced_single_candidate_with_gate_on_is_not_quantum(
+            self, tmp_path, monkeypatch, caplog):
+        """Последний файл цикла (n == 1) — выбор без draw'а, метка честная.
+
+        Капция при этом идёт настоящим quantum-draw'ом: понижение метки
+        точечное, а не «весь лог теперь pseudorandom».
+        """
+        from services import mca_random_source as mrs
+        from services.database import DatabaseService
+
+        db = DatabaseService(str(tmp_path / "gm_forced.db"))
+        await db.initialize()
+        try:
+            store = mrs.RandomStore(db)
+            await store.insert_batch(
+                mrs.AnuBatch(values=[0, 40], data_type="uint16", length=2))
+            await self._quantum_selected(monkeypatch)
+            service = mrs.RandomSourceService(db, auto_refill=False)
+
+            media_dir = tmp_path / "gm_single"
+            media_dir.mkdir()
+            (media_dir / "only.jpg").write_text("a")
+            bot = AsyncMock()
+            bot.send_photo = AsyncMock(
+                return_value=SimpleNamespace(message_id=1))
+            relay = GoodmorningRelay(bot, str(media_dir),
+                                     random_source=service,
+                                     state_path=tmp_path / "state.json")
+
+            with caplog.at_level(logging.INFO):
+                assert await relay.send_goodmorning(chat_id=44) is True
+
+            assert _sent_media_name(bot) == "only.jpg"
+            assert "media_source=pseudorandom" in caplog.text
+            assert "media_fallback=single_candidate" in caplog.text
+            assert "media_draw_id=None" in caplog.text
+            # подпись — реальный quantum-draw (пул 6), метка сохранена
+            assert "caption_source=quantum" in caplog.text
+            assert "caption_fallback=None" in caplog.text
+            assert "caption_draw_id=None" not in caplog.text
+            rows = await store.recent_draws(limit=10)
+            assert [r["purpose"] for r in rows] == ["goodmorning_caption"]
+            # вынужденный выбор медиа не съел значение запаса
+            assert await store.reserve_remaining() == 1
+        finally:
+            await db.close()
+
+    @staticmethod
+    async def _quantum_selected(monkeypatch) -> None:
+        from services import mca_random_source as mrs
+
+        async def fake_setting(key, chat_id, default):
+            return {"memory.random_source": "quantum",
+                    "memory.random_fallback_to_pseudorandom": True}.get(
+                        key, default)
+
+        monkeypatch.setattr(mrs, "_read_memory_setting", fake_setting)
+
+
 
 # ── Scheduler ──
 
