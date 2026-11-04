@@ -1,17 +1,17 @@
 ﻿# Workflow state
 
-Task: EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (21 live scenarios open) + EPIC-CM-VISUAL-01 (A–E done, 2.58.156 shipped) + BEHAVIOR-GATES-SIMPLIFICATION-01 (urgent parity) + goodmorning-quantum-media (2.58.157 in flight) + PVR-FC-CORRECTIVE-01 (queued, blocked_by unified-reply)
-Task source: plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md, 2026-11-03-epic-cm-visual-01.md, 2026-11-05-behavior-gates-simplification.md, 2026-11-05-goodmorning-quantum-media.md, 2026-11-05-pvr-fc-corrective-01.md
+Task: UNIFIED-REPLY (UR-01..30) + BEHAVIOR-GATES-SIMPLIFICATION-01 (urgent parity) + EPIC-CM-VISUAL-01 (A–E shipped, 2.58.158) + PVR-FC-CORRECTIVE-01 (queued, blocked_by unified-reply) + goodmorning-quantum-media (shipped 2.58.157)
+Task source: plans/owner_inputs/2026-11-05-unified-reply.md, 2026-11-05-behavior-gates-simplification.md, 2026-11-03-epic-cm-visual-01.md, 2026-11-05-pvr-fc-corrective-01.md, 2026-11-05-goodmorning-quantum-media.md
 Status: in_progress
-Primary phase: build
-Active feature: BGS-01 (privacy veto removal) + GoodMorning release 2.58.157
-Active lanes: Reviewer BGS-03/04 final bb9b0b7b ses_e583972feffeyKwaCsthp0J4xg; Reviewer factcheck 1da5fefa ses_e583333e8ffeZyG5vbVxeipgFO; Reviewer reset-view 652b69b9 ses_e58336899ffeWMvJh5GHNd79y2
-Join barriers: BGS-01 alias fix (ur/b-search, 4 dirty) -> narrow re-review -> merge into evol/impl -> unblocks BGS-02/BGS-05; BGS-03/04 review; GoodMorning prod scan line (14 files) confirmation via SSH
-Last verified: prod 2.58.157 @ 6fd3dcf3 live, GoodMorning pool scan by deployed code with service interpreter = 14 files incl. goodmorning_13.mp4 (964490 B) and goodmorning_14.mp4 (2757360 B), NRestarts 0, no sends made (real-send behaviour pending 07:00 Asia/Yekaterinburg); prod 2.58.157 live (/healthz 2.58.157; index ?v=2.58.157; web/app.js sha256 49523d3c89d61e669e006f29ff222dd79a64c8d0198a63e6ea95d7797f746797 unchanged — backend-only change); prod 2.58.156 @ 30fac6ce fully verified by DevOps (version, asset hashes, NRestarts 0, schema 41, journal clean, map smoke read-only); CMV perf accepted (code) @ 57912225 with documented Android/emulator limitations; GoodMorning Approved @ 6fec933d (54 tests, 14 media tracked, mutation red)
-Next unlocks: (1) verdicts on BGS-03/04 `bb9b0b7b`, factcheck `1da5fefa`, reset-view `652b69b9`; (2) merge BGS-01 (5adaa21b + 1da5fefa) and BGS-03/04 into evol/impl -> unblocks BGS-02; (3) ship reset-view as 2.58.158; (4) CMV residual 52 rows (incl. CMV-PHY-05 fix in review, CMV-PERF-03 documented limit, CMV-GATE-17/PERF-06 need explicit verdict)
+Primary phase: review
+Active feature: BGS-02 (evidence egress observation-only) in review; BGS-01/03/04 merged
+Active lanes: Reviewer BGS-02 `69a0c6ae` ses_e581b4017ffeaiAK73IGltzg1Y
+Join barriers: BGS-02 verdict -> merge -> BGS-05/BGS-06 next; remaining BGS-03/04 rows (03.4, 03.5, 00.5, 00.9, 04.3, 04.10) need proof; BGS-07 matrix; BGS-08 acceptance
+Last verified: prod 2.58.158 @ 40a62248 (healthz 2.58.158, app.js served sha256 932a94f9158593326b57d8f5eadfca818149df887875b26350b842c928d4a9e1 = local, index ?v=2.58.158, both reset handlers present, NRestarts 0); prod 2.58.157 @ 6fd3dcf3 (GoodMorning pool scan by deployed code = 14 files incl. 13/14, sizes match; live send behaviour pending 07:00 Asia/Yekaterinburg); evol/impl `6e42c346` with BGS-01 (`da6299e9`) + BGS-03/04 (`2618cb1e`) merged; BGS map 39 VERIFIED / 104 PENDING
+Next unlocks: (1) BGS-02 verdict -> merge; (2) close the 6 remaining BGS-01/03/04 rows with real proof; (3) BGS-05 budgets after UR-C/UR-D; (4) BGS-06 backend catalog + UI after UR-F/PVR; (5) CMV residual 52 rows (one real defect fixed and shipped, framedim attribution stays open)
 Next execution: awaiting_children
-Review: approved (CMV perf code, GoodMorning); needs_fixes (BGS-01 alias stripping + factcheck `_strip_privacy`, in repair); pending (BGS-03/04)
-Deployment: verified (2.58.157 live, backend-only; 2.58.156 @ 30fac6ce)
+Review: approved (BGS-01 both halves, BGS-03/04, reset-view, GoodMorning, CMV perf code); pending (BGS-02)
+Deployment: verified (2.58.158 @ 40a62248); postdeploy observation pending for GoodMorning live send 07:00 Asia/Yekaterinburg
 Human gate: none
-Progress scope: plans/progress_scope.json | stale (BGS input pending reconciliation by PM)
-Updated: 2026-11-05T06:10:00+12:00
+Progress scope: plans/progress_scope.json | fresh (3336/5012 = 66%)
+Updated: 2026-11-05T06:45:00+12:00
