@@ -206,6 +206,60 @@ class TestLiveDirectToolPhase:
         assert search.queries == []
         assert traces[-1]["search_skip_reason"] == _dx.SKIP_EMPTY_QUERY
 
+    @pytest.mark.parametrize("query", [
+        # ключевые слова поиска ЕСТЬ («найди…»), но ось решила «не искать»:
+        # fallback `_SEARCH_RE` не имеет права вернуть сетевой шаг.
+        "найди в нашей переписке шутку про 4 утра",
+        "перескажи, что мы обсуждали в интернете вчера",
+    ])
+    @pytest.mark.asyncio
+    async def test_axis_not_applicable_blocks_keyword_search(self, query,
+                                                             traces):
+        """`not_applicable` — структурный запрет сети, а не только статус.
+
+        Репро ревью: план `conversation_only`/`not_applicable` с capability
+        `web_search` отправлял провайдеру сырой текст реплики, потому что
+        деривация шагов по `_SEARCH_RE` возвращала `execute_web_search`.
+        """
+        search = _SearchProvider()
+        service = _service(search)
+        plan = _plan(knowledge_origin="conversation_only",
+                     search_intent="not_applicable",
+                     capabilities_needed=["web_search"])
+        raw = await _tool_phase(service, plan, query)
+        assert search.queries == [], (
+            f"сеть тронута при not_applicable: {search.queries}")
+        assert raw is None or all(
+            str(getattr(s, "tool", "")) != "execute_web_search"
+            for s in raw.evidence_sources)
+        assert traces[-1]["search_called"] is False
+        # Причина остаётся собственной причиной оси, а не «пустой запрос».
+        assert traces[-1]["search_skip_reason"] == (
+            _dx.SKIP_INTENT_NOT_APPLICABLE)
+
+    @pytest.mark.asyncio
+    async def test_axis_absent_keeps_plan_requested_search(self, traces):
+        """«Поля оси не пришли» — не запрет: просьба плана остаётся в силе."""
+        search = _SearchProvider()
+        service = _service(search)
+        plan = _plan(capabilities_needed=["web_search"])
+        assert plan.search_intent == ""      # ось не заполнена планом
+        await _tool_phase(service, plan, "найди в интернете какая погода")
+        assert len(search.queries) == 1, (
+            "паритет: без полей оси поиск плана обязан работать")
+        assert traces[-1]["search_called"] is True
+
+    @pytest.mark.asyncio
+    async def test_axis_required_with_keywords_still_searches(self, traces):
+        """Контроль обратного направления: ось просит поиск → вызов есть."""
+        search = _SearchProvider()
+        service = _service(search)
+        plan = _plan(knowledge_origin="open_world")
+        await _tool_phase(service, plan, "найди в интернете, какая погода")
+        assert len(search.queries) == 1
+        assert traces[-1]["search_called"] is True
+        assert traces[-1]["search_intent"] == "required"
+
     @pytest.mark.asyncio
     async def test_exactly_one_tool_phase_per_turn(self):
         """Нет двойного исполнения: capability+required_caps не дублируют поиск."""

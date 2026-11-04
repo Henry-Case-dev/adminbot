@@ -1921,8 +1921,14 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
     # `execute_web_search` не деривируется ни из capabilities, ни из
     # fallback-ветки — иначе трасса писала `search_called=False` при реальном
     # сетевом вызове.
+    # Решение оси «поиск не нужен» (`not_applicable` от плана) — тоже
+    # структурный запрет, а не только снятие capability: без него деривация
+    # шагов возвращала `execute_web_search` по старому `_SEARCH_RE` из самой
+    # фразы («найди в переписке…», «…в интернете вчера») и отправляла
+    # провайдеру сырой текст хода. Причина отказа при этом остаётся прежней
+    # (`search_intent_not_applicable`): `axis.source` не переписывается.
     search_forbidden = bool(
-        user_forbids or reuse_used
+        axis_decided_off or user_forbids or reuse_used
         or (axis.search_expected and not search_task.usable))
     plan_view = plan
     if suppress_search:
