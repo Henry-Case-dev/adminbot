@@ -301,6 +301,7 @@
       --z-menu: 55;           /* меню-порталы (more / speech) */
       --z-modal-scrim: 75;    /* подложка модалки/диалога */
       --z-modal: 80;          /* модалка, лист, полноэкранный редактор, сцена */
+      --z-panel: 90;          /* боковая панель-оверлей поверх модалки (история версий) */
       --z-palette: 100;       /* command palette (EVOL-037) */
       --z-toast: 105;         /* EVOL-033: тост выше палитры (не тонет под ней) */
       --z-dev: 110;           /* dev-оверлей границ (только по флагу) */
@@ -8486,7 +8487,7 @@ body > .sticky-save[data-save-panel] {
 .pv-grid > * { min-width: 0; }
 /* ── Панель «История версий» ─────────────────────────────────────────── */
 .pv-scrim {
-  position: fixed; inset: 0; z-index: 90; display: flex; justify-content: flex-end;
+  position: fixed; inset: 0; z-index: var(--z-panel); display: flex; justify-content: flex-end;
   background: rgba(2, 6, 23, .55);
   -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
 }
@@ -8559,7 +8560,7 @@ body > .sticky-save[data-save-panel] {
    (панель после перечитывания остаётся в scrollTop=0) и не уезжает, когда
    владелец листает ленту. Фон непрозрачный — строки проходят ПОД блоком. */
 .pv-result--sticky {
-  position: sticky; top: 0; z-index: 3;
+  position: sticky; top: 0; z-index: 2;
   margin: 0 calc(var(--space-3) * -1) 6px;
   padding: 8px var(--space-3);
   background: #0A101C;
