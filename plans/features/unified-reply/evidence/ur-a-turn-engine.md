@@ -99,6 +99,16 @@
   падает только в широком `-k`-прогоне (`aiosqlite: no active connection`),
   отдельно и в своём файле — passed: флейк окружения.
 
+## Контракты §2.2/§2.3 (UR-01.6): где они уже выполнены
+
+`ContextFragment` (`services/direct_context_composer.py`, UR-C) фактически несёт
+все поля §2.2: `kind`, `source_id`, `timestamp_utc`, `speaker_uid`,
+`author_label`, `text` (полный), `reply_to`, `authority`, `fresh`; `ContextSelection`
+содержит `current_question`, `reply_parent`, `thread`, `memory`, `self_outputs`,
+`summary_map`, `evidence`, `provenance`. UR-A намеренно не создаёт второй тип:
+иначе один контракт имел бы две расходящиеся реализации. `ToolEvidence`/
+`SourceRecord` — `services/direct_execution.py` (UR-B).
+
 ## Что НЕ доказано в этом срезе
 
 - Живая прод-трасса (реальные модели/чаты) — не запускалась; проверка уровня
