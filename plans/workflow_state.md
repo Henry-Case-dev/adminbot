@@ -1,17 +1,17 @@
 ﻿# Workflow state
 
-Task: EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (2.58.154 shipped; 21 live scenarios open) + EPIC-PROMPT-VERSIONING-UX-01 (COMPLETE 58/58, 2.58.155) + EPIC-CM-VISUAL-01 (A+B approved, C building)
-Task source: plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md, plans/owner_inputs/2026-11-04-epic-prompt-versioning-ux-01.md, plans/owner_inputs/2026-11-03-epic-cm-visual-01.md
+Task: EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (21 live scenarios open) + EPIC-CM-VISUAL-01 (A–E done, 2.58.156 shipped) + BEHAVIOR-GATES-SIMPLIFICATION-01 (urgent parity) + goodmorning-quantum-media (2.58.157 in flight) + PVR-FC-CORRECTIVE-01 (queued, blocked_by unified-reply)
+Task source: plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md, 2026-11-03-epic-cm-visual-01.md, 2026-11-05-behavior-gates-simplification.md, 2026-11-05-goodmorning-quantum-media.md, 2026-11-05-pvr-fc-corrective-01.md
 Status: in_progress
 Primary phase: build
-Active feature: CMV-C (LOD, collisions, aggregates)
-Active lanes: Builder CMV-C ses_e5a3552caffetq9M1h4SQHzofv
-Join barriers: CMV-C -> review -> CMV-D -> CMV-E -> merge CMV chain (A->B->C) into evol/impl -> release
-Last verified: prod 2.58.155 @ f4a44167 (PV package complete 58/58, live versioning proof); prod 2.58.154 @ 2de11dc0 (RC v5, canon active); CMV map 47/183 with A=8ba6806f and B=0bf3eed2 evidence bound; B reviewer numbers: fillW 0.660, 1.23 overlaps/node, FPS median 45.9 (thin margin recorded as constraint for C/E); CMV-VIS-01 moved to C; CMV-VIS-06 (zoom x2-3 artifact) and CMV-ERR-01..08/INV-09 (honest states) still unowned
-Next unlocks: (1) CMV-C verdict -> D; (2) decide owner for CMV-ERR-01..08 + INV-09 (A2 or D); (3) merge CMV chain into evol/impl in order A->B->C; (4) close 21 live RC scenarios on real traffic
+Active feature: BGS-01 (privacy veto removal) + GoodMorning release 2.58.157
+Active lanes: Reviewer BGS-03/04 final bb9b0b7b ses_e583972feffeyKwaCsthp0J4xg; Reviewer factcheck 1da5fefa ses_e583333e8ffeZyG5vbVxeipgFO; Reviewer reset-view 652b69b9 ses_e58336899ffeWMvJh5GHNd79y2
+Join barriers: BGS-01 alias fix (ur/b-search, 4 dirty) -> narrow re-review -> merge into evol/impl -> unblocks BGS-02/BGS-05; BGS-03/04 review; GoodMorning prod scan line (14 files) confirmation via SSH
+Last verified: prod 2.58.157 @ 6fd3dcf3 live, GoodMorning pool scan by deployed code with service interpreter = 14 files incl. goodmorning_13.mp4 (964490 B) and goodmorning_14.mp4 (2757360 B), NRestarts 0, no sends made (real-send behaviour pending 07:00 Asia/Yekaterinburg); prod 2.58.157 live (/healthz 2.58.157; index ?v=2.58.157; web/app.js sha256 49523d3c89d61e669e006f29ff222dd79a64c8d0198a63e6ea95d7797f746797 unchanged — backend-only change); prod 2.58.156 @ 30fac6ce fully verified by DevOps (version, asset hashes, NRestarts 0, schema 41, journal clean, map smoke read-only); CMV perf accepted (code) @ 57912225 with documented Android/emulator limitations; GoodMorning Approved @ 6fec933d (54 tests, 14 media tracked, mutation red)
+Next unlocks: (1) verdicts on BGS-03/04 `bb9b0b7b`, factcheck `1da5fefa`, reset-view `652b69b9`; (2) merge BGS-01 (5adaa21b + 1da5fefa) and BGS-03/04 into evol/impl -> unblocks BGS-02; (3) ship reset-view as 2.58.158; (4) CMV residual 52 rows (incl. CMV-PHY-05 fix in review, CMV-PERF-03 documented limit, CMV-GATE-17/PERF-06 need explicit verdict)
 Next execution: awaiting_children
-Review: approved (RC package, PV package, CMV-A, CMV-B); pending (CMV-C)
-Deployment: verified (2.58.155 @ f4a44167)
+Review: approved (CMV perf code, GoodMorning); needs_fixes (BGS-01 alias stripping + factcheck `_strip_privacy`, in repair); pending (BGS-03/04)
+Deployment: verified (2.58.157 live, backend-only; 2.58.156 @ 30fac6ce)
 Human gate: none
-Progress scope: plans/progress_scope.json | fresh
-Updated: 2026-11-04T21:12:00+12:00
+Progress scope: plans/progress_scope.json | stale (BGS input pending reconciliation by PM)
+Updated: 2026-11-05T06:10:00+12:00
