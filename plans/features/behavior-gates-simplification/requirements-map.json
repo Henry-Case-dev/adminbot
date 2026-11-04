@@ -2993,14 +2993,37 @@
       "source_text_sha256": "d7b65776adaa316eb76e8475d11dcc814b3e6ebb8b9a5688a7b80ffafbe185d3",
       "source_excerpt": "- Специальная операция «перефразируй без изменения фактов» не меняет `не`, числа и имена; если точность недостижима, исходные данные сохраняются и ошибка трассируется.",
       "disposition": "required",
-      "reason": "Не закрыто: отрицание контролируется только в окне ±40 символов вокруг ЧИСЛА (_number_signature, services/negative_constraints.py:96-108). Перефраз без чисел может молча потерять «не» и проходит гард: check_form_contract('Вася писал в чат про это', FormContract(source_text='Вася не писал в чат про это')) → None, тогда как рядом с числом отказ срабатывает (form_guard_rejected). Ограничение пре-существующее (воспроизводится на базе 905ba7ab), BGS-04 его не ухудшил, но и не закрыл. Доказаны только числа, новые имена, fallback-на-исходник и отсутствие reroll по клише/метатексту (tests/test_bgs0304_residual_contracts.py, plans/features/behavior-gates-simplification/evidence/bgs-03-04-residual-evidence.md §2). Закрытие требует продуктового детектива/решения по детектору отрицания вне числового окна — вне мандата полосы. Статус PENDING.",
+      "reason": "Закрыто на 88a0e61a (слито мёржа 85878c36, Reviewer Approved): к прежнему G2 (числа и отрицание в окне ±40 символов) добавлен G2b — сравнение НАБОРА отрицательных куэ вне числового окна. Перефраз без чисел, теряющий или добавляющий отрицание, получает FORM_GUARD_REJECTED и идёт существующим ограниченным путём: не более одного повтора формы (FORM_GUARD_RETRY_SYSTEM_PROMPT) в прежнем бюджете, при повторном искажении доставляется исходный черновик (fallback_text) с трассой form_guard_rejects/form_fallback. Числа, новые имена, отсутствие reroll по клише/метатексту и отсутствие гейта на свободной генерации не ослаблены. Границы доказанного — в verified_scope.",
       "req_id": "BGS-04.10",
       "slice": "BGS-04-GUARD-SCOPE",
       "acceptance": "Операция «перефразируй без изменения фактов» не меняет «не», числа и имена; при недостижимой точности исходные данные сохраняются, а ошибка трассируется.",
+      "verified_scope": "Покрыто и проверено: перефраз без чисел больше не может молча потерять или добавить отрицание — набор куэ-токенов источника и результата обязан совпасть по закрытому списку (не, ни, нет/нету, нельзя, никогда/никуда/нигде/ничуть/нисколько, некуда/негде/некому/нечего/нечем, без; границы слова, поэтому «неделя»/«низкий»/«небо» не считаются). Отказ идёт тем же ограниченным путём: не более одного повтора формы, затем доставка исходного черновика с трассой ошибки. НЕ покрыто и не доказано: (1) перенос того же отрицания между двумя частями фразы — наборы совпадают, смысл меняется, гард не срабатывает: check_form_contract('Вася писал, а Петя не пел', FormContract(source_text='Вася не писал, а Петя пел')) → None (проверено на 88a0e61a); (2) отрицание, выраженное словом вне закрытого списка, например «ничего»: 'Ничего подобного' → 'Подобное' проходит гард (None), т.к. «ничего» не входит в список куэ; (3) составные конструкции вида «не мог бы не» не входят в locked-список двойного отрицания, поэтому дают ЛОЖНЫЙ отказ: 'Он не мог бы не прийти' → 'Он пришёл' → form_guard_rejected, то есть лишний повтор формы с откатом к черновику, а не подмена отрицания (проверено: form_guard_rejected). Итог: детектор сравнивает множества слов, а не смысл; перечисленные три случая остаются вне доказанного объёма.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Перефраз без чисел не может молча потерять или добавить отрицание (G2b): отказ, один повтор формы, затем исходный черновик",
+          "observation": "tests/test_bgs0304_negation_contract.py — 34 случая: 'Вася не писал' → 'Вася писал' даёт FORM_GUARD_REJECTED с ровно одним повтором формы и доставкой исходного черновика (fallback_text), трасса form_guard_rejects/form_fallback; сохранённое отрицание отказа не даёт; «неделя/низкий/небо» ложных отказов не дают; числовой путь G2 не изменился; клише/метатекст по-прежнему без дополнительной генерации; свободная генерация гейта не получает. Прогон на слитом дереве 85878c36: файл отдельным прогоном — 34 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_negation_contract.py",
+          "candidate_commit": "88a0e61a"
+        },
+        {
+          "ref": "Прежние контракты полосы не ослаблены: числа и новые имена, fallback на исходник, отсутствие reroll по клише/метатексту",
+          "observation": "tests/test_bgs0304_residual_contracts.py — 11 passed отдельным прогоном на 85878c36: числа и новые имена по-прежнему контролируются, при недостижимой точности доставляется исходный черновик, клише/метатекст не вызывают повтора. Этот файл 88a0e61a не менял (git show --stat: только services/negative_constraints.py и новый тест-файл).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_residual_contracts.py",
+          "candidate_commit": "88a0e61a"
+        },
+        {
+          "ref": "Реализация G2b в существующем нормализаторе формы, без нового флага и без гейта на свободную генерацию",
+          "observation": "_negation_signature/_NEGATION_CUE_RE/_DOUBLE_NEGATION_RE и вызов в check_form_contract после G2; закрытый список куэ с границами слова, locked-пары двойного отрицания снимаются до подсчёта; form_contract вызывается только на шве Stage-1 → Stage-2 (direct_chat_service.py:7727-7733), поэтому свободный Direct/Initiative не затронут. Ручная проверка границ на 88a0e61a: перенос отрицания между частями фразы → None; 'Ничего подобного' → 'Подобное' → None; 'Он не мог бы не прийти' → 'Он пришёл' → form_guard_rejected.",
+          "type": "static",
+          "artifact_path": "services/negative_constraints.py",
+          "candidate_commit": "88a0e61a"
+        }
+      ]
     },
     {
       "source_id": "L00138",
@@ -4026,7 +4049,7 @@
   "architecture_classification": "ARCH_REUSE_CONFIRMED_WITH_UNRESOLVED_ARCH_DOC",
   "architecture_note": "arch/bgs-integration-contract.md в этом worktree ОТСУТСТВУЕТ (документ архитектора утерян при рестарте сервера). Настоящая карта не выдумывает контрактов: она использует фактически существующие контракты (evidence_policy.allowed/guard_egress, ToolEvidence из UR-B, public_speech_guard/outgoing_guard, negative_constraints/style_policy, param_catalog + effective-config UR-20—22) и фиксирует только зависимости и порядок записи. Если Builder обнаружит новую общую границу (новый ToolEvidence-статус, изменение схемы настроек, общий валидатор речи на несколько подсистем), работа останавливается и вопрос уходит Architect — PM контракт не замораживает.",
   "placement": "Волна 1 (параллельно): BGS-01-PRIVACY (активный лейн ur/b-search, кандидат 1001514e на ревью), BGS-03-SPEECH, BGS-04-GUARD-SCOPE, backend-часть BGS-06-ADMIN. Волна 2: BGS-02-EGRESS (после BGS-01, общий файл services/evidence_policy.py). Волна 3: BGS-05-BUDGET после UR-C/UR-D; UI-часть BGS-06 после UR-F/PVR UI. Волна 4: BGS-07-MATRIX (join) и BGS-08-ACCEPT (финальные проверки).",
-  "merge_state": "BGS-01-PRIVACY: ur/b-search 5adaa21b + bgs/factcheck-privacy 1da5fefa слиты в da6299e9 (Reviewer Approved). BGS-03-SPEECH и BGS-04-GUARD-SCOPE: bgs/speech-guards bb9b0b7b слит как 2618cb1e (Reviewer Approved). BGS-02-EGRESS: bgs/egress-guard 48e85ded (+док-привязка e2fdd9d8) принят Reviewer и слит как b0bb2310; прогон полосы после слияния — 162 passed (test_bgs02_egress_observation, test_evol_evidence_routing, test_evol_evidence_corpus, test_bgs0304_speech_observation, test_bgs01_factcheck_no_name_strip). BGS-05-BUDGET, BGS-06-ADMIN, BGS-07-MATRIX, BGS-08-ACCEPT не начаты.",
+  "merge_state": "BGS-01-PRIVACY: ur/b-search 5adaa21b + bgs/factcheck-privacy 1da5fefa слиты в da6299e9 (Reviewer Approved). BGS-03-SPEECH и BGS-04-GUARD-SCOPE: bgs/speech-guards bb9b0b7b слит как 2618cb1e (Reviewer Approved). BGS-02-EGRESS: bgs/egress-guard 48e85ded (+док-привязка e2fdd9d8) принят Reviewer и слит как b0bb2310; прогон полосы после слияния — 162 passed (test_bgs02_egress_observation, test_evol_evidence_routing, test_evol_evidence_corpus, test_bgs0304_speech_observation, test_bgs01_factcheck_no_name_strip). BGS-04-GUARD-SCOPE: доработка детектора отрицания 88a0e61a (G2b, services/negative_constraints.py + tests/test_bgs0304_negation_contract.py) принята Reviewer и слита мёржа 85878c36; BGS-04.10 переведён в VERIFIED с честным verified_scope (перенос отрицания между частями фразы, слово «ничего», конструкция «не мог бы не» остаются вне доказанного объёма). Единственная открытая строка среза — BGS-00.9 (UI-проверяемость настроенной формы, ждёт UI-волны UR-F/PVR). BGS-05-BUDGET, BGS-06-ADMIN, BGS-07-MATRIX, BGS-08-ACCEPT не начаты.",
   "blocked_by_upstream": [
     "unified-reply:UR-C, unified-reply:UR-D — BGS-05-BUDGET пересчитывает пределы поверх их executor/budget",
     "unified-reply:UR-B — BGS-01 применяется к свежему UR-B дереву, а не к релизному снимку",
