@@ -546,6 +546,31 @@ class _NullTyping:
 class TestOrchestratorCorrelation:
 
     @pytest.mark.asyncio
+    async def test_direct_turn_shares_one_id_between_planner_and_writer(
+            self, monkeypatch):
+        """RLR-02-LEGACY: после демонтажа второго автора ход Direct состоит из
+        двух смысловых стадий — L1-планировщик и единственный Writer. Аналитика
+        токенов обязана видеть их одним прогоном: оба вызова несут ОДИН
+        `correlation_id` хода (и `module="direct_chat"`).
+
+        Раньше это проверялось на удалённой паре «Синтезатор → Вербализатор»
+        (`test_direct_stage1_stage2_share_id`); перенесено на живую топологию.
+        """
+        from tests.test_asap7_direct_l1 import _FakeLLM, _drive, _plan_json
+
+        llm = _FakeLLM(l1=_plan_json(), l2="готовый ответ")
+        svc, _react, bot, msg, user = _drive(
+            monkeypatch, "что там", llm=llm)
+        await svc.handle(bot, msg, user)
+        planner = llm.calls_of("l1_planner")
+        writer = llm.calls_of("l2_writer")
+        assert planner and writer, llm.steps()
+        cid = planner[0]["correlation_id"]
+        assert cid, "у прогона нет correlation_id — аналитика развалится"
+        assert writer[0]["correlation_id"] == cid
+        assert planner[0]["module"] == writer[0]["module"] == "direct_chat"
+
+    @pytest.mark.asyncio
     async def test_factcheck_creates_one_id_for_both_stages(self):
         from services.factcheck_service import FactCheckService
 
