@@ -183,6 +183,41 @@ class TestAllocatorOrder:
         assert all(item.get("reason_code") for item in
                    selection.provenance.dropped)
 
+    def test_budget_is_actually_respected_after_compression(self):
+        """UR-11: allocator — ЕДИНСТВЕННЫЙ владелец усечения.
+
+        После сжатия он обязан реально влезть в бюджет, иначе потребитель
+        резал бы повторно по своей политике. Каждый снятый фрагмент назван в
+        `dropped` с причиной; никакой тихой потери.
+        """
+        neighbours = [
+            _frag(comp.KIND_USER_STATEMENT, f"msg:{900 + i}",
+                  "средняя реплика про бюджет поездки и расходы семьи",
+                  role=comp.ROLE_FRESH_NEIGHBOUR, ts=1000 + i, uid=20 + i,
+                  tg=900 + i)
+            for i in range(12)
+        ]
+        budget = 80
+        selection = comp.build_context_selection(
+            chat_id=CHAT, current_text="и что дальше?", timestamp_utc=2000,
+            fresh_neighbours=neighbours, budget_tokens=budget)
+        prov = selection.provenance
+        assert prov.included_tokens <= budget
+        assert sum(f.tokens() for f in selection.fragments()) <= budget
+        dropped_ids = {item["source_id"] for item in prov.dropped
+                       if item.get("reason_code") == "budget_exceeded"}
+        kept_ids = {f.source_id for f in selection.fragments()}
+        assert dropped_ids and kept_ids.isdisjoint(dropped_ids)
+        assert {"msg:current"} <= kept_ids
+        # Каждый фрагмент либо в payload, либо назван с причиной — 13 из 13.
+        assert kept_ids | dropped_ids == (
+            {"msg:current"} | {f"msg:{900 + i}" for i in range(12)})
+        # Снимаются старые соседи; уцелевшие — самые свежие (непрерывный хвост).
+        kept_numbers = sorted(int(sid.split(":")[1])
+                              for sid in kept_ids - {"msg:current"})
+        assert kept_numbers and kept_numbers == list(
+            range(900 + (12 - len(kept_numbers)), 912))
+
     def test_provenance_counts_are_truthful(self):
         selection = self._selection(10 ** 6)
         prov = selection.provenance
@@ -249,7 +284,53 @@ class TestReplyBranchAndSelfOutput:
             speaker_uids = {f.speaker_uid for f in fragments
                             if f.kind == comp.KIND_USER_STATEMENT}
             assert {11, 12} <= speaker_uids
-            assert bot_frag.speaker_uid is None
+            # UR-23: автор бот-хода известен (реальный uid бота), а не
+            # «неизвестно»: `ChainItem` для бота uid не несёт.
+            bot_with_author = comp.chain_item_to_fragment(
+                bot_items[-1], role=comp.ROLE_THREAD, bot_user_id=BOT_UID)
+            assert bot_with_author.speaker_uid == BOT_UID
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_bot_turn_author_survives_dedup_with_ledger(self, tmp_path):
+        """UR-23: `speaker_uid` бот-хода задаётся из `bot_user_id`, а дедуп
+        возвращает его выжившему фрагменту (ветка без uid + ledger-дубль)."""
+        db = await _db(tmp_path, "botuid.db")
+        try:
+            await _add_msg(db, CHAT, 11, "кто брал кредит?", 1000, 10,
+                           author_name="Вася")
+            await db.record_bot_output(
+                chat_id=CHAT, bot_user_id=BOT_UID, tg_message_id=15,
+                revision_no=1, sent_at=1050, parent_message_ref="tg:10",
+                output_kind="direct_reply", content_text="я брал, на машину",
+                correlation_id="turn-1")
+            from services.thread_chain import collect_thread_chain
+            chain = await collect_thread_chain(db, CHAT, 15, depth=10)
+            bot_item = [item for item in reversed(chain) if item.is_bot][-1]
+            assert bot_item.uid is None            # ChainItem: uid не заполнен
+            bot_frag = comp.chain_item_to_fragment(
+                bot_item, role=comp.ROLE_THREAD, bot_user_id=BOT_UID)
+            assert bot_frag.speaker_uid == BOT_UID
+            # Тот же ход, собранный без `bot_user_id`, и дубль из ledger:
+            # выживший фрагмент обязан получить идентичность автора.
+            bare = comp.chain_item_to_fragment(bot_item,
+                                               role=comp.ROLE_THREAD)
+            assert bare.speaker_uid is None        # uid не выдумывается
+            ledger = comp.ledger_record_to_fragment(
+                {"tg_message_id": 15, "output_id": 1, "sent_at": 1050,
+                 "content_text": "", "bot_user_id": BOT_UID,
+                 "parent_message_ref": "tg:10"},
+                role=comp.ROLE_SELF_OUTPUT, bot_user_id=BOT_UID)
+            selection = comp.build_context_selection(
+                chat_id=CHAT, current_text="что ты сказал про кредит?",
+                reply_to_tg=15, timestamp_utc=2000, thread=[bare],
+                self_outputs=[ledger], budget_tokens=10 ** 6)
+            bots = [f for f in selection.fragments()
+                    if f.kind == comp.KIND_BOT_STATEMENT
+                    and f.tg_message_id == 15]
+            assert len(bots) == 1                  # дедуп сработал
+            assert bots[0].speaker_uid == BOT_UID
         finally:
             await db.close()
 
@@ -332,6 +413,37 @@ class TestCorrectionsAndConflicts:
         assert by_id["msg:301"].priority == comp.P3
         assert by_id["msg:302"].priority == comp.P1
         assert corrections and corrections[0]["target"] == "msg:301"
+
+    @pytest.mark.parametrize("block", ["memory", "fresh_neighbours"])
+    def test_late_correction_supersedes_older_fact_in_any_block(self, block):
+        """UR-13.5: правка ищет устаревшую версию и вне ветки.
+
+        Большой бюджет — чтобы тест не мог пройти за счёт вытеснения: обе
+        версии остаются в payload, но старая помечена `superseded_by` (P3),
+        а не подаётся как равнозначный факт.
+        """
+        role = (comp.ROLE_MEMORY if block == "memory"
+                else comp.ROLE_FRESH_NEIGHBOUR)
+        older = _frag(comp.KIND_USER_STATEMENT, "msg:311",
+                      "зарплата у меня 60 тысяч рублей", role=role,
+                      ts=1000, uid=11, tg=311)
+        newer = _frag(comp.KIND_USER_STATEMENT, "msg:312",
+                      "да нет же, зарплата 90 тысяч, я ошибся",
+                      role=comp.ROLE_THREAD, ts=2000, uid=11, tg=312)
+        selection = comp.build_context_selection(
+            chat_id=CHAT, current_text="напомни, сколько я получаю?",
+            timestamp_utc=3000, thread=[newer], budget_tokens=10 ** 6,
+            **{block: [older]})
+        assert selection.provenance.dropped == ()     # ничего не вытеснено
+        by_id = {f.source_id: f for f in selection.fragments()}
+        assert {"msg:311", "msg:312"} <= set(by_id)
+        assert by_id["msg:311"].superseded_by == "msg:312"
+        assert by_id["msg:311"].priority == comp.P3
+        assert by_id["msg:311"].authority == comp.AUTHORITY_BACKGROUND
+        assert by_id["msg:311"].role == role          # блок не переписан
+        assert by_id["msg:312"].priority == comp.P1
+        assert any(item["target"] == "msg:311"
+                   for item in selection.provenance.corrections)
 
     def test_corrected_older_version_dropped_first_under_pressure(self):
         older = _frag(comp.KIND_USER_STATEMENT, "msg:301",

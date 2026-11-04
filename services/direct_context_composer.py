@@ -1143,13 +1143,23 @@ def chain_item_to_fragment(item, *, role: str, aliases=None,
             reply_tg_int = int(reply_raw[3:])
         except ValueError:
             reply_tg_int = None
+    # UR-23/UR-09.5: ход бота — факт диалога с известным автором. `ChainItem`
+    # для бот-хода uid не несёт (`uid=None`), поэтому автора берём из реального
+    # `bot_user_id`; без него uid остаётся неизвестным (не выдумываем).
+    if is_bot and bot_user_id is not None:
+        try:
+            speaker_uid = int(bot_user_id)
+        except (TypeError, ValueError):
+            speaker_uid = uid
+    else:
+        speaker_uid = uid
     return ContextFragment(
         kind=(KIND_BOT_STATEMENT if is_bot else KIND_USER_STATEMENT),
         source_id=(f"bot_output_tg:{tg_int}" if is_bot and tg_int is not None
                    else (f"msg:{tg_int}" if tg_int is not None else raw or
                          "msg:unknown")),
         timestamp_utc=ts_int,
-        speaker_uid=(None if is_bot else uid),
+        speaker_uid=speaker_uid,
         author_label=(_alias_label(aliases, uid,
                                    getattr(item, "name", "") or "")
                       if not is_bot else str(getattr(item, "name", "") or "")),
@@ -1508,8 +1518,11 @@ def allocate_selection(selection: ContextSelection,
     Правила: «всё влезает — не режем» (§16); при нехватке — сначала
     нерелевантный фон (P3), затем вторичные конспекты/слабые выводы, затем
     менее важные реплики, и только потом сжатие длинных релевантных
-    материалов со ссылкой на оригинал; P0 (вопрос/reply-parent/правка) не
-    режется — при физическом переполнении дробится на части.
+    материалов со ссылкой на оригинал; если после сжатия бюджет всё ещё
+    превышен — снимаются оставшиеся НЕ-P0 фрагменты (от низшего приоритета и
+    старых к новым) с записью причины в `dropped`, чтобы потребитель не резал
+    повторно; P0 (вопрос/reply-parent/правка) не режется — при физическом
+    переполнении дробится на части.
     """
     budget = int(budget_tokens or 0)
     ordered = list(selection.fragments())
@@ -1573,6 +1586,25 @@ def allocate_selection(selection: ContextSelection,
         dropped.append({"source_id": victim.source_id, "kind": victim.kind,
                         "role": victim.role, "reason_code": "compressed",
                         "tokens": gained})
+
+    # 4b) сжатия не хватило: снимаем оставшиеся НЕ-P0 фрагменты, пока
+    #     `included_tokens` реально не влезет в бюджет. Иначе потребитель был
+    #     бы вынужден резать повторно (своя, вторая политика усечения).
+    #     Жертвы — от низшего приоритета к высшему, внутри приоритета — от
+    #     старых к новым (свежее всегда полезнее); P0 не снимается никогда.
+    while total > budget:
+        candidates = [f for f in included if f.priority > P0]
+        if not candidates:
+            break
+        victim = min(candidates,
+                     key=lambda f: (-f.priority, int(f.timestamp_utc or 0),
+                                    f.source_id))
+        cost = victim.tokens(measure)
+        included.remove(victim)
+        total -= cost
+        dropped.append({"source_id": victim.source_id, "kind": victim.kind,
+                        "role": victim.role, "reason_code": "budget_exceeded",
+                        "tokens": cost})
 
     # 5) физическое переполнение: P0 дробится на части со ссылками.
     overflow = total > budget
@@ -1682,6 +1714,10 @@ def _dedup_fragments(groups) -> tuple[list, int]:
                     changes["timestamp_utc"] = frag.timestamp_utc
                 if not current.correlation_id and frag.correlation_id:
                     changes["correlation_id"] = frag.correlation_id
+                # UR-23: идентичность автора не теряется при слиянии (бот-ход
+                # из ветки без uid + тот же ход из ledger с `bot_user_id`).
+                if current.speaker_uid is None and frag.speaker_uid is not None:
+                    changes["speaker_uid"] = frag.speaker_uid
                 if int(current.revision or 1) < int(frag.revision or 1):
                     changes["revision"] = frag.revision
                 if not current.text and frag.text:
@@ -1692,6 +1728,30 @@ def _dedup_fragments(groups) -> tuple[list, int]:
             seen[key] = len(out)
             out.append(frag)
     return out, duplicates
+
+
+def resolve_corrections_across_blocks(thread_items, neighbour_items,
+                                      memory_items) -> tuple:
+    """UR-13.5: поздняя правка ищет устаревшую версию во ВСЕХ блоках.
+
+    Правка приходит из ветки, а прежний факт часто живёт в памяти или в
+    свежих соседях окна. Детектор обязан видеть их вместе ДО аллокации,
+    иначе при большом бюджете обе версии попадают в payload как
+    равнозначные. Возврат: ``(thread, neighbours, memory, corrections)`` —
+    блоки сохраняют свой порядок, устаревший фрагмент остаётся в своём
+    блоке (он не стирается, а получает ``superseded_by`` → P3).
+    """
+    blocks = [list(thread_items or ()), list(neighbour_items or ()),
+              list(memory_items or ())]
+    combined = [frag for block in blocks for frag in block]
+    resolved, corrections = detect_corrections(combined)
+    resolved = list(resolved)
+    out: list = []
+    start = 0
+    for block in blocks:
+        out.append(list(resolved[start:start + len(block)]))
+        start += len(block)
+    return out[0], out[1], out[2], corrections
 
 
 def build_context_selection(
@@ -1742,12 +1802,17 @@ def build_context_selection(
     background_items, background_dups = _dedup_fragments([background])
     memory_items, conflicts = mark_source_conflicts(memory_items,
                                                     memory_candidates)
-    resolved_thread, corrections = detect_corrections(thread_items)
+    # UR-13.5: детекция правок — до аллокации и по всем «разговорным» блокам,
+    # а не только по ветке (иначе при большом бюджете старая версия факта из
+    # памяти/окна остаётся равнозначной).
+    (thread_items, neighbour_items, memory_items,
+     corrections) = resolve_corrections_across_blocks(
+        thread_items, neighbour_items, memory_items)
 
     summary_frag = (summary_map_fragment(summary_map)
                     if isinstance(summary_map, SummaryMapRef) else None)
     groups = ([current], [reply_parent] if reply_parent is not None else [],
-              resolved_thread, neighbour_items, memory_items, self_items,
+              thread_items, neighbour_items, memory_items, self_items,
               [summary_frag] if summary_frag is not None else [],
               background_items)
     ordered, dups = _dedup_fragments(groups)
@@ -1981,6 +2046,7 @@ __all__ = [
     "ContextSelection", "preview_text", "row_to_fragment",
     "chain_item_to_fragment", "ledger_record_to_fragment", "summary_map_ref",
     "summary_map_fragment", "detect_corrections", "mark_source_conflicts",
+    "resolve_corrections_across_blocks",
     "split_overflow_fragments", "compress_fragment_with_ref",
     "allocate_selection", "build_context_selection",
     "collect_window_fragments", "collect_memory_fragments",
