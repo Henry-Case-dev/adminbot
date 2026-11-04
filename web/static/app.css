@@ -1714,6 +1714,18 @@
     .cog-truncated:focus-visible {
       outline: 2px solid rgba(148, 163, 184, .75); outline-offset: 2px;
     }
+    /* §2.2 строка 4 спеки (CMV-HDR-04): компактная подсказка жестов под сценой.
+       Не плашка: одна строка мелкого текста, показывается один раз при входе;
+       дальше тот же текст доступен как `title`/`aria-describedby` сцены. */
+    .cog-hint {
+      margin-top: 4px; line-height: 1.35; min-width: 0;
+      display: flex; flex-wrap: wrap; gap: 0 6px;
+      color: #94a3b8;
+    }
+    .cog-hint__sr {
+      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
     /* ═══ EVOL-COG-MAP (W7-S3): карточка узла/ребра ════════════════════════
        Desktop — выдвижная панель справа; телефон — нижний лист. Это СЛОЙ, а не
        экран: карта остаётся читаемой, камера/зум/фильтры не меняются. Материал
@@ -1805,6 +1817,14 @@
         padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
         overflow-y: auto; overscroll-behavior: contain;
         transition: height .18s ease-out;
+        /* §3.2/§12.3 спеки: лист должен ЧИТАТЬСЯ. Граф остаётся видимым СВЕРХУ
+           (полоса над листом), а не сквозь текст: стеклянность сохраняется, но
+           плотность фона достаточная, чтобы узлы и подписи не просвечивали. */
+        background: linear-gradient(180deg,
+          rgba(14, 19, 30, .97) 0%, rgba(11, 15, 24, .96) 100%);
+        -webkit-backdrop-filter: blur(18px) saturate(1.15);
+        backdrop-filter: blur(18px) saturate(1.15);
+        box-shadow: 0 -12px 32px rgba(4, 7, 13, .55);
       }
       .cog-card--expanded { height: 80dvh; }
       .cog-card__grip {
@@ -2184,6 +2204,14 @@
          карточку), но места не занимает: на телефоне это нижний лист
          (`position: fixed`, CMV-FSM-03), а граф остаётся видимым сверху. */
       .status-graph-full .cog-fs__inspector { display: block; height: 0; }
+      /* §3.2/§12.3 спеки: лист закрывает нижние 40 % — значит и место сцены
+         уменьшается на его высоту. Иначе граф центрировался в ПОЛНОМ холсте и
+         его нижняя половина уходила под лист («виден сверху» выполнялось лишь
+         геометрически). Камера перецентровывается в видимую полосу тем же
+         `_cogRestoreCamera` (та же позиция), выбор и фильтры не меняются. */
+      .status-graph-full.has-inspector .cog-fs__body {
+        padding-bottom: calc(40dvh + env(safe-area-inset-bottom, 0px));
+      }
     }
     @media (min-width: 768px) {
       .status-graph-full.has-inspector .cog-fs__body {

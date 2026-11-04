@@ -4190,6 +4190,8 @@
         cogCardEmbedExpanded: true,    // встроенная карта: панель развёрнута
         cogCardSheetExpanded: false,   // телефон: лист раскрыт до 80dvh
         _cogSheetTouch: null,          // жест листа (startY/lastY), не реактивно
+        // §2.2 строка 4 спеки: подсказка жестов показана один раз при входе.
+        cogHintSeen: false,
         // Что именно просили открыть в каталоге «Памяти» (название/тип узла):
         // по этому полю считается честная заметка «записи в каталоге нет».
         cogMemoryTarget: null,
@@ -8895,6 +8897,19 @@
       // именно это поле, других признаков в проекте не заводится).
       cogCardOpen: function () {
         return !!(this.cogCard && this.cogCard.kind);
+      },
+      // §2.2 строка 4 спеки (CMV-HDR-04): подсказка жестов. Один и тот же
+      // текст — и для строки под сценой (первое открытие виджета), и для
+      // доступной подсказки сцены (`title` + `aria-describedby`): второго
+      // текста «для скриншота» не заводится.
+      cogHintText: function () {
+        return 'Колесо/щипок — масштаб · Перетаскивание — перемещение · '
+          + 'Нажатие — связи';
+      },
+      // Строка показывается ОДИН раз при входе: после первого действия с картой
+      // (`_cogHintDone`) она не занимает место, подсказка остаётся доступной.
+      cogHintVisible: function () {
+        return this.cogHintSeen !== true && !this.cogEmpty;
       },
       // CMV-D (§3.1/§8.2 спеки): МЕСТО показа одного и того же слоя.
       // `full` — колонка справа в полном экране; `embed` — панель под сценой
@@ -30753,6 +30768,16 @@
         if (w === scene.width && h === scene.height) return;
         scene.width = w;
         scene.height = h;
+        // CMV-D (§3.1/§3.2 спеки): vis-network следит только за `window.resize`,
+        // а контейнер меняет размер БЕЗ события окна (встроенная карта ↔
+        // fullscreen, появление колонки инспектора). Битмап оставался старым,
+        // и сцена выглядела пустой, хотя камера/масштаб считались уже по новому
+        // размеру. Сообщаем размер явно — пересоздания сети нет.
+        if (this.cognitionNetwork
+            && typeof this.cognitionNetwork.setSize === 'function') {
+          try { this.cognitionNetwork.setSize(w + 'px', h + 'px'); }
+          catch (e) { /* сеть уничтожена — кадр восстановится при следующем рендере */ }
+        }
         // §6 контракта: размер слоя `fx` переустанавливается здесь, не на кадре.
         this._cogSyncFxSize();
         this._cogRefreshFitScale();
@@ -32157,6 +32182,13 @@
           this.loadCognitionGraph();
         }
       },
+      // §2.2 строка 4 спеки (CMV-HDR-04): подсказка жестов показывается один
+      // раз при входе. Метод идемпотентен: повторные действия ничего не меняют
+      // и не запускают перерисовку карты.
+      _cogHintDone: function () {
+        if (this.cogHintSeen === true) return;
+        this.cogHintSeen = true;
+      },
       // ── CMV-D: места показа карточки, жесты листа, переход к соседу ──────
       // Встроенная карта: компактная панель ПОД сценой, раскрываемая вручную
       // (§8.2 спеки: не плавает над графом в углу).
@@ -32328,6 +32360,26 @@
           return;
         }
         this.openCogNodeCard(id);
+      },
+      // §8.1(6) спеки (CMV-CARD-06): «Снять выбор». Отличие от `closeCogCard`:
+      // снимается САМ выбор (подсветка/соседи/детали), карточка закрывается.
+      // Камера, зум и фильтры не трогаются — это не «Сбросить вид».
+      clearCogSelection: function () {
+        this._cogSelectedId = null;
+        this._cogEdgeFocus = null;
+        this._cogHighlight = null;
+        this.graphClearDetail();
+        this.graphApplySelectionLabels([]);
+        if (this.cognitionNetwork
+            && typeof this.cognitionNetwork.selectNodes === 'function') {
+          this.cognitionNetwork.selectNodes([]);
+        }
+        if (typeof this._cogBuildPulse === 'function') this._cogBuildPulse();
+        if (typeof this._cogApplyHighlight === 'function') {
+          this._cogApplyHighlight();
+        }
+        this.closeCogCard();
+        if (typeof this._cogPaintStatic === 'function') this._cogPaintStatic();
       },
       closeCogCard: function () {
         var had = this.cogCardOpen;
@@ -32595,6 +32647,11 @@
       // Выбранный узел → честные подробности модели (тип/статус/время).
       // Карточка с кнопками и provenance — S3; здесь контекст выбора.
       graphSelectNode: function (nodeId) {
+        // §2.2 строка 4 спеки: первое действие с картой делает подсказку
+        // доступной подсказкой сцены, а не постоянной строкой под ней.
+        // Хук необязателен: минимальные пробные контексты (routing) его не
+        // содержат — карта без подсказки остаётся рабочей.
+        if (typeof this._cogHintDone === 'function') this._cogHintDone();
         var model = this.cognitionGraphData || {};
         var byId = model.byId || {};
         var C = window.CognitiveMap;
@@ -32789,6 +32846,7 @@
       // Витринные фильтры (тип/кластер/производные рёбра): данные не меняются,
       // сети-запросов нет, камера сохраняется (см. renderCognitionGraph).
       applyGraphFilter: function () {
+        if (typeof this._cogHintDone === 'function') this._cogHintDone();
         this.graphSearchStatus = '';
         this.renderCognitionGraph();
       },

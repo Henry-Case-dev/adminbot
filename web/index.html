@@ -13242,10 +13242,20 @@
               <div ref="cognitionGraph" class="cognition-graph" data-glass="c"
                    tabindex="0" data-cog-scene
                    role="application"
+                   :title="cogHintText"
+                   aria-describedby="cog-hint-text"
                    aria-label="Когнитивная карта: Enter открывает карточку выбранного узла, Esc закрывает"
                    @keydown.enter.prevent="openCogSelectedCard()"
                    @keydown.space.prevent="openCogSelectedCard()"
                    :hidden="cogEmpty"></div>
+              <!-- §2.2 строка 4 спеки (CMV-HDR-04): компактная подсказка жестов.
+                   Показывается ОДИН раз при входе в виджет и не висит большой
+                   плашкой; после первого действия остаётся доступной подсказкой
+                   (`title` + `aria-describedby` сцены). -->
+              <div v-if="cogHintVisible" class="cog-hint text-xs text-gray-500"
+                   data-cog-hint>{{ cogHintText }}</div>
+              <span id="cog-hint-text" class="cog-hint__sr"
+                    data-cog-hint-text>{{ cogHintText }}</span>
               <!-- CMV-D (§8.2 спеки, CMV-CARD-08): инспектор встроенной карты —
                    компактная панель ПОД сценой, а не «плавающая» карточка в углу
                    поверх узлов. Слот существует всегда: карточка телепортируется
@@ -14731,6 +14741,8 @@
                        class="cognition-graph cognition-graph--full" data-glass="c"
                        tabindex="0" data-cog-scene
                        role="application"
+                       :title="cogHintText"
+                       aria-describedby="cog-hint-text"
                        aria-label="Когнитивная карта: Enter открывает карточку выбранного узла, Esc закрывает"
                        @keydown.enter.prevent="openCogSelectedCard()"
                        @keydown.space.prevent="openCogSelectedCard()"
@@ -14926,6 +14938,13 @@
                             :disabled="!act.enabled"
                             :title="act.enabled ? '' : act.reason"
                             @click="cogCardAction(act.id, $event)">{{ act.label }}</button>
+                    <!-- §8.1(6) спеки (CMV-CARD-06): «Снять выбор» доступно
+                         ВСЕГДА — это не условное действие данных, а выход из
+                         выбора. Ведёт себя как явный сброс выделения: карточка
+                         закрывается, подсветка и камера остаются на месте. -->
+                    <button type="button" class="btn-ghost text-xs"
+                            data-cog-action="clear"
+                            @click="clearCogSelection()">Снять выбор</button>
                   </div>
                   <div v-for="act in cogCard.actions" :key="'car' + act.id">
                     <div v-if="!act.enabled" class="cog-card__absent"
