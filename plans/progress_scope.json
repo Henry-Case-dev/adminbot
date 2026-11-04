@@ -473,6 +473,17 @@
       "coverage_complete": true,
       "source_note": "BGS-01..08: 155 обязательных строк (143 строки экстрактора + 41 manual, 29 context), 8 срезов, план-гейт 0 ошибок. Живые линии: BGS-01-PRIVACY (ur/b-search @5adaa21b — поиск принят, остаётся снятие вычистки имён в фактчеке), BGS-03-SPEECH, BGS-04-GUARD-SCOPE, backend-дельта BGS-06-ADMIN. Сериализовано: BGS-02-EGRESS после BGS-01 (общий services/evidence_policy.py); BGS-05-BUDGET ждёт UR-C/UR-D; UI BGS-06 ждёт UR-F/PVR UI. Преемственность: BGS-01 заменил UR-06.2/07/07.1/08.2/ACC-B3/ACC-B5/BAN-01, BGS-04 уточнил UR-15/15.2 (старые тексты сохранены в superseded_text).",
       "updated": "2026-11-05"
+    },
+    {
+      "id": "remove-legacy-rephrasing-01",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md",
+      "source_sha256": "8DC7751C893704B895B4FCFD8475B504E668294E6966688A278AB6E261BB3F22",
+      "maps": [],
+      "coverage_complete": false,
+      "blocked_by": [],
+      "updated": "2026-11-05",
+      "source_note": "REMOVE-LEGACY-REPHRASING v2.0: обязательная корректировка UR-A/BGS. Требует: удалить достижимый System2 tool-final -> JSON -> Verbalizer, FormContract-второй-писатель для свободного чата, post-L2 reroll (form/numeric/metatext/format/evidence/duplicate/freshness), сохранить единственный финальный Writer, machine-стадии, фактчек/саммари/мемы, идемпотентность доставки; обновить админку/manifest; доказать реальными LLM-вызовами. Карта требований ещё не создана."
     }
   ],
   "owner_inputs": [
@@ -1082,6 +1093,19 @@
       ],
       "reconciled": true,
       "note": "Срочный эпик BGS-01..08: убрать privacy-вето на Web Search без замены новым классификатором; снять смысловую постцензуру Evidence Egress и Public Speech (только техническая очистка и наблюдение); убрать лишние retry и искусственные интеллектуальные потолки, согласовав бюджеты с UR; синхронизировать действующие и удалённые настройки в backend и админке; сохранить RBAC, секреты, SSRF/SafeFetcher, протокольную очистку, дедуп, лимиты API, доказательность фактчека, пользовательские промпты и характер. Конфликтная матрица: UR-06/07/08 (privacy) заменяются, UR-15 уточняется."
+    },
+    {
+      "id": "OI-2026-11-05-REMOVE-LEGACY-REPHRASING-V2",
+      "source_path": "plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md",
+      "source_sha256": "8DC7751C893704B895B4FCFD8475B504E668294E6966688A278AB6E261BB3F22",
+      "kind": "correction",
+      "target_task_ids": [
+        "remove-legacy-rephrasing-01"
+      ],
+      "reconciled": false,
+      "origin": "root chat message 2026-11-05; text is plans/current_task.md lines 6702-EOF (owner-owned, read-only)",
+      "received": "2026-11-05",
+      "note": "Убрать автоматическое перефразирование готовых ответов и зависимые механизмы повторной генерации/смыслового редактирования/скрытого отката; единый финальный Writer; обязательная админка/миграционный manifest/реальное доказательство LLM-вызовов."
     }
   ]
 }
