@@ -245,16 +245,24 @@ WHERE block_id = $1 AND (chat_id = $2 OR (chat_id IS NULL AND $2 IS NULL))
 ORDER BY COALESCE(created_at, 'epoch'::timestamptz) DESC, revision_id DESC
 LIMIT $5
 """
+#: Статус события считается по РЕВИЗИИ, на которую оно ссылается (§2.4 п.9):
+#: поэтому ``retired``/``schema_compat`` приезжают в той же странице через
+#: LEFT JOIN по первичному ключу ревизии. Отдельного запроса на строку нет, а
+#: тело ревизии по-прежнему не читается (колонка ``body`` не выбирается).
 _PAGE_ACTIVATIONS_DESC_SQL = """
-SELECT activation_id, revision_id, scope, chat_id, kind, outcome, release_id,
-       actor, detail_code, created_at
-FROM prompt_activations
-WHERE block_id = $1 AND (chat_id = $2 OR (chat_id IS NULL AND $2 IS NULL))
+SELECT a.activation_id, a.revision_id, a.scope, a.chat_id, a.kind, a.outcome,
+       a.release_id, a.actor, a.detail_code, a.created_at,
+       COALESCE(r.retired, false) AS retired,
+       COALESCE(r.schema_compat, '') AS schema_compat
+FROM prompt_activations a
+LEFT JOIN prompt_revisions r ON r.revision_id = a.revision_id
+WHERE a.block_id = $1
+  AND (a.chat_id = $2 OR (a.chat_id IS NULL AND $2 IS NULL))
   AND ($3::timestamptz IS NULL
-       OR (COALESCE(created_at, 'epoch'::timestamptz),
-           ('act:' || lpad(activation_id::text, 20, '0')))
+       OR (COALESCE(a.created_at, 'epoch'::timestamptz),
+           ('act:' || lpad(a.activation_id::text, 20, '0')))
           < ($3::timestamptz, $4::text))
-ORDER BY COALESCE(created_at, 'epoch'::timestamptz) DESC, activation_id DESC
+ORDER BY COALESCE(a.created_at, 'epoch'::timestamptz) DESC, a.activation_id DESC
 LIMIT $5
 """
 
@@ -600,7 +608,21 @@ def history_source(origin: str, *, kind: str = "") -> str:
     return "legacy"
 
 
-def history_source_label(token: str) -> str:
+#: Подписи СОБЫТИЙ, у которых «источник текста» не применим (§2.2 п.3):
+#: назначение/снятие owner baseline ничего не восстанавливает — меняется
+#: указатель. Токен ``source`` при этом остаётся контрактным, уточняется только
+#: человеческая подпись строки (иначе базовое назначение читалось как
+#: «восстановлена», хотя текст не восстанавливался).
+_EVENT_SOURCE_LABELS = {
+    "baseline_assign": "назначена базовая",
+    "baseline_clear": "назначение базовой снято",
+}
+
+
+def history_source_label(token: str, *, kind: str = "") -> str:
+    kind = str(kind or "")
+    if kind in _EVENT_SOURCE_LABELS:
+        return _EVENT_SOURCE_LABELS[kind]
     return _SOURCE_LABELS.get(str(token or ""), "неизвестный источник")
 
 
@@ -1092,16 +1114,24 @@ class MemoryPromptJournal:
             factory_revision=r.factory_revision)
             for r in self.revisions.values()
             if r.block_id == block_id and _row_matches_chat(r, chat_id)]
-        acts = [HistoryRow(
-            entry_type=ENTRY_ACTIVATION,
-            created_at=_norm_ts(a.created_at),
-            sort_id=activation_sort_id(idx + 1), revision_id=a.revision_id,
-            actor=a.actor, scope=a.scope, chat_id=a.chat_id,
-            reason=a.detail_code, release_id=a.release_id, kind=a.kind,
-            outcome=a.outcome, detail_code=a.detail_code,
-            activation_id=idx + 1)
-            for idx, a in enumerate(self.activations)
-            if a.block_id == block_id and _row_matches_chat(a, chat_id)]
+        acts = []
+        for idx, a in enumerate(self.activations):
+            if a.block_id != block_id or not _row_matches_chat(a, chat_id):
+                continue
+            # Статус события — статус СВЯЗАННОЙ ревизии (§2.4 п.9): иначе строка
+            # события и строка той же версии показывали бы разное состояние.
+            linked = self.revisions.get(a.revision_id) if a.revision_id else None
+            acts.append(HistoryRow(
+                entry_type=ENTRY_ACTIVATION,
+                created_at=_norm_ts(a.created_at),
+                sort_id=activation_sort_id(idx + 1), revision_id=a.revision_id,
+                actor=a.actor, scope=a.scope, chat_id=a.chat_id,
+                retired=bool(linked.retired) if linked is not None else False,
+                schema_compat=(linked.schema_compat or "")
+                if linked is not None else "",
+                reason=a.detail_code, release_id=a.release_id, kind=a.kind,
+                outcome=a.outcome, detail_code=a.detail_code,
+                activation_id=idx + 1))
         return revs, acts
 
     async def list_history_page(self, block_id: str, *,
@@ -1536,12 +1566,17 @@ class PgPromptJournal:
 
     def _activation_history_row(self, rec) -> HistoryRow:
         activation_id = int(rec["activation_id"] or 0)
+        # §2.4 п.9 / §2.2 п.8: статус события — это статус ревизии, на которую
+        # оно ссылается (снятая с регистрации/несовместимая версия не бывает
+        # действием). Значения приходят из джойна страницы (или из стора).
         return HistoryRow(
             entry_type=ENTRY_ACTIVATION,
             created_at=_norm_ts(rec["created_at"]),
             sort_id=activation_sort_id(activation_id),
             revision_id=rec["revision_id"] or "", actor=rec["actor"] or "",
             scope=rec["scope"] or "global", chat_id=rec["chat_id"],
+            retired=bool(rec["retired"]),
+            schema_compat=rec["schema_compat"] or "",
             reason=rec["detail_code"] or "", release_id=rec["release_id"] or "",
             kind=rec["kind"] or "", outcome=rec["outcome"] or "",
             detail_code=rec["detail_code"] or "", activation_id=activation_id)
@@ -3692,7 +3727,7 @@ async def list_versions(block_id: str, *, scope: str = "global",
             "revision_id": row.revision_id,
             "event_id": row.activation_id or None,
             "source": source,
-            "source_label": history_source_label(source),
+            "source_label": history_source_label(source, kind=row.kind),
             "origin": row.origin or "",
             "kind": row.kind or "",
             "outcome": row.outcome or "",
@@ -3743,7 +3778,8 @@ async def list_versions(block_id: str, *, scope: str = "global",
             "actor": a.actor, "detail_code": a.detail_code,
             "created_at": a.created_at,
             "activation_id": a.activation_id or None,
-            "source": source, "source_label": history_source_label(source),
+            "source": source, "source_label": history_source_label(source,
+                                                                    kind=a.kind),
             "status": status, "status_label": history_status_label(status),
             "actionable": status not in ("retired", "incompatible"),
             "reason_text": history_reason_text(

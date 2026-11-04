@@ -343,6 +343,92 @@ def test_retired_and_incompatible_are_readable_but_never_actionable(
     assert diff["actionable"] is False and diff["reason_text"]
 
 
+def test_event_rows_agree_with_their_revision_state(edition, store):
+    """B1 (§2.4 п.9, §2.2 п.8): событие и его ревизия — ОДИН статус.
+
+    Ревью PVR-S3 (B1): строка-событие считала статус только по самому событию,
+    поэтому `manual_edit`/`baseline_assign` на снятой с регистрации версии
+    показывали `active` + «Применить», а строка той же версии — `retired` и
+    запрет действия. S4 строит из этих строк один список, значит состояние
+    обязано совпадать, а причина — быть честной.
+    """
+    cache = FakeCache({PG_KEY: FACTORY_A})
+    _run(prp.apply_release(cache, release_id="evol-016-cutover", store=store,
+                           blocks=[BLOCK]))
+
+    retired_text = "СНЯТАЯ R: правка владельца, затем retired.\n"
+    _run(prp.write_versioned_value(BLOCK, retired_text, cache=cache,
+                                   store=store, actor="owner"))
+    retired_row = next(r for r in store.revisions.values()
+                       if r.content_sha12 == pr.sha12(retired_text))
+    _run(prp.assign_baseline(BLOCK, retired_row.revision_id, actor="owner",
+                             cache=cache, store=store))
+    # Снята с регистрации ПОСЛЕ событий: берём ЖИВУЮ строку стора (транзакция
+    # назначения клонирует состояние, прежняя ссылка уже отвязана).
+    retired_row = store.revisions[retired_row.revision_id]
+    retired_row.retired = True
+
+    bad_text = "НЕСОВМЕСТИМАЯ S: schema_compat вне SUPPORTED.\n"
+    bad_id = pr.revision_id_for(BLOCK, "global", None, "manual",
+                                pr.sha12(bad_text))
+    store.revisions[bad_id] = prp.RevisionRow(
+        revision_id=bad_id, block_id=BLOCK, scope="global", origin="manual",
+        content_sha12=pr.sha12(bad_text), body=bad_text, pg_key=PG_KEY,
+        schema_compat="schema-from-the-future", actor="owner",
+        created_at="2026-03-01T00:00:00+00:00")
+    store.activations.append(prp.ActivationRow(
+        block_id=BLOCK, scope="global", kind="manual_edit", outcome="applied",
+        revision_id=bad_id, actor="owner", detail_code="owner_edit",
+        created_at="2026-03-01T00:00:00+00:00"))
+
+    view = _run(prp.list_versions(BLOCK, store=store, actor="owner",
+                                  page_size=50))
+    revision_state = {e["revision_id"]:
+                      (e["status"], e["actionable"], e["reason_text"])
+                      for e in view["entries"]
+                      if e["entry_type"] == prp.ENTRY_REVISION}
+
+    def _events(revision_id: str) -> list:
+        return [e for e in view["entries"]
+                if e["entry_type"] == prp.ENTRY_ACTIVATION
+                and e["revision_id"] == revision_id]
+
+    retired_events = _events(retired_row.revision_id)
+    assert {e["kind"] for e in retired_events} == {"manual_edit",
+                                                   "baseline_assign"}
+    for event in retired_events:
+        assert event["status"] == "retired", "событие на снятой версии «активно»"
+        assert event["actionable"] is False, \
+            "S4 предложил бы «Применить» для снятой версии"
+        assert "снята с регистрации" in event["reason_text"]
+        assert (event["status"], event["actionable"],
+                event["reason_text"]) == revision_state[
+                    retired_row.revision_id], \
+            "строка события противоречит строке своей ревизии"
+
+    bad_events = _events(bad_id)
+    assert bad_events, "событие несовместимой ревизии не попало в ленту"
+    for event in bad_events:
+        assert event["status"] == "incompatible"
+        assert event["actionable"] is False
+        assert "Несовместима" in event["reason_text"]
+        assert (event["status"], event["actionable"],
+                event["reason_text"]) == revision_state[bad_id]
+
+    # Второй список того же ответа (`activations`) говорит то же самое.
+    legacy_events = [a for a in view["activations"]
+                     if a["revision_id"] == retired_row.revision_id]
+    assert legacy_events
+    assert all(a["status"] == "retired" and a["actionable"] is False
+               for a in legacy_events)
+
+    # N-3: событие назначения базовой — не «восстановлена» (токен контракта
+    # `restored` не менялся, уточнена только человеческая подпись).
+    assign = next(e for e in retired_events if e["kind"] == "baseline_assign")
+    assert assign["source"] == "restored"
+    assert assign["source_label"] == "назначена базовая"
+
+
 def test_chat_history_is_not_readable_through_another_chat(store):
     """§3.7 ТЗ / §2.4 п.5: история чата не видна из другого чата."""
     _seed_bulk(store, revisions=3, activations=2, chat_id=CHAT_A)
