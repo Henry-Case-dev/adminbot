@@ -197,6 +197,11 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # осознанно — выжимка мемов переписана без потолка длины
     # (meme-summary-nolimit-01) и добавлен блок этапа B
     # initiative.meme.joke (meme-joke-evol014); прочие каноны не тронуты.
-    # Было 630ca46dff76, стало 54ac2b8ac34b.
-    assert pr.FACTORY_SET_SHA256_12 == "54ac2b8ac34b"
+    # RC v5 «целостность контекста ответа» (2.58.155, ревью 04.11.2026):
+    # канон direct.base.l2_writer осознанно переписан на планку самопроверки и
+    # пересмотра собственного ответа — l2-writer-self-correction-rca1
+    # (sha12 44736968bc76); набор фабричных текстов пересчитан по этой ревизии.
+    # Было 630ca46dff76, затем 54ac2b8ac34b, стало e9dc109330a8.
+    # Переутверждено осознанно (SOUL-AMD.3.2).
+    assert pr.FACTORY_SET_SHA256_12 == "e9dc109330a8"
 

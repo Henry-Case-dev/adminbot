@@ -40,7 +40,13 @@ class TestHeaderAndLogs:
         html = _html()
         assert '@click="copyLogRow(log, i)"' in html
         assert "'log-copied': copiedIndex === i" in html
-        assert ">Скопировать</button>" not in html
+        # PVR-S4: в index.html появилась карточка версий промпта со своей
+        # кнопкой «Скопировать» (копирует ревизию, не строку лога). Пин
+        # относится к строкам лога, поэтому проверяем ровно блок строки
+        # лога — от log-head до конца шаблона строки.
+        row_start = html.index('<div class="log-head">')
+        row_block = html[row_start:html.index("</template>", row_start)]
+        assert ">Скопировать</button>" not in row_block
         assert "Копировать всё" in html
         assert "log-row" in html
 

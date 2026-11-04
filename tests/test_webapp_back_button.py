@@ -209,14 +209,27 @@ class TestScopeSwitcherT1127:
         шаблон читает их как свойства, иначе рендерится
         `function () { [native code] }` (Vue биндит методы)."""
         js = _js()
-        computed = js[js.index("computed: {"):js.index("methods: {")]
         names = ("scopeKind", "scopeLabel", "scopeOptions",
                  "scopeTriggerTitle", "scopeTriggerInitial", "scopeTriggerAvatar")
+        # PVR-S4: в app.js появился компонент `prompt-version-card` со своим
+        # блоком computed/methods, поэтому «первый methods: {» больше не
+        # граница главного компонента. Проверяем каждое определение по его
+        # собственному ближайшему маркеру: scope*-производные обязаны быть
+        # в computed, а не в methods (Vue иначе биндит метод, и в шаблоне
+        # рендерится `function () { [native code] }`).
+        for name in names:
+            needle = name + ": function ()"
+            assert needle in js, "%s: определения нет" % name
+            pos = js.index(needle)
+            where = "computed" if js.rfind("computed: {", 0, pos) > \
+                js.rfind("methods: {", 0, pos) else "methods"
+            assert where == "computed", (
+                "%s объявлен в %s — шаблон отрендерит текст функции" %
+                (name, where))
+        # Главный компонент обязан сохранить все шесть в computed.
+        computed = js[js.index("computed: {"):js.index("methods: {")]
         for name in names:
             assert (name + ": function ()") in computed, name
-        methods_block = js[js.index("methods: {"):]
-        for name in names:
-            assert (name + ": function ()") not in methods_block, name
 
     def test_scope_reset_broadens_r104_2(self):
         js = _js()

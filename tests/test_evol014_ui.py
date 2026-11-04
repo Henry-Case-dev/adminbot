@@ -460,7 +460,16 @@ def test_ui_meme_settings_block():
     assert "data-meme-unavailable" in block
     # P4: оба промпта — реальные поля, три числа бюджета, диагностика прикола,
     # два блока диагностики механизмов и видимые стадии попытки.
-    assert block.count("<textarea") == 2
+    # PVR-S4 (одобрено ревью): поле рисует единый компонент
+    # `<prompt-version-card>` — его шаблон #prompt-version-card-tpl содержит
+    # настоящий <textarea rows>, привязанный к v-model. Требование
+    # «два реальных поля» сохранено: в блоке ровно две карточки и нет
+    # сырых <textarea>, пассивный текст по-прежнему отсутствует.
+    assert block.count("<prompt-version-card") == 2
+    assert block.count("<textarea") == 0
+    tpl = html.split('id="prompt-version-card-tpl"', 1)[1].split("</script>", 1)[0]
+    assert tpl.count("<textarea") == 1
+    assert ':value="modelValue"' in tpl
     assert "data-meme-prompt-joke" in block
     assert "data-meme-prompt-image" in block
     assert "data-meme-prompt-error-joke" in block

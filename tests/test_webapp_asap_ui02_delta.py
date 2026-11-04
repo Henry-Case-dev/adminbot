@@ -68,7 +68,7 @@ def _decl(selector_re, prop):
 def test_single_z_layer_ladder_exists_and_ordered():
     z = _tokens()
     for name in ("base", "content", "inline", "sidebar", "header", "scrim",
-                 "nav", "local", "menu", "modal-scrim", "modal", "toast",
+                 "nav", "local", "menu", "modal-scrim", "modal", "panel", "toast",
                  "palette", "dev", "dev-top"):
         assert name in z, "нет ранга --z-%s в единой лестнице" % name
     # Порядок = смысл слоя. Если кто-то «поправит» одно число, порядок сломается.
@@ -79,6 +79,9 @@ def test_single_z_layer_ladder_exists_and_ordered():
     assert z["scrim"] < z["nav"] < z["local"]
     assert z["nav"] < 50 < z["menu"], "dropdown/меню должны быть выше шапки"
     assert z["menu"] < z["modal-scrim"] < z["modal"]
+    # Панель-оверлей истории версий живёт ПОВЕРХ модалки, но ПОД палитрой:
+    # отдельный ранг вместо прежнего «магического» 90.
+    assert z["modal"] < z["panel"] < z["palette"], "панель выше модалки и ниже палитры"
     # EVOL-033 (W13, P1): тост выше палитры — уведомление не должно тонуть
     # под открытым поиском.
     assert z["modal"] < z["palette"] < z["toast"] < z["dev"] < z["dev-top"]
@@ -108,6 +111,7 @@ def test_overlay_surfaces_read_the_ladder():
         (r"\.scope-panel", "z-index", "var(--overlay-z)"),
         (r"\.palette-root", "z-index", "var(--z-palette)"),
         (r"\.toast-wrap", "z-index", "var(--z-toast)"),
+        (r"\.pv-scrim", "z-index", "var(--z-panel)"),
     ]
     problems = []
     for sel, prop, want in expected:

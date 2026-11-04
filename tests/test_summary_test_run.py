@@ -484,7 +484,7 @@ def test_no_new_env_catalog_key():
 
 
 def test_app_version_bumped():
-    assert APP_VERSION == "2.58.153"
+    assert APP_VERSION == "2.58.155"
 
 
 def test_forbidden_modules_outside_diff():
