@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """EVOL W17 — две малые требования владельца: ER-S25 и ER-54.
 
 Источник (владелец, `plans/current_task.md`, читается из основного репозитория):
@@ -121,12 +121,16 @@ def test_scenario25_canon_has_two_phase_contract():
     # схеме/тексте.
     assert cp.PREV_DIRECT_L1_PLANNER_EVR3 == (
         cp.PREV_DIRECT_L1_PLANNER_EVR2 + cp._DIRECT_L1_DECISION_PROFILE_EVR3)
-    assert canon == cp.PREV_DIRECT_L1_PLANNER_EVR3 \
-        .replace(' "recheck": false}',
-                 ' "recheck": false,\n'
-                 ' "knowledge_origin": "",\n'
-                 ' "search_intent": ""}', 1) \
-        + cp._DIRECT_L1_SEARCH_AXIS_EVR4
+    assert canon == (cp.PREV_DIRECT_L1_PLANNER_EVR3
+                     .replace(' "recheck": false}',
+                              ' "recheck": false,\n'
+                              ' "knowledge_origin": "",\n'
+                              ' "search_intent": ""}', 1)
+                     + cp._DIRECT_L1_SEARCH_AXIS_EVR4).replace(
+        ' "search_intent": ""}',
+        ' "search_intent": "",\n'
+        ' "preserve_source_facts": false}', 1) \
+        + cp._DIRECT_L1_SOURCE_FACTS_EVR5
     # Обе фазы названы, и у каждой свой маркер из СУЩЕСТВУЮЩИХ полей плана.
     assert "САММАРИ И ПРОВЕРКА" in canon
     assert "response_act=summarization" in canon
@@ -149,7 +153,7 @@ def test_scenario25_canon_has_two_phase_contract():
     assert "Материал важнее оценки" in canon
     # Печать и метка — та же ревизия, что в реестре (канон не «висит» мимо).
     label, seal = pr.FACTORY_REVISION_SEALS["direct.base.l1_planner"]
-    assert label == "l1-planner-search-axis"
+    assert label == "l1-planner-source-facts"
     assert pr.FACTORY_REVISION_LABELS["direct.base.l1_planner"] == label
     assert pr.sha12(pr.factory_text("direct.base.l1_planner")) == seal
     assert pr.seal_integrity() == {}
@@ -288,12 +292,15 @@ def test_scenario25_migration_applies_only_to_deployed_bytes():
     assert _sha12(deployed) == DEPLOYED_L1_SHA12
     steps = pm.PROMPT_MIGRATIONS[L1_KEY]
     assert (deployed, active) in steps
-    # UNIFIED-REPLY UR-06/UR-03: верхняя ступень теперь EVR3 → EVR4 (ось
-    # поиска); ступени W17/FC-VOICE не тронуты — стек цел.
-    assert steps[0] == (cp.PREV_DIRECT_L1_PLANNER_EVR3, active)
+    # UNIFIED-REPLY UR-06/UR-03: верхняя ступень была EVR3 → EVR4 (ось поиска);
+    # RLR-03.3: теперь EVR4 → EVR5 (поле preserve_source_facts); ступени
+    # W17/FC-VOICE не тронуты — стек цел.
+    assert steps[0] == (cp.PREV_DIRECT_L1_PLANNER_EVR4, active)
     assert steps[0][0] != active
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    assert (active, cp.PREV_DIRECT_L1_PLANNER_EVR3) in rollback
+    assert (active, cp.PREV_DIRECT_L1_PLANNER_EVR4) in rollback
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR4,
+            cp.PREV_DIRECT_L1_PLANNER_EVR3) in rollback
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR3,
             cp.PREV_DIRECT_L1_PLANNER_EVR2) in rollback
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR2, deployed) in rollback

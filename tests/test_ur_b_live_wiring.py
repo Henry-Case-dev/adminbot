@@ -413,8 +413,11 @@ class TestL1PromptAsksForAxis:
         schema = system.split("СХЕМА JSON", 1)[1].split("\n\n", 1)[0]
         assert '"knowledge_origin": ""' in schema
         assert '"search_intent": ""' in schema
+        assert '"preserve_source_facts": false' in schema
         assert schema.index('"recheck": false,') < schema.index(
-            '"knowledge_origin"') < schema.index('"search_intent": ""}')
+            '"knowledge_origin"') < schema.index('"search_intent": ""')
+        assert schema.index('"search_intent": ""') < schema.index(
+            '"preserve_source_facts": false}')
         # Значения перечислены в том же пакете — модели есть из чего выбрать.
         assert "conversation_only" in system
         assert "not_applicable" in system
