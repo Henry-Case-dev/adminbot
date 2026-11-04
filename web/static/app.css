@@ -1704,12 +1704,14 @@
     }
     /* §2.2: «Показана часть графа» — заметная, но НЕЙТРАЛЬНАЯ пометка (§9.1
        контракта: неполнота окрестности — норма, а не сбой). Заметность даёт
-       рамка/вес, а не цвет предупреждения. */
+       рамка/вес, а не цвет предупреждения. Плашка переносится по словам и не
+       выходит за вьюпорт при увеличенном системном шрифте (320 px / 200 %). */
     .cog-truncated {
       display: inline-flex; align-items: center; padding: 1px 7px;
       border: 1px solid rgba(148, 163, 184, .38); border-radius: 999px;
       color: #cbd5e1; font-weight: 600; letter-spacing: .01em;
-      cursor: help; white-space: nowrap;
+      cursor: help; white-space: normal; max-width: 100%;
+      overflow-wrap: anywhere;
     }
     .cog-truncated:focus-visible {
       outline: 2px solid rgba(148, 163, 184, .75); outline-offset: 2px;
@@ -1721,10 +1723,6 @@
       margin-top: 4px; line-height: 1.35; min-width: 0;
       display: flex; flex-wrap: wrap; gap: 0 6px;
       color: #94a3b8;
-    }
-    .cog-hint__sr {
-      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
-      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
     /* ═══ EVOL-COG-MAP (W7-S3): карточка узла/ребра ════════════════════════
        Desktop — выдвижная панель справа; телефон — нижний лист. Это СЛОЙ, а не

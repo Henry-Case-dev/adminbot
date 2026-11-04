@@ -13243,8 +13243,7 @@
                    tabindex="0" data-cog-scene
                    role="application"
                    :title="cogHintText"
-                   aria-describedby="cog-hint-text"
-                   aria-label="Когнитивная карта: Enter открывает карточку выбранного узла, Esc закрывает"
+                   aria-label="Когнитивная карта: Enter открывает карточку выбранного узла, Esc закрывает. Колесо/щипок — масштаб, перетаскивание — перемещение, нажатие — связи"
                    @keydown.enter.prevent="openCogSelectedCard()"
                    @keydown.space.prevent="openCogSelectedCard()"
                    :hidden="cogEmpty"></div>
@@ -13254,8 +13253,6 @@
                    (`title` + `aria-describedby` сцены). -->
               <div v-if="cogHintVisible" class="cog-hint text-xs text-gray-500"
                    data-cog-hint>{{ cogHintText }}</div>
-              <span id="cog-hint-text" class="cog-hint__sr"
-                    data-cog-hint-text>{{ cogHintText }}</span>
               <!-- CMV-D (§8.2 спеки, CMV-CARD-08): инспектор встроенной карты —
                    компактная панель ПОД сценой, а не «плавающая» карточка в углу
                    поверх узлов. Слот существует всегда: карточка телепортируется
@@ -14742,8 +14739,7 @@
                        tabindex="0" data-cog-scene
                        role="application"
                        :title="cogHintText"
-                       aria-describedby="cog-hint-text"
-                       aria-label="Когнитивная карта: Enter открывает карточку выбранного узла, Esc закрывает"
+                       aria-label="Когнитивная карта: Enter открывает карточку выбранного узла, Esc закрывает. Колесо/щипок — масштаб, перетаскивание — перемещение, нажатие — связи"
                        @keydown.enter.prevent="openCogSelectedCard()"
                        @keydown.space.prevent="openCogSelectedCard()"
                        :hidden="cogEmpty"></div>

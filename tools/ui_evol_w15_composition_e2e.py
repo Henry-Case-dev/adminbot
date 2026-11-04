@@ -1325,7 +1325,9 @@ COG_REQUIRED_LEGEND = ["Факты", "Убеждения", "Парадигмы",
 COG_BANNED_REQUESTS = ("/api/llm", "/api/memory/embeddings", "/api/summary",
                        "/api/oversight/dossier_rebuild")
 
-COG_CARD_ACTION_IDS = ["source", "history", "memory", "links"]
+# CMV-D (§8.1(6) спеки, CMV-CARD-06): «Снять выбор» — четвёртое действие
+# карточки, доступное всегда (это выход из выбора, а не условное действие).
+COG_CARD_ACTION_IDS = ["source", "history", "memory", "links", "clear"]
 # W7-S3: точка узла на экране (сцена embedded или полного экрана — по `_cogEl`).
 COG_NODE_POINT = r"""
 (id) => {

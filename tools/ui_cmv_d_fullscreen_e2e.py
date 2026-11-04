@@ -377,21 +377,18 @@ def run(browser, base, out_dir):
         # ── §2.2 строка 4 (CMV-HDR-04): подсказка жестов ─────────────────────
         hint = pg.evaluate("""() => {
           const el = document.querySelector('[data-cog-hint]');
-          const sr = document.querySelector('[data-cog-hint-text]');
           const scene = document.querySelector('[data-cog-scene]');
           return { shown: !!el, text: el ? el.textContent.trim() : '',
-                   sr: sr ? sr.textContent.trim() : '',
-                   title: scene ? scene.getAttribute('title') : null,
-                   described: scene ? scene.getAttribute('aria-describedby') : null };
+                   label: scene ? scene.getAttribute('aria-label') : null,
+                   title: scene ? scene.getAttribute('title') : null };
         }""")
         ok(hint["shown"] and "Колесо/щипок" in hint["text"]
            and "Перетаскивание" in hint["text"] and "Нажатие" in hint["text"],
            "шапка: подсказка жестов показана при входе @%s" % label, hint["text"])
         ok(hint["title"] and "Колесо/щипок" in hint["title"]
-           and hint["described"] == "cog-hint-text"
-           and hint["sr"] == hint["title"],
+           and hint["label"] and "перетаскивание — перемещение" in hint["label"],
            "подсказка жестов остаётся доступной подсказкой сцены @%s" % label,
-           {"title": hint["title"], "described": hint["described"]})
+           {"title": hint["title"], "label": hint["label"]})
 
         if w <= 430:
             # ── §2.3 CMV-RESP-02: строки шапки на 390/360 ──────────────────

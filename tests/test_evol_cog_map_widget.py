@@ -979,10 +979,13 @@ def test_cmv_d_hint_line_is_compact_and_one_time():
     block = D_BLOCK
     assert "data-cog-hint>" in block, "нет строки подсказки под сценой"
     assert "cogHintText" in block
-    assert 'aria-describedby="cog-hint-text"' in block, \
-        "подсказка не связана со сценой (недоступна после скрытия)"
-    assert 'data-cog-hint-text' in block, "нет доступной копии текста"
+    # Доступность без лишнего визуально скрытого узла: полный текст подсказки
+    # живёт в aria-label сцены и в `title`.
     assert ':title="cogHintText"' in block, "нет подсказки на самой сцене"
+    assert "Колесо/щипок" in block and "нажатие — связи" in block, \
+        "полный текст подсказки не в aria-label сцены"
+    assert "cog-hint__sr" not in block, \
+        "визуально скрытая копия текста не нужна (и попадает под проверки вёрстки)"
     # Полный экран: та же доступная подсказка (сцена иная, текст один).
     assert ':title="cogHintText"' in _fs_block(INDEX)
     hint = _block(APP_JS, "cogHintText: function () {",
@@ -997,9 +1000,8 @@ def test_cmv_d_hint_line_is_compact_and_one_time():
     for method in ("graphSelectNode: function (nodeId) {",
                    "applyGraphFilter: function () {"):
         assert "this._cogHintDone();" in _block(APP_JS, method, "\n      },\n")
-    css = _block(CSS, ".cog-hint {", ".cog-hint__sr {")
-    assert "font-size" not in css or "1.35" in css
-    assert ".cog-hint__sr" in CSS, "нет визуально скрытой копии текста"
+    css = _block(CSS, ".cog-hint {", ".cog-card {")
+    assert "flex-wrap: wrap" in css, "подсказка обязана переноситься по словам"
 
 
 def test_cmv_d_neighbour_navigation_and_focus_return():
