@@ -442,12 +442,14 @@
     },
     {
       "id": "goodmorning-quantum-media",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-05-goodmorning-quantum-media.md",
       "source_sha256": "D5CD6E725AE82DD7569761BC19ED693D91DDF0EEBDCF35E9F3DFD6C3FCF4598F",
-      "maps": [],
+      "maps": [
+        "plans/features/goodmorning-quantum-media/requirements-map.json"
+      ],
       "coverage_complete": true,
-      "source_note": "Правка существующей функции GoodMorning: причина отсутствия новых медиа + выбор медиа и подписи через существующий квантовый рандом на каждую отправку; сохранить таймаут/дедуп/target-гейты и не ломать совместимость с UR-28 (per-chat timezone scheduling).",
+      "source_note": "GoodMorning: причина «новые медиа не появляются» + квантовый выбор медиа и подписи через существующий контур mca_random_source. Карта 6 required (GM-01..06) + 3 context, 3 среза GM-DIAG -> GM-DRAW -> GM-COMPAT, план-гейт EXIT 0 @56b7b29f. Реализация 9e8e4381 на независимом ревью. Факт по коду: relay сканирует каталог на каждую отправку (кэша нет), пул подписей был константой; вероятная причина «новые медиа не видно» — файлы не доехали на сервер (8 из 14 untracked в репозитории), проверяется строкой scanned ... found N files на проде.",
       "updated": "2026-11-05"
     },
     {
