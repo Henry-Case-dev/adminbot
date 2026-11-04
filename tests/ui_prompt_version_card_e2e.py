@@ -576,6 +576,23 @@ def shot(page, shots, name):
         pass
 
 
+def shot_view(page, shots, name):
+    """Снимок ВИДИМОГО окна (без full_page).
+
+    Панель истории — `position: fixed`; на полноэкранном снимке она
+    отрисовывается в начале документа и не показывает реальное положение
+    элементов. Для проверки видимости подтверждения нужен именно вид окна.
+    """
+    if not shots:
+        return
+    os.makedirs(shots, exist_ok=True)
+    try:
+        page.screenshot(path=os.path.join(shots, name + ".png"),
+                        full_page=False)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def open_prompt_editor(page):
     """Открыть библиотечный редактор промпта через существующий роутер."""
     page.goto(BASE + "/#/", wait_until="load")
@@ -637,6 +654,113 @@ def click_row(page, idx, sel):
         "([i, s]) => { const r = document.querySelectorAll('[data-pv-row]')[i];"
         " const b = r && r.querySelector(s); if (b) b.click(); }",
         [idx, sel])
+
+
+def result_geometry(page):
+    """Геометрия блока подтверждения внутри панели (PVR-S4 B4).
+
+    Возвращает `rect` блока, `body` — видимый прямоугольник прокручиваемого
+    тела панели, `scrollTop` тела и признак `hitsCenter`: попадает ли центр
+    блока в `elementFromPoint` (то есть ничто его не перекрывает).
+    """
+    return page.evaluate(r"""
+        () => {
+          const el = document.querySelector('[data-prompt-history-result]');
+          const body = document.querySelector('.pv-panel__body');
+          if (!el || !body) return null;
+          const b = body.getBoundingClientRect();
+          const panel = (document.querySelector('[data-pv-panel]') || body)
+            .getBoundingClientRect();
+          // Прилипший (sticky) блок измеряем после синхронного layout:
+          // rect уже учитывает текущий scrollTop тела.
+          const r = el.getBoundingClientRect();
+          const cx = (r.left + r.right) / 2;
+          const cy = (r.top + r.bottom) / 2;
+          const hit = document.elementFromPoint(cx, cy);
+          return {
+            rect: {top: r.top, bottom: r.bottom,
+                   left: r.left, right: r.right,
+                   h: r.height, w: r.width},
+            body: {top: b.top, bottom: b.bottom,
+                   left: b.left, right: b.right},
+            panel: {top: panel.top, bottom: panel.bottom,
+                    left: panel.left, right: panel.right},
+            scrollTop: body.scrollTop,
+            scrollHeight: body.scrollHeight,
+            clientHeight: body.clientHeight,
+            vh: window.innerHeight, vw: window.innerWidth,
+            hitsCenter: !!(hit && (el === hit || el.contains(hit))),
+          };
+        }
+    """)
+
+
+def assert_result_visible(page, label, where):
+    """B4: подтверждение обязано быть ЦЕЛИКОМ в видимой области тела панели.
+
+    Проверяется именно геометрия, а не `textContent`: блок, уехавший в конец
+    50-строчной ленты, остаётся в DOM (текст есть), но пользователь его не
+    видит — ровно этот дефект и был пропущен content-проверкой.
+    """
+    g = result_geometry(page)
+    if not check(g is not None, label,
+                 "%s: блока подтверждения нет в DOM" % where):
+        return None
+    r, b = g["rect"], g["body"]
+    check(g["scrollTop"] == 0, label,
+          "%s: панель прокручена (scrollTop=%s) — список не должен "
+          "прокручиваться действием" % (where, g["scrollTop"]))
+    check(r["top"] >= b["top"] - 0.5 and r["bottom"] <= b["bottom"] + 0.5,
+          label,
+          "%s: подтверждение вне видимой области тела панели: "
+          "rect=%s..%s, тело=%s..%s, scrollTop=%s"
+          % (where, round(r["top"]), round(r["bottom"]), round(b["top"]),
+             round(b["bottom"]), g["scrollTop"]))
+    check(r["left"] >= b["left"] - 0.5 and r["right"] <= b["right"] + 0.5,
+          label,
+          "%s: подтверждение выходит за тело панели по горизонтали: "
+          "rect=%s..%s, тело=%s..%s"
+          % (where, round(r["left"]), round(r["right"]), round(b["left"]),
+             round(b["right"])))
+    check(r["top"] >= 0 and r["bottom"] <= g["vh"], label,
+          "%s: подтверждение вне окна: rect=%s..%s, окно=%s"
+          % (where, round(r["top"]), round(r["bottom"]), g["vh"]))
+    check(g["hitsCenter"], label,
+          "%s: подтверждение перекрыто другим элементом" % where)
+    return g
+
+
+def assert_result_sticky(page, label, where):
+    """B4: подтверждение не уезжает и при прокрутке ленты (sticky).
+
+    Прокручиваем тело панели в самый низ и обратно: блок обязан остаться в
+    видимой области тела. Затем возвращаем scrollTop=0 — состояние, в котором
+    панель находится после «Применить».
+    """
+    page.evaluate("() => { const b = document.querySelector('.pv-panel__body');"
+                  " if (b) b.scrollTop = b.scrollHeight; }")
+    page.wait_for_timeout(120)
+    g = result_geometry(page)
+    if not check(g is not None, label,
+                 "%s: блока подтверждения нет в DOM" % where):
+        return
+    r, b = g["rect"], g["body"]
+    check(g["scrollTop"] > 0, label,
+          "%s: тело панели не прокрутилось (scrollHeight=%s clientHeight=%s) — "
+          "проверка sticky недостоверна" % (where, g["scrollHeight"],
+                                            g["clientHeight"]))
+    check(r["top"] >= b["top"] - 0.5 and r["bottom"] <= b["bottom"] + 0.5,
+          label,
+          "%s: при прокрутке ленты подтверждение уехало: rect=%s..%s, "
+          "тело=%s..%s, scrollTop=%s"
+          % (where, round(r["top"]), round(r["bottom"]), round(b["top"]),
+             round(b["bottom"]), g["scrollTop"]))
+    check(g["hitsCenter"], label,
+          "%s: при прокрутке подтверждение перекрыто другим элементом"
+          % where)
+    page.evaluate("() => { const b = document.querySelector('.pv-panel__body');"
+                  " if (b) b.scrollTop = 0; }")
+    page.wait_for_timeout(80)
 
 
 def run_editor(label, page, shots, width):
@@ -816,6 +940,21 @@ def run_editor(label, page, shots, width):
     check("Сервер подтвердил" in result_after_refresh, label,
           "подтверждение «Применить» стёрто перечитыванием: %r"
           % (result_after_refresh,))
+    # B4: подтверждение должно быть ВИДНО, а не просто присутствовать текстом.
+    # Панель остаётся в scrollTop=0: блок обязан быть внутри видимой области
+    # тела панели (иначе он лежит в конце 50-строчной ленты и его не видно).
+    assert_result_visible(page, label, "библиотека/применить")
+    shot_view(page, shots, "result_library_%s" % label)
+    assert_result_sticky(page, label, "библиотека/применить")
+    check(page.evaluate(
+        "() => { const el = document.querySelector('[data-prompt-history-result]');"
+        " const b = el && el.querySelector('[data-pv-result-dismiss]');"
+        " if (!b) return false; b.click(); return true; }"), label,
+        "у подтверждения нет явной кнопки закрытия")
+    page.wait_for_timeout(200)
+    check(page.evaluate(
+        "() => !document.querySelector('[data-prompt-history-result]')"), label,
+        "кнопка × не убрала подтверждение")
 
     # 7) «Назначить базовой» не меняет действующий текст
     text_before = page.evaluate(
@@ -835,6 +974,9 @@ def run_editor(label, page, shots, width):
         ".textContent || '').trim()")
     check("Базовая версия изменена, действующий текст пока прежний" in result,
           label, "нет честного сообщения о назначении базовой: %r" % (result,))
+    # B4: следующее действие заменяет прежнее сообщение и остаётся видимым.
+    assert_result_visible(page, label, "библиотека/назначить базовой")
+    shot_view(page, shots, "result_baseline_%s" % label)
     text_after = page.evaluate(
         "() => (document.querySelector('[data-prompt-editor] textarea') || {})"
         ".value")
@@ -1092,6 +1234,11 @@ def run_speech_core(label, page, shots, width):
     check("Сервер подтвердил" in res, label,
           "подтверждение «Применить» в «Характере» не видно после "
           "перечитывания: %r" % (res,))
+    # B4: то же самое, но геометрией — блок обязан быть в видимой области
+    # тела панели при scrollTop=0, а не в конце 51-строчной ленты.
+    assert_result_visible(page, label, "характер/применить")
+    shot_view(page, shots, "result_speech_%s" % label)
+    assert_result_sticky(page, label, "характер/применить")
     value = page.evaluate(
         "() => (document.querySelector('.speech-section textarea.speech-editor')"
         " || {}).value")
