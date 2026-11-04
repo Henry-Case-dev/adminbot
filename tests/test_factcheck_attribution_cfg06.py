@@ -8,9 +8,10 @@
   EvidenceRef(source_kind="chat") в EvidenceMap текущего прогона;
 * совпадения нет → честный отказ (attribution_not_found) БЕЗ домыслов
   и БЕЗ внешнего поиска (агрегатор не вызывается вовсе);
-* реплика найдена → проверяется по существу ТОЛЬКО тезис; участники
-  чата (включая упомянутого автора) не утекают в веб-запросы — регресс
-  W4-инварианта privacy (test_privacy_authors_not_leaked);
+* реплика найдена → проверяется по существу ТОЛЬКО тезис (снимается
+  обвязка «X сказал»); BGS-01: имена людей внутри тезиса НЕ вычищаются —
+  упоминание участника не блокирует проверку (см.
+  test_participant_name_in_claim_reaches_provider в factcheck_* тестах);
 * публичные фигуры («Путин сказал …») — НЕ чат-спор: обычный контур
   без изменений (байт-паритет);
 * OFF (FACTCHECK_PIPELINE_V2_ENABLED=False) → слой не вызывается,
@@ -363,18 +364,26 @@ class TestEvidenceBinding:
         assert fat.attach_attribution_evidence(verdict, None) is verdict
 
 
-# ── Privacy: участники чата не утекают во внешний поиск (W4-инвариант) ──────
+# ── Тезис клейма: снимается обвязка «X сказал», имена в содержании целы ──────
 
-class TestPrivacy:
-    def test_external_safe_claim_strips_participants(self):
-        ctx = _Ctx(_default_rows())
-        attr = fat.detect_attribution_claim(CLAIM_FOUND)
-        safe = fat.external_safe_claim(CLAIM_FOUND, ctx, attr)
-        low = safe.lower()
-        assert "вася" not in low and "сказал" not in low
-        assert "килякет" in low                        # тезис сохранён
+class TestThesisWithoutPrivacy:
+    """BGS-01 (§0.1): обязательной деперсонализации внешнего запроса больше
+    нет. Снимается только атрибуционная обвязка («кто это сказал») — имена
+    людей внутри самого тезиса сохраняются, иначе запрос теряет смысл."""
 
-    def test_with_external_claim_replaces_frozen_envelope(self):
+    def test_thesis_drops_wrapper_keeps_content_names(self):
+        claim = "Маша сказала, что Петя уволился из Сбера"
+        attr = fat.detect_attribution_claim(claim)
+        thesis = fat.attribution_thesis(claim, attr)
+        assert "сказала" not in thesis                 # обвязка снята
+        assert "Петя" in thesis                        # имя в тезисе цело
+        assert "Сбер" in thesis                        # сущность цела
+
+    def test_thesis_without_attribution_is_raw_claim(self):
+        claim = "Маша уволилась из Сбера"
+        assert fat.attribution_thesis(claim, None) == claim
+
+    def test_with_claim_thesis_replaces_claim_only(self):
         envelope = tf.TemporalClaimEnvelope(
             claim_id="c1", chat_id=CHAT_ID, target_tg_message_id=None,
             target_revision=None, target_content_hash=None,
@@ -388,11 +397,9 @@ class TestPrivacy:
             date_precision="unknown", date_timezone=None,
             date_uncertainty={"origin": "explicit_unknown"},
             requested_mode="contextual", analysis_as_of=1)
-        ctx = _Ctx(_default_rows())
-        attr = fat.detect_attribution_claim(CLAIM_FOUND)
-        replaced = fat.with_external_claim(
-            envelope, fat.external_safe_claim(CLAIM_FOUND, ctx, attr))
-        assert "вася" not in replaced.claim_text.lower()
+        thesis = "в Килякете выпало 120 мм осадков за сутки"
+        replaced = fat.with_claim_thesis(envelope, thesis)
+        assert replaced.claim_text == thesis
         assert replaced.chat_id == envelope.chat_id     # provenance цел
         assert replaced.analysis_as_of == envelope.analysis_as_of
 
@@ -401,7 +408,7 @@ class TestPrivacy:
 
 class TestOrchestratorAttribution:
     @pytest.mark.asyncio
-    async def test_found_thesis_checked_privacy_and_chat_evidence(
+    async def test_found_thesis_checked_and_chat_evidence(
             self, v2_on, monkeypatch):
         """Реплика найдена: проверяется ТОЛЬКО тезис (без «Вася сказал»),
         участники не в поисковых запросах, chat-evidence в EvidenceMap
@@ -478,10 +485,55 @@ class TestOrchestratorAttribution:
         assert len(bot.sent) == 1
 
     @pytest.mark.asyncio
-    async def test_envelope_branch_searches_privacy_claim(self, v2_on,
+    async def test_participant_name_in_claim_reaches_provider(
+            self, v2_on, monkeypatch):
+        """BGS-01 (§0.1): участник, упомянутый в ОБЫЧНОМ клейме (не спор
+        «кто это сказал»), не блокирует проверку и не вычищается — имя есть
+        и в тексте для сервиса, и в поисковом запросе."""
+        from services import factcheck_orchestrator as orch
+        from services import factcheck_suitability as fsg
+        claim = "Маша уволилась из Сбера"
+        _patch_gate(monkeypatch, _decision(fsg.DECISION_CHECKABLE),
+                    _Ctx(_default_rows()))
+        agg = SpyAggregator()
+        svc = FakeService(aggregator=agg)
+        bot = FakeBot()
+        await orch.run_factcheck(_req(claim), service=svc,
+                                 db=FakeDB(rows=_default_rows()), bot=bot,
+                                 cache=FakeCache())
+        assert svc.check_claim_calls, "имя участника не отменяет проверку"
+        assert svc.check_claim_calls[0]["target_text"] == claim
+        assert agg.searches, "внешний поиск должен состояться"
+        assert any("маша" in q.lower() for q in agg.searches)
+        assert any("сбер" in q.lower() for q in agg.searches)
+        assert len(bot.sent) == 1
+
+    @pytest.mark.asyncio
+    async def test_name_only_claim_still_checked_not_emptied(
+            self, v2_on, monkeypatch):
+        """BGS-01 (§0.1): клейм из одного имени не исчезает — сервис получает
+        его как есть, пустой поисковый запрос не отправляется."""
+        from services import factcheck_orchestrator as orch
+        from services import factcheck_suitability as fsg
+        claim = "Маша"
+        _patch_gate(monkeypatch, _decision(fsg.DECISION_CHECKABLE),
+                    _Ctx(_default_rows()))
+        agg = SpyAggregator()
+        svc = FakeService(aggregator=agg)
+        bot = FakeBot()
+        await orch.run_factcheck(_req(claim), service=svc,
+                                 db=FakeDB(rows=_default_rows()), bot=bot,
+                                 cache=FakeCache())
+        assert svc.check_claim_calls, "имя не отменяет проверку"
+        assert svc.check_claim_calls[0]["target_text"] == claim
+        assert all(str(q).strip() for q in agg.searches)
+        assert len(bot.sent) == 1
+
+    @pytest.mark.asyncio
+    async def test_envelope_branch_searches_claim_thesis(self, v2_on,
                                                           monkeypatch):
-        """Envelope-ветка: поисковые стадии получают тезис без участников
-        (frozen-replace клейма, provenance не меняется)."""
+        """Envelope-ветка: поисковые стадии получают тезис клейма без
+        обвязки «X сказал» (frozen-replace клейма, provenance не меняется)."""
         from services import factcheck_orchestrator as orch
         monkeypatch.setattr(
             "services.mca_gates.temporal_factcheck_enabled", lambda: True)
@@ -545,10 +597,10 @@ class TestToolRouteAttribution:
                            "reason": "attribution_not_found"}
 
     @pytest.mark.asyncio
-    async def test_found_ready_payload_privacy_envelope(self, monkeypatch,
+    async def test_found_ready_payload_thesis_envelope(self, monkeypatch,
                                                         db, v2_on):
         """Реплика найдена: ready-контракт tool-loop не меняется, поисковые
-        стадии получают privacy-клейм (без участников чата)."""
+        стадии получают тезис клейма (без обвязки «X сказал»)."""
 
         class _TrapService:
             """Ловушка вместо FactCheckService (паттерн tool_route-тестов)."""

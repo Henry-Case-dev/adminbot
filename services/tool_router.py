@@ -4232,9 +4232,9 @@ class ToolRouter:
                                    ensure_ascii=False)
             # CFG-06 06G.3: атрибуционный спор («кто это сказал») —
             # локальная резолюция по ConversationContext ДО платного
-            # поиска; совпадения нет → честный skip БЕЗ внешнего поиска
-            # (участники приватного чата в веб не утекают), реплика
-            # найдена → поисковые стадии получают privacy-клейм (тезис).
+            # поиска; совпадения нет → честный skip, реплика найдена →
+            # поисковые стадии получают тезис клейма (BGS-01: имена внутри
+            # тезиса не вычищаются).
             try:
                 from services import factcheck_attribution as fat
                 attribution = fat.detect_attribution_claim(claim)
@@ -4243,10 +4243,9 @@ class ToolRouter:
                     if fat.resolve_attribution(fctx, attribution) is None:
                         skip_reason = "attribution_not_found"
                     else:
-                        envelope = fat.with_external_claim(
+                        envelope = fat.with_claim_thesis(
                             envelope,
-                            fat.external_safe_claim(claim, fctx,
-                                                    attribution))
+                            fat.attribution_thesis(claim, attribution))
             except Exception:
                 logger.warning("[tools] fact_check attribution failed",
                                exc_info=True)

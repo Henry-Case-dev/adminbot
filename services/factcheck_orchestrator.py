@@ -1089,10 +1089,10 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
 
     # 3b. CFG-06 06G.3 — локальный tool «кто это сказал»: атрибуционный
     # спор («X сказал Y») решается ПО ConversationContext ДО любого
-    # платного поиска. Совпадения нет → честный отказ БЕЗ домыслов и
-    # БЕЗ внешнего поиска (участники приватного чата в веб не утекают);
-    # реплика найдена → дальше проверяется по существу ТОЛЬКО тезис
-    # (privacy-клейм), атрибуция идёт в EvidenceMap (source_kind=chat).
+    # платного поиска. Совпадения нет → честный отказ БЕЗ домыслов;
+    # реплика найдена → по существу проверяется ТОЛЬКО тезис (без обвязки
+    # «X сказал»; BGS-01: имена внутри тезиса остаются в запросе),
+    # атрибуция идёт в EvidenceMap (source_kind=chat).
     attribution = None
     attribution_match = None
     external_claim = claim_text
@@ -1115,8 +1115,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                                reason_code="attribution_not_found",
                                chat_id=req.chat_id)
                 return _finish(OUTCOME_NO_CLAIM, "v2_attribution:miss")
-            external_claim = fat.external_safe_claim(req.target_text, ctx,
-                                                     attribution)
+            external_claim = fat.attribution_thesis(req.target_text,
+                                                    attribution)
             logger.info("[factcheck_v2] attribution resolved | chat=%s",
                         req.chat_id)
     except Exception:
@@ -1142,16 +1142,16 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     # в обе. Бюджеты: ≤3 запроса (план) + общий дедлайн контура; ошибки —
     # честный fallback на внутренний поиск ветки (search_results=None).
     from services import factcheck_planner as fsp
-    # 06G.3: план строится от privacy-клейма (тезис без участников чата);
-    # без атрибуционного спора external_claim == req.target_text (паритет).
-    retrieval_plan = fsp.build_retrieval_plan(decision, ctx=ctx,
+    # План строится от клейма, которое проверяется по существу: для
+    # атрибуционного спора это тезис без обвязки «X сказал» (BGS-01: имена
+    # внутри тезиса сохраняются); без спора — сам req.target_text (паритет).
+    retrieval_plan = fsp.build_retrieval_plan(decision,
                                               claim_text=external_claim)
     if retrieval_plan is not None and retrieval_plan.queries:
         logger.info("[factcheck_v2] retrieval plan | chat=%s | queries=%d | "
-                    "intents=%s | privacy_dropped=%d", req.chat_id,
+                    "intents=%s", req.chat_id,
                     len(retrieval_plan.queries),
-                    ",".join(q.intent for q in retrieval_plan.queries),
-                    len(retrieval_plan.dropped_privacy))
+                    ",".join(q.intent for q in retrieval_plan.queries))
         # M6 (§1.5): каждая часть плана знает, какому сообщению/автору она
         # принадлежит (или честно не знает — тогда анкор пустой).
         anchors = tuple(getattr(retrieval_plan, "claim_anchors", ()) or ())
@@ -1187,10 +1187,11 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
 
     # 5. Ветка вычисления → CheckedVerdict.
     if use_envelope:
-        # 06G.3 privacy: поисковые стадии временной ветки получают тезис
-        # без участников чата (frozen-replace, provenance не меняется).
+        # Поисковые стадии временной ветки получают тезис клейма без обвязки
+        # «X сказал» (frozen-replace, provenance не меняется; BGS-01: имена
+        # внутри тезиса не вычищаются).
         if attribution_match is not None:
-            envelope = fat.with_external_claim(envelope, external_claim)
+            envelope = fat.with_claim_thesis(envelope, external_claim)
         verdict = await _run_envelope_branch(req, service, db, bot,
                                              envelope, feed, tf, mca_gates,
                                              retrieval_outcome,
@@ -1376,7 +1377,8 @@ async def _run_legacy_branch(req: FactcheckRequest, service,
     W6 (06C.8): ``search_results`` — выдача единого retrieval-контура v2
     (один поиск на прогон); None → внутренний поиск ветки (честный fallback),
     в этом случае план не выполнен и EvidenceMap не наполняется.
-    06G.3: ``target_text`` — privacy-клейм (тезис без участников чата);
+    06G.3/BGS-01: ``target_text`` — тезис клейма без атрибуционной обвязки
+    «X сказал» (имена внутри тезиса сохраняются);
     None → req.target_text (байт-паритет неатрибуционных прогонов).
     ASAP-FC-EVIDENCE-STYLE-02 §6: ``retrieval`` — покрытие по claim для
     телеметрии хода (публичный текст этой ветки формирует существующий

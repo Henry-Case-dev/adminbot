@@ -3,8 +3,8 @@
 Закрывает W0-находку 06A.4: поисковая формулировка была «дословный слайс
 клейма + годы» (`temporal_factcheck.search_queries_for`). Здесь — осмысленные
 запросы из claim_items (SuitabilityDecision, W2): сущности/числа/цитаты/годы,
-2–4 запроса с различающей целью, privacy-фильтр (участники чата НЕ утекают в
-веб, 06G.3), структурный evidence (тезис → выдержка → URL → тип) в
+2–4 запроса с различающей целью, структурный evidence (тезис → выдержка →
+URL → тип) в
 замороженные схемы `EvidenceRef`/`EvidenceMap` (W3, w3-schemas.md §1/§6).
 
 Границы лейна W4:
@@ -306,7 +306,6 @@ class RetrievalPlan:
     needs_web: bool = False
     needs_chat_history: bool = False
     needs_primary_fetch: bool = False
-    dropped_privacy: tuple[str, ...] = ()   # удалённые имена участников
     claim_text: str = ""
     plan_version: str = PLANNER_VERSION
     #: §3.1: проверяемые единицы составной новости (каждая получает попытку)
@@ -420,23 +419,6 @@ def _years(text: str) -> list[str]:
     return years[:3]
 
 
-def _strip_privacy(text: str, authors: tuple[str, ...]
-                   ) -> tuple[str, tuple[str, ...]]:
-    """Privacy-фильтр (06G.3): имена участников чата не уходят в веб-запрос."""
-    dropped: list[str] = []
-    clean = str(text or "")
-    for author in authors:
-        name = str(author or "").strip()
-        if len(name) < 4:
-            continue
-        pattern = re.compile(r"\b" + re.escape(name) + r"\w*\b", re.IGNORECASE)
-        if pattern.search(clean):
-            dropped.append(name)
-            clean = pattern.sub(" ", clean)
-    clean = re.sub(r"\s{2,}", " ", clean).strip(" -,")
-    return clean, tuple(dropped)
-
-
 def _make_query(terms: list[str], intent: str, *, tail: str = "",
                 quoted: str = "", claim_id: str = "",
                 purpose: str = QUERY_PURPOSE_BASE) -> SearchQuery | None:
@@ -453,7 +435,7 @@ def _make_query(terms: list[str], intent: str, *, tail: str = "",
                        claim_id=claim_id, purpose=purpose)
 
 
-def build_retrieval_plan(decision, ctx=None, *,
+def build_retrieval_plan(decision, *,
                          claim_text: str | None = None,
                          max_queries: int | None = None,
                          ) -> RetrievalPlan | None:
@@ -462,11 +444,15 @@ def build_retrieval_plan(decision, ctx=None, *,
     Gate/планировщик OFF (default) или проверять нечего → None — вызывающий
     не выполняет НИКАКИХ платных запросов (OFF-паритет). ``max_queries=None``
     → адаптивный бюджет по числу частей (§3.2); явное число — потолок
-    вызывающего. Никогда не бросает."""
+    вызывающего. Никогда не бросает.
+
+    BGS-01: контекст чата (участники) планировщику больше НЕ передаётся —
+    у него нет доступа к именам, поэтому обязательная деперсонализация
+    запроса не может быть возвращена «по привычке»."""
     if not planner_enabled():
         return None
     try:
-        return _build_plan_inner(decision, ctx, claim_text=claim_text,
+        return _build_plan_inner(decision, claim_text=claim_text,
                                  max_queries=max_queries)
     except Exception:
         logger.warning("[factcheck_planner] plan build failed", exc_info=True)
@@ -476,14 +462,22 @@ def build_retrieval_plan(decision, ctx=None, *,
 def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
     """FC-SEMQUERY: самостоятельные проверяемые части для запросов —
     верифицируемые тексты claim_items; единый тезис-«всё сообщение»
-    разбивается на предложения (как decompose_claim). Детерминированно."""
+    разбивается на предложения (как decompose_claim). Детерминированно.
+
+    BGS-01: часть принимается только если она — фрагмент ПРОВЕРЯЕМОГО
+    клейма. Иначе план искал бы не тот текст, который проверяет вердикт
+    (например, атрибуционная обвязка «X сказал» осталась бы в запросе,
+    хотя проверяется тезис)."""
     units: list[str] = []
+    claim_low = str(claim or "").strip().lower()
     for item in items or ():
         text = str(getattr(item, "text", "") or "").strip()
+        if claim_low and text.lower() not in claim_low:
+            continue
         if text and getattr(item, "verifiable", True) is not False \
                 and text.lower() not in {u.lower() for u in units}:
             units.append(text)
-    if not units or (len(units) == 1 and units[0].lower() == claim.lower()):
+    if not units or (len(units) == 1 and units[0].lower() == claim_low):
         # гейт не декомпозировал → предложения самого клейма
         units = [s.strip() for s in re.split(r"(?<=[.!?;])\s+", claim)
                  if s.strip()] or [claim]
@@ -687,13 +681,17 @@ def _claim_type(unit: str, metrics: list[str]) -> str:
     return CLAIM_TYPE_FACT
 
 
-def build_claim_units(items, claim: str, *, authors: tuple[str, ...] = (),
+def build_claim_units(items, claim: str, *,
                       source_link: str = "") -> tuple[ClaimUnit, ...]:
     """§3.1: исходная новость → проверяемые claim-единицы (без LLM).
 
     Переиспользует существующую декомпозицию (`_claim_units`, те же
     claim_items/предложения), добавляя контракт: сущности, метрики/единицы,
     временной интервал/часовой пояс, тип утверждения и связь с сообщением.
+
+    BGS-01 (§0.1): текст части — это ЕЁ СОБСТВЕННЫЙ текст. Имена участников
+    не вычищаются: упоминание человека в реплике не запрещает проверку, а
+    удаление имени из тезиса ломало смысл запроса.
 
     Reviewer (nonblocking): части сверх бюджета запросов больше не исчезают
     молча — они остаются в плане (до ``_CLAIM_UNITS_HARD_CAP``), получают
@@ -703,7 +701,7 @@ def build_claim_units(items, claim: str, *, authors: tuple[str, ...] = (),
     units: list[ClaimUnit] = []
     for index, raw_unit in enumerate(
             _claim_units(items, claim, cap=_CLAIM_UNITS_HARD_CAP)):
-        unit, _dropped = _strip_privacy(raw_unit, authors)
+        unit = str(raw_unit or "").strip()
         if not unit:
             continue
         uterms = _claim_terms(unit, limit=8)
@@ -836,7 +834,7 @@ def refinement_query_for(claim: ClaimUnit) -> SearchQuery | None:
         return None
 
 
-def _build_plan_inner(decision, ctx, *, claim_text, max_queries
+def _build_plan_inner(decision, *, claim_text, max_queries
                       ) -> RetrievalPlan | None:
     if decision is None:
         return None
@@ -859,12 +857,6 @@ def _build_plan_inner(decision, ctx, *, claim_text, max_queries
     if not claim or not needs_web:
         return None
 
-    authors: tuple[str, ...] = ()
-    if ctx is not None:
-        authors = tuple({str(m.author or "").strip()
-                         for m in ctx.messages if m.author})
-    claim, dropped = _strip_privacy(claim, authors)
-
     terms = _claim_terms(claim)
     entities = [e for e in _entities(claim)
                 if e.lower() not in {t.lower() for t in terms}][:3]
@@ -876,7 +868,7 @@ def _build_plan_inner(decision, ctx, *, claim_text, max_queries
     # Каждая существенная часть получает СВОЙ запрос (проход 1), уточнения
     # (числа/интервал) идут на остаток бюджета (проход 2). Бюджет зависит от
     # числа частей (§3.2), а не «≤3 на всю новость».
-    units = build_claim_units(items, claim, authors=authors)
+    units = build_claim_units(items, claim)
     if not units:
         units = (ClaimUnit(claim_id="c1", text=claim),)
     explicit_cap = max_queries is not None and int(max_queries) > 0
@@ -979,7 +971,7 @@ def _build_plan_inner(decision, ctx, *, claim_text, max_queries
     return RetrievalPlan(
         queries=tuple(queries), needs_web=True,
         needs_chat_history=needs_chat,
-        needs_primary_fetch=True, dropped_privacy=dropped,
+        needs_primary_fetch=True,
         claim_text=claim, claims=tuple(units), source_link=source_link,
         claim_anchors=_claim_anchor_map(items, units))
 
