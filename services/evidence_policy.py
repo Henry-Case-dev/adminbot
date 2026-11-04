@@ -93,6 +93,9 @@ class EvidenceSkipReason(str, Enum):
     SOURCE_READER_ALREADY_FETCHED = "source_reader_already_fetched"
     QUALIFIED_VERIFIED_REUSE = "qualified_verified_reuse"
     USER_FORBIDS_EXTERNAL = "user_forbids_external"
+    #: Историческое имя закрытого набора §1.4 (12 значений). Новыми ходами НЕ
+    #: выставляется: содержательного вето по теме у поиска нет (BGS-01,
+    #: владелец 2026-11-05 §0.1/§2), а RBAC-отказ идёт failure_code'ом.
     RBAC_OR_PRIVACY_BLOCKED = "rbac_or_privacy_blocked"
 
 
