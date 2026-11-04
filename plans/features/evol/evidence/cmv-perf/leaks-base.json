@@ -5,7 +5,7 @@
   1536,
   960
  ],
- "started_at": "2026-11-05T03:45:17",
+ "started_at": "2026-11-05T04:10:30",
  "checks": [
   {
    "ok": true,
@@ -53,7 +53,7 @@
   },
   {
    "ok": true,
-   "message": "активных RAF не больше (живо 5 -> 5)"
+   "message": "активных RAF не больше (живо 6 -> 5)"
   },
   {
    "ok": true,
@@ -65,19 +65,19 @@
   },
   {
    "ok": true,
-   "message": "после принудительного GC куча не выросла больше 8 МБ (цикл1 26.4 МБ -> цикл20 27.6 МБ, +1238 КБ)"
+   "message": "после принудительного GC куча не выросла больше 8 МБ (цикл1 26.4 МБ -> цикл20 27.7 МБ, +1260 КБ)"
   },
   {
    "ok": true,
-   "message": "в покое кадров не больше потолка 24 fps (30 за 1500 мс)"
+   "message": "в покое кадров не больше потолка 24 fps (31 за 1500 мс)"
   },
   {
    "ok": true,
-   "message": "в покое мягкая анимация продолжается (30 кадров)"
+   "message": "в покое мягкая анимация продолжается (31 кадров)"
   },
   {
    "ok": true,
-   "message": "в покое число живых RAF как в первом цикле (5 против 5)"
+   "message": "в покое живых RAF не больше, чем в первом цикле (5 против 6)"
   },
   {
    "ok": true,
@@ -105,7 +105,7 @@
   },
   {
    "ok": true,
-   "message": "при возврате число живых RAF как до скрытия (5 против 5)"
+   "message": "при возврате живых RAF не больше, чем до скрытия (5 против 6)"
   },
   {
    "ok": true,
@@ -202,9 +202,9 @@
     "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB._afterStabilize (/web/app.js?v=__APP_VERSION": 1
    },
    "rafLive": 5,
-   "rafTotal": 322,
-   "rafDone": 315,
-   "canvasesCreated": 38,
+   "rafTotal": 321,
+   "rafDone": 314,
+   "canvasesCreated": 32,
    "networkCreated": 0,
    "domScenes": 1,
    "domCanvases": 4,
@@ -217,7 +217,7 @@
    "frames": 14,
    "draws": 20,
    "fxPaints": 20,
-   "sprites": 28,
+   "sprites": 22,
    "instance": 1,
    "listenersApp": 12,
    "observersApp": 2,
@@ -228,7 +228,7 @@
     "MutationObserver": 6,
     "visNetwork": 1
    },
-   "heapBytes": 27462516
+   "heapBytes": 27421764
   },
   "cycle1": {
    "added": 929,
@@ -298,10 +298,10 @@
    "targetsAlive": 439,
    "targetsCollected": 1,
    "obsCreated": 26,
-   "obsAlive": 17,
+   "obsAlive": 21,
    "obsByKind": {
-    "ro": 10,
-    "io": 1,
+    "ro": 13,
+    "io": 2,
     "mo": 6
    },
    "obsStacks": {
@@ -320,10 +320,10 @@
     "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB._afterStabilize (/web/app.js?v=__APP_VERSION": 1,
     "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VE": 1
    },
-   "rafLive": 5,
-   "rafTotal": 532,
-   "rafDone": 523,
-   "canvasesCreated": 56,
+   "rafLive": 6,
+   "rafTotal": 526,
+   "rafDone": 516,
+   "canvasesCreated": 52,
    "networkCreated": 2,
    "domScenes": 1,
    "domCanvases": 4,
@@ -336,7 +336,7 @@
    "frames": 1,
    "draws": 20,
    "fxPaints": 20,
-   "sprites": 14,
+   "sprites": 16,
    "instance": 1,
    "listenersApp": 10,
    "observersApp": 2,
@@ -347,7 +347,7 @@
     "MutationObserver": 6,
     "visNetwork": 1
    },
-   "heapBytes": 27644940
+   "heapBytes": 27728980
   },
   "cycle10": {
    "added": 1436,
@@ -417,10 +417,10 @@
    "targetsAlive": 533,
    "targetsCollected": 78,
    "obsCreated": 92,
-   "obsAlive": 25,
+   "obsAlive": 28,
    "obsByKind": {
-    "ro": 16,
-    "io": 3,
+    "ro": 18,
+    "io": 4,
     "mo": 6
    },
    "obsStacks": {
@@ -440,9 +440,9 @@
     "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VE": 7
    },
    "rafLive": 5,
-   "rafTotal": 1100,
-   "rafDone": 1073,
-   "canvasesCreated": 306,
+   "rafTotal": 1089,
+   "rafDone": 1062,
+   "canvasesCreated": 292,
    "networkCreated": 20,
    "domScenes": 1,
    "domCanvases": 4,
@@ -452,9 +452,9 @@
    "netTotal": 21,
    "rafActive": true,
    "paused": false,
-   "frames": 2,
-   "draws": 20,
-   "fxPaints": 20,
+   "frames": 1,
+   "draws": 19,
+   "fxPaints": 19,
    "sprites": 14,
    "instance": 1,
    "listenersApp": 10,
@@ -466,7 +466,7 @@
     "MutationObserver": 6,
     "visNetwork": 1
    },
-   "heapBytes": 28290704
+   "heapBytes": 28262464
   },
   "cycle20": {
    "added": 1999,
@@ -517,7 +517,7 @@
    "windowListeners": 26,
    "documentListeners": 2,
    "liveConnected": 838,
-   "liveDetached": 250,
+   "liveDetached": 144,
    "liveByTag": {
     "BUTTON": 718,
     "CANVAS": 9,
@@ -527,18 +527,18 @@
    },
    "detByTag": {
     "?": 5,
-    "BUTTON": 49,
-    "INPUT": 84,
-    "SELECT": 56,
-    "DIV": 14,
-    "CANVAS": 42
+    "INPUT": 48,
+    "BUTTON": 27,
+    "SELECT": 32,
+    "DIV": 8,
+    "CANVAS": 24
    },
-   "targetsAlive": 553,
-   "targetsCollected": 248,
+   "targetsAlive": 495,
+   "targetsCollected": 306,
    "obsCreated": 165,
-   "obsAlive": 29,
+   "obsAlive": 28,
    "obsByKind": {
-    "ro": 19,
+    "ro": 18,
     "io": 4,
     "mo": 6
    },
@@ -559,9 +559,9 @@
     "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VE": 14
    },
    "rafLive": 5,
-   "rafTotal": 1700,
-   "rafDone": 1653,
-   "canvasesCreated": 570,
+   "rafTotal": 1689,
+   "rafDone": 1642,
+   "canvasesCreated": 556,
    "networkCreated": 40,
    "domScenes": 1,
    "domCanvases": 4,
@@ -571,9 +571,9 @@
    "netTotal": 41,
    "rafActive": true,
    "paused": false,
-   "frames": 2,
-   "draws": 21,
-   "fxPaints": 21,
+   "frames": 1,
+   "draws": 20,
+   "fxPaints": 20,
    "sprites": 14,
    "instance": 1,
    "listenersApp": 10,
@@ -585,7 +585,7 @@
     "MutationObserver": 6,
     "visNetwork": 1
    },
-   "heapBytes": 28913312
+   "heapBytes": 29019496
   }
  },
  "vis_patched": true,
@@ -598,18 +598,18 @@
   },
   "liveDetached": {
    "before": 40,
-   "after": 250,
-   "delta": 210
+   "after": 144,
+   "delta": 104
   },
   "obsAlive": {
-   "before": 17,
-   "after": 29,
-   "delta": 12
+   "before": 21,
+   "after": 28,
+   "delta": 7
   },
   "rafLive": {
-   "before": 5,
+   "before": 6,
    "after": 5,
-   "delta": 0
+   "delta": -1
   },
   "networkCreated": {
    "before": 2,
@@ -618,8 +618,8 @@
   },
   "targetsAlive": {
    "before": 439,
-   "after": 553,
-   "delta": 114
+   "after": 495,
+   "delta": 56
   },
   "windowListeners": {
    "before": 26,
@@ -643,18 +643,18 @@
   }
  },
  "obs_alive_diag": {
-  "cycle1": 17,
-  "cycle20": 29,
+  "cycle1": 21,
+  "cycle20": 28,
   "note": "WeakRef-строки; решает liveObjects"
  },
  "heap_growth": {
-  "cycle1": 27644940,
-  "cycle20": 28913312,
-  "delta": 1268372,
-  "start": 27462516
+  "cycle1": 27728980,
+  "cycle20": 29019496,
+  "delta": 1290516,
+  "start": 27421764
  },
  "idle_after_cycles": {
-  "paints": 30,
+  "paints": 31,
   "ms": 1500,
   "before": {
    "added": 1999,
@@ -742,9 +742,9 @@
     "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VE": 14
    },
    "rafLive": 5,
-   "rafTotal": 1850,
-   "rafDone": 1803,
-   "canvasesCreated": 570,
+   "rafTotal": 1854,
+   "rafDone": 1807,
+   "canvasesCreated": 556,
    "networkCreated": 40,
    "domScenes": 1,
    "domCanvases": 4,
@@ -754,9 +754,9 @@
    "netTotal": 41,
    "rafActive": true,
    "paused": false,
-   "frames": 14,
-   "draws": 33,
-   "fxPaints": 33,
+   "frames": 13,
+   "draws": 32,
+   "fxPaints": 32,
    "sprites": 14,
    "instance": 1,
    "listenersApp": 10,
@@ -849,9 +849,9 @@
     "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VE": 14
    },
    "rafLive": 5,
-   "rafTotal": 2305,
-   "rafDone": 2258,
-   "canvasesCreated": 570,
+   "rafTotal": 2309,
+   "rafDone": 2262,
+   "canvasesCreated": 556,
    "networkCreated": 40,
    "domScenes": 1,
    "domCanvases": 4,
@@ -960,9 +960,9 @@
     "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VE": 14
    },
    "rafLive": 2,
-   "rafTotal": 2341,
-   "rafDone": 2295,
-   "canvasesCreated": 570,
+   "rafTotal": 2347,
+   "rafDone": 2301,
+   "canvasesCreated": 556,
    "networkCreated": 40,
    "domScenes": 1,
    "domCanvases": 4,
@@ -1067,9 +1067,9 @@
     "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VE": 14
    },
    "rafLive": 2,
-   "rafTotal": 2511,
-   "rafDone": 2465,
-   "canvasesCreated": 570,
+   "rafTotal": 2517,
+   "rafDone": 2471,
+   "canvasesCreated": 556,
    "networkCreated": 40,
    "domScenes": 1,
    "domCanvases": 4,
@@ -1175,9 +1175,9 @@
    "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VE": 14
   },
   "rafLive": 5,
-  "rafTotal": 2879,
-  "rafDone": 2830,
-  "canvasesCreated": 570,
+  "rafTotal": 2885,
+  "rafDone": 2836,
+  "canvasesCreated": 556,
   "networkCreated": 40,
   "domScenes": 1,
   "domCanvases": 4,
