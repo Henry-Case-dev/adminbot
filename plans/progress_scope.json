@@ -479,11 +479,13 @@
       "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md",
       "source_sha256": "8DC7751C893704B895B4FCFD8475B504E668294E6966688A278AB6E261BB3F22",
-      "maps": [],
-      "coverage_complete": false,
+      "maps": [
+        "plans/features/remove-legacy-rephrasing/requirements-map.json"
+      ],
+      "coverage_complete": true,
       "blocked_by": [],
       "updated": "2026-11-05",
-      "source_note": "REMOVE-LEGACY-REPHRASING v2.0: обязательная корректировка UR-A/BGS. Требует: удалить достижимый System2 tool-final -> JSON -> Verbalizer, FormContract-второй-писатель для свободного чата, post-L2 reroll (form/numeric/metatext/format/evidence/duplicate/freshness), сохранить единственный финальный Writer, machine-стадии, фактчек/саммари/мемы, идемпотентность доставки; обновить админку/manifest; доказать реальными LLM-вызовами. Карта требований ещё не создана."
+      "source_note": "REMOVE-LEGACY-REPHRASING v2.0: 162 обязательные строки (112 строк экстрактора + 77 manual, 27 context), 8 срезов, план-гейт 0 ошибок. Сериализация: RLR-01-ROUTE -> RLR-02-LEGACY -> RLR-03-FORMCONTRACT -> RLR-04-REROLL -> RLR-06-OBSERVABILITY, затем RLR-07-PROOF и RLR-08-DOD; независима только backend-часть RLR-05-ADMIN (UI после UR-F/PVR). Преемственность: UR-15 (post-L2 retry), свободные retry BGS-04 и детектор BGS-04.10 сужены до явных трансформаций; BGS-01/02/03 подтверждены без изменений."
     }
   ],
   "owner_inputs": [
@@ -1102,7 +1104,7 @@
       "target_task_ids": [
         "remove-legacy-rephrasing-01"
       ],
-      "reconciled": false,
+      "reconciled": true,
       "origin": "root chat message 2026-11-05; text is plans/current_task.md lines 6702-EOF (owner-owned, read-only)",
       "received": "2026-11-05",
       "note": "Убрать автоматическое перефразирование готовых ответов и зависимые механизмы повторной генерации/смыслового редактирования/скрытого отката; единый финальный Writer; обязательная админка/миграционный manifest/реальное доказательство LLM-вызовов."
