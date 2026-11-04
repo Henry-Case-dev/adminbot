@@ -1827,8 +1827,11 @@
       .cog-card--expanded { height: 80dvh; }
       .cog-card__grip {
         display: block; width: 100%; height: 18px; flex: 0 0 auto;
-        margin: -2px 0 2px; padding: 0; border: 0; background: none;
+        margin: 0; padding: 0; border: 0; background: none;
         cursor: grab; position: relative; touch-action: none;
+        /* Тот же подъём 2 px, что давал прежний отрицательный margin, но без
+           отрицательного margin (ADR-1025-18 C): layout не сдвигается. */
+        transform: translateY(-2px);
       }
       .cog-card__grip::after {
         content: ''; position: absolute; left: 50%; top: 7px;
