@@ -1230,7 +1230,8 @@ def click_menu_item(page, text):
 
 
 def run_core_extras(browser, shots):
-    """§9.1 п.2/3/5: раздельные черновики редакций, meta-selects, откат."""
+    """§9.1 п.2/3: раздельные черновики редакций, meta-selects; PVR-S4 B1:
+    история версий «Характера» — единый компонент, без legacy-«Откатить»."""
     label = "core-extras"
     ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
     try:
@@ -1277,16 +1278,24 @@ def run_core_extras(browser, shots):
                 or POSTS[-1]["body"].get("enabled") is not False:
             fail(label, "выключение Core не ушло в core/meta: %s"
                  % (POSTS[before:]))
-        # §9.1 п.5: история версий и «Откатить» — в «Дополнительно».
-        page.locator("details summary",
-                     has_text="Дополнительно: версии и откат").first.click()
-        page.wait_for_timeout(200)
-        before = len(POSTS)
-        page.locator("details button", has_text="Откатить").first.click()
-        page.wait_for_timeout(800)
-        if len(POSTS) != before + 1 or not POSTS[-1]["path"].endswith("/rollback") \
-                or POSTS[-1]["body"].get("sha256_12") != "aaaaaaaaaaaa":
-            fail(label, "откат не ушёл в API: %s" % (POSTS[before:]))
+        # PVR-S4 B1 (§2 ТЗ): «Характер» — тот же компонент версий, что везде.
+        # Прежний «Дополнительно: версии и откат» с сырым sha и отдельным
+        # «Откатить» удалён: действия (включая возврат к прошлой версии) —
+        # в единой панели «История версий», второй реализации быть не должно.
+        cards = page.locator(
+            ".speech-section [data-speech-core-versions] [data-prompt-history]")
+        if cards.count() != 1:
+            fail(label, "в «Характере» не одна карточка версий: %d"
+                 % cards.count())
+        hist_btn = page.locator(
+            ".speech-section [data-speech-core-versions]"
+            " [data-prompt-history-toggle]")
+        if hist_btn.count() != 1:
+            fail(label, "в «Характере» нет единой кнопки «История версий»")
+        if page.locator("[data-speech-core-more]").count():
+            fail(label, "legacy-блок «Дополнительно: версии и откат» остался")
+        if page.locator("details button", has_text="Откатить").count():
+            fail(label, "отдельный «Откатить» в «Характере» остался")
         snap(page, shots, "core_history_390")
     finally:
         ctx.close()

@@ -92,8 +92,35 @@ assert.strictEqual((INDEX.match(/data-prompt-history-toggle/g) || []).length, 1,
 // Все поверхности монтируют ОДИН компонент.
 assert.ok(INDEX.indexOf('<prompt-version-card') >= 0);
 assert.ok(INDEX.indexOf('variant="bar"') >= 0, 'карточки модулей — полоса');
-assert.strictEqual((INDEX.match(/<prompt-version-card/g) || []).length, 7,
-  'ожидаются: библиотека, 2 полосы модулей, 2 мема, каталог, блок речи');
+assert.strictEqual((INDEX.match(/<prompt-version-card/g) || []).length, 8,
+  'ожидаются: библиотека, 2 полосы модулей, 2 мема, каталог, блок речи, '
+  + 'раздел «Характер»');
+// B1 (§2 / §2.2 п.1): раздел «Характер» — тоже prompt-field
+// (`core.personality` / `core.personality.compact`), поэтому он использует
+// тот же компонент, а не свой bounded-список с сырым sha и «Откатить».
+{
+  const coreStart = INDEX.indexOf("speechSection === 'core' && speechCore");
+  assert.ok(coreStart >= 0, 'раздел «Характер» не найден в разметке');
+  const coreEnd = INDEX.indexOf("speechSection === 'style' && speechStyle",
+                                coreStart);
+  const coreBlock = INDEX.slice(coreStart, coreEnd > coreStart
+    ? coreEnd : coreStart + 20000);
+  assert.ok(coreBlock.indexOf('<prompt-version-card') >= 0,
+    '«Характер» обязан монтировать единый компонент версий');
+  assert.ok(coreBlock.indexOf('speechCore.block_ids') >= 0,
+    'ключ истории «Характера» — активная редакция из реестра');
+  assert.strictEqual(coreBlock.indexOf('data-speech-core-more'), -1,
+    'legacy-блок «Дополнительно: версии и откат» должен исчезнуть');
+  assert.strictEqual(coreBlock.indexOf('Откатить</button>'), -1,
+    'отдельный «Откатить» в «Характере» запрещён (§2.2 п.6: действия в панели)');
+  assert.strictEqual(coreBlock.indexOf('sha256_12'), -1,
+    'сырой sha не показывается в разделе «Характер»');
+  assert.strictEqual(coreBlock.indexOf('rollbackSpeechBlock'), -1);
+  assert.strictEqual(APP.indexOf('rollbackSpeechBlock'), -1,
+    'мёртвый обработчик второго UI истории удалён');
+  assert.strictEqual(APP.indexOf('speechHistKind'), -1);
+  assert.strictEqual(APP.indexOf('speechHistScope'), -1);
+}
 // Сырые идентификаторы допустимы только в раскрываемых «Подробностях».
 const cardHeadTpl = TPL.slice(0, TPL.indexOf('</div>', TPL.indexOf('pv-head')));
 assert.strictEqual(cardHeadTpl.indexOf('sha256'), -1);
@@ -152,6 +179,72 @@ function activeRow(origin, created, rev) {
            created_at: created || '2026-11-03T23:42:00+00:00',
            source: origin === 'factory' ? 'from_release' : 'manual' };
 }
+
+// ── 2b. B2: «Подробности и диагностика» реально раскрывают блок ──────────
+(function () {
+  // Технические строки живут в постоянном <details data-pv-details>, который
+  // раскрывается пунктом меню: иначе клик закрывал меню и ничего не показывал.
+  assert.ok(TPL.indexOf('data-pv-details') >= 0,
+    'нет постоянного блока подробностей');
+  assert.ok(TPL.indexOf(':open="details"') >= 0,
+    'блок подробностей должен управляться состоянием `details`');
+  const det = TPL.slice(TPL.indexOf('data-pv-details'));
+  assert.ok(det.indexOf('v-for="ln in detailsLines"') >= 0,
+    'технические строки должны рендериться в блоке подробностей');
+  assert.ok(det.indexOf('v-if="details"') >= 0,
+    'содержимое подробностей рендерится только в раскрытом виде '
+    + '(в свёрнутой карточке сырых id нет)');
+  const menuTpl = TPL.slice(TPL.indexOf('data-pv-more-menu'));
+  const menuEnd = menuTpl.indexOf('</div>');
+  const menuOnly = menuTpl.slice(0, menuEnd > 0 ? menuEnd : 1200);
+  assert.ok(menuOnly.indexOf('data-pv-more-details') >= 0,
+    'пункт меню «Подробности и диагностика» обязателен');
+  assert.strictEqual(menuOnly.indexOf('v-for="ln in detailsLines"'), -1,
+    'технические строки не должны быть пунктами меню (исчезают вместе с ним)');
+  // Состояние и метод: раскрытие — реальное, а не «закрыть меню».
+  const c = ctx({ details: false });
+  assert.strictEqual(c.details, false);
+  CARD.methods.toggleDetails.call(c);
+  assert.strictEqual(c.details, true);
+  CARD.methods.toggleDetails.call(c);
+  assert.strictEqual(c.details, false);
+  const lines = stateOf({ hist: { data: {
+    block_id: 'core.personality', pg_key: 'character.core', scope: 'global',
+    factory_revision: 'fac:1', active: activeRow('manual'), entries: [] },
+    error: '', entries: [] } }).detailsLines;
+  assert.ok(lines.length >= 3 && lines.join(' ').indexOf('блок:') >= 0,
+    'блок подробностей должен содержать человеко-технические строки: '
+    + JSON.stringify(lines));
+})();
+
+// ── 2c. B4: подтверждение успеха переживает перечитывание ────────────────
+(function () {
+  let reloaded = 0;
+  const okText = 'Сервер подтвердил: действует выбранная версия («ручная»).';
+  const c = ctx({
+    hist: { data: { active: activeRow('manual'), entries: [] }, error: '',
+            entries: [{ order: 1, revision_id: 'r1' }], nextCursor: 'C1',
+            more: true, result: { ok: true, text: okText } },
+  });
+  c.loadHistory = function () { reloaded += 1; return Promise.resolve(); };
+  CARD.methods.reloadPreservingResult.call(c);
+  assert.strictEqual(reloaded, 1, 'состояние должно перечитываться');
+  assert.ok(c.hist.result && c.hist.result.text === okText,
+    'подтверждение успеха стёрто перечитыванием: '
+    + JSON.stringify(c.hist.result));
+  assert.strictEqual(c.hist.data, null,
+    'панель обязана перечитать сервер, а не показывать старое');
+  // Явное закрытие и смена промпта убирают сообщение.
+  CARD.methods.dismissResult.call(c);
+  assert.strictEqual(c.hist.result, null, 'сообщение должно закрываться явно');
+  assert.ok(TPL.indexOf('data-pv-result-dismiss') >= 0,
+    'нужна кнопка закрытия сообщения (deliberate dismissal)');
+  const fresh = ctx({ hist: { data: { entries: [] }, error: '', entries: [],
+                               result: { ok: true, text: okText } } });
+  CARD.methods.resetPanel.call(fresh);
+  assert.strictEqual(fresh.hist.result, null,
+    'смена промпта/чата не должна тащить чужое сообщение');
+})();
 
 let s = stateOf({ hist: { data: { active: null, baseline: { baseline: null },
                                   factory_matches_active: true,
@@ -268,8 +361,7 @@ async function pagingTest() {
     } },
   });
   const scope = c;
-  console.log("DBG0", JSON.stringify(scope.hist));
-  await CARD.methods.loadMore.call(scope); console.log("DBG", JSON.stringify({n: c.hist.entries.length, more: c.hist.more, cur: c.hist.nextCursor, err: c.hist.moreError, calls: calls}));
+  await CARD.methods.loadMore.call(scope);
   assert.strictEqual(c.hist.entries.length, 3, 'вторая страница не догружена');
   assert.ok(String(calls[0]).indexOf('cursor=C1') > 0,
     'догрузка должна идти по стабильному курсору: ' + calls[0]);
@@ -312,6 +404,17 @@ async function assignTest() {
   assert.ok(posts.some(function (p) {
     return String(p.url).indexOf('/versions') > 0;
   }), 'после назначения состояние должно перечитываться с сервера');
+  // B3 (§2.2 п.6, PVR-BASE-05): назначение базовой НЕ активирует версию.
+  // Мутация «assign также активирует» обязана падать здесь.
+  const activated = posts.filter(function (p) {
+    return String(p.url).indexOf('/activate') > 0;
+  });
+  assert.deepStrictEqual(activated, [],
+    '«Назначить базовой» не имеет права звать /activate: '
+    + JSON.stringify(activated.map(function (p) { return p.url; })));
+  assert.strictEqual(
+    (c.hist.data && c.hist.data.active && c.hist.data.active.revision_id),
+    'rev-1', 'назначение базовой не меняет активную ревизию');
 }
 
 // ── 7. {joke}: три режима, без сырого счётчика ───────────────────────────

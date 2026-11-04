@@ -77,6 +77,11 @@ STATE = {
     "factory_restored": False,
     "meme_placeholders": 0,
     "prompt_joke": "СТАРЫЙ ПРИКОЛ",   # действующий текст (не меняется тестом)
+    # Speech/Character «Характер»: два prompt-поля одного документа.
+    "core_text": {
+        "full": "ПОЛНЫЙ ХАРАКТЕР: спокойный, точный, без пафоса.",
+        "compact": "КОМПАКТНЫЙ ХАРАКТЕР: спокойный и точный.",
+    },
 }
 
 
@@ -152,7 +157,15 @@ def build_entries():
     return rows
 
 
-def _versions_payload(url):
+def _block_for(key):
+    """Реестровые id/ключи: у Speech «Характера» два блока на один pg_key."""
+    key = key or PROMPT_KEY
+    if key.startswith("core.personality"):
+        return {"block_id": key, "pg_key": "character.core"}
+    return {"block_id": "initiative.meme.joke", "pg_key": PROMPT_KEY}
+
+
+def _versions_payload(url, key=""):
     qs = url.split("?")[1] if "?" in url else ""
     params = {}
     for part in qs.split("&"):
@@ -178,8 +191,8 @@ def _versions_payload(url):
         }
     return {
         "known": True,
-        "block_id": "initiative.meme.joke",
-        "pg_key": PROMPT_KEY,
+        "block_id": _block_for(key)["block_id"],
+        "pg_key": _block_for(key)["pg_key"],
         "scope": "chat",
         "chat_id": CHAT_A,
         "hidden": False,
@@ -220,6 +233,83 @@ def _versions_payload(url):
     }
 
 
+def _speech_overview():
+    """Витрина «Речь и характер»: нужна, чтобы кликнуть карточку «Характер»."""
+    return {
+        "scope": "chat", "chat_id": CHAT_A, "inheritance": "chat",
+        "gates": {"character_core_enabled": True,
+                  "unified_composer_enabled": True,
+                  "speech_style_policy_enabled": True},
+        "sections": [
+            {"id": "core", "icon": "psychology", "title": "Характер",
+             "subtitle": "Постоянный характер", "state": "owner",
+             "detail": "действует ваша редакция", "ready": True},
+            {"id": "style", "icon": "format_quote", "title": "Стиль письма",
+             "subtitle": "Правила формы", "state": "owner",
+             "detail": "правил 0", "ready": True},
+        ],
+        "advanced": [],
+        "registry": {"blocks": 12, "version": "reg-1", "factory_set": "fs"},
+        "can_edit": True,
+    }
+
+
+def _speech_core():
+    """`/api/speech/core` в форме действующего API (block_ids/editions/history)."""
+    def edition(level):
+        return {
+            "text": STATE["core_text"][level],
+            "source": "chat",
+            "scope_label": "этот чат",
+            "revision": "act:core" + level,
+            "factory_revision": "fac:core-" + level,
+            "differs_from_factory": True,
+            "withheld": False,
+            "withheld_class": "",
+            "withheld_reason": "",
+            "diagnostics": [],
+            "chars": len(STATE["core_text"][level]),
+        }
+    return {
+        "block_ids": {"full": "core.personality",
+                      "compact": "core.personality.compact"},
+        "doc_key": "character.core",
+        "scope": "chat",
+        "chat_id": CHAT_A,
+        "inheritance": "chat",
+        "global_present": True,
+        "chat_present": True,
+        "permanent_note": "Core — постоянный характер, действует постоянно.",
+        "selection": {"level": "full", "reason": "owner_setting",
+                      "revision": "act:corefull"},
+        "factory": {"full_text": "заводской полный",
+                    "compact_text": "заводской компактный",
+                    "full_chars": 16, "compact_chars": 19,
+                    "full_revision": "fac:core-full",
+                    "compact_revision": "fac:core-compact"},
+        "document": {"revision": 3, "enabled": True, "detail_level": "full",
+                     "origin": "owner",
+                     "updated_at": "2026-11-03T20:00:00+00:00",
+                     "present": True},
+        "editions": {"full": edition("full"), "compact": edition("compact")},
+        "diff": {
+            "full": {"same": False, "before_chars": 16, "after_chars": 10,
+                     "delta_chars": -6,
+                     "changed": {"before": "заводской", "after": "наш"}},
+            "compact": {"same": False, "before_chars": 19, "after_chars": 9,
+                        "delta_chars": -10,
+                        "changed": {"before": "заводской", "after": "наш"}},
+        },
+        "history": [],
+        "history_source": "journal",
+        "history_available": True,
+        "history_pages": {},
+        "inspection": {},
+        "gates": {},
+        "can_edit": True,
+    }
+
+
 def make_api_handler():
     def _handler(route):
         req = route.request
@@ -245,7 +335,8 @@ def make_api_handler():
                 if STATE["journal_down"]:
                     return send({"detail": "журнал версий недоступен "
                                            "(нет PostgreSQL)"}, 503)
-                return send(_versions_payload(url))
+                key = path.split("/api/prompts/", 1)[1][: -len("/versions")]
+                return send(_versions_payload(url, key))
             if path.endswith("/source"):
                 rev = path.split("/revisions/", 1)[1][: -len("/source")]
                 return send({"known": True, "revision_id": rev,
@@ -286,6 +377,11 @@ def make_api_handler():
                     row["status_label"] = ("активная"
                                            if row["revision_id"] == rev
                                            else "неактивная")
+                key = path.split("/api/prompts/", 1)[1][: -len("/activate")]
+                if "core.personality.compact" in key:
+                    STATE["core_text"]["compact"] = _body(rev)
+                elif "core.personality" in key:
+                    STATE["core_text"]["full"] = _body(rev)
                 return send({"applied": True, "revision_id": rev,
                              "outcome": "applied", "reason_text": ""})
             if path.endswith("/baseline/restore"):
@@ -310,6 +406,10 @@ def make_api_handler():
                 return send({"applied": True, "created": True,
                              "reason_text": ""})
             return send({"detail": "not stubbed"}, 404)
+        if path.endswith("/api/speech/overview"):
+            return send(_speech_overview())
+        if path.endswith("/api/speech/core"):
+            return send(_speech_core())
         if path.endswith("/api/initiative/meme-settings"):
             return send(_meme_settings())
         if path.endswith("/api/access/me"):
@@ -584,6 +684,38 @@ def run_editor(label, page, shots, width):
           "технические подробности не свёрнуты")
     shot(page, shots, "card_%s" % label)
 
+    # 1b) B2 (§2.2 п.8): «Подробности и диагностика» реально раскрывает
+    # постоянный блок, а не просто закрывает меню. В свёрнутом виде сырых
+    # id в DOM нет (они появляются только в раскрытом блоке).
+    check(page.evaluate(
+        "() => document.querySelectorAll('[data-pv-detail-line]').length") == 0,
+        label, "технические строки отрисованы в свёрнутой карточке")
+    page.click("[data-prompt-editor] [data-pv-more-toggle]")
+    page.wait_for_selector("[data-pv-more-menu]", state="visible")
+    page.click("[data-pv-more-details]")
+    page.wait_for_timeout(350)
+    det = page.evaluate(
+        "() => { const d = document.querySelector('[data-prompt-editor]"
+        " [data-pv-details]');"
+        " return {menu: !!document.querySelector('[data-pv-more-menu]'),"
+        " open: !!(d && d.open),"
+        " lines: document.querySelectorAll('[data-pv-detail-line]').length,"
+        " text: d ? (d.textContent || '').replace(/\\s+/g, ' ').trim() : ''}; }")
+    check(det["menu"] is False, label, "меню не закрылось после пункта «Подробности»")
+    check(det["open"] is True, label,
+          "пункт «Подробности и диагностика» не раскрыл блок: %r" % (det,))
+    check(det["lines"] >= 3, label,
+          "в блоке подробностей нет технических строк: %r" % (det,))
+    for needle in ("блок:", "ключ:", "область:", "действующая ревизия:"):
+        check(needle in det["text"], label,
+              "в подробностях нет %r: %r" % (needle, det["text"][:200]))
+    shot(page, shots, "details_%s" % label)
+    page.click("[data-prompt-editor] [data-pv-details] > summary")
+    page.wait_for_timeout(250)
+    check(page.evaluate(
+        "() => document.querySelectorAll('[data-pv-detail-line]').length") == 0,
+        label, "свёрнутые подробности продолжают держать сырые id в DOM")
+
     # 2) панель истории: заголовок, мета, первая страница, листание >50
     open_panel(page)
     meta = page.evaluate(
@@ -675,11 +807,26 @@ def run_editor(label, page, shots, width):
         ".map((el) => el.getAttribute('data-prompt-history-revision'))")
     check(target_rev in after, label,
           "после активации активная версия не перечитана с сервера: %r" % (after,))
+    # B4 (§2.2 п.6/§6 п.8): подтверждение успеха переживает перечитывание
+    # состояния (`resetPanel` по reloadToken не имеет права его стирать).
+    page.wait_for_timeout(1500)
+    result_after_refresh = page.evaluate(
+        "() => { const el = document.querySelector('[data-prompt-history-result]');"
+        " return el ? (el.textContent || '').replace(/\\s+/g, ' ').trim() : ''; }")
+    check("Сервер подтвердил" in result_after_refresh, label,
+          "подтверждение «Применить» стёрто перечитыванием: %r"
+          % (result_after_refresh,))
 
     # 7) «Назначить базовой» не меняет действующий текст
     text_before = page.evaluate(
         "() => (document.querySelector('[data-prompt-editor] textarea') || {})"
         ".value")
+    active_before = page.evaluate(
+        "() => { const el = document.querySelector('[data-pv-row]"
+        "[data-pv-status=\"active\"]');"
+        " return el ? el.getAttribute('data-prompt-history-revision') : ''; }")
+    activates_before = len([p for p in STATE["posts"]
+                            if p["path"].endswith("/activate")])
     baseline_rev = row_rev(page, 5)
     click_row(page, 5, "[data-pv-row-baseline]")
     page.wait_for_timeout(900)
@@ -697,6 +844,21 @@ def run_editor(label, page, shots, width):
               and p["body"].get("revision_id") == baseline_rev
               for p in STATE["posts"]), label,
           "POST /baseline не отправлен с выбранной версией")
+    # B3 (§2.2 п.6, PVR-BASE-05): назначение базовой — ОТДЕЛЬНОЕ действие.
+    # Мутация «assign дополнительно активирует» обязана падать здесь.
+    activates_after = [p for p in STATE["posts"]
+                       if p["path"].endswith("/activate")]
+    check(len(activates_after) == activates_before, label,
+          "«Назначить базовой» отправил POST /activate: %r"
+          % (activates_after[activates_before:],))
+    active_after = page.evaluate(
+        "() => { const el = document.querySelector('[data-pv-row]"
+        "[data-pv-status=\"active\"]');"
+        " return el ? el.getAttribute('data-prompt-history-revision') : ''; }")
+    check(active_after == active_before and active_after != baseline_rev,
+          label,
+          "назначение базовой сменило активную ревизию: %r -> %r"
+          % (active_before, active_after))
 
     # 8) снятие назначения и восстановление базовой
     page.click("[data-pv-clear-baseline]")
@@ -832,6 +994,117 @@ def run_memes(label, page, shots, width):
 DIALOGS = []
 
 
+def run_speech_core(label, page, shots, width):
+    """B1 (§2 / §2.2 п.1): раздел «Характер» — единый компонент версий.
+
+    Проверяется в реальном UI: одна карточка компонента, кнопка «История
+    версий», полная пагинация журнала (>50) и отсутствие прежнего
+    bounded-списка с сырым sha и отдельным «Откатить». Плюс «Применить»
+    перечитывает серверный текст редакции, а подтверждение успеха остаётся
+    видимым (B4) — тот же компонент, то же поведение, что у промптов мемов.
+    """
+    page.goto(BASE + "/#/ai/speech", wait_until="load")
+    page.wait_for_selector(".speech-screen", state="visible")
+    page.wait_for_timeout(700)
+    # Реальный путь владельца: «Правила и источники» → «Редактор Core».
+    page.click("[data-speech-area='rules']")
+    page.wait_for_selector("[data-speech-rules-link='core']", state="visible")
+    page.click("[data-speech-rules-link='core']")
+    page.wait_for_selector("[data-speech-core-versions] [data-prompt-history-toggle]",
+                           state="visible")
+    page.wait_for_timeout(600)
+    info = page.evaluate(r"""
+        () => {
+          const tx = (el) => ((el && el.textContent) || '')
+            .replace(/\s+/g, ' ').trim();
+          const card = document.querySelector(
+            '[data-speech-core-versions] [data-prompt-history]');
+          const sec = document.querySelector('.speech-section');
+          return {
+            cards: document.querySelectorAll(
+              '[data-speech-core-versions] [data-prompt-history]').length,
+            key: card ? card.getAttribute('data-pv-key') : null,
+            variant: card ? card.getAttribute('data-pv-variant') : null,
+            state: tx(document.querySelector(
+              '[data-speech-core-versions] [data-pv-state]')),
+            legacy: !!document.querySelector('[data-speech-core-more]'),
+            rollback: /Откатить/.test(tx(sec)),
+            rawInCard: /sha256|sha [0-9a-f]{8}|act:[0-9a-f]{6}/.test(tx(card)),
+            textarea: (document.querySelector(
+              '.speech-section textarea.speech-editor') || {}).value,
+          };
+        }
+    """)
+    check(info["cards"] == 1, label,
+          "в «Характере» не одна карточка версий: %r" % (info,))
+    check(info["key"] == "core.personality", label,
+          "карточка «Характера» привязана не к активной редакции: %r" % (info,))
+    check(info["variant"] == "bar", label,
+          "карточка «Характера» не компактная полоса компонента: %r" % (info,))
+    check(info["legacy"] is False, label,
+          "legacy-блок «Дополнительно: версии и откат» остался в DOM")
+    check(info["rollback"] is False, label,
+          "отдельный «Откатить» остался в разделе «Характер»")
+    check(info["rawInCard"] is False, label,
+          "в карточке «Характера» видны сырые id/sha: %r" % (info["state"],))
+    check(bool(info["state"]), label, "состояние версий не показано")
+    shot(page, shots, "speech_core_%s" % label)
+
+    # B1: «Характер» — два prompt-поля одного документа. Карточка следует за
+    # активной редакцией, поэтому история каждой редакции — своя (не хардкод).
+    page.locator(".speech-tab", has_text="Компактная").first.click()
+    page.wait_for_timeout(700)
+    key_compact = page.evaluate(
+        "() => { const c = document.querySelector("
+        "'[data-speech-core-versions] [data-prompt-history]');"
+        " return c ? c.getAttribute('data-pv-key') : null; }")
+    check(key_compact == "core.personality.compact", label,
+          "карточка «Характера» не переключилась на компактную редакцию: %r"
+          % (key_compact,))
+    page.locator(".speech-tab", has_text="Полная").first.click()
+    page.wait_for_timeout(600)
+    key_full = page.evaluate(
+        "() => { const c = document.querySelector("
+        "'[data-speech-core-versions] [data-prompt-history]');"
+        " return c ? c.getAttribute('data-pv-key') : null; }")
+    check(key_full == "core.personality", label,
+          "карточка «Характера» не вернулась к полной редакции: %r" % (key_full,))
+
+    open_panel(page)
+    rows = panel_rows(page)
+    check(len(rows) == 50, label,
+          "первая страница истории «Характера» не 50 записей: %d" % len(rows))
+    page.click("[data-pv-load-more]")
+    page.wait_for_timeout(600)
+    rows2 = panel_rows(page)
+    check(len(rows2) > 50, label,
+          "история «Характера» не листается дальше 50: %d" % len(rows2))
+    shot(page, shots, "speech_history_%s" % label)
+
+    # B4 + честное перечитывание: «Применить» меняет серверный текст, редактор
+    # перечитывает раздел, а сообщение сервера остаётся видимым.
+    target = row_rev(page, 0)
+    click_row(page, 0, "[data-pv-row-activate]")
+    page.wait_for_timeout(1800)
+    res = page.evaluate(
+        "() => ((document.querySelector('[data-prompt-history-result]') || {})"
+        ".textContent || '').replace(/\\s+/g, ' ').trim()")
+    check("Сервер подтвердил" in res, label,
+          "подтверждение «Применить» в «Характере» не видно после "
+          "перечитывания: %r" % (res,))
+    value = page.evaluate(
+        "() => (document.querySelector('.speech-section textarea.speech-editor')"
+        " || {}).value")
+    check((value or "").strip() == _body(target).strip(), label,
+          "редактор «Характера» не перечитал применённый текст: %r"
+          % ((value or "")[:120],))
+    page.click("[data-pv-panel-close]")
+    page.wait_for_timeout(300)
+    check(hscroll(page) <= 1, label,
+          "горизонтальный скролл в «Характере»: %d px" % hscroll(page))
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--shots", default="")
@@ -863,6 +1136,10 @@ def main():
             STATE["baseline"] = None
             STATE["factory_restored"] = False
             STATE["journal_down"] = False
+            STATE["core_text"] = {
+                "full": "ПОЛНЫЙ ХАРАКТЕР: спокойный, точный, без пафоса.",
+                "compact": "КОМПАКТНЫЙ ХАРАКТЕР: спокойный и точный.",
+            }
             ctx, page = new_page(browser, width, height)
             try:
                 if width >= 768:
@@ -872,6 +1149,7 @@ def main():
                     # мобильный полноэкранный вариант панели
                     run_editor(label, page, args.shots, width)
                     run_memes(label, page, args.shots, width)
+                run_speech_core(label, page, args.shots, width)
                 check(hscroll(page) <= 1, label,
                       "горизонтальный скролл итог: %d px" % hscroll(page))
             except Exception as exc:  # noqa: BLE001
