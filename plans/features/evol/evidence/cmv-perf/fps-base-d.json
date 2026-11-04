@@ -1,0 +1,331 @@
+{
+ "label": "baseD",
+ "revision": null,
+ "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\6f4c07e43141f379\\hotfix-meme-publication-initia-d78f499866ee-6ef91e44",
+ "ms": 2000,
+ "fixtures": [
+  702
+ ],
+ "fixture_sha256": {
+  "702": "6f796fca78c8f987d981458ac3789535ae3d7ef8eebd53d021f136ded1590f95"
+ },
+ "states": [
+  {
+   "name": "overview",
+   "ratio": 1.0
+  },
+  {
+   "name": "working",
+   "ratio": 1.6
+  },
+  {
+   "name": "detail",
+   "ratio": 2.6
+  }
+ ],
+ "modes": [
+  "embedded"
+ ],
+ "host": {
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.12.0"
+ },
+ "render_mode": "headless-gpu",
+ "launch_args": [
+  "--enable-gpu",
+  "--enable-gpu-rasterization",
+  "--ignore-gpu-blocklist",
+  "--use-angle=d3d11"
+ ],
+ "started_at": "2026-11-05T04:05:44",
+ "cases": [
+  {
+   "fixture": 702,
+   "mode": "embedded",
+   "state": "overview",
+   "ratio_want": 1.0,
+   "ratio_got": 1.0,
+   "fit": 0.09942,
+   "canvas": [
+    1252,
+    418
+   ],
+   "el": [
+    1252,
+    418
+   ],
+   "rows": 702,
+   "edges": 2400,
+   "trimmed": false,
+   "hidden": 695,
+   "lod": 0,
+   "labels": 7,
+   "stats": {
+    "frames": 121,
+    "median": 60.2,
+    "p95": 55.9,
+    "p99": 54.3,
+    "worst": 53.5,
+    "p50ms": 16.6,
+    "p95ms": 17.9,
+    "p99ms": 18.4,
+    "jank": 0,
+    "paintedFps": 60.0,
+    "moves": 121,
+    "drift": 323.8
+   },
+   "runs": [
+    {
+     "frames": 121,
+     "median": 59.9,
+     "p95": 55.9,
+     "p99": 54.6,
+     "worst": 51.0,
+     "p50ms": 16.7,
+     "p95ms": 17.9,
+     "p99ms": 18.3,
+     "jank": 0,
+     "paintedFps": 59.8,
+     "moves": 121,
+     "drift": 319.8
+    },
+    {
+     "frames": 121,
+     "median": 60.2,
+     "p95": 55.9,
+     "p99": 54.3,
+     "worst": 53.5,
+     "p50ms": 16.6,
+     "p95ms": 17.9,
+     "p99ms": 18.4,
+     "jank": 0,
+     "paintedFps": 60.0,
+     "moves": 121,
+     "drift": 323.8
+    }
+   ]
+  },
+  {
+   "fixture": 702,
+   "mode": "embedded",
+   "state": "working",
+   "ratio_want": 1.6,
+   "ratio_got": 1.6,
+   "fit": 0.09942,
+   "canvas": [
+    1252,
+    418
+   ],
+   "el": [
+    1252,
+    418
+   ],
+   "rows": 702,
+   "edges": 2400,
+   "trimmed": false,
+   "hidden": 0,
+   "lod": 1,
+   "labels": 16,
+   "stats": {
+    "frames": 96,
+    "median": 48.4,
+    "p95": 39.1,
+    "p99": 34.6,
+    "worst": 14.9,
+    "p50ms": 20.65,
+    "p95ms": 25.6,
+    "p99ms": 28.9,
+    "jank": 1,
+    "paintedFps": 47.1,
+    "moves": 96,
+    "drift": 324.3
+   },
+   "runs": [
+    {
+     "frames": 96,
+     "median": 48.4,
+     "p95": 39.1,
+     "p99": 34.6,
+     "worst": 14.9,
+     "p50ms": 20.65,
+     "p95ms": 25.6,
+     "p99ms": 28.9,
+     "jank": 1,
+     "paintedFps": 47.1,
+     "moves": 96,
+     "drift": 324.3
+    },
+    {
+     "frames": 97,
+     "median": 48.1,
+     "p95": 40.5,
+     "p99": 37.9,
+     "worst": 36.0,
+     "p50ms": 20.8,
+     "p95ms": 24.7,
+     "p99ms": 26.4,
+     "jank": 0,
+     "paintedFps": 48.3,
+     "moves": 97,
+     "drift": 320.6
+    }
+   ]
+  },
+  {
+   "fixture": 702,
+   "mode": "embedded",
+   "state": "detail",
+   "ratio_want": 2.6,
+   "ratio_got": 2.6,
+   "fit": 0.09942,
+   "canvas": [
+    1252,
+    418
+   ],
+   "el": [
+    1252,
+    418
+   ],
+   "rows": 702,
+   "edges": 2400,
+   "trimmed": false,
+   "hidden": 0,
+   "lod": 2,
+   "labels": 26,
+   "stats": {
+    "frames": 117,
+    "median": 59.2,
+    "p95": 47.8,
+    "p99": 43.5,
+    "worst": 43.3,
+    "p50ms": 16.9,
+    "p95ms": 20.9,
+    "p99ms": 23,
+    "jank": 0,
+    "paintedFps": 58.3,
+    "moves": 117,
+    "drift": 320.3
+   },
+   "runs": [
+    {
+     "frames": 111,
+     "median": 56.2,
+     "p95": 44.4,
+     "p99": 39.2,
+     "worst": 37.5,
+     "p50ms": 17.8,
+     "p95ms": 22.5,
+     "p99ms": 25.5,
+     "jank": 0,
+     "paintedFps": 54.8,
+     "moves": 111,
+     "drift": 319.9
+    },
+    {
+     "frames": 117,
+     "median": 59.2,
+     "p95": 47.8,
+     "p99": 43.5,
+     "worst": 43.3,
+     "p50ms": 16.9,
+     "p95ms": 20.9,
+     "p99ms": 23,
+     "jank": 0,
+     "paintedFps": 58.3,
+     "moves": 117,
+     "drift": 320.3
+    }
+   ]
+  },
+  {
+   "fixture": 702,
+   "mode": "android",
+   "state": "overview",
+   "ratio_got": 1.0,
+   "canvas": [
+    338,
+    386
+   ],
+   "hidden": 698,
+   "edges": 2400,
+   "trimmed": false,
+   "lod": 0,
+   "cpu_throttle": 4,
+   "stats": {
+    "frames": 121,
+    "median": 60.2,
+    "p95": 54.1,
+    "p99": 44.2,
+    "worst": 39.7,
+    "p50ms": 16.6,
+    "p95ms": 18.5,
+    "p99ms": 22.6,
+    "jank": 0,
+    "paintedFps": 59.7
+   }
+  },
+  {
+   "fixture": 702,
+   "mode": "android",
+   "state": "working",
+   "ratio_got": 1.6,
+   "canvas": [
+    338,
+    386
+   ],
+   "hidden": 0,
+   "edges": 2400,
+   "trimmed": false,
+   "lod": 1,
+   "cpu_throttle": 4,
+   "stats": {
+    "frames": 47,
+    "median": 24.3,
+    "p95": 17.9,
+    "p99": 14.3,
+    "worst": 14.3,
+    "p50ms": 41.2,
+    "p95ms": 56,
+    "p99ms": 69.7,
+    "jank": 45,
+    "paintedFps": 22.9
+   }
+  },
+  {
+   "fixture": 702,
+   "mode": "android",
+   "state": "detail",
+   "ratio_got": 2.6,
+   "canvas": [
+    338,
+    386
+   ],
+   "hidden": 0,
+   "edges": 2400,
+   "trimmed": false,
+   "lod": 2,
+   "cpu_throttle": 4,
+   "stats": {
+    "frames": 78,
+    "median": 38.6,
+    "p95": 33.0,
+    "p99": 31.5,
+    "worst": 29.5,
+    "p50ms": 25.9,
+    "p95ms": 30.3,
+    "p99ms": 31.7,
+    "jank": 1,
+    "paintedFps": 38.5
+   }
+  }
+ ],
+ "env": {
+  "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+  "renderer": "ANGLE (Intel, Intel(R) Graphics (0x00007D67) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "cores": 24,
+  "memory": 32,
+  "dpr": 1,
+  "vw": 1536,
+  "vh": 960
+ }
+}

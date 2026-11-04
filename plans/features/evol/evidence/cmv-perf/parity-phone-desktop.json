@@ -1,0 +1,133 @@
+{
+ "threshold": 12,
+ "strict_pct": 1.5,
+ "pairs": [
+  {
+   "ok": false,
+   "diff_pct": 19.2183,
+   "mean_channel_diff": 16.748,
+   "max_channel_diff": 228,
+   "diff_bbox": [
+    1,
+    1,
+    1253,
+    419
+   ],
+   "size": [
+    1254,
+    421
+   ],
+   "shot": "desktop-detail.png"
+  },
+  {
+   "ok": false,
+   "diff_pct": 21.9777,
+   "mean_channel_diff": 18.624,
+   "max_channel_diff": 232,
+   "diff_bbox": [
+    1,
+    1,
+    1253,
+    419
+   ],
+   "size": [
+    1254,
+    421
+   ],
+   "shot": "desktop-hover.png"
+  },
+  {
+   "ok": false,
+   "diff_pct": 9.2481,
+   "mean_channel_diff": 5.128,
+   "max_channel_diff": 233,
+   "diff_bbox": [
+    1,
+    1,
+    1253,
+    419
+   ],
+   "size": [
+    1254,
+    421
+   ],
+   "shot": "desktop-overview.png"
+  },
+  {
+   "ok": false,
+   "diff_pct": 18.7743,
+   "mean_channel_diff": 15.644,
+   "max_channel_diff": 237,
+   "diff_bbox": [
+    1,
+    1,
+    1253,
+    419
+   ],
+   "size": [
+    1254,
+    421
+   ],
+   "shot": "desktop-working.png"
+  },
+  {
+   "ok": true,
+   "diff_pct": 0.0,
+   "mean_channel_diff": 0.0,
+   "max_channel_diff": 1,
+   "diff_bbox": null,
+   "size": [
+    680,
+    778
+   ],
+   "shot": "phone-detail.png"
+  },
+  {
+   "ok": false,
+   "diff_pct": 1.5367,
+   "mean_channel_diff": 1.336,
+   "max_channel_diff": 222,
+   "diff_bbox": [
+    18,
+    10,
+    661,
+    37
+   ],
+   "size": [
+    680,
+    778
+   ],
+   "shot": "phone-hover.png"
+  },
+  {
+   "ok": false,
+   "diff_pct": 5.6572,
+   "mean_channel_diff": 4.398,
+   "max_channel_diff": 249,
+   "diff_bbox": [
+    2,
+    4,
+    678,
+    776
+   ],
+   "size": [
+    680,
+    778
+   ],
+   "shot": "phone-overview.png"
+  },
+  {
+   "ok": true,
+   "diff_pct": 0.0,
+   "mean_channel_diff": 0.005,
+   "max_channel_diff": 1,
+   "diff_bbox": null,
+   "size": [
+    680,
+    778
+   ],
+   "shot": "phone-working.png"
+  }
+ ],
+ "fails": 6
+}
