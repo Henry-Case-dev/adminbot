@@ -202,6 +202,10 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # пересмотра собственного ответа — l2-writer-self-correction-rca1
     # (sha12 44736968bc76); набор фабричных текстов пересчитан по этой ревизии.
     # Было 630ca46dff76, затем 54ac2b8ac34b, стало e9dc109330a8.
+    # UNIFIED-REPLY UR-06/UR-03 (05.11.2026): changed = 1 — в канон L1-планера
+    # добавлены функциональные поля оси поиска knowledge_origin/search_intent
+    # (метка l1-planner-search-axis, sha12 8d172f40241d); набор пересчитан.
+    # Было e9dc109330a8, стало a701aea74399.
     # Переутверждено осознанно (SOUL-AMD.3.2).
-    assert pr.FACTORY_SET_SHA256_12 == "e9dc109330a8"
+    assert pr.FACTORY_SET_SHA256_12 == "a701aea74399"
 

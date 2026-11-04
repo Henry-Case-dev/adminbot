@@ -4812,7 +4812,14 @@ class DirectChatService:
                             longform_max_tokens=longform_max_tokens,
                             required_caps=tuple(getattr(
                                 _evidence_decision, "required_caps", ())
-                                or ()))
+                                or ()),
+                            # UR-06: явная просьба человека («проверь в
+                            # интернете») сильнее мнения планера — ось
+                            # получает user_forced, а не демотируется в
+                            # not_applicable.
+                            explicit_request=bool(getattr(
+                                _evidence_decision, "explicit_request",
+                                False)))
                     elif self.tool_router is not None:
                         # ASAP-3.2 (ADR-1028-5 D10, §44/§45): fallback
                         # recompose на tool-пути — tool schemas ВХОДЯТ в
@@ -6801,54 +6808,43 @@ class DirectChatService:
                              correlation_id, l1_plan, response_plan,
                              fallback_meta: dict, time_line: str,
                              tool_schemas, longform_max_tokens=None,
-                             required_caps=()):
-        """v6 D04 (§18C.7): tool-фаза L1-пайплайна со СТРОГИМИ execution
-        modes. ``none`` (или resolved tools = ∅ / needs_clarification) →
-        ``None`` (Writer без evidence). ``simple_tools`` →
-        детерминированные/параллельные tools (0 LLM — третий вызов
-        запрещён). ``adaptive_tool_chain`` → bounded orchestrator
-        (kill-switch OFF → честная демотация в simple). Возврат —
-        ChainResult (ToolLoopResult-совместимый) или ``None``.
+                             required_caps=(), explicit_request: bool = False):
+        """ЕДИНЫЙ живой tool-этап Direct и Initiative (UR-03/UR-06, BGS-01).
 
-        ASAP-EVIDENCE-ROUTING-01 v3 (§0.2 C1/§2.1): ``required_caps`` —
-        runtime-обязательные read-only capabilities. ``execution_mode=none``
-        от L1-плана не может скрыть обязательную проверку (mode
-        переопределяется с наблюдаемой причиной), а деривация шагов получает
-        их независимо от ``capabilities_needed``."""
+        Это единственная точка входа tool-фазы обоих путей: тело — вызов
+        `direct_execution.run_tool_phase`, а не собственная копия цепочки.
+        Поэтому ось L1-плана `knowledge_origin`/`search_intent` РЕАЛЬНО
+        управляет поиском в проде (раньше её видели только тесты), а не
+        остаётся полем JSON.
+
+        Порядок и гейты — контракт `run_tool_phase`:
+        SILENT/REACT → 0 вызовов; `not_applicable` → сеть структурно снята
+        (поиск ради отчётности запрещён); прямой запрет человека («не ищи в
+        интернете», детектор `evidence_policy`) → пропуск с собственной
+        причиной; `required|beneficial` (в т.ч. runtime-обязательные caps от
+        evidence-политики) → один реальный поиск ДО L2. Содержательного вето
+        по теме нет (BGS-01). Ровно ОДНА tool-фаза на ход: adaptive-ветка
+        получает дет. поиск первым шагом и продолжение БЕЗ повтора поиска.
+
+        Паритет прежнего пути сохранён: без роутера/схем и на
+        `needs_clarification` (уточняющий вопрос вместо платных вызовов)
+        возвращается ``None``. Возврат — ChainResult
+        (ToolLoopResult-совместимый) или ``None``; evidence-пакет/трассу
+        собирает сам `run_tool_phase`, live-путь ниже упаковывает пакет из
+        `raw` своим бюджетом (второго tool-исполнения нет). CancelledError —
+        проброс."""
         plan = l1_plan or _l1.L1Plan()
-        required = tuple(required_caps or ())
-        if getattr(plan, "needs_clarification", False) or self.tool_router is None:
+        if self.tool_router is None:
             return None
-        if not tool_schemas:
+        if getattr(plan, "needs_clarification", False) or not tool_schemas:
             return None
-        mode, demote_reason = _dx.resolve_execution_mode(
-            plan, tool_schemas, required_caps=required)
-        announced = {t["function"]["name"] for t in tool_schemas
-                     if isinstance(t, dict) and t.get("function")}
-        if mode == _dx.EXECUTION_ADAPTIVE:
-            result = await _dx.run_adaptive_chain(
-                llm=self.llm, router=self.tool_router, ctx=tool_ctx,
-                plan=plan, query=query, tool_schemas=tool_schemas,
-                chat_id=chat_id, correlation_id=correlation_id)
-            if result is not None:
-                result.chain_meta.setdefault("demote_reason", "")
-                return result
-            demote_reason = "orchestrator_unavailable"
-        try:
-            result = await _dx.run_simple_tools(
-                plan=plan, router=self.tool_router, ctx=tool_ctx,
-                query=query, chat_id=chat_id,
-                correlation_id=correlation_id, announced=announced,
-                required_caps=required)
-        except Exception:      # паритет fail-soft прежнего tool-пути
-            logger.warning("[direct] simple execution failed — fail-soft",
-                           exc_info=True)
-            result = None
-        if result is not None and (demote_reason
-                                   or mode == _dx.EXECUTION_ADAPTIVE):
-            result.chain_meta["demote_reason"] = (demote_reason
-                                                  or "adaptive_fallback")
-        return result
+        result = await _dx.run_tool_phase(
+            plan=plan, router=self.tool_router, ctx=tool_ctx, query=query,
+            chat_id=chat_id, correlation_id=correlation_id,
+            tool_schemas=tool_schemas, llm=self.llm,
+            required_caps=tuple(required_caps or ()),
+            explicit_request=bool(explicit_request))
+        return result.raw
 
     # ── P0-HA SEGMENTS (архконтракт §2): сегментное накопление выборки ──────
 
@@ -13182,10 +13178,20 @@ class DirectChatService:
             if _init_reuse is not None:
                 _initiative_pack = _init_reuse
                 _initiative_evidence = _init_reuse.text
+            # ── UR-03/UR-06 (BGS-01): решение «нужен ли поиск» — та же ось
+            # L1 (`knowledge_origin`/`search_intent`), что у Direct. Запрос
+            # по-прежнему ТОЛЬКО из claim'ов (`_init_search_query`): служебная
+            # формулировка цели уводила единственный сетевой вызов в мусор.
+            # Технические гейты (флаг сети, RBAC, квоты, SSRF) остаются в
+            # `_l1_tool_subset` ниже — ось не даёт сети в обход них.
+            _init_axis = _l1.resolve_search_axis(
+                plan, required_caps=_initiative_caps)
             _init_want_tools = bool(
                 _init_reuse is not None
-                or (getattr(_initiative_decision, "required", False)
-                    and _initiative_caps and _init_search_query))
+                or (_init_search_query and (
+                    (getattr(_initiative_decision, "required", False)
+                     and _initiative_caps)
+                    or _init_axis.search_expected)))
             if _init_router is not None and _init_want_tools:
                 try:
                     _init_schemas, _init_rejected = await self._l1_tool_subset(
@@ -13199,7 +13205,11 @@ class DirectChatService:
                         correlation_id=correlation_id, l1_plan=plan,
                         response_plan=response_plan, fallback_meta={},
                         time_line="", tool_schemas=_init_schemas,
-                        required_caps=_initiative_caps)
+                        required_caps=_initiative_caps,
+                        # У инициативы нет просьбы человека (решение
+                        # Architect «г», §5.2): `user_forced` не рождается,
+                        # поиск решает ось плана + runtime-политика.
+                        explicit_request=False)
                     if _init_raw is not None:
                         _initiative_pack = _dx.build_evidence_pack(
                             _init_raw, response_plan,

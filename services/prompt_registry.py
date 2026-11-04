@@ -190,7 +190,15 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # меняет факты, адресацию, safety и не делает ответ обязательным (молчание
     # остаётся полноценным исходом). Прежние байты — PREV_DIRECT_L1_PLANNER_EVR2
     # (= прод 2.58.148). Правила/схема/тексты владельца не менялись.
-    "direct.base.l1_planner": "l1-planner-decision-profile",
+    # UNIFIED-REPLY UR-06/UR-03 (05.11.2026, §4 owner_inputs): ревизия EVR4 —
+    # функциональные поля оси поиска `knowledge_origin`/`search_intent` в
+    # схеме L1 + один абзац их контракта. Причина: поля уже разбирались
+    # (`direct_l1.normalize_l1_plan`) и уже управляли единым tool-этапом, но
+    # канон о них молчал — модель их не заполняла, и в проде единственным
+    # сигналом поиска оставалась runtime-политика. Прежние байты —
+    # PREV_DIRECT_L1_PLANNER_EVR3. Правила/участие/внешние утверждения/профиль
+    # решений и тексты владельца не менялись.
+    "direct.base.l1_planner": "l1-planner-search-axis",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -388,8 +396,8 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "direct.base.l2_writer": ("l2-writer-self-correction-rca1",
                               "44736968bc76"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
-    "direct.base.l1_planner": ("l1-planner-decision-profile",
-                               "ef61a9dd6798"),
+    "direct.base.l1_planner": ("l1-planner-search-axis",
+                               "8d172f40241d"),
     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
@@ -2893,7 +2901,13 @@ def factory_set_fingerprint() -> str:
 #: осознанно — ``direct.base.l2_writer`` получил секцию «ВОЗРАЖЕНИЕ И СВОЙ
 #: ПРЕДЫДУЩИЙ ОТВЕТ» (метка ``l2-writer-self-correction-rca1``).
 #: Было ``54ac2b8ac34b``, стало ``e9dc109330a8``.
-FACTORY_SET_SHA256_12 = "e9dc109330a8"
+#: UNIFIED-REPLY UR-06/UR-03 (05.11.2026, §4 owner_inputs): changed = 1 —
+#: ``direct.base.l1_planner`` получил функциональные поля оси поиска
+#: ``knowledge_origin``/``search_intent`` в схеме и абзац их контракта (метка
+#: ``l1-planner-search-axis``, печать ``8d172f40241d``); прочие каноны,
+#: включая тексты владельца, байт-в-байт. Было ``e9dc109330a8``, стало
+#: ``a701aea74399``.
+FACTORY_SET_SHA256_12 = "a701aea74399"
 
 
 

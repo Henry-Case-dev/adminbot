@@ -1902,17 +1902,34 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
         elif not reuse_used and "execute_web_search" not in announced:
             tech_skip = SKIP_TOOL_ABSENT         # RBAC/набор инструментов
     # ── исполнение ──────────────────────────────────────────────────────────
-    # Поиск ради отчётности запрещён: при `not_applicable` и техническом
-    # запрете сети web_search вычищается из capabilities плана и из
-    # runtime-набора, а внутренние инструменты (история/лор/фактчек) остаются.
-    suppress_search = (axis.search_intent == "not_applicable"
-                       or user_forbids or not search_task.usable)
+    # Поиск ради отчётности запрещён, когда ось РЕАЛЬНО решила
+    # `not_applicable` (значение плана, source=llm) или человек запретил сеть
+    # или после гигиены не осталось формулировки: тогда web_search вычищается
+    # из capabilities плана и из runtime-набора, а внутренние инструменты
+    # (история/лор/фактчек) остаются.
+    # UR-06/UR-03 (live wiring): «поля оси не пришли» (source=unspecified) —
+    # это НЕ решение «поиск не нужен»: прежняя просьба плана
+    # (`capabilities_needed=web_search`) остаётся в силе, иначе живой путь
+    # терял бы поиск, который до оси работал (паритет, а не тихая эрозия).
+    axis_decided_off = (axis.source == "llm"
+                        and axis.search_intent == _l1.SEARCH_NOT_APPLICABLE)
+    suppress_search = (
+        axis_decided_off or user_forbids
+        or (axis.search_expected and not search_task.usable))
     # Сеть запрещена СТРУКТУРНО на шагах, а не только статусом: при
     # техническом пропуске и уже прочитанном источнике (reuse) шаг
     # `execute_web_search` не деривируется ни из capabilities, ни из
     # fallback-ветки — иначе трасса писала `search_called=False` при реальном
     # сетевом вызове.
-    search_forbidden = bool(user_forbids or reuse_used or not search_task.usable)
+    # Решение оси «поиск не нужен» (`not_applicable` от плана) — тоже
+    # структурный запрет, а не только снятие capability: без него деривация
+    # шагов возвращала `execute_web_search` по старому `_SEARCH_RE` из самой
+    # фразы («найди в переписке…», «…в интернете вчера») и отправляла
+    # провайдеру сырой текст хода. Причина отказа при этом остаётся прежней
+    # (`search_intent_not_applicable`): `axis.source` не переписывается.
+    search_forbidden = bool(
+        axis_decided_off or user_forbids or reuse_used
+        or (axis.search_expected and not search_task.usable))
     plan_view = plan
     if suppress_search:
         try:
@@ -1920,8 +1937,15 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
             caps = tuple(c for c in
                          (tuple(getattr(plan, "capabilities_needed", ()) or ()))
                          if str(c or "").strip().lower() != "web_search")
-            plan_view = _replace(plan, capabilities_needed=caps,
-                                 execution_mode=_l1.derive_execution_mode(caps))
+            # Явный adaptive от планера не демотируется снятием поисковой
+            # capability: контракт D04 §18C.7 допускает adaptive только по
+            # явному значению LLM, а честная демотация — только kill-switch.
+            declared_mode = str(getattr(plan, "execution_mode", "") or "")
+            plan_view = _replace(
+                plan, capabilities_needed=caps,
+                execution_mode=(declared_mode
+                                if declared_mode == EXECUTION_ADAPTIVE
+                                else _l1.derive_execution_mode(caps)))
         except Exception:      # pragma: no cover - защитная ветка
             plan_view = plan
     exec_required = tuple(
@@ -1960,10 +1984,20 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
                         chat_id, exc_info=True)
                 raw = _merge_chain_results(raw, second)
             else:
+                # Ось, решившая «поиск не нужен» (`not_applicable`) или запрет
+                # сети человеком, действует и в adaptive: инструмент не
+                # попадает в allowlist оркестратора. «Поле оси не пришло»
+                # (unspecified) набор не сужает — паритет прежнего пути.
+                adaptive_schemas = tool_schemas
+                if suppress_search:
+                    adaptive_schemas = [
+                        schema for schema in (tool_schemas or ())
+                        if str(((schema or {}).get("function") or {})
+                               .get("name") or "") != "execute_web_search"]
                 raw = await run_adaptive_chain(
                     llm=llm, router=router, ctx=ctx, plan=plan_view,
-                    query=query, tool_schemas=tool_schemas, chat_id=chat_id,
-                    correlation_id=correlation_id)
+                    query=query, tool_schemas=adaptive_schemas,
+                    chat_id=chat_id, correlation_id=correlation_id)
             if raw is None:
                 demote_reason = "orchestrator_unavailable"
                 mode = EXECUTION_SIMPLE
