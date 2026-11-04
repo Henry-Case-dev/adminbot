@@ -259,3 +259,86 @@ class TestControlPolygonUnchanged:
         assert expected in search.queries[0].lower()
         assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
 
+
+# ── раунд 4 ревью: позиция темы — СТРУКТУРА фразы, а не список частиц ───────
+#
+# Находка ревью UR-B (четвёртая): тема «съезжала» на любую частицу/междометие,
+# которой не было в закрытом списке прозрачных слов:
+#   «Ну, Маша ждёт ребёнка…», «Так, Маша …», «Ага, Маша …», «Эй, Маша …»,
+#   «Ну вчера Маша …» → провайдер получал «ждёт ребёнка третьем месяце»
+#   с `can_claim_verified=True`.
+# Правило теперь структурное: тема — препозитивная зона части фразы (до первого
+# сказуемого), а её правый край — приписка/атрибуция. Принадлежность частицы
+# какому-либо списку не проверяется вообще, поэтому прозрачны ЛЮБЫЕ вводные
+# слова, включая те, которых нет ни в одном перечислении.
+
+#: Ровно пять строк из находки ревью (не переформулированы).
+REVIEW_LEADS = (
+    "Ну, Маша ждёт ребёнка на третьем месяце",
+    "Так, Маша ждёт ребёнка на третьем месяце",
+    "Ага, Маша ждёт ребёнка на третьем месяце",
+    "Эй, Маша ждёт ребёнка на третьем месяце",
+    "Ну вчера Маша ждёт ребёнка на третьем месяце",
+)
+#: Свои перефразы с частицами, которых НЕТ ни в одном списке модуля: если
+#: правило снова начнёт требовать принадлежность списку, эти строки утекут.
+UNLISTED_LEADS = (
+    "Хм, Маша ждёт ребёнка на третьем месяце",
+    "Фрр, Маша ждёт ребёнка на третьем месяце",
+    "Угу ну Маша ждёт ребёнка на третьем месяце",
+)
+
+
+class TestLeadWordIsNotEnumerated:
+    @pytest.mark.parametrize("query", REVIEW_LEADS + UNLISTED_LEADS)
+    @pytest.mark.asyncio
+    async def test_any_unlisted_lead_makes_no_call(self, query):
+        search = _SearchProvider("Ответ\nтекст\nhttps://example.com/x")
+        plan = _plan(knowledge_origin="open_world",
+                     capabilities_needed=["web_search"])
+        result = await _run(plan, query, search, private_terms=("Маша",),
+                            required_caps=("web_search",))
+        _assert_blocked(result, search,
+                        private_text=("ждёт ребёнка", "маша"))
+
+    @pytest.mark.parametrize("query", REVIEW_LEADS + UNLISTED_LEADS)
+    def test_topic_does_not_depend_on_any_word_list(self, query):
+        """Тема — место в части фразы, а не принадлежность перечню слов."""
+        assert _dx._participant_reference(query, ("Маша",)) is True, query
+        tokens, topics = _dx._claim_topic_flags(query)
+        subject = [token for token, is_topic in zip(tokens, topics)
+                   if is_topic and token.lower().startswith("маш")]
+        assert subject, f"алиас потерял позицию темы: {query!r}"
+
+    def test_module_has_no_transparent_lead_word_list(self):
+        """Списка «прозрачных» вводных слов в модуле быть не должно.
+
+        Иначе правило снова станет перечислением и любая новая частица
+        («хм», «фрр», «угу») уведёт личный пересказ провайдеру."""
+        assert not hasattr(_dx, "_TOPIC_TRANSPARENT_WORDS")
+        assert not hasattr(_dx, "_TOPIC_LEAD_WORDS")
+
+    @pytest.mark.parametrize("query,private_terms", [
+        # атрибуция в конце части фразы — не тема утверждения
+        ("какой курс биткоина, спросил Вася", ("Вася",)),
+        # приклеенный ник/телефон в конце — приписка, а не подлежащее
+        ("проверь курс биткоина 79991234567 @vasya", ("Вася", "vasya")),
+    ])
+    def test_right_edge_reference_is_not_a_topic(self, query, private_terms):
+        assert _dx._participant_reference(query, private_terms) is False, query
+
+    @pytest.mark.parametrize("query", [
+        # инверсия «сказуемое + подлежащее»: подлежащее справа — всё ещё тема
+        "Пишет Маша: ждёт ребёнка на третьем месяце",
+        "Сказала Маша что ждёт ребёнка на третьем месяце",
+    ])
+    @pytest.mark.asyncio
+    async def test_inversion_keeps_subject_as_topic(self, query):
+        search = _SearchProvider("Ответ\nтекст\nhttps://example.com/x")
+        plan = _plan(knowledge_origin="open_world",
+                     capabilities_needed=["web_search"])
+        result = await _run(plan, query, search, private_terms=("Маша",),
+                            required_caps=("web_search",))
+        _assert_blocked(result, search,
+                        private_text=("ждёт ребёнка", "маша"))
+
