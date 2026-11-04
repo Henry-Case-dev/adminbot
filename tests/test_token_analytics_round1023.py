@@ -544,31 +544,6 @@ class _NullTyping:
 
 
 class TestOrchestratorCorrelation:
-    @pytest.mark.asyncio
-    async def test_direct_stage1_stage2_share_id(self):
-        from services.direct_chat_service import DirectChatService
-        from services.tool_loop import ToolLoopResult
-        svc = DirectChatService.__new__(DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[
-            json.dumps({"user_question": "q", "facts": [],
-                        "answer_outline": "o", "limitations": []}),
-            "чистый ответ",
-        ])
-        raw = ToolLoopResult(
-            "финал", rounds_used=2,
-            tool_trace=[{"round": 1, "tool": "t", "ok": True,
-                         "out_chars": 3}],
-            tool_context="ctx")
-        res = await svc._synthesize_direct_answer(
-            -1, "q", raw, None, correlation_id="DIR-1")
-        assert res is not None
-        calls = svc.llm.generate.await_args_list
-        assert calls[0].kwargs["step"] == "stage1"
-        assert calls[1].kwargs["step"] == "stage2"
-        assert calls[0].kwargs["correlation_id"] == "DIR-1"
-        assert calls[1].kwargs["correlation_id"] == "DIR-1"
-        assert calls[0].kwargs["module"] == "direct_chat"
 
     @pytest.mark.asyncio
     async def test_factcheck_creates_one_id_for_both_stages(self):

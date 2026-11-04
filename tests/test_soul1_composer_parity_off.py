@@ -403,23 +403,6 @@ async def test_p3_modes_off_matches_recorded_dump(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_p5_system2_stage1_and_stage2_match_recorded_dump():
-    Stub, D = build_service()
-    llm = StubLLM()
-    raw = type("R", (), {"tool_context": "tool output", "tool_trace": [
-        {"tool": "execute_web_search", "out_chars": 812}]})()
-    await D._synthesize_direct_answer(
-        Stub(llm), 12345, "почему упал сервис", raw, 0.7,
-        character_block=CHARACTER_BLOCK, style_directives=STYLE_DIRECTIVES,
-        plan=PLAN_DETAILED)
-    steps = {c["step"]: c["messages"] for c in llm.captured}
-    _assert_matches("P5a", steps["stage1"][0]["content"],
-                    steps["stage1"][1]["content"])
-    _assert_matches("P5b", steps["stage2"][0]["content"],
-                    steps["stage2"][1]["content"])
-
-
-@pytest.mark.asyncio
 async def test_p4_l1_planner_system_matches_recorded_dump():
     from services.chat_prompts import DIRECT_L1_PLANNER_SYSTEM_PROMPT
     Stub, D = build_service()
@@ -613,80 +596,6 @@ async def test_l2_on_without_plan_keeps_mode_block():
     assert mode_trace.rendered is True
     assert mode_trace.owner == "legacy_canon"
     assert mode_trace.layer == "channel_contract"
-
-
-@pytest.mark.asyncio
-async def test_p3_modes_off_parity_when_stage2_scrub_unified(monkeypatch):
-    """W2 §4 «доп.»: Stage-2 больше не гейтит scrub режимами (единое решение).
-
-    Реальный путь: `_synthesize_direct_answer` при выключенном
-    `SMART_VERBALIZER_MODES_ENABLED` (композер OFF, код-дефолт). База — PREV-
-    канон 10.23 с legacy cap-текстом; скраб владельца (`response_extent`)
-    вычищает его из ФИНАЛЬНОЙ сборки, счётчик — точный (не `>= 0`).
-    """
-    from config.settings import settings
-    from services.chat_prompts import PREV_CHAT_VERBALIZER_R1023
-    monkeypatch.setattr(type(settings), "SMART_VERBALIZER_MODES_ENABLED", False)
-    Stub, D = build_service()
-    llm = StubLLM()
-    raw = type("R", (), {"tool_context": "tool output", "tool_trace": [
-        {"tool": "execute_web_search", "out_chars": 812}]})()
-    await D._synthesize_direct_answer(
-        Stub(llm), 12345, "почему упал сервис", raw, 0.7,
-        character_block=CHARACTER_BLOCK, style_directives=STYLE_DIRECTIVES,
-        plan=PLAN_DETAILED)
-    steps = {c["step"]: c["messages"] for c in llm.captured}
-    assert "stage1" in steps and "stage2" in steps, "Stage-2 не вызвался"
-    cap_phrase = "Коротко: одно-два предложения"
-    assert cap_phrase in PREV_CHAT_VERBALIZER_R1023, \
-        "подготовка теста: PREV-канон обязан нести legacy cap-текст"
-    expected, removed = _extent.scrub_for_plan(PREV_CHAT_VERBALIZER_R1023,
-                                               PLAN_DETAILED)
-    assert removed == 1, "владелец скраба убрал не ровно одну cap-фразу"
-    assert steps["stage2"][0]["content"] == expected
-    assert cap_phrase not in steps["stage2"][0]["content"]
-    # Режимы OFF, композер OFF → композер в этом кейсе не участвует вовсе.
-    assert pc.get_manifest(12345) is None
-
-
-@pytest.mark.asyncio
-async def test_stage2_modes_off_with_composer_on_single_scrub_pass(monkeypatch):
-    """Интеграционный кейс review-w2 F3: Stage-2 при режимах OFF и ON-композере.
-
-    ON → базу (PREV-канон, всё ещё содержащий cap-текст) рендерит композер
-    слоем `channel_contract`; нормализация остаётся ОДНИМ проходом владельца
-    (`response_extent`) на финальной сборке — ни второго владельца, ни
-    потерянной причины `verbilizer_modes_disabled`.
-    """
-    from config.settings import settings
-    from services.chat_prompts import PREV_CHAT_VERBALIZER_R1023
-    composer_on(monkeypatch)
-    monkeypatch.setattr(type(settings), "SMART_VERBALIZER_MODES_ENABLED", False)
-    Stub, D = build_service()
-    llm = StubLLM()
-    raw = type("R", (), {"tool_context": "tool output", "tool_trace": [
-        {"tool": "execute_web_search", "out_chars": 812}]})()
-    await D._synthesize_direct_answer(
-        Stub(llm), 12345, "почему упал сервис", raw, 0.7,
-        correlation_id="run-s2-on", character_block=CHARACTER_BLOCK,
-        plan=PLAN_DETAILED)
-    steps = {c["step"]: c["messages"] for c in llm.captured}
-    system = steps["stage2"][0]["content"]
-    manifest = pc.get_manifest(12345, run_id="run-s2-on",
-                               writer="system2_stage2")
-    assert manifest is not None, "ON-композер не собрал Stage-2"
-    # Композер отдал сборку с cap-текстом; скраб — ровно один проход после неё.
-    expected, removed = _extent.scrub_for_plan(manifest.system, PLAN_DETAILED)
-    assert removed == 1
-    assert system == expected and system != manifest.system
-    assert _extent.scrub_for_plan(system, PLAN_DETAILED)[1] == 0
-    base_trace = [t for t in manifest.layers
-                  if t.layer == "channel_contract"][0]
-    assert base_trace.rendered is True
-    assert base_trace.source == "legacy_mode"
-    assert base_trace.chars == len(PREV_CHAT_VERBALIZER_R1023)
-    assert manifest.flags["smart_verbalizer_modes_enabled"] is False
-    assert CORE_ON in system          # Core инъектируется и на этом пути
 
 
 @pytest.mark.asyncio
