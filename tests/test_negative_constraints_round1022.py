@@ -245,63 +245,36 @@ class TestAntiClicheNeverRegenerates:
 
 
 class TestIndependentGuardsStillFire:
-    """§1.2 инвариант: independent guard'ы сохраняются со своей причиной."""
+    """BGS-04: повтор остаётся только у form/numeric в реальной
+    трансформации; формат доставки и метатекст — наблюдение."""
 
     @pytest.mark.asyncio
-    async def test_format_tables_retry_with_own_reason(self):
-        seen: list[str] = []
-
-        async def gen(messages):
-            seen.append(messages[-1]["content"] if len(messages) > 1 else "")
-            return _TABLE if len(seen) == 1 else "чистый текст"
-
+    async def test_format_tables_observed_not_regenerated(self):
+        """Табличная разметка: код наблюдения, второго вызова LLM нет."""
+        gen = AsyncMock(return_value=_TABLE)
         text, stats = await verbalize_validated(gen, list(_BASE),
-                                               enabled_rules=_PLAIN)
-        assert text == "чистый текст"
-        assert len(seen) == 2
-        assert seen[1] == FORMAT_PLAIN_TEXT_BLOCK     # не стилевой промпт
-        assert stats["format_retry"] is True
-        assert stats["format_guard_reason"] == "format_retry"
-        assert stats["format_rejects"] == 1
-        assert stats["format_fallback"] is False
-        assert stats["attempts"] == 2 and stats["retries"] == 1
-        assert stats["anti_cliche_retries"] == 0
+                                                enabled_rules=_PLAIN)
+        assert text == _TABLE                    # текст модели как есть
+        assert gen.await_count == 1
+        assert stats["format_observed"] == ["plain_no_tables"]
+        assert "format_retry" not in stats
+        assert "format_fallback" not in stats
 
     @pytest.mark.asyncio
-    async def test_format_bullets_retry_with_own_reason(self):
-        seen: list[str] = []
-
-        async def gen(messages):
-            seen.append(messages[-1]["content"] if len(messages) > 1 else "")
-            return _BULLETS if len(seen) == 1 else "чистый текст"
-
+    async def test_format_bullets_observed_not_regenerated(self):
+        """Списки: формат — вкусовая форма, повтора нет."""
+        gen = AsyncMock(return_value=_BULLETS)
         text, stats = await verbalize_validated(
             gen, list(_BASE), enabled_rules={"bullet_list"})
-        assert text == "чистый текст"
-        assert seen[1] == FORMAT_NO_LISTS_RETRY_TEXT
-        assert stats["format_guard_reason"] == "format_retry"
-        assert stats["format_retry"] is True
-        assert CLICHE_RETRY_SYSTEM_PROMPT not in seen[1]
+        assert text == _BULLETS
+        assert gen.await_count == 1
+        assert stats["format_observed"] == ["bullet_list"]
+        assert CLICHE_RETRY_SYSTEM_PROMPT not in str(stats)
 
     @pytest.mark.asyncio
-    async def test_format_exhausted_bounded_once(self):
-        calls: list[int] = []
-
-        async def gen(messages):
-            calls.append(1)
-            return _TABLE
-
-        text, stats = await verbalize_validated(gen, list(_BASE),
-                                                max_retries=99,
-                                                enabled_rules=_PLAIN)
-        assert len(calls) == 2                    # ровно ≤1 format-повтор
-        assert text == _TABLE                     # текст не режем молча
-        assert stats["format_fallback"] is True
-        assert stats["fallback"] is True
-        assert stats["format_rejects"] == 2
-
-    @pytest.mark.asyncio
-    async def test_form_guard_keeps_own_reason(self):
+    async def test_form_guard_retries_with_own_reason(self):
+        """Реальная трансформация (Stage-1 → Stage-2): form-гард даёт
+        ровно один повтор своим каноном — числа/имена сохраняются."""
         seen: list[str] = []
 
         async def gen(messages):
@@ -320,51 +293,61 @@ class TestIndependentGuardsStillFire:
                        for k in stats)
 
     @pytest.mark.asyncio
-    async def test_numeric_guard_keeps_own_reason(self):
+    async def test_numeric_guard_no_reroll_keeps_author_text(self):
+        """Свободная генерация: число не подтверждено, но второй
+        генерации нет и исходный текст не исчезает (BGS-04 §1-2)."""
         class _Claim:
             value = 9
             unit = "messages"
 
-        seen: list[str] = []
+        gen = AsyncMock(return_value="он писал 7 сообщений")
+        text, stats = await verbalize_validated(
+            gen, list(_BASE),
+            numeric_contract=NumericContract(claims=(_Claim(),)))
+        assert gen.await_count == 1
+        assert text == "он писал 7 сообщений"       # не пусто и не выдумка
+        assert stats["numeric_claim_mismatch"] == 1
+        assert stats["numeric_claim_retry"] is False
+        assert stats["numeric_claim_fallback"] is False
+        assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_MISMATCH
 
-        async def gen(messages):
-            seen.append(messages[-1]["content"] if len(messages) > 1 else "")
-            return ("он писал 7 сообщений" if len(seen) == 1
-                    else "он писал 9 сообщений")
+    @pytest.mark.asyncio
+    async def test_numeric_free_path_uses_verified_phrase(self):
+        """Если есть проверенная фраза хода — детерминированная замена
+        без LLM-повтора."""
+        class _Claim:
+            value = 9
+            unit = "messages"
 
+        gen = AsyncMock(return_value="он писал 7 сообщений")
         text, stats = await verbalize_validated(
             gen, list(_BASE),
             numeric_contract=NumericContract(
                 claims=(_Claim(),), verified_phrase="он писал 9 сообщений"))
+        assert gen.await_count == 1
         assert text == "он писал 9 сообщений"
-        assert stats["numeric_claim_retry"] is True
-        assert stats["numeric_claim_mismatch"] == 1
-        assert "9" in seen[1]
-        assert not any(k.startswith(("format_", "form_", "metatext_"))
-                       for k in stats)
+        assert stats["numeric_claim_fallback"] is True
+        assert stats["numeric_claim_retry"] is False
 
     @pytest.mark.asyncio
-    async def test_metatext_guard_keeps_own_reason(self):
-        seen: list[str] = []
-
+    async def test_metatext_observed_not_retried(self):
+        """Метатекст — наблюдение: ни повтора, ни правки текста."""
         def reason(text):
             return "metatext_test" if "служебный маркер" in text else None
 
-        async def gen(messages):
-            seen.append(messages[-1]["content"] if len(messages) > 1 else "")
-            return ("служебный маркер тут" if len(seen) == 1
-                    else "чистый текст")
-
+        gen = AsyncMock(return_value="служебный маркер тут")
         text, stats = await verbalize_validated(
             gen, list(_BASE), metatext_reason=reason)
-        assert text == "чистый текст"
-        assert stats["metatext_retry"] is True
-        assert stats["metatext_reason_code"] == "metatext_test"
-        assert seen[1] == METATEXT_RETRY_SYSTEM_PROMPT.replace(
-            "{reason}", "metatext_test")
+        assert gen.await_count == 1
+        assert text == "служебный маркер тут"
+        assert stats["metatext_observed"] == ["metatext_test"]
+        assert "metatext_retry" not in stats
+        assert "metatext_fallback" not in stats
 
     @pytest.mark.asyncio
-    async def test_style_plus_numeric_uses_numeric_guard_only(self):
+    async def test_style_plus_numeric_no_regeneration(self):
+        """Стиль + число: ровно один вызов, стиль наблюдаем, число
+        исправляется детерминированной проверенной фразой."""
         class _Claim:
             value = 9
             unit = "messages"
@@ -373,56 +356,50 @@ class TestIndependentGuardsStillFire:
 
         async def gen(messages):
             calls.append([dict(m) for m in messages])
-            if len(calls) == 1:
-                return "как ИИ: он писал 7 сообщений"
-            return "он писал 9 сообщений"
+            return "как ИИ: он писал 7 сообщений"
 
         text, stats = await verbalize_validated(
             gen, list(_BASE),
-            numeric_contract=NumericContract(claims=(_Claim(),)))
-        assert len(calls) == 2                     # ровно один guard-повтор
+            numeric_contract=NumericContract(
+                claims=(_Claim(),), verified_phrase="он писал 9 сообщений"))
+        assert len(calls) == 1
         assert text == "он писал 9 сообщений"
         assert stats["cliche_observed"] == ["as_ai"]
         assert stats["anti_cliche_retries"] == 0
-        assert stats["numeric_claim_retry"] is True
-        assert "as_ai" not in str(stats.get("format_guard_reason"))
+        assert stats["numeric_claim_retry"] is False
 
     @pytest.mark.asyncio
-    async def test_style_plus_format_uses_format_reason(self):
-        async def gen(messages):
-            if len(messages) == 1:
-                return "как ИИ\n" + _TABLE
-            return "как ИИ, коротко"
-
+    async def test_style_plus_format_keeps_text(self):
+        """Стиль + таблица: текст доставляется как есть, оба кода видны
+        в наблюдении."""
+        text_in = "как ИИ\n" + _TABLE
+        gen = AsyncMock(return_value=text_in)
         text, stats = await verbalize_validated(gen, list(_BASE),
                                                enabled_rules=_PLAIN)
-        assert text == "как ИИ, коротко"
-        assert stats["format_guard_reason"] == "format_retry"
+        assert text == text_in
+        assert gen.await_count == 1
+        assert stats["format_observed"] == ["plain_no_tables"]
         assert stats["cliche_observed"] == ["as_ai"]
         assert stats["anti_cliche_retries"] == 0
 
     @pytest.mark.asyncio
-    async def test_guard_budget_is_bounded_by_hard_cap(self):
-        """Бюджет повторов общий и не растёт: ≤2 повтора (≤3 генерации)."""
+    async def test_guard_budget_single_call_for_observations(self):
+        """Наблюдения (метатекст) не расходуют бюджет LLM вовсе."""
         calls: int = 0
-        texts = ("он писал 7 сообщений", "служебный маркер тут",
-                 "служебный маркер тут")
 
         def reason(text):
             return "metatext_test" if "служебный маркер" in text else None
 
         async def gen(messages):
             nonlocal calls
-            value = texts[min(calls, len(texts) - 1)]
             calls += 1
-            return value
+            return "служебный маркер тут"
 
         _text, stats = await verbalize_validated(
             gen, list(_BASE), max_retries=99,
-            numeric_contract=NumericContract(claims=()),
             metatext_reason=reason)
-        assert calls <= 3
-        assert stats["retries"] <= 2
+        assert calls == 1
+        assert stats["retries"] == 0
         assert stats["anti_cliche_retries"] == 0
 
 
@@ -439,47 +416,50 @@ class TestValidatorLoop:
                          "cliche_observed": []}
 
     @pytest.mark.asyncio
-    async def test_format_dirty_then_clean_retries_once(self):
-        gen = AsyncMock(side_effect=[_TABLE, "теперь чисто"])
+    async def test_format_dirty_delivered_without_second_call(self):
+        """Форматная находка: один вызов, текст модели доставлен."""
+        gen = AsyncMock(return_value=_TABLE)
         text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}], enabled_rules=_PLAIN)
-        assert text == "теперь чисто"
-        assert gen.await_count == 2
-        assert stats["attempts"] == 2 and stats["retries"] == 1
-        assert stats["fallback"] is False
-        assert stats["format_retry"] is True
-
-    @pytest.mark.asyncio
-    async def test_exhausted_returns_best_fallback(self):
-        gen = AsyncMock(side_effect=[_TABLE, _TABLE, _TABLE])
-        text, stats = await verbalize_validated(
-            gen, [{"role": "user", "content": "x"}], enabled_rules=_PLAIN)
-        assert gen.await_count == 2          # ≤1 format-повтор
         assert text == _TABLE
-        assert stats["attempts"] == 2 and stats["retries"] == 1
-        assert stats["fallback"] is True
-        assert stats["hits"] == ["plain_no_tables"]
+        assert gen.await_count == 1
+        assert stats["attempts"] == 1 and stats["retries"] == 0
+        assert stats["fallback"] is False
+        assert stats["format_observed"] == ["plain_no_tables"]
 
     @pytest.mark.asyncio
     async def test_retry_generate_error_returns_last_success(self):
-        gen = AsyncMock(side_effect=[_TABLE, RuntimeError("boom")])
+        """Ошибка generate на form-повторе → проверенный черновик."""
+        class Boom:
+            def __init__(self):
+                self.n = 0
+
+            async def __call__(self, messages):
+                self.n += 1
+                if self.n == 1:
+                    return "13 штук"
+                raise RuntimeError("boom")
+
         text, stats = await verbalize_validated(
-            gen, [{"role": "user", "content": "x"}], enabled_rules=_PLAIN)
-        assert text == _TABLE
+            Boom(), [{"role": "user", "content": "x"}],
+            form_contract=FormContract(source_text="двенадцать штук"),
+            fallback_text="двенадцать штук")
+        assert text == "двенадцать штук"
         assert stats["retry_error"] is True
         assert stats["fallback"] is True
-        assert gen.await_count == 2
 
     @pytest.mark.asyncio
     async def test_retry_message_appended_only_on_retry(self):
+        """Системное сообщение повтора добавляется только на повторе."""
         seen = []
 
         async def gen(messages):
             seen.append([m["role"] for m in messages])
-            return _TABLE if len(seen) == 1 else "чисто"
+            return "13 штук" if len(seen) == 1 else "двенадцать штук"
 
-        await verbalize_validated(gen, [{"role": "user", "content": "x"}],
-                                  enabled_rules=_PLAIN)
+        await verbalize_validated(
+            gen, [{"role": "user", "content": "x"}],
+            form_contract=FormContract(source_text="двенадцать штук"))
         assert seen[0] == ["user"]
         assert seen[1] == ["user", "system"]
 
@@ -502,30 +482,29 @@ class TestValidatorLoop:
 
     @pytest.mark.asyncio
     async def test_max_retries_hard_cap(self):
+        """Бюджет повторов общий и не растёт: ≤2 повтора (≤3 генерации);
+        form-причина расходуется один раз."""
         calls = 0
-        texts = ("служебный маркер тут", "служебный маркер тут",
-                 "служебный маркер тут")
-
-        def reason(text):
-            return "metatext_test" if "служебный маркер" in text else None
 
         async def gen(messages):
             nonlocal calls
-            value = texts[min(calls, len(texts) - 1)]
             calls += 1
-            return value
+            return "13 штук"
 
         _text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
-            max_retries=99, metatext_reason=reason)
+            max_retries=99,
+            form_contract=FormContract(source_text="двенадцать штук"))
         assert calls <= 3                    # жёсткий потолок 2, не 99
         assert stats["retries"] <= 2
 
     @pytest.mark.asyncio
     async def test_base_messages_not_mutated(self):
         base = [{"role": "user", "content": "x"}]
-        gen = AsyncMock(side_effect=[_TABLE, "чисто"])
-        await verbalize_validated(gen, base, enabled_rules=_PLAIN)
+        gen = AsyncMock(side_effect=["13 штук", "двенадцать штук"])
+        await verbalize_validated(
+            gen, base,
+            form_contract=FormContract(source_text="двенадцать штук"))
         assert base == [{"role": "user", "content": "x"}]
 
     def test_cliche_retry_prompt_unreachable(self):
@@ -548,3 +527,16 @@ class TestValidatorLoop:
                 used.append(node.attr)
         assert "CLICHE_RETRY_SYSTEM_PROMPT" not in used
         assert not hasattr(nc, "CLICHE_RETRY_SYSTEM_PROMPT")
+
+    def test_metatext_and_format_retry_prompts_unreachable(self):
+        """BGS-03/04: метатекст/формат больше не причины повтора — их
+        retry-каноны не импортируются и не используются модулем."""
+        tree = ast.parse(inspect.getsource(nc))
+        imported = {alias.name
+                    for node in ast.walk(tree)
+                    if isinstance(node, ast.ImportFrom)
+                    for alias in node.names}
+        assert "METATEXT_RETRY_SYSTEM_PROMPT" not in imported
+        assert "FORMAT_PLAIN_TEXT_BLOCK" not in imported
+        assert "FORMAT_NO_LISTS_RETRY_TEXT" not in imported
+        assert not hasattr(nc, "format_retry_system_prompt")

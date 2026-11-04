@@ -1,17 +1,24 @@
 """F6 (T-2092, ADR-1022-6 §2.3) — детектор ИИ-клише + Validator Loop.
 
-ASAP-EVOL-ANTICLICHE (FINAL v8 §1.1/§1.2, ADR §3): анти-клише — НАБЛЮДЕНИЕ.
-Стилевое попадание (жёсткое правило, динамическое PG-правило, pinned,
-множественное) НЕ вызывает повторную генерацию, reject, best-of, fallback,
-scrub или задержку: на такой ответ ровно один генераторный вызов, а находка
-пишется в ``stats['cliche_observed']`` (``stats['anti_cliche_retries']``
-всегда 0). Стилевой retry-промпт (``CLICHE_RETRY_SYSTEM_PROMPT``) больше
-недостижим.
+BGS-04 (BEHAVIOR-GATES-SIMPLIFICATION-01): повторная генерация допустима
+ТОЛЬКО там, где система действительно трансформирует готовый текст
+(Stage-1 черновик → Stage-2 сборка: ``form_contract``) или где теряется
+фактическая точность чисел уже выполненного хода. Всё остальное —
+наблюдение:
 
-Независимые guard'ы сохраняются и не смешиваются со стилем: form/факты
-(G1–G3), numeric claims, метатекст и формат доставки (``plain_no_tables``,
-``bullet_list`` — совместимость Telegram, а не анти-клише) имеют каждый свою
-причину; форматный отказ помечается ``format_retry``, а не стилевым кодом.
+* стиль (жёсткое правило, динамическое PG-правило, pinned, множественное)
+  НЕ вызывает повтор, reject, best-of, fallback, scrub или задержку:
+  находка пишется в ``stats['cliche_observed']``
+  (``stats['anti_cliche_retries']`` всегда 0);
+* метатекст (``metatext_reason``) — наблюдение
+  (``stats['metatext_observed']``), без reroll и без вырезания фразы;
+* формат доставки (``plain_no_tables``/``bullet_list``) — вкусовая форма,
+  а не невозможность доставки: Telegram принимает обычный текст, поэтому
+  это тоже наблюдение (``stats['format_observed']``), без повтора.
+
+Числа/имена/отрицания проверяются (G1–G3, numeric claims): при нарушении
+предпочитается детерминированная коррекция и сохранение исходного текста,
+а не новая творческая генерация всего ответа.
 
 Список клише живёт ТОЛЬКО здесь (в коде), а не в промпт-константах — иначе
 grep-тест отсутствия тропов поймал бы сам список.
@@ -34,10 +41,7 @@ from config.settings import settings
 from services import mca_gates
 from services.outgoing_guard import sanitize_outgoing
 from services.prompt_style_blocks import (
-    FORMAT_NO_LISTS_RETRY_TEXT,
-    FORMAT_PLAIN_TEXT_BLOCK,
     FORM_GUARD_RETRY_SYSTEM_PROMPT,
-    METATEXT_RETRY_SYSTEM_PROMPT,
     NUMERIC_CLAIM_RETRY_SYSTEM_PROMPT,
 )
 
@@ -502,13 +506,12 @@ DEFAULT_ENABLED_RULES: frozenset[str] = frozenset(
     rule.code for rule in FORBIDDEN_CLICHE_PATTERNS if not rule.secondary
 )
 
-# ── ADR §3: стиль и формат доставки разделены В ОДНОМ месте ────────────────
+# ── Стиль и формат доставки разделены В ОДНОМ месте (BGS-04) ───────────────
 #: Стилевые сигналы анти-клише (hardcoded-правила; динамические ``dyn_*`` и
 #: любые неизвестные коды попадают в ту же группу наблюдений — см.
 #: ``split_rule_codes``). ТОЛЬКО наблюдение: пишутся в
 #: ``stats['cliche_observed']``/``stats['hits']`` и НИКОГДА не увеличивают
-#: число генераций (FINAL v8 §1.1: анти-клише не перегенерирует, не бракует,
-#: не выбирает best-of, не вырезает фразу и не задерживает отправку).
+#: число генераций.
 STYLE_SIGNALS: frozenset[str] = frozenset({
     "as_ai",
     "classic_genre",
@@ -519,46 +522,33 @@ STYLE_SIGNALS: frozenset[str] = frozenset({
     "you_asked_before",
 })
 
-#: Формат доставки — независимый guard (совместимость Telegram, а не
-#: анти-клише; §1.2 запрещает выдавать его за стилевой отказ). Своя причина
-#: ``format_retry`` и собственный (зарегистрированный) текст повтора.
+#: Формат доставки — вкусовая форма канала, а не невозможность доставки
+#: (BGS-04 §5: Telegram принимает обычный текст; запрет списков/таблиц ради
+#: «естественности» не повод переписывать готовый ответ). Коды остаются
+#: видимыми в наблюдении (``stats['format_observed']``), но повтора не дают.
 FORMAT_GUARDS: frozenset[str] = frozenset({"plain_no_tables", "bullet_list"})
+#: Историческое имя причины (совместимость чтения старых записей телеметрии).
 FORMAT_RETRY_REASON = "format_retry"
 
 
 def is_format_guard(code: str) -> bool:
-    """Код — guard формата доставки (``format_retry``), не стиль."""
+    """Код — guard формата доставки (``plain_no_tables``/``bullet_list``)."""
     return str(code or "") in FORMAT_GUARDS
 
 
 def split_rule_codes(codes: Iterable[str]) -> tuple[list[str], list[str]]:
-    """Коды детектора → (наблюдения, коды формата доставки).
+    """Коды детектора → (наблюдения стиля, коды формата доставки).
 
     Наблюдение — всё, что не является guard'ом формата доставки: жёсткие
     стилевые правила ``STYLE_SIGNALS``, динамические ``dyn_*`` и любой
     неизвестный код (fail-safe: сюрприз не вызывает лишний вызов LLM).
-    Разделение делается ровно здесь и больше нигде: только вторая группа
-    способна запустить повтор (независимый форматный guard).
+    BGS-04: обе группы — наблюдение; ни одна не запускает повтор.
     """
     observed: list[str] = []
     fmt: list[str] = []
     for code in codes or ():
         (fmt if is_format_guard(code) else observed).append(str(code))
     return observed, fmt
-
-
-def format_retry_system_prompt(format_codes: Iterable[str]) -> str:
-    """Системное сообщение повтора ФОРМАТА доставки (``format_retry``).
-
-    Текст — существующие зарегистрированные каноны канала
-    (``style.format.plain_text`` и строка ``style.anti_bot`` о перечнях):
-    новый prompt-канон не вводится, стилевой ``CLICHE_RETRY_SYSTEM_PROMPT``
-    не используется ни на одном пути.
-    """
-    codes = {str(code) for code in format_codes or ()}
-    if "bullet_list" in codes and "plain_no_tables" not in codes:
-        return FORMAT_NO_LISTS_RETRY_TEXT
-    return FORMAT_PLAIN_TEXT_BLOCK
 
 
 def channel_enabled_rules(channel: str = "plain", response_mode: str = "serious",
@@ -732,57 +722,41 @@ async def verbalize_validated(
 ) -> tuple[str, dict]:
     """Вызвать Вербализатор и проверить ответ независимыми guard'ами.
 
-    Логика (FINAL v8 §1.1/§1.2, ADR §3):
-      attempt 0: ``generate_call(base_messages)``. Стилевые коды — только
-      наблюдение (``stats['cliche_observed']``, ``stats['hits']``), они НЕ
-      возвращают ответ на перегенерацию: при отсутствии причин независимых
-      guard'ов ответ сразу возвращается (``stats['anti_cliche_retries']==0``).
-      Повтор возможен ТОЛЬКО по причине form/numeric/metatext/format; каждая
-      причина расходуется не более одного раза в общем bounded-бюджете
-      (``min(max_retries, 2)``), т.е. ≤2 повтора → ≤3 вызова Stage-2.
-      Исчерпание → лучший кандидат (по независимым guard'ам), очищенный
-      scrubber'ом; ``fallback=True``.
+    BGS-04 (BEHAVIOR-GATES-SIMPLIFICATION-01) — что осталось и что снято:
 
-    MCA-08 (D8, T-4907/T-4908): при переданном ``form_contract`` и K4 ON
-    (``MCA_POSTPROCESS_FORM_GUARD_ENABLED``) кандидат дополнительно проходит
-    form-гарды G1–G3; reject → **≤1** повтор с
-    ``FORM_GUARD_RETRY_SYSTEM_PROMPT`` внутри ТОГО ЖЕ bounded-бюджета (≤2
-    ретрая всего, бюджет не растёт); после reject'а в повторе (или при
-    недоступном бюджете) — возврат ``fallback_text`` (санитизированный;
-    деградация честно помечается ``form_fallback=True``). Значения по
-    умолчанию (``None``) и K4 OFF → байт-паритет 2.58.54, stats без новых
-    ключей.
+    * Попытка 0 — ``generate_call(base_messages)``. Стиль, формат доставки и
+      метатекст ТОЛЬКО наблюдаются (``stats['cliche_observed']``,
+      ``stats['format_observed']``, ``stats['metatext_observed']``): они не
+      возвращают ответ на перегенерацию и не меняют текст
+      (``stats['anti_cliche_retries']`` всегда 0).
+    * Повтор возможен РОВНО по двум причинам: form-гарды G1–G3 при реальной
+      трансформации готового черновика (``form_contract`` = Stage-1 →
+      Stage-2) и numeric-нарушение внутри той же трансформации. Каждая
+      причина расходуется один раз, бюджет ``min(max_retries, 2)`` → ≤2
+      повтора → ≤3 вызова Stage-2.
+    * Свободная генерация (без ``form_contract``): числовое нарушение не
+      перегенерируется — нарушающая часть правится детерминированно
+      (``numeric_claim_fallback``), а если безопасной замены не осталось,
+      авторский текст сохраняется (пустого сообщения из-за числа нет).
+    * Исчерпание бюджета → лучший кандидат по form/numeric, очищенный
+      scrubber'ом; ``fallback=True``; при form-reject — проверенный черновик
+      ``fallback_text``.
 
-    MCA-15 (D5, T-4930/T-4931): при переданном ``numeric_contract`` и K2 ON
-    (``MCA_NUMERIC_CLAIM_GUARD_ENABLED``) кандидат проходит numeric-гард
-    (`check_numeric_claims`): число в стат-контексте обязано соответствовать
-    NumericClaim этого хода. Нарушение → **≤1** повтор с
-    ``NUMERIC_CLAIM_RETRY_SYSTEM_PROMPT`` (verified_phrase) в том же
-    bounded-бюджете; не исправлено → детерминированная коррекция
-    (`verified_phrase`/снятие части, ``numeric_claim_fallback``). Второго
-    LLM-судьи/paraphrase-модуля нет. ``None``/K2 OFF → байт-паритет, stats
-    без новых ключей.
+    MCA-08 (D8, T-4907/T-4908): при ``form_contract`` и K4 ON
+    (``MCA_POSTPROCESS_FORM_GUARD_ENABLED``) кандидат проходит form-гарды
+    G1–G3; reject → **≤1** повтор с ``FORM_GUARD_RETRY_SYSTEM_PROMPT``;
+    после reject'а в повторе — ``fallback_text`` (``form_fallback=True``).
 
-    CFG-07D.5: при переданном ``metatext_reason`` (callable текст → код
-    причины | None; смысловая метаречь, НЕ пойманная закрытыми сетами —
-    инверсные/вариативные overclaim-формулировки) кандидат проходит
-    metatext-гард. Нарушение → **≤1** повтор с
-    ``METATEXT_RETRY_SYSTEM_PROMPT`` (код причины) в ТОМ ЖЕ bounded-
-    бюджете; не исправлено/ошибка ретрая → ``metatext_fallback=True`` и
-    детерминированная зачистка распознанных формул
-    (``public_speech_guard.strip_guard_findings``). Дословные формулы и
-    машинные артефакты детектор НЕ возвращает (для них существует срез —
-    бюджет retry не тратится). ``None`` → байт-паритет, stats без новых
-    ключей.
+    MCA-15 (D5, T-4930/T-4931): при ``numeric_contract`` и K2 ON
+    (``MCA_NUMERIC_CLAIM_GUARD_ENABLED``) число в стат-контексте обязано
+    соответствовать NumericClaim этого хода; нарушение в трансформации →
+    **≤1** повтор, иначе детерминированная коррекция
+    (``verified_phrase``/снятие части, ``numeric_claim_fallback``). Второго
+    LLM-судьи/paraphrase-модуля нет.
 
-    Формат доставки (``FORMAT_GUARDS`` = ``plain_no_tables``/``bullet_list``):
-    независимый guard совместимости Telegram, **не** анти-клише. Нарушение →
-    **≤1** повтор с зарегистрированным текстом формата
-    (`format_retry_system_prompt`); причина помечается ``format_retry``
-    (``format_guard_reason``/``format_retry``/``format_fallback``) и никогда
-    не переиспользует ключи form/metatext/cliché. Приоритет повтора при
-    нескольких причинах у одного кандидата:
-    metatext → form → numeric → format.
+    CFG-07D.5 / BGS-03: ``metatext_reason`` больше НЕ причина повтора.
+    Callable вызывается только чтобы записать код находки в
+    ``stats['metatext_observed']`` — текст не режется, LLM не вызывается.
 
     Ретраи строго bounded (≤2 → ≤3 вызова Stage-2). Ошибка generate на
     ретрае → вернуть последний успешный текст (``retry_error=True``).
@@ -797,19 +771,14 @@ async def verbalize_validated(
         "fallback": False,
         "retry_error": False,
         "enabled": True,
-        # §4.4: измеряемый инвариант — анти-клише не перегенерирует (всегда 0).
+        # Измеряемый инвариант: анти-клише не перегенерирует (всегда 0).
         "anti_cliche_retries": 0,
         # Наблюдение стилевых сигналов (накопительно по всем кандидатам).
         "cliche_observed": [],
     }
     metatext_active = metatext_reason is not None
     if metatext_active:
-        stats.update({
-            "metatext_rejects": 0,
-            "metatext_reason_code": None,
-            "metatext_retry": False,
-            "metatext_fallback": False,
-        })
+        stats["metatext_observed"] = []
     form_active = bool(form_contract is not None
                        and mca_gates.postprocess_form_guard_enabled())
     if form_active:
@@ -828,6 +797,10 @@ async def verbalize_validated(
             "numeric_claim_fallback": False,
             "numeric_claim_reason": None,
         })
+    # BGS-04 §1–2: numeric-повтор имеет смысл только внутри реальной
+    # трансформации (Stage-1 → Stage-2), где числа/отрицания обязаны
+    # сохраниться. Свободная генерация не переписывается за число.
+    numeric_retry_allowed = bool(numeric_active and form_active)
 
     def _form_reason(candidate: str) -> str | None:
         if not form_active:
@@ -853,22 +826,6 @@ async def verbalize_validated(
             return NUMERIC_CLAIM_CAVEAT
         return corrected
 
-    def _metatext_code(candidate: str) -> str | None:
-        if not metatext_active:
-            return None
-        return metatext_reason(candidate)
-
-    def _metatext_strip(value: str) -> str:
-        """CFG-07D.5: деградация — детерминированная зачистка всех
-        распознанных формул (guard идемпотентен); резидуальная смысловая
-        метаречь без дословной формулы честно помечается
-        ``metatext_fallback``, не «чинится» выдумкой."""
-        try:
-            from services.public_speech_guard import strip_guard_findings
-            return strip_guard_findings(value)
-        except Exception:  # pragma: no cover - деградация без падения
-            return value
-
     def _fallback_result(text_value: str):
         """Финальный возврат при исчерпании: проверенный черновик, иначе best."""
         chosen = text_value
@@ -880,14 +837,6 @@ async def verbalize_validated(
             stats["numeric_claim_fallback"] = True
             stats["numeric_claim_reason"] = NUMERIC_CLAIM_FALLBACK
             chosen = _numeric_fallback(chosen)
-        if (metatext_active
-                and int(stats.get("metatext_rejects") or 0) > 0):
-            stats["metatext_fallback"] = True
-            chosen = _metatext_strip(chosen)
-        if int(stats.get("format_rejects") or 0) > 0 and not best_format_ok:
-            # Формат доставки не «чинится» вырезанием разметки (это меняло бы
-            # текст): деградация честно помечается, кандидат остаётся как есть.
-            stats["format_fallback"] = True
         return scrubber(chosen), stats
 
     if not getattr(settings, "SYSTEM2_VALIDATOR_LOOP_ENABLED", True):
@@ -896,110 +845,106 @@ async def verbalize_validated(
         stats["attempts"] = 1
         return scrubber(text), stats
 
-    # Review iter1 (M2): материализуем один раз — итератор/генератор нельзя
-    # прокручивать повторно на ретраях.
+    # Материализуем один раз — итератор/генератор нельзя прокручивать повторно.
     dyn = tuple(dynamic_rules) if dynamic_rules else ()
     observed_style: list[str] = []
+    observed_format: list[str] = []
+    observed_metatext: list[str] = []
 
-    def _detect(candidate: str) -> tuple[list[str], list[str]]:
-        """(все коды кандидата, коды формата доставки).
-
-        Стилевые коды только копятся в наблюдении: они не возвращают ответ на
-        перегенерацию (FINAL v8 §1.1)."""
+    def _observe(candidate: str) -> list[str]:
+        """Коды кандидата + накопление наблюдений (без правки текста)."""
         found = find_forbidden_cliches(candidate, enabled_rules, dyn)
         style_codes, format_codes = split_rule_codes(found)
         for code in style_codes:
             if code not in observed_style:
                 observed_style.append(code)
-        return found, format_codes
+        for code in format_codes:
+            if code not in observed_format:
+                observed_format.append(code)
+        if metatext_active:
+            try:
+                code = metatext_reason(candidate)
+            except Exception:      # наблюдение не роняет валидацию
+                code = None
+            if code and str(code) not in observed_metatext:
+                observed_metatext.append(str(code))
+        return found
 
-    def _note_format(format_codes: list[str]) -> str | None:
-        if not format_codes:
-            return None
-        # Ключи формата появляются вместе с первой находкой (как у form/numeric)
-        # и не переиспользуют ключи стиля/метатекста/form.
-        stats.setdefault("format_rejects", 0)
-        stats.setdefault("format_guard_reason", None)
-        stats.setdefault("format_retry", False)
-        stats.setdefault("format_fallback", False)
-        stats["format_rejects"] = int(stats.get("format_rejects") or 0) + 1
-        stats["format_guard_reason"] = FORMAT_RETRY_REASON
-        return FORMAT_RETRY_REASON
+    def _publish_observations() -> None:
+        stats["cliche_observed"] = list(observed_style)
+        if observed_format:
+            # Ключ появляется только при реальной находке: путь без
+            # format-кодов остаётся байт-паритетным прежнему stats.
+            stats["format_observed"] = list(observed_format)
+        if metatext_active:
+            stats["metatext_observed"] = list(observed_metatext)
+
+    def _note_form(reason: str | None) -> None:
+        if reason is None:
+            return
+        stats["form_guard_rejects"] += 1
+        stats["form_guard_reason"] = reason
+
+    def _note_numeric(reason: str | None) -> None:
+        if reason is None:
+            return
+        stats["numeric_claim_mismatch"] += 1
+        stats["numeric_claim_reason"] = reason
 
     text = await generate_call(base_messages)
     attempts = 1
-    codes, format_codes = _detect(text)
-    format_reason = _note_format(format_codes)
+    codes = _observe(text)
     form_reason = _form_reason(text)
-    if form_reason is not None:
-        stats["form_guard_rejects"] += 1
-        stats["form_guard_reason"] = form_reason
+    _note_form(form_reason)
     numeric_reason = _numeric_reason(text)
-    if numeric_reason is not None:
-        stats["numeric_claim_mismatch"] += 1
-        stats["numeric_claim_reason"] = numeric_reason
-    metatext_code = _metatext_code(text)
-    if metatext_code is not None:
-        stats["metatext_rejects"] += 1
-        stats["metatext_reason_code"] = metatext_code
-    if (not format_codes and form_reason is None and numeric_reason is None
-            and metatext_code is None):
-        # Стилевые коды (если есть) остаются наблюдением: ответ не меняется и
-        # повторная генерация не запрашивается.
-        stats.update({"attempts": attempts,
-                      "hits": list(codes),
-                      "cliche_observed": list(observed_style)})
+    _note_numeric(numeric_reason)
+
+    if form_reason is None and numeric_reason is None:
+        # Стиль/формат/метатекст остаются наблюдением: ответ не меняется и
+        # повторная генерация не запрашивается (BGS-04 §1).
+        stats.update({"attempts": attempts, "hits": list(codes)})
+        _publish_observations()
+        return scrubber(text), stats
+
+    if numeric_reason is not None and not numeric_retry_allowed:
+        # Свободная генерация: новой генерации за число нет. Правка только
+        # детерминированная; если безопасной замены не осталось — авторский
+        # текст сохраняется (пустого сообщения из-за числа не бывает), а
+        # расхождение остаётся видимым кодом телеметрии.
+        stats.update({"attempts": attempts, "hits": list(codes)})
+        _publish_observations()
+        corrected = _numeric_fallback(text)
+        if corrected.strip():
+            stats["numeric_claim_fallback"] = True
+            stats["numeric_claim_reason"] = NUMERIC_CLAIM_FALLBACK
+            return scrubber(corrected), stats
+        stats["numeric_claim_reason"] = NUMERIC_CLAIM_MISMATCH
         return scrubber(text), stats
 
     best_text, best_codes = text, codes
     best_form_ok = form_reason is None
     best_numeric_ok = numeric_reason is None
-    best_metatext_ok = metatext_code is None
-    best_format_ok = format_reason is None
     form_retry_used = False
     numeric_retry_used = False
-    metatext_retry_used = False
-    format_retry_used = False
     cap = max(0, min(int(max_retries), _MAX_RETRIES_HARD_CAP))
     for index in range(1, cap + 1):
-        if metatext_code is not None:
-            # CFG-07D.5: ровно ≤1 metatext-повтор с кодом причины в том же
-            # bounded-бюджете (грубейшее нарушение — метаречь; приоритет
-            # повтора выше form/numeric/format).
-            if metatext_retry_used:
-                break
-            metatext_retry_used = True
-            stats["metatext_retry"] = True
-            retry_system = METATEXT_RETRY_SYSTEM_PROMPT.replace(
-                "{reason}", str(metatext_code))
-        elif form_reason is not None:
+        if form_reason is not None and not form_retry_used:
             # «Только форма»: ровно ≤1 повтор с каноном формы (T-4908);
-            # повтор тратится из ТОГО ЖЕ bounded-бюджета (бюджет не растёт).
-            if form_retry_used:
-                break
+            # повтор тратится из ТОГО ЖЕ bounded-бюджета.
             form_retry_used = True
             stats["form_retry"] = True
             retry_system = FORM_GUARD_RETRY_SYSTEM_PROMPT
-        elif numeric_reason is not None:
+        elif (numeric_reason is not None and numeric_retry_allowed
+              and not numeric_retry_used):
             # MCA-15: ровно ≤1 numeric-повтор в том же бюджете (D5).
-            if numeric_retry_used:
-                break
             numeric_retry_used = True
             stats["numeric_claim_retry"] = True
             retry_system = NUMERIC_CLAIM_RETRY_SYSTEM_PROMPT.replace(
                 "{verified_phrase}",
                 str(getattr(numeric_contract, "verified_phrase", "")
                     or "—"))
-        elif format_reason is not None:
-            # Формат доставки (Telegram-совместимость): ровно ≤1 повтор
-            # собственным текстом формата; стилевой retry-промпт недостижим.
-            if format_retry_used:
-                break
-            format_retry_used = True
-            stats["format_retry"] = True
-            retry_system = format_retry_system_prompt(format_codes)
         else:
-            # Причина повтора исчерпана: третьего вызова нет.
+            # Причин для повтора больше нет: третьего вызова нет.
             break
         retry_messages = list(base_messages) + [
             {"role": "system", "content": retry_system}]
@@ -1007,11 +952,10 @@ async def verbalize_validated(
             text = await generate_call(retry_messages)
         except Exception:
             stats["retry_error"] = True
-            attempts += 0
             stats["attempts"] = attempts
             stats["retries"] = index - 1
             stats["hits"] = list(best_codes)
-            stats["cliche_observed"] = list(observed_style)
+            _publish_observations()
             stats["fallback"] = True
             logger.warning(
                 "[validator] retry generate failed — best kept | attempts=%d "
@@ -1019,55 +963,37 @@ async def verbalize_validated(
             return _fallback_result(best_text)
         attempts += 1
         retries = index
-        codes, format_codes = _detect(text)
-        format_reason = _note_format(format_codes)
+        codes = _observe(text)
         form_reason = _form_reason(text)
-        if form_reason is not None:
-            stats["form_guard_rejects"] += 1
-            stats["form_guard_reason"] = form_reason
+        _note_form(form_reason)
         numeric_reason = _numeric_reason(text)
-        if numeric_reason is not None:
-            stats["numeric_claim_mismatch"] += 1
-            stats["numeric_claim_reason"] = numeric_reason
-        metatext_code = _metatext_code(text)
-        if metatext_code is not None:
-            stats["metatext_rejects"] += 1
-            stats["metatext_reason_code"] = metatext_code
-        if (not format_codes and form_reason is None
-                and numeric_reason is None and metatext_code is None):
+        _note_numeric(numeric_reason)
+        if form_reason is None and numeric_reason is None:
             stats.update({"attempts": attempts, "retries": retries,
-                          "hits": list(codes),
-                          "cliche_observed": list(observed_style)})
+                          "hits": list(codes)})
+            _publish_observations()
             if int(stats.get("numeric_claim_mismatch") or 0) > 0:
                 stats["numeric_claim_reason"] = NUMERIC_CLAIM_CORRECTED
             return scrubber(text), stats
         form_ok = form_reason is None
         numeric_ok = numeric_reason is None
-        metatext_ok = metatext_code is None
-        format_ok = format_reason is None
-        # Ранжирование кандидатов — только по независимым guard'ам: стилевые
-        # коды в выборе лучшего варианта не участвуют (§1.1/§1.2, T-PR-NUMERIC).
-        better = (metatext_ok, form_ok, numeric_ok, format_ok) > (
-            best_metatext_ok, best_form_ok, best_numeric_ok, best_format_ok)
-        if better:
+        # Ранжирование кандидатов — только по form/numeric: стилевые и
+        # форматные коды в выборе лучшего варианта не участвуют.
+        if (form_ok, numeric_ok) > (best_form_ok, best_numeric_ok):
             best_text, best_codes = text, codes
             best_form_ok, best_numeric_ok = form_ok, numeric_ok
-            best_metatext_ok, best_format_ok = metatext_ok, format_ok
 
     stats.update({
         "attempts": attempts,
         "retries": retries,
         "hits": list(best_codes),
-        "cliche_observed": list(observed_style),
         "fallback": True,
     })
+    _publish_observations()
     logger.info(
         "[validator] guard loop exhausted | attempts=%d | retries=%d | "
-        "codes=%d | form_rejects=%d | numeric_rejects=%d | "
-        "metatext_rejects=%d | format_rejects=%d", attempts, retries,
-        len(best_codes),
+        "codes=%d | form_rejects=%d | numeric_rejects=%d",
+        attempts, retries, len(best_codes),
         int(stats.get("form_guard_rejects") or 0),
-        int(stats.get("numeric_claim_mismatch") or 0),
-        int(stats.get("metatext_rejects") or 0),
-        int(stats.get("format_rejects") or 0))
+        int(stats.get("numeric_claim_mismatch") or 0))
     return _fallback_result(best_text)

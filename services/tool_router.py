@@ -4066,8 +4066,9 @@ class ToolRouter:
         tool-ответа агент ретранслирует в чат → public_speech_guard.
         Служебные поля конверта (reason-коды/статусы/даты/claim) — машинный
         JSON, НЕ трогаются (07C.5: guard не применяется к машинному JSON).
-        Возврат: guarded run | None (контент невыразим → шов отвечает
-        честным failed). Сбой guard'а → run как есть (fail-soft)."""
+        BGS-03: guard только наблюдает — verdict-текст возвращается
+        байт-в-байт (находки видны в событии/логе). Сбой guard'а → run как
+        есть (fail-soft)."""
         try:
             from services.public_speech_guard import guard_public_text
             g = guard_public_text(run.verdict_text)

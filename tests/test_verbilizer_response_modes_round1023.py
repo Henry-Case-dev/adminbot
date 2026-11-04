@@ -339,14 +339,17 @@ class TestPlainTableGuard:
         assert "bullet_list" in summary_serious
 
     @pytest.mark.asyncio
-    async def test_table_in_plain_rejected_and_regenerated(self):
-        gen = AsyncMock(side_effect=["| a | b |\n|---|---|", "чистый ответ"])
+    async def test_table_in_plain_observed_not_regenerated(self):
+        """BGS-04 §5: Telegram принимает обычный текст — таблица это
+        вкусовая форма, а не повод переписывать ответ."""
+        gen = AsyncMock(return_value="| a | b |\n|---|---|")
         text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
             enabled_rules=channel_enabled_rules("plain", "deep_research"))
-        assert text == "чистый ответ"
-        assert gen.await_count == 2
+        assert text == "| a | b |\n|---|---|"
+        assert gen.await_count == 1
         assert stats["fallback"] is False
+        assert stats["format_observed"] == ["plain_no_tables"]
 
     @pytest.mark.asyncio
     async def test_table_in_rich_not_rejected(self):
@@ -394,13 +397,13 @@ class TestTwoCallModes:
         assert FORMAT_PLAIN_BLOCK not in stage2_system
 
     @pytest.mark.asyncio
-    async def test_summary_plain_table_regenerated(self):
+    async def test_summary_plain_table_delivered(self):
+        """BGS-04: саммари с таблицей доставляется без третьего вызова."""
         editor = json.dumps({"response_mode": "deep_research", "digest": _DIGEST})
-        gen, llm = _summary_generator([
-            editor, "| a | b |\n|---|---|", "чистый текст без таблиц"])
+        gen, llm = _summary_generator([editor, "| a | b |\n|---|---|"])
         draft = await gen._generate_two_call("сырая история", 3800, -100)
-        assert draft.text == "чистый текст без таблиц"
-        assert llm.generate.await_count == 3
+        assert draft.text == "| a | b |\n|---|---|"
+        assert llm.generate.await_count == 2
 
     @pytest.mark.asyncio
     async def test_summary_kill_switch_off_prev_narrator(self, monkeypatch):
