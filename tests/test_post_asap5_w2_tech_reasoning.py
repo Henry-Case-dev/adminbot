@@ -206,13 +206,19 @@ def test_writer_prev_snapshot_and_step():
     assert "ТЕХНИЧЕСКИЕ РАСЧЁТЫ И ГИПОТЕЗЫ" not in prev
     steps = dict(pm.PROMPT_MIGRATIONS[L2_KEY])
     assert steps[prev] == cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
-    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): верхняя ступень отката снимает
-    # секцию «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА» → байты EVR0 (канон PA5W2).
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): ступень отката снимает секцию
+    # «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА» → байты EVR0 (канон PA5W2).
+    # RC v5 (2.58.154, ревью 04.11.2026): новый канон
+    # l2-writer-self-correction-rca1 (44736968bc76) встал верхней ступенью,
+    # прежний канон сохранён слепком PREV_CHAT_VERBALIZER_EVR1 — лестница
+    # стала на шаг длиннее, прежние ступени не переписаны.
     assert pm.ROLLBACK_MIGRATIONS[L2_KEY][0] == (
-        cp.DIRECT_VERBALIZER_SYSTEM_PROMPT, cp.PREV_CHAT_VERBALIZER_EVR0)
+        cp.DIRECT_VERBALIZER_SYSTEM_PROMPT, cp.PREV_CHAT_VERBALIZER_EVR1)
     assert pm.ROLLBACK_MIGRATIONS[L2_KEY][1] == (
-        cp.PREV_CHAT_VERBALIZER_EVR0, prev)
+        cp.PREV_CHAT_VERBALIZER_EVR1, cp.PREV_CHAT_VERBALIZER_EVR0)
     assert pm.ROLLBACK_MIGRATIONS[L2_KEY][2] == (
+        cp.PREV_CHAT_VERBALIZER_EVR0, prev)
+    assert pm.ROLLBACK_MIGRATIONS[L2_KEY][3] == (
         prev, cp.PREV_CHAT_VERBALIZER_CLAR)
     assert pr.is_known_canon(prev)
 
@@ -454,10 +460,13 @@ def test_no_new_layers_routers_or_classifiers():
 def test_labels_and_fingerprint_after_bump():
     # Волна 5: метки трёх канонов Direct отражают правку контракта evidence
     # (прежние метки — в слепках PREV_*_EVR0). EVOL W17: метка L1 — EVR2.
+    # RC v5 (2.58.154, ревью 04.11.2026): L2-писатель получил метку
+    # l2-writer-self-correction-rca1 (44736968bc76) — прежняя
+    # l2-writer-evidence-discipline осталась в слепке PREV_CHAT_VERBALIZER_EVR1.
     assert "l1-planner-decision-profile" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "toolphase-runtime-evidence" in pr.factory_revision(
         "direct.base.tool_phase")
-    assert "l2-writer-evidence-discipline" in pr.factory_revision(
+    assert "l2-writer-self-correction-rca1" in pr.factory_revision(
         "direct.base.l2_writer")
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12

@@ -979,7 +979,7 @@ class TestCanon:
         assert len(pc.REGISTRY) == 597
         assert len({f.name for f in dataclasses.fields(Settings)}) == 468
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 570
+                    if s.category is not None]) == 572
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22

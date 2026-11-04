@@ -467,7 +467,7 @@ def test_catalog_zero_delta():
     assert len(pc.REGISTRY) == 597
     assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
     assert len([s for s in pc.REGISTRY.values()
-                if s.category is not None]) == 570
+                if s.category is not None]) == 572
     assert len(pc.GROUPS) == 121
     assert len(pc._TAB_BY_GROUP) == 119
     assert len(pc.TAB_RULES) == 22
