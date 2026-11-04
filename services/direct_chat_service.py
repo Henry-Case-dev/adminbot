@@ -5288,48 +5288,31 @@ class DirectChatService:
             if lore_story:
                 answer = strip_reasoning_tags(lore_story)
             # ── RLR-04 (R-04.2; §4 «apply_numeric_guard с заменой/обнулением
-            # финала»): постфактум-правка семантики готовой свободной речи
-            # СНЯТА. Точные числа/источники приходят в L2 ДО генерации
-            # (`numeric_contract`), а расхождение в авторском тексте — только
-            # наблюдение (текст уходит как написан, без verified_phrase и без
-            # снятия предложений). Гард остаётся ровно у детерминированной
-            # сборки текста кодом (lore/statistics assembly): там формулировку
-            # и числа создаёт не LLM, поэтому сверка с NumericClaim законна.
-            if lore_story:
-                answer, _numeric_stats = _nc.apply_numeric_guard(
-                    answer, numeric_contract)
-                if _numeric_stats.get("mismatch"):
-                    _mca_events.emit_mca_event(
-                        "numeric_claim_guard",
-                        outcome=("skipped" if _numeric_stats.get("fallback")
-                                 else "success"),
-                        component="direct_chat", stage="claim_check",
-                        reason_code=_numeric_stats.get("reason"),
-                        chat_id=chat_id,
-                        usage_json={"answer_chars": len(answer)})
-                    logger.info(
-                        "[direct] lore numeric guard | chat=%s | corrected=%s "
-                        "| fallback=%s", chat_id,
-                        bool(_numeric_stats.get("corrected")),
-                        bool(_numeric_stats.get("fallback")))
-            else:
-                _numeric_observed = _nc.check_numeric_claims(
-                    answer, numeric_contract)
-                if _numeric_observed:
-                    # Event-honesty (R-07/§8): ничего не исправлено —
-                    # честный код НАБЛЮДЕНИЯ, а не `numeric_claim_corrected`.
-                    _mca_events.emit_mca_event(
-                        "numeric_claim_guard", outcome="skipped",
-                        component="direct_chat", stage="claim_check",
-                        reason_code=_numeric_observed,
-                        chat_id=chat_id,
-                        usage_json={"answer_chars": len(answer),
-                                    "observed": True,
-                                    "corrected": False})
-                    logger.info(
-                        "[direct] final numeric claim observed (delivered as "
-                        "written) | chat=%s | code=%s",
-                        chat_id, _numeric_observed)
+            # финала»): постфактум-правка семантики готового текста СНЯТА на
+            # ВСЕХ путях доставки. Проверенные числа приходят в Writer ДО
+            # генерации (`numeric_contract`), а расхождение — только
+            # наблюдение: текст уходит как написан (без verified_phrase, без
+            # снятия предложений и без превращения реплики в молчание).
+            # Текст «Летописца» — тоже авторская речь МОДЕЛИ
+            # (`LoreCompilerService.llm.generate`, writer `lore_writer`), а не
+            # детерминированная сборка кода, поэтому гард к нему неприменим.
+            _numeric_observed = _nc.check_numeric_claims(
+                answer, numeric_contract)
+            if _numeric_observed:
+                # Event-honesty (R-07/§8): ничего не исправлено — честный код
+                # НАБЛЮДЕНИЯ, а не `numeric_claim_corrected`.
+                _mca_events.emit_mca_event(
+                    "numeric_claim_guard", outcome="skipped",
+                    component="direct_chat", stage="claim_check",
+                    reason_code=_numeric_observed,
+                    chat_id=chat_id,
+                    usage_json={"answer_chars": len(answer),
+                                "observed": True,
+                                "corrected": False})
+                logger.info(
+                    "[direct] final numeric claim observed (delivered as "
+                    "written) | chat=%s | code=%s | lore=%s",
+                    chat_id, _numeric_observed, bool(lore_story))
             # ── BGS-02: egress-проверка — ТОЛЬКО наблюдение. Раньше здесь
             # были адресный lookup, повторная генерация и удаление
             # неподтверждённого предложения; смысловая постцензура снята:

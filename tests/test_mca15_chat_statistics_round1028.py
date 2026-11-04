@@ -1180,28 +1180,15 @@ class TestNumericGuardVerbalize:
 
 
 class TestNumericGuardSendPaths:
-    """RLR-04 (R-04.2): пост-L2 правка свободной речи снята. Гард остаётся
-    детерминированной функцией для сборки текста кодом (lore/statistics);
-    свободная речь Writer'а уходит как написана (см. `test_rlr_dcs_postprocess`)."""
+    """RLR-04 (R-04.2): пост-L2 правка речи снята на ВСЕХ путях доставки.
 
-    @pytest.mark.asyncio
-    async def test_fallback_lore_bypass_and_plain_covered(self):
-        """Гард как функция по-прежнему корректен для ДЕТЕРМИНИРОВАННОЙ
-        сборки (lore-story и подготовленный кодом текст): число не публикуется
-        при явной сборке. Свободная речь здесь не затрагивается (RLR-04)."""
-        svc = DirectChatService.__new__(DirectChatService)
-        ctx = ToolContext(CHAT_ID, "q")
-        ctx.metric_results.append(
-            cs.build_metric_result(_measure_dict(), _prefix_query()))
-        contract = svc._numeric_contract_from_ctx(ctx)
-        # прямой/fallback текст
-        text, stats = nc.apply_numeric_guard("он писал 7 сообщений", contract)
-        assert stats["corrected"] is True and "9" in text
-        # lore-story (HTML, в обход verbalizer)
-        story = "<b>он писал 7 сообщений</b> за всё время."
-        text2, stats2 = nc.apply_numeric_guard(story, contract)
-        assert "он писал" not in text2 and stats2["corrected"] is True
-        assert "9" in text2
+    Числа приходят в Writer ДО генерации; расхождение — только наблюдение.
+    `apply_numeric_guard` оставлен хелпером без продуктовых вызывающих:
+    текст «Летописца» пишет модель (`lore_compiler_service`, writer
+    `lore_writer`), поэтому и он не правится. Route-регрессии —
+    `tests/test_rlr_dcs_postprocess.py::test_lore_story_number_delivered_
+    without_guard`.
+    """
 
     def test_contract_from_ctx_claims_and_expected(self):
         svc = DirectChatService.__new__(DirectChatService)
@@ -1599,10 +1586,45 @@ REGRESSION_245_TESTS = {
     "stale_cache_after_import":
         "TestMetricResultContract.test_repeat_after_import_recompute_no_cache",
     "lore_story_bypass":
-        "TestNumericGuardSendPaths.test_fallback_lore_bypass_and_plain_covered",
+        "TestLoreStoryDelivery.test_lore_story_not_numeric_corrected",
     "banter_vs_request":
         "TestStatsIntent.test_banter_without_request_no_report",
 }
+
+
+class TestLoreStoryDelivery:
+    """RLR-04 (ревью 05.11): рассказ «Летописца» — речь МОДЕЛИ
+    (`LoreCompilerService.llm.generate`, writer `lore_writer`), поэтому
+    numeric-гард к доставке неприменим: число наблюдается, текст уходит как
+    написан (без `verified_phrase` и без потери предложения)."""
+
+    @pytest.mark.asyncio
+    async def test_lore_story_not_numeric_corrected(self, monkeypatch):
+        import services.direct_chat_service as _dcs
+        from tests.test_direct_chat import (
+            FakeLLM, FakeMemory, _bot, _force_self_awareness, _make_service,
+            _message)
+        _force_self_awareness(monkeypatch, False)
+        story = "он писал 7 сообщений за всё время."
+        monkeypatch.setattr(_dcs, "lore_story_override",
+                            lambda tool_ctx, l1_plan=None, response_plan=None:
+                            story)
+        contract = nc.NumericContract(claims=(_claim(),),
+                                      verified_phrase="сообщений: 9")
+        monkeypatch.setattr(DirectChatService, "_numeric_contract_from_ctx",
+                            lambda self, tool_ctx: contract)
+        service = _make_service(memory=FakeMemory(window=[]),
+                                llm=FakeLLM(text="ответ Writer'а"))
+        bot = _bot()
+        msg = _message(text="расскажи историю про это", message_id=9011,
+                       chat_id=-1009988)
+        await service.handle(bot, msg, msg.from_user)
+
+        assert bot.send_message.await_count == 1
+        sent = bot.send_message.await_args.args[1]
+        assert sent == story                       # рассказ цел, не пусто
+        assert "сообщений: 9" not in sent          # verified_phrase не вставлена
+        assert "7 сообщений" in sent               # число автора не снято
 
 
 class TestRegressionList245:

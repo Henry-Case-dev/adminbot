@@ -3,9 +3,9 @@
 REMOVE-LEGACY-REPHRASING v2.0 (owner corrective 2026-11-05, source
 `plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md`):
 
-* R-04.2 — `apply_numeric_guard` больше не правит свободную речь Writer'а
-  (числа приходят в L2 ДО генерации; расхождение — только наблюдение);
-  гард остаётся у детерминированной сборки (lore/statistics);
+* R-04.2 — `apply_numeric_guard` больше не правит доставляемый текст
+  (ни свободную речь Writer'а, ни рассказ «Летописца»: его тоже пишет
+  модель). Числа приходят в Writer ДО генерации; расхождение — наблюдение;
 * R-04.5 / R-FAIL.5 — формат (списки/таблицы) не повод для нового
   LLM-вызова; невалидная HTML-разметка сериализуется в plain ТЕМ ЖЕ текстом;
 * R-05.1–R-05.4 — `duplicate_guard_retry` (reroll по совпадению текста
@@ -316,20 +316,109 @@ async def test_owner_rules_single_pass_and_protected_spans(monkeypatch):
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Инвариант: снят только свободный путь, детерминированный гард жив
+# R-04.2 (ревью 05.11): «Летописец» — текст МОДЕЛИ, а не сборка кода
 # ════════════════════════════════════════════════════════════════════════════
 
-def test_numeric_guard_kept_for_deterministic_assembly():
-    """Гард не удалён как функция: у lore/statistics-сборки он по-прежнему
-    исправляет число по проверенному контракту."""
-    class _Claim:
-        value = 9
-        unit = "messages"
+STORY = "он писал 7 сообщений за всё время. И ещё пару раз упоминал это."
+SINGLE = "он писал 7 сообщений за всё время."
 
+
+class _Claim:
+    value = 9
+    unit = "messages"
+
+
+def _story_service(monkeypatch, llm, contract, story):
+    """handle() с доставкой текста «Летописца» (как его отдаёт компилятор)."""
+    import services.direct_chat_service as _dcs
+
+    monkeypatch.setattr(_dcs, "lore_story_override",
+                        lambda tool_ctx, l1_plan=None, response_plan=None:
+                        story)
+    monkeypatch.setattr(dcs.DirectChatService,
+                        "_numeric_contract_from_ctx",
+                        lambda self, tool_ctx: contract)
+    return _make_service(memory=FakeMemory(window=[]), llm=llm, db=RecentDB())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("story", [SINGLE, STORY], ids=["single", "multi"])
+@pytest.mark.parametrize("contract_kind", ["empty", "verified_phrase"])
+async def test_lore_story_number_delivered_without_guard(
+        monkeypatch, events, contract_kind, story):
+    """Реальный `handle()`: рассказ с «7 сообщений» доставляется ЦЕЛИКОМ.
+
+    Ревью 05.11: текст «Летописца» пишет модель (`LoreCompilerService.llm.
+    generate`, writer `lore_writer`), поэтому numeric-гард к нему неприменим.
+    (а) пустой контракт — с гардом пропадало предложение с числом (для
+    однопредложенческого рассказа: 0 отправок + реакция «тишина»);
+    (б) контракт с `verified_phrase` — вместо рассказа уходило «сообщений: 9».
+    """
+    _set_l1(monkeypatch, False)
+    contract = (nc.NumericContract() if contract_kind == "empty" else
+                nc.NumericContract(claims=(_Claim(),),
+                                   verified_phrase="сообщений: 9"))
+    llm = StepLLM(text="ответ Writer'а игнорируется при story-интенции")
+    service = _story_service(monkeypatch, llm, contract, story)
+    bot = _bot()
+    msg = _message(text="расскажи историю про это", message_id=821,
+                   chat_id=-1009883)
+    await service.handle(bot, msg, msg.from_user)
+
+    assert bot.send_message.await_count == 1          # доставка есть
+    sent = bot.send_message.await_args.args[1]
+    assert sent == story                              # рассказ цел
+    assert "7 сообщений" in sent                      # число автора не снято
+    assert "сообщений: 9" not in sent                 # verified_phrase не вставлена
+    assert getattr(bot.set_message_reaction, "await_count", 0) == 0  # не тишина
+    assert "numeric_claim_corrected" not in _reasons(events,
+                                                     "numeric_claim_guard")
+
+
+@pytest.mark.asyncio
+async def test_lore_story_mismatch_is_only_observation(monkeypatch, events):
+    """Расхождение числа в рассказе видно в событии как НАБЛЮДЕНИЕ."""
+    _set_l1(monkeypatch, False)
     contract = nc.NumericContract(claims=(_Claim(),),
                                   verified_phrase="сообщений: 9")
-    text, stats = nc.apply_numeric_guard("он писал 7 сообщений", contract)
-    assert stats["corrected"] is True and "9" in text
+    llm = StepLLM(text="не важно")
+    service = _story_service(monkeypatch, llm, contract, STORY)
+    bot = _bot()
+    msg = _message(text="расскажи историю", message_id=822, chat_id=-1009884)
+    await service.handle(bot, msg, msg.from_user)
+
+    observed = [e for e in events if e["event_name"] == "numeric_claim_guard"]
+    assert observed and observed[0]["reason_code"] == nc.NUMERIC_CLAIM_MISMATCH
+    assert observed[0]["outcome"] == "skipped"
+    assert observed[0]["usage_json"].get("corrected") is False
+
+
+def test_apply_numeric_guard_has_no_product_caller():
+    """R-04.2: хелпер жив, но НИ ОДИН доставляемый текст им не правится.
+
+    Единственный продуктовый потребитель (доставка «Летописца») удалён в
+    ревью 05.11: текст рассказа пишет модель, а не код.
+    """
+    import inspect
+    import re
+    from pathlib import Path
+
+    root = Path(dcs.__file__).resolve().parents[1]
+    callers: dict[str, list[int]] = {}
+    for path in (list((root / "services").glob("*.py"))
+                 + list((root / "handlers").glob("*.py"))):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for match in re.finditer(r"apply_numeric_guard\(", text):
+            line = text.count("\n", 0, match.start()) + 1
+            source_line = text.splitlines()[line - 1]
+            if "def apply_numeric_guard" in source_line or \
+                    source_line.lstrip().startswith("#"):
+                continue
+            callers.setdefault(path.name, []).append(line)
+    assert callers == {}, callers
+    # функция оставлена осознанно (будущая сборка строки кодом)
+    assert callable(nc.apply_numeric_guard)
+    assert "продуктовых вызывающих" in inspect.getdoc(nc.apply_numeric_guard)
 
 
 def test_no_post_l2_llm_step_in_direct_postprocess_source():
