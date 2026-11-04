@@ -146,6 +146,7 @@ class TestLedgerHistoryReadPath:
 class TestThreadChainBotDating:
     @pytest.mark.asyncio
     async def test_ttl_cache_turn_gets_real_sent_at_from_ledger(self, tmp_path):
+        import time as _time
         from services.thread_chain import collect_thread_chain
         db = await _db(tmp_path, "ttlcache.db")
         try:
@@ -153,9 +154,11 @@ class TestThreadChainBotDating:
                 user_id=11, chat_id=CHAT, text="я обещал вернуть",
                 reply_to_id=None, timestamp=1000, media_type="text",
                 author_name="Вася", message_id=700)
-            # TTL-кеш содержит текст, но НЕ содержит времени отправки (R16).
-            await db.upsert_bot_reply(CHAT, 701, "верну завтра", 2000.0)
-            await db.set_bot_reply_parent(CHAT, 701, 700, 2000.0)
+            # TTL-кеш ЖИВ (иначе это уже ledger-путь), но времени отправки в
+            # нём нет вообще (R16) — дату даёт только durable ledger.
+            now = _time.time()
+            await db.upsert_bot_reply(CHAT, 701, "верну завтра", now)
+            await db.set_bot_reply_parent(CHAT, 701, 700, now)
             await _bot_output(db, tg=701, sent_at=1500, parent="tg:700",
                               text="верну завтра", correlation="c-1")
             chain = await collect_thread_chain(db, CHAT, 701, depth=4)
