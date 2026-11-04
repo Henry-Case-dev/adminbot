@@ -1,17 +1,22 @@
-"""F6 (T-2093, ADR-1022-6 §2.3) — детектор клише + Validator Loop.
+"""F6 (T-2093, ADR-1022-6 §2.3) — детектор клише + наблюдения по тексту.
 
 ASAP-EVOL-ANTICLICHE (FINAL v8 §1.1/§1.2, ADR §3): анти-клише — НАБЛЮДЕНИЕ.
-Стилевое попадание (hardcoded/динамическое/pinned/множественное) больше НЕ
-вызывает повторной генерации: на такой ответ ровно один ``generate_call``,
-``stats['anti_cliche_retries'] == 0``, ``CLICHE_RETRY_SYSTEM_PROMPT``
-недостижим. Независимые guard'ы (form/факты, numeric, метатекст, формат
-доставки) сохраняют поведение и собственную причину, включая отдельный
-``format_retry`` для ``plain_no_tables``/``bullet_list``.
+REMOVE-LEGACY-REPHRASING v2.0 (R-04.1/R-04.2) довёл правило до конца: после
+Writer'а в свободной речи нет НИ ОДНОГО повтора — форма/числа/метатекст/
+формат/клише только наблюдаются (``stats['semantic_rewrite_count'] == 0``,
+``stats['anti_cliche_retries'] == 0``). ``CLICHE_RETRY_SYSTEM_PROMPT``,
+``FORM_GUARD_RETRY_SYSTEM_PROMPT``, ``METATEXT_RETRY_SYSTEM_PROMPT`` и
+``format_retry`` недостижимы.
+
+Узкая проверка защищённых данных (``form_contract`` = явная трансформация с
+исходным текстом) осталась, но тоже без второго LLM-вызова: находка видна в
+``stats``, доставляются исходные данные либо авторский текст с
+``needs_clarification``. Машинный протокол (JSON/схема) чинится отдельно —
+``repair_machine_payload``.
 
 Покрытие: каждый код ловится; легитимные фразы — нет; `bullet_list` только по
-флагу; guard-ретрай ≤2 → успех; исчерпание → лучший вариант (fallback);
-ошибка ретрая → последний успешный; bounded-вызовы; R17-статы (коды/числа);
-scrubber применяется на всех путях; kill-switch OFF → один вызов.
+флагу; наблюдения не расходуют LLM; R17-статы (коды/числа); scrubber
+применяется на всех путях; kill-switch OFF → один вызов.
 """
 import ast
 import inspect
@@ -39,7 +44,6 @@ from services.prompt_style_blocks import (
     CLICHE_RETRY_SYSTEM_PROMPT,
     FORMAT_NO_LISTS_RETRY_TEXT,
     FORMAT_PLAIN_TEXT_BLOCK,
-    FORM_GUARD_RETRY_SYSTEM_PROMPT,
     METATEXT_RETRY_SYSTEM_PROMPT,
 )
 
@@ -245,8 +249,9 @@ class TestAntiClicheNeverRegenerates:
 
 
 class TestIndependentGuardsStillFire:
-    """BGS-04: повтор остаётся только у form/numeric в реальной
-    трансформации; формат доставки и метатекст — наблюдение."""
+    """REMOVE-LEGACY-REPHRASING v2.0: у свободной речи повторов нет вовсе;
+    узкая проверка данных работает только в явной трансформации и тоже без
+    второго LLM-вызова."""
 
     @pytest.mark.asyncio
     async def test_format_tables_observed_not_regenerated(self):
@@ -272,23 +277,26 @@ class TestIndependentGuardsStillFire:
         assert CLICHE_RETRY_SYSTEM_PROMPT not in str(stats)
 
     @pytest.mark.asyncio
-    async def test_form_guard_retries_with_own_reason(self):
-        """Реальная трансформация (Stage-1 → Stage-2): form-гард даёт
-        ровно один повтор своим каноном — числа/имена сохраняются."""
-        seen: list[str] = []
+    async def test_form_guard_reports_reason_without_reroll(self):
+        """Явная трансформация: узкая проверка видит потерю формы, но
+        второго LLM-вызова нет — доставляются исходные данные + причина."""
+        calls: list[list[dict]] = []
 
         async def gen(messages):
-            seen.append(messages[-1]["content"] if len(messages) > 1 else "")
-            return "13 штук" if len(seen) == 1 else "двенадцать штук"
+            calls.append([dict(m) for m in messages])
+            return "13 штук"
 
         text, stats = await verbalize_validated(
             gen, list(_BASE),
             form_contract=FormContract(source_text="двенадцать штук"),
             fallback_text="двенадцать штук")
-        assert text == "двенадцать штук"
-        assert seen[1] == FORM_GUARD_RETRY_SYSTEM_PROMPT
-        assert stats["form_retry"] is True
+        assert len(calls) == 1                   # второго автора нет
+        assert text == "двенадцать штук"         # исходные данные сохранены
+        assert stats["form_retry"] is False
+        assert stats["form_fallback"] is True
         assert stats["form_guard_reason"] == nc.FORM_GUARD_REJECTED
+        assert stats["protected_facts_mismatch"] is True
+        assert stats["semantic_rewrite_count"] == 0
         assert not any(k.startswith(("format_", "metatext_"))
                        for k in stats)
 
@@ -312,9 +320,9 @@ class TestIndependentGuardsStillFire:
         assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_MISMATCH
 
     @pytest.mark.asyncio
-    async def test_numeric_free_path_uses_verified_phrase(self):
-        """Если есть проверенная фраза хода — детерминированная замена
-        без LLM-повтора."""
+    async def test_free_form_number_is_observation_only(self):
+        """R-04.2: verified_phrase больше не вставляется в свободную речь —
+        текст автора доставляется как написан, расхождение наблюдаемо."""
         class _Claim:
             value = 9
             unit = "messages"
@@ -325,9 +333,12 @@ class TestIndependentGuardsStillFire:
             numeric_contract=NumericContract(
                 claims=(_Claim(),), verified_phrase="он писал 9 сообщений"))
         assert gen.await_count == 1
-        assert text == "он писал 9 сообщений"
-        assert stats["numeric_claim_fallback"] is True
+        assert text == "он писал 7 сообщений"       # авторский текст цел
+        assert stats["numeric_claim_mismatch"] == 1
+        assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_MISMATCH
+        assert stats["numeric_claim_fallback"] is False
         assert stats["numeric_claim_retry"] is False
+        assert stats["semantic_rewrite_count"] == 0
 
     @pytest.mark.asyncio
     async def test_metatext_observed_not_retried(self):
@@ -346,8 +357,8 @@ class TestIndependentGuardsStillFire:
 
     @pytest.mark.asyncio
     async def test_style_plus_numeric_no_regeneration(self):
-        """Стиль + число: ровно один вызов, стиль наблюдаем, число
-        исправляется детерминированной проверенной фразой."""
+        """Стиль + число: ровно один вызов, и стиль, и число — наблюдения;
+        текст автора доставляется как написан."""
         class _Claim:
             value = 9
             unit = "messages"
@@ -363,10 +374,12 @@ class TestIndependentGuardsStillFire:
             numeric_contract=NumericContract(
                 claims=(_Claim(),), verified_phrase="он писал 9 сообщений"))
         assert len(calls) == 1
-        assert text == "он писал 9 сообщений"
+        assert text == "как ИИ: он писал 7 сообщений"
         assert stats["cliche_observed"] == ["as_ai"]
         assert stats["anti_cliche_retries"] == 0
+        assert stats["numeric_claim_mismatch"] == 1
         assert stats["numeric_claim_retry"] is False
+        assert stats["numeric_claim_fallback"] is False
 
     @pytest.mark.asyncio
     async def test_style_plus_format_keeps_text(self):
@@ -413,6 +426,7 @@ class TestValidatorLoop:
         assert stats == {"attempts": 1, "retries": 0, "hits": [],
                          "fallback": False, "retry_error": False,
                          "enabled": True, "anti_cliche_retries": 0,
+                         "semantic_rewrite_count": 0,
                          "cliche_observed": []}
 
     @pytest.mark.asyncio
@@ -428,40 +442,33 @@ class TestValidatorLoop:
         assert stats["format_observed"] == ["plain_no_tables"]
 
     @pytest.mark.asyncio
-    async def test_retry_generate_error_returns_last_success(self):
-        """Ошибка generate на form-повторе → проверенный черновик."""
-        class Boom:
-            def __init__(self):
-                self.n = 0
+    async def test_generate_error_propagates_to_caller(self):
+        """Честная ошибка провайдера не маскируется «последним текстом»:
+        петель нет, ошибка уходит вызывающему (§3.1)."""
+        async def gen(messages):
+            raise RuntimeError("boom")
 
-            async def __call__(self, messages):
-                self.n += 1
-                if self.n == 1:
-                    return "13 штук"
-                raise RuntimeError("boom")
-
-        text, stats = await verbalize_validated(
-            Boom(), [{"role": "user", "content": "x"}],
-            form_contract=FormContract(source_text="двенадцать штук"),
-            fallback_text="двенадцать штук")
-        assert text == "двенадцать штук"
-        assert stats["retry_error"] is True
-        assert stats["fallback"] is True
+        with pytest.raises(RuntimeError):
+            await verbalize_validated(
+                gen, [{"role": "user", "content": "x"}],
+                form_contract=FormContract(source_text="двенадцать штук"),
+                fallback_text="двенадцать штук")
 
     @pytest.mark.asyncio
-    async def test_retry_message_appended_only_on_retry(self):
-        """Системное сообщение повтора добавляется только на повторе."""
+    async def test_no_extra_system_message_added(self):
+        """Служебное сообщение «повтори форму» больше не добавляется:
+        единственный вызов получает исходный payload."""
         seen = []
 
         async def gen(messages):
-            seen.append([m["role"] for m in messages])
-            return "13 штук" if len(seen) == 1 else "двенадцать штук"
+            seen.append([dict(m) for m in messages])
+            return "13 штук"
 
         await verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
-            form_contract=FormContract(source_text="двенадцать штук"))
-        assert seen[0] == ["user"]
-        assert seen[1] == ["user", "system"]
+            form_contract=FormContract(source_text="двенадцать штук"),
+            fallback_text="двенадцать штук")
+        assert seen == [[{"role": "user", "content": "x"}]]
 
     @pytest.mark.asyncio
     async def test_scrubber_applied_on_all_paths(self):
@@ -481,9 +488,9 @@ class TestValidatorLoop:
         assert stats["attempts"] == 1
 
     @pytest.mark.asyncio
-    async def test_max_retries_hard_cap(self):
-        """Бюджет повторов общий и не растёт: ≤2 повтора (≤3 генерации);
-        form-причина расходуется один раз."""
+    async def test_max_retries_has_no_effect(self):
+        """``max_retries`` исторически совместим, но бюджета повторов нет:
+        при любом значении — ровно одна генерация."""
         calls = 0
 
         async def gen(messages):
@@ -495,8 +502,8 @@ class TestValidatorLoop:
             gen, [{"role": "user", "content": "x"}],
             max_retries=99,
             form_contract=FormContract(source_text="двенадцать штук"))
-        assert calls <= 3                    # жёсткий потолок 2, не 99
-        assert stats["retries"] <= 2
+        assert calls == 1
+        assert stats["retries"] == 0
 
     @pytest.mark.asyncio
     async def test_base_messages_not_mutated(self):

@@ -11,8 +11,8 @@ G2b: множества куэ-токенов отрицания источни�
 
 Что проверяется здесь:
 
-* (a) потеря «не» в перефразе без чисел → отказ, ровно ≤1 повтор, при
-  повторном искажении доставляется исходный черновик (+ трассировка);
+* (a) потеря «не» в перефразе без чисел → отказ узкой проверки, второго
+  LLM-вызова нет, доставляется исходный черновик (+ видимая трассировка);
 * (b) отрицание сохранено (и эквивалентное двойное отрицание) → отказа нет,
   лишнего вызова нет;
 * (c) обычные слова на «не-/ни-» («неделя», «низкий», «небо») — не куэ,
@@ -29,7 +29,6 @@ import pytest
 
 from services import negative_constraints as nc
 from services import public_speech_guard as psg
-from services.prompt_style_blocks import FORM_GUARD_RETRY_SYSTEM_PROMPT
 
 #: Проверенный черновик Stage-1 — БЕЗ чисел: именно этот случай раньше
 #: проходил гард при подмене отрицания.
@@ -56,38 +55,31 @@ class _Gen:
         return self.texts[min(self.calls - 1, len(self.texts) - 1)]
 
 
-def _systems(gen: _Gen, call: int) -> str:
-    """Текст system-сообщений конкретного вызова (склейка)."""
-    return "\n".join(str(message.get("content", ""))
-                     for message in gen.messages[call - 1]
-                     if message.get("role") == "system")
-
-
 # ════════════════════════════════════════════════════════════════════════════
-# (a) потеря «не» без чисел → отказ → ≤1 повтор → исходный черновик
+# (a) потеря «не» без чисел → видимая находка → исходные данные, без повтора
 # ════════════════════════════════════════════════════════════════════════════
 
 @pytest.mark.system2
 def test_negation_lost_without_numbers_is_rejected_and_source_draft_wins():
-    """«Вася не писал в чат» → «Вася писал в чат»: отказ, один повтор,
-    затем доставка исходного черновика (факт не инвертируется молча)."""
-    gen = _Gen([INVERTED])                   # повтор тоже искажает факт
+    """«Вася не писал в чат» → «Вася писал в чат»: узкая проверка видит
+    подмену, второго LLM-вызова нет, доставляется исходный черновик
+    (REMOVE-LEGACY-REPHRASING v2.0: литературного повтора больше нет)."""
+    gen = _Gen([INVERTED, DRAFT])             # второй кандидат не запросят
     out, stats = _run(nc.verbalize_validated(
         gen,
         [{"role": "user", "content": "перефразируй без изменения фактов"}],
         form_contract=nc.FormContract(source_text=DRAFT),
         fallback_text=DRAFT))
 
-    assert gen.calls == 2                    # 1 кандидат + ровно ≤1 повтор
+    assert gen.calls == 1                    # второго автора нет вовсе
     assert out == DRAFT                      # исходные данные сохранены
     assert "не писал" in out
-    assert stats["form_retry"] is True
+    assert stats["form_retry"] is False
     assert stats["form_fallback"] is True
     assert stats["form_guard_reason"] == nc.FORM_GUARD_REJECTED
-    assert stats["form_guard_rejects"] == 2  # искажение видно в телеметрии
+    assert stats["form_guard_rejects"] == 1  # искажение видно в телеметрии
     assert stats["fallback"] is True
-    # Повтор — именно form-повтор (канон формы), а не свободная перегенерация.
-    assert FORM_GUARD_RETRY_SYSTEM_PROMPT in _systems(gen, 2)
+    assert stats["semantic_rewrite_count"] == 0
 
 
 @pytest.mark.system2
@@ -101,8 +93,9 @@ def test_negation_lost_is_rejected_directly_by_form_contract():
 
 
 @pytest.mark.system2
-def test_negation_restored_by_retry_is_delivered_without_fallback():
-    """Повтор вернул «не»: текст доставлен, fallback не включается."""
+def test_no_second_generation_even_when_model_could_fix():
+    """Даже «исправленный» вариант не запрашивается: второй литературной
+    стадии нет — доставляются исходные данные, причина видима."""
     good = "Как и сказано в проверке, Вася в чат про это не писал."
     gen = _Gen([INVERTED, good])
     out, stats = _run(nc.verbalize_validated(
@@ -111,11 +104,11 @@ def test_negation_restored_by_retry_is_delivered_without_fallback():
         form_contract=nc.FormContract(source_text=DRAFT),
         fallback_text=DRAFT))
 
-    assert gen.calls == 2
-    assert out == good
-    assert stats["form_retry"] is True
-    assert stats["form_fallback"] is False
-    assert stats["fallback"] is False
+    assert gen.calls == 1
+    assert out == DRAFT
+    assert stats["form_retry"] is False
+    assert stats["form_fallback"] is True
+    assert stats["semantic_rewrite_count"] == 0
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -238,9 +231,10 @@ def test_numeric_claim_with_negation_still_rejected():
         form_contract=nc.FormContract(source_text=source),
         fallback_text=source))
 
-    assert gen.calls == 2
+    assert gen.calls == 1
     assert out == source
     assert stats["form_fallback"] is True
+    assert stats["form_retry"] is False
 
 
 # ════════════════════════════════════════════════════════════════════════════

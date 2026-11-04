@@ -34,7 +34,6 @@ from services.negative_constraints import (
 )
 from services.prompt_style_blocks import (
     CLICHE_RETRY_SYSTEM_PROMPT,
-    FORM_GUARD_RETRY_SYSTEM_PROMPT,
 )
 from tests.test_direct_chat import (
     CHAT_ID,
@@ -887,27 +886,29 @@ class TestFormContractGuards:
 
 class TestVerbalizeFormFlow:
     @pytest.mark.asyncio
-    async def test_reject_then_clean_retry_uses_form_prompt(self):
+    async def test_reject_delivers_source_without_second_author(self):
+        """REMOVE-LEGACY-REPHRASING v2.0: узкая проверка видит потерю формы,
+        второго LLM-вызова (form-промпта) нет — доставляются исходные данные."""
         seen: list = []
 
         async def gen(messages):
             seen.append(messages[-1]["content"] if len(messages) > 1 else "")
-            return "13 штук" if len(seen) == 1 else "двенадцать штук"
+            return "13 штук"
 
         text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
             form_contract=FormContract(source_text="двенадцать штук"),
             fallback_text="двенадцать штук")
+        assert seen == [""]                          # ровно один вызов
         assert text == "двенадцать штук"
-        assert len(seen) == 2
-        assert seen[1] == FORM_GUARD_RETRY_SYSTEM_PROMPT
-        assert stats["form_retry"] is True
+        assert stats["form_retry"] is False
+        assert stats["form_fallback"] is True
         assert stats["form_guard_rejects"] == 1
-        assert stats["form_fallback"] is False
-        assert stats["attempts"] == 2 and stats["retries"] == 1
+        assert stats["attempts"] == 1 and stats["retries"] == 0
+        assert stats["semantic_rewrite_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_exhausted_bounded_retry_and_fallback_text(self):
+    async def test_reject_is_not_retried_at_any_budget(self):
         calls = []
 
         async def gen(messages):
@@ -918,15 +919,17 @@ class TestVerbalizeFormFlow:
             gen, [{"role": "user", "content": "x"}], max_retries=2,
             form_contract=FormContract(source_text="двенадцать штук"),
             fallback_text="двенадцать штук (проверенный)")
-        assert len(calls) == 2                      # ровно ≤1 form-повтор
+        assert len(calls) == 1                      # повторов нет вовсе
         assert text == "двенадцать штук (проверенный)"
         assert stats["form_fallback"] is True
         assert stats["fallback"] is True
-        assert stats["form_guard_rejects"] == 2
-        assert stats["retries"] == 1
+        assert stats["form_guard_rejects"] == 1
+        assert stats["retries"] == 0
 
     @pytest.mark.asyncio
-    async def test_no_fallback_text_degraded_best(self):
+    async def test_no_fallback_text_keeps_author_text_and_asks_clarification(self):
+        """Исходника нет: авторский текст остаётся как написан (никакой
+        подмены), а вызывающий видит ``needs_clarification``."""
         async def gen(messages):
             return "13 штук"
 
@@ -934,12 +937,16 @@ class TestVerbalizeFormFlow:
             gen, [{"role": "user", "content": "x"}],
             form_contract=FormContract(source_text="двенадцать штук"))
         assert text == "13 штук"
-        assert stats["form_fallback"] is True
+        assert stats["form_fallback"] is False
         assert stats["form_guard_reason"] == FORM_GUARD_REJECTED
+        assert stats["protected_facts_mismatch"] is True
+        assert stats["needs_clarification"] is True
+        assert stats["semantic_rewrite_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_form_ok_preferred_over_fewer_cliches(self):
-        replies = ["как ИИ 13", "подводя итог и в заключение avatar"]
+    async def test_first_candidate_is_delivered_when_form_ok(self):
+        """Второй вариант не запрашивается даже если бы был «чище»."""
+        replies = ["подводя итог и в заключение avatar", "как ИИ"]
 
         async def gen(messages):
             return replies.pop(0)
@@ -947,9 +954,9 @@ class TestVerbalizeFormFlow:
         text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}], max_retries=1,
             form_contract=FormContract(source_text="avatar"))
-        # второй вариант form-ok (имя avatar из source), хотя клише больше
         assert text == "подводя итог и в заключение avatar"
-        assert stats["form_guard_rejects"] >= 1
+        assert stats["form_guard_rejects"] == 0
+        assert stats["cliche_observed"]                  # стиль — наблюдение
 
     @pytest.mark.asyncio
     async def test_k4_off_ignores_contract_and_stats_parity(self, monkeypatch):
@@ -969,6 +976,7 @@ class TestVerbalizeFormFlow:
         assert stats == {"attempts": 1, "retries": 0, "hits": [],
                          "fallback": False, "retry_error": False,
                          "enabled": True, "anti_cliche_retries": 0,
+                         "semantic_rewrite_count": 0,
                          "cliche_observed": []}
 
     @pytest.mark.asyncio
@@ -982,6 +990,7 @@ class TestVerbalizeFormFlow:
         assert stats == {"attempts": 1, "retries": 0, "hits": [],
                          "fallback": False, "retry_error": False,
                          "enabled": True, "anti_cliche_retries": 0,
+                         "semantic_rewrite_count": 0,
                          "cliche_observed": []}
 
     @pytest.mark.asyncio
@@ -1007,7 +1016,7 @@ class TestVerbalizeFormFlow:
 
 class TestPostprocessDirectIntegration:
     @pytest.mark.asyncio
-    async def test_reject_retry_and_event(self, monkeypatch):
+    async def test_reject_and_event_without_second_author(self, monkeypatch):
         import services.direct_chat_service as dcs
         calls = _events(monkeypatch)
         svc = dcs.DirectChatService.__new__(dcs.DirectChatService)
@@ -1016,7 +1025,9 @@ class TestPostprocessDirectIntegration:
             _SYNTH_JSON, "тринадцать 13 штук", "двенадцать штук, красиво"])
         text, _mode = await svc._synthesize_direct_answer(
             1, "q", _tool_raw(text="двенадцать штук"), None)
-        assert text == "двенадцать штук, красиво"
+        # второго литературного автора нет: доставляется исходный черновик
+        assert text == "двенадцать штук"
+        assert svc.llm.generate.await_count == 2      # stage1 + один stage2
         form_events = [c for c in calls if c["event_name"] == "postprocess_form"]
         assert len(form_events) == 1
         assert form_events[0]["reason_code"] == FORM_GUARD_REJECTED
