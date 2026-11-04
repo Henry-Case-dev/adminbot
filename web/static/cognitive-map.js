@@ -60,8 +60,30 @@
   var DEFAULTS = {
     maxLabels: 26,        // §5 контракта: существующий maxVisible = 26
     mobileMaxLabels: 12,  // §5: визуальная константа мобильного режима
-    overviewScale: 0.55,  // ниже — LOD overview: только приоритетные подписи
-    detailScale: 1.2,     // начиная отсюда — detail: все места под подписи
+    // §4.2 контракта: пороги LOD заданы ОТНОСИТЕЛЬНО обзора (r = scale/fit):
+    // T1 = 0.85 (L0↔L1), T2 = 1.80 (L1↔L2), полоса гистерезиса δ = 0.12.
+    overviewScale: 0.85,
+    detailScale: 1.8,
+    lod: {
+      t1: 0.85,
+      t2: 1.8,
+      delta: 0.12,
+      // §5.2 спеки: уровень 0 — «r < ~0.85, С КОРРЕКТИРОВКОЙ ПО ПЛОТНОСТИ».
+      // Плотный кадр (702 узла в короткой широкой сцене) при r ≈ 1 физически
+      // является обзором: ядер больше, чем различимых мест. Порог задан
+      // числом ВИДИМЫХ узлов на 100 000 CSS-px², выход — на 20 % ниже
+      // (свой гистерезис, чтобы плотность не мигала на границе).
+      denseNodes: 240,       // мелкий набор всегда читаем поштучно
+      densePer100k: 60,      // вход в обзор по плотности
+      denseExitRatio: 0.8,   // выход из него (48/100k)
+      // Плотностная поправка действует только в кадре ОБЗОРА (r ≈ 1): как
+      // только пользователь приблизился, уровень определяется масштабом.
+      // Иначе при движении внутрь плотного кольца уровень возвращался бы в 0.
+      denseMaxRatio: 1.05,
+      // §5.2 L0: кроме центров групп видны ключевые одиночные узлы.
+      topKCap: 40,           // K = min(40, ⌈nodes/12⌉)
+      topKDiv: 12,
+    },
     padding: 3,
     fontSize: 11,
     maxLabelChars: 34,
@@ -80,16 +102,22 @@
    * своя форма, размер и строка легенды. `legend: true` — только четыре
    * класса, названные владельцем (Факты/Убеждения/Парадигмы/Изменения);
    * сущности и наблюдения — контекст, их строки легенды вторичны. */
+  /* CMV-C: палитра/формы — ровно спека §4.1 (таблица типов), те же hex, что
+   * рисует сцена (`CogVisual.CONFIG.spec`) и что подписаны в CSS-легенде
+   * (`.cog-legend__swatch--*`). Раньше здесь был другой набор оттенков, и
+   * легенда обещала цвета, которых на канвасе не было. `box` у сущностей
+   * запрещён спекой (крупные серые прямоугольники): сфера = `sphere` + декор
+   * ядра в слое `fx`. Размеры совпадают с `CONFIG.baseDiameter` (`cog-visual`). */
   var KIND_STYLE = {
-    fact: { color: '#38bdf8', shape: 'dot', size: 13, legend: true },
-    belief: { color: '#a78bfa', shape: 'rounded', size: 15, legend: true },
-    paradigm: { color: '#818cf8', shape: 'hexagon', size: 22, legend: true },
-    evolution_event: { color: '#f59e0b', shape: 'diamond', size: 13,
+    fact: { color: '#32C8F3', shape: 'dot', size: 14, legend: true },
+    belief: { color: '#A77BFF', shape: 'dotRing', size: 18, legend: true },
+    paradigm: { color: '#728CFF', shape: 'hexagon', size: 22, legend: true },
+    evolution_event: { color: '#FFB84D', shape: 'diamond', size: 13,
       legend: true },
-    observation: { color: '#d97706', shape: 'diamond', size: 10,
+    observation: { color: '#D97706', shape: 'diamondDim', size: 10,
       legend: false },
-    entity: { color: '#94a3b8', shape: 'box', size: 11, legend: false },
-    other: { color: '#64748b', shape: 'dot', size: 10, legend: false },
+    entity: { color: '#9FB4CE', shape: 'sphere', size: 11, legend: false },
+    other: { color: '#64748B', shape: 'dotNeutral', size: 9, legend: false },
   };
   // Порядок строк легенды = порядок слов владельца (ТЗ 1285).
   var LEGEND_ORDER = ['fact', 'belief', 'paradigm', 'evolution_event'];
@@ -637,6 +665,534 @@
     return out;
   }
 
+  var GROUP_NEUTRAL_LABEL = 'Группа';
+
+  /* ── агрегаты уровня 0 (CMV-C): центры реальных групп ─────────────────── */
+
+  /* buildAggregates(opts) -> {groups, flows, total, grouped, singles}
+   *
+   * §5.2 спеки (уровень 0): «на экране видны светящиеся центры настоящих
+   * групп/агрегатов и ключевые отдельные узлы», «любой агрегат маркируется как
+   * визуальное объединение с РЕАЛЬНЫМ количеством исходных элементов», «двойной
+   * клик по группе переводит к её реальным участникам», §12.1 — «с первого
+   * взгляда видно несколько пространственно отделённых групп/центров».
+   *
+   * Что здесь считается:
+   *   * область, занятая узлами витрины, делится на тайлы (~`tileCss` CSS-px при
+   *     обзоре, в СЕТЕВЫХ координатах, поэтому панорамирование и зум не меняют
+   *     группировку). Тайл — визуальный «район» карты, а не семантическое
+   *     сообщество: имя темы не выдумывается;
+   *   * в группу попадают РЕАЛЬНЫЕ узлы: `memberIds` (отсортированы), `apexId`
+   *     (самый связный реальный узел — якорь фокуса), `count`;
+   *   * сумма `count` по группам равна числу размещённых узлов — агрегаты не
+   *     теряют и не добавляют элементы;
+   *   * `componentCount` показывает, сколько НАСТОЯЩИХ компонент (`computeClusters`
+   *     по принятым рёбрам) попало в район — честная метрика вместо догадки;
+   *   * подпись: реальный тип, если район однороден (≥80 %), реальное название
+   *     парадигмы, если она доминирует, иначе нейтральное «Группа»;
+   *   * `flows` — РЕАЛЬНЫЕ рёбра между разными районами (число связей, не оценка).
+   *
+   * opts: {nodes, edges, positions, fitScale, camera, viewport, tileCss, maxCols,
+   *        maxRows, minMembers, maxGroups, radius, hideFrom, centerGap,
+   *        centerPasses, centerMaxShift}
+   * Чистая функция: порядок задаётся сортировкой, состояние модуля не читается,
+   * Math.random/Date не используются.
+   */
+  function buildAggregates(opts) {
+    opts = opts || {};
+    var nodes = Array.isArray(opts.nodes) ? opts.nodes : [];
+    var edges = Array.isArray(opts.edges) ? opts.edges : [];
+    var positions = (opts.positions && typeof opts.positions === 'object')
+      ? opts.positions : {};
+    var fitScale = numberOr(opts.fitScale, 0);
+    var tileCss = numberOr(opts.tileCss, 220);
+    var maxCols = numberOr(opts.maxCols, 6);
+    var maxRows = numberOr(opts.maxRows, 4);
+    var minMembers = numberOr(opts.minMembers, 6);
+    var maxGroups = numberOr(opts.maxGroups, 24);
+    var hideFrom = numberOr(opts.hideFrom, 8);
+    var rCfg = opts.radius || {};
+    var camera = opts.camera || { x: 0, y: 0, scale: 1 };
+    var viewport = opts.viewport || { width: 0, height: 0 };
+    var camScale = numberOr(camera.scale, 1);
+    if (!(camScale > 0)) camScale = 1;
+    var width = numberOr(viewport.width, 0);
+    var height = numberOr(viewport.height, 0);
+    var empty = { groups: [], flows: [], total: 0, grouped: 0, singles: 0 };
+    if (!nodes.length) return empty;
+
+    // Позиции — единственный геометрический вход. Узел без позиции не
+    // агрегируется (его и не видно): честный пропуск, а не «центр в нуле».
+    var placed = [];
+    var byId = {};
+    var minX = Infinity;
+    var minY = Infinity;
+    var maxX = -Infinity;
+    var maxY = -Infinity;
+    var i;
+    for (i = 0; i < nodes.length; i += 1) {
+      var node = nodes[i];
+      if (!node || node.id === undefined) continue;
+      var p = positions[String(node.id)];
+      if (!p || numberOrNull(p.x) === null || numberOrNull(p.y) === null) continue;
+      var rec = {
+        id: String(node.id), kind: node.kind || 'other',
+        title: typeof node.title === 'string' ? node.title : '',
+        degree: numberOr(node.degree, 0), x: p.x, y: p.y,
+      };
+      placed.push(rec);
+      byId[rec.id] = rec;
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    if (!placed.length) return empty;
+    // Компоненты по РЕАЛЬНЫМ рёбрам — метрика честности района, не его границы.
+    var comps = computeClusters({
+      nodes: placed.map(function (n) {
+        return { id: n.id, kind: n.kind, title: n.title };
+      }),
+      edges: edges,
+    });
+    var compOf = {};
+    for (i = 0; i < comps.length; i += 1) {
+      var comp = comps[i];
+      for (var c = 0; c < comp.nodeIds.length; c += 1) {
+        compOf[comp.nodeIds[c]] = comp.id;
+      }
+    }
+
+    // Тайлинг занятой площади в сетевых координатах (стабилен при движении
+    // камеры). Число тайлов — по размеру области при обзоре, с потолками.
+    var spanX = Math.max(0, maxX - minX);
+    var spanY = Math.max(0, maxY - minY);
+    var tileNet = (fitScale > 0) ? (tileCss / fitScale) : tileCss;
+    if (!(tileNet > 0)) tileNet = 1;
+    var cols = Math.ceil(spanX / tileNet);
+    var rows = Math.ceil(spanY / tileNet);
+    if (!(cols >= 1)) cols = 1;
+    if (!(rows >= 1)) rows = 1;
+    cols = Math.min(Math.max(cols, 1), Math.max(1, maxCols));
+    rows = Math.min(Math.max(rows, 1), Math.max(1, maxRows));
+    var tileW = spanX > 0 ? spanX / cols : 1;
+    var tileH = spanY > 0 ? spanY / rows : 1;
+
+    var buckets = {};
+    var bucketKeys = [];
+    for (i = 0; i < placed.length; i += 1) {
+      var item = placed[i];
+      var gx = Math.min(cols - 1, Math.floor((item.x - minX) / tileW));
+      var gy = Math.min(rows - 1, Math.floor((item.y - minY) / tileH));
+      if (gx < 0) gx = 0;
+      if (gy < 0) gy = 0;
+      var key = gy + ':' + gx;
+      var bucket = buckets[key];
+      if (!bucket) {
+        bucket = buckets[key] = { key: key, nodeIds: [],
+          sx: 0, sy: 0, count: 0 };
+        bucketKeys.push(key);
+      }
+      bucket.nodeIds.push(item.id);
+      bucket.sx += item.x;
+      bucket.sy += item.y;
+      bucket.count += 1;
+    }
+    var merged = [];
+    var small = [];
+    for (i = 0; i < bucketKeys.length; i += 1) {
+      var b = buckets[bucketKeys[i]];
+      b.cx = b.sx / b.count;
+      b.cy = b.sy / b.count;
+      b.nodeIds.sort();
+      if (b.count >= minMembers) merged.push(b);
+      else small.push(b);
+    }
+    function distTo(g2, x, y) {
+      var dx = g2.cx - x;
+      var dy = g2.cy - y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+    // Редкие районы приклеиваются к ближайшему: одиночный центр с подписью на
+    // один узел ничего не добавляет к обзору (сам узел и так виден).
+    for (i = 0; i < small.length; i += 1) {
+      var s2 = small[i];
+      var host = null;
+      var hostDist = Infinity;
+      for (var m = 0; m < merged.length; m += 1) {
+        var ds = distTo(merged[m], s2.cx, s2.cy);
+        if (ds < hostDist) { hostDist = ds; host = merged[m]; }
+      }
+      if (host) {
+        host.nodeIds = host.nodeIds.concat(s2.nodeIds);
+        host.nodeIds.sort();
+        host.count += s2.count;
+        host.sx += s2.sx;
+        host.sy += s2.sy;
+        host.cx = host.sx / host.count;
+        host.cy = host.sy / host.count;
+      } else {
+        merged.push(s2);
+      }
+    }
+    // Потолок числа районов: лишние (самые мелкие) вливаются в ближайший.
+    merged.sort(function (a, b3) {
+      return (b3.count - a.count)
+        || (a.key < b3.key ? -1 : (a.key > b3.key ? 1 : 0));
+    });
+    if (merged.length > maxGroups) {
+      var kept = merged.slice(0, maxGroups);
+      for (i = maxGroups; i < merged.length; i += 1) {
+        var extra = merged[i];
+        var near = null;
+        var nearDist = Infinity;
+        for (var q = 0; q < kept.length; q += 1) {
+          var dd = distTo(kept[q], extra.cx, extra.cy);
+          if (dd < nearDist) { nearDist = dd; near = kept[q]; }
+        }
+        near.nodeIds = near.nodeIds.concat(extra.nodeIds);
+        near.nodeIds.sort();
+        near.count += extra.count;
+        near.sx += extra.sx;
+        near.sy += extra.sy;
+        near.cx = near.sx / near.count;
+        near.cy = near.sy / near.count;
+      }
+      merged = kept;
+    }
+
+    var groups = [];
+    var grouped = 0;
+    var radiusBase = numberOr(rCfg.base, 10);
+    var radiusLog = numberOr(rCfg.perLog2, 3.4);
+    var radiusMin = numberOr(rCfg.min, 12);
+    var radiusMax = numberOr(rCfg.max, 46);
+    for (i = 0; i < merged.length; i += 1) {
+      var grp = merged[i];
+      var kinds = {};
+      var apex = null;
+      var titleCounts = {};
+      var groupComps = {};
+      for (var n = 0; n < grp.nodeIds.length; n += 1) {
+        var rec2 = byId[grp.nodeIds[n]];
+        if (!rec2) continue;
+        kinds[rec2.kind] = (kinds[rec2.kind] || 0) + 1;
+        groupComps[compOf[rec2.id] || '-'] = true;
+        if (!apex || rec2.degree > apex.degree
+            || (rec2.degree === apex.degree && rec2.id < apex.id)) {
+          apex = rec2;
+        }
+        // §5.2/§13: тема района — самая ЧАСТАЯ реальная парадигма, а не первая
+        // по алфавиту. Алфавитный выбор называл район произвольным заголовком:
+        // при трёх парадигмах без доминанты подпись выдавала одну из них за
+        // тему всего района.
+        if (rec2.kind === 'paradigm' && rec2.title) {
+          titleCounts[rec2.title] = (titleCounts[rec2.title] || 0) + 1;
+        }
+      }
+      var paradigmTitle = null;
+      var paradigmCount = 0;
+      var titleKeys = Object.keys(titleCounts).sort();
+      for (var tk = 0; tk < titleKeys.length; tk += 1) {
+        if (titleCounts[titleKeys[tk]] > paradigmCount) {
+          paradigmTitle = titleKeys[tk];
+          paradigmCount = titleCounts[titleKeys[tk]];
+        }
+      }
+      var paradigmShare = grp.count > 0 ? paradigmCount / grp.count : 0;
+      var dominantKind = null;
+      var bestCount = -1;
+      var kindKeys = Object.keys(kinds).sort();
+      for (var kk = 0; kk < kindKeys.length; kk += 1) {
+        var kd = kindKeys[kk];
+        var cnt = kinds[kd];
+        var prio = KIND_PRIORITY[kd] === undefined
+          ? KIND_PRIORITY.other : KIND_PRIORITY[kd];
+        if (cnt > bestCount) {
+          bestCount = cnt;
+          dominantKind = kd;
+        } else if (cnt === bestCount) {
+          var cur = KIND_PRIORITY[dominantKind] === undefined
+            ? KIND_PRIORITY.other : KIND_PRIORITY[dominantKind];
+          if (prio < cur) dominantKind = kd;
+        }
+      }
+      dominantKind = dominantKind || 'other';
+      var dominantShare = grp.count > 0
+        ? (kinds[dominantKind] || 0) / grp.count : 0;
+      // §5.2 спеки: название — только там, где оно РЕАЛЬНО известно и реально
+      // доминирует (однородный состав, тип ≥ 0.8 или парадигма с долей ≥ 0.6).
+      // Смешанный район получает НЕЙТРАЛЬНУЮ маркировку и честное число, а не
+      // выдуманную «тему» (§13).
+      var baseLabel;
+      if (dominantKind === 'paradigm' && paradigmTitle
+          && dominantShare >= 0.6 && paradigmShare >= 0.6) {
+        baseLabel = KIND_LABELS.paradigm + ': ' + paradigmTitle;
+      } else if (dominantShare >= 0.8) {
+        baseLabel = KIND_LABELS[dominantKind] || KIND_LABELS.other;
+      } else {
+        baseLabel = GROUP_NEUTRAL_LABEL;
+      }
+      var radius = radiusBase + radiusLog * Math.log(grp.count + 1) / Math.LN2;
+      if (!(radius > 0)) radius = radiusBase;
+      radius = Math.min(Math.max(radius, radiusMin), radiusMax);
+      var screenX = (grp.cx - numberOr(camera.x, 0)) * camScale + width / 2;
+      var screenY = (grp.cy - numberOr(camera.y, 0)) * camScale + height / 2;
+      grouped += grp.count;
+      groups.push({
+        // Стабильный, воспроизводимый id: якорь (реальный узел-лидер) + тайл.
+        id: 'agg:' + (apex ? apex.id : grp.nodeIds[0]) + ':' + grp.key,
+        apexId: apex ? apex.id : grp.nodeIds[0],
+        memberIds: grp.nodeIds,
+        count: grp.count,
+        tile: grp.key,
+        componentCount: Object.keys(groupComps).length,
+        kinds: kinds,
+        dominantKind: dominantKind,
+        dominantShare: dominantShare,
+        // Самая частая РЕАЛЬНАЯ парадигма района и её доля: подпись берёт
+        // название только при доминировании (см. baseLabel выше).
+        paradigmTitle: paradigmTitle,
+        paradigmShare: paradigmShare,
+        // Честная подпись: реальный тип/название + реальное число элементов.
+        label: baseLabel + ' · ' + grp.count,
+        x: grp.cx, y: grp.cy,
+        sx: screenX, sy: screenY,
+        radius: radius,
+        // Свёрнутая группа: её участники не рисуются поштучно (§5.2 L0).
+        hideMembers: grp.count >= hideFrom,
+      });
+    }
+    groups.sort(function (a, b4) {
+      return (b4.count - a.count) || (a.id < b4.id ? -1 : (a.id > b4.id ? 1 : 0));
+    });
+
+    // Центры агрегатов не могут стоять друг на друге (§6.2 спеки — то же
+    // правило, что для узлов; иначе «несколько отделённых групп» не видно, а
+    // подписи гарантированно конфликтуют). Разводятся ТОЛЬКО центры нашего
+    // слоя: позиции реальных узлов не меняются, камера не двигается.
+    // Каждый проход заканчивается прижатием к кадру, поэтому центры никогда не
+    // «выдавливаются» за границу и не схлопываются обратно у кромки.
+    var sepGap = numberOr(opts.centerGap, 10);
+    var sepPasses = numberOr(opts.centerPasses, 32);
+    var sepMaxShift = numberOr(opts.centerMaxShift,
+      Math.min(width, height) * 0.5);
+    var startX = [];
+    var startY = [];
+    for (i = 0; i < groups.length; i += 1) {
+      startX.push(groups[i].sx);
+      startY.push(groups[i].sy);
+    }
+    function clampToFrame(g2) {
+      if (!(width > 0 && height > 0)) return;
+      var padX = Math.max(2, Math.min(width / 2 - 1, (g2.radius || 0) + 4));
+      var padY = Math.max(2, Math.min(height / 2 - 1, (g2.radius || 0) + 4));
+      var nx = Math.min(Math.max(g2.sx, padX), width - padX);
+      var ny = Math.min(Math.max(g2.sy, padY), height - padY);
+      g2.sx = nx;
+      g2.sy = ny;
+    }
+    if (width > 0 && height > 0) {
+      for (i = 0; i < groups.length; i += 1) clampToFrame(groups[i]);
+    }
+    for (var pass = 0; pass < sepPasses; pass += 1) {
+      var shifted = false;
+      for (var pa = 0; pa < groups.length; pa += 1) {
+        for (var pb = pa + 1; pb < groups.length; pb += 1) {
+          var ga = groups[pa];
+          var gb = groups[pb];
+          var ddx = gb.sx - ga.sx;
+          var ddy = gb.sy - ga.sy;
+          var dist = Math.sqrt(ddx * ddx + ddy * ddy);
+          var need = (ga.radius || 0) + (gb.radius || 0) + sepGap;
+          if (dist >= need) continue;
+          if (dist < 0.001) {
+            // Совпавшие центры разводятся по детерминированному направлению
+            // (никакой случайности): угол зависит только от индексов пары.
+            var ang = ((pa * 37 + pb * 11) % 360) * Math.PI / 180;
+            ddx = Math.cos(ang);
+            ddy = Math.sin(ang);
+            dist = 1;
+          }
+          var deficit = (need - dist) / 2;
+          var ux = ddx / dist;
+          var uy = ddy / dist;
+          ga.sx -= ux * deficit;
+          ga.sy -= uy * deficit;
+          gb.sx += ux * deficit;
+          gb.sy += uy * deficit;
+          shifted = true;
+        }
+      }
+      if (width > 0 && height > 0) {
+        for (i = 0; i < groups.length; i += 1) clampToFrame(groups[i]);
+      }
+      if (!shifted) break;
+    }
+    for (i = 0; i < groups.length; i += 1) {
+      var mvx = groups[i].sx - startX[i];
+      var mvy = groups[i].sy - startY[i];
+      var mlen = Math.sqrt(mvx * mvx + mvy * mvy);
+      if (mlen > sepMaxShift && mlen > 0) {
+        mvx *= sepMaxShift / mlen;
+        mvy *= sepMaxShift / mlen;
+        groups[i].sx = startX[i] + mvx;
+        groups[i].sy = startY[i] + mvy;
+        if (width > 0 && height > 0) clampToFrame(groups[i]);
+      }
+      groups[i].shifted = !!(mvx || mvy);
+      if (groups[i].shifted) {
+        // Сетевые координаты центра пересчитываются из экранных: hit-test
+        // раскрытия и отрисовка работают в одной системе.
+        if (camScale > 0) {
+          groups[i].x = (groups[i].sx - width / 2) / camScale
+            + numberOr(camera.x, 0);
+          groups[i].y = (groups[i].sy - height / 2) / camScale
+            + numberOr(camera.y, 0);
+        }
+      }
+    }
+
+    // Потоки между центрами = РЕАЛЬНЫЕ рёбра между участниками разных групп.
+    var groupOf = {};
+    for (i = 0; i < groups.length; i += 1) {
+      for (var gm = 0; gm < groups[i].memberIds.length; gm += 1) {
+        groupOf[groups[i].memberIds[gm]] = groups[i].id;
+      }
+    }
+    var flowMap = {};
+    var flowKeys = [];
+    for (i = 0; i < edges.length; i += 1) {
+      var e = edges[i];
+      if (!e) continue;
+      var fromGroup = groupOf[String(e.from)];
+      var toGroup = groupOf[String(e.to)];
+      if (!fromGroup || !toGroup || fromGroup === toGroup) continue;
+      var fkey = fromGroup < toGroup
+        ? fromGroup + '>' + toGroup : toGroup + '>' + fromGroup;
+      if (flowMap[fkey] === undefined) {
+        flowMap[fkey] = {
+          from: fromGroup < toGroup ? fromGroup : toGroup,
+          to: fromGroup < toGroup ? toGroup : fromGroup,
+          count: 0,
+        };
+        flowKeys.push(fkey);
+      }
+      flowMap[fkey].count += 1;
+    }
+    flowKeys.sort();
+    var flows = [];
+    for (i = 0; i < flowKeys.length; i += 1) flows.push(flowMap[flowKeys[i]]);
+
+    return {
+      groups: groups,
+      flows: flows,
+      total: placed.length,
+      grouped: grouped,
+      singles: placed.length - grouped,
+    };
+  }
+
+
+  /* lodFor(r, prev, opts) -> 0 | 1 | 2
+   *
+   * Контракт §4.2 (формула заморожена), спека §5.1/§5.2:
+   *   r = getScale() / fitScaleRef, T1 = 0.85, T2 = 1.80, δ = 0.12.
+   * Подъём через порог — по ЗАВЫШЕННОМУ значению T·(1+δ), возврат — по
+   * заниженному T·(1−δ); зона нечувствительности на границе 24 % по r, поэтому
+   * дрожание колеса/пинча у порога не мигает.
+   *
+   * Дополнительно — «корректировка по плотности» из §5.2 спеки: плотный кадр
+   * (density ≥ opts.densePer100k видимых узлов на 100 000 CSS-px²) читается как
+   * уровень 0 даже при r ≈ 1 (fit на 702 узлах — это физически обзор, а не
+   * рабочий вид). Плотностная поправка имеет ДВЕ полосы: по r (вход в обзор —
+   * до denseMax, выход — только выше denseMax·(1+δ)) и по плотности (вход 60,
+   * выход 48 узлов на 100k). Вместе они дают мёртвую зону у всех границ, поэтому
+   * дрожание колеса/щипка и колебания числа видимых узлов не переключают уровень.
+   * Детальный уровень (r ≥ T2·(1+δ)) приоритетнее плотности всегда: приближение
+   * пользователя не отменяется.
+   *
+   * Функция чистая: `prev` — предыдущий уровень (память гистерезиса), никакого
+   * состояния модуля, никаких Date/Math.random.
+   */
+  function lodFor(r, prev, opts) {
+    opts = opts || {};
+    var cfg = opts.cfg || DEFAULTS.lod;
+    var t1 = numberOr(cfg.t1, DEFAULTS.lod.t1);
+    var t2 = numberOr(cfg.t2, DEFAULTS.lod.t2);
+    var d = numberOr(cfg.delta, DEFAULTS.lod.delta);
+    var rise1 = t1 * (1 + d);
+    var fall1 = t1 * (1 - d);
+    var rise2 = t2 * (1 + d);
+    var fall2 = t2 * (1 - d);
+    var p = Math.round(clampNumber(
+      (prev === undefined || prev === null) ? 1 : prev, 0, 2));
+    var value = numberOr(r, 1);
+    if (!(value >= 0)) value = 0;          // NaN/отрицательный масштаб — обзор
+    var nodes = numberOr(opts.nodes, 0);
+    var density = numberOr(opts.density, null);
+    var denseNodes = numberOr(cfg.denseNodes, DEFAULTS.lod.denseNodes);
+    var densePer100k = numberOr(cfg.densePer100k, DEFAULTS.lod.densePer100k);
+    var denseMax = numberOr(cfg.denseMaxRatio, DEFAULTS.lod.denseMaxRatio);
+    // Полоса r для плотностной поправки: ВХОД в обзор по плотности — не выше
+    // denseMax, ВЫХОД из него — только выше denseMax·(1+δ). Мёртвая полоса по r
+    // (12 %) гасит дрожание колеса/щипка у границы: уйти из обзора и вернуться
+    // в него можно только с запасом, а не от каждого события ±1.5 % (§5.1).
+    var denseInRatio = denseMax;
+    var denseOutRatio = denseMax * (1 + d);
+    // Плотность учитывается только на большом наборе: мелкий граф всегда читаем
+    // поштучно. «Плотно» и «уже не плотно» разведены коэффициентом
+    // denseExitRatio — у самой плотности своя 20 % полоса гистерезиса.
+    var denseMeasured = nodes >= denseNodes && density !== null;
+    var denseIn = denseMeasured && density >= densePer100k;
+    var denseOut = !denseMeasured
+      || density < densePer100k * numberOr(cfg.denseExitRatio,
+        DEFAULTS.lod.denseExitRatio);
+    // 1. Детальный уровень: приближение пользователя важнее плотности.
+    if (value >= rise2) return 2;
+    if (p === 2) {
+      if (value >= fall2) return 2;
+      return (value < fall1) ? 0 : 1;
+    }
+    // 2. Обзор: по r с гистерезисом ИЛИ по плотности кадра (§5.2 спеки).
+    if (p === 0) {
+      // r вышел за верхнюю границу плотностной полосы — пользователь
+      // приближается, обзор снят масштабом.
+      if (value > denseOutRatio) return 1;
+      // r за порогом T1·(1+δ): обзор держится, только пока кадр остаётся
+      // плотным. Гистерезис плотности — выход ниже densePer100k·denseExitRatio
+      // (`denseOut`), а не на самой границе входа: иначе обзор мигал бы от
+      // каждого изменения числа видимых узлов.
+      if (value >= rise1 && denseOut) return 1;
+      return 0;
+    }
+    // p === 1
+    if (value < fall1) return 0;
+    // В плотный обзор возвращаемся только внутри полосы входа (r ≤ denseMax):
+    // между denseMax и denseMax·(1+δ) уровень остаётся рабочим.
+    if (denseIn && value <= denseInRatio) return 0;
+    return 1;
+  }
+
+  /* lodNodesOnScreen(nodes, width, height) -> плотность «узлов на 100k px²».
+   * Чистая арифметика: сцена не измерена (0×0) — плотность 0 (не обзор). */
+  function lodDensity(count, width, height) {
+    var w = numberOr(width, 0);
+    var h = numberOr(height, 0);
+    var n = numberOr(count, 0);
+    if (w <= 0 || h <= 0 || n <= 0) return 0;
+    return (n * 100000) / (w * h);
+  }
+
+  /* lodTopK(nodeCount, cfg) -> сколько ключевых одиночных узлов видно на L0.
+   * Контракт §4.3: K = min(40, ⌈nodes/12⌉). */
+  function lodTopK(nodeCount, cfg) {
+    var c = cfg || DEFAULTS.lod;
+    var n = numberOr(nodeCount, 0);
+    if (n <= 0) return 0;
+    var byDiv = Math.ceil(n / numberOr(c.topKDiv, DEFAULTS.lod.topKDiv));
+    return Math.min(numberOr(c.topKCap, DEFAULTS.lod.topKCap), byDiv);
+  }
 
   /* ── камера ──────────────────────────────────────────────────────────── */
 
@@ -699,10 +1255,35 @@
       && Math.abs(a.y - b.y) * 2 < (a.height + b.height + pad * 2);
   }
 
+  /* Порядок приоритета подписи (§4.4 спеки, §5.4 контракта):
+   * выбранный → найденный поиском → hover → соседи выбранного → агрегат →
+   * тип/степень → остальные. Ранг задаётся ЯВНО полем элемента, а не выводится
+   * из «случайно совпавших» признаков: аллокатор не может «забыть» выбранный
+   * узел и подписать вместо него соседний (§4.4 спеки).
+   * Ранг 5 — обычный узел: дальше решают тип и степень (как раньше). */
+  var LABEL_RANK = {
+    selected: 0, search: 1, hover: 2, neighbor: 3, group: 4, other: 5,
+  };
+
+  function labelRankOf(item) {
+    if (!item) return LABEL_RANK.other;
+    // Явный числовой ранг от вызывающего: LOD-политика уровня (например, на
+    // уровне 0 центры групп важнее ЛЮБОЙ подписи узла) задаётся снаружи, а
+    // значения по умолчанию остаются детерминированными.
+    var explicit = numberOrNull(item.rank);
+    if (explicit !== null) return explicit;
+    if (item.selected === true) return LABEL_RANK.selected;
+    if (item.search === true) return LABEL_RANK.search;
+    if (item.hover === true) return LABEL_RANK.hover;
+    if (item.neighbor === true) return LABEL_RANK.neighbor;
+    if (item.group === true) return LABEL_RANK.group;
+    return LABEL_RANK.other;
+  }
+
   function labelPriority(item) {
     var weight = KIND_PRIORITY[item.kind];
     return {
-      selected: item.selected === true ? 0 : 1,
+      rank: labelRankOf(item),
       kind: weight === undefined ? KIND_PRIORITY.other : weight,
       degree: -numberOr(item.degree, 0),
       length: (typeof item.title === 'string' ? item.title : '').length,
@@ -713,7 +1294,7 @@
   function comparePriority(a, b) {
     var pa = labelPriority(a);
     var pb = labelPriority(b);
-    if (pa.selected !== pb.selected) return pa.selected - pb.selected;
+    if (pa.rank !== pb.rank) return pa.rank - pb.rank;
     if (pa.kind !== pb.kind) return pa.kind - pb.kind;
     if (pa.degree !== pb.degree) return pa.degree - pb.degree;
     if (pa.length !== pb.length) return pa.length - pb.length;
@@ -768,7 +1349,8 @@
         totalChars += text.length;
         counted += 1;
       }
-      if (item.selected === true || item.kind === 'paradigm') mandatory += 1;
+      if (item.selected === true || item.search === true
+          || item.hover === true || item.kind === 'paradigm') mandatory += 1;
     }
     var fill = mobile ? 0.04 : 0.05;
     var viewport = opts.viewport && typeof opts.viewport === 'object'
@@ -843,7 +1425,12 @@
       placeable.push({
         id: item.id, x: x, y: y, kind: item.kind,
         title: item.title, degree: item.degree,
+        rank: numberOrNull(item.rank),
         selected: item.selected === true,
+        search: item.search === true,
+        hover: item.hover === true,
+        neighbor: item.neighbor === true,
+        group: item.group === true,
       });
     }
     placeable.sort(comparePriority);
@@ -893,6 +1480,9 @@
       labels.push({
         id: box.id, x: box.x, y: box.y, text: box.text,
         width: box.width, height: box.height,
+        group: candidate.group === true,
+        selected: candidate.selected === true,
+        rank: labelPriority(candidate).rank,
         priority: labelPriority(candidate),
       });
     }
@@ -943,6 +1533,87 @@
       boxArea: plan.boxArea,
       mandatory: plan.mandatory,
       scale: scale,
+    };
+  }
+
+  /* ── счётчики: четыре РАЗНЫЕ величины (§9.9 спеки, §9.3 контракта) ─────── */
+
+  /* countSummary(opts) -> {
+   *   db:     {nodes, edges, known}   — всего в базе (сервер может не отдавать);
+   *   api:    {nodes, edges}          — принято из API;
+   *   filter: {nodes, edges, ofNodes, ofEdges} — видимо после фильтра;
+   *   screen: {nodes, edges, aggregates, aggregated, collapsed, total}
+   * }
+   *
+   * Спека §9.9: «различать общее в базе (если сервер отдаёт), полученное с API,
+   * видимое в текущем фильтре, агрегированное на экране. Не смешивать».
+   * Поэтому «всего в БД» не оценивается: если сервер не отдал — `known:false`,
+   * а не «примерно столько же» (§9.3 контракта); `screen.nodes` — то, что
+   * различимо поштучно, `screen.aggregated` — сколько исходных элементов
+   * свёрнуто в агрегаты (у них на экране честное число).
+   */
+  function countSummary(opts) {
+    opts = opts || {};
+    var model = opts.model || {};
+    var view = opts.view || {};
+    var scene = opts.scene || null;
+    var apiNodes = Array.isArray(model.nodes) ? model.nodes.length : 0;
+    var apiEdges = Array.isArray(model.edges) ? model.edges.length : 0;
+    var viewNodes = Array.isArray(view.nodes) ? view.nodes.length : 0;
+    var viewEdges = Array.isArray(view.edges) ? view.edges.length : 0;
+    var shown = model.shownOf || null;
+    var dbNodes = null;
+    var dbEdges = null;
+    if (shown && typeof shown === 'object') {
+      // Приоритет — прямой итог сервера (`totals.nodes`), а не сумма по классам:
+      // сумма охватывает только классы с известным total и занижала бы «в БД».
+      var directNodes = numberOrNull(shown.totals && shown.totals.nodes);
+      var directEdges = numberOrNull(shown.totals && shown.totals.edges);
+      if (directNodes !== null && directNodes > 0) dbNodes = directNodes;
+      if (directEdges !== null && directEdges > 0) dbEdges = directEdges;
+      if (dbNodes === null) {
+        var totalNodes = 0;
+        var anyNodes = false;
+        var byKind = shown.byKind || {};
+        for (var kind in byKind) {
+          if (!Object.prototype.hasOwnProperty.call(byKind, kind)) continue;
+          var total = numberOrNull(byKind[kind] && byKind[kind].total);
+          if (total === null || total <= 0) continue;
+          totalNodes += total;
+          anyNodes = true;
+        }
+        if (anyNodes) dbNodes = totalNodes;
+      }
+    }
+    var aggregates = (scene && Array.isArray(scene.aggregates))
+      ? scene.aggregates : [];
+    var aggregated = 0;
+    var collapsed = 0;
+    var i;
+    for (i = 0; i < aggregates.length; i += 1) {
+      var g = aggregates[i];
+      aggregated += numberOr(g && g.count, 0);
+      if (g && g.hideMembers === true) collapsed += 1;
+    }
+    var singleVisible = Math.max(0, viewNodes - aggregated);
+    return {
+      db: {
+        nodes: dbNodes, edges: dbEdges,
+        known: dbNodes !== null || dbEdges !== null,
+      },
+      api: { nodes: apiNodes, edges: apiEdges },
+      filter: {
+        nodes: viewNodes, edges: viewEdges,
+        ofNodes: apiNodes, ofEdges: apiEdges,
+      },
+      screen: {
+        nodes: singleVisible,
+        edges: viewEdges,
+        aggregates: aggregates.length,
+        aggregated: aggregated,
+        collapsed: collapsed,
+        total: singleVisible + aggregated,
+      },
     };
   }
 
@@ -1458,8 +2129,17 @@
     labelText: labelText,
     measureLabel: measureLabel,
     boxesOverlap: boxesOverlap,
+    LABEL_RANK: LABEL_RANK,
+    labelRankOf: labelRankOf,
+    GROUP_NEUTRAL_LABEL: GROUP_NEUTRAL_LABEL,
     labelPriority: labelPriority,
     labelBudget: labelBudget,
     allocateLabels: allocateLabels,
+    // CMV-C: LOD (гистерезис §4.2), агрегаты уровня 0 (§5.2), счётчики §9.9.
+    lodFor: lodFor,
+    lodDensity: lodDensity,
+    lodTopK: lodTopK,
+    buildAggregates: buildAggregates,
+    countSummary: countSummary,
   };
 });

@@ -1575,9 +1575,33 @@
     .ribbon-empty__reason {
       font-size: .66rem; color: #64748b; margin-top: 5px;
     }
+    /* ═══ EPIC-CM-VISUAL-01 (CMV-B): сцена как тёмная область со свечением ═══
+       Спека §4.4/§2.1 (CMV-EMB-03/04): собственный тёмный фон, очень слабое
+       радиальное подсвечивание областей, деликатная внутренняя граница 1 px и
+       скругление в стиле приложения. Слой `fx` (ореолы/импульсы/подписи) — над
+       vis-canvas и без перехвата кликов: порядок «фон → атмосфера → связи →
+       узлы → подписи → выделение». `backdrop-filter` на сцене запрещён (§10.4). */
     .cognition-graph {
+      position: relative; isolation: isolate; overflow: hidden;
       height: 320px; width: 100%; border: 1px solid rgba(255,255,255,.08);
-      border-radius: 10px; background: rgba(0,0,0,.18);
+      border-radius: 10px;
+      background-color: #070a12;
+      background-image:
+        radial-gradient(58% 62% at 22% 18%,
+          rgba(114,140,255,.10) 0%, rgba(114,140,255,0) 70%),
+        radial-gradient(52% 58% at 78% 74%,
+          rgba(50,200,243,.08) 0%, rgba(50,200,243,0) 72%),
+        radial-gradient(46% 52% at 62% 24%,
+          rgba(167,123,255,.07) 0%, rgba(167,123,255,0) 74%);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+    .cognition-graph > .vis-network { background: transparent; }
+    /* Декоративный слой сцены: только чтение. `pointer-events:none` обязателен —
+       клики/зум/перетаскивание остаются у vis-network (§6 контракта). */
+    .cog-fx {
+      position: absolute; inset: 0; z-index: 2;
+      width: 100%; height: 100%;
+      pointer-events: none;
     }
     /* ═══ EVOL-COG-MAP (W7-S2): легенда и честные состояния ═══════════════
        Легенда обязательна (ТЗ 1285) и объясняет визуальную систему без
@@ -1597,28 +1621,39 @@
       width: 10px; height: 10px; flex: 0 0 10px;
       background: #94a3b8; box-shadow: 0 0 6px rgba(148,163,184,.35);
     }
-    /* Форма — второй различитель помимо цвета (ТЗ 1280). */
+    /* Форма — второй различитель помимо цвета (ТЗ 1280).
+       Палитра — спека §4.1 (те же hex, что рисует сцена: `CogVisual.CONFIG.spec`),
+       иначе легенда обещала бы одни цвета, а карта показывала другие. */
     .cog-legend__swatch--fact {
-      background: #38bdf8; border-radius: 50%;
-      box-shadow: 0 0 6px rgba(56,189,248,.45);
+      background: #32C8F3; border-radius: 50%;
+      box-shadow: 0 0 6px rgba(50,200,243,.45);
     }
+    /* Убеждения — круг с внутренним кольцом (двойной контур на 10 px). */
     .cog-legend__swatch--belief {
-      background: #a78bfa; border-radius: 3px;
-      box-shadow: 0 0 6px rgba(167,139,250,.45);
+      background: transparent; border-radius: 50%;
+      border: 2px solid #A77BFF;
+      box-shadow: 0 0 6px rgba(167,123,255,.45),
+        inset 0 0 0 1px rgba(167,123,255,.55);
     }
     .cog-legend__swatch--paradigm {
-      background: #818cf8; width: 12px; height: 12px; flex: 0 0 12px;
+      background: #728CFF; width: 12px; height: 12px; flex: 0 0 12px;
       clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
-      box-shadow: 0 0 8px rgba(129,140,248,.55);
+      box-shadow: 0 0 8px rgba(114,140,255,.55);
     }
     .cog-legend__swatch--evolution_event,
     .cog-legend__swatch--observation {
-      background: #f59e0b; transform: rotate(45deg); border-radius: 1px;
-      box-shadow: 0 0 6px rgba(245,158,11,.45);
+      background: #FFB84D; transform: rotate(45deg); border-radius: 1px;
+      box-shadow: 0 0 6px rgba(255,184,77,.45);
     }
-    .cog-legend__swatch--observation { background: #d97706; }
-    .cog-legend__swatch--entity { background: #94a3b8; border-radius: 1px; }
-    .cog-legend__swatch--other { background: #64748b; border-radius: 50%; }
+    .cog-legend__swatch--observation { background: #D97706; }
+    /* Сущности — серебристо-голубая световая сфера, а не серый квадрат. */
+    .cog-legend__swatch--entity {
+      background: radial-gradient(circle at 50% 50%,
+        #EAF2FF 0%, #9FB4CE 55%, rgba(159,180,206,.55) 100%);
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(159,180,206,.45);
+    }
+    .cog-legend__swatch--other { background: #64748B; border-radius: 50%; }
     .cog-state { margin: 4px 0 6px; }
     .cog-state .btn-ghost { margin-left: 6px; }
     .cog-state .btn-ghost:first-child { margin-left: 0; }

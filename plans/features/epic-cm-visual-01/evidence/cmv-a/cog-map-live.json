@@ -1,0 +1,3502 @@
+{
+ "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\cmv-a-integration-e0ca8268f2b2-3843e3a5",
+ "fails": [],
+ "checks": 335,
+ "viewports": [
+  "390",
+  "1280"
+ ],
+ "report": {
+  "viewports": {
+   "390": {
+    "first": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 338,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 4,
+     "labelLod": "normal",
+     "labelMax": 4,
+     "hiddenLabels": 7,
+     "clusters": 5,
+     "view": {
+      "x": 13,
+      "y": 18.5
+     },
+     "scale": 0.534,
+     "cam": {
+      "x": 12.999999999999998,
+      "y": 18.49999999999999,
+      "scale": 0.5343639724416064
+     },
+     "selected": "",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "zoomed": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 338,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 4,
+     "labelLod": "normal",
+     "labelMax": 4,
+     "hiddenLabels": 7,
+     "clusters": 5,
+     "view": {
+      "x": 13,
+      "y": 18.4
+     },
+     "scale": 0.588,
+     "cam": {
+      "x": 12.999999999999979,
+      "y": 18.404304245283,
+      "scale": 0.5878003696857671
+     },
+     "selected": "",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "filtered": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 338,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 3,
+     "viewNodes": 3,
+     "drawnLabels": 1,
+     "labelLod": "normal",
+     "labelMax": 4,
+     "hiddenLabels": 2,
+     "clusters": 5,
+     "view": {
+      "x": 13,
+      "y": 18.4
+     },
+     "scale": 0.588,
+     "cam": {
+      "x": 12.999999999999979,
+      "y": 18.404304245283,
+      "scale": 0.5878003696857671
+     },
+     "selected": "",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "reset": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 338,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 3,
+     "labelLod": "normal",
+     "labelMax": 4,
+     "hiddenLabels": 8,
+     "clusters": 5,
+     "view": {
+      "x": 77.91,
+      "y": 10.22
+     },
+     "scale": 0.817,
+     "cam": {
+      "x": 77.91109077912826,
+      "y": 10.222157255182273,
+      "scale": 0.8171790069458451
+     },
+     "selected": "",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "full": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 364,
+      "h": 514
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 4,
+     "labelLod": "normal",
+     "labelMax": 7,
+     "hiddenLabels": 7,
+     "clusters": 5,
+     "view": {
+      "x": -62,
+      "y": 15
+     },
+     "scale": 1.1,
+     "cam": {
+      "x": -62.00000000000001,
+      "y": 14.999999999999998,
+      "scale": 1.1
+     },
+     "selected": "ent:-1001234567890:2",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": true,
+     "route": "#/status/graph",
+     "hScroll": 0
+    },
+    "back": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 338,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 4,
+     "labelLod": "normal",
+     "labelMax": 4,
+     "hiddenLabels": 7,
+     "clusters": 5,
+     "view": {
+      "x": -62,
+      "y": 15
+     },
+     "scale": 1.1,
+     "cam": {
+      "x": -61.999999999999986,
+      "y": 14.999999999999998,
+      "scale": 1.1
+     },
+     "selected": "ent:-1001234567890:2",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "fullset": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "",
+     "completenessRgb": null,
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 338,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 4,
+     "labelLod": "normal",
+     "labelMax": 4,
+     "hiddenLabels": 7,
+     "clusters": 5,
+     "view": {
+      "x": -24,
+      "y": 9
+     },
+     "scale": 0.524,
+     "cam": {
+      "x": -24,
+      "y": 8.999999999999993,
+      "scale": 0.5243561898852
+     },
+     "selected": "",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "errors": [],
+    "request_failed": []
+   },
+   "1280": {
+    "first": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 996,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 9,
+     "labelLod": "normal",
+     "labelMax": 12,
+     "hiddenLabels": 2,
+     "clusters": 5,
+     "view": {
+      "x": -27,
+      "y": 96
+     },
+     "scale": 0.365,
+     "cam": {
+      "x": -27.000000000000064,
+      "y": 95.99999999999999,
+      "scale": 0.36501377410468316
+     },
+     "selected": "",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "zoomed": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 996,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 9,
+     "labelLod": "normal",
+     "labelMax": 12,
+     "hiddenLabels": 2,
+     "clusters": 5,
+     "view": {
+      "x": -27,
+      "y": 95.95
+     },
+     "scale": 0.402,
+     "cam": {
+      "x": -27.000000000000078,
+      "y": 95.95330188679243,
+      "scale": 0.4015151515151515
+     },
+     "selected": "",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "filtered": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 996,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 3,
+     "viewNodes": 3,
+     "drawnLabels": 2,
+     "labelLod": "normal",
+     "labelMax": 7,
+     "hiddenLabels": 1,
+     "clusters": 5,
+     "view": {
+      "x": -27,
+      "y": 95.95
+     },
+     "scale": 0.402,
+     "cam": {
+      "x": -27.000000000000078,
+      "y": 95.95330188679243,
+      "scale": 0.4015151515151515
+     },
+     "selected": "",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "reset": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 996,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 5,
+     "labelLod": "normal",
+     "labelMax": 12,
+     "hiddenLabels": 6,
+     "clusters": 5,
+     "view": {
+      "x": 88.98,
+      "y": -136.54
+     },
+     "scale": 0.884,
+     "cam": {
+      "x": 88.98267738043751,
+      "y": -136.54093920010922,
+      "scale": 0.8842914784785741
+     },
+     "selected": "",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "full": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 1254,
+      "h": 734
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 7,
+     "labelLod": "normal",
+     "labelMax": 16,
+     "hiddenLabels": 4,
+     "clusters": 5,
+     "view": {
+      "x": -62,
+      "y": 15
+     },
+     "scale": 1.1,
+     "cam": {
+      "x": -62.000000000000036,
+      "y": 14.999999999999998,
+      "scale": 1.1
+     },
+     "selected": "ent:-1001234567890:2",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": true,
+     "route": "#/status/graph",
+     "hScroll": 0
+    },
+    "back": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+     "completenessRgb": [
+      162,
+      176,
+      198
+     ],
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 996,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 3,
+     "labelLod": "normal",
+     "labelMax": 12,
+     "hiddenLabels": 8,
+     "clusters": 5,
+     "view": {
+      "x": -62,
+      "y": 15
+     },
+     "scale": 1.1,
+     "cam": {
+      "x": -62.000000000000036,
+      "y": 14.999999999999998,
+      "scale": 1.1
+     },
+     "selected": "ent:-1001234567890:2",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "fullset": {
+     "hasVm": true,
+     "state": "ready",
+     "counters": "11 узлов · 6 связей",
+     "completeness": "",
+     "completenessRgb": null,
+     "legend": [
+      {
+       "kind": "fact",
+       "text": "Факты",
+       "extra": false
+      },
+      {
+       "kind": "belief",
+       "text": "Убеждения",
+       "extra": false
+      },
+      {
+       "kind": "paradigm",
+       "text": "Парадигмы",
+       "extra": false
+      },
+      {
+       "kind": "evolution_event",
+       "text": "Изменения",
+       "extra": false
+      },
+      {
+       "kind": "entity",
+       "text": "Сущности",
+       "extra": true
+      },
+      {
+       "kind": "observation",
+       "text": "Наблюдения",
+       "extra": true
+      }
+     ],
+     "canvas": {
+      "w": 996,
+      "h": 318
+     },
+     "modelNodes": 11,
+     "modelEdges": 6,
+     "shownNodes": 11,
+     "viewNodes": 11,
+     "drawnLabels": 6,
+     "labelLod": "normal",
+     "labelMax": 12,
+     "hiddenLabels": 5,
+     "clusters": 5,
+     "view": {
+      "x": 10.5,
+      "y": 22
+     },
+     "scale": 0.323,
+     "cam": {
+      "x": 10.49999999999993,
+      "y": 22.000000000000018,
+      "scale": 0.32336790726052467
+     },
+     "selected": "",
+     "detail": false,
+     "degraded": false,
+     "stale": false,
+     "empty": false,
+     "fullscreen": false,
+     "route": "#/",
+     "hScroll": 0
+    },
+    "errors": [],
+    "request_failed": []
+   }
+  },
+  "checks": 335,
+  "card": {
+   "390": {
+    "node": {
+     "open": true,
+     "kind": "node",
+     "id": "fact:-1001234567890:13",
+     "title": "Дача — место отдыха",
+     "text": "Дача — место отдыха",
+     "status": "статус: confirmed",
+     "scope": "чат: Audit Chat",
+     "times": [
+      {
+       "key": "occurredAt",
+       "text": "Когда произошло16.06.2025, 03:06:40"
+      },
+      {
+       "key": "savedAt",
+       "text": "Когда сохранено16.06.2025, 03:08:20"
+      }
+     ],
+     "timesAbsent": "",
+     "origin": "Откудасырое сообщение чата (chat_history)",
+     "message": "Сообщение#555 · чат: Audit Chat",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [
+      "importance",
+      "degree"
+     ],
+     "metricsNote": "уверенность, сила и свежесть не рассчитываются",
+     "historyAbsent": "",
+     "historyNodes": [
+      "evt:-1001234567890:revision:51"
+     ],
+     "neighbors": [
+      "evt:-1001234567890:revision:51"
+     ],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [
+      {
+       "id": "source",
+       "disabled": false
+      },
+      {
+       "id": "history",
+       "disabled": false
+      },
+      {
+       "id": "memory",
+       "disabled": false
+      },
+      {
+       "id": "links",
+       "disabled": false
+      }
+     ],
+     "reasons": [],
+     "rect": {
+      "left": 0,
+      "right": 390,
+      "top": 405,
+      "bottom": 844,
+      "width": 390,
+      "height": 439
+     },
+     "vw": 390,
+     "vh": 844,
+     "selected": "fact:-1001234567890:13",
+     "highlight": [
+      "evt:-1001234567890:revision:51",
+      "fact:-1001234567890:13"
+     ],
+     "edgeFocus": [
+      "ce5"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": -233.20591031271528,
+      "y": 61.60696357662127,
+      "scale": 1.1
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "cog-card cog-card--node",
+     "activeTag": "DIV",
+     "activeAction": "",
+     "memoryQuery": "Аня",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Аня",
+      "Аня → Аня любит утренний кофе",
+      "Утро начинается с кофе → Аня любит утренний кофе"
+     ]
+    },
+    "source": {
+     "open": true,
+     "kind": "node",
+     "id": "fact:-1001234567890:11",
+     "title": "Аня любит утренний кофе",
+     "text": "Аня любит утренний кофе",
+     "status": "статус: confirmed",
+     "scope": "чат: Audit Chat",
+     "times": [
+      {
+       "key": "occurredAt",
+       "text": "Когда произошло16.06.2025, 03:06:40"
+      },
+      {
+       "key": "savedAt",
+       "text": "Когда сохранено16.06.2025, 03:08:20"
+      }
+     ],
+     "timesAbsent": "",
+     "origin": "Откудасырое сообщение чата (chat_history)",
+     "message": "Сообщение#555 · чат: Audit Chat",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [
+      "importance",
+      "degree"
+     ],
+     "metricsNote": "уверенность, сила и свежесть не рассчитываются",
+     "historyAbsent": "версий этой записи не записано",
+     "historyNodes": [],
+     "neighbors": [
+      "ent:-1001234567890:1",
+      "belief:-1001234567890:21"
+     ],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [
+      {
+       "id": "source",
+       "disabled": false
+      },
+      {
+       "id": "history",
+       "disabled": true
+      },
+      {
+       "id": "memory",
+       "disabled": false
+      },
+      {
+       "id": "links",
+       "disabled": false
+      }
+     ],
+     "reasons": [
+      {
+       "id": "history",
+       "text": "История изменений: версий этой записи не записано"
+      }
+     ],
+     "rect": {
+      "left": 0,
+      "right": 390,
+      "top": 405,
+      "bottom": 844,
+      "width": 390,
+      "height": 439
+     },
+     "vw": 390,
+     "vh": 844,
+     "selected": "fact:-1001234567890:11",
+     "highlight": [
+      "belief:-1001234567890:21",
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1",
+      "ce3"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": 127.77100636104174,
+      "y": 91.07211263462423,
+      "scale": 1.0986804785915165
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": true,
+     "recordId": 11,
+     "recordMessage": 555,
+     "activeEl": "modal-close btn-ghost text-sm px-2 ml-auto",
+     "activeTag": "BUTTON",
+     "activeAction": "",
+     "memoryQuery": "",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Толян",
+      "Марк",
+      "Аня",
+      "Игорь",
+      "Света",
+      "Пётр",
+      "Лена",
+      "Костя",
+      "Аня → Аня любит утренний кофе",
+      "Костя → Костя играет в шахматы",
+      "Утро начинается с кофе → Аня любит утренний кофе",
+      "Бережёт утро → Утро начинается с кофе"
+     ]
+    },
+    "history": {
+     "open": true,
+     "kind": "node",
+     "id": "evt:-1001234567890:revision:51",
+     "title": "Факт уточнён",
+     "text": "Факт уточнён",
+     "status": "",
+     "scope": "чат: Audit Chat",
+     "times": [
+      {
+       "key": "occurredAt",
+       "text": "Когда произошло16.06.2025, 03:06:40"
+      },
+      {
+       "key": "savedAt",
+       "text": "Когда сохранено16.06.2025, 03:08:20"
+      }
+     ],
+     "timesAbsent": "",
+     "origin": "Откудасырое сообщение чата (chat_history)",
+     "message": "Сообщение#555 · чат: Audit Chat",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [
+      "importance",
+      "degree"
+     ],
+     "metricsNote": "уверенность, сила и свежесть не рассчитываются",
+     "historyAbsent": "",
+     "historyNodes": [
+      "fact:-1001234567890:13"
+     ],
+     "neighbors": [
+      "fact:-1001234567890:13"
+     ],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [
+      {
+       "id": "source",
+       "disabled": true
+      },
+      {
+       "id": "history",
+       "disabled": false
+      },
+      {
+       "id": "memory",
+       "disabled": false
+      },
+      {
+       "id": "links",
+       "disabled": false
+      }
+     ],
+     "reasons": [
+      {
+       "id": "source",
+       "text": "Открыть источник: у записи изменения нет сообщения-источника"
+      }
+     ],
+     "rect": {
+      "left": 0,
+      "right": 390,
+      "top": 405,
+      "bottom": 844,
+      "width": 390,
+      "height": 439
+     },
+     "vw": 390,
+     "vh": 844,
+     "selected": "evt:-1001234567890:revision:51",
+     "highlight": [
+      "evt:-1001234567890:revision:51",
+      "fact:-1001234567890:13"
+     ],
+     "edgeFocus": [
+      "ce5"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": 55.000734332562324,
+      "y": -136.19631695380224,
+      "scale": 1.0999970677302036
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "btn-ghost text-xs",
+     "activeTag": "BUTTON",
+     "activeAction": "history",
+     "memoryQuery": "",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Толян",
+      "Марк",
+      "Аня",
+      "Игорь",
+      "Света",
+      "Пётр",
+      "Лена",
+      "Костя",
+      "Аня → Аня любит утренний кофе",
+      "Костя → Костя играет в шахматы",
+      "Утро начинается с кофе → Аня любит утренний кофе",
+      "Бережёт утро → Утро начинается с кофе"
+     ]
+    },
+    "links": {
+     "open": true,
+     "kind": "node",
+     "id": "fact:-1001234567890:11",
+     "title": "Аня любит утренний кофе",
+     "text": "Аня любит утренний кофе",
+     "status": "статус: confirmed",
+     "scope": "чат: Audit Chat",
+     "times": [
+      {
+       "key": "occurredAt",
+       "text": "Когда произошло16.06.2025, 03:06:40"
+      },
+      {
+       "key": "savedAt",
+       "text": "Когда сохранено16.06.2025, 03:08:20"
+      }
+     ],
+     "timesAbsent": "",
+     "origin": "Откудасырое сообщение чата (chat_history)",
+     "message": "Сообщение#555 · чат: Audit Chat",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [
+      "importance",
+      "degree"
+     ],
+     "metricsNote": "уверенность, сила и свежесть не рассчитываются",
+     "historyAbsent": "версий этой записи не записано",
+     "historyNodes": [],
+     "neighbors": [
+      "ent:-1001234567890:1",
+      "belief:-1001234567890:21"
+     ],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [
+      {
+       "id": "source",
+       "disabled": false
+      },
+      {
+       "id": "history",
+       "disabled": true
+      },
+      {
+       "id": "memory",
+       "disabled": false
+      },
+      {
+       "id": "links",
+       "disabled": false
+      }
+     ],
+     "reasons": [
+      {
+       "id": "history",
+       "text": "История изменений: версий этой записи не записано"
+      }
+     ],
+     "rect": {
+      "left": 0,
+      "right": 390,
+      "top": 405,
+      "bottom": 844,
+      "width": 390,
+      "height": 439
+     },
+     "vw": 390,
+     "vh": 844,
+     "selected": "fact:-1001234567890:11",
+     "highlight": [
+      "belief:-1001234567890:21",
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1",
+      "ce3"
+     ],
+     "linksExpanded": true,
+     "cam": {
+      "x": 127.73638172879954,
+      "y": 90.64333473949723,
+      "scale": 1.099999993483845
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "btn-ghost text-xs",
+     "activeTag": "BUTTON",
+     "activeAction": "links",
+     "memoryQuery": "",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Толян",
+      "Марк",
+      "Аня",
+      "Игорь",
+      "Света",
+      "Пётр",
+      "Лена",
+      "Костя",
+      "Аня → Аня любит утренний кофе",
+      "Костя → Костя играет в шахматы",
+      "Утро начинается с кофе → Аня любит утренний кофе",
+      "Бережёт утро → Утро начинается с кофе"
+     ]
+    },
+    "edge": {
+     "open": true,
+     "kind": "edge",
+     "id": "ce3",
+     "title": "выведено из выведена из ссылки в данных",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [
+      "belief:-1001234567890:21",
+      "fact:-1001234567890:11"
+     ],
+     "justification": "Почему связь показанаобоснование записано: связь создана фактом №11",
+     "recorded": "1",
+     "edgeRows": [
+      "fact_id"
+     ],
+     "actions": [],
+     "reasons": [],
+     "rect": {
+      "left": 0,
+      "right": 390,
+      "top": 566,
+      "bottom": 844,
+      "width": 390,
+      "height": 278
+     },
+     "vw": 390,
+     "vh": 844,
+     "selected": "",
+     "highlight": [],
+     "edgeFocus": [],
+     "linksExpanded": false,
+     "cam": {
+      "x": 127.73638172879954,
+      "y": 90.64333473949723,
+      "scale": 1.099999993483845
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "cog-card cog-card--edge",
+     "activeTag": "DIV",
+     "activeAction": "",
+     "memoryQuery": "",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Толян",
+      "Марк",
+      "Аня",
+      "Игорь",
+      "Света",
+      "Пётр",
+      "Лена",
+      "Костя",
+      "Аня → Аня любит утренний кофе",
+      "Костя → Костя играет в шахматы",
+      "Утро начинается с кофе → Аня любит утренний кофе",
+      "Бережёт утро → Утро начинается с кофе"
+     ]
+    },
+    "bare": {
+     "open": true,
+     "kind": "edge",
+     "id": "ce6",
+     "title": "выведено из выведена из ссылки в данных",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [
+      "obs:-1001234567890:41",
+      "paradigm:-1001234567890:31"
+     ],
+     "justification": "Почему связь показанаобоснование не записано",
+     "recorded": "0",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": {
+      "left": 0,
+      "right": 390,
+      "top": 588,
+      "bottom": 844,
+      "width": 390,
+      "height": 256
+     },
+     "vw": 390,
+     "vh": 844,
+     "selected": "obs:-1001234567890:41",
+     "highlight": [
+      "obs:-1001234567890:41",
+      "paradigm:-1001234567890:31"
+     ],
+     "edgeFocus": [
+      "ce6"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": -286.82168613508514,
+      "y": 47.019357660191744,
+      "scale": 1.0999999999855197
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "btn-ghost text-xs ml-auto",
+     "activeTag": "BUTTON",
+     "activeAction": "",
+     "memoryQuery": "",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Толян",
+      "Марк",
+      "Аня",
+      "Игорь",
+      "Света",
+      "Пётр",
+      "Лена",
+      "Костя",
+      "Аня → Аня любит утренний кофе",
+      "Костя → Костя играет в шахматы",
+      "Утро начинается с кофе → Аня любит утренний кофе",
+      "Бережёт утро → Утро начинается с кофе"
+     ]
+    },
+    "memory": {
+     "open": false,
+     "kind": "",
+     "id": "",
+     "title": "",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": null,
+     "vw": 390,
+     "vh": 844,
+     "selected": "ent:-1001234567890:1",
+     "highlight": [
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": 293.4532773318035,
+      "y": 21.98742564391507,
+      "scale": 1.099999999999968
+     },
+     "route": "#/memory",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "app-ready",
+     "activeTag": "BODY",
+     "activeAction": "",
+     "memoryQuery": "Аня",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Аня",
+      "Аня → Аня любит утренний кофе",
+      "Утро начинается с кофе → Аня любит утренний кофе"
+     ]
+    },
+    "memory_miss": {
+     "open": false,
+     "kind": "",
+     "id": "",
+     "title": "",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": null,
+     "vw": 390,
+     "vh": 844,
+     "selected": "fact:-1001234567890:13",
+     "highlight": [
+      "evt:-1001234567890:revision:51",
+      "fact:-1001234567890:13"
+     ],
+     "edgeFocus": [
+      "ce5"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": -233.20591031271528,
+      "y": 61.60696357662127,
+      "scale": 1.1
+     },
+     "route": "#/memory",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "app-ready",
+     "activeTag": "BODY",
+     "activeAction": "",
+     "memoryQuery": "Дача — место отдыха",
+     "memoryNote": "записи «Дача — место отдыха» в каталоге «Памяти» сейчас нет",
+     "catalogTitles": []
+    },
+    "honest": {
+     "open": true,
+     "kind": "node",
+     "id": "ent:-1001234567890:4",
+     "title": "Одиночка",
+     "text": "Одиночка",
+     "status": "",
+     "scope": "чат: Audit Chat",
+     "times": [
+      {
+       "key": "occurredAt",
+       "text": "Когда произошло16.06.2025, 03:06:40"
+      },
+      {
+       "key": "savedAt",
+       "text": "Когда сохранено16.06.2025, 03:08:20"
+      }
+     ],
+     "timesAbsent": "",
+     "origin": "Откудасырое сообщение чата (chat_history)",
+     "message": "Сообщение#555 · чат: Audit Chat",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [
+      "importance",
+      "degree"
+     ],
+     "metricsNote": "уверенность, сила и свежесть не рассчитываются",
+     "historyAbsent": "версий этой записи не записано",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [
+      {
+       "id": "source",
+       "disabled": true
+      },
+      {
+       "id": "history",
+       "disabled": true
+      },
+      {
+       "id": "memory",
+       "disabled": false
+      },
+      {
+       "id": "links",
+       "disabled": true
+      }
+     ],
+     "reasons": [
+      {
+       "id": "source",
+       "text": "Открыть источник: у сущности нет сообщения-источника"
+      },
+      {
+       "id": "history",
+       "text": "История изменений: версий этой записи не записано"
+      },
+      {
+       "id": "links",
+       "text": "Показать связи: связей не записано: узел изолирован"
+      }
+     ],
+     "rect": {
+      "left": 0,
+      "right": 390,
+      "top": 405,
+      "bottom": 844,
+      "width": 390,
+      "height": 439
+     },
+     "vw": 390,
+     "vh": 844,
+     "selected": "ent:-1001234567890:4",
+     "highlight": [
+      "ent:-1001234567890:4"
+     ],
+     "edgeFocus": [],
+     "linksExpanded": false,
+     "cam": {
+      "x": 89.36248881374648,
+      "y": 45.6656468485888,
+      "scale": 1.1
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "cog-card cog-card--node",
+     "activeTag": "DIV",
+     "activeAction": "",
+     "memoryQuery": "Дача — место отдыха",
+     "memoryNote": "",
+     "catalogTitles": []
+    },
+    "back": {
+     "open": false,
+     "kind": "",
+     "id": "",
+     "title": "",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": null,
+     "vw": 390,
+     "vh": 844,
+     "selected": "fact:-1001234567890:11",
+     "highlight": [
+      "belief:-1001234567890:21",
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1",
+      "ce3"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": 106.16941429351338,
+      "y": 38.150673290938094,
+      "scale": 1.1
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "cognition-graph",
+     "activeTag": "DIV",
+     "activeAction": "",
+     "memoryQuery": "Дача — место отдыха",
+     "memoryNote": "",
+     "catalogTitles": []
+    },
+    "fullscreen": {
+     "open": false,
+     "kind": "",
+     "id": "",
+     "title": "",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": null,
+     "vw": 390,
+     "vh": 844,
+     "selected": "fact:-1001234567890:11",
+     "highlight": [
+      "belief:-1001234567890:21",
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1",
+      "ce3"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": 106.16941429351338,
+      "y": 38.150673290938094,
+      "scale": 1.1
+     },
+     "route": "#/status/graph",
+     "fullscreen": true,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "cognition-graph cognition-graph--full",
+     "activeTag": "DIV",
+     "activeAction": "",
+     "memoryQuery": "Дача — место отдыха",
+     "memoryNote": "",
+     "catalogTitles": []
+    },
+    "keyboard": {
+     "open": false,
+     "kind": "",
+     "id": "",
+     "title": "",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": null,
+     "vw": 390,
+     "vh": 844,
+     "selected": "fact:-1001234567890:11",
+     "highlight": [
+      "belief:-1001234567890:21",
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1",
+      "ce3"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": 106.00037647620779,
+      "y": 38.000334829535426,
+      "scale": 1.1
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "cognition-graph",
+     "activeTag": "DIV",
+     "activeAction": "",
+     "memoryQuery": "Дача — место отдыха",
+     "memoryNote": "",
+     "catalogTitles": []
+    },
+    "errors": [],
+    "esc_layers": {
+     "open": {
+      "card": true,
+      "record": true
+     },
+     "esc1": {
+      "card": true,
+      "record": false
+     },
+     "esc2": {
+      "card": false,
+      "record": false
+     }
+    },
+    "cross_layers": {
+     "card": true,
+     "record": false
+    },
+    "back_layers": {
+     "card": true,
+     "record": false
+    },
+    "esc_focus": {
+     "tag": "BUTTON",
+     "action": "source",
+     "card": true,
+     "record": false,
+     "id": "fact:-1001234567890:11"
+    },
+    "cross_focus": {
+     "tag": "BUTTON",
+     "action": "source",
+     "card": true,
+     "record": false,
+     "id": "fact:-1001234567890:11"
+    },
+    "back_focus": {
+     "tag": "BUTTON",
+     "action": "source",
+     "card": true,
+     "record": false,
+     "id": "fact:-1001234567890:11"
+    }
+   },
+   "1280": {
+    "node": {
+     "open": true,
+     "kind": "node",
+     "id": "fact:-1001234567890:13",
+     "title": "Дача — место отдыха",
+     "text": "Дача — место отдыха",
+     "status": "статус: confirmed",
+     "scope": "чат: Audit Chat",
+     "times": [
+      {
+       "key": "occurredAt",
+       "text": "Когда произошло16.06.2025, 03:06:40"
+      },
+      {
+       "key": "savedAt",
+       "text": "Когда сохранено16.06.2025, 03:08:20"
+      }
+     ],
+     "timesAbsent": "",
+     "origin": "Откудасырое сообщение чата (chat_history)",
+     "message": "Сообщение#555 · чат: Audit Chat",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [
+      "importance",
+      "degree"
+     ],
+     "metricsNote": "уверенность, сила и свежесть не рассчитываются",
+     "historyAbsent": "",
+     "historyNodes": [
+      "evt:-1001234567890:revision:51"
+     ],
+     "neighbors": [
+      "evt:-1001234567890:revision:51"
+     ],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [
+      {
+       "id": "source",
+       "disabled": false
+      },
+      {
+       "id": "history",
+       "disabled": false
+      },
+      {
+       "id": "memory",
+       "disabled": false
+      },
+      {
+       "id": "links",
+       "disabled": false
+      }
+     ],
+     "reasons": [],
+     "rect": {
+      "left": 924,
+      "right": 1268,
+      "top": 74,
+      "bottom": 634,
+      "width": 344,
+      "height": 560
+     },
+     "vw": 1280,
+     "vh": 900,
+     "selected": "fact:-1001234567890:13",
+     "highlight": [
+      "evt:-1001234567890:revision:51",
+      "fact:-1001234567890:13"
+     ],
+     "edgeFocus": [
+      "ce5"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": 446.3829922064957,
+      "y": 153.57194555677822,
+      "scale": 1.1
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "btn-ghost text-xs ml-auto",
+     "activeTag": "BUTTON",
+     "activeAction": "",
+     "memoryQuery": "Аня",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Аня",
+      "Аня → Аня любит утренний кофе",
+      "Утро начинается с кофе → Аня любит утренний кофе"
+     ]
+    },
+    "source": {
+     "open": true,
+     "kind": "node",
+     "id": "fact:-1001234567890:11",
+     "title": "Аня любит утренний кофе",
+     "text": "Аня любит утренний кофе",
+     "status": "статус: confirmed",
+     "scope": "чат: Audit Chat",
+     "times": [
+      {
+       "key": "occurredAt",
+       "text": "Когда произошло16.06.2025, 03:06:40"
+      },
+      {
+       "key": "savedAt",
+       "text": "Когда сохранено16.06.2025, 03:08:20"
+      }
+     ],
+     "timesAbsent": "",
+     "origin": "Откудасырое сообщение чата (chat_history)",
+     "message": "Сообщение#555 · чат: Audit Chat",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [
+      "importance",
+      "degree"
+     ],
+     "metricsNote": "уверенность, сила и свежесть не рассчитываются",
+     "historyAbsent": "версий этой записи не записано",
+     "historyNodes": [],
+     "neighbors": [
+      "ent:-1001234567890:1",
+      "belief:-1001234567890:21"
+     ],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [
+      {
+       "id": "source",
+       "disabled": false
+      },
+      {
+       "id": "history",
+       "disabled": true
+      },
+      {
+       "id": "memory",
+       "disabled": false
+      },
+      {
+       "id": "links",
+       "disabled": false
+      }
+     ],
+     "reasons": [
+      {
+       "id": "history",
+       "text": "История изменений: версий этой записи не записано"
+      }
+     ],
+     "rect": {
+      "left": 924,
+      "right": 1268,
+      "top": 74,
+      "bottom": 667,
+      "width": 344,
+      "height": 593
+     },
+     "vw": 1280,
+     "vh": 900,
+     "selected": "fact:-1001234567890:11",
+     "highlight": [
+      "belief:-1001234567890:21",
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1",
+      "ce3"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": -1.6173583882086946,
+      "y": -0.03977224194492422,
+      "scale": 1.0983877113099911
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": true,
+     "recordId": 11,
+     "recordMessage": 555,
+     "activeEl": "modal-close btn-ghost text-sm px-2 ml-auto",
+     "activeTag": "BUTTON",
+     "activeAction": "",
+     "memoryQuery": "",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Толян",
+      "Марк",
+      "Аня",
+      "Игорь",
+      "Света",
+      "Пётр",
+      "Лена",
+      "Костя",
+      "Аня → Аня любит утренний кофе",
+      "Костя → Костя играет в шахматы",
+      "Утро начинается с кофе → Аня любит утренний кофе",
+      "Бережёт утро → Утро начинается с кофе"
+     ]
+    },
+    "history": {
+     "open": true,
+     "kind": "node",
+     "id": "evt:-1001234567890:revision:51",
+     "title": "Факт уточнён",
+     "text": "Факт уточнён",
+     "status": "",
+     "scope": "чат: Audit Chat",
+     "times": [
+      {
+       "key": "occurredAt",
+       "text": "Когда произошло16.06.2025, 03:06:40"
+      },
+      {
+       "key": "savedAt",
+       "text": "Когда сохранено16.06.2025, 03:08:20"
+      }
+     ],
+     "timesAbsent": "",
+     "origin": "Откудасырое сообщение чата (chat_history)",
+     "message": "Сообщение#555 · чат: Audit Chat",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [
+      "importance",
+      "degree"
+     ],
+     "metricsNote": "уверенность, сила и свежесть не рассчитываются",
+     "historyAbsent": "",
+     "historyNodes": [
+      "fact:-1001234567890:13"
+     ],
+     "neighbors": [
+      "fact:-1001234567890:13"
+     ],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [
+      {
+       "id": "source",
+       "disabled": true
+      },
+      {
+       "id": "history",
+       "disabled": false
+      },
+      {
+       "id": "memory",
+       "disabled": false
+      },
+      {
+       "id": "links",
+       "disabled": false
+      }
+     ],
+     "reasons": [
+      {
+       "id": "source",
+       "text": "Открыть источник: у записи изменения нет сообщения-источника"
+      }
+     ],
+     "rect": {
+      "left": 924,
+      "right": 1268,
+      "top": 74,
+      "bottom": 652,
+      "width": 344,
+      "height": 578
+     },
+     "vw": 1280,
+     "vh": 900,
+     "selected": "evt:-1001234567890:revision:51",
+     "highlight": [
+      "evt:-1001234567890:revision:51",
+      "fact:-1001234567890:13"
+     ],
+     "edgeFocus": [
+      "ce5"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": 258.3072110041838,
+      "y": 276.54427641810764,
+      "scale": 1.0999964171362444
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "btn-ghost text-xs",
+     "activeTag": "BUTTON",
+     "activeAction": "history",
+     "memoryQuery": "",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Толян",
+      "Марк",
+      "Аня",
+      "Игорь",
+      "Света",
+      "Пётр",
+      "Лена",
+      "Костя",
+      "Аня → Аня любит утренний кофе",
+      "Костя → Костя играет в шахматы",
+      "Утро начинается с кофе → Аня любит утренний кофе",
+      "Бережёт утро → Утро начинается с кофе"
+     ]
+    },
+    "links": {
+     "open": true,
+     "kind": "node",
+     "id": "fact:-1001234567890:11",
+     "title": "Аня любит утренний кофе",
+     "text": "Аня любит утренний кофе",
+     "status": "статус: confirmed",
+     "scope": "чат: Audit Chat",
+     "times": [
+      {
+       "key": "occurredAt",
+       "text": "Когда произошло16.06.2025, 03:06:40"
+      },
+      {
+       "key": "savedAt",
+       "text": "Когда сохранено16.06.2025, 03:08:20"
+      }
+     ],
+     "timesAbsent": "",
+     "origin": "Откудасырое сообщение чата (chat_history)",
+     "message": "Сообщение#555 · чат: Audit Chat",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [
+      "importance",
+      "degree"
+     ],
+     "metricsNote": "уверенность, сила и свежесть не рассчитываются",
+     "historyAbsent": "версий этой записи не записано",
+     "historyNodes": [],
+     "neighbors": [
+      "ent:-1001234567890:1",
+      "belief:-1001234567890:21"
+     ],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [
+      {
+       "id": "source",
+       "disabled": false
+      },
+      {
+       "id": "history",
+       "disabled": true
+      },
+      {
+       "id": "memory",
+       "disabled": false
+      },
+      {
+       "id": "links",
+       "disabled": false
+      }
+     ],
+     "reasons": [
+      {
+       "id": "history",
+       "text": "История изменений: версий этой записи не записано"
+      }
+     ],
+     "rect": {
+      "left": 924,
+      "right": 1268,
+      "top": 74,
+      "bottom": 667,
+      "width": 344,
+      "height": 593
+     },
+     "vw": 1280,
+     "vh": 900,
+     "selected": "fact:-1001234567890:11",
+     "highlight": [
+      "belief:-1001234567890:21",
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1",
+      "ce3"
+     ],
+     "linksExpanded": true,
+     "cam": {
+      "x": -1.0519429772086768,
+      "y": 0.5173324938983953,
+      "scale": 1.0999999920380807
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "btn-ghost text-xs",
+     "activeTag": "BUTTON",
+     "activeAction": "links",
+     "memoryQuery": "",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Толян",
+      "Марк",
+      "Аня",
+      "Игорь",
+      "Света",
+      "Пётр",
+      "Лена",
+      "Костя",
+      "Аня → Аня любит утренний кофе",
+      "Костя → Костя играет в шахматы",
+      "Утро начинается с кофе → Аня любит утренний кофе",
+      "Бережёт утро → Утро начинается с кофе"
+     ]
+    },
+    "edge": {
+     "open": true,
+     "kind": "edge",
+     "id": "ce1",
+     "title": "обсуждали записана в графе",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "justification": "Почему связь показанаобоснование записано: связь создана фактом №11",
+     "recorded": "1",
+     "edgeRows": [
+      "fact_id"
+     ],
+     "actions": [],
+     "reasons": [],
+     "rect": {
+      "left": 924,
+      "right": 1268,
+      "top": 74,
+      "bottom": 330,
+      "width": 344,
+      "height": 256
+     },
+     "vw": 1280,
+     "vh": 900,
+     "selected": "",
+     "highlight": [],
+     "edgeFocus": [],
+     "linksExpanded": false,
+     "cam": {
+      "x": -1.0519429772086768,
+      "y": 0.5173324938983953,
+      "scale": 1.0999999920380807
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "btn-ghost text-xs ml-auto",
+     "activeTag": "BUTTON",
+     "activeAction": "",
+     "memoryQuery": "",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Толян",
+      "Марк",
+      "Аня",
+      "Игорь",
+      "Света",
+      "Пётр",
+      "Лена",
+      "Костя",
+      "Аня → Аня любит утренний кофе",
+      "Костя → Костя играет в шахматы",
+      "Утро начинается с кофе → Аня любит утренний кофе",
+      "Бережёт утро → Утро начинается с кофе"
+     ]
+    },
+    "bare": {
+     "open": true,
+     "kind": "edge",
+     "id": "ce6",
+     "title": "выведено из выведена из ссылки в данных",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [
+      "obs:-1001234567890:41",
+      "paradigm:-1001234567890:31"
+     ],
+     "justification": "Почему связь показанаобоснование не записано",
+     "recorded": "0",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": {
+      "left": 924,
+      "right": 1268,
+      "top": 74,
+      "bottom": 308,
+      "width": 344,
+      "height": 234
+     },
+     "vw": 1280,
+     "vh": 900,
+     "selected": "obs:-1001234567890:41",
+     "highlight": [
+      "obs:-1001234567890:41",
+      "paradigm:-1001234567890:31"
+     ],
+     "edgeFocus": [
+      "ce6"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": 336.8058355867288,
+      "y": -272.18587283704227,
+      "scale": 1.099999999982307
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "btn-ghost text-xs ml-auto",
+     "activeTag": "BUTTON",
+     "activeAction": "",
+     "memoryQuery": "",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Толян",
+      "Марк",
+      "Аня",
+      "Игорь",
+      "Света",
+      "Пётр",
+      "Лена",
+      "Костя",
+      "Аня → Аня любит утренний кофе",
+      "Костя → Костя играет в шахматы",
+      "Утро начинается с кофе → Аня любит утренний кофе",
+      "Бережёт утро → Утро начинается с кофе"
+     ]
+    },
+    "memory": {
+     "open": false,
+     "kind": "",
+     "id": "",
+     "title": "",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": null,
+     "vw": 1280,
+     "vh": 900,
+     "selected": "ent:-1001234567890:1",
+     "highlight": [
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": -78.039493259216,
+      "y": 164.83882769212423,
+      "scale": 1.0999999999999608
+     },
+     "route": "#/memory",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "app-ready",
+     "activeTag": "BODY",
+     "activeAction": "",
+     "memoryQuery": "Аня",
+     "memoryNote": "",
+     "catalogTitles": [
+      "Аня",
+      "Аня → Аня любит утренний кофе",
+      "Утро начинается с кофе → Аня любит утренний кофе"
+     ]
+    },
+    "memory_miss": {
+     "open": false,
+     "kind": "",
+     "id": "",
+     "title": "",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": null,
+     "vw": 1280,
+     "vh": 900,
+     "selected": "fact:-1001234567890:13",
+     "highlight": [
+      "evt:-1001234567890:revision:51",
+      "fact:-1001234567890:13"
+     ],
+     "edgeFocus": [
+      "ce5"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": 446.3829922064957,
+      "y": 153.57194555677822,
+      "scale": 1.1
+     },
+     "route": "#/memory",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "app-ready",
+     "activeTag": "BODY",
+     "activeAction": "",
+     "memoryQuery": "Дача — место отдыха",
+     "memoryNote": "записи «Дача — место отдыха» в каталоге «Памяти» сейчас нет",
+     "catalogTitles": []
+    },
+    "honest": {
+     "open": true,
+     "kind": "node",
+     "id": "ent:-1001234567890:4",
+     "title": "Одиночка",
+     "text": "Одиночка",
+     "status": "",
+     "scope": "чат: Audit Chat",
+     "times": [
+      {
+       "key": "occurredAt",
+       "text": "Когда произошло16.06.2025, 03:06:40"
+      },
+      {
+       "key": "savedAt",
+       "text": "Когда сохранено16.06.2025, 03:08:20"
+      }
+     ],
+     "timesAbsent": "",
+     "origin": "Откудасырое сообщение чата (chat_history)",
+     "message": "Сообщение#555 · чат: Audit Chat",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [
+      "importance",
+      "degree"
+     ],
+     "metricsNote": "уверенность, сила и свежесть не рассчитываются",
+     "historyAbsent": "версий этой записи не записано",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [
+      {
+       "id": "source",
+       "disabled": true
+      },
+      {
+       "id": "history",
+       "disabled": true
+      },
+      {
+       "id": "memory",
+       "disabled": false
+      },
+      {
+       "id": "links",
+       "disabled": true
+      }
+     ],
+     "reasons": [
+      {
+       "id": "source",
+       "text": "Открыть источник: у сущности нет сообщения-источника"
+      },
+      {
+       "id": "history",
+       "text": "История изменений: версий этой записи не записано"
+      },
+      {
+       "id": "links",
+       "text": "Показать связи: связей не записано: узел изолирован"
+      }
+     ],
+     "rect": {
+      "left": 924,
+      "right": 1268,
+      "top": 74,
+      "bottom": 672,
+      "width": 344,
+      "height": 598
+     },
+     "vw": 1280,
+     "vh": 900,
+     "selected": "ent:-1001234567890:4",
+     "highlight": [
+      "ent:-1001234567890:4"
+     ],
+     "edgeFocus": [],
+     "linksExpanded": false,
+     "cam": {
+      "x": 446.3829922064957,
+      "y": 153.57194555677822,
+      "scale": 1.1
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "btn-ghost text-xs ml-auto",
+     "activeTag": "BUTTON",
+     "activeAction": "",
+     "memoryQuery": "Дача — место отдыха",
+     "memoryNote": "",
+     "catalogTitles": []
+    },
+    "back": {
+     "open": false,
+     "kind": "",
+     "id": "",
+     "title": "",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": null,
+     "vw": 1280,
+     "vh": 900,
+     "selected": "fact:-1001234567890:11",
+     "highlight": [
+      "belief:-1001234567890:21",
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1",
+      "ce3"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": -343.7195804240902,
+      "y": -42.33267358144471,
+      "scale": 1.1
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "cognition-graph",
+     "activeTag": "DIV",
+     "activeAction": "",
+     "memoryQuery": "Дача — место отдыха",
+     "memoryNote": "",
+     "catalogTitles": []
+    },
+    "fullscreen": {
+     "open": false,
+     "kind": "",
+     "id": "",
+     "title": "",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": null,
+     "vw": 1280,
+     "vh": 900,
+     "selected": "fact:-1001234567890:11",
+     "highlight": [
+      "belief:-1001234567890:21",
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1",
+      "ce3"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": -343.7195804240902,
+      "y": -42.33267358144468,
+      "scale": 1.1
+     },
+     "route": "#/status/graph",
+     "fullscreen": true,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "cognition-graph cognition-graph--full",
+     "activeTag": "DIV",
+     "activeAction": "",
+     "memoryQuery": "Дача — место отдыха",
+     "memoryNote": "",
+     "catalogTitles": []
+    },
+    "keyboard": {
+     "open": false,
+     "kind": "",
+     "id": "",
+     "title": "",
+     "text": "",
+     "status": "",
+     "scope": "",
+     "times": [],
+     "timesAbsent": "",
+     "origin": "",
+     "message": "",
+     "sourceIds": "",
+     "provenanceAbsent": "",
+     "metrics": [],
+     "metricsNote": "",
+     "historyAbsent": "",
+     "historyNodes": [],
+     "neighbors": [],
+     "endpoints": [],
+     "justification": "",
+     "recorded": "",
+     "edgeRows": [],
+     "actions": [],
+     "reasons": [],
+     "rect": null,
+     "vw": 1280,
+     "vh": 900,
+     "selected": "fact:-1001234567890:11",
+     "highlight": [
+      "belief:-1001234567890:21",
+      "ent:-1001234567890:1",
+      "fact:-1001234567890:11"
+     ],
+     "edgeFocus": [
+      "ce1",
+      "ce3"
+     ],
+     "linksExpanded": false,
+     "cam": {
+      "x": -344.9971546231646,
+      "y": -42.998517052403216,
+      "scale": 1.1
+     },
+     "route": "#/",
+     "fullscreen": false,
+     "recordOpen": false,
+     "recordId": null,
+     "recordMessage": null,
+     "activeEl": "cognition-graph",
+     "activeTag": "DIV",
+     "activeAction": "",
+     "memoryQuery": "Дача — место отдыха",
+     "memoryNote": "",
+     "catalogTitles": []
+    },
+    "errors": [],
+    "esc_layers": {
+     "open": {
+      "card": true,
+      "record": true
+     },
+     "esc1": {
+      "card": true,
+      "record": false
+     },
+     "esc2": {
+      "card": false,
+      "record": false
+     }
+    },
+    "cross_layers": {
+     "card": true,
+     "record": false
+    },
+    "back_layers": {
+     "card": true,
+     "record": false
+    },
+    "esc_focus": {
+     "tag": "BUTTON",
+     "action": "source",
+     "card": true,
+     "record": false,
+     "id": "fact:-1001234567890:11"
+    },
+    "cross_focus": {
+     "tag": "BUTTON",
+     "action": "source",
+     "card": true,
+     "record": false,
+     "id": "fact:-1001234567890:11"
+    },
+    "back_focus": {
+     "tag": "BUTTON",
+     "action": "source",
+     "card": true,
+     "record": false,
+     "id": "fact:-1001234567890:11"
+    }
+   }
+  },
+  "degraded": {
+   "hasVm": true,
+   "state": "degraded",
+   "counters": "11 узлов · 6 связей",
+   "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+   "completenessRgb": [
+    162,
+    176,
+    198
+   ],
+   "legend": [
+    {
+     "kind": "fact",
+     "text": "Факты",
+     "extra": false
+    },
+    {
+     "kind": "belief",
+     "text": "Убеждения",
+     "extra": false
+    },
+    {
+     "kind": "paradigm",
+     "text": "Парадигмы",
+     "extra": false
+    },
+    {
+     "kind": "evolution_event",
+     "text": "Изменения",
+     "extra": false
+    },
+    {
+     "kind": "entity",
+     "text": "Сущности",
+     "extra": true
+    },
+    {
+     "kind": "observation",
+     "text": "Наблюдения",
+     "extra": true
+    }
+   ],
+   "canvas": {
+    "w": 996,
+    "h": 318
+   },
+   "modelNodes": 11,
+   "modelEdges": 6,
+   "shownNodes": 11,
+   "viewNodes": 11,
+   "drawnLabels": 9,
+   "labelLod": "normal",
+   "labelMax": 12,
+   "hiddenLabels": 2,
+   "clusters": 5,
+   "view": {
+    "x": 24,
+    "y": 37.5
+   },
+   "scale": 0.329,
+   "cam": {
+    "x": 23.999999999999975,
+    "y": 37.49999999999999,
+    "scale": 0.32888613093391245
+   },
+   "selected": "",
+   "detail": false,
+   "degraded": true,
+   "stale": false,
+   "empty": false,
+   "fullscreen": false,
+   "route": "#/",
+   "hScroll": 0
+  },
+  "stale": {
+   "hasVm": true,
+   "state": "stale",
+   "counters": "11 узлов · 6 связей",
+   "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+   "completenessRgb": [
+    162,
+    176,
+    198
+   ],
+   "legend": [
+    {
+     "kind": "fact",
+     "text": "Факты",
+     "extra": false
+    },
+    {
+     "kind": "belief",
+     "text": "Убеждения",
+     "extra": false
+    },
+    {
+     "kind": "paradigm",
+     "text": "Парадигмы",
+     "extra": false
+    },
+    {
+     "kind": "evolution_event",
+     "text": "Изменения",
+     "extra": false
+    },
+    {
+     "kind": "entity",
+     "text": "Сущности",
+     "extra": true
+    },
+    {
+     "kind": "observation",
+     "text": "Наблюдения",
+     "extra": true
+    }
+   ],
+   "canvas": {
+    "w": 996,
+    "h": 318
+   },
+   "modelNodes": 11,
+   "modelEdges": 6,
+   "shownNodes": 11,
+   "viewNodes": 11,
+   "drawnLabels": 9,
+   "labelLod": "normal",
+   "labelMax": 12,
+   "hiddenLabels": 2,
+   "clusters": 5,
+   "view": {
+    "x": -1.5,
+    "y": 44.5
+   },
+   "scale": 0.348,
+   "cam": {
+    "x": -1.5000000000000735,
+    "y": 44.50000000000003,
+    "scale": 0.3478831637676403
+   },
+   "selected": "",
+   "detail": false,
+   "degraded": false,
+   "stale": true,
+   "empty": false,
+   "fullscreen": false,
+   "route": "#/",
+   "hScroll": 0
+  },
+  "degraded_zero": {
+   "hasVm": true,
+   "state": "degraded",
+   "counters": "0 узлов · 0 связей",
+   "completeness": "",
+   "completenessRgb": null,
+   "legend": [
+    {
+     "kind": "fact",
+     "text": "Факты",
+     "extra": false
+    },
+    {
+     "kind": "belief",
+     "text": "Убеждения",
+     "extra": false
+    },
+    {
+     "kind": "paradigm",
+     "text": "Парадигмы",
+     "extra": false
+    },
+    {
+     "kind": "evolution_event",
+     "text": "Изменения",
+     "extra": false
+    }
+   ],
+   "canvas": {
+    "w": 996,
+    "h": 318
+   },
+   "modelNodes": 0,
+   "modelEdges": 0,
+   "shownNodes": 0,
+   "viewNodes": 0,
+   "drawnLabels": 0,
+   "labelLod": "normal",
+   "labelMax": 4,
+   "hiddenLabels": 0,
+   "clusters": 0,
+   "view": {
+    "x": 0,
+    "y": 0
+   },
+   "scale": 1,
+   "cam": null,
+   "selected": "",
+   "detail": false,
+   "degraded": true,
+   "stale": false,
+   "empty": false,
+   "fullscreen": false,
+   "route": "#/",
+   "hScroll": 0
+  },
+  "empty_to_data": {
+   "before": {
+    "hasVm": true,
+    "state": "empty",
+    "counters": "0 узлов · 0 связей",
+    "completeness": "",
+    "completenessRgb": null,
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     }
+    ],
+    "canvas": {
+     "w": 0,
+     "h": 0
+    },
+    "modelNodes": 0,
+    "modelEdges": 0,
+    "shownNodes": 0,
+    "viewNodes": 0,
+    "drawnLabels": 0,
+    "labelLod": "normal",
+    "labelMax": 4,
+    "hiddenLabels": 0,
+    "clusters": 0,
+    "view": {
+     "x": -498,
+     "y": -159
+    },
+    "scale": 1,
+    "cam": null,
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": true,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "after": {
+    "hasVm": true,
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "completenessRgb": [
+     162,
+     176,
+     198
+    ],
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 996,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "viewNodes": 11,
+    "drawnLabels": 9,
+    "labelLod": "normal",
+    "labelMax": 12,
+    "hiddenLabels": 2,
+    "clusters": 5,
+    "view": {
+     "x": -45,
+     "y": -106
+    },
+    "scale": 0.306,
+    "cam": {
+     "x": -44.99999999999993,
+     "y": -106.00000000000006,
+     "scale": 0.30559292715740916
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "visible": {
+    "inside": 11,
+    "total": 11,
+    "w": 996,
+    "h": 318
+   }
+  },
+  "reduced_motion": {
+   "probe": {
+    "hasVm": true,
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "completenessRgb": [
+     162,
+     176,
+     198
+    ],
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 996,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "viewNodes": 11,
+    "drawnLabels": 9,
+    "labelLod": "normal",
+    "labelMax": 12,
+    "hiddenLabels": 2,
+    "clusters": 5,
+    "view": {
+     "x": -4.5,
+     "y": -161.5
+    },
+    "scale": 0.366,
+    "cam": {
+     "x": -4.500000000000018,
+     "y": -161.50000000000006,
+     "scale": 0.36640165917732453
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "motion": {
+    "immediate": "357.5:63.6",
+    "settled": "357.5:63.6",
+    "animating": "343:59",
+    "finished": "-308.1:-149.3"
+   }
+  }
+ }
+}

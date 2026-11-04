@@ -444,7 +444,7 @@ const S2 = (function () {
   eq2(new Set(required.map((e) => e.color)).size, 4,
     'легенда: цвета классов различаются');
   eq2(required.map((e) => e.shape),
-    ['dot', 'rounded', 'hexagon', 'diamond'],
+    ['dot', 'dotRing', 'hexagon', 'diamond'],
     'легенда: различие не только цветом — своя форма');
   ok2(legend.every((e) => e.label !== 'Эволюция характера'),
     '«Эволюция характера» — заголовок лент, а не строка легенды');
@@ -457,11 +457,29 @@ const S2 = (function () {
   // ── 9. визуальный стиль узла детерминирован и не цвето-только ─────────
   eq2(CM.nodeStyle('paradigm').size > CM.nodeStyle('fact').size, true,
     'парадигма крупнее факта (центр кластера)');
-  eq2(CM.nodeStyle('fact').color, '#38bdf8', 'факты — прохладный голубой');
-  eq2(CM.nodeStyle('belief').color, '#a78bfa', 'убеждения — мягкий фиолетовый');
-  eq2(CM.nodeStyle('paradigm').color, '#818cf8', 'парадигмы — индиго');
-  eq2(CM.nodeStyle('evolution_event').color, '#f59e0b',
-    'изменения — янтарный акцент');
+  // CMV-C: палитра — ровно спека §4.1 (те же hex, что у сцены и CSS-легенды).
+  eq2(CM.nodeStyle('fact').color, '#32C8F3', 'факты — циан #32C8F3');
+  eq2(CM.nodeStyle('belief').color, '#A77BFF', 'убеждения — фиолетовый #A77BFF');
+  eq2(CM.nodeStyle('paradigm').color, '#728CFF', 'парадигмы — #728CFF');
+  eq2(CM.nodeStyle('evolution_event').color, '#FFB84D',
+    'изменения — янтарный #FFB84D');
+  eq2(CM.nodeStyle('entity').color, '#9FB4CE',
+    'сущности — серебристо-голубой #9FB4CE');
+  eq2(CM.nodeStyle('observation').color, '#D97706', 'наблюдения — #D97706');
+  eq2(CM.nodeStyle('fact').shape, 'dot', 'факты — световая точка');
+  eq2(CM.nodeStyle('belief').shape, 'dotRing', 'убеждения — круг с кольцом');
+  eq2(CM.nodeStyle('entity').shape, 'sphere', 'сущности — сфера, а НЕ box');
+  ok2(CM.KINDS.every((k) => CM.KIND_STYLE[k].shape !== 'box'),
+    'ни один тип не рисуется прямоугольником (§4.1)');
+  // Раскладка/сцена/легенда должны называть ОДИН цвет, иначе легенда врёт.
+  const V = require(path.join(__dirname, '..', '..', 'web', 'static',
+    'cog-visual.js'));
+  ok2(CM.KINDS.every((k) => CM.KIND_STYLE[k].color
+    === V.CONFIG.spec[k].color),
+  'палитра адаптера совпадает с палитрой сцены (cog-visual)');
+  ok2(CM.KINDS.every((k) => CM.KIND_STYLE[k].size
+    === V.CONFIG.baseDiameter[k]),
+  'размеры типов совпадают с базовыми диаметрами сцены');
   eq2(CM.nodeStyle('entity').shape !== CM.nodeStyle('fact').shape, true,
     'сущности отличаются формой, а не только цветом');
   eq2(CM.nodeStyle('неизвестный').color, CM.KIND_STYLE.other.color,
@@ -1033,5 +1051,514 @@ const S3 = (function () {
   return s3;
 })();
 
+
+/* ── CMV-C: LOD (гистерезис), приоритет подписей, агрегаты L0, счётчики ──── */
+const S4 = (function testCmvC() {
+  let s4 = 0;
+  function ok4(cond, message) {
+    assert.ok(cond, message);
+    s4 += 1;
+  }
+  function eq4(actual, expected, message) {
+    assert.deepStrictEqual(actual, expected, message);
+    s4 += 1;
+  }
+  function near4(actual, expected, message) {
+    assert.ok(Math.abs(actual - expected) <= 1e-9,
+      message + ' (получено ' + actual + ', ждали ' + expected + ')');
+    s4 += 1;
+  }
+
+  // ── 1. LOD: формула, гистерезис, отсутствие мигания у порогов ──────────
+  const T1 = CM.DEFAULTS.lod.t1;
+  const T2 = CM.DEFAULTS.lod.t2;
+  const D = CM.DEFAULTS.lod.delta;
+  eq4([T1, T2, D], [0.85, 1.8, 0.12], '§4.2: T1=0.85, T2=1.80, δ=0.12');
+  const small = { nodes: 10, density: 5 };
+  // Подъём — по завышенному порогу, возврат — по заниженному.
+  near4(T1 * (1 + D), 0.952, 'вход в рабочий вид: T1·(1+δ)');
+  near4(T1 * (1 - D), 0.748, 'возврат в обзор: T1·(1−δ)');
+  eq4(CM.lodFor(0.94, 0, small), 0, 'r=0.94 с уровня 0 остаётся обзором');
+  eq4(CM.lodFor(0.96, 0, small), 1, 'r=0.96 с уровня 0 поднимает в рабочий');
+  eq4(CM.lodFor(0.90, 1, small), 1, 'r=0.90 с уровня 1 НЕ сбрасывает (24 % зона)');
+  // Именно ЗОНА: 0.80 лежит между T1·(1−δ)=0.748 и T1=0.85 и не должна сбрасывать.
+  eq4(CM.lodFor(0.80, 1, small), 1,
+    'r=0.80 остаётся рабочей (порог возврата занижен на δ)');
+  eq4(CM.lodFor(0.60, 1, small), 0, 'r=0.60 — обзор');
+  eq4(CM.lodFor(0.74, 1, small), 0, 'r=0.74 с уровня 1 опускает в обзор');
+  eq4(CM.lodFor(1.90, 1, small), 1, 'r=1.90 с уровня 1 ещё не детальный');
+  eq4(CM.lodFor(2.02, 1, small), 2, 'r=2.02 поднимает в детальный (T2·(1+δ))');
+  eq4(CM.lodFor(1.60, 2, small), 2, 'r=1.60 с уровня 2 ещё детальный');
+  eq4(CM.lodFor(1.57, 2, small), 1, 'r=1.57 с уровня 2 опускает в рабочий');
+  eq4(CM.lodFor(0.70, 2, small), 0, 'r=0.70 с уровня 2 опускает в обзор');
+
+  // Главное свойство: монотонный проход по r НЕ даёт колебаний уровня.
+  function walk(start, target, steps) {
+    let prev = start;
+    const trace = [];
+    for (let i = 1; i <= steps; i += 1) {
+      const r = start + (target - start) * (i / steps);
+      prev = CM.lodFor(r, prev, small);
+      trace.push({ r: r, lod: prev });
+    }
+    return trace;
+  }
+  function bounces(trace) {
+    const bad = [];
+    for (let i = 1; i < trace.length; i += 1) {
+      const grew = trace[i].r > trace[i - 1].r;
+      if (grew && trace[i].lod < trace[i - 1].lod) bad.push(trace[i]);
+      if (!grew && trace[i].lod > trace[i - 1].lod) bad.push(trace[i]);
+    }
+    return bad;
+  }
+  const up = walk(0.5, 2.6, 220);
+  const down = walk(2.6, 0.5, 220);
+  eq4(bounces(up), [], 'LOD: на увеличении уровня нет откатов (220 шагов)');
+  eq4(bounces(down), [], 'LOD: на уменьшении нет прыжков вверх (220 шагов)');
+  ok4(up[up.length - 1].lod === 2, 'LOD: к r=2.6 уровень детальный');
+  ok4(down[down.length - 1].lod === 0, 'LOD: обратно к r=0.5 уровень обзорный');
+  // Микро-дрожание колеса внутри зоны нечувствительности: уровень стоит.
+  function jitter(start, amp, steps) {
+    let prev = CM.lodFor(start, start >= 0.952 ? 1 : 0, small);
+    const seen = [prev];
+    for (let i = 0; i < steps; i += 1) {
+      const r = start + (i % 2 === 0 ? amp : -amp);
+      prev = CM.lodFor(r, prev, small);
+      seen.push(prev);
+    }
+    return Array.from(new Set(seen));
+  }
+  eq4(jitter(0.945, 0.003, 40), [0],
+    'LOD: дрожание НИЖЕ порога T1 не мигает (уровень постоянный)');
+  eq4(jitter(0.960, 0.003, 40), [1],
+    'LOD: дрожание ВЫШЕ порога T1 не сбрасывает уровень');
+  eq4(jitter(1.90, 0.05, 40), [1],
+    'LOD: дрожание у порога T2 не поднимает уровень раньше времени');
+  eq4(jitter(2.05, 0.02, 40), [2],
+    'LOD: дрожание у порога T2 не роняет детальный уровень');
+
+  // ── 2. Плотностная поправка §5.2: плотный кадр = обзор ────────────────
+  const dense = { nodes: 702, density: 176 };
+  const sparse = { nodes: 702, density: 4 };
+  eq4(CM.lodFor(1.0, 1, dense), 0,
+    '§5.2: плотный кадр при r=1 читается как обзор (агрегаты)');
+  eq4(CM.lodFor(1.0, 1, sparse), 1, '§5.2: разреженный кадр при r=1 — рабочий вид');
+  eq4(CM.lodFor(1.0, 1, { nodes: 12, density: 900 }), 1,
+    '§5.2: поправка не применяется к МЕЛКОМУ набору (240 порог)');
+  eq4(CM.lodFor(1.4, 1, dense), 1,
+    '§5.2: при приближении плотность больше не возвращает в обзор');
+  eq4(CM.lodFor(2.3, 2, dense), 2, 'плотность не отменяет детальный уровень');
+  eq4(CM.lodFor(1.0, 0, dense), 0, 'обзор по плотности устойчив (нет мигания)');
+  eq4(CM.lodFor(1.0, 0, sparse), 1, 'обзор выходит, когда кадр перестал быть плотным');
+  // Регресс F1 (ревью CMV-C): плотностная граница не мигает. Раньше выход из
+  // обзора по плотности был жёстким `r > 1.05`, и при 702 узлах уровень
+  // переключался на каждом событии колеса (1.045/1.060 = 12 переключений).
+  const denseWalk = { nodes: 702, density: 176 };
+  function denseTrace(startR, endR, step, prev) {
+    const out = [];
+    let p = prev;
+    const dir = endR >= startR ? 1 : -1;
+    for (let r = startR; dir > 0 ? r <= endR + 1e-9 : r >= endR - 1e-9;
+      r += dir * step) {
+      p = CM.lodFor(Math.round(r * 1000) / 1000, p, denseWalk);
+      out.push({ r: Math.round(r * 1000) / 1000, lod: p });
+    }
+    return out;
+  }
+  function switches(trace) {
+    let n = 0;
+    for (let i = 1; i < trace.length; i += 1) {
+      if (trace[i].lod !== trace[i - 1].lod) n += 1;
+    }
+    return n;
+  }
+  const upBand = denseTrace(1.0, 1.15, 0.005, 0);
+  eq4(switches(upBand), 0,
+    '§5.1: обход 1.00→1.15 в плотном кадре не переключает уровень');
+  const backBand = denseTrace(1.15, 1.0, 0.005, 0);
+  eq4(switches(backBand), 0,
+    '§5.1: обход 1.15→1.00 в плотном кадре не переключает уровень');
+  const roundTrip = upBand.concat(backBand.slice(1));
+  eq4(switches(roundTrip), 0,
+    '§5.1: плотностная полоса гасит дрожание ±1.5 % у границы 1.05');
+  ok4(upBand.every((s) => s.lod === 0),
+    '§5.1: внутри полосы плотный кадр остаётся обзором');
+  // Выход из плотного обзора — только с запасом: r > denseMax·(1+δ) = 1.176.
+  eq4(CM.lodFor(1.17, 0, denseWalk), 0, '§5.1: r=1.17 ещё внутри полосы обзора');
+  eq4(CM.lodFor(1.19, 0, denseWalk), 1, '§5.1: r=1.19 уже вне полосы — рабочий вид');
+  eq4(CM.lodFor(1.19, 1, denseWalk), 1, '§5.1: обратно в обзор по плотности не тянет');
+  eq4(CM.lodFor(1.04, 1, denseWalk), 0, '§5.1: вход в обзор по плотности — до 1.05');
+  // Дрожание ±0.01 около самой границы входа: переход возможен не более одного
+  // раза (вход в обзор), обратных переключений быть не должно.
+  let jprev = 1;
+  const jseen = [jprev];
+  for (let i = 0; i < 60; i += 1) {
+    jprev = CM.lodFor(i % 2 === 0 ? 1.04 : 1.06, jprev, denseWalk);
+    jseen.push(jprev);
+  }
+  ok4(switches(jseen.map((lod) => ({ lod }))) <= 1,
+    '§5.1: дрожание ±0.01 у 1.05 даёт не более одного переключения');
+  eq4(jseen[jseen.length - 1], 0,
+    '§5.1: после дрожания у границы уровень остаётся обзорным');
+  // Гистерезис плотности: кадр, переставший быть плотным, отпускает обзор.
+  eq4(CM.lodFor(1.0, 0, { nodes: 702, density: 50 }), 0,
+    '§5.1: плотность в 20 % полосе (50 из 60) ещё держит обзор');
+  eq4(CM.lodFor(1.0, 0, { nodes: 702, density: 40 }), 1,
+    '§5.1: плотность ниже 48/100k отпускает обзор');
+  // Плотность считается от площади кадра, а не от константы.
+  near4(CM.lodDensity(702, 1252, 318), 176.32165893061668,
+    'плотность = узлы на 100k px²');
+  eq4(CM.lodDensity(0, 1252, 318), 0, 'плотность пустого кадра = 0');
+  eq4(CM.lodDensity(10, 0, 0), 0, 'неизмеренная сцена не даёт плотности');
+  eq4(CM.lodTopK(702), 40, '§4.3: K = min(40, ⌈702/12⌉)');
+  eq4(CM.lodTopK(24), 2, '§4.3: K = ⌈24/12⌉ = 2 для малого набора');
+
+  // ── 3. Приоритет подписей: явный ранг, а не «похожесть» ────────────────
+  eq4(CM.LABEL_RANK.selected, 0, 'ранг: выбранный — первый');
+  eq4(CM.LABEL_RANK.search, 1, 'ранг: найденный поиском — второй (§4.4)');
+  eq4(CM.LABEL_RANK.hover, 2, 'ранг: hover — третий');
+  eq4(CM.LABEL_RANK.neighbor, 3, 'ранг: сосед выбранного — четвёртый');
+  eq4(CM.LABEL_RANK.group, 4, 'ранг: центр группы — пятый (уровень 0)');
+  eq4(CM.LABEL_RANK.other, 5, 'ранг: обычный узел — последний');
+  eq4(CM.labelRankOf({ selected: true, neighbor: true }), 0,
+    'выбранный не понижается флагом соседа');
+  eq4(CM.labelRankOf({ group: true }), 4, 'группа получает ранг группы');
+  eq4(CM.labelRankOf({ rank: 7 }), 7, 'явный ранг вызывающего уважается');
+
+  const crowd = [
+    { id: 'n1', x: 100, y: 100, kind: 'paradigm', title: 'Парадигма', degree: 9 },
+    { id: 'n2', x: 102, y: 100, kind: 'paradigm', title: 'Парадигма 2', degree: 9 },
+    { id: 'n3', x: 104, y: 100, kind: 'fact', title: 'Факт', degree: 1 },
+  ];
+  const prio = CM.allocateLabels(crowd, {
+    scale: 1, viewport: { width: 200, height: 120 }, maxLabelChars: 12,
+  });
+  eq4(prio.labels.length, 1, 'тесный кадр: помещается одна подпись');
+  eq4(prio.labels[0].id, 'n1', 'при равенстве — по приоритету типа и id');
+  const chosen = CM.allocateLabels(crowd.concat([
+    { id: 'sel', x: 100, y: 100, kind: 'fact', title: 'Выбранный', selected: true },
+  ]), { scale: 1, viewport: { width: 200, height: 120 }, maxLabelChars: 12 });
+  eq4(chosen.labels[0].id, 'sel',
+    '§4.4: выбранный узел подписывается первым, даже рядом с парадигмами');
+  const searched = CM.allocateLabels(crowd.concat([
+    { id: 'hit', x: 100, y: 100, kind: 'other', title: 'Найденный', search: true },
+  ]), { scale: 1, viewport: { width: 200, height: 120 }, maxLabelChars: 12 });
+  eq4(searched.labels[0].id, 'hit', '§4.4: результат поиска важнее обычных узлов');
+  const hovered = CM.allocateLabels(crowd.concat([
+    { id: 'hov', x: 100, y: 100, kind: 'other', title: 'Наведение', hover: true },
+  ]), { scale: 1, viewport: { width: 200, height: 120 }, maxLabelChars: 12 });
+  eq4(hovered.labels[0].id, 'hov', '§4.4: hover важнее обычных узлов');
+
+  // ── 4. Коллизии: подписи в экранных координатах не накладываются ───────
+  const many = [];
+  for (let i = 0; i < 60; i += 1) {
+    many.push({
+      id: 'g' + i,
+      x: 40 + ((i * 53) % 700),
+      y: 30 + ((i * 97) % 380),
+      kind: ['fact', 'belief', 'paradigm', 'entity'][i % 4],
+      title: 'Подпись номер ' + i,
+      degree: i % 7,
+    });
+  }
+  const packed = CM.allocateLabels(many, {
+    scale: 1.2, viewport: { width: 800, height: 440 }, maxLabelChars: 24,
+  });
+  ok4(packed.labels.length >= 4, 'плотный кадр всё равно подписан');
+  let overlapPairs = 0;
+  for (let i = 0; i < packed.labels.length; i += 1) {
+    for (let j = i + 1; j < packed.labels.length; j += 1) {
+      if (CM.boxesOverlap(packed.labels[i], packed.labels[j], 0)) overlapPairs += 1;
+    }
+  }
+  eq4(overlapPairs, 0, '§4.4: в экранных координатах подписи не накладываются');
+  ok4(packed.labels.every((l) => l.x - l.width / 2 >= 0
+    && l.x + l.width / 2 <= 800), 'подписи целиком внутри кадра по X');
+  // Детерминизм: тот же кадр — тот же план (никаких «прыгающих» подписей).
+  const packed2 = CM.allocateLabels(many, {
+    scale: 1.2, viewport: { width: 800, height: 440 }, maxLabelChars: 24,
+  });
+  eq4(packed2.labels.map((l) => l.id), packed.labels.map((l) => l.id),
+    'план подписей детерминирован при одном кадре');
+
+  // ── 5. Агрегаты уровня 0: реальные элементы, честные числа, обратимость ─
+  const aggNodes = [];
+  const aggPos = {};
+  const aggEdges = [];
+  let seed = 7;
+  function rnd(limit) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return (seed >> 7) % limit;
+  }
+  const kinds = ['fact', 'belief', 'paradigm', 'entity'];
+  for (let c = 0; c < 3; c += 1) {
+    for (let i = 0; i < 30; i += 1) {
+      const id = 'a' + c + '_' + i;
+      aggNodes.push({
+        id: id, kind: kinds[(c + i) % 3], degree: 1 + (i % 6),
+        title: 'Запись ' + c + '-' + i,
+      });
+      aggPos[id] = { x: c * 420 + (i % 6) * 34, y: Math.floor(i / 6) * 40 };
+      if (i > 0) aggEdges.push({ id: 'e' + c + '_' + i, from: 'a' + c + '_' + (i - 1), to: id });
+    }
+  }
+  // Мост между районами — РЕАЛЬНОЕ ребро (иначе потоков быть не должно).
+  aggEdges.push({ id: 'bridge', from: 'a0_0', to: 'a1_5' });
+  const agg = CM.buildAggregates({
+    nodes: aggNodes, edges: aggEdges, positions: aggPos, fitScale: 1,
+    camera: { x: 0, y: 0, scale: 1 }, viewport: { width: 1300, height: 400 },
+    tileCss: 220,
+  });
+  ok4(agg.groups.length >= 2,
+    'L0: районная сетка даёт несколько центров (' + agg.groups.length + ')');
+  const allMembers = [];
+  const realIds = new Set(aggNodes.map((n) => n.id));
+  let membersReal = true;
+  agg.groups.forEach((g) => {
+    ok4(Array.isArray(g.memberIds) && g.memberIds.length === g.count,
+      'L0: count равен числу реальных участников');
+    ok4(typeof g.label === 'string' && g.label.indexOf('· ' + g.count) > 0,
+      'L0: подпись несёт РЕАЛЬНОЕ число элементов (' + g.label + ')');
+    ok4(realIds.has(g.apexId), 'L0: якорь группы — реальный узел (' + g.apexId + ')');
+    g.memberIds.forEach((m) => {
+      allMembers.push(m);
+      if (!realIds.has(m)) membersReal = false;
+    });
+  });
+  ok4(membersReal, 'L0: все участники — РЕАЛЬНЫЕ id из набора');
+  eq4(allMembers.length, aggNodes.length,
+    'L0: агрегаты покрывают весь размещённый набор');
+  eq4(new Set(allMembers).size, allMembers.length,
+    'L0: ни один узел не входит в два района');
+  eq4(agg.grouped, aggNodes.length, 'L0: «свёрнуто» = все размещённые узлы');
+  eq4(agg.total, aggNodes.length, 'L0: total = размещённые узлы');
+  ok4(agg.groups.every((g) => g.id.indexOf('agg:') === 0),
+    'L0: у агрегатов собственные id, не пересекающиеся с узлами');
+  // Центры разведены: кольца не накладываются друг на друга.
+  let minGap = Infinity;
+  for (let i = 0; i < agg.groups.length; i += 1) {
+    for (let j = i + 1; j < agg.groups.length; j += 1) {
+      const a = agg.groups[i];
+      const b = agg.groups[j];
+      const d = Math.hypot(a.sx - b.sx, a.sy - b.sy);
+      minGap = Math.min(minGap, d - (a.radius + b.radius));
+    }
+  }
+  ok4(minGap > -1, 'L0: центры районов разведены (кольца не слипаются)');
+  // Тесный кадр: два района физически не влезают рядом — центры обязаны
+  // разъехаться, иначе кольца сливаются в одно пятно.
+  const tightNodes = [];
+  const tightPos = {};
+  for (let i = 0; i < 60; i += 1) {
+    const id = 't' + i;
+    tightNodes.push({ id: id, kind: 'fact', degree: 1, title: 't' + i });
+    tightPos[id] = { x: (i % 10) * 30, y: Math.floor(i / 10) * 20 };
+  }
+  const tight = CM.buildAggregates({
+    nodes: tightNodes, edges: [], positions: tightPos, fitScale: 1,
+    camera: { x: 0, y: 0, scale: 1 }, viewport: { width: 200, height: 120 },
+    tileCss: 220,
+  });
+  ok4(tight.groups.length >= 2, 'тесный кадр: районов не меньше двух');
+  let tightMin = Infinity;
+  for (let i = 0; i < tight.groups.length; i += 1) {
+    for (let j = i + 1; j < tight.groups.length; j += 1) {
+      const a = tight.groups[i];
+      const b = tight.groups[j];
+      tightMin = Math.min(tightMin, Math.hypot(a.sx - b.sx, a.sy - b.sy)
+        - (a.radius + b.radius));
+    }
+  }
+  ok4(tightMin > 0,
+    'тесный кадр: кольца районов не соприкасаются (зазор ' + tightMin.toFixed(1) + ')');
+  ok4(agg.groups.every((g) => g.sx >= 0 && g.sx <= 1300
+    && g.sy >= 0 && g.sy <= 400), 'L0: центры остаются в кадре');
+  // Потоки — только реальные рёбра между районами.
+  const groupOf = {};
+  agg.groups.forEach((g) => g.memberIds.forEach((m) => { groupOf[m] = g.id; }));
+  const realCross = aggEdges.filter((e) => groupOf[e.from]
+    && groupOf[e.to] && groupOf[e.from] !== groupOf[e.to]).length;
+  const flowSum = agg.flows.reduce((acc, f) => acc + f.count, 0);
+  eq4(flowSum, realCross, 'L0: сумма потоков = число реальных межузловых связей');
+  const groupIds = new Set(agg.groups.map((g) => g.id));
+  ok4(agg.flows.every((f) => groupIds.has(f.from) && groupIds.has(f.to)
+    && f.from !== f.to && f.count > 0),
+  'L0: потоки ссылаются на существующие районы и не «сами на себя»');
+  // Обратимость: по memberIds район можно раскрыть в реальные узлы.
+  const first = agg.groups[0];
+  const back = first.memberIds.filter((id) => realIds.has(id));
+  eq4(back.length, first.count, 'L0: район обратим в реальные узлы');
+  // Детерминизм и независимость от камеры (группировка та же при сдвиге).
+  const aggMoved = CM.buildAggregates({
+    nodes: aggNodes, edges: aggEdges, positions: aggPos, fitScale: 1,
+    camera: { x: 55, y: -20, scale: 1 }, viewport: { width: 1300, height: 400 },
+    tileCss: 220,
+  });
+  eq4(aggMoved.groups.map((g) => g.memberIds.join(',')),
+    agg.groups.map((g) => g.memberIds.join(',')),
+    'L0: состав районов не зависит от положения камеры');
+  ok4(aggMoved.groups[0].sx !== agg.groups[0].sx,
+    'L0: экранные центры зависят от камеры (проекция, а не мировые координаты)');
+  // Смешанный район не выдумывает «тему».
+  const mixed = agg.groups.filter((g) => g.dominantShare < 0.8);
+  ok4(mixed.every((g) => g.label.indexOf(CM.GROUP_NEUTRAL_LABEL) === 0),
+    'L0: смешанный район подписан нейтрально («' + CM.GROUP_NEUTRAL_LABEL + '»)');
+  // Регресс F2 (ревью CMV-C): тема района — ДОМИНИРУЮЩАЯ парадигма, а не первая
+  // по алфавиту. Раньше подпись брала лексикографически первый заголовок и
+  // выдавала его за тему всего района (§5.2/§13).
+  function oneDistrict(members) {
+    const nodes = [];
+    const positions = {};
+    members.forEach((m, idx) => {
+      nodes.push({ id: m.id, kind: m.kind, degree: 1, title: m.title });
+      positions[m.id] = { x: 40 + (idx % 3) * 30, y: 40 + Math.floor(idx / 3) * 26 };
+    });
+    return CM.buildAggregates({
+      nodes: nodes, edges: [], positions: positions, fitScale: 1,
+      camera: { x: 0, y: 0, scale: 1 }, viewport: { width: 900, height: 400 },
+      tileCss: 220, minMembers: 6,
+    });
+  }
+  // Три равновесные парадигмы: «Альфа» первая по алфавиту, но не доминирует.
+  const splitMembers = [];
+  ['Альфа', 'Бета', 'Гамма'].forEach((title, t) => {
+    for (let i = 0; i < 3; i += 1) {
+      splitMembers.push({ id: 'p' + t + i, kind: 'paradigm', title: title });
+    }
+  });
+  for (let i = 0; i < 3; i += 1) {
+    splitMembers.push({ id: 'sf' + i, kind: 'fact', title: 'Наблюдение ' + i });
+  }
+  const splitAgg = oneDistrict(splitMembers);
+  eq4(splitAgg.groups.length, 1, '§5.2: район из 12 узлов собран в один');
+  const splitGroup = splitAgg.groups[0];
+  ok4(splitGroup.dominantKind === 'paradigm' && splitGroup.dominantShare >= 0.6,
+    '§5.2: парадигмы — доминирующий тип района');
+  ok4(splitGroup.paradigmShare < 0.6,
+    '§5.2: ни одна парадигма не доминирует (доля ' + splitGroup.paradigmShare + ')');
+  eq4(splitGroup.label, CM.GROUP_NEUTRAL_LABEL + ' · 12',
+    '§5.2: район без доминирующей парадигмы подписан нейтрально («'
+      + splitGroup.label + '»)');
+  ok4(splitGroup.label.indexOf('Альфа') < 0,
+    '§5.2: алфавитно первая парадигма не выдаётся за тему района');
+  // Даже когда парадигмы — 90 % состава, в подписи не появляется КОНКРЕТНОЕ
+  // название: тема не выдумывается, называется только тип.
+  const kindOnlyMembers = splitMembers.slice(0, 9);
+  kindOnlyMembers.push({ id: 'kf0', kind: 'fact', title: 'Единственный факт' });
+  const kindOnlyGroup = oneDistrict(kindOnlyMembers).groups[0];
+  ok4(kindOnlyGroup.dominantKind === 'paradigm' && kindOnlyGroup.paradigmShare < 0.6,
+    '§5.2: тип парадигм доминирует, конкретное название — нет');
+  ok4(kindOnlyGroup.label.indexOf('Альфа') < 0
+    && kindOnlyGroup.label.indexOf('Бета') < 0
+    && kindOnlyGroup.label.indexOf('Гамма') < 0,
+  '§5.2: ни одно недоминирующее название не попадает в подпись ('
+    + kindOnlyGroup.label + ')');
+  // Одна парадигма ≥60 % — её название район подписать вправе.
+  const dominantMembers = [];
+  for (let i = 0; i < 7; i += 1) {
+    dominantMembers.push({ id: 'd' + i, kind: 'paradigm', title: 'Доверие' });
+  }
+  for (let i = 0; i < 3; i += 1) {
+    dominantMembers.push({ id: 'df' + i, kind: 'fact', title: 'Факт ' + i });
+  }
+  const dominantAgg = oneDistrict(dominantMembers);
+  eq4(dominantAgg.groups.length, 1, '§5.2: район с доминантой собран в один');
+  const dominantGroup = dominantAgg.groups[0];
+  ok4(dominantGroup.paradigmTitle === 'Доверие',
+    '§5.2: тема района — самая частая парадигма («' + dominantGroup.paradigmTitle + '»)');
+  eq4(dominantGroup.label, CM.KIND_LABELS.paradigm + ': Доверие · 10',
+    '§5.2: доминирующая парадигма называется в подписи района');
+  // Та же парадигма доминирует по ТИПУ, но её заголовок — лишь 5 из 12:
+  // название темы всё равно не выводится (иначе район назван по 1 узлу).
+  const thinMembers = [];
+  for (let i = 0; i < 5; i += 1) {
+    thinMembers.push({ id: 'td' + i, kind: 'paradigm', title: 'Доверие' });
+  }
+  ['Воля', 'Ирония', 'Тревога', 'Надежда', 'Сомнение'].forEach((title, t) => {
+    thinMembers.push({ id: 'tu' + t, kind: 'paradigm', title: title });
+  });
+  for (let i = 0; i < 2; i += 1) {
+    thinMembers.push({ id: 'tf' + i, kind: 'fact', title: 'Факт ' + i });
+  }
+  const thinAgg = oneDistrict(thinMembers);
+  const thinGroup = thinAgg.groups[0];
+  ok4(thinGroup.dominantKind === 'paradigm' && thinGroup.dominantShare >= 0.6
+    && thinGroup.paradigmShare < 0.6,
+  '§5.2: тип доминирует, а конкретный заголовок — нет ('
+    + thinGroup.paradigmShare + ')');
+  ok4(thinGroup.paradigmTitle === 'Доверие',
+    '§5.2: самая частая парадигма всё же определяется («' + thinGroup.paradigmTitle + '»)');
+  ok4(thinGroup.label.indexOf('Доверие') < 0 && thinGroup.label.indexOf('Воля') < 0,
+    '§5.2: парадигма с долей ниже 0.6 не становится темой района ('
+      + thinGroup.label + ')');
+  eq4(thinGroup.label, CM.KIND_LABELS.paradigm + ' · 12',
+    '§5.2: при 0.83 парадигм называется ТИП, а не конкретное название');
+  // Пустой вход — пустой выход (никаких «центров в нуле»).
+  const aggEmpty = CM.buildAggregates({ nodes: [], edges: [], positions: {} });
+  eq4([aggEmpty.groups.length, aggEmpty.total, aggEmpty.grouped], [0, 0, 0],
+    'L0: пустой набор не даёт агрегатов');
+  const aggNoPos = CM.buildAggregates({
+    nodes: [{ id: 'x', kind: 'fact', degree: 0, title: 'x' }],
+    edges: [], positions: {}, fitScale: 1,
+  });
+  eq4(aggNoPos.total, 0, 'L0: узел без позиции не агрегируется');
+  const aggBadPos = CM.buildAggregates({
+    nodes: [
+      { id: 'ok1', kind: 'fact', degree: 0, title: 'a' },
+      { id: 'nan1', kind: 'fact', degree: 0, title: 'b' },
+      { id: 'str1', kind: 'fact', degree: 0, title: 'c' },
+    ],
+    edges: [],
+    positions: { ok1: { x: 10, y: 10 }, nan1: { x: NaN, y: 5 }, str1: { x: 'x', y: 7 } },
+    fitScale: 1,
+  });
+  eq4(aggBadPos.total, 1,
+    'L0: нечисловые координаты не превращаются в «центр в нуле»');
+  eq4(aggBadPos.groups.reduce((acc, g) => acc + g.count, 0), 1,
+    'L0: в агрегаты попадают только размещённые узлы');
+
+  // ── 6. Счётчики §9.9: четыре разные величины, без смешивания ───────────
+  const countModel = {
+    nodes: new Array(30).fill(0),
+    edges: new Array(50).fill(0),
+    shownOf: { byKind: {}, totals: { nodes: 52600, edges: 98000 } },
+  };
+  const countView = { nodes: new Array(12).fill(0), edges: new Array(19).fill(0) };
+  const countScene = {
+    aggregates: [
+      { id: 'agg:1', count: 5, hideMembers: true },
+      { id: 'agg:2', count: 3, hideMembers: false },
+    ],
+  };
+  const counts = CM.countSummary({
+    model: countModel, view: countView, scene: countScene,
+  });
+  eq4(counts.api.nodes, 30, 'счётчики: «из API» — узлы принятого набора');
+  eq4(counts.api.edges, 50, 'счётчики: «из API» — связи принятого набора');
+  eq4(counts.filter.nodes, 12, 'счётчики: «после фильтра» — своя величина');
+  eq4(counts.filter.ofNodes, 30, 'счётчики: «видно X из Y» знает Y');
+  eq4(counts.screen.aggregates, 2, 'счётчики: «на экране» — число агрегатов');
+  eq4(counts.screen.aggregated, 8, 'счётчики: «на экране» — свёрнуто в агрегаты');
+  eq4(counts.screen.collapsed, 1, 'счётчики: свёрнутых районов один');
+  eq4(counts.screen.nodes, 4, 'счётчики: различимых поштучно = витрина − свёрнутые');
+  eq4(counts.screen.total, 12, 'счётчики: сумма «на экране» = витрина');
+  eq4(counts.db.known, true, 'счётчики: сервер прислал «всего» — это отдельный факт');
+  eq4(counts.db.nodes, 52600, 'счётчики: «в БД» — прямой итог сервера');
+  eq4(counts.db.edges, 98000, 'счётчики: связи «всего в базе» не равны связям API');
+  ok4(counts.db.nodes !== counts.api.nodes || counts.db.nodes === null,
+    'счётчики: «в БД» и «из API» — РАЗНЫЕ величины, не смешаны');
+  const countsUnknown = CM.countSummary({
+    model: { nodes: [1], edges: [] }, view: { nodes: [1], edges: [] }, scene: null,
+  });
+  eq4(countsUnknown.db.nodes, null, 'счётчики: без shownOf «в БД» = null (не выдумка)');
+  eq4(countsUnknown.db.known, false, 'счётчики: «в БД» помечено как неизвестное');
+  eq4(countsUnknown.screen.aggregates, 0, 'счётчики: без агрегатов экран честный');
+
+  return s4;
+})();
+
+checks += S4;
+console.log('EVOL-CMV-C-LOD-MAP-OK checks=' + S4);
 checks += S3;
 console.log('EVOL-COG-MAP-S3-OK checks=' + S3);

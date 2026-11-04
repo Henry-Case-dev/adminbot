@@ -16299,6 +16299,12 @@
        `script-src 'self'`, ДО app.js: app.js читает `window.CognitiveMap`
        (рендер, подписи, состояния). Новых библиотек нет. -->
   <script src="/static/cognitive-map.js?v=__APP_VERSION__"></script>
+  <!-- CMV-A (EPIC-CM-VISUAL-01 §10.1(3)): ЕДИНОЕ преобразование
+       «модель → строка vis.DataSet» и камера обзора по формуле `fitScaleRef`.
+       Zero-build, CSP `script-src 'self'`, ДО app.js (как и адаптер выше):
+       app.js берёт `window.CogVisual`; без него карта честно показывает
+       `not_loaded`, а не пустую «красивую» сцену. Новых библиотек нет. -->
+  <script src="/static/cog-visual.js?v=__APP_VERSION__"></script>
   <!-- W2-FULLSCREEN (REQ-U07-1): политика fullscreen — plain IIFE без Vue,
        БЕЗ записи --tg-* (их пишет только telegram-init.js). ДО app.js:
        app.js монтирует зеркало по window.__FullscreenPolicy.subscribe(). -->
