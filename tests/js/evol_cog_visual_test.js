@@ -763,4 +763,137 @@ const MODEL = CM.normalizePayload(modelPayload());
   near(V.relativeScale(1, 0), 1, 'LOD: без fitScale r = 1 (без NaN)');
 })();
 
+
+/* ── CMV-C: агрегаты L0, скрытые узлы, ослабление невыделенных ─────────── */
+(function testCmvCAggregates() {
+  // 1) Контракт конфигурации: пороги LOD и параметры районов — в ОДНОМ слое.
+  eq(V.CONFIG.lod.t1, 0.85, 'config: T1 = 0.85 (§4.2 контракта)');
+  eq(V.CONFIG.lod.t2, 1.8, 'config: T2 = 1.80');
+  eq(V.CONFIG.lod.delta, 0.12, 'config: δ = 0.12 (полоса гистерезиса)');
+  ok(V.CONFIG.lod.densePer100k > 0, 'config: порог плотности обзора задан');
+  ok(V.CONFIG.group.tileCss > 0 && V.CONFIG.group.maxCols >= 2
+    && V.CONFIG.group.maxRows >= 2, 'config: сетка районов задана');
+  ok(V.CONFIG.group.centerGap > 0, 'config: центры районов разводятся');
+  ok(V.CONFIG.glow.maxCoreForGlow > 0, 'config: потолок ядра для ореола задан');
+
+  // 2) Отрисовка агрегатов: только на уровне 0, по реальным данным кадра.
+  const made = { canvases: 0, ops: [], alphas: [] };
+  function stubCtx() {
+    return {
+      globalAlpha: 1, lineWidth: 1, fillStyle: '', strokeStyle: '',
+      font: '', textAlign: '', textBaseline: '', lineJoin: '', lineCap: '',
+      createRadialGradient() { return { addColorStop() {} }; },
+      clearRect() {}, fillRect() {},
+      beginPath() { made.ops.push('path'); },
+      moveTo() {}, lineTo() {}, quadraticCurveTo() {}, closePath() {},
+      arc() { made.ops.push('arc'); },
+      stroke() { made.ops.push('stroke'); },
+      fill() {},
+      save() {}, restore() {}, setTransform() {},
+      fillText(t) { made.ops.push('text:' + t); },
+      strokeText() { made.ops.push('strokeText'); },
+      drawImage() {
+        made.ops.push('image');
+        made.alphas.push(Math.round(this.globalAlpha * 1000) / 1000);
+      },
+    };
+  }
+  function newFx() {
+    made.ops.length = 0;
+    made.alphas.length = 0;
+    return V.createFx({
+      dpr: 1,
+      makeCanvas(w, h) {
+        made.canvases += 1;
+        return { width: w, height: h, getContext: () => stubCtx() };
+      },
+    });
+  }
+  const NODES = [
+    { id: 'f1', kind: 'fact', degree: 3 },
+    { id: 'b1', kind: 'belief', degree: 2 },
+    { id: 'p1', kind: 'paradigm', degree: 5 },
+  ];
+  const POS = {
+    f1: { x: 0, y: 0 }, b1: { x: 80, y: 20 }, p1: { x: -80, y: 20 },
+  };
+  const GROUPS = [
+    { id: 'agg:g1', apexId: 'f1', count: 120, dominantKind: 'fact',
+      radius: 30, sx: 100, sy: 120, hideMembers: true,
+      kinds: { fact: 90, belief: 20, paradigm: 10 } },
+    { id: 'agg:g2', apexId: 'b1', count: 80, dominantKind: 'belief',
+      radius: 24, sx: 400, sy: 140, hideMembers: true,
+      kinds: { belief: 60, fact: 20 } },
+  ];
+  const FLOWS = [{ from: 'agg:g1', to: 'agg:g2', count: 12 }];
+  function frame(extra) {
+    return Object.assign({
+      now: 0, width: 800, height: 400,
+      camera: { x: 0, y: 0, scale: 1 },
+      positions: POS, nodes: NODES,
+      edges: [{ id: 'x', from: 'f1', to: 'b1' }],
+      incident: [], selection: null, hover: null, fitScale: 1, lod: 0,
+      keyIds: null, pulse: null, flash: 0, reducedMotion: false,
+      groups: GROUPS, flows: FLOWS,
+    }, extra || {});
+  }
+  const ctx = stubCtx();
+  const fxL0 = newFx();
+  fxL0.paint(ctx, frame({}));
+  const c0 = fxL0.counters();
+  eq(c0.groups, 2, 'L0: в кадр попали оба района');
+  eq(c0.groupDraws, 2, 'L0: нарисован центр каждого района');
+  eq(c0.groupFlows, 1, 'L0: поток между районами нарисован');
+  ok(made.ops.filter((o) => o === 'stroke').length >= 3,
+    'L0: кольцо района нарисовано (обводки есть)');
+  // На рабочих уровнях районов на экране быть не должно.
+  const fxL1 = newFx();
+  fxL1.paint(ctx, frame({ lod: 1 }));
+  eq(fxL1.counters().groupDraws, 0, 'L1: центры районов не рисуются');
+  eq(fxL1.counters().groupFlows, 0, 'L1: потоки районов не рисуются');
+  const fxL2 = newFx();
+  fxL2.paint(ctx, frame({ lod: 2 }));
+  eq(fxL2.counters().groups, 0, 'L2: районы выключены');
+  // Пустой список потоков не ломает кадр.
+  const fxNoFlows = newFx();
+  fxNoFlows.paint(ctx, frame({ flows: [] }));
+  eq(fxNoFlows.counters().groupFlows, 0, 'L0 без потоков: ничего не дорисовывается');
+
+  // 3) Скрытые LOD-ом узлы не рисуются и нашим слоем (иначе ореолы «висят»).
+  const fxAll = newFx();
+  const drawnAll = fxAll.paint(ctx, frame({ lod: 1 }));
+  const imagesAll = made.alphas.length;
+  const fxHidden = newFx();
+  made.alphas.length = 0;
+  const drawnHidden = fxHidden.paint(ctx, frame({
+    lod: 1, hidden: { b1: true, p1: true },
+  }));
+  ok(drawnHidden < drawnAll,
+    'скрытые узлы не попадают в кадр слоя (нарисовано меньше)');
+  ok(made.alphas.length < imagesAll,
+    'скрытые узлы не дают drawImage (ореолы не висят в воздухе)');
+  eq(fxHidden.visibleCount(), drawnHidden,
+    'visibleCount() отдаёт число реально нарисованных узлов');
+
+  // 4) Ослабление: невыделенные узлы рисуются тише (§4.3 спеки).
+  const fxPlain = newFx();
+  made.alphas.length = 0;
+  fxPlain.paint(ctx, frame({ lod: 1, selection: 'f1' }));
+  const plainMax = Math.max.apply(null, made.alphas);
+  const fxDim = newFx();
+  made.alphas.length = 0;
+  fxDim.paint(ctx, frame({ lod: 1, selection: 'f1', dim: { b1: true, p1: true } }));
+  const dimMax = Math.max.apply(null, made.alphas);
+  ok(dimMax <= plainMax,
+    'ослабленные узлы не ярче обычных (' + dimMax + ' ≤ ' + plainMax + ')');
+  ok(made.alphas.filter((a) => a > 0 && a < 0.25).length >= 1,
+    'ослабленный узел реально рисуется тише (есть альфы < 0.25)');
+  // Редуцированное движение: районы всё равно видны (статика допустима).
+  const fxReduced = newFx();
+  fxReduced.paint(ctx, frame({ reducedMotion: true }));
+  eq(fxReduced.counters().groupDraws, 2,
+    'reduced-motion: центры районов сохранены (§7.3 спеки)');
+})();
+
+console.log('EVOL-CMV-C-VISUAL-OK checks=' + checks);
 console.log('EVOL-CMV-B-VISUAL-OK checks=' + checks);

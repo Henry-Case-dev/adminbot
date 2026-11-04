@@ -30021,6 +30021,13 @@
         this._cogSyncPositions();
         this._cogApplyNodeSizes();
         this._cogBuildPulse();
+        // CMV-C: новый набор = новые группы (позиции/состав изменились).
+        if (typeof this._cogBuildAggregates === 'function') {
+          this._cogBuildAggregates(true);
+          if (typeof this._cogApplyLodVisibility === 'function') {
+            this._cogApplyLodVisibility();
+          }
+        }
         this._cogApplyHighlight();
         this._cogPaintStatic();
       },
@@ -30211,12 +30218,19 @@
           try {
             net.setOptions({ physics: { enabled: false } });
           } catch (e) { /* noop */ }
-        }
-        // F11 (§16/D4): mobile-упрощение — физика сразу выключена.
+        }        // F11 (§16/D4): mobile-упрощение — физика сразу выключена.
         if (simple) {
           try {
             net.setOptions({ physics: { enabled: false } });
           } catch (e) { /* noop */ }
+        }
+        // CMV-C (§6 контракта): «Раскрыть» по центру агрегата обрабатывается в
+        // bubble-фазе на контейнере сцены (слой `fx` клики не перехватывает).
+        // Один слушатель на сцену, снимается в `destroyCognitionGraph`.
+        if (el && typeof el.addEventListener === 'function') {
+          scene.onClick = function (ev) { self._cogOnSceneClick(ev); };
+          el.addEventListener('click', scene.onClick);
+          scene.handlers += 1;
         }
         if (net && typeof net.on === 'function') {
           // CMV-B §6 контракта: `afterDrawing` — сигнал кадра и источник
@@ -30317,6 +30331,9 @@
           self._cogSyncPositions();
           self._cogApplyNodeSizes();
           self._cogBuildPulse();
+          // CMV-C: LOD/агрегаты включаются на ПЕРВОМ кадре с позициями (см.
+          // `_cogPaintFx`): до раскладки vis позиций нет, и любое решение об
+          // уровне было бы решением по пустой сцене.
           self._cogPaintStatic();
         };
         // §6 контракта: слой `fx` создаётся ВМЕСТЕ со сценой (один canvas на
@@ -30419,6 +30436,23 @@
         if (w < 2 || h < 2) return null;          // скрытая/неуложенная сцена
         var positions = null;
         try { positions = net.getPositions() || {}; } catch (e) { return null; }
+        // CMV-C: vis 9.1.9 НЕ отдаёт скрытые узлы, а на уровне 0 они скрыты
+        // намеренно. Обзор обязан считаться по ПОЛНОМУ набору, иначе
+        // `fitScaleRef` зависел бы от собственного LOD-решения (петля уровня).
+        // Поэтому берём кэш позиций сцены, если он полнее.
+        var cachedPos = (this._cogScene && this._cogScene.pos) || null;
+        if (cachedPos) {
+          var rawCount = 0;
+          var cachedCount = 0;
+          var kk;
+          for (kk in positions) {
+            if (Object.prototype.hasOwnProperty.call(positions, kk)) rawCount += 1;
+          }
+          for (kk in cachedPos) {
+            if (Object.prototype.hasOwnProperty.call(cachedPos, kk)) cachedCount += 1;
+          }
+          if (cachedCount > rawCount) positions = cachedPos;
+        }
         var view = this._cogView || {};
         var ids = null;
         if (view.nodes && view.nodes.length) {
@@ -30521,6 +30555,14 @@
         if (this._cogCamera) this._cogRestoreCamera(false);
         // §3.4: размеры узлов зависят от `fitScaleRef` — один батч на resize.
         this._cogApplyNodeSizes();
+        // CMV-C: геометрия групп зависит от размера кадра/обзора — пересчёт на
+        // resize (не на кадре), затем видимость уровня.
+        if (typeof this._cogBuildAggregates === 'function') {
+          this._cogBuildAggregates(true);
+          if (typeof this._cogApplyLodVisibility === 'function') {
+            this._cogApplyLodVisibility();
+          }
+        }
         this._cogPaintStatic();
       },
       // ── CMV-B: слой `fx` (§6 контракта) ────────────────────────────────
@@ -30606,10 +30648,26 @@
           seen[key] = true;
           count += 1;
         }
-        // Узлы, исчезнувшие из набора, не должны тянуть декор за собой.
+        // Узлы, исчезнувшие из набора, не должны тянуть декор за собой. НО:
+        // `getPositions()` в vis 9.1.9 НЕ отдаёт скрытые узлы, а на уровне 0 они
+        // скрыты намеренно — поэтому позиции узлов, которые всё ещё входят в
+        // витрину, сохраняются (иначе геометрия групп и возврат на L1 терялись
+        // бы после каждой свёртки).
+        if (scene.posIdsRev !== scene.viewRev) {
+          var ids = {};
+          var viewNodes = (this._cogView || {}).nodes || [];
+          for (var vn = 0; vn < viewNodes.length; vn += 1) {
+            ids[String(viewNodes[vn].id)] = true;
+          }
+          scene.posIds = ids;
+          scene.posIdsRev = scene.viewRev;
+        }
+        var inView = scene.posIds || null;
         for (key in cache) {
           if (!Object.prototype.hasOwnProperty.call(cache, key)) continue;
-          if (!seen[key]) delete cache[key];
+          if (seen[key]) continue;
+          if (inView && inView[key] === true) continue;   // скрыт LOD-ом, но в наборе
+          delete cache[key];
         }
         scene.posRev = (scene.posRev || 0) + 1;
         return count;
@@ -30763,6 +30821,301 @@
         }
         return ids;
       },
+      /* ── CMV-C: LOD, агрегаты L0, подписи в экранных координатах ─────────
+       * Спека §5, контракт §4–§5. Ничего не изобретаем: агрегаты строятся по
+       * реальной структуре графа и реальным позициям, каждый — с настоящим
+       * числом исходных элементов и списком их настоящих id. */
+
+      /* «Закреплённые» узлы: выбранный, найденные поиском, hover и соседи
+       * выбранного. Они видны и подписаны НЕЗАВИСИМО от LOD-фильтров
+       * (§5.3/§5.5 спеки, §12.2 контракта). */
+      _cogPinnedIds: function () {
+        var out = [];
+        var seen = {};
+        function push(id) {
+          if (id === undefined || id === null) return;
+          var key = String(id);
+          if (seen[key]) return;
+          seen[key] = true;
+          out.push(id);
+        }
+        push(this._cogSelectedId);
+        var search = this._graphSearchMatchIds || [];
+        for (var i = 0; i < search.length; i += 1) push(search[i]);
+        var scene = this._cogScene;
+        if (scene) push(scene.hoverId);
+        var neighbors = this._cogNeighborIds();
+        for (var n = 0; n < neighbors.length; n += 1) push(neighbors[n]);
+        return out;
+      },
+      /* Члены свёрнутых групп подчиняются ZOOM-уровню… кроме закреплённых:
+       * «не прятать найденный поиском/выбранный объект даже при агрегировании»
+       * (§5.5 спеки). */
+      _cogPinnedSet: function () {
+        var ids = (typeof this._cogPinnedIds === 'function')
+          ? this._cogPinnedIds() : [];
+        var set = {};
+        for (var i = 0; i < ids.length; i += 1) set[String(ids[i])] = true;
+        return set;
+      },
+      /* Ключевые узлы уровня (§4.3 контракта): набор пульса, центры групп и
+       * top-K по степени — только у них на L0 есть ореолы; остальные — ядро. */
+      _cogLodKeys: function (lod) {
+        var scene = this._cogScene;
+        var view = this._cogView || { nodes: [] };
+        var C = window.CognitiveMap;
+        var V = cogVis();
+        var key = String(lod === undefined ? (scene && scene.lod) : lod)
+          + '|' + (scene ? (scene.selectionRev || 0) : 0)
+          + '|' + (scene ? (scene.viewRev || 0) : 0)
+          + '|' + (scene && scene.aggregates ? scene.aggregates.length : 0);
+        if (scene && scene.keyLod && scene.keyLodRef === key) return scene.keyLod;
+        var ids = {};
+        var plan = (scene && scene.pulse) || [];
+        var i;
+        for (i = 0; i < plan.length; i += 1) ids[String(plan[i].id)] = true;
+        var pinned = (typeof this._cogPinnedIds === 'function')
+          ? this._cogPinnedIds() : [];
+        for (i = 0; i < pinned.length; i += 1) ids[String(pinned[i])] = true;
+        if (lod === 0 || (scene && scene.lod === 0)) {
+          var aggs = (scene && scene.aggregates) || [];
+          for (i = 0; i < aggs.length; i += 1) ids[String(aggs[i].apexId)] = true;
+          var topK = (C && typeof C.lodTopK === 'function')
+            ? C.lodTopK((view.nodes || []).length, (V && V.CONFIG)
+              ? V.CONFIG.lod : null) : 0;
+          if (topK > 0) {
+            var ranked = (view.nodes || []).slice().sort(function (a, b) {
+              var da = (typeof a.degree === 'number') ? a.degree : 0;
+              var db = (typeof b.degree === 'number') ? b.degree : 0;
+              if (db !== da) return db - da;
+              return String(a.id) < String(b.id) ? -1 : 1;
+            });
+            for (i = 0; i < ranked.length && i < topK; i += 1) {
+              ids[String(ranked[i].id)] = true;
+            }
+          }
+        }
+        if (scene) {
+          scene.keyLod = ids;
+          scene.keyLodRef = key;
+        }
+        return ids;
+      },
+      /* Пересчёт агрегатов уровня 0. Вход — ВИТРИНА (узлы после фильтров) и
+       * КЭШ ПОЗИЦИЙ, поэтому группировка не зависит от камеры и не «прыгает»
+       * при панорамировании. Пересчитывается на событиях (набор/позиции/
+       * размер/обзор), а не на кадре. */
+      _cogBuildAggregates: function (force) {
+        var scene = this._cogScene;
+        var view = this._cogView || { nodes: [], edges: [] };
+        var V = cogVis();
+        var C = window.CognitiveMap;
+        if (!scene || !V || !C || typeof C.buildAggregates !== 'function') {
+          return 0;
+        }
+        if (!this._cogFitScale) return 0;
+        // Без позиций агрегаты были бы «центрами в нуле»: ждём раскладку.
+        if (!scene.pos || !Object.keys(scene.pos).length) return 0;
+        var key = String(scene.viewRev || 0) + '|' + String(scene.posRev || 0)
+          + '|' + Math.round((this._cogFitScale || 0) * 1e6)
+          + '|' + Math.round(scene.width || 0) + 'x' + Math.round(scene.height || 0);
+        if (!force && scene.aggKey === key) return (scene.aggregates || []).length;
+        var gCfg = (V.CONFIG && V.CONFIG.group) ? V.CONFIG.group : {};
+        var built = C.buildAggregates({
+          nodes: view.nodes || [],
+          edges: view.edges || [],
+          positions: scene.pos || {},
+          fitScale: this._cogFitScale,
+          camera: scene.cam || { x: 0, y: 0, scale: 1 },
+          viewport: { width: scene.width, height: scene.height },
+          tileCss: gCfg.tileCss, maxCols: gCfg.maxCols, maxRows: gCfg.maxRows,
+          minMembers: gCfg.minMembers, maxGroups: gCfg.maxGroups,
+          radius: gCfg.radius, hideFrom: gCfg.hideFrom,
+          centerGap: gCfg.centerGap, centerPasses: gCfg.centerPasses,
+        });
+        scene.aggregates = built.groups;
+        scene.aggFlows = built.flows;
+        scene.aggTotals = {
+          total: built.total, grouped: built.grouped, singles: built.singles,
+        };
+        scene.aggKey = key;
+        scene.keyLod = null;
+        scene.keyLodRef = null;
+        return built.groups.length;
+      },
+      /* §5.2 спеки (уровень 0): «видны светящиеся центры настоящих групп и
+       * ключевые отдельные узлы; не пытаться подписать все 702 узла».
+       * Участники свёрнутых групп не рисуются поштучно — ОДИН батч `hidden` на
+       * переходе уровня (не на кадре). Возврат на L1/L2 возвращает все узлы:
+       * `hidden` — флаг отображения, данные и id не теряются. */
+      _cogApplyLodVisibility: function (lod) {
+        var scene = this._cogScene;
+        var ds = this._cognitionNodesDS;
+        var view = this._cogView || { nodes: [] };
+        var V = cogVis();
+        if (!scene || !ds || !V) return 0;
+        var level = (typeof lod === 'number') ? lod : scene.lod;
+        var hide = (level === 0);
+        // Свёртка возможна ТОЛЬКО когда районы уже посчитаны (позиции/обзор
+        // готовы): иначе «скрыть всё, что не в группах» скрыло бы всю сцену —
+        // и `getPositions()` (в vis 9.1.9 он не отдаёт скрытые узлы) остался бы
+        // пустым навсегда.
+        if (hide && !(scene.aggregates && scene.aggregates.length)) hide = false;
+        if (hide && !Object.keys(scene.pos || {}).length) hide = false;
+        var hash = hide ? this._cogLodVisibilityHash() : '';
+        if (scene.lodVisKey === hash) return scene.lodVisCount || 0;
+        scene.lodVisKey = hash;
+        var pinned = this._cogPinnedSet();
+        var kept = {};
+        var i;
+        var groups = (scene.aggregates || []);
+        for (i = 0; i < groups.length; i += 1) {
+          kept[String(groups[i].apexId)] = true;   // якорь группы — реальный узел
+          if (groups[i].hideMembers !== true) {
+            // Небольшая группа остаётся поштучно видимой.
+            var members = groups[i].memberIds || [];
+            for (var m = 0; m < members.length; m += 1) kept[String(members[m])] = true;
+          }
+        }
+        if (hide) {
+          // На уровне 0 поштучно видны ЯКОРЯ районов (уже в `kept`) и
+          // закреплённые узлы. Набор пульса и top-K по степени управляют
+          // СВЕЧЕНИЕМ (§4.3 контракта — колонка «свечение»), а не видимостью
+          // ядер: иначе кадр снова превращался бы в поле перекрытых ореолов
+          // (§5.2 спеки: «не пытаться показать все 702 узла»). Живость обзора
+          // даёт дыхание центров районов.
+        }        var rows = [];
+        var visible = 0;
+        var hiddenSet = {};
+        for (i = 0; i < view.nodes.length; i += 1) {
+          var node = view.nodes[i];
+          var id = String(node.id);
+          var on = !hide || kept[id] === true || pinned[id] === true;
+          if (on) visible += 1;
+          else hiddenSet[id] = true;
+          rows.push({ id: node.id, hidden: !on });
+        }
+        try {
+          if (rows.length) ds.update(rows);
+        } catch (e) { return 0; }
+        scene.hiddenSet = hiddenSet;
+        scene.lodVisCount = visible;
+        return visible;
+      },
+      // Ключ видимости: набор/выбор/поиск/hover/агрегаты + уровень.
+      _cogLodVisibilityHash: function () {
+        var scene = this._cogScene;
+        if (!scene) return '';
+        var pinned = (typeof this._cogPinnedIds === 'function')
+          ? this._cogPinnedIds() : [];
+        return [
+          scene.lod, scene.viewRev || 0, scene.selectionRev || 0,
+          (scene.aggregates || []).length, pinned.join(','),
+        ].join('|');
+      },
+      /* §5.2/§5.5 спеки: раскрытие агрегата — переход к его РЕАЛЬНЫМ участникам
+       * с фокусировкой области. Камера ставится по bbox участников (обычный
+       * `moveTo`, без vis.fit и без пересоздания сети); выбор — на реальный
+       * узел-якорь, поэтому карточка и переходы работают как обычно. */
+      _cogExpandAggregate: function (aggId) {
+        var scene = this._cogScene;
+        var net = this.cognitionNetwork;
+        var V = cogVis();
+        if (!scene || !net || !V || typeof V.bboxOf !== 'function') return null;
+        var groups = scene.aggregates || [];
+        var group = null;
+        for (var i = 0; i < groups.length; i += 1) {
+          if (groups[i].id === aggId) { group = groups[i]; break; }
+        }
+        if (!group) return null;
+        var bbox = V.bboxOf(scene.pos || {}, group.memberIds || []);
+        if (!bbox) return null;
+        var w = scene.width || 0;
+        var h = scene.height || 0;
+        if (!(w > 0 && h > 0)) return null;
+        var fit = V.fitCamera(bbox, w, h);
+        var scale = fit && fit.scale > 0 ? fit.scale : (this._cogFitScale || 1);
+        // §5.2 спеки: раскрытие уводит к РЕАЛЬНЫМ участникам, т.е. за пределы
+        // обзора: r ≥ 2.2 гарантирует детальный уровень БЕЗ зависимости от
+        // плотности кадра (иначе на телефоне обзор по плотности оставался бы
+        // включённым и клик выглядел бы «ничем»).
+        var base = this._cogFitScale || 0;
+        var floor = base > 0 ? base * 2.2 : scale;
+        var zoom = Math.max(scale, floor);
+        if (base > 0) zoom = Math.min(zoom, base * 3.4);
+        var anim = this.reducedMotion
+          ? false : { duration: 420, easingFunction: 'easeInOutQuad' };
+        try {
+          if (typeof net.moveTo === 'function') {
+            net.moveTo({ position: fit ? fit.position : { x: bbox.cx, y: bbox.cy },
+                         scale: zoom, animation: anim });
+          }
+        } catch (e) { /* сеть уничтожена */ }
+        scene.aggregates = null;
+        scene.aggFlows = null;
+        scene.aggKey = null;
+        scene.lodVisKey = null;
+        if (this._cogSelectedId !== group.apexId) {
+          try {
+            if (typeof net.selectNodes === 'function') net.selectNodes([group.apexId]);
+          } catch (e) { /* noop */ }
+          this.graphSelectNode(group.apexId);
+          this.graphApplySelectionLabels([group.apexId]);
+        }
+        this._cogRedraw();
+        this._cogPaintStatic();
+        return {
+          id: group.id, apexId: group.apexId, count: group.count,
+          memberIds: (group.memberIds || []).slice(), scale: zoom,
+        };
+      },
+      /* Клик по КОНТЕЙНЕРУ сцены (bubble-фаза, контракт §6): слой `fx` не
+       * перехватывает клики (`pointer-events:none`), поэтому «Раскрыть» по
+       * центру группы — hit-test в ЭКРАННЫХ координатах. Реальный узел под
+       * курсором имеет приоритет: агрегат раскрывается только когда vis не
+       * нашёл узла. */
+      _cogOnSceneClick: function (ev) {
+        var scene = this._cogScene;
+        if (!scene || scene.lod !== 0) return null;
+        var groups = scene.aggregates || [];
+        if (!groups.length) return null;
+        if (scene.hoverId !== null && scene.hoverId !== undefined) return null;
+        var el = scene.el || this._cogEl || null;
+        if (!el || typeof el.getBoundingClientRect !== 'function') return null;
+        var rect = el.getBoundingClientRect();
+        var x = (ev && ev.clientX) - rect.left;
+        var y = (ev && ev.clientY) - rect.top;
+        if (!isFinite(x) || !isFinite(y)) return null;
+        var best = null;
+        var bestDist = Infinity;
+        for (var i = 0; i < groups.length; i += 1) {
+          var g = groups[i];
+          var dx = g.sx - x;
+          var dy = g.sy - y;
+          var d = Math.sqrt(dx * dx + dy * dy);
+          var reach = Math.max(14, (g.radius || 12) * 0.75);
+          if (d <= reach && d < bestDist) { bestDist = d; best = g; }
+        }
+        if (!best) return null;
+        var out = this._cogExpandAggregate(best.id);
+        if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+        return out;
+      },
+      /* §9.9 спеки: четыре РАЗНЫЕ величины (в БД / из API / после фильтра /
+       * на экране). Никакого смешивания: «всего в БД» показывается только если
+       * сервер его прислал. */
+      _cogCounts: function () {
+        var C = window.CognitiveMap;
+        var scene = this._cogScene;
+        if (!C || typeof C.countSummary !== 'function') return null;
+        return C.countSummary({
+          model: this.cognitionGraphData || {},
+          view: this._cogView || {},
+          scene: scene ? {
+            aggregates: (scene.lod === 0) ? (scene.aggregates || []) : [],
+          } : null,
+        });
+      },
       // Hover отличается от выбора (§7.2 спеки): усиливает свет и проявляет
       // РЕАЛЬНЫЕ соседние связи; затухание — по времени в самом слое.
       _cogSetHover: function (nodeId) {
@@ -30890,36 +31243,102 @@
         ctx.restore();
         ctx.globalAlpha = 1;
         scene.draws = (scene.draws || 0) + 1;
-        // Переход LOD: альфа рёбер обновляется ОДНИМ батчем (§10.5), не на кадре.
+        if (scene.fx && typeof scene.fx.visibleCount === 'function') {
+          // Плотность кадра для LOD считается по РЕАЛЬНО видимым узлам.
+          scene.visible = scene.fx.visibleCount();
+        }
+        // Переход LOD: альфа рёбер и видимость узлов обновляются ОДНИМ батчем
+        // (§10.5), не на кадре.
         if (scene.lodDirty) {
           scene.lodDirty = false;
+          if (scene.lod === 0 && typeof this._cogBuildAggregates === 'function') {
+            this._cogBuildAggregates(false);
+          }
+          if (typeof this._cogApplyLodVisibility === 'function') {
+            this._cogApplyLodVisibility(scene.lod);
+          }
           this._cogApplyHighlight();
+        }
+        // Догоняющая сборка: уровень 0 мог быть достигнут ДО того, как vis
+        // выставил позиции (обзор на первом кадре). Один раз на кадр, пока
+        // районы не посчитаны, — иначе обзор так и остался бы без агрегатов.
+        if (scene.lod === 0 && !(scene.aggregates && scene.aggregates.length)
+            && typeof this._cogBuildAggregates === 'function'
+            && this._cogFitScale && Object.keys(scene.pos || {}).length) {
+          if (this._cogBuildAggregates(false) > 0) {
+            scene.lodVisKey = null;
+            if (typeof this._cogApplyLodVisibility === 'function') {
+              this._cogApplyLodVisibility(0);
+            }
+            this._cogApplyHighlight();
+          }
         }
         return drawn;
       },
-      // LOD по относительному масштабу `r = scale/fitScale` (§4.2 контракта) с
-      // гистерезисом 12 %: одна чистая точка для свечения, подписей и альфы
-      // рёбер. Возвращает УРОВЕНЬ (0/1/2) и не рисует ничего сам.
+      /* Сколько узлов РЕАЛЬНО попадает в кадр при текущей камере. Вход
+       * «корректировки по плотности» (§5.2 спеки): плотность экрана — это
+       * видимые узлы на площадь кадра, а не размер набора. Считается по кэшу
+       * позиций и НЕ на каждом кадре: ключ камеры огрублён (панорамирование
+       * чаще 8 CSS-px и зум чаще 2 % дают новый расчёт), поэтому цикл на 702
+       * узла не попадает в кадр панорамирования (§10.2 контракта). */
+      _cogInFrameCount: function () {
+        var scene = this._cogScene;
+        if (!scene) return 0;
+        var cam = scene.cam || { x: 0, y: 0, scale: 1 };
+        var w = scene.width || 0;
+        var h = scene.height || 0;
+        if (!(w > 0 && h > 0)) return 0;
+        var scale = cam.scale > 0 ? cam.scale : 1;
+        var key = Math.round(cam.x * scale / 8) + ':' + Math.round(cam.y * scale / 8)
+          + ':' + Math.round(scale * 50) + ':' + Math.round(w) + 'x' + Math.round(h)
+          + ':' + (scene.viewRev || 0) + ':' + (scene.posRev || 0);
+        if (scene.inFrameKey === key) return scene.inFrameCount || 0;
+        var pos = scene.pos || {};
+        var count = 0;
+        var ids = (this._cogView || {}).nodes || [];
+        for (var i = 0; i < ids.length; i += 1) {
+          var p = pos[ids[i].id];
+          if (!p) continue;
+          var sx = (p.x - cam.x) * scale + w / 2;
+          var sy = (p.y - cam.y) * scale + h / 2;
+          if (sx < 0 || sy < 0 || sx > w || sy > h) continue;
+          count += 1;
+        }
+        scene.inFrameKey = key;
+        scene.inFrameCount = count;
+        return count;
+      },
+      // гистерезисом 12 % + корректировкой по плотности кадра (§5.2 спеки).
+      // CMV-C: расчёт — ЧИСТАЯ функция адаптера (`CognitiveMap.lodFor`), здесь
+      // только вход (r, предыдущий уровень, плотность) и запись в сцену.
+      // Возвращает УРОВЕНЬ (0/1/2) и не рисует ничего сам.
       _cogResolveLod: function (scale) {
         var scene = this._cogScene;
         var V = cogVis();
+        var C = window.CognitiveMap;
         if (!scene || !V) return 1;
+        if (!C || typeof C.lodFor !== 'function') return 1;
         var r = V.relativeScale(scale, this._cogFitScale);
         var prev = (typeof scene.lod === 'number') ? scene.lod : 1;
-        var lod = prev;
-        var t1 = V.CONFIG.label.t1;
-        var t2 = V.CONFIG.label.t2;
-        var d = 0.12;
-        if (r >= t2 * (1 + d)) lod = 2;
-        else if (lod === 2 && r < t2 * (1 - d)) lod = (r < t1 * (1 - d)) ? 0 : 1;
-        else if (lod === 0 && r >= t1 * (1 + d)) lod = 1;
-        else if (lod === 1 && r < t1 * (1 - d)) lod = 0;
-        else if (lod === 1 && r >= t2 * (1 - d)) lod = 2;
+        var view = this._cogView || { nodes: [] };
+        var nodes = (view.nodes || []).length;
+        // Плотность — по РЕАЛЬНО попавшим в кадр узлам (не по «выжившим» после
+        // LOD-свёртки): иначе значение зависело бы от собственного решения LOD
+        // и уровень мигал бы на собственной обратной связи.
+        var onScreen = (typeof this._cogInFrameCount === 'function')
+          ? this._cogInFrameCount() : nodes;
+        if (!onScreen) onScreen = nodes;
+        var density = C.lodDensity(onScreen, scene.width, scene.height);
+        scene.onScreen = onScreen;        var cfg = V.CONFIG.lod || null;
+        var lod = C.lodFor(r, prev, {
+          cfg: cfg, nodes: nodes, density: density,
+        });
+        scene.lodDensity = density;
         scene.lod = lod;
         if (prev !== lod) {
           scene.keyLod = null;
-          // Альфа рёбер (§10.5) переключается ОДНИМ батчем на переходе LOD,
-          // а не на кадре: помечаем и обновляем после кадра.
+          // Альфа рёбер (§10.5) и видимость узлов переключаются ОДНИМ батчем на
+          // переходе LOD, а не на кадре.
           scene.lodDirty = true;
         }
         return lod;
@@ -30968,15 +31387,12 @@
         // из того же `r` (слой LOD/коллизий продолжает CMV-C).
         var lod = this._cogResolveLod(cam.scale);
         var keyIds = null;
-        if (lod < 2) {
-          keyIds = scene.keyLod;
-          if (!keyIds) {
-            keyIds = scene.keyLod = {};
-            var plan = scene.pulse || [];
-            for (var k = 0; k < plan.length; k += 1) keyIds[plan[k].id] = true;
-          }
-          if (selected != null) keyIds[String(selected)] = true;
+        if (lod < 2 && typeof this._cogLodKeys === 'function') {
+          keyIds = this._cogLodKeys(lod);
         }
+        // CMV-C (§4.3 контракта): агрегаты уровня 0 живут в кадре того же слоя.
+        var groups = (lod === 0) ? (scene.aggregates || null) : null;
+        var flows = (lod === 0) ? (scene.aggFlows || null) : null;
         var self = this;
         // §7.2 спеки: click — один короткий импульс, search — мягкие пульсы.
         // В reduced-motion времени нет: вспышка не рисуется (§7.3).
@@ -30999,12 +31415,20 @@
           positions: scene.pos || {},
           nodes: view.nodes || [],
           edges: view.edges || [],
+          // CMV-C: скрытые LOD-ом узлы не рисуются и нашим слоем (иначе ореолы
+          // «свёрнутых» узлов оставались бы висеть в воздухе).
+          hidden: scene.hiddenSet || null,
+          // Ослабленные узлы (есть выбор, узел не в его окружении): их ореолы
+          // рисуются тише — «прочая сеть ослаблена» (§4.3 спеки).
+          dim: scene.dimSet || null,
           incident: incident,
           selection: selected,
           hover: hover,
           fitScale: this._cogFitScale || 0,
           lod: lod,
           keyIds: keyIds,
+          groups: groups,
+          flows: flows,
           pulse: scene.pulseMap || null,
           flash: flash < 0 ? 0 : flash,
           reducedMotion: !!this.reducedMotion,
@@ -31052,6 +31476,12 @@
           Math.round(cam.x * 2) / 2, Math.round(cam.y * 2) / 2,
           Math.round(cam.scale * 1000) / 1000, scene.lod || 0,
           scene.selectionRev || 0, scene.viewRev || 0,
+          // CMV-C: смена найденных поиском и числа районов меняет ПРИОРИТЕТЫ,
+          // а значит и план подписей. Hover в ключ НЕ входит: подпись наведения
+          // выводится принудительным путём (как у CMV-B), иначе план 702 узлов
+          // пересобирался бы при каждом движении курсора по карте.
+          scene.searchRev || 0,
+          (scene.aggregates || []).length,
           // Число узлов витрины входит в ключ: план, посчитанный при создании
           // сети (витрина ещё пустая) или до синхронизации позиций, не залипает.
           (view.nodes || []).length,
@@ -31065,6 +31495,15 @@
         } else {
           var items = scene.labelItems || (scene.labelItems = []);
           items.length = 0;
+          var selectedKey = (this._cogSelectedId === undefined
+            || this._cogSelectedId === null) ? null : String(this._cogSelectedId);
+          var hoverKey = (scene.hoverId === undefined || scene.hoverId === null)
+            ? null : String(scene.hoverId);
+          var searchIds = this._graphSearchMatchIds || [];
+          var searchSet = {};
+          for (var si = 0; si < searchIds.length; si += 1) {
+            searchSet[String(searchIds[si])] = true;
+          }
           for (var i = 0; i < view.nodes.length; i += 1) {
             var node = view.nodes[i];
             var p = positions[node.id];
@@ -31074,6 +31513,18 @@
             // §5.2 контракта: узел вне кадра в разбор коллизий не попадает.
             if (sx < -margin || sy < -margin || sx > cssW + margin
                 || sy > cssH + margin) continue;
+            var idKey = String(node.id);
+            var highlighted = !!(this._cogHighlight
+              && this._cogHighlight[node.id]);
+            var isSelected = selectedKey !== null && idKey === selectedKey;
+            var isSearch = !isSelected && searchSet[idKey] === true;
+            var isHover = !isSelected && idKey === hoverKey;
+            var isNeighbor = !isSelected && !isHover && highlighted;
+            // §5.2 спеки (уровень 0): «не пытаться подписать все 702 узла».
+            // Обзор подписывает районы и ЗАКРЕПЛЁННЫЕ узлы (выбранный, поиск,
+            // hover, соседи) — остальные имена живут в инспекторе и на L1/L2.
+            if (scene.lod === 0 && !(isSelected || isSearch || isHover
+                || isNeighbor)) continue;
             items.push({
               id: node.id,
               x: sx,
@@ -31081,8 +31532,62 @@
               kind: node.kind,
               title: node.title,
               degree: node.degree,
-              selected: !!(this._cogHighlight && this._cogHighlight[node.id]),
+              // §4.4 спеки: приоритет задаётся ЯВНО и по одному признаку на
+              // узел — выбранный не путается с соседом, найденный с hover.
+              selected: isSelected,
+              search: isSearch,
+              hover: isHover,
+              neighbor: isNeighbor,
+              // §5.2 спеки (уровень 0): центры групп важнее подписей одиночных
+              // узлов — иначе шесть названий групп проигрывали бы полусотне
+              // парадигм, и обзор снова стал бы «стеной текста».
+              rank: (scene.lod === 0) ? (C.LABEL_RANK.other + 1) : null,
             });
+          }
+          // §5.2 спеки (L0): подписи ЦЕНТРОВ групп — в том же плане, поэтому
+          // коллизии с подписями узлов решаются одним аллокатором (никаких двух
+          // независимых «слоёв текста», налезающих друг на друга). Подписываются
+          // только настоящие группы (`count >= minMembers`): центр из 1–2
+          // элементов — это и есть отдельный узел, и его подпись ставит обычный
+          // приоритет по типу/степени.
+          if (scene.lod === 0) {
+            var gLabels = (V.CONFIG && V.CONFIG.group)
+              ? V.CONFIG.group : {};
+            var minLabelCount = (typeof gLabels.minMembers === 'number')
+              ? gLabels.minMembers : 6;
+            var aggs = scene.aggregates || [];
+            for (var a = 0; a < aggs.length; a += 1) {
+              var agg = aggs[a];
+              if (agg.count < minLabelCount) continue;
+              if (agg.sx < -margin || agg.sy < -margin
+                  || agg.sx > cssW + margin || agg.sy > cssH + margin) continue;
+              items.push({
+                id: agg.id,
+                // Подпись под центром; если снизу не хватает места (центр у
+                // нижней кромки) — над ним. Координаты прижимаются внутрь кадра
+                // на полуширину подписи, иначе подпись района у самой кромки
+                // отбраковывалась бы аллокатором и район оставался безымянным.
+                x: (function () {
+                  var gText0 = String(agg.label || '');
+                  var gw = Math.max(fontPx, gText0.length * fontPx * charWidth) + 6;
+                  return Math.min(Math.max(agg.sx, gw / 2 + 3),
+                    cssW - gw / 2 - 3);
+                }()),
+                y: (function () {
+                  var gR = agg.radius || 12;
+                  var below = agg.sy + gR + cfg.offset * 0.6;
+                  var above = agg.sy - gR - cfg.offset * 0.6;
+                  var pick = (below + fontPx > cssH - 2 && above - fontPx > 2)
+                    ? above : below;
+                  return Math.min(Math.max(pick, fontPx * 0.7 + 3),
+                    cssH - fontPx * 0.7 - 3);
+                }()),
+                kind: agg.dominantKind,
+                title: agg.label,
+                degree: agg.count,
+                group: true,
+              });
+            }
           }
           alloc = C.allocateLabels(items, {
             // §5.1 спеки: пороги LOD — от `r` (относительно `fitScale`), а не от
@@ -31106,7 +31611,13 @@
         // парадигмами). Такая подпись снимает конфликтующие и рисуется сверху.
         var forced = scene.forcedLabels || (scene.forcedLabels = []);
         forced.length = 0;
+        // CMV-C: выбранный, hover и найденный поиском подписываются ВСЕГДА —
+        // независимо от LOD и агрегатов (§4.4/§5.5 спеки).
         var mustIds = [this._cogSelectedId, scene.hoverId];
+        var matched = this._graphSearchMatchIds || [];
+        for (var mi = 0; mi < matched.length && mi < 3; mi += 1) {
+          mustIds.push(matched[mi]);
+        }
         for (var m = 0; m < mustIds.length; m += 1) {
           var mustId = mustIds[m];
           if (mustId == null) continue;
@@ -31282,6 +31793,17 @@
           pulseCount: (scene && scene.pulse) ? scene.pulse.length : 0,
           positions: scene ? Object.keys(scene.pos || {}).length : 0,
           labelsShown: (this._cogLabels && this._cogLabels.shown) || 0,
+          // CMV-C: агрегаты уровня 0 и честные числа (§5.2/§9.9 спеки).
+          aggregates: (scene && scene.aggregates) ? scene.aggregates.length : 0,
+          aggFlows: (scene && scene.aggFlows) ? scene.aggFlows.length : 0,
+          aggGrouped: (scene && scene.aggTotals) ? scene.aggTotals.grouped : 0,
+          aggDraws: fx ? fx.groupDraws : 0,
+          aggFlowDraws: fx ? fx.groupFlows : 0,
+          visibleNodes: scene ? (scene.visible || 0) : 0,
+          lodDensity: scene ? (scene.lodDensity || 0) : 0,
+          hiddenByLod: scene
+            ? Math.max(0, ((this._cogView || { nodes: [] }).nodes || []).length
+              - (scene.lodVisCount || 0)) : 0,
         };
       },
       // Камера снимается на каждом кадре (и перед сменой экрана): при смене
@@ -31653,6 +32175,11 @@
         if (needle !== this._graphSearchLastQ) { this._graphSearchIdx = -1; }
         this._graphSearchLastQ = needle;
         this._graphSearchMatches = hits;
+        // CMV-C: найденные совпадения — «закреплённые» узлы: они видны и
+        // подписаны независимо от LOD/агрегатов (§5.5/§9 спеки).
+        this._graphSearchMatchIds = hits.map(function (h) { return h.id; });
+        var sceneSearch = this._cogScene;
+        if (sceneSearch) sceneSearch.searchRev = (sceneSearch.searchRev || 0) + 1;
         this._graphSearchIdx = (this._graphSearchIdx + 1) % hits.length;
         node = hits[this._graphSearchIdx];
         var anim = this.reducedMotion
@@ -31682,8 +32209,11 @@
         this.graphSearchQuery = '';
         this.graphSearchStatus = '';
         this._graphSearchMatches = [];
+        this._graphSearchMatchIds = [];
         this._graphSearchIdx = 0;
         this._graphSearchLastQ = '';
+        var sceneClear = this._cogScene;
+        if (sceneClear) sceneClear.searchRev = (sceneClear.searchRev || 0) + 1;
         this._cogHighlight = null;
         this._cogSelectedId = null;
         this._cogEdgeFocus = null;
@@ -31826,6 +32356,11 @@
           sceneSel.selectionRev = (sceneSel.selectionRev || 0) + 1;
           sceneSel.incidentRev = -1;
         }
+        // §5.3/§5.5 спеки: соседи выбранного видны независимо от LOD-фильтров —
+        // видимость пересобирается одним батчем на смену выбора.
+        if (typeof this._cogApplyLodVisibility === 'function') {
+          this._cogApplyLodVisibility();
+        }
         this._cogApplyHighlight();
         this._cogPaintStatic();
       },
@@ -31843,12 +32378,18 @@
         var i;
         if (ds) {
           var updates = [];
+          var dimSet = {};
           for (i = 0; i < view.nodes.length; i += 1) {
             var node = view.nodes[i];
             var on = !this._cogSelectedId
               || !!(this._cogHighlight && this._cogHighlight[node.id]);
+            if (!on) dimSet[String(node.id)] = true;
             updates.push({ id: node.id, opacity: on ? 1 : dimOpacity });
           }
+          // CMV-C: слой `fx` обязан ослаблять то же, что DataSet (§4.3 спеки
+          // «прочую сеть ослабить»): иначе ореолы невыделенных узлов гасили
+          // бы эффект выбора на плотном кадре.
+          if (this._cogScene) this._cogScene.dimSet = dimSet;
           try {
             if (updates.length) ds.update(updates);
           } catch (e) { /* сеть уничтожена */ }
@@ -31990,6 +32531,16 @@
             scene.watchdog = null;
           }
           scene.onFrame = null;
+          // CMV-C: слушатель «Раскрыть» по агрегату снимается вместе со сценой
+          // (иначе 20 переключений embedded↔fullscreen копили бы обработчики).
+          if (scene.onClick) {
+            var clickEl = scene.el || this._cogEl || null;
+            if (clickEl && typeof clickEl.removeEventListener === 'function') {
+              try { clickEl.removeEventListener('click', scene.onClick); }
+              catch (e) { /* noop */ }
+            }
+            scene.onClick = null;
+          }
           // §6 контракта: спрайты и пул буферов сносятся ВМЕСТЕ со сценой
           // (иначе 20 переключений режима оставляли бы кэш на каждый инстанс).
           if (scene.fx && typeof scene.fx.dispose === 'function') {

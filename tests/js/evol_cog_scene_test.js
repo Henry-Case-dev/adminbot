@@ -209,7 +209,23 @@ function sceneEl(tag) {
   const el = {
     tag: tag || 'embedded',
     clientWidth: 800, clientHeight: 400, isConnected: true,
+    listeners: {},
     querySelector() { return null; },
+    // CMV-C: контейнер сцены реального DOM умеет слушать клики (раскрытие
+    // района). Песочница повторяет эту поверхность, чтобы проверять и её снос.
+    addEventListener(name, cb) {
+      (this.listeners[name] = this.listeners[name] || []).push(cb);
+    },
+    removeEventListener(name, cb) {
+      const list = this.listeners[name] || [];
+      const idx = list.indexOf(cb);
+      if (idx >= 0) list.splice(idx, 1);
+    },
+    listenerCount() {
+      let n = 0;
+      Object.keys(this.listeners).forEach((k) => { n += this.listeners[k].length; });
+      return n;
+    },
   };
   return el;
 }
@@ -267,6 +283,17 @@ function newCtx(extra) {
     _cogRelaxOverlaps: methods._cogRelaxOverlaps,
     _cogBuildPulse: methods._cogBuildPulse,
     _cogNeighborIds: methods._cogNeighborIds,
+    // CMV-C: LOD/агрегаты/подписи в экранных координатах (полный набор, чтобы
+    // песочница вела себя как живая сцена, а не «урезанный» поднабор).
+    _cogPinnedIds: methods._cogPinnedIds,
+    _cogPinnedSet: methods._cogPinnedSet,
+    _cogLodKeys: methods._cogLodKeys,
+    _cogBuildAggregates: methods._cogBuildAggregates,
+    _cogApplyLodVisibility: methods._cogApplyLodVisibility,
+    _cogLodVisibilityHash: methods._cogLodVisibilityHash,
+    _cogExpandAggregate: methods._cogExpandAggregate,
+    _cogOnSceneClick: methods._cogOnSceneClick,
+    _cogCounts: methods._cogCounts,
     _cogSetHover: methods._cogSetHover,
     _cogPulseSelected: methods._cogPulseSelected,
     _cogPaintFromVis: methods._cogPaintFromVis,
@@ -300,7 +327,10 @@ function newCtx(extra) {
   // 8 обычных обработчиков (кадр/выбор/снятие/hover/hover-out/клик/зум/перетаск)
   // + 2 `once` стабилизации + 1 `animationFinished` = 11 (CMV-B добавил hover
   // и `afterDrawing` как единый сигнал кадра §6 контракта).
-  eq(listeners, 11, 'циклы: 8 обработчиков + 2 once + animationFinished');
+  // CMV-C добавил ОДИН слушатель контейнера сцены («Раскрыть» по району,
+  // bubble-фаза, §6 контракта) — итого 12; он снимается в destroy.
+  eq(listeners, 12,
+    'циклы: 8 обработчиков + 2 once + animationFinished + click района');
   eq(baseline.rafActive, false, 'циклы: кадров до стабилизации нет');
   eq(baseline.fxCanvas, false, 'циклы: в песочнице без DOM слоя `fx` нет');
 
@@ -626,15 +656,23 @@ function newCtx(extra) {
   ok(afterSettle.fxPaints >= 1, 'fx: первый кадр нарисован по завершении layout');
   ok(afterSettle.fxSprites > 0, 'fx: спрайты свечения построены');
   eq(afterSettle.positions, 3, 'fx: позиции всех узлов в кэше (§5.1)');
-  const spritesAfterFirst = afterSettle.fxSprites;
-  const gradsAfterFirst = afterSettle.fxGradients;
+  // CMV-C: районы уровня 0 достраиваются на ПЕРВОМ кадре с готовыми позициями
+  // (догоняющая сборка), поэтому спрайты центров появляются один раз — после
+  // этого кэш обязан быть стабильным. Проверяем именно стабильность кэша,
+  // а не «счастливое совпадение» первого кадра.
+  ctxFx._cogPaintStatic();
+  ctxFx._cogPaintStatic();
+  const stableSprites = ctxFx._cogDebugCounters().fxSprites;
+  const stableGrads = ctxFx._cogDebugCounters().fxGradients;
   for (let i = 0; i < 5; i += 1) ctxFx._cogPaintStatic();
   const afterFrames = ctxFx._cogDebugCounters();
-  eq(afterFrames.fxSprites, spritesAfterFirst,
+  eq(afterFrames.fxSprites, stableSprites,
     'fx: кэш спрайтов не растёт с кадрами (§10.2(5))');
-  eq(afterFrames.fxGradients, gradsAfterFirst,
+  eq(afterFrames.fxGradients, stableGrads,
     'fx: в кадре градиенты не создаются');
-  ok(afterFrames.fxDraws > spritesAfterFirst,
+  eq(afterFrames.fxGradients, afterFrames.fxSprites,
+    'fx: один градиент на спрайт, а не на узел');
+  ok(afterFrames.fxDraws > stableSprites,
     'fx: спрайты реально компонуются (drawImage)');
 
   // Подписи: коллизии/приоритет из адаптера, но БЕЗ чёрной плашки (§4.4).
@@ -814,4 +852,327 @@ function newCtx(extra) {
 
   console.log('EVOL-CMV-A-SCENE-OK checks=' + checks);
   console.log('EVOL-CMV-B-SCENE-OK checks=' + checks);
+
+  /* ── CMV-C: LOD-гистерезис в сцене, видимость L0, раскрытие, счётчики ─── */
+  const C = global.window.CognitiveMap;
+  const V = global.window.CogVisual;
+
+  // LOD через метод сцены: делегирует чистой функции адаптера и не мигает.
+  {
+    const ctx = newCtx();
+    ctx.cognitionNetwork = { getScale: () => 1 };
+    ctx._cogScene = { lod: null, width: 800, height: 400, keyLod: null };
+    ctx._cogView = { nodes: [] };
+    ctx._cogFitScale = 1;
+    const lods = [];
+    // Монотонный проход масштаба: 0.5 → 2.6 и обратно.
+    for (let r = 0.5; r <= 2.6; r += 0.01) {
+      lods.push(methods._cogResolveLod.call(ctx, r));
+    }
+    let backwards = 0;
+    for (let i = 1; i < lods.length; i += 1) {
+      if (lods[i] < lods[i - 1]) backwards += 1;
+    }
+    eq(backwards, 0, 'LOD: на увеличении сцена не откатывает уровень');
+    eq(lods[lods.length - 1], 2, 'LOD: при r≈2.6 сцена в детальном уровне');
+    for (let r = 2.6; r >= 0.5; r -= 0.01) {
+      lods.push(methods._cogResolveLod.call(ctx, r));
+    }
+    let forwards = 0;
+    for (let i = lods.length - Math.round(2.1 / 0.01) + 1; i < lods.length; i += 1) {
+      if (lods[i] > lods[i - 1]) forwards += 1;
+    }
+    eq(forwards, 0, 'LOD: на уменьшении сцена не прыгает уровнем вверх');
+    eq(lods[lods.length - 1], 0, 'LOD: обратно к r≈0.5 уровень обзорный');
+    // Плотный кадр при r=1: уровень 0 (агрегаты), а не «стена ядер».
+    const denseCtx = newCtx();
+    denseCtx.cognitionNetwork = { getScale: () => 1 };
+    denseCtx._cogScene = {
+      lod: 1, width: 1252, height: 318, keyLod: null, pos: {},
+    };
+    denseCtx._cogView = { nodes: new Array(702).fill(0).map((x, i) => ({ id: 'n' + i })) };
+    denseCtx._cogFitScale = 1;
+    denseCtx._cogInFrameCount = () => 702;
+    eq(methods._cogResolveLod.call(denseCtx, 1), 0,
+      '§5.2: плотный набор при r=1 — уровень 0 (районы)');
+    const sparseCtx = newCtx();
+    sparseCtx.cognitionNetwork = { getScale: () => 1 };
+    sparseCtx._cogScene = { lod: 1, width: 1252, height: 318, keyLod: null, pos: {} };
+    sparseCtx._cogView = { nodes: new Array(10).fill(0).map((x, i) => ({ id: 'n' + i })) };
+    sparseCtx._cogFitScale = 1;
+    eq(methods._cogResolveLod.call(sparseCtx, 1), 1,
+      '§5.2: мелкий набор при r=1 — рабочий вид, без районов');
+  }
+
+  // Видимость уровня 0: участники свёрнутых районов скрыты, якоря и
+  // закреплённые узлы — видны; возврат на L1 показывает всех.
+  {
+    const view = { nodes: [], edges: [] };
+    for (let i = 0; i < 40; i += 1) {
+      view.nodes.push({ id: 'n' + i, kind: 'fact', degree: i, title: 't' + i });
+    }
+    const ds = new FakeDataSet(view.nodes.map((n) => ({ id: n.id, hidden: false })));
+    const pos = {};
+    view.nodes.forEach((n, i) => { pos[n.id] = { x: i * 10, y: i * 6 }; });
+    const scene = {
+      lod: 0, viewRev: 3, selectionRev: 0, pos: pos, aggregates: [],
+      pulse: [], pulseMap: {}, width: 800, height: 400,
+      aggregates: [
+        { id: 'agg:A', apexId: 'n0', count: 20, hideMembers: true,
+          memberIds: new Array(20).fill(0).map((x, i) => 'n' + i) },
+        { id: 'agg:B', apexId: 'n20', count: 20, hideMembers: true,
+          memberIds: new Array(20).fill(0).map((x, i) => 'n' + (20 + i)) },
+      ],
+    };
+    const visCtx = newCtx({
+      _cognitionNodesDS: ds,
+      _cogScene: scene,
+      _cogView: view,
+      _cogFitScale: 1,
+      _cogSelectedId: 'n25',
+      _cogHighlight: { n25: true, n26: true },
+      _graphSearchMatchIds: ['n7'],
+    });
+    visCtx._cogLodKeys = () => ({});
+    const shown = methods._cogApplyLodVisibility.call(visCtx, 0);
+    const hiddenRows = ds.rows.filter((r) => r.hidden === true).map((r) => r.id);
+    ok(shown <= 5, 'L0: поштучно видны якоря районов и закреплённые (' + shown + ')');
+    ok(hiddenRows.length >= 30, 'L0: участники районов свёрнуты');
+    ok(!hiddenRows.includes('n0') && !hiddenRows.includes('n20'),
+      'L0: якоря районов остаются видимыми');
+    ok(!hiddenRows.includes('n25'),
+      '§5.5: выбранный узел не скрывается даже в свёрнутом районе');
+    ok(!hiddenRows.includes('n7'),
+      '§5.5: найденный поиском узел не скрывается LOD-ом');
+    // Повторный вызов с тем же ключом не гоняет батч по всем узлам.
+    const visKey = scene.lodVisKey;
+    methods._cogApplyLodVisibility.call(visCtx, 0);
+    eq(scene.lodVisKey, visKey, 'L0: видимость пересчитывается только по ключу');
+    // Возврат на L1: все узлы снова видны, данные не потеряны.
+    const restored = methods._cogApplyLodVisibility.call(visCtx, 1);
+    eq(restored, view.nodes.length, 'L1: видимость возвращается всем узлам');
+    eq(ds.rows.filter((r) => r.hidden === true).length, 0,
+      'L1: скрытых узлов не остаётся');
+    ok(ds.rows.length === view.nodes.length,
+      'LOD не удаляет строки DataSet (данные не теряются)');
+    // Без агрегатов скрывать нельзя: иначе сцена стала бы пустой (и
+    // getPositions в vis не вернул бы позиции скрытых узлов).
+    const guardScene = {
+      lod: 0, viewRev: 1, selectionRev: 0,
+      // Позиции ЕСТЬ, районов НЕТ: именно этот случай раньше скрывал всё.
+      pos: (function () {
+        const out = {};
+        view.nodes.forEach((n, i) => { out[n.id] = { x: i * 4, y: i * 3 }; });
+        return out;
+      })(),
+      aggregates: [],
+      width: 800, height: 400,
+    };
+    const guardDs = new FakeDataSet(view.nodes.map((n) => ({ id: n.id })));
+    const guardCtx = newCtx({
+      _cognitionNodesDS: guardDs, _cogScene: guardScene, _cogView: view,
+      _cogFitScale: 1, _cogSelectedId: null, _cogHighlight: null,
+    });
+    guardCtx._cogLodKeys = () => ({});
+    eq(methods._cogApplyLodVisibility.call(guardCtx, 0), view.nodes.length,
+      'L0 без посчитанных районов не скрывает узлы (защита от пустой сцены)');
+  }
+
+  // Кэш позиций не теряет скрытые узлы (vis 9.1.9 не отдаёт их в getPositions).
+  {
+    const view = { nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }], edges: [] };
+    const scene = { pos: {}, posRev: 0, viewRev: 1 };
+    const net = {
+      getPositions: () => ({ a: { x: 1, y: 2 } }),   // b,c скрыты LOD-ом
+    };
+    const posCtx = newCtx({
+      cognitionNetwork: net, _cogScene: scene, _cogView: view,
+    });
+    scene.pos = {
+      a: { x: 1, y: 2 }, b: { x: 3, y: 4 }, c: { x: 5, y: 6 },
+    };
+    const count = methods._cogSyncPositions.call(posCtx);
+    eq(count, 1, 'позиции: синхронизация берёт то, что отдаёт vis');
+    eq(Object.keys(scene.pos).sort(), ['a', 'b', 'c'],
+      'позиции: геометрия скрытых узлов СОХРАНЯЕТСЯ (иначе районы терялись бы)');
+    view.nodes.push({ id: 'd' });
+    scene.viewRev = 2;
+    scene.pos.d = { x: 9, y: 9 };
+    scene.pos.stale = { x: 0, y: 0 };          // нет ни в наборе, ни в позициях vis
+    methods._cogSyncPositions.call(posCtx);
+    eq(Object.keys(scene.pos).sort(), ['a', 'b', 'c', 'd'],
+      'позиции: узел вне набора вычищается, а скрытые в наборе — остаются');
+  }
+
+  // Раскрытие района: камера к его участникам, выбор — реальный якорь.
+  {
+    const positions = {};
+    const nodes = [];
+    for (let i = 0; i < 12; i += 1) {
+      nodes.push({ id: 'g' + i, kind: 'fact', degree: i, title: 'g' + i });
+      // Район занимает почти весь кадр: его собственный fit ≈ 0.86, и без
+      // нижней границы масштаба камера осталась бы в обзоре (r ≈ 1).
+      positions['g' + i] = { x: -400 + i * 72, y: -190 + i * 34 };
+    }
+    const net = {
+      moveToCalls: [], selectCalls: [],
+      moveTo(o) { this.moveToCalls.push(o); },
+      selectNodes(ids) { this.selectCalls.push(ids); },
+      getScale: () => 1, getPositions: () => positions,
+      on() {}, once() {}, destroy() {}, redraw() {},
+    };
+    const scene = {
+      lod: 0, width: 800, height: 400, pos: positions, cam: { x: 0, y: 0, scale: 1 },
+      aggregates: [{
+        id: 'agg:g0:0:0', apexId: 'g3', count: 12, radius: 20,
+        sx: 200, sy: 100, hideMembers: true,
+        memberIds: nodes.map((n) => n.id),
+      }],
+    };
+    const expandCtx = newCtx({
+      cognitionNetwork: net, _cogScene: scene, _cogView: { nodes, edges: [] },
+      _cogFitScale: 0.5,
+    });
+    const res = methods._cogExpandAggregate.call(expandCtx, 'agg:g0:0:0');
+    ok(res && res.apexId === 'g3', 'раскрытие: возвращает реальный якорь района');
+    eq(res.memberIds.length, 12, 'раскрытие: отдаёт всех реальных участников');
+    ok(net.moveToCalls.length === 1, 'раскрытие: один программный moveTo');
+    ok(net.moveToCalls[0].scale >= 0.5 * 2.2 - 1e-9,
+      'раскрытие: масштаб уводит с уровня 0 (r ≥ 2.2)');
+    ok(net.moveToCalls[0].scale <= 0.5 * 3.4 + 1e-9,
+      'раскрытие: и не проваливается глубже допустимого (r ≤ 3.4)');
+    ok(net.selectCalls.length === 1 && net.selectCalls[0][0] === 'g3',
+      'раскрытие: выбирается реальный узел-якорь');
+    eq(scene.aggregates, null, 'раскрытие: районы снимаются до пересчёта LOD');
+    eq(methods._cogExpandAggregate.call(expandCtx, 'нет-такого'), null,
+      'раскрытие: неизвестный район не двигает камеру');
+  }
+
+  // Клик по контейнеру: hit-test в экранных координатах, узел важнее района.
+  {
+    const scene = {
+      lod: 0, hoverId: null, width: 800, height: 400,
+      el: {
+        getBoundingClientRect: () => ({ left: 10, top: 20 }),
+      },
+      aggregates: [
+        { id: 'agg:1', apexId: 'x1', count: 30, radius: 20, sx: 100, sy: 60 },
+        { id: 'agg:2', apexId: 'x2', count: 30, radius: 20, sx: 400, sy: 200 },
+      ],
+    };
+    const clickCtx = newCtx({ _cogScene: scene, cognitionNetwork: {} });
+    const expanded = [];
+    clickCtx._cogExpandAggregate = (id) => { expanded.push(id); return { id }; };
+    const hit = methods._cogOnSceneClick.call(clickCtx,
+      { clientX: 110, clientY: 80, preventDefault() {} });
+    ok(hit && hit.id === 'agg:1', 'клик: попадание в центр района раскрывает его');
+    methods._cogOnSceneClick.call(clickCtx, { clientX: 300, clientY: 300 });
+    eq(expanded.length, 1, 'клик: промах мимо центра ничего не раскрывает');
+    // Реальный узел под курсором имеет приоритет над районом.
+    scene.hoverId = 'real';
+    methods._cogOnSceneClick.call(clickCtx, { clientX: 110, clientY: 80 });
+    eq(expanded.length, 1, 'клик по реальному узлу не раскрывает район');
+    scene.hoverId = null;
+    scene.lod = 1;
+    methods._cogOnSceneClick.call(clickCtx, { clientX: 110, clientY: 80 });
+    eq(expanded.length, 1, 'вне уровня 0 клик по району ничего не делает');
+  }
+
+  // Подписи уровня 0: районы подписаны, выбранный/найденный — всегда, и
+  // наложений в экранных координатах нет.
+  {
+    const nodes = [];
+    const pos = {};
+    for (let i = 0; i < 24; i += 1) {
+      const id = 'k' + i;
+      nodes.push({ id: id, kind: ['fact', 'belief', 'paradigm'][i % 3],
+        degree: i % 5, title: 'Запись ' + i });
+      pos[id] = { x: (i % 6) * 40, y: Math.floor(i / 6) * 40 };
+    }
+    const scene = {
+      lod: 0, width: 800, height: 400, pos: pos,
+      cam: { x: 0, y: 0, scale: 1 }, viewRev: 4, selectionRev: 1,
+      aggregates: [
+        { id: 'agg:k0:0:0', apexId: 'k0', count: 12, radius: 26,
+          sx: 160, sy: 120, dominantKind: 'fact', hideMembers: true,
+          label: 'Факты · 12', kinds: { fact: 10, belief: 2 },
+          memberIds: nodes.slice(0, 12).map((n) => n.id) },
+        { id: 'agg:k12:0:1', apexId: 'k12', count: 12, radius: 26,
+          sx: 620, sy: 260, dominantKind: 'belief', hideMembers: true,
+          label: 'Убеждения · 12', kinds: { belief: 12 },
+          memberIds: nodes.slice(12).map((n) => n.id) },
+      ],
+      forcedLabels: [],
+    };
+    const ops = [];
+    const fakeCtx = {
+      font: '', textAlign: '', textBaseline: '', lineWidth: 1,
+      fillStyle: '', strokeStyle: '', lineJoin: '', globalAlpha: 1,
+      measureText: () => ({ width: 90 }),
+      strokeText(t) { ops.push('stroke:' + t); },
+      fillText(t) { ops.push('text:' + t); },
+      save() {}, restore() {},
+    };
+    const labelCtx = newCtx({
+      _cogScene: scene, _cogView: { nodes: nodes, edges: [] },
+      _cogSelectedId: 'k20', _cogHighlight: { k20: true },
+      _graphSearchMatchIds: ['k7'],
+      _cognitionGraphMode: 'full',
+    });
+    const shownLabels = methods._cogPaintLabels.call(labelCtx, fakeCtx, 800, 400);
+    const plan = labelCtx._cogLabels;
+    const ids = plan.labels.map((l) => String(l.id)).concat(
+      (plan.forced || []).map((l) => String(l.id)));
+    ok4label: {
+      var group = ids.filter((id) => id.indexOf('agg:') === 0);
+      ok(group.length >= 1, 'L0: подписи районов нарисованы (' + group.length + ')');
+      ok(ids.indexOf('k20') >= 0, '§4.4: выбранный узел подписан на уровне 0');
+      ok(ids.indexOf('k7') >= 0, '§4.4: найденный поиском узел подписан на уровне 0');
+      ok(shownLabels >= 3, 'L0: на кадре есть подписи');
+      var overlaps = 0;
+      var all = plan.labels.concat(plan.forced || []);
+      for (var i2 = 0; i2 < all.length; i2 += 1) {
+        for (var j2 = i2 + 1; j2 < all.length; j2 += 1) {
+          if (String(all[i2].id) === String(all[j2].id)) continue;
+          if (Math.abs(all[i2].x - all[j2].x) * 2 < (all[i2].width + all[j2].width)
+              && Math.abs(all[i2].y - all[j2].y) * 2
+                < (all[i2].height + all[j2].height)) overlaps += 1;
+        }
+      }
+      eq(overlaps, 0, '§4.4: подписи уровня 0 не накладываются в экранных координатах');
+      ok(ops.some((o) => o.indexOf('text:') === 0),
+        '§4.4: текст реально нарисован (без плашек — только контур+заливка)');
+      ok(ops.filter((o) => o.indexOf('stroke:') === 0).length >= 1,
+        'подписи: тёмный контур нарисован strokeText, а не прямоугольником');
+    }
+  }
+
+  // Счётчики §9.9: разные величины, не смешаны.
+  {
+    const countCtx = newCtx({
+      cognitionGraphData: Object.assign({}, MODEL, {
+        shownOf: { byKind: { fact: { shown: 3, total: 300 } }, totalEdges: 900 },
+      }),
+      _cogView: { nodes: MODEL.nodes.slice(0, 2), edges: MODEL.edges },
+      _cogScene: {
+        lod: 0, aggregates: [{ id: 'agg:z', apexId: 'fact:1:1', count: 3 }],
+      },
+    });
+    const counts = methods._cogCounts.call(countCtx);
+    eq(counts.api.nodes, MODEL.nodes.length, 'счётчики: «из API» = принятый набор');
+    eq(counts.filter.nodes, 2, 'счётчики: «после фильтра» = витрина');
+    eq(counts.screen.aggregated, 3, 'счётчики: «на экране» знает свёрнутое');
+    eq(counts.db.nodes, 300, 'счётчики: «в БД» берётся из shown_of, если он есть');
+    ok(counts.db.nodes !== counts.api.nodes,
+      'счётчики: «в БД» не подменяется «из API»');
+    const noAgg = methods._cogCounts.call(newCtx({
+      cognitionGraphData: MODEL, _cogView: { nodes: MODEL.nodes, edges: [] },
+      _cogScene: { lod: 1, aggregates: [{ id: 'agg:z', count: 3 }] },
+    }));
+    eq(noAgg.screen.aggregates, 0,
+      'счётчики: вне уровня 0 агрегатов на экране нет');
+    eq(noAgg.db.known, false, 'счётчики: без shown_of «в БД» неизвестно');
+  }
+
+  console.log('EVOL-CMV-C-SCENE-OK checks=' + checks);
 })();

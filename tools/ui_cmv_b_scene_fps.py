@@ -238,6 +238,9 @@ SNAPSHOT = r"""
   }
   // §12.1 спеки: «несколько пространственно отделённых групп». Считаем
   // связные области экранной сетки 24 px, где стоят реальные узлы.
+  // CMV-C: на уровне 0 узлы свёрнуты в РАЙОНЫ (§5.2 спеки), поэтому район
+  // входит в метрику своим РЕАЛЬНЫМ числом элементов, а скрытые LOD-ом узлы
+  // не учитываются — иначе метрика «видимая область» мерила бы невидимое.
   const cam = net ? net.getViewPosition() : { x: 0, y: 0 };
   const sc = net ? net.getScale() : 1;
   const canvasEl = vm && vm._cogEl ? vm._cogEl.querySelector('canvas') : null;
@@ -245,9 +248,14 @@ SNAPSHOT = r"""
   const H = canvasEl ? canvasEl.clientHeight : 0;
   const cell = 24;
   const grid = new Map();
+  const aggList = (scene && scene.lod === 0 && scene.aggregates)
+    ? scene.aggregates : [];
+  const hidden = {};
+  rows.forEach((r) => { if (r.hidden === true) hidden[String(r.id)] = true; });
   if (net) {
     const pos = net.getPositions();
     Object.keys(pos).forEach((id) => {
+      if (hidden[String(id)]) return;
       const p = pos[id];
       const sx = (p.x - cam.x) * sc + W / 2;
       const sy = (p.y - cam.y) * sc + H / 2;
@@ -256,6 +264,11 @@ SNAPSHOT = r"""
       grid.set(key, (grid.get(key) || 0) + 1);
     });
   }
+  aggList.forEach((g) => {
+    if (g.sx < 0 || g.sy < 0 || g.sx > W || g.sy > H) return;
+    const key = Math.floor(g.sx / cell) + ':' + Math.floor(g.sy / cell);
+    grid.set(key, (grid.get(key) || 0) + (g.count || 0));
+  });
   const keys = Array.from(grid.keys());
   const parent = {};
   keys.forEach((k) => { parent[k] = k; });
@@ -287,19 +300,33 @@ SNAPSHOT = r"""
   let nodeOverlaps = 0, nodePairs = 0, coincident = 0, worstOverlap = 0;
   let nearCentres = 0;
   if (net && canvasEl) {
+    // CMV-C: `getPositions()` в vis 9.1.9 не отдаёт СКРЫТЫЕ узлы, а на уровне 0
+    // они свёрнуты в районы. «Обзор заполняет кадр» — свойство РАСКЛАДКИ,
+    // поэтому вклад даёт кэш позиций сцены (там весь набор), а пересечения
+    // считаются по РЕАЛЬНО нарисованным узлам (скрытые на кадре не видны).
     let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
     const posAll = net.getPositions();
+    const posCache = (scene && scene.pos) ? scene.pos : {};
+    const posLayout = (Object.keys(posCache).length > Object.keys(posAll).length)
+      ? posCache : posAll;
     const sizeById = {};
     rows.forEach((r) => { sizeById[String(r.id)] = r.size || 0; });
     const discs = [];
+    Object.keys(posLayout).forEach((id) => {
+      const p = posLayout[id];
+      const sx = (p.x - cam.x) * sc + W / 2;
+      const sy = (p.y - cam.y) * sc + H / 2;
+      if (sx < 0 || sy < 0 || sx > W || sy > H) return;
+      minX = Math.min(minX, sx); maxX = Math.max(maxX, sx);
+      minY = Math.min(minY, sy); maxY = Math.max(maxY, sy);
+    });
     Object.keys(posAll).forEach((id) => {
+      if (hidden[String(id)]) return;
       const p = posAll[id];
       const sx = (p.x - cam.x) * sc + W / 2;
       const sy = (p.y - cam.y) * sc + H / 2;
       if (sx < 0 || sy < 0 || sx > W || sy > H) return;
       inView += 1;
-      minX = Math.min(minX, sx); maxX = Math.max(maxX, sx);
-      minY = Math.min(minY, sy); maxY = Math.max(maxY, sy);
       discs.push({ x: sx, y: sy, r: (sizeById[String(id)] || 0) * sc });
     });
     discs.sort((a, b) => a.x - b.x);

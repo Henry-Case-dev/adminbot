@@ -150,6 +150,12 @@
       maxScreenRadius: 48,
       // Вне кадра + запас не считаем и не рисуем (§10.2 «только экранные»).
       margin: 56,
+      /* Потолок радиуса ЯДРА, от которого считаются ореолы. При сильном зуме
+       * (r ≈ 2.6) ядро на экране уже 60 px, и ореол 2.65 × r = 160 px
+       * превращал детальный кадр в туман: соотношение §4.2 спеки сохраняется
+       * (ореол по-прежнему 1.55/2.65 радиуса), но сам радиус для свечения
+       * ограничен — крупное ядро в тумане не нуждается. */
+      maxCoreForGlow: 16,
     },
     edge: {
       width: 0.7,
@@ -215,6 +221,59 @@
       // бюджета от ОТНОСИТЕЛЬНОГО масштаба, а не от абсолютного vis-значения.
       t1: 0.952,
       t2: 2.016,
+    },
+    /* CMV-C: единственный конфиг-слой LOD (§4.2 контракта + §5.2 спеки).
+     * Пороги — ОТНОСИТЕЛЬНО обзора (r = getScale()/fitScaleRef), не абсолютный
+     * vis-масштаб: на большом графе «залипание» уровня исключено. */
+    lod: {
+      t1: 0.85,
+      t2: 1.8,
+      delta: 0.12,
+      denseNodes: 240,
+      densePer100k: 60,
+      denseExitRatio: 0.8,
+      denseMaxRatio: 1.05,
+      topKCap: 40,
+      topKDiv: 12,
+    },
+    /* CMV-C (§5.2/§4.3 спеки, §4.3 контракта): агрегаты уровня 0 — центры
+     * РЕАЛЬНЫХ групп (связная компонента × пространственная ячейка), честное
+     * число элементов на подписи и мягкие потоки между центрами по реальным
+     * рёбрам. Геометрия группировки живёт в адаптере (`buildAggregates`),
+     * здесь — только параметры отрисовки. */
+    group: {
+      // Район карты (CSS-px при обзоре). 220 ≈ полтора диаметра самого крупного
+      // узла вместе с подписью: районы не сливаются, но и не дробят кадр.
+      tileCss: 220,
+      // Потолки сетки районов: больше — уже «шахматка», а не карта.
+      maxCols: 6,
+      maxRows: 4,
+      minMembers: 6,
+      maxGroups: 24,
+      // Группа такого размера сворачивает участников: на L0 видны её центр и
+      // ключевые узлы, остальные — только после раскрытия (§5.2 спеки).
+      hideFrom: 8,
+      radius: { base: 10, perLog2: 3.4, min: 12, max: 46 },
+      // Центры агрегатов не стоят друг на друге (§6.2 спеки): детерминированное
+      // разведение центров. Зазор 56 px — районы читаются как ОТДЕЛЬНЫЕ центры
+      // (кольца не соприкасаются), а не как одно пятно.
+      centerGap: 56,
+      centerPasses: 60,
+      // Свечение центра: мягкое, но заметное сквозь сеть рёбер.
+      nearAlpha: 0.30,
+      farAlpha: 0.16,
+      ringAlpha: 0.55,
+      ringWidth: 1.5,
+      // Потоки между центрами: альфа/толщина растут с РЕАЛЬНЫМ числом связей,
+      // но логарифмически — иначе район с сотнями связей заливал бы кадр
+      // толстой линией (§4.3 спеки: «мягкие» потоки).
+      flowAlpha: 0.08,
+      flowAlphaMax: 0.24,
+      flowWidth: 1,
+      flowWidthMax: 2.2,
+      flowMaxPairs: 48,
+      // Дыхание центра (§7.1 спеки) — та же малая амплитуда, что у узлов.
+      breathAmp: 0.16,
     },
     motion: {
       // §7.3 контракта: частотный потолок покоя (батарея и FPS без выгоды).
@@ -1030,6 +1089,10 @@
     var draws = 0;
     var edgeDraws = 0;
     var lastActiveEdges = 0;
+    var groupDraws = 0;
+    var groupFlows = 0;
+    var lastGroups = 0;
+    var lastVisible = 0;
     var pool = [];
 
     function defaultMakeCanvas(w, h) {
@@ -1243,6 +1306,94 @@
       return shown;
     }
 
+    /* ── CMV-C: слой агрегатов уровня 0 (§5.2 спеки, §4.3 контракта) ──────
+     * Центры настоящих групп: центр получает свечение и кольцо, между
+     * центрами рисуются мягкие «потоки» — ТОЛЬКО по реальным рёбрам между
+     * участниками (число связей приходит из адаптера). Никаких выдуманных
+     * связей и узлов: агрегат — визуальное объединение реальных элементов. */
+    function drawGroupFlows(ctx, groups, flows, reduced) {
+      var gCfg = cfg.group || CONFIG.group;
+      var byId = Object.create(null);
+      var i;
+      for (i = 0; i < groups.length; i += 1) byId[groups[i].id] = groups[i];
+      var drawn = 0;
+      var max = gCfg.flowMaxPairs || 48;
+      ctx.lineCap = 'round';
+      for (i = 0; i < flows.length && drawn < max; i += 1) {
+        var flow = flows[i];
+        var a = byId[flow.from];
+        var b = byId[flow.to];
+        if (!a || !b) continue;
+        var weight = flow.count || 0;
+        // Логарифмическая шкала: 6 поперечных связей и 600 читаются по-разному,
+        // но 600 не рисуются «стеной» (§4.3 спеки — мягкие потоки).
+        var scaleW = Math.min(1, Math.log(1 + weight) / Math.log(9));
+        var alpha = gCfg.flowAlpha
+          + (gCfg.flowAlphaMax - gCfg.flowAlpha) * scaleW;
+        var width = gCfg.flowWidth
+          + (gCfg.flowWidthMax - gCfg.flowWidth) * scaleW;
+        ctx.globalAlpha = reduced ? alpha * 0.8 : alpha;
+        ctx.beginPath();
+        ctx.moveTo(a.sx, a.sy);
+        ctx.lineTo(b.sx, b.sy);
+        ctx.strokeStyle = rgba(colorOf(b.dominantKind), 0.9);
+        ctx.lineWidth = width;
+        ctx.stroke();
+        drawn += 1;
+      }
+      ctx.globalAlpha = 1;
+      return drawn;
+    }
+
+    function drawGroupCentres(ctx, groups, now, reduced) {
+      var gCfg = cfg.group || CONFIG.group;
+      var drawn = 0;
+      for (var i = 0; i < groups.length; i += 1) {
+        var g = groups[i];
+        if (!(g.radius > 0)) continue;
+        var breath = 1;
+        if (!reduced && now > 0) {
+          var period = 3200 + (hash31(g.id) % 1800);
+          var phase = (hash31(g.id) % 1000) / 1000 * period;
+          breath = 1 + (gCfg.breathAmp || 0) * Math.sin(
+            (2 * Math.PI * (now + phase)) / period);
+        }
+        drawGlow(ctx, g.dominantKind, 'far', g.sx, g.sy, g.radius,
+          gCfg.farAlpha * breath);
+        drawGlow(ctx, g.dominantKind, 'near', g.sx, g.sy, g.radius,
+          gCfg.nearAlpha * breath);
+        ctx.globalAlpha = (gCfg.ringAlpha || 0.55) * (0.7 + 0.3 * breath);
+        ctx.beginPath();
+        ctx.lineWidth = gCfg.ringWidth || 1.5;
+        ctx.strokeStyle = rgba(lighten(colorOf(g.dominantKind), 0.35), 0.9);
+        ctx.arc(g.sx, g.sy, g.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        // Состав района — ЧЕСТНЫМИ дугами по долям реальных типов (§4.1 спеки:
+        // различитель не только цвет, но и состав). Сумма дуг = 2π, поэтому
+        // «цвет» района не выдуман, а показан пропорционально.
+        var kinds = g.kinds || null;
+        if (kinds && g.count > 0) {
+          var keys = Object.keys(kinds).sort();
+          var start = -Math.PI / 2;
+          for (var q = 0; q < keys.length; q += 1) {
+            var share = kinds[keys[q]] / g.count;
+            if (!(share > 0)) continue;
+            var sweep = share * Math.PI * 2;
+            ctx.beginPath();
+            ctx.globalAlpha = (gCfg.ringAlpha || 0.55) * 0.9;
+            ctx.lineWidth = (gCfg.ringWidth || 1.5) + 1.6;
+            ctx.strokeStyle = rgba(colorOf(keys[q]), 0.85);
+            ctx.arc(g.sx, g.sy, g.radius + 3.4, start, start + sweep);
+            ctx.stroke();
+            start += sweep;
+          }
+        }
+        drawn += 1;
+      }
+      ctx.globalAlpha = 1;
+      return drawn;
+    }
+
     var layerApi = {
       /* paint(ctx, frame) — один кадр слоя `fx` (CSS-px, transform уже
        * выставлен владельцем сцены). Порядок §2.1 спеки:
@@ -1271,10 +1422,12 @@
         var i;
         var node;
         var p;
+        var hiddenMap = frame.hidden || null;
         // 1) проекция + отбор видимых (за кадром — не считаем вовсе).
         for (i = 0; i < nodes.length; i += 1) {
           node = nodes[i];
           if (!node || node.id === undefined) continue;
+          if (hiddenMap && hiddenMap[String(node.id)] === true) continue;
           p = positions[node.id];
           if (!p) continue;
           var sx = (p.x - camX) * scale + W / 2;
@@ -1293,6 +1446,7 @@
           slotRef.x = p.x;
           slotRef.y = p.y;
           slotRef.r = r;
+          slotRef.g = Math.min(r, cfg.glow.maxCoreForGlow || 16);
           slotRef.sx = sx;
           slotRef.sy = sy;
           visible += 1;
@@ -1300,6 +1454,8 @@
         // 2) дальний ореол (LOD: L0 — только ключевые, L1 — ключевые,
         //    L2 — все в кадре), с мягкой пульсацией у набора `P`.
         var pulse = frame.pulse || null;
+        var dimMap = frame.dim || null;
+        var dimK = cfg.node.dimOpacity || 0.25;
         for (i = 0; i < visible; i += 1) {
           var s = pool[i];
           var isKey = !keyIds || keyIds[s.id] === true;
@@ -1310,15 +1466,17 @@
             var entry = pulse[s.id];
             if (entry) f = pulseFactor(entry, now);
           }
-          drawGlow(ctx, s.kind, 'far', s.sx, s.sy, s.r,
-            cfg.glow.far.alpha * f);
+          var dimF = (dimMap && dimMap[s.id] === true) ? dimK : 1;
+          drawGlow(ctx, s.kind, 'far', s.sx, s.sy, s.g,
+            cfg.glow.far.alpha * f * dimF);
         }
         // 3) ближний ореол: L1/L2 — у всех в кадре, L0 — только у ключевых.
         for (i = 0; i < visible; i += 1) {
           var sn = pool[i];
           if (lod === 0 && !(keyIds && keyIds[sn.id] === true)) continue;
-          drawGlow(ctx, sn.kind, 'near', sn.sx, sn.sy, sn.r,
-            cfg.glow.near.alpha);
+          var dimN = (dimMap && dimMap[sn.id] === true) ? dimK : 1;
+          drawGlow(ctx, sn.kind, 'near', sn.sx, sn.sy, sn.g,
+            cfg.glow.near.alpha * dimN);
         }
         // 4) активный узел: устойчивый ореол + кольцо выбора.
         var active = null;
@@ -1354,6 +1512,23 @@
             sx: active.sx, sy: active.sy, r: active.r,
           }, frame.incident);
         }
+        // 5b) CMV-C: агрегаты уровня 0 — центры групп и потоки по реальным
+        //     рёбрам. Рисуются ПОСЛЕ узлов (иначе 702 ядра перекрыли бы центр
+        //     группы) и ДО подписей (§2.1 спеки/§6 контракта).
+        var groups = (lod === 0 && frame.groups && frame.groups.length)
+          ? frame.groups : null;
+        if (groups) {
+          var gCfg = cfg.group || CONFIG.group;
+          groupFlows = drawGroupFlows(ctx, groups, frame.flows || [], reduced);
+          groupDraws = drawGroupCentres(ctx, groups, now, reduced);
+          lastGroups = groups.length;
+          var spill = (gCfg.flowMaxPairs || 48);
+          if (groupFlows > spill) groupFlows = spill;
+        } else {
+          groupFlows = 0;
+          groupDraws = 0;
+          lastGroups = 0;
+        }
         // 6) декор форм: у активного всегда, у остальных — когда его видно.
         if (active) {
           drawDecor(ctx, active.kind, active.sx, active.sy, active.r, 0.95);
@@ -1369,6 +1544,7 @@
         if (typeof frame.drawLabels === 'function') frame.drawLabels(ctx);
         ctx.globalAlpha = 1;
         lastActiveEdges = activeEdges;
+        lastVisible = visible;
         return visible + impulses;
       },
       /* counters() — диагностика приёмки: спрайты создаются один раз,
@@ -1378,10 +1554,14 @@
           sprites: spriteCount, gradients: gradients, paints: paints,
           draws: draws, pooled: pool.length,
           edgeDraws: edgeDraws, activeEdges: lastActiveEdges,
+          // CMV-C: агрегаты L0 действительно рисовались (приёмка §12.1).
+          groupDraws: groupDraws, groupFlows: groupFlows, groups: lastGroups,
         };
       },
       /* reuseOf() — тот же пул слотов между кадрами (нет аллокаций в кадре). */
       poolRef: function () { return pool; },
+      // Узлы, реально попавшие в кадр (вход плотности LOD, §5.2 спеки).
+      visibleCount: function () { return lastVisible; },
       resize: function (nextDpr) {
         var d = finite(nextDpr);
         if (d !== null && d > 0 && d !== dpr) {

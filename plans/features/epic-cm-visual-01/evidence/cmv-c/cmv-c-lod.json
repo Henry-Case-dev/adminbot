@@ -1,0 +1,1686 @@
+{
+ "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1",
+ "nodes": 702,
+ "edges": 2400,
+ "render_mode": "headless-gpu(ANGLE d3d11)",
+ "checks": [
+  {
+   "ok": true,
+   "message": "desktop: кадр обзора на плотном наборе — уровень 0 (0 при r=1.00, плотность 176/100k)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: на обзоре видны центры групп (8 агрегатов)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: все агрегаты состоят из РЕАЛЬНЫХ id"
+  },
+  {
+   "ok": true,
+   "message": "desktop: агрегаты покрывают набор без потерь и повторов (702 / уникальных 702 / в витрине 702)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: между центрами есть потоки по реальным рёбрам (8 пар)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: каждый агрегат подписан реальным числом элементов"
+  },
+  {
+   "ok": true,
+   "message": "desktop: центры групп различимы по типам (6 типов)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: различимые узлы не стоят стеной (0 пересечений = 0.00 на узел, макс. 0.0 px)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: совпавших центров на кадре почти нет (0; было 258/290 на мобильном)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: подписи не накладываются (0 пар: [])"
+  },
+  {
+   "ok": true,
+   "message": "desktop: подписаны центры групп (8 из 8 подписей)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: «из API» = 702"
+  },
+  {
+   "ok": true,
+   "message": "desktop: без фильтра витрина равна API-набору"
+  },
+  {
+   "ok": true,
+   "message": "desktop: «на экране» различает агрегаты ({'nodes': 0, 'edges': 2400, 'aggregates': 8, 'aggregated': 702, 'collapsed': 6, 'total': 702})"
+  },
+  {
+   "ok": true,
+   "message": "desktop: «всего в БД» либо неизвестно, либо не меньше API-набора ({'nodes': 52600, 'edges': 98000, 'known': True})"
+  },
+  {
+   "ok": true,
+   "message": "desktop: на увеличении уровень не откатывается назад []"
+  },
+  {
+   "ok": true,
+   "message": "desktop: на уменьшении уровень не прыгает вверх []"
+  },
+  {
+   "ok": true,
+   "message": "desktop: около порога T1 уровень стабилен (0/0/0 при r 0.93/0.98)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: возврат к обзору восстанавливает агрегаты (lod=0, 8)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: клик по центру группы выбрал РЕАЛЬНЫЙ узел ('obs:-1001234567890:289')"
+  },
+  {
+   "ok": true,
+   "message": "desktop: раскрытие группы уводит с уровня 0 (lod=2, r=2.20)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: рабочий/средний вид — уровень 1 (1)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: на среднем виде подписи не накладываются (0)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: выбранный узел подписан и на среднем виде"
+  },
+  {
+   "ok": true,
+   "message": "desktop: детальный вид — уровень 2 (2 при r=2.60)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: в детальном виде подписи не накладываются (0)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: выбранный узел подписан и в детальном виде"
+  },
+  {
+   "ok": true,
+   "message": "desktop: детальный вид не скрывает узлы (0 скрыто LOD-ом)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: с выбранным и hover подписи не накладываются ([])"
+  },
+  {
+   "ok": true,
+   "message": "desktop: подпись выбранного видна в детальном виде"
+  },
+  {
+   "ok": true,
+   "message": "desktop: FPS панорамирования В ДЕТАЛЬНОМ ВИДЕ ≥ 45 (медиана 60.0, [59.9, 60.0, 60.1])"
+  },
+  {
+   "ok": true,
+   "message": "desktop: FPS панорамирования ≥ 45 (медиана 60.0, [60.2, 60.0, 60.0])"
+  },
+  {
+   "ok": true,
+   "message": "mobile: кадр обзора на плотном наборе — уровень 0 (0 при r=1.00, плотность 653/100k)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: на обзоре видны центры групп (4 агрегатов)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: все агрегаты состоят из РЕАЛЬНЫХ id"
+  },
+  {
+   "ok": true,
+   "message": "mobile: агрегаты покрывают набор без потерь и повторов (702 / уникальных 702 / в витрине 702)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: между центрами есть потоки по реальным рёбрам (6 пар)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: каждый агрегат подписан реальным числом элементов"
+  },
+  {
+   "ok": true,
+   "message": "mobile: центры групп различимы по типам (6 типов)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: различимые узлы не стоят стеной (0 пересечений = 0.00 на узел, макс. 0.0 px)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: совпавших центров на кадре почти нет (0; было 258/290 на мобильном)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: подписи не накладываются (0 пар: [])"
+  },
+  {
+   "ok": true,
+   "message": "mobile: подписаны центры групп (4 из 4 подписей)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: «из API» = 702"
+  },
+  {
+   "ok": true,
+   "message": "mobile: без фильтра витрина равна API-набору"
+  },
+  {
+   "ok": true,
+   "message": "mobile: «на экране» различает агрегаты ({'nodes': 0, 'edges': 2400, 'aggregates': 4, 'aggregated': 702, 'collapsed': 4, 'total': 702})"
+  },
+  {
+   "ok": true,
+   "message": "mobile: «всего в БД» либо неизвестно, либо не меньше API-набора ({'nodes': 52600, 'edges': 98000, 'known': True})"
+  },
+  {
+   "ok": true,
+   "message": "mobile: на увеличении уровень не откатывается назад []"
+  },
+  {
+   "ok": true,
+   "message": "mobile: на уменьшении уровень не прыгает вверх []"
+  },
+  {
+   "ok": true,
+   "message": "mobile: около порога T1 уровень стабилен (0/0/0 при r 0.93/0.98)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: возврат к обзору восстанавливает агрегаты (lod=0, 4)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: клик по центру группы выбрал РЕАЛЬНЫЙ узел ('obs:-1001234567890:289')"
+  },
+  {
+   "ok": true,
+   "message": "mobile: раскрытие группы уводит с уровня 0 (lod=2, r=2.20)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: рабочий/средний вид — уровень 1 (1)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: на среднем виде подписи не накладываются (0)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: выбранный узел подписан и на среднем виде"
+  },
+  {
+   "ok": true,
+   "message": "mobile: детальный вид — уровень 2 (2 при r=2.60)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: в детальном виде подписи не накладываются (0)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: выбранный узел подписан и в детальном виде"
+  },
+  {
+   "ok": true,
+   "message": "mobile: детальный вид не скрывает узлы (0 скрыто LOD-ом)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: с выбранным и hover подписи не накладываются ([])"
+  },
+  {
+   "ok": true,
+   "message": "mobile: подпись выбранного видна в детальном виде"
+  }
+ ],
+ "fails": [],
+ "shots": [
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1\\plans\\features\\epic-cm-visual-01\\evidence\\cmv-c\\cmv-c-desktop-overview.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1\\plans\\features\\epic-cm-visual-01\\evidence\\cmv-c\\cmv-c-desktop-expanded.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1\\plans\\features\\epic-cm-visual-01\\evidence\\cmv-c\\cmv-c-desktop-mid.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1\\plans\\features\\epic-cm-visual-01\\evidence\\cmv-c\\cmv-c-desktop-detail.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1\\plans\\features\\epic-cm-visual-01\\evidence\\cmv-c\\cmv-c-desktop-detail-selected.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1\\plans\\features\\epic-cm-visual-01\\evidence\\cmv-c\\cmv-c-mobile-overview.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1\\plans\\features\\epic-cm-visual-01\\evidence\\cmv-c\\cmv-c-mobile-expanded.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1\\plans\\features\\epic-cm-visual-01\\evidence\\cmv-c\\cmv-c-mobile-mid.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1\\plans\\features\\epic-cm-visual-01\\evidence\\cmv-c\\cmv-c-mobile-detail.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-d244ebe1\\plans\\features\\epic-cm-visual-01\\evidence\\cmv-c\\cmv-c-mobile-detail-selected.png"
+ ],
+ "sweeps": {
+  "desktop": {
+   "up": [
+    {
+     "lod": 0,
+     "r": 0.5,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.7,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.74,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.76,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.9,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.94,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.96,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 1,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 1,
+     "r": 1.3,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 1.55,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 1.6,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 1.7,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 2,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 2.1,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 2.4,
+     "aggs": 8,
+     "hidden": 0
+    }
+   ],
+   "down": [
+    {
+     "lod": 2,
+     "r": 2.4,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 2.1,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 2,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 1.7,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 1.6,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 1.55,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 1.3,
+     "aggs": 8,
+     "hidden": 0
+    },
+    {
+     "lod": 0,
+     "r": 1,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.96,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.94,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.9,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.76,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.74,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.7,
+     "aggs": 8,
+     "hidden": 682
+    },
+    {
+     "lod": 0,
+     "r": 0.5,
+     "aggs": 8,
+     "hidden": 682
+    }
+   ]
+  },
+  "mobile": {
+   "up": [
+    {
+     "lod": 0,
+     "r": 0.5,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.6999999999999998,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.74,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.76,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.9,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.94,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.96,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 1,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 1,
+     "r": 1.3,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 1.55,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 1.6,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 1.7,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 2,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 2.1,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 2.4,
+     "aggs": 4,
+     "hidden": 0
+    }
+   ],
+   "down": [
+    {
+     "lod": 2,
+     "r": 2.4,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 2.1,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 2,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 1.7,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 2,
+     "r": 1.6,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 1.55,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 1,
+     "r": 1.3,
+     "aggs": 4,
+     "hidden": 0
+    },
+    {
+     "lod": 0,
+     "r": 1,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.96,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.94,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.9,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.76,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.74,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.6999999999999998,
+     "aggs": 4,
+     "hidden": 698
+    },
+    {
+     "lod": 0,
+     "r": 0.5,
+     "aggs": 4,
+     "hidden": 698
+    }
+   ]
+  }
+ },
+ "desktop": {
+  "viewport": [
+   1536,
+   960
+  ],
+  "dpr": 1,
+  "fit": {
+   "lod": 0,
+   "scale": 0.07285557184750732,
+   "fitScale": 0.07285557184750732,
+   "ratio": 1,
+   "dense": 176.32165893061668,
+   "aggregates": [
+    {
+     "id": "agg:obs:-1001234567890:289:0:1",
+     "apexId": "obs:-1001234567890:289",
+     "count": 194,
+     "label": "Группа · 194",
+     "kinds": {
+      "belief": 44,
+      "entity": 25,
+      "evolution_event": 12,
+      "fact": 82,
+      "observation": 15,
+      "paradigm": 16
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:469:1:1",
+     "apexId": "ent:-1001234567890:469",
+     "count": 174,
+     "label": "Группа · 174",
+     "kinds": {
+      "belief": 28,
+      "entity": 32,
+      "evolution_event": 10,
+      "fact": 87,
+      "observation": 7,
+      "paradigm": 10
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:562:0:2",
+     "apexId": "belief:-1001234567890:562",
+     "count": 156,
+     "label": "Группа · 156",
+     "kinds": {
+      "belief": 36,
+      "entity": 16,
+      "evolution_event": 5,
+      "fact": 71,
+      "observation": 17,
+      "paradigm": 11
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:72:1:2",
+     "apexId": "ent:-1001234567890:72",
+     "count": 147,
+     "label": "Группа · 147",
+     "kinds": {
+      "belief": 29,
+      "entity": 22,
+      "evolution_event": 5,
+      "fact": 75,
+      "observation": 5,
+      "paradigm": 11
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:658:1:0",
+     "apexId": "belief:-1001234567890:658",
+     "count": 9,
+     "label": "Группа · 9",
+     "kinds": {
+      "belief": 2,
+      "entity": 3,
+      "fact": 2,
+      "observation": 1,
+      "paradigm": 1
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:665:0:3",
+     "apexId": "belief:-1001234567890:665",
+     "count": 8,
+     "label": "Группа · 8",
+     "kinds": {
+      "belief": 1,
+      "entity": 1,
+      "evolution_event": 2,
+      "observation": 1,
+      "paradigm": 3
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:667:1:3",
+     "apexId": "ent:-1001234567890:667",
+     "count": 7,
+     "label": "Группа · 7",
+     "kinds": {
+      "entity": 4,
+      "observation": 2,
+      "paradigm": 1
+     },
+     "hideMembers": false,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:670:0:0",
+     "apexId": "ent:-1001234567890:670",
+     "count": 7,
+     "label": "Группа · 7",
+     "kinds": {
+      "entity": 2,
+      "evolution_event": 1,
+      "observation": 1,
+      "paradigm": 3
+     },
+     "hideMembers": false,
+     "membersReal": true
+    }
+   ],
+   "aggTotal": 702,
+   "aggUnique": 702,
+   "aggIds": [
+    "agg:obs:-1001234567890:289:0:1",
+    "agg:ent:-1001234567890:469:1:1",
+    "agg:belief:-1001234567890:562:0:2",
+    "agg:ent:-1001234567890:72:1:2",
+    "agg:belief:-1001234567890:658:1:0",
+    "agg:belief:-1001234567890:665:0:3",
+    "agg:ent:-1001234567890:667:1:3",
+    "agg:ent:-1001234567890:670:0:0"
+   ],
+   "flows": 8,
+   "rendered": 20,
+   "hidden": 682,
+   "hiddenFlagged": 682,
+   "renderedOverlaps": 0,
+   "renderedCoincident": 0,
+   "renderedNear": 0,
+   "renderedWorst": 0,
+   "labels": 8,
+   "labelGroups": 8,
+   "labelOverlaps": [],
+   "selectedLabeled": false,
+   "counts": {
+    "db": {
+     "nodes": 52600,
+     "edges": 98000,
+     "known": true
+    },
+    "api": {
+     "nodes": 702,
+     "edges": 2400
+    },
+    "filter": {
+     "nodes": 702,
+     "edges": 2400,
+     "ofNodes": 702,
+     "ofEdges": 2400
+    },
+    "screen": {
+     "nodes": 0,
+     "edges": 2400,
+     "aggregates": 8,
+     "aggregated": 702,
+     "collapsed": 6,
+     "total": 702
+    }
+   },
+   "counters": {
+    "aggDraws": 8,
+    "aggFlowDraws": 8,
+    "visibleNodes": 20,
+    "hiddenByLod": 682,
+    "fxSprites": 22,
+    "fxGradients": 22,
+    "labelsShown": 8
+   }
+  },
+  "expand": {
+   "agg": {
+    "id": "agg:obs:-1001234567890:289:0:1",
+    "apexId": "obs:-1001234567890:289",
+    "count": 194,
+    "x": 805.9090064494868,
+    "y": 453.2162534458979
+   },
+   "after": {
+    "lod": 2,
+    "aggs": 8,
+    "selected": "obs:-1001234567890:289",
+    "r": 2.197581254724112
+   }
+  },
+  "mid": {
+   "lod": 1,
+   "scale": 0.10564057917888561,
+   "fitScale": 0.07285557184750732,
+   "ratio": 1.45,
+   "dense": 152.7116362248076,
+   "aggregates": [
+    {
+     "id": "agg:obs:-1001234567890:289:0:1",
+     "apexId": "obs:-1001234567890:289",
+     "count": 194,
+     "label": "Группа · 194",
+     "kinds": {
+      "belief": 44,
+      "entity": 25,
+      "evolution_event": 12,
+      "fact": 82,
+      "observation": 15,
+      "paradigm": 16
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:469:1:1",
+     "apexId": "ent:-1001234567890:469",
+     "count": 174,
+     "label": "Группа · 174",
+     "kinds": {
+      "belief": 28,
+      "entity": 32,
+      "evolution_event": 10,
+      "fact": 87,
+      "observation": 7,
+      "paradigm": 10
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:562:0:2",
+     "apexId": "belief:-1001234567890:562",
+     "count": 156,
+     "label": "Группа · 156",
+     "kinds": {
+      "belief": 36,
+      "entity": 16,
+      "evolution_event": 5,
+      "fact": 71,
+      "observation": 17,
+      "paradigm": 11
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:72:1:2",
+     "apexId": "ent:-1001234567890:72",
+     "count": 147,
+     "label": "Группа · 147",
+     "kinds": {
+      "belief": 29,
+      "entity": 22,
+      "evolution_event": 5,
+      "fact": 75,
+      "observation": 5,
+      "paradigm": 11
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:658:1:0",
+     "apexId": "belief:-1001234567890:658",
+     "count": 9,
+     "label": "Группа · 9",
+     "kinds": {
+      "belief": 2,
+      "entity": 3,
+      "fact": 2,
+      "observation": 1,
+      "paradigm": 1
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:665:0:3",
+     "apexId": "belief:-1001234567890:665",
+     "count": 8,
+     "label": "Группа · 8",
+     "kinds": {
+      "belief": 1,
+      "entity": 1,
+      "evolution_event": 2,
+      "observation": 1,
+      "paradigm": 3
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:667:1:3",
+     "apexId": "ent:-1001234567890:667",
+     "count": 7,
+     "label": "Группа · 7",
+     "kinds": {
+      "entity": 4,
+      "observation": 2,
+      "paradigm": 1
+     },
+     "hideMembers": false,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:670:0:0",
+     "apexId": "ent:-1001234567890:670",
+     "count": 7,
+     "label": "Группа · 7",
+     "kinds": {
+      "entity": 2,
+      "evolution_event": 1,
+      "observation": 1,
+      "paradigm": 3
+     },
+     "hideMembers": false,
+     "membersReal": true
+    }
+   ],
+   "aggTotal": 702,
+   "aggUnique": 702,
+   "aggIds": [
+    "agg:obs:-1001234567890:289:0:1",
+    "agg:ent:-1001234567890:469:1:1",
+    "agg:belief:-1001234567890:562:0:2",
+    "agg:ent:-1001234567890:72:1:2",
+    "agg:belief:-1001234567890:658:1:0",
+    "agg:belief:-1001234567890:665:0:3",
+    "agg:ent:-1001234567890:667:1:3",
+    "agg:ent:-1001234567890:670:0:0"
+   ],
+   "flows": 8,
+   "rendered": 608,
+   "hidden": 94,
+   "hiddenFlagged": 0,
+   "renderedOverlaps": 836,
+   "renderedCoincident": 0,
+   "renderedNear": 9,
+   "renderedWorst": 13.876995168894432,
+   "labels": 16,
+   "labelGroups": 0,
+   "labelOverlaps": [],
+   "selectedLabeled": true,
+   "counts": {
+    "db": {
+     "nodes": 52600,
+     "edges": 98000,
+     "known": true
+    },
+    "api": {
+     "nodes": 702,
+     "edges": 2400
+    },
+    "filter": {
+     "nodes": 702,
+     "edges": 2400,
+     "ofNodes": 702,
+     "ofEdges": 2400
+    },
+    "screen": {
+     "nodes": 702,
+     "edges": 2400,
+     "aggregates": 0,
+     "aggregated": 0,
+     "collapsed": 0,
+     "total": 702
+    }
+   },
+   "counters": {
+    "aggDraws": 0,
+    "aggFlowDraws": 0,
+    "visibleNodes": 681,
+    "hiddenByLod": 0,
+    "fxSprites": 91,
+    "fxGradients": 91,
+    "labelsShown": 16
+   }
+  },
+  "detail": {
+   "lod": 2,
+   "scale": 0.18942448680351903,
+   "fitScale": 0.07285557184750732,
+   "ratio": 2.6,
+   "dense": 66.30899993971909,
+   "aggregates": [
+    {
+     "id": "agg:obs:-1001234567890:289:0:1",
+     "apexId": "obs:-1001234567890:289",
+     "count": 194,
+     "label": "Группа · 194",
+     "kinds": {
+      "belief": 44,
+      "entity": 25,
+      "evolution_event": 12,
+      "fact": 82,
+      "observation": 15,
+      "paradigm": 16
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:469:1:1",
+     "apexId": "ent:-1001234567890:469",
+     "count": 174,
+     "label": "Группа · 174",
+     "kinds": {
+      "belief": 28,
+      "entity": 32,
+      "evolution_event": 10,
+      "fact": 87,
+      "observation": 7,
+      "paradigm": 10
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:562:0:2",
+     "apexId": "belief:-1001234567890:562",
+     "count": 156,
+     "label": "Группа · 156",
+     "kinds": {
+      "belief": 36,
+      "entity": 16,
+      "evolution_event": 5,
+      "fact": 71,
+      "observation": 17,
+      "paradigm": 11
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:72:1:2",
+     "apexId": "ent:-1001234567890:72",
+     "count": 147,
+     "label": "Группа · 147",
+     "kinds": {
+      "belief": 29,
+      "entity": 22,
+      "evolution_event": 5,
+      "fact": 75,
+      "observation": 5,
+      "paradigm": 11
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:658:1:0",
+     "apexId": "belief:-1001234567890:658",
+     "count": 9,
+     "label": "Группа · 9",
+     "kinds": {
+      "belief": 2,
+      "entity": 3,
+      "fact": 2,
+      "observation": 1,
+      "paradigm": 1
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:665:0:3",
+     "apexId": "belief:-1001234567890:665",
+     "count": 8,
+     "label": "Группа · 8",
+     "kinds": {
+      "belief": 1,
+      "entity": 1,
+      "evolution_event": 2,
+      "observation": 1,
+      "paradigm": 3
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:667:1:3",
+     "apexId": "ent:-1001234567890:667",
+     "count": 7,
+     "label": "Группа · 7",
+     "kinds": {
+      "entity": 4,
+      "observation": 2,
+      "paradigm": 1
+     },
+     "hideMembers": false,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:670:0:0",
+     "apexId": "ent:-1001234567890:670",
+     "count": 7,
+     "label": "Группа · 7",
+     "kinds": {
+      "entity": 2,
+      "evolution_event": 1,
+      "observation": 1,
+      "paradigm": 3
+     },
+     "hideMembers": false,
+     "membersReal": true
+    }
+   ],
+   "aggTotal": 702,
+   "aggUnique": 702,
+   "aggIds": [
+    "agg:obs:-1001234567890:289:0:1",
+    "agg:ent:-1001234567890:469:1:1",
+    "agg:belief:-1001234567890:562:0:2",
+    "agg:ent:-1001234567890:72:1:2",
+    "agg:belief:-1001234567890:658:1:0",
+    "agg:belief:-1001234567890:665:0:3",
+    "agg:ent:-1001234567890:667:1:3",
+    "agg:ent:-1001234567890:670:0:0"
+   ],
+   "flows": 8,
+   "rendered": 264,
+   "hidden": 438,
+   "hiddenFlagged": 0,
+   "renderedOverlaps": 346,
+   "renderedCoincident": 0,
+   "renderedNear": 0,
+   "renderedWorst": 20.862721591682746,
+   "labels": 19,
+   "labelGroups": 0,
+   "labelOverlaps": [],
+   "selectedLabeled": true,
+   "counts": {
+    "db": {
+     "nodes": 52600,
+     "edges": 98000,
+     "known": true
+    },
+    "api": {
+     "nodes": 702,
+     "edges": 2400
+    },
+    "filter": {
+     "nodes": 702,
+     "edges": 2400,
+     "ofNodes": 702,
+     "ofEdges": 2400
+    },
+    "screen": {
+     "nodes": 702,
+     "edges": 2400,
+     "aggregates": 0,
+     "aggregated": 0,
+     "collapsed": 0,
+     "total": 702
+    }
+   },
+   "counters": {
+    "aggDraws": 0,
+    "aggFlowDraws": 0,
+    "visibleNodes": 433,
+    "hiddenByLod": 0,
+    "fxSprites": 92,
+    "fxGradients": 92,
+    "labelsShown": 19
+   }
+  },
+  "detailSelected": {
+   "labels": 19,
+   "overlaps": [],
+   "selectedLabeled": true,
+   "groups": 0,
+   "hidden": 0
+  }
+ },
+ "back_to_fit": {
+  "lod": 0,
+  "r": 1,
+  "aggs": 4,
+  "hidden": 698
+ },
+ "fps_pan_detail": {
+  "runs": [
+   59.9,
+   60.0,
+   60.1
+  ],
+  "median": 60.04511677270505,
+  "lod": 2,
+  "ratio": 2.6
+ },
+ "fps_pan": {
+  "frames": 181,
+  "elapsed": 3014.2999999821186,
+  "fps": 60.04710878183118,
+  "p50": 16.599999994039536,
+  "p95": 17.69999998807907,
+  "fpsP95": 56.49717517929372,
+  "fxPaints": 181,
+  "runs": [
+   60.2,
+   60.0,
+   60.0
+  ],
+  "median": 60.04710878183118
+ },
+ "fps_pan_vis_only": {
+  "frames": 181,
+  "elapsed": 3013.5999999940395,
+  "fps": 60.061056543787494,
+  "p50": 16.69999998807907,
+  "p95": 17.900000005960464,
+  "fpsP95": 55.86592176910688,
+  "fxPaints": 0
+ },
+ "mobile": {
+  "viewport": [
+   390,
+   844
+  ],
+  "dpr": 2,
+  "fit": {
+   "lod": 0,
+   "scale": 0.1891956211327939,
+   "fitScale": 0.1891956211327939,
+   "ratio": 1,
+   "dense": 653.1204644412192,
+   "aggregates": [
+    {
+     "id": "agg:obs:-1001234567890:289:1:0",
+     "apexId": "obs:-1001234567890:289",
+     "count": 204,
+     "label": "Группа · 204",
+     "kinds": {
+      "belief": 36,
+      "entity": 33,
+      "evolution_event": 7,
+      "fact": 85,
+      "observation": 21,
+      "paradigm": 22
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:161:1:1",
+     "apexId": "belief:-1001234567890:161",
+     "count": 173,
+     "label": "Группа · 173",
+     "kinds": {
+      "belief": 36,
+      "entity": 26,
+      "evolution_event": 10,
+      "fact": 82,
+      "observation": 9,
+      "paradigm": 10
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:469:0:1",
+     "apexId": "ent:-1001234567890:469",
+     "count": 171,
+     "label": "Группа · 171",
+     "kinds": {
+      "belief": 38,
+      "entity": 22,
+      "evolution_event": 6,
+      "fact": 77,
+      "observation": 13,
+      "paradigm": 15
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:fact:-1001234567890:205:0:0",
+     "apexId": "fact:-1001234567890:205",
+     "count": 154,
+     "label": "Группа · 154",
+     "kinds": {
+      "belief": 30,
+      "entity": 24,
+      "evolution_event": 12,
+      "fact": 73,
+      "observation": 6,
+      "paradigm": 9
+     },
+     "hideMembers": true,
+     "membersReal": true
+    }
+   ],
+   "aggTotal": 702,
+   "aggUnique": 702,
+   "aggIds": [
+    "agg:obs:-1001234567890:289:1:0",
+    "agg:belief:-1001234567890:161:1:1",
+    "agg:ent:-1001234567890:469:0:1",
+    "agg:fact:-1001234567890:205:0:0"
+   ],
+   "flows": 6,
+   "rendered": 4,
+   "hidden": 698,
+   "hiddenFlagged": 698,
+   "renderedOverlaps": 0,
+   "renderedCoincident": 0,
+   "renderedNear": 0,
+   "renderedWorst": 0,
+   "labels": 4,
+   "labelGroups": 4,
+   "labelOverlaps": [],
+   "selectedLabeled": false,
+   "counts": {
+    "db": {
+     "nodes": 52600,
+     "edges": 98000,
+     "known": true
+    },
+    "api": {
+     "nodes": 702,
+     "edges": 2400
+    },
+    "filter": {
+     "nodes": 702,
+     "edges": 2400,
+     "ofNodes": 702,
+     "ofEdges": 2400
+    },
+    "screen": {
+     "nodes": 0,
+     "edges": 2400,
+     "aggregates": 4,
+     "aggregated": 702,
+     "collapsed": 4,
+     "total": 702
+    }
+   },
+   "counters": {
+    "aggDraws": 4,
+    "aggFlowDraws": 6,
+    "visibleNodes": 4,
+    "hiddenByLod": 698,
+    "fxSprites": 20,
+    "fxGradients": 20,
+    "labelsShown": 4
+   }
+  },
+  "expand": {
+   "agg": {
+    "id": "agg:obs:-1001234567890:289:1:0",
+    "apexId": "obs:-1001234567890:289",
+    "count": 204,
+    "x": 104.0191645434947,
+    "y": 575.9177824985301
+   },
+   "after": {
+    "lod": 2,
+    "aggs": 4,
+    "selected": "obs:-1001234567890:289",
+    "r": 2.1975812547241125
+   }
+  },
+  "mid": {
+   "lod": 1,
+   "scale": 0.27433365064255116,
+   "fitScale": 0.1891956211327939,
+   "ratio": 1.4500000000000002,
+   "dense": 252.1305496632057,
+   "aggregates": [
+    {
+     "id": "agg:obs:-1001234567890:289:1:0",
+     "apexId": "obs:-1001234567890:289",
+     "count": 204,
+     "label": "Группа · 204",
+     "kinds": {
+      "belief": 36,
+      "entity": 33,
+      "evolution_event": 7,
+      "fact": 85,
+      "observation": 21,
+      "paradigm": 22
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:161:1:1",
+     "apexId": "belief:-1001234567890:161",
+     "count": 173,
+     "label": "Группа · 173",
+     "kinds": {
+      "belief": 36,
+      "entity": 26,
+      "evolution_event": 10,
+      "fact": 82,
+      "observation": 9,
+      "paradigm": 10
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:469:0:1",
+     "apexId": "ent:-1001234567890:469",
+     "count": 171,
+     "label": "Группа · 171",
+     "kinds": {
+      "belief": 38,
+      "entity": 22,
+      "evolution_event": 6,
+      "fact": 77,
+      "observation": 13,
+      "paradigm": 15
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:fact:-1001234567890:205:0:0",
+     "apexId": "fact:-1001234567890:205",
+     "count": 154,
+     "label": "Группа · 154",
+     "kinds": {
+      "belief": 30,
+      "entity": 24,
+      "evolution_event": 12,
+      "fact": 73,
+      "observation": 6,
+      "paradigm": 9
+     },
+     "hideMembers": true,
+     "membersReal": true
+    }
+   ],
+   "aggTotal": 702,
+   "aggUnique": 702,
+   "aggIds": [
+    "agg:obs:-1001234567890:289:1:0",
+    "agg:belief:-1001234567890:161:1:1",
+    "agg:ent:-1001234567890:469:0:1",
+    "agg:fact:-1001234567890:205:0:0"
+   ],
+   "flows": 6,
+   "rendered": 271,
+   "hidden": 431,
+   "hiddenFlagged": 0,
+   "renderedOverlaps": 1264,
+   "renderedCoincident": 64,
+   "renderedNear": 240,
+   "renderedWorst": 34.8,
+   "labels": 9,
+   "labelGroups": 0,
+   "labelOverlaps": [],
+   "selectedLabeled": true,
+   "counts": {
+    "db": {
+     "nodes": 52600,
+     "edges": 98000,
+     "known": true
+    },
+    "api": {
+     "nodes": 702,
+     "edges": 2400
+    },
+    "filter": {
+     "nodes": 702,
+     "edges": 2400,
+     "ofNodes": 702,
+     "ofEdges": 2400
+    },
+    "screen": {
+     "nodes": 702,
+     "edges": 2400,
+     "aggregates": 0,
+     "aggregated": 0,
+     "collapsed": 0,
+     "total": 702
+    }
+   },
+   "counters": {
+    "aggDraws": 0,
+    "aggFlowDraws": 0,
+    "visibleNodes": 335,
+    "hiddenByLod": 0,
+    "fxSprites": 74,
+    "fxGradients": 74,
+    "labelsShown": 9
+   }
+  },
+  "detail": {
+   "lod": 2,
+   "scale": 0.49190861494526417,
+   "fitScale": 0.1891956211327939,
+   "ratio": 2.6,
+   "dense": 100.48007145249525,
+   "aggregates": [
+    {
+     "id": "agg:obs:-1001234567890:289:1:0",
+     "apexId": "obs:-1001234567890:289",
+     "count": 204,
+     "label": "Группа · 204",
+     "kinds": {
+      "belief": 36,
+      "entity": 33,
+      "evolution_event": 7,
+      "fact": 85,
+      "observation": 21,
+      "paradigm": 22
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:belief:-1001234567890:161:1:1",
+     "apexId": "belief:-1001234567890:161",
+     "count": 173,
+     "label": "Группа · 173",
+     "kinds": {
+      "belief": 36,
+      "entity": 26,
+      "evolution_event": 10,
+      "fact": 82,
+      "observation": 9,
+      "paradigm": 10
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:ent:-1001234567890:469:0:1",
+     "apexId": "ent:-1001234567890:469",
+     "count": 171,
+     "label": "Группа · 171",
+     "kinds": {
+      "belief": 38,
+      "entity": 22,
+      "evolution_event": 6,
+      "fact": 77,
+      "observation": 13,
+      "paradigm": 15
+     },
+     "hideMembers": true,
+     "membersReal": true
+    },
+    {
+     "id": "agg:fact:-1001234567890:205:0:0",
+     "apexId": "fact:-1001234567890:205",
+     "count": 154,
+     "label": "Группа · 154",
+     "kinds": {
+      "belief": 30,
+      "entity": 24,
+      "evolution_event": 12,
+      "fact": 73,
+      "observation": 6,
+      "paradigm": 9
+     },
+     "hideMembers": true,
+     "membersReal": true
+    }
+   ],
+   "aggTotal": 702,
+   "aggUnique": 702,
+   "aggIds": [
+    "agg:obs:-1001234567890:289:1:0",
+    "agg:belief:-1001234567890:161:1:1",
+    "agg:ent:-1001234567890:469:0:1",
+    "agg:fact:-1001234567890:205:0:0"
+   ],
+   "flows": 6,
+   "rendered": 108,
+   "hidden": 594,
+   "hiddenFlagged": 0,
+   "renderedOverlaps": 475,
+   "renderedCoincident": 20,
+   "renderedNear": 50,
+   "renderedWorst": 14.3,
+   "labels": 5,
+   "labelGroups": 0,
+   "labelOverlaps": [],
+   "selectedLabeled": true,
+   "counts": {
+    "db": {
+     "nodes": 52600,
+     "edges": 98000,
+     "known": true
+    },
+    "api": {
+     "nodes": 702,
+     "edges": 2400
+    },
+    "filter": {
+     "nodes": 702,
+     "edges": 2400,
+     "ofNodes": 702,
+     "ofEdges": 2400
+    },
+    "screen": {
+     "nodes": 702,
+     "edges": 2400,
+     "aggregates": 0,
+     "aggregated": 0,
+     "collapsed": 0,
+     "total": 702
+    }
+   },
+   "counters": {
+    "aggDraws": 0,
+    "aggFlowDraws": 0,
+    "visibleNodes": 227,
+    "hiddenByLod": 0,
+    "fxSprites": 75,
+    "fxGradients": 75,
+    "labelsShown": 5
+   }
+  },
+  "detailSelected": {
+   "labels": 5,
+   "overlaps": [],
+   "selectedLabeled": true,
+   "groups": 0,
+   "hidden": 0
+  }
+ }
+}
