@@ -433,9 +433,11 @@
       "queue_position": "immediately_after:unified-reply",
       "source_path": "plans/owner_inputs/2026-11-05-pvr-fc-corrective-01.md",
       "source_sha256": "671E6711CA9408501CAEB306AA5FEB37BB9F7C54D48C15410915567EAC8ED078",
-      "maps": [],
-      "coverage_complete": false,
-      "source_note": "Зарегистрирован как один эпик, разработку не начинать до завершения UNIFIED-REPLY. Пакеты внутри: PVR-01..06 (backend-модель состояния и единый UI истории) и FC-01..07 (качество фактчека). Конфликты с UNIFIED-REPLY: те же файлы prompt-версионирования и фактчека (prompt_release_policy, web/api/routes, web/app.js/index.html/app.css, factcheck_planner/temporal_factcheck/service/orchestrator/renderer), а также ChatClock и Search-first, которые UR вводит. Интеграция — только после UR, с его актуальным HEAD.",
+      "maps": [
+        "plans/features/pvr-fc-corrective-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Карта PM b38940c3: 154 строки (97 инвентарных + 57 прозаических/табличных), 128 обязательных, 26 context, 0 duplicate. PVR-01..06 + подтребования, FC-01..07 + подтребования, приёмка C1 (14 конфликтов), C3 (12 тестов), C4 (14 тестов), C5 (5 критериев DONE), запреты A3.1-A3.5. 8 срезов: UR-BARRIER (внешний барьер), PVR-BACKEND 34, PVR-UI 26, PVR-E2E 6, FC-BACKEND 42, FC-RENDER 10, FC-E2E 5, EPIC-CLOSE 5. Live-строки 3: C3.12/C4.14 preprod, C5.4 postdeploy. ARCHITECT_REQUIRED до Builder на PVR-BACKEND/PVR-UI/FC-BACKEND/FC-RENDER. План-гейт 0 ошибок. Параллельно безопасно: PVR-BACKEND || FC-BACKEND (services/prompt_registry.py закреплён за FC-*), PVR-UI || FC-RENDER, PVR-E2E || FC-E2E. Разработка не начата: ждёт завершения unified-reply.",
       "updated": "2026-11-05"
     }
   ],
@@ -1018,8 +1020,12 @@
       "target_task_ids": [
         "pvr-fc-corrective-01"
       ],
-      "reconciled": false,
-      "note": "Один эпик из двух блоков: PVR (однозначная модель состояния версий, разделение revision и activation, идемпотентное сохранение, конкурентные правки, единый взрослый UI истории на всех редакторах, mobile) и FC (смысловая цель вместо OCR-ключей, semantic claim-evidence binding, отказ от off-topic ссылок, корректная модель вердиктов supported/refuted/mixed/insufficient, честные технические исходы, подача без монолога, provenance и безопасность). Переиспользовать существующий журнал и фактчек-пайплайн; не менять ручные промпты, историю и память. Зависимость: после UNIFIED-REPLY, интеграция с его актуальной версией (Web Search, ChatClock, L1/Tools/L2, context/capacity, prompt UX), а не с release/2.58.155."
+      "reconciled": true,
+      "note": "Один эпик из двух блоков: PVR (однозначная модель состояния версий, разделение revision и activation, идемпотентное сохранение, конкурентные правки, единый взрослый UI истории на всех редакторах, mobile) и FC (смысловая цель вместо OCR-ключей, semantic claim-evidence binding, отказ от off-topic ссылок, корректная модель вердиктов supported/refuted/mixed/insufficient, честные технические исходы, подача без монолога, provenance и безопасность). Переиспользовать существующий журнал и фактчек-пайплайн; не менять ручные промпты, историю и память. Зависимость: после UNIFIED-REPLY, интеграция с его актуальной версией (Web Search, ChatClock, L1/Tools/L2, context/capacity, prompt UX), а не с release/2.58.155.",
+      "reconciled_scope": "plans/features/pvr-fc-corrective-01/requirements-map.json (128 required), slice-graph.json (8 slices)",
+      "reconciled_on": "2026-11-05",
+      "reconciled_by": "PM",
+      "reconciled_in_commit": "b38940c3"
     }
   ]
 }
