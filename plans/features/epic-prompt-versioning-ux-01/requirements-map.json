@@ -2,14 +2,14 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-04-epic-prompt-versioning-ux-01.md",
   "source_sha256": "893621d84365cb201d41ec1ea1f4b63531075c4d19e05afed78627654bfe3054",
-  "candidate_commit": "44e1e589a45b97792561d1991bafdd10a6bc52d7",
+  "candidate_commit": "cd17ec91",
   "deployed_commit": "f4a44167",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "OI-2026-11-04-EPIC-PROMPT-VERSIONING-UX-01",
   "task_id": "epic-prompt-versioning-ux-01",
   "source_note": "Дословный снимок обязательного пакета (plans/current_task.md:5535-5647, sha F030159C). Покрыты §0 (инварианты), §1 (факты с нормативными починками), §2 (UX карточки и панели истории), §3 (единый атомарный write-слой, полнота истории, RBAC), §4 (owner baseline vs shipped factory), §5 (постоянный проектный стандарт + аудит), §6 (независимая проверка и отрицательные случаи), §7 (исполнение и отчёт). Прозаические абзацы вне bullet-списков добавлены как additional_requirements.",
-  "evidence_convention": "Strict: evidence[].artifact_path — реальный repo-relative файл, evidence[].artifact_sha256 — его sha256; evidence[].candidate_commit — SHA кандидата, которого касается ревью (row-level, поэтому разные срезы могут иметь разных кандидатов), evidence[].candidate_commit_full и evidence[].merged_in — полные SHA кандидата и merge-коммита в evol/impl. VERIFIED ставится только по evidence, привязанному к принятому кандидату; READY_FOR_LIVE — только для live_when=postdeploy пунктов, у которых доказана код-часть и остаётся пост-деплойная сверка.",
+  "evidence_convention": "Strict: evidence[].artifact_path — реальный repo-relative файл, evidence[].artifact_sha256 — его sha256; evidence[].candidate_commit — SHA кандидата, которого касается ревью (row-level, поэтому разные срезы могут иметь разных кандидатов), evidence[].candidate_commit_full и evidence[].merged_in — полные SHA кандидата и merge-коммита в evol/impl. VERIFIED ставится только по evidence, привязанному к принятому кандидату; READY_FOR_LIVE — только для live_when=postdeploy пунктов, у которых доказана код-часть и остаётся пост-деплойная сверка. Дополнительные row-level поля S7: evidence[].delta_over — база кандидата, поверх которой проверялось доказательство; evidence[].ui_tree — дерево, на котором выполнялась UI-проба (если она отличалась от candidate_commit); evidence[].prod_at_review — версия/SHA прода на момент проверки. Для row-level привязки используется один набор полей на запись, а не глобальный «последний кандидат эпика».",
   "live_policy_note": "PET_PROJECT (AGENTS.md проекта): агентские проверки обязательны, канареечные гейты не вводятся. Живые проверки нужны только для сверки production-значений промптов после деплоя (PVR-INV-01, PVR-BYTES-01, live_when=postdeploy); UI проверяется инструментально (Playwright + Browser Use, десктоп и 390px WebView), а не ручным устройством владельца.",
   "plan_ref": "plans/features/epic-prompt-versioning-ux-01/plan.md",
   "additional_requirements": [
@@ -25,13 +25,52 @@
       "acceptance": "Все редактируемые LLM-промпты любого раздела админки получают одинаковый настоящий долговечный контроль версий, доступный из места редактирования; история, активация старой версии, сравнение, назначение baseline и возврат к нему работают на реальном журнале, а не как декоративные метки act:/fac:.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S7 review §2/§3 (PVR-GOAL-01)",
+          "type": "review",
+          "observation": "Машинная полнота: `test_every_editable_prompt_has_reachable_surface`, `test_every_editable_block_is_reachable_in_ui`, `test_version_ui_routes_exist_for_every_prompt` — у каждого PG-блока есть поверхность и маршруты версий. `PVR-S4-OK` (3 экрана × 5 ширин, failures=0) + ревьюер сам открыл карточку мемов и получил рабочие «История версий»/просмотр/сравнение. Прод: журнал, `/versions`, курсорная пагинация из `deployment_binding`; декоративных act:/fac: нет — в панели человекочитаемые «ручная/базовая/из кода» + «кто».",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s7-review.md",
+          "artifact_sha256": "1e711f1149f32655e7e382466dc3108bb38168963f79d206f4863c4224bec31c",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §2 — три теста полноты «поле↔поверхность↔маршруты» в прогоне S7",
+          "type": "test",
+          "observation": "Аудит импортирует реальные `prompt_registry`/`param_catalog`/`prompt_release_policy`/`create_app`; тесты поверхности и маршрутов версий зелёные в прогоне S7 (файл из 8 прогнанных).",
+          "artifact_path": "tests/test_prompt_field_audit.py",
+          "artifact_sha256": "cfa4252acfa854a58e625fa1486320cd62594abe7c26fe325ec34630473b78b7",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3 — мемные поля на 390px: две карточки одного компонента с историей",
+          "type": "ui",
+          "observation": "На 390px оба мемных поля (joke/image) — карточки одного компонента; на каждой доступна «История версий». UI-проба выполнена на дереве 986d50e0 (база кандидата): cd17ec91 меняет только два тестовых файла, web-ассеты те же байты.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/shots/memes_390.png",
+          "artifact_sha256": "6a28a209191cd31b32547c003ca353666df9aa736ef0e5b2f549d01d480331ba",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830",
+          "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
+        }
+      ],
       "notes": [
         "Эпик-цель («все редактируемые LLM-промпты получают одинаковый настоящий долговечный контроль версий»): доказуема только после PVR-S4-UX (панель на всех редакторах) и PVR-S6-AUDIT. На срезе S0 не проверяема — PENDING здесь честное состояние, а не дефект карты.",
         "Владение строкой: сейчас PVR-S0-GUARD. Предложение Orchestrator/Architect — перенести в PVR-S7-VERIFY; сам не переносил, чтобы не менять владение среза молча.",
         "Пока строка PENDING, гейт --slice PVR-S0-GUARD завершается ошибкой по этой строке. Это ожидаемо.",
-        "Живой журнал, baseline и UI уже работают на проде (deployment_binding), но цель эпика закрывается только вместе со S7: независимая проверка бэкенда/мемов/фронтенда и отрицательных случаев ещё не проведена."
+        "Живой журнал, baseline и UI уже работают на проде (deployment_binding), но цель эпика закрывается только вместе со S7: независимая проверка бэкенда/мемов/фронтенда и отрицательных случаев ещё не проведена.",
+        "ЗАКРЫТ в PVR-S7: цель эпика доказана машинной полнотой поверхностей/маршрутов, инструментальным UI на 3 экранах × 5 ширинах и живым прод-журналом. Владение строкой — PVR-S7-VERIFY (как и предлагал координатор); ранняя заметка про PVR-S0-GUARD устарела."
       ]
     },
     {
@@ -110,10 +149,37 @@
       "acceptance": "Обычная карточка промпта собрана по контракту макета: название, селектор области действия, мета-строка с фактом ручной правки и временем, кнопка «История версий», textarea без служебных хешей внутри, кнопки «Отменить несохранённое» и «Сохранить».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S7 review §3 (PVR-UX-02)",
+          "type": "review",
+          "observation": "В карточке `[data-ini-prompt='joke']` (той же, что владеет «Историей версий») видимы и кликабельны «Отменить несохранённое» и «Сохранить», есть textarea, служебных хешей в поле нет. До S7 эта клауза не была подтверждена отдельным наблюдением (кнопки редактора существуют до пакета).",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s7-review.md",
+          "artifact_sha256": "1e711f1149f32655e7e382466dc3108bb38168963f79d206f4863c4224bec31c",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3 — та же карточка мемов на 390px: textarea без служебных хешей + кнопки редактора",
+          "type": "ui",
+          "observation": "В карточке видны textarea с текстом промпта (без хешей внутри), «Отменить несохранённое» и «Сохранить»; мета-строка и кнопка «История версий» — в той же карточке. UI-проба выполнена на дереве 986d50e0 (база кандидата): cd17ec91 меняет только два тестовых файла, web-ассеты те же байты.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/shots/memes_390.png",
+          "artifact_sha256": "6a28a209191cd31b32547c003ca353666df9aa736ef0e5b2f549d01d480331ba",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830",
+          "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
+        }
+      ],
       "notes": [
-        "Карточка проверена (S4 review §Поклаузно п.2), но клаузула включает кнопки редактора «Отменить несохранённое» и «Сохранить» — они существуют до пакета и в S4 не менялись, отдельным наблюдением не подтверждены."
+        "Карточка проверена (S4 review §Поклаузно п.2), но клаузула включает кнопки редактора «Отменить несохранённое» и «Сохранить» — они существуют до пакета и в S4 не менялись, отдельным наблюдением не подтверждены.",
+        "ЗАКРЫТ в PVR-S7: кнопки редактора и textarea без хешей подтверждены отдельным наблюдением на живом UI, а не выводом из «они существуют до пакета»."
       ]
     },
     {
@@ -246,8 +312,48 @@
       "acceptance": "Независимая проверка бэкенда: у каждого prompt-field реестра есть полный version UI; сохранение через любой API создаёт версию; все версии доступны без ограничения; rollback/forward, diff, baseline, reset/inherit и история после рестарта/редеплоя работают; SHA/тело/источник/дата согласованы; заводской код не изменён; pin защищает от следующего релиза, unpinned сохраняет прежнюю семантику; чужую/несовместимую/retired ревизию активировать нельзя; 409 и 503 не теряют текст; PG backup/restore сохраняет историю; batch-save не обходится без снимков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S7 review §3 (PVR-REV-01) + Re-review (PVR-REV-01) §1/§2/§4/§5",
+          "type": "review",
+          "observation": "Первый проход закрыл всё, кроме durable-доказательств restore/rollback и 409-без-записи на пути промпта. Повторная проверка: Approved. Два новых durable-теста; мутации прод-кода ловятся — убрать вставку ревизии при `origin=restored` → FAILED (`len(new_ids)==0`), выключить CAS-ветку → FAILED (`409` стал `200`). Своя проба ревьюера A→B→откат A→правка B→повторный откат A: значение A, история цела, у второго отката ровно одно новое событие. Прогон 29 passed. Остальное в строке (поверхности/маршруты, батч-сейв со снимками, история 1000+, pin/unpin, отказ чужой/retired/несовместимой, 503 без потери текста) — зелено. Ограничение записано: журнал и профиль — двойники, живой PG добавил бы проверку SQL, блокировку строки, откат незакоммиченных вставок и `pg_notify` (Re-review §3).",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s7-review.md",
+          "artifact_sha256": "1e711f1149f32655e7e382466dc3108bb38168963f79d206f4863c4224bec31c",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 Re-review §1/§2 — 409 на пути промпта ничего не пишет и не «залипает»",
+          "type": "test",
+          "observation": "`test_prompt_cas_conflict_writes_nothing`: вторая правка с тем же `updated_at` → 409 с актуальным токеном, `applied` пусто; значение, словарь ревизий и события те же, отклонённый текст в журнале отсутствует; повтор с токеном из 409 проходит. Мутация «CAS off» в `chat_params` валит тест.",
+          "artifact_path": "tests/test_pvr_rev01_prompt_conflict_no_write.py",
+          "artifact_sha256": "1b20a95d9f84168c10df804c238b47208dc56eb3df0edca3cb98fc516d0e7b54",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 Re-review §1/§2 — успешный restore_backup сохраняет историю и добавляет ровно одну ревизию/событие",
+          "type": "test",
+          "observation": "`test_restore_backup_apply_keeps_history_and_adds_revision`: значение вернулось к байтам бэкапа, старые id ревизий входят в новый набор, новых ровно одна (`origin=restored`, global, тело бэкапа), добавлено ровно одно событие `manual_rollback/applied`, прежние события сохранены по порядку, публичное чтение отдаёт 3 ревизии, повтор отката — no-op. Мутация «skip revision insert on restore» валит тест.",
+          "artifact_path": "tests/test_prompt_versioning_enforcement.py",
+          "artifact_sha256": "6e48123b517085cd16e63e6fc68e82e7bdb63984bad461fb1e180cd5dad95247",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        }
+      ],
+      "notes": [
+        "ЗАКРЫТ на cd17ec91 (Re-review Approved). Доказательство связано: тесты пинят серверную семантику через настоящий слой записи, мутации прод-кода их валят. Остаточное ограничение (двойники журнала/профиля вместо живого PG) зафиксировано в отчёте и не превращено в «доказано всё»."
+      ]
     },
     {
       "source_id": "MANUAL_10",
@@ -261,8 +367,36 @@
       "acceptance": "Проверка мемов: два текстовых поля используют тот же редактор версий, что FactCheck/Direct; POST /api/initiative/meme-settings не обходит журнал; после сохранения двумя способами все изменения видны в истории; render_image_prompt(\"X\", \"Y\") == \"X Y\" и render_image_prompt(\"X {joke}\", \"Y\") == \"X Y\"; placeholders=0 объясняет append-режим; 800 считается от фактического effective template.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S7 review §3 (PVR-REV-02)",
+          "type": "review",
+          "observation": "Два мемных поля дают две карточки одного компонента (`PVR-S4-OK`); `POST /api/initiative/meme-settings` пишет событие и значение, одинаковые байты не дублируют ревизию, 503 журнала без записи, пустой промпт снимает override со снимком; лимит 800 считается от фактического effective template; append-режим при `placeholders=0` объяснён в UI («добавится после шаблона»). Специализированный API не обходит журнал.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s7-review.md",
+          "artifact_sha256": "1e711f1149f32655e7e382466dc3108bb38168963f79d206f4863c4224bec31c",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3 — мемные записи через специализированный API идут через журнал",
+          "type": "test",
+          "observation": "`test_meme_settings_*` (включая `test_meme_settings_empty_prompt_removes_override_with_snapshot`) зелёные в прогоне S7: запись через `/api/initiative/meme-settings` создаёт ревизию/событие, 503 без записи, пустой промпт снимает override со снимком; `test_body_sha_of_meme_prompts_matches_package_baseline` подтверждает неизменность байтов мемных промптов.",
+          "artifact_path": "tests/test_prompt_versioning_enforcement.py",
+          "artifact_sha256": "6e48123b517085cd16e63e6fc68e82e7bdb63984bad461fb1e180cd5dad95247",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        }
+      ],
+      "notes": [
+        "ЗАКРЫТ в PVR-S7: специализированный meme-API проверен на журнальном пути, байты мемных промптов не изменены."
+      ]
     },
     {
       "source_id": "MANUAL_11",
@@ -276,8 +410,50 @@
       "acceptance": "Проверка фронтенда: «История версий» фактически доступна и работоспособна на каждом экране с editable prompt; на десктопе и в мобильном Telegram WebView проверены редактор, просмотр, diff, включение, назначение baseline, сброс, честный scope, ошибки и несохранённый черновик; метаданные человекочитаемы, полные IDs только в деталях; приложены скриншоты и взаимодействия, тема/анимации сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S7 review §3 (PVR-REV-03)",
+          "type": "review",
+          "observation": "`PVR-S4-OK` на 1536/1366/768/390/360 (37 скриншотов, 3 экрана: библиотечный редактор, мемы с двумя полями, «Характер»/Core) + собственная проба ревьюера на 1440: редактор, просмотр, сравнение, включение, назначение/восстановление эталона, ошибки, несохранённый черновик. Метки человекочитаемые, полные id только в деталях. Мобильный вид проверен инструментально на 390/360; реальное устройство владельца не проверялось (см. `owner_observations`, обязательным зачётом не является).",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s7-review.md",
+          "artifact_sha256": "1e711f1149f32655e7e382466dc3108bb38168963f79d206f4863c4224bec31c",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3 — панель истории на десктопе 1536",
+          "type": "ui",
+          "observation": "Панель истории открыта на 1536: строки с человекочитаемыми метками и «кто», действия просмотра/сравнения/включения доступны. UI-проба выполнена на дереве 986d50e0 (база кандидата): cd17ec91 меняет только два тестовых файла, web-ассеты те же байты.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/shots/history_1536.png",
+          "artifact_sha256": "57311c658e112024562f2dd85e4251b6d8d2be00b8c3e835923bb20cf773ad66",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830",
+          "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
+        },
+        {
+          "ref": "PVR-S7 review §3 — «Характер»/Core на 390px: та же карточка истории",
+          "type": "ui",
+          "observation": "На 390px в «Характере» та же карточка истории (cards=1, `data-pv-key=core.personality`); второй реализации нет. UI-проба выполнена на дереве 986d50e0 (база кандидата): cd17ec91 меняет только два тестовых файла, web-ассеты те же байты.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/shots/speech_core_390.png",
+          "artifact_sha256": "daea4e6fb4912a4469213abe4053c72494dcc1ee094fe4bad94bb72bf9a8841a",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830",
+          "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
+        }
+      ],
+      "notes": [
+        "ЗАКРЫТ в PVR-S7: десктоп и мобильные ширины (390/360) проверены инструментально (Playwright + собственные пробы). Реальное устройство владельца не проверялось — вынесено в `owner_observations` как добровольное наблюдение, не как обязательный зачёт."
+      ]
     },
     {
       "source_id": "MANUAL_12",
@@ -291,8 +467,60 @@
       "acceptance": "Отрицательные случаи воспроизведены и не ломают контракт: конкурентные правки двух админов, запрос старой версии другого чата, сбой PG между изменением значения и созданием revision, перезапуск в ходе миграции, несоответствие journal/config, очень длинный промпт, Unicode/переводы строк, пустой чатовый override, legacy, история 1000+, неизвестный actor/time, новая заводская поставка при pinned и unpinned, сохранение из специализированного API.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S7 review §3 (PVR-REV-04)",
+          "type": "review",
+          "observation": "Конкурентные правки (`test_parallel_apply_single_activation`, CAS); чужая ревизия/чат — 403 и 0 активаций; сбой вставки ревизии — 503 и значение не записано; рестарт в ходе миграции — честный no-op; journal/config mismatch — честный drift без угадывания; пустой чатовый override — снятие со снимком; legacy — fallback только без журнала; 1000+ — `test_full_history_of_1000_revisions_has_no_cap` (1200 записей, 12 страниц); pinned/unpinned заводская поставка; специализированные endpoint'ы идут через журнал. Свои пробы ревьюера: очень длинный промпт 130 013 символов — applied, совпавший `sha256_12`, тело байт-в-байт, chars=130013; юникод и переводы строк тоже; неизвестный actor пишется пустым с реальным временем.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s7-review.md",
+          "artifact_sha256": "1e711f1149f32655e7e382466dc3108bb38168963f79d206f4863c4224bec31c",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3 — потолка истории нет (1200 записей, 12 страниц)",
+          "type": "test",
+          "observation": "`test_full_history_of_1000_revisions_has_no_cap` зелёный: 1200 ревизий отдаются страницами без потолка и без потерь.",
+          "artifact_path": "tests/test_prompt_history_pagination.py",
+          "artifact_sha256": "5886afcde5738c4a93cc52c521fbbdce187d5f554e2a4534605be02eae256cd0",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3 — новая заводская поставка при pinned и unpinned",
+          "type": "test",
+          "observation": "`test_pinned_global_scope_survives_new_factory_release` и `test_unpinned_global_scope_keeps_release_policy` зелёные: pinned защищает от следующего релиза, unpinned сохраняет прежнюю семантику.",
+          "artifact_path": "tests/test_prompt_baseline.py",
+          "artifact_sha256": "ea6fa6ad2d574f67c6f3142fad78053982e292caa0668f8529bc76a8c59f4867",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3 — проба ревьюера: 130 013 символов и пустой actor",
+          "type": "test",
+          "observation": "Скрипт пробы (round-trip байт-в-байт очень длинного текста с юникодом/переводами строк, пустой actor сохраняется пустым с реальным временем) лежит в evidence; напечатанный результат зафиксирован в отчёте §3.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/probes/long_actor_probe.py",
+          "artifact_sha256": "56a17895d43538d2f606d3a93a691d5969914cd4efcb2fca8d3ef7103b65bd17",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        }
+      ],
+      "notes": [
+        "ЗАКРЫТ в PVR-S7: отрицательные случаи воспроизведены тестами и собственными пробами ревьюера; очень длинный промпт, юникод и неизвестный actor проверены отдельно."
+      ]
     },
     {
       "source_id": "MANUAL_13",
@@ -306,8 +534,36 @@
       "acceptance": "Работа не заканчивается исследованием или документом: на текущем HEAD установлена реальная карта UI-полей и маршрутов записи, Builder реализует, Reviewer проверяет самостоятельно на реальном API/UI, DevOps деплоит и сверяет production с исходными снимками; рутинные инженерные развилки не выводятся на human gate, новые workflow-агенты не создаются, current_task не останавливается после релиза, отчёт на русском содержит прогресс/SHA/тесты/скриншоты/точные изменения, а промпт истории/диагностики не попадает в пользовательский ответ Telegram.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S7 review §3 (PVR-EXEC-01) + §4",
+          "type": "review",
+          "observation": "Ревью независимое: собственные пробы ревьюера (`confirm_probe` 13/13, `code_only_probe` 0 провалов, `long_actor_probe`), а не отчёт Builder; отчёт на русском; human gate не создавалось; DevOps выложил 2.58.155 и сверил прод. Запреты пакета держатся: байты промптов не изменены, второго журнала нет, baseline — метаданные существующей политики, новых LLM-вызовов/бюджетов/DDL пакет не вводит. P1 (тестовый долг) закрыт на cd17ec91. Требование «промпт истории/диагностики не попадает в ответ Telegram» обеспечено структурно: пакет не трогает путь ответа Telegram и не добавляет LLM-вызовов (PVR-INV-02, §4).",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s7-review.md",
+          "artifact_sha256": "1e711f1149f32655e7e382466dc3108bb38168963f79d206f4863c4224bec31c",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3/§4 — выложенный прод 2.58.155 и его сверка",
+          "type": "production",
+          "observation": "Прод: `release applied | blocks=110 | changed=0 | retired=0`, байты мемных промптов совпадают с эталоном, журнал/versions/baseline читаются, `/healthz` 200, 0 ERROR/CRITICAL в журнале. Деплой и сверку выполнил DevOps; ревью не меняло прод.",
+          "artifact_path": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md",
+          "artifact_sha256": "cffca374840f681e0c47add469915868ebbbaad4f04bc3ca085b92711816263a",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        }
+      ],
+      "notes": [
+        "ЗАКРЫТ в PVR-S7: независимая проверка проведена, отчёт на русском, human gate не создавалось, релиз и сверка прода выполнены DevOps, P1 закрыт тестами. Требование «история/диагностика не попадает в ответ Telegram» обеспечено структурно (пакет не трогает путь ответа Telegram, PVR-INV-02)."
+      ]
     },
     {
       "source_id": "MANUAL_14",
@@ -321,12 +577,52 @@
       "acceptance": "В UI «Назначить базовой» и «Восстановить базовую» выполняются только после явного подтверждения, и до действия пользователю показано описание последствий: меняется только эталон, действующий текст остаётся прежним; активной кнопки, выполняющей действие без подтверждения, нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S7 review §3 (PVR-UX-BASECONFIRM-01)",
+          "type": "review",
+          "observation": "Подтверждение есть и для назначения, и для «Восстановить базовую для чата» («Действующий текст чата станет равен базовой версии. Другие чаты не затрагиваются»); отмена восстановления даёт 0 записей; кнопки без подтверждения нет — все три действия идут через `window.confirm`. До действия показано описание последствий.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s7-review.md",
+          "artifact_sha256": "1e711f1149f32655e7e382466dc3108bb38168963f79d206f4863c4224bec31c",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3 — независимая проба ревьюера: диалог подтверждения до действия и 0 POST при отмене",
+          "type": "test",
+          "observation": "Проба поднимает реальные web-ассеты, перехватывает POST: при отмене — 0 POST, при подтверждении — ровно один POST; проверяет и назначение базовой, и восстановление базовой для чата. UI-проба выполнена на дереве 986d50e0 (база кандидата): cd17ec91 меняет только два тестовых файла, web-ассеты те же байты.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/probes/confirm_probe.py",
+          "artifact_sha256": "4a46dd8d603dded80cd63b0eb7cf4523e7762c37dfaf49b3dc987371402a9df0",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830",
+          "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
+        },
+        {
+          "ref": "PVR-S7 review §3 — состояние диалога назначения базовой",
+          "type": "ui",
+          "observation": "Снимок диалога: текст предупреждения о последствиях показан до действия, действующий текст промпта не меняется. UI-проба выполнена на дереве 986d50e0 (база кандидата): cd17ec91 меняет только два тестовых файла, web-ассеты те же байты.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/shots/assign_dialog_state.png",
+          "artifact_sha256": "fcf15f1a36edea62c2ffddceedd3a1d358e77f5e7f1c881ee126d98b5f5c81d9",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830",
+          "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
+        }
+      ],
       "notes": [
         "Добавлено по решению координатора 2026-11-04: закрывает пробел покрытия, зафиксированный в строке PVR-APPLY-01 (L00067) — серверная часть назначения базовой доказана в S2, а UI-подтверждение и описание последствий своей строки не имели.",
         "Точная формулировка сообщения «Базовая версия изменена, действующий текст пока прежний» остаётся в PVR-BASE-05; здесь проверяется сам факт подтверждения/предупреждения до действия.",
-        "Диалог подтверждения для «Назначить базовой»/«Восстановить базовую» не наблюдался: доказано только, что назначение не активирует версию (Re-review 2 B3/M4) и что текст предупреждения существует. Нужен один UI-прогон на проде."
+        "Диалог подтверждения для «Назначить базовой»/«Восстановить базовую» не наблюдался: доказано только, что назначение не активирует версию (Re-review 2 B3/M4) и что текст предупреждения существует. Нужен один UI-прогон на проде.",
+        "ЗАКРЫТ в PVR-S7: подтверждение и описание последствий наблюдались для назначения и для восстановления базовой; кнопки без подтверждения нет."
       ]
     }
   ],
@@ -1271,7 +1567,7 @@
       "acceptance": "«Применить» меняет активный текст выбранного промпта в выбранном scope и пишет в историю факт активации, не удаляя старые версии; «Назначить базовой» — отдельное действие с подтверждением, которое не меняет активный текст автоматически; «Восстановить базовую» — отдельное явное применение эталона.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "PVR-S2 review §2 — assign меняет только указатель, активация отдельна",
@@ -1294,12 +1590,51 @@
           "candidate_commit_full": "7dd020468c8d1d68d1c4072467c9e93f081e7aa4",
           "merged_in": "9a5834fd433af84949aedcf83ed42512bed444cf",
           "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "PVR-S7 review §3 (PVR-APPLY-01)",
+          "type": "review",
+          "observation": "UI-часть закрыта пробой ревьюера: сообщение «Назначить эту версию базовой? Меняется только эталон ... Действующий текст промпта останется прежним.» показано ДО действия; отмена даёт 0 POST; подтверждение — ровно один `POST /api/prompts/prompts.meme_joke/baseline`, `/activate` не вызывается; после — «Базовая версия изменена, действующий текст пока прежний». Серверная семантика «Применить меняет активный текст и пишет факт активации, не удаляя старые версии» доказана ранее в S2/S0-S1 (оставшиеся записи ниже).",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s7-review.md",
+          "artifact_sha256": "1e711f1149f32655e7e382466dc3108bb38168963f79d206f4863c4224bec31c",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3 — разделение «Применить / Назначить базовой» в живом UI",
+          "type": "test",
+          "observation": "Проба подтверждает: назначение базовой не активирует версию и не вызывает `/activate`; при отмене записей нет. Серверное разделение действий проверено в S2 (assign: active_text_changed=False). UI-проба выполнена на дереве 986d50e0 (база кандидата): cd17ec91 меняет только два тестовых файла, web-ассеты те же байты.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/probes/confirm_probe.py",
+          "artifact_sha256": "4a46dd8d603dded80cd63b0eb7cf4523e7762c37dfaf49b3dc987371402a9df0",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830",
+          "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
+        },
+        {
+          "ref": "PVR-S7 review §3 — снимок подтверждения назначения базовой",
+          "type": "ui",
+          "observation": "В диалоге видны последствия действия и то, что действующий текст остаётся прежним; отдельного автоматического применения нет. UI-проба выполнена на дереве 986d50e0 (база кандидата): cd17ec91 меняет только два тестовых файла, web-ассеты те же байты.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/shots/assign_dialog_state.png",
+          "artifact_sha256": "fcf15f1a36edea62c2ffddceedd3a1d358e77f5e7f1c881ee126d98b5f5c81d9",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830",
+          "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
         }
       ],
       "notes": [
         "Серверный контракт «Применить / Назначить базовой / Восстановить базовую» разделён и доказан на кандидате c3ea182b.",
         "Не проверена UI-часть: подтверждение действия и описание последствий при назначении базовой. Пробел покрытия закрыт решением координатора 2026-11-04 — добавлена отдельная строка `PVR-UX-BASECONFIRM-01` в срезе PVR-S4-UX; серверная часть здесь остаётся доказанной.",
-        "Открыт только элемент «Назначить базовой — с подтверждением»: поведение apply/assign/restore доказано (S4 review §Поклаузно п.4, Re-review 2 B3/M4), но отдельный диалог подтверждения для «Назначить/Восстановить» на живом UI не наблюдался — закрывается той же проверкой, что PVR-UX-BASECONFIRM-01."
+        "Открыт только элемент «Назначить базовой — с подтверждением»: поведение apply/assign/restore доказано (S4 review §Поклаузно п.4, Re-review 2 B3/M4), но отдельный диалог подтверждения для «Назначить/Восстановить» на живом UI не наблюдался — закрывается той же проверкой, что PVR-UX-BASECONFIRM-01.",
+        "ЗАКРЫТ в PVR-S7: UI-часть (подтверждение, описание последствий, отсутствие автоактивации) подтверждена пробой ревьюера; серверная часть была доказана в S2/S0-S1."
       ]
     },
     {
@@ -2072,10 +2407,50 @@
       "acceptance": "Блоки code-only показаны в каталоге истории как read-only с честной причиной; если такой промпт выводится как редактируемое поле — сначала перевод на управляемый pg_key с безрегрессионным сохранением текста, и только потом полный функционал; активных кнопок включения у code-only нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S7 review §3 (PVR-STD-04)",
+          "type": "review",
+          "observation": "55 code-only блоков реестра, ни у одного нет `pg_key` ⇒ серверное правило `manageable=false`. В реальной панели истории строки есть, причина честная: «code-only: значение задаётся кодом, а не в базе, историю можно смотреть, применять нечего»; кнопок «Применить эту версию»/«Назначить базовой» нет. «Скопировать глобально» остаётся — это создание новой ревизии, а не включение. Проверено на живом каталоге (count=112) в сессии S7, а не только тестом.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s7-review.md",
+          "artifact_sha256": "1e711f1149f32655e7e382466dc3108bb38168963f79d206f4863c4224bec31c",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830"
+        },
+        {
+          "ref": "PVR-S7 review §3 — проба ревьюера: у code-only блоков нет `pg_key` ⇒ `manageable=false`",
+          "type": "test",
+          "observation": "Скрипт пробы перечисляет code-only блоки реестра и проверяет отсутствие `pg_key`/`manageable`; вывод — 55 блоков, 0 с `pg_key`. UI-проба выполнена на дереве 986d50e0 (база кандидата): cd17ec91 меняет только два тестовых файла, web-ассеты те же байты.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/probes/code_only_probe.py",
+          "artifact_sha256": "9faae8ca845f5348baba63dc3f51817b75f0e4ae5e17529d65c4264ea2856f5f",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830",
+          "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
+        },
+        {
+          "ref": "PVR-S7 review §3 — панель истории code-only блока",
+          "type": "ui",
+          "observation": "В панели видна честная причина read-only и отсутствуют активные кнопки включения/назначения базовой. UI-проба выполнена на дереве 986d50e0 (база кандидата): cd17ec91 меняет только два тестовых файла, web-ассеты те же байты.",
+          "artifact_path": "plans/features/prompt-versioning-ux/evidence/pvr-s7/shots/code_only_panel.png",
+          "artifact_sha256": "63be2c9c2f306a172bb9966a936f19836f64bf5a9061a267215ccadea2a66201",
+          "candidate_commit": "cd17ec91",
+          "candidate_commit_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+          "delta_over": "32ab53120b4db688293d0a4908e0953119f66076",
+          "reviewed_on": "2026-11-04",
+          "prod_at_review": "2.58.155 @ f4a44167fa42fc0f23d681a76554246754172830",
+          "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
+        }
+      ],
       "notes": [
-        "Аудит покрывает «поле без редактора» и read-only для code-only блоков на уровне тестов, но на живом каталоге (count=112) не проверялось, что code-only блоки показаны read-only с причиной и без активных кнопок включения."
+        "Аудит покрывает «поле без редактора» и read-only для code-only блоков на уровне тестов, но на живом каталоге (count=112) не проверялось, что code-only блоки показаны read-only с причиной и без активных кнопок включения.",
+        "ЗАКРЫТ в PVR-S7: read-only статус code-only блоков и отсутствие активных кнопок включения проверены на живом каталоге, не только тестом."
       ]
     },
     {
@@ -2151,7 +2526,7 @@
       "reviewed_full": "c3ea182b59120c21c933612070f1cc407326f323",
       "merged_in": "c02f6180da0cfc852870c18975d76e180c35404e"
     },
-    "note": "candidate_commit карты = merged-состояние эпика на evol/impl; гейт review требует совпадения одного map-level candidate_commit с --candidate, поэтому посрезовое ревью прогоняется на копии карты с закреплённым candidate_commit среза (сама карта не меняется). S3 принят как 254f5242 (слияние bf90a2ae), S4 — 217cde65 (слияние fb19340b), S5/S6 — 40cf25ea (слияние 04f77c74). Выложенный пакет — f4a44167 (release/2.58.155), см. deployment_binding.",
+    "note": "candidate_commit карты = итоговое принятое состояние эпика на evol/impl (cd17ec91; тестовая дельта над 32ab5312). Гейт review требует совпадения одного map-level candidate_commit с --candidate, поэтому посрезовое ревью прогоняется на копии карты с закреплённым candidate_commit среза (сама карта не переписывается). S0/S1 — 7dd02046 (слияние 9a5834fd), S2 — c3ea182b (слияние c02f6180), S3 — 254f5242 (слияние bf90a2ae), S4 — 217cde65 (слияние fb19340b), S5/S6 — 40cf25ea (слияния 04f77c74 и cad6766a), S7 — cd17ec91 (приёмка, UI-пробы на дереве 986d50e0). Выложенный пакет — f4a44167 (release/2.58.155), см. deployment_binding.",
     "PVR-S3-HISTORY": {
       "reviewed": "254f5242",
       "reviewed_full": "254f524264e20e703b64c952c7824dd59f3af144",
@@ -2174,21 +2549,30 @@
       "reviewed_full": "40cf25ea6fa2f9d9b5dfd460ba4c8d593baf894a",
       "merged_in": "04f77c74",
       "approved": "аудит полей/маршрутов принят в S5 Re-review 2 (мутации CAUGHT)"
+    },
+    "PVR-S7-VERIFY": {
+      "reviewed": "cd17ec91",
+      "reviewed_full": "cd17ec91bff468ea36273603fe408ac565d7b321",
+      "base": "32ab53120b4db688293d0a4908e0953119f66076",
+      "approved": "Re-review Approved (PVR-REV-01) после узкого Needs Fixes первого прохода",
+      "delta": "только тесты: tests/test_prompt_versioning_enforcement.py (+73), tests/test_pvr_rev01_prompt_conflict_no_write.py (+164)",
+      "ui_tree": "986d50e0228eac8e3158e634078b42d39fd6b0da"
     }
   },
   "merge_state": {
     "branch": "evol/impl",
-    "head": "04f77c74de857ac2fa992d8e4a43f9057752ea7b",
-    "head_short": "04f77c74",
+    "head": "cd17ec91bff468ea36273603fe408ac565d7b321",
+    "head_short": "cd17ec91",
     "contains_merges": [
       "9a5834fd433af84949aedcf83ed42512bed444cf",
       "c02f6180da0cfc852870c18975d76e180c35404e",
       "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
-      "fb19340b",
-      "04f77c74de857ac2fa992d8e4a43f9057752ea7b"
+      "fb19340bac81b191e3385849434a965b75ac1cfa",
+      "04f77c74de857ac2fa992d8e4a43f9057752ea7b",
+      "986d50e0228eac8e3158e634078b42d39fd6b0da"
     ],
     "deployed": true,
-    "note": "head — текущее состояние интеграционной ветки evol/impl (04f77c74: PVR-S5 стандарт влит после Approved). Релиз 2.58.155 собран отдельно от неё: ветка release/2.58.155 набрана черри-пиками PV-пакета поверх прода-базы 2de11dc0, выложен f4a44167. В evol/impl релиз пока не впитан (так делали для 2.58.152-154); до впитывания app.css/docs/test_evol018 на ветке релиза отличаются от evol/impl."
+    "note": "head — evol/impl @ cd17ec91: S6 впитан (04f77c74), релиз 2.58.155 абсорбирован merge 986d50e0 (включая правку z-index в web/static/app.css), после чего cd17ec91 добавляет ТОЛЬКО два тестовых файла (git show --stat: +237 строк, code/Templates не меняются). Прод по-прежнему 2.58.155 @ f4a44167; тестовая дельта не выкладывалась и не требует выкладки."
   },
   "reconciliation": {
     "reconciled_on": "2026-11-04",
@@ -2200,18 +2584,16 @@
       "PVR-S3-HISTORY",
       "PVR-S4-UX",
       "PVR-S5-STD-DOC",
-      "PVR-S6-AUDIT"
+      "PVR-S6-AUDIT",
+      "PVR-S7-VERIFY"
     ],
-    "verified_rows": 48,
+    "verified_rows": 58,
     "ready_for_live_rows": 0,
-    "pending_rows_in_reconciled_slices": [
-      "PVR-APPLY-01",
-      "PVR-UX-02",
-      "PVR-UX-BASECONFIRM-01",
-      "PVR-STD-04"
-    ],
-    "coverage_complete": false,
-    "note": "Учёт релиза 2.58.155 (f4a44167, база 2de11dc0): привязаны S4 (Approved 217cde65, слияние fb19340b) и S5/S6 (Approved 40cf25ea), а также живые доказательства прода — журнал, capture legacy, отсутствие автоназначения baseline, каталог/versions, keyset-пагинация, байтовая неизменность промптов, отсутствие DDL, совпадение index.html/app.js с одобренным кандидатом. Эпик НЕ завершён: S7 (PVR-GOAL-01, PVR-REV-01..04, PVR-EXEC-01) не проведён, открыты PVR-APPLY-01, PVR-UX-02, PVR-UX-BASECONFIRM-01, PVR-STD-04. Живые записи новых ревизий через каждый специализированный endpoint, история >50 ревизий на блок и заводская поставка при pinned scope на проде не наблюдались — это НЕ доказано, хотя соответствующие срезы приняты ревью на кодовом и тестовом уровне."
+    "pending_rows_in_reconciled_slices": [],
+    "coverage_complete": true,
+    "note": "Приёмка PVR-S7 (независимый Reviewer) закрыла 9 строк первым проходом и 10-ю (PVR-REV-01) — повторной проверкой на cd17ec91, где дельта относительно 32ab5312 состоит только из двух durable-тестов. Привязаны отчёт ревьюера (plans/features/prompt-versioning-ux/reports/pv-s7-review.md, байт-в-байт копия его вывода), сами тестовые файлы и пробы/скриншоты ревьюера в evidence/pvr-s7/. Прод не менялся: 2.58.155 @ f4a44167; байты web/static/app.css на кандидате и на проде совпадают (9738ca6645cb), поэтому визуальная проверка S7 относится к тем же байтам, что отдаёт прод. Живые записи новых ревизий через каждый специализированный endpoint, история >50 ревизий на блок и заводская поставка при pinned scope на проде остаются NOT OBSERVED — это ограничение охвата прода (см. deployment_binding.open), а не открытая строка карты: соответствующие клаузы доказаны на кодовом/тестовом уровне и инструментальным UI, как и задавал live_policy_note.",
+    "failed_rows": 0,
+    "coverage_complete_basis": "Все 58 обязательных строк (14 additional_requirements + 44 из items с disposition=required) имеют статус VERIFIED с evidence, привязанным к принятому кандидату среза и опирающимся на реальный repo-relative артефакт. Обратный проход по источнику (plans/owner_inputs/2026-11-04-epic-prompt-versioning-ux-01.md, sha 893621d8…) не находит непокрытых обязательных пунктов: 63 инвентарных строки источника классифицированы, из них 44 обязательных + 14 ручных обязательных, остальные — context (заголовки/метаданные снимка) с указанной причиной. Два блокирующих пункта (P1 — тестовый долг, A3 — неотревьюенная правка CSS) закрыты на cd17ec91/986d50e0. Ненулевые остатки: P2, A1, A2, D1–D3 — backlog-пункты с blocks_parent_done=false / gate_counted=false, они не являются пунктами исходного ТЗ и не входят в зачёт; реальное устройство владельца — добровольное наблюдение (owner_observations)."
   },
   "disclosures": [
     {
@@ -2302,9 +2684,13 @@
         "PVR-WRITE-05",
         "PVR-WRITE-06"
       ],
-      "blocks_parent_done": true,
-      "note": "CAS-409 без записи и успешный restore_backup / .../rollback доказаны независимыми пробами ревью, но не защищены регрессионно: нужен строгий двойник CAS и расширение матрицы тестов.",
-      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s0s1-review.md замечание 1"
+      "blocks_parent_done": false,
+      "note": "ЗАКРЫТ. Добавлены два durable-теста (409 на пути промпта ничего не пишет и не «залипает»; успешный restore_backup сохраняет историю и добавляет ровно одну ревизию/событие, повтор — no-op). Ревьюер проверил их мутациями прод-кода: «skip revision insert on restore» → FAILED, «CAS off» → FAILED; прогон 29 passed. Ограничение слоя двойников (in-memory журнал и PG-двойник профиля) записано явно: живой PG добавил бы проверку SQL, блокировку строки, откат незакоммиченных вставок и pg_notify.",
+      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s0s1-review.md замечание 1",
+      "status": "closed",
+      "closed_on": "2026-11-04",
+      "closed_by_candidate": "cd17ec91",
+      "closing_evidence": "tests/test_pvr_rev01_prompt_conflict_no_write.py + tests/test_prompt_versioning_enforcement.py; plans/features/prompt-versioning-ux/reports/pv-s7-review.md Re-review (PVR-REV-01) §1–§5"
     },
     {
       "id": "P2-BYPASS-PARTIAL-SAVE-STATUS",
@@ -2312,7 +2698,8 @@
       "affects_rows": [],
       "blocks_parent_done": false,
       "note": "PromptJournalBypass на втором этапе пакета (запись непромптных настроек) отдаётся как 500; лучше честный 409/503 в формате partial_save. Данные не теряются.",
-      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s0s1-review.md замечание 4"
+      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s0s1-review.md замечание 4",
+      "status": "open_backlog"
     },
     {
       "id": "A1-DRIFT-LABEL-MISLEADING",
@@ -2327,7 +2714,8 @@
       "obligations": [
         "В истории явно разделить «действует в чате (override владельца)» и «указатель наследования/заводская ревизия»."
       ],
-      "evidence_ref": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md §5 п.1"
+      "evidence_ref": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md §5 п.1",
+      "status": "open_backlog"
     },
     {
       "id": "A2-EVIDENCE-WRITES-INTO-TRACKED-FILES",
@@ -2342,7 +2730,8 @@
       "obligations": [
         "Скрипты должны писать в WorkspaceData/temp или в явно указанный --out, а отслеживаемые снимки — только по осознанному коммиту."
       ],
-      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s5-review.md Re-review 2 п.2"
+      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s5-review.md Re-review 2 п.2",
+      "status": "open_backlog"
     },
     {
       "id": "A3-DEPLOYED-CSS-NOT-REVIEWED",
@@ -2351,13 +2740,17 @@
         "PVR-INV-04",
         "PVR-HISTUI-01"
       ],
-      "blocks_parent_done": true,
+      "blocks_parent_done": false,
       "severity": "review-gap",
-      "note": "В выложенном f4a44167 файл web/static/app.css отличается от одобренного кандидата 217cde65: введён токен --z-panel: 90 вместо литерала 90 и .pv-result--sticky z-index 3 → 2. Отдельного ревью-вердикта на эту правку в репозитории нет; в evol/impl (04f77c74) её тоже нет — то есть она существует только на ветке релиза.",
+      "note": "ЗАКРЫТ после впитывания релиза (merge 986d50e0): правка z-index/sticky входит в ветку, байты app.css на кандидате СОВПАДАЮТ с продом (9738ca6645cb) — то есть проверялись не «похожие», а ровно выложенные байты. Независимая сессия S7 прогнала на них PVR-S4-OK на 1536/1366/768/390/360 (failures=0) и собственные пробы; `assert_result_sticky` проверяет через `elementFromPoint`, что прилипшее подтверждение не перекрыто (то есть панель истории с `--z-panel: 90` лежит поверх редактора-модалки). Остаточная формулировка «панель поверх HTML-модалки» закрыта как неактуальная: в этом потоке подтверждения — нативные `window.confirm`, HTML-модалки участия не принимают.",
       "obligations": [
         "Узкий ревью-чек правки (z-index/sticky на 1536 и 390, панель поверх модалки) либо осознанное принятие с записью решения."
       ],
-      "evidence_ref": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md §2/§5 п.2"
+      "evidence_ref": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md §2/§5 п.2",
+      "status": "closed",
+      "closed_on": "2026-11-04",
+      "closed_by_candidate": "986d50e0",
+      "closing_evidence": "git: web/static/app.css в f4a44167 = 9738ca6645cb, в 986d50e0/32ab5312/cd17ec91 тот же sha256; plans/features/prompt-versioning-ux/reports/pv-s7-review.md §2 (PVR-S4-OK на этих байтах) и §6; tests/ui_prompt_version_card_e2e.py assert_result_sticky (elementFromPoint-хит прилипшего подтверждения)"
     },
     {
       "id": "A4-RELEASE-BRANCH-NOT-ABSORBED",
@@ -2365,11 +2758,15 @@
       "affects_rows": [],
       "blocks_parent_done": false,
       "severity": "ops",
-      "note": "release/2.58.155 (f4a44167) не влит в evol/impl: ветки разошлись от e52a06b2. Содержимое слоя версионирования совпадает, но app.css, docs/prompt-versioning-contract.md и tests/test_evol018_prompt_audit.py на ветке релиза отличаются от evol/impl — следующая интеграция покажет их как дельту, пока релиз не впитан (как делали для 2.58.152-154).",
+      "note": "ЗАКРЫТ: релиз впитан merge-коммитом 986d50e0, ветка release/2.58.155 — предок evol/impl. Остаточные отличия docs/prompt-versioning-contract.md и tests/test_evol018_prompt_audit.py объясняются более поздним пакетом AC-DATA (294 файла под аудитом на evol/impl против 293 в релизе) и записаны в content_identity.",
       "obligations": [
         "Впитать release/2.58.155 в evol/impl (merge, не rebase) до следующего релиза."
       ],
-      "evidence_ref": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md §5 п.3"
+      "evidence_ref": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md §5 п.3",
+      "status": "closed",
+      "closed_on": "2026-11-04",
+      "closed_by_candidate": "986d50e0",
+      "closing_evidence": "git merge-base --is-ancestor f4a44167 cd17ec91 → true; merge 986d50e0 (absorb release 2.58.155)"
     }
   ],
   "deployment_binding": {
@@ -2380,8 +2777,8 @@
     "prod_base_version": "2.58.154",
     "deployed_at": "2026-11-04 06:50:43 UTC",
     "deploy_window": "06:50:22-06:50:43 UTC",
-    "release_branch_relation": "release/2.58.155 набран черри-пиками PV-пакета поверх прода-базы 2de11dc0; f4a44167 не является предком evol/impl 04f77c74 и наоборот (общая база e52a06b2). В evol/impl релиз ещё не впитан.",
-    "content_identity": "Слои версионирования совпадают с одобренными кандидатами байт-в-байт: prompt_release_policy 87993f9d3f, prompt_factory 610098414e, web/api/routes dc8a3a6318, web/api/speech 8cdf1ce3de, prompt_registry dbf0b937b2, test_prompt_field_audit cfa4252acf, AGENTS.md f70ed268ea, web/index.html 4c648efb03c4, web/app.js 22267af731f5 (последние два — как у S4 Approved 217cde65 и как отдаёт прод по sha256sum DevOps). Отличия: web/static/app.css 98e96f1be61c против одобренного 17bfa2aa0cc7 (пост-ревью правка z-index, ревью-вердикта нет); docs/prompt-versioning-contract.md 0b87aa7c74 против a013ab10dd (документ сам фиксирует 293 файла под аудитом в 2.58.155 вместо 294, пин test_evol018_prompt_audit обновлён так же).",
+    "release_branch_relation": "release/2.58.155 (f4a44167) ВПИТАН в evol/impl merge-коммитом 986d50e0 (проверено: `git merge-base --is-ancestor f4a44167 cd17ec91` → true). После впитывания evol/impl ушёл дальше своими коммитами (S6-аудит, затем тестовая дельта cd17ec91), поэтому содержимое части файлов на ветке и на проде не совпадает — по причинам, указанным в content_identity, а не из-за невпитанного релиза.",
+    "content_identity": "Слой версионирования совпадает с одобренными кандидатами байт-в-байт: prompt_release_policy 87993f9d3f, prompt_factory 610098414e, web/api/routes dc8a3a6318, web/api/speech 8cdf1ce3de, prompt_registry dbf0b937b2, test_prompt_field_audit cfa4252acf, AGENTS.md f70ed268ea. UI-байты кандидата cd17ec91 и прода f4a44167 совпадают: web/index.html cf3adb77692c, web/app.js e51cbc3ebc07, web/static/app.css 9738ca6645cb (правка z-index после S4 вошла в ветку через merge 986d50e0 и теперь ревьюировалась на тех же байтах, что отдаёт прод — пункт A3 закрыт). Отличаются: docs/prompt-versioning-contract.md (prod cd4c8bf77de6 / candidate e45b39ae7cd3) и tests/test_evol018_prompt_audit.py (prod 4e2c27d1de67 / candidate 8048b265b4f1) — на линии evol/impl под аудитом 294 файла (входит services/anticliche_sources.py из пакета AC-DATA), в релизе 2.58.155 — 293; это зафиксировано в самом документе и в пине теста, а не расхождение поведения версионирования.",
     "health": "200 loopback + 200 по SNI + 200 публично, version=2.58.155",
     "restarts": "NRestarts=0, один процесс (MainPID 1867207)",
     "schema": "user_version=41 без изменений, DDL нет",
@@ -2393,7 +2790,49 @@
     "ui": "/web/index.html 200 (18 вхождений prompt-version-card, шаблон #prompt-version-card-tpl, pv-grid); /web/app.js 200 (обработка next_cursor); Playwright на публичном домене — Vue отрисован, 0 ошибок JS, панели в DOM; sha256 index.html 4c648efb… / app.js 22267af7… совпадают с одобренным кандидатом; сумма app.css на сервере не снималась",
     "rollback": "git checkout -B release/2.58.154 2de11dc0 + systemctl restart admin_bot; DDL нет, журнал и тексты промптов сохраняются",
     "provenance": "Факты сервера переданы DevOps (отчёт plans/features/evol/release-258155-deploy.md, на момент учёта untracked в основном checkout) и сведены в evidence/deploy-2.58.155-reconcile.md; тождество содержимого PM проверил локально по git.",
-    "open": "Живые записи новых ревизий через каждый специализированный endpoint — NOT OBSERVED (записей в живые промпты не было); история >50 ревизий на блок — NOT OBSERVED (максимум 10); заводская поставка при pinned scope на проде — не запускалась; реальный Telegram WebView устройства владельца — не проверялся; web/static/app.css на проде содержит правку z-index без независимого ревью.",
-    "gate_note": "Проверено 04.11.2026: `check --stage release --slice PVR-S0-GUARD --candidate f4a44167 --deployed-commit f4a44167` даёт 3 ошибки — (1) map-level candidate_commit (44e1e589) не равен выложенному f4a44167, (2) PVR-HEAD-01 не имеет доказательства, привязанного к f4a44167 (эта строка про фиксацию базы ДО работы). Посрезовый release-гейт прогонять на копии карты с закреплённым candidate_commit = выложенный SHA (как описано в slice_candidates.note) либо после A4 — впитывания релиза в evol/impl, когда merged-состояние совпадёт с продом. Полный release-гейт эпика сейчас невозможен: 10 строк PENDING (S7 и три UI-уточнения). Plan-гейт: EXIT 0."
-  }
+    "open": "NOT OBSERVED на проде и не требуется для зачёта строк (клаузы доказаны на кодовом/тестовом уровне и инструментальным UI): живые записи новых ревизий через каждый специализированный endpoint (записей в живые промпты не было), история >50 ревизий на блок (максимум 10), заводская поставка при pinned scope. Добровольное наблюдение владельца: реальный Telegram WebView на его устройстве (см. owner_observations). Серверная сумма web/static/app.css не снималась, но локально она совпадает с продом по git-объекту (9738ca6645cb).",
+    "gate_note": "Фактические прогоны 04.11.2026 (python <OPENCODE_CONFIG>/tools/requirements_gate.py, --repo .): (1) `check --stage plan` → `stage=plan inventory=63 manual=14 scoped=0 errors=0`, EXIT 0 — карта структурно валидна, slice-graph без циклов и без неучтённых пересечений write_scope. (2) `check --stage review --slice PVR-S7-VERIFY --candidate cd17ec91` → `scoped=6 errors=0`, EXIT 0 — все строки среза привязаны к принятому кандидату, у каждой есть существующий артефакт с совпавшим sha256, Git-объект существует. (3) `check --stage review --slice PVR-S1-WRITE --candidate cd17ec91` → EXIT 1, 22 ошибки вида «no evidence bound to reviewed candidate»: строки ранних срезов привязаны к ИХ кандидатам (7dd02046/c3ea182b/254f5242/217cde65/40cf25ea), а гейт допускает ровно одно map-level значение. Это ограничение одного поля, а не отсутствие доказательств: посрезовое ревью ранних срезов прогоняется на копии карты с закреплённым candidate_commit среза (как и было в slice_candidates.note). (4) `check --stage release --candidate cd17ec91 --deployed-commit f4a44167` → EXIT 1, 99 ошибок: кроме той же привязки к одному кандидату, release-стадия дополнительно требует `--deployed-commit == --candidate`. Принятый кандидат cd17ec91 — ТЕСТОВАЯ дельта поверх выложенного f4a44167, поэтому идентичность «выложено ровно то, что ревьюировали» на этом кандидате недостижима без выкладки тестов. PM гейт не подделывал и статус DONE из него не выводил: release-гейт закрывается либо выкладкой кода-эквивалента (реальный релиз evol/impl → новый deployed SHA + перепривязка строк к нему), либо явным решением координатора о процедуре «тестовая дельта поверх выложенного» с записью идентичности кода по git (web/static/app.css 9738ca6645cb, те же исполняемые файлы).",
+    "review_candidate": "cd17ec91bff468ea36273603fe408ac565d7b321",
+    "review_candidate_delta": "только тесты относительно 32ab53120b4db688293d0a4908e0953119f66076 (+237 строк в двух файлах)",
+    "prod_unchanged_since_review": true,
+    "prod_unchanged_note": "Прод не менялся с релиза 2.58.155 (f4a44167). Тестовая дельта cd17ec91 не выкладывалась и не требует выкладки: исполняемый код, шаблоны и промпты те же, что на проде; web/static/app.css совпадает байт-в-байт (9738ca6645cb)."
+  },
+  "candidate_note": "candidate_commit = итоговый принятый кандидат эпика (evol/impl @ cd17ec91 = cd17ec91bff468ea36273603fe408ac565d7b321, база 32ab5312). Он ТОЛЬКО ТЕСТОВЫЙ относительно 32ab5312 и не выложен: прод остаётся 2.58.155 @ f4a44167. Ранние срезы (S0/S1 7dd02046, S2 c3ea182b, S3 254f5242, S4 217cde65, S5/S6 40cf25ea) сохраняют собственные привязки evidence — см. slice_candidates. Проверка с --stage review требует совпадения переданного --candidate с этим полем, поэтому посрезовое ревью ранних срезов прогоняется на копии карты с закреплённым candidate_commit среза (сама карта не переписывается).",
+  "open_items_summary": {
+    "closed": [
+      "N1-ACTIVATION-PLAN-ORDER",
+      "N2-COPY-REASON-MISMATCH",
+      "P1-REGRESSION-CAS-ROLLBACK-TESTS",
+      "A3-DEPLOYED-CSS-NOT-REVIEWED",
+      "A4-RELEASE-BRANCH-NOT-ABSORBED"
+    ],
+    "open_nonblocking": [
+      "P2-BYPASS-PARTIAL-SAVE-STATUS",
+      "A1-DRIFT-LABEL-MISLEADING",
+      "A2-EVIDENCE-WRITES-INTO-TRACKED-FILES"
+    ],
+    "disclosures_nonblocking": [
+      "D1-CATALOG-PENDING",
+      "D2-NORMALIZE-LEGACY-SPEECH",
+      "D3-MIGRATE-ENV-FORCE"
+    ],
+    "note": "Ни один открытый пункт не блокирует завершение пакета и ни один не является пунктом исходного ТЗ: A1 — двусмысленная формулировка «действует» в чатовой истории (владельцу читается как заводская версия), A2 — гигиена скриптов evidence (предсуществующая, снимки перезаписываются прогоном), P2 — код ответа на втором этапе batch-save (данные не теряются). D1–D3 — объявленные границы вне перечня контракта, gate_counted=false. Все три открытых пункта остаются в бэклоге отдельными задачами и не влияют на 58/58 по обязательным строкам."
+  },
+  "owner_observations": [
+    {
+      "id": "OO-1-REAL-DEVICE-WEBVIEW",
+      "what": "Открыть админку в реальном Telegram WebView на устройстве владельца и пролистать историю версий мемных полей.",
+      "status": "voluntary_not_run",
+      "counts_in_totals": false,
+      "live_required": false,
+      "owner_policy_ref": "AGENTS.md",
+      "owner_optional_reason": "Требует личного устройства владельца; проектное правило PET_PROJECT (§5) прямо требует фиксировать такие проверки как остаток у владельца и не блокировать ими релиз и независимую работу.",
+      "engineering_req_ids": [
+        "PVR-REV-03",
+        "PVR-GOAL-01"
+      ],
+      "engineering_cover_note": "Инженерная часть той же клаузы закрыта инструментально: Playwright 1536/1366/768/390/360 + собственные пробы ревьюера (PVR-REV-03).",
+      "source_ref": "plans/features/epic-prompt-versioning-ux-01/requirements-map.json live_policy_note; deploy-2.58.155-reconcile.md §4 п.4"
+    }
+  ]
 }
