@@ -105,25 +105,27 @@ class TestDirectTwoCall:
             -100, "q", _tool_raw(), None) is None
 
     @pytest.mark.asyncio
-    async def test_validator_loop_retry(self):
-        # FINAL v8 §1.1: стиль не повторяется; независимый guard формата
-        # доставки (таблицы в plain-канале) — повторяется ровно один раз.
+    async def test_plain_table_delivered_without_third_call(self):
+        # BGS-04 §5: таблица в plain-канале — вкусовая форма, а не
+        # невозможность доставки. Telegram принимает обычный текст:
+        # ответ отдаётся как есть, второй генерации нет.
         table = "| a | b |\n|---|---|"
-        svc = _service([_SYNTH_JSON, table, "чистый ответ"])
+        svc = _service([_SYNTH_JSON, table])
         text, _mode = await svc._synthesize_direct_answer(
             -100, "q", _tool_raw(), None)
-        assert text == "чистый ответ"
-        assert svc.llm.generate.await_count == 3
+        assert text == table
+        assert svc.llm.generate.await_count == 2
 
     @pytest.mark.asyncio
-    async def test_validator_exhausted_keeps_text(self):
+    async def test_plain_table_never_empties_answer(self):
+        # BGS-04 §5/§6: ложное совпадение формы не превращает ответ
+        # в пустой Telegram message и не даёт third-call reroll.
         table = "| a | b |\n|---|---|"
         svc = _service([_SYNTH_JSON, table, table])
         text, _mode = await svc._synthesize_direct_answer(
             -100, "q", _tool_raw(), None)
-        # честная деградация: текст не правится молча, повтор ≤1
         assert text == table
-        assert svc.llm.generate.await_count == 3
+        assert svc.llm.generate.await_count == 2
 
     @pytest.mark.asyncio
     async def test_empty_verbalizer_returns_none(self):
