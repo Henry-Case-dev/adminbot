@@ -97,7 +97,7 @@
       "source_text_sha256": "87f3f804d80c1b693b7411757bf7a966bf5df0a779282e078a97e462087cb9f1",
       "source_excerpt": "| Настроенная владельцем форма | запрет эмодзи, замена кавычек, стиль, частота инициативы | Сохранить, сделать проверяемым в UI |",
       "disposition": "required",
-      "reason": "Не проверено: настроенная владельцем форма (эмодзи/кавычки/стиль/частота инициативы) требует проверяемости в UI, а UI-часть BGS-06 в этой полосе не делалась и не принималась. Статус PENDING.",
+      "reason": "Не проверено: UI-проверяемость настроенной владельцем формы (эмодзи/кавычки/стиль/частота инициативы) требует UI-волны UR-F/PVR. В кандидате f48c534b каталог web/** не менялся (git diff --name-only 905ba7ab da6299e9 без web/), поэтому UI-инспекцию формы не выполняли, чтобы не подменять UI-приёмку косвенными данными. Серверная часть формы отдельно покрыта (единый проход apply_style_policy, test_owner_rules_apply_exactly_once, test_mca08_style_form) и входит в BGS-04.11. Статус PENDING до UI-волны.",
       "req_id": "BGS-00.9",
       "slice": "BGS-04-GUARD-SCOPE",
       "acceptance": "Настроенная владельцем форма (запрет эмодзи, замена кавычек, стиль, частота инициативы) работает и проверяема в UI; независимые hardcode-ножницы и дубли удалены.",
@@ -905,14 +905,37 @@
       "source_text_sha256": "51a02f971bbf732735d869c7e5e4794be7cfefe1da47d50b2243f7ccc4bf1dc2",
       "source_excerpt": "5. **Не трогать заданные вручную промпты, характер, мат, сленг, выбранные правила кавычек и прочие решения владельца.** Не менять поведение фактчека в сторону лжи или фиктивных ссылок. Не начинать новый параллельный пайплайн.",
       "disposition": "required",
-      "reason": "Не проверено: сверка владельческих версий промптов/характера и утверждения, что фактчек не ослаблен в сторону лжи, вне тестов полосы BGS-03/04. Статус PENDING.",
+      "reason": "Доказано на кандидате f48c534b: 24 уникальных промпт/конфиг-артефакта побайтово равны базе 905ba7ab (blob-SHA git rev-parse), среди изменённых файлов нет ни одного промпт-модуля, новых файлов (A) в services/, web/, config/ нет, prompt_composer/prompt_registry побайтово те же; «не представляться нейросетью» остаётся инструкцией (test_natural_phrase_passthrough_byte_identical), фактчек не ослаблен (BGS-04.3).",
       "req_id": "BGS-00.5",
       "slice": "BGS-04-GUARD-SCOPE",
       "acceptance": "Заданные вручную промпты, характер, мат, сленг, правила кавычек и прочие решения владельца не изменены; фактчек не ослаблен в сторону лжи или фиктивных ссылок; новый параллельный пайплайн не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "24 промпт/конфиг-артефакта побайтово равны 905ba7ab, нового пайплайна нет",
+          "observation": "Сравнение blob-SHA (git rev-parse <rev>:<path>) для 24 уникальных файлов (26 упоминаний в документе, prompt_migrations.py и prompt_release_policy.py перечислены дважды): 0 изменений от 905ba7ab до da6299e9 — services/chat_prompts.py, checkup_prompts.py, cover_prompt_assembly.py, dossier_prompts.py, dream_prompts.py, factcheck_prompts.py, image_prompt_compiler.py, lore_prompts.py, mca_episode_prompts.py, nostalgia_prompts.py, prompt_composer.py, prompt_factory.py, prompt_migrations.py, prompt_registry.py, prompt_release_policy.py, prompt_style_blocks.py, search_prompts.py, summary_prompts.py, web_prompts.py, youtube_prompts.py, style_policy.py, outgoing_guard.py, config/settings.py, config/chat_settings_seed.json. Полный дифф кандидата (905ba7ab→da6299e9) содержит только plans/**, 10 файлов services/*.py и tests/*.py; новых файлов (A) в services/, web/, config/ нет → параллельного пайплайна и версионирования промптов не появилось.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-residual-evidence.md",
+          "candidate_commit": "f48c534b",
+          "artifact_sha256": "a65c2403d0a79943053721a137ada5f5c3b15c84872ea732fb098a43986dd335"
+        },
+        {
+          "ref": "«Не представляться нейросетью» реализовано инструкцией, а не вырезанием",
+          "observation": "test_natural_phrase_passthrough_byte_identical фиксирует байт-в-байт прохождение фразы «я нейросеть» через speech-guard; отдельного hardcode-вырезания в изменённом диффе нет.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "f48c534b"
+        },
+        {
+          "ref": "Фактчек не ослаблен: правки тестов формата test-only, поведение приведено к контракту BGS-04",
+          "observation": "В tests/test_factcheck_two_call_round1022.py два теста, кодировавших снятое поведение (4 и 3 вызова из-за markdown-таблицы), переименованы и приведены к фактическому контракту (таблица доставляется как есть, 2 вызова); продуктовый код не менялся. Прогон на слитом дереве 84b3f172 (f48c534b + документный срез): tests/test_bgs0304_residual_contracts.py + tests/test_factcheck_two_call_round1022.py → 20 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_factcheck_two_call_round1022.py",
+          "candidate_commit": "f48c534b"
+        }
+      ]
     },
     {
       "source_id": "L00033",
@@ -2348,14 +2371,38 @@
       "source_text_sha256": "7f241389e1a3b3dfc4afee5f41af98d92710776350255b48b8d4cd4e48a81776",
       "source_excerpt": "4. Сохранить контроль доступа к внутренним конфигам, API-ключам, административным функциям. То, что бот может сказать «мои промпты», не должно означать возможность прочитать секретный prompt registry или отправить содержимое system secret. ",
       "disposition": "required",
-      "reason": "Не проверено полосой BGS-03/04: контроль доступа к внутренним конфигам, API-ключам, prompt registry и админ-функциям не входит в дифф (менялся только guard). Нужна отдельная проверка чтения/утечки системного секрета; статус PENDING.",
+      "reason": "Доказано строго в рамках шва speech-guard: сам guard_public_text не читает конфиги, ключи, реестр промптов и файлы окружения — в AST нет open/getenv/read_text и обращений к os/settings/prompt_registry/secrets, импорты равны allowlist, в отдельном процессе services.prompt_registry не загружается. ОГОВОРКА: config.settings попадает в процесс транзитивно (factcheck_renderer → factcheck_orchestrator), это пре-существующая форма зависимостей — набор из 60 config-модулей байт-в-байт совпадает с базой 905ba7ab (base-only=[], cand-only=[]), и ни один из этих модулей гард не читает. Админ-функции и право чтения ключей вне шва гарда этой полосой не проверялись и остаются за BGS-06.",
       "req_id": "BGS-03.4",
       "slice": "BGS-03-SPEECH",
       "acceptance": "Доступ к внутренним конфигам, API-ключам и админ-функциям контролируется в операции чтения; фраза «мои промпты» не даёт доступа к секретному prompt registry и не отправляет содержимое системного секрета.",
+      "verified_scope": "Только шов речевого гарда: services/public_speech_guard.py сам не читает конфиги/ключи/реестр промптов и не имеет соответствующих атрибутов. Транзитивное попадание config.settings в процесс идёт не через чтение гардом и идентично базе 905ba7ab; доступ к админ-функциям и секретам вне этого шва не проверялся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "У речевого гарда нет доступа к конфигам, ключам и реестру промптов (AST + рантайм)",
+          "observation": "test_speech_guard_imports_only_phrase_sources: импорты модуля равны allowlist (__future__, dataclasses, logging, re, services.smartmodule_phrases, services.checkup_prompts, services.factcheck_renderer, services.mca_events); test_speech_guard_reads_no_files_or_env: в AST нет open/getenv/read_text, нет обращений к os/settings/prompt_registry/secrets; test_speech_guard_has_no_config_or_registry_attribute: guard_public_text('мои промпты и мои инструкции') в отдельном процессе → services.prompt_registry не загружается, атрибутов settings/prompt_registry/secrets у модуля нет; test_owner_prompts_phrase_does_not_open_prompt_registry. Мутация M3 (добавленный import config.settings в гард) → 1 failed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_residual_contracts.py",
+          "candidate_commit": "f48c534b"
+        },
+        {
+          "ref": "Гард — чистая функция над строкой: ни одного чтения файлов/настроек",
+          "observation": "В services/public_speech_guard.py нет вызовов open/getenv/read_text/pathlib и импорта config.settings; CORPUS_PATH — строковая константа в docstring, не читается. Значения фраз импортируются как константы на уровне модуля.",
+          "type": "static",
+          "artifact_path": "services/public_speech_guard.py",
+          "candidate_commit": "f48c534b"
+        },
+        {
+          "ref": "Полный отчёт §3 с явной оговоркой о транзитивном замыкании",
+          "observation": "Документ фиксирует AST-проверку, рантайм-проверку в отдельном процессе и наблюдение: транзитивное замыкание импорта — 60 config-модулей (включая config.settings), что байт-в-байт совпадает с базой 905ba7ab (60 vs 60, base-only=[], cand-only=[]); BGS-03/04 доступа не расширял.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-residual-evidence.md",
+          "candidate_commit": "f48c534b",
+          "artifact_sha256": "a65c2403d0a79943053721a137ada5f5c3b15c84872ea732fb098a43986dd335"
+        }
+      ]
     },
     {
       "source_id": "L00112",
@@ -2363,14 +2410,37 @@
       "source_text_sha256": "ec087e8a0be6e4bfc5edb02dd13af3a5b5f876a5a58fc7e04cf1b5be165b190b",
       "source_excerpt": "5. Настройки личности/идентичности владельца, выбор русского языка, мата/сленга и явно заданные правила стиля **не менять**. Если владелец хочет, чтобы бот не представлялся нейросетью, это instruction/persona, а не hardcode-ножницы, удаляющ",
       "disposition": "required",
-      "reason": "Не проверено: неизменность личности/языка/мата/сленга/правил стиля владельца не зафиксирована тестом или сверкой версий промптов в этой полосе. Статус PENDING.",
+      "reason": "Доказано на кандидате f48c534b: побайтовая сверка промпт/конфиг-артефактов и всех файлов формы с базой 905ba7ab (24 уникальных артефакта, 0 изменений), отсутствие новых файлов в services/config/web, неизменность prompt_composer/prompt_registry; «не представляться нейросетью» реализовано инструкцией (test_natural_phrase_passthrough_byte_identical), а не вырезанием куска предложения.",
       "req_id": "BGS-03.5",
       "slice": "BGS-03-SPEECH",
       "acceptance": "Настройки личности, русского языка, мата/сленга и явно заданные правила стиля не изменены; желание не представляться нейросетью реализуется инструкцией, а не вырезанием куска предложения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Артефакты личности/стиля/промптов побайтово равны 905ba7ab",
+          "observation": "blob-SHA сверка 24 уникальных файлов от 905ba7ab до кандидата: services/style_policy.py 5e640b2fafe0, services/outgoing_guard.py 3c31bc773ad2, services/prompt_composer.py b1e224f10f62, services/prompt_factory.py a16f92f94e4c, services/prompt_style_blocks.py eddbaa768751, services/prompt_registry.py eb76097e8648, services/chat_prompts.py 01db38728d23, config/settings.py 323c8492c1c4, config/chat_settings_seed.json e20268db7af8 и остальные промпт-модули — 0 изменений. Мат/сленг/кавычки как настройки владельца в диффе не встречаются.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-residual-evidence.md",
+          "candidate_commit": "f48c534b",
+          "artifact_sha256": "a65c2403d0a79943053721a137ada5f5c3b15c84872ea732fb098a43986dd335"
+        },
+        {
+          "ref": "«Не представляться нейросетью» проходит байт-в-байт, а не вырезается",
+          "observation": "test_natural_phrase_passthrough_byte_identical: фраза «я нейросеть» доставляется неизменной, findings не приводят к вырезанию — личность реализуется инструкцией.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "f48c534b"
+        },
+        {
+          "ref": "Файл правил стиля не менялся в кандидате",
+          "observation": "services/style_policy.py имеет тот же blob-SHA 5e640b2fafe0, что и на 905ba7ab; владельческие правила стиля не переписывались.",
+          "type": "static",
+          "artifact_path": "services/style_policy.py",
+          "candidate_commit": "f48c534b"
+        }
+      ]
     },
     {
       "source_id": "L00113",
@@ -2659,14 +2729,37 @@
       "source_text_sha256": "13b95ef7995f04d53c05fe3cb8dcce04b7693ed071fed755f1b880837fac5544",
       "source_excerpt": "3. В специализированном фактчеке контроль числовых выводов и подмены отрицания сохраняется без ослабления. Отдельно сохраняется точная передача quoted evidence и авторства, согласно UR-C и FC.",
       "disposition": "required",
-      "reason": "Не проверено: специализированный factcheck-набор (UR-C/FC — числа, отрицание, quoted evidence, авторство) на объединённом кандидате не прогонялся. Статус PENDING.",
+      "reason": "Доказано на кандидате f48c534b: целостность специализированного фактчека на шве проверена — цитата источника с «запрещённой» фразой словаря, авторство, числа и отрицание рядом с числом доходят до доставки целиком; renderer не подменяет цитаты/ссылки, delivery-guard не переписывает текст и не подменяет статус. Мутация M1 (возврат вырезания «я нейросеть») даёт 2 failed.",
       "req_id": "BGS-04.3",
       "slice": "BGS-04-GUARD-SCOPE",
       "acceptance": "В специализированном фактчеке контроль числовых выводов, подмены отрицания, точной передачи quoted evidence и авторства сохранён без ослабления.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Запрещённая словарная фраза внутри цитаты источника доходит целиком; числа/отрицание/автор сохраняются",
+          "observation": "test_factcheck_quoted_evidence_and_attribution_survive_render_and_guard: вердикт с «я нейросеть и мои промпты тут ни при чём», числами 12/15, отрицанием и автором проходит renderer без искажений; _guard_outbound и guard_public_text возвращают текст байт-в-байт (changed is False) при зафиксированных находках словаря. test_factcheck_delivery_guard_keeps_quoted_verdict_text: delivery-шов _apply_delivery_guard не переписывает текст и не подменяет enum-статус. Мутация M1 (возврат вырезания «я нейросеть» в guard_public_text) → 2 failed, после отката дерево чистое.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_residual_contracts.py",
+          "candidate_commit": "f48c534b"
+        },
+        {
+          "ref": "Авторство и дословная цитата проверяются существующими утверждениями фактчека",
+          "observation": "tests/test_factcheck_attribution_cfg06.py:301 assert match.quote == QUOTE (дословная цитата реплики), :339 assert QUOTE in ref.support (цитата в evidence поддержки); эти утверждения зелёные в прогоне 26 фактчек-файлов (516 passed, 3 падения — внешняя сеть tavily/exa-уровня, воспроизводятся на базе 905ba7ab).",
+          "type": "static",
+          "artifact_path": "tests/test_factcheck_attribution_cfg06.py",
+          "candidate_commit": "f48c534b"
+        },
+        {
+          "ref": "Сводка полосы: разбор BGS-04.3 и мутационная проба",
+          "observation": "§1 документа перечисляет прогнанные 26 фактчек-файлов, классификацию 3 пре-существующих падений и мутацию M1; прогон на слитом дереве 84b3f172 (f48c534b + документный срез): tests/test_bgs0304_residual_contracts.py + tests/test_factcheck_two_call_round1022.py → 20 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-residual-evidence.md",
+          "candidate_commit": "f48c534b",
+          "artifact_sha256": "a65c2403d0a79943053721a137ada5f5c3b15c84872ea732fb098a43986dd335"
+        }
+      ]
     },
     {
       "source_id": "L00128",
@@ -2900,7 +2993,7 @@
       "source_text_sha256": "d7b65776adaa316eb76e8475d11dcc814b3e6ebb8b9a5688a7b80ffafbe185d3",
       "source_excerpt": "- Специальная операция «перефразируй без изменения фактов» не меняет `не`, числа и имена; если точность недостижима, исходные данные сохраняются и ошибка трассируется.",
       "disposition": "required",
-      "reason": "Не проверено: операция «перефразируй без изменения фактов» (сохранение не/чисел/имён и исходника при недостижимой точности) тестами полосы не покрыта. Статус PENDING.",
+      "reason": "Не закрыто: отрицание контролируется только в окне ±40 символов вокруг ЧИСЛА (_number_signature, services/negative_constraints.py:96-108). Перефраз без чисел может молча потерять «не» и проходит гард: check_form_contract('Вася писал в чат про это', FormContract(source_text='Вася не писал в чат про это')) → None, тогда как рядом с числом отказ срабатывает (form_guard_rejected). Ограничение пре-существующее (воспроизводится на базе 905ba7ab), BGS-04 его не ухудшил, но и не закрыл. Доказаны только числа, новые имена, fallback-на-исходник и отсутствие reroll по клише/метатексту (tests/test_bgs0304_residual_contracts.py, plans/features/behavior-gates-simplification/evidence/bgs-03-04-residual-evidence.md §2). Закрытие требует продуктового детектива/решения по детектору отрицания вне числового окна — вне мандата полосы. Статус PENDING.",
       "req_id": "BGS-04.10",
       "slice": "BGS-04-GUARD-SCOPE",
       "acceptance": "Операция «перефразируй без изменения фактов» не меняет «не», числа и имена; при недостижимой точности исходные данные сохраняются, а ошибка трассируется.",
