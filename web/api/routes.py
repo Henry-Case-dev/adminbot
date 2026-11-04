@@ -3704,11 +3704,22 @@ async def get_prompt_versions(
     prompt_key: str,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
     x_chat_id: Annotated[str | None, Header()] = None,
+    page_size: int | None = Query(
+        None, description="размер страницы истории (1..200)"),
+    cursor: str | None = Query(None, description="курсор следующей страницы"),
+    revisions_cursor: str | None = Query(None),
+    activations_cursor: str | None = Query(None),
 ):
     """«История версий» промпта (EVOL-017): активная ревизия, заводская,
     хронология ревизий/активаций. X-Chat-Id → chat-скоуп (изоляция по
     can_access_chat); без него — global. 404 — ключ вне реестра. Тексты по
-    умолчанию не отдаются (только /source и /diff)."""
+    умолчанию не отдаются (только /source и /diff).
+
+    EPIC-PROMPT-VERSIONING-UX-01 §3.5 (PVR-S3): история НЕ обрезается числом
+    записей. ``page_size`` — размер одной страницы, ``cursor`` — непрозрачный
+    стабильный курсор объединённой ленты ``entries``; ``has_more``/``next_cursor``
+    в ``page`` показывают, что дальше есть ещё. 422 — испорченный курсор.
+    """
     spec = _prompt_block_or_404(prompt_key)
     chat_id = _chat_id_or_none(x_chat_id)
     await _prompt_require_view(request, user, spec, chat_id)
@@ -3723,7 +3734,14 @@ async def get_prompt_versions(
     try:
         out = await prompt_policy.list_versions(
             spec.block_id, scope=_prompt_list_scope(spec, chat_id),
-            chat_id=chat_id, cache=cache, store=store, actor=str(user.id))
+            chat_id=chat_id, cache=cache, store=store, actor=str(user.id),
+            page_size=prompt_policy.clamp_page_size(page_size)
+            if page_size is not None else prompt_policy.HISTORY_PAGE_DEFAULT,
+            cursor=cursor, revisions_cursor=revisions_cursor,
+            activations_cursor=activations_cursor)
+    except ValueError:
+        raise HTTPException(status_code=422,
+                            detail="курсор истории недействителен")
     except prompt_policy.PromptPermissionError:
         raise HTTPException(status_code=403, detail="permission denied")
     except prompt_policy.JournalUnavailable:

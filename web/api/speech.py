@@ -963,6 +963,114 @@ def _diff_summary(before: str, after: str) -> dict:
     }
 
 
+#: Размер страницы истории Speech-раздела. Это размер СТРАНИЦЫ, а не потолок:
+#: §3.5 ТЗ запрещает обрезать историю числом записей (`HISTORY_MAX_PER_BLOCK`
+#: = 12 больше не определяет, что видит владелец).
+SPEECH_HISTORY_PAGE = 50
+
+
+async def _prompt_history_view(cache, user, block_ids, *, chat_id: int | None,
+                               page_size: int = SPEECH_HISTORY_PAGE) -> dict:
+    """История блоков из ЕДИНОГО журнала (PG), страницами (§3.5 ТЗ).
+
+    Раньше Speech-раздел показывал `prompt_factory.history_for`
+    (`character.prompt_history`, `HISTORY_MAX_PER_BLOCK = 12`) — второй,
+    отдельный и ограниченный UI истории, что нарушало и §2 (один компонент), и
+    §3.5 (без потолка). Теперь источник — тот же `prompt_release_policy`, что у
+    панели «История версий»; `page_size` — размер страницы, а не предел истории.
+
+    `legacy_bounded` в ответе — ТОЛЬКО при недоступном журнале: это честная
+    граница сохранённых данных (§0.3 ТЗ), а не альтернативная история.
+    """
+    from services import prompt_release_policy as prp
+    size = prp.clamp_page_size(page_size)
+    try:
+        store = prp.default_journal(cache)
+    except Exception:
+        store = None
+    if store is None:
+        return {"rows": [], "available": False, "source": "journal",
+                "page_size": size, "pages": {}}
+    scope = "chat" if chat_id is not None else "global"
+    rows: list[dict] = []
+    pages: dict[str, dict] = {}
+    for block_id in block_ids:
+        try:
+            view = await prp.list_versions(
+                block_id, scope=scope, chat_id=chat_id, cache=cache,
+                store=store, actor=str(getattr(user, "id", "") or ""),
+                page_size=size)
+        except Exception:
+            logger.warning("[speech] история из журнала недоступна | block=%s",
+                           block_id, exc_info=True)
+            return {"rows": [], "available": False, "source": "journal",
+                    "page_size": size, "pages": {}}
+        pages[block_id] = dict(view.get("page") or {})
+        for entry in view.get("entries") or []:
+            rows.append(_speech_history_row(block_id, entry))
+    rows.sort(key=lambda r: (str(r.get("updated_at") or ""),
+                             str(r.get("revision_id") or "")), reverse=True)
+    return {"rows": rows, "available": True, "source": "journal",
+            "page_size": size, "pages": pages}
+
+
+def _speech_history_row(block_id: str, entry: dict) -> dict:
+    """Строка истории Speech в прежней форме + честные метаданные (§2.2 п.3).
+
+    Ключи `revision/kind/scope/sha256_12/chars/updated_at/actor/reason`
+    сохранены — существующий редактор и откат продолжают их читать; добавлены
+    `revision_id/entry_type/source/status/actionable/reason_text`, чтобы панель
+    показывала источник и статус, а не угадывала их по строкам.
+    """
+    entry_type = str(entry.get("entry_type") or "")
+    return {
+        "revision": entry.get("revision_id") or "",
+        "kind": entry.get("kind") or ("revision" if entry_type == "revision"
+                                      else "activation"),
+        "scope": entry.get("scope") or "",
+        "sha256_12": entry.get("sha256_12") or "",
+        "chars": int(entry.get("chars") or 0),
+        "updated_at": entry.get("created_at") or "",
+        "actor": entry.get("actor") or "",
+        "reason": entry.get("reason") or entry.get("detail_code") or "",
+        "revision_id": entry.get("revision_id") or "",
+        "entry_type": entry_type,
+        "source": entry.get("source") or "",
+        "source_label": entry.get("source_label") or "",
+        "status": entry.get("status") or "",
+        "status_label": entry.get("status_label") or "",
+        "actionable": bool(entry.get("actionable", True)),
+        "reason_text": entry.get("reason_text") or "",
+        "body_available": bool(entry.get("body_available")),
+        "order": entry.get("order"),
+        "block_id": block_id,
+    }
+
+
+async def _legacy_history_rows(cache, block_ids, *,
+                               limit: int = SPEECH_HISTORY_PAGE) -> dict:
+    """Прежний bounded-журнал `character.prompt_history` — только как граница.
+
+    Используется лишь когда журнала нет (нет PG) или в нём ещё нет записей:
+    физически утраченное из старого журнала не воссоздаётся (§0.3 ТЗ), но и не
+    выдаётся за полную историю — ответ помечается `source='legacy_bounded'`.
+    """
+    from services import prompt_factory as pf
+    rows: list[dict] = []
+    for block_id in block_ids:
+        try:
+            rows.extend(await pf.history_for(block_id, cache=cache))
+        except Exception:
+            logger.warning("[speech] legacy history failed | block=%s",
+                           block_id, exc_info=True)
+    rows.sort(key=lambda r: str(r.get("updated_at") or ""), reverse=True)
+    return {"rows": [{k: row.get(k) for k in
+                      ("revision", "kind", "scope", "sha256_12", "chars",
+                       "updated_at", "actor", "reason")} for row in rows],
+            "available": bool(rows), "source": "legacy_bounded",
+            "page_size": limit, "pages": {}}
+
+
 async def _block_detail(cache, user: WebAppUser, ctx, chat_id: int | None,
                         block_id: str) -> dict:
     spec = pr.block(block_id)
@@ -979,12 +1087,13 @@ async def _block_detail(cache, user: WebAppUser, ctx, chat_id: int | None,
     eff = pr.effective_prompt(spec.block_id, pg_value=pg_value,
                               chat_value=chat_value)
     factory = pr.factory_text(spec.block_id)
-    history: list[dict] = []
-    try:
-        from services import prompt_factory as pf
-        history = await pf.history_for(spec.block_id, cache=cache)
-    except Exception:
-        logger.warning("[speech] history read failed", exc_info=True)
+    history_view = await _prompt_history_view(cache, user, [spec.block_id],
+                                              chat_id=chat_id)
+    if not history_view["available"]:
+        # Журнала нет (нет PG) — показываем честную границу старого
+        # bounded-журнала, а не пустой список и не «полную историю».
+        history_view = await _legacy_history_rows(cache, [spec.block_id])
+    history: list[dict] = list(history_view["rows"])
     plan: dict = {}
     try:
         from services import prompt_factory as pf
@@ -1051,12 +1160,10 @@ async def _block_detail(cache, user: WebAppUser, ctx, chat_id: int | None,
         },
         "chat_value_present": chat_value is not None,
         "global_value_present": pg_value is not None,
-        "history": [
-            {k: row.get(k) for k in
-             ("revision", "kind", "scope", "sha256_12", "chars", "updated_at",
-              "actor", "reason")}
-            for row in history
-        ],
+        "history": history,
+        "history_source": history_view["source"],
+        "history_available": bool(history_view["available"]),
+        "history_page": history_view["pages"].get(spec.block_id) or {},
         "history_text_available": bool(history),
         "factory_plan": plan,
         "preview_diff": _diff_summary(factory, eff.text or ""),
@@ -1088,15 +1195,13 @@ async def _core_payload(cache, user: WebAppUser, ctx, chat_id: int | None
                                    chat_value=chat_doc)
     compact_eff = pr.effective_prompt(pr.CORE_COMPACT_BLOCK_ID, pg_value=pg_doc,
                                       chat_value=chat_doc)
-    history: list[dict] = []
-    try:
-        from services import prompt_factory as pf
-        history = (await pf.history_for(pr.CORE_FULL_BLOCK_ID, cache=cache)
-                   + await pf.history_for(pr.CORE_COMPACT_BLOCK_ID,
-                                          cache=cache))
-    except Exception:
-        logger.warning("[speech] core history failed", exc_info=True)
-    history.sort(key=lambda r: str(r.get("updated_at") or ""), reverse=True)
+    history_view = await _prompt_history_view(
+        cache, user, [pr.CORE_FULL_BLOCK_ID, pr.CORE_COMPACT_BLOCK_ID],
+        chat_id=chat_id)
+    if not history_view["available"]:
+        history_view = await _legacy_history_rows(
+            cache, [pr.CORE_FULL_BLOCK_ID, pr.CORE_COMPACT_BLOCK_ID])
+    history: list[dict] = list(history_view["rows"])
     inspection: dict = {}
     try:
         from services import prompt_composer as composer
@@ -1167,12 +1272,10 @@ async def _core_payload(cache, user: WebAppUser, ctx, chat_id: int | None
             "full": _diff_summary(factory_full, full_eff.text or ""),
             "compact": _diff_summary(factory_compact, compact_eff.text or ""),
         },
-        "history": [
-            {k: row.get(k) for k in
-             ("revision", "kind", "scope", "sha256_12", "chars", "updated_at",
-              "actor", "reason")}
-            for row in history[:20]
-        ],
+        "history": history,
+        "history_source": history_view["source"],
+        "history_available": bool(history_view["available"]),
+        "history_pages": history_view["pages"],
         "inspection": inspection,
         "gates": _gate_state(),
         "can_edit": _can_edit_speech(cache, user, ctx,
@@ -2807,18 +2910,56 @@ async def post_block_rollback(
                             chat_id=scope_id):
         raise HTTPException(status_code=403, detail="нет права на правку речи")
     from services import prompt_factory as pf
+    from services import prompt_release_policy as prp
     history = await pf.history_for(block_id, cache=cache)
     target = None
     for row in history:
         if str(row.get("sha256_12") or "") == str(body.sha256_12):
             target = row
             break
-    if target is None or not str(target.get("text") or ""):
+    target_text = str((target or {}).get("text") or "")
+    if not target_text:
+        # PVR-S3 (§2.2 п.5, §3.5): версия может быть только в журнале — он
+        # полный, а `character.prompt_history` исторически ограничен. Ищем
+        # ревизию по байтам текста: сначала в scope этого чата, затем в global
+        # (чужой чат не находится — фильтр адресата как у списков).
+        try:
+            store = prp.default_journal(cache)
+        except Exception:
+            store = None
+        revision = None
+        if store is not None:
+            for lookup_chat in ([scope_id, None] if scope_id is not None
+                                else [None]):
+                try:
+                    revision = await store.find_revision_by_sha(
+                        block_id, str(body.sha256_12), chat_id=lookup_chat)
+                except Exception:
+                    logger.warning("[speech] журнал ревизий недоступен при "
+                                   "откате", exc_info=True)
+                    revision = None
+                if revision is not None:
+                    break
+        if revision is None:
+            raise HTTPException(status_code=404,
+                                detail="ревизия не найдена в истории")
+        # §2.4 п.9: retired/несовместимую версию нельзя активировать.
+        if revision.retired or (revision.schema_compat
+                                and revision.schema_compat
+                                not in prp.SUPPORTED_SCHEMA_COMPAT):
+            status = prp.history_status(
+                retired=bool(revision.retired),
+                schema_compat=str(revision.schema_compat or ""),
+                revision_id=revision.revision_id)
+            raise HTTPException(status_code=422, detail=prp.history_reason_text(
+                status, schema_compat=revision.schema_compat))
+        target_text = str(revision.body or "")
+    if not target_text:
         raise HTTPException(status_code=404,
                             detail="ревизия не найдена в истории")
     try:
         result = await pf.write_speech_value(
-            block_id, str(target.get("text") or ""), cache=cache, actor=user.id,
+            block_id, target_text, cache=cache, actor=user.id,
             reason=body.reason or ("rollback:" + str(body.sha256_12)[:12]),
             chat_id=scope_id,
             pg=_doc_pg(cache) if scope_id is not None else None)

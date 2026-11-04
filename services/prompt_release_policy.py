@@ -48,6 +48,7 @@ TEST-LIFECYCLE: CONTRACT owner=EVOL-016 (tests/test_evol016_prompt_activation.py
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import contextvars
 import datetime
@@ -198,6 +199,19 @@ _GET_REVISION_SQL = (
     "content_sha12, body, factory_revision, schema_compat, release_id, "
     "actor, reason, source_updated_at, retired, created_at "
     "FROM prompt_revisions WHERE revision_id = $1")
+#: Поиск ревизии по байтам текста (откат из истории, §2.2 п.5): адресат —
+#: та же семантика фильтра, что и у списков (чужой чат не находится).
+_GET_REVISION_BY_SHA_SQL = """
+SELECT revision_id, block_id, pg_key, scope, chat_id, origin, content_sha12,
+       body, factory_revision, schema_compat, release_id, actor, reason,
+       source_updated_at, retired, created_at
+FROM prompt_revisions
+WHERE block_id = $1 AND content_sha12 = $2
+  AND (chat_id = $3 OR (chat_id IS NULL AND $3 IS NULL))
+ORDER BY COALESCE(created_at, 'epoch'::timestamptz) DESC, revision_id DESC
+LIMIT 1
+"""
+
 _LIST_REVISIONS_SQL = """
 SELECT revision_id, block_id, pg_key, scope, chat_id, origin, content_sha12,
        factory_revision, schema_compat, release_id, actor, reason,
@@ -215,6 +229,35 @@ WHERE block_id = $1 AND (chat_id = $2 OR (chat_id IS NULL AND $2 IS NULL))
 ORDER BY activation_id DESC LIMIT $3
 """
 _KNOWN_BLOCK_IDS_SQL = "SELECT DISTINCT block_id FROM prompt_revisions"
+#: Страницы полной истории (EPIC-PROMPT-VERSIONING-UX-01 §3.5): keyset по
+#: ``(created_at, вторичный ключ)`` — БЕЗ OFFSET и без потолка по числу строк.
+#: Каждый запрос читает не больше ``page_size + 1`` строк одной таблицы, поэтому
+#: тысяча ревизий не превращается в тысячу строк ответа.
+_PAGE_REVISIONS_DESC_SQL = """
+SELECT revision_id, origin, actor, scope, chat_id, retired, schema_compat,
+       content_sha12, length(body) AS char_count, reason, release_id,
+       factory_revision, created_at
+FROM prompt_revisions
+WHERE block_id = $1 AND (chat_id = $2 OR (chat_id IS NULL AND $2 IS NULL))
+  AND ($3::timestamptz IS NULL
+       OR (COALESCE(created_at, 'epoch'::timestamptz), revision_id)
+          < ($3::timestamptz, $4::text))
+ORDER BY COALESCE(created_at, 'epoch'::timestamptz) DESC, revision_id DESC
+LIMIT $5
+"""
+_PAGE_ACTIVATIONS_DESC_SQL = """
+SELECT activation_id, revision_id, scope, chat_id, kind, outcome, release_id,
+       actor, detail_code, created_at
+FROM prompt_activations
+WHERE block_id = $1 AND (chat_id = $2 OR (chat_id IS NULL AND $2 IS NULL))
+  AND ($3::timestamptz IS NULL
+       OR (COALESCE(created_at, 'epoch'::timestamptz),
+           ('act:' || lpad(activation_id::text, 20, '0')))
+          < ($3::timestamptz, $4::text))
+ORDER BY COALESCE(created_at, 'epoch'::timestamptz) DESC, activation_id DESC
+LIMIT $5
+"""
+
 #: Действующий owner baseline = ПОСЛЕДНЕЕ событие назначения/снятия по
 #: ``activation_id`` для (block_id, scope, chat_id) (контракт §2.1). Новых
 #: таблиц/колонок нет: baseline — событие существующего журнала, тело текста
@@ -342,7 +385,275 @@ def _row_matches_chat(row, chat_id: int | None) -> bool:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Ошибки и hook полномочий
+# Полная история страницами (EPIC-PROMPT-VERSIONING-UX-01 §3.5, §2.2 п.3)
+# ═══════════════════════════════════════════════════════════════════════════
+#: Размер страницы по умолчанию. Это НЕ потолок истории: сколько всего
+#: страниц — решает число записей в журнале (§3.5 ТЗ: «Не ограничивать число
+#: сохраняемых ревизий... Список читать страницами»).
+HISTORY_PAGE_DEFAULT = 50
+#: Верхняя граница ОДНОГО ответа (защита канала), а не истории: клиент листает
+#: дальше тем же курсором. Прежний `LIMIT 50` обрезал саму историю и после 50
+#: событий терял всё остальное — этого больше нет.
+HISTORY_PAGE_MAX = 200
+
+#: Порядок строк в ответе. Объединённая лента (`entries`) — от новых к старым;
+#: `revisions` сохраняет исторический порядок ASC, `activations` — DESC.
+HISTORY_ORDER_NEWEST = "newest_first"
+HISTORY_ORDER_OLDEST = "oldest_first"
+
+#: Человекочитаемые источники ревизии (§2.2 п.3): `manual` | `imported` |
+#: `from_release` | `restored` | `legacy`. Токен машинный, подпись — русская.
+REVISION_SOURCES = ("manual", "imported", "from_release", "restored", "legacy")
+_SOURCE_BY_ORIGIN = {
+    "manual": "manual",
+    "legacy": "imported",        # снимок прежних байтов при захвате/импорте
+    "factory": "from_release",   # заводская поставка из релиза кода
+    "restored": "restored",      # возврат/копирование сохранённого текста
+}
+_SOURCE_LABELS = {
+    "manual": "ручная",
+    "imported": "импортирована",
+    "from_release": "из релиза",
+    "restored": "восстановлена",
+    "legacy": "до версионирования",
+}
+
+#: Статус записи истории (§2.2 п.3, §2.5). `retired`/`incompatible` читаются и
+#: сравниваются, но НИКОГДА не активируются и не назначаются базовыми (§2.4 п.9).
+REVISION_STATUSES = ("active", "baseline", "inactive", "incompatible", "retired")
+_STATUS_LABELS = {
+    "active": "активная",
+    "baseline": "базовая",
+    "inactive": "неактивная",
+    "incompatible": "несовместимая",
+    "retired": "снята с регистрации",
+}
+
+#: Записи объединённой ленты истории.
+ENTRY_REVISION = "revision"
+ENTRY_ACTIVATION = "activation"
+
+
+def _norm_ts(value) -> str:
+    """Нормализованная ISO-метка для сравнения/сортировки в обоих сторах.
+
+    PG отдаёт ``datetime``, двойник — строку: приводим к одному виду (UTC,
+    микросекунды), иначе порядок «новые сверху» разъезжается между сторами.
+    """
+    if isinstance(value, datetime.datetime):
+        dt = value
+    else:
+        dt = _parse_ts(str(value or ""))
+    if dt is None:
+        return str(value or "")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt.astimezone(datetime.timezone.utc).isoformat(
+        timespec="microseconds")
+
+
+def clamp_page_size(value, default: int = HISTORY_PAGE_DEFAULT) -> int:
+    """Размер страницы из запроса: 1..``HISTORY_PAGE_MAX`` (иначе значение по
+    умолчанию). Некорректный ввод не роняет историю — просто дефолт."""
+    try:
+        size = int(value)
+    except (TypeError, ValueError):
+        return int(default)
+    if size <= 0:
+        return int(default)
+    return max(1, min(size, HISTORY_PAGE_MAX))
+
+
+def encode_history_cursor(created_at, sort_id: str, rank: int) -> str:
+    """Непрозрачный курсор страницы: позиция + уже выданный порядковый номер.
+
+    Курсор — keyset ``(created_at, sort_id)``: offset отсутствует, поэтому
+    вставка новых строк не сдвигает уже показанные записи. ``rank`` едет в
+    курсоре, чтобы «порядковый номер» не пересчитывался запросом COUNT и не
+    «прыгал» при параллельных записях.
+    """
+    payload = json.dumps({"v": 1, "t": _norm_ts(created_at),
+                          "i": str(sort_id), "r": int(rank)},
+                         separators=(",", ":"), sort_keys=True)
+    return base64.urlsafe_b64encode(payload.encode("utf-8")).decode(
+        "ascii").rstrip("=")
+
+
+def decode_history_cursor(raw: str | None) -> dict | None:
+    """Разобрать курсор. ``ValueError`` — курсор испорчен (HTTP 422)."""
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    padded = text + "=" * (-len(text) % 4)
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
+    except Exception as exc:
+        raise ValueError("cursor_invalid") from exc
+    if not isinstance(payload, dict) or payload.get("v") != 1:
+        raise ValueError("cursor_invalid")
+    ts = str(payload.get("t") or "")
+    sort_id = str(payload.get("i") or "")
+    if not ts or not sort_id:
+        raise ValueError("cursor_invalid")
+    try:
+        rank = int(payload.get("r") or 1)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("cursor_invalid") from exc
+    return {"ts": ts, "sort_id": sort_id, "rank": max(1, rank)}
+
+
+def activation_sort_id(activation_id: int) -> str:
+    """Стабильный вторичный ключ события: ``act:<20 цифр>`` (сортируется как
+    строка и не зависит от текущего максимума sequence)."""
+    return "act:%020d" % int(activation_id or 0)
+
+
+@dataclass
+class HistoryRow:
+    """Сырая запись объединённой истории (ревизия или событие активации).
+
+    Тело текста здесь НИКОГДА не заполняется: список отдаёт только метаданные,
+    полный текст читается отдельным авторизованным запросом
+    (:func:`get_revision_source`) — §3.7 ТЗ, «не возвращать тела в списках».
+    """
+
+    entry_type: str                  # revision | activation
+    created_at: str                  # исходная метка стора (ISO)
+    sort_id: str                     # вторичный ключ порядка
+    revision_id: str = ""
+    origin: str = ""
+    actor: str = ""
+    scope: str = "global"
+    chat_id: int | None = None
+    retired: bool = False
+    schema_compat: str = ""
+    content_sha12: str = ""
+    chars: int = 0
+    reason: str = ""
+    release_id: str = ""
+    factory_revision: str = ""
+    kind: str = ""                   # для событий: ACTIVATION_KINDS
+    outcome: str = ""                # для событий: ACTIVATION_OUTCOMES
+    detail_code: str = ""
+    activation_id: int = 0
+
+
+@dataclass
+class HistoryPage:
+    """Одна страница истории + курсор следующей."""
+
+    rows: list
+    next_cursor: str = ""
+    has_more: bool = False
+    rank_start: int = 1
+
+
+def _history_key(row) -> tuple:
+    return (_norm_ts(row.created_at), str(row.sort_id))
+
+
+def _history_after_cursor(row, cursor: dict | None) -> bool:
+    """Строка НОВЕЕ курсора (её ещё не показывали)? Нужно для порядковых номеров."""
+    if cursor is None:
+        return True
+    return _history_key(row) > (cursor["ts"], cursor["sort_id"])
+
+
+def _history_page_of(rev_rows: list, act_rows: list, cursor: dict | None,
+                     page_size: int) -> HistoryPage:
+    """Слить два потока (оба — «старые сверху уже отфильтрованы») в страницу.
+
+    Каждый стор отдаёт не больше ``page_size + 1`` строк своей таблицы старше
+    курсора, поэтому объединённая верхушка страницы всегда внутри их
+    объединения (k-way merge без полного чтения таблиц).
+    """
+    rank_start = int((cursor or {}).get("rank") or 1)
+    merged = [r for r in (list(rev_rows) + list(act_rows))
+              if cursor is None or _history_key(r) < (cursor["ts"],
+                                                      cursor["sort_id"])]
+    merged.sort(key=_history_key, reverse=True)
+    page = merged[:page_size]
+    has_more = len(merged) > page_size
+    next_cursor = ""
+    if has_more and page:
+        last = page[-1]
+        next_cursor = encode_history_cursor(last.created_at, last.sort_id,
+                                            rank_start + len(page))
+    return HistoryPage(rows=page, next_cursor=next_cursor,
+                       has_more=has_more, rank_start=rank_start)
+
+
+def history_source(origin: str, *, kind: str = "") -> str:
+    """Токен источника записи истории (§2.2 п.3)."""
+    token = _SOURCE_BY_ORIGIN.get(str(origin or ""))
+    if token:
+        return token
+    if kind == "legacy_import":
+        return "imported"
+    if kind in ("deploy_activate",):
+        return "from_release"
+    if kind in ("baseline_assign", "baseline_clear", "baseline_restore",
+                "factory_restore"):
+        return "restored"
+    if kind in ("manual_edit", "manual_rollback", "manual_forward"):
+        return "manual"
+    return "legacy"
+
+
+def history_source_label(token: str) -> str:
+    return _SOURCE_LABELS.get(str(token or ""), "неизвестный источник")
+
+
+def history_status(*, retired: bool = False, schema_compat: str = "",
+                   revision_id: str = "", active_id: str = "",
+                   baseline_id: str = "") -> str:
+    """Статус записи: retired > incompatible > active > baseline > inactive.
+
+    Совместимость проверяется раньше «активности»: несовместимая/снятая
+    ревизия не бывает действием, даже если указатель на неё остался (§2.4 п.9).
+    """
+    if retired:
+        return "retired"
+    if schema_compat and schema_compat not in SUPPORTED_SCHEMA_COMPAT:
+        return "incompatible"
+    if revision_id and revision_id == active_id:
+        return "active"
+    if revision_id and revision_id == baseline_id:
+        return "baseline"
+    return "inactive"
+
+
+def history_status_label(status: str) -> str:
+    return _STATUS_LABELS.get(str(status or ""), str(status or ""))
+
+
+def history_reason_text(status: str, *, schema_compat: str = "",
+                        detail_code: str = "") -> str:
+    """Почему запись недействительна — человеческим языком (не пустой текст)."""
+    if status == "retired":
+        return ("Версия снята с регистрации (retired): её можно читать и "
+                "сравнивать, но нельзя применить или назначить базовой.")
+    if status == "incompatible":
+        schema = schema_compat or "не указана"
+        return (f"Несовместима с текущей схемой <{schema}>: читать и "
+                "сравнивать можно, применять и назначать базовой — нельзя.")
+    if detail_code in ("factory_superseded_pinned",):
+        return ("Закреплённый владельцем промпт: новая заводская версия "
+                "записана в историю, действующий текст сохранён.")
+    if detail_code in ("factory_same", "restart_same_revision"):
+        return "Текст совпал с действующим: применять нечего."
+    if detail_code in ("legacy_snapshot", "legacy_empty"):
+        return "Служебный снимок прежних байтов при первом включении журнала."
+    return ""
+
+
+def _status_of_row(row, active_id: str = "", baseline_id: str = "") -> str:
+    return history_status(retired=bool(row.retired),
+                          schema_compat=str(row.schema_compat or ""),
+                          revision_id=str(row.revision_id or ""),
+                          active_id=str(active_id or ""),
+                          baseline_id=str(baseline_id or ""))
+
 # ═══════════════════════════════════════════════════════════════════════════
 
 class JournalUnavailable(RuntimeError):
@@ -746,7 +1057,111 @@ class MemoryPromptJournal:
         rows.reverse()
         return rows[:limit]
 
-    # — запись —
+    # — страницы полной истории (§3.5): без потолка, только размер страницы —
+    async def find_revision_by_sha(self, block_id: str, sha12: str, *,
+                                   chat_id: int | None = None
+                                   ) -> "RevisionRow | None":
+        """Ревизия блока по ``sha256_12`` текста (для отката из истории).
+
+        Идентичность ревизии определяется байтами, поэтому sha — законный
+        ключ поиска; адресат фильтруется той же семантикой, что и списки
+        (чужой чат не находится).
+        """
+        want = str(sha12 or "")
+        if not want:
+            return None
+        found = None
+        for row in self.revisions.values():
+            if (row.block_id == block_id and row.content_sha12 == want
+                    and _row_matches_chat(row, chat_id)):
+                if found is None or (
+                        _norm_ts(row.created_at), row.revision_id) > (
+                        _norm_ts(found.created_at), found.revision_id):
+                    found = row
+        return RevisionRow(**vars(found)) if found is not None else None
+
+    def _history_rows(self, block_id: str,
+                      chat_id: int | None) -> tuple[list, list]:
+        revs = [HistoryRow(
+            entry_type=ENTRY_REVISION, created_at=_norm_ts(r.created_at),
+            sort_id=str(r.revision_id), revision_id=r.revision_id,
+            origin=r.origin, actor=r.actor, scope=r.scope, chat_id=r.chat_id,
+            retired=bool(r.retired), schema_compat=r.schema_compat or "",
+            content_sha12=r.content_sha12, chars=len(r.body or ""),
+            reason=r.reason, release_id=r.release_id,
+            factory_revision=r.factory_revision)
+            for r in self.revisions.values()
+            if r.block_id == block_id and _row_matches_chat(r, chat_id)]
+        acts = [HistoryRow(
+            entry_type=ENTRY_ACTIVATION,
+            created_at=_norm_ts(a.created_at),
+            sort_id=activation_sort_id(idx + 1), revision_id=a.revision_id,
+            actor=a.actor, scope=a.scope, chat_id=a.chat_id,
+            reason=a.detail_code, release_id=a.release_id, kind=a.kind,
+            outcome=a.outcome, detail_code=a.detail_code,
+            activation_id=idx + 1)
+            for idx, a in enumerate(self.activations)
+            if a.block_id == block_id and _row_matches_chat(a, chat_id)]
+        return revs, acts
+
+    async def list_history_page(self, block_id: str, *,
+                               chat_id: int | None = None,
+                               cursor: dict | None = None,
+                               page_size: int = HISTORY_PAGE_DEFAULT
+                               ) -> HistoryPage:
+        size = clamp_page_size(page_size)
+        revs, acts = self._history_rows(block_id, chat_id)
+        return _history_page_of(revs, acts, cursor, size)
+
+    async def list_revisions_page(self, block_id: str, *,
+                                  chat_id: int | None = None,
+                                  cursor: dict | None = None,
+                                  page_size: int = HISTORY_PAGE_DEFAULT
+                                  ) -> dict:
+        """Ревизии страницей: первая страница — САМЫЕ НОВЫЕ, вглубь — старее.
+
+        Внутри страницы строки идут в историческом порядке ASC (старые сверху),
+        как их и показывал EVOL-017; курсор ведёт вглубь истории, поэтому самая
+        свежая правка не прячется за первой сотней старых (§3.5 ТЗ).
+        """
+        size = clamp_page_size(page_size)
+        revs, _ = self._history_rows(block_id, chat_id)
+        revs.sort(key=_history_key, reverse=True)
+        rank_start = int((cursor or {}).get("rank") or 1)
+        rows = [r for r in revs
+                if cursor is None or _history_key(r) < (cursor["ts"],
+                                                        cursor["sort_id"])]
+        page = rows[:size]
+        has_more = len(rows) > size
+        next_cursor = (encode_history_cursor(page[-1].created_at,
+                                             page[-1].sort_id,
+                                             rank_start + len(page))
+                       if has_more and page else "")
+        return {"rows": list(reversed(page)), "next_cursor": next_cursor,
+                "has_more": has_more, "rank_start": rank_start}
+
+    async def list_activations_page(self, block_id: str, *,
+                                    chat_id: int | None = None,
+                                    cursor: dict | None = None,
+                                    page_size: int = HISTORY_PAGE_DEFAULT
+                                    ) -> dict:
+        """События активаций страницей: новые сверху (как было в EVOL-017)."""
+        size = clamp_page_size(page_size)
+        _, acts = self._history_rows(block_id, chat_id)
+        acts.sort(key=_history_key, reverse=True)
+        rank_start = int((cursor or {}).get("rank") or 1)
+        rows = [r for r in acts
+                if cursor is None or _history_key(r) < (cursor["ts"],
+                                                        cursor["sort_id"])]
+        page = rows[:size]
+        has_more = len(rows) > size
+        next_cursor = (encode_history_cursor(page[-1].created_at,
+                                             page[-1].sort_id,
+                                             rank_start + len(page))
+                       if has_more and page else "")
+        return {"rows": page, "next_cursor": next_cursor,
+                "has_more": has_more, "rank_start": rank_start}
+
     async def insert_revision(self, row: RevisionRow,
                               created_at: str | None = None) -> bool:
         if self.fail_at == "insert_revision":
@@ -1078,6 +1493,137 @@ class PgPromptJournal:
                 created_at=str(row["created_at"]),
                 chars=int(row["char_count"] or 0)))
         return out
+
+    async def find_revision_by_sha(self, block_id: str, sha12: str, *,
+                                   chat_id: int | None = None
+                                   ) -> "RevisionRow | None":
+        """Ревизия блока по ``sha256_12`` текста (откат из истории, §2.2 п.5)."""
+        want = str(sha12 or "")
+        if not want:
+            return None
+        await self.ensure_journal()
+
+        async def _run(conn):
+            return await conn.fetchrow(_GET_REVISION_BY_SHA_SQL, block_id,
+                                        want, chat_id)
+        rec = await self._run_on_conn(_run)
+        if rec is None:
+            return None
+        return RevisionRow(
+            revision_id=rec["revision_id"], block_id=rec["block_id"],
+            scope=rec["scope"], origin=rec["origin"],
+            content_sha12=rec["content_sha12"], body=rec["body"] or "",
+            pg_key=rec["pg_key"] or "", chat_id=rec["chat_id"],
+            factory_revision=rec["factory_revision"] or "",
+            schema_compat=rec["schema_compat"] or "",
+            release_id=rec["release_id"] or "", actor=rec["actor"] or "",
+            reason=rec["reason"] or "",
+            source_updated_at=rec["source_updated_at"] or "",
+            retired=bool(rec["retired"]), created_at=str(rec["created_at"]))
+
+    def _revision_history_row(self, rec) -> HistoryRow:
+        return HistoryRow(
+            entry_type=ENTRY_REVISION, created_at=_norm_ts(rec["created_at"]),
+            sort_id=str(rec["revision_id"]),
+            revision_id=rec["revision_id"], origin=rec["origin"] or "",
+            actor=rec["actor"] or "", scope=rec["scope"] or "global",
+            chat_id=rec["chat_id"], retired=bool(rec["retired"]),
+            schema_compat=rec["schema_compat"] or "",
+            content_sha12=rec["content_sha12"] or "",
+            chars=int(rec["char_count"] or 0), reason=rec["reason"] or "",
+            release_id=rec["release_id"] or "",
+            factory_revision=rec["factory_revision"] or "")
+
+    def _activation_history_row(self, rec) -> HistoryRow:
+        activation_id = int(rec["activation_id"] or 0)
+        return HistoryRow(
+            entry_type=ENTRY_ACTIVATION,
+            created_at=_norm_ts(rec["created_at"]),
+            sort_id=activation_sort_id(activation_id),
+            revision_id=rec["revision_id"] or "", actor=rec["actor"] or "",
+            scope=rec["scope"] or "global", chat_id=rec["chat_id"],
+            reason=rec["detail_code"] or "", release_id=rec["release_id"] or "",
+            kind=rec["kind"] or "", outcome=rec["outcome"] or "",
+            detail_code=rec["detail_code"] or "", activation_id=activation_id)
+
+    async def list_history_page(self, block_id: str, *,
+                               chat_id: int | None = None,
+                               cursor: dict | None = None,
+                               page_size: int = HISTORY_PAGE_DEFAULT
+                               ) -> HistoryPage:
+        """Страница объединённой истории (новые сверху) по keyset-курсору."""
+        await self.ensure_journal()
+        size = clamp_page_size(page_size)
+        ts = _parse_ts(cursor["ts"]) if cursor else None
+        sort_id = str((cursor or {}).get("sort_id") or "")
+
+        async def _run(conn):
+            revs = await conn.fetch(_PAGE_REVISIONS_DESC_SQL, block_id, chat_id,
+                                    ts, sort_id, size + 1)
+            acts = await conn.fetch(_PAGE_ACTIVATIONS_DESC_SQL, block_id,
+                                    chat_id, ts, sort_id, size + 1)
+            return revs, acts
+        rev_recs, act_recs = await self._run_on_conn(_run)
+        return _history_page_of(
+            [self._revision_history_row(r) for r in rev_recs],
+            [self._activation_history_row(a) for a in act_recs], cursor, size)
+
+    async def list_revisions_page(self, block_id: str, *,
+                                  chat_id: int | None = None,
+                                  cursor: dict | None = None,
+                                  page_size: int = HISTORY_PAGE_DEFAULT
+                                  ) -> dict:
+        """Ревизии страницей: первая страница — САМЫЕ НОВЫЕ, вглубь — старее.
+
+        Внутри страницы порядок исторический (старые сверху), как в EVOL-017;
+        курсор ведёт вглубь истории, поэтому свежая правка не прячется за
+        первой сотней старых (§3.5 ТЗ).
+        """
+        await self.ensure_journal()
+        size = clamp_page_size(page_size)
+        ts = _parse_ts(cursor["ts"]) if cursor else None
+        sort_id = str((cursor or {}).get("sort_id") or "")
+        rank_start = int((cursor or {}).get("rank") or 1)
+
+        async def _run(conn):
+            return await conn.fetch(_PAGE_REVISIONS_DESC_SQL, block_id, chat_id,
+                                    ts, sort_id, size + 1)
+        recs = await self._run_on_conn(_run)
+        rows = [self._revision_history_row(r) for r in recs]
+        page = rows[:size]
+        has_more = len(rows) > size
+        next_cursor = (encode_history_cursor(page[-1].created_at,
+                                             page[-1].sort_id,
+                                             rank_start + len(page))
+                       if has_more and page else "")
+        return {"rows": list(reversed(page)), "next_cursor": next_cursor,
+                "has_more": has_more, "rank_start": rank_start}
+
+    async def list_activations_page(self, block_id: str, *,
+                                    chat_id: int | None = None,
+                                    cursor: dict | None = None,
+                                    page_size: int = HISTORY_PAGE_DEFAULT
+                                    ) -> dict:
+        """События активаций страницей: новые сверху (контракт EVOL-017)."""
+        await self.ensure_journal()
+        size = clamp_page_size(page_size)
+        ts = _parse_ts(cursor["ts"]) if cursor else None
+        sort_id = str((cursor or {}).get("sort_id") or "")
+        rank_start = int((cursor or {}).get("rank") or 1)
+
+        async def _run(conn):
+            return await conn.fetch(_PAGE_ACTIVATIONS_DESC_SQL, block_id,
+                                    chat_id, ts, sort_id, size + 1)
+        recs = await self._run_on_conn(_run)
+        rows = [self._activation_history_row(r) for r in recs]
+        page = rows[:size]
+        has_more = len(rows) > size
+        next_cursor = (encode_history_cursor(page[-1].created_at,
+                                             page[-1].sort_id,
+                                             rank_start + len(page))
+                       if has_more and page else "")
+        return {"rows": page, "next_cursor": next_cursor,
+                "has_more": has_more, "rank_start": rank_start}
 
     async def list_activations(self, block_id: str,
                                chat_id: int | None = None,
@@ -1503,6 +2049,47 @@ async def _insert_revision_once(store, spec, *, origin: str, body: str,
     return row
 
 
+async def _record_legacy_snapshot(store, spec, *, scope: str,
+                                  chat_id: int | None, current: str,
+                                  cache, release_id: str,
+                                  results: list) -> None:
+    """Снимок действующих байтов scope как ``origin=legacy`` (§1.4, §3.7).
+
+    Снимок делается ДО первой записи заводского текста: даже байты, равные
+    заводским, подписываются ``origin=legacy`` (UI не выдаёт их за правку в
+    админке); пустое значение → ``skipped_empty``, автор не выдумывается.
+
+    Один и тот же снимок нужен двум веткам релиза: обычному cutover и
+    закреплённому scope (owner baseline), который по ревью PVR-S2 N1 больше
+    не идёт через cutover — иначе его ручной текст никогда не попадал бы в
+    историю. Повторный вызов идемпотентен по ``revision_id``.
+    """
+    if current.strip():
+        snapshot = await _insert_revision_once(
+            store, spec, origin="legacy", body=current, scope=scope,
+            chat_id=chat_id, actor="", reason="legacy_import",
+            source_updated_at=_source_updated_at(spec, cache),
+            release_id=release_id)
+        await store.insert_activation(ActivationRow(
+            block_id=spec.block_id, scope=scope, chat_id=chat_id,
+            revision_id=snapshot.revision_id,
+            factory_revision_applied="", kind="legacy_import",
+            outcome="applied", release_id=release_id, actor="",
+            detail_code="legacy_snapshot"))
+        results.append(BlockReleaseResult(
+            spec.block_id, scope, chat_id, "legacy_snapshot", "applied",
+            "legacy_import", revision_id=snapshot.revision_id))
+        return
+    await store.insert_activation(ActivationRow(
+        block_id=spec.block_id, scope=scope, chat_id=chat_id,
+        revision_id="", factory_revision_applied="",
+        kind="legacy_import", outcome="skipped_empty",
+        release_id=release_id, actor="", detail_code="legacy_empty"))
+    results.append(BlockReleaseResult(
+        spec.block_id, scope, chat_id, "legacy_snapshot",
+        "skipped_empty", "legacy_import"))
+
+
 async def _apply_block_release(store, spec, cache, *,
                                release_id: str,
                                doc_state: dict[str, dict] | None = None
@@ -1662,6 +2249,14 @@ async def _apply_scope_release(store, spec, *, scope: str,
         # снимается. Указатель применённой метки двигается (outcome
         # skipped_same) — следующий рестарт видит ту же метку и остаётся
         # истинным no-op, ``activation_drift`` не возникает.
+        # РЕВЬЮ PVR-S2 N1: снимок текущих байтов не теряется и в этой ветке —
+        # иначе scope без маркера импорта (ревизия пришла через
+        # copy-to-global) навсегда оставался бы без legacy-снимка своего
+        # ручного текста.
+        if spec.pg_key and not has_import:
+            await _record_legacy_snapshot(
+                store, spec, scope=scope, chat_id=chat_id, current=current,
+                cache=cache, release_id=release_id, results=results)
         revision = await _insert_revision_once(
             store, spec, origin="factory", body=factory_body, scope=scope,
             chat_id=chat_id, factory_revision=plan.code_revision,
@@ -1686,33 +2281,9 @@ async def _apply_scope_release(store, spec, *, scope: str,
         return
 
     if plan.action == pr.PLAN_LEGACY_CUTOVER and spec.pg_key:
-        # Снимок ДО первой записи заводского текста (§1.4): даже байты,
-        # равные заводским, — origin=legacy (UI не подписывает это «Изменена
-        # в админке»); пустой ключ → skipped_empty, автор не выдумывается.
-        if current.strip():
-            snapshot = await _insert_revision_once(
-                store, spec, origin="legacy", body=current, scope=scope,
-                chat_id=chat_id, actor="", reason="legacy_import",
-                source_updated_at=_source_updated_at(spec, cache),
-                release_id=release_id)
-            await store.insert_activation(ActivationRow(
-                block_id=spec.block_id, scope=scope, chat_id=chat_id,
-                revision_id=snapshot.revision_id,
-                factory_revision_applied="", kind="legacy_import",
-                outcome="applied", release_id=release_id, actor="",
-                detail_code="legacy_snapshot"))
-            results.append(BlockReleaseResult(
-                spec.block_id, scope, chat_id, "legacy_snapshot", "applied",
-                "legacy_import", revision_id=snapshot.revision_id))
-        else:
-            await store.insert_activation(ActivationRow(
-                block_id=spec.block_id, scope=scope, chat_id=chat_id,
-                revision_id="", factory_revision_applied="",
-                kind="legacy_import", outcome="skipped_empty",
-                release_id=release_id, actor="", detail_code="legacy_empty"))
-            results.append(BlockReleaseResult(
-                spec.block_id, scope, chat_id, "legacy_snapshot",
-                "skipped_empty", "legacy_import"))
+        await _record_legacy_snapshot(
+            store, spec, scope=scope, chat_id=chat_id, current=current,
+            cache=cache, release_id=release_id, results=results)
 
     # Активация заводской ревизии (deploy / cutover).
     revision = await _insert_revision_once(
@@ -3002,6 +3573,16 @@ async def copy_revision_to_global(block_id: str, revision_id: str, *,
                 store, spec, origin="restored", body=source.body or "",
                 scope="global", chat_id=None, actor=str(actor or ""),
                 reason=copy_reason, schema_compat=source.schema_compat or "")
+            # РЕВЬЮ PVR-S2 N2: идентичность ревизии определяется байтами, а не
+            # вызовом. Если те же байты уже копировали (из другого чата или
+            # раньше), `ON CONFLICT DO NOTHING` оставляет ПРЕЖНЮЮ строку — и
+            # ответ обязан отдавать фактически сохранённый `reason`, иначе
+            # провенанс в ответе расходится с журналом.
+            stored = await store.get_revision(row.revision_id)
+            stored_reason = str((stored.reason if stored is not None
+                                 else "") or "").strip()
+            if stored_reason:
+                copy_reason = stored_reason
     logger.info("[prompt_release] revision copied to global | block=%s | "
                 "source=%s | chat=%s | new=%s | actor=%s", spec.block_id,
                 source.revision_id, source.chat_id, row.revision_id,
@@ -3018,7 +3599,11 @@ async def copy_revision_to_global(block_id: str, revision_id: str, *,
 
 async def list_versions(block_id: str, *, scope: str = "global",
                         chat_id: int | None = None, cache=None,
-                        store=None, actor=None) -> dict:
+                        store=None, actor=None,
+                        page_size: int = HISTORY_PAGE_DEFAULT,
+                        cursor: str | None = None,
+                        revisions_cursor: str | None = None,
+                        activations_cursor: str | None = None) -> dict:
     """Данные «Истории версий» (EVOL-017): активная ревизия, заводская,
     хронология ревизий и событий включения. Тексты по умолчанию не отдаются
     (источник просмотра — ``get_revision_source``/``diff_revisions``).
@@ -3027,22 +3612,51 @@ async def list_versions(block_id: str, *, scope: str = "global",
     P0-2 (01.11.2026): сбой чтения журнала поднимает
     :class:`JournalUnavailable` (HTTP-слой отдаёт 503) — история не
     подменяется пустым списком.
+
+    EPIC-PROMPT-VERSIONING-UX-01 §3.5 / §2.2 п.3 (PVR-S3): потолка истории
+    больше нет. ``page_size`` — размер ОДНОЙ страницы (не лимит истории),
+    ``cursor`` — непрозрачный keyset-курсор объединённой ленты ``entries``
+    (новые сверху, курсор ведёт вглубь истории).
+    ``revisions_cursor``/``activations_cursor`` листают исторические списки по
+    отдельности: первая страница — самые новые записи, внутри страницы
+    сохраняется прежний порядок (ревизии ASC, активации DESC).
+    Тела текстов в списках отсутствуют всегда: ``body_available`` лишь
+    сообщает, что полный текст можно запросить по ``revision_id``.
     """
     spec = pr.block(block_id)
     if spec is None:
         return {"block_id": block_id, "known": False}
     check_permission(str(actor or ""), "prompt.list_versions",
                      block_id=block_id, scope=scope, chat_id=chat_id)
+    size = clamp_page_size(page_size)
+    # Курсор разбирается ДО чтения журнала: испорченный курсор — это 422
+    # запроса (ValueError), а не «журнал недоступен» (503).
+    entries_cursor = decode_history_cursor(cursor)
+    revs_cursor = decode_history_cursor(revisions_cursor)
+    acts_cursor = decode_history_cursor(activations_cursor)
     store = store if store is not None else default_journal(cache)
-    revisions: list = []
-    activations: list = []
+    entries = HistoryPage(rows=[])
+    revisions_page: dict = {"rows": [], "next_cursor": "", "has_more": False,
+                           "rank_start": 1}
+    activations_page: dict = {"rows": [], "next_cursor": "", "has_more": False,
+                             "rank_start": 1}
     state = None
+    baseline_event = None
     if store is not None:
         try:
             await store.ensure_journal()
-            revisions = await store.list_revisions(block_id, chat_id)
-            activations = await store.list_activations(block_id, chat_id)
+            entries = await store.list_history_page(
+                block_id, chat_id=chat_id, cursor=entries_cursor,
+                page_size=size)
+            revisions_page = await store.list_revisions_page(
+                block_id, chat_id=chat_id, cursor=revs_cursor,
+                page_size=size)
+            activations_page = await store.list_activations_page(
+                block_id, chat_id=chat_id, cursor=acts_cursor,
+                page_size=size)
             state = await store.read_applied(spec.block_id, scope, chat_id)
+            baseline_event = await store.read_baseline_event(
+                spec.block_id, scope, chat_id)
         except Exception as exc:
             # Ревью P0-2 (01.11.2026): раньше сбой чтения журнала глотался и
             # отдавался ПУСТОЙ список — история выглядела «пустой», хотя она
@@ -3052,6 +3666,10 @@ async def list_versions(block_id: str, *, scope: str = "global",
                            exc_info=True)
             raise JournalUnavailable(
                 f"journal read failed: {type(exc).__name__}") from exc
+    active_id = str(state.revision_id or "") if state is not None else ""
+    baseline_id = (str(baseline_event.revision_id or "")
+                   if baseline_event is not None
+                   and baseline_event.kind == "baseline_assign" else "")
     active = None
     if state is not None and state.revision_id:
         rev = await store.get_revision(state.revision_id)
@@ -3060,29 +3678,86 @@ async def list_versions(block_id: str, *, scope: str = "global",
                       "sha256_12": rev.content_sha12,
                       "chars": len(rev.body or ""),
                       "created_at": rev.created_at,
+                      "source": history_source(rev.origin),
                       "factory_revision_applied":
                           state.factory_revision_applied}
+
+    def _entry(row, order: int) -> dict:
+        status = _status_of_row(row, active_id, baseline_id)
+        source = history_source(row.origin, kind=row.kind)
+        return {
+            "entry_type": row.entry_type,
+            "order": int(order),
+            "created_at": row.created_at,
+            "revision_id": row.revision_id,
+            "event_id": row.activation_id or None,
+            "source": source,
+            "source_label": history_source_label(source),
+            "origin": row.origin or "",
+            "kind": row.kind or "",
+            "outcome": row.outcome or "",
+            "detail_code": row.detail_code or "",
+            "actor": row.actor,
+            "scope": row.scope,
+            "chat_id": row.chat_id,
+            "status": status,
+            "status_label": history_status_label(status),
+            # §2.4 п.9/§2.2 п.8: retired и несовместимые читаются и
+            # сравниваются, но действие над ними недоступно всегда.
+            "actionable": status not in ("retired", "incompatible"),
+            "reason": row.reason or "",
+            "reason_text": history_reason_text(
+                status, schema_compat=row.schema_compat,
+                detail_code=row.detail_code),
+            # Тело в списке не отдаётся никогда: флаг говорит лишь о том, что
+            # его можно запросить по revision_id (§3.7 ТЗ).
+            "body_available": bool(row.entry_type == ENTRY_REVISION
+                                   or row.revision_id),
+            "chars": int(row.chars or 0),
+            "sha256_12": row.content_sha12,
+            "release_id": row.release_id,
+            "factory_revision": row.factory_revision,
+            "schema_compat": row.schema_compat,
+            "retired": bool(row.retired),
+        }
+
     rows: list[dict] = []
-    for r in revisions:
-        rows.append({
-            "revision_id": r.revision_id, "origin": r.origin,
-            "sha256_12": r.content_sha12, "chars": _revision_chars(r),
-            "factory_revision": r.factory_revision,
-            "release_id": r.release_id, "actor": r.actor, "reason": r.reason,
-            "retired": r.retired, "created_at": r.created_at,
-            "schema_compat": r.schema_compat,
-            # global/chat и адресат ревизии видны в строке истории.
-            "scope": r.scope, "chat_id": r.chat_id,
+    for r in revisions_page["rows"]:
+        item = _entry(r, 0)
+        item.pop("order", None)
+        item.pop("entry_type", None)
+        item.pop("event_id", None)
+        item.pop("kind", None)
+        item.pop("outcome", None)
+        item.pop("detail_code", None)
+        item["chars"] = int(r.chars or 0)
+        rows.append(item)
+    events: list[dict] = []
+    for a in activations_page["rows"]:
+        status = _status_of_row(a, active_id, baseline_id)
+        source = history_source(a.origin, kind=a.kind)
+        events.append({
+            "kind": a.kind, "outcome": a.outcome,
+            "revision_id": a.revision_id, "scope": a.scope,
+            "chat_id": a.chat_id, "release_id": a.release_id,
+            "actor": a.actor, "detail_code": a.detail_code,
+            "created_at": a.created_at,
+            "activation_id": a.activation_id or None,
+            "source": source, "source_label": history_source_label(source),
+            "status": status, "status_label": history_status_label(status),
+            "actionable": status not in ("retired", "incompatible"),
+            "reason_text": history_reason_text(
+                status, schema_compat=a.schema_compat,
+                detail_code=a.detail_code),
+            "body_available": bool(a.revision_id),
         })
     # §2.4: owner baseline — часть состояния «Истории версий» того же ответа
     # (UI не делает второй запрос). Нет журнала — baseline честно не известен.
     baseline = _empty_baseline_payload(spec, scope, chat_id)
     if store is not None:
         try:
-            event = await store.read_baseline_event(spec.block_id, scope,
-                                                    chat_id)
-            baseline = await _baseline_payload(store, spec, event, scope,
-                                              chat_id)
+            baseline = await _baseline_payload(store, spec, baseline_event,
+                                               scope, chat_id)
         except Exception:      # pragma: no cover — baseline не рушит историю
             logger.warning("[prompt_release] baseline недоступен в истории",
                            exc_info=True)
@@ -3097,14 +3772,36 @@ async def list_versions(block_id: str, *, scope: str = "global",
                 pr.factory_text(block_id))),
         "active": active,
         "baseline": baseline,
+        # Объединённая лента «сохранения + активации» — основной список панели
+        # истории (§2.2 п.3), новые сверху, один стабильный курсор.
+        "entries": [_entry(row, entries.rank_start + idx)
+                    for idx, row in enumerate(entries.rows)],
+        "page": {
+            "page_size": size,
+            "order": HISTORY_ORDER_NEWEST,
+            "next_cursor": entries.next_cursor,
+            "has_more": bool(entries.has_more),
+            "returned": len(entries.rows),
+            "rank_start": int(entries.rank_start),
+            "total_known": None,        # честно: полный COUNT страницей не нужен
+        },
         "revisions": rows,
-        "activations": [{
-            "kind": a.kind, "outcome": a.outcome,
-            "revision_id": a.revision_id, "scope": a.scope,
-            "chat_id": a.chat_id, "release_id": a.release_id,
-            "actor": a.actor, "detail_code": a.detail_code,
-            "created_at": a.created_at,
-        } for a in activations],
+        "revisions_page": {
+            # Внутри страницы — исторический порядок; первая страница содержит
+            # самые НОВЫЕ ревизии, курсор ведёт вглубь (старее).
+            "order": HISTORY_ORDER_OLDEST,
+            "paging": HISTORY_ORDER_NEWEST,
+            "next_cursor": revisions_page["next_cursor"],
+            "has_more": bool(revisions_page["has_more"]),
+            "returned": len(rows),
+        },
+        "activations": events,
+        "activations_page": {
+            "order": HISTORY_ORDER_NEWEST,
+            "next_cursor": activations_page["next_cursor"],
+            "has_more": bool(activations_page["has_more"]),
+            "returned": len(events),
+        },
     }
 
 
@@ -3126,7 +3823,13 @@ def _revision_chars(revision: RevisionRow) -> int:
 async def get_revision_source(revision_id: str, *, cache=None,
                               store=None, actor=None) -> dict:
     """Полный текст ревизии (просмотр/diff-источник в EVOL-017).
-    Ревью F4: доступ через hook полномочий; тела промптов в логи не пишутся."""
+
+    Ревью F4: доступ через hook полномочий; тела промптов в логи не пишутся.
+    PVR-S3 (§2.2 п.4, §2.4 п.9): тело доступно всегда, даже у ``retired`` и
+    несовместимой ревизии — «недоступно» не подменяется пустым текстом, а
+    причина и запрет действия отдаются явно (``status``/``reason_text``/
+    ``actionable``).
+    """
     check_permission(str(actor or ""), "prompt.get_revision_source",
                      revision_id=revision_id)
     store = store if store is not None else default_journal(cache)
@@ -3137,11 +3840,26 @@ async def get_revision_source(revision_id: str, *, cache=None,
     if revision is None:
         return {"known": False, "reason": "revision_unknown",
                 "revision_id": revision_id}
+    status = history_status(retired=bool(revision.retired),
+                            schema_compat=str(revision.schema_compat or ""),
+                            revision_id=revision.revision_id)
+    source = history_source(revision.origin)
     return {"known": True, "revision_id": revision.revision_id,
             "block_id": revision.block_id, "origin": revision.origin,
             "sha256_12": revision.content_sha12, "body": revision.body,
             "created_at": revision.created_at, "retired": revision.retired,
-            "schema_compat": revision.schema_compat}
+            "schema_compat": revision.schema_compat,
+            "scope": revision.scope, "chat_id": revision.chat_id,
+            "actor": revision.actor, "reason": revision.reason,
+            "chars": len(revision.body or ""),
+            "source": source, "source_label": history_source_label(source),
+            "status": status, "status_label": history_status_label(status),
+            "actionable": status not in ("retired", "incompatible"),
+            "reason_text": history_reason_text(
+                status, schema_compat=revision.schema_compat),
+            # Список тел не отдаёт; здесь тело есть — флаг нужен UI, чтобы
+            # различить «текст доступен» и «текст исторически утрачен».
+            "body_available": True}
 
 
 async def diff_revisions(revision_a: str, revision_b: str, *, cache=None,
@@ -3164,12 +3882,23 @@ async def diff_revisions(revision_a: str, revision_b: str, *, cache=None,
             "added_lines": sum(1 for x in diff if x.startswith("+")
                                and not x.startswith("+++")),
             "removed_lines": sum(1 for x in diff if x.startswith("-")
-                                 and not x.startswith("---"))}
+                                 and not x.startswith("---")),
+            # §2.2 п.5/§2.4 п.9: retired и несовместимые ревизии сравниваются
+            # как обычные — но причина запрета действия остаётся видимой.
+            "statuses": {"a": a.get("status", ""), "b": b.get("status", "")},
+            "reason_text": (a.get("reason_text") or b.get("reason_text") or ""),
+            "actionable": bool(a.get("actionable") and b.get("actionable"))}
 
 
 __all__ = [
     "CUTOVER_RELEASE_ID", "JOURNAL_DDL", "SUPPORTED_SCHEMA_COMPAT",
     "LOCK_TIMEOUT_SQL", "NON_TEXT_VALUE_KEYS",
+    "HISTORY_PAGE_DEFAULT", "HISTORY_PAGE_MAX", "HISTORY_ORDER_NEWEST",
+    "HISTORY_ORDER_OLDEST", "REVISION_SOURCES", "REVISION_STATUSES",
+    "HistoryRow", "HistoryPage", "clamp_page_size", "encode_history_cursor",
+    "decode_history_cursor", "activation_sort_id", "history_source",
+    "history_source_label", "history_status", "history_status_label",
+    "history_reason_text",
     "RevisionRow", "ActivationRow", "AppliedState", "BaselineEvent",
     "BlockReleaseResult",
     "PromptWriteItem", "JournalWriteGrant",
