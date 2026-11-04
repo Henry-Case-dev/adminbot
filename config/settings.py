@@ -596,6 +596,11 @@ class Settings:
         "SYSTEM2_FACTCHECK_ENABLED", True)
     SYSTEM2_SUMMARY_ENABLED: ClassVar[bool] = _env_bool(
         "SYSTEM2_SUMMARY_ENABLED", True)
+    # RLR-02 (REMOVE-LEGACY-REPHRASING v2.0, §4/§6.4): DEPRECATED_COMPAT.
+    # Ключ намеренно остаётся ЧИТАЕМЫМ (старые .env/значения БД не ломают
+    # старт) и не имеет потребителя в активном графе: legacy-цепочка
+    # «Синтезатор → Вербализатор» для Direct удалена физически.
+    # RLR-05: резолвер делает ЛЮБОЕ значение (true/1/on/false/0/null) False.
     SYSTEM2_DIRECT_ENABLED: ClassVar[bool] = resolve_legacy_rephrasing_env_flag(
         "SYSTEM2_DIRECT_ENABLED", _env_bool("SYSTEM2_DIRECT_ENABLED", True))
     # ── Раунд 10.23 (F3, ADR-1023-3): env-only ClassVar kill-switch умного

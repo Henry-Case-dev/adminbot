@@ -102,7 +102,12 @@ class _FakeLLM:
     async def generate(self, messages, temperature=None, chat_id=None,
                        module=None, step=None, correlation_id=None, **kwargs):
         self.calls.append({"step": step, "messages": messages,
-                           "kwargs": kwargs})
+                           "kwargs": kwargs,
+                           # RLR-02-LEGACY: идентификатор прогона фиксируется
+                           # явным параметром — контракт «одна корреляция на
+                           # ход» проверяется на живых стадиях L1/L2.
+                           "correlation_id": correlation_id,
+                           "module": module})
         if step == "l1_planner":
             if self.l1_error is not None:
                 raise self.l1_error

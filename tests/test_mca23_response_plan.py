@@ -496,54 +496,23 @@ def _tool_raw(text="финал tool-loop"):
         tool_context="сырые логи")
 
 
-class TestVerbalizerExecutesPlan:
-    @pytest.mark.asyncio
-    async def test_longform_plan_extent_block_replaces_mode_block(self):
-        svc = _service([_DIRECT_JSON, "развернутый ответ"])
-        plan = ResponsePlan(task_kind="creative_writing", extent="longform",
-                            structure="story", delivery_hint="plain",
-                            tool_policy="none")
-        text, mode = await svc._synthesize_direct_answer(
-            -100, "что там", _tool_raw(), None, plan=plan)
-        assert text == "развернутый ответ"
-        stage2_system = svc.llm.generate.await_args_list[1].args[0][0][
-            "content"]
-        assert "ОЖИДАЕМАЯ ПОЛНОТА: РАЗВЁРНУТЫЙ ТЕКСТ" in stage2_system
-        assert "Форма результата: история." in stage2_system
-        assert MODE_CASUAL_BLOCK not in stage2_system
-        # max_tokens: только longform-план получает модельный слот длины
-        stage2_kwargs = svc.llm.generate.await_args_list[1].kwargs
-        assert stage2_kwargs.get("max_output_tokens") == \
-            rext.DEFAULT_LONGFORM_MAX_OUTPUT_TOKENS
-
-    @pytest.mark.asyncio
-    async def test_no_plan_legacy_mode_block_and_no_max_tokens(self):
-        svc = _service([_DIRECT_JSON, "ответ"])
-        text, _mode = await svc._synthesize_direct_answer(
-            -100, "что там", _tool_raw(), None)
-        stage2_system = svc.llm.generate.await_args_list[1].args[0][0][
-            "content"]
-        assert MODE_CASUAL_BLOCK in stage2_system
-        assert "ОЖИДАЕМАЯ ПОЛНОТА: " not in stage2_system
-        assert svc.llm.generate.await_args_list[1].kwargs.get(
-            "max_output_tokens") is None
-
-    @pytest.mark.asyncio
-    async def test_compact_plan_no_max_tokens(self):
-        svc = _service([_DIRECT_JSON, "ответ"])
-        plan = ResponsePlan(extent="compact", structure="chat")
-        await svc._synthesize_direct_answer(
-            -100, "что там", _tool_raw(), None, plan=plan)
-        assert svc.llm.generate.await_args_list[1].kwargs.get(
-            "max_output_tokens") is None
-
-
 class TestPromptConflictScrubLive:
-    """PG-кастом со старым cap + longform-план → фраза вычищена из сборки."""
+    """PG-кастом со старым cap + longform-план → фраза вычищена из сборки.
+
+    RLR-02-LEGACY: контракт §11 не изменился, изменился ИСПОЛНИТЕЛЬ — теперь
+    это единственный автор хода (L2 Writer). Раньше он проверялся на удалённой
+    паре «Синтезатор → Вербализатор»; сборка финального system и владелец
+    скраба (`response_extent.scrub_for_plan`) те же, поэтому живое покрытие
+    перенесено без ослабления: точный счётчик удалённых cap-фраз, extent-блок
+    в сборке и WARN со стадией `l2_writer`.
+    """
 
     @pytest.mark.asyncio
     async def test_pg_cap_custom_scrubbed_with_warn(self, monkeypatch, caplog):
         from services import hot_config as hot
+        from services import prompt_factory as pf
+        from tests.test_soul1_composer_parity_off import (
+            build_service, StubLLM)
 
         class _FakeCache:
             pg_available = True
@@ -557,6 +526,9 @@ class TestPromptConflictScrubLive:
             async def set(self, key, value, category):
                 self.values[key] = value
 
+        # Композер OFF — сборку делает владелец `compose_verbalizer_system`
+        # (тот же канал, что у легаси Stage-2; паритет байт-в-байт).
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "false")
         pg_prompt = (PREV_CHAT_VERBALIZER_R1023
                      + "\n\n" + TYPOGRAPHY_BLOCK)  # прод-канон 10.23 с cap
         cache = _FakeCache({
@@ -564,25 +536,26 @@ class TestPromptConflictScrubLive:
         hot.set_config_cache(cache)
         # SOUL-1 (W1 fix-pass, review-w1 BLOCKER-1): значение канона старой
         # личности действует только как записанное через API реестра.
-        from services import prompt_factory as pf
         await pf.write_speech_value(
             "direct.base.l2_writer", pg_prompt, cache=cache)
         try:
-            svc = _service([_DIRECT_JSON, "ответ"])
             plan = ResponsePlan(task_kind="creative_writing",
                                 extent="longform", structure="story",
                                 delivery_hint="plain", tool_policy="none")
+            Stub, D = build_service()
+            llm = StubLLM()
             with caplog.at_level(logging.WARNING,
                                  logger="services.direct_chat_service"):
-                await svc._synthesize_direct_answer(
-                    -100, "что там", _tool_raw(), None, plan=plan)
-            stage2_system = svc.llm.generate.await_args_list[1].args[0][0][
-                "content"]
-            # cap-фраза вычищена из ФИНАЛЬНОЙ сборки ( extent-блок жив)
-            assert "одно-два предложения" not in stage2_system
-            assert "ОЖИДАЕМАЯ ПОЛНОТА: РАЗВЁРНУТЫЙ ТЕКСТ" in stage2_system
+                await D._l2_write_answer(
+                    Stub(llm), 12345, "что там", temperature=0.7,
+                    character_block="", response_plan=plan)
+            system = llm.captured[-1]["messages"][0]["content"]
+            # cap-фраза вычищена из ФИНАЛЬНОЙ сборки (extent-блок жив).
+            assert "одно-два предложения" not in system
+            assert "ОЖИДАЕМАЯ ПОЛНОТА: РАЗВЁРНУТЫЙ ТЕКСТ" in system
+            assert "Форма результата: история." in system
             assert any("extent-conflict scrub" in r.message
-                       and "stage=verbalizer" in r.message
+                       and "stage=l2_writer" in r.message
                        for r in caplog.records)
         finally:
             hot.set_config_cache(None)

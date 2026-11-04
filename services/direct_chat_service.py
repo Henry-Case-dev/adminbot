@@ -122,7 +122,6 @@ from services.sandbox_reply import DEFAULT_NO_KEY_REPLY
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
     DIRECT_L1_PLANNER_SYSTEM_PROMPT,
-    DIRECT_SYNTHESIZER_SYSTEM_PROMPT,
     DIRECT_VERBALIZER_SYSTEM_PROMPT,
     PREV_CHAT_VERBALIZER_R1023,
 )
@@ -221,10 +220,7 @@ from services.prompt_style_blocks import (
     resolve_prompt,
 )
 from services.system2_handoff import (
-    normalize_response_mode,
-    parse_direct_synthesis,
     redact_secrets,
-    stage2_payload,
 )
 from services.tool_loop import (
     ToolLoopResult,
@@ -5105,52 +5101,22 @@ class DirectChatService:
                 _log_coordinator_decision(
                     coordinator, chat_id=chat_id,
                     with_decision_fields=decision_on)
-            # Раунд 10.22 (F5, ADR-1022-5): System 2 (Синтезатор тулов →
-            # Вербализатор) — ТОЛЬКО при реально вызванных тулах, успешном
-            # tool-финале и НЕ lore_compiled (детерминированная HTML-история
-            # остаётся вне System 2, Д-9). Любой сбой → финал tool-loop.
-            # A1 (D4): то же условие, выраженное через решение координатора
-            # (`action == tool` ⇔ те же условия) — Вербализатор не запускается
-            # при не-текстовом решении (молчание/реакция не генерируют текст).
-            response_mode = "serious"      # F3: fail-safe до Stage-2
+            response_mode = "serious"      # F3: fail-safe до Writer
             # MCA-15 (D5, T-4931; K2): контракт проверки чисел ЭТОГО хода из
             # per-turn `ctx.metric_results` (+intent). K2 OFF/ошибка → None
             # (байт-паритет). Один контракт на System2 и финальную сборку.
             numeric_contract = self._numeric_contract_from_ctx(tool_ctx)
-            # ── ASAP 7 (F1, §1.2): гейт System2 демонтирован из primary path
-            # (guard `not direct_l1_on`); его роль забрал L2 Writer ниже.
-            if (not direct_l1_on
-                    and getattr(settings, "SYSTEM2_DIRECT_ENABLED", True)
-                    and isinstance(raw, ToolLoopResult)
-                    and not raw.degraded
-                    and bool(getattr(raw, "tool_trace", None))
-                    and not getattr(tool_ctx, "lore_compiled", False)
-                    and (coordinator is None
-                         or coordinator.action == ACTION_TOOL)
-                    # MCA-23 фаза 2 (§18-I): media-план с УСПЕШНО доставлен-
-                    # ным медиа — Writer-регенерация бесполезна (тул уже
-                    # отправил файл; idempotent). Провал media-тула → Writer
-                    # работает как раньше (честная деградация §19).
-                    and _extent.media_writer_needed(response_plan, raw)):
-                synthesized = await self._synthesize_direct_answer(
-                    chat_id, query, raw, temperature,
-                    correlation_id=correlation_id,
-                    bundle=evidence_bundle,
-                    character_block=character_block,
-                    style_directives=style_directives,
-                    numeric_contract=numeric_contract,
-                    plan=response_plan,
-                    # P0-HA QUALITY (блокер 4 review-w4): выборка хода есть
-                    # и при выключенном L1 — system Stage-2 получает ту же
-                    # инструкцию сборки; без выборки "" → байт-паритет.
-                    history_assembly_block=(
-                        HISTORY_COVERAGE_ASSEMBLY_BLOCK
-                        if history_sample is not None else ""))
-                if synthesized:
-                    # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
-                    raw, response_mode = synthesized
-                    if coordinator is not None:
-                        coordinator.style = response_mode
+            # ── RLR-02 (REMOVE-LEGACY-REPHRASING v2.0; R-00.1/R-02.1/R-02.4):
+            # второй автор демонтирован ФИЗИЧЕСКИ. Раньше здесь при
+            # `not direct_l1_on` + успешном ToolLoopResult + непустом
+            # tool_trace + `SYSTEM2_DIRECT_ENABLED` запускался
+            # `_synthesize_direct_answer` (Stage-1 JSON-справка → Stage-2
+            # Вербализатор, с `FormContract(source_text=draft_text)`). Ни
+            # флаг, ни отключённый L1, ни failover, ни недоступный инструмент
+            # больше не возвращают эту ветку: вызова не существует, функции
+            # не существует. Ошибка L2 — диагностируемая ошибка (LLMError →
+            # честная фраза недоступности либо retry/fallback того же этапа),
+            # а не переход в legacy-текст.
             if direct_l1_on:
                 # ── ASAP 7 (F1, §1.1/§1.2) + v6 D04 (§18C.2): evidence
                 # packaging (дет., БЕЗ LLM; fair allocation per source) →
@@ -7756,256 +7722,6 @@ class DirectChatService:
                                text=text, mode=_expr_mode,
                                rendered=_expr_rendered)
         return text, response_mode
-
-    # ── System 2 direct (F5, раунд 10.22, ADR-1022-5) — legacy-ветка ────
-
-    async def _synthesize_direct_answer(self, chat_id: int, query: str,
-                                        raw, temperature,
-                                        correlation_id: str | None = None,
-                                        bundle=None,
-                                        character_block: str = "",
-                                        style_directives: str = "",
-                                        numeric_contract=None,
-                                        plan=None,
-                                        history_assembly_block: str = ""
-                                        ) -> tuple[str, str] | None:
-        """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
-
-        Stage-1 получает ТОЛЬКО санитизированную «кашу» логов; Stage-2 —
-        ONLY валидированную JSON-справку (изоляция). Любой сбой/невалидный
-        JSON/пустой ответ → ``None`` (fail-safe, R17: логи без содержимого).
-
-        Раунд 10.23 (F3, ADR-1023-3): возвращает ``(текст, response_mode)`` —
-        режим нужен вызывающему, чтобы выбрать канал доставки (deep_research →
-        safe-HTML «Летописца»). Роутера третьим вызовом нет: режим едет в
-        том же JSON Stage-1.
-
-        MCA-07 (T-3852, ADR-1027-7 D6/SC-09): при переданном `bundle` Stage-1
-        получает scoped-срез ЕДИНОГО EvidenceBundle (адресат/ветка/ограничения/
-        `context_version`) — System2 после tool loop НЕ теряет контекст и НЕ
-        получает только вопрос+tool output. `bundle=None`/gate OFF → прежний
-        Stage-1 (байт-в-байт, паритет).
-
-        MCA-08 (D2, AM-2): `character_block` — опциональный хвост
-        владельческой основы (persona + Character_Rules) у verbalizer-промпта
-        (default "" → байт-паритет всех текущих вызовов); второго сборщика
-        промпта нет.
-
-        MCA-08 (D5/D8, T-4904/T-4907): `style_directives` — опциональный
-        `<Style_Requests>`-блок (K3; default "" → паритет). `form_contract`
-        строится из проверенного черновика (финал tool-loop) для form-гардов
-        постпроцессора (K4; без контракта — байт-паритет 2.58.54).
-
-        MCA-15 (D5, T-4931): `numeric_contract` — опциональный контракт
-        проверки чисел ЭТОГО хода (default None → паритет); нарушение →
-        ≤1 numeric-повтор тем же Вербализатором, затем детерминированная
-        замена/снятие (второго LLM-судьи нет).
-
-        MCA-23 (W3, §4/§11): `plan` — ResponsePlan, классифицированный до
-        LLM-стадии. Непустой план → Вербализатор получает extent-блок
-        («ОЖИДАЕМАЯ ПОЛНОТА») ВМЕСТО mode-блока (response_mode остаётся
-        compat-алиасом: routing/format/доставка без изменений); при
-        longform-плане из собранного промпта детерминированно вычищается
-        старый cap-текст (PG-кастом не правится, WARN в лог) и на Stage-2
-        передаётся max_output_tokens. plan=None (тесты/legacy) → байт-
-        паритет прежней сборки.
-
-        P0-HA QUALITY (волна 4, блокер 4 review-w4): `history_assembly_block`
-        — опциональный блок инструкции финальной сборки по находкам истории
-        (default "" → байт-паритет). Шов хода передаёт ПОЛНЫЙ
-        HISTORY_COVERAGE_ASSEMBLY_BLOCK ТОЛЬКО при активной выборке
-        (System2 может нести выборку при выключенном L1 —@@HISTORY_COVERAGE
-        на этом пути не возникает, но правило качества сборки должны
-        получать оба Writer-канала); аппенд в system Stage-2 ПОСЛЕ scrub,
-        целиком, как в `_l2_write_answer`.
-        """
-        draft_text = strip_reasoning_tags(str(raw).strip())
-        form_contract = (_nc.FormContract(source_text=draft_text)
-                         if draft_text else None)
-        try:
-            tool_context = redact_secrets(
-                str(getattr(raw, "tool_context", "") or ""))
-            trace = getattr(raw, "tool_trace", []) or []
-            trace_summary = ", ".join(
-                f"{entry.get('tool')}:{entry.get('out_chars')}"
-                for entry in trace if entry.get("tool")) or "-"
-            synth_user = (
-                f"СООБЩЕНИЕ ЮЗЕРА:\n{query}\n\n"
-                f"ИНСТРУМЕНТЫ (сводка):\n{trace_summary}\n\n"
-                f"ВЫВОДЫ ИНСТРУМЕНТОВ:\n{tool_context}"
-            )
-            # MCA-07 D6: scoped-срез bundle не теряется после tool loop.
-            bundle_slice = _bundle_scoped_slice(bundle)
-            if bundle_slice:
-                synth_user = f"{bundle_slice}\n\n{synth_user}"
-            # ── SOUL-1 (W2, §4 п.4): Stage-1 — машинный профиль
-            # (`machine_json`): только канал-контракт, Core/юмор физически
-            # не подключаются. OFF → байт-в-байт прежняя строка ниже.
-            _c_gates = await _composer_resolve_gates(chat_id)
-            _stage1_base = resolve_prompt(
-                "prompts.direct_chat_synthesizer_system_prompt",
-                DIRECT_SYNTHESIZER_SYSTEM_PROMPT)
-            if _pcomp.composer_enabled_now(_c_gates):
-                _stage1_manifest = _pcomp.compose_machine_system(
-                    _stage1_base, writer="system2_stage1", chat_id=chat_id,
-                    run_id=correlation_id)
-                _pcomp.emit_layer_events_once(_stage1_manifest)
-            synth_messages = [
-                {"role": "system", "content": _stage1_base},
-                {"role": "user", "content": synth_user},
-            ]
-            raw_synth = await self.llm.generate(
-                synth_messages, temperature=temperature, chat_id=chat_id,
-                module="direct_chat", step="stage1",
-                correlation_id=correlation_id)
-            data = parse_direct_synthesis(str(raw_synth))
-            if data is None:
-                logger.info(
-                    "[direct] system2: невалидная справка — fallback | chat=%s",
-                    chat_id)
-                return None
-            # Review iter1 (M1): при kill-switch OFF режим не выбирается вовсе
-            # (fail-safe serious) — включая маршрут доставки.
-            modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
-            response_mode = (normalize_response_mode(data.get("response_mode"))
-                             if modes_on else "serious")
-            verbalizer_template = (
-                resolve_prompt("prompts.direct_chat_verbalizer_system_prompt",
-                               DIRECT_VERBALIZER_SYSTEM_PROMPT)
-                if modes_on else PREV_CHAT_VERBALIZER_R1023)
-            # MCA-23 (W3, §11): план — источник полноты; extent-блок заменяет
-            # mode-блок. plan=None → "" → прежняя mode-сборка (паритет).
-            _plan_extent_block = ""
-            if plan is not None and modes_on:
-                _plan_extent_block = _extent.render_extent_block(plan)
-            # Review iter1 (H2): direct deep_research доставляется safe-HTML
-            # (`parse_mode="HTML"` + escape_lore_html) → HTML-capable блок.
-            # ── SOUL-1 (W2, §4 п.3): тот же композер, что у L2 (Core/личность
-            # из того же хода — общая ревизия identity). OFF → прежняя строка.
-            if _pcomp.composer_enabled_now(_c_gates):
-                verbalizer_system, _s2_manifest = \
-                    await self._compose_speech_system(
-                        chat_id=chat_id, writer="system2_stage2",
-                        run_id=correlation_id,
-                        base_prompt=verbalizer_template,
-                        base_key="prompts.direct_chat_verbalizer_system_prompt",
-                        base_default=DIRECT_VERBALIZER_SYSTEM_PROMPT,
-                        base_source=("legacy_mode" if not modes_on else ""),
-                        include_mode_block=bool(modes_on),
-                        gates=_c_gates, response_mode=response_mode,
-                        response_plan=plan, extent_block=_plan_extent_block,
-                        identity_text=character_block,
-                        identity_source=("chat"
-                                         if mca_gates.character_layers_enabled()
-                                         else "legacy_persona"),
-                        identity_skipped=("" if _c_gates.persona_enabled
-                                          else "persona_disabled"),
-                        style_block=style_directives,
-                        style_skip=("style_scope_disabled"
-                                    if not mca_gates.style_scope_enabled()
-                                    else "style_requests_absent"))
-                _pcomp.emit_layer_events_once(_s2_manifest)
-            else:
-                verbalizer_system = (compose_verbalizer_system(
-                    verbalizer_template, response_mode, "plain",
-                    html_safe=True,
-                    character_block=character_block,
-                    style_directives=style_directives,
-                    extent_block=_plan_extent_block)
-                    if modes_on else verbalizer_template)
-            # MCA-23 (W3, §11/§32): prompt-conflict scrub — старый cap-текст
-            # (PG-кастом 10.23) не должен душить longform. Детерминированная
-            # вычистка из ФИНАЛЬНОЙ сборки; БД не трогается, WARN в лог.
-            # SOUL-1 (W2, §4 «доп.»): скраб больше НЕ гейтится режимами —
-            # Stage-2 приведён к единому решению с L2 (шаг нормализации один).
-            verbalizer_system, _scrubbed = _extent.scrub_for_plan(
-                verbalizer_system, plan)
-            if _scrubbed:
-                logger.warning(
-                    "[direct] extent-conflict scrub | chat=%s | "
-                    "stage=verbalizer | removed=%d", chat_id, _scrubbed)
-            # ── P0-HA QUALITY (волна 4, блокер 4 review-w4): ход с выборкой
-            # истории получает ту же инструкцию финальной сборки, что L2
-            # Writer. Аппенд ПОСЛЕ scrub, ЦЕЛИКОМ, ровно один раз; пустая
-            # строка (без выборки) — байт-паритет прежней сборки
-            # (ADDENDUM #3 §2.10: инструкции не сокращаются).
-            if history_assembly_block:
-                verbalizer_system = (verbalizer_system + "\n\n"
-                                     + history_assembly_block)
-            # MCA-23 (W3, §Model slots): longform-план получает явный
-            # max_tokens; compact/micro/None → None (ключ не едет, паритет).
-            _longform_tokens = (_extent.longform_max_output_tokens()
-                                if (plan is not None
-                                    and plan.is_longform()) else None)
-            base_messages = [
-                {"role": "system", "content": verbalizer_system},
-                {"role": "user",
-                 # spec F3 §3.1: служебный response_mode в Stage-2 не утекает.
-                 "content": "СПРАВКА (JSON):\n" + json.dumps(
-                     stage2_payload(data), ensure_ascii=False)},
-            ]
-
-            async def _generate(messages):
-                return await self.llm.generate(
-                    messages, temperature=temperature, chat_id=chat_id,
-                    module="direct_chat", step="stage2",
-                    correlation_id=correlation_id,
-                    max_output_tokens=_longform_tokens)
-
-            enabled_rules = (channel_enabled_rules("plain", response_mode)
-                             if modes_on else None)
-            text, stats = await verbalize_validated(
-                _generate, base_messages, max_retries=2,
-                enabled_rules=enabled_rules,
-                dynamic_rules=anticliche_cache.get_rules() or None,
-                form_contract=form_contract,
-                fallback_text=(draft_text or None),
-                numeric_contract=numeric_contract)
-            logger.info(
-                "[direct] system2 | chat=%s | mode=%s | attempts=%d | retries=%d | "
-                "hits=%d | fallback=%s", chat_id, response_mode,
-                stats.get("attempts", 0), stats.get("retries", 0),
-                len(stats.get("hits") or []), bool(stats.get("fallback")))
-            # MCA-08 (D8, T-4908): notable-событие form-гарда (единственный
-            # журнал; reason_code = эквивалент meaning_changed из санкции).
-            _form_rejects = int(stats.get("form_guard_rejects") or 0)
-            if _form_rejects:
-                _mca_events.emit_mca_event(
-                    "postprocess_form", outcome="skipped",
-                    level=_mca_events.LEVEL_WARN, component="direct_chat",
-                    stage="form_guard",
-                    reason_code=(stats.get("form_guard_reason")
-                                 or "form_guard_rejected"),
-                    chat_id=chat_id, attempt=_form_rejects)
-                logger.info(
-                    "[direct] system2 form guard | chat=%s | rejects=%d | "
-                    "retry=%s | form_fallback=%s", chat_id, _form_rejects,
-                    bool(stats.get("form_retry")),
-                    bool(stats.get("form_fallback")))
-            # MCA-15 (D5, T-4931): notable-событие numeric-гарда — только при
-            # нарушении (per-reply «успехов» нет); R17-safe (код, без текста).
-            _num_mismatch = int(stats.get("numeric_claim_mismatch") or 0)
-            if _num_mismatch:
-                _num_fallback = bool(stats.get("numeric_claim_fallback"))
-                _mca_events.emit_mca_event(
-                    "numeric_claim_guard",
-                    outcome=("skipped" if _num_fallback else "success"),
-                    component="direct_chat", stage="claim_check",
-                    reason_code=("numeric_claim_fallback" if _num_fallback
-                                 else "numeric_claim_corrected"),
-                    chat_id=chat_id, attempt=_num_mismatch)
-                logger.info(
-                    "[direct] system2 numeric guard | chat=%s | mismatch=%d "
-                    "| retry=%s | fallback=%s", chat_id, _num_mismatch,
-                    bool(stats.get("numeric_claim_retry")), _num_fallback)
-            if not text.strip():
-                return None
-            return text, response_mode
-        except Exception as exc:                # fail-safe → финал tool-loop
-            logger.info(
-                "[direct] system2 failed — fallback tool-loop | chat=%s | "
-                "error=%s", chat_id, _exc_brief(exc))
-            return None
 
     # ── Context Partitioning (58.6) ─────────────────────────────
 

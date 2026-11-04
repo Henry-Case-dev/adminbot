@@ -222,37 +222,6 @@ class TestCharacterRulesInDirect:
             assert "<Character_Rules>" in text
             assert "Своё мнение" in text
 
-    @pytest.mark.asyncio
-    async def test_verbalizer_character_block_forwarded(self, monkeypatch):
-        from services.chat_prompts import DIRECT_VERBALIZER_SYSTEM_PROMPT
-        from services.prompt_style_blocks import compose_verbalizer_system
-        from tests.test_direct_two_call_round1022 import _SYNTH_JSON, \
-            _tool_raw
-        svc = DirectChatService.__new__(DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[_SYNTH_JSON, "ответ"])
-        block = _persona_block()
-        await svc._synthesize_direct_answer(
-            CHAT_ID, "q", _tool_raw(), None, character_block=block)
-        stage2 = svc.llm.generate.await_args_list[1].args[0]
-        assert stage2[0]["content"] == compose_verbalizer_system(
-            DIRECT_VERBALIZER_SYSTEM_PROMPT, "", "plain",
-            character_block=block)
-
-    @pytest.mark.asyncio
-    async def test_verbalizer_default_parity(self):
-        from services.chat_prompts import DIRECT_VERBALIZER_SYSTEM_PROMPT
-        from services.prompt_style_blocks import compose_verbalizer_system
-        from tests.test_direct_two_call_round1022 import _SYNTH_JSON, \
-            _tool_raw
-        svc = DirectChatService.__new__(DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[_SYNTH_JSON, "ответ"])
-        await svc._synthesize_direct_answer(CHAT_ID, "q", _tool_raw(), None)
-        stage2 = svc.llm.generate.await_args_list[1].args[0]
-        assert stage2[0]["content"] == compose_verbalizer_system(
-            DIRECT_VERBALIZER_SYSTEM_PROMPT, "", "plain")
-
     def test_character_rules_canon_text(self):
         rules = bot_persona.build_character_rules_block()
         assert rules.startswith("<Character_Rules>\n")

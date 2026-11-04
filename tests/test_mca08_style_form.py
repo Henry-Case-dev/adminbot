@@ -47,7 +47,6 @@ from tests.test_direct_chat import (
     _message,
 )
 from tests.test_mca08_character_speech import _persona_patch
-from tests.test_direct_two_call_round1022 import _SYNTH_JSON, _tool_raw
 
 ADMIN_ID = 999001
 
@@ -1004,85 +1003,6 @@ class TestVerbalizeFormFlow:
 
 
 # ── D: интеграция System2 + событие reason ──────────────────────────────────
-
-class TestPostprocessDirectIntegration:
-    @pytest.mark.asyncio
-    async def test_reject_retry_and_event(self, monkeypatch):
-        import services.direct_chat_service as dcs
-        calls = _events(monkeypatch)
-        svc = dcs.DirectChatService.__new__(dcs.DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[
-            _SYNTH_JSON, "тринадцать 13 штук", "двенадцать штук, красиво"])
-        text, _mode = await svc._synthesize_direct_answer(
-            1, "q", _tool_raw(text="двенадцать штук"), None)
-        assert text == "двенадцать штук, красиво"
-        form_events = [c for c in calls if c["event_name"] == "postprocess_form"]
-        assert len(form_events) == 1
-        assert form_events[0]["reason_code"] == FORM_GUARD_REJECTED
-        assert form_events[0]["chat_id"] == 1
-
-    @pytest.mark.asyncio
-    async def test_exhausted_returns_verified_draft(self, monkeypatch):
-        import services.direct_chat_service as dcs
-        calls = _events(monkeypatch)
-        svc = dcs.DirectChatService.__new__(dcs.DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[
-            _SYNTH_JSON, "13 штук", "13 штук"])
-        text, _mode = await svc._synthesize_direct_answer(
-            1, "q", _tool_raw(text="двенадцать штук"), None)
-        assert text == "двенадцать штук"            # проверенный черновик
-        assert any(c["event_name"] == "postprocess_form"
-                   for c in calls)
-
-    @pytest.mark.asyncio
-    async def test_leak_blocked_event_reason(self, monkeypatch):
-        import services.direct_chat_service as dcs
-        calls = _events(monkeypatch)
-        svc = dcs.DirectChatService.__new__(dcs.DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[
-            _SYNTH_JSON, "двенадцать штук fact:99", "двенадцать штук"])
-        text, _mode = await svc._synthesize_direct_answer(
-            1, "q", _tool_raw(text="двенадцать штук"), None)
-        assert text == "двенадцать штук"
-        form_events = [c for c in calls if c["event_name"] == "postprocess_form"]
-        assert form_events[0]["reason_code"] == FORM_GUARD_LEAK_BLOCKED
-
-    @pytest.mark.asyncio
-    async def test_k4_off_no_event_and_no_new_stats(self, monkeypatch):
-        import services.direct_chat_service as dcs
-        _gates(monkeypatch, style=True, form=False)
-        calls = _events(monkeypatch)
-        svc = dcs.DirectChatService.__new__(dcs.DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[
-            _SYNTH_JSON, "тринадцать 13 штук"])
-        text, _mode = await svc._synthesize_direct_answer(
-            1, "q", _tool_raw(text="двенадцать штук"), None)
-        assert text == "тринадцать 13 штук"          # байт-паритет K4 OFF
-        assert not [c for c in calls if c["event_name"] == "postprocess_form"]
-
-    @pytest.mark.asyncio
-    async def test_style_directives_forwarded_to_verbalizer(self):
-        import services.direct_chat_service as dcs
-        from services.chat_prompts import DIRECT_VERBALIZER_SYSTEM_PROMPT
-        from services.prompt_style_blocks import compose_verbalizer_system
-        svc = dcs.DirectChatService.__new__(dcs.DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[_SYNTH_JSON, "ответ"])
-        block = ss.render_style_block([
-            {"scope": "participant", "facet": "verbosity",
-             "directive": "short"}])
-        await svc._synthesize_direct_answer(
-            1, "q", _tool_raw(), None, style_directives=block)
-        stage2 = svc.llm.generate.await_args_list[1].args[0]
-        assert stage2[0]["content"] == compose_verbalizer_system(
-            DIRECT_VERBALIZER_SYSTEM_PROMPT, "", "plain",
-            style_directives=block)
-        assert "<Style_Requests>" in stage2[0]["content"]
-
 
 # ── E: реестр процессов mca-17a (T-4910) ────────────────────────────────────
 

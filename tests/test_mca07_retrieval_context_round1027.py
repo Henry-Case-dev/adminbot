@@ -752,41 +752,6 @@ async def test_a04_different_branch_different_context_version():
     assert b1.context_version != b2.context_version
 
 
-@pytest.mark.system2
-@pytest.mark.asyncio
-async def test_system2_receives_bundle_after_tool_loop():
-    """SC-09: System2 после tool loop получает bundle (не только вопрос+tool)."""
-    svc = _svc()
-    svc.llm = MagicMock()
-    svc.llm.generate = AsyncMock(side_effect=[_SYNTH_JSON, "готовый ответ"])
-    bundle = await svc._build_evidence_bundle(
-        -100, _Msg(), "почему?", "вася", 7, _blocks_with(),
-        chosen_intent="reply")
-    text, _mode = await svc._synthesize_direct_answer(
-        -100, "почему?", _tool_raw(), None, bundle=bundle)
-    assert text == "готовый ответ"
-    stage1_user = svc.llm.generate.await_args_list[0].args[0][1]["content"]
-    assert "КОНТЕКСТ ДИАЛОГА (не терять)" in stage1_user
-    assert "Адресат: вася" in stage1_user
-    assert "tg:42" in stage1_user
-    assert "почему именно так?" in stage1_user
-    # tool-вывод не потерян (прежний контракт Stage-1 сохранён)
-    assert "ВЫВОД ИНСТРУМЕНТА" in stage1_user
-
-
-@pytest.mark.system2
-@pytest.mark.asyncio
-async def test_system2_without_bundle_unchanged():
-    """OFF/без bundle → прежний Stage-1 (нет среза; паритет)."""
-    svc = _svc()
-    svc.llm = MagicMock()
-    svc.llm.generate = AsyncMock(side_effect=[_SYNTH_JSON, "ответ"])
-    await svc._synthesize_direct_answer(-100, "q", _tool_raw(), None,
-                                        bundle=None)
-    stage1_user = svc.llm.generate.await_args_list[0].args[0][1]["content"]
-    assert "КОНТЕКСТ ДИАЛОГА" not in stage1_user
-
-
 def test_excluded_capture_from_budget():
     """SC-08: блок, целиком вытесненный бюджетом, попадает в excluded[]."""
     svc = _svc()

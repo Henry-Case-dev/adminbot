@@ -55,7 +55,6 @@ from services.tool_router import (
     _dig_json_payload,
     _stats_json_payload,
 )
-from tests.test_direct_two_call_round1022 import _SYNTH_JSON, _tool_raw
 
 CHAT_ID = -100777
 
@@ -1201,30 +1200,6 @@ class TestNumericGuardVerbalize:
 class TestNumericGuardSendPaths:
     """Пять путей отправки: обычный/System2, fallback, lore-story (обход
     verbalizer), постпроцессор, финальная сборка — один и тот же гард."""
-
-    @pytest.mark.system2
-    @pytest.mark.asyncio
-    async def test_system2_uses_contract_and_emits_event(self, monkeypatch):
-        monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
-                            lambda: False)
-        events: list = []
-        monkeypatch.setattr(
-            mca_events, "emit_mca_event",
-            lambda name, **kw: events.append({"event_name": name, **kw}))
-        svc = DirectChatService.__new__(DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[
-            _SYNTH_JSON, "он писал 7 сообщений"])
-        contract = _contract(claims=(_claim(),),
-                             phrase="сообщений с совпадением: 9",
-                             expected=True)
-        text, _mode = await svc._synthesize_direct_answer(
-            1, "q", _tool_raw(), None, numeric_contract=contract)
-        # BGS-04: без второй генерации — детерминированная проверенная фраза
-        assert text == "сообщений с совпадением: 9"
-        assert svc.llm.generate.await_count == 2      # stage1 + stage2
-        guard = [e for e in events if e["event_name"] == "numeric_claim_guard"]
-        assert guard and guard[0]["reason_code"] == "numeric_claim_fallback"
 
     @pytest.mark.asyncio
     async def test_fallback_lore_bypass_and_plain_covered(self):

@@ -196,38 +196,6 @@ class TestFailurePathWiring:
         assert parse_summary_handoff(raw)["response_mode"] == ""
 
     @pytest.mark.asyncio
-    async def test_direct_chat_failure_uses_fallback_key(self):
-        from services.direct_chat_service import DirectChatService
-        hot.set_config_cache(_FakeCache({
-            "prompts.verbilizer_mode_casual": "CASUAL_SENTINEL",
-            "prompts.verbilizer_default_mode": "casual",
-        }))
-        svc = DirectChatService.__new__(DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[_direct_json(), "ответ"])
-        await svc._synthesize_direct_answer(-100, "q", _tool_result(), None)
-        stage2 = svc.llm.generate.await_args_list[1].args[0][0]["content"]
-        assert "CASUAL_SENTINEL" in stage2
-        assert MODE_SERIOUS_BLOCK not in stage2
-
-    @pytest.mark.asyncio
-    async def test_direct_chat_valid_mode_wins_on_real_wiring(self):
-        from services.direct_chat_service import DirectChatService
-        hot.set_config_cache(_FakeCache({
-            "prompts.verbilizer_mode_casual": "CASUAL_SENTINEL",
-            "prompts.verbilizer_mode_deep_research": "DEEP_SENTINEL",
-            "prompts.verbilizer_default_mode": "casual",
-        }))
-        svc = DirectChatService.__new__(DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[
-            _direct_json("deep_research"), "ответ"])
-        await svc._synthesize_direct_answer(-100, "q", _tool_result(), None)
-        stage2 = svc.llm.generate.await_args_list[1].args[0][0]["content"]
-        assert "DEEP_SENTINEL" in stage2
-        assert "CASUAL_SENTINEL" not in stage2
-
-    @pytest.mark.asyncio
     async def test_factcheck_failure_uses_fallback_key(self):
         """ASAP-FC-VOICE-01 / A: у фактчека нет режимного блока, поэтому
         резервный ключ режима не может подменить публичный канон на сбойном
