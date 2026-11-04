@@ -198,21 +198,20 @@ def test_synthesizer_prompt_is_hidden_but_readable_and_untouched():
     assert verbalizer.migration_class == ""
 
 
-def test_live_reroll_behaviours_are_reported_as_still_active():
+def test_reroll_behaviours_are_reported_as_removed():
+    """RLR-04 снял оба reroll'а: манифест говорит «нет», а не «ещё активен»."""
     rows = {row["name"]: row for row in _manifest()["behaviours"]}
-    expected = {
-        "duplicate_text_regeneration": "direct_chat_service.py:5414",
-        "numeric_freeform_postedit": "direct_chat_service.py:5328",
-    }
-    for name, call_site in expected.items():
+    for name in ("duplicate_text_regeneration", "numeric_freeform_postedit"):
         row = rows[name]
-        # Класс — целевое состояние (§4/R-04/R-05), но статус кода честный.
+        # Класс — целевое состояние (§4/R-04/R-05) и оно ДОСТИГНУТО.
         assert row["migration_class"] == pc.MIGRATION_REMOVED
-        assert call_site in row["consumer"]
         assert "RLR-04" in (row["consumer"] + row["note"]
                             + row["current_state"])
-        assert "active" in row["current_state"].lower()
+        assert "active" not in row["current_state"].lower()
+        assert "нет" in row["consumer"].lower()
         assert "нет переключателя" == row["ui"]
+    # Свободная речь больше не правится; гард остался только у lore-сборки.
+    assert "lore" in rows["numeric_freeform_postedit"]["consumer"].lower()
 
 
 def test_removed_and_deprecated_keys_have_no_editable_control():

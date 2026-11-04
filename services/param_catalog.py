@@ -327,13 +327,14 @@ LEGACY_REPHRASING_MIGRATION: tuple[MigrationRow, ...] = (
                       "удаление — RLR-02"),
     MigrationRow(
         "duplicate_text_regeneration", "behaviour", MIGRATION_REMOVED,
-        consumer="ЕЩЁ АКТИВЕН: direct_chat_service.py:5414 "
-                 "duplicate_guard_retry делает LLM-вызов при совпадении "
-                 "текста; снимается RLR-04",
+        consumer="нет (снято RLR-04: duplicate_guard_retry и текстовый "
+                 "reroll удалены из direct_chat_service; дубль доставки "
+                 "ловит идентичность события, не текст)",
         ui="нет переключателя",
         former_control="MCA_RESPONSE_FRESHNESS_GUARD_ENABLED",
-        note="RLR-04/R-05: два разных события могут дать одинаковый текст",
-        current_state="active until RLR-04"),
+        note="RLR-04/R-05: два разных события могут дать одинаковый текст — "
+             "он доставляется как написан",
+        current_state="removed (RLR-04, rlr/dcs-postprocess)"),
     MigrationRow(
         "form_freeform_retry", "behaviour", MIGRATION_REMOVED,
         consumer="нет",
@@ -342,13 +343,13 @@ LEGACY_REPHRASING_MIGRATION: tuple[MigrationRow, ...] = (
         note="форма проверяется только при явной трансформации"),
     MigrationRow(
         "numeric_freeform_postedit", "behaviour", MIGRATION_REMOVED,
-        consumer="ЕЩЁ АКТИВЕН: direct_chat_service.py:5328 "
-                 "apply_numeric_guard на обычном финале (verified_phrase/"
-                 "снятие); снимается RLR-04",
+        consumer="нет для свободной речи (снято RLR-04): apply_numeric_guard "
+                 "остаётся только у детерминированной lore/statistics-"
+                 "сборки; расхождение в речи Writer'а — наблюдение",
         ui="нет переключателя",
         former_control="MCA_NUMERIC_CLAIM_GUARD_ENABLED",
         note="RLR-04: структурные MetricResult проверяются до Writer",
-        current_state="active until RLR-04"),
+        current_state="removed (RLR-04, rlr/dcs-postprocess)"),
     MigrationRow(
         "evidence_egress_rewrite_drop", "behaviour", MIGRATION_REMOVED,
         consumer="нет (остаётся наблюдение/диагностика)",

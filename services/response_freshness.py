@@ -8,13 +8,11 @@ C7 (§16–§20 ТЗ):
 * **No-replay**: conversational финальный ответ не кешируется между разными
   messages; разрешён только intermediate-кеш. Legacy text-dedup остаётся
   OFF-политикой `MCA_CONTEXT_ANSWER_CACHE_ENABLED` (уже так).
-* **Exact duplicate guard** (§18): new tg_message_id AND
-  normalized(final) == normalized(recent bot answer) → максимум ОДНА
-  regeneration с фиксированным коротким hint; второй совпавший ответ
-  отправляется + metric. Exemptions: точная цитата, deterministic command
-  result, обязательный status/error phrase, structured output, code/hash/
-  ID, tool-result-данные, system/safety text. Paraphrase-postprocessor
-  ЗАПРЕЩЁН (не создан — invariant тестом).
+* **Exact duplicate — наблюдение** (§18; RLR-04/R-05): new tg_message_id
+  AND normalized(final) == normalized(recent bot answer) → наблюдение
+  совпадения текста. Reroll/regeneration по совпадению СНЯТ: два РАЗНЫХ
+  события могут законно получить одинаковый ответ, он доставляется как
+  написан. Paraphrase-postprocessor по-прежнему ЗАПРЕЩЁН (инвариант тестом).
 * **Lineage** (§20): safe snapshot (refs/context_version/model/provider/
   attempt/retry flag/source refs) — БЕЗ hidden CoT и raw private content.
 
@@ -38,12 +36,11 @@ logger = logging.getLogger(__name__)
 UPDATE_DEDUP_SLUG = "direct_update"
 UPDATE_DEDUP_TTL_SECONDS = 24 * 3600
 
-# Фиксированный короткий hint regeneration (§18; exact wording НЕ
-# фиксируется в ответах — это подсказка МОДЕЛИ, не ответ пользователю).
-DUPLICATE_GUARD_HINT = ("Не повторяй предыдущую реплику дословно; "
-                        "сохрани факты и ответь естественно в текущем "
-                        "контексте.")
-DUPLICATE_GUARD_MAX_ATTEMPTS = 1
+# RLR-04 (R-05.1, owner corrective 2026-11-05): постфактум-reroll по
+# совпадению текстов СНЯТ. Константы подсказки/bounded-попытки удалены вместе с
+# единственным потребителем (`direct_chat_service.duplicate_guard_retry`):
+# совпадение текста двух РАЗНЫХ событий — наблюдение, а не повод переписать
+# готовую речь. Идемпотентность держится на идентичности update (ниже).
 
 # Exemptions duplicate guard (§18): детерминированные/служебные тексты.
 EXEMPTION_STRUCTURED_PREFIXES = ("/", "!", "{", "[", "```")
@@ -151,12 +148,15 @@ async def mark_update_seen(cache, chat_id: int, tg_message_id: int | None,
 
 @dataclasses.dataclass(frozen=True)
 class DuplicateVerdict:
-    """Решение guard'а: regenerate (bounded 1) / send-as-is."""
+    """Решение guard'а: совпадение текста — ТОЛЬКО наблюдение (RLR-04).
+
+    Reroll-API больше нет: вердикт не даёт права на регенерацию/подмену
+    готовой речи (R-05.1–R-05.4).
+    """
 
     duplicate: bool
     exempt: bool
     reason_code: str | None
-    regeneration_allowed: bool
 
 
 def duplicate_exemption_reason(text: str | None) -> str | None:
@@ -180,37 +180,25 @@ def duplicate_exemption_reason(text: str | None) -> str | None:
 
 
 def evaluate_duplicate(final_answer: str | None, recent_answer: str | None,
-                       *, new_tg_message_id: int | None,
-                       regeneration_already_used: bool = False
-                       ) -> DuplicateVerdict:
-    """Exact duplicate guard (§18; D8).
+                       *, new_tg_message_id: int | None) -> DuplicateVerdict:
+    """Наблюдение exact-совпадения текста (§18; D8; RLR-04).
 
     duplicate = new tg_message_id AND normalized(final)==normalized(recent).
-    Regeneration — максимум ОДНА попытка (`regeneration_already_used`).
-    Exemptions детерминированных текстов всегда отправляются как есть.
-    Повторное совпадение → отправить + metric (без loop)."""
+    Вердикт НЕ разрешает reroll: завершённый авторский текст доставляется как
+    написан (два разных события могут законно совпасть). Exemptions
+    детерминированных текстов сохраняют ту же форму ответа."""
     if not freshness_guard_enabled():
-        return DuplicateVerdict(duplicate=False, exempt=False,
-                                reason_code=None, regeneration_allowed=False)
+        return DuplicateVerdict(duplicate=False, exempt=False, reason_code=None)
     if new_tg_message_id is None or not final_answer or not recent_answer:
-        return DuplicateVerdict(duplicate=False, exempt=False,
-                                reason_code=None, regeneration_allowed=False)
+        return DuplicateVerdict(duplicate=False, exempt=False, reason_code=None)
     if normalized_answer(final_answer) != normalized_answer(recent_answer):
-        return DuplicateVerdict(duplicate=False, exempt=False,
-                                reason_code=None, regeneration_allowed=False)
+        return DuplicateVerdict(duplicate=False, exempt=False, reason_code=None)
     exemption = duplicate_exemption_reason(final_answer)
     if exemption is not None:
         return DuplicateVerdict(duplicate=True, exempt=True,
-                                reason_code=f"exempt:{exemption}",
-                                regeneration_allowed=False)
-    if regeneration_already_used:
-        # bounded: второй совпавший ответ отправляется + metric (нет loop).
-        return DuplicateVerdict(duplicate=True, exempt=False,
-                                reason_code="duplicate_sent_after_retry",
-                                regeneration_allowed=False)
+                                reason_code=f"exempt:{exemption}")
     return DuplicateVerdict(duplicate=True, exempt=False,
-                            reason_code="duplicate_detected",
-                            regeneration_allowed=True)
+                            reason_code="duplicate_detected")
 
 
 # ── Lineage snapshot (§20; R17-safe) ────────────────────────────────────────

@@ -1018,10 +1018,15 @@ class TestVerbalizeFormFlow:
 class TestObservabilityRegistry:
     def test_direct_reply_stages_and_style_process(self):
         direct = reg.get_process("direct.reply")
-        for stage in ("character", "speech", "form_guard"):
+        for stage in ("character", "speech", "claim_check"):
             assert stage in direct.stages
         assert direct.stages_to_events["speech"] == "speech_understanding"
-        assert direct.stages_to_events["form_guard"] == "postprocess_form"
+        # RLR-04 (R-04.1/§4): post-L2 form-reroll снят → стадия `form_guard`
+        # и событие `postprocess_form` депрецированы (эмиттера в коде нет).
+        assert "form_guard" not in direct.stages
+        assert "form_guard" not in direct.stages_to_events
+        assert "postprocess_form" not in direct.event_names
+        assert "form_guard" not in direct.instrumentation
         style = reg.get_process("style.scope")
         assert style.version == "1"
         assert style.stages == ("ingest", "resolve", "apply", "expire")
@@ -1042,7 +1047,10 @@ class TestObservabilityRegistry:
                 r'emit_mca_event\(\s*["\']([A-Za-z0-9_]+)["\']', text))
             real |= {"mca07_" + name for name in re.findall(
                 r'emit_stage_event\(\s*["\']([a-z_]+)["\']', text)}
-        assert {"speech_understanding", "postprocess_form"} <= real
+        assert {"speech_understanding"} <= real
+        # RLR-04: `postprocess_form` больше не объявлен и не эмитится —
+        # висячей декларации нет.
+        assert "postprocess_form" not in real
         for process_id in ("direct.reply", "style.scope"):
             process = reg.get_process(process_id)
             declared = set(process.event_names) | set(
