@@ -104,6 +104,16 @@ class TestCurrentQuestionFullText:
         # Текст вопроса не «переписан»: он разложен на части, хвост известен
         # потребителю через overflow_parts, а не выброшен молча.
         assert selection.current_question.part_total > 1
+        # Ни одна часть не потеряна бесследно: вошедшие части + ссылки на
+        # остальные покрывают ровно столько частей, сколько их всего.
+        in_selection = 1 + len(selection.current_parts)
+        referenced = len(selection.provenance.overflow_parts)
+        assert in_selection + referenced == \
+            selection.current_question.part_total
+        for item in selection.provenance.overflow_parts:
+            assert item["source_id"] == selection.current_question.source_id
+            assert item["reason_code"] == "physical_overflow"
+            assert item["part"]
 
 
 # ═══ UR-09/UR-11.5: единственный allocator и порядок вытеснения ════════════

@@ -951,6 +951,10 @@ class ContextSelection:
 
     current_question: "ContextFragment"
     reply_parent: "ContextFragment | None" = None
+    # Части overflow-дробления (UR-10.1): та же реплика, разложенная на
+    # связанные куски со ссылкой на источник (без потери середины/конца).
+    current_parts: tuple = ()
+    reply_parent_parts: tuple = ()
     thread: tuple = ()
     memory: tuple = ()
     self_outputs: tuple = ()
@@ -964,8 +968,10 @@ class ContextSelection:
     def fragments(self) -> tuple:
         """Фрагменты в порядке UR-09 (текущий вопрос … фон)."""
         items: list = [self.current_question]
+        items.extend(self.current_parts)
         if self.reply_parent is not None:
             items.append(self.reply_parent)
+        items.extend(self.reply_parent_parts)
         items.extend(self.thread)
         items.extend(self.fresh_neighbours)
         items.extend(self.memory)
@@ -979,6 +985,9 @@ class ContextSelection:
         return {
             "policy_version": SELECTION_POLICY_VERSION,
             "current_question": _fragment_ref(self.current_question),
+            "current_parts": [_fragment_ref(f) for f in self.current_parts],
+            "reply_parent_parts": [_fragment_ref(f)
+                                    for f in self.reply_parent_parts],
             "reply_parent": (_fragment_ref(self.reply_parent)
                              if self.reply_parent is not None else None),
             "thread": [_fragment_ref(f) for f in self.thread],
@@ -1625,13 +1634,16 @@ def _rebuild_selection(selection: ContextSelection, fragments: list,
     by_role: dict[str, list] = {}
     for frag in ordered:
         by_role.setdefault(frag.role, []).append(frag)
-    current = (by_role.get(ROLE_CURRENT_QUESTION) or [None])[0]
-    if current is None:
-        current = selection.current_question
-    reply_parent = (by_role.get(ROLE_REPLY_PARENT) or [None])[0]
+    current_items = list(by_role.get(ROLE_CURRENT_QUESTION) or ())
+    current = (current_items[0] if current_items
+               else selection.current_question)
+    reply_items = list(by_role.get(ROLE_REPLY_PARENT) or ())
+    reply_parent = reply_items[0] if reply_items else None
     return ContextSelection(
         current_question=current,
+        current_parts=tuple(current_items[1:]),
         reply_parent=reply_parent,
+        reply_parent_parts=tuple(reply_items[1:]),
         thread=tuple(by_role.get(ROLE_THREAD, ())),
         fresh_neighbours=tuple(by_role.get(ROLE_FRESH_NEIGHBOUR, ())),
         memory=tuple(by_role.get(ROLE_MEMORY, ())),
