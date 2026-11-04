@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace as _dc_replace
 
 from config.settings import settings
 from services import hot_config as hot
@@ -1397,8 +1397,7 @@ def mark_source_conflicts(fragments, candidates) -> tuple[tuple, tuple]:
 
 
 def _replace_fragment(fragment: ContextFragment, **changes) -> ContextFragment:
-    import dataclasses as _dc
-    return _dc.replace(fragment, **changes)
+    return _dc_replace(fragment, **changes)
 
 
 # ── Overflow: дробление P0 без тихой потери середины/конца (UR-10.1) ────────
@@ -1616,8 +1615,7 @@ def allocate_selection(selection: ContextSelection,
 
 def _replace_fragment_prov(provenance: SelectionProvenance,
                            **changes) -> SelectionProvenance:
-    import dataclasses as _dc
-    return _dc.replace(provenance, **changes)
+    return _dc_replace(provenance, **changes)
 
 
 def _rebuild_selection(selection: ContextSelection, fragments: list,
@@ -1694,7 +1692,7 @@ def build_context_selection(
         thread=(), fresh_neighbours=(), memory=(), self_outputs=(),
         background=(), summary_map: SummaryMapRef | None = None,
         evidence=None, memory_candidates=(), budget_tokens: int = 0,
-        raw_counts: dict | None = None, now_ts: int = 0) -> ContextSelection:
+        raw_counts: dict | None = None) -> ContextSelection:
     """Собрать единый `ContextSelection` из готовых фрагментов (UR-09).
 
     Все данные уже типизированы существующими источниками (окно, thread_chain,
