@@ -1176,10 +1176,14 @@ def guard_egress(*, answer, decision: EvidenceDecision | None = None,
                 return EgressObservation(note="not_externally_factual")
         planned = _plan_claims_text(decision)
         cursor = 0
-        for index, raw in enumerate(_SENTENCE_SPLIT_RE.split(body)):
+        # Порядковый номер СОДЕРЖАТЕЛЬНОГО предложения: пустые сегменты между
+        # переводами строк не должны давать «дырку» в нумерации места.
+        ordinal = -1
+        for raw in _SENTENCE_SPLIT_RE.split(body):
             piece = str(raw or "").strip()
             if not piece:
                 continue
+            ordinal += 1
             start = body.find(piece, cursor)
             if start < 0:
                 start = cursor
@@ -1202,7 +1206,7 @@ def guard_egress(*, answer, decision: EvidenceDecision | None = None,
                 key = ""
             return EgressObservation(
                 action=GUARD_OBSERVED_UNVERIFIED, sentence=piece[:240],
-                sentence_index=index, char_start=start,
+                sentence_index=ordinal, char_start=start,
                 char_end=start + len(piece), claim_key=key,
                 reason_code=REASON_EVIDENCE_CLAIM_OBSERVED,
                 note=("planned_claim_unobserved" if planned_unconfirmed
