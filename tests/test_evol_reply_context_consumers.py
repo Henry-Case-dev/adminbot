@@ -697,62 +697,66 @@ class TestInitiativeWriterWindow:
 
 class TestManifestObservability:
     @pytest.mark.asyncio
-    async def test_direct_egress_guard_repeat_carries_the_run_projection(
+    async def test_direct_egress_observation_makes_no_second_writer_call(
             self, speech_on, monkeypatch):
-        """Продовый `handle()`: повтор egress-guard идёт с той же проекцией.
+        """BGS-02: срабатывание egress-guard'а не создаёт второго Writer'а.
 
-        Ровно тот путь, который нашло ревью (`handle` → guard → повторный
-        Writer): оба вызова Writer'а получают ОДНУ проекцию прогона, поэтому
-        манифест повтора не может объявить `internal` при речевом payload.
+        Раньше тест проверял, что повтор guard'а идёт по ТОЙ ЖЕ проекции прогона.
+        Повтора больше нет (смысловая постцензура снята): единственный вызов
+        Writer'а уже несёт проекцию и объявляет реальное представление, а
+        доставленный текст совпадает с L2 байт-в-байт — «второй манифест»,
+        который мог бы соврать, физически не существует.
         """
         from services import direct_chat_service as dcs
         from services import evidence_policy as ep
         from tests.test_asap7_direct_l1 import _drive, _FakeLLM, _plan_json
 
         calls: list[dict] = []
+        l2_text = "Вышла версия 1.5 этого ядра."
 
         async def _writer(self, chat_id, query, *, temperature=None,
                           correlation_id=None, **kw):
             calls.append({"speech": kw.get("speech")})
-            return ("Вышла версия 1.5 этого ядра.", "reply")
+            return (l2_text, "reply")
 
         async def _preflight(self, chat_id, correlation_id, **kwargs):
             return ep.EvidenceDecision(required=True,
                                        evidence_class="externally_factual")
 
-        async def _lookup(self, *args, **kwargs):
-            return "Релиз вышел 1 октября"
-
         svc, _react, bot, msg, user = _drive(
             monkeypatch, "бот, какая версия вышла?",
             llm=_FakeLLM(l1=_plan_json(response_act="answer"),
-                         l2="Вышла версия 1.5 этого ядра."))
+                         l2=l2_text))
         monkeypatch.setattr(dcs.DirectChatService, "_l2_write_answer", _writer)
         monkeypatch.setattr(dcs.DirectChatService, "_evidence_preflight",
                             _preflight)
-        monkeypatch.setattr(dcs.DirectChatService, "_evidence_lookup", _lookup)
         await svc.handle(bot, msg, user)
 
-        # Guard реально сделал повтор (иначе проверять нечего).
-        assert len(calls) >= 2, calls
-        assert calls[-1]["speech"] is not None, calls
-        assert calls[-1]["speech"] is calls[0]["speech"], calls
+        # Ни одного дополнительного Writer-вызова: guard только наблюдает.
+        assert len(calls) == 1, calls
+        assert calls[0]["speech"] is not None, calls
+        # Доставлен ровно L2-текст (неподтверждённая версия не вырезана).
+        assert svc._send_direct_answer.await_args.kwargs.get("correlation_id")
+        delivered = svc._send_direct_answer.await_args.args[2]
+        assert delivered == l2_text, delivered
 
     @pytest.mark.asyncio
-    async def test_egress_guard_repeat_carries_the_run_projection(
+    async def test_egress_observation_makes_no_second_initiative_writer_call(
             self, speech_on, monkeypatch):
-        """F4 ревью: повтор egress-guard идёт по ТОЙ ЖЕ проекции прогона.
+        """BGS-02: инициатива не получает второго Writer'а после guard'а.
 
-        Продовый вызов: `generate_initiative_reply` → guard → `_init_rewrite`
-        → `_evidence_rewrite`. Если повтор перестаёт получать проекцию,
-        `_l2_write_answer` пишет в манифест `internal` при речевом payload
-        (§9.4, сц.70) — здесь видно сам факт проводки.
+        Раньше тест проверял, что повтор egress-guard'а идёт по той же
+        проекции (`generate_initiative_reply` → `_init_rewrite`). Повтора нет:
+        единственный Writer получает проекцию прогона, а наблюдение едет в
+        событие — манифест не может объявить `internal` при речевом payload,
+        потому что второго манифеста не существует (§9.4, сц.70).
         """
         from services import direct_chat_service as dcs
         from tests.test_evol_evidence_routing import (
             _permissive_context, _plan, _Router)
 
         calls: list[dict] = []
+        l2_text = "Вышла версия 1.5 этого ядра."
 
         class _Mem:
             @staticmethod
@@ -770,7 +774,7 @@ class TestManifestObservability:
         async def _writer(self, chat_id, query, *, temperature=None,
                           correlation_id=None, **kw):
             calls.append({"query": query, "speech": kw.get("speech")})
-            return ("Вышла версия 1.5 этого ядра.", "reply")
+            return (l2_text, "reply")
 
         svc = object.__new__(dcs.DirectChatService)
         svc.tool_router = _Router(outputs={
@@ -785,18 +789,17 @@ class TestManifestObservability:
         plan = _plan(response_act="answer", external_claims=[
             {"entity": "релиз 1017", "relation": "event",
              "date": "1 октября"}])
-        await svc.generate_initiative_reply(
+        delivered = await svc.generate_initiative_reply(
             CHAT_ID, {"goal": "напомнить про релиз 1017"}, l1_plan=plan,
             correlation_id="run-f4i")
-        # Guard действительно сделал повтор (иначе проверять нечего).
-        assert len(calls) >= 2, calls
-        first, repeat = calls[0], calls[-1]
-        assert repeat["speech"] is not None, calls
-        # Это проекция ИМЕННО этого прогона (та же, что у первого вызова).
-        assert repeat["speech"] is first["speech"], calls
-        assert repeat["speech"].run_id == "run-f4i"
-        # Проекция не пустая: окно инициативы в ней размечено метками.
-        assert repeat["speech"].manifest()["items"], calls
+        # Один Writer-вызов: повтора по эвристике не существует.
+        assert len(calls) == 1, calls
+        assert calls[0]["speech"] is not None, calls
+        # Проекция — именно этого прогона.
+        assert calls[0]["speech"].run_id == "run-f4i"
+        assert calls[0]["speech"].manifest()["items"], calls
+        # Текст доставлен байт-в-байт (claim не вырезан).
+        assert delivered == l2_text, delivered
 
     @pytest.mark.asyncio
     async def test_initiative_addressee_is_named_from_the_window(
@@ -850,13 +853,13 @@ class TestManifestObservability:
         assert not re.search(r"смысловой адресат: U\d+", block), block
 
     @pytest.mark.asyncio
-    async def test_egress_guard_repeat_reports_the_same_representation(
+    async def test_writer_reports_the_real_representation(
             self, speech_on, monkeypatch):
-        """F4 ревью: повтор egress-guard пишет в манифест РЕАЛЬНОЕ представление.
+        """F4 ревью (сохранено после BGS-02): Writer пишет РЕАЛЬНОЕ представление.
 
-        Повтор идёт тем же Writer'ом и по тем же user-блокам (речевая
-        проекция), поэтому манифест обязан объявить `writer` и пары
-        «метка → ID», а не `internal` (§9.3 п.7/§9.4).
+        Повтора egress-guard'а больше нет, поэтому «манифест повтора» проверить
+        нечем — но сам инвариант остаётся: единственный Writer-вызов объявляет
+        `writer` и пары «метка → ID», а не `internal` (§9.3 п.7/§9.4).
         """
         from services import direct_chat_service as dcs
         from services import prompt_composer as pc
@@ -880,20 +883,17 @@ class TestManifestObservability:
         svc = _service()
         projection = SpeechProjection(run_id="f4")
         projection.message_label(f"tg:{TG_ROOT}")
-        out = await svc._evidence_rewrite(
+        out = await svc._l2_write_answer(
             CHAT_ID, "бот, это правда?",
             plan_block="", user_blocks=[f"<Global_Context>M1</Global_Context>"],
             response_plan=None, character_block="", style_directives="",
             numeric_contract=None, time_line="", evidence="",
             lessons_block="", speech_block="", temperature=0.5,
-            correlation_id="corr-f4", hint="перепроверь утверждение",
-            speech=projection)
-        assert out == "ответ", out
+            correlation_id="corr-f4", speech=projection)
+        assert out is not None and out[0] == "ответ", out
         assert seen.get("context_representation") == "writer", seen
         assert seen.get("speech_projection", {}).get("items") == {
             "M1": f"tg:{TG_ROOT}"}, seen
-        # Подсказка повтора доехала тем же user-каналом (второго Writer'а нет).
-        assert "перепроверь утверждение" in str(seen.get("user_parts"))
 
     @pytest.mark.asyncio
     async def test_manifest_carries_representation_and_counts(self):

@@ -6437,14 +6437,23 @@ class DirectChatService:
         """
         try:
             observed = int(stats.get("observed") or 0)
+            # 0 — валидное место (первое предложение / нулевой символ):
+            # ``or -1`` превращал его в «не найдено» и врал в inspector
+            # (§BGS-02.9), поэтому подменяем только отсутствующее значение.
+            _idx = stats.get("sentence_index")
+            _start = stats.get("char_start")
+            _end = stats.get("char_end")
+            sentence_index = -1 if _idx is None else int(_idx)
+            char_start = -1 if _start is None else int(_start)
+            char_end = -1 if _end is None else int(_end)
             emit_agentic_event(
                 _EVIDENCE_EVENT_EGRESS, run_id=correlation_id,
                 chat_id=chat_id,
                 observed=observed,
                 code=str(stats.get("code") or _evp.GUARD_NONE),
-                sentence_index=int(stats.get("sentence_index") or -1),
-                char_start=int(stats.get("char_start") or -1),
-                char_end=int(stats.get("char_end") or -1),
+                sentence_index=sentence_index,
+                char_start=char_start,
+                char_end=char_end,
                 reason=str(stats.get("reason_code") or ""),
                 note=str(stats.get("note") or ""))
             _mca_events.emit_mca_event(
@@ -6455,10 +6464,9 @@ class DirectChatService:
                 usage_json={"observed": observed,
                             "code": str(stats.get("code")
                                         or _evp.GUARD_NONE),
-                            "sentence_index": int(
-                                stats.get("sentence_index") or -1),
-                            "char_start": int(stats.get("char_start") or -1),
-                            "char_end": int(stats.get("char_end") or -1),
+                            "sentence_index": sentence_index,
+                            "char_start": char_start,
+                            "char_end": char_end,
                             "claim_key": str(stats.get("claim_key") or ""),
                             "note": str(stats.get("note") or "")})
         except Exception:      # pragma: no cover - телеметрия не рвёт чат
