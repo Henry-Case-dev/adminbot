@@ -233,8 +233,14 @@ const methods = captured.methods || {};
   assert.ok(JS.indexOf("'#/status/graph': '#/'") >= 0, '§16: ROUTE_PARENT');
   assert.ok(INDEX.indexOf('status-graph-full') >= 0, '§16: экран/шторка');
   assert.ok(INDEX.indexOf('graph-search__input') >= 0, '§16: поиск');
-  // Семантика веса/layout не переопределена.
-  assert.ok(JS.indexOf('barnesHut') >= 0, '§16: layout сохранён');
+  // Семантика веса/layout не переопределена. CMV-B (§8.1 контракта
+  // CM-VISUAL) собрал опции физики в едином конфиг-слое `cog-visual.js` —
+  // сам layout остаётся barnesHut.
+  const VIS_JS = require('fs').readFileSync(
+    require('path').join(__dirname, '..', '..', 'web', 'static',
+      'cog-visual.js'), 'utf-8');
+  assert.ok(JS.indexOf('barnesHut') >= 0 || VIS_JS.indexOf('barnesHut') >= 0,
+    '§16: layout сохранён');
   assert.ok(JS.indexOf('_graphSignature') >= 0, '§16: lazy/diff сохранены');
   delete global.window.CognitiveMap;
 })();

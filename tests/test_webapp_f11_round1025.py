@@ -191,7 +191,11 @@ class TestD4Graph:
             assert m in JS, m
 
     def test_weight_layout_unchanged(self):
-        assert "barnesHut" in JS
+        # CMV-B (§8.1 контракта CM-VISUAL): опции физики собраны в едином
+        # конфиг-слое `web/static/cog-visual.js`; layout остаётся barnesHut.
+        visual = (ROOT / "web" / "static" / "cog-visual.js").read_text(
+            encoding="utf-8")
+        assert "barnesHut" in JS or "barnesHut" in visual
         assert "_graphSignature" in JS
 
     def test_full_screen_route(self):

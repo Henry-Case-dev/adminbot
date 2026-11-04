@@ -53,6 +53,8 @@ INDEX = _read("web/index.html")
 CSS = _read("web/static/app.css")
 ADAPTER = _read("web/static/cognitive-map.js")
 MEMORY_API = _read("web/api/memory_agi.py")
+# CMV-A (EPIC-CM-VISUAL-01): единый визуальный преобразователь карты.
+VISUAL = _read("web/static/cog-visual.js")
 
 
 def _block(src: str, start: str, end: str) -> str:
@@ -682,3 +684,142 @@ def test_source_action_returns_focus_to_card_button():
         capture_output=True, text=True, timeout=90, cwd=ROOT)
     assert res.returncode == 0, res.stderr
     assert "EVOL-COG-MAP-CARD-FOCUS-OK" in res.stdout
+
+
+# ── 6. CMV-A (EPIC-CM-VISUAL-01): интеграция и инварианты ────────────────────
+# Пакет A не меняет визуальный язык: он фиксирует ОДИН жизненный цикл графа,
+# ОДНО преобразование модель→DataSet, камеру по формуле `fitScaleRef` и один
+# кадровый владелец. Пороги/формы/свечение — пакеты B/C/D, здесь их нет.
+
+def test_cmv_visual_layer_is_single_and_loaded_before_app():
+    """§10.1(3): одно преобразование nodes/edges → DataSet, ДО app.js."""
+    assert "/static/cog-visual.js" in INDEX
+    assert (INDEX.index("/static/cognitive-map.js")
+            < INDEX.index("/static/cog-visual.js")), \
+        "визуальный слой загружен раньше адаптера модели"
+    assert (INDEX.index("/static/cog-visual.js")
+            < INDEX.index("/web/app.js")), \
+        "app.js использует window.CogVisual — файл обязан быть раньше"
+    assert "window.CogVisual" in VISUAL
+    # Слои не размываются: визуальный файл не знает про модель и сеть.
+    for banned in ("normalizePayload", "this.api(", "fetch(",
+                   "XMLHttpRequest", "vis.Network"):
+        assert banned not in VISUAL, banned
+
+
+def test_cmv_visual_constants_live_in_one_layer():
+    """INV-05: геометрия/цвет/альфа собраны в одном конфиг-слое."""
+    assert "var CONFIG = {" in VISUAL
+    assert "padRatio: 1.1" in VISUAL, "формула обзора 1.1 — константа конфига"
+    assert "nominalRadius: 12" in VISUAL
+    assert "dimOpacity" in VISUAL
+    # В app.js не осталось литералов визуала: только ссылки на конфиг-слой.
+    assert "rgba(148,163,184" not in APP_JS
+    assert "roundness: 0.35" not in APP_JS
+    assert "Math.min(5, Math.log(1 + degree))" not in APP_JS
+    assert "COG_MAP_DIM_OPACITY" not in APP_JS
+    assert "V.nodeRows(" in APP_JS and "V.edgeRows(" in APP_JS, \
+        "строки DataSet строит единый преобразователь"
+
+
+def test_cmv_one_scene_owner_and_fixed_teardown():
+    """§1 контракта: сцена создаётся в одном месте и снимается по порядку."""
+    assert APP_JS.count("this._cogScene = {") == 1, \
+        "второй владелец сцены (второй canvas/RAF) недопустим"
+    create = _block(APP_JS, "_cogCreateNetwork: function (",
+                    "_cogRedraw: function")
+    assert "this._cogScene = {" in create
+    teardown = _block(APP_JS, "destroyCognitionGraph: function () {",
+                      "_startCognitionTimer: function")
+    order = [
+        "cancelAnimationFrame", "scene.ro.disconnect()", "scene.io.disconnect()",
+        "clearTimeout(scene.watchdog)", "this.cognitionNetwork.destroy()",
+        "this._cogScene = null",
+    ]
+    pos = [teardown.index(step) for step in order]
+    assert pos == sorted(pos), "порядок сноса сцены нарушен: %r" % (pos,)
+    # Второго window/document-листенера под граф нет — только наблюдатели.
+    assert "window.addEventListener" not in create
+    assert "document.addEventListener" not in create
+    assert "new ResizeObserver(" in APP_JS
+    assert "new IntersectionObserver(" in APP_JS
+
+
+def test_cmv_camera_is_fit_scale_ref_not_vis_fit():
+    """§4.1: камера обзора — `moveTo` по формуле от ПОЗИЦИЙ, не vis.fit()."""
+    assert "_cogApplyFit: function (animate) {" in APP_JS
+    body = _block(APP_JS, "_cogApplyFit: function (animate) {",
+                  "_cogAttachSceneObservers: function (el) {")
+    assert "net.moveTo({" in body
+    compute = _block(APP_JS, "_cogComputeFit: function () {",
+                     "_cogRefreshFitScale: function")
+    assert "V.fitCamera(" in compute
+    assert "getPositions()" in compute
+    # Позиции — единственный вход bbox: размеры строк DataSet не участвуют.
+    assert "row.size" not in compute and ".size" not in compute
+    # Первый кадр больше не делает `fit()` перед стабилизацией (двойной кадр).
+    assert "net.fit({ animation: false })" not in APP_JS
+    # «Сбросить вид» и сброс поиска идут тем же путём камеры.
+    reset = _block(APP_JS, "graphResetView: function () {",
+                   "openGraphFull: function () {")
+    assert "_cogApplyFit(" in reset and "cognitionNetwork.fit(" not in reset
+    clear = _block(APP_JS, "clearCognitionGraphSearch: function () {",
+                   "graphNeighborsOf: function (nodeId) {")
+    assert "_cogApplyFit(" in clear and "cognitionNetwork.fit(" not in clear
+
+
+def test_cmv_one_frame_owner_and_visibility_pause():
+    """§7.3/§10.2: один RAF-владелец КАРТЫ, пауза на скрытой вкладке."""
+    scene_region = _block(APP_JS, "_cogCreateNetwork: function (",
+                          "_cogApplyHighlight: function")
+    assert scene_region.count("requestAnimationFrame(") == 1, \
+        "у карты должен быть один кадровый владелец (нашёлся не один)"
+    assert "_cogPauseScene: function () {" in APP_JS
+    assert "_cogResumeScene: function () {" in APP_JS
+    body = _block(APP_JS, "_cogRequestFrame: function () {",
+                  "_cogPaintFrame: function (t) {")
+    assert "scene.raf != null) return false" in body, \
+        "single-flight: второй кадр не планируется"
+    assert "scene.paused" in body and "document.hidden" in body
+    assert "this.reducedMotion" in body, \
+        "prefers-reduced-motion не запускает непрерывные кадры"
+    vis = _block(APP_JS, "onVisibilityChange: function () {",
+                 "// Алиасы spec §3.6.3")
+    assert "_cogPauseScene()" in vis and "_cogResumeScene()" in vis
+    # Счётчики приёмки §10.3 доступны без «магии» в консоли.
+    counters = _block(APP_JS, "_cogDebugCounters: function () {",
+                      "_cogApplyHighlight: function")
+    for key in ("netCount", "rafActive", "observerCount", "listeners",
+                "fitScale", "canvases", "settled"):
+        assert key + ":" in counters, key
+
+
+def test_cmv_physics_terminates_once():
+    """§6.1/§8.1: стабилизация терминальна, камера ставится один раз."""
+    assert "COG_SETTLE_WATCHDOG_MS" in APP_JS
+    create = _block(APP_JS, "_cogCreateNetwork: function (",
+                    "_cogRedraw: function")
+    assert "settleView();" in create and "scene.settled" in create, \
+        "повторное событие стабилизации не должно ставить камеру второй раз"
+    assert "if (scene.settled) {" in create
+    assert "stopSimulation()" in create, "страховка терминации симуляции"
+    assert "physics: { enabled: false }" in create
+
+
+def test_cmv_node_suites_run():
+    """Живые node-прогоны: преобразование, камера, жизненный цикл."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node недоступен — JS-unit пропущен")
+    for script, marker in (
+        # CMV-B: визуальный тест теперь покрывает формы/палитру/свечение/
+        # импульсы/пульс/физику — маркер пакета B.
+        ("evol_cog_visual_test.js", "EVOL-CMV-B-VISUAL-OK"),
+        ("evol_cog_scene_test.js", "EVOL-CMV-A-SCENE-OK"),
+        ("routing_test.js", "JS-UNIT-OK"),
+    ):
+        res = subprocess.run(
+            [node, os.path.join("tests", "js", script)],
+            capture_output=True, text=True, timeout=120, cwd=ROOT)
+        assert res.returncode == 0, script + ": " + res.stderr[-2000:]
+        assert marker in res.stdout, script + ": " + res.stdout[-2000:]
