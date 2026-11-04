@@ -412,12 +412,14 @@
     },
     {
       "id": "unified-reply",
-      "status": "PENDING",
+      "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
       "source_sha256": "68EF29BE4AC838B80ADE0507E76C94EB1EC8046FB9B3BCA99D293AEFC121F25A",
-      "maps": [],
-      "coverage_complete": false,
-      "source_note": "Высокий приоритет среди новых непринятых поручений, но без вытеснения активных работ. Зависимость: UI-часть (UR-20..22, UR-29) делит web/app.js, web/index.html, web/static/app.css с EPIC-CM-VISUAL-01 (волны D/E) — один писатель, брать после освобождения web-файлов. Backend-пакеты (TurnEngine, Search-first, контекст/память, L2/output, речевая коррекция, ChatClock/timezone) не пересекаются с текущей волной карты.",
+      "maps": [
+        "plans/features/unified-reply/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Карта PM f21644b4: 261 обязательная строка (UR-01..UR-30 + подтребования, §11 чеклисты A-Д как UR-ACC-*, §12 запреты UR-BAN-*), 9 срезов UR-A..UR-G + подпакеты времени UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28), 3 live-строки (UR-ACC-E9/UR-30.7 postdeploy, UR-08.2 preprod). План-гейт 0 ошибок. ARCHITECT_REQUIRED до Builder на UR-A/C/C-CLOCK/C-SCHED/D/F (контракт 4359b966). Размещение: UR-B и контекстная часть UR-C стартуют сейчас параллельно CMV-D/E (свободные backend-файлы); UR-A — после освобождения direct_chat_service.py остатком RC v5; UR-F — только после мержа CMV-D+E (один писатель на web/app.js, web/index.html, web/static/app.css). Статус: UR-18 (метаданные генерации) принят и влит (3ad5036e); UR-B в работе.",
       "updated": "2026-11-05"
     }
   ],
@@ -985,8 +987,12 @@
       "target_task_ids": [
         "unified-reply"
       ],
-      "reconciled": false,
-      "note": "Высокий приоритет без нарушения уже поставленной очереди. Единый контур L1 -> tools -> L2 для Direct и Initiative, Search-first с фактическим вызовом, единый динамический контекст и capacity, история собственных доставленных реплик без самоподражания, единый per-chat IANA timezone в «Модули -> Время», сквозной Chat_Time_Context во всех пользовательских LLM-пайплайнах (Direct, Initiative, Factcheck, Summary и их стадии/fallback), per-chat расписание саммари и Goodmorning, защита от обрывов, читаемый UI и инспектор. UR-01..UR-30 обязательны; сохранность памяти, промптов и их версий."
+      "reconciled": true,
+      "note": "Высокий приоритет без нарушения уже поставленной очереди. Единый контур L1 -> tools -> L2 для Direct и Initiative, Search-first с фактическим вызовом, единый динамический контекст и capacity, история собственных доставленных реплик без самоподражания, единый per-chat IANA timezone в «Модули -> Время», сквозной Chat_Time_Context во всех пользовательских LLM-пайплайнах (Direct, Initiative, Factcheck, Summary и их стадии/fallback), per-chat расписание саммари и Goodmorning, защита от обрывов, читаемый UI и инспектор. UR-01..UR-30 обязательны; сохранность памяти, промптов и их версий.",
+      "reconciled_scope": "plans/features/unified-reply/requirements-map.json (261 required), slice-graph.json (UR-A..UR-G)",
+      "reconciled_on": "2026-11-05",
+      "reconciled_by": "PM",
+      "reconciled_in_commit": "f21644b4"
     }
   ]
 }
