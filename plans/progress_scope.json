@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-04",
+  "updated": "2026-11-05",
   "tasks": [
     {
       "id": "soul-1",
@@ -409,6 +409,16 @@
       "coverage_complete": true,
       "source_note": "58/58 обязательных строк VERIFIED, coverage_complete. Прод 2.58.155 @ f4a44167 (регистрация, атомарная запись, базовая версия, полная история, единый UI, стандарт и аудит); финальная приёмка S7 закрыта тестовой дельтой cd17ec91 поверх выложенного кода (код и CSS побайтово равны проду). Живые проверки на проде: каталог 112, /versions совпадает с БД, курсор без дублей, baseline никому не назначен, legacy-снимок снят, байты промптов владельца не изменены. Не наблюдались на проде (не блокеры): записи новых ревизий через спец-эндпоинты, история >50 версий на блок, pinned-поставка завода; реальный Telegram WebView — добровольное наблюдение владельца. Бэклог: метка «действует» в чатовой истории, тесты пишут в отслеживаемые evidence.",
       "updated": "2026-11-04"
+    },
+    {
+      "id": "unified-reply",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
+      "source_sha256": "68EF29BE4AC838B80ADE0507E76C94EB1EC8046FB9B3BCA99D293AEFC121F25A",
+      "maps": [],
+      "coverage_complete": false,
+      "source_note": "Высокий приоритет среди новых непринятых поручений, но без вытеснения активных работ. Зависимость: UI-часть (UR-20..22, UR-29) делит web/app.js, web/index.html, web/static/app.css с EPIC-CM-VISUAL-01 (волны D/E) — один писатель, брать после освобождения web-файлов. Backend-пакеты (TurnEngine, Search-first, контекст/память, L2/output, речевая коррекция, ChatClock/timezone) не пересекаются с текущей волной карты.",
+      "updated": "2026-11-05"
     }
   ],
   "owner_inputs": [
@@ -966,6 +976,17 @@
       ],
       "reconciled": true,
       "note": "Единый UI/UX и атомарный бэкенд версионирования всех редактируемых промптов на существующих prompt_registry/prompt_release_policy/immutable revisions; закрыть обходы журнала (особенно POST /api/initiative/meme-settings); owner baseline как указатель на immutable-ревизию, отдельно от code factory; без изменения текстов действующих промптов; постоянное проектное правило: новый editable prompt без полного версионирования - блокер. | reconciled 04.11.2026: карта plans/features/epic-prompt-versioning-ux-01 (63 инвентарных + 13 прозаических = 57 обязательных строк, 8 срезов, план-гейт EXIT 0 @d86cd330). Зафиксированы 4 обхода журнала и 5 best-effort путей, рассинхрон scope мемных блоков, обрезание истории LIMIT 50 и вторая bounded-история Speech."
+    },
+    {
+      "id": "OI-2026-11-05-UNIFIED-REPLY",
+      "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
+      "source_sha256": "68EF29BE4AC838B80ADE0507E76C94EB1EC8046FB9B3BCA99D293AEFC121F25A",
+      "kind": "new_task",
+      "target_task_ids": [
+        "unified-reply"
+      ],
+      "reconciled": false,
+      "note": "Высокий приоритет без нарушения уже поставленной очереди. Единый контур L1 -> tools -> L2 для Direct и Initiative, Search-first с фактическим вызовом, единый динамический контекст и capacity, история собственных доставленных реплик без самоподражания, единый per-chat IANA timezone в «Модули -> Время», сквозной Chat_Time_Context во всех пользовательских LLM-пайплайнах (Direct, Initiative, Factcheck, Summary и их стадии/fallback), per-chat расписание саммари и Goodmorning, защита от обрывов, читаемый UI и инспектор. UR-01..UR-30 обязательны; сохранность памяти, промптов и их версий."
     }
   ]
 }
