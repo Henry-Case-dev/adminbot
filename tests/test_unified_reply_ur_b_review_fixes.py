@@ -1,13 +1,12 @@
-"""UNIFIED-REPLY UR-B — review-fix: приватность, публичный якорь, явная просьба, ref.
+"""UNIFIED-REPLY UR-B — review-fix уровня tool-фазы (BGS-01 редакция).
 
-Воспроизводит ЧЕТЫРЕ находки ревью UR-B (до правки каждый тест падал):
+Проверяет то, что осталось обязательным после снятия приватного вето:
 
-  1. `privacy_blocked` — сеть не трогается ВООБЩЕ: пустая безопасная
-     формулировка не подменяется сырым текстом в fallback-ветке, а если вызов
-     всё же случился, `search_called` не может остаться False;
-  2. приватный пересказ после вычистки алиаса («Маша») не уходит провайдеру:
-     нет публичного якоря → `privacy_blocked`, 0 вызовов; публичное имя
-     (`Tesla`) по-прежнему ищется;
+  1. сеть не трогается по ТЕХНИЧЕСКИМ причинам (запрет человека, отсутствие
+     инструмента, пустая формулировка) — и это видно в трассе, а если вызов
+     всё-таки состоялся, `search_called` не может остаться False;
+  2. идентификаторы и алиасы участников не уезжают провайдеру, при этом сам
+     поиск выполняется (гигиена payload, а не вето по теме);
   3. явная просьба человека (`explicit_request=True`) делает поиск
      `required`/`user_forced` даже без `required_caps` и без ключевого слова;
      нет инструмента → честный `unavailable`, а не тихий пропуск;
@@ -52,24 +51,21 @@ def _search_calls(result):
             if str(item.get("tool") or "") == "execute_web_search"]
 
 
-# ── находка 1: приватный запрос — ни одного сетевого вызова ──────────────────
+# ── находка 1: технический пропуск не трогает сеть и виден в трассе ─────────
 
 
-class TestPrivacyBlockedTouchesNoNetwork:
+class TestTechnicalSkipTouchesNoNetwork:
     @pytest.mark.asyncio
-    async def test_raw_text_never_reaches_provider(self):
-        """Fallback-ветка `_SEARCH_RE` не возвращает сырой текст в поиск."""
+    async def test_user_forbid_never_reaches_provider(self):
         search = _SearchProvider("Ответ\nтекст\nhttps://example.com/x")
         plan = _plan(knowledge_origin="open_world",
                      capabilities_needed=["web_search"])
-        result = await _run(plan, RAW_QUERY, search,
-                            private_terms=("vasya",), required_caps=(
-                                "web_search",))
-        assert search.queries == [], "приватный текст ушёл в поисковик"
-        for leaked in ("vasya", "79991234567", "t.me", "@"):
-            assert all(leaked not in q for q in search.queries)
-        assert result.evidence.search_status == (
-            _dx.SEARCH_STATUS_PRIVACY_BLOCKED)
+        result = await _run(plan, "не ищи в интернете " + RAW_QUERY, search,
+                            private_terms=("vasya",),
+                            required_caps=("web_search",))
+        assert search.queries == [], "запрет сети человеком нарушен"
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_SKIPPED
+        assert result.evidence.search_skip_reason == _dx.SKIP_USER_FORBIDDEN
         assert result.evidence.search_called is False
         assert result.evidence.search_query == ""
         assert _search_calls(result) == []
@@ -77,17 +73,17 @@ class TestPrivacyBlockedTouchesNoNetwork:
 
     @pytest.mark.asyncio
     async def test_internal_tools_still_run_but_search_is_structurally_off(self):
-        """Запрет точечный: локальные инструменты работают, сеть — нет."""
+        """Технический запрет точечный: локальные инструменты работают."""
         search = _SearchProvider("Ответ\nтекст\nhttps://example.com/x")
         plan = _plan(knowledge_origin="open_world",
                      capabilities_needed=["web_search", "chat_history"])
-        result = await _run(plan, RAW_QUERY, search, private_terms=("vasya",),
+        result = await _run(plan, "не ищи в интернете, что мы обсуждали",
+                            search, private_terms=("vasya",),
                             tool_schemas=_schemas("execute_web_search",
                                                   "get_recent_history"))
         assert search.queries == []
         assert result.evidence.search_called is False
-        assert result.evidence.search_status == (
-            _dx.SEARCH_STATUS_PRIVACY_BLOCKED)
+        assert result.evidence.search_skip_reason == _dx.SKIP_USER_FORBIDDEN
 
     def test_search_called_cannot_be_false_for_a_real_call(self):
         """Если вызов всё-таки состоялся — трасса обязана это сказать."""
@@ -96,13 +92,16 @@ class TestPrivacyBlockedTouchesNoNetwork:
                 tool="execute_web_search", status="ok",
                 content="Заголовок\nфакт\nhttps://example.com/f")],
             chain_meta={"mode": "simple_tools"})
-        task = _dx.SearchTask(blocked_reason="privacy_blocked",
-                              source_request=RAW_QUERY)
+        task = _dx.build_search_query(
+            _plan(knowledge_origin="open_world"), query="курс биткоина")
         evidence = _dx._tool_evidence_from(
             raw, axis=_l1_axis(), search_task=task)
         assert evidence.search_called is True
-        assert evidence.search_status == _dx.SEARCH_STATUS_PRIVACY_BLOCKED
-        assert evidence.can_claim_verified is False
+        assert evidence.search_status == _dx.SEARCH_STATUS_OK
+        assert evidence.search_skip_reason == ""
+        # Гейт «проверил/нашёл» решает доставка в пакет (отдельный тест), а не
+        # приватность: здесь важно, что реальный вызов не подменён отказом.
+        assert evidence.search_status in _dx.SEARCH_STATUSES
 
 
 def _l1_axis():
@@ -111,28 +110,30 @@ def _l1_axis():
                           "normalized_open_world", False)
 
 
-# ── находка 2: приватный пересказ не становится запросом ─────────────────────
+# ── находка 2: идентификаторы вычищаются, поиск выполняется ─────────────────
 
 
-class TestPrivateRetellingNeedsPublicAnchor:
+class TestIdsStrippedSearchStillRuns:
     @pytest.mark.asyncio
-    async def test_alias_stripped_private_retelling_is_blocked(self):
+    async def test_ids_stripped_and_participant_name_not_sent(self):
         query = "Маша беременна третьем месяце говори никому"
         search = _SearchProvider("Ответ\nтекст\nhttps://example.com/x")
         plan = _plan(knowledge_origin="open_world")
         result = await _run(plan, query, search, private_terms=("Маша",))
-        assert search.queries == [], "личный рассказ ушёл в поисковик"
-        assert result.evidence.search_status == (
-            _dx.SEARCH_STATUS_PRIVACY_BLOCKED)
-        assert result.evidence.search_called is False
-        assert result.evidence.search_query == ""
+        assert len(search.queries) == 1, "BGS-01: пересказ должен искаться"
+        sent = search.queries[0].lower()
+        assert "маша" not in sent
+        assert "беременна" in sent, "тема запроса обязана уйти провайдеру"
+        assert result.evidence.search_called is True
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
 
-    def test_retelling_without_alias_is_blocked_too(self):
-        task = _dx.build_search_query(
-            _plan(knowledge_origin="open_world"),
-            query="она мне писала что беременна третьем месяце говори никому")
-        assert task.blocked is True
-        assert task.query == ""
+    @pytest.mark.asyncio
+    async def test_retelling_without_alias_is_searchable(self):
+        search = _SearchProvider("Ответ\nтекст\nhttps://example.com/x")
+        query = "она мне писала что беременна третьем месяце говори никому"
+        result = await _run(_plan(knowledge_origin="open_world"), query, search)
+        assert len(search.queries) == 1
+        assert "беременна" in search.queries[0].lower()
 
     @pytest.mark.asyncio
     async def test_public_name_in_retelling_still_searchable(self):
@@ -143,8 +144,7 @@ class TestPrivateRetellingNeedsPublicAnchor:
         assert len(search.queries) == 1, "публичное имя обязано искаться"
         sent = search.queries[0].lower()
         assert "tesla" in sent
-        for forbidden in ("маша", "беременна", "говори"):
-            assert forbidden not in sent
+        assert "маша" not in sent
         assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
 
 

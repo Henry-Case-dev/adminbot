@@ -304,11 +304,11 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
     в поисковик не попадает. Без неё — структурный срез по границе слова,
     а не буквальный ``[:256]``.
 
-    Review-fix UR-B-1: ``search_forbidden`` — структурный запрет сетевого
-    поиска на ход (приватный запрос / уже прочитанный источник). Тогда
-    `execute_web_search` вычищается из шагов (в т.ч. из fallback-ветки
-    `_SEARCH_RE`), а ``search_query`` НИКОГДА не подменяется сырым текстом:
-    иначе пустая безопасная формулировка возвращала приватный текст в сеть.
+    ``search_forbidden`` — структурный технический запрет сетевого поиска на
+    ход (человек прямо запретил сеть / уже прочитанный источник / после
+    гигиены не осталось терминов). Тогда `execute_web_search` вычищается из
+    шагов (в т.ч. из fallback-ветки `_SEARCH_RE`), а ``search_query`` НИКОГДА
+    не подменяется сырым текстом хода.
     """
     steps: list[dict] = []
     limitations: list[str] = []
@@ -477,11 +477,11 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                 steps.remove(step)
                 limitations.append(
                     f"{step['tool']}: инструмент не активен — не исполнено")
-        # Review-fix UR-B-1: приватный запрос / уже прочитанный источник —
-        # сеть запрещена на уровне ШАГОВ (единственный исполнитель шагов), а
-        # не на уровне статуса. Иначе `execute_web_search` возвращался через
-        # capability-деривацию или fallback-ветку и приватный текст уезжал
-        # провайдеру, пока трасса писала `search_called=False`.
+        # Технический запрет сети (человек сказал «не ищи», шаг уже прочитан,
+        # либо в запросе не осталось терминов) действует на уровне ШАГОВ —
+        # единственного исполнителя, — а не только на уровне статуса. Иначе
+        # `execute_web_search` возвращался через capability-деривацию или
+        # fallback-ветку, пока трасса писала `search_called=False`.
         if search_forbidden:
             dropped = [s for s in steps if s["tool"] == "execute_web_search"]
             if dropped or "execute_web_search" in allowed:
@@ -489,8 +489,8 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                          if s["tool"] != "execute_web_search"]
                 limitations.append(
                     "execute_web_search: сетевой поиск на этом ходе не "
-                    "выполняется (приватный запрос или уже прочитанный "
-                    "источник) — не исполнено")
+                    "выполняется (запрет сети человеком, уже прочитанный "
+                    "источник или пустая формулировка) — не исполнено")
         # Явный search-запрос без capability от плана (fallback-план) →
         # дет. web_search (§18C.3: planner failure не стирает required tool).
         if not steps and q and not search_forbidden and _SEARCH_RE.search(q) \
@@ -722,10 +722,10 @@ async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
     (ASAP-EVIDENCE-ROUTING-01 v3 §2.1): деривация шагов не зависит от того,
     запросил ли их L1-план.
 
-    ``search_forbidden`` (review-fix UR-B-1) — сетевой поиск запрещён на этом
-    ходе: `execute_web_search` не появляется ни из план-шагов, ни из
-    fallback-ветки, и сырой текст вопроса не становится поисковой
-    формулировкой."""
+    ``search_forbidden`` — технический запрет сетевого поиска на этом ходе
+    (человек прямо запретил сеть / источник уже прочитан / формулировка пуста):
+    `execute_web_search` не появляется ни из план-шагов, ни из fallback-ветки,
+    и сырой текст хода не становится поисковой формулировкой."""
     try:
         steps, limitations = derive_simple_steps(
             plan, query=query, reply_text=reply_text, ctx=ctx,
@@ -1057,11 +1057,20 @@ def _safe_count_tokens(text: str) -> int:
 
 # ═══════════════════════════════════════════════════════════════════════════
 # UNIFIED-REPLY UR-B (owner input 2026-11-05 §4): единая tool-фаза,
-# Search-first инвариант, приватный поисковый запрос, ToolEvidence + трасса.
+# Search-first инвариант, гигиена поискового payload, ToolEvidence + трасса.
 #
 # Один исполнитель для Direct и Initiative: `run_tool_phase` использует
 # существующие `resolve_execution_mode` / `run_simple_tools` /
 # `run_adaptive_chain` / `build_evidence_pack` (второй tool-фазы нет).
+#
+# BGS-01 (owner 2026-11-05): у web search НЕТ содержательного вето. Тема
+# запроса (личная, «приватно звучащая», упоминание участника чата, отсутствие
+# «публичного якоря») НЕ является основанием не искать: если L1 определил
+# внешнюю информационную потребность и технические гейты пройдены, поиск
+# выполняется. Остаются только технические гейты: право/набор инструментов
+# (runtime announcement), прямой запрет человека («не ищи в интернете»),
+# выключенный модуль/провайдер/квота (гейты `evidence_policy`/capability
+# registry выше по стеку), SSRF/SafeFetcher, таймаут/пустая выдача.
 # ═══════════════════════════════════════════════════════════════════════════
 
 #: Закрытый набор фактического статуса поиска (UR-08).
@@ -1069,19 +1078,23 @@ SEARCH_STATUS_OK = "ok"
 SEARCH_STATUS_EMPTY = "empty"
 SEARCH_STATUS_TIMEOUT = "timeout"
 SEARCH_STATUS_CONTRADICTORY = "contradictory"
-SEARCH_STATUS_PRIVACY_BLOCKED = "privacy_blocked"
 SEARCH_STATUS_UNAVAILABLE = "unavailable"
 SEARCH_STATUS_SKIPPED = "skipped_not_required"
+#: Историческое значение (до BGS-01). НЕ производится новыми ходами — оставлено
+#: только чтобы читались уже записанные трассы. В `SEARCH_STATUSES` не входит.
+SEARCH_STATUS_LEGACY_PRIVACY_BLOCKED = "privacy_blocked"
 SEARCH_STATUSES = (SEARCH_STATUS_OK, SEARCH_STATUS_EMPTY, SEARCH_STATUS_TIMEOUT,
-                   SEARCH_STATUS_CONTRADICTORY, SEARCH_STATUS_PRIVACY_BLOCKED,
-                   SEARCH_STATUS_UNAVAILABLE, SEARCH_STATUS_SKIPPED)
+                   SEARCH_STATUS_CONTRADICTORY, SEARCH_STATUS_UNAVAILABLE,
+                   SEARCH_STATUS_SKIPPED)
 
 #: machine-причины пропуска/невыполнения (трасса; не текст для пользователя).
+#: Только технические причины — содержательного вето по теме нет.
 SKIP_PARTICIPATION_WITHOUT_TEXT = "participation_without_text"
 SKIP_INTENT_NOT_APPLICABLE = "search_intent_not_applicable"
 SKIP_NO_TOOLS = "no_resolved_tools"
 SKIP_TOOL_ABSENT = "search_tool_absent"
-SKIP_PRIVACY = "privacy_blocked"
+SKIP_USER_FORBIDDEN = "user_forbidden_external"
+SKIP_EMPTY_QUERY = "empty_query"
 SKIP_REUSE = "qualified_verified_reuse"
 
 #: Инструменты, чья выдача — ВНЕШНИЙ источник (тот же контракт, что у
@@ -1096,7 +1109,10 @@ SEARCH_CAPABILITY_NAME = "web_search"
 #: и доступен вне payload (`ToolEvidence.search_task`).
 SEARCH_QUERY_MAX_CHARS = 512
 
-#: Участок приватности: id/ссылки/телефоны/упоминания наружу не уходят.
+#: Гигиена поискового payload (НЕ вето на тему): персональные маркеры
+#: (ссылки/телефоны/упоминания/почта/длинные id), алиасы участников чата и
+#: строковые секреты (API-ключи/токены) не публикуются стороннему поисковику.
+#: Сам поиск при этом выполняется: удаление этих маркеров не отменяет запрос.
 _PRIVATE_TG_LINK_RE = re.compile(
     r"(?:https?://)?(?:t\.me|telegram\.me|tg://)\S*", re.IGNORECASE)
 _PRIVATE_URL_RE = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
@@ -1104,6 +1120,12 @@ _PRIVATE_MENTION_RE = re.compile(r"@[A-Za-z0-9_]{3,}")
 _PRIVATE_EMAIL_RE = re.compile(r"\S+@\S+\.\S+")
 _PRIVATE_PHONE_RE = re.compile(r"\+?\d(?:[\d\s().\-]*\d){8,}")
 _PRIVATE_LONG_ID_RE = re.compile(r"\b\d{6,}\b")
+#: Строковые секреты: ключи/токены провайдеров и заголовки авторизации.
+_SECRET_TOKEN_RE = re.compile(
+    r"(?:sk|pk|rk|ghp|gho|ghs|github_pat|xox[abp]|AKIA)[-_A-Za-z0-9]{8,}"
+    r"|\bBearer\s+\S+"
+    r"|\b(?:api[_-]?key|token|secret|password)\s*[=:]\s*\S+",
+    re.IGNORECASE)
 _SEARCH_TOKEN_RE = re.compile(r"[0-9A-Za-zА-Яа-яЁё][0-9A-Za-zА-Яа-яЁё_.+\-]*")
 #: Служебные слова просьбы о поиске — не публичные сущности.
 _SEARCH_REQUEST_WORDS = frozenset({
@@ -1113,126 +1135,9 @@ _SEARCH_REQUEST_WORDS = frozenset({
     "актуальные", "актуально", "последние", "последние", "данные", "данным",
     "check", "search", "google", "latest", "current", "please", "look", "up",
 })
-#: Слова личного пересказа/цитирования: не годятся как поисковые термины
-#: (глагол пересказа не является публичной сущностью). Решение о блокировке
-#: принимает не список, а структура фразы (`_participant_reference`).
-_PRIVATE_RETELL_WORDS = frozenset({
-    "перескажи", "пересказать", "пересказ", "перескажи-ка", "цитата", "цитату",
-    "цитируй", "процитируй", "писала", "писал", "писали", "написала",
-    "написал", "сказала", "сказал", "сказали", "говорила", "говорил", "шутка",
-    "шутку", "шутил", "шутила", "пошутил", "анекдот", "мем", "вспомни",
-    "напомни", "переписка", "переписку", "чат", "сообщение", "сообщения",
-    "спросил", "спросила", "спросили", "ответил", "ответила",
-})
-
-# ── Review-fix UR-B-2/UR-B-5: приватность СТРУКТУРНАЯ, не словарная ──────────
-# Решение принимается по СТРУКТУРЕ реплики — О КОМ утверждение и есть ли у
-# него публичный антецедент, — а не по списку «приватных слов»: словарь тем
-# пересказ не ловит (перефраз «ждёт ребёнка… только между нами» проходил мимо
-# списка «беременна/никому»). Ниже — только грамматические (закрытые) классы,
-# которые определяют подлежащее/тему фразы.
-#
-#: Местоимения 1-го/2-го лица: в переписке обозначают ТОЛЬКО участников
-#: (автора/адресата). Публичной сущностью быть не могут — антецедент не нужен.
-_FIRST_SECOND_PERSON = frozenset({
-    "я", "меня", "мне", "мной", "мною", "мы", "нас", "нам", "нами",
-    "ты", "тебя", "тебе", "тобой", "вы", "вас", "вам", "вами",
-    "мой", "моя", "моё", "мое", "мои", "моего", "моей", "моих", "моим",
-    "наш", "наша", "наше", "наши", "нашего", "нашей", "наших", "нашим",
-    "твой", "твоя", "твоё", "твое", "твои", "твоего", "твоей", "твоих",
-    "ваш", "ваша", "ваше", "ваши", "вашего", "вашей", "ваших",
-})
-#: Местоимения 3-го лица: обозначают участника, если в самой фразе не назван
-#: публичный антецедент (это проверяет `_has_public_anchor` у вызывающего).
-_THIRD_PERSON = frozenset({
-    "он", "она", "оно", "они", "его", "него", "ему", "нему", "им", "ним",
-    "ей", "ней", "её", "ее", "неё", "нее", "их", "них", "ими", "ними", "нюю",
-})
-#: Личные окончания глагола — ОТКРЫТЫЙ продуктивный класс форм, а не перечень
-#: слов: под правило попадает любая форма с таким окончанием. Нужен ровно для
-#: одного: отличить сказуемое («…, спросил Вася») от прочих слов, чтобы понять,
-#: стоит ли участник ДО сказуемого (тема утверждения) или ПОСЛЕ него
-#: (объект/атрибуция). Именно поэтому частицы, вводные слова, обращения и
-#: наречия перед подлежащим прозрачны ПО ПОСТРОЕНИЮ — им не нужно быть
-#: элементом какого-либо списка. Набор намеренно узкий (высокая точность):
-#: он не обязан покрывать все глаголы, но не должен ловить существительные.
-_FINITE_ENDINGS = (
-    # прошедшее время
-    "ала", "яла", "ила", "ела", "ула", "ола",
-    "али", "яли", "или", "ели", "ули", "оли",
-    "ало", "яло", "ило", "ело", "уло", "оло",
-    "ал", "ял", "ил", "ел", "ул", "ол",
-    # настоящее/будущее время
-    "ешь", "ишь", "ете", "ите",
-    "ет", "ёт", "ит", "ут", "ют", "ат", "ят",
-)
-#: Возвратные постфиксы: «уволился» → «уволил» перед проверкой окончания.
-_REFLEXIVE_SUFFIXES = ("ся", "сь")
-#: Предлоги — закрытый грамматический класс. Используется ТОЛЬКО как защита от
-#: ложного распознавания существительного сказуемым («в интернете», «про
-#: результат»); на прозрачность прогона перед подлежащим не влияет.
-_NOUN_PREPOSITIONS = frozenset({
-    "у", "в", "во", "на", "с", "со", "к", "ко", "от", "ото", "до", "из",
-    "изо", "за", "для", "про", "при", "без", "безо", "под", "подо", "над",
-    "надо", "между", "меж", "после", "перед", "передо", "кроме", "через",
-    "около", "возле", "против", "ради", "сквозь", "среди", "вокруг", "мимо",
-    "вместо", "насчёт", "насчет", "благодаря", "вопреки", "согласно",
-    "по", "об", "обо", "о",
-})
-#: Граница части фразы: с этих символов начинается новая синтаксическая
-#: позиция. Запятая сюда НЕ входит намеренно: «Вася, конечно, …» — тот же
-#: субъект, а «спросил Вася» и без запятой остаётся атрибуцией.
-_CLAUSE_BOUNDARY_RE = re.compile(r"[.!?;:\n()\[\]«»\"—–]")
-#: Предлог притяжательной конструкции «у кого» (у нас, у меня). Участник там —
-#: обладатель/модификатор темы, а не подлежащее утверждения о нём.
-_POSSESSIVE_GOVERNORS = frozenset({"у"})
-#: Вопросительные слова: реплика — общий вопрос, а не личное утверждение.
-#: «какой курс доллара у нас» — вопрос о курсе, а не утверждение о нас.
-#: «что» намеренно НЕ входит: это чаще союз («потому что», «что у неё…»).
-_INTERROGATIVE_WORDS = frozenset({
-    "какой", "какая", "какое", "какие", "каков", "какова", "каковы",
-    "сколько", "когда", "где", "куда", "откуда", "почему", "зачем",
-    "кто", "кого", "кому", "кем", "чем", "чей", "чья", "чьё", "чье",
-    "чьи", "как",
-})
-
-#: Директивные глаголы обращения к ассистенту (закрытый класс, не темы):
-#: в такой просьбе местоимение 1/2 лица — адресат/выгодоприобретатель, а не
-#: предмет утверждения. «Спросил Вася» и «объясни мне» — не пересказ.
-_DIRECTIVE_REQUEST_WORDS = _SEARCH_REQUEST_WORDS | frozenset({
-    "объясни", "объяснить", "расскажи", "рассказать", "скажи", "подскажи",
-    "покажи", "ответь", "сравни", "переведи", "посчитай", "уточни",
-})
-
-#: Вторичный deny-список тем (НЕ решает исход для участника: перефраз ловится
-#: структурой выше). Нужен только для бессубъектных личных обрывков, где
-#: подлежащее не названо вовсе: «беременна третьем месяце говори никому».
-#: Просьба сохранить тайну / не пересказывать — признак личной переписки.
-_PRIVATE_SECRECY_WORDS = frozenset({
-    "никому", "никого", "секрет", "секретно", "секретный", "по-секрету",
-    "тайна", "тайну", "тайно", "обещай", "обещала", "обещание", "молчи",
-    "молчать", "болтай", "болтать", "сплетня", "сплетни",
-})
-#: Личный статус/интимное — не публичная тема запроса. Глаголы с публичным
-#: смыслом («изменил» о курсе) сюда НЕ входят: лишний отказ ломает обычный
-#: поиск, поэтому набор минимальный и однозначно личный.
-_PRIVATE_STATUS_WORDS = frozenset({
-    "беременна", "беременность", "беременная", "аборт", "диагноз", "болею",
-    "болеет", "больна", "развожусь", "развелась", "развелся", "поругались",
-    "поссорились", "секс", "интим", "интимное",
-})
-
-#: Публичный якорь (имя/продукт/версия/цитата): латиница, имя собственное
-#: внутри фразы, кавычки, версия. Строчные общие слова якорем НЕ являются.
-_LATIN_ANCHOR_RE = re.compile(r"[A-Za-z][A-Za-z0-9_.\-]{2,}")
-_QUOTED_ANCHOR_RE = re.compile(r"«[^»]{2,80}»|\"[^\"]{2,80}\"")
-_VERSION_ANCHOR_RE = re.compile(r"\d+[.,]\d+")
-_CYRILLIC_PROPER_RE = re.compile(r"[А-ЯЁ][а-яё]{2,}")
-_SENTENCE_SPLIT_RE = re.compile(r"[.!?;:\n]+")
-
 #: Падежные окончания русских имён. Алиас в контексте чата приходит в словарной
 #: форме («Маша»), а в реплике стоит в любой падежной: «у Маши». Точное
-#: совпадение строки оставляло и утечку, и «незамеченного» участника. Окончание
+#: совпадение строки оставляло бы алиас в поисковом payload. Окончание
 #: обязательное (не пустое): иначе «Вася» вычищал бы местоимение «вас».
 _ALIAS_ENDINGS = {
     "а": r"(?:а|ы|и|е|у|ой|ей|ою|ею)",
@@ -1258,231 +1163,6 @@ def _alias_regex(term) -> "re.Pattern | None":
         return None
 
 
-def _has_public_anchor(body: str) -> bool:
-    """Есть ли в тексте публичная сущность (не строчное общее слово).
-
-    Якорь: латинский токен (`Tesla`, `bitcoin`), имя собственное ВНУТРИ фразы
-    (не первое слово предложения — иначе любое «Проверь …» считалось бы
-    сущностью), цитата в кавычках, номер версии. Строчные общие слова
-    («курс», «биткоина») — обычный запрос, но НЕ доказательство публичности,
-    когда рядом личный пересказ. Никогда не бросает."""
-    try:
-        text = str(body or "")
-        if not text.strip():
-            return False
-        if _QUOTED_ANCHOR_RE.search(text) or _VERSION_ANCHOR_RE.search(text):
-            return True
-        if _LATIN_ANCHOR_RE.search(text):
-            return True
-        for sentence in _SENTENCE_SPLIT_RE.split(text):
-            tokens = [t for t in _SEARCH_TOKEN_RE.findall(sentence) if t]
-            for token in tokens[1:]:        # первое слово предложения — не имя
-                if _CYRILLIC_PROPER_RE.fullmatch(token) \
-                        and token.lower() not in _PRIVATE_SECRECY_WORDS \
-                        and token.lower() not in _PRIVATE_STATUS_WORDS:
-                    return True
-        return False
-    except Exception:      # pragma: no cover - защитная ветка
-        return False
-
-
-def _verb_form(word: str) -> bool:
-    """Слово — форма глагола по окончанию (без учёта позиции во фразе)."""
-    try:
-        clean = (word or "").replace("-", "")
-        if not clean or not clean.isalpha():
-            return False
-        stem = word
-        for suffix in _REFLEXIVE_SUFFIXES:
-            if stem.endswith(suffix) and len(stem) - len(suffix) >= 3:
-                stem = stem[:-len(suffix)]
-                break
-        for ending in _FINITE_ENDINGS:
-            if stem.endswith(ending) and len(stem) - len(ending) >= 2:
-                return True
-        return False
-    except Exception:      # pragma: no cover - защитная ветка
-        return False
-
-
-def _is_finite_predicate(lowered: list, index: int, clause_start: int) -> bool:
-    """Токен — личная форма глагола в роли сказуемого своей части фразы.
-
-    Проверка по окончанию (открытый класс форм, не перечень слов). Две
-    структурные оговорки:
-
-    * глагол в самом начале части фразы сказуемым НЕ считается: при инверсии
-      («Сказала Маша: …») подлежащее после него всё равно тема утверждения,
-      иначе личный пересказ вида «Пишет Маша: ждёт ребёнка…» уходил бы в поиск;
-    * существительное при предлоге («в интернете», «про результат») — не
-      сказуемое, хотя окончание похоже.
-
-    Никогда не бросает."""
-    try:
-        if index <= clause_start:
-            return False
-        if lowered[index - 1] in _NOUN_PREPOSITIONS:
-            return False
-        return _verb_form(lowered[index])
-    except Exception:      # pragma: no cover - защитная ветка
-        return False
-
-
-def _claim_topic_flags(text: str) -> tuple[list[str], list[bool]]:
-    """Токены текста + флаг «стоит в препозиции своей части фразы» (тема).
-
-    Тема определяется СТРУКТУРОЙ, а не словарём: препозитивная зона части фразы
-    — всё, что стоит до первого сказуемого (`_is_finite_predicate`). Поэтому
-    любые частицы, вводные слова, обращения, наречия и знаки препинания перед
-    подлежащим прозрачны ПО ПОСТРОЕНИЮ: им не нужно быть элементом списка
-    («ну», «так», «ага», «эй», «хм», «фрр», «ну вчера» — что угодно). После
-    сказуемого тот же алиас — объект или атрибуция реплики («спросил Вася»), а
-    не тема утверждения: вопрос остаётся публичным. Никогда не бросает."""
-    try:
-        body = str(text or "")
-        tokens: list[str] = []
-        clauses: list[int] = []
-        prev_end = -1
-        clause = 0
-        for match in _SEARCH_TOKEN_RE.finditer(body):
-            gap = body[prev_end:match.start()] if prev_end >= 0 else ""
-            if tokens and _CLAUSE_BOUNDARY_RE.search(gap):
-                clause += 1
-            tokens.append(match.group(0))
-            clauses.append(clause)
-            prev_end = match.end()
-        if not tokens:
-            return [], []
-        lowered = [token.lower() for token in tokens]
-        heads: dict[int, int] = {}          # часть фразы → первое сказуемое
-        starts: dict[int, int] = {}         # часть фразы → первый токен
-        tails: dict[int, int] = {}          # часть фразы → последний токен
-        for index, clause_id in enumerate(clauses):
-            starts.setdefault(clause_id, index)
-            tails[clause_id] = index
-            if clause_id in heads:
-                continue
-            if _is_finite_predicate(lowered, index, starts[clause_id]):
-                heads[clause_id] = index
-        topics: list[bool] = []
-        for index, clause_id in enumerate(clauses):
-            head = heads.get(clause_id)
-            start = starts[clause_id]
-            # Правый край части фразы — приписка/подпись/атрибуция («спросил
-            # Вася», приклеенный @ник или телефон), а не то, О ЧЁМ утверждение.
-            # Исключение — инверсия «сказуемое + подлежащее» в начале части
-            # фразы («Пишет Маша: …»): там подлежащее справа всё равно тема.
-            appended = (index == tails[clause_id]
-                        and not (index - 1 == start and index > 0
-                                 and _verb_form(lowered[index - 1])))
-            topic = (head is None or index < head) and not appended
-            topics.append(topic)
-        return tokens, topics
-    except Exception:      # pragma: no cover - защитная ветка
-        return [], []
-
-
-def _is_general_question(text: str) -> bool:
-    """Реплика — общий вопрос (вопросительное слово или «?»), а не рассказ.
-
-    Нужен только для притяжательных конструкций: «какой курс доллара у нас» —
-    вопрос о курсе, «у меня есть вопрос, какая погода» — бытовой вопрос, а
-    «у Маши задержка» и «у меня задержка» — личные утверждения. Никогда не
-    бросает."""
-    try:
-        body = str(text or "")
-        if "?" in body:
-            return True
-        words = {word.lower() for word in _SEARCH_TOKEN_RE.findall(body)}
-        return bool(words & _INTERROGATIVE_WORDS)
-    except Exception:      # pragma: no cover - защитная ветка
-        return False
-
-
-def _possessive_mention(lowered: list, index: int) -> bool:
-    """Местоимение стоит при притяжательном предлоге («у нас», «у меня»).
-
-    Это обладатель/модификатор темы, а не подлежащее утверждения о участнике.
-    Никогда не бросает."""
-    try:
-        if index <= 0:
-            return False
-        return lowered[index - 1] in _POSSESSIVE_GOVERNORS
-    except Exception:      # pragma: no cover - защитная ветка
-        return False
-
-
-def _participant_reference(source: str, private_terms=()) -> bool:
-    """Реплика ссылается на УЧАСТНИКА чата в позиции подлежащего/темы.
-
-    Структурный признак приватного пересказа (не словарь тем):
-    * местоимение 1/2 лица — всегда участник (автор/адресат); исключение —
-      объект явной просьбы («найди МНЕ курс доллара» — просьба, а не
-      утверждение об участнике) и притяжательная конструкция «у нас/у меня»
-      внутри общего вопроса («какой курс доллара У НАС» — вопрос о курсе,
-      «у меня есть вопрос, …» — бытовой вопрос);
-    * местоимение 3 лица или алиас участника (`private_terms` из контекста
-      чата) в позиции темы. Позиция темы определяется структурой фразы
-      (`_claim_topic_flags`): тема — препозитивная зона до первого сказуемого.
-      Хвостовая атрибуция («какой курс биткоина, спросил Вася») темой не
-      является — вопрос остаётся публичным.
-
-    Именно этот признак делает отказ структурным: подлежащее-участник
-    распознаётся по МЕСТУ в части фразы, а не по тому, каким словом/частицей
-    оно введено, поэтому «Маша ждёт ребёнка…», «Ну, Маша ждёт…», «Ну вчера
-    Маша ждёт…» и «она мне шепнула…» — одно и то же утверждение об участнике.
-    Никогда не бросает."""
-    try:
-        tokens, topics = _claim_topic_flags(source)
-        if not tokens:
-            return False
-        lowered = [token.lower() for token in tokens]
-        # Общий вопрос не делает «у нас/у меня» утверждением об участнике;
-        # личное утверждение в той же конструкции («у меня задержка») остаётся
-        # приватным — там вопроса нет.
-        question = _is_general_question(source)
-        for index, word in enumerate(lowered):
-            if word in _FIRST_SECOND_PERSON:
-                if index and lowered[index - 1] in _DIRECTIVE_REQUEST_WORDS:
-                    continue        # адресат/выгода просьбы, не тема утверждения
-                if question and _possessive_mention(lowered, index):
-                    continue        # обладатель темы вопроса, а не подлежащее
-                return True
-            if word in _THIRD_PERSON and topics[index]:
-                return True
-        patterns = [pattern for pattern in
-                    (_alias_regex(term) for term in (private_terms or ()))
-                    if pattern is not None]
-        for index, token in enumerate(tokens):
-            if not topics[index]:
-                continue
-            if any(pattern.fullmatch(token) for pattern in patterns):
-                return True
-        return False
-    except Exception:      # pragma: no cover - защитная ветка
-        return False
-
-
-def _private_topic_signal(clean_body: str) -> bool:
-    """Личный ОБРЫВОК без подлежащего: просьба о тайне или личный статус.
-
-    Вторичная (deny) проверка для фраз, где подлежащее не названо вовсе
-    («беременна третьем месяце говори никому»): структурного признака
-    `_participant_reference` там нет, а личный характер очевиден. Никогда не
-    бросает."""
-    try:
-        words = {w.lower()
-                 for w in _SEARCH_TOKEN_RE.findall(str(clean_body or ""))}
-        if not words:
-            return False
-        if words & _PRIVATE_SECRECY_WORDS or words & _PRIVATE_STATUS_WORDS:
-            return True
-        return bool(words & _PRIVATE_RETELL_WORDS
-                    and words & (_THIRD_PERSON | _FIRST_SECOND_PERSON))
-    except Exception:      # pragma: no cover - защитная ветка
-        return False
-
-
 def _boundary_cut(text: str, limit: int) -> str:
     """Срез по границе слова (никогда не рвёт токен/сущность пополам)."""
     try:
@@ -1503,38 +1183,48 @@ def _boundary_cut(text: str, limit: int) -> str:
 
 @dataclass(frozen=True)
 class SearchTask:
-    """Поисковая задача хода: публичная формулировка + полный исходник.
+    """Поисковая задача хода: формулировка для провайдера + полный исходник.
 
-    ``query`` — единственное, что уходит в сеть (публичные сущности/термины).
-    ``source_request`` — полный исходный запрос хода: остаётся доступным
-    (трасса/точечный fetch), но НИКОГДА не отправляется как есть. Пустая
-    ``query`` при ``blocked_reason="privacy_blocked"`` — честный отказ, а не
-    фиктивный успех."""
+    ``query`` — единственное, что уходит в сеть. ``source_request`` — полный
+    исходный запрос хода: остаётся доступным (трасса/точечный fetch), но
+    никогда не отправляется как есть.
+
+    ``skip_reason`` — ТОЛЬКО техническая невозможность построить запрос
+    (``empty_query``: после удаления служебных слов и персональных маркеров не
+    осталось ни одного термина). Содержательного вето по теме у поиска нет
+    (BGS-01): личная тема, упоминание участника чата или отсутствие «публичного
+    якоря» сами по себе запрос не отменяют."""
 
     query: str = ""
     source_request: str = ""
     terms: tuple[str, ...] = ()
-    blocked_reason: str = ""
+    skip_reason: str = ""
     removed_count: int = 0
 
     @property
-    def blocked(self) -> bool:
-        return bool(self.blocked_reason)
+    def usable(self) -> bool:
+        """Запрос построен и его можно отправлять провайдеру."""
+        return bool(self.query) and not self.skip_reason
 
 
-def _strip_private(text: str, private_terms=()) -> tuple[str, int]:
-    """Убрать из текста приватные маркеры и известные приватные термины.
+def _strip_sensitive(text: str, private_terms=()) -> tuple[str, int]:
+    """Убрать из payload персональные маркеры и строковые секреты.
 
-    Возврат ``(clean, removed)``. ``private_terms`` — алиасы/имена/uid/id чата,
-    которые вызывающий собрал из существующего контекста (алиасы, автор,
-    reply-текст). Числовые id, телефоны, упоминания, почта и ссылки удаляются
-    всегда — они не являются публичной сущностью запроса. Никогда не бросает.
-    """
+    Гигиена исходящего запроса, а НЕ вето на тему (BGS-01): удаление этих
+    маркеров не отменяет поиск — оставшиеся термины по-прежнему уходят
+    провайдеру. Возврат ``(clean, removed)``.
+
+    ``private_terms`` — алиасы/имена участников чата, собранные вызывающим из
+    существующего контекста (алиасы, автор, reply-текст). Числовые id,
+    телефоны, упоминания, почта, ссылки и строковые секреты (API-ключи/
+    токены) удаляются всегда: это не тема запроса, а идентификаторы и
+    учётные данные, которые сторонний поисковик получать не должен.
+    Никогда не бросает."""
     body = str(text or "")
     removed = 0
     for pattern in (_PRIVATE_TG_LINK_RE, _PRIVATE_URL_RE, _PRIVATE_MENTION_RE,
                     _PRIVATE_EMAIL_RE, _PRIVATE_PHONE_RE,
-                    _PRIVATE_LONG_ID_RE):
+                    _PRIVATE_LONG_ID_RE, _SECRET_TOKEN_RE):
         body, count = pattern.subn(" ", body)
         removed += count
     for term in (private_terms or ()):
@@ -1551,18 +1241,27 @@ def _strip_private(text: str, private_terms=()) -> tuple[str, int]:
 
 def build_search_query(plan, *, query: str = "", private_terms=(),
                        claims=(), max_terms: int = 12) -> SearchTask:
-    """Публичная поисковая формулировка (UR-07) — БЕЗ приватных данных.
+    """Поисковая формулировка хода (UR-07) с гигиеной payload.
 
-    Источники публичных сущностей в порядке доверия:
+    BGS-01 (owner 2026-11-05): содержательного вето НЕТ. Тема запроса не
+    проверяется: личный пересказ, упоминание участника чата, «приватно
+    звучащая» тема, отсутствие публичного якоря — не основание отказаться от
+    поиска. Если L1 определил внешнюю информационную потребность, запрос
+    строится и уходит провайдеру; честный статус результата решает уже
+    фактический tool event.
+
+    Источники терминов:
     1. claim-аннотация L1 (`external_claims`/``claims``): сущность + версия +
-       дата + метрика — это уже публичные имена/термины, их НЕ режем;
+       дата + метрика;
     2. содержательные термины вопроса (существующий
-       ``search_aggregator.content_terms``), очищенные от id/телефонов/
-       упоминаний/ссылок и известных приватных терминов.
+       ``search_aggregator.content_terms``);
+    3. если после фильтра служебных слов терминов не осталось — очищенный
+       текст хода, срезанный по границе слова (никогда не «весь чат»).
 
-    Если после очистки публичных сущностей/терминов нет — ``privacy_blocked``
-    (запрос не отправляется; вызывающий не имеет права на «я проверил»).
-    Полный запрос остаётся в ``source_request`` (вне сети). Никогда не бросает.
+    Из payload удаляются только идентификаторы и секреты (``_strip_sensitive``):
+    это гигиена, а не отказ. Полный запрос остаётся в ``source_request``.
+    Пустой результат — техническая причина ``empty_query`` (пустой/бессловесный
+    запрос), а не «приватная тема». Никогда не бросает.
     """
     try:
         source_request = str(query or "")
@@ -1588,13 +1287,13 @@ def build_search_query(plan, *, query: str = "", private_terms=(),
             text = " ".join(part for part in (entity, extra) if part)
             if not text:
                 continue
-            clean, removed = _strip_private(text, private_terms)
+            clean, removed = _strip_sensitive(text, private_terms)
             removed_total += removed
             clean = " ".join(clean.split())
             if clean and clean not in entities:
                 entities.append(clean)
         # Содержательные термины вопроса (порядок сохраняется).
-        clean_body, removed = _strip_private(source_request, private_terms)
+        clean_body, removed = _strip_sensitive(source_request, private_terms)
         removed_total += removed
         terms: list[str] = []
         try:
@@ -1604,32 +1303,12 @@ def build_search_query(plan, *, query: str = "", private_terms=(),
             candidates = [t.lower() for t in _SEARCH_TOKEN_RE.findall(clean_body)]
         for raw in candidates:
             word = str(raw or "").strip().lower()
-            if not word or word in _SEARCH_REQUEST_WORDS \
-                    or word in _PRIVATE_RETELL_WORDS:
+            if not word or word in _SEARCH_REQUEST_WORDS:
                 continue
             if len(word) < 3 and not word.isdigit():
                 continue
             if word not in terms:
                 terms.append(word)
-        # Публичный якорь обязателен: только служебная просьба/приватный текст
-        # не образуют запрос (иначе приватная цитата ушла бы в поисковик).
-        if not entities and not terms:
-            return SearchTask(source_request=source_request,
-                              blocked_reason="privacy_blocked",
-                              removed_count=removed_total)
-        # Review-fix UR-B-2/UR-B-5: приватность решается СТРУКТУРНО.
-        # Если утверждение делается ОБ участнике чата (подлежащее/тема —
-        # местоимение участника или его алиас из контекста чата), у него
-        # обязан быть публичный антецедент (claim-сущность/латиница/имя
-        # собственное/цитата/версия). Нет антецедента → это личный пересказ, а
-        # не поисковый вопрос, какими бы словами он ни был выражен:
-        # «ждёт ребёнка на третьем месяце, только между нами» → privacy_blocked.
-        if not entities and not _has_public_anchor(clean_body) \
-                and (_participant_reference(source_request, private_terms)
-                     or _private_topic_signal(clean_body)):
-            return SearchTask(source_request=source_request,
-                              blocked_reason="privacy_blocked",
-                              removed_count=removed_total)
         parts: list[str] = []
         for entity in entities:
             if entity and entity not in parts:
@@ -1646,24 +1325,27 @@ def build_search_query(plan, *, query: str = "", private_terms=(),
                 break
         query_text = (head + (" " if head and tail else "") + " ".join(tail)).strip()
         if not query_text:
+            # Служебных слов/маркеров не осталось — берём очищенный текст хода.
+            query_text = _boundary_cut(" ".join(clean_body.split()),
+                                       SEARCH_QUERY_MAX_CHARS)
+        if not query_text:
             return SearchTask(source_request=source_request,
-                              blocked_reason="privacy_blocked",
+                              skip_reason=SKIP_EMPTY_QUERY,
                               removed_count=removed_total)
-        # Финальная защита: в готовой формулировке не должно остаться маркеров.
-        verified, _ = _strip_private(query_text, private_terms)
-        if not verified.strip() or verified.strip() != query_text:
-            safe = " ".join(verified.split())
-            if not safe:
+        # Финальная гигиена: в готовой формулировке маркеров быть не должно.
+        verified, _ = _strip_sensitive(query_text, private_terms)
+        if verified.strip() != query_text:
+            query_text = " ".join(verified.split())
+            if not query_text:
                 return SearchTask(source_request=source_request,
-                                  blocked_reason="privacy_blocked",
+                                  skip_reason=SKIP_EMPTY_QUERY,
                                   removed_count=removed_total)
-            query_text = safe
         return SearchTask(query=query_text, source_request=source_request,
                           terms=tuple(parts + tail),
                           removed_count=removed_total)
     except Exception:      # pragma: no cover - защитная ветка
         return SearchTask(source_request=str(query or ""),
-                          blocked_reason="privacy_blocked")
+                          skip_reason=SKIP_EMPTY_QUERY)
 
 
 @dataclass(frozen=True)
@@ -1807,8 +1489,8 @@ class ToolEvidence:
     @property
     def search_performed(self) -> bool:
         """Реальный tool event поиска был (независимо от результата)."""
-        return bool(self.search_called and self.search_status not in (
-            SEARCH_STATUS_SKIPPED, SEARCH_STATUS_PRIVACY_BLOCKED))
+        return bool(self.search_called
+                    and self.search_status != SEARCH_STATUS_SKIPPED)
 
     @property
     def required_unmet(self) -> bool:
@@ -1823,7 +1505,7 @@ class ToolEvidence:
         """Можно ли утверждать «проверил/нашёл» (UR-08).
 
         Только реальная полезная выдача, реально доставленная Writer'у.
-        Пусто/timeout/противоречие/privacy_blocked/skipped → False."""
+        Пусто/timeout/противоречие/skipped → False."""
         return (self.search_status == SEARCH_STATUS_OK
                 and self.source_count > 0 and bool(self.evidence_used))
 
@@ -1949,17 +1631,6 @@ def _tool_evidence_from(raw, *, axis, search_task: SearchTask,
         evidence.search_status = SEARCH_STATUS_SKIPPED
         evidence.search_skip_reason = SKIP_PARTICIPATION_WITHOUT_TEXT
         return evidence
-    if search_task.blocked and evidence.search_intent in ("required",
-                                                          "beneficial"):
-        # Review-fix UR-B-1: блокировка приватности не даёт права утверждать
-        # «вызова не было». Если (вопреки структурному запрету шагов) реальный
-        # tool event всё же случился — `search_called` ОБЯЗАН быть True, иначе
-        # трасса врёт о сетевом вызове.
-        called, _status, _skip = _search_status_from(raw)
-        evidence.search_called = bool(called)
-        evidence.search_status = SEARCH_STATUS_PRIVACY_BLOCKED
-        evidence.search_skip_reason = SKIP_PRIVACY
-        return evidence
     called, status, skip_reason = _search_status_from(raw)
     evidence.search_called = called
     evidence.search_status = status
@@ -2038,6 +1709,21 @@ def _tool_evidence_from(raw, *, axis, search_task: SearchTask,
     return evidence
 
 
+def _external_forbidden(text: str) -> bool:
+    """Человек прямо запретил внешнюю сеть («не ищи в интернете»)?
+
+    Технический гейт, а НЕ содержательное вето: признак — явное указание в
+    реплике, а не тема. Детектор существующий (`evidence_policy`), своего
+    списка фраз/тем здесь нет. Недоступность политики → False (fail-open:
+    отсутствие технической проверки не превращается в запрет). Никогда не
+    бросает."""
+    try:
+        from services import evidence_policy as _evp
+        return bool(_evp.is_external_forbidden(str(text or "")))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def emit_search_trace(evidence: ToolEvidence, *, chat_id=None,
                       correlation_id=None, stage: str = "search") -> dict | None:
     """Записать R17-safe трассу поиска в существующий MCA-контракт.
@@ -2096,16 +1782,24 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
     Порядок:
     1. ось `knowledge_origin`/`search_intent` (нормализована в L1Plan);
     2. SILENT/REACT → 0 tool-вызовов (поиск ради отчётности запрещён);
-    3. публичный поисковый запрос строится из claim-сущностей/терминов;
-       невозможен → `privacy_blocked`, сеть не трогается (запрет поиска
-       СТРУКТУРНЫЙ: ни capability-деривация, ни fallback-ветка не могут
-       вернуть `execute_web_search`);
+    3. поисковая формулировка строится из claim-сущностей/терминов хода с
+       гигиеной payload (идентификаторы и секреты не уходят провайдеру);
     4. `required|beneficial` → минимум один реальный `execute_web_search`
        ДО L2 (для adaptive — дет. первый шаг, дальше обычный режим без
        повторного поиска: не более одного поиска за ход);
     5. evidence pack строится здесь же (полные тексты вне payload, в L2 —
        отобранные фрагменты под capacity);
     6. ToolEvidence отдаёт честный статус и machine-гейт «проверил/нашёл».
+
+    BGS-01 (owner 2026-11-05): содержательного вето у поиска нет. Личная тема,
+    упоминание участника чата, «приватно звучащая» формулировка и отсутствие
+    «публичного якоря» НЕ отменяют поиск. Остаются только технические гейты:
+    SILENT/REACT, `not_applicable` (поиск ради отчётности не нужен), прямой
+    запрет человека («не ищи в интернете», существующий
+    `evidence_policy.is_external_forbidden`), отсутствие инструмента в runtime
+    (RBAC/набор), выключенный модуль/провайдер/квота (`evidence_policy` и
+    capability registry выше по стеку), SSRF/SafeFetcher, таймаут/пустая
+    выдача. Пропуск по технической причине пишется в `search_skip_reason`.
 
     Второй tool-фазы/второго Router нет: всё исполняется существующими
     `run_simple_tools`/`run_adaptive_chain`/`build_evidence_pack`.
@@ -2143,39 +1837,44 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
             emit_search_trace(result.evidence, chat_id=chat_id,
                               correlation_id=correlation_id)
         return result
-    # ── публичный поисковый запрос ──────────────────────────────────────────
+    # ── поисковая формулировка (гигиена payload, без вето по теме) ──────────
     search_task = SearchTask()
     if axis.search_expected:
         search_task = build_search_query(
             plan, query=query, private_terms=private_terms)
     search_query = search_task.query
+    # Технический гейт человека: прямой запрет сети («не ищи в интернете»).
+    # Детектор существующий (evidence_policy), своего списка фраз не заводим.
+    user_forbids = _external_forbidden(query)
     reuse_sources = list(prepend_sources or ())
-    reuse_used = bool(reuse_sources) and not search_task.blocked
-    search_needed = (axis.search_expected and not search_task.blocked
-                     and not reuse_used
+    reuse_used = bool(reuse_sources) and search_task.usable
+    search_needed = (axis.search_expected and search_task.usable
+                     and not reuse_used and not user_forbids
                      and "execute_web_search" in announced)
-    if axis.search_expected and search_task.blocked:
-        # Приватный запрос: сеть не трогаем; честный статус, не фиктивный успех.
-        result.evidence.search_status = SEARCH_STATUS_PRIVACY_BLOCKED
-        result.evidence.search_skip_reason = SKIP_PRIVACY
-        result.evidence.search_query = ""
-        result.evidence.search_task = search_task.source_request
-    if axis.search_expected and not search_task.blocked \
-            and not reuse_used and "execute_web_search" not in announced:
-        result.evidence.search_status = SEARCH_STATUS_UNAVAILABLE
-        result.evidence.search_skip_reason = SKIP_TOOL_ABSENT
+    # Техническая причина, известная ДО исполнения. Она ставится в трассу
+    # (см. ниже, после сборки ToolEvidence): статус, выставленный здесь, всё
+    # равно перекрывался сборкой, поэтому причина считается один раз.
+    # Содержательной причины в этом наборе нет — только техника (BGS-01).
+    tech_skip = ""
+    if axis.search_expected:
+        if user_forbids:
+            tech_skip = SKIP_USER_FORBIDDEN      # человек запретил сеть
+        elif not search_task.usable:
+            tech_skip = SKIP_EMPTY_QUERY         # после гигиены нет терминов
+        elif not reuse_used and "execute_web_search" not in announced:
+            tech_skip = SKIP_TOOL_ABSENT         # RBAC/набор инструментов
     # ── исполнение ──────────────────────────────────────────────────────────
-    # Поиск ради отчётности запрещён: при `not_applicable`/privacy-блоке
-    # web_search вычищается из capabilities плана и из runtime-набора, а
-    # внутренние инструменты (история/лор/фактчек) остаются.
+    # Поиск ради отчётности запрещён: при `not_applicable` и техническом
+    # запрете сети web_search вычищается из capabilities плана и из
+    # runtime-набора, а внутренние инструменты (история/лор/фактчек) остаются.
     suppress_search = (axis.search_intent == "not_applicable"
-                       or search_task.blocked)
-    # Review-fix UR-B-1: сеть запрещена СТРУКТУРНО на шагах, а не только
-    # статусом. Приватный запрос и уже прочитанный источник (reuse) не дают
-    # права на новый `execute_web_search`: иначе пустая безопасная
-    # формулировка подменялась сырым текстом в fallback-ветке, а трасса
-    # писала `search_called=False` при реальном сетевом вызове.
-    search_forbidden = bool(search_task.blocked or reuse_used)
+                       or user_forbids or not search_task.usable)
+    # Сеть запрещена СТРУКТУРНО на шагах, а не только статусом: при
+    # техническом пропуске и уже прочитанном источнике (reuse) шаг
+    # `execute_web_search` не деривируется ни из capabilities, ни из
+    # fallback-ветки — иначе трасса писала `search_called=False` при реальном
+    # сетевом вызове.
+    search_forbidden = bool(user_forbids or reuse_used or not search_task.usable)
     plan_view = plan
     if suppress_search:
         try:
@@ -2195,8 +1894,6 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
         exec_required = exec_required + (SEARCH_CAPABILITY_NAME,)
     mode, demote_reason = resolve_execution_mode(
         plan_view, tool_schemas, required_caps=exec_required)
-    if search_task.blocked:
-        mode, demote_reason = EXECUTION_NONE, "privacy_blocked"
     raw = None
     try:
         if mode == EXECUTION_ADAPTIVE:
@@ -2252,9 +1949,17 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
     evidence = _tool_evidence_from(raw, axis=axis, search_task=search_task,
                                    action=action, reuse_used=reuse_used,
                                    reuse_sources=reuse_sources)
-    if search_task.blocked:
-        evidence.search_status = SEARCH_STATUS_PRIVACY_BLOCKED
-        evidence.search_skip_reason = SKIP_PRIVACY
+    if tech_skip and not evidence.search_called and not reuse_used:
+        # Честный технический пропуск: причина названа, сеть не тронута, а
+        # трасса не выдаёт «поиска не требовалось» и не «ок». Если фактический
+        # tool event всё же был, он сильнее: статус берётся из реального
+        # события и не перезаписывается.
+        evidence.search_status = (SEARCH_STATUS_UNAVAILABLE
+                                  if tech_skip == SKIP_TOOL_ABSENT
+                                  else SEARCH_STATUS_SKIPPED)
+        evidence.search_skip_reason = tech_skip
+        evidence.search_query = ""      # запрос никуда не отправлялся
+        evidence.evidence_used = False
     pack = None
     if raw is not None or reuse_sources:
         pack = build_evidence_pack(
@@ -2730,7 +2435,7 @@ __all__ = [
     # UNIFIED-REPLY UR-B: единая tool-фаза + Search-first + ToolEvidence.
     "SEARCH_STATUSES", "SEARCH_STATUS_OK", "SEARCH_STATUS_EMPTY",
     "SEARCH_STATUS_TIMEOUT", "SEARCH_STATUS_CONTRADICTORY",
-    "SEARCH_STATUS_PRIVACY_BLOCKED", "SEARCH_STATUS_UNAVAILABLE",
+    "SEARCH_STATUS_LEGACY_PRIVACY_BLOCKED", "SEARCH_STATUS_UNAVAILABLE",
     "SEARCH_STATUS_SKIPPED", "SEARCH_CAPABILITY_NAME",
     "SEARCH_QUERY_MAX_CHARS", "SearchTask", "SourceRecord", "ToolEvidence",
     "ToolPhaseResult", "build_search_query", "run_tool_phase",

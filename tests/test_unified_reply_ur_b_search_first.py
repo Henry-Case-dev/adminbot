@@ -1,13 +1,15 @@
-"""UNIFIED-REPLY UR-B — единая tool-фаза, Search-first, приватность, ToolEvidence.
+"""UNIFIED-REPLY UR-B — единая tool-фаза, Search-first, ToolEvidence, гигиена.
 
-Покрывает owner-input 2026-11-05 §4 (UR-03/UR-06/UR-07/UR-08) и чек-лист §11 Б:
+Покрывает owner-input 2026-11-05 §4 (UR-03/UR-06/UR-07/UR-08) и BGS-01:
 
   * ось `knowledge_origin`/`search_intent` в L1Plan с серверной нормализацией
     (`open_world|mixed` без intent → `required`), одна схема Direct/Initiative;
   * единый executor (`direct_execution.run_tool_phase`) на существующих
     `run_simple_tools`/`adaptive`/`build_evidence_pack` — реальный tool event,
     а не только `capabilities_needed=["web_search"]`;
-  * SILENT/REACT → 0 tool-вызовов; приватная формулировка → `privacy_blocked`;
+  * SILENT/REACT → 0 tool-вызовов; поиск ради отчётности не выполняется;
+  * BGS-01: содержательного вето у поиска НЕТ — участник чата, «приватно
+    звучащая» тема и отсутствие «публичного якоря» поиск не отменяют;
   * честные статусы empty/timeout/unavailable/contradictory без выдуманного
     источника; ToolEvidence + R17-safe трасса.
 
@@ -229,48 +231,186 @@ class TestSearchFirstExecution:
         assert result.evidence.claim_policy == "claim_forbidden_no_search"
 
 
-# ── Приватность публичного запроса ──────────────────────────────────────────
+# ── BGS-01: содержательного вето нет, есть только гигиена payload ───────────
 
 
-class TestPrivacy:
+class TestNoTopicVeto:
+    """Тема запроса не блокирует поиск (owner decision BGS-01)."""
+
+    @pytest.mark.parametrize("query,private_terms,expected", [
+        # участник чата назван в реплике — поиск всё равно выполняется
+        ("У Маши болит голова; какие общие причины?", ("Маша",), "голова"),
+        # «приватно звучащая» тема без публичного якоря
+        ("беременна третьем месяце какие анализы сдают", (), "беременна"),
+        # пересказ личного события — вопрос реально требует внешних данных
+        ("Ну, Маша ждёт ребёнка… какие обследования нужны?",
+         ("Маша",), "обследования"),
+        ("Маша ждёт ребёнка на третьем месяце, только между нами", ("Маша",),
+         "ребёнка"),
+        # местоимение участника вместо имени
+        ("ей сказали что её переводят, какие права у работника", (),
+         "права"),
+    ])
     @pytest.mark.asyncio
-    async def test_private_retelling_blocked_without_leak(self):
-        private = "перескажи что писала @vasya 79991234567 t.me/c/123"
-        search = _SearchProvider("не должно вызываться")
+    async def test_formerly_blocked_query_reaches_provider(
+            self, query, private_terms, expected):
+        search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/ok")
         plan = _plan(knowledge_origin="open_world")
-        result = await _run(plan, private, search,
-                            private_terms=("Вася", "vasya"))
-        assert search.queries == [], "приватный текст ушёл в поисковик"
-        assert result.evidence.search_status == (
-            _dx.SEARCH_STATUS_PRIVACY_BLOCKED)
-        assert result.evidence.search_skip_reason == _dx.SKIP_PRIVACY
-        assert result.evidence.search_query == ""
+        result = await _run(plan, query, search, private_terms=private_terms)
+        assert len(search.queries) == 1, (
+            f"BGS-01: запрос не должен блокироваться темой: {query!r}")
+        assert expected in search.queries[0].lower(), (
+            f"тема запроса не ушла провайдеру: {search.queries[0]!r}")
+        assert result.evidence.search_called is True
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
+        assert result.evidence.claim_policy == "claim_allowed"
+        for term in private_terms:
+            assert term.lower() not in search.queries[0].lower()
+
+    @pytest.mark.parametrize("query,private_terms", [
+        ("У Маши болит голова; какие общие причины?", ("Маша",)),
+        ("я вчера перевёз вещи к родителям, какие документы нужны", ()),
+        ("у меня задержка, какие причины бывают", ()),
+        ("Пишет Маша: ждёт ребёнка, что советуют врачи", ("Маша",)),
+    ])
+    def test_query_builder_never_returns_topic_veto(self, query, private_terms):
+        task = _dx.build_search_query(
+            _plan(knowledge_origin="open_world"), query=query,
+            private_terms=private_terms)
+        assert task.skip_reason == "", f"вето по теме осталось: {query!r}"
+        assert task.usable is True
+        assert task.query
+
+    def test_no_privacy_classifier_left_in_module(self):
+        """Ни структурного правила, ни словарей тем, ни якорной проверки."""
+        for name in ("_participant_reference", "_has_public_anchor",
+                     "_private_topic_signal", "_claim_topic_flags",
+                     "_is_general_question", "_possessive_mention",
+                     "_verb_form", "_is_finite_predicate",
+                     "_PRIVATE_STATUS_WORDS", "_PRIVATE_SECRECY_WORDS",
+                     "_PRIVATE_RETELL_WORDS", "_FIRST_SECOND_PERSON",
+                     "_THIRD_PERSON", "_LATIN_ANCHOR_RE",
+                     "_QUOTED_ANCHOR_RE"):
+            assert not hasattr(_dx, name), f"приватный классификатор остался: {name}"
+        assert not hasattr(_dx.SearchTask, "blocked")
+        assert not hasattr(_dx.SearchTask, "blocked_reason")
+        # Историческое значение статуса читается, но новым ходом не выдаётся.
+        assert _dx.SEARCH_STATUS_LEGACY_PRIVACY_BLOCKED == "privacy_blocked"
+        assert _dx.SEARCH_STATUS_LEGACY_PRIVACY_BLOCKED not in _dx.SEARCH_STATUSES
+
+    @pytest.mark.parametrize("query", [
+        "Маша беременна третьем месяце говори никому",
+        "она мне писала что у неё задержка",
+        "беременна, только между нами",
+        "у Маши задержка на третьем месяце",
+    ])
+    @pytest.mark.asyncio
+    async def test_private_sounding_text_never_yields_privacy_blocked(self, query):
+        """Даже без полезных терминов статус не «приватная блокировка»."""
+        search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/x")
+        result = await _run(_plan(knowledge_origin="open_world"), query, search,
+                            private_terms=("Маша",))
+        assert result.evidence.search_status != (
+            _dx.SEARCH_STATUS_LEGACY_PRIVACY_BLOCKED)
+        assert result.evidence.search_status in _dx.SEARCH_STATUSES
+        assert result.evidence.search_skip_reason != "privacy_blocked"
+
+
+class TestTechnicalGatesStillBlock:
+    """Технические гейты сохранены: запрет человека, набор инструментов, сеть."""
+
+    @pytest.mark.asyncio
+    async def test_explicit_no_web_request_makes_no_call(self):
+        search = _SearchProvider("не должно вызываться")
+        plan = _plan(knowledge_origin="open_world",
+                     capabilities_needed=["web_search"])
+        result = await _run(plan, "не ищи в интернете, курс биткоина", search,
+                            required_caps=("web_search",))
+        assert search.queries == [], "явный запрет сети человеком нарушен"
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_SKIPPED
+        assert result.evidence.search_skip_reason == _dx.SKIP_USER_FORBIDDEN
+        assert result.evidence.search_called is False
         assert result.evidence.claim_policy == "claim_forbidden_no_search"
 
     @pytest.mark.asyncio
-    async def test_public_entity_survives_ids_are_stripped(self):
+    async def test_permission_set_without_tool_blocks(self):
+        """RBAC/набор инструментов: инструмент не объявлен → нет вызова."""
+        search = _SearchProvider("не должно вызываться")
+        plan = _plan(knowledge_origin="open_world")
+        result = await _run(plan, "курс биткоина", search,
+                            tool_schemas=_schemas("get_recent_history"))
+        assert search.queries == []
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_UNAVAILABLE
+        assert result.evidence.search_skip_reason == _dx.SKIP_TOOL_ABSENT
+
+    @pytest.mark.asyncio
+    async def test_provider_rate_limit_or_down_is_honest(self):
+        search = _SearchProvider(exc=AllSearchEnginesFailedException("quota"))
+        plan = _plan(knowledge_origin="open_world")
+        result = await _run(plan, "курс биткоина", search)
+        assert result.evidence.search_called is True
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_UNAVAILABLE
+        assert result.evidence.claim_policy != "claim_allowed"
+
+
+class TestPayloadHygiene:
+    """Гигиена payload: идентификаторы и секреты не уходят, тема — уходит."""
+
+    @pytest.mark.asyncio
+    async def test_ids_and_aliases_stripped_but_search_happens(self):
         search = _SearchProvider(
             "Заголовок\nкурс вырос\nhttps://example.com/btc")
-        query = "какой курс биткоина, спросил Вася 79991234567 @vasya"
+        query = "какой курс биткоина, спросил Вася 79991234567 @vasya " \
+                "t.me/c/123 secret@example.com"
         plan = _plan(knowledge_origin="open_world")
         result = await _run(plan, query, search,
                             private_terms=("Вася", "vasya"))
         assert len(search.queries) == 1
         sent = search.queries[0].lower()
         assert "биткоин" in sent
-        for forbidden in ("79991234567", "vasya", "вася", "t.me", "@"):
+        for forbidden in ("79991234567", "vasya", "вася", "t.me", "@",
+                          "secret@example.com"):
             assert forbidden not in sent, f"утечка {forbidden!r} в поиск"
         assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
         assert result.evidence.search_task == query
         assert result.evidence.search_query != query
 
+    @pytest.mark.asyncio
+    async def test_extraordinary_secrets_never_reach_provider(self):
+        search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/s")
+        query = ("проверь sk-live-abcdefgh12345678 и ghp_abcdefgh12345678 "
+                 "и api_key=deadbeefcafe курс биткоина")
+        result = await _run(_plan(knowledge_origin="open_world"), query, search)
+        assert len(search.queries) == 1
+        sent = search.queries[0]
+        for secret in ("sk-live-abcdefgh12345678", "ghp_abcdefgh12345678",
+                       "deadbeefcafe"):
+            assert secret not in sent, f"секрет утёк в поиск: {secret}"
+
+    @pytest.mark.asyncio
+    async def test_whole_chat_is_not_sent(self):
+        """В поиск уходит формулировка хода, а не вся переписка."""
+        search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/w")
+        query = "курс биткоина " + ("предыдущая реплика чата " * 200)
+        result = await _run(_plan(knowledge_origin="open_world"), query, search)
+        assert len(search.queries) == 1
+        assert len(search.queries[0]) <= _dx.SEARCH_QUERY_MAX_CHARS
+        assert result.evidence.search_task == query
+
     def test_public_attributed_question_still_searchable(self):
         task = _dx.build_search_query(
             _plan(knowledge_origin="open_world"),
             query="перескажи что писала Tesla о релизе 2026")
-        assert task.blocked is False
+        assert task.usable is True
         assert "tesla" in task.query.lower()
         assert "2026" in task.query
+
+    def test_empty_request_is_a_technical_skip(self):
+        """Бессловесный запрос — техническая причина, а не «приватная тема»."""
+        task = _dx.build_search_query(_plan(knowledge_origin="open_world"),
+                                      query="  79991234567  ")
+        assert task.skip_reason == _dx.SKIP_EMPTY_QUERY
+        assert task.query == ""
 
 
 # ── Честность статусов и источников ─────────────────────────────────────────
