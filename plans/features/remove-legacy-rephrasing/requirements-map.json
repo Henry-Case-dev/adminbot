@@ -111,8 +111,16 @@
       "acceptance": "Удалена достижимая цепочка и её замены, а не только выключен `SYSTEM2_DIRECT_ENABLED`; фактическая топология подтверждена на актуальном локальном HEAD после слияния волн UNIFIED-REPLY, а не по описанию опубликованной ветки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Топология подтверждена на актуальном локальном HEAD, а не по описанию ветки",
+          "observation": "Repo-wide git grep на HEAD 20d19ad0 по `_synthesize_direct_answer`, `parse_direct_synthesis`, `stage2_payload`, `SYSTEM2_DIRECT_ENABLED`: живых call sites второго автора нет, остались комментарий-надгробие services/direct_chat_service.py:5109-5119, определения services/system2_handoff.py:56/285 (stage2_payload — стадия самого фактчека) и метаданные param_catalog; замена цепочки — evidence-пакет <Tool_Evidence> до L2 (test_evidence_pack_delivered_to_l2_with_attribution).",
+          "type": "static",
+          "artifact_path": "services/direct_chat_service.py",
+          "candidate_commit": "0e3f96be"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00036",
@@ -381,8 +389,23 @@
       "acceptance": "`SYSTEM2_DIRECT_ENABLED` как gateway к старому double-writer удалён из нового активного call graph, конфиг мигрирован/депрецирован; OFF L1 не может вернуть двойной маршрут.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "`SYSTEM2_DIRECT_ENABLED` больше не шлюз в активном call graph; OFF L1 не возвращает двойной маршрут",
+          "observation": "test_flag_has_no_consumer_in_active_graph: в services/direct_chat_service.py нет исполняемых строк с флагом; test_no_flag_value_restores_a_second_writer: при флаге True/False/None и выключенном L1 доставляется ровно один текст tool-loop; test_missing_tool_capability_single_call_path_too — без инструментов тоже один вызов. Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Конфиг-слой: ключ депрецирован и резолвится в False при любом значении",
+          "observation": "Принятое доказательство R-ADM.4/MAN-строки миграции: config/settings.py resolve_legacy_rephrasing_env_flag, прогон tests/test_rlr_admin_manifest.py 61 passed после слияния a4593936 — повторно не перепрогонялось.",
+          "type": "static",
+          "artifact_path": "config/settings.py",
+          "candidate_commit": "d49b10ac"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00127",
@@ -396,8 +419,16 @@
       "acceptance": "`_synthesize_direct_answer` как «tool final → JSON → prose» удалён из достижимой цепочки; сохранена только реально нужная нормализация facts pre-L2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "`_synthesize_direct_answer` удалён из достижимой цепочки, нужная нормализация facts осталась pre-L2",
+          "observation": "test_legacy_entrypoints_do_not_exist (нет метода и вызовов справки в модуле); test_evidence_pack_delivered_to_l2_with_attribution (facts с provenance доходят до L2 без нового LLM-этапа). Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00128",
@@ -412,7 +443,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Потребителя `FormContract(source_text=draft_text)` в свободном чате больше нет (боевой L2 передаёт form_contract=None), но мёртвый код не удалён: класс FormContract и check_form_contract используются только тестами — вопрос связан с R-03.3 (проверка явных трансформаций не подключена)."
     },
     {
       "source_id": "MAN-L00129",
@@ -547,7 +579,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Фактчек и саммари доказаны (свой финальный этап сохранён), мем-пайплайн в принятых кандидатах отдельно не проверялся."
     },
     {
       "source_id": "MAN-L00138",
@@ -712,7 +745,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Принятые кандидаты доказывают только часть PVR-FC: числовой data-stage и честные вердикты фактчека; FC-01–FC-07 целиком (claim-aware evidence, источники, полный набор статусов) этим срезом не перепроверены."
     },
     {
       "source_id": "MAN-L00154",
@@ -1283,8 +1317,16 @@
       "acceptance": "Legacy-ветка `_synthesize_direct_answer` при `not direct_l1_on` + успешном ToolLoopResult + наличии tool-вызовов + включённом `SYSTEM2_DIRECT_ENABLED` отсутствует в достижимом графе HEAD: ни один конфиг/флаг не даёт второго авторского прохода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Флаги, отключённый L1 и недоступные инструменты не возвращают второго автора",
+          "observation": "tests/test_rlr_no_second_author.py: test_flag_on_l1_off_tool_loop_is_the_only_author — при DIRECT_L1_ENABLED=False и SYSTEM2_DIRECT_ENABLED=True ход с успешным ToolLoopResult доставляет ровно один текст («финал tool-loop»), llm.steps()==[] (стадий stage1/stage2 нет); test_no_flag_value_restores_a_second_writer повторяет это для флага True/False/None; test_flag_has_no_consumer_in_active_graph утверждает, что в services/direct_chat_service.py нет ни одной не-комментарной строки с SYSTEM2_DIRECT_ENABLED. Локальный прогон на рабочем дереве HEAD 20d19ad0 (содержит все три слияния): файл — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        }
+      ]
     },
     {
       "source_id": "L00026",
@@ -1298,8 +1340,23 @@
       "acceptance": "Цепочка `готовый tool-loop ответ → Stage-1 JSON → Stage-2 Verbalizer` удалена вместе со сравнением `FormContract(source_text=draft_text)`; искажение отрицаний не «лечится» новым семантическим контролёром.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Цепочка tool-final → Stage-1 JSON → Stage-2 Verbalizer физически удалена",
+          "observation": "test_legacy_entrypoints_do_not_exist: у DirectChatService нет `_synthesize_direct_answer`, в исходнике модуля нет вызовов `parse_direct_synthesis(` и `stage2_payload(`; test_no_flag_value_restores_a_second_writer: при любом значении флага доставляется текст tool-loop и LLM-стадий нет; test_provider_error_is_honest_not_draft_not_second_author: черновик, существовавший до Writer, не публикуется, legacy-стадии не запускаются. Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Искажение отрицаний не «лечится» новым семантическим контролёром в свободном пути",
+          "observation": "tests/test_rlr_verbalize_scope.py: test_free_form_text_with_all_diagnostics_is_delivered_as_written отдаёт текст с отрицанием и числом байт-в-байт, в stats свободного пути нет form_guard_rejects; test_single_signal_free_form_is_never_corrected (5 сигналов) — один вызов и неизменённый текст; test_free_form_path_has_no_reroll_mechanism_in_source (AST) утверждает, что в verbalize_validated нет петель, нет импорта form/numeric retry-канона, нет NUMERIC_CLAIM_FALLBACK/verified_phrase и `_correct_numeric_claims`. Прогон файла на HEAD 20d19ad0 — 18 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        }
+      ]
     },
     {
       "source_id": "L00027",
@@ -1314,7 +1371,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Проверка остальных причин retry/fallback в direct-маршруте (numeric/freshness/duplicate/format) относится к ещё не слитой части среза RLR-04."
     },
     {
       "source_id": "L00028",
@@ -1328,8 +1386,16 @@
       "acceptance": "`verbalize_validated` больше не регенерирует свободную речь; Anti-Cliché остаётся диагностикой и не может снова стать генератором альтернативного текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "verbalize_validated больше не регенерирует свободную речь, Anti-Cliché остаётся диагностикой",
+          "observation": "test_free_form_text_with_all_diagnostics_is_delivered_as_written: ровно один LLM-вызов, anti_cliche_retries=0, клише только в cliche_observed; test_second_literary_call_in_turn_fails_the_invariant: инъекция второго литературного вызова даёт semantic_rewrite_count=1 при неизменном тексте — возврат генератора виден счётчиком; test_free_form_path_has_no_reroll_mechanism_in_source (AST): нет петель, один generate_call, нет импорта канонов повтора. Прогон файла на HEAD 20d19ad0 — 18 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        }
+      ]
     },
     {
       "source_id": "L00029",
@@ -1344,7 +1410,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Разбор каждого пост-Writer вмешательства в direct-маршруте (`apply_numeric_guard`, evidence egress, `duplicate_guard_retry`, `style_policy`) не слит; в speech-модуле осталось только наблюдение."
     },
     {
       "source_id": "L00030",
@@ -1358,8 +1425,23 @@
       "acceptance": "Текстовый Stage-2 Verbalizer убран только из обычного Direct/Initiative; в фактчеке, саммари и специальных продуктах, где он впервые создаёт конечный текст из анализа, он сохранён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Специализированные пайплайны сохранили свой финальный текстовый этап",
+          "observation": "test_factcheck_two_call_still_produces_own_final_text: двухвызовный фактчек делает ровно один финальный текстовый вызов и получает «АНАЛИЗ (JSON):» от аналитика; test_specialised_modules_untouched_by_this_slice: в services/summary_generator.py остались шаги stage1/stage2; в том же файле Direct-путь проверяется как безстадийный (llm.steps() без stage1/stage2). Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Фактчек строит итог из валидированной структуры одним final Writer",
+          "observation": "tests/test_rlr_factcheck_numeric_stage.py: test_validated_numbers_keep_writer_text — два физических вызова (аналитик + Writer), текст Writer'а не переписан; test_invented_number_is_not_published — один финальный Writer-вызов (len(llm.calls)==2 без reroll). Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_factcheck_numeric_stage.py",
+          "candidate_commit": "93e64dc8"
+        }
+      ]
     },
     {
       "source_id": "L00034",
@@ -1389,7 +1471,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Доказано лишь, что повтор машинного слоя не считается литературным вызовом (test_machine_repair_does_not_count_as_literary_call); транспортный retry/fallback того же LLM-вызова в llm_client принятыми кандидатами не проверялся."
     },
     {
       "source_id": "L00046",
@@ -1433,8 +1516,30 @@
       "acceptance": "Обязательный разбор фактов до финального Writer и самостоятельные задачи пользователя на перевод/редактирование/пересказ не считаются повторным Writer'ом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Обязательный разбор фактов живёт до финального Writer",
+          "observation": "test_evidence_pack_delivered_to_l2_with_attribution: блок <Tool_Evidence> с находкой и атрибуцией попадает в payload L2 до генерации, шаги ровно ['l1_planner','l2_writer']. Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Самостоятельные задачи «перепиши/переведи/отредактируй» не считаются повторным Writer'ом",
+          "observation": "test_explicit_rewrite_validates_protected_facts_without_second_author и test_explicit_rewrite_that_keeps_facts_is_delivered_as_written: один вызов автора, semantic_rewrite_count=0, form_retry=False. Прогон файла на HEAD 20d19ad0 — 18 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Стыковочный HEAD содержит оба принятых слияния среза и те же тесты",
+          "observation": "Кандидат 20d19ad0 — текущий HEAD ветки evol/impl: в нём одновременно есть слияние b9bd717b (числовой data-stage фактчека, ветка 93e64dc8) и слияние 20d19ad0 (verbalize, ветка 63085f70). На этом дереве прогнаны tests/test_rlr_verbalize_scope.py (18 passed), tests/test_rlr_factcheck_numeric_stage.py (11 passed), tests/test_rlr_no_second_author.py (11 passed) — 40 passed; файлы тестов идентичны соответствующим веткам.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "20d19ad0"
+        }
+      ]
     },
     {
       "source_id": "L00052",
@@ -1568,8 +1673,23 @@
       "acceptance": "Вызов `_synthesize_direct_answer()` как схемы «готовый tool-loop ответ → Stage-1 JSON → Stage-2 изложение» отсутствует во всех достижимых маршрутах; обратный путь по `SYSTEM2_DIRECT_ENABLED`, отключённому L1, failover или недоступным инструментам невозможен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Вызова `_synthesize_direct_answer` нет ни в одном достижимом маршруте, обратный путь закрыт",
+          "observation": "test_legacy_entrypoints_do_not_exist (нет метода и нет вызовов parse_direct_synthesis(/stage2_payload(); test_flag_on_l1_off_tool_loop_is_the_only_author и параметризованный test_no_flag_value_restores_a_second_writer (True/False/None при выключенном L1); test_missing_tool_capability_single_call_path_too (нет tool_router вовсе — один вызов, текст доставлен); test_provider_error_is_honest_not_draft_not_second_author (ошибка провайдера не уходит в legacy-текст). Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Ключ-шлюз резолвится в False при любом сыром значении — флаг не активирует двойную архитектуру",
+          "observation": "config/settings.py: SYSTEM2_DIRECT_ENABLED резолвится через resolve_legacy_rephrasing_env_flag; это уже принятое доказательство R-ADM.4 (tests/test_rlr_admin_manifest.py, test_deprecated_key_resolves_off_for_every_raw_value и test_flag_always_off_for_any_raw_env, прогон 61 passed после слияния a4593936) — повторно не перепрогонялось.",
+          "type": "static",
+          "artifact_path": "config/settings.py",
+          "candidate_commit": "d49b10ac"
+        }
+      ]
     },
     {
       "source_id": "L00069",
@@ -1583,8 +1703,16 @@
       "acceptance": "Уникальные нужные факты и полезная структура, которые производил Stage-1, вычисляются до L2 в существующей evidence/normalization стадии (предпочтительно без нового LLM) с сохранением provenance, цитат, JSON-временной шкалы и источников.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Факты инструментов нормализуются до L2 и доезжают до единственного Writer'а с атрибуцией",
+          "observation": "test_evidence_pack_delivered_to_l2_with_attribution: payload L2 содержит блок <Tool_Evidence> с самой находкой («завтра дождь, 12 градусов») и атрибуцией «[ИСТОЧНИК 1 | execute_web_search | ok]», шаги LLM ровно ['l1_planner','l2_writer'] — новая evidence-стадия не добавляет LLM-вызов. Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        }
+      ]
     },
     {
       "source_id": "L00070",
@@ -1598,8 +1726,23 @@
       "acceptance": "Текстовый Stage-2 Verbalizer убран только из обычного Direct/Initiative; в фактчеке, саммари и специальных продуктах, где он впервые создаёт конечный текст из анализа, он сохранён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Специализированные пайплайны сохранили свой финальный текстовый этап",
+          "observation": "test_factcheck_two_call_still_produces_own_final_text: двухвызовный фактчек делает ровно один финальный текстовый вызов и получает «АНАЛИЗ (JSON):» от аналитика; test_specialised_modules_untouched_by_this_slice: в services/summary_generator.py остались шаги stage1/stage2; в том же файле Direct-путь проверяется как безстадийный (llm.steps() без stage1/stage2). Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Фактчек строит итог из валидированной структуры одним final Writer",
+          "observation": "tests/test_rlr_factcheck_numeric_stage.py: test_validated_numbers_keep_writer_text — два физических вызова (аналитик + Writer), текст Writer'а не переписан; test_invented_number_is_not_published — один финальный Writer-вызов (len(llm.calls)==2 без reroll). Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_factcheck_numeric_stage.py",
+          "candidate_commit": "93e64dc8"
+        }
+      ]
     },
     {
       "source_id": "L00071",
@@ -1613,8 +1756,16 @@
       "acceptance": "Ошибка L2 — диагностируемая ошибка с допустимым транспортным retry/fallback-моделью в рамках того же этапа либо честным сообщением о недоступности; публикации непрозрачно обработанной «каши» tool logs и второго автора нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Ошибка L2 — честная недоступность, а не публикация черновика или каши tool logs",
+          "observation": "test_provider_error_is_honest_not_draft_not_second_author: LLMError на l2_writer даёт шаги ровно ['l1_planner','l2_writer'], текст «ЧЕРНОВИК ДО WRITER» не отправлен ни в одном сообщении, пользователю уходит фраза из CHAT_ERROR_PHRASES, legacy-стадий нет. Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        }
+      ]
     },
     {
       "source_id": "L00072",
@@ -1628,8 +1779,23 @@
       "acceptance": "После слияния UR-A проверены все альтернативные call sites (legacy switches, aliases, old handlers, feature gates, fallback routes, background workers); удаление не объявляется по отсутствию текстового совпадения имени.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Структурная проверка модуля: ни функции, ни парсеров справки, ни потребителя флага",
+          "observation": "test_legacy_entrypoints_do_not_exist + test_flag_has_no_consumer_in_active_graph (см. привязку R-02.1). Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Repo-wide поиск альтернативных call sites: живых путей второго автора нет",
+          "observation": "git grep по `_synthesize_direct_answer`, `parse_direct_synthesis`, `stage2_payload`, `SYSTEM2_DIRECT_ENABLED` на HEAD 20d19ad0: в services остались только (а) комментарий-надгробие services/direct_chat_service.py:5109-5119, (б) определения services/system2_handoff.py:56 (stage2_payload) и :285 (parse_direct_synthesis), (в) использование stage2_payload самим фактчеком (services/factcheck_service.py:68,2240) как своей машинной стадии. `parse_direct_synthesis` вызывается только из тестов, живого потребителя нет. Остатки-потребители (неиспользуемый парсер, ссылки в tools/er65_prompt_segment_snapshot.py:1480-1499, метаданные param_catalog) не являются достижимым вторым автором и отнесены к строке R-PROC.4 (остаётся PENDING).",
+          "type": "static",
+          "artifact_path": "services/system2_handoff.py",
+          "candidate_commit": "0e3f96be"
+        }
+      ]
     },
     {
       "source_id": "L00074",
@@ -1658,8 +1824,30 @@
       "acceptance": "Для свободного Direct/Initiative построение `FormContract(source_text=draft_text)` из промежуточного ответа tool loop и сравнение его с итогом L2 удалены; финальная формулировка не обязана сохранять токены, отрицания, упоминания и имена черновика инструмента.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "FormContract больше не строится из tool-черновика в свободном пути",
+          "observation": "test_free_form_text_with_all_diagnostics_is_delivered_as_written: в stats свободного пути нет form_guard_rejects, текст байт-в-байт; test_machine_validation_is_not_used_for_free_speech: форма не входит в машинный слой; test_free_form_path_has_no_reroll_mechanism_in_source: в verbalize_validated нет петель и канонов повтора. Прогон файла на HEAD 20d19ad0 — 18 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "В боевом L2 нет построения FormContract — остался только комментарий-надгробие",
+          "observation": "services/direct_chat_service.py: `_l2_write_answer` вызывает verbalize_validated с form_contract=None (строка 7686); git grep `FormContract(` по services/handlers/tools/web/SmartModule находит только комментарий :5114; класс FormContract (services/negative_constraints.py:112) сохранён для явных трансформаций.",
+          "type": "static",
+          "artifact_path": "services/direct_chat_service.py",
+          "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Стыковочный HEAD содержит оба принятых слияния среза и те же тесты",
+          "observation": "Кандидат 20d19ad0 — текущий HEAD ветки evol/impl: в нём одновременно есть слияние b9bd717b (числовой data-stage фактчека, ветка 93e64dc8) и слияние 20d19ad0 (verbalize, ветка 63085f70). На этом дереве прогнаны tests/test_rlr_verbalize_scope.py (18 passed), tests/test_rlr_factcheck_numeric_stage.py (11 passed), tests/test_rlr_no_second_author.py (11 passed) — 40 passed; файлы тестов идентичны соответствующим веткам.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "20d19ad0"
+        }
+      ]
     },
     {
       "source_id": "L00077",
@@ -1673,8 +1861,23 @@
       "acceptance": "Списки `не/ни/без/ничего` и regex-окна не расширены; исправления формы из 2.58.158 применяются только там, где действительно есть явная трансформация с исходным текстом и требованием сохранить смысл.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Списки отрицаний и regex-окна не расширены; форма правится только при явной трансформации",
+          "observation": "Сравнение services/negative_constraints.py между базой dc296207 и 63085f70: наборы отрицаний/«ничего»/regex не тронуты, удалён только импорт FORM_GUARD_RETRY_SYSTEM_PROMPT и retry-ветка; check_form_contract вызывается лишь в ветке transform_active (form_contract передан), свободный путь до неё не доходит — это же подтверждают test_free_form_text_with_all_diagnostics_is_delivered_as_written и три test_explicit_rewrite_* (граница «явная трансформация»).",
+          "type": "static",
+          "artifact_path": "services/negative_constraints.py",
+          "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Стыковочный HEAD содержит оба принятых слияния среза и те же тесты",
+          "observation": "Кандидат 20d19ad0 — текущий HEAD ветки evol/impl: в нём одновременно есть слияние b9bd717b (числовой data-stage фактчека, ветка 93e64dc8) и слияние 20d19ad0 (verbalize, ветка 63085f70). На этом дереве прогнаны tests/test_rlr_verbalize_scope.py (18 passed), tests/test_rlr_factcheck_numeric_stage.py (11 passed), tests/test_rlr_no_second_author.py (11 passed) — 40 passed; файлы тестов идентичны соответствующим веткам.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "20d19ad0"
+        }
+      ]
     },
     {
       "source_id": "L00078",
@@ -1689,7 +1892,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Модульный контракт узкой проверки имён/дат/чисел/отрицаний реализован и покрыт тестами, но боевой `_l2_write_answer` передаёт form_contract=None и ни один production-модуль не строит FormContract — для реальных команд «перепиши/переведи» проверка ещё не включена (неслитая часть среза)."
     },
     {
       "source_id": "L00079",
@@ -1703,8 +1907,30 @@
       "acceptance": "В специализированном фактчеке/статистике валидация выполняется на уровне facts, `MetricResult`, `NumericClaim` и evidence/claim binding до публикации, а не лексическим сравнением двух авторских ответов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Числа фактчека берутся из структурных данных прогона до генерации",
+          "observation": "tests/test_rlr_factcheck_numeric_stage.py: test_invented_number_is_not_published — валидированный набор уходит Writer'у в payload ДО генерации (numbers.checked: value 42, source measurement, ref cs:deadbeef1234, unit messages), вызовов сверх аналитика и Writer нет; TestNumericContractHelpers — канонизация разделителей и дат, привязка MetricResult и TemporalClaimEnvelope. Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_factcheck_numeric_stage.py",
+          "candidate_commit": "93e64dc8"
+        },
+        {
+          "ref": "Неподтверждённое число не публикуется и не переписывается в предложении",
+          "observation": "test_invented_number_is_not_published: «12 345»/«12345»/«12\\xa0345» отсутствуют в результате, вместо пересказа — детерминированный структурный отчёт (вердикт + утверждения + NUMERIC_REPORT_NOTE); test_insufficient_evidence_stays_insufficient и test_refuted_verdict_reports_without_softening: класс вердикта не смягчается; test_no_post_l2_numeric_rewrite: apply_numeric_guard в фактчеке не вызывается, verified_phrase не передаётся. Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_factcheck_numeric_stage.py",
+          "candidate_commit": "93e64dc8"
+        },
+        {
+          "ref": "Стыковочный HEAD содержит оба принятых слияния среза и те же тесты",
+          "observation": "Кандидат 20d19ad0 — текущий HEAD ветки evol/impl: в нём одновременно есть слияние b9bd717b (числовой data-stage фактчека, ветка 93e64dc8) и слияние 20d19ad0 (verbalize, ветка 63085f70). На этом дереве прогнаны tests/test_rlr_verbalize_scope.py (18 passed), tests/test_rlr_factcheck_numeric_stage.py (11 passed), tests/test_rlr_no_second_author.py (11 passed) — 40 passed; файлы тестов идентичны соответствующим веткам.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "20d19ad0"
+        }
+      ]
     },
     {
       "source_id": "L00081",
@@ -1733,8 +1959,16 @@
       "acceptance": "`negative_constraints.verbalize_validated()` разделяет обязательный машинный протокол (структура JSON, схемы function-call) и проверку готового разговорного текста; для свободного L2 циклы полной перегенерации из-за формата, отрицаний, чисел, метаречи и «клише» отсутствуют, Anti-Cliché остаётся диагностическим наблюдением при включённой настройке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Машинный протокол и проверка готовой речи разнесены; свободный L2 без циклов перегенерации",
+          "observation": "test_invalid_machine_json_is_repaired_in_machine_stage_only и test_machine_repair_is_bounded_and_reports_unrepaired — протокол чинится отдельно, bounded, с видимой причиной; test_free_form_text_with_all_diagnostics_is_delivered_as_written — свободная речь без перегенерации по формату, отрицаниям, числам, метатексту и клише; test_machine_validation_is_not_used_for_free_speech — разные функции и параметры у машинного слоя и свободной речи. Прогон файла на HEAD 20d19ad0 — 18 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        }
+      ]
     },
     {
       "source_id": "L00086",
@@ -1749,7 +1983,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "`apply_numeric_guard` и его повтор после freshness в direct-маршруте не сняты (services/direct_chat_service.py:5295, 5416); в speech-модуле числа уже только наблюдаются — неслитая часть среза."
     },
     {
       "source_id": "L00087",
@@ -1764,7 +1999,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "evidence egress lookup/rewrite/drop в direct-маршруте не снят — неслитая часть среза."
     },
     {
       "source_id": "L00088",
@@ -1779,7 +2015,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "`public_speech_guard` (BGS-03) в принятых кандидатах не менялся — неслитая часть среза."
     },
     {
       "source_id": "L00089",
@@ -1794,7 +2031,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "`format_retry`/plain-renderer не менялись — неслитая часть среза."
     },
     {
       "source_id": "L00090",
@@ -1809,7 +2047,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Deterministic style pass в direct-маршруте не менялся — неслитая часть среза."
     },
     {
       "source_id": "L00092",
@@ -1839,7 +2078,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "`duplicate_guard_retry` в direct-маршруте не удалён — неслитая часть среза."
     },
     {
       "source_id": "L00095",
@@ -1869,7 +2109,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Лечение повторяемости в L1/контексте/истории принятыми кандидатами не проверялось."
     },
     {
       "source_id": "L00097",
@@ -1884,7 +2125,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Проверка отсутствия jitter/синонимайзера/отказа вместо duplicate guard — на неслитой части."
     },
     {
       "source_id": "L00099",
@@ -1914,7 +2156,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Двухвызовный (структурный) маршрут покрыт числовым data-stage и честными вердиктами (93e64dc8), но одиночный путь 10.21 — kill-switch SYSTEM2_FACTCHECK_ENABLED=false и fallback при two_call=None — заканчивается `_finalize` без числового контракта; полнота PVR-FC (FC-01–FC-07) этим срезом не доказана — задокументированное ограничение ревьюера."
     },
     {
       "source_id": "L00102",
@@ -1929,7 +2172,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Доказано только сохранение шагов stage1/stage2 в services/summary_generator.py; глубокий сон, память и GraphRAG собственными наборами в принятых кандидатах не проверялись."
     },
     {
       "source_id": "L00103",
@@ -1944,7 +2188,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Отдельного доказательства мем-пайплайна (текст промптов и версионирование) в принятых кандидатах нет; проверка — вместе с мем-наборами после остальных срезов."
     },
     {
       "source_id": "L00104",
@@ -1958,8 +2203,23 @@
       "acceptance": "При явном запросе «перепиши»/«переведи» L2 является автором запрошенной трансформации, оригинал — source data, а не скрытый конкурентный бот-черновик; результат и обоснованное ограничение показываются без второго автоматического редактора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "При явном запросе «перепиши/переведи» автор — L2, оригинал — данные, без второго редактора",
+          "observation": "test_explicit_rewrite_that_keeps_facts_is_delivered_as_written: переписанный L2-текст уходит как написан; test_explicit_rewrite_without_source_keeps_author_text_and_flags_clarification: при отсутствии исходника авторский текст не подменяется, вызывающий получает needs_clarification; test_explicit_rewrite_validates_protected_facts_without_second_author: form_retry=False, semantic_rewrite_count=0. Прогон файла на HEAD 20d19ad0 — 18 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Стыковочный HEAD содержит оба принятых слияния среза и те же тесты",
+          "observation": "Кандидат 20d19ad0 — текущий HEAD ветки evol/impl: в нём одновременно есть слияние b9bd717b (числовой data-stage фактчека, ветка 93e64dc8) и слияние 20d19ad0 (verbalize, ветка 63085f70). На этом дереве прогнаны tests/test_rlr_verbalize_scope.py (18 passed), tests/test_rlr_factcheck_numeric_stage.py (11 passed), tests/test_rlr_no_second_author.py (11 passed) — 40 passed; файлы тестов идентичны соответствующим веткам.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "20d19ad0"
+        }
+      ]
     },
     {
       "source_id": "L00105",
@@ -2034,7 +2294,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Текст свободного пути доставляется как написан (доказано), но пост-Writer numeric/egress в direct-маршруте ещё не снят; provenance evidence-пакета подтверждён отдельно (R-02.2)."
     },
     {
       "source_id": "L00110",
@@ -2123,8 +2384,23 @@
       "acceptance": "Исправление невалидного машинного JSON/схемы возможно только в подготовительном машинном слое, в пределах реального бюджета и с видимой причиной retry; свободный Verbalizer не преобразует неверный JSON в «человеческий ответ» после финального Writer.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "В direct-маршруте больше нет преобразования машинного JSON в человеческий ответ",
+          "observation": "test_legacy_entrypoints_do_not_exist: в services/direct_chat_service.py нет вызовов `parse_direct_synthesis(` и `stage2_payload(`, то есть финальный Writer не получает машинную JSON-справку для перевода в речь (снят сам механизм). Прогон файла на HEAD 20d19ad0 — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Машинный протокол чинится отдельно, bounded и с видимой причиной; свободный Verbalizer не чинит JSON",
+          "observation": "tests/test_rlr_verbalize_scope.py: test_invalid_machine_json_is_repaired_in_machine_stage_only — невалидный JSON чинится в repair_machine_payload за ≤1 повтор, причина видна (machine_reasons == [MACHINE_CONTRACT_REJECTED]), в повторе служебный префикс, каноны FORM_GUARD/NUMERIC_CLAIM не используются; test_machine_repair_is_bounded_and_reports_unrepaired — потолок _MAX_RETRIES_HARD_CAP вместо max_retries=99, machine_unrepaired=True; test_machine_validation_is_not_used_for_free_speech — у verbalize_validated нет параметра validator, у repair_machine_payload нет form_contract/scrubber. Прогон файла на HEAD 20d19ad0 — 18 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        }
+      ]
     },
     {
       "source_id": "L00118",
@@ -2139,7 +2415,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Plain-fallback форматирования Telegram в принятых кандидатах не менялся — неслитая часть."
     },
     {
       "source_id": "L00119",
@@ -2907,7 +3184,7 @@
       "evidence": []
     }
   ],
-  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл); для стабильных отчётов добавляется artifact_sha256. Плановые строки остаются PENDING с пустым evidence и candidate_commit=\"\" до появления реального кандидата. Зелёные тесты без утверждения о наблюдаемом поведении, устное заверение и внешний документ доказательством не считаются (R-09.5). Привязка среза RLR-05-ADMIN: строки R-ADM.2/R-ADM.3/R-ADM.4/R-CONF.11 привязаны к d49b10ac с указанием реальных путей; artifact_sha256 намеренно не проставлялся, потому что манифест и каталог правятся следующими волнами (UI UR-F/PVR) и хеш-привязка дала бы ложно-красные проверки; стабильность подтверждается прогоном 61 passed после слияния a4593936.",
+  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл); для стабильных отчётов добавляется artifact_sha256. Плановые строки остаются PENDING с пустым evidence и candidate_commit=\"\" до появления реального кандидата. Зелёные тесты без утверждения о наблюдаемом поведении, устное заверение и внешний документ доказательством не считаются (R-09.5). Привязка среза RLR-05-ADMIN: строки R-ADM.2/R-ADM.3/R-ADM.4/R-CONF.11 привязаны к d49b10ac с указанием реальных путей; artifact_sha256 намеренно не проставлялся, потому что манифест и каталог правятся следующими волнами (UI UR-F/PVR) и хеш-привязка дала бы ложно-красные проверки; стабильность подтверждается прогоном 61 passed после слияния a4593936. Привязка срезов RLR-02/RLR-03/RLR-04: строки привязаны к тому кандидату, который реально доказал поведение (0e3f96be — legacy-ветка, 63085f70 — verbalize-ветка, 93e64dc8 — числовой data-stage фактчека, d49b10ac — принятая backend-часть RLR-05), по одному-двум свидетельствам на строку; artifact_sha256 не проставлялся, пока прямая часть RLR-04 и UI-волна правят те же модули, — стабильность подтверждается прогоном 40 passed на HEAD 20d19ad0.",
   "live_policy_note": "PET_PROJECT: деплой и прод-проверка разрешены после независимого ревью без отдельного согласования владельца. На этапе планирования live_required=false у всех строк: обязательные проверки исполняются агентом локально/на стенде, а post-deploy проверка (R-PROC.5, R-DOD.9) добавляется как live/production evidence на release-стадии по фактическому кандидату. Ручное участие владельца гейтом не является.",
   "supersedes_in_other_maps": [
     {
@@ -2953,7 +3230,7 @@
   "architecture_classification": "ARCH_REUSE_CONFIRMED",
   "architecture_note": "Коррекция — демонтаж существующего поведения, а не новый интерфейс. Опирается на уже существующие контракты: TurnRequest/L1/L2 и ToolEvidence из UNIFIED-REPLY (UR-A/UR-B), services/direct_chat_service.py как единственный владелец финального маршрута, services/negative_constraints.py (verbalize_validated), services/evidence_policy.py (allowed/guard_egress), services/public_speech_guard.py, services/param_catalog.py + services/config_migrations.py для конфиг-миграции, services/mca_trace.py/services/oversight.py + web/api/oversight.py для трассы. Новых общих границ не замораживается: поля трассы §7 аддитивны к существующему payload, migration manifest §6.2 классифицирует существующие ключи. Если Builder обнаружит потребность в новом общем контракте (новый статус ToolEvidence, новая версия схемы трассы, общий валидатор на несколько подсистем) — работа останавливается по этой границе и вопрос уходит Architect; PM контракт не изобретает. Один писатель на services/direct_chat_service.py зафиксирован цепочкой зависимостей графа.",
   "placement": "Волна 1 (параллельно): RLR-01-ROUTE (единственный писатель direct_chat_service.py) и backend-часть RLR-05-ADMIN (param_catalog/config_migrations, UI — после UR-F/PVR). RLR-07-PROOF в это время выполняет только read-only baseline (R-PROC.1). Волна 2: RLR-02-LEGACY. Волна 3: RLR-03-FORMCONTRACT. Волна 4: RLR-04-REROLL. Волна 5: RLR-06-OBSERVABILITY (поля трассы описывают уже финальный маршрут). Волна 6: RLR-07-PROOF (матрица маршрутов, 21 сценарий R-08, реальный LLM). Волна 7: RLR-08-DOD (сверка DoD, конфликтная матрица, релизная проверка).",
-  "merge_state": "RLR-05-ADMIN (backend-часть): манифест миграции, классы, скрытие removed/deprecated_compat из редактируемого каталога при сохранённой читаемости, отключение SYSTEM2_DIRECT_ENABLED при любом сыром значении и честные подписи реализованы в d49b10ac, приняты Reviewer (Approved) и слиты мёржом a4593936; после слияния tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed. Доказаны R-ADM.2, R-ADM.3, R-ADM.4 и сохранность PVR-истории/версий (R-CONF.11). Остаются PENDING: UI-часть среза (R-ADM.1 UI/диагностика, R-ADM.5, R-ADM.6, R-ADM.7) — ждёт волну UR-F/PVR и RLR-06; dead consumers (R-PROC.4) — RLR-02/RLR-04; бюджетная часть R-CONF.9 — BGS-05; Speech/Character-перепроверка (R-CONF.12) — после RLR-04. Остальные срезы карты не начаты.",
+  "merge_state": "Слито и принято Reviewer (по срезам): RLR-02-LEGACY — вся ветка rlr/legacy-writer (0e3f96be, merge b62bc51e): второго автора нет физически, факты инструментов идут до L2, ошибка L2 честная, специализированные пайплайны целы; RLR-03-FORMCONTRACT — свободная часть (rlr/verbalize-scope 63085f70, merge 20d19ad0) и числовой data-stage фактчека (rlr/factcheck-numeric-stage 93e64dc8, merge b9bd717b); RLR-04-REROLL — только свободная часть (reroll-семейства в speech-модуле стали наблюдениями, semantic_rewrite_count измеряется); RLR-05-ADMIN backend-часть — d49b10ac/merge a4593936 (см. ниже, не переоткрывалась). Локальный прогон на рабочем дереве HEAD 20d19ad0: test_rlr_no_second_author.py 11 passed, test_rlr_verbalize_scope.py 18 passed, test_rlr_factcheck_numeric_stage.py 11 passed (итого 40). Остаётся PENDING: прямая часть RLR-04 (apply_numeric_guard/freshness, evidence egress, public_speech_guard, format_retry, deterministic style, duplicate_guard_retry) — не слита; R-03.3 — узкая проверка явных трансформаций не подключена в боевом `_l2_write_answer` (form_contract=None); R-06.1 — одиночный путь 10.21 (kill-switch/fallback фактчека) без числового контракта; R-06.2/R-06.3 — саммари/память/GraphRAG и мем-пайплайн отдельно не доказаны; R-PROC.4 — остатки-потребители (неиспользуемый parse_direct_synthesis, ссылки в tools/er65_prompt_segment_snapshot.py, метаданные param_catalog); UI-часть RLR-05 (R-ADM.1/5/6/7) ждёт волну UR-F/PVR и RLR-06. R-FAIL.4 привязан к кандидату verbalize-ветки 63085f70, поэтому в прогоне среза RLR-02 с кандидатом 0e3f96be он выглядит не имеющим привязки к этому кандидату — это граница кандидата, а не отсутствие доказательства. RLR-05-ADMIN (backend-часть, без изменений): манифест миграции, классы, скрытие removed/deprecated_compat из редактируемого каталога при сохранённой читаемости, отключение SYSTEM2_DIRECT_ENABLED при любом сыром значении и честные подписи реализованы в d49b10ac, приняты Reviewer (Approved) и слиты мёржом a4593936; после слияния tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed. Доказаны R-ADM.2, R-ADM.3, R-ADM.4 и сохранность PVR-истории/версий (R-CONF.11).",
   "blocked_by_upstream": [
     "unified-reply:UR-B/UR-D/UR-E — незавершённые лейны делят services/direct_chat_service.py и services/direct_execution.py; интеграция в одно безопасное окно (§9.3), второй владелец файла запрещён.",
     "unified-reply:UR-F / PVR UI — UI-часть RLR-05-ADMIN (web/app.js, web/index.html) выполняется после их слияния; backend-часть не блокируется.",
