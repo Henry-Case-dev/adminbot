@@ -139,7 +139,7 @@ def _plan(over: dict) -> l1.L1Plan:
 
 def _ok_ctx(**over) -> ep.EvidenceContext:
     values = dict(
-        rbac_ok=True, privacy_ok=True, user_forbids_external=False,
+        rbac_ok=True, user_forbids_external=False,
         network_allowed={"web_search": True, "fetch_url": True},
         capabilities={"web_search": (True, ""), "fetch_url": (True, ""),
                       "fact_check": (True, "")},

@@ -153,7 +153,6 @@ BLOCK_TOOL_ABSENT = "tool_absent"
 BLOCK_CAPABILITY_NOT_READY = "capability_not_ready"
 BLOCK_QUOTA = "financial_limit_reached"
 BLOCK_SSRF = "destination_blocked"
-BLOCK_PRIVACY = "privacy_blocked"
 
 _BLOCK_TO_FAILURE = {
     BLOCK_RBAC: EvidenceFailureCode.CAPABILITY_NOT_READY,
@@ -164,7 +163,6 @@ _BLOCK_TO_FAILURE = {
     BLOCK_CAPABILITY_NOT_READY: EvidenceFailureCode.CAPABILITY_NOT_READY,
     BLOCK_QUOTA: EvidenceFailureCode.QUOTA_EXHAUSTED,
     BLOCK_SSRF: EvidenceFailureCode.SOURCE_FETCH_FAILED,
-    BLOCK_PRIVACY: EvidenceFailureCode.CAPABILITY_NOT_READY,
 }
 
 #: Три НОВЫХ кода ``mca_events.REASON_CODES`` (ровно столько, §1.4).
@@ -220,7 +218,6 @@ def blocked_reason_code(block_code: str, *, user_forbids: bool = False) -> str:
         BLOCK_CAPABILITY_NOT_READY: "capability_not_ready",
         BLOCK_QUOTA: "financial_limit_reached",
         BLOCK_SSRF: "destination_blocked",
-        BLOCK_PRIVACY: "job_not_allowed",
     }.get(code, "insufficient_evidence")
 
 
@@ -395,7 +392,6 @@ class EvidenceContext:
     SSRF/размер/тип — ``safe_fetch`` (класс A, здесь только результат)."""
 
     rbac_ok: bool = True
-    privacy_ok: bool = True
     user_forbids_external: bool = False
     #: capability → разрешена ли реальная сеть (глобальный/чатовый флаг)
     network_allowed: dict[str, bool] = field(default_factory=dict)
@@ -476,10 +472,12 @@ def allowed(capability: str, ctx: EvidenceContext | None
     """``(ok, code)``: можно ли ходу исполнить read-only capability.
 
     Порядок проверок — контракт (§1.5): RBAC/доступ → запрет сети →
-    доступность провайдера/ключа/состояния → стоимость/квота → SSRF →
-    privacy. ``runtime_required`` не понижается confidence/tool_policy/
-    execution_mode — это забота вызывающего; здесь решается только
-    «разрешено ли технически». Никогда не бросает."""
+    доступность провайдера/ключа/состояния → стоимость/квота → SSRF.
+    Содержательного вето по теме здесь нет (BGS-01): тема разговора, участник
+    чата и «приватность» запроса не являются критерием отказа. ``runtime_required``
+    не понижается confidence/tool_policy/execution_mode — это забота
+    вызывающего; здесь решается только «разрешено ли технически».
+    Никогда не бросает."""
     cap = str(capability or "").strip().lower()
     if not cap:
         return (False, BLOCK_CAPABILITY_NOT_READY)
@@ -508,9 +506,6 @@ def allowed(capability: str, ctx: EvidenceContext | None
         ssrf = ctx.ssrf_ok.get(cap)
         if ssrf is False:
             return (False, BLOCK_SSRF)
-        # 6. Privacy/деперсонализация запроса.
-        if not ctx.privacy_ok:
-            return (False, BLOCK_PRIVACY)
         return (True, "")
     except Exception:      # pragma: no cover - защитная ветка
         return (False, BLOCK_CAPABILITY_NOT_READY)
@@ -792,7 +787,7 @@ def _with_allowed(decision: EvidenceDecision, *, context, runtime_state
     * **законный skip** — сеть запрещена (рубильник «Модуль Поиск»/`webpage`
       или явный запрет пользователя в реплике): это не «проверка сорвалась», а
       нормальное основание её не делать (§1.4 ``USER_FORBIDS_EXTERNAL``);
-    * **не выполнено** — провайдер/ключ/квота/SSRF/privacy: обязательная
+    * **не выполнено** — провайдер/ключ/квота/SSRF: обязательная
       проверка есть, но технически невозможна (`failure_code`, §1.2 п.10)."""
     if not decision.required_caps or not decision.required:
         return decision
