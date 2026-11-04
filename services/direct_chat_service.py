@@ -2718,6 +2718,9 @@ async def _run_evidence_egress_guard(*, answer, decision, evidence_text="",
             answer=str(answer), decision=decision, evidence_text=evidence_text,
             delivered_keys=delivered_keys)
         stats.update(observation.event_fields())
+        # MUTANT: старая постцензура — вырезать предложение.
+        if observation.sentence:
+            return str(answer).replace(observation.sentence, ""), stats
         return answer, stats
     except asyncio.CancelledError:
         raise

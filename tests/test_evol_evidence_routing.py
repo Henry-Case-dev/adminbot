@@ -1243,6 +1243,46 @@ async def test_egress_gate_off_keeps_answer_byte_identical():
     assert stats["code"] == ep.GUARD_NONE
 
 
+@pytest.mark.asyncio
+async def test_egress_event_keeps_zero_based_location(monkeypatch):
+    """BGS-02.9: место срабатывания «0» — это НАЙДЕНО, а не «нет места».
+
+    Наблюдение на первом предложении даёт ``sentence_index=0`` и
+    ``char_start=0``. Событие обязано передать именно нули: иначе inspector
+    показывает «место не найдено», хотя текст и доставка совпадают
+    байт-в-байт (``or -1`` в эмиттере превращал валидный 0 в -1).
+    """
+    decision = ep.EvidenceDecision(required=True,
+                                   evidence_class="externally_factual")
+    answer = "Модели GeForce RTX 9090 не существует."
+    observation = ep.guard_egress(answer=answer, decision=decision,
+                                  evidence_text="")
+    assert observation.action == ep.GUARD_OBSERVED_UNVERIFIED
+    stats = observation.event_fields()
+    assert stats["sentence_index"] == 0
+    assert stats["char_start"] == 0
+    assert stats["char_end"] == len(answer)
+
+    agentic: list = []
+    mca: list = []
+    monkeypatch.setattr(dcs, "emit_agentic_event",
+                        lambda name, **kw: agentic.append((name, kw)))
+    monkeypatch.setattr(dcs._mca_events, "emit_mca_event",
+                        lambda name, **kw: mca.append((name, kw)))
+    _service()._emit_evidence_egress_event(CHAT, "run-loc", stats)
+
+    assert agentic, "событие EVIDENCE_EGRESS_CHECK не отправлено"
+    fields = dict(agentic[0][1])
+    assert fields["observed"] == 1
+    assert fields["sentence_index"] == 0
+    assert fields["char_start"] == 0
+    assert fields["char_end"] == len(answer)
+    assert mca, "MCA-событие не отправлено"
+    usage = dict(mca[0][1]["usage_json"])
+    assert usage["sentence_index"] == 0 and usage["char_start"] == 0
+    assert usage["char_end"] == len(answer)
+
+
 # ── Волна 3: reuse подключён к реальному пути Direct (§1.6/§3.2/§3.4/§4.3) ──
 
 
