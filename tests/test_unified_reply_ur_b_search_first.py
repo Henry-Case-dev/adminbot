@@ -264,8 +264,6 @@ class TestNoTopicVeto:
         assert result.evidence.search_called is True
         assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
         assert result.evidence.claim_policy == "claim_allowed"
-        for term in private_terms:
-            assert term.lower() not in search.queries[0].lower()
 
     @pytest.mark.parametrize("query,private_terms", [
         ("У Маши болит голова; какие общие причины?", ("Маша",)),
@@ -357,7 +355,7 @@ class TestPayloadHygiene:
     """Гигиена payload: идентификаторы и секреты не уходят, тема — уходит."""
 
     @pytest.mark.asyncio
-    async def test_ids_and_aliases_stripped_but_search_happens(self):
+    async def test_ids_stripped_names_kept_and_search_happens(self):
         search = _SearchProvider(
             "Заголовок\nкурс вырос\nhttps://example.com/btc")
         query = "какой курс биткоина, спросил Вася 79991234567 @vasya " \
@@ -368,7 +366,9 @@ class TestPayloadHygiene:
         assert len(search.queries) == 1
         sent = search.queries[0].lower()
         assert "биткоин" in sent
-        for forbidden in ("79991234567", "vasya", "вася", "t.me", "@",
+        # Имя участника — тема запроса, а не утечка: оно остаётся.
+        assert "вася" in sent
+        for forbidden in ("79991234567", "t.me", "@",
                           "secret@example.com"):
             assert forbidden not in sent, f"утечка {forbidden!r} в поиск"
         assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
@@ -376,7 +376,91 @@ class TestPayloadHygiene:
         assert result.evidence.search_query != query
 
     @pytest.mark.asyncio
-    async def test_extraordinary_secrets_never_reach_provider(self):
+    async def test_participant_name_does_not_corrupt_topic(self):
+        """«Макс» не должен превращать «максимальная» в «имальная»."""
+        search = _SearchProvider("Заголовок\nцена\nhttps://example.com/gpu")
+        query = "какая максимальная цена RTX 4060"
+        result = await _run(_plan(knowledge_origin="open_world"), query, search,
+                            private_terms=("Макс",))
+        assert len(search.queries) == 1, "поиск обязан состояться"
+        sent = search.queries[0].lower()
+        assert "максимальная" in sent, f"тема испорчена: {sent!r}"
+        assert "4060" in sent
+        assert result.evidence.search_called is True
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
+        assert result.evidence.search_skip_reason == ""
+
+    @pytest.mark.asyncio
+    async def test_participant_name_kept_in_topic(self):
+        """«Маска Starship»: имя остаётся в запросе и не блокирует поиск."""
+        search = _SearchProvider("Заголовок\nзапуск\nhttps://example.com/starship")
+        result = await _run(_plan(knowledge_origin="open_world"),
+                            "Маска Starship когда следующий запуск", search,
+                            private_terms=("Маска",))
+        assert len(search.queries) == 1, "поиск обязан состояться"
+        sent = search.queries[0].lower()
+        assert "маска" in sent, f"имя вычищено из темы: {sent!r}"
+        assert "starship" in sent
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
+
+    @pytest.mark.asyncio
+    async def test_whole_word_case_does_not_break_neighbours(self):
+        """«Максим» не должен резать «максимальный» внутри того же слова."""
+        search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/w")
+        result = await _run(_plan(knowledge_origin="open_world"),
+                            "Максим спрашивает максимальный размер памяти",
+                            search, private_terms=("Максим",))
+        assert len(search.queries) == 1
+        sent = search.queries[0].lower()
+        assert "максимальный" in sent, f"частичное слово испорчено: {sent!r}"
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
+
+    @pytest.mark.asyncio
+    async def test_reviewer_sveta_paraphrase_keeps_name(self):
+        """Репро Reviewer: имя «Света» не выпадает из длинной личной реплики."""
+        search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/sleep")
+        query = ("Света из нашего чата уже третью ночь не спит из-за "
+                 "панических атак, какие вообще бывают причины бессонницы "
+                 "при тревоге")
+        result = await _run(_plan(knowledge_origin="open_world"), query, search,
+                            private_terms=("Света",))
+        assert len(search.queries) == 1, "поиск обязан состояться"
+        sent = search.queries[0].lower()
+        assert "света" in sent, f"имя вычищено из темы: {sent!r}"
+        assert "причины" in sent or "бессонниц" in sent, (
+            f"тема не ушла провайдеру: {sent!r}")
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
+
+    @pytest.mark.asyncio
+    async def test_reviewer_short_request_keeps_name(self):
+        """Репро Reviewer: «поищи про Свету» не обрезается до «поищи про»."""
+        search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/s")
+        result = await _run(_plan(knowledge_origin="open_world"),
+                            "поищи про Свету", search,
+                            private_terms=("Света",))
+        assert len(search.queries) == 1, "поиск обязан состояться"
+        sent = search.queries[0].lower()
+        assert "свет" in sent, f"имя вычищено из запроса: {sent!r}"
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
+
+    @pytest.mark.asyncio
+    async def test_markers_still_stripped_while_name_stays(self):
+        """Обратный контроль: телефон/почта/id/приватная ссылка не уходят."""
+        search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/m")
+        query = ("Света спрашивает про бессонницу 79991234567 "
+                 "sekret@example.com 123456789 t.me/c/12345")
+        result = await _run(_plan(knowledge_origin="open_world"), query, search,
+                            private_terms=("Света",))
+        assert len(search.queries) == 1, "поиск обязан состояться"
+        sent = search.queries[0]
+        lowered = sent.lower()
+        assert "света" in lowered, f"имя вычищено из темы: {lowered!r}"
+        assert "бессонниц" in lowered
+        for marker in ("79991234567", "sekret@example.com", "123456789",
+                       "t.me"):
+            assert marker not in lowered, f"идентификатор утёк в поиск: {marker}"
+
+
         search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/s")
         query = ("проверь sk-live-abcdefgh12345678 и ghp_abcdefgh12345678 "
                  "и api_key=deadbeefcafe курс биткоина")
@@ -386,6 +470,41 @@ class TestPayloadHygiene:
         for secret in ("sk-live-abcdefgh12345678", "ghp_abcdefgh12345678",
                        "deadbeefcafe"):
             assert secret not in sent, f"секрет утёк в поиск: {secret}"
+
+    def test_strip_is_idempotent_and_keeps_ordinary_words(self):
+        """Чистка не трогает обычные слова и не меняется от повторного прогона."""
+        text = ("какая максимальная цена RTX 4060, маскарад и василёк, "
+                "курс 79991234567 @vasya t.me/c/123 sekret@example.com")
+        once, removed = _dx._strip_sensitive(text, ("Макс", "Вася"))
+        twice, _ = _dx._strip_sensitive(once, ("Макс", "Вася"))
+        assert " ".join(twice.split()) == " ".join(once.split()), (
+            f"чистка не идемпотентна: {once!r} → {twice!r}")
+        for word in ("максимальная", "маскарад", "василёк", "4060"):
+            assert word in once.lower(), f"слово испорчено: {word} в {once!r}"
+        assert removed, "идентификаторы так и не убраны"
+        for marker in ("79991234567", "@vasya", "t.me", "sekret@example.com"):
+            assert marker not in once
+
+    def test_strip_guard_rejects_partial_word_corruption(self):
+        """Страховка: обрезка слова распознаётся, цельная замена — нет."""
+        assert _dx._payload_pass_is_safe(
+            "максимальная цена", "имальная цена") is False
+        assert _dx._payload_pass_is_safe(
+            "курс 79991234567 биткоин", "курс   биткоин") is True
+
+    def test_alias_parameter_cannot_rewrite_words(self):
+        """Даже переданный алиас не меняет текст: имён больше не вычищаем."""
+        text = "максимальная цена RTX 4060"
+        for term in ("Макс", "максим", "Маска", "Маша"):
+            clean, _removed = _dx._strip_sensitive(text, (term,))
+            assert clean == text, f"алиас {term!r} испортил запрос: {clean!r}"
+
+    def test_token_prefix_inside_word_is_not_a_secret(self):
+        """«task-manager» — не ключ «sk-…»: префикс не режется внутри слова."""
+        text = "task-manager настройка и sk-live-abcdefgh12345678"
+        clean, _removed = _dx._strip_sensitive(text)
+        assert "task-manager" in clean
+        assert "sk-live-abcdefgh12345678" not in clean
 
     @pytest.mark.asyncio
     async def test_whole_chat_is_not_sent(self):

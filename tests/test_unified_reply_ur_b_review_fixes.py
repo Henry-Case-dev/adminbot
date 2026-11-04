@@ -5,8 +5,9 @@
   1. сеть не трогается по ТЕХНИЧЕСКИМ причинам (запрет человека, отсутствие
      инструмента, пустая формулировка) — и это видно в трассе, а если вызов
      всё-таки состоялся, `search_called` не может остаться False;
-  2. идентификаторы и алиасы участников не уезжают провайдеру, при этом сам
-     поиск выполняется (гигиена payload, а не вето по теме);
+  2. идентификаторы и секреты не уезжают провайдеру, а имена участников чата
+     остаются частью формулировки; сам поиск при этом выполняется (гигиена
+     payload, а не вето по теме и не обезличиватель);
   3. явная просьба человека (`explicit_request=True`) делает поиск
      `required`/`user_forced` даже без `required_caps` и без ключевого слова;
      нет инструмента → честный `unavailable`, а не тихий пропуск;
@@ -115,14 +116,14 @@ def _l1_axis():
 
 class TestIdsStrippedSearchStillRuns:
     @pytest.mark.asyncio
-    async def test_ids_stripped_and_participant_name_not_sent(self):
+    async def test_ids_stripped_and_participant_name_kept(self):
         query = "Маша беременна третьем месяце говори никому"
         search = _SearchProvider("Ответ\nтекст\nhttps://example.com/x")
         plan = _plan(knowledge_origin="open_world")
         result = await _run(plan, query, search, private_terms=("Маша",))
         assert len(search.queries) == 1, "BGS-01: пересказ должен искаться"
         sent = search.queries[0].lower()
-        assert "маша" not in sent
+        assert "маша" in sent, "имя участника — часть темы, не утечка"
         assert "беременна" in sent, "тема запроса обязана уйти провайдеру"
         assert result.evidence.search_called is True
         assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
@@ -144,7 +145,7 @@ class TestIdsStrippedSearchStillRuns:
         assert len(search.queries) == 1, "публичное имя обязано искаться"
         sent = search.queries[0].lower()
         assert "tesla" in sent
-        assert "маша" not in sent
+        assert "маша" in sent, "имя участника остаётся частью темы"
         assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
 
 

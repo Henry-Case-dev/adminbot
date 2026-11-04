@@ -1109,23 +1109,35 @@ SEARCH_CAPABILITY_NAME = "web_search"
 #: и доступен вне payload (`ToolEvidence.search_task`).
 SEARCH_QUERY_MAX_CHARS = 512
 
-#: Гигиена поискового payload (НЕ вето на тему): персональные маркеры
-#: (ссылки/телефоны/упоминания/почта/длинные id), алиасы участников чата и
-#: строковые секреты (API-ключи/токены) не публикуются стороннему поисковику.
-#: Сам поиск при этом выполняется: удаление этих маркеров не отменяет запрос.
+#: Гигиена поискового payload (НЕ вето на тему): идентификаторы и строковые
+#: секреты (ссылки/телефоны/упоминания/почта/длинные id, API-ключи/токены) не
+#: публикуются стороннему поисковику. Сам поиск при этом выполняется: удаление
+#: этих маркеров не отменяет запрос. Имена/алиасы участников чата в этот набор
+#: НЕ входят (BGS-01 §2.4): имя — часть темы, а не служебный идентификатор.
 _PRIVATE_TG_LINK_RE = re.compile(
     r"(?:https?://)?(?:t\.me|telegram\.me|tg://)\S*", re.IGNORECASE)
 _PRIVATE_URL_RE = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
-_PRIVATE_MENTION_RE = re.compile(r"@[A-Za-z0-9_]{3,}")
+#: Почта раньше упоминания: иначе «@example» вырезался из «sekret@example.com»
+#: и от адреса в запросе оставался огрызок.
 _PRIVATE_EMAIL_RE = re.compile(r"\S+@\S+\.\S+")
-_PRIVATE_PHONE_RE = re.compile(r"\+?\d(?:[\d\s().\-]*\d){8,}")
+_PRIVATE_MENTION_RE = re.compile(r"@[A-Za-z0-9_]{3,}")
+#: Телефон — только непрерывный токен (без пробелов): иначе шаблон «съедал»
+#: соседние числа запроса («4060 8 2024» → «  ») и калечил тему.
+_PRIVATE_PHONE_RE = re.compile(r"(?<![\w+])\+?\d[\d()\-]{8,}\d(?!\w)")
 _PRIVATE_LONG_ID_RE = re.compile(r"\b\d{6,}\b")
 #: Строковые секреты: ключи/токены провайдеров и заголовки авторизации.
+#: ``\b`` перед префиксом — чтобы «task-manager» не считался ключом «sk-…».
 _SECRET_TOKEN_RE = re.compile(
-    r"(?:sk|pk|rk|ghp|gho|ghs|github_pat|xox[abp]|AKIA)[-_A-Za-z0-9]{8,}"
+    r"\b(?:sk|pk|rk|ghp|gho|ghs|github_pat|xox[abp]|AKIA)[-_A-Za-z0-9]{8,}"
     r"|\bBearer\s+\S+"
     r"|\b(?:api[_-]?key|token|secret|password)\s*[=:]\s*\S+",
     re.IGNORECASE)
+#: Порядок применения: почта/ссылки раньше упоминаний (см. выше).
+_PRIVATE_PATTERNS = (
+    _PRIVATE_TG_LINK_RE, _PRIVATE_URL_RE, _PRIVATE_EMAIL_RE,
+    _PRIVATE_MENTION_RE, _PRIVATE_PHONE_RE, _PRIVATE_LONG_ID_RE,
+    _SECRET_TOKEN_RE,
+)
 _SEARCH_TOKEN_RE = re.compile(r"[0-9A-Za-zА-Яа-яЁё][0-9A-Za-zА-Яа-яЁё_.+\-]*")
 #: Служебные слова просьбы о поиске — не публичные сущности.
 _SEARCH_REQUEST_WORDS = frozenset({
@@ -1135,32 +1147,64 @@ _SEARCH_REQUEST_WORDS = frozenset({
     "актуальные", "актуально", "последние", "последние", "данные", "данным",
     "check", "search", "google", "latest", "current", "please", "look", "up",
 })
-#: Падежные окончания русских имён. Алиас в контексте чата приходит в словарной
-#: форме («Маша»), а в реплике стоит в любой падежной: «у Маши». Точное
-#: совпадение строки оставляло бы алиас в поисковом payload. Окончание
-#: обязательное (не пустое): иначе «Вася» вычищал бы местоимение «вас».
-_ALIAS_ENDINGS = {
-    "а": r"(?:а|ы|и|е|у|ой|ей|ою|ею)",
-    "я": r"(?:я|и|е|ю|ей|ею)",
-    "й": r"(?:й|я|ю|ем|е|и)",
-    "ь": r"(?:ь|я|ю|ем|е|и)",
-}
-_LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
+#: Алиасы участников чата из поискового запроса НЕ удаляются (BGS-01,
+#: решение владельца 2026-11-05): имя участника — часть темы, и его вычистка
+#: калечила запрос («Макс» → «имальная цена», «Маска» выпадала из «Маска
+#: Starship»). Техническая гигиена ниже касается только идентификаторов и
+#: секретов и обязана быть безопасной для обычных слов.
+
+#: Края токена, которые не считаются частью самого слова.
+_WORD_EDGES = "«»\"'`.,;:!?()[]{}<>/\\|—–"
 
 
-def _alias_regex(term) -> "re.Pattern | None":
-    """Regex алиаса участника с падежными формами (кириллица). Не бросает."""
+def _payload_pass(text: str) -> tuple[str, int]:
+    """Один проход чистки: заменить маркеры пробелом. Не бросает."""
+    body = str(text or "")
+    removed = 0
+    for pattern in _PRIVATE_PATTERNS:
+        body, count = pattern.subn(" ", body)
+        removed += count
+    return body, removed
+
+
+def _payload_words(text: str) -> set:
+    """Множество слов (нижний регистр, без краевой пунктуации)."""
+    words = set()
+    for token in str(text or "").split():
+        word = token.strip(_WORD_EDGES).lower()
+        if any(ch.isalnum() for ch in word):
+            words.add(word)
+    return words
+
+
+def _payload_pass_is_safe(source: str, cleaned: str) -> bool:
+    """Чистка не режет слова и идемпотентна (BGS-01 §2.4).
+
+    Признак порчи — слово результата, которого не было в исходном тексте:
+    именно так «Макс» оставлял от «максимальная» обрывок «имальная».
+    Второе условие — повторный проход ничего не меняет (идемпотентность)."""
     try:
-        value = str(term or "").strip()
-        if len(value) < 3:
-            return None
-        tail = _ALIAS_ENDINGS.get(value[-1].lower())
-        if tail and not _LATIN_LETTER_RE.search(value):
-            return re.compile(re.escape(value[:-1]) + tail + r"\b",
-                              re.IGNORECASE)
-        return re.compile(re.escape(value), re.IGNORECASE)
-    except re.error:      # pragma: no cover - защитная ветка
-        return None
+        original = _payload_words(source)
+        if any(word not in original for word in _payload_words(cleaned)):
+            return False
+        again, _ = _payload_pass(cleaned)
+        return " ".join(again.split()) == " ".join(str(cleaned).split())
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
+def _payload_whole_token_pass(text: str) -> tuple[str, int]:
+    """Консервативная чистка: удаляются только токены, целиком являющиеся
+    маркером. Ни одно слово не может быть обрезано (страховка гигиены)."""
+    kept: list = []
+    removed = 0
+    for token in str(text or "").split():
+        probe, count = _payload_pass(token)
+        if count and not probe.strip():
+            removed += count
+            continue
+        kept.append(token)
+    return " ".join(kept), removed
 
 
 def _boundary_cut(text: str, limit: int) -> str:
@@ -1208,35 +1252,29 @@ class SearchTask:
 
 
 def _strip_sensitive(text: str, private_terms=()) -> tuple[str, int]:
-    """Убрать из payload персональные маркеры и строковые секреты.
+    """Убрать из payload идентификаторы и строковые секреты.
 
     Гигиена исходящего запроса, а НЕ вето на тему (BGS-01): удаление этих
     маркеров не отменяет поиск — оставшиеся термины по-прежнему уходят
     провайдеру. Возврат ``(clean, removed)``.
 
-    ``private_terms`` — алиасы/имена участников чата, собранные вызывающим из
-    существующего контекста (алиасы, автор, reply-текст). Числовые id,
-    телефоны, упоминания, почта, ссылки и строковые секреты (API-ключи/
-    токены) удаляются всегда: это не тема запроса, а идентификаторы и
-    учётные данные, которые сторонний поисковик получать не должен.
+    ``private_terms`` принимается ради совместимости вызывающего кода и
+    намеренно НЕ используется: имена/алиасы участников чата — часть темы
+    запроса, их вычистка калечила формулировку («Макс» → «имальная цена»).
+    Удаляются только числовые id, телефоны, упоминания, почта, ссылки и
+    строковые секреты (API-ключи/токены) — целыми токенами, без порчи слов.
     Никогда не бросает."""
+    _ = private_terms            # исторический аргумент, поведение не меняет
     body = str(text or "")
-    removed = 0
-    for pattern in (_PRIVATE_TG_LINK_RE, _PRIVATE_URL_RE, _PRIVATE_MENTION_RE,
-                    _PRIVATE_EMAIL_RE, _PRIVATE_PHONE_RE,
-                    _PRIVATE_LONG_ID_RE, _SECRET_TOKEN_RE):
-        body, count = pattern.subn(" ", body)
-        removed += count
-    for term in (private_terms or ()):
-        pattern = _alias_regex(term)
-        if pattern is None:
-            continue
-        try:
-            body, count = pattern.subn(" ", body)
-        except re.error:      # pragma: no cover - защитная ветка
-            continue
-        removed += count
-    return body, removed
+    try:
+        cleaned, removed = _payload_pass(body)
+        if _payload_pass_is_safe(body, cleaned):
+            return cleaned, removed
+        # Проход обрезал бы слово (внутреннее совпадение) — консервативный
+        # режим: удаляются только целые токены-маркеры.
+        return _payload_whole_token_pass(body)
+    except Exception:      # pragma: no cover - защитная ветка
+        return body, 0
 
 
 def build_search_query(plan, *, query: str = "", private_terms=(),

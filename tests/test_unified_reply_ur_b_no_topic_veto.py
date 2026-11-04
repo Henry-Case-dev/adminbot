@@ -13,8 +13,9 @@
 
 Остаются только технические гейты (проверяются ниже): прямой запрет сети
 человеком, отсутствие инструмента в наборе, выключенный/упавший провайдер,
-пустая формулировка. И гигиена payload: идентификаторы, алиасы участников и
-секреты в запрос не попадают — это фильтр данных, а НЕ вето на тему.
+пустая формулировка. И гигиена payload: идентификаторы и секреты в запрос не
+попадают — это фильтр данных, а НЕ вето на тему. Имена и алиасы участников
+чата, наоборот, остаются частью формулировки: они и есть тема (BGS-01 §2.4).
 
 Тесты идут через настоящий ToolRouter с подменным провайдером, без сети.
 
@@ -42,23 +43,14 @@ PROBE_LEADS = (
     "Хм, Маша ждёт ребёнка на третьем месяце",
     "Пишет Маша: ждёт ребёнка на третьем месяце",
 )
-#: Раньше блокировались как «личное утверждение» без публичного якоря.
-PROBE_PERSONAL = (
-    "я вчера перевёз вещи к родителям",
-    "у меня задержка",
-    "ей сказали что её переводят в другой отдел",
-    "Петя уволился из банка и переезжает в другой город",
-)
 
 
-def _assert_searched(result, search, *, expected: str, absent=()):
-    """Ровно один реальный вызов; тема ушла, идентификаторы — нет."""
+def _assert_searched(result, search, *, expected: str):
+    """Ровно один реальный вызов; тема ушла провайдеру."""
     assert len(search.queries) == 1, (
         f"BGS-01: запрос обязан уйти провайдеру: {search.queries!r}")
     sent = search.queries[0].lower()
     assert expected in sent, f"тема не ушла провайдеру: {sent!r}"
-    for chunk in absent:
-        assert chunk.lower() not in sent, f"утечка {chunk!r} в поиск: {sent!r}"
     assert result.evidence.search_called is True
     assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
     assert result.evidence.claim_policy == "claim_allowed"
@@ -77,7 +69,7 @@ class TestFormerlyBlockedProbesNowSearch:
         result = await _run(plan, PROBE_ALIAS, search,
                             private_terms=("Маша",), required_caps=(
                                 "web_search",))
-        _assert_searched(result, search, expected="ребёнка", absent=("маша",))
+        _assert_searched(result, search, expected="ребёнка")
         assert _search_calls(result), "реальный tool event не записан в трассу"
 
     @pytest.mark.asyncio
@@ -98,18 +90,22 @@ class TestFormerlyBlockedProbesNowSearch:
                      capabilities_needed=["web_search"])
         result = await _run(plan, query, search, private_terms=("Маша",),
                             required_caps=("web_search",))
-        _assert_searched(result, search, expected="ребёнка", absent=("маша",))
+        _assert_searched(result, search, expected="ребёнка")
 
-    @pytest.mark.parametrize("query", PROBE_PERSONAL)
-    def test_personal_claim_without_anchor_is_a_query(self, query):
+    @pytest.mark.parametrize("query,kept", [
+        ("я вчера перевёз вещи к родителям", "перевёз"),
+        ("у меня задержка", "задержка"),
+        ("ей сказали что её переводят в другой отдел", "переводят"),
+        ("Петя уволился из банка и переезжает в другой город", "петя"),
+    ])
+    def test_personal_claim_without_anchor_is_a_query(self, query, kept):
         task = _dx.build_search_query(
             _plan(knowledge_origin="open_world"), query=query,
             private_terms=("Маша", "Петя"))
         assert task.skip_reason == "", f"вето по теме осталось: {query!r}"
         assert task.usable is True
-        assert task.query
-        assert "маш" not in task.query.lower()
-        assert "пет" not in task.query.lower()
+        assert kept in task.query.lower(), (
+            f"тема/имя вычищены из формулировки: {task.query!r}")
 
     @pytest.mark.asyncio
     async def test_attributed_tail_does_not_change_outcome(self):
@@ -118,7 +114,7 @@ class TestFormerlyBlockedProbesNowSearch:
         result = await _run(_plan(knowledge_origin="open_world"),
                             "какой курс биткоина, спросил Вася", search,
                             private_terms=("Вася",))
-        _assert_searched(result, search, expected="биткоина", absent=("вася",))
+        _assert_searched(result, search, expected="биткоина")
 
 
 #: Широкий корпус ранее блокировавшихся реплик (все раунды ревью UR-B).
@@ -158,7 +154,7 @@ class TestFormerlyBlockedCorpusSearches:
                      capabilities_needed=["web_search"])
         result = await _run(plan, query, search, private_terms=("Маша", "Петя"),
                             required_caps=("web_search",))
-        _assert_searched(result, search, expected=expected, absent=("маша",))
+        _assert_searched(result, search, expected=expected)
         trace = str(result.evidence.trace_fields())
         assert "privacy" not in trace.lower(), f"вето в трассе: {trace}"
         assert result.evidence.can_claim_verified is True
@@ -215,15 +211,15 @@ class TestNoClassifierLeft:
             _dx.SEARCH_STATUSES)
         assert len(set(_dx.SEARCH_STATUSES)) == len(_dx.SEARCH_STATUSES)
 
-    @pytest.mark.parametrize("text,terms", [
-        (PROBE_ALIAS, ("Маша",)),
-        (PROBE_PRONOUN, ()),
+    @pytest.mark.parametrize("text,terms,kept", [
+        (PROBE_ALIAS, ("Маша",), "маша"),
+        (PROBE_PRONOUN, (), "задержка"),
     ])
-    def test_payload_stripper_is_hygiene_not_veto(self, text, terms):
-        """Вычистка алиаса не отменяет тему запроса (это не вето)."""
+    def test_payload_stripper_is_hygiene_not_veto(self, text, terms, kept):
+        """Имя участника — часть темы: гигиена не вычищает алиасы вовсе."""
         clean, _removed = _dx._strip_sensitive(text, terms)
         assert clean.strip(), "гигиена вычистила реплику целиком"
-        assert "маша" not in clean.lower()
+        assert kept in clean.lower()
         assert "ребёнка" in clean.lower() or "задержка" in clean.lower()
 
     def test_module_source_never_emits_privacy_blocked(self):
@@ -344,10 +340,11 @@ class TestPublicRequestsUnchanged:
         _assert_searched(result, search, expected=expected)
 
     @pytest.mark.asyncio
-    async def test_inflected_alias_is_stripped_from_public_query(self):
-        """Алиас в косвенном падеже не уезжает провайдеру (UR-07.1)."""
+    async def test_inflected_alias_stays_in_public_query(self):
+        """Алиас в косвенном падеже остаётся частью темы, а не вычищается."""
         search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/p")
         result = await _run(_plan(knowledge_origin="open_world"),
                             "Маше понравился новый Tesla", search,
                             private_terms=("Маша",))
-        _assert_searched(result, search, expected="tesla", absent=("маш",))
+        _assert_searched(result, search, expected="tesla")
+        assert "маше" in search.queries[0].lower()
