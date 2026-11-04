@@ -31,8 +31,16 @@
   `test_mca15_chat_statistics_round1028.py`,
   `test_verbilizer_response_modes_round1023.py`.
 
-## Прогоны (кандидат `416c7d86`)
+## Прогоны (код `416c7d86`, docs `db62d8e6`)
 
+- Сводный прогон полосы (bgs0304 + cfg07_guard_07d5 + cfg07_guard_tail +
+  mca15_chat_statistics + negative_constraints_round1022 +
+  direct_two_call_round1022 + direct_chat + direct_chat_prompts +
+  rc_direct_self_correction + soul1_style_policy + outgoing_guard_round1022)
+  → **578 passed, 1 failed**; единственный failed —
+  `test_every_send_point_is_registered_or_allowlisted`:
+  `handlers/meme_command.py` отсутствует в `SEND_POINTS`/allowlist. Файл есть
+  и на базе `905ba7ab` (чужая полоса meme-autodelete), к BGS-03/04 не относится.
 - `test_bgs0304_speech_observation` → 24 passed.
 - `test_bgs0304 + cfg07_guard_07d5 + cfg07_guard_tail +
   mca15_chat_statistics + negative_constraints_round1022` → 245 passed.
