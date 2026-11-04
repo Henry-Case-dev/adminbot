@@ -223,12 +223,13 @@ def test_scenario25_check_phase_reaches_runtime_policy():
     assert quiet.claims == ()
 
 
-def test_scenario25_factcheck_phase_does_not_rewrite_summary():
-    """Egress фазы проверки снимает ТОЛЬКО её claim, пересказ не переписан.
+def test_scenario25_factcheck_phase_observation_keeps_summary_intact():
+    """Egress фазы проверки только НАБЛЮДАЕТ claim, пересказ не переписан.
 
-    Сценарий 25: сводка остаётся сводкой. Атрибутированный пересказ чужой
-    речи не является нашим claim и не может быть вырезан; неподтверждённое
-    утверждение фазы проверки — может (и только оно).
+    BGS-02: сводка остаётся сводкой, а неподтверждённое утверждение фазы
+    проверки больше не вырезается — оно помечается (код + место). Раньше
+    здесь было удаление ровно этого предложения; теперь ни одного байта текста
+    guard не меняет, включая чужую атрибутированную речь.
     """
     plan = l1.normalize_l1_plan({
         "action": "reply",
@@ -252,23 +253,17 @@ def test_scenario25_factcheck_phase_does_not_rewrite_summary():
     # Сводка — чужая атрибутированная речь: под egress не попадает.
     assert ep.is_attributed_speech(summary_part) is True
 
-    first = ep.guard_egress(answer=answer, decision=decision, evidence_text="")
-    assert first.action == ep.GUARD_ONE_LOOKUP
-    assert first.sentence == check_part
-    second = ep.guard_egress(answer=answer, decision=decision,
-                             evidence_text="", lookup_used=True)
-    assert second.action == ep.GUARD_HINT_RETRY
-    third = ep.guard_egress(answer=answer, decision=decision,
-                            evidence_text="", lookup_used=True,
-                            retry_used=True)
-    assert third.action == ep.GUARD_DROP_CLAIM
-    assert third.sentence == check_part
-    assert third.reason_code == ep.REASON_EVIDENCE_CLAIM_REMOVED
+    observation = ep.guard_egress(answer=answer, decision=decision,
+                                  evidence_text="")
+    assert observation.action == ep.GUARD_OBSERVED_UNVERIFIED
+    assert observation.sentence == check_part
+    assert observation.reason_code == ep.REASON_EVIDENCE_CLAIM_OBSERVED
+    # Место указывает ровно на предложение проверки в исходном тексте.
+    assert answer[observation.char_start:observation.char_end] == check_part
 
-    # Пересказ не переписан ни на байт: удалено ровно предложение проверки.
-    remainder = ep.drop_claim_sentence(answer, third.sentence)
-    assert remainder.strip() == summary_part
-    assert summary_part in remainder
+    # Никакого второго прохода/удаления: контракта «вырезать» больше нет.
+    assert not hasattr(ep, "drop_claim_sentence")
+    assert not hasattr(ep, "GUARD_DROP_CLAIM")
 
 
 def test_scenario25_migration_applies_only_to_deployed_bytes():

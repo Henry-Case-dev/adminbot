@@ -370,10 +370,14 @@ REASON_CODES = frozenset({
     # честная семантика runtime evidence-политики. Подпричина skip'а едет
     # отдельным полем события (`usage_json`), а не вторым кодом словаря:
     # `evidence_skipped` — внешний вызов не нужен/невозможен по нормальному
-    # основанию; `evidence_reused` — свежий claim-bound источник переиспользован;
-    # `evidence_unverified_claim_removed` — неподтверждённое высокорисковое
-    # предложение удалено исходящим guard'ом (§2.3). Второй словарь запрещён.
+    # основанию; `evidence_reused` — свежий claim-bound источник переиспользован.
+    #
+    # BGS-02: постцензура снята — неподтверждённое утверждение больше НЕ
+    # удаляется, поэтому активный код наблюдения — `..._observed` (код + место
+    # в событии `EVIDENCE_EGRESS_CHECK`). `..._removed` остаётся ТОЛЬКО
+    # декодером уже записанных строк истории: производителя у него нет.
     "evidence_skipped", "evidence_reused",
+    "evidence_unverified_claim_observed",
     "evidence_unverified_claim_removed",
 })
 
