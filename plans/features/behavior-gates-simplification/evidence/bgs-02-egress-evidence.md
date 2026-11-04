@@ -2,7 +2,7 @@
 
 - Lane: `BGS-02-EGRESS`, ветка `bgs/egress-guard`.
 - База: `da6299e9` (BGS-01 уже в `evol/impl`).
-- Кандидат: `69a0c6ae`.
+- Кандидат: `48e85ded` (`sentence_index` = номер содержательного предложения, а не куска разреза: пробельная строка между фразами больше не сдвигает место claim'а; тест `test_sentence_index_counts_content_sentences_not_split_pieces`, мутация на старой нумерации даёт 2 вместо 1).
 - Источник: `plans/owner_inputs/2026-11-05-behavior-gates-simplification.md`,
   §3 BGS-02 (п.1–7), §9 приёмка (компонентные тесты, сценарий D), §8 матрица.
 - План интеграции: `plans/features/behavior-gates-simplification/arch/bgs-integration-contract.md`
@@ -67,8 +67,9 @@ claim_key:     цифры claim'а (для claim↔evidence телеметрии
 
 ## Тесты
 
-Новый контрактный файл: `tests/test_bgs02_egress_observation.py` (10 тестов):
-ранее удалявшийся claim доставляется байт-в-байт; события несут код+место и не
+Новый контрактный файл: `tests/test_bgs02_egress_observation.py` (11 тестов):
+ранее удалявшийся claim доставляется байт-в-байт; `sentence_index` считает
+содержательные фразы (пробельная строка между ними не сдвигает место); события несут код+место и не
 несут текст; на реальном `handle()` один Writer-вызов и доставка == L2; честная
 пометка едет до генерации; `<thought>`/`fact:ID` по-прежнему вычищаются; RBAC/
 SSRF/квота/рубильник сохраняют свои коды; `mca_gates` не задет.
@@ -78,7 +79,10 @@ SSRF/квота/рубильник сохраняют свои коды; `mca_ga
 `tests/test_evol_reply_context_consumers.py` (проверка «повтор guard'а идёт по
 той же репрезентации» заменена на «повтора нет: один Writer и один манифест»).
 
-Прогоны (кандидат `69a0c6ae`):
+Прогоны (кандидат `48e85ded`):
+- `tests/test_bgs02_egress_observation.py tests/test_evol_evidence_routing.py`
+  → **126 passed**; мутация нумерации (`enumerate` по кускам разреза) даёт
+  красный `assert 2 == 1` в новом тесте.
 - `tests/test_bgs02_egress_observation.py` + 4 переписанных файла → **194 passed**.
 - `tests/test_evol_evidence_*.py tests/test_direct_chat*.py` + новый файл → **494 passed**.
 - Мутация (возврат удаления в двух половинах: guard вырезает + call-site
