@@ -1102,43 +1102,51 @@ class TestNumericClaimsCheck:
 class TestNumericGuardVerbalize:
     @pytest.mark.system2
     @pytest.mark.asyncio
-    async def test_retry_once_then_corrected(self, monkeypatch):
+    async def test_no_reroll_deterministic_correction(self, monkeypatch):
+        """BGS-04 §1-2: свободная генерация не перегенерируется за число —
+        ровно один вызов, детерминированная замена на verified_phrase."""
         monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
                             lambda: False)
         c = _contract(claims=(_claim(),), phrase="сообщений с совпадением: 9",
                       expected=True)
-        seen: list = []
+        calls: list = []
 
         async def gen(messages):
-            seen.append(messages[-1]["content"])
-            return ("он писал 7 сообщений" if len(seen) == 1
-                    else "он писал 9 сообщений")
-
-        text, stats = await nc.verbalize_validated(
-            gen, [{"role": "user", "content": "x"}], numeric_contract=c)
-        assert text == "он писал 9 сообщений"
-        assert stats["numeric_claim_mismatch"] == 1
-        assert stats["numeric_claim_retry"] is True
-        assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_CORRECTED
-        assert "9" in seen[1]          # повтор несёт verified_phrase
-
-    @pytest.mark.system2
-    @pytest.mark.asyncio
-    async def test_retry_exhausted_deterministic_fallback(self, monkeypatch):
-        monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
-                            lambda: False)
-        c = _contract(claims=(_claim(),), phrase="сообщений с совпадением: 9",
-                      expected=True)
-
-        async def gen(messages):
+            calls.append(messages[-1]["content"])
             return "он писал 7 сообщений"
 
         text, stats = await nc.verbalize_validated(
             gen, [{"role": "user", "content": "x"}], numeric_contract=c)
+        assert len(calls) == 1                     # второго вызова LLM нет
+        assert text == "сообщений с совпадением: 9"
+        assert stats["numeric_claim_mismatch"] == 1
+        assert stats["numeric_claim_retry"] is False
+        assert stats["numeric_claim_fallback"] is True
+        assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_FALLBACK
+        assert stats["attempts"] == 1
+
+    @pytest.mark.system2
+    @pytest.mark.asyncio
+    async def test_deterministic_fallback_single_attempt(self, monkeypatch):
+        """Нарушение без права повтора: одна попытка и проверенная фраза."""
+        monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
+                            lambda: False)
+        c = _contract(claims=(_claim(),), phrase="сообщений с совпадением: 9",
+                      expected=True)
+        calls = 0
+
+        async def gen(messages):
+            nonlocal calls
+            calls += 1
+            return "он писал 7 сообщений"
+
+        text, stats = await nc.verbalize_validated(
+            gen, [{"role": "user", "content": "x"}], numeric_contract=c)
+        assert calls == 1
         assert text == "сообщений с совпадением: 9"     # verified_phrase
         assert stats["numeric_claim_fallback"] is True
         assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_FALLBACK
-        assert stats["attempts"] == 2                   # ≤1 коррекция
+        assert stats["attempts"] == 1                   # ≤1 коррекция
 
     @pytest.mark.system2
     @pytest.mark.asyncio
@@ -1206,15 +1214,17 @@ class TestNumericGuardSendPaths:
         svc = DirectChatService.__new__(DirectChatService)
         svc.llm = MagicMock()
         svc.llm.generate = AsyncMock(side_effect=[
-            _SYNTH_JSON, "он писал 7 сообщений", "он писал 9 сообщений"])
+            _SYNTH_JSON, "он писал 7 сообщений"])
         contract = _contract(claims=(_claim(),),
                              phrase="сообщений с совпадением: 9",
                              expected=True)
         text, _mode = await svc._synthesize_direct_answer(
             1, "q", _tool_raw(), None, numeric_contract=contract)
-        assert text == "он писал 9 сообщений"
+        # BGS-04: без второй генерации — детерминированная проверенная фраза
+        assert text == "сообщений с совпадением: 9"
+        assert svc.llm.generate.await_count == 2      # stage1 + stage2
         guard = [e for e in events if e["event_name"] == "numeric_claim_guard"]
-        assert guard and guard[0]["reason_code"] == "numeric_claim_corrected"
+        assert guard and guard[0]["reason_code"] == "numeric_claim_fallback"
 
     @pytest.mark.asyncio
     async def test_fallback_lore_bypass_and_plain_covered(self):

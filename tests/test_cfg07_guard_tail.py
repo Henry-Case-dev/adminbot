@@ -45,7 +45,6 @@ from services.factcheck_orchestrator import (
     run_factcheck,
 )
 from services.factcheck_renderer import _NO_LINKS_NOTICE
-from services.llm_client import LLMBadResponseError
 from services.smartmodule_phrases import (
     FACTCHECK_ATTRIBUTION_MISS_PHRASES,
     FACTCHECK_CLARIFY_PHRASES,
@@ -232,29 +231,28 @@ class TestGuardSemantics:
         assert psg.guard_public_text(pc01).text == pc01
         assert psg.honest_failure_is_allowed(_NO_LINKS_NOTICE)
 
-    def test_marker_payload_cut_facts_kept(self):
-        """FORBIDDEN-маркер → срез + findings; факты/структура целы."""
+    def test_marker_payload_reported_not_cut(self):
+        """BGS-03: FORBIDDEN-фраза — только находка; живой ответ
+        доставляется байт-в-байт (никакого вырезания слов)."""
         res = psg.guard_public_text(DIRTY_VERDICT)
         assert "по моим логам" in res.findings
-        assert res.changed is True and res.repaired is True
-        assert "по моим логам" not in res.text.lower()
-        assert "не подтверждается" in res.text
-        assert "источники врут" in res.text
+        assert res.text == DIRTY_VERDICT
+        assert res.changed is False and res.repaired is True
 
-    def test_overclaim_payload_cut_facts_kept(self):
-        """07D.2: «проверил всё в интернете» → срез + флаг, факт цел."""
+    def test_overclaim_payload_reported_not_cut(self):
+        """BGS-03: «проверил всё в интернете» — код наблюдения, текст цел."""
         res = psg.guard_public_text(OVERCLAIM_VERDICT)
         assert res.findings == ("overclaim:total_verification",)
-        assert "всё в интернете" not in res.text.lower()
-        assert "не подтверждается" in res.text
+        assert res.text == OVERCLAIM_VERDICT
+        assert "всё в интернете" in res.text.lower()
 
-    def test_unrepairable_payload_reports_empty(self):
-        """Сплошная метаречь → вырожденный остаток: text="" (шов обязан
-        подставить честный класс), repaired=False."""
+    def test_all_metatext_payload_not_emptied(self):
+        """BGS-03 §6: полное совпадение словаря не превращает полный ответ
+        в пустой Telegram message."""
         res = psg.guard_public_text("по моим логам")
-        assert res.text == ""
-        assert res.changed is True and res.repaired is False
+        assert res.text == "по моим логам"
         assert res.findings == ("по моим логам",)
+        assert res.changed is False and res.repaired is True
 
     def test_admin_context_passthrough_dirty_text(self):
         """Наблюдение 4 review-07cg: в явном админ-контексте техсправка
@@ -286,18 +284,15 @@ class TestGuardSemantics:
 
 class TestDeliverySeam:
     @pytest.mark.asyncio
-    async def test_dirty_verdict_cleaned_facts_kept(self, v2_on,
-                                                    monkeypatch):
-        """Грязный вердикт Writer'а: маркер срезан, факты доставлены,
-        delivery не сорвался."""
+    async def test_dirty_verdict_delivered_unchanged(self, v2_on,
+                                                     monkeypatch):
+        """BGS-03: грязный по словарю вердикт Writer'а доставляется
+        байт-в-байт; действия «вырезать» больше нет."""
         svc = SpyService(text=DIRTY_VERDICT)
         bot = FakeBot()
         await _run_plain(svc, bot, monkeypatch)
         assert len(bot.sent) == 1
-        text = bot.sent[0]["text"]
-        assert "по моим логам" not in text.lower()
-        assert "не подтверждается" in text
-        assert "источники врут" in text
+        assert bot.sent[0]["text"] == DIRTY_VERDICT
 
     @pytest.mark.asyncio
     async def test_honesty_class_verdict_byte_identical(self, v2_on,
@@ -324,36 +319,36 @@ class TestDeliverySeam:
         assert len(bot.sent) == 1
         assert "по моим логам" in bot.sent[0]["text"].lower()
 
-    def test_apply_guard_repaired_keeps_enum(self):
-        """Урезанный payload сохраняет enum-вердикт (реальный статус)."""
+    def test_apply_guard_keeps_text_and_enum(self):
+        """BGS-03: текст Writer'а не меняется, enum-вердикт цел."""
         presentation = FactcheckPresentation(text=DIRTY_VERDICT)
         verdict = CheckedVerdict(verdict_text=DIRTY_VERDICT,
                                  route="legacy_single",
                                  factual_verdict="refuted")
         pres2, verdict2 = _apply_delivery_guard(presentation, verdict)
-        assert "по моим логам" not in pres2.text.lower()
-        assert "не подтверждается" in pres2.text
+        assert pres2.text == DIRTY_VERDICT
         assert verdict2.factual_verdict == "refuted"
 
-    def test_apply_guard_unrepairable_enum_status_only(self):
-        """Вырожденный остаток + enum → честный статус без фиктивного
-        тела: доставляется только заголовок реального enum."""
+    def test_apply_guard_all_metatext_keeps_text_and_enum(self):
+        """BGS-03 §6: даже при полном совпадении словаря тело ответа
+        доставляется, фиктивной подмены на заголовок нет."""
         presentation = FactcheckPresentation(text="по моим логам")
         verdict = CheckedVerdict(verdict_text="по моим логам",
                                  route="envelope_temporal",
                                  factual_verdict="refuted")
         pres2, verdict2 = _apply_delivery_guard(presentation, verdict)
-        assert pres2.text == "Не подтверждается"
-        assert verdict2.factual_verdict is None   # renderer не задублирует
+        assert pres2.text == "по моим логам"
+        assert verdict2.factual_verdict == "refuted"
 
-    def test_apply_guard_unrepairable_no_enum_raises(self):
-        """Вырожденный остаток без enum → LLMBadResponseError (шов 🗿),
-        НЕ фиктивно уверенный вердикт."""
+    def test_apply_guard_all_metatext_no_enum_no_raise(self):
+        """BGS-03 §6: без enum тоже нет ни пустого сообщения, ни 🗿 —
+        честный текст доставляется как есть."""
         presentation = FactcheckPresentation(text="по моим логам")
         verdict = CheckedVerdict(verdict_text="по моим логам",
                                  route="legacy_single")
-        with pytest.raises(LLMBadResponseError):
-            _apply_delivery_guard(presentation, verdict)
+        pres2, verdict2 = _apply_delivery_guard(presentation, verdict)
+        assert pres2.text == "по моим логам"
+        assert verdict2.factual_verdict is None
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -362,8 +357,9 @@ class TestDeliverySeam:
 
 class TestShortReplyAndPools:
     @pytest.mark.asyncio
-    async def test_ambiguous_llm_reply_guarded(self, v2_on, monkeypatch):
-        """ambiguous → persona-реплика: LLM-метаречь срезается, смысл цел."""
+    async def test_ambiguous_llm_reply_passthrough(self, v2_on, monkeypatch):
+        """BGS-03: ambiguous → persona-реплика доставляется байт-в-байт;
+        словарная фраза не вырезается из живого ответа."""
         from services import factcheck_suitability as fsg
         decision = fsg.SuitabilityDecision(
             decision=fsg.DECISION_AMBIGUOUS, claim_type="ambiguous",
@@ -375,15 +371,13 @@ class TestShortReplyAndPools:
 
         monkeypatch.setattr(fsg, "evaluate_with_expansion", fake_eval)
         svc = SpyService()
-        svc.llm = _FakeLLM("По моим логам тут несколько тем, "
-                           "уточни тезис.")
+        reply = "По моим логам тут несколько тем, уточни тезис."
+        svc.llm = _FakeLLM(reply)
         bot = FakeBot()
         await run_factcheck(_req(), service=svc, db=None, bot=bot,
                             cache=FakeCache())
         assert len(bot.sent) == 1
-        text = bot.sent[0]["text"]
-        assert "по моим логам" not in text.lower()
-        assert "уточни тезис" in text
+        assert bot.sent[0]["text"] == reply
 
     @pytest.mark.asyncio
     async def test_short_reply_llm_down_falls_back_to_pool(self, v2_on,
@@ -507,18 +501,16 @@ async def _dispatch_tool(db, claim=TOOL_CLAIM):
 
 class TestToolRouteSeam:
     @pytest.mark.asyncio
-    async def test_v2_dirty_verdict_cleaned_json_intact(
+    async def test_v2_dirty_verdict_passthrough_json_intact(
             self, monkeypatch, tool_db, v2_on):
-        """v2 ON: NL-верdict чистится; машинный JSON-конверт не тронут
-        (claim/reason/статусы как были)."""
+        """BGS-03: NL-вердикт доставляется байт-в-байт (словарь только
+        наблюдает); машинный JSON-конверт не тронут."""
         _patch_tool_gate(monkeypatch)
         _FakeToolService.verdict_text = DIRTY_TOOL_VERDICT
         payload = await _dispatch_tool(tool_db)
         assert payload["status"] == "ready"
         assert set(payload) == _READY_KEYS
-        assert "по моим логам" not in payload["verdict"].lower()
-        assert "Подтверждено" in payload["verdict"]
-        assert "всё сошлось" in payload["verdict"]
+        assert payload["verdict"] == DIRTY_TOOL_VERDICT
         assert payload["claim"] == TOOL_CLAIM   # машинные поля не тронуты
 
     @pytest.mark.asyncio
@@ -530,15 +522,15 @@ class TestToolRouteSeam:
         assert payload["verdict"] == "Подтверждено: источник согласен."
 
     @pytest.mark.asyncio
-    async def test_v2_unrepairable_honest_failed(
+    async def test_v2_all_metatext_verdict_not_dropped(
             self, monkeypatch, tool_db, v2_on):
-        """Сплошная метаречь → структурный failed БЕЗ ретранслируемой
-        метаречи и БЕЗ записи успешного прогона."""
+        """BGS-03 §6: сплошное словарное совпадение не превращает
+        tool-вердикт в структурный failed — текст доставляется."""
         _patch_tool_gate(monkeypatch)
         _FakeToolService.verdict_text = "по моим логам"
         payload = await _dispatch_tool(tool_db)
-        assert payload == {"status": "failed",
-                           "reason": "temporal_insufficient_evidence"}
+        assert payload["status"] == "ready"
+        assert payload["verdict"] == "по моим логам"
 
     @pytest.mark.asyncio
     async def test_off_parity_guard_not_applied(
@@ -589,8 +581,9 @@ class TestOffParity:
 
 class TestGuardTelemetry:
     def test_outbound_flag_emits_valid_outcome_event(self, monkeypatch):
-        """B1: срабатывание guard'а на outbound-шве → эмиттер получает
-        egress_guard-событие с валидным outcome, build_event не None."""
+        """BGS-03: срабатывание словаря на outbound-шве даёт событие
+        наблюдения (`speech_observation`, коды без текста) и прежнее
+        egress-событие с валидным outcome; текст не меняется."""
         from services import mca_events
         seen: list = []
 
@@ -603,14 +596,17 @@ class TestGuardTelemetry:
 
         monkeypatch.setattr(mca_events, "emit_mca_event", spy)
         guarded = _guard_outbound(DIRTY_VERDICT, where="unit", chat_id=1)
-        assert guarded != DIRTY_VERDICT            # guard-флаг сработал
-        assert len(seen) == 1
-        event_name, outcome, fields = seen[0]
-        assert event_name == "factcheck_temporal"
-        assert outcome == "failed"
-        assert outcome in mca_events.ALL_OUTCOMES  # валидный outcome
-        assert fields.get("stage") == "egress_guard"
-        assert fields.get("level") == "WARN"       # WARN+terminal → durable
+        assert guarded == DIRTY_VERDICT             # байт-в-байт
+        observed = [e for e in seen if e[0] == "speech_observation"]
+        assert len(observed) == 1
+        _name, outcome, fields = observed[0]
+        assert outcome in mca_events.ALL_OUTCOMES
+        assert fields.get("stage") == "guard_public_text"  # место входа
+        assert "по моим логам" in str(fields.get("usage_json"))
+        seam = [e for e in seen if e[0] == "factcheck_temporal"]
+        assert len(seam) == 1
+        assert seam[0][1] == "failed"
+        assert seam[0][2].get("stage") == "egress_guard"
 
     @pytest.mark.asyncio
     async def test_tool_flag_emits_valid_outcome_event(self, monkeypatch,

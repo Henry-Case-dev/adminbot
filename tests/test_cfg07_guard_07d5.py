@@ -110,22 +110,24 @@ def _corpus() -> dict:
 
 class TestMachineArtifactDetectors:
     @pytest.mark.parametrize("corpus_id,text,fact_kept", DIRTY_FIXTURES)
-    def test_dirty_detected_and_cut_facts_kept(self, corpus_id, text,
-                                               fact_kept):
-        """Грязная фикстура корпуса: находка с id записи; guard срезает
-        артефакт, содержательный остаток жив."""
+    def test_dirty_detected_and_text_unchanged(self, corpus_id, text,
+                                              fact_kept):
+        """BGS-03: грязная фикстура корпуса — находка с id записи, но
+        живой текст доставляется байт-в-байт (ножниц больше нет)."""
         assert psg.find_machine_artifacts(text) == (corpus_id,), text
         res = psg.guard_public_text(text)
         assert corpus_id in res.findings, text
-        assert res.changed is True and res.repaired is True, text
+        assert res.text == text, text
+        assert res.changed is False and res.repaired is True, text
         assert fact_kept in res.text, text
 
-    def test_unrepairable_artifact_reports_empty(self):
-        """Сплошной машинный артефакт → вырожденный остаток (text=""),
-        шов обязан подставить честный класс — без фиктивного тела."""
-        res = psg.guard_public_text('{"reason": "temporal_date_unknown"}')
-        assert res.text == ""
-        assert res.changed is True and res.repaired is False
+    def test_machine_artifact_alone_not_emptied(self):
+        """BGS-03 §6: сплошной машинный артефакт НЕ превращается в пустое
+        сообщение — текст доставляется, находка только наблюдаемая."""
+        text = '{"reason": "temporal_date_unknown"}'
+        res = psg.guard_public_text(text)
+        assert res.text == text
+        assert res.changed is False
         assert "FA-01" in res.findings
 
     def test_token_boundaries_no_false_positive(self):
@@ -147,27 +149,25 @@ class TestMachineArtifactDetectors:
         res = psg.guard_public_text(text, admin_context=True)
         assert res.text == text and res.admin_context is True
 
-    def test_strip_guard_findings_idempotent(self):
-        """strip_guard_findings идемпотентен (повторное применение швами)."""
-        once = psg.strip_guard_findings(
-            "Период проверки: 2024. UNCHANGED. Тезис верен.")
-        twice = psg.strip_guard_findings(once)
-        assert once == twice
-        assert "2024" in once and "Тезис верен" in once
+    def test_observation_idempotent(self):
+        """Наблюдение идемпотентно и не меняет текст при повторных швах."""
+        text = "Период проверки: 2024. UNCHANGED. Тезис верен."
+        assert psg.guard_public_text(text).text == text
+        assert psg.guard_public_text(psg.guard_public_text(text).text).text \
+            == text
+        assert psg.find_speech_observations(text) == \
+            psg.find_speech_observations(text)
 
-    def test_bracket_strip_keeps_honest_brackets(self):
-        # TEST-LIFECYCLE: REGRESSION owner=CFG-07D5 (review-07d5 F2)
-        """Срез FA-08 режет ТОЛЬКО системную bracket-вставку: честные
-        скобки («[1]», «[прим. автора]») целы. Раньше дефектная форма
-        строила шаблон с ведущей '[' как char-class'ом (а не литеральной
-        скобкой) и резала произвольные скобочные блоки."""
+    def test_bracket_artifact_keeps_honest_brackets_and_text(self):
+        """BGS-03: FA-08 наблюдается, но и системная, и честные скобки
+        остаются в тексте — вырезания в speech-слое нет."""
         text = "[СИСТЕМНОЕ УВЕДОМЛЕНИЕ: x] см. [1] и [прим. автора]"
         assert psg.find_machine_artifacts(text) == ("FA-08",)
-        assert psg.strip_guard_findings(text) == "см. [1] и [прим. автора]"
         res = psg.guard_public_text(text)
-        assert res.changed is True and res.repaired is True
-        assert res.text == "см. [1] и [прим. автора]"
-        assert "СИСТЕМНОЕ УВЕДОМЛЕНИЕ" not in res.text
+        assert res.text == text
+        assert res.changed is False and res.repaired is True
+        assert "СИСТЕМНОЕ УВЕДОМЛЕНИЕ" in res.text
+        assert "см. [1] и [прим. автора]" in res.text
 
 
 class TestCorpusParity:
@@ -195,7 +195,9 @@ class TestCorpusParity:
         ids = {f.corpus_id for f in psg._MACHINE_FAMILIES}
         assert ids == {"FA-06", "FA-07", "FA-08", "FA-01", "FA-02",
                        "SF-16", "MB-10", "MB-11", "MB-12"}
-        assert all(f.detect and f.strip for f in psg._MACHINE_FAMILIES)
+        # BGS-03: семьи — только детекторы; срез-регэкспов в слое нет.
+        assert all(f.detect for f in psg._MACHINE_FAMILIES)
+        assert not hasattr(psg._MACHINE_FAMILIES[0], "strip")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -227,12 +229,12 @@ class TestSemanticLayer:
                      "тезис проверен по трём ссылкам"):
             assert psg.find_semantic_metatext(text) == (), text
 
-    def test_retry_reason_only_for_semantic(self):
-        """metatext_retry_reason: причина ТОЛЬКО для смысловой метаречи;
-        дословные формулы и машинные артефакты → None (срез существует,
-        бюджет retry не тратится); чистое → None."""
-        assert psg.metatext_retry_reason(
-            SEMANTIC_INVERSE) == "metatext_semantic:total_verification_variant"
+    def test_metatext_observation_code_without_retry_semantics(self):
+        """BGS-03/04: код метаречи остаётся (наблюдение), но больше не
+        является причиной повтора — контракт повтора проверяет
+        TestMetatextObservationOnly."""
+        assert psg.metatext_retry_reason(SEMANTIC_INVERSE) == \
+            "metatext_semantic:total_verification_variant"
         assert psg.metatext_retry_reason(CLOSED_DIRECT) is None
         assert psg.metatext_retry_reason("по моим логам") is None
         assert psg.metatext_retry_reason("UNCHANGED") is None
@@ -256,19 +258,22 @@ class TestSemanticLayer:
         assert psg.find_semantic_metatext(
             "Вся сеть была изучена мной вчера") == (
             "semantic:total_verification_variant",)
-        # грязная инверсия — прежнее поведение
+        # грязная инверсия — находка, но не причина повтора
+        assert psg.find_semantic_metatext(SEMANTIC_INVERSE) == (
+            "semantic:total_verification_variant",)
         assert psg.metatext_retry_reason(SEMANTIC_INVERSE) == \
             "metatext_semantic:total_verification_variant"
 
-    def test_semantic_not_stripped_silently_in_guard(self):
-        """Guard НЕ срезает инверсию без дословной формулы (для неё —
-        retry в Вербализаторе), но честно репортит находку; после
-        неудачного retry инверсная формула срезается strip-грамматикой."""
+    def test_semantic_not_stripped_in_guard(self):
+        """BGS-03: guard не срезает инверсию без дословной формулы и не
+        редактирует текст — находка только наблюдаемая."""
         res = psg.guard_public_text("Обсуждали весь интернет вчера.")
         assert res.findings == ()          # объект без глагола — чисто
-        stripped = psg.strip_guard_findings("Весь интернет я проверил.")
-        assert "весь интернет" not in stripped.lower()
-        assert "проверил" not in stripped.lower()
+        inverse = "Весь интернет я проверил."
+        res2 = psg.guard_public_text(inverse)
+        assert res2.findings == ("semantic:total_verification_variant",)
+        assert res2.text == inverse
+        assert "весь интернет" in res2.text.lower()
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -332,7 +337,7 @@ class TestNoFalsePositives:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# 4. Bounded retry семантика (verbalize_validated, metatext_reason)
+# 4. Метаречь как наблюдение (verbalize_validated, metatext_reason)
 # ════════════════════════════════════════════════════════════════════════════
 
 def _real_reason(text):
@@ -340,75 +345,57 @@ def _real_reason(text):
 
 
 @pytest.mark.system2     # conftest: валидатор ON (прод-дефолт) для контракта
-class TestBoundedRetrySemantics:
+class TestMetatextObservationOnly:
     @pytest.mark.asyncio
-    async def test_retry_repairs_within_limit(self):
-        """Грязный семантике ответ → ОДИН повтор с причиной → чисто;
-        attempts ≤ лимита (≤2 всего), metatext_retry=True."""
-        gen = _Gen([SEMANTIC_INVERSE, CLEAN_VERDICT])
+    async def test_no_retry_on_semantic_metatext(self):
+        """BGS-03/04: смысловая метаречь — один вызов LLM, текст как есть;
+        ни retry, ни fallback-подмены больше нет."""
+        gen = _Gen([SEMANTIC_INVERSE])
         text, stats = await verbalize_validated(
             gen, [{"role": "system", "content": "base"}],
             max_retries=2, metatext_reason=_real_reason)
-        assert text == CLEAN_VERDICT
-        assert stats["attempts"] == 2 and stats["retries"] == 1
-        assert stats["metatext_retry"] is True
-        assert stats["metatext_fallback"] is False
-        assert stats["metatext_rejects"] == 1
-        # причина (код, не приватный текст) — в retry-промпте
-        retry_system = gen.seen[1][-1]
-        assert retry_system["role"] == "system"
-        assert "metatext_semantic:total_verification_variant" \
-            in retry_system["content"]
+        assert text == SEMANTIC_INVERSE
+        assert stats["attempts"] == 1 and stats["retries"] == 0
+        assert len(gen.seen) == 1
+        assert stats["anti_cliche_retries"] == 0
+        assert "metatext_retry" not in stats
+        assert "metatext_fallback" not in stats
 
     @pytest.mark.asyncio
-    async def test_metatext_retry_cap_one_in_shared_budget(self):
-        """Metatext-повтор ≤1: даже при max_retries=2 второй retry не
-        уходит на metatext (бюджет общий, не растёт)."""
+    async def test_three_dirty_answers_still_single_call(self):
+        """Упорная метаречь не даёт второго вызова: бюджет LLM не
+        тратится на словарные эвристики."""
         gen = _Gen([SEMANTIC_INVERSE, SEMANTIC_INVERSE, SEMANTIC_INVERSE])
         text, stats = await verbalize_validated(
             gen, [{"role": "system", "content": "base"}],
             max_retries=2, metatext_reason=_real_reason)
-        assert stats["attempts"] <= 3          # initial + ≤2
-        assert stats["metatext_retry"] is True
-        assert stats["metatext_fallback"] is True
-        # деградация: инверсная формула срезана, факт цел
-        assert "весь интернет" not in text.lower()
-        assert "проверил" not in text.lower()
-        assert "тезис подтверждается" in text.lower()
+        assert stats["attempts"] == 1
+        assert len(gen.seen) == 1
+        assert text == SEMANTIC_INVERSE
 
     @pytest.mark.asyncio
-    async def test_retry_error_honest_fallback(self):
-        """Ошибка generate на ретрае → последний успешный текст с
-        детерминированной зачисткой (без выдуманных вердиктов)."""
-        class Boom:
-            def __init__(self):
-                self.n = 0
-
-            async def __call__(self, messages):
-                self.n += 1
-                if self.n == 1:
-                    return SEMANTIC_INVERSE
-                raise RuntimeError("llm down")
-
+    async def test_observation_records_codes_without_text_change(self):
+        """Коды наблюдений (метаречь + стиль) попадают в stats, текст цел."""
+        dirty = "Как ИИ отвечу: весь интернет я проверил."
+        gen = _Gen([dirty])
         text, stats = await verbalize_validated(
-            Boom(), [{"role": "system", "content": "base"}],
-            max_retries=2, metatext_reason=_real_reason)
-        assert stats["retry_error"] is True
-        assert stats["metatext_fallback"] is True
-        assert "весь интернет" not in text.lower()
-        assert "тезис подтверждается" in text.lower()
+            gen, [{"role": "system", "content": "base"}],
+            metatext_reason=_real_reason)
+        assert text == dirty
+        assert stats["metatext_observed"] == [
+            "metatext_semantic:total_verification_variant"]
+        assert "as_ai" in stats["cliche_observed"]
 
     @pytest.mark.asyncio
-    async def test_closed_formula_costs_no_retry(self):
-        """Дословная overclaim-формула: детектор даёт None → retry НЕ
-        тратится (ремонт — детерминированный срез на delivery-шве)."""
+    async def test_closed_formula_unchanged_single_call(self):
+        """Дословная overclaim-формула: ровно один вызов, текст не меняется."""
         gen = _Gen([CLOSED_DIRECT])
         text, stats = await verbalize_validated(
             gen, [{"role": "system", "content": "base"}],
             max_retries=2, metatext_reason=_real_reason)
         assert stats["attempts"] == 1
         assert int(stats.get("metatext_rejects") or 0) == 0
-        assert text == CLOSED_DIRECT           # валидатор не меняет
+        assert text == CLOSED_DIRECT
 
     @pytest.mark.asyncio
     async def test_default_none_byte_parity(self):
@@ -424,11 +411,6 @@ class TestBoundedRetrySemantics:
     async def test_kill_switch_bypasses_metatext(self, monkeypatch):
         """Kill-switch валидатора OFF → один прямой вызов, контракт не
         применяется (прежний документированный bypass)."""
-        # Флаг — ClassVar (config/settings.py): патчим КЛАСС через
-        # monkeypatch. Инстанс-патч через object.__setattr__ оставил бы
-        # тень-инстанс после restore, которая навсегда перекрывает
-        # класс-патчи чужих тестов (ломает комбинированные прогоны,
-        # review-07d5 F1).
         monkeypatch.setattr(type(settings),
                             "SYSTEM2_VALIDATOR_LOOP_ENABLED", False)
         gen = _Gen([SEMANTIC_INVERSE])
@@ -442,6 +424,7 @@ class TestBoundedRetrySemantics:
         assert "SYSTEM2_VALIDATOR_LOOP_ENABLED" not in vars(settings)
 
 
+# ════════════════════════════════════════════════════════════════════════════
 # ════════════════════════════════════════════════════════════════════════════
 # 5. Wiring фактчека: контракт живёт ТОЛЬКО в v2-контуре (OFF-паритет)
 # ════════════════════════════════════════════════════════════════════════════
@@ -598,7 +581,7 @@ class TestFactcheckV2Wiring:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# 6. Delivery-шов v2: машинные артефакты срезаются до Telegram (07D.5)
+# 6. Delivery-шов v2: артефакты/метаречь только наблюдаются (BGS-03)
 # ════════════════════════════════════════════════════════════════════════════
 
 class TestDeliverySeamMachineArtifacts:
@@ -610,10 +593,10 @@ class TestDeliverySeamMachineArtifacts:
         ("FA-08", "[СИСТЕМНОЕ УВЕДОМЛЕНИЕ] Тезис не подтверждается.",
          "не подтверждается"),
     ])
-    def test_apply_guard_cuts_artifacts_keeps_verdict(
+    def test_apply_guard_reports_artifacts_text_intact(
             self, corpus_id, text, fact_kept):
-        """Артефакт в payload Writer'а: delivery-шов срезает его до
-        Telegram, enum-вердикт (реальный статус) цел."""
+        """Артефакт в payload Writer'а: delivery-шов репортит находку и
+        доставляет текст байт-в-байт; enum-вердикт цел."""
         from services.factcheck_orchestrator import (
             CheckedVerdict,
             FactcheckPresentation,
@@ -624,23 +607,19 @@ class TestDeliverySeamMachineArtifacts:
         verdict = CheckedVerdict(verdict_text=text, route="legacy_single",
                                  factual_verdict="refuted")
         pres2, verdict2 = _apply_delivery_guard(presentation, verdict)
+        assert pres2.text == text
         assert fact_kept in pres2.text
         assert verdict2.factual_verdict == "refuted"   # enum цел
 
-    def test_apply_guard_semantic_reports_and_strips_inverse(self):
-        """Инверсия без дословной формулы: retry — в Вербализаторе, а
-        delivery-шов честно репортит находку телеметрией И режет
-        инверсную формулу defense-in-depth (_INVERSE_STRIP_RE входит в
-        _strip_matches → guard_public_text меняет текст; review-07d5 F4:
-        докам приведены к факту). Остаток « .» после среза — существующий
-        класс уборки _strip_matches (так же режет закрытые формулы на
-        HEAD) — вне скоупа волны. Чистые тексты байт-в-байт."""
-        res = psg.guard_public_text(
-            "Тезис подтверждается. Весь интернет я проверил.")
+    def test_apply_guard_semantic_reports_without_strip(self):
+        """Инверсия без дословной формулы: находка наблюдаема, но текст
+        доставляется как написан (BGS-03: ножниц нет)."""
+        text = "Тезис подтверждается. Весь интернет я проверил."
+        res = psg.guard_public_text(text)
         assert "semantic:total_verification_variant" in res.findings
-        assert res.changed is True and res.repaired is True
-        assert "весь интернет" not in res.text.lower()
-        assert "проверил" not in res.text.lower()
+        assert res.changed is False and res.repaired is True
+        assert res.text == text
+        assert "весь интернет" in res.text.lower()
         assert "Тезис подтверждается" in res.text
         from services.factcheck_orchestrator import (
             CheckedVerdict,
