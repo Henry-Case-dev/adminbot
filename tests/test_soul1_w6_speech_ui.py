@@ -40,6 +40,7 @@ from test_p0_persistfix_speech_chat_scope import (  # noqa: E402
 from services import chat_params  # noqa: E402
 from services import mca_expression as expression  # noqa: E402
 from services import prompt_factory as pf  # noqa: E402
+from services import prompt_release_policy as prompt_release_policy  # noqa: E402
 from services import prompt_registry as pr  # noqa: E402
 from web.api import speech as S  # noqa: E402
 
@@ -100,6 +101,11 @@ def api_env(monkeypatch):
     pg = SqlitePg(db)
     cache = _Cache(pg=pg)
     chat_params.set_chat_params_cache(chat_params.ChatParamsCache(pg))
+    # EPIC-PROMPT-VERSIONING-UX-01 §3: значения промптов пишутся журнальным
+    # слоем; тестовый стор подставляется в существующую точку резолва.
+    journal = prompt_release_policy.MemoryPromptJournal()
+    monkeypatch.setattr(prompt_release_policy, "default_journal",
+                        lambda cache_: journal)
 
     ctx = SimpleNamespace(is_global_admin=True, effective_permissions=None)
     user = SimpleNamespace(id=4242)
@@ -111,7 +117,7 @@ def api_env(monkeypatch):
     monkeypatch.setattr(S, "_access", access)
     try:
         yield SimpleNamespace(cache=cache, chat=db, user=user,
-                              ctx=ctx, chat_id=-100500)
+                              ctx=ctx, chat_id=-100500, journal=journal)
     finally:
         chat_params.set_chat_params_cache(None)
         db.close()
@@ -333,11 +339,15 @@ def test_write_path_is_guarded_at_runtime_not_only_statically(api_env, monkeypat
             name = str(key or "")
             caller = _sys._getframe(2).f_globals.get("__name__", "?")
             calls.append((name, caller))
-            if name.startswith("prompts.") and caller != "services.prompt_factory":
-                raise AssertionError("запись %s мимо реестра из %s"
+            if name.startswith("prompts.") and \
+                    caller != "services.prompt_release_policy":
+                # EPIC-PROMPT-VERSIONING-UX-01 §3.1: единственный writer
+                # значения промпта — единый журнальный слой.
+                raise AssertionError("запись %s мимо журнала версий из %s"
                                      % (name, caller))
             if name == pr.CORE_DOC_KEY:
-                if caller == "services.prompt_factory":
+                if caller in ("services.prompt_factory",
+                              "services.prompt_release_policy"):
                     factory_writes["n"] += 1
                 else:
                     before = self.data.get(name)

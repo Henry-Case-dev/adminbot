@@ -180,6 +180,23 @@ SET value = EXCLUDED.value, category = EXCLUDED.category,
 """
 
 
+def _prompt_guard(key: str, new_value, current_value) -> None:
+    """Рантайм-страж обхода журнала версий (EPIC-PROMPT-VERSIONING-UX-01 §5.3).
+
+    Значение блока реестра — это текст промпта: он обязан сохраняться единым
+    слоем ``prompt_release_policy.write_prompt_values`` (ревизия + событие
+    активации в одной транзакции). Запись без журнального токена отклоняется
+    исключением ``PromptJournalBypass``, и значение НЕ пишется.
+
+    Импорт ленивый: ``prompt_release_policy`` тянет реестр промптов, а
+    ``config_cache`` используется и там, где промпты не участвуют.
+    """
+    from services import prompt_release_policy as _policy
+    _policy.assert_prompt_write_allowed(pg_key=str(key), scope="global",
+                                        chat_id=None, current=current_value,
+                                        new=new_value)
+
+
 class ConfigCache:
     """Единый in-memory кэш конфигурации поверх PostgreSQL (asyncpg)."""
 
@@ -715,8 +732,15 @@ class ConfigCache:
         — сбой или отсутствиепула НЕ оставляют в памяти значение, которого
         нет в постоянном хранилище: успех = read-after-write, «сохранённое»
         не может быть мнимым. Нет пула → ConfigCacheUnavailableError
-        (явная ошибка вместо тихого in-memory успеха)."""
+        (явная ошибка вместо тихого in-memory успеха).
+
+        EPIC-PROMPT-VERSIONING-UX-01 §5.3: текст промпта, записанный без
+        журнального токена (``prompt_release_policy.journal_write_scope``),
+        отвергается исключением ``PromptJournalBypass`` — обход журнала
+        версий невозможен.
+        """
         value = normalize_value(key, value)
+        _prompt_guard(key, value, self._settings.get(key))
         async with self._lock:
             pool = self._pg.pool
             if pool is None:
@@ -739,8 +763,13 @@ class ConfigCache:
 
         Вся валидация/коэрция сделана вызывающим ДО. Здесь — одна транзакция
         (PG) + согласованное обновление in-memory. Устраняет частичную запись
-        глобального пути (`_post_config_global`)."""
+        глобального пути (`_post_config_global`).
+
+        §5.3 пакет: каждый ключ с изменённым текстом промпта проверяется
+        стражем ДО записи — пакет не записывается наполовину."""
         normalized = [(k, normalize_value(k, v), c) for (k, v, c) in items]
+        for key, value, _category in normalized:
+            _prompt_guard(key, value, self._settings.get(key))
         async with self._lock:
             pg_ok = self._pg_available and self._pg.pool is not None
             if pg_ok:

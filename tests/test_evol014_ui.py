@@ -27,6 +27,10 @@ from tests.test_webapp_api import ADMIN_ID, USER_ID, _FakeConn, _FakePg, _hdr
 from web.api import routes as routes_mod
 from web.app import create_app
 
+# EPIC-PROMPT-VERSIONING-UX-01 §3: запись значения промпта идёт единым
+# журнальным слоем — тестам нужен стор (общая фикстура conftest).
+pytestmark = pytest.mark.usefixtures("prompt_journal")
+
 ROOT = Path(__file__).resolve().parents[1]
 CHAT_A = -100111
 CHAT_B = -100222

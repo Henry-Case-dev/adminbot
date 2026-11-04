@@ -291,6 +291,10 @@ WRITE_UNAVAILABLE_DETAIL = ("не удалось сохранить: посто�
                             "недоступно, попробуйте позже")
 RESET_UNAVAILABLE_DETAIL = ("не удалось сбросить переопределение: постоянное "
                             "хранилище недоступно, попробуйте позже")
+#: EPIC-PROMPT-VERSIONING-UX-01 §3.3: без журнала версий текст промпта НЕ
+#: записывается — UI обязан сохранить несохранённый черновик в форме.
+PROMPT_JOURNAL_DETAIL = ("не удалось сохранить: журнал версий промптов "
+                         "недоступен — текст остался прежним")
 
 #: Человеческие причины сбоев управления обучением юмора (SOUL-08.11).
 _LEARNING_ERROR_DETAILS = {
@@ -2646,6 +2650,13 @@ async def post_block(
             expected_updated_at=body.expected_updated_at)
     except Exception as exc:
         name = type(exc).__name__
+        if name == "PromptJournalBypass":
+            raise               # ошибка проводки, не отказ хранилища
+        if name in ("JournalUnavailable", "PromptJournalError"):
+            logger.warning("[speech] журнал промптов недоступен — текст не "
+                           "сохранён", exc_info=True)
+            raise HTTPException(status_code=503,
+                                detail=PROMPT_JOURNAL_DETAIL) from exc
         if name == "FactoryConflict":
             raise HTTPException(status_code=409,
                                 detail="значение изменено другим путём") from exc
@@ -2718,11 +2729,19 @@ async def post_block_reset(
             result = await pf.reset_chat_override(int(chat_id), block_id,
                                                   pg=_doc_pg(cache))
         except Exception as exc:
-            if type(exc).__name__ == "FactoryConflict":
+            name = type(exc).__name__
+            if name == "PromptJournalBypass":
+                raise
+            if name in ("JournalUnavailable", "PromptJournalError"):
+                logger.warning("[speech] журнал промптов недоступен — override "
+                               "не снят", exc_info=True)
+                raise HTTPException(status_code=503,
+                                    detail=PROMPT_JOURNAL_DETAIL) from exc
+            if name == "FactoryConflict":
                 raise HTTPException(
                     status_code=409,
                     detail="значение изменено другим путём") from exc
-            if type(exc).__name__ == "ChatParamsConflict":
+            if name == "ChatParamsConflict":
                 raise HTTPException(status_code=409,
                                     detail=_chat_write_detail(exc)) from exc
             logger.warning("[speech] chat reset failed", exc_info=True)
@@ -2742,10 +2761,27 @@ async def post_block_reset(
     if not body.apply:
         return {"ok": True, "mode": "factory", "plan": await
                 pf.plan_factory_reset(block_id, cache=cache), "applied": False}
-    result = await pf.apply_factory_reset(
-        block_id, cache=cache, actor=user.id,
-        expected_updated_at=body.expected_updated_at,
-        reason=body.reason or "factory_reset")
+    try:
+        result = await pf.apply_factory_reset(
+            block_id, cache=cache, actor=user.id,
+            expected_updated_at=body.expected_updated_at,
+            reason=body.reason or "factory_reset")
+    except Exception as exc:
+        name = type(exc).__name__
+        if name == "PromptJournalBypass":
+            raise
+        if name in ("JournalUnavailable", "PromptJournalError"):
+            logger.warning("[speech] журнал промптов недоступен — заводской "
+                           "текст не записан", exc_info=True)
+            raise HTTPException(status_code=503,
+                                detail=PROMPT_JOURNAL_DETAIL) from exc
+        if name == "FactoryConflict":
+            raise HTTPException(
+                status_code=409,
+                detail="значение изменено другим путём") from exc
+        logger.warning("[speech] factory reset failed", exc_info=True)
+        raise HTTPException(status_code=503,
+                            detail=RESET_UNAVAILABLE_DETAIL) from exc
     return {"ok": bool(result.get("applied")) or result.get("reason")
             == "already_factory", "mode": "factory", "result": result,
             "effective": _effective_after_write(cache, chat_id, block_id)}
@@ -2787,6 +2823,13 @@ async def post_block_rollback(
             chat_id=scope_id,
             pg=_doc_pg(cache) if scope_id is not None else None)
     except Exception as exc:
+        if type(exc).__name__ == "PromptJournalBypass":
+            raise
+        if type(exc).__name__ in ("JournalUnavailable", "PromptJournalError"):
+            logger.warning("[speech] журнал промптов недоступен — откат не "
+                           "применён", exc_info=True)
+            raise HTTPException(status_code=503,
+                                detail=PROMPT_JOURNAL_DETAIL) from exc
         if type(exc).__name__ == "FactoryConflict":
             raise HTTPException(
                 status_code=409,

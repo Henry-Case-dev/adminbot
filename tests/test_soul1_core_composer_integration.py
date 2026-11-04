@@ -28,6 +28,10 @@ from services import prompt_factory as pf
 from services import prompt_registry as pr
 from services import response_extent as _extent
 
+# EPIC-PROMPT-VERSIONING-UX-01 §3: запись значения промпта идёт единым
+# журнальным слоем — тестам нужен стор (общая фикстура conftest).
+pytestmark = pytest.mark.usefixtures("prompt_journal")
+
 BASE = "КАНАЛ-КАНОН: читай контекст и отвечай по делу."
 CHARACTER_BLOCK = ("<Persona>\nИмя: Бот. Характер: язвительный, прямой.\n"
                    "</Persona>")

@@ -180,7 +180,15 @@ ROUTES_SHA256_F11 = (
     # Новых `@router`-маршрутов НЕТ (routes-инвентарь f8_baseline не меняется),
     # RBAC/маскировка/DDL не менялись — менялось тело существующих обработчиков.
     # Хэш переутверждён осознанно (L-F11S-1).
-    "cfd1a41c489665f8fc8dce6d74bc6d64b8eaac4d848b7c882dd7c7d06a470b4f")
+    # EPIC-PROMPT-VERSIONING-UX-01 (04.11.2026, L-F11S-1 conscious
+    # requalification): значение промпта во ВСЕХ путях сохранения пишется
+    # единым журнальным слоем prompt_release_policy.write_prompt_values
+    # (ревизия + событие активации + значение одной транзакцией). Затронуты
+    # тела СУЩЕСТВУЮЩИХ обработчиков: POST /api/config (global/chat),
+    # POST /api/initiative/meme-settings, DELETE /api/config/chat/{key},
+    # speech/speech core. Новых `@router`-маршрутов НЕТ (Δ routes=0),
+    # RBAC/маскировка/DDL не менялись.
+    "c7db8118da01de79b90149f2522eb23c6d0334bcc2140bc9d230dfc6567c15e6")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

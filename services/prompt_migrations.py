@@ -1181,7 +1181,16 @@ async def normalize_legacy_speech(cache, *, apply: bool = False,
     report["written"] = 0
     if not batch:
         return report
-    await cache.set_many(batch)
+    # Страж обхода (EPIC-PROMPT-VERSIONING-UX-01 §5.3) требует журнального
+    # писателя для текста промпта. Здесь текст приходит из КОДА
+    # (детерминированное вычищение известного legacy-канона), а неизменяемый
+    # оригинал + откат ведутся в `character.migration_snapshots`
+    # (`rollback_legacy_speech`). Это не путь правки владельца и не HTTP-путь;
+    # каждое применение пишется в лог с id миграции.
+    from services import prompt_release_policy as _prp
+    with _prp.legacy_migration_write("legacy_speech_normalization",
+                                     keys=[row[0] for row in batch]):
+        await cache.set_many(batch)
     report["written"] = len(batch)
     logger.info("[prompt_legacy_speech] нормализовано ключей: %d "
                 "(snapshots=%s)", len(batch), changed_snapshots)
@@ -1221,7 +1230,12 @@ async def rollback_legacy_speech(cache) -> dict:
         batch.append((key, text, SPEECH_MIGRATION_CATEGORY))
         report[key] = "rolled_back"
     if batch:
-        await cache.set_many(batch)
+        # См. `normalize_legacy_speech`: откат возвращает захваченные оригиналы
+        # из `character.migration_snapshots` (код-поставленные байты).
+        from services import prompt_release_policy as _prp
+        with _prp.legacy_migration_write("legacy_speech_rollback",
+                                         keys=[row[0] for row in batch]):
+            await cache.set_many(batch)
     return report
 
 

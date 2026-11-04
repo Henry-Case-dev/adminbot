@@ -65,6 +65,16 @@ _VALID_DIGEST = "# Тема\n- Вася спорил с Петей"
 _CUSTOM_STYLE = "in comic style, with a large PERMsoc heading"
 _STYLE_KEY = "prompts.summary_cover_style"
 
+def _journal_scope(pg_key: str):
+    """Журнальный токен §5.3 для прямой записи промпта в тесте."""
+    from services import prompt_registry as pr
+    from services import prompt_release_policy as prp
+    block = pr.by_pg_key(pg_key)
+    assert block is not None, pg_key
+    return prp.journal_write_scope(
+        [prp.JournalWriteGrant(block.block_id, "global", None)])
+
+
 
 # ── Мини-PG стенд для РЕАЛЬНОГО пути ConfigCache (без мока hot.get) ───────
 
@@ -207,7 +217,9 @@ class TestCoverStyleApplied:
         pool = _FakePool()
         cache = ConfigCache(pg=types.SimpleNamespace(pool=pool))
         cache._pg_available = True
-        await cache.set(_STYLE_KEY, _CUSTOM_STYLE, "prompts")
+        # §5.3: запись текста промпта — только журнальным писателем
+        with _journal_scope(_STYLE_KEY):
+            await cache.set(_STYLE_KEY, _CUSTOM_STYLE, "prompts")
         assert pool.store[_STYLE_KEY]["category"] == "prompts"
         assert cache.get(_STYLE_KEY) == _CUSTOM_STYLE
         hot.set_config_cache(cache)
@@ -227,7 +239,9 @@ class TestCoverStyleApplied:
         pool = _FakePool()
         cache = ConfigCache(pg=types.SimpleNamespace(pool=pool))
         cache._pg_available = True
-        await cache.set(_STYLE_KEY, _CUSTOM_STYLE, "prompts")
+        # §5.3: запись текста промпта — только журнальным писателем
+        with _journal_scope(_STYLE_KEY):
+            await cache.set(_STYLE_KEY, _CUSTOM_STYLE, "prompts")
         # Значение ушло в «PG» под верным ключом/категорией.
         assert pool.store[_STYLE_KEY]["category"] == "prompts"
         # reload() перечитывает из «PG» (память очищается нагрузкой заново).
@@ -261,7 +275,9 @@ class TestCoverStyleApplied:
         pool = _FakePool()
         cache = ConfigCache(pg=types.SimpleNamespace(pool=pool))
         cache._pg_available = True
-        await cache.set(_STYLE_KEY, _CUSTOM_STYLE, "prompts")
+        # §5.3: запись текста промпта — только журнальным писателем
+        with _journal_scope(_STYLE_KEY):
+            await cache.set(_STYLE_KEY, _CUSTOM_STYLE, "prompts")
         from services.prompt_migrations import migrate_prompt_canons
         report = await migrate_prompt_canons(cache)
         assert _STYLE_KEY not in report

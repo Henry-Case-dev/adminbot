@@ -34,6 +34,7 @@ from services import hot_config
 from services import meme_initiative as meme
 from services import param_catalog as pc
 from services import prompt_registry as pr
+from services.prompt_release_policy import MemoryPromptJournal
 from tests.test_webapp_api import ADMIN_ID, USER_ID, _FakeConn, _FakePg, _hdr
 from web.api import routes as routes_mod
 from web.app import create_app
@@ -97,9 +98,15 @@ def client(monkeypatch):
 
     `global_layer` эмулирует глобальный слой (`bot_settings` через
     ConfigCache/hot_config): его правит штатная карточка «Промпты».
+
+    EPIC-PROMPT-VERSIONING-UX-01 §3.4: промптные поля мемов сохраняются тем же
+    журнальным слоем, что и общий редактор, поэтому поднимается тестовый стор
+    через существующую точку инъекции `routes_mod._prompt_journal`.
     """
     conn, cache, app = _build(monkeypatch)
     global_layer: dict[str, object] = {}
+    journal = MemoryPromptJournal()
+    monkeypatch.setattr(routes_mod, "_prompt_journal", lambda cache_: journal)
     # Детерминированные зависимости мем-модуля (сеть не используется).
     monkeypatch.setattr(meme, "open_ledger", lambda db: None)
     monkeypatch.setattr(meme, "model_prompt_chars", _no_model_capability)
@@ -136,6 +143,7 @@ def client(monkeypatch):
         tc.cache = cache
         tc.conn = conn
         tc.global_layer = global_layer
+        tc.journal = journal
         yield tc
 
 
@@ -151,6 +159,8 @@ def real_layers(monkeypatch):
     """
     conn, cache, app = _build(monkeypatch)
     global_layer: dict[str, object] = {}
+    journal = MemoryPromptJournal()
+    monkeypatch.setattr(routes_mod, "_prompt_journal", lambda cache_: journal)
     monkeypatch.setattr(meme, "open_ledger", lambda db: None)
     monkeypatch.setattr(meme, "model_prompt_chars", _no_model_capability)
     from services import initiative_observer
@@ -173,6 +183,7 @@ def real_layers(monkeypatch):
         tc.conn = conn
         tc.global_layer = global_layer
         tc.chat_params_cache = chat_cache
+        tc.journal = journal
         yield tc
 
 
@@ -449,7 +460,9 @@ def _global_payload(key: str, value: str):
 async def test_global_edit_saves_and_feeds_runtime(monkeypatch):
     """Глобальная правка карточки «Промпты» пишется и читается тем же резолвом."""
     cache = _GlobalCache()
+    journal = MemoryPromptJournal()
     monkeypatch.setattr(routes_mod, "get_cache", lambda request: cache)
+    monkeypatch.setattr(routes_mod, "_prompt_journal", lambda cache_: journal)
     monkeypatch.setattr(routes_mod, "can_edit_param", lambda c, uid, key: True)
     monkeypatch.setattr(routes_mod, "can_view_key_value",
                         lambda c, uid, key: True)
@@ -461,12 +474,20 @@ async def test_global_edit_saves_and_feeds_runtime(monkeypatch):
             object(), bad, SimpleNamespace(id=ADMIN_ID))
     assert exc.value.status_code == 422
     assert cache.written == []                     # невалидный шаблон не сохранён
+    assert journal.revisions == {}                 # и в журнал ничего не попало
 
     ok = _global_payload(IMAGE_KEY, "Мем: {joke}")
     out = await routes_mod._post_config_global(
         object(), ok, SimpleNamespace(id=ADMIN_ID))
     assert out["updated"] == [IMAGE_KEY]
     assert cache.store[IMAGE_KEY] == "Мем: {joke}"
+    # §3.4: глобальная карточка обязана дать ревизию и событие активации.
+    assert [row["key"] for row in out["prompt_snapshots"]] == [IMAGE_KEY]
+    revision = journal.revisions[out["prompt_snapshots"][0]["revision_id"]]
+    assert revision.block_id == "initiative.meme.image"
+    assert revision.scope == "global" and revision.origin == "manual"
+    assert [a.kind for a in journal.activations] == ["manual_edit"]
+    assert journal.activations[0].outcome == "applied"
 
     view = await meme.effective_meme_prompt(
         -100500, meme.IMAGE_PROMPT_BLOCK_ID, factory=IMAGE_FACTORY)

@@ -50,6 +50,10 @@ from services.config_cache import ConfigCache
 from web.api import deps as deps_mod
 from web.api.speech import speech_router
 
+# EPIC-PROMPT-VERSIONING-UX-01 §3: запись значения промпта идёт единым
+# журнальным слоем — тестам нужен стор (общая фикстура conftest).
+pytestmark = pytest.mark.usefixtures("prompt_journal")
+
 TEST_TOKEN = "123456:P0PERSIST_TOKEN"
 ADMIN_ID = 5885953495
 CHAT_A = -1007770001

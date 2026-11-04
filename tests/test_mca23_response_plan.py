@@ -41,6 +41,10 @@ from services.prompt_style_blocks import (
 from services.response_extent import ResponsePlan
 from services.tool_loop import ToolLoopResult
 
+# EPIC-PROMPT-VERSIONING-UX-01 §3: запись значения промпта идёт единым
+# журнальным слоем — тестам нужен стор (общая фикстура conftest).
+pytestmark = pytest.mark.usefixtures("prompt_journal")
+
 
 # ── Golden-классификация (бывш. §44): semantic-neutral fallback ──────────────
 

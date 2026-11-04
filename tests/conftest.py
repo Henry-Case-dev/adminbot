@@ -3,6 +3,26 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 
+@pytest.fixture
+def prompt_journal(monkeypatch):
+    """EPIC-PROMPT-VERSIONING-UX-01 §3: журнал версий для тестового стенда.
+
+    Единый слой записи требует журнала: значение промпта без ревизии и
+    события активации больше не пишется (HTTP 503). Тесты, чей предмет — не
+    сам отказ журнала, получают тестовый стор через существующие точки
+    резолва (``prompt_release_policy.default_journal`` и
+    ``web/api/routes._prompt_journal``). Тест, проверяющий отказ, перекрывает
+    эти точки на ``None`` в собственном ``monkeypatch``.
+    """
+    from services import prompt_release_policy as prp
+    from web.api import routes as routes_mod
+
+    store = prp.MemoryPromptJournal()
+    monkeypatch.setattr(prp, "default_journal", lambda cache=None: store)
+    monkeypatch.setattr(routes_mod, "_prompt_journal", lambda cache=None: store)
+    return store
+
+
 @pytest.fixture(autouse=True)
 def _reset_global_persona_name():
     """Изоляция sync-кэша глобального имени персоны (раунд 10.15, F6).

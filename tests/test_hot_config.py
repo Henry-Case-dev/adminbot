@@ -12,6 +12,10 @@ from services import hot_config as hot
 from services.config_cache import ConfigCache
 from services.permissions import Permissions
 
+# EPIC-PROMPT-VERSIONING-UX-01 §3: запись значения промпта идёт единым
+# журнальным слоем — тестам нужен стор (общая фикстура conftest).
+pytestmark = pytest.mark.usefixtures("prompt_journal")
+
 
 class _FakeCache:
     """Конфиг-кэш-стаб: dict + pg_available (set работает только в память)."""
