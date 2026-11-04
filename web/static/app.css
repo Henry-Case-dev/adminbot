@@ -1832,7 +1832,7 @@
       }
       .cog-card__grip::after {
         content: ''; position: absolute; left: 50%; top: 7px;
-        width: 42px; height: 4px; margin-left: -21px; border-radius: 2px;
+        width: 42px; height: 4px; transform: translateX(-50%); border-radius: 2px;
         background: rgba(226, 232, 240, .38);
       }
       .cog-card__grip:focus-visible {
