@@ -198,6 +198,11 @@ action: reply, reason_codes: []}`.
 * Текст автора: `Привет! Как день прошёл?` (24 симв.) — передан в транспорт
   **байт-в-байт**: `written_equals_sent = true`, `raw_len = sent_len = 24`,
   `punct_only = true`, `other_char_delta = 0`, ни одной записи `note_op`.
+* Про `raw_final.digest_agrees = false` у s3: это **не расхождение**, а
+  отсутствие второго источника — `digest_trace = null`, потому что
+  `handle_initiative` не открывает `turn_trace`. Сравнивать digest раннера
+  не с чем; равенство с отправленным текстом проверено напрямую
+  (`written_equals_sent = true`, одинаковые digest `b7be716d149ad018`).
 * События: 10, `events_by_matched_by = {trace_id: 1, unfiltered: 9}` — то есть
   correlation хода несёт только `initiative_decided`, остальные
   (`initiative_writer_generated`, `speech_extent`, `evidence_egress_check`,
@@ -362,7 +367,9 @@ action: reply, reason_codes: []}`.
   `turn_trace.begin`, поэтому для неё нет `direct_turn_writer`/
   `direct_turn_delivery` и `semantic_rewrite_count`, а её события почти не
   несут correlation хода (`events_by_matched_by = {trace_id: 1,
-  unfiltered: 9}`). Проверяемая замена — `completion` из фактического объекта
+  unfiltered: 9}`). Соответственно у s3 `raw_final.digest_agrees = false` — это
+  «нет второго источника» (`digest_trace = null`), а не расхождение текста;
+  проверяемая замена — `completion` из фактического объекта
   (`completion_source = writer_completion_object`), `http_calls`, байтовое
   равенство текста и события `initiative_*`.
 * Фактчек-путь не оставляет событий в `mca_events` в этом харнессе
@@ -398,6 +405,20 @@ py -3 tools/rlr_live_proof.py \
 Отдельные сценарии: `--only s5`, `--only s2,s7`.
 В `meta` артефакта фиксируются `commit`, `runner_sha256` и `worktree_dirty`,
 поэтому видно, каким именно кодом снят прогон.
+
+**Пересчёт без повторного прогона** (то, что делает приёмка):
+
+```
+py -3 tools/rlr_r09_verify.py \
+  --out <run-dir>/verify.txt
+```
+
+Скрипт читает только JSON и заново считает `other_char_delta`/`punct_only` по
+полным текстам, проверяет отсутствие скрытых символов diff'а, полноту
+diff-списка s5, соответствие `forced` фактически отправленному `max_tokens`,
+обязательные поля s3/s7, равенство счётчика вызовов s7 фактическим HTTP-
+отправкам, фактические 401 у s4 и шесть неизменяющих операций у s6.
+На этом артефакте: **50/50 PASS**.
 
 **Приватность артефакта.** В JSON лежат полные тексты автора и отправки
 (`text_diff.raw_text` / `sent_text`) — это ответы модели, сгенерированные для
