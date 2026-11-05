@@ -227,6 +227,32 @@ def _countable_term_word(word: str) -> bool:
     return len(word) >= 4 or re.search(r"[0-9a-z]", word) is not None
 
 
+#: FC-03.1 (corrective 05.11.2026): тематический пол доказательства.
+#: Самые специфичные (длинные) основы содержательных терминов тезиса.
+#: Документ, в котором НЕТ ни одной такой основы, — другая тема: совпадение
+#: общих слов («люди», «фото», «иначе») не делает его доказательством
+#: (статья о датировке фотографий не подтверждает тестостероновую
+#: типологию ни при каком словесном пересечении). Языково-нейтрально:
+#: без предметных словарей и без белых списков доменов.
+_TOPIC_STEM_LIMIT = 4
+
+
+def topic_stems(text: str, *, limit: int = _TOPIC_STEM_LIMIT) -> frozenset[str]:
+    """Тематические основы тезиса (детерминированно, без LLM).
+
+    Берутся уникальные term_key содержательных терминов, сортируются по
+    длине основы (специфичность) и берутся верхние ``limit``. Пустой/общий
+    тезис → пустое множество (шлюз не активен)."""
+    keyed: dict[str, int] = {}
+    for word in content_terms(text, limit=12):
+        key = term_key(word)
+        if key:
+            keyed.setdefault(key, len(key))
+    best = sorted(keyed.items(), key=lambda kv: (-kv[1], kv[0]))[
+        :max(1, int(limit))]
+    return frozenset(key for key, _n in best)
+
+
 def is_relevant_result(text: str, relevance_terms,
                        *, min_distinct: int | None = None) -> bool:
     """Overlap-эвристика «запрос ↔ выдача» с морфологией (P0-FACTCHECK).
@@ -444,6 +470,11 @@ def claim_relevance(text: str, *, claim_text: str = "",
     (`claim_type="cause"`) подтверждается только при наличии причинной связки
     в источнике.
 
+    FC-03.1 (corrective 05.11.2026): документ без ни одной тематической
+    основы тезиса (``topic_stems``) — другая тема: роль irrelevant (off_topic)
+    при любом словесном пересечении; форум о датировке фотографий не
+    становится «доказательством» биологической типологии.
+
     Детерминированно, без LLM. Никогда не бросает.
     """
     try:
@@ -474,12 +505,23 @@ def claim_relevance(text: str, *, claim_text: str = "",
         units_conflict = bool(claim_classes and not units_ok)
         causal_missing = (str(claim_type or "") == "cause"
                           and not _CAUSAL_RE.search(body))
+        # FC-03.1: тематический пол. Другая тема (ни одной тематической
+        # основы тезиса в документе) — off_topic, а не evidence, при любом
+        # словесном пересечении. Якорные совпадения (латинское имя/тикер,
+        # число/метрика тезиса) шлюз не проходят: они уже специфичны и
+        # работают между языками (русский тезис → английский источник).
+        topic = topic_stems(claim_text)
+        topic_miss = bool(topic) and not (topic & body_keys) \
+            and not entity_hit and not number_hits
 
         def _result(role: str, *, mismatch: bool = False) -> ClaimRelevance:
             return ClaimRelevance(role=role, score=len(matched) + number_hits,
                                   word_hits=word_hits, number_hits=number_hits,
                                   entity_hit=entity_hit, opposite=opposite,
                                   number_mismatch=mismatch)
+
+        if topic_miss:
+            return _result(EVIDENCE_ROLE_IRRELEVANT)
 
         if claim_numbers:
             if number_hits and units_ok:
