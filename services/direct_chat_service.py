@@ -2129,9 +2129,11 @@ async def _send_traced(bot, chat_id: int, text: str, reply_to, *,
     _ttrace.note_op(correlation_id, op_name, text)
     _ttrace.note_op(correlation_id, _ttrace.OP_EGRESS_SANITIZE,
                     _delivered_payload(text))
+    # Без трассы хода (нет correlation_id) вызов доставки остаётся
+    # БАЙТ-в-БАЙТ прежним: лишний kwarg не появляется.
     sent_ids: list = []
-    first = await send_chunked_reply(bot, chat_id, text, reply_to,
-                                     sent_ids=sent_ids)
+    extra = {"sent_ids": sent_ids} if correlation_id else {}
+    first = await send_chunked_reply(bot, chat_id, text, reply_to, **extra)
     _ttrace.note_delivery(
         correlation_id,
         outcome=("success" if first is not None else "failed"),
@@ -8109,9 +8111,12 @@ class DirectChatService:
                 _ttrace.note_op(correlation_id, _ttrace.OP_EGRESS_SANITIZE,
                                 _delivered_payload(escaped))
                 _html_ids: list = []
+                # Без correlation_id — прежний вызов байт-в-байт (kwargs те же).
+                _html_extra = ({"sent_ids": _html_ids} if correlation_id
+                               else {})
                 sent = await send_chunked_reply(
                     bot, chat_id, escaped, reply_to, parse_mode="HTML",
-                    sent_ids=_html_ids)
+                    **_html_extra)
                 _ttrace.note_delivery(
                     correlation_id,
                     outcome=("success" if sent is not None else "failed"),
