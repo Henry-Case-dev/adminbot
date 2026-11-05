@@ -26,9 +26,13 @@ services/smartmodule_concurrency (ChatConcurrencyPool) — до N паралле
 CHAT_LOCK_BUSY_PHRASES.
 
 Epic 60 (Section 65, Фаза C, T-469…T-478): 🗿-молчание на пустой ответ
-(65.1), стачка кулдаунов → молчание (65.3), <style_anchors> (65.4), команды
+(65.1), стачка кулдаунов → молчание (65.3), команды
 /clear /persona /tone /forget (65.5), typing-индикатор (65.7), temperature-
-пресеты из user_prefs (65.8), mood-блок (65.9), protected_facts (65.10).
+пресеты из user_prefs (65.8), protected_facts (65.10).
+UR-E (UNIFIED-REPLY, owner 2026-11-05): секции <style_anchors> (65.4) и
+<mood> (65.9) УДАЛЕНЫ из активной сборки — автоподражание прошлым ответам
+бота и лексический mood-ярлык не подмешиваются в L2; прошлые реплики бота
+остаются обычными фрагментами истории диалога (UR-23), тон выбирает L1.
 
 Epic 60 (Section 66, Фаза D, T-487/T-490): /persona <имя> — карточка человека
 из графа (66.9); бюджеты контекста — доли от CHAT_CONTEXT_BUDGET_TOKENS с
@@ -36,10 +40,11 @@ Epic 60 (Section 66, Фаза D, T-487/T-490): /persona <имя> — карто�
 
 Раунд 8 (Context-Layer X-Features, spec.md; T-791…T-803 частично):
   * B2 (T-791): реордер user-блока «важное к концу» — map → branch → rag →
-    global → thread → target → protected → lore → mood → current → anchors →
-    sandwich; бюджет на effective-базе (неприкосновенные: target/protected/
+    global → thread → target → protected → lore → current → sandwich
+    (UR-E: mood/anchors исключены из активной сборки); бюджет на
+    effective-базе (неприкосновенные: target/protected/
     lore/current/sandwich), новая доля branch, порядок урезания
-    anchors→rag→thread→global(keep-head)→map→nostalgia (маркер слоя A —
+    rag→thread→global(keep-head)→map→nostalgia (маркер слоя A —
     последним, раунд 9 E1/T-826).
   * C1/C3/C5 (T-792/T-794/T-796): uid-рендеры «{имя} [{uid}]» / «{имя} [bot]»
     во внутренних строках (global/thread/branch) и <Target_User>; карта
@@ -831,10 +836,8 @@ _PERSONA_MAX_ITEMS = 10          # 66.9: карточка — до 10 факто
 # F8 (cognition-irony-dossier-round1013, spec §6): общий символьный бюджет
 # блоков досье [Факты]/[Локальные мемы/Ярлыки] (мемы режутся первыми).
 _PERSONA_DOSSIER_MAX_CHARS = 1200
-# Раунд 3 (3.7/C1, T-696): анти-залипание style_anchors («сцуко»-инцидент).
-_STYLE_ANCHOR_LOOKBACK = 5       # буфер выборки поверх count (ищем «разные»)
-_STICKY_MIN_WORD_LEN = 3         # короче — не «слово-префикс» (a/и/в…)
-_STICKY_MIN_FREQ = 2             # >=2 из окна = залипший префикс
+# UR-E (UR-14): константы анти-залипания style_anchors
+# (_STYLE_ANCHOR_LOOKBACK/_STICKY_*) удалены вместе с секцией.
 _BLOCK_RE = re.compile(          # 66.12: блок «<Tag>\n…\n</Tag>» (тело для обрезки)
     r"^(<[A-Za-z_]+>\n)(.*)(\n</[A-Za-z_]+>)\s*$", re.DOTALL)
 # Раунд 8 (B2/FR-23, п.25): sandwich-строка — финальное напоминание в конце
@@ -1000,11 +1003,6 @@ def _format_generated_portrait_block(generated) -> str:
     if themes:
         parts.append("[Темы]\n" + "\n".join(themes))
     return "\n".join(parts)
-
-
-def _parse_mood_words(raw: str) -> tuple[str, ...]:
-    """65.9: comma-separated env → кортеж слов (нижний регистр)."""
-    return tuple(w.strip().lower() for w in str(raw or "").split(",") if w.strip())
 
 
 def _forward_source_of(message) -> str:
@@ -3350,10 +3348,6 @@ class DirectChatService:
         self.silence_streak = SilenceStreak(
             hot.get("limits.chat_cooldown_seconds", settings.CHAT_COOLDOWN_SECONDS),
             db if hot.get("flags.throttle_persistent_enabled", settings.THROTTLE_PERSISTENT_ENABLED) else None)
-        # Epic 60 (65.9, T-477): слова настроения — comma-separated env
-        # (правило п.49: никаких списков в коде).
-        self._mood_negative = _parse_mood_words(settings.CHAT_MOOD_NEGATIVE_WORDS)
-        self._mood_positive = _parse_mood_words(settings.CHAT_MOOD_POSITIVE_WORDS)
         # MCA-22 (C7): cache инжектится из bot.py (get_smart_cache()) —
         # ТОЛЬКО для update-identity маркеров Telegram (response_freshness,
         # 24 h; дедуп событий, не ответов). None → маркеров нет (паритет
@@ -8376,9 +8370,9 @@ class DirectChatService:
                                   ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
-        target → relations → protected → lore → mood → current → anchors →
-        sandwich. Статика вверх, критичное (target/relations/protected/
-        current) ближе к концу. Раунд 9 (T-819/B4, spec §3.1.4): блок
+        target → relations → protected → lore → current → sandwich. Статика
+        вверх, критичное (target/relations/protected/current) ближе к концу.
+        Раунд 9 (T-819/B4, spec §3.1.4): блок
         <user_relations> (kind "relations") — СРАЗУ ПОСЛЕ ("target", …), до
         protected/lore; кап по символам — до инжекта; uncuttable (вне
         контекст-бюджета). Раунд 8 (C5/T-796): <Target_User> с uid автора
@@ -8388,7 +8382,12 @@ class DirectChatService:
         собирается РАНЬШЕ <RAG_Memory> (текст фона нужен для словарного
         дедупа RAG), контент-порядок blocks (rag → global) не меняется.
         Раунд 9 (E1/T-826, spec §3.5.1): маркер «золотых» (kind "nostalgia")
-        встаёт ПОСЛЕ relations, до mood (подсказка «важное к концу»)."""
+        встаёт ПОСЛЕ relations, до current (подсказка «важное к концу»).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) и style_anchors
+        (65.4) НЕ добавляются — лексический mood-ярлык не подмешивается в L2
+        как инструкция (тон выбирает L1, UR-16), автоподражание прошлым
+        ответам бота снято (UR-14); реплики бота остаются обычными
+        фрагментами истории."""
         window = await self.memory.get_window_messages(chat_id)
         # Раунд 10.23 (F1, ADR-1023-1): текущий пользовательский ход —
         # триггер маркировки (сопоставление по Telegram message_id).
@@ -8435,7 +8434,7 @@ class DirectChatService:
                 trigger_message_id=trigger_message_id,
                 history_sample=history_sample, projection=projection)
         # Раунд 9 (E1/T-826): второй элемент кортежа — маркер «золотых»
-        # (блок kind "nostalgia" ставится ПОЗЖЕ: после relations, до mood).
+        # (блок kind "nostalgia" ставится ПОЗЖЕ: после relations).
         # P0-HA ISOLATION (§3): при активной выборке RAG-память (включая
         # граф-активацию/golden/self-echo) — дополнение вне диапазона,
         # помечается баннером (источник не выключается, метки остаются).
@@ -8505,7 +8504,7 @@ class DirectChatService:
         if lore_inner:
             blocks.append(("lore", f"<chat_lore>\n{lore_inner}\n</chat_lore>"))
         # Раунд 9 (E1/T-826, spec §3.5.1): ностальгия-маркер — в user-контент
-        # ПОСЛЕ relations, до mood (compact: фикс-кап до инжекта, в общем
+        # ПОСЛЕ relations (compact: фикс-кап до инжекта, в общем
         # порядке урезания участвует последним — _apply_context_budget).
         # P0-HA ISOLATION (§3): «золотой» факт — память вне диапазона; при
         # активной выборке помечается баннером (источник не выключается).
@@ -8514,12 +8513,13 @@ class DirectChatService:
                 nostalgia_hint = (f"{_ha_supplement_banner(_ha_sample_id(history_sample))}"
                                   f"\n{nostalgia_hint}")
             blocks.append(("nostalgia", nostalgia_hint))
-        # Epic 60 (65.9, T-477): настроение — user-блок, промпт R50-4 не тронут.
-        # T-619: флаг и слова настроения — горячие точки (фолбек settings).
-        if hot.get("flags.chat_mood_enabled", settings.CHAT_MOOD_ENABLED):
-            mood = self._build_mood_block(_message_user_text(message))
-            if mood:
-                blocks.append(("mood", mood))
+        # ── UR-E (UR-16): лексический mood-ярлык («зло/радостно» → «подстрой
+        # тон») НЕ подмешивается в L2 как самостоятельная инструкция. Тон
+        # выбирает общий L1 по реальному контексту и отношениям (ось tone/
+        # emotional_mirroring плана); owner style и character-слои
+        # приоритетнее. Совместимый флаг CHAT_MOOD_ENABLED больше не создаёт
+        # скрытых директив: никаких «эмоциональных коррекций» payload нет ни
+        # при ON, ни при OFF.
         # ── EVOL v5 §12.2 (DIRECT-SELF-CORRECTION-01): рамка возражения ────
         # Собирается ПОСЛЕ цепочки/окна (метки прогона уже выданы — одна и та
         # же реплика адресуется одинаково во всех блоках), ставится перед
@@ -8554,10 +8554,14 @@ class DirectChatService:
             current = append_marker(current)
         if current:
             blocks.append(("current", current))
-        # Epic 60 (65.4, T-472): стилевые якоря — у конца (форма, не содержание).
-        anchors = await self._build_style_anchors(chat_id)
-        if anchors:
-            blocks.append(("anchors", anchors))
+        # ── UR-E (UR-14/UR-RES-06): секция <style_anchors> («подражай общей
+        # интонации этих ответов») из last_bot_replies УДАЛЕНА из активной
+        # сборки Direct/Initiative. Прошлые неудачные реплики бота не
+        # становятся инструкцией о том, как писать; собственные сообщения
+        # остаются полноценными участниками хронологической истории диалога
+        # (thread/самоописание, UR-23), а не стилевыми образцами.
+        # Владельческие промпты «Речь и характер», библиотеки примеров и
+        # prompt versioning не затронуты (UR-BAN-07).
         # Раунд 8 (B2/FR-23, п.25): sandwich-напоминание — последней строкой
         # user-контента (только если контент вообще есть).
         if blocks:
@@ -8960,7 +8964,7 @@ class DirectChatService:
         # ── Кандидаты → pieces (позиции = канонический порядок блоков) ──
         # map → branch → episode → history_supplement → rag → global
         # (head/middle/tail) → thread → target → relations → protected →
-        # lore → nostalgia → mood → current → anchors → sandwich.
+        # lore → nostalgia → current → sandwich (UR-E: mood/anchors сняты).
         canonical_order = _composer.CANONICAL_ORDER
         candidates: list[tuple[str, str]] = [
             (kind, text) for kind, text in blocks
@@ -11432,94 +11436,7 @@ class DirectChatService:
                 body, inner_budget, kind=kind) + closing
         return truncate_keep_header(text, limit_tokens, kind=kind)
 
-    # ── Epic 60 Фаза C (65.4/65.9/65.10): якоря, настроение, защита ──
-
-    @staticmethod
-    def _normalize_first_word(text: str) -> str:
-        """3.7/C1: первое слово ответа (lower, без пунктуации); пусто/короче
-        _STICKY_MIN_WORD_LEN → не «слово-префикс»."""
-        m = re.match(r"\s*([а-яёa-z0-9]+)", str(text).lower())
-        word = m.group(1) if m else ""
-        return word if len(word) >= _STICKY_MIN_WORD_LEN else ""
-
-    @staticmethod
-    def _detect_sticky(window) -> set[str]:
-        """3.7/C1: первые слова с частотой >= _STICKY_MIN_FREQ в окне
-        последних ответов → «залипшие» префиксы (исключаются из якорей)."""
-        from collections import Counter
-        prefixes = [DirectChatService._normalize_first_word(t)
-                    for t in window]
-        counts = Counter(p for p in prefixes if p)
-        return {word for word, cnt in counts.items()
-                if cnt >= _STICKY_MIN_FREQ}
-
-    async def _build_style_anchors(self, chat_id: int) -> str:
-        """65.4: секция <style_anchors> из последних ответов бота (bot_replies,
-        ASC). Раунд 3 (3.7/C1): анти-залипание — если >=2 из последних `count`
-        начинаются с одного и того же первого слова («сцуко,» и пр.), такие
-        ответы НЕ попадают в якоря (выбираются более старые различные из
-        буфера _STYLE_ANCHOR_LOOKBACK; повтор-префиксы исключаются);
-        не осталось ни одного → секции нет (безопаснее, чем модель-«попугай»).
-        Инструкция смягчена: «держи общую интонацию, НЕ копируй дословно, не
-        начинай каждый ответ с одного и того же слова». VERBATIM-шаблон в
-        тестах; user-блок — R50-4 неприкосновенен. Fail-open: ошибка БД →
-        WARNING + без секции."""
-        if not hot.get("flags.chat_style_anchors_enabled",
-                       settings.CHAT_STYLE_ANCHORS_ENABLED):
-            return ""
-        try:
-            count = hot.get("limits.chat_style_anchors_count",
-                            settings.CHAT_STYLE_ANCHORS_COUNT)
-            replies = await self.db.last_bot_replies(
-                chat_id, count + _STYLE_ANCHOR_LOOKBACK, time.time())
-        except Exception:
-            logger.warning("direct: style anchors read failed | chat=%s",
-                           chat_id, exc_info=True)
-            return ""
-        if not replies:
-            return ""
-        sticky = self._detect_sticky(replies[-count:])
-        selected: list[str] = []
-        used_prefixes: set[str] = set()
-        for text in reversed(replies):                 # свежие → старые
-            if len(selected) >= count:
-                break
-            first = self._normalize_first_word(text)
-            if first and (first in sticky or first in used_prefixes):
-                continue                               # залипший/повтор
-            if first:
-                used_prefixes.add(first)
-            selected.append(text)
-        if not selected:
-            return ""
-        selected.reverse()                             # хронология ASC
-        anchor_cap = hot.get("limits.chat_style_anchor_max_chars",
-                             settings.CHAT_STYLE_ANCHOR_MAX_CHARS)
-        body = "\n".join(
-            f"{i}. {t[:anchor_cap]}" for i, t in enumerate(selected, 1))
-        return (f"<style_anchors>\nподражай общей интонации этих ответов, "
-                f"но НЕ копируй дословно и не начинай каждый ответ с одного "
-                f"и того же слова; настройки выражения владельца важнее "
-                f"образца:\n{body}\n</style_anchors>")
-
-    def _build_mood_block(self, query: str) -> str:
-        """65.9: лёгкая эвристика по словам (без LLM-вызова). Блок ПОСЛЕ
-        <Target_User>; системный промпт R50-4 НЕ меняется ни на байт.
-        T-619: слова настроения — горячая точка (фолбек settings)."""
-        text = str(query or "").lower()
-        negative = _parse_mood_words(hot.get(
-            "reactions.chat_mood_negative_words", settings.CHAT_MOOD_NEGATIVE_WORDS))
-        positive = _parse_mood_words(hot.get(
-            "reactions.chat_mood_positive_words", settings.CHAT_MOOD_POSITIVE_WORDS))
-        mood = None
-        if any(w in text for w in negative):
-            mood = "зло"
-        elif any(w in text for w in positive):
-            mood = "радостно"
-        if mood is None:
-            return ""
-        return (f"<mood>собеседник звучит {mood}, "
-                f"подстрой тон под это, но не переигрывай</mood>")
+    # ── Epic 60 Фаза C (65.10): защита; 65.4/65.9 сняты UR-E (UR-14/UR-16) ──
 
     async def _build_protected_facts(self, chat_id: int, target_name: str,
                                      include_chat_level: bool = True,
@@ -12026,8 +11943,8 @@ class DirectChatService:
             test_empty_rag_section_omitted).
         Раунд 9 (E1/T-826, spec §3.5.1): возвращает (rag_block, nostalgia_hint)
         — hint «золотых» считается ПОСЛЕ F2-дедупа и F4-реранка, ДО рендера
-        (передаётся в user-контент блоком kind "nostalgia" ПОСЛЕ relations/
-        до mood); гейты: флаг memory.nostalgia_layer_a_enabled, чат группой
+        (передаётся в user-контент блоком kind "nostalgia" ПОСЛЕ relations);
+        гейты: флаг memory.nostalgia_layer_a_enabled, чат группой
         (chat_id < 0, D-12), query есть, kept непуст.
         Раунд 10.14 (F1, ADR-1014-2 D5/D7): include_self=True — свои прошлые
         слова участвуют; если среди kept есть self, первой строкой внутрь
@@ -12036,8 +11953,9 @@ class DirectChatService:
         SPEECH-P0-A2 (§self-echo, ПЕРЕОПРЕДЕЛЯЕТ D5/D7-фактичность): выводы
         бота (`bot_self_reply`/`bot_direct_reply`, существующий
         `provenance.is_self_referential_origin`) в ФАКТИЧЕСКИЙ RAG не
-        попадают — прошлые ответы остаются только в <style_anchors> как
-        интонация. Кандидаты читаются ОДНИМ retrieval
+        попадают — прошлые ответы остаются фрагментами истории диалога, а не
+        стилевыми инструкциями (UR-14: секции <style_anchors> больше нет).
+        Кандидаты читаются ОДНИМ retrieval
         (`get_rag_facts(with_meta=True)`; совместимый фолбэк — прежний
         tuple-контракт) и оцениваются СУЩЕСТВУЮЩИМ
         `graphrag_provenance.read_policy_rank`: rank 3 — обычная строка,
