@@ -2,13 +2,13 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
-  "candidate_commit": "6374eedc",
+  "candidate_commit": "95e5815d",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-unified-reply",
   "task_id": "unified-reply",
-  "source_note": "Карта эпика (261 обязательная строка) к дословному снимку plans/owner_inputs/2026-11-05-unified-reply.md (503 строки, UR-01..UR-30, ред. 1.1) из plans/current_task.md L5651-6153. Родители UR-NN покрывают заголовки разделов, подтребования UR-NN.M — независимо проверяемые пункты; чеклисты §11 (А-Д) вынесены как UR-ACC-*, запреты §12 — UR-BAN-*, пакеты §10 — срезы UR-A..UR-G плюс UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28). Состояние 2026-11-05: UR-B (merge da6299e9) и UR-C (merge 9ac64a61) влиты и приняты ревью — привязано 34 строки VERIFIED (13/24 и 21/66), остальные PENDING с причиной в pending_reason. UR-A принят и влит (ur/a-turn-engine @4cc99286 -> merge dc296207): services/turn_types.py создан как единственный новый файл контрактов, единый _execute_turn стоит на обеих трассах; привязано 15/21 (12 items + 3 manual), остальные PENDING с причиной в pending_reason. Итого по карте 49 VERIFIED из 261 обязательной строки. После биндинга UR-D (кандидат 6374eedc; durability-тесты — acceptance-коммит 2ac2764d): +18 строк VERIFIED (11 items из ветки ur/d-writer + 7 additional, включая UR-05.2 TestFreshnessCrashReplay), итого 67/261. UR-04.3 остаётся PENDING (в кандидате нет ассерта об идентичности наборов источников L1/L2), UR-21.23 перенесена из UR-D в UR-F (сэмплинг-конфиг, код UR-D его не менял). Биндинг UR-C-CLOCK (кандидат 7632fdb6, ветка ur/c-clock, merge aad47f23, ревью принят; строки были привязаны в 6bd5f5ab, но не учитывались в счётчиках): 13 строк VERIFIED — 13/27 среза (UR-24.1/24.3/24.4, UR-25.1/25.2/25.3/25.5/25.6, UR-26.1/26.2, UR-27/27.1, UR-BAN-05), итого по карте 80/261.",
+  "source_note": "Карта эпика (261 обязательная строка) к дословному снимку plans/owner_inputs/2026-11-05-unified-reply.md (503 строки, UR-01..UR-30, ред. 1.1) из plans/current_task.md L5651-6153. Родители UR-NN покрывают заголовки разделов, подтребования UR-NN.M — независимо проверяемые пункты; чеклисты §11 (А-Д) вынесены как UR-ACC-*, запреты §12 — UR-BAN-*, пакеты §10 — срезы UR-A..UR-G плюс UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28). Состояние 2026-11-05: UR-B (merge da6299e9) и UR-C (merge 9ac64a61) влиты и приняты ревью — привязано 34 строки VERIFIED (13/24 и 21/66), остальные PENDING с причиной в pending_reason. UR-A принят и влит (ur/a-turn-engine @4cc99286 -> merge dc296207): services/turn_types.py создан как единственный новый файл контрактов, единый _execute_turn стоит на обеих трассах; привязано 15/21 (12 items + 3 manual), остальные PENDING с причиной в pending_reason. Итого по карте 49 VERIFIED из 261 обязательной строки. После биндинга UR-D (кандидат 6374eedc; durability-тесты — acceptance-коммит 2ac2764d): +18 строк VERIFIED (11 items из ветки ur/d-writer + 7 additional, включая UR-05.2 TestFreshnessCrashReplay), итого 67/261. UR-04.3 остаётся PENDING (в кандидате нет ассерта об идентичности наборов источников L1/L2), UR-21.23 перенесена из UR-D в UR-F (сэмплинг-конфиг, код UR-D его не менял). Биндинг UR-C-CLOCK (кандидат 7632fdb6, ветка ur/c-clock, merge aad47f23, ревью принят; строки были привязаны в 6bd5f5ab, но не учитывались в счётчиках): 13 строк VERIFIED — 13/27 среза (UR-24.1/24.3/24.4, UR-25.1/25.2/25.3/25.5/25.6, UR-26.1/26.2, UR-27/27.1, UR-BAN-05), итого по карте 80/261. Биндинг UR-F (кандидат 95e5815d, ветка ur/f-ui, merge 1ee6a010; независимое ревью принято): +21 строка VERIFIED — UR-20.1/20.2/20.3/20.9, UR-21.01/21.13/21.15/21.17/21.19/21.20/21.21/21.22/21.23 (display-половина; рантайм — BGS-05-BUDGET), UR-21.24, UR-22.1 (verified_scope: feature_gate/last_applied_turn не отдаются — follow-up в backlog), UR-22.2 (390/1440 доказаны; 320 — общая адаптивность, матрица §71 вне среза), UR-29.1/29.2/29.3, UR-24.2 (UI-часть; серверная — UR-C-CLOCK), UR-14.2. Evidence: plans/features/unified-reply/evidence/ur-f-evidence.md + evidence/urf/** (22 скриншота + отчёт) + tests/test_ur_ui_effective_config.py (25 passed) + tests/js/ur_ui_settings_test.js. Итого по карте 101/261.",
   "evidence_convention": "Каждая закрытая строка требует candidate-bound evidence с artifact_path (repo-relative), observation и типом; для финальных отчётов — artifact_sha256. Устные заверения, число тестов и скриншоты без реального payload/trace доказательством не считаются.",
   "live_policy_note": "PET_PROJECT: деплой и проверка на проде разрешены после независимого ревью без отдельного согласования. live_required=true только у строк, которые физически проверяются на рабочем развёртывании (UR-ACC-E9, UR-30.7) и у размеченного набора поиска (UR-08.2, preprod).",
   "plan_ref": "plans/features/unified-reply/plan.md",
@@ -22,7 +22,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F).",
+  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись.",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -954,9 +954,26 @@
       "acceptance": "CHAT_STYLE_ANCHORS_ENABLED/COUNT/MAX_CHARS/CHAT_BUDGET_ANCHORS_RATIO выведены из основного UI и нового пути (compat только для перехода); владельческие промпты «Речь и характер», библиотеки примеров и контроль версий не тронуты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Владение — волна UR-F."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "CHAT_STYLE_ANCHORS_* выведены из UI и нового пути",
+          "observation": "pytest test_dead_keys_hidden_but_registry_readable + test_dead_keys_absent_from_config_and_params_meta: ключи скрыты из редактируемого каталога и отсутствуют в /api/config/params_meta при читаемом реестре (compat чтения сохранён).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Визуальная приёмка: мёртвых контролов нет",
+          "observation": "urf-visual-report.json: deadFound=[] на всех settings/limits экранах desktop+mobile; JS-тест п.2 — no-op ключ получает честный бейдж «не влияет» вместо контрола.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "Владельческие промпты «Речь и характер», библиотеки примеров и контроль версий не тронуты: diff среза UR-F не содержит промпт-хранилища (см. «Изменённые файлы» в ur-f-evidence.md); catalog/UI-часть выполнялась в UR-F, как и планировалось в reason строки."
     },
     {
       "source_id": "M-00227",
@@ -1204,8 +1221,33 @@
       "acceptance": "Интерфейс трёхуровневый и мобильный-first, а не десятки полноэкранных карточек; названия MAP/Branch/Anchor/Target/TTL/RAG не показываются без расшифровки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Три уровня workspace вместо десятков карточек",
+          "observation": "JS-тест п.5 «Три уровня «Прямых ответов»»: workspace mod_direct = overview/inspector/settings (три уровня, mobile-first); названия MAP/Branch/Anchor/TTL/RAG на карточках не показываются без расшифровки.",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Визуальная приёмка трёх уровней desktop+mobile",
+          "observation": "urf-visual-report.json: экраны modes/inspector/direct-settings desktop-1440 и mobile-390 ok=true, hScroll=false на всех 8 пробах, console_error_count=0 (Playwright + Browser Use).",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Сводка proven-строк среза UR-F",
+          "observation": "ur-f-evidence.md, таблица статусов среза: UR-20.1 proven (workspace mod_direct; скриншоты urf-modes-*, bu-inspector-*).",
+          "type": "static",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-f-evidence.md",
+          "artifact_sha256": "31ba473340df3754a8dca1293619e10ced004d88afff29bf09062c9f63ff7b2e",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00275",
@@ -1219,8 +1261,25 @@
       "acceptance": "Первый экран «Как бот отвечает» показывает фактически действующие режимы (интернет для фактов, память, подробность, речь и характер, инициатива) со статусом, человеческой формулировкой и одним рабочим control.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Экран «Как бот отвечает» из effective-config",
+          "observation": "JS-тест п.5: directModesView строится из effective-config; urf-visual-report.json modes-desktop-1440/modes-mobile-390: titles [Интернет для фактов, Память, Подробность, Речь и характер, Инициатива], бейджи «действует», speechNote=true — статусы и человеческие формулировки, не кодовые имена.",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Скриншоты экрана режимов",
+          "observation": "urf-modes-desktop-1440.png / urf-modes-mobile-390.png и bu-modes-desktop.png (Browser Use): 5 режимов со статусами, один рабочий control на строку.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00277",
@@ -1234,8 +1293,25 @@
       "acceptance": "Второй экран «Что бот видел при ответе» позволяет выбрать последний ход и режим Direct/Initiative и показывает данные именно этого хода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Инспектор хода показывает данные выбранного хода",
+          "observation": "JS-тест п.4 «Диагностика одного ответа»: выбор хода и рендер полей именно этого хода (traceId, стадии, время хода).",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Визуальная приёмка инспектора",
+          "observation": "urf-visual-report.json inspector-desktop-1440/inspector-mobile-390: stages l1/tools/writer/delivery=true, traceId «Ход: corr-urf-1 · Direct · триггер: botword», turnButtons=4 (переключение хода), l1Action/toolRow/completion/opRow/deliveryLine присутствуют.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00285",
@@ -1249,8 +1325,26 @@
       "acceptance": "Третий экран «Дополнительные настройки» состоит из компактных строк группами с действующим значением, единицами, объяснением влияния, источником чат/глобально/код, статусом active/inactive/no-op/legacy, поиском и восстановлением значения; раскрываемая помощь находится у поля.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Карточки доп. настроек: значение, единицы, источник, eff-статус",
+          "observation": "pytest test_items_carry_source_effective_and_eff + test_speech_item_carries_units_and_honest_note: карточки несут value/units/source (chat/global/default) и eff{status,reason_inactive} из effective-config, а не догадку UI.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Компактные строки группами на desktop+mobile",
+          "observation": "urf-visual-report.json direct-limits-desktop-1440/direct-limits-mobile-390: groups=5, eff-бейджи, hScroll=false; скриншоты urf-direct-limits-*.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "verified_scope: действующий поиск по настройкам — существующий configSearch, восстановление значения — существующее «↪ Глобальное»; срез переиспользовал их без дублирующих реализаций (ur-f-evidence.md), новых механизмов поиска/восстановления не создавалось."
     },
     {
       "source_id": "M-00291",
@@ -1264,8 +1358,25 @@
       "acceptance": "CHAT_CURRENT_QUESTION_MAX_CHARS не редактируется как лимит вопроса: остаётся только UI preview (реализация в UR-10.1).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Честная подпись CHAT_CURRENT_QUESTION_MAX_CHARS",
+          "observation": "pytest test_renamed_rows_honest: строка каталога честно помечена «как лимит вопроса не редактируется», остаётся только UI preview.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Визуальная приёмка каталога",
+          "observation": "urf-visual-report.json direct-settings/direct-limits (desktop+mobile): deadFound=[], honest-флаги среза отработали, hScroll=false.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00292",
@@ -1455,9 +1566,26 @@
       "acceptance": "CHAT_STYLE_ANCHORS_COUNT/MAX_CHARS убраны из рабочего UI, поскольку самоподражание прежним ответам выключено (UR-14).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Тот же корень, что UR-14.2 (L00303); привязка — по закрытии UR-F."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "CHAT_STYLE_ANCHORS_COUNT/MAX_CHARS вне UI и API",
+          "observation": "pytest test_dead_keys_hidden_but_registry_readable + test_dead_keys_absent_from_config_and_params_meta: ключи скрыты из редактируемого каталога и отсутствуют в /api/config и params_meta при сохранённой читаемости реестра.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "В UI нет мёртвых контролов",
+          "observation": "urf-visual-report.json: deadFound=[] на всех settings/limits экранах desktop+mobile; JS-тест п.2: no-op ключ получает бейдж «не влияет» из item.eff.reason_inactive.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "Тот же корень, что UR-14.2 (L00303): вывод самоподражания прежним ответам из рабочего UI закрыт срезом UR-F."
     },
     {
       "source_id": "M-00304",
@@ -1487,8 +1615,17 @@
       "acceptance": "CHAT_DIRECT_REPLY_TTL_DAYS переименован в «История того, кому бот уже отвечал» и не подаётся как срок жизни всей памяти.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "TTL переименован в «История того, кому бот уже отвечал»",
+          "observation": "pytest test_renamed_rows_honest: человеческое название без подачи как срок жизни всей памяти; urf-visual-report.json direct-limits: honest.replyHistory=true на desktop-1440 и mobile-390 (скриншоты urf-direct-limits-*).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00306",
@@ -1518,8 +1655,17 @@
       "acceptance": "CHAT_BUDGET_RESPONSE_RATIO как подтверждённый no-op удалён из редактирования и не получает искусственного смысла.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "CHAT_BUDGET_RESPONSE_RATIO: no-op без искусственного смысла",
+          "observation": "pytest test_effective_meta_honest + test_dead_keys_hidden_but_registry_readable: подтверждённый no-op выведен из редактирования, eff no_op отдаётся с причиной reason_inactive вместо придуманной семантики.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00308",
@@ -1549,8 +1695,17 @@
       "acceptance": "CHAT_CONTEXT_BUDGET_TOKENS показан как реальное рабочее окно, ручной предел допустим только как экспертный осознанный cap с предупреждением.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "CHAT_CONTEXT_BUDGET_TOKENS = рабочее окно, ручной предел — экспертный cap",
+          "observation": "pytest test_renamed_rows_honest: описание как реального рабочего окна, ручной предел — только экспертный осознанный cap с предупреждением; urf-visual-report.json direct-limits: honest.expertCap=true (desktop-1440/mobile-390).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00310",
@@ -1564,8 +1719,17 @@
       "acceptance": "CHAT_LOCK_WAIT_SECONDS и SMARTMODULE_CONCURRENCY_WAIT_SECONDS перенесены в «Система и нагрузка» как технические ожидания с сохранением safety-лимитов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "LOCK-ожидания в служебной группе",
+          "observation": "pytest test_group_descriptions_not_promising_removed_mechanics: технические ожидания очереди в служебной группе (limits_service) с честным описанием; urf-visual-report.json checkup-limits: honest.serviceGroup=true на desktop-1440 и mobile-390 (urf-checkup-limits-*).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00311",
@@ -1579,8 +1743,17 @@
       "acceptance": "CHAT_LOCK_MAX_ENTRIES как неиспользуемый параметр убран из редактирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "CHAT_LOCK_MAX_ENTRIES выведен из редактирования",
+          "observation": "pytest test_dead_keys_hidden_but_registry_readable: неиспользуемый параметр скрыт из редактируемого каталога при сохранённой читаемости записи; test_dead_keys_absent_from_config_and_params_meta — ключ не отдаётся в /api/config и params_meta как редактируемый.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00312",
@@ -1594,8 +1767,17 @@
       "acceptance": "CHAT_SILENCE_AFTER_COOLDOWNS сохранён по смыслу как «Частота участия» в профильном разделе, а не как стиль ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "CHAT_SILENCE_AFTER_COOLDOWNS = «Частота участия»",
+          "observation": "pytest test_renamed_rows_honest: антиспам/частота участия в профильном разделе, не стиль ответа; urf-visual-report.json direct-limits: honest.participation=true на desktop-1440 и mobile-390 (скриншот urf-direct-limits-*).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00313",
@@ -1609,10 +1791,26 @@
       "acceptance": "CHAT_TEMPERATURE_* и CHAT_TEMPERATURE_PRESET_DEFAULT применяются только к соответствующей модели, не заменяют web/context/память и имеют честную пометку, если провайдер игнорирует температуру.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "Сэмплинг-конфиг, срез UR-D его не менял (подтверждено независимым ревью): в срезе нет ни правки сэмплинга, ни honest-пометки. Рантайм-половина («сэмплинг только для соответствующей модели») — волна бюджетов BGS-05-BUDGET (direct_execution.py, depends_on UR-D); UI-половина («Свобода формулировок» с честной пометкой при игноре температуры провайдером) — UR-F через effective-config/UR-22.1 (reason_inactive). Без новых квот/классификаторов (ADDENDUM #3 §2.10).",
-      "note": "Перенос из UR-D в UR-F при синхронизации карты UR-D (2-й ревьюер, 2026-11-05): строка каталога §10 относится к сэмплингу, не к Writer/LLMCompletion. Источник (L313 снимка = plans/current_task.md L5952) дословно: «| CHAT_TEMPERATURE_*, CHAT_TEMPERATURE_PRESET_DEFAULT | Сэмплинг только для соответствующей модели; не заменяет web/context/память. | «Свобода формулировок» с честной пометкой, если provider игнорирует температуру. |». Текущее состояние кода: tone_temperature() в config/settings.py:3483 читается в services/direct_chat_service.py:4778, 13307 и web/api/speech.py:3405, но пер-модельный скоупинг и honest-пометка не реализованы."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "«Свобода формулировок» с честной пометкой об игноре температуры",
+          "observation": "pytest test_honest_speech_label + test_speech_item_carries_units_and_honest_note + test_provider_ignores_temperature: display-половина — подпись и honest-пометка provider_ignores_temperature через eff reason_inactive в /api/config.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Визуальная приёмка речи на desktop+mobile",
+          "observation": "urf-visual-report.json direct-limits: honest.speech=true и honest.temperatureNote=true на desktop-1440 и mobile-390; JS-тест п.3 «Честные подписи речи».",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "Display-половина строки (подпись + честная пометка при игноре температуры провайдером) закрыта срезом UR-F. Рантайм-половина («сэмплинг только для соответствующей модели») — волна BGS-05-BUDGET, остаётся за ней."
     },
     {
       "source_id": "M-00315",
@@ -1626,8 +1824,25 @@
       "acceptance": "Все прочие поля группы показывают реальную применимость, не читаемое рантаймом скрыто из пользовательского редактирования, а новые «настройки для настройки» не создаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Реальная применимость полей группы",
+          "observation": "pytest test_effective_meta_honest: effective_meta no_op/legacy/active с reason_inactive для всех прочих полей группы; test_items_carry_source_effective_and_eff — метаданные идут из backend, не из каталога-для-каталога.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Ни одного нового «ключа для ключа»",
+          "observation": "urf-visual-report.json: deadFound=[] на всех экранах, UI не добавил ни одного нового ключа каталога; скрытые no_op/legacy поля не рисуются как редактируемые (machineFlagsPanel=false).",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00319",
@@ -1641,8 +1856,34 @@
       "acceptance": "Backend отдаёт effective_value, source=chat/global/default, active_consumer, feature_gate, status, last_applied_turn, units и reason_inactive; UI не угадывает применимость и не полагается только на сохранённый KV, а инспектор использует существующие usage/context/agentic события без приватных prompt и ключей в логах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Backend — источник истины об применимости",
+          "observation": "pytest test_items_carry_source_effective_and_eff: /api/config отдаёт source (chat/global/default), effective_value и eff{status, active_consumer, units, reason_inactive}; UI не угадывает применимость и не полагается только на сохранённый KV.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "UI рендерит только серверные метаданные",
+          "observation": "JS-тест п.2 «Мёртвые ключи + honest-статусы из effective-меты»: configEffBadge/configSourceLabel/configUnitsSuffix/configItemNotice читают item.eff/item.source, включая legacy-путь без поля source.",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Инспектор использует существующие события",
+          "observation": "Диагностика хода построена на существующих событиях services/turn_trace.py (см. UR-29.3/R-ADM.5); приватные prompt и ключи в логах не добавлялись (test_trace_fields_and_emission_are_private_safe, срез UR-B).",
+          "type": "static",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-f-evidence.md",
+          "artifact_sha256": "31ba473340df3754a8dca1293619e10ced004d88afff29bf09062c9f63ff7b2e",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "verified_scope": "Ядро требования доказано: effective_value/source/status/units/reason_inactive/active_consumer отдаются backend'ом, UI их не выдумывает. Поля feature_gate и last_applied_turn в /api/config НЕ отдаются — источника данных нет, поле не выдумано (честный пробел в ur-f-evidence.md); их expose — follow-up (внесён в backlog)."
     },
     {
       "source_id": "M-00321",
@@ -1656,8 +1897,26 @@
       "acceptance": "Desktop и mobile 320/390/430: компактные секции, нормальная длина заголовков, доступность кнопок при экранной клавиатуре; клик по строке открывает её информацию, данные не задваиваются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Desktop 1440 и mobile 390: без h-scroll, parity",
+          "observation": "urf-visual-report.json: 8 проб (time/direct-settings/direct-limits/checkup-limits × desktop-1440/mobile-390) ok=true, hScroll=false на всех, console_error_count=0; скриншоты urf-*-desktop-1440.png и urf-*-mobile-390.png + Browser Use bu-*.png.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Рендер на мобильной ширине",
+          "observation": "JS-тест п.5: три уровня и карточки рендерятся из effective-config без ошибок (Node-окружение), заголовки из серверных метаданных, не обрезанные кодовые названия.",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "390/1440 доказаны отчётом и скриншотами (Playwright + Browser Use). 320px покрыт общей адаптивностью (grid 1-col, без h-scroll) — отдельный проход детальной матрицы §71 вне среза (существующий tools/ui_round1025_matrix.py)."
     },
     {
       "source_id": "M-00329",
@@ -1876,8 +2135,33 @@
       "acceptance": "В «Модули -> Время» для выбранного чата показаны одно editable IANA-поле с интерактивным поиском, локальные часы (дата, день недели, hh:mm:ss), offset/DST, статус наследования и кнопки «Сохранить»/«Вернуть общую настройку»; смена чата подхватывает его настройки без записи в чужой чат.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "«Модули → Время»: одно поле, поиск, часы, наследование",
+          "observation": "JS-тест п.1: вкладка mod_time (type timeEditor, menu modules, noToggle) в «Модули»; полный IANA-справочник через computed-фильтр по подстроке (Europe/Moscow находится, выдуманных зон нет); timeSourceLabel chat/global/utc_fallback и timeConfiguredLine — наследование.",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "API времени от сервера",
+          "observation": "pytest test_timezones_full_iana_list + test_time_global_state_from_server: полный список зон и состояние из сервера, не из браузера.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Визуальная приёмка экрана времени",
+          "observation": "urf-visual-report.json time-desktop-1440/time-mobile-390: поиск (matches, fullListHint), часы clockLive, sourceLine/scopeLine (источник и наследование), tzBadge+offset, hasSave/hasReset; скриншоты urf-time-* и bu-time-*.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00389",
@@ -1891,8 +2175,25 @@
       "acceptance": "После сохранения сервер возвращает validated effective timezone и вычисленный им now_local по UTC, а не расчёт браузера; при ошибке прежнее значение сохраняется и причина видна, клиентское обновление часов идёт от server_time_utc, а реальный LLM использует свой серверный snapshot.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "POST возвращает validated effective, 422 сохраняет прежнее",
+          "observation": "pytest test_post_valid_zone_returns_validated_effective + test_post_invalid_zone_422_keeps_previous: после сохранения сервер возвращает валидированное состояние; при ошибке прежнее значение живо и причина видна.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Часы тикают от серверной базы, не от браузера",
+          "observation": "JS-тест п.1: timeNow считается от as_of_utc + utc_offset (12:00:00 UTC + 03:00 = 15:00:00 06.11.2026), без браузерной timezone; без базы timeNow=null; при ошибке черновик не применяется. urf-visual-report.json time-*: clockLive=true, clock от версии конфига сервера.",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00391",
@@ -1906,8 +2207,25 @@
       "acceptance": "В «Что бот видел» по ходу показаны UTC timestamp и местное время момента генерации, IANA, offset, источники конфигурации, clock_included по L1/L2/Factcheck/Summary и отдельно время источников; для старых прогонов пишется «нет данных», а другие чаты не раскрываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Часы хода в инспекторе — из трассы",
+          "observation": "JS-тест п.4: clock line хода строится из clock_timezone/as_of_utc трассы (turnClockLine), не из локального времени браузера.",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Инспектор показывает время момента генерации",
+          "observation": "urf-visual-report.json inspector-desktop-1440/inspector-mobile-390: clockLine «Время хода: Europe/Moscow · 2026-11-06T12:00:00+00:00 · источник: настройки чата», стадии l1/tools/writer/delivery на месте.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "M-00395",
@@ -4656,8 +4974,26 @@
       "acceptance": "SUMMARY_TIMEZONE и CHAT_TIMEZONE убраны из рабочего UI param_catalog, вместо них одно поле в «Модули -> Время» с полным справочником IANA zoneinfo, показом источника, наследования и локального времени; сохранение только по явному действию владельца.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "CHAT_TIMEZONE/SUMMARY_TIMEZONE скрыты, одна поверхность",
+          "observation": "pytest test_chat_timezone_hidden_single_surface: разрозненные поля скрыты; единая поверхность GET/POST/DELETE /api/config/time (test_timezones_full_iana_list, test_time_global_state_from_server, test_post_valid_zone_returns_validated_effective).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Единое поле «Модули → Время» с источником и наследованием",
+          "observation": "urf-visual-report.json time-desktop-1440/time-mobile-390: одно editable IANA-поле с поиском по полному справочнику, локальные часы (clockLive), offset (UTC+03:00), источник/область (scopeLine), сохранение только по кнопке (hasSave/hasReset); скриншоты urf-time-* и bu-time-*.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "UI-часть строки (закрыта срезом UR-F). Серверная канонизация/миграция и единственный источник IANA-пояса были VERIFIED ранее в UR-C-CLOCK (UR-24.1/24.3/24.4, кандидат 7632fdb6, merge aad47f23)."
     },
     {
       "source_id": "L00345",

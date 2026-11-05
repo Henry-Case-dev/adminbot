@@ -4,7 +4,7 @@
   "source_sha256": "8dc7751c893704b895b4fcfd8475b504e668294e6966688a278ab6e261bb3f22",
   "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2",
   "deployed_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2",
-  "candidate_commit_note": "Продвинут с d49b10ac до df00f178 при сборке DoD-артефактов коррекции (2026-11-05): df00f178 = merge RLR-09 live-model proof artifacts (47e1e2c3). Построчные candidate-привязки не перекатывались: каждая строка остаётся на кандидате, который её реально доказал; R-09.1–R-09.4 привязаны к 47e1e2c3 (артефакт evidence/r09/r09-live-proof.json, sha256 26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e), R-09.5 и документационная R-CONF.13 — к df00f178 (plans-артефакты conflict-resolution-matrix.md и dod.md). 05.11.2026 (release-bind): кандидат продвинут до 5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2 (release/2.58.159: мёрж 71d67d14 + bump 2.58.158→2.58.159); DevOps задеплоил и проверил прод (healthz 2.58.159, NRestarts 0, хэши ассетов совпали, deployed SHA = review-кандидат). Все VERIFIED-строки получили сквозную release-привязку к 5e0cb201; исторические построчные привязки сохранены; R-08.11 и RLR-04 direct-строки (R-04.2–R-04.6, R-05.1, R-06.9) перевязаны на релизный кандидат с реальными прогонами тестов на дереве HEAD 9ca6bb07 (код идентичен релизу).",
+  "candidate_commit_note": "Продвинут с d49b10ac до df00f178 при сборке DoD-артефактов коррекции (2026-11-05): df00f178 = merge RLR-09 live-model proof artifacts (47e1e2c3). Построчные candidate-привязки не перекатывались: каждая строка остаётся на кандидате, который её реально доказал; R-09.1–R-09.4 привязаны к 47e1e2c3 (артефакт evidence/r09/r09-live-proof.json, sha256 26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e), R-09.5 и документационная R-CONF.13 — к df00f178 (plans-артефакты conflict-resolution-matrix.md и dod.md). 05.11.2026 (release-bind): кандидат продвинут до 5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2 (release/2.58.159: мёрж 71d67d14 + bump 2.58.158→2.58.159); DevOps задеплоил и проверил прод (healthz 2.58.159, NRestarts 0, хэши ассетов совпали, deployed SHA = review-кандидат). Все VERIFIED-строки получили сквозную release-привязку к 5e0cb201; исторические построчные привязки сохранены; R-08.11 и RLR-04 direct-строки (R-04.2–R-04.6, R-05.1, R-06.9) перевязаны на релизный кандидат с реальными прогонами тестов на дереве HEAD 9ca6bb07 (код идентичен релизу). 06.11.2026: UI-часть RLR-05 (R-ADM.1/5/6/7) доказана срезом UR-F и привязана VERIFIED к кандидату 95e5815d (merge 1ee6a010, ревью принято; evidence plans/features/unified-reply/evidence/ur-f-evidence.md + evidence/urf/** + tests/test_ur_ui_effective_config.py + tests/js/ur_ui_settings_test.js).",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-remove-legacy-rephrasing-v2",
@@ -4586,14 +4586,47 @@
       "source_text_sha256": "000e139d7caa25d5dd37c275933cdfd0462d4c17faffa5ab0a5c49bcf4238070",
       "source_excerpt": "1. Удаление/изменение поведения **обязательно** должно быть отражено в UI выбранного чата, глобальных настройках, API, схеме конфигурации, диагностике, документации параметров и тестах. Никаких «мертвых» переключателей, которые обещают нову",
       "disposition": "required",
-      "reason": "Срез RLR-05-ADMIN (кандидат d49b10ac) закрыл серверную часть требования: рабочие подписи и потребители в каталоге параметров, скрытие removed/deprecated_compat, миграционный манифест и тесты. Не закрыто и остаётся PENDING: отражение изменения в UI выбранного чата и в диагностике — web/** этим срезом не менялся (UI уходит в волну UR-F/PVR), диагностика одного ответа — RLR-06-OBSERVABILITY. Перепроверка после слияния UR-F/PVR и RLR-06.",
       "req_id": "R-ADM.1",
       "slice": "RLR-05-ADMIN",
       "acceptance": "Удаление/изменение поведения отражено в UI выбранного чата, глобальных настройках, API, схеме конфигурации, диагностике, документации параметров и тестах; «мёртвых» переключателей, обещающих новую перегенерацию, нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UI/API без мёртвых переключателей",
+          "observation": "pytest test_dead_keys_hidden_but_registry_readable + test_dead_keys_absent_from_config_and_params_meta (95e5815d): снятые механизмы не имеют действующих контролов в UI и /api/config; urf-visual-report.json deadFound=[] на всех экранах.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Изменение отражено в диагностике одного ответа",
+          "observation": "TestTurnDiagnostics (test_chain_view_maps_all_stages, test_missing_stages_are_honest, test_no_traces_honest_unavailable, test_trace_not_found, test_telemetry_down_is_honest, test_requires_chat_access): GET /api/direct/turn-diagnostics из существующих событий services/turn_trace.py показывает L1→tools→Writer→ops→delivery.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Инспектор хода в UI",
+          "observation": "urf-visual-report.json inspector-desktop-1440/inspector-mobile-390: стадии l1/tools/writer/delivery, honest deliveryLine «доставлен как написан (digest совпал)»; скриншоты urf-inspector-* / bu-inspector-*.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Серверная половина — уже принятая RLR-05",
+          "observation": "ur-f-evidence.md (сводка среза UR-F): R-ADM.1 proven — UI-часть; серверная часть (рабочие подписи, скрытие removed/deprecated_compat, манифест) VERIFIED в RLR-05 @d49b10ac, вошла в релиз 2.58.159.",
+          "type": "static",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-f-evidence.md",
+          "artifact_sha256": "31ba473340df3754a8dca1293619e10ced004d88afff29bf09062c9f63ff7b2e",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "Закрыто двумя половинами: серверная — RLR-05-ADMIN (d49b10ac, ревью принято, release 2.58.159); UI и диагностика одного ответа — UR-F (95e5815d, merge 1ee6a010, ревью принято)."
     },
     {
       "source_id": "L00162",
@@ -4718,8 +4751,25 @@
       "acceptance": "Диагностика одного ответа показывает L1 → tools → Writer → фактические разрешённые deterministic ops → delivery, причину fallback, extra attempts, фактический модуль, количество вызовов LLM и источник временного контекста; ни одна UI-метка «прошла проверка» не скрывает произошедший retry/замену текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Диагностика одного ответа: стадии и честные пробелы",
+          "observation": "TestTurnDiagnostics: test_chain_view_maps_all_stages — последовательность L1→tools→Writer→ops→delivery; test_missing_stages_are_honest/test_no_traces_honest_unavailable/test_trace_not_found/test_telemetry_down_is_honest — недостающие стадии и недоступность телеметрии показываются честно; test_requires_chat_access — drill-down только уполномоченному админу по выбранному чату. Источник — существующие события services/turn_trace.py, digest/divergence честно.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Инспектор рендерит диагностику",
+          "observation": "JS-тест п.4 «Диагностика одного ответа (R-ADM.5/UR-20.3)»: инспектор хода рендерит поля диагностики; urf-visual-report.json inspector-*: toolRow (web_search · success · источников: 3), completion «Завершение: stop», opRow «telegram_chunk ×1 · без изменений», deliveryLine «доставлен как написан (digest совпал)».",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "L00166",
@@ -4727,14 +4777,31 @@
       "source_text_sha256": "758089a5ce19e9a453e20ab2bb3efe13c3ff14ed9e11b39cc4a7ac7af66d0e42",
       "source_excerpt": "6. Пользовательские формулировки: «Единое написание ответа»; «Сохранение исходного смысла при явном редактировании» (если доступно); «Техническая очистка сообщений» — не навязывать новую панель с десятками машинных флагов. Отражать только р",
       "disposition": "required",
-      "reason": "Пользовательские формулировки и отказ от панели десятков машинных флагов — §6.6, UI-часть в web/**. Срез подготовил в манифесте подписи `ui` (что админка должна показывать владельцу и что не показывать), но сам интерфейс в кандидате d49b10ac не менялся. Отображение «только реально управляемого» проверяется в волне UR-F/PVR (Playwright + Browser Use).",
       "req_id": "R-ADM.6",
       "slice": "RLR-05-ADMIN",
       "acceptance": "Пользовательские формулировки ограничены «Единое написание ответа», «Сохранение исходного смысла при явном редактировании», «Техническая очистка сообщений»; панель с десятками машинных флагов не навязывается, отражается только реально управляемое.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Пользовательские подписи, панель машинных флагов не навязывается",
+          "observation": "pytest test_honest_speech_label + test_group_descriptions_not_promising_removed_mechanics (95e5815d): пользовательские формулировки и честные legacy/no-op бейджи; test_dead_keys_absent_from_config_and_params_meta — retained_* env-only ключи не попадают в каталог UI.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Отражается только реально управляемое",
+          "observation": "urf-visual-report.json: honest.machineFlagsPanel=false на всех экранах desktop+mobile — панели с десятками машинных флагов нет; скриншоты urf-direct-settings-*/urf-direct-limits-*.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "Display-часть закрыта срезом UR-F (95e5815d, ревью принято); серверные ui-подписи манифеста — RLR-05 (d49b10ac)."
     },
     {
       "source_id": "L00167",
@@ -4742,14 +4809,31 @@
       "source_text_sha256": "17fed013f6c695fd34ddd0551dd36e3c4150a2847d94556f508e0185861d5dc2",
       "source_excerpt": "7. На мобильном и десктопе существующие редакторы промптов и история версий должны оставаться работоспособны. Не «улучшать» старый UI глобальным редизайном в рамках этой коррекции; это отдельный PVR.",
       "disposition": "required",
-      "reason": "Работоспособность существующих редакторов промптов и истории версий на мобильном и десктопе — обязательная UI-проверка волны UR-F/PVR (Playwright + Browser Use). Срез web/** не менял, но отсутствие изменений не доказывает работоспособность редакторов; редизайн старого UI в рамках коррекции не выполнялся (это отдельный PVR).",
       "req_id": "R-ADM.7",
       "slice": "RLR-05-ADMIN",
       "acceptance": "На мобильном и десктопе существующие редакторы промптов и история версий остаются работоспособны; глобальный редизайн старого UI в рамках этой коррекции не выполняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Редакторы промптов и версии работоспособны, редизайна нет",
+          "observation": "JS-тест п.5 «Три уровня «Прямых ответов»»: вкладки редакторов промптов (synthesizer/verbalizer) на месте в настройках; существующие редакторы и история версий не редизайнились (изменённые файлы среза — web/app.js, web/index.html, services/param_catalog.py, web/api/routes.py — без промпт-хранилища, ur-f-evidence.md).",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Работоспособность на mobile и desktop",
+          "observation": "urf-visual-report.json direct-settings-desktop-1440 и direct-settings-mobile-390: ok=true, hScroll=false, console_error_count=0; скриншоты urf-direct-settings-* и bu-direct-settings-desktop/mobile (Browser Use, реальный Chrome).",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "UI-проверка выполнена срезом UR-F (95e5815d, Playwright + Browser Use); глобальный редизайн не выполнялся — как и требуется строкой."
     },
     {
       "source_id": "L00169",
@@ -5643,7 +5727,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "Текущий статус — partially (dod.md п.6): backend R-ADM.2/3/4 + R-CONF.11 VERIFIED (d49b10ac/a4593936); UI-часть R-ADM.1/5/6/7 ждёт волну UR-F/PVR (blocked_by_upstream)."
+      "pending_reason": "Текущий статус — partially (dod.md п.6): backend R-ADM.2/3/4 + R-CONF.11 VERIFIED (d49b10ac/a4593936); UI-часть R-ADM.1/5/6/7 привязана (UR-F 95e5815d; R-ADM.1/5/6/7 VERIFIED)."
     },
     {
       "source_id": "L00245",
@@ -5740,7 +5824,7 @@
   "architecture_classification": "ARCH_REUSE_CONFIRMED",
   "architecture_note": "Коррекция — демонтаж существующего поведения, а не новый интерфейс. Опирается на уже существующие контракты: TurnRequest/L1/L2 и ToolEvidence из UNIFIED-REPLY (UR-A/UR-B), services/direct_chat_service.py как единственный владелец финального маршрута, services/negative_constraints.py (verbalize_validated), services/evidence_policy.py (allowed/guard_egress), services/public_speech_guard.py, services/param_catalog.py + services/config_migrations.py для конфиг-миграции, services/mca_trace.py/services/oversight.py + web/api/oversight.py для трассы. Новых общих границ не замораживается: поля трассы §7 аддитивны к существующему payload, migration manifest §6.2 классифицирует существующие ключи. Если Builder обнаружит потребность в новом общем контракте (новый статус ToolEvidence, новая версия схемы трассы, общий валидатор на несколько подсистем) — работа останавливается по этой границе и вопрос уходит Architect; PM контракт не изобретает. Один писатель на services/direct_chat_service.py зафиксирован цепочкой зависимостей графа.",
   "placement": "Волна 1 (параллельно): RLR-01-ROUTE (единственный писатель direct_chat_service.py) и backend-часть RLR-05-ADMIN (param_catalog/config_migrations, UI — после UR-F/PVR). RLR-07-PROOF в это время выполняет только read-only baseline (R-PROC.1). Волна 2: RLR-02-LEGACY. Волна 3: RLR-03-FORMCONTRACT. Волна 4: RLR-04-REROLL. Волна 5: RLR-06-OBSERVABILITY (поля трассы описывают уже финальный маршрут). Волна 6: RLR-07-PROOF (матрица маршрутов, 21 сценарий R-08, реальный LLM). Волна 7: RLR-08-DOD (сверка DoD, конфликтная матрица, релизная проверка).",
-  "merge_state": "Слито и принято Reviewer (по срезам): RLR-02-LEGACY — вся ветка rlr/legacy-writer (0e3f96be, merge b62bc51e): второго автора нет физически, факты инструментов идут до L2, ошибка L2 честная, специализированные пайплайны целы; RLR-03-FORMCONTRACT — свободная часть (rlr/verbalize-scope 63085f70, merge 20d19ad0) и числовой data-stage фактчека (rlr/factcheck-numeric-stage 93e64dc8, merge b9bd717b); RLR-04-REROLL — свободная часть (verbalize) плюс прямая часть direct-маршрута: rlr/dcs-postprocess (d69f52da, merge c8d9866e) — apply_numeric_guard снят со ВСЕХ путей доставки (числа и рассказ «Летописца» — только наблюдение numeric_claim_guard outcome=skipped), duplicate_guard_retry удалён (включая dead reroll-API response_freshness), формат/HTML-fallback/style_policy — технические проходы тем же текстом; egress-guard — observation-only (BGS-02, ветка e2fdd9d8, merge b0bb2310); public_speech_guard — BGS-03 исполнен и VERIFIED в карте behavior-gates-simplification (2618cb1e, перепроверен в da6299e9); tests/test_rlr_dcs_postprocess.py — 17 тестов, привязка строк на d69f52da/93e64dc8/63085f70/e2fdd9d8/2618cb1e. Локальный прогон на рабочем дереве HEAD 20d19ad0: test_rlr_no_second_author.py 11 passed, test_rlr_verbalize_scope.py 18 passed, test_rlr_factcheck_numeric_stage.py 11 passed (итого 40). Остаток PENDING после привязки RLR-04-REROLL (9 строк VERIFIED: R-DEF.ROOT/R-DEF.BAN/R-OPS.IDEM/R-05.3/R-EXC.NET/R-CONF.2/R-CONF.6/R-CONF.7/R-CONF.8 — доказательства слияний d69f52da/e2fdd9d8/2618cb1e и финальной партии 7b1bebc4): UI-часть RLR-05 (R-ADM.1/5/6/7) ждёт волну UR-F/PVR и RLR-06; R-CONF.9 — бюджетная полоса BGS-05; R-CONF.12; R-PROC.6/R-PROC.7 (остаток RLR-07-PROOF); R-08.21/R-08.CFG (route-matrix обновлена на HEAD 9ca6bb07 в зонах 19/31: Q3/Q6 решены слияниями 8eb6893b и 15e8bcc3); сводный остаток DoD RLR-08 — R-DOD.1–9, R-PROC.0, R-DEF.FINAL. R-FAIL.4 привязан к кандидату verbalize-ветки 63085f70, поэтому в прогоне среза RLR-02 с кандидатом 0e3f96be он выглядит не имеющим привязки к этому кандидату — это граница кандидата, а не отсутствие доказательства. RLR-05-ADMIN (backend-часть, без изменений): манифест миграции, классы, скрытие removed/deprecated_compat из редактируемого каталога при сохранённой читаемости, отключение SYSTEM2_DIRECT_ENABLED при любом сыром значении и честные подписи реализованы в d49b10ac, приняты Reviewer (Approved) и слиты мёржом a4593936; после слияния tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed. Доказаны R-ADM.2, R-ADM.3, R-ADM.4 и сохранность PVR-истории/версий (R-CONF.11). Дополнительно слито и принято Reviewer: RLR-03.3 — ветка rlr/explicit-transform (c39e371d, merge 15e8bcc3): боевой путь `_l2_write_answer` строит узкий контракт из функционального поля плана L1 `preserve_source_facts` и поданного исходника (`_explicit_transform_contract`), проверка отрицаний скриптовая (`_has_cyrillic`), канон EVR5 описывает поле; свободный ход по-прежнему без контракта. Остаточный риск: сигнал зависит от того, выставит ли модель поле в плане L1 — это проверяется живой проверкой R-09 (строки R-09.1–R-09.4 остаются PENDING). R-08.14 — ветка 673677a1 (merge 8eb6893b): продолжение того же ответа на `finish_reason=length` через services/l2_continuation.py, без второго авторского варианта и без публикации обрезка. RLR-07-PROOF (частично) — ветка rlr/proof-tests (74ce5246, merge 9885b4b5): доказаны R-08.20 (durable-маркер, нет повторной отправки после рестарта) и восемь строк §8 (R-08.5/6/7/8/9/16/18/19); R-08.21 как сводная строка остаётся PENDING — покрыты восемь строк из 21. Прогон на текущем HEAD 8eb6893b: test_rlr_explicit_transform.py 12 passed, test_rlr_length_continuation.py 17 passed, test_rlr_negative_matrix.py 25 passed, test_rlr_proof_restart.py 4 passed. RLR-07-PROOF (остаток §8) — ветка rlr/acceptance-rows (5d8dac73, merge 01bb89ee): приняты Reviewer (Approved) и привязаны как VERIFIED строки R-08.1, R-08.2, R-08.3, R-08.4, R-08.10, R-08.12, R-08.13, R-08.15, R-08.17 (tests/test_rlr_acceptance_rows.py, 16 passed на дереве 01bb89ee); доказательство построено на реальных швах DirectChatService.handle/_l2_write_answer/handle_initiative/run_adaptive_chain/LLMClient fallback/chunking, мокаются только I/O-края, а состояние feature-gates проверяется ассертом. Итого по §8 подтверждено 19 строк из 21; R-08.21 остаётся PENDING и пересчитана под фактическое покрытие, R-08.11 и R-08.CFG остаются PENDING. НЕБЛОКИРУЮЩАЯ находка Reviewer по R-08.13: при bounded stop без единого evidence причина остановки (orchestrator_invalid_output/stop_reason) остаётся в ChainResult/chain_meta и не попадает в payload Writer'а, то есть модель не знает, почему цепочка встала; это отдельная follow-up задача (передать причину в Writer), она не отменяет доказанное отсутствие второго текстового писателя и не блокирует строку R-08.13.",
+  "merge_state": "Слито и принято Reviewer (по срезам): RLR-02-LEGACY — вся ветка rlr/legacy-writer (0e3f96be, merge b62bc51e): второго автора нет физически, факты инструментов идут до L2, ошибка L2 честная, специализированные пайплайны целы; RLR-03-FORMCONTRACT — свободная часть (rlr/verbalize-scope 63085f70, merge 20d19ad0) и числовой data-stage фактчека (rlr/factcheck-numeric-stage 93e64dc8, merge b9bd717b); RLR-04-REROLL — свободная часть (verbalize) плюс прямая часть direct-маршрута: rlr/dcs-postprocess (d69f52da, merge c8d9866e) — apply_numeric_guard снят со ВСЕХ путей доставки (числа и рассказ «Летописца» — только наблюдение numeric_claim_guard outcome=skipped), duplicate_guard_retry удалён (включая dead reroll-API response_freshness), формат/HTML-fallback/style_policy — технические проходы тем же текстом; egress-guard — observation-only (BGS-02, ветка e2fdd9d8, merge b0bb2310); public_speech_guard — BGS-03 исполнен и VERIFIED в карте behavior-gates-simplification (2618cb1e, перепроверен в da6299e9); tests/test_rlr_dcs_postprocess.py — 17 тестов, привязка строк на d69f52da/93e64dc8/63085f70/e2fdd9d8/2618cb1e. Локальный прогон на рабочем дереве HEAD 20d19ad0: test_rlr_no_second_author.py 11 passed, test_rlr_verbalize_scope.py 18 passed, test_rlr_factcheck_numeric_stage.py 11 passed (итого 40). Остаток PENDING после привязки RLR-04-REROLL (9 строк VERIFIED: R-DEF.ROOT/R-DEF.BAN/R-OPS.IDEM/R-05.3/R-EXC.NET/R-CONF.2/R-CONF.6/R-CONF.7/R-CONF.8 — доказательства слияний d69f52da/e2fdd9d8/2618cb1e и финальной партии 7b1bebc4): UI-часть RLR-05 (R-ADM.1/5/6/7) привязана к 95e5815d (UR-F merge 1ee6a010, R-ADM.1/5/6/7 VERIFIED); R-CONF.9 — бюджетная полоса BGS-05; R-CONF.12; R-PROC.6/R-PROC.7 (остаток RLR-07-PROOF); R-08.21/R-08.CFG (route-matrix обновлена на HEAD 9ca6bb07 в зонах 19/31: Q3/Q6 решены слияниями 8eb6893b и 15e8bcc3); сводный остаток DoD RLR-08 — R-DOD.1–9, R-PROC.0, R-DEF.FINAL. R-FAIL.4 привязан к кандидату verbalize-ветки 63085f70, поэтому в прогоне среза RLR-02 с кандидатом 0e3f96be он выглядит не имеющим привязки к этому кандидату — это граница кандидата, а не отсутствие доказательства. RLR-05-ADMIN (backend-часть, без изменений): манифест миграции, классы, скрытие removed/deprecated_compat из редактируемого каталога при сохранённой читаемости, отключение SYSTEM2_DIRECT_ENABLED при любом сыром значении и честные подписи реализованы в d49b10ac, приняты Reviewer (Approved) и слиты мёржом a4593936; после слияния tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed. Доказаны R-ADM.2, R-ADM.3, R-ADM.4 и сохранность PVR-истории/версий (R-CONF.11). Дополнительно слито и принято Reviewer: RLR-03.3 — ветка rlr/explicit-transform (c39e371d, merge 15e8bcc3): боевой путь `_l2_write_answer` строит узкий контракт из функционального поля плана L1 `preserve_source_facts` и поданного исходника (`_explicit_transform_contract`), проверка отрицаний скриптовая (`_has_cyrillic`), канон EVR5 описывает поле; свободный ход по-прежнему без контракта. Остаточный риск: сигнал зависит от того, выставит ли модель поле в плане L1 — это проверяется живой проверкой R-09 (строки R-09.1–R-09.4 остаются PENDING). R-08.14 — ветка 673677a1 (merge 8eb6893b): продолжение того же ответа на `finish_reason=length` через services/l2_continuation.py, без второго авторского варианта и без публикации обрезка. RLR-07-PROOF (частично) — ветка rlr/proof-tests (74ce5246, merge 9885b4b5): доказаны R-08.20 (durable-маркер, нет повторной отправки после рестарта) и восемь строк §8 (R-08.5/6/7/8/9/16/18/19); R-08.21 как сводная строка остаётся PENDING — покрыты восемь строк из 21. Прогон на текущем HEAD 8eb6893b: test_rlr_explicit_transform.py 12 passed, test_rlr_length_continuation.py 17 passed, test_rlr_negative_matrix.py 25 passed, test_rlr_proof_restart.py 4 passed. RLR-07-PROOF (остаток §8) — ветка rlr/acceptance-rows (5d8dac73, merge 01bb89ee): приняты Reviewer (Approved) и привязаны как VERIFIED строки R-08.1, R-08.2, R-08.3, R-08.4, R-08.10, R-08.12, R-08.13, R-08.15, R-08.17 (tests/test_rlr_acceptance_rows.py, 16 passed на дереве 01bb89ee); доказательство построено на реальных швах DirectChatService.handle/_l2_write_answer/handle_initiative/run_adaptive_chain/LLMClient fallback/chunking, мокаются только I/O-края, а состояние feature-gates проверяется ассертом. Итого по §8 подтверждено 19 строк из 21; R-08.21 остаётся PENDING и пересчитана под фактическое покрытие, R-08.11 и R-08.CFG остаются PENDING. НЕБЛОКИРУЮЩАЯ находка Reviewer по R-08.13: при bounded stop без единого evidence причина остановки (orchestrator_invalid_output/stop_reason) остаётся в ChainResult/chain_meta и не попадает в payload Writer'а, то есть модель не знает, почему цепочка встала; это отдельная follow-up задача (передать причину в Writer), она не отменяет доказанное отсутствие второго текстового писателя и не блокирует строку R-08.13.",
   "blocked_by_upstream": [
     "unified-reply:UR-B/UR-D/UR-E — незавершённые лейны делят services/direct_chat_service.py и services/direct_execution.py; интеграция в одно безопасное окно (§9.3), второй владелец файла запрещён.",
     "unified-reply:UR-F / PVR UI — UI-часть RLR-05-ADMIN (web/app.js, web/index.html) выполняется после их слияния; backend-часть не блокируется.",

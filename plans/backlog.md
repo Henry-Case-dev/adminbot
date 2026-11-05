@@ -498,3 +498,12 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
 
 - (UR-F) Мёртвые стабы `_build_mood_block`/`_build_style_anchors` остались в трёх старых тестовых файлах (`tests/test_budget_global_toggle_round1024.py`, `tests/test_history_w4_fixes.py`, `tests/test_mca07_retrieval_context_round1027.py`) + упоминание `<style_anchors>` в docstring `services/database.py:11150` (`last_bot_replies`). Активный код их не читает (производители mood/anchors сняты в UR-E); убрать при ближайшем касании UR-F. Источник: ревью UR-E (`b2738117`).
 - Хаускипинг: у `tools/workflow_housekeeping.py` нет команды `unregister-worktree` — зарегистрированный worktree-путь нельзя снять с учёта до `epic-close` (только интегрированные и чистые); для досрочного снятия остаётся правка реестра. Источник: ревью UR-E (06.11.2026).
+
+## UR-F / BGS-06-ADMIN UI — некритичные наблюдения ревью (06.11.2026)
+
+Кандидат `95e5815d` (merge `1ee6a010`, ветка `evol/impl`); нижеследующее не блокирует привязанные VERIFIED-строки карт unified-reply, behavior-gates-simplification и remove-legacy-rephrasing.
+
+- Универсальный `DELETE /api/config/chat/{key}` может снять per-chat tz override; семантика удаления равна наследованию (пустое значение = inherit), значение не теряется безвозвратно. Не дефект среза UR-F — учитывать осознанно при следующем касании time-API. Источник: ревью UR-F (95e5815d).
+- Текст 422 при невалидной зоне начинается с сырого `pg_key` — машинный код в подсказке человеку. Косметика: при следующем касании time-API заменить на человеческий hint (человеческое название поля). Источник: ревью UR-F (95e5815d).
+- Свёрнутый редактор на mobile — pre-existing паритет, подтверждён на базе (ebe79af6): не регрессия среза UR-F; наблюдение для будущей UI-полосы. Источник: ревью UR-F (95e5815d).
+- Follow-up UR-22.1: expose `feature_gate` и `last_applied_turn` в effective-config (/api/config), когда появится реальный источник данных; сейчас поля честно не отдаются (verified_scope в карте unified-reply, строка UR-22.1 @95e5815d).

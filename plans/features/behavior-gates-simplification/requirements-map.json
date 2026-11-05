@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-behavior-gates-simplification.md",
   "source_sha256": "4f5457440e958efd20c50f8031af97da9c9d7a1d25e3094ea4ea75e607ec7284",
-  "candidate_commit": "e2fdd9d8",
+  "candidate_commit": "95e5815d",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -896,8 +896,26 @@
       "acceptance": "Во всей админке нет конфликтующих настроек: у удалённого из runtime параметра нет действующего ползунка, у переименованного показаны человеческое название, фактическое значение, источник и реальное влияние, миграция и обратная совместимость сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UI: у снятых из runtime параметров нет действующих контролов",
+          "observation": "pytest test_dead_keys_hidden_but_registry_readable + test_dead_keys_absent_from_config_and_params_meta (кандидат 95e5815d): удалённые из runtime ключи скрыты из UI и API; test_renamed_rows_honest + test_items_carry_source_effective_and_eff — у переименованных/перенесённых показаны человеческое название, фактическое значение и источник.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Визуальная приёмка: deadFound=[]",
+          "observation": "urf-visual-report.json: deadFound=[] и честные eff-бейджи на всех settings/limits экранах desktop+mobile.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "UI-часть закрыта срезом UR-F (95e5815d). Серверная половина (скрытие removed/deprecated_compat из редактируемого каталога при сохранённой читаемости, миграционный манифест и обратная совместимость) доказана ранее RLR-05-ADMIN (d49b10ac, tests/test_rlr_admin_manifest.py, release 2.58.159)."
     },
     {
       "source_id": "L00031",
@@ -3292,8 +3310,25 @@
       "acceptance": "Использованы UI-контракты UR-20—UR-22 и PVR: нет новой огромной таблицы машинных флагов, дублирующего экрана и отдельной системы версий промптов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Существующие UI-контракты UR-20—22, без новых машинных таблиц",
+          "observation": "urf-visual-report.json: machineFlagsPanel=false на всех экранах desktop+mobile — новой огромной таблицы машинных флагов и дублирующего экрана нет; карточки/группы построены на существующих поверхностях «Модули» (mod_direct/mod_time), система версий промптов не создавалась.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Eff-бейджи и источники на существующих карточках",
+          "observation": "JS-тест п.2: configEffBadge/configSourceLabel из effective-меты на существующих карточках; п.5: три уровня в существующем workspace. Сводка: ur-f-evidence.md (BGS-06.1 proven «см. UR-14.2/21.x/22.1»).",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "L00160",
@@ -3307,8 +3342,18 @@
       "acceptance": "Настройки сгруппированы в «Поиск и инструменты», «Речь и характер», «Проверка фактов», «Частота участия», «Технические ограничения» внутри существующего редизайна UR/PVR без конкурирующих копий.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Группы переименованы честно",
+          "observation": "pytest test_group_descriptions_not_promising_removed_mechanics: GROUPS-описания не обещают удалённую механику; urf-visual-report.json direct-limits (groups=5) и checkup-limits (groups=2) на desktop-1440 и mobile-390.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        }
+      ],
+      "note": "verified_scope (partial): существующие группы честно переименованы («Поиск и инструменты», «Речь и характер», «Частота участия», «Служебное» и т.п.). Полная трёхуровневая перегруппировка ВСЕХ разделов — вне ключей UR-21/BGS-06.5: поверхность реализована для модуля Direct, остальные модули не тронуты (frozen visual contract, ur-f-evidence.md «Superseded / вне среза»)."
     },
     {
       "source_id": "L00161",
@@ -3322,8 +3367,25 @@
       "acceptance": "Пользовательские подписи описывают реальное поведение («Поиск использует контекст разговора», «Проверка источников», «Контроль речевой формы», «Лимиты провайдера и исполнения»); privacy score, safety guard, evidence risk и псевдо-IQ-ползунков нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Пользовательские подписи без псевдо-IQ",
+          "observation": "pytest test_group_descriptions_not_promising_removed_mechanics + test_honest_speech_label («Свобода формулировок»): privacy score, safety guard, evidence risk и псевдо-IQ-ползунки в UI отсутствуют.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Панели машинных флагов нет",
+          "observation": "urf-visual-report.json: honest.machineFlagsPanel=false на всех экранах desktop+mobile; подписи человеческие (modes titles: «Интернет для фактов», «Память», «Подробность», «Речь и характер», «Инициатива»).",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "L00162",
@@ -3352,8 +3414,25 @@
       "acceptance": "flags.search_enabled, flags.webpage_enabled, права доступа, затраты и выбранная частота не исчезают и не меняют смысл; показывается эффективное значение chat/global/default, владелец правила, активность consumer и факт изменения после сохранения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Флаги: eff-значение + источник на каждой карточке",
+          "observation": "pytest test_items_carry_source_effective_and_eff: /api/config отдаёт effective_value и source (chat/global/default) для карточек флагов; test_effective_meta_honest — активность consumer через eff-статус.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "UI не догадывается: источник и eff из меты",
+          "observation": "JS-тест п.2: configSourceLabel chat/global/default (включая legacy-путь без поля source), configEffBadge из item.eff.reason_inactive; факт изменения после сохранения — POST возвращает фактическое состояние (test_post_valid_zone_returns_validated_effective). Владелец правила — существующая матрица прав (gear-иконка), срез её не дублировал.",
+          "type": "test",
+          "artifact_path": "tests/js/ur_ui_settings_test.js",
+          "artifact_sha256": "71a5c3507230b0405682b4f802123e79b88240d8c5d26583b74791625a54852b",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "L00164",
@@ -3457,8 +3536,25 @@
       "acceptance": "Состояние отправки считается изменённым только после подтверждения backend; UI не показывает фальшивый success, desktop и mobile равноправны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Сохранение подтверждается фактическим состоянием; ошибки честные",
+          "observation": "pytest test_post_valid_zone_returns_validated_effective (POST возвращает фактическое состояние после записи) + test_post_invalid_zone_422_keeps_previous (422 показывается, прежнее значение живо); JS-тест п.1: при ошибке черновик не применяется — фальшивого success нет.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "95e5815d"
+        },
+        {
+          "ref": "Desktop и mobile равноправны",
+          "observation": "urf-visual-report.json: одинаковый набор экранов desktop-1440 и mobile-390, все ok=true, hScroll=false, console_error_count=0; parity-скриншоты urf-*-desktop-1440.png / urf-*-mobile-390.png + bu-*.png.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "95e5815d"
+        }
+      ]
     },
     {
       "source_id": "L00183",
@@ -4135,7 +4231,7 @@
       "clarified_by": "BGS-04 (owner 2026-11-05)"
     }
   ],
-  "source_note": "Карта построена из дословного снимка plans/owner_inputs/2026-11-05-behavior-gates-simplification.md (273 строки; SHA256 совпадает с source_sha256). Сгенерированные строки-заголовки и подзаголовки классифицированы как context с явной причиной; таблица четырёх классов §0 (37-40), таблица матрицы §8 (189-200), сценарии A-J (232-241) и прозаические обязательства (25, 18, 155, 168, 172, 185, 214, 273, 61) добавлены как additional_requirements с точной строкой и хешем, потому что экстрактор не берёт таблицы, строки-абзацы и буквенные пункты. Строки 1-2 и 9-11 снимка — служебная рамка (заголовок и маркер начала цитаты), обязательств не несут. Раздел §3 карты — не «аудит вместо кода»: §9 и BGS-08 требуют реализации. Не отображены намеренно только служебные строки: 1 (заголовок снимка), 35-36 и 187-188 (шапки и разделители markdown-таблиц — сами строки таблиц 37-40 и 189-200 отображены как BGS-00.7..10 и BGS-07.M1..M12). Строка 170 (цепочка стадий трассы) входит в BGS-06.12 через source_line_span [168,170], потому что 168 и 170 — одна формулировка одного обязательства.",
+  "source_note": "Карта построена из дословного снимка plans/owner_inputs/2026-11-05-behavior-gates-simplification.md (273 строки; SHA256 совпадает с source_sha256). Сгенерированные строки-заголовки и подзаголовки классифицированы как context с явной причиной; таблица четырёх классов §0 (37-40), таблица матрицы §8 (189-200), сценарии A-J (232-241) и прозаические обязательства (25, 18, 155, 168, 172, 185, 214, 273, 61) добавлены как additional_requirements с точной строкой и хешем, потому что экстрактор не берёт таблицы, строки-абзацы и буквенные пункты. Строки 1-2 и 9-11 снимка — служебная рамка (заголовок и маркер начала цитаты), обязательств не несут. Раздел §3 карты — не «аудит вместо кода»: §9 и BGS-08 требуют реализации. Не отображены намеренно только служебные строки: 1 (заголовок снимка), 35-36 и 187-188 (шапки и разделители markdown-таблиц — сами строки таблиц 37-40 и 189-200 отображены как BGS-00.7..10 и BGS-07.M1..M12). Строка 170 (цепочка стадий трассы) входит в BGS-06.12 через source_line_span [168,170], потому что 168 и 170 — одна формулировка одного обязательства. Биндинг UI-полосы BGS-06-ADMIN (срез UR-F, кандидат 95e5815d, merge 1ee6a010; независимое ревью принято): BGS-06.1, BGS-06.2 (partial: существующие группы переименованы честно, полная перегруппировка всех разделов — вне среза), BGS-06.3, BGS-06.5, BGS-06.10, BGS-00.4 (UI-часть; серверная — RLR-05 d49b10ac) привязаны VERIFIED к 95e5815d. Evidence: plans/features/unified-reply/evidence/ur-f-evidence.md + evidence/urf/** + tests/test_ur_ui_effective_config.py + tests/js/ur_ui_settings_test.js. Связанные строки R-ADM.1/5/6/7 привязаны в карте remove-legacy-rephrasing.",
   "architecture_classification": "ARCH_REUSE_CONFIRMED_WITH_UNRESOLVED_ARCH_DOC",
   "architecture_note": "arch/bgs-integration-contract.md в этом worktree ОТСУТСТВУЕТ (документ архитектора утерян при рестарте сервера). Настоящая карта не выдумывает контрактов: она использует фактически существующие контракты (evidence_policy.allowed/guard_egress, ToolEvidence из UR-B, public_speech_guard/outgoing_guard, negative_constraints/style_policy, param_catalog + effective-config UR-20—22) и фиксирует только зависимости и порядок записи. Если Builder обнаружит новую общую границу (новый ToolEvidence-статус, изменение схемы настроек, общий валидатор речи на несколько подсистем), работа останавливается и вопрос уходит Architect — PM контракт не замораживает.",
   "placement": "Волна 1 (параллельно): BGS-01-PRIVACY (активный лейн ur/b-search, кандидат 1001514e на ревью), BGS-03-SPEECH, BGS-04-GUARD-SCOPE, backend-часть BGS-06-ADMIN. Волна 2: BGS-02-EGRESS (после BGS-01, общий файл services/evidence_policy.py). Волна 3: BGS-05-BUDGET после UR-C/UR-D; UI-часть BGS-06 после UR-F/PVR UI. Волна 4: BGS-07-MATRIX (join) и BGS-08-ACCEPT (финальные проверки).",
