@@ -3034,8 +3034,33 @@
    "acceptance": "При усечённом сервером наборе показывается «Отображена часть графа» с объяснением ограничения; камера не изображает наличие всех 52 тысяч узлов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Виджет: подпись ровно «Отображена часть графа» с реальными числами «Показано 11 из 320 узлов · 6 из 40 связей» и объяснением ограничения.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-LODB-03/truncated-label-widget-1440.png",
+     "artifact_sha256": "912745dc6821f66f7f1912e1820f761c452d3db321462e8c31f3ca3e03920c5a",
+     "candidate_commit": "60333c85"
+    },
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Fullscreen: та же подпись с честными счётчиками; камера не изображает наличие всех узлов.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-LODB-03/truncated-label-fullscreen-1440.png",
+     "artifact_sha256": "d93f3453f94f51f59b5c0ef3bab3a2b037c517c37c580137217da6407828604a",
+     "candidate_commit": "60333c85"
+    },
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Негатив на полном payload: подписи усечения нет (проверка различает состояния); консоль чистая, visNetworks=1.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-LODB-03/negative-complete-no-label-1440.png",
+     "artifact_sha256": "d9ac51f7ab3297c2477a47fc103d9aaf8c8376e2cdd6400ff99c7ba2c17fc344",
+     "candidate_commit": "60333c85"
+    }
+   ],
    "pending_reason": "не доказано в C: подпись «Отображена часть графа» и объяснение проверены в D/E (GATE-11), но связка «камера не изображает наличие всех 52 тысяч» отдельно не сверялась. Что докажет: кадр при truncated + объяснение по клику."
   },
   {
@@ -3601,8 +3626,25 @@
    "acceptance": "Текст записи показывается, если существует; при отсутствии — «Текст записи отсутствует» без пустого блока и вымышленного описания.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Текст записи показывается полностью (placement full, textPresent=true, titleFullNoClip, без усечения); карточка 360×816, пустых секций нет.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-CARD-03/card-text-present-1440.png",
+     "artifact_sha256": "f8875d63cde8ebbf921ab1f80156633be6b4d086cd270ad4f012c4145f0328b8",
+     "candidate_commit": "60333c85"
+    },
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Негатив: absent-надпись ровно «Текст записи отсутствует» (is-absent); пустого блока и вымышленного описания нет; консоль чистая, visNetworks=1.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-CARD-03/card-text-absent-negative-1440.png",
+     "artifact_sha256": "f18a0be1ded0f3f2d8942e0143945be294972bd0c1f078408ae46e22dd143f73",
+     "candidate_commit": "60333c85"
+    }
+   ],
    "pending_reason": "не доказано: «Текст записи отсутствует» без пустого блока отдельным кадром не зафиксировано. Что докажет: кадр узла без текста записи."
   },
   {
@@ -3710,8 +3752,25 @@
    "acceptance": "Узел с меткой вида nameless creature показывает фактическое имя из данных, а не искусственную биографию; при отсутствии заголовка — нейтральная метка «Без названия» с раскрываемым ID.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "nameless creature: заголовок карточки = фактическое имя из данных, искусственной биографии нет (titleFullNoClip).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-CARD-07/card-nameless-creature-1440.png",
+     "artifact_sha256": "584db5dc131b1b477a880485e3a512d4d02cd8c233897d31ee29d783cdca937b",
+     "candidate_commit": "60333c85"
+    },
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Негатив: узел без заголовка → нейтральная метка «Без названия»; сырой ID в заголовке отсутствует (доступен в details «Запись» provenance и data-cog-card-id); консоль чистая, visNetworks=1.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-CARD-07/card-untitled-negative-1440.png",
+     "artifact_sha256": "ac0cfe55c6debaa0be414b410f212984e49ea3d222d18aa63388a59246e9066e",
+     "candidate_commit": "60333c85"
+    }
+   ],
    "pending_reason": "не доказано: фактическое имя из данных и нейтральная метка при отсутствии заголовка отдельно не проверены (в кадрах путь не сработал). Что докажет: кадр+JSON узла с пустым заголовком."
   },
   {
@@ -3819,13 +3878,13 @@
    "source_text_sha256": "655a582219d793a06fc83c3077224098c356828a5d62bd2a8a09811c00753330",
    "source_excerpt": "- Если совпадений несколько — показать список различимых результатов (полное имя + тип + устойчивый ID/сведения, если есть). Не фокусироваться на случайном одноимённом объекте без выбора пользователя.",
    "disposition": "required",
-   "reason": "",
+   "reason": "DEFECT (проба residual2, кандидат 0ef12db1; отчёт residual-evidence-batch2.md в этом коммите): списка различимых результатов (полное имя+тип+устойчивый ID всех совпадений) нет — только строка статуса (i/n) и цикл Enter; фокус ставится на первый одноимённый объект сразу, без выбора пользователя (порядок детерминированный). Фикс в работе на ветке cmv/nav-fixes.",
    "req_id": "CMV-NAV-02",
    "slice": "CMV-D-FULLSCREEN-INSPECTOR",
    "acceptance": "При нескольких совпадениях показывается список различимых результатов (полное имя, тип, устойчивый ID); фокус не ставится на случайном одноимённом объекте без выбора пользователя.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
+   "status": "FAILED",
    "evidence": [],
    "pending_reason": "не доказано: список различимых совпадений (полное имя, тип, устойчивый ID) при нескольких совпадениях отдельным кадром не зафиксирован. Что докажет: кадр поиска с 2+ совпадениями."
   },
@@ -3835,13 +3894,13 @@
    "source_text_sha256": "ee7154456dae965322c6ba7304da54dbbce21e4c75f867f9c683eabd206dd28b",
    "source_excerpt": "- Результат поиска, скрытый LOD/кластером, должен раскрываться и фокусироваться. Если узел исключён пользовательским фильтром — честно показать конфликт и дать явное действие `Показать результат`, которое снимает только нужное ограничение.",
    "disposition": "required",
-   "reason": "",
+   "reason": "DEFECT (residual2, 0ef12db1): при поиске узла, исключённого пользовательским фильтром, ВСЕ ограничения снимаются молча (group/cluster/hideDerived → пусто, витрина разворачивается) — честного конфликта и действия «Показать результат» нет; часть «раскрытие скрытого из LOD» — PASS. Фикс в работе на cmv/nav-fixes.",
    "req_id": "CMV-NAV-03",
    "slice": "CMV-C-LOD-COLLISION",
    "acceptance": "Результат поиска, скрытый LOD или кластером, раскрывается и фокусируется; если узел исключён пользовательским фильтром, показывается честный конфликт и действие «Показать результат», снимающее только нужное ограничение.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
+   "status": "FAILED",
    "evidence": [],
    "pending_reason": "частично: раскрытие и фокус найденного доказаны, честное состояние конфликта «узел исключён пользовательским фильтром» не проверено. Что докажет: поиск при активном фильтре, исключающем узел."
   },
@@ -3851,13 +3910,13 @@
    "source_text_sha256": "4e885f0657161f24d4e0a0d6386fd9fd06c461cb7c3073b7b40cf6ecf5b60fab",
    "source_excerpt": "- Смена фильтра не сбрасывает камеру без необходимости, но снимает выбор, если элемент больше не входит в отфильтрованный набор, с понятным состоянием.",
    "disposition": "required",
-   "reason": "",
+   "reason": "DEFECT (residual2, 0ef12db1): выбранный элемент, вышедший из отфильтрованного набора, не теряет выбор — _cogSelectedId остаётся, инспектор показывает узел, которого нет на сцене («видно ≠ выбрано»); несброс камеры при смене фильтра — PASS. Фикс в работе на cmv/nav-fixes.",
    "req_id": "CMV-NAV-04",
    "slice": "CMV-D-FULLSCREEN-INSPECTOR",
    "acceptance": "Смена фильтра не сбрасывает камеру без необходимости, но снимает выбор, если элемент вышел из отфильтрованного набора, с понятным состоянием.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
+   "status": "FAILED",
    "evidence": [],
    "pending_reason": "не доказано: смена фильтра не сбрасывает камеру, но снимает выбор при выходе элемента из набора — отдельной проверки нет. Что докажет: тест смены фильтра при выбранном узле."
   },
