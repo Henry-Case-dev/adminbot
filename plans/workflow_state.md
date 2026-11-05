@@ -1,17 +1,18 @@
 ﻿# Workflow state
 
-Task: REMOVE-LEGACY-REPHRASING-01 (released 2.58.159, DoD observation pending) + UNIFIED-REPLY (UR-A/B live, UR-C partial, UR-D..G open) + BEHAVIOR-GATES-SIMPLIFICATION-01 (BGS-01..04 shipped, 05..08 queued) + PVR-FC-CORRECTIVE-01 (queued) + EPIC-CM-VISUAL-01 (shipped, residual rows open)
-Task source: plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md (primary corrective), 2026-11-05-unified-reply.md, 2026-11-05-behavior-gates-simplification.md, 2026-11-05-pvr-fc-corrective-01.md
+Task: UNIFIED-REPLY (UR-A..F merged+bound, UR-G acceptance evidence merged/bound; 9 rows blocked on UR-C-SCHED/UR-23.4/UR-26.x/preprod/postdeploy) + REMOVE-LEGACY-REPHRASING-01 (shipped 2.58.159, DoD lines await prod observation) + BEHAVIOR-GATES-SIMPLIFICATION-01 (BGS-01..05 shipped/bound; 06 UI bound; 07/08 open) + EPIC-CM-VISUAL-01 (145/226; NAV/AI/PHY/wording fixed+bound; GATE-17/PERF-06 bound with limitation) + PVR-FC-CORRECTIVE-01 (queued) + search short-tokens (shipped)
+Task source: plans/owner_inputs/2026-11-05-unified-reply.md, 2026-11-05-remove-legacy-rephrasing-v2.md, 2026-11-05-behavior-gates-simplification.md, 2026-11-05-pvr-fc-corrective-01.md
 Status: in_progress
 Primary phase: release
-Active feature: REMOVE-LEGACY-REPHRASING-01 (2.58.159 deployed; DoD observation pending on first real chat turns)
-Active lanes: PM final bindings done (ses_e55d9fba…, ses_e560adb…); none running
-Join barriers: DoD RLR-08 lines close on first real chat turns (turn_trace events) + prod observation; UI admin rows wait UR-F/PVR wave
-Last verified: prod 2.58.159 @ 5e0cb201 (healthz 2.58.159, NRestarts 0, journal clean, rollback 40a62248 ready); live-model proof R-09 all 8 scenarios (JSON sha256 26cfe4d4…, 47e1e2c3); RLR map 141/162 VERIFIED, release gate errors=21 (4 UI wave UR-F/PVR: R-ADM.1/5/6/7; R-CONF.9 waits BGS-05, R-CONF.12 persona; R-PROC.6/7 process; 13 DoD lines await prod observation)
-Next unlocks: (1) observe first real chat turns -> close R-DOD prod/report lines; (2) epic queue: UR-C-CLOCK, UR-D, UR-E, UR-F, BGS-05/06/07/08, PVR-FC
+Active feature: UNIFIED-REPLY wave shipped (2.58.160); remaining: UR-C-SCHED, UR-23.4, UR-26.3-5, UR-17 fixture/live rows, BGS-07/08, PVR-FC
+Active lanes: none running
+Join barriers: UR-G 9 blocked rows (UR-C-SCHED, UR-23.4, UR-26.3/4/5, preprod B2, postdeploy E9); CMV residual rows continue by batches
+Last verified: prod 2.58.160 @ 309f69c2 (healthz 2.58.160, app.js sha256 ef357837c0a6375923f66edda11d11b7d247f8498d602e7467456323aa186477 == local, /api/config/timezones 401 unauth — gated, NRestarts 0, Traceback 0; DevOps full report incl. UNION-merge of release fixes); UR-G acceptance 31/40 bound (28 proven-existing + 3 proven-new; 9 blocked with dependencies); UR-E approved+bound 9/20; BGS-05 approved+bound 5 rows; CMV AI-01/PHY-04 approved+bound with live probes
+Next unlocks: (1) UR-C-SCHED (per-chat scheduler) -> closes UR-30.5/E5/E6; (2) UR-23.4 factcheck ledger -> UR-30.2; (3) UR-26.3/4/5 summary payloads -> UR-30.4/E4; (4) BGS-07/08, PVR-FC wave; (5) CMV residual batches continue
 Next execution: awaiting_children
-Review: approved (all RLR slices, R-09 live proof); pending (DoD final after prod observation)
-Deployment: verified (2.58.159 @ 5e0cb201)
+Review: approved (UR-C-CLOCK, UR-D, UR-E, UR-F, BGS-05, CMV AI-01/PHY-04/NAV/wording, R-09); pending (UR-G final gate after 9 blocked deps)
+Deployment: verified (2.58.160 @ 309f69c2; rollback 2.58.159 @ 5e0cb201)
 Human gate: none
-Progress scope: plans/progress_scope.json | fresh (3540/5173 = 68%)
-Updated: 2026-11-05T17:30:00+12:00
+Progress scope: plans/progress_scope.json | fresh (3644/5173 = 70%)
+Platform note: Reviewer-agent model exhausted (Grok spending limit) — reviews run via general agent in adversarial mode, disclosed in verdicts
+Updated: 2026-11-06T03:55:00+12:00

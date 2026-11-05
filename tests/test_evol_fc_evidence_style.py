@@ -465,8 +465,9 @@ async def test_sc2_four_confirmed_two_concrete_gaps(planner_on):
     supported = [p for p in parts.values()
                  if p.get("factual_verdict") == "supported"]
     assert len(supported) == 4, parts
-    # подтверждённые части не затёрты двумя проблемными
-    assert run.verdict.factual_verdict == "mixed"
+    # FC-04.5 (corrective 05.11.2026): частичный случай — честная
+    # недостаточность целого; подтверждённые части не затёрты и видны в parts
+    assert run.verdict.factual_verdict == "insufficient_evidence"
     assert parts["c1"]["status_detail"] == fsp.CLAIM_STATUS_PROVIDER_ERROR
     assert parts["c6"]["status_detail"] == fsp.CLAIM_STATUS_EXACT_NUMBER
     assert "технический сбой" in parts["c1"]["gap_note"]
@@ -735,14 +736,20 @@ async def test_sc10_partial_verdict_live_style_within_structure(
 
     # активная директива и стиль-слой доходят до публичного Writer'а
     system = llm.system_of("temporal_verbalize")
-    assert DIRECTIVE in system
+    # FC-04.5 (corrective 05.11.2026): частичный случай — теперь честный
+    # insufficient_evidence; серверная секция «Критический разнос» привязана
+    # к содержательным вердиктам (refuted/mixed) и здесь не инжектируется —
+    # критика остаётся в авторском теле Writer'а.
+    assert DIRECTIVE not in system
     # ASAP-FC-VOICE-01 / A (§5): фиксированного заголовка раздела нет
     assert "начинается строкой ровно так" not in system
     payload = llm.user_of("temporal_verbalize")
     assert "claims" in payload and "658" in payload
 
     verdict = _checked(run)
-    assert verdict.factual_verdict == "mixed"     # подтверждено + пробел
+    # FC-04.5 (corrective 05.11.2026): подтверждено + пробел = частичный
+    # случай — честная недостаточность целого, подтверждённая часть видна
+    assert verdict.factual_verdict == "insufficient_evidence"
     markup = _publish(verdict)
     visible = fr.visible_text(markup)
     # семантический порядок: вывод → разбор → критика вплетена в текст

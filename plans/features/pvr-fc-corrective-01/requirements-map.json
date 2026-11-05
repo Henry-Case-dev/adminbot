@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-pvr-fc-corrective-01.md",
   "source_sha256": "671e6711ca9408501caeb306aa5feb37bb9f7c54d48c15410915567eac8ed078",
-  "candidate_commit": "",
+  "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -19,8 +19,25 @@
       "acceptance": "Эффективное значение берётся тем же resolver'ом, который формирует текущий LLM-payload (per-chat override → global → исходник из кода); UI не угадывает действующую версию по истории, а прямое чтение журнала без сверки с рантаймом не даёт метку «Сейчас действует».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_1_effective_origin_matrix_matches_payload_resolver",
+          "observation": "Эффективное значение вычисляется тем же resolve_effective_state, который формирует текущий LLM-payload (per-chat override → global → исходник из кода); прямое чтение журнала без сверки с рантаймом не даёт метку «Сейчас действует» — UI не угадывает по истории.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "Единый резолвер для payload и API-состояния; отдельного «UI-угадывания» в коде кандидата нет.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "M00072_PVR-01_7",
@@ -34,8 +51,33 @@
       "acceptance": "Для одного промпта и чата одновременно не более одной редакции с меткой «Сейчас действует»; при наследовании явно показано «Действует глобальная версия», а при обнаруженном drift ни одна редакция не помечена активной — показывается отдельный честный статус без автоматической правки данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c31_two_applied_events_of_one_revision_one_active_card, test_api_versions_exposes_full_state_contract",
+          "observation": "Инвариант доказан: на одну пару (промпт, чат) не более одной редакции с «Сейчас действует»; при обнаруженном drift не помечена ни одна — отдельный честный статус без автоматической правки данных. Передача в PVR-UI: метка «Действует глобальная версия» при наследовании и рендер drift-статуса (строки PVR-04.2.2/PVR-04.2.3).",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "Отбор «активной» карточки и drift-детект выполняет effective_drift/resolve_effective_state; UI получает готовое поле состояния, а не считает метку сам.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        },
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 3 Drift (ни одной активной карточки + data-pv-drift баннер) и § 1 origin-метки из effective-контракта (PVR-01.7 handoff); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: drift-баннер без активной карточки",
+          "observation": "UI-часть handoff: при drift ни одна редакция не помечена активной, показывается отдельный честный drift-баннер без автоматической правки данных; origin-метки берутся из effective_* («Действует в этом чате» / «Действует глобальная версия» / «Из кода»), UI не угадывает по истории; мутация unmatched-указателя не выдаёт активную карточку.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
+        }
+      ]
     },
     {
       "source_id": "M00076_PVR-02_1",
@@ -49,8 +91,17 @@
       "acceptance": "На основном экране истории ровно одна карточка на revision_id, а события активации показаны в деталях выбранной редакции компактной хронологией («Применена 03.11...», «Вернулись к ней 04.11...»), не как вторые редакции со своей кнопкой «Применить».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c31_two_applied_events_of_one_revision_one_active_card, test_api_versions_exposes_full_state_contract",
+          "observation": "Два события применения одной редакции дают одну карточку на revision_id; события активации передаются в деталях выбранной ревизии как компактная хронология применений, а не вторые редакции со своей кнопкой «Применить» (данные бэкенда; отрисовка карточки — PVR-UI).",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "M00078_PVR-02_2",
@@ -64,8 +115,17 @@
       "acceptance": "Если нужен просмотр отдельных событий, он вынесен во вторичный переключатель «История действий», где статус события — «Была применена», а не current active; append-only аудит при этом не изменяется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_api_versions_exposes_full_state_contract, test_c31_two_applied_events_of_one_revision_one_active_card",
+          "observation": "События отдаются со статусом was_applied («Была применена»), никогда current active; append-only аудит не изменён — вторичный переключатель «История действий» получает готовые данные без новых сущностей.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "M00080_PVR-02_3",
@@ -79,8 +139,25 @@
       "acceptance": "Повторное сохранение идентичного текста (skipped_same) не создаёт новую редакцию и не показывает дубликат; переключение на другую историческую редакцию с теми же байтами даёт одно событие переключения без второго сохранения текста; повтор двойного HTTP POST идемпотентен по operation ID и scope.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c32_same_bytes_two_revisions_one_effective_choice, test_c33_retry_and_double_click_create_no_duplicate_revision, test_c33_operation_id_replays_same_response_without_second_write",
+          "observation": "Повторное сохранение идентичного текста (skipped_same) не создаёт новую редакцию и дубликат; переключение на другую историческую редакцию с теми же байтами даёт одно событие переключения без второго сохранения текста; повторный HTTP POST идемпотентен по operation_id и scope — TTL-кэш результата возвращает тот же ответ без второй записи.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "operation_id на ConfigUpdateRequest (chat+global save) — вход идемпотентности; replay не выполняет вторую запись.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00084_PVR-03_1",
@@ -94,8 +171,25 @@
       "acceptance": "Сохранение/применение атомарно по значению, журналу и указателю активации через существующие PG transaction/advisory lock/journal grant; фронтенд обновляет состояние из ответа сервера и не ставит два флага active оптимистически; повторное нажатие блокируется до завершения запроса, а 409/503/422/403 показываются без потери черновика.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c33_retry_and_double_click_create_no_duplicate_revision, test_c33_conflicting_write_does_not_silently_overwrite",
+          "observation": "Запись значения, журнала и указателя активации атомарна через существующие PG transaction/advisory lock/journal grant; повторное нажатие и retry не создают дублей, конкурентная запись не перетирает чужую правку молча. Обновление состояния фронта из ответа сервера без двух флагов active проверяется в PVR-UI/PVR-E2E.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "Save идёт через существующую транзакционную запись с op-id seam; 409/503/422/403 отдаются без потери черновика на бэкенд-стороне.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00086_PVR-03_2",
@@ -109,8 +203,33 @@
       "acceptance": "Конкурирующие записи из двух вкладок разрешаются optimistic concurrency/revision compare без молчаливого перетирания; ошибка кэша после успешного PG-коммита даёт явный sync_pending, повторную инвалидацию и сверку effective value вместо ложного «Сохранено и действует»; после рестарта/релиза сохранение владельческого текста подтверждено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c33_conflicting_write_does_not_silently_overwrite, test_c37_restart_creates_no_versions_and_keeps_pinned_text",
+          "observation": "CAS/revision compare без молчаливого перетирания доказан; после рестарта сохранённый владельческий текст подтверждён; ошибка кэша после успешного PG-коммита отдаёт честный 503 partial_save без ложного «Сохранено и действует». Передача в PVR-UI: рендер 503/sync_pending-метки и повторная сверка effective value на клиенте.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "503 partial_save в web/api/routes.py — явный код честного статуса при неудаче после PG-коммита.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        },
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 8 Save-честность (operation_id в POST /api/config; 503 partial_save → saveState sync_pending, sticky-бар «Частично сохранено: сверьте действующее значение», кнопка перепроверки) (PVR-03.2 handoff); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: sync_pending-рендер + повторная сверка",
+          "observation": "UI-часть handoff: 503 partial_save рендерится как sync_pending — не «ошибка» и не «Сохранено»; липкий бар помечает частичное сохранение с кнопкой перепроверки, после перепроверки sync_pending-статус снимается; CAS 409 сохраняет черновик редактора (§ 9 того же теста).",
+          "artifact_path": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
+        }
+      ]
     },
     {
       "source_id": "M00088_PVR-03_3",
@@ -124,8 +243,25 @@
       "acceptance": "Изменение baseline меняет только указатель и не активирует ревизию; «Восстановить базовую» и «Вернуть исходный из кода» — отдельные подтверждаемые и аудируемые действия с пояснением влияния на выбранный scope, и ни одно из них не меняет текст другого чата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_4_baseline_and_factory_are_separate_pointers",
+          "observation": "Изменение baseline меняет только указатель и не пишет текст и не активирует ревизию; «Восстановить базовую» и «Вернуть исходный из кода» существуют отдельными API-операциями (POST /prompts/{key}/baseline/restore, POST /prompts/{key}/factory/restore) с аудитом в журнале, отдельно от активации; текст другого чата при этом не меняется.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "Активация, назначение baseline, restore и copy-to-global — раздельные эндпоинты; неявных активаций при смене указателей нет.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00092_PVR-04_0",
@@ -229,8 +365,25 @@
       "acceptance": "Сохраняются все версии без потолка с курсорной пагинацией в UI и API, полный текст выдаётся отдельным авторизованным запросом, поиск/фильтр не исключает молча старые ревизии; историческая, несовместимая и снятая версия доступны для чтения и сравнения, но не для активации (с причиной), а чтение промпта другого чата через чужой X-Chat-Id запрещено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c39_scale_cursor_pagination_no_full_body_loads, test_c38_retired_viewable_diffable_but_not_applicable",
+          "observation": "1050+220 редакций проходятся курсорной пагинацией в UI/API без загрузки полных тел; потолка на историю нет; поиск/фильтр не исключает молча старые ревизии; историческая/несовместимая/снятая версия читаема и сравнима, но не активируема с причиной.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "Полный текст — отдельный авторизованный запрос (GET /prompts/revisions/{id}/source) с проверкой scope/разрешений, включая prompt.read_baseline.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00127_PVR-05_2",
@@ -244,8 +397,33 @@
       "acceptance": "Недоступный журнал даёт статус «История временно недоступна» при сохранённом редакторе и черновике и неизменном конфиге; удаление и откат истории запрещены, любые коррективы выполняются дополнительными записями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_a32_history_preserved_and_journal_append_only",
+          "observation": "Бэкенд-часть доказана: недоступный журнал даёт честный 503 без сочинённых данных, редактор и черновик не затронуты, конфиг не меняется; удаление и откат истории запрещены, любые коррективы — дополнительными записями (append-only). Передача в PVR-UI: метка «История временно недоступна» при сохранённом редакторе.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "503 при недоступном PG/журнале — существующие коды ответов роутов, без fallback-подделки данных.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        },
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 6 (errText 503 → каноничная метка «История временно недоступна») + tests/ui_prompt_version_card_e2e.py @ 9889d6e0: блок 12 (журнал недоступен: честный 503-текст, черновик остаётся) (PVR-05.2 handoff); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: метка недоступной истории",
+          "observation": "UI-часть handoff: при 503 журнала панель показывает ровно каноничную метку «История временно недоступна» вместо сочинённых данных; редактор и черновик не затронуты (e2e-блок 12 проверяет тот же 503-текст с целым черновиком).",
+          "artifact_path": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
+        }
+      ]
     },
     {
       "source_id": "M00131_PVR-06_1",
@@ -274,8 +452,25 @@
       "acceptance": "Публикация разложена на проверяемые содержательные тезисы, а не на ключевые слова OCR; служебные данные (способ распознавания, forwarded-from, техническая метка, подписи инструментов, этапы пайплайна) хранятся отдельно от формулировки тезиса и никогда не считаются доказательством; сохраняется привязка к изображению/сообщению/части альбома, текст цитаты и временная ось.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc01_four_cell_image_semantic_theses_not_ocr_query, test_fc01_service_labels_stay_in_claim_for_analyst; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Публикация «4 ячейки с тестостероном» разложена на смысловые тезисы (предмет/связь/вывод в запросах планировщика); служебные данные распознавания («текст с изображения», OCR, «результат модели») не попадают в поисковые запросы и никогда не считаются доказательством; клейм для аналитика сохраняет метки происхождения, материал не переписан; привязка к изображению/сообщению/части альбома сохранена (регресс media-тестов зелёный).",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/factcheck_planner.py @ a9e91310: search_thesis_text — зачистка служебных меток только на поисковом пути (1f3ad197)",
+          "observation": "Служебные обёртки распознавания отделены от поисковой формулировки тезиса; формулировка тезиса для аналитика остаётся в материале клейма нетронутой.",
+          "artifact_path": "services/factcheck_planner.py",
+          "artifact_sha256": "c3c399c10b5d98fe4c06e0fb081e668a1af04894a3e6b5294a494c88bc40954d"
+        }
+      ]
     },
     {
       "source_id": "M00141_FC-01_2",
@@ -289,8 +484,26 @@
       "acceptance": "Для примера с тестостероном распознаны утверждения о группах «высокий/низкий тестостерон × высокий/низкий интеллект», приписываемых типах поведения и выводе о личностных качествах, а вопросом проверки становится наличие валидных исследований причинной типологии — не наличие картинок с текстом, не дата фото и не факт распознавания слов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc01_four_cell_image_semantic_theses_not_ocr_query (маркированный материал изображения как прокси) + test_fc04_positive_verdict_without_direct_support_downgraded (гейт); регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Контрактный уровень доказан: утверждения о группах «высокий/низкий тестостерон × высокий/низкий интеллект», приписываемых типах поведения и выводе о личностных качествах распознаются как содержательные тезисы плана; вопросом проверки становится наличие валидных исследований причинной типологии — положительный вердикт без direct supporting evidence понижается гейтом FC-04.7, а не «наличие картинок с текстом»/дата фото/факт распознавания слов.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/temporal_factcheck.py @ a9e91310: _aggregate_factual_verdict (правила FC-04.5/FC-04.7 + basis*)",
+          "observation": "Агрегация и FC-04.7-гейт серверно согласованы с извлечёнными тезисами: статус выводится из доказательного содержания, а не из факта распознавания.",
+          "artifact_path": "services/temporal_factcheck.py",
+          "artifact_sha256": "3b941cf6f0ceab9d5dbe3ef5e13de7ba3f31b79cdabc53586b4f37beb7463bf5"
+        }
+      ],
+      "verified_scope": "contract: правила извлечения тезисов + агрегация + FC-04.7-гейт доказаны контрактными тестами на a9e91310; полная семантика распознавания реального изображения (тестостерон-пример на настоящем фото) — live-приёмка, в этот биндинг не входит"
     },
     {
       "source_id": "M00143_FC-01_3",
@@ -304,8 +517,25 @@
       "acceptance": "Все медиа альбома извлекаются существующим mca_vision/readiness; при фактически недоступном изображении выдаётся явный технический исход, а не утверждение о проверке всей публикации; содержимое OCR/vision недоверенное, и цитируемая надпись не исполняется как инструкция модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc05_vision_failures_honest_notice; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "При фактически недоступном изображении (vision_failed) и неготовом распознавании (image_unchecked/pending) выдаётся явная честная оговорка («не удалось», «НЕ проверено», «не готово/распознана»), а не утверждение о проверенной всей публикации; pending — отдельный честный статус, не «текста нет».",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_factcheck_media_2026_10_25.py @ a9e91310: регресс извлечения медиа альбома существующим mca_vision/readiness-механизмом; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Все медиа альбома извлекаются существующим механизмом — в диффе среза нет нового media-пайплайна; содержимое OCR/vision используется как недоверенный материал анализа, а не исполняется как инструкция модели.",
+          "artifact_path": "tests/test_factcheck_media_2026_10_25.py",
+          "artifact_sha256": "abee5637bf4115dbfe8540c51357de683395e211e5a28309ca0d32d0321a34b2"
+        }
+      ]
     },
     {
       "source_id": "M00147_FC-02_1",
@@ -319,8 +549,25 @@
       "acceptance": "Повторно используются factcheck_planner, ClaimUnit, per-claim coverage, SearchAggregator, refinement, SafeFetcher, evidence map и tool-loop; после UNIFIED-REPLY соблюдаются общая Search-first политика и единый tool-исполнитель, новый LLM-агент и второй поисковый pipeline не создаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_factcheck_orchestrator_cfg06.py + tests/test_factcheck_planner_cfg06.py @ a9e91310: полный регресс существующего per-claim pipeline; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "factcheck_planner (ClaimUnit, per-claim coverage, refinement), SearchAggregator, SafeFetcher, evidence map и tool-loop переиспользуются без форка контрактов; в диффе среза нет нового LLM-агента и второго поискового pipeline (новый файл — только тесты); после UNIFIED-REPLY действует общая Search-first политика и единый tool-исполнитель.",
+          "artifact_path": "tests/test_factcheck_orchestrator_cfg06.py",
+          "artifact_sha256": "7e1843cf91bc56a9fbe57ea144a2e869a4e0b1cb9402c287d017c0d3c0bf21dc"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/factcheck_orchestrator.py @ a9e91310: единый вызов проверки, bind_runtime(cache/service), cache_slug factcheck_temporal/factcheck",
+          "observation": "Точка входа фактчека одна; новые точки входа рядом с planner/search_aggregator/temporal_factcheck не появились.",
+          "artifact_path": "services/factcheck_orchestrator.py",
+          "artifact_sha256": "98e79be4fbac450d73afc86970c47e88fb34c58ca9043b86e86c826b48111a7f"
+        }
+      ]
     },
     {
       "source_id": "M00149_FC-02_2",
@@ -334,8 +581,25 @@
       "acceptance": "Запрос по каждой части покрывает предмет, отношение/причину, исход/единицы, время и субъект; допускаются научные синонимы и перевод терминов, уточнение при нулевой выдаче, но без тематических hardcoded-ключей и белых списков доменов; запросы изолированы от имён и сообщений приватного чата, произвольный OCR-блок и весь диалог в публичный поисковик не уходят.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc01_four_cell_image_semantic_theses_not_ocr_query; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Запросы строятся от смысловой потребности каждой части (предмет «тестостерон/интеллект», связь, вывод) и остаются короткими смысловыми формулировками; научные синонимы и перевод терминов допускаются существующими intent'ами планировщика, тематических hardcoded-ключей и белых списков доменов в диффе нет; служебные OCR-обёртки, имена и сообщения приватного чата в публичный поисковик не уходят.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_factcheck_p0_fc.py @ a9e91310: test_each_claim_part_gets_its_own_query",
+          "observation": "По каждой значимой части тезиса формируется собственный запрос — покрытие предмета/отношения/исхода/времени/субъекта не схлопывается в один общий query.",
+          "artifact_path": "tests/test_factcheck_p0_fc.py",
+          "artifact_sha256": "8e87f2f38a210158e370bbccce88539b15034b9c1624affdaeaa8a5057f5f040"
+        }
+      ]
     },
     {
       "source_id": "M00151_FC-02_3",
@@ -349,8 +613,25 @@
       "acceptance": "Базовая попытка по каждой существенной части обязательна при наличии веб-доступа; при нерелевантной выдаче уточняются только непокрытые части без зацикливания на одном query; число запросов, время и токены считаются по реальному бюджету стадии/провайдера, а число 3 не используется как аргумент «всё проверено»; deadline, rate limits, отмена и деградация сохраняются и честно помечаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc05_budget_deadline_is_technical_status; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Базовая попытка по каждой существенной части выполняется реальным рантаймом; при исчерпании бюджета/дедлайна часть получает честный технический статус (deadline/provider_error) с gap_note; запросы/время считаются по реальному budget_seconds стадии, «3 запроса» не используется как аргумент «всё проверено»; rate limits, отмена и деградация сохранены и помечены честно.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_factcheck_p0_fc.py @ a9e91310: test_budget_exhausted_marks_outcome + test_each_claim_part_gets_its_own_query",
+          "observation": "Базовая попытка обязательна для каждой части, а refinement при нерелевантной выдаче выполняется только для непокрытых частей (per-claim coverage), без зацикливания на одном query.",
+          "artifact_path": "tests/test_factcheck_p0_fc.py",
+          "artifact_sha256": "8e87f2f38a210158e370bbccce88539b15034b9c1624affdaeaa8a5057f5f040"
+        }
+      ]
     },
     {
       "source_id": "M00155_FC-03_1",
@@ -364,8 +645,25 @@
       "acceptance": "is_relevant_result и лексический overlap работают только как дешёвый предварительный фильтр кандидатов; решение о доказательности принимает claim-aware evidence layer, и ссылка с теми же словами, но другой причинно-следственной связью помечается off_topic, а не evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc03_reddit_photo_dating_candidate_rejected_off_topic (мутационная чувствительность: word_hits>=1 при совпадении общих слов); регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Ссылка с теми же общими словами, но другой причинно-следственной связью (Reddit о датировке фотографий против тезиса о тестостероне) помечается off_topic/irrelevant и не displayable: решение о доказательности принимает claim-aware evidence layer, а лексический overlap остаётся только дешёвым предварительным фильтром кандидатов.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/search_aggregator.py @ a9e91310: claim_relevance topical gate (topic_stems + anchor-bypass, 444cf45e)",
+          "observation": "Тематический шлюз отсекает совпадение слов без совпадения предмета; якорные совпадения (латинское сущность/число) пропускаются для межъязыковых источников — фильтр не подменяет claim-aware решение.",
+          "artifact_path": "services/search_aggregator.py",
+          "artifact_sha256": "02c27243b2619fd8f2163cca547c586dbcfc9fb44a32a0eeea2b9330e8b3a8d1"
+        }
+      ]
     },
     {
       "source_id": "M00157_FC-03_2",
@@ -379,8 +677,25 @@
       "acceptance": "Для кандидата хранятся claim_id, url, нормализованный title, extracted passage, дата/тип источника, relation (supports/contradicts/qualifies/unrelated), strength (direct/indirect) и информация об открытии; нечитаемая страница не выдаётся как прочитанное исследование, одна ссылка не доказывает все части, цитирование возможно только по проверенному claim-binding.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc03_candidate_metadata_stored; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Кандидат хранит claim_id, url, нормализованный title, extracted passage, дату источника (published_at), relation (supports/contradicts/qualifies/unrelated), strength (direct/indirect) и признак открытия (opened); прямое подтверждение маркируется direct.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc05_page_open_error_is_source_extract_status",
+          "observation": "Нечитаемая страница (fetch_errors>=1, opened=0) не выдаётся как прочитанное исследование: search_status не становится source_read, диагностика фиксирует extract_failures; одна ссылка не доказывает все части — цитирование только по проверенному claim-binding.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00159_FC-03_3",
@@ -394,8 +709,25 @@
       "acceptance": "Автоматическое повышение source_kind=\"primary\" за успешный fetch удалено: тип источника определяется отношением к утверждению и происхождением исследования, а форум, соцпост или SEO-пересказ не становятся первоисточником; статья о датировке фотографий не подтверждает тестостероновую типологию при любом совпадении слов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc03_fetched_forum_page_stays_secondary_not_primary (мутация «возврат source_kind=primary за fetch» краснит тест), test_fc03_source_kind_words_no_primary_for_forum; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Автоматическое повышение source_kind=\"primary\" за успешный fetch удалено: форумная ветка после открытия остаётся secondary («пересказ») и первоисточником не называется; gov-домен primary по происхождению, а не по факту открытия; статья о датировке фотографий не подтверждает тестостероновую типологию при любом совпадении слов.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/search_aggregator.py @ a9e91310: classify_source_kind по происхождению домена (1e465ac3)",
+          "observation": "Тип источника определяется отношением к утверждению и происхождением исследования, а не URL или фактом скачирования; форумы/соцсети/SEO-пересказы не становятся первоисточником.",
+          "artifact_path": "services/search_aggregator.py",
+          "artifact_sha256": "02c27243b2619fd8f2163cca547c586dbcfc9fb44a32a0eeea2b9330e8b3a8d1"
+        }
+      ]
     },
     {
       "source_id": "M00161_FC-03_4",
@@ -409,8 +741,25 @@
       "acceptance": "Иерархия доказательств зависит от темы (медицина — качественные исследования/обзоры подходящего дизайна, законодательство — первичные нормативные тексты, новость — оригинальное сообщение/документ, программирование — исходный код/официальная документация) как семантическое требование, а не статический whitelist доменов; форум допустим как источник мнений, но не как научная верификация причинности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/search_aggregator.py @ a9e91310: классификация по отношению к утверждению и происхождению источника (topic_stems, anchor-bypass), без статических whitelist доменов (в диффе среза whitelist не вводился)",
+          "observation": "Иерархия доказательств семантическая, по теме и происхождению: primary — первичные нормативные/официальные и исследовательские источники, форум/соцпост допустим как источник мнений и первичного свидетельства (secondary), но не как научная верификация причинности.",
+          "artifact_path": "services/search_aggregator.py",
+          "artifact_sha256": "02c27243b2619fd8f2163cca547c586dbcfc9fb44a32a0eeea2b9330e8b3a8d1"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc03_fetched_forum_page_stays_secondary_not_primary; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Наблюдаемое следствие иерархии: gov-источник — primary по происхождению, форумная страница — secondary при любом успехе fetch; иерархия зависит от темы, а не от совпадения слов.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00165_FC-04_1",
@@ -424,8 +773,25 @@
       "acceptance": "Публичные enum supported, refuted, mixed, insufficient_evidence сохранены вместе с отдельными техническими исходами; истинность тезиса, степень прямой подтверждённости и полнота проверки разделены, и статус не выводится из простого наличия любых рефов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc04_parts_and_global_consistent + test_c18_coverage_partial_is_not_mixed_synonym; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Публичные enum supported/refuted/mixed/insufficient_evidence и отдельные технические исходы сохранены; истинность тезиса (factual_verdict), степень прямой подтверждённости (strength direct/indirect) и полнота проверки (status_detail coverage/deadline) разделены — статус не выводится из простого наличия рефов.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/temporal_factcheck.py @ a9e91310: FACTUAL_VERDICTS, parts[].factual_verdict/status_detail, uncertainty",
+          "observation": "Разделение истинности, силы и полноты закреплено в структуре вердикта; отдельные технические поля живут рядом с публичным enum, не смешиваясь с ним.",
+          "artifact_path": "services/temporal_factcheck.py",
+          "artifact_sha256": "3b941cf6f0ceab9d5dbe3ef5e13de7ba3f31b79cdabc53586b4f37beb7463bf5"
+        }
+      ]
     },
     {
       "source_id": "M00167_FC-04_2",
@@ -439,8 +805,25 @@
       "acceptance": "supported ставится только когда центральный заявленный тезис подтверждён относящимися к нему источниками достаточного качества, а не периферийным фактом вроде «существует гормон».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc04_correlation_is_not_direct_support_for_cause_claim + test_fc04_positive_verdict_without_direct_support_downgraded; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "supported ставится только когда центральный заявленный тезис подтверждён относящимися к нему direct-источниками достаточного качества: периферийный факт («существует гормон») и корреляционная ссылка не удерживают positive — сервер понижает вердикт без прямого подтверждающего evidence.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_factcheck_p0_fc.py @ a9e91310: test_model_called_but_unbacked_positive_downgraded",
+          "observation": "Регресс того же правила: положительный статус, не подкреплённый retrieved evidence, понижается серверно, а не берётся из ответа модели.",
+          "artifact_path": "tests/test_factcheck_p0_fc.py",
+          "artifact_sha256": "8e87f2f38a210158e370bbccce88539b15034b9c1624affdaeaa8a5057f5f040"
+        }
+      ]
     },
     {
       "source_id": "M00169_FC-04_3",
@@ -454,8 +837,25 @@
       "acceptance": "refuted ставится только при относящихся доказательствах против заявленного факта либо проверяемой логической/математической несостоятельности; отсутствие найденных подтверждений не превращается в доказанное опровержение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_factcheck_p0_fc.py @ a9e91310: test_empty_evidence_never_becomes_refuted; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Отсутствие найденных подтверждений никогда не превращается в доказанное опровержение — пустой evidence не даёт refuted.",
+          "artifact_path": "tests/test_factcheck_p0_fc.py",
+          "artifact_sha256": "8e87f2f38a210158e370bbccce88539b15034b9c1624affdaeaa8a5057f5f040"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc05_provider_failures_classified_as_search_failed + test_fc05_empty_results_are_not_reported_as_down",
+          "observation": "refuted требует относящихся доказательств против заявленного факта (или проверяемой логической несостоятельности); недоступный поиск/провайдер — отдельный технический исход search_failed, а не опровержение.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00171_FC-04_4",
@@ -469,8 +869,25 @@
       "acceptance": "insufficient_evidence ставится, когда значимые части не доказаны и не опровергнуты, источников недостаточно или они лишь косвенные; для типологии без прямого исследования это стандартный исход с объяснением, что научное подтверждение не найдено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc04_correlation_is_not_direct_support_for_cause_claim; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Для причинной «типологии» без прямого исследования стандартный исход — insufficient_evidence: значимые части не доказаны и не опровергнуты, источники лишь косвенные (qualifies/indirect), что честно объясняется, а не превращается ни в supported, ни в refuted.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc04_validator_downgrade_not_reescalated",
+          "observation": "insufficient_evidence с объяснением («выдержки не подтверждают двухсторонний вывод») устойчив: агрегатор не откатывает его обратно.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00173_FC-04_5",
@@ -484,8 +901,25 @@
       "acceptance": "mixed требует действительного содержательного подтверждения хотя бы одной значимой части центрального утверждения и независимого опровержения/квалификации другой значимой части либо действительно конфликтующих прямых исследований; один опровергнутый элемент при непроверенных остальных не даёт mixed, нерелевантный источник никогда не повышает статус, а частичный случай формулируется как «Подтверждена только ...; остальные части не установлены».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc04_parts_and_global_consistent; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "mixed требует действительного содержательного подтверждения хотя бы одной значимой части и независимого опровержения/квалификации другой (или конфликта прямых исследований): supported-верх при опровергнутой части становится mixed, а mixed без двухстороннего содержания понижается до insufficient_evidence.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_c18_coverage_partial_is_not_mixed_synonym",
+          "observation": "Нерелевантный/технический исход части (deadline_exceeded) никогда не повышает статус до mixed; частичный случай остаётся честным insufficient_evidence с разбором «Подтверждена только …; остальные части не установлены» в parts.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00175_FC-04_6",
@@ -499,8 +933,33 @@
       "acceptance": "_aggregate_factual_verdict, директива №10 TEMPORAL_ANALYST_SYSTEM, TEMPORAL_VALIDATOR_SYSTEM, verdict_from_payload, apply_validator и сопоставление в factcheck_renderer.py согласованы между собой; mixed вычисляется после server-side проверки evidence↔claim, самого parts[].factual_verdict==supported от модели недостаточно, валидатор вправе понизить недоказанный вывод, а последующий агрегатор не возвращает ошибочный статус из старых parts.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc04_validator_downgrade_not_reescalated (мутация «эскалация из старых parts» краснит тест) + test_fc04_parts_and_global_consistent; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "_aggregate_factual_verdict, verdict_from_payload, apply_validator и сопоставление в factcheck_renderer.py согласованы: mixed вычисляется после server-side проверки evidence↔claim, parts[].factual_verdict==supported от модели недостаточно; валидатор понижает недоказанный вывод с обеих сторон (validator_suppressed, provenance сохранён), а агрегатор не возвращает ошибочный статус из старых parts.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/temporal_factcheck.py @ a9e91310: TEMPORAL_ANALYST_SYSTEM (правило 13 «корреляция ≠ причинность», строка 1054), TEMPORAL_VALIDATOR_SYSTEM (правило 6, строка 1101), _aggregate_factual_verdict",
+          "observation": "Директивы аналитика и валидатора переписаны под контракт corrective (mixed/causality) и согласованы с серверной агрегацией; рассогласование «аналитик/валидатор/агрегатор» покрыто контрактными тестами.",
+          "artifact_path": "services/temporal_factcheck.py",
+          "artifact_sha256": "3b941cf6f0ceab9d5dbe3ef5e13de7ba3f31b79cdabc53586b4f37beb7463bf5"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/prompt_registry.py @ a9e91310: FACTORY_REVISION_LABELS/SEALS temporal.analyst/temporal.validator -> temporal-*-fc04-corrective (5baf6afaf2d8/e1c2038a835d); seal_integrity()=={} (прогнано на cf9835a5)",
+          "observation": "Активные печати аналитика и валидатора соответствуют новым ревизиям промптов; целостность печатей пуста — расхождений фабричных текстов нет.",
+          "artifact_path": "services/prompt_registry.py",
+          "artifact_sha256": "2580ae47b145f0d96d3a756632aa73f6d02a89a77db2e041acba64971a34aedd"
+        }
+      ]
     },
     {
       "source_id": "M00177_FC-04_7",
@@ -514,8 +973,25 @@
       "acceptance": "Расхождение revised verdict и per-part breakdown либо исправляется сервером с обеих сторон, либо останавливает позитивную публикацию; положительный или mixed-вердикт без хотя бы одного direct supporting evidence по сути запрещён; для формальных выводов без внешних URL поддерживается отдельный proof_basis=logical с демонстрируемыми проверяемыми шагами, а не принудительное «недостаточно данных».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc04_correlation_is_not_direct_support_for_cause_claim + test_fc04_positive_verdict_without_direct_support_downgraded; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Расхождение revised verdict и per-part breakdown исправляется сервером с обеих сторон либо останавливает позитивную публикацию: положительный/mixed-вердикт без хотя бы одного direct supporting evidence по сути запрещён (positive_without_direct_support), корреляционные ссылки (qualifies/indirect) причинный тезис не удерживают.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_c17_logical_proof_basis_not_forced_insufficient + ветка basis* в test_fc04_positive_verdict_without_direct_support_downgraded",
+          "observation": "Для формальных выводов без внешних URL поддержан отдельный proof_basis=logical (uncertainty basis*) с проверяемыми шагами — принудительное «недостаточно данных» к логической арифметике не применяется.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00181_FC-05_1",
@@ -529,8 +1005,17 @@
       "acceptance": "Строго различаются исходы «нет подтверждений после достаточного поиска», «не найден релевантный источник», «поиск недоступен», «не удалось открыть страницу», «исчерпан бюджет», «не распознано изображение», «неполный coverage»; технические и неполные исходы не становятся ложным опровержением или уверенной частичной истиной.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc05_provider_error_is_not_empty_results, test_fc05_timeout_distinguished, test_fc05_empty_results_are_not_reported_as_down, test_fc05_provider_failures_classified_as_search_failed, test_fc05_budget_deadline_is_technical_status, test_fc05_page_open_error_is_source_extract_status, test_fc05_vision_failures_honest_notice; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Строго различены исходы: «нет подтверждений после достаточного поиска» (RETRIEVAL_NO_RESULTS), «не найден релевантный источник», «поиск недоступен» (provider_error), timeout — отдельно от provider_error, «не удалось открыть страницу» (extract_failures/opened=0), «исчерпан бюджет» (deadline), «не распознано изображение» (vision-оговорка), «неполный coverage» (status_detail); технические и неполные исходы не становятся ложным опровержением или уверенной частичной истиной.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00183_FC-05_2",
@@ -544,8 +1029,25 @@
       "acceptance": "При недоступном поиске факты и источники не сочиняются, выдаётся честный статус с возможностью повторного запуска; бессодержательный сниппет не подаётся как прочитанное доказательство, а URL не остаётся в ответе только ради блока «Источники».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc05_empty_search_never_invents_sources; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "При недоступном поиске факты и источники не сочиняются: diagnostics содержит technical_reason, citable_evidence_count==0 и технический класс RETRIEVAL_SEARCH_FAILED — честный статус с возможностью повторного запуска; бессодержательный сниппет не подаётся как прочитанное доказательство.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_factcheck_p0_fc.py @ a9e91310: test_url_less_retrieval_is_not_citable_not_parser_break",
+          "observation": "URL не остаётся в ответе только ради блока «Источники»: retrieval без открытой страницы не цитируем и не ломает парсер.",
+          "artifact_path": "tests/test_factcheck_p0_fc.py",
+          "artifact_sha256": "8e87f2f38a210158e370bbccce88539b15034b9c1624affdaeaa8a5057f5f040"
+        }
+      ]
     },
     {
       "source_id": "M00185_FC-05_3",
@@ -559,8 +1061,25 @@
       "acceptance": "После исправления контракта вердиктов версия cache-key повышена только для затронутых фактчек-путей либо обеспечена безопасная версионная инвалидация старых неверных записей; память, исторические данные и другие кеши не чистятся массово, доступ к настоящим evidence/run-логам сохраняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/temporal_factcheck.py @ a9e91310: комментарий §6.1 (P0-FACTCHECK-CORRECTIVE) — кеш готовых вердиктов factcheck_temporal удалён целиком (freshness-bucket/TTL/read/write); record_temporal_run и SmartCache других подсистем не затронуты",
+          "observation": "Затронутые фактчек-пути инвалидируются по построению: каждое обращение — актуальная проверка, старые неверные вердикты не отдаются вовсе; память, исторические данные и другие кеши массово не чистились, доступ к evidence/run-логам сохранён.",
+          "artifact_path": "services/temporal_factcheck.py",
+          "artifact_sha256": "3b941cf6f0ceab9d5dbe3ef5e13de7ba3f31b79cdabc53586b4f37beb7463bf5"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/prompt_registry.py @ a9e91310: версионный бамп только затронутых prompt-каналов — temporal.analyst/temporal.validator -> *-fc04-corrective (5baf6afaf2d8/e1c2038a835d), FACTORY_SET_SHA256_12 = 30a072887fdd (was a29e68dc1de6); seal_integrity()=={}",
+          "observation": "Версионная пометка контракта вердиктов выполнена точечно (два prompt-канала + fingerprint), безопасно устаревшие записи каналов не возвращаются; массовой инвалидации нет.",
+          "artifact_path": "services/prompt_registry.py",
+          "artifact_sha256": "2580ae47b145f0d96d3a756632aa73f6d02a89a77db2e041acba64971a34aedd"
+        }
+      ]
     },
     {
       "source_id": "M00189_FC-06_1",
@@ -619,8 +1138,25 @@
       "acceptance": "В приватной диагностике сохраняются все attempted queries и причины отказа кандидатов без утечки текста приватного чата, связанный correlation_id и цепочка claim_id → evidence_id → verdict; retrieved/opened/readable/supports/cited разделены, URL и наличие title доказательством не считаются, а semantic citation audit выполняется перед публикацией в существующем валидаторе без нового LLM-агента.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc07_attempted_queries_in_diagnostics + test_fc03_reddit_candidate_never_enters_citations; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "В приватной диагностике сохраняются все attempted queries и причины отказа кандидатов (off_topic_sources_dropped) под correlation_id, без утечки текста приватного чата; retrieved/opened/readable/supports/cited разделены (extract_successes/extract_failures/citable_evidence_count); URL и наличие title сами по себе доказательством не считаются; semantic citation audit выполняется в существующем валидаторе без нового LLM-агента.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/factcheck_service.py @ a9e91310: evidence_diagnostics, classify_retrieval, ClaimEvidence",
+          "observation": "Цепочка claim_id -> evidence_id -> verdict и разделение стадий retrieved/opened/readable/supports/cited закреплены структурой диагностики.",
+          "artifact_path": "services/factcheck_service.py",
+          "artifact_sha256": "311f8f2ec254612b1172a93f3ae7424bca1224e18e9623024d5f2a3b37e449cf"
+        }
+      ]
     },
     {
       "source_id": "M00199_FC-07_2",
@@ -634,8 +1170,25 @@
       "acceptance": "SafeFetcher, SSRF- и source-injection-защита сохранены: содержимое страниц остаётся недоверенными данными и никогда инструкциями; проверка ссылок совпадает с показанным пользователю текстом и фактической ролью evidence; автосгенерированная безосновательная «точность в процентах» не выдаётся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_mca02_safe_fetch_round1027.py @ a9e91310: регресс SafeFetcher (файлы не менялись диффом среза 661530a2..a9e91310, зелёный по ревью)",
+          "observation": "SafeFetcher сохранён: содержимое страниц проходит как недоверенные данные через существующие гарды и никогда не исполняется как инструкции; срез не ослаблял fetch-пайплайн.",
+          "artifact_path": "tests/test_mca02_safe_fetch_round1027.py",
+          "artifact_sha256": "768efca11e87aec8428f5d96d36893ff754c8516dac0b9755298246f6f95e0c7"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_soul13_ssrf_guard_order.py @ a9e91310: регресс SSRF-гардов и их порядка; source-injection защита не изменена",
+          "observation": "SSRF-защита и порядок проверок сохранены; проверка ссылок совпадает с показанным пользователю текстом и фактической ролью evidence — автосгенерированная «точность в процентах» не выдаётся (корректность формулировок без числовых фейков покрыта рендер-тестами FC-RENDER).",
+          "artifact_path": "tests/test_soul13_ssrf_guard_order.py",
+          "artifact_sha256": "23f182ada3d8838f5c01c315337d982165d5b04a8cfa677f2e7e532a7cdb784f"
+        }
+      ]
     },
     {
       "source_id": "M00209_C1_1",
@@ -649,8 +1202,25 @@
       "acceptance": "Статус действующей версии подтверждается сопоставлением реального per-chat resolver/PG/runtime, а drift показывается отдельным статусом, а не выводится из журнальной метки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_3_journal_fields_remain_journal_under_drift, test_pvr01_2_unmatched_text_is_honest_not_nearest_revision",
+          "observation": "Статус действующей версии подтверждается сопоставлением реального per-chat resolver/PG/runtime (resolve_effective_state + effective_drift); drift показывается отдельным статусом и никогда не выводится из журнальной метки.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "Сверка выполняется по фактическому рантайм-тексту, а не по журналу; расхождение журнала и рантайма — отдельный drift-статус.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "M00210_C1_2",
@@ -664,8 +1234,25 @@
       "acceptance": "Основной список содержит только revisions, события активации вторичны, а прошлые events никогда не помечаются active.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_api_versions_exposes_full_state_contract, test_c31_two_applied_events_of_one_revision_one_active_card",
+          "observation": "События активации отдаются бэкендом только как was_applied и никогда как active, включая прошлые события. Передача в PVR-UI: layout основного списка (только revisions, события вторично в деталях выбранной редакции).",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 5 (основной список = только revisionRows, пагинация по revisions_cursor; события отдельной лентой, загрузка по activations_cursor) + e2e: события никогда не активны и без activate/baseline-кнопок; review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: события отдельной лентой «История действий»",
+          "observation": "UI-часть handoff: основной список содержит только ревизии (rev-001.., курсор revisions_cursor), события активации — вторичный переключатель «История действий» (was_applied, курсор activations_cursor), без кнопок activate/baseline и никогда с меткой active; мутация «applied-событие попало в основной список / помечено active» падает.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
+        }
+      ]
     },
     {
       "source_id": "M00211_C1_3",
@@ -679,8 +1266,17 @@
       "acceptance": "Один Save создаёт ревизию и событие активации как две сущности аудита, но в интерфейсе это одна редакция, а реальные дубли предотвращаются идемпотентностью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c33_retry_and_double_click_create_no_duplicate_revision, test_c33_operation_id_replays_same_response_without_second_write",
+          "observation": "Один Save создаёт ревизию и событие активации как две сущности аудита (в интерфейсе одна редакция); реальные дубли предотвращены идемпотентностью по operation_id — retry и double-click повторяют ответ без второй записи.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "M00212_C1_4",
@@ -694,8 +1290,25 @@
       "acceptance": "Baseline, Active и Factory существуют отдельными полями и отдельными операциями, без неявных активаций при изменении указателей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_4_baseline_and_factory_are_separate_pointers",
+          "observation": "Baseline, Active и Factory — отдельные поля и отдельные операции; изменение указателей не влечёт неявных активаций (контрактный тест + раздельные эндпоинты activate/baseline/factory).",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "activate, baseline, baseline/restore, factory/restore — раздельные операции API.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00213_C1_5",
@@ -709,8 +1322,25 @@
       "acceptance": "Правки промптов интегрируются в актуальное состояние UNIFIED-REPLY после его завершения: тексты и их владелец не меняются, общие контракты не форкаются, второй экземпляр логики не появляется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_a32_history_preserved_and_journal_append_only",
+          "observation": "Дифф PVR-BACKEND (services/prompt_release_policy.py, web/api/routes.py, новый тест) не меняет ни одного текста промпта и их владельца; интеграция выполнена в актуальный HEAD UNIFIED-REPLY, общие контракты не форкнуты, второй экземпляр логики не появился.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "resolve_effective_state только читает реестр/журнал для вычисления effective-состояния; тексты не трогает.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "M00214_C1_6",
@@ -724,8 +1354,17 @@
       "acceptance": "Поиск выполняется для проверяемых внешних утверждений, а ссылка публикуется только при реальной доказательности; «почти всегда ищу» и бессмысленные ссылки взаимоисключают друг друга в наблюдаемом поведении.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_c16_off_topic_link_never_published_as_source + test_fc03_reddit_candidate_never_enters_citations; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Поиск выполняется для проверяемых внешних утверждений (per-claim план), но ссылка публикуется только при реальной доказательности: off-topic кандидат (золото/металлы при тезисе об осадках; Reddit-датировка при тезисе о тестостероне) не попадает в EvidenceMap/citations/footer — «почти всегда ищу» и бессмысленные ссылки взаимоисключены в наблюдаемом поведении.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00215_C1_7",
@@ -739,8 +1378,17 @@
       "acceptance": "Формальный proof-basis поддерживается отдельно: приводимая арифметика не требует внешних URL, а отсутствующие внешние источники не имитируются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_c17_logical_proof_basis_not_forced_insufficient; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Формальный proof-basis поддержан отдельно: приводимая арифметика с помеченным основанием (uncertainty basis*) не понижается принудительной недостаточностью и не требует внешних URL; отсутствующие внешние источники не имитируются.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00216_C1_8",
@@ -754,8 +1402,17 @@
       "acceptance": "mixed относится к доказательному содержанию, а coverage_partial — отдельная характеристика полноты проверки, не синоним mixed.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_c18_coverage_partial_is_not_mixed_synonym; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "mixed — только о доказательном содержании: часть с техническим исходом deadline_exceeded не делает вердикт mixed (остаётся insufficient_evidence), полнота проверки живёт отдельно в status_detail — не синоним mixed.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00217_C1_9",
@@ -769,8 +1426,17 @@
       "acceptance": "Агрегация выполняется после согласования исправленных частей, и старые статусы не поднимаются обратно после понижения валидатором.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc04_validator_downgrade_not_reescalated (мутация «возврат эскалации из старых parts» краснит тест); регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Агрегация выполняется после согласования исправленных валидатором частей: supported-часть понижена вместе с вердиктом (validator_suppressed=True, provenance evidence_refs сохранён), старые статусы не поднимаются обратно, а согласующееся с недостаточностью опровержение сохраняется.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        }
+      ]
     },
     {
       "source_id": "M00218_C1_10",
@@ -814,8 +1480,17 @@
       "acceptance": "Новая заводская редакция записывается при релизе, но закреплённый owner baseline и ручной текст не перетираются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c37_restart_creates_no_versions_and_keeps_pinned_text",
+          "observation": "Рестарт/релиз не создаёт новых версий и не перетирает закреплённый owner baseline и ручной текст владельца; заводская редакция при этом остаётся доступной как происхождение (factory_revision_id).",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "M00221_C1_13",
@@ -829,8 +1504,25 @@
       "acceptance": "Параллельные сохранения разрешаются сериализацией/optimistic concurrency и сверкой после commit, без оптимистически-фальшивого статуса active.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c33_conflicting_write_does_not_silently_overwrite",
+          "observation": "Параллельные сохранения разрешаются optimistic concurrency/revision compare без молчаливого перетирания; статус active не становится оптимистически-фальшивым — сверка по резолверу после commit.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "Конфликт отдаётся клиенту честным кодом (409/503 partial_save при ошибке кэша после успешного PG-коммита) вместо ложного «Сохранено и действует».",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00222_C1_14",
@@ -1056,8 +1748,17 @@
       "acceptance": "Полный набор исторических версий, активаций, заводских редакций, чатовых значений, owner baseline и истории правок доступен и после эпика; rollback и forward работают; любые корректировки появляются только дополнительными записями, существующие строки журнала не переписаны и не удалены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_a32_history_preserved_and_journal_append_only",
+          "observation": "Все исторические версии, активации, заводские и чатовые значения, owner baseline и история правок сохранены; журнал append-only — существующие строки не переписаны и не удалены, коррективы выполняются только дополнительными записями; rollback и forward работают на указателях.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "L00052",
@@ -1116,8 +1817,25 @@
       "acceptance": "Для любой пары (block_id, scope, chat_id) HTTP-ответ состояния отдаёт один объект с полями effective_origin/effective_content_hash/effective_revision_id/journal_last_activation_id/journal_active_revision_id/baseline_revision_id/factory_revision_id/draft_dirty; ни одно поле не выводится из одного лишь журнала, и подмена одного поля другим обнаруживается контрактным тестом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_state_contract_fields_present, test_api_versions_exposes_full_state_contract",
+          "observation": "HTTP-ответ состояния отдаёт один объект со всеми полями PVR-01: effective_origin/effective_content_hash/effective_revision_id, journal_last_activation_id/journal_active_revision_id, baseline_revision_id/factory_revision_id, draft_dirty; ни одно поле не выводится из одного лишь журнала, контрактный тест падает при подмене одного поля другим.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "Единый источник этих полей — EffectiveState/resolve_effective_state; journal-поля остаются журнальными, effective-поля вычисляются резолвером.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "L00064",
@@ -1131,8 +1849,25 @@
       "acceptance": "effective_origin принимает ровно одно из chat_override|global|code и совпадает с источником, из которого реально взят текст для выбранного чата в LLM-payload этого же кандидата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_1_effective_origin_matrix_matches_payload_resolver",
+          "observation": "Матрица origin (chat_override|global|code) сверена с реальным резолвером LLM-payload того же кандидата: effective_origin ровно одно из трёх значений и совпадает с фактическим источником текста выбранного чата.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "resolve_effective_state — тот же путь, которым формируется LLM-payload (per-chat override → global → исходник из кода).",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "L00065",
@@ -1146,8 +1881,17 @@
       "acceptance": "effective_content_hash равен sha сохранённого действующего текста; если текст действует, но не сопоставлен журналу, отдаётся effective_revision_id=null и статус «Не сопоставлено с историей» с диагностикой вместо визуально ближайшей редакции.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_2_unmatched_text_is_honest_not_nearest_revision",
+          "observation": "Текст, который действует, но не сопоставлен журналу, даёт effective_revision_id=null и честный статус «Не сопоставлено с историей» с безопасной диагностикой; ближайшая по содержанию/хэшу редакция не подставляется; effective_content_hash равен sha действующего текста.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "L00066",
@@ -1161,8 +1905,25 @@
       "acceptance": "journal_last_activation_id и journal_active_revision_id присутствуют отдельными полями и не используются как доказательство применённого текста: при расхождении с рантаймом они остаются журнальными, а не действующими.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_3_journal_fields_remain_journal_under_drift",
+          "observation": "journal_last_activation_id/journal_active_revision_id присутствуют отдельными полями и при расхождении с рантаймом остаются журнальными, а не «действующими»; расхождение детектируется effective_drift и отдаётся отдельным статусом.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "effective_drift — отдельный детектор расхождения журнала и рантайма, его результат не смешивается с effective-полями.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "L00067",
@@ -1176,8 +1937,17 @@
       "acceptance": "baseline_revision_id — отдельный указатель, который может не совпадать с действующим текстом; factory_revision_id отражает происхождение заводского текста и не подменяет baseline; API отдаёт их раздельно в одном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_4_baseline_and_factory_are_separate_pointers",
+          "observation": "baseline_revision_id — отдельный указатель владельца, который может не совпадать с действующим текстом; factory_revision_id отражает происхождение заводского текста; оба отдаются раздельными полями одного ответа и не подменяют друг друга.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "L00068",
@@ -1191,8 +1961,17 @@
       "acceptance": "draft_dirty описывает только несохранённое поле редактора, не участвует в выборе активной редакции и не попадает в состояние, от которого зависит LLM-payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_5_draft_dirty_is_editor_field_only",
+          "observation": "draft_dirty описывает только несохранённое поле редактора: не участвует в выборе активной редакции и не попадает в состояние, от которого зависит LLM-payload.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "L00074",
@@ -1206,8 +1985,17 @@
       "acceptance": "Сохранённая редакция и событие активации существуют как две разные сущности: на основном экране истории одна карточка на revision_id, события применения не становятся вторыми редакциями, append-only аудит не переписан ради удаления визуальных дублей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c31_two_applied_events_of_one_revision_one_active_card, test_a32_history_preserved_and_journal_append_only",
+          "observation": "Сохранённая редакция и событие активации — две разные сущности: основная лента отдаёт одну карточку на revision_id, события применения идут was_applied-записями в деталях ревизии, append-only аудит не переписан ради удаления визуальных дублей.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "L00082",
@@ -1761,8 +2549,17 @@
       "acceptance": "Переключение чата при несохранённом черновике показывает предупреждение, автосохранения не происходит, и введённый текст не теряется без решения пользователя.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/ui_prompt_version_card_e2e.py @ 9889d6e0: блок 11 «черновик: индикатор, подтверждение при смене чата, сохранение» (data-pv-dirty, scope-панель, диалог подтверждения); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: черновик переживает смену чата",
+          "observation": "e2e #11: ввод «ДОПИСАНО» даёт индикатор несохранённого черновика; смена чата спрашивает подтверждение (никакого автосохранения); после отмены подтверждения введённый текст остаётся в редакторе — черновик не потерян.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "5408e7664e2c55b27142ddd3622df68f63191dbd230430ee6ac1ae9b032606a9"
+        }
+      ]
     },
     {
       "source_id": "L00241",
@@ -1776,8 +2573,25 @@
       "acceptance": "Метки «Активная», «Базовая», «Из кода», «Импортирована», «Недоступна» не смешиваются в интерфейсе, а «Назначить базовой» не активирует ревизию.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/ui_prompt_version_card_e2e.py @ 9889d6e0: блок 5 «доступность действий: причины вместо кнопок» + блок 7 «Назначить базовой не меняет действующий текст» с B3-мутацией (assign дополнительно активирует — обязана падать); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: назначение не активирует",
+          "observation": "e2e #5: retired/несовместимые ревизии показывают «Недоступна» с причиной вместо кнопки (activate=false); e2e #7: «Назначить базовой» выводит «Базовая версия изменена, действующий текст пока прежний», уходит ровно один POST /baseline без POST /activate (мутация B3 падает), активная ревизия и текст редактора не изменились.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "5408e7664e2c55b27142ddd3622df68f63191dbd230430ee6ac1ae9b032606a9"
+        },
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 1 origin-метки из effective-контракта (без смешивания «Активная»/«Действует глобальная версия»/«Из кода») + § 7 retired/incompatible читаемы, но не активируемы (unit #7); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: labels not mixed",
+          "observation": "Метки статуса берутся из effective_* контракта и не смешиваются: chat_override → «Действует в этом чате», global → «Действует глобальная версия», code → «Из кода»; retired/incompatible ревизии показываются как читаемые, но без активирующих действий.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
+        }
+      ]
     },
     {
       "source_id": "L00242",
@@ -2016,8 +2830,25 @@
       "acceptance": "Возраст источника и дата публикации, claim-time и ChatClock учитываются согласованно, и результат не конфликтует с временным фактчеком.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "test",
+          "ref": "tests/test_fc_backend_corrective.py @ a9e91310: test_fc07_claim_time_not_overwritten_by_publication_date + test_fc07_chatclock_block_does_not_replace_source_dates; регресс tests/test_factcheck*.py @ a9e91310 — 496 passed (по согласованному ревью fc/backend)",
+          "observation": "Возраст источника и дата публикации, claim-time и ChatClock учитываются согласованно: период клейма (claim_period 2019) определяет evaluated_period и не подменяется датой публикации evidence (2023-06-01); момент анализа (as_of) отдельно; ChatClock добавляет время оценки отдельным блоком payload, не сдвигая даты публикаций — конфликтов с Temporal Factcheck нет.",
+          "artifact_path": "tests/test_fc_backend_corrective.py",
+          "artifact_sha256": "50281a01781c21075b0c6dd9e9bd752535826a5408f599cbd3b9cf875c4b9387"
+        },
+        {
+          "candidate_commit": "a9e91310e3c1a35a4e50783940b161b878ba8569",
+          "type": "static",
+          "ref": "services/temporal_factcheck.py @ a9e91310: TemporalClaimEnvelope (original_published_at/claim_period_from..to/precision), _default_evaluated_period",
+          "observation": "Claim-time и даты публикации — раздельные поля конверта; приоритет периода клейма при вычислении периода проверки закреплён в коде.",
+          "artifact_path": "services/temporal_factcheck.py",
+          "artifact_sha256": "3b941cf6f0ceab9d5dbe3ef5e13de7ba3f31b79cdabc53586b4f37beb7463bf5"
+        }
+      ]
     },
     {
       "source_id": "L00260",
@@ -2337,5 +3168,6 @@
     "unified-reply"
   ],
   "placement": "Следующий слот после завершения unified-reply среди ещё не начатых пакетов (queue_position immediately_after:unified-reply, подтверждено в plans/progress_scope.json). Уже идущие и ожидающие пакеты не вытесняются. Внутри эпика: PVR-BACKEND и FC-BACKEND могут идти параллельно (непересекающиеся наборы файлов, единственный спорный файл services/prompt_registry.py закреплён за FC-*), затем PVR-UI и FC-RENDER, затем PVR-E2E и FC-E2E, затем общий EPIC-CLOSE.",
-  "merge_state": "not_started"
+  "merge_state": "not_started",
+  "fc_backend_note": "FC-BACKEND (corrective 05-06.11.2026): строки привязаны VERIFIED по согласованному ревью ветки fc/backend @ a9e91310 — 26 контрактов tests/test_fc_backend_corrective.py, регресс tests/test_factcheck*.py 496 passed, мутирующие пробы ревьюера (topical gate, эскалация старых parts, source_kind=primary за fetch), печати prompt_registry seal_integrity()=={} (прогнано на cf9835a5). Prompt-pins в tests/test_p0_prompts_core.py и tests/test_expression_isolation_followup.py повторно согласованы на FACTORY_SET_SHA256_12=30a072887fdd (pin-only коммит a9e91310, trace-комментарий в services/prompt_registry.py). FC-01.2 привязан с verified_scope=contract: полная семантика распознавания реального изображения — live-приёмка. Вне утверждённого ревью списка не менялись: FC-06.x (FC-RENDER), родители FC-01..FC-07, C1.11, C4.x, A3.x."
 }

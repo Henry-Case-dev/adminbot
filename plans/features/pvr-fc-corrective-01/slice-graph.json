@@ -93,11 +93,7 @@
         "services/prompt_release_policy.py",
         "web/api/routes.py",
         "services/database.py",
-        "tests/test_pvr_c01_state_model.py",
-        "tests/test_pvr_c01_effective_resolver.py",
-        "tests/test_pvr_c02_revision_vs_activation.py",
-        "tests/test_pvr_c03_atomic_save_concurrency.py",
-        "tests/test_pvr_c05_history_pagination_rbac.py"
+        "tests/test_pvr_backend_state.py"
       ],
       "acceptance": "API состояния отдаёт полный набор полей PVR-01 (включая отдельные journal_* и baseline/factory) и вычисляет effective_* тем же resolver'ом, что и LLM-payload; на одной паре block_id/scope/chat_id не более одной «действует», при drift — ни одной; основная лента — только редакции, события вторичны; Save атомарен и идемпотентен по operation ID, конкурентная запись даёт 409 без потери черновика; 1000+ редакций проходятся курсором без полных тел; чужой X-Chat-Id не читает промпт.",
       "can_parallel_with": [

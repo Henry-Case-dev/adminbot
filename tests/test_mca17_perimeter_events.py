@@ -204,8 +204,18 @@ async def test_import_history_fts_terminal_success(tmp_path):
 # ── goodmorning.run (services/goodmorning_scheduler.py) ──────────────────────
 
 def _gm_service(relay, targets):
+    from services import slot_claims
     from services.goodmorning_scheduler import GoodmorningSchedulerService
-    return GoodmorningSchedulerService(relay, "07:00", "UTC", targets)
+    slot_claims.reset_in_memory_claims()
+    return GoodmorningSchedulerService(relay, "07:00", targets)
+
+
+def _gm_due_utc():
+    """07:00 локального Asia/Yekaterinburg (+5) = 02:00 UTC; +30 c — внутри
+    due-окна слота (UR-C-SCHED: пояс чата резолвит ChatClock)."""
+    import datetime
+    return datetime.datetime(2026, 1, 15, 2, 0, 30,
+                             tzinfo=datetime.timezone.utc)
 
 
 @pytest.mark.asyncio
@@ -215,7 +225,7 @@ async def test_goodmorning_run_success_and_silent_and_skipped():
     relay.send_goodmorning.return_value = True
     svc = _gm_service(relay, (-1001, -1002))
     with patch.object(permsoc, "block_enabled", AsyncMock(return_value=True)):
-        await svc._tick()
+        await svc._tick(now_utc=_gm_due_utc())
     ev = _last("goodmorning_run")
     assert ev["outcome"] == "success"
     assert json.loads(ev["usage_json"])["sent"] == 2
@@ -225,12 +235,12 @@ async def test_goodmorning_run_success_and_silent_and_skipped():
     relay2.send_goodmorning.return_value = False   # папка релея пуста
     svc2 = _gm_service(relay2, (-1001,))
     with patch.object(permsoc, "block_enabled", AsyncMock(return_value=True)):
-        await svc2._tick()
+        await svc2._tick(now_utc=_gm_due_utc())
     assert _last("goodmorning_run")["outcome"] == "silent"
 
     mca_events.reset_pending()
     svc3 = _gm_service(AsyncMock(), ())
-    await svc3._tick()
+    await svc3._tick(now_utc=_gm_due_utc())
     ev3 = _last("goodmorning_run")
     assert ev3["outcome"] == "skipped"
     assert ev3["reason_code"] == "disabled"
@@ -243,7 +253,7 @@ async def test_goodmorning_run_failed_emit_on_delivery_error():
     relay.send_goodmorning.side_effect = RuntimeError("telegram down")
     svc = _gm_service(relay, (-1001,))
     with patch.object(permsoc, "block_enabled", AsyncMock(return_value=True)):
-        await svc._tick()                    # fail-open: тик не падает
+        await svc._tick(now_utc=_gm_due_utc())   # fail-open: тик не падает
     ev = _last("goodmorning_run")
     assert ev["outcome"] == "failed"
     assert ev["level"] == "WARN"

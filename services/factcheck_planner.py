@@ -239,7 +239,14 @@ class ClaimUnit:
 
 @dataclasses.dataclass(frozen=True)
 class ClaimEvidence:
-    """§3.1: доказательство с РОЛЬЮ для конкретного claim."""
+    """§3.1: доказательство с РОЛЬЮ для конкретного claim.
+
+    FC-03.2 (corrective 05.11.2026): кандидат хранит provenance-набор —
+    claim_id, url, нормализованный title, extracted passage (``note``/роль
+    в ClaimCoverage), дата/тип источника, relation (роль) и strength
+    (direct/indirect), плюс факт открытия страницы. Нечитаемая страница не
+    помечается прочитанной (``opened=False``), одна ссылка не доказывает
+    все части (claim_id входящей части)."""
     claim_id: str
     evidence_id: str
     url: str | None = None
@@ -247,6 +254,13 @@ class ClaimEvidence:
     published_at: int | None = None
     event_at: int | None = None
     note: str = ""
+    #: FC-03.2: direct — источник прямо подтверждает/опровергает тезис;
+    #: indirect — уточняет/косвенный (форум, корреляция без причинной связки)
+    strength: str = ""
+    #: нормализованный заголовок кандидата (первое предложение выдержки)
+    title: str = ""
+    #: страница кандидата была открыта и прочитана в этом прогоне
+    opened: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -257,6 +271,9 @@ class ClaimEvidence:
             "published_at": self.published_at,
             "event_at": self.event_at,
             "note": self.note,
+            "strength": self.strength,
+            "title": self.title,
+            "opened": self.opened,
         }
 
 
@@ -414,6 +431,37 @@ def _years(text: str) -> list[str]:
     return years[:3]
 
 
+#: FC-01.1/FC-02.2 (corrective 05.11.2026): собственные служебные обёртки
+#: материала изображений (метки способа распознавания/инструментов) — не
+#: тезис и не поисковые термы. Убираются ТОЛЬКО на поисковом пути; тексты
+#: внутри обёрток остаются тезисом (для картинки это и есть утверждение).
+#: Inline-совпадение: предложение-разбиение может отрезать метку от
+#: закрывающей скобки, поэтому сбрасываются и строки-остатки меток.
+_SEARCH_SERVICE_LABEL_RE = re.compile(
+    r"Текст с изображения(?:\s+\d+)?[ \t]*"
+    r"\(OCR, не слова автора\)[ \t]*:?"
+    r"|Визуальное описание изображения(?:\s+\d+)?[ \t]*"
+    r"\(результат модели;[^)]*\)[ \t]*:?")
+
+_SEARCH_LABEL_PREFIXES = ("Текст с изображения",
+                          "Визуальное описание изображения")
+
+
+def search_thesis_text(text: str) -> str:
+    """Тезис для ПОИСКОВОГО пути: без служебных обёрток OCR/vision-меток
+    (FC-01.1: служебные данные хранятся отдельно от формулировки тезиса и
+    никогда не считаются доказательством; FC-02.2: произвольный OCR-блок с
+    техметками в публичный поисковик не уходит — запросы строятся от
+    смысловых формулировок). Детерминированно, без LLM."""
+    cleaned = _SEARCH_SERVICE_LABEL_RE.sub("", str(text or ""))
+    lines = []
+    for line in cleaned.splitlines():
+        if line.strip().startswith(_SEARCH_LABEL_PREFIXES):
+            continue          # строка-остаток метки (после разбиения на части)
+        lines.append(line)
+    return re.sub(r"\n{2,}", "\n", "\n".join(lines)).strip()
+
+
 def _make_query(terms: list[str], intent: str, *, tail: str = "",
                 quoted: str = "", claim_id: str = "",
                 purpose: str = QUERY_PURPOSE_BASE) -> SearchQuery | None:
@@ -462,21 +510,31 @@ def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
     BGS-01: часть принимается только если она — фрагмент ПРОВЕРЯЕМОГО
     клейма. Иначе план искал бы не тот текст, который проверяет вердикт
     (например, атрибуционная обвязка «X сказал» осталась бы в запросе,
-    хотя проверяется тезис)."""
+    хотя проверяется тезис).
+
+    FC-01.1/FC-02.2 (corrective 05.11.2026): служебные обёртки материала
+    изображений (наши метки OCR/vision) вынесены из ПОИСКОВОГО пути ДО
+    разбиения на предложения — тезис для запросов строится из содержательных
+    формулировок, служебные метки не уходят в публичный поисковик. Сам клейм
+    для аналитика остаётся с метками."""
+    claim_thesis = search_thesis_text(claim).strip()
+    claim_low = claim_thesis.lower()
     units: list[str] = []
-    claim_low = str(claim or "").strip().lower()
     for item in items or ():
-        text = str(getattr(item, "text", "") or "").strip()
-        if claim_low and text.lower() not in claim_low:
+        text = search_thesis_text(
+            str(getattr(item, "text", "") or "")).strip()
+        if not text:
             continue
-        if text and getattr(item, "verifiable", True) is not False \
+        if claim_thesis and text.lower() not in claim_low:
+            continue
+        if getattr(item, "verifiable", True) is not False \
                 and text.lower() not in {u.lower() for u in units}:
             units.append(text)
     if not units or (len(units) == 1 and units[0].lower() == claim_low):
-        # гейт не декомпозировал → предложения самого клейма
-        units = [s.strip() for s in re.split(r"(?<=[.!?;])\s+", claim)
-                 if s.strip()] or [claim]
-    return [u for u in units if u][:cap]
+        # гейт не декомпозировал → предложения тезиса без служебных меток
+        units = [s.strip() for s in re.split(r"(?<=[.!?;])\s+", claim_thesis)
+                 if s.strip()] or [claim_thesis]
+    return [search_thesis_text(u) for u in units if u][:cap]
 
 
 _YEAR_ONLY_RE = re.compile(
@@ -865,7 +923,8 @@ def _build_plan_inner(decision, *, claim_text, max_queries
     # числа частей (§3.2), а не «≤3 на всю новость».
     units = build_claim_units(items, claim)
     if not units:
-        units = (ClaimUnit(claim_id="c1", text=claim),)
+        units = (ClaimUnit(claim_id="c1",
+                           text=search_thesis_text(claim)),)
     explicit_cap = max_queries is not None and int(max_queries) > 0
     max_queries_value = (int(max_queries) if explicit_cap
                          else adaptive_query_budget(len(units)))
@@ -1034,8 +1093,15 @@ def _excerpt_from_html(html_text: str, *, limit: int = _EXCERPT_MAX_CHARS
 async def fetch_primary_evidence(url: str, *, fetch_text=None,
                                  max_bytes: int = 65536,
                                  timeout: float = 4.0) -> EvidenceRef | None:
-    """Первоисточник через СУЩЕСТВУЮЩИЙ SafeFetcher (REUSE; инъекция
-    `fetch_text` — прецедент enrich_evidence_dates). Fail-open → None."""
+    """Открыть страницу-кандидат через СУЩЕСТВУЮЩИЙ SafeFetcher (REUSE;
+    инъекция `fetch_text` — прецедент enrich_evidence_dates). Fail-open →
+    None.
+
+    FC-03.3 (corrective 05.11.2026): успешный fetch больше НЕ повышает
+    ``source_kind`` до primary. Тип источника — по происхождению
+    (``classify_source_kind``: gov/edu/research/reference/secondary), поэтому
+    форум, соцпост или SEO-пересказ после открытия страницы остаются
+    secondary и «первоисточником» не становятся."""
     if not url or not str(url).lower().startswith(("http://", "https://")):
         return None
     try:
@@ -1053,7 +1119,8 @@ async def fetch_primary_evidence(url: str, *, fetch_text=None,
         return None
     published_at, _source = tf.parse_publication_date(html_text, url)
     return EvidenceRef(evidence_id="", url=str(url), support=excerpt,
-                       source_kind="primary", published_at=published_at)
+                       source_kind=classify_source_kind(str(url)),
+                       published_at=published_at)
 
 
 def _assemble(refs: list[EvidenceRef]) -> EvidenceMap | None:
@@ -1170,6 +1237,10 @@ class RetrievalOutcome:
     #: осталось без попытки именно из-за дедлайна стадии. Отдельный счётчик:
     #: это не `source_extract_failed` и не «материалы не удалось разобрать».
     fetch_skipped_deadline: int = 0
+    #: FC-07.1 (corrective 05.11.2026): все attempted queries прогона —
+    #: в приватную диагностику (корреляция с correlation_id); это уже
+    #: деперсонализированные строки, ушедшие в поисковик, а не текст чата.
+    attempted_queries: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -1235,6 +1306,9 @@ class _ClaimRun:
         self.irrelevant = 0
         #: тексты уже выполненных запросов этой части (без повторов «того же»)
         self.attempted_texts: set[str] = set()
+        #: FC-07.1: URL, открытые и прочитанные в этом прогоне (run-level
+        #: ``opened`` остаётся счётчиком; здесь — факт открытия по кандидату)
+        self.opened_urls: set[str] = set()
         #: найденая публикация оказалась старше заявленного события (§3.3)
         self.stale_hit = False
 
@@ -1317,6 +1391,16 @@ def _gap_note(status_detail: str, *, stale: bool = False,
     return note
 
 
+def _normalized_title(support: str, *, limit: int = 200) -> str:
+    """FC-03.2: нормализованный title кандидата — первое предложение
+    выдержки (support = «title. snippet» у строк поиска). Детерминированно."""
+    text = re.sub(r"\s{2,}", " ", str(support or "")).strip()
+    if not text:
+        return ""
+    first = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0]
+    return first[:limit].strip()
+
+
 def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
     """Итог части: статус поиска, детализированный исход, роль/ссылки, пробел."""
     claim = run.claim
@@ -1391,7 +1475,10 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
         claim_id=claim.claim_id, evidence_id=str(getattr(ref, "evidence_id", "")
                                                 or ""),
         url=ref.url, role=role, published_at=getattr(ref, "published_at", None),
-        event_at=claim.event_at, note=note_item)
+        event_at=claim.event_at, note=note_item,
+        strength=_relevance_for(ref, claim).strength,
+        title=_normalized_title(ref.support),
+        opened=(str(ref.url or "") in run.opened_urls))
         for ref, role, note_item in roles)
     return ClaimCoverage(
         claim=claim, search_status=search_status, status_detail=detail,
@@ -1649,9 +1736,12 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                     continue
                 fetched_total += 1
                 run.opened += 1
+                run.opened_urls.add(str(primary.url or ""))
                 key = run.key(primary)
                 previous = run.bound.get(key)
-                kind = str(primary.source_kind or "primary")
+                # FC-03.3: тип источника — по происхождению URL
+                # (classify_source_kind при открытии), а не по факту fetch.
+                kind = str(primary.source_kind or "secondary")
                 if previous is not None:
                     # Открытая страница даёт полную выдержку и дату, но не
                     # превращает энциклопедию/исследование в «первоисточник»:
@@ -1708,6 +1798,12 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     if eligible_urls and loop.time() >= deadline:
         # Дедлайн — фактическая причина, по которой открытие не состоялось.
         fetch_skipped = len([u for u in eligible_urls if u not in seen_urls])
+    # FC-07.1: attempted queries прогона (порядок попыток, без повторов).
+    attempted: list[str] = []
+    for run in runs:
+        for text in run.attempted_texts:
+            if text not in {a.lower() for a in attempted}:
+                attempted.append(text)
     return RetrievalOutcome(
         evidence_map=evidence_map, search_text=search_text,
         queries_attempted=counters["attempted"], queries_used=counters["used"],
@@ -1722,7 +1818,8 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         stale_sources_dropped=counters["stale"],
         refine_calls=counters["refine"],
         budget_seconds=budget,
-        fetch_skipped_deadline=fetch_skipped)
+        fetch_skipped_deadline=fetch_skipped,
+        attempted_queries=tuple(attempted))
 
 
 def _strong_binding_count(ref: EvidenceRef, runs: list[_ClaimRun]) -> int:

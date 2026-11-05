@@ -273,6 +273,7 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                     _gate_refusal_text(publication, FACTCHECK_CLARIFY_PHRASES),
                     delivery_reply_to)
                 return "ambiguous"
+            run_id = None
             if envelope is not None:
                 run = await _service.check_claim_envelope(
                     envelope, chat_context=chat_context or None)
@@ -294,10 +295,30 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                     target_text, user_hint, forward_source, chat_id=chat_id,
                     chat_context=chat_context or None)
                 verdict_text = verdict
-            await send_chunked_reply(bot, chat_id,
-                                     _with_publication_notice(verdict_text,
-                                                              publication),
-                                     delivery_reply_to)
+            delivered_text = _with_publication_notice(verdict_text,
+                                                      publication)
+            sent_ids: list = []
+            await send_chunked_reply(bot, chat_id, delivered_text,
+                                     delivery_reply_to, sent_ids=sent_ids)
+            # UR-23.4 (UR-C): доставленный фактчек-ответ — в тот же durable
+            # ledger `mca_bot_outputs`, что и другие прямые ответы (MCA-22
+            # C2): без записи ответ невидим для «бот помнит свои ответы»
+            # (UR-23) и duplicate/observability-логики. Только после
+            # подтверждённой отправки (sent_ids непуст); форма записи и
+            # маркер ветки (`source_feature='factcheck'`) — в
+            # `record_factcheck_output`. Fail-open: запись не рвёт доставку;
+            # verdict/content pipeline не затронут.
+            if sent_ids:
+                from services import bot_output_ledger as _bol
+                from services import usage_events as _ue
+                await _bol.record_factcheck_output(
+                    _db, chat_id=chat_id,
+                    tg_message_id=sent_ids[0], text=delivered_text,
+                    bot_user_id=getattr(bot, "id", None),
+                    parent_message_ref=(f"tg:{delivery_reply_to}"
+                                        if delivery_reply_to is not None
+                                        else None),
+                    correlation_id=(run_id or _ue.new_correlation_id()))
         logger.info("[factcheck] temporal verdict sent | chat=%s", chat_id)
         return "verdict"
     except LLMBadResponseError as exc:
@@ -1319,10 +1340,25 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                 target_text, user_hint, forward_source, chat_id=message.chat.id,
                 chat_context=chat_context or None,
             )
-            await send_chunked_reply(
-                bot, message.chat.id,
-                _with_publication_notice(verdict, publication),
-                delivery_reply_to)
+            delivered_text = _with_publication_notice(verdict, publication)
+            sent_ids: list = []
+            await send_chunked_reply(bot, message.chat.id, delivered_text,
+                                     delivery_reply_to, sent_ids=sent_ids)
+            # UR-23.4 (UR-C): ledger доставленного ответа — как в temporal
+            # ветке выше (тот же `record_factcheck_output`); только после
+            # подтверждённой отправки, fail-open. Здесь нет temporal run_id —
+            # честный новый correlation_id доставки.
+            if sent_ids:
+                from services import bot_output_ledger as _bol
+                from services import usage_events as _ue
+                await _bol.record_factcheck_output(
+                    _db, chat_id=message.chat.id,
+                    tg_message_id=sent_ids[0], text=delivered_text,
+                    bot_user_id=getattr(bot, "id", None),
+                    parent_message_ref=(f"tg:{delivery_reply_to}"
+                                        if delivery_reply_to is not None
+                                        else None),
+                    correlation_id=_ue.new_correlation_id())
         # P0-FACTCHECK-CORRECTIVE (§6): записи вердикт-кеша больше нет —
         # успешная генерация доставляется без кеширования (59.2-идемпотент-
         # ность одного запуска и защита от двойной отправки сохранены).

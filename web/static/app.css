@@ -8874,6 +8874,17 @@ body > .sticky-save[data-save-panel] {
 .pv-row__view { margin-top: 4px; min-width: 0; }
 .pv-pre--full { max-height: 40vh; }
 .pv-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0; }
+/* PVR-02.2: вторичная лента «История действий» — спокойные серые метаданные,
+   без активных акцентов: события не редакции и никогда не «active». */
+.pv-events {
+  margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid var(--surface-border, rgba(255, 255, 255, .1));
+}
+.pv-events__title {
+  font-size: var(--ctl-font-sm); color: #64748B; margin-bottom: 4px;
+}
+.pv-row--event { opacity: .85; }
+.pv-row--event .pv-row__status { background: rgba(148, 163, 184, .12); }
 .pv-diff-title { font-size: var(--ctl-font-sm); color: #93C5FD; margin-top: 8px; }
 .pv-diff {
   max-width: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;

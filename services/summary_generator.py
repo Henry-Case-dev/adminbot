@@ -3047,12 +3047,18 @@ class SummaryGenerator:
         недоставленный draft не записывается (§4: недоставленное ≠ слова
         бота). db — default-binding ledger (`setup_summary`); gate OFF /
         db нет → честный skip. Правка не применима (статьи не редактируются
-        ботом). Хеш/текст — стабильный plain-рендер документа."""
+        ботом). Хеш/текст — стабильный plain-рендер документа. UR-23.4:
+        хранится ПОЛНЫЙ доставленный текст (без молчаливого preview по
+        [:20000]); content_hash — над тем же полным текстом."""
         try:
             from services import bot_output_ledger as _bol
             stored = None
             if text:
-                stored = str(text)[:20000]
+                # UR-23.4: полная текстовая идентификация — БЕЗ молчаливого
+                # preview по [:20000]; content_hash считается над тем же
+                # полным текстом, что хранится (content-hash барьер ищет
+                # по полному plain-рендеру документа).
+                stored = str(text)
             output_id = await _bol.record_delivered_output(
                 None, chat_id=chat_id,
                 tg_message_id=(message_id

@@ -314,7 +314,12 @@ class TestPerClaimVerdicts:
         return tf.verdict_from_payload(payload, _env(claim),
                                        allowed_refs=allowed_refs)
 
-    def test_partial_support_is_mixed_not_insufficient(self):
+    def test_partial_support_stays_insufficient_with_parts(self):
+        """FC-04.5 (corrective 05.11.2026): mixed требует подтверждения
+        одной значимой части И независимого опровержения/квалификации
+        другой. Частичное подтверждение при непроверенных остальных —
+        честный insufficient_evidence; подтверждённая часть остаётся
+        видна в parts («подтверждена только …»)."""
         v = self._verdict({
             "factual_verdict": "insufficient_evidence",
             "temporal_status": "unknown",
@@ -324,9 +329,13 @@ class TestPerClaimVerdicts:
                 {"part_id": "p2", "factual_verdict": "insufficient_evidence",
                  "note": "числа в выдержках отсутствуют"},
             ]})
-        assert v.factual_verdict == "mixed"     # было: insufficient_evidence
+        assert v.factual_verdict == "insufficient_evidence"
+        assert v.parts[0]["factual_verdict"] == "supported"   # разбор жив
 
-    def test_refuted_part_with_unknown_rest_is_mixed(self):
+    def test_refuted_part_with_unknown_rest_is_not_mixed(self):
+        """FC-04.5 (corrective 05.11.2026): один опровергнутый элемент при
+        непроверенных остальных НЕ даёт mixed — частичный случай остаётся
+        insufficient_evidence, опровержение видно в parts."""
         v = self._verdict({
             "factual_verdict": "insufficient_evidence",
             "temporal_status": "unknown",
@@ -334,7 +343,8 @@ class TestPerClaimVerdicts:
                 {"part_id": "p1", "factual_verdict": "refuted"},
                 {"part_id": "p2", "factual_verdict": "insufficient_evidence"},
             ]})
-        assert v.factual_verdict == "mixed"
+        assert v.factual_verdict == "insufficient_evidence"
+        assert v.parts[0]["factual_verdict"] == "refuted"     # разбор жив
 
     def test_all_insufficient_parts_stay_insufficient(self):
         v = self._verdict({
@@ -355,10 +365,11 @@ class TestPerClaimVerdicts:
             ]})
         assert v.factual_verdict == "mixed"
 
-    def test_validator_cannot_bury_supported_parts(self):
-        """Production-трасса: аналитик дал нюансный черновик, validator
-        «поправил» на insufficient_evidence — серверный guard сохраняет
-        частичные результаты (TH-2 не обходится через corrected)."""
+    def test_validator_downgrade_applies_to_both_sides(self):
+        """C1.9/FC-04.6 (corrective 05.11.2026): понижение validator'ом
+        применяется согласованно к вердикту И разбору частей — агрегатор
+        не поднимает старый статус из частей. Частичный разбор сохраняется
+        в пометке пониженной части (не стирается)."""
         env = _env(VAPING_CLAIM)
         draft = tf.verdict_from_payload({
             "factual_verdict": "mixed", "temporal_status": "current",
@@ -373,8 +384,50 @@ class TestPerClaimVerdicts:
                     "corrected_factual_verdict": "insufficient_evidence",
                     "note": "выдержки не подтверждают всё утверждение"},
             env)
-        assert applied is True                  # коррекция принята…
-        assert corrected.factual_verdict == "mixed"   # …но части не спрятаны
+        assert applied is True
+        assert corrected.factual_verdict == "insufficient_evidence"
+        part1 = next(p for p in corrected.parts
+                     if p.get("part_id") == "p1")
+        assert part1["factual_verdict"] == "insufficient_evidence"
+        assert "validator" in str(part1.get("gap_note") or "")
+        assert part1.get("evidence_refs") == ["ev-1"]   # provenance жив
+
+    def test_validator_downgrade_keeps_consistent_refutation(self):
+        """C1.9 (corrective 05.11.2026): опровержение части согласуется с
+        insufficient_evidence целого — не понижается и не поднимает статус;
+        полное опровержение всех частей при corrected=insufficient
+        понижается (иначе агрегат вернул бы refuted)."""
+        env = _env(VAPING_CLAIM)
+        draft = tf.verdict_from_payload({
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "parts": [
+                {"part_id": "p1", "factual_verdict": "refuted"},
+                {"part_id": "p2", "factual_verdict": "insufficient_evidence"},
+            ]}, env)
+        corrected, applied = tf.apply_validator(
+            draft, {"agree": False,
+                    "corrected_factual_verdict": "insufficient_evidence",
+                    "note": "n"},
+            env)
+        assert applied is True
+        assert corrected.factual_verdict == "insufficient_evidence"
+        assert corrected.parts[0]["factual_verdict"] == "refuted"
+        both_refuted = tf.verdict_from_payload({
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "parts": [
+                {"part_id": "p1", "factual_verdict": "refuted"},
+                {"part_id": "p2", "factual_verdict": "refuted"},
+            ]}, env)
+        fixed, _applied = tf.apply_validator(
+            both_refuted, {"agree": False,
+                           "corrected_factual_verdict":
+                               "insufficient_evidence", "note": "n"},
+            env)
+        assert fixed.factual_verdict == "insufficient_evidence"
+        assert all(p.get("factual_verdict") == "insufficient_evidence"
+                   for p in fixed.parts)
 
     def test_parts_evidence_refs_respect_allowlist(self):
         v = self._verdict(
@@ -382,7 +435,8 @@ class TestPerClaimVerdicts:
              "parts": [{"part_id": "p1", "factual_verdict": "supported",
                         "evidence_refs": ["ev-1", "ev-99"]}]},
             allowed_refs=("ev-1",))
-        assert v.factual_verdict == "mixed"   # top не завышается агрегатом
+        # FC-04.5: mixed без двухстороннего содержания в частях — не mixed
+        assert v.factual_verdict == "insufficient_evidence"
         assert v.parts[0]["evidence_refs"] == ["ev-1"]  # выдуманный ev-99 срезан
 
 
@@ -629,25 +683,26 @@ class TestVapingReplayOffline:
         return agg, db, bot
 
     @pytest.mark.asyncio
-    async def test_mixed_verdict_with_per_claim_rendering(
+    async def test_validator_downgrade_yields_honest_insufficient(
             self, monkeypatch, planner_on, date_fetch_off):
         agg, db, bot = await self._run(monkeypatch, ReplayLLM())
         # FC-UNIFY: единый retrieval — агрегатор звался планировщиком
         assert agg.search_calls
         run = db.runs[0]
         assert run["pipeline_version"] == "tf3"
-        # FC-PERCLAIM: mixed вместо глобального insufficient_evidence
-        # (production было: insufficient/unknown + reason=null)
-        assert run["factual_verdict"] == "mixed"
+        # C1.9/FC-04.6 (corrective 05.11.2026): validator не подтвердил
+        # черновик по выдержкам — понижение применяется согласованно, старый
+        # mixed из частей не поднимается; разбор остаётся в пометках parts.
+        assert run["factual_verdict"] == "insufficient_evidence"
         assert run["temporal_status"] == "current"
         # evidence дошёл до аналитика из единого контура (wiki+cdc+primary)
         kinds = {r["source_kind"] for r in run.get("evidence", [])}
         assert "reference" in kinds and "primary" in kinds
         assert any(r["published_at"] for r in run.get("evidence", []))
-        # FC-RENDER: было «Недостаточно данных» + 6 безадресных хостов
+        # FC-04.5: частичный случай — честный заголовок недостаточности
         markup = bot.sent[0]["text"]
-        assert "<b>Подтверждается частично</b>" in markup
-        assert "Недостаточно данных" not in markup
+        assert "Недостаточно данных" in markup
+        assert "<b>Подтверждается частично</b>" not in markup
         # ASAP-FC-VOICE-01 / A (§5): «По утверждениям» — FALLBACK проверенных
         # данных, а не обязательный блок: при содержательном теле Writer'а тот
         # же разбор второй раз не повторяется.
@@ -662,20 +717,50 @@ class TestVapingReplayOffline:
         assert "instagram" not in markup        # мусорного списка нет
 
     @pytest.mark.asyncio
-    async def test_all_parts_supported_is_supported(
+    async def test_all_supported_parts_with_agreeing_validator_is_supported(
+            self, monkeypatch, planner_on, date_fetch_off):
+        class AgreeLLM(ReplayLLM):
+            async def generate(self, messages, **kw):
+                if kw.get("step") == "temporal_validator":
+                    return json.dumps({"agree": True,
+                                       "corrected_factual_verdict": None,
+                                       "corrected_temporal_status": None,
+                                       "note": "выдержки подтверждают"},
+                                      ensure_ascii=False)
+                return await super().generate(messages, **kw)
+
+        llm = AgreeLLM(parts_payload=[
+            {"part_id": "p1", "factual_verdict": "supported",
+             "evidence_refs": ["ev-1"]},
+            {"part_id": "p2", "factual_verdict": "supported",
+             "evidence_refs": ["ev-2"]},
+        ], top="insufficient_evidence")
+        _agg, db, bot = await self._run(
+            monkeypatch, llm,
+            claim="в городе N открыли новый мост длиной 500 метров. "
+                  "строительство шло три года и стоило 10 млрд рублей",
+            verbalized="Мост открыт. Параметры подтверждаются.")
+        # §3.5: все части подтверждены → supported; C1.9: validator согласен,
+        # поэтому понижения нет и статус не теряется.
+        assert db.runs[0]["factual_verdict"] == "supported"
+
+    @pytest.mark.asyncio
+    async def test_validator_downgrade_wins_over_supported_parts(
             self, monkeypatch, planner_on, date_fetch_off):
         llm = ReplayLLM(parts_payload=[
             {"part_id": "p1", "factual_verdict": "supported",
              "evidence_refs": ["ev-1"]},
             {"part_id": "p2", "factual_verdict": "supported",
              "evidence_refs": ["ev-2"]},
-        ])
+        ], top="insufficient_evidence")
         _agg, db, bot = await self._run(
             monkeypatch, llm,
             claim="в городе N открыли новый мост длиной 500 метров. "
                   "строительство шло три года и стоило 10 млрд рублей",
             verbalized="Мост открыт. Параметры подтверждаются.")
-        assert db.runs[0]["factual_verdict"] == "supported"
+        # C1.9 (corrective 05.11.2026): validator не подтвердил по выдержкам —
+        # старый supported из частей агрегатором не возвращается.
+        assert db.runs[0]["factual_verdict"] == "insufficient_evidence"
 
     @pytest.mark.asyncio
     async def test_refuted_part_reported_not_hidden(
@@ -691,7 +776,11 @@ class TestVapingReplayOffline:
                   "публикацию удалили с сайта ведомства",
             verbalized="Запрет туризма не подтверждается. Судьба публикации "
                        "неясна.")
-        assert db.runs[0]["factual_verdict"] == "mixed"
+        # FC-04.5/C1.9: один опровергнутый элемент при непроверенных
+        # остальных — не mixed; validator не подтвердил черновик — честная
+        # недостаточность, а разбор (опровергнутая часть) согласуется с ней
+        # и не стирается.
+        assert db.runs[0]["factual_verdict"] == "insufficient_evidence"
         markup = bot.sent[0]["text"]
         assert "не подтверждается" in markup    # разбор части виден
 
