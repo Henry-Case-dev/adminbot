@@ -5089,15 +5089,13 @@ class DirectChatService:
                             # ограничивается универсальным longform-4096 —
                             # ставится вычисленное физически допустимое
                             # значение (неизвестный ресурс → None → ключа нет).
+                            # Модель/endpoint — только от клиента хода.
                             max_output_tokens=await _extent.
                             writer_max_output_tokens(
                                 model=str(getattr(self.llm, "_chat_model", "")
-                                          or getattr(settings,
-                                                     "LLM_MODEL_NAME", "")
                                           or ""),
                                 base_url=str(getattr(self.llm, "_base_url", "")
-                                             or getattr(settings,
-                                                        "LLM_BASE_URL", "")),
+                                             or ""),
                                 input_tokens=sum(
                                     count_tokens(str(m.get("content") or ""))
                                     for m in payload)))
@@ -7857,13 +7855,14 @@ class DirectChatService:
         # активным маршрутом больше не подставляются; неизвестный ресурс →
         # None → ключ max_tokens не отправляется (дефолт провайдера). Явный
         # ``max_tokens`` от вызывающего остаётся точечным override.
+        # Модель/endpoint — ТОЛЬКО от инжектированного клиента (как во всей
+        # остальной трассе этой функции): двойник без атрибутов даёт пустые
+        # строки → локальный резолв без сети, никаких живых probe из хода.
         _writer_max_tokens = max_tokens
         if _writer_max_tokens is None:
             _writer_max_tokens = await _extent.writer_max_output_tokens(
-                model=str(getattr(self.llm, "_chat_model", "")
-                          or getattr(settings, "LLM_MODEL_NAME", "") or ""),
-                base_url=str(getattr(self.llm, "_base_url", "")
-                             or getattr(settings, "LLM_BASE_URL", "")),
+                model=str(getattr(self.llm, "_chat_model", "") or ""),
+                base_url=str(getattr(self.llm, "_base_url", "") or ""),
                 input_tokens=sum(count_tokens(str(m.get("content") or ""))
                                  for m in base_messages))
         # ── ADD-EXP §6: «политика доехала?» — слой рендерен (манифест),
@@ -13155,9 +13154,12 @@ class DirectChatService:
         rationale = str(row.get("rationale") or "").strip()[:200]
         context_block = (
             "<Initiative_Context>\n"
-            "Ты проявляешь инициативу сам (никто бота не звал). Держись "
-            "в рамках ожидаемой полноты и естественно, как участник чата; "
-            "не устраивай доклад.\n"
+            "Ты проявляешь инициативу сам (никто бота не звал); пиши "
+            "естественно, как участник чата.\n"
+            # UR-04 (UNIFIED-REPLY §3): факты повода остаются, глобальная
+            # директива «не устраивай доклад» и дублирующая «ожидаемая
+            # полнота» удалены — степень подробности определяет L1 план
+            # (extent-блок), скрытых капов подробности здесь нет.
             f"Предложение наблюдателя (kind={kind or 'unknown'}, "
             f"origin={origin or 'unknown'}): {goal or 'цель не указана'}\n"
             + (f"Причина повода: {rationale}\n" if rationale else "")
@@ -13169,17 +13171,59 @@ class DirectChatService:
         # метки прогона («[M3] Имя (U1): … ↳ Reply M2») — id остаются у L1
         # (машинная сторона), а Writer видит, кто кому и на что отвечает.
         _init_speech = SpeechProjection(run_id=str(correlation_id or ""))
-        window_block = _l1.render_window_lines(
-            window, 12, with_ids=True,
+        # ── UR-04/UR-10.3 (UNIFIED-REPLY): диалог для Writer'а отбирает
+        # ОБЩИЙ ContextSelection (коллектор окна + единый аллокатор по слоту
+        # `initiative.l2`, UR-C), а не ручная нарезка
+        # `render_window_lines(window, 12)`: свежие соседи — P1, остальное
+        # окно — фон P3, лишнее снимает аллокатор по реальному бюджету
+        # модели. Рендер строк с метками — ТОТ ЖЕ общий рендерер (один
+        # владелец формата, EVOL v5); selection решает, ЧТО видно, окно —
+        # в каком порядке. Сбой общей сборки — fail-open на кандидатный
+        # хвост без ручного потолка (инициативу не роняем).
+        try:
+            # Модель/endpoint — только от инжектированного клиента (без
+            # settings-fallback): двойник без атрибутов → пустые строки →
+            # локальный резолв окна без сети (никаких живых probe из хода).
+            _init_stage_budget = await _auto_budget.resolve_stage_budget(
+                "initiative.l2",
+                base_url=str(getattr(self.llm, "_base_url", "") or ""),
+                model=str(getattr(self.llm, "_chat_model", "") or ""))
+            _init_fresh, _init_background = \
+                _composer.collect_window_fragments(
+                    window, aliases=getattr(self, "aliases", None),
+                    bot_user_id=getattr(self, "bot_id", None),
+                    now_ts=int(time.time()))
+            _selection = _composer.build_context_selection(
+                current_text="", chat_id=chat_id,
+                fresh_neighbours=_init_fresh,
+                background=_init_background,
+                budget_tokens=_init_stage_budget.effective_input_budget)
+            _selected_sources = (
+                {f.source_id for f in _selection.fresh_neighbours}
+                | {f.source_id for f in _selection.background})
+            _init_window_rows: list = []
+            for _row in [r for r in (window or []) if isinstance(r, dict)]:
+                _probe = _composer.row_to_fragment(
+                    _row, role=_composer.ROLE_FRESH_NEIGHBOUR)
+                if _probe.source_id in _selected_sources:
+                    _init_window_rows.append(_row)
+        except Exception:      # pragma: no cover - fail-open сборки
+            logger.warning("[f6] initiative context selection failed — "
+                           "candidate tail | chat=%s", chat_id, exc_info=True)
+            _init_window_rows = [r for r in (window or [])
+                                 if isinstance(r, dict)]
+        window_block = (_l1.render_window_lines(
+            _init_window_rows, max(1, len(_init_window_rows)),
+            with_ids=True,
             # ASAP3-ACCEPT: частично собранный объект (tests/__new__) без DI
             # алиасов не должен ронять инициативу — тот же fail-open, что и в
             # _refresh_turn_aliases.
             alias_resolver=getattr(self, "aliases", None),
             projection=_init_speech)
+            if _init_window_rows else [])
         _init_labels: dict = {}
         _init_names: dict = {}
-        for _row in [r for r in (window or [])
-                     if isinstance(r, dict)][-12:]:
+        for _row in _init_window_rows:
             _item_id = _l1.item_id_of_row(_row)
             _label = (_init_speech.label_of_item(_item_id)
                       if _item_id else None)
