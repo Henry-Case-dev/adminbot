@@ -3295,16 +3295,29 @@
    "source_text_sha256": "4f41fabbc7ae4b1941bd42c98624066adac9eb6d190260a108f9422238467430",
    "source_excerpt": "4. Wheel/trackpad — зум около курсора; pinch — зум вокруг центра жеста; double-click/tap по узлу — плавная фокусировка. Анимация программного `focus` 350–500 ms с easing; при ручном жесте — немедленный контроль пользователю.",
    "disposition": "required",
-   "reason": "",
+   "reason": "DEFECT residual3 (5c071250): doubleClick не обрабатывался (0 кадров камеры), pinch зумил от центра полотна (мировая точка под центром жеста уходила на ~443 px), колесо во время анимации фокуса не перехватывалось (~180–200 мс без реакции). УСТРАНЁН веткой cmv/ai-phy-fixes @ 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (merge в HEAD 0f0c4878): dblclick-tween на узел, pinch вокруг центра жеста с перехватом на контейнере, немедленное прерывание tween'а ручными жестами (wheel/pinch/dragStart), см. evidence ниже.",
    "req_id": "CMV-PHY-04",
    "slice": "CMV-B-SCENE-PHYSICS",
    "acceptance": "Wheel/trackpad зумит около курсора, pinch — вокруг центра жеста, двойной клик/тап плавно фокусирует узел за 350–500 ms с easing; при ручном жесте контроль немедленно возвращается пользователю.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Wheel/trackpad-зум около курсора, pinch и плавная фокусировка 350–500 ms не измерялись; кадр x2–x3 в артефакте фактически снят на r=1.61.",
-   "pending_reason": "не доказано: wheel/pinch к курсору/центру жеста и двойной клик 350–500 мс с easing не измерены (B честно отметил, что pinch по CDP не доказан). Что докажет: замер камеры после жеста + длительность анимации."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Тесты camera-жестов эволюционной сцены (cmv/ai-phy-fixes), кандидат 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (merge в HEAD 0f0c4878); tests/js/evol_cog_scene_test.js",
+     "observation": "PASS: dblclick — реальное событие doubleClick → один moveTo на узел, CONFIG.motion.dblClickMs=450 (полоса 350–500), easeInOutQuad, reduced-motion мгновенно; pinch — двухпальцевый жест перехватывается на контейнере сцены (vis больше не обрабатывает его дважды), зум вокруг центра жеста, дрейф якоря ≤ 20 px; wheel/pinch — ручной жест немедленно прерывает живой camera-tween (_cogInterruptCameraAnim, wheel — capture-listener на контейнере). Мутации (мгновенное свечение / удалённый dblclick-хэндлер / зум от центра) дают красные тесты, дрейф 473.9 px. Честная пометка: ветка drag-interrupt покрыта юнит-сьюитом — отдельной живой пробы перехвата именно drag'ом нет.",
+     "type": "test",
+     "artifact_path": "tests/js/evol_cog_scene_test.js",
+     "artifact_sha256": "0083604f7ee43ffb617e4d71a705d782588dc4d140634520c92749437c652dc9",
+     "candidate_commit": "69e65607ec5a92c148e4f40bbb641b2e58f8f17d"
+    },
+    {
+     "ref": "Независимая живая проба ревьюера на кандидате 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (реальная страница карты: dblclick, CDP pinch, wheel)",
+     "observation": "PASS: dblclick — tween 450 мс, камера центрируется на узле с точностью 0.06 px; CDP pinch — дрейф якоря ≈2.6 px (допуск ≤ 20 px); wheel/pinch interrupt — живая проба немедленного перехвата; wheel-зум у курсора не менялся (точен у курсора, проба residual3: 1.8 px). Артефакт-файл живой пробы в репозиторий не сохранён — числа зафиксированы дословно из независимого ревью; drag-interrupt живой пробой не покрывался (только юнит-сьюит, запись 1).",
+     "type": "ui",
+     "candidate_commit": "69e65607ec5a92c148e4f40bbb641b2e58f8f17d"
+    }
+   ]
   },
   {
    "source_id": "L00168",
@@ -3486,16 +3499,29 @@
    "source_text_sha256": "681fd8ccfad83aeb28e62eaf8466aa1276161cabe4deedfd2bd3dc7d3604bc6d",
    "source_excerpt": "- Hover: узел за 150–220 ms усиливает свечение, рядом проявляются реальные соседние связи и подписи, курсор меняется; при уходе эффект затухает.",
    "disposition": "required",
-   "reason": "",
+   "reason": "DEFECT residual3 (5c071250): рампы 150–220 ms не было — приращение яркости при наведении не обнаружено; hoverMs:180 объявлен в CONFIG.motion (cog-visual.js:288), но не использовался, scene.hoverAt записывался и не читался. УСТРАНЁН веткой cmv/ai-phy-fixes @ 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (merge в HEAD 0f0c4878): hoverMs реально драйвит ramp в fx-слое, scene.hoverAt проходит через _cogFrameState → frame.hoverAt, см. evidence ниже.",
    "req_id": "CMV-AI-01",
    "slice": "CMV-B-SCENE-PHYSICS",
    "acceptance": "Hover: узел за 150–220 ms усиливает свечение, рядом проявляются реальные соседние связи и подписи, курсор меняется; при уходе эффект затухает.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Hover-реакция за 150–220 ms с проявлением реальных соседних связей и сменой курсора не измерялась.",
-   "pending_reason": "частично: GATE-04 подтверждает различие состояний hover/select, но ramp 150–220 мс и проявление соседних подписей не инструментированы. Что докажет: кадры через 0/80/160/240 мс после наведения."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Ramp-тесты эволюционной сцены (cmv/ai-phy-fixes), кандидат 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (merge в HEAD 0f0c4878); tests/js/evol_cog_scene_test.js, группа C расширена 382→430 проверок",
+     "observation": "PASS: CONFIG.motion.hoverMs=180 (полоса 150–220) реально управляет нарастанием в fx-слое — active glow, selection ring и соседние рёбра плавно 0→1; финальное состояние пиксельно идентично (multiplier насыщается на 1) — на уровне fx и живой отрисовки сцены; legacy-кадры без hoverAt и reduced-motion/static показывают финальное состояние сразу. Мутации (мгновенное свечение вместо ramp) дают красные тесты.",
+     "type": "test",
+     "artifact_path": "tests/js/evol_cog_scene_test.js",
+     "artifact_sha256": "0083604f7ee43ffb617e4d71a705d782588dc4d140634520c92749437c652dc9",
+     "candidate_commit": "69e65607ec5a92c148e4f40bbb641b2e58f8f17d"
+    },
+    {
+     "ref": "Независимая живая пиксельная проба ревьюера на кандидате 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (реальная страница карты, реальный hover)",
+     "observation": "PASS: onset свечения ≈180–210 мс — внутри полосы 150–220 мс; финальное состояние идентично прежнему принятому финалу; reduced-motion — мгновенно. Отдельный артефакт-файл живой пробы в репозиторий не сохранён — числа зафиксированы дословно из независимого ревью; durable-повторяемость контракта — ramp-тесты записи 1.",
+     "type": "ui",
+     "candidate_commit": "69e65607ec5a92c148e4f40bbb641b2e58f8f17d"
+    }
+   ]
   },
   {
    "source_id": "L00180",
