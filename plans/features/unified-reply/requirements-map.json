@@ -8,7 +8,7 @@
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-unified-reply",
   "task_id": "unified-reply",
-  "source_note": "Карта эпика (261 обязательная строка) к дословному снимку plans/owner_inputs/2026-11-05-unified-reply.md (503 строки, UR-01..UR-30, ред. 1.1) из plans/current_task.md L5651-6153. Родители UR-NN покрывают заголовки разделов, подтребования UR-NN.M — независимо проверяемые пункты; чеклисты §11 (А-Д) вынесены как UR-ACC-*, запреты §12 — UR-BAN-*, пакеты §10 — срезы UR-A..UR-G плюс UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28). Состояние 2026-11-05: UR-B (merge da6299e9) и UR-C (merge 9ac64a61) влиты и приняты ревью — привязано 34 строки VERIFIED (13/24 и 21/66), остальные PENDING с причиной в pending_reason. UR-A принят и влит (ur/a-turn-engine @4cc99286 -> merge dc296207): services/turn_types.py создан как единственный новый файл контрактов, единый _execute_turn стоит на обеих трассах; привязано 15/21 (12 items + 3 manual), остальные PENDING с причиной в pending_reason. Итого по карте 49 VERIFIED из 261 обязательной строки. После биндинга UR-D (кандидат 6374eedc): +17 строк VERIFIED (11 items из ветки ur/d-writer + 6 additional_requirements), итого 66/261; UR-04.3, UR-05.2, UR-21.23 остаются PENDING с причиной в pending_reason.",
+  "source_note": "Карта эпика (261 обязательная строка) к дословному снимку plans/owner_inputs/2026-11-05-unified-reply.md (503 строки, UR-01..UR-30, ред. 1.1) из plans/current_task.md L5651-6153. Родители UR-NN покрывают заголовки разделов, подтребования UR-NN.M — независимо проверяемые пункты; чеклисты §11 (А-Д) вынесены как UR-ACC-*, запреты §12 — UR-BAN-*, пакеты §10 — срезы UR-A..UR-G плюс UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28). Состояние 2026-11-05: UR-B (merge da6299e9) и UR-C (merge 9ac64a61) влиты и приняты ревью — привязано 34 строки VERIFIED (13/24 и 21/66), остальные PENDING с причиной в pending_reason. UR-A принят и влит (ur/a-turn-engine @4cc99286 -> merge dc296207): services/turn_types.py создан как единственный новый файл контрактов, единый _execute_turn стоит на обеих трассах; привязано 15/21 (12 items + 3 manual), остальные PENDING с причиной в pending_reason. Итого по карте 49 VERIFIED из 261 обязательной строки. После биндинга UR-D (кандидат 6374eedc; durability-тесты — acceptance-коммит 2ac2764d): +18 строк VERIFIED (11 items из ветки ur/d-writer + 7 additional, включая UR-05.2 TestFreshnessCrashReplay), итого 67/261. UR-04.3 остаётся PENDING (в кандидате нет ассерта об идентичности наборов источников L1/L2), UR-21.23 перенесена из UR-D в UR-F (сэмплинг-конфиг, код UR-D его не менял).",
   "evidence_convention": "Каждая закрытая строка требует candidate-bound evidence с artifact_path (repo-relative), observation и типом; для финальных отчётов — artifact_sha256. Устные заверения, число тестов и скриншоты без реального payload/trace доказательством не считаются.",
   "live_policy_note": "PET_PROJECT: деплой и проверка на проде разрешены после независимого ревью без отдельного согласования. live_required=true только у строк, которые физически проверяются на рабочем развёртывании (UR-ACC-E9, UR-30.7) и у размеченного набора поиска (UR-08.2, preprod).",
   "plan_ref": "plans/features/unified-reply/plan.md",
@@ -22,7 +22,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 17/20 (UR-D, кандидат 6374eedc, ветка ur/d-writer @4556f6e3, merge в evol/impl ожидается) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза).",
+  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, ветка ur/d-writer, merge в evol/impl ожидается) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза).",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -491,7 +491,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "Идентичность набора источников L1 и L2 не доказана: общий ContextSelection подключён к окну Writer'а L2 инициативы (test_initiative_window_from_shared_selection_no_hard_cap), но L1 в живом ходе ещё читает собственный сборщик контекста (подключение ContextSelection к build_l1_context — незакрытые строки UR-C). Нужен контракт/тест на один общий selected-sources set для обеих стадий с разными форматами — решение по реализации."
+      "pending_reason": "Ассерта об идентичности набора источников L1/L2 в кандидате нет: test_initiative_window_from_shared_selection_no_hard_cap инспектирует только payload l2_writer (уникальные маркеры «реплика номер N»: >12 при полном бюджете, <=12 при effective_input_budget=40); L1-план в тесте инжектирован фикстурой, контекст/payload L1 не проверяется, сравнение наборов источников между стадиями отсутствует. По источнику (L113: «разделяют один набор выбранных источников и ссылок, но подаются в разных форматах») нужен тест одного хода, где payload и L1, и L2 собираются из одного ContextSelection, с ассертом на совпадение множества source_ids/маркеров в обеих стадиях при разных форматах; подключение ContextSelection к живому L1 — незакрытые строки UR-C."
     },
     {
       "source_id": "M-00117",
@@ -529,9 +529,17 @@
       "acceptance": "Перед отправкой проверяется freshness версии контекста; смена темы или target после поиска вызывает recheck/отмену, а повтор после crash не дублирует отправку и не переоплачивает инструмент.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "freshness версии контекста перед отправкой и crash-replay (повтор после сбоя не дублирует отправку и не переоплачивает инструмент) тестом не покрыты; строитель добавляет сфокусированный durable-тест — привязать к кандидату после его посадки, если зелёный."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Crash-replay не дублирует отправку и не переоплачивает инструмент; новый update с тем же текстом — свежая генерация",
+          "observation": "TestFreshnessCrashReplay (реальный SmartCache на SQLite-файле, маркер MCA-22): test_restart_redelivery_no_resend_no_tool_repay — повторная доставка того же update после закрытия кэша/рестарта даёт 0 отправок, 0 LLM-вызовов, 0 диспетчей инструмента (первый ход доказывает единственное реальное исполнение execute_web_search); test_new_update_same_text_gets_fresh_answer_not_stale_replay — новый message_id с тем же текстом получает ответ из НОВОГО l2_writer-вызова, stale-результат не подставляется (no-replay MCA-07/EVOL-031). Отказ по устаревшей цели/поводу покрыт соседними тестами UR-05.1 (test_stale_target_cancels_semantic_reply, test_sendrecheck_suppresses_send_after_answer).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "3b4b4f58aee68d124adbe40b3cf6745a6e06436440a4c55b231c539a0298b5ce",
+          "candidate_commit": "2ac2764d"
+        }
+      ]
     },
     {
       "source_id": "M-00125",
@@ -1532,13 +1540,14 @@
       "disposition": "required",
       "reason": "",
       "req_id": "UR-21.23",
-      "slice": "UR-D",
+      "slice": "UR-F",
       "acceptance": "CHAT_TEMPERATURE_* и CHAT_TEMPERATURE_PRESET_DEFAULT применяются только к соответствующей модели, не заменяют web/context/память и имеют честную пометку, если провайдер игнорирует температуру.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "Рантайм-половина не доказана: tone_temperature() читается из settings (services/direct_chat_service.py:4778, 13307 на кандидате 6374eedc), но скоупинг «только для соответствующей модели» и честная пометка при игноре температуры провайдером не реализованы и не проверены; UI-половина («Свобода формулировок», honest-пометка) — зона UR-F (param_catalog/effective-config, UR-22.1). Нужно решение, где закрывается рантайм-половина (кандидат — BGS-05-BUDGET, бюджеты/сэмплинг direct_execution.py, depends_on UR-D); без новых квот/классификаторов (ADDENDUM #3 §2.10)."
+      "pending_reason": "Сэмплинг-конфиг, срез UR-D его не менял (подтверждено независимым ревью): в срезе нет ни правки сэмплинга, ни honest-пометки. Рантайм-половина («сэмплинг только для соответствующей модели») — волна бюджетов BGS-05-BUDGET (direct_execution.py, depends_on UR-D); UI-половина («Свобода формулировок» с честной пометкой при игноре температуры провайдером) — UR-F через effective-config/UR-22.1 (reason_inactive). Без новых квот/классификаторов (ADDENDUM #3 §2.10).",
+      "note": "Перенос из UR-D в UR-F при синхронизации карты UR-D (2-й ревьюер, 2026-11-05): строка каталога §10 относится к сэмплингу, не к Writer/LLMCompletion. Источник (L313 снимка = plans/current_task.md L5952) дословно: «| CHAT_TEMPERATURE_*, CHAT_TEMPERATURE_PRESET_DEFAULT | Сэмплинг только для соответствующей модели; не заменяет web/context/память. | «Свобода формулировок» с честной пометкой, если provider игнорирует температуру. |». Текущее состояние кода: tone_temperature() в config/settings.py:3483 читается в services/direct_chat_service.py:4778, 13307 и web/api/speech.py:3405, но пер-модельный скоупинг и honest-пометка не реализованы."
     },
     {
       "source_id": "M-00315",
@@ -4095,10 +4104,10 @@
         },
         {
           "ref": "Вычисление физически допустимого output",
-          "observation": "response_extent.writer_max_output_tokens(): prov max_output сохранён, window-input кламп, WRITER_MIN_OUTPUT_TOKENS=1024 floor, unknown -> None; модель/endpoint от клиента хода (без settings-fallback).",
+          "observation": "response_extent.writer_max_output_tokens(): prov max_output сохранён, window-input кламп (allowed = min(max_output, окно−вход); вход не помещается → None), unknown → None; floor-константы нет — историческое выражение max(1024, allowed)/… было no-op (F3 review, упрощено до return allowed); модель/endpoint от клиента хода (без settings-fallback).",
           "type": "code",
           "artifact_path": "services/response_extent.py",
-          "artifact_sha256": "dbd365a87f2024e655e2c84ea1c3bc036e5865fe2f95bec9b50a1e30439a3ba2",
+          "artifact_sha256": "51eeffc316379d58bd26a2f60b2687c99acf8234b550fd60d9a0d57120130d91",
           "candidate_commit": "6374eedc"
         }
       ]
