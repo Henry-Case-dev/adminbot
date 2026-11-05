@@ -38,6 +38,7 @@ import os
 import sys
 import time
 import traceback
+import uuid
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHAT_ID = -1001234567890
@@ -265,8 +266,9 @@ def _real_llm(*, bad_primary: bool = False, fallback_to_main: bool = False):
         )
     client = LLMClient(**kwargs)
     client.backoff_base = 0.0
-    if os.environ.get("RLR_PROOF_VERBOSE") == "1":
-        _instrument_llm(client)
+    # Захват фактических provider-запросов включён ВСЕГДА (это данные
+    # доказательства). RLR_PROOF_VERBOSE влияет только на печать в лог.
+    _instrument_llm(client)
     return client
 
 
@@ -277,13 +279,54 @@ def _log(msg: str) -> None:
         print(line, file=_LOG_STREAM, flush=True)
 
 
+_STATUS_RE = None
+
+
+def _status_from_exception(exc: BaseException) -> int | None:
+    """HTTP-статус из исключения клиента (`LLM auth failed (401)`,
+    `LLM HTTP 404`, `status=401`) — без разбора секретов."""
+    global _STATUS_RE
+    import re
+    if _STATUS_RE is None:
+        _STATUS_RE = re.compile(
+            r"\((?:[A-Za-z ]*\s)?(\d{3})\)|status=(\d{3})|\bHTTP (\d{3})\b")
+    text = str(exc or "")
+    for match in _STATUS_RE.finditer(text):
+        for group in match.groups():
+            if group:
+                return int(group)
+    return None
+
+
+def _response_facts(result) -> dict:
+    """`model` / `usage` / `finish_reason` из фактического тела ответа."""
+    facts = {"status": getattr(result, "status_code", None),
+             "response_model": None, "usage": None, "finish_reason": None}
+    try:
+        data = result.json()
+    except Exception:
+        data = None
+    if isinstance(data, dict):
+        facts["response_model"] = data.get("model")
+        usage = data.get("usage")
+        if isinstance(usage, dict):
+            facts["usage"] = {k: usage.get(k) for k in
+                              ("prompt_tokens", "completion_tokens",
+                               "total_tokens") if k in usage}
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+            facts["finish_reason"] = choices[0].get("finish_reason")
+    return facts
+
+
 def _instrument_llm(client) -> None:
-    """Диагностика раннера: реально ушедшие HTTP-вызовы провайдера.
+    """Захват реально ушедших HTTP-вызовов провайдера.
 
     Оборачиваются ТОЧКИ ОТПРАВКИ клиента (`_post_with_key` — primary,
-    `_post_fallback` — fallback-нога). Это не меняет классификацию вызовов
-    (`generate_with_metadata` остаётся классовым методом), но даёт раннеру
-    независимый от трассы список фактических provider-запросов.
+    `_post_fallback` — fallback-нога). Поведение не меняется: обёртка
+    возвращает тот же объект ответа и пробрасывает исходное исключение.
+    Записываются канал, запрошенная модель/`max_tokens`, HTTP-статус,
+    `model`/`usage`/`finish_reason` из тела, длительность и тип ошибки.
     """
     for name, channel in (("_post_with_key", "primary"),
                           ("_post_fallback", "fallback")):
@@ -298,27 +341,32 @@ def _instrument_llm(client) -> None:
                 started = time.monotonic()
                 _log("http.%s start model=%s max_tokens=%s"
                      % (label, body.get("model"), body.get("max_tokens")))
+                entry = {
+                    "channel": label,
+                    "requested_model": body.get("model"),
+                    "max_tokens": body.get("max_tokens"),
+                }
                 try:
                     result = await orig_(*a, **k)
                 except Exception as exc:
-                    _log("http.%s fail after %.1fs: %s"
+                    entry.update(_response_facts(None))
+                    entry["status"] = _status_from_exception(exc)
+                    entry["error"] = type(exc).__name__
+                    entry["ms"] = int((time.monotonic() - started) * 1000)
+                    entry["http_status"] = entry.get("status")
+                    HTTP_CALLS.append(entry)
+                    _log("http.%s fail after %.1fs: %s (status=%s)"
                          % (label, time.monotonic() - started,
-                            type(exc).__name__))
-                    HTTP_CALLS.append({
-                        "channel": label, "model": body.get("model"),
-                        "max_tokens": body.get("max_tokens"),
-                        "ms": int((time.monotonic() - started) * 1000),
-                        "error": type(exc).__name__,
-                    })
+                            type(exc).__name__, entry["status"]))
                     raise
-                _log("http.%s done in %.1fs" % (label,
-                                                time.monotonic() - started))
-                HTTP_CALLS.append({
-                    "channel": label, "model": body.get("model"),
-                    "max_tokens": body.get("max_tokens"),
-                    "ms": int((time.monotonic() - started) * 1000),
-                    "error": None,
-                })
+                entry.update(_response_facts(result))
+                entry["http_status"] = entry.pop("status", None)
+                entry["error"] = None
+                entry["ms"] = int((time.monotonic() - started) * 1000)
+                HTTP_CALLS.append(entry)
+                _log("http.%s done in %.1fs (status=%s)"
+                     % (label, time.monotonic() - started,
+                        entry["http_status"]))
                 return result
             return wrapper
         setattr(client, name, make(orig, channel))
@@ -369,7 +417,32 @@ async def _trace_snapshot(db, cid):
     if db is not None:
         try:
             await mca_events.flush_events(db)
-            rows = await mca_events.query_events(db, trace_id=cid, limit=50)
+            rows = []
+            seen: set = set()
+            # Два фильтра: по трассе хода (если он есть) и по чату. Второй
+            # нужен путям без `turn_trace` (инициатива/фактчек): их события
+            # не несут correlation_id хода, но обязаны быть видны.
+            filters = [{"limit": 60}]
+            if cid:
+                filters.insert(0, {"trace_id": cid, "limit": 60})
+            filters.insert(0, {"chat_id": CHAT_ID, "limit": 60})
+            for kwargs in filters:
+                try:
+                    part = await mca_events.query_events(db, **kwargs)
+                except Exception:
+                    part = []
+                matched_by = ("trace_id" if "trace_id" in kwargs
+                              else "chat_id" if "chat_id" in kwargs
+                              else "unfiltered")
+                for row in part:
+                    key = (row.get("event_name"), row.get("stage"),
+                           row.get("ts"))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    row = dict(row)
+                    row["_matched_by"] = matched_by
+                    rows.append(row)
             for row in rows:
                 usage = row.get("usage_json")
                 if isinstance(usage, str):
@@ -386,6 +459,7 @@ async def _trace_snapshot(db, cid):
                     "event": row.get("event_name"),
                     "stage": row.get("stage"),
                     "outcome": row.get("outcome"),
+                    "matched_by": row.get("_matched_by"),
                     "usage": usage,
                 })
         except Exception as exc:
@@ -490,12 +564,15 @@ async def run_initiative(*, text: str, search=None, message_id: int = 300):
     error = None
     status = None
     started = time.monotonic()
-    _log("initiative start chat=%s" % CHAT_ID)
+    HTTP_CALLS.clear()
+    correlation = "r09-s3-%s" % uuid.uuid4().hex[:12]
+    observer.cid = correlation
+    _log("initiative start chat=%s correlation=%s" % (CHAT_ID, correlation))
     try:
         result = await handle_initiative(
             bot=bot, chat_id=CHAT_ID, situation=situation,
             candidates=(candidate,), db=db, writer_service=service,
-            opportunity_row=opportunity)
+            opportunity_row=opportunity, correlation_id=correlation)
         status = {k: v for k, v in (result or {}).items()
                   if k in ("status", "delivery_kind", "reason_code")}
         decision = (result or {}).get("decision")
@@ -512,6 +589,7 @@ async def run_initiative(*, text: str, search=None, message_id: int = 300):
     snap, events = await _trace_snapshot(db, observer.cid)
     record = _record(observer, snap, events, bot, error, elapsed, drained)
     record["initiative_status"] = status
+    record["http_calls"] = list(HTTP_CALLS)
     observer.uninstall()
     await _close_llm(llm)
     await db.close()
@@ -527,23 +605,10 @@ async def run_factcheck(*, claim: str):
     llm = _real_llm()
     aggregator = SearchAggregator()
     service = FactCheckService(aggregator, llm, memory=None)
-    calls = {"n": 0}
-    orig_generate = llm.generate
-    orig_meta = llm.generate_with_metadata
-
-    async def gen(*a, **k):
-        calls["n"] += 1
-        return await orig_generate(*a, **k)
-
-    async def gen_meta(*a, **k):
-        calls["n"] += 1
-        return await orig_meta(*a, **k)
-
-    llm.generate = gen
-    llm.generate_with_metadata = gen_meta
     error = None
     result = None
     started = time.monotonic()
+    HTTP_CALLS.clear()
     try:
         result = await service.check_claim(claim, chat_id=CHAT_ID)
     except Exception as exc:
@@ -561,18 +626,100 @@ async def run_factcheck(*, claim: str):
                            "reason_code": row.get("reason_code")})
     except Exception as exc:
         events = [{"error": type(exc).__name__}]
+    http_calls = list(HTTP_CALLS)
+    total_usage = {"prompt_tokens": 0, "completion_tokens": 0,
+                   "total_tokens": 0}
+    for item in http_calls:
+        usage = item.get("usage") or {}
+        for key in total_usage:
+            try:
+                total_usage[key] += int(usage.get(key) or 0)
+            except (TypeError, ValueError):
+                pass
+    finish_reasons = [item.get("finish_reason") for item in http_calls]
+    models = sorted({str(item.get("response_model") or item.get(
+        "requested_model")) for item in http_calls
+        if item.get("response_model") or item.get("requested_model")})
     await _close_llm(llm)
     await db.close()
     return {
         "scenario": "factcheck",
         "error": error,
         "elapsed_s": elapsed,
-        "llm_calls_total": calls["n"],
+        "correlation_id": None,
+        "correlation_id_note": (
+            "check_claim не принимает correlation_id и не открывает "
+            "turn_trace: идентификатора хода у этого пути нет"),
+        # Единственный достоверный счётчик провайдерских вызовов — фактические
+        # HTTP-отправки. Обёртки над `generate`/`generate_with_metadata` НЕ
+        # используются: `generate` внутри вызывает `generate_with_metadata`,
+        # и такой счётчик удваивал бы вызовы.
+        "llm_calls_total": len(http_calls),
+        "llm_calls": [{"channel": item.get("channel"),
+                       "model": item.get("response_model"),
+                       "finish_reason": item.get("finish_reason"),
+                       "usage": item.get("usage"),
+                       "ms": item.get("ms")} for item in http_calls],
+        "model": models[-1] if len(models) == 1 else models,
+        "models": models,
+        "usage_total": total_usage,
+        "finish_reasons": finish_reasons,
+        "final_finish_reason": (finish_reasons[-1] if finish_reasons
+                                else None),
+        "http_calls": http_calls,
         "result_chars": len(str(result or "")),
         "result_digest": _digest(result),
         "result_excerpt": _excerpt(result, 400),
         "result_tail": _tail(result),
         "events": events,
+    }
+
+
+def _annotate_fallback(record: dict) -> None:
+    """Фактические HTTP-статусы обеих ног — чтобы утверждение «401» было
+    проверяемым по JSON, а не пересказом лога."""
+    calls = record.get("http_calls") or []
+    primary = [c for c in calls if c.get("channel") == "primary"]
+    fallback = [c for c in calls if c.get("channel") == "fallback"]
+    record["fallback_leg"] = {
+        "primary_attempts": len(primary),
+        "primary_statuses": [c.get("http_status") for c in primary],
+        "primary_errors": [c.get("error") for c in primary],
+        "fallback_attempts": len(fallback),
+        "fallback_statuses": [c.get("http_status") for c in fallback],
+        "fallback_errors": [c.get("error") for c in fallback],
+    }
+
+
+def _completion_from_object(completion, *, raw_text: str,
+                            continuation) -> dict:
+    """Фактическое завершение L2 из объекта `LLMCompletion` (без трассы).
+
+    Инициативный путь не начинает `turn_trace`, поэтому `finish_reason`,
+    `model`, `provider`, `usage` берутся напрямую из того объекта, который
+    вернул клиент и который наблюдатель перехватил в `note_l2_completion`.
+    """
+    if completion is None:
+        return {}
+    usage = getattr(completion, "usage", None)
+    return {
+        "finish_reason": getattr(completion, "finish_reason", None),
+        "finish_reason_raw": getattr(completion, "finish_reason_raw", None),
+        "completed": bool(getattr(continuation, "completed", True)),
+        "is_truncated": bool(getattr(completion, "is_truncated", False)),
+        "attempt": getattr(completion, "attempt", None),
+        "fallback_used": bool(getattr(completion, "fallback_used", False)),
+        "provider": getattr(completion, "provider", None),
+        "model": getattr(completion, "model", None),
+        "usage": dict(usage) if isinstance(usage, dict) else None,
+        "max_output_tokens_sent": getattr(
+            completion, "max_output_tokens_sent", None),
+        "chars": len(str(raw_text or "")),
+        "continuation_calls": int(
+            getattr(continuation, "continuation_calls", 0) or 0),
+        "continuation_stop_reason": getattr(continuation, "stop_reason", None),
+        "text_source": "author",
+        "metadata_available": True,
     }
 
 
@@ -600,6 +747,12 @@ def _record(observer, snap, events, bot, error, elapsed, drained) -> dict:
             value = getattr(plan, field)
             l1_fields[field] = value if isinstance(
                 value, (bool, int, float, str)) else str(value)
+    # Завершение L2: приоритет у трассы хода; если трассы нет (инициатива),
+    # берём фактический объект завершения, который наблюдатель уже получил.
+    completion_data = dict(snap.get("completion") or {})
+    if not completion_data:
+        completion_data = _completion_from_object(
+            completion, raw_text=raw_text, continuation=continuation)
     return {
         "error": error,
         "elapsed_s": elapsed,
@@ -617,8 +770,13 @@ def _record(observer, snap, events, bot, error, elapsed, drained) -> dict:
             "chars": len(raw_text),
         } if refused else None),
         "semantic_rewrite_count": snap.get("semantic_rewrite_count"),
-        "finish_reason": (snap.get("completion") or {}).get("finish_reason"),
-        "completion": _strip_completion(snap.get("completion") or {}),
+        "finish_reason": completion_data.get("finish_reason"),
+        "model": completion_data.get("model"),
+        "provider": completion_data.get("provider"),
+        "usage": completion_data.get("usage"),
+        "completion": _strip_completion(completion_data),
+        "completion_source": ("turn_trace" if snap.get("completion")
+                              else "writer_completion_object"),
         "continuation_calls": getattr(continuation, "continuation_calls", None),
         "continuation_completed": getattr(continuation, "completed", None),
         "continuation_stop_reason": getattr(continuation, "stop_reason", None),
@@ -712,19 +870,33 @@ def _ops_between(raw_text: str, sent_text: str, observer) -> list[str]:
     return names
 
 
-def _text_diff(raw_text: str, sent_text: str, limit: int = 6) -> dict:
+def _text_diff(raw_text: str, sent_text: str) -> dict:
     """Символьное сравнение «написано» ↔ «к отправке» (не только хеши).
 
-    Возвращает длину общего префикса/суффикса и ограниченный список отличий
-    (позиция + короткие фрагменты), чтобы разрешённые операции были видны
-    человеческим глазом, а не выводились из digest'а.
+    НИЧЕГО не обрезается: сохраняются оба полных текста, их пунктуационно
+    нормализованные версии и ПОЛНЫЙ список расхождений, чтобы любой ревьюер
+    пересчитал `other_char_delta`/`punct_only` сам, а не верил счётчику.
     """
     a, b = str(raw_text or ""), str(sent_text or "")
-    if not a and not b:
-        return {"equal": True, "diffs": []}
+    norm_a = _normalize_punct(a)
+    base = {
+        "equal": a == b,
+        "raw_chars": len(a),
+        "sent_chars": len(b),
+        "raw_text": a,
+        "sent_text": b,
+        "normalized_raw": norm_a,
+        "normalized_sent": b,
+        "punct_only": norm_a == b,
+        "other_char_delta": _non_punct_delta(a, b),
+        "truncated": False,
+        "hidden_chars": 0,
+    }
     if a == b:
-        return {"equal": True, "diffs": [], "punct_only": True,
-                "other_char_delta": 0}
+        base["diff_ops"] = []
+        base["removed_span"] = ""
+        base["added_span"] = ""
+        return base
     prefix = 0
     for x, y in zip(a, b):
         if x != y:
@@ -738,17 +910,44 @@ def _text_diff(raw_text: str, sent_text: str, limit: int = 6) -> dict:
         suffix += 1
     mid_a = a[prefix:len(a) - suffix]
     mid_b = b[prefix:len(b) - suffix]
-    return {
-        "equal": False,
+    base.update({
         "prefix": prefix,
         "suffix": suffix,
-        "removed": mid_a[:200],
-        "added": mid_b[:200],
+        "removed_span": mid_a,
+        "added_span": mid_b,
         "removed_chars": len(mid_a),
         "added_chars": len(mid_b),
-        "punct_only": _punct_only(a, b),
-        "other_char_delta": _non_punct_delta(a, b),
-    }
+        "diff_ops": _diff_ops(a, b),
+    })
+    return base
+
+
+def _diff_ops(raw: str, sent: str, limit: int = 400) -> list[dict]:
+    """Полный список расхождений (без усечения фрагментов).
+
+    `limit` ограничивает только ЧИСЛО записей (защита от патологического
+    ввода) и в этом случае помечает `truncated_ops`; фрагменты внутри записи
+    сохраняются целиком, счётчики символов считаются по ним.
+    """
+    import difflib
+    ops = []
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(
+            None, raw, sent, autojunk=False).get_opcodes():
+        if tag == "equal":
+            continue
+        ops.append({
+            "tag": tag,
+            "raw_index": [i1, i2],
+            "sent_index": [j1, j2],
+            "removed": raw[i1:i2],
+            "added": sent[j1:j2],
+            "removed_chars": i2 - i1,
+            "added_chars": j2 - j1,
+        })
+    if len(ops) > limit:
+        return {"ops": ops[:limit], "truncated_ops": True,
+                "total_ops": len(ops)}
+    return {"ops": ops, "truncated_ops": False, "total_ops": len(ops)}
 
 
 #: Разрешённая пунктуационная нормализация владельца (`owner_style_punctuation`):
@@ -815,6 +1014,12 @@ async def _amain(args) -> int:
             getattr(settings, "TAVILY_API_KEY", "") or
             getattr(settings, "EXA_API_KEY", "")),
         "telegram_send": "stubbed (RecordingBot) — no network",
+        "runner_path": os.path.join("tools", "rlr_live_proof.py"),
+        "runner_sha256": _sha256_file(__file__),
+        "worktree_dirty": bool(_git("status", "--porcelain")),
+        "worktree_dirty_paths": [
+            line for line in _git("status", "--porcelain").splitlines()
+            if line.strip()][:20],
         "longform_max_output_tokens_env": os.environ.get(
             "DIRECT_LONGFORM_MAX_OUTPUT_TOKENS", ""),
     }
@@ -857,11 +1062,13 @@ async def _amain(args) -> int:
         results["scenarios"]["s4"] = await run_direct(
             text="Скажи одним предложением, что ты сегодня в порядке.",
             bad_primary=True, message_id=104)
+        _annotate_fallback(results["scenarios"]["s4"])
         _reset()
         print("[s4b] provider fallback (working fallback leg) …", flush=True)
         results["scenarios"]["s4b"] = await run_direct(
             text="Скажи одним предложением, что ты сегодня в порядке.",
             bad_primary=True, fallback_to_main=True, message_id=114)
+        _annotate_fallback(results["scenarios"]["s4b"])
 
     if "s5" in wanted:
         _reset()
@@ -871,8 +1078,15 @@ async def _amain(args) -> int:
             text="Напиши развёрнутый рассказ примерно на 90 слов о том, как ты "
                  "однажды утром потерял все свои ключи и искал их по всему чату.",
             message_id=105)
-        results["scenarios"]["s5"]["forced"] = {
-            "DIRECT_LONGFORM_MAX_OUTPUT_TOKENS": args.max_tokens}
+        rec5 = results["scenarios"]["s5"]
+        rec5["forced"] = {
+            "env_DIRECT_LONGFORM_MAX_OUTPUT_TOKENS": args.longform_max_tokens,
+            "max_tokens_sent": (rec5.get("completion") or {}).get(
+                "max_output_tokens_sent"),
+            "max_tokens_in_http_calls": [
+                call.get("max_tokens") for call in rec5.get("http_calls", [])
+                if call.get("channel") == "primary"],
+        }
 
     if "s6" in wanted:
         _reset()
@@ -929,6 +1143,14 @@ def _git(*args) -> str:
         return subprocess.run(["git", *args], cwd=REPO, capture_output=True,
                               text=True, timeout=20).stdout.strip()
     except Exception:
+        return ""
+
+
+def _sha256_file(path: str) -> str:
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+    except OSError:
         return ""
 
 
