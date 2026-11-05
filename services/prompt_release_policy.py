@@ -676,6 +676,215 @@ def _status_of_row(row, active_id: str = "", baseline_id: str = "") -> str:
                           active_id=str(active_id or ""),
                           baseline_id=str(baseline_id or ""))
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Эффективное состояние (PVR-FC-CORRECTIVE-01 §PVR-01): что РЕАЛЬНО действует
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Откуда реально взят текст для выбранного чата. ``code`` — заводская
+#: константа (нет сохранённого слоя, поле документа пусто или значение
+#: удержано провенансом).
+EFFECTIVE_ORIGINS = ("chat_override", "global", "code")
+_EFFECTIVE_ORIGIN_LABELS = {
+    "chat_override": "локальная версия чата",
+    "global": "глобальная версия",
+    "code": "исходная из кода",
+}
+
+#: Статус сопоставления действующего текста с журналом. ``unmatched`` —
+#: текст действует, но сохранённой ревизии с такими байтами нет (честный
+#: отдельный статус, НЕ «визуально ближайшая» ревизия); ``drift`` —
+#: журнальный указатель ссылается на ревизию с другими байтами: до
+#: разрешения расхождения ни одна ревизия не помечается действующей.
+EFFECTIVE_STATE_STATUSES = ("matched", "unmatched", "drift", "unknown")
+_EFFECTIVE_STATUS_LABELS = {
+    "matched": "Действующий текст совпадает с сохранённой версией",
+    "unmatched": "Не сопоставлено с историей",
+    "drift": "Журнал и действующий текст расходятся",
+    "unknown": "Состояние неизвестно (журнал недоступен)",
+}
+
+
+def effective_origin_label(origin: str) -> str:
+    return _EFFECTIVE_ORIGIN_LABELS.get(str(origin or ""), str(origin or ""))
+
+
+def effective_status_label(status: str) -> str:
+    return _EFFECTIVE_STATUS_LABELS.get(str(status or ""), str(status or ""))
+
+
+@dataclass(frozen=True)
+class EffectiveState:
+    """Эффективное состояние блока для выбранного чата (PVR-01).
+
+    Поля вычисляются тем же резолвером, который собирает текущий
+    LLM-payload (:func:`services.prompt_registry.effective_prompt`), по
+    значениям персистентных слоёв из того же стора журнала, — не по
+    истории и не по догадке UI. ``journal_*`` сюда НЕ входят: указатель
+    журнала — отдельные поля ответа (PVR-01.3).
+    """
+
+    origin: str                    # chat_override | global | code | unknown
+    content_hash: str              # sha256_12 сохранённого действующего текста
+    revision_id: str | None = None  # сопоставленная ревизия (None — честно)
+    status: str = "unknown"        # matched | unmatched | drift | unknown
+    diagnostics: tuple[str, ...] = ()
+
+    def as_dict(self) -> dict:
+        return {
+            "effective_origin": self.origin,
+            "effective_origin_label": effective_origin_label(self.origin),
+            "effective_content_hash": self.content_hash,
+            "effective_revision_id": self.revision_id,
+            "effective_status": self.status,
+            "effective_status_label": effective_status_label(self.status),
+            "effective_diagnostics": list(self.diagnostics),
+        }
+
+
+_UNKNOWN_EFFECTIVE_STATE = EffectiveState(
+    origin="unknown", content_hash="", revision_id=None, status="unknown",
+    diagnostics=("journal_unavailable",))
+
+
+def history_event_status(*, retired: bool = False, schema_compat: str = "",
+                         outcome: str = "") -> str:
+    """Статус СОБЫТИЯ активации (PVR-02/C3.1): событие никогда не «active».
+
+    Прошлое событие применения — «была применена», независимо от того, на
+    какую ревизию оно ссылается и что действует сейчас. Снятая/несовместимая
+    ревизия сохраняет свой статус и в событии (§2.4 п.9).
+    """
+    if retired:
+        return "retired"
+    if schema_compat and schema_compat not in SUPPORTED_SCHEMA_COMPAT:
+        return "incompatible"
+    if str(outcome or "") in ("applied", "skipped_same"):
+        return "was_applied"
+    return "event"
+
+
+_EVENT_STATUS_LABELS = {
+    "was_applied": "была применена",
+    "event": "событие",
+}
+
+
+def history_event_status_label(status: str) -> str:
+    if str(status or "") in _EVENT_STATUS_LABELS:
+        return _EVENT_STATUS_LABELS[str(status)]
+    return history_status_label(status)
+
+
+def _effective_winning_value(spec, *, source: str, pg_value, chat_value,
+                             chat_id: int | None):
+    """Сырое сохранённое значение ВЫИГРАВШЕГО слоя (до чистки payload).
+
+    ``(None, None)`` — действует заводская константа (слоя нет, поле
+    документа пусто или значение удержано провенансом): байты — из кода.
+    Иначе ``(текст, winner_chat)``: адресат, в котором живёт сопоставимая
+    ревизия (chat-override → этот чат, global → глобальный адресат).
+    """
+    raw = chat_value if source == "chat" else (
+        pg_value if source == "global" else None)
+    if raw is None:
+        return None, None
+    if getattr(spec, "pg_doc_field", ""):
+        field_text = pr.doc_field_text(_as_doc(raw), spec.pg_doc_field)
+        if not field_text.strip():
+            return None, None            # поле пусто → действует код
+        return field_text, (int(chat_id) if source == "chat" else None)
+    return str(raw), (int(chat_id) if source == "chat" else None)
+
+
+async def resolve_effective_state(spec, *, scope: str, chat_id: int | None,
+                                  store) -> EffectiveState:
+    """Эффективное состояние для (block, scope, chat) тем же резолвером
+    payload (PVR-01, PVR-01.1, PVR-01.2).
+
+    Значения слоёв читаются из того же стора, откуда пайплайны берут
+    активные байты (``bot_settings`` / chat-override), резолв —
+    :func:`services.prompt_registry.effective_prompt` (per-chat override →
+    global → код). Сопоставление с журналом — по байтам (sha256_12) в
+    адресате выигравшего слоя; несопоставленный текст честно отдаёт
+    ``revision_id=None`` со статусом «Не сопоставлено с историей».
+    ``drift`` — журнальный указатель ссылается на ревизию с другими
+    байтами (PVR-01.3: журнальные поля остаются журнальными, расхождение
+    видно отдельным статусом, данные не портятся).
+    """
+    if store is None:
+        return _UNKNOWN_EFFECTIVE_STATE
+    pg_key = str(spec.pg_key or "")
+    if not pg_key:
+        # Кодовый блок: действует константа из кода (контракт §1.5);
+        # сопоставление — по байтам константы в журнале.
+        text = pr.factory_text(spec.block_id)
+        content_hash = pr.sha12(text) if text else ""
+        revision_id = None
+        if content_hash:
+            rev = await store.find_revision_by_sha(spec.block_id,
+                                                   content_hash, chat_id=None)
+            revision_id = rev.revision_id if rev is not None else None
+        status = "matched" if revision_id is not None else "unmatched"
+        return EffectiveState(origin="code", content_hash=content_hash,
+                              revision_id=revision_id, status=status,
+                              diagnostics=("code_managed_block",))
+    pg_value = await store.read_global(pg_key)
+    chat_value = None
+    if chat_id is not None:
+        state_row = await store.read_chat_state(int(chat_id))
+        if state_row is not None:
+            chat_value = (state_row.get("overrides") or {}).get(pg_key)
+    eff = pr.effective_prompt(pg_key, pg_value=pg_value, chat_value=chat_value)
+    diagnostics = [str(d) for d in eff.diagnostics]
+    raw, winner_chat = _effective_winning_value(
+        spec, source=str(eff.source), pg_value=pg_value, chat_value=chat_value,
+        chat_id=chat_id)
+    if raw is None:
+        origin = "code"
+        text = pr.factory_text(spec.block_id)
+    else:
+        origin = "chat_override" if eff.source == "chat" else "global"
+        text = raw
+    content_hash = pr.sha12(text) if text else ""
+    revision_id = None
+    if content_hash:
+        rev = await store.find_revision_by_sha(spec.block_id, content_hash,
+                                               chat_id=winner_chat)
+        revision_id = rev.revision_id if rev is not None else None
+    if revision_id is not None:
+        status = "matched"
+    else:
+        status = "unmatched"
+        diagnostics.append("effective_unmatched")
+    return EffectiveState(origin=origin, content_hash=content_hash,
+                          revision_id=revision_id, status=status,
+                          diagnostics=tuple(diagnostics))
+
+
+async def effective_drift(store, spec, *, scope: str, chat_id: int | None,
+                          state: EffectiveState) -> tuple[bool, tuple]:
+    """Расхождение журнального указателя с действующим текстом (PVR-01.3).
+
+    ``True`` — указатель журнала ссылается на ревизию с ДРУГИМИ байтами,
+    чем действует сейчас (или на несуществующую ревизию). Диагностика —
+    только токены, без текстов промптов.
+    """
+    if store is None:
+        return False, ()
+    applied = await store.read_applied(spec.block_id, scope, chat_id)
+    if applied is None or not str(applied.revision_id or ""):
+        return False, ()
+    diagnostics = []
+    jrev = await store.get_revision(str(applied.revision_id))
+    if jrev is None:
+        diagnostics.append("journal_pointer_unknown_revision")
+        return True, tuple(diagnostics)
+    if str(jrev.content_sha12 or "") != str(state.content_hash or ""):
+        diagnostics.append("journal_active_differs")
+        return True, tuple(diagnostics)
+    return False, tuple(diagnostics)
+
 # ═══════════════════════════════════════════════════════════════════════════
 
 class JournalUnavailable(RuntimeError):
