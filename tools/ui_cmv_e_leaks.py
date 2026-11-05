@@ -5,29 +5,26 @@
 инструментально». Требование §13: «Анимация не работает во скрытой вкладке/
 закрытом графе; при возвращении не заводит вторую копию».
 
-ЧТО ИСПРАВЛЕНО В САМОМ СТЕНДЕ (CMV-PERF, 2026-11-05)
-----------------------------------------------------
-Прежняя версия стенда сама удерживала измеряемое: реестр слушателей держал
-СИЛЬНЫЕ ссылки на функции-обработчики, а множество наблюдателей — сильные
-ссылки на объекты ResizeObserver/IntersectionObserver. Наблюдатели vis-network,
-которые он снимает через `unobserve` (а не `disconnect`), оставались живыми,
-и каждый такой наблюдатель держал через замыкание целую уничтоженную сцену
-(Network + 702 узла + 2400 рёбер ≈ 1.3 МБ). Отсюда «+26 МБ после GC» и
-«+64 наблюдателя». Контрольный прогон БЕЗ инструментации на том же сценарии
-даёт 26.05 → 27.81 МБ немонотонно — то есть утечки в продукте не было.
+Что делает стенд:
 
-Теперь стенд:
-  * хранит только СЧЁТЧИКИ по цели + `WeakRef` на саму цель (не на функции);
-  * классифицирует слушателей В МОМЕНТ СНИМКА по `isConnected`, а не в момент
-    добавления (иначе слушатели давно выброшенных узлов навсегда считались
-    «живыми»);
-  * считает РЕАЛЬНО ЖИВЫЕ объекты (`Runtime.queryObjects` по прототипам
-    ResizeObserver/IntersectionObserver/vis.Network) — это прямой ответ на
-    вопрос «утекает ли объект», а не косвенный;
-  * перед чтением кучи делает сборку мусора И паузу, чтобы GC успел отработать.
+1. Ставит на страницу ИНСТРУМЕНТАЦИЮ (init script, до кода приложения):
+   баланс `addEventListener`/`removeEventListener` по типам и целям, живые
+   `requestAnimationFrame`-колбэки (`request` минус `cancel`/вызов), все
+   `ResizeObserver`/`IntersectionObserver`/`MutationObserver` (создано/отключено),
+   созданные `<canvas>`, плюс патч конструктора `vis.Network` сразу после load.
+   Продуктовый код не меняется — это внешняя измерительная обвязка.
+2. Открывает/закрывает полный экран 20 раз и снимает счётчики после 1, 10 и 20
+   циклов. Рост любого показателя — находка, а не «норма».
+3. Проверяет сцену в покое: кадров не больше частотного потолка, лишних RAF нет.
+4. Имитирует скрытую вкладку: headless Chromium не переводит вторую вкладку в
+   `hidden` (проверено отдельной пробой), поэтому состояние выставляется через
+   подмену `document.hidden`/`visibilityState` + РЕАЛЬНОЕ событие
+   `visibilitychange` — приложение реагирует своим штатным обработчиком
+   (`_cogPauseScene`/`_cogResumeScene`). Это тот же путь, что у настоящей
+   вкладки; подмена описана в отчёте как ограничение стенда.
 
 Запуск:
-  python tools/ui_cmv_e_leaks.py --out plans/features/.../evidence/cmv-e
+  .venv/Scripts/python.exe tools/ui_cmv_e_leaks.py --out plans/features/.../evidence/cmv-e
 Код возврата: 0 — утечек нет, 2 — есть рост, 3 — стенд не поднялся.
 """
 import argparse
@@ -48,85 +45,72 @@ DESKTOP = (1536, 960)
 INSTRUMENT = r"""
 (() => {
   const S = {
-    added: 0, removed: 0, addByType: {}, remByType: {},
-    rows: [],                       // {ref: WeakRef, counts: {type: n}, tag}
-    glob: { window: {}, document: {} },
+    listeners: 0, listenersByType: {}, removed: 0,
+    listenersDoc: 0, listenersWin: 0, listenersEl: 0,
     rafLive: 0, rafTotal: 0, rafDone: 0, rafCancelled: 0,
-    obsCreated: 0, obsRows: [],     // {ref: WeakRef, kind: 'ro'|'io'|'mo'}
-    obsKinds: { ro: 0, io: 0, mo: 0 },
+    obsCreated: 0, obsAlive: 0, obsKinds: { ro: 0, io: 0, mo: 0 },
     obsStacks: {},
     canvasesCreated: 0, networkCreated: 0,
   };
   window.__cmvLeak = S;
 
+  function category(target) {
+    if (target === document) return 'doc';
+    if (target === window) return 'win';
+    return 'el';
+  }
+  function bump(cat, delta) {
+    if (cat === 'doc') S.listenersDoc += delta;
+    else if (cat === 'win') S.listenersWin += delta;
+    else S.listenersEl += delta;
+  }
+
+  // ── addEventListener / removeEventListener: точный баланс по DOM-семантике.
   const addOrig = EventTarget.prototype.addEventListener;
   const remOrig = EventTarget.prototype.removeEventListener;
-  const REG = new WeakMap();
+  const registry = new WeakMap();
   function keyOf(type, opts) {
     const cap = (opts && typeof opts === 'object') ? !!opts.capture : !!opts;
     return String(type) + '|' + (cap ? 1 : 0);
   }
-  function recFor(target) {
-    let rec = REG.get(target);
-    if (rec) return rec;
-    const isGlobal = (target === window || target === document);
-    rec = {
-      counts: {}, set: new Map(), isGlobal,
-      tag: target === window ? 'WINDOW'
-        : (target === document ? 'DOCUMENT' : (target.nodeName || '?')),
-    };
-    if (isGlobal) {
-      rec.globRef = target === window ? S.glob.window : S.glob.document;
-    } else {
-      rec.ref = new WeakRef(target);       // цель, но НЕ обработчики
-      S.rows.push(rec);
-    }
-    REG.set(target, rec);
-    return rec;
-  }
-  // Дедупликация «тот же обработчик на той же цели» по ЧИСЛОВОМУ id из WeakMap:
-  // сам обработчик не удерживается (сильная ссылка на функцию держала бы через
-  // замыкание всю уничтоженную сцену — именно это и давало ложные «+26 МБ»).
-  const FN_IDS = new WeakMap();
-  let nextFnId = 1;
-  function fnId(fn) {
-    let id = FN_IDS.get(fn);
-    if (id === undefined) { id = nextFnId; nextFnId += 1; FN_IDS.set(fn, id); }
-    return id;
+  function bucket(target) {
+    let m = registry.get(target);
+    if (!m) { m = new Map(); registry.set(target, m); }
+    return m;
   }
   EventTarget.prototype.addEventListener = function (type, fn, opts) {
     if (fn) {
-      const rec = recFor(this);
+      const m = bucket(this);
       const key = keyOf(type, opts);
-      let set = rec.set.get(key);
-      if (!set) { set = new Set(); rec.set.set(key, set); }
-      const id = fnId(fn);
-      if (!set.has(id)) {
-        set.add(id);                        // только числовой id
-        const bucket = rec.isGlobal ? rec.globRef : rec.counts;
-        bucket[type] = (bucket[type] || 0) + 1;
-        S.added += 1;
-        S.addByType[type] = (S.addByType[type] || 0) + 1;
+      let set = m.get(key);
+      if (!set) { set = new Set(); m.set(key, set); }
+      // Повторная регистрация того же обработчика в DOM не создаёт дубля.
+      if (!set.has(fn)) {
+        set.add(fn);
+        S.listeners += 1;
+        S.listenersByType[type] = (S.listenersByType[type] || 0) + 1;
+        bump(category(this), 1);
       }
     }
     return addOrig.call(this, type, fn, opts);
   };
   EventTarget.prototype.removeEventListener = function (type, fn, opts) {
     if (fn) {
-      const rec = REG.get(this);
-      const set = rec && rec.set.get(keyOf(type, opts));
-      const id = set ? fnId(fn) : 0;
-      if (set && set.has(id)) {
-        set.delete(id);
-        const bucket = rec.isGlobal ? rec.globRef : rec.counts;
-        bucket[type] = (bucket[type] || 0) - 1;
+      const m = registry.get(this);
+      const key = keyOf(type, opts);
+      const set = m && m.get(key);
+      if (set && set.has(fn)) {
+        set.delete(fn);
+        S.listeners -= 1;
         S.removed += 1;
-        S.remByType[type] = (S.remByType[type] || 0) - 1;
+        S.listenersByType[type] = (S.listenersByType[type] || 0) - 1;
+        bump(category(this), -1);
       }
     }
     return remOrig.call(this, type, fn, opts);
   };
 
+  // ── requestAnimationFrame: живые колбэки = запрошено − отменено − выполнено.
   const rafOrig = window.requestAnimationFrame;
   const cafOrig = window.cancelAnimationFrame;
   const pending = new Set();
@@ -146,30 +130,42 @@ INSTRUMENT = r"""
     return cafOrig.call(window, id);
   };
 
+  // ── Наблюдатели: создано/живо (disconnect снимает).
   ['ResizeObserver', 'IntersectionObserver', 'MutationObserver'].forEach(
     function (name, idx) {
       const Orig = window[name];
       if (typeof Orig !== 'function') return;
-      const kind = idx === 0 ? 'ro' : (idx === 1 ? 'io' : 'mo');
+      const alive = new Set();
       const Wrapped = function (cb) {
         const inst = new Orig(cb);
         S.obsCreated += 1;
-        S.obsKinds[kind] += 1;
+        S.obsAlive += 1;
+        // Атрибуция: откуда создан наблюдатель (стек построения). Нужна, чтобы
+        // рост приписать конкретному месту кода, а не «приложению вообще».
         try {
           const stack = String(new Error().stack || '')
             .split('\n').slice(2, 5).join(' | ')
             .replace(/https?:\/\/[^/]+/g, '')
-            .replace(/\d{3,}/g, 'N').slice(0, 200);
+            .replace(/\d{3,}/g, 'N').slice(0, 220);
           const key = name + ' @ ' + stack;
           S.obsStacks[key] = (S.obsStacks[key] || 0) + 1;
         } catch (e) { /* noop */ }
-        S.obsRows.push({ ref: new WeakRef(inst), kind: kind, alive: true });
+        alive.add(inst);
+        if (idx === 0) S.obsKinds.ro += 1;
+        if (idx === 1) S.obsKinds.io += 1;
+        if (idx === 2) S.obsKinds.mo += 1;
+        const disc = inst.disconnect.bind(inst);
+        inst.disconnect = function () {
+          if (alive.delete(inst)) S.obsAlive -= 1;
+          return disc();
+        };
         return inst;
       };
       Wrapped.prototype = Orig.prototype;
       window[name] = Wrapped;
     });
 
+  // ── Созданные canvas (единственный владелец кадра не должен плодить буферы).
   const createOrig = document.createElement.bind(document);
   document.createElement = function (tag, opts) {
     if (String(tag).toLowerCase() === 'canvas') S.canvasesCreated += 1;
@@ -183,11 +179,13 @@ READY = r"""
   const vm = window.__adminbotVm;
   if (!vm || !vm.cognitionNetwork) return false;
   const scene = vm._cogScene;
+  // Базовая ревизия (до CMV) сцены не объявляет — для неё достаточно сети.
   if (!scene) return true;
   return !!(scene.settled === true && scene.fxCanvas);
 }
 """
 
+# Патч vis.Network сразу после load: считаем именно СОЗДАННЫЕ сети.
 PATCH_VIS = r"""
 () => {
   const S = window.__cmvLeak;
@@ -208,53 +206,25 @@ PATCH_VIS = r"""
 
 SNAPSHOT = r"""
 () => {
-  const S = window.__cmvLeak || { rows: [], glob: { window: {}, document: {} } };
+  const S = window.__cmvLeak || {};
   const vm = window.__adminbotVm || {};
   const c = (vm._cogDebugCounters ? vm._cogDebugCounters() : {}) || {};
   const qa = (sel) => Array.from(document.querySelectorAll(sel)).length;
-  const posSum = (o) => Object.keys(o).reduce((a, k) => a + Math.max(0, o[k]), 0);
-  let liveConn = 0, liveDet = 0, targetsAlive = 0, targetsCollected = 0;
-  const liveByTag = {}, detByTag = {};
-  S.rows.forEach((rec) => {
-    const el = rec.ref.deref();
-    if (!el) { targetsCollected += 1; return; }
-    targetsAlive += 1;
-    let n = 0;
-    Object.keys(rec.counts).forEach((t) => { if (rec.counts[t] > 0) n += rec.counts[t]; });
-    if (n <= 0) return;
-    const tag = rec.tag;
-    if (el.isConnected) {
-      liveConn += n;
-      liveByTag[tag] = (liveByTag[tag] || 0) + n;
-    } else {
-      liveDet += n;
-      detByTag[tag] = (detByTag[tag] || 0) + n;
-    }
-  });
-  let obsAlive = 0;
-  const obsByKind = { ro: 0, io: 0, mo: 0 };
-  S.obsRows.forEach((row) => {
-    if (!row.ref.deref()) return;
-    obsAlive += 1;
-    obsByKind[row.kind] += 1;
-  });
   return {
-    added: S.added, removed: S.removed,
-    addByType: S.addByType, remByType: S.remByType,
-    windowListeners: posSum(S.glob.window),
-    documentListeners: posSum(S.glob.document),
-    // Слушатели на ЖИВЫХ подключённых узлах — единственный честный критерий
-    // утечки: узел в документе, обработчик на нём, и он не снимается.
-    liveConnected: liveConn,
-    liveDetached: liveDet,
-    liveByTag: liveByTag, detByTag: detByTag,
-    targetsAlive: targetsAlive, targetsCollected: targetsCollected,
-    obsCreated: S.obsCreated, obsAlive: obsAlive, obsByKind: obsByKind,
-    obsStacks: S.obsStacks,
+    listeners: S.listeners, listenersByType: S.listenersByType,
+    listenersDoc: S.listenersDoc, listenersWin: S.listenersWin,
+    listenersEl: S.listenersEl,
+    listenerRemoved: S.removed,
+    hasScene: !!(vm._cogScene),
     rafLive: S.rafLive, rafTotal: S.rafTotal, rafDone: S.rafDone,
-    canvasesCreated: S.canvasesCreated, networkCreated: S.networkCreated,
-    domScenes: qa('.cognition-graph'), domCanvases: qa('canvas'),
-    domVisRoots: qa('.vis-network'), scenes: qa('.cognition-graph'),
+    obsAlive: S.obsAlive, obsCreated: S.obsCreated, obsKinds: S.obsKinds,
+    obsStacks: S.obsStacks,
+    canvasesCreated: S.canvasesCreated,
+    networkCreated: S.networkCreated,
+    domCanvases: qa('canvas'),
+    sceneCanvases: qa('.cognition-graph canvas'),
+    scenes: qa('.cognition-graph'),
+    visNetworks: qa('.vis-network'),
     netCount: c.netCount, netTotal: c.netTotal,
     rafActive: c.rafActive, paused: c.paused, frames: c.frames,
     draws: c.draws, fxPaints: c.fxPaints, sprites: c.fxSprites,
@@ -269,10 +239,13 @@ CLOSE = "() => window.__adminbotVm.closeGraphFull()"
 
 SET_VIS = r"""
 (mode) => {
+  // headless не переводит вкладку в hidden, поэтому подменяем ЧИТАЕМОЕ
+  // приложением состояние и посылаем настоящее событие visibilitychange.
   if (!window.__cmvVis) {
     window.__cmvVis = { hidden: false };
     Object.defineProperty(document, 'hidden', {
-      configurable: true, get: () => window.__cmvVis.hidden,
+      configurable: true,
+      get: () => window.__cmvVis.hidden,
     });
     Object.defineProperty(document, 'visibilityState', {
       configurable: true,
@@ -284,61 +257,6 @@ SET_VIS = r"""
   return { hidden: document.hidden, state: document.visibilityState };
 }
 """
-
-PROTOS = {
-    "ResizeObserver": "ResizeObserver.prototype",
-    "IntersectionObserver": "IntersectionObserver.prototype",
-    "MutationObserver": "MutationObserver.prototype",
-    "visNetwork": "window.vis && window.vis.Network && window.vis.Network.prototype",
-}
-
-
-def live_objects(cdp):
-    """Реально живые объекты по прототипу (Runtime.queryObjects)."""
-    out = {}
-    for name, expr in PROTOS.items():
-        try:
-            obj = cdp.send("Runtime.evaluate", {"expression": expr,
-                                                "objectGroup": "cmvprobe"})
-            oid = obj.get("result", {}).get("objectId")
-            if not oid:
-                out[name] = None
-                continue
-            arr = cdp.send("Runtime.queryObjects",
-                           {"prototypeObjectId": oid,
-                            "objectGroup": "cmvprobe"})
-            arr_id = arr.get("objects", {}).get("objectId")
-            if not arr_id:
-                out[name] = None
-                continue
-            n = cdp.send("Runtime.callFunctionOn", {
-                "objectId": arr_id,
-                "functionDeclaration": "function () { return this.length; }",
-                "returnByValue": True,
-            })
-            out[name] = n.get("result", {}).get("value")
-        except Exception:  # noqa: BLE001
-            out[name] = None
-        finally:
-            try:
-                cdp.send("Runtime.releaseObjectGroup",
-                         {"objectGroup": "cmvprobe"})
-            except Exception:  # noqa: BLE001
-                pass
-    return out
-
-
-def heap_after_gc(cdp, pg):
-    """Куча после принудительного GC + пауза (GC асинхронна)."""
-    try:
-        cdp.send("HeapProfiler.collectGarbage")
-    except Exception:  # noqa: BLE001
-        return None
-    pg.wait_for_timeout(400)
-    try:
-        return cdp.send("Runtime.getHeapUsage").get("usedSize")
-    except Exception:  # noqa: BLE001
-        return None
 
 
 def _diff(before, after, keys):
@@ -374,11 +292,10 @@ def run(browser, base, out_dir, fixtures_mod, label="cand"):
     pg.goto(base + "#/", wait_until="load")
     pg.wait_for_function(READY, timeout=90000)
     cdp = ctx.new_cdp_session(pg)
-    for domain in ("HeapProfiler.enable", "Runtime.enable"):
-        try:
-            cdp.send(domain)
-        except Exception:  # noqa: BLE001
-            pass
+    try:
+        cdp.send("HeapProfiler.enable")
+    except Exception:  # noqa: BLE001
+        pass
     pg.evaluate("() => window.__adminbotVm._cogEl"
                 ".scrollIntoView({ block: 'center' })")
     pg.wait_for_timeout(600)
@@ -386,14 +303,13 @@ def run(browser, base, out_dir, fixtures_mod, label="cand"):
     report["vis_patched"] = patched
     check(patched, "инструментация vis.Network установлена до циклов")
 
-    def snapshot():
-        snap = pg.evaluate(SNAPSHOT)
-        snap["liveObjects"] = live_objects(cdp)
-        snap["heapBytes"] = heap_after_gc(cdp, pg)
-        return snap
-
-    start = snapshot()
-    has_scene = bool(pg.evaluate("() => !!window.__adminbotVm._cogScene"))
+    start = pg.evaluate(SNAPSHOT)
+    try:
+        cdp.send("HeapProfiler.collectGarbage")
+        start["heapBytes"] = cdp.send("Runtime.getHeapUsage").get("usedSize")
+    except Exception:  # noqa: BLE001
+        start["heapBytes"] = None
+    has_scene = bool(start.get("hasScene"))
     report["has_scene"] = has_scene
     report["phases"]["start"] = start
     marks = {"start": start}
@@ -404,87 +320,67 @@ def run(browser, base, out_dir, fixtures_mod, label="cand"):
         pg.evaluate(CLOSE)
         pg.wait_for_timeout(320)
         if i in (1, 10, CYCLES):
-            snap = snapshot()
+            snap = pg.evaluate(SNAPSHOT)
+            # Реальная память: принудительный GC через CDP и фактический размер
+            # кучи. Это отвечает на вопрос, удерживаются ли созданные объекты,
+            # а не только «был ли вызван disconnect».
+            try:
+                cdp.send("HeapProfiler.collectGarbage")
+                snap["heapBytes"] = cdp.send("Runtime.getHeapUsage").get(
+                    "usedSize")
+            except Exception as exc:  # noqa: BLE001
+                snap["heapBytes"] = None
+                report.setdefault("heap_errors", []).append(str(exc)[:120])
             marks["cycle%d" % i] = snap
             report["phases"]["cycle%d" % i] = snap
-            lo = snap.get("liveObjects") or {}
-            print("  цикл %-2d: liveConn %d, det %d, obsAlive %d, RO/IO %s/%s, "
-                  "Net %s, created %d, heap %.1f МБ"
-                  % (i, snap["liveConnected"], snap["liveDetached"],
-                     snap["obsAlive"], lo.get("ResizeObserver"),
-                     lo.get("IntersectionObserver"), lo.get("visNetwork"),
-                     snap["networkCreated"],
+            print("  цикл %-2d: listeners %d, rafLive %d, obsAlive %d, "
+                  "networkCreated %d, canvases %d/%d, scenes %d, heap %.1f МБ"
+                  % (i, snap["listeners"], snap["rafLive"], snap["obsAlive"],
+                     snap["networkCreated"], snap["domCanvases"],
+                     snap["sceneCanvases"], snap["scenes"],
                      (snap.get("heapBytes") or 0) / 1048576.0))
 
     last = report["phases"]["cycle%d" % CYCLES]
-    first = marks["cycle1"]
-    check(last["domScenes"] == 1, "после %d циклов в DOM ровно одна сцена (%d)"
-          % (CYCLES, last["domScenes"]))
-    check(last["domVisRoots"] == 1,
-          "одна сеть vis в DOM (%d)" % last["domVisRoots"])
+    check(last["scenes"] == 1, "после %d циклов в DOM ровно одна сцена (%d)"
+          % (CYCLES, last["scenes"]))
+    check(last["visNetworks"] == 1,
+          "одна сеть vis в DOM (%d)" % last["visNetworks"])
     if has_scene:
         check(last["netCount"] == 1,
               "живых Network instances ровно 1 (%r)" % last["netCount"])
     check(last["domCanvases"] == start["domCanvases"],
           "число canvas не выросло (%d -> %d)"
           % (start["domCanvases"], last["domCanvases"]))
-
-    grow = _diff(first, last, ["liveConnected", "liveDetached", "obsAlive",
-                               "rafLive", "networkCreated", "targetsAlive",
-                               "windowListeners", "documentListeners",
-                               "added", "removed"])
+    check(last["sceneCanvases"] == start["sceneCanvases"],
+          "у сцены то же число canvas (%d -> %d)"
+          % (start["sceneCanvases"], last["sceneCanvases"]))
+    grow = _diff(marks["cycle1"], last, ["listeners", "rafLive", "obsAlive",
+                                         "networkCreated", "rafTotal",
+                                         "obsCreated", "listenersDoc",
+                                         "listenersWin", "listenersEl"])
     report["growth_cycle1_to_%d" % CYCLES] = grow
-    # 1) Слушатели на ЖИВЫХ подключённых узлах — единственный честный критерий.
-    check(grow["liveConnected"]["delta"] == 0,
-          "слушатели на ЖИВЫХ узлах в документе не накапливаются "
-          "(%d -> %d за %d циклов)"
-          % (first["liveConnected"], last["liveConnected"], CYCLES - 1))
-    # 2) Глобальные слушатели.
-    dw0 = (first["windowListeners"] or 0) + (first["documentListeners"] or 0)
-    dw1 = (last["windowListeners"] or 0) + (last["documentListeners"] or 0)
-    check(dw1 == dw0,
+    # Слушатели на ЖИВУЩИХ целях (document/window) — однозначная утечка, их
+    # нельзя объяснить сборкой мусора вместе с отброшенными элементами.
+    docwin = (grow["listenersDoc"]["delta"] or 0) + (grow["listenersWin"]["delta"] or 0)
+    check(docwin == 0,
           "слушатели на document/window не накапливаются (%d -> %d)"
-          % (dw0, dw1))
-    # 3) Наблюдатели: РЕШАЮЩИЙ критерий — реально живые объекты по прототипу
-    #    (`Runtime.queryObjects`). Счётчик WeakRef-строк ниже — диагностика: он
-    #    зависит от момента, когда GC добрался до конкретного объекта, и на
-    #    порядок величины не опирается.
-    lo_first = first.get("liveObjects") or {}
-    lo_last = last.get("liveObjects") or {}
-    report["obs_alive_diag"] = {"cycle1": first["obsAlive"],
-                                "cycle20": last["obsAlive"],
-                                "note": "WeakRef-строки; решает liveObjects"}
-    for name in ("ResizeObserver", "IntersectionObserver", "visNetwork"):
-        a = lo_first.get(name)
-        b = lo_last.get(name)
-        if a is None or b is None:
-            continue
-        check(b <= a, "живых объектов %s не больше (%s -> %s)"
-              % (name, a, b))
-    check(first["obsKinds"]["ro"] > 0 if "obsKinds" in first else True,
-          "наблюдатели создаются (диагностика obsCreated=%r)"
-          % first.get("obsCreated"))
-    check(grow["rafLive"]["delta"] <= 0,
-          "активных RAF не больше (живо %d -> %d)"
-          % (first["rafLive"], last["rafLive"]))
+          % ((marks["cycle1"]["listenersDoc"] or 0)
+             + (marks["cycle1"]["listenersWin"] or 0),
+             (last["listenersDoc"] or 0) + (last["listenersWin"] or 0)))
     if has_scene:
-        check(last["listenersApp"] <= first["listenersApp"],
+        check(last["listenersApp"] == marks["cycle1"]["listenersApp"],
               "обработчики ЖИВОЙ сцены не растут (scene.handlers %r -> %r)"
-              % (first["listenersApp"], last["listenersApp"]))
-        check(last["observersApp"] == first["observersApp"],
+              % (marks["cycle1"]["listenersApp"], last["listenersApp"]))
+        check(last["observersApp"] == marks["cycle1"]["observersApp"],
               "наблюдатели ЖИВОЙ сцены не растут (%r -> %r)"
-              % (first["observersApp"], last["observersApp"]))
-    heap1 = first.get("heapBytes")
-    heapN = last.get("heapBytes")
-    if heap1 and heapN:
-        report["heap_growth"] = {"cycle1": heap1, "cycle20": heapN,
-                                 "delta": heapN - heap1,
-                                 "start": start.get("heapBytes")}
-        check(heapN - heap1 <= 8 * 1024 * 1024,
-              "после принудительного GC куча не выросла больше 8 МБ "
-              "(цикл1 %.1f МБ -> цикл20 %.1f МБ, %+d КБ)"
-              % (heap1 / 1048576.0, heapN / 1048576.0,
-                 (heapN - heap1) // 1024))
+              % (marks["cycle1"]["observersApp"], last["observersApp"]))
+    check(grow["rafLive"]["delta"] == 0,
+          "активных RAF не больше (живо %d -> %d)"
+          % (grow["rafLive"]["before"], grow["rafLive"]["after"]))
+    if has_scene:
+        check(last["netCount"] == 1,
+              "живых Network instances ровно 1 (создано за прогон %r, живых %r)"
+              % (last["netTotal"], last["netCount"]))
 
     # ── покой: частота кадров не должна быть «двойной» после 20 циклов ──────
     d0 = pg.evaluate(SNAPSHOT)
@@ -498,16 +394,29 @@ def run(browser, base, out_dir, fixtures_mod, label="cand"):
               "в покое кадров не больше потолка 24 fps (%d за 1500 мс)" % paints)
         check(paints >= 6, "в покое мягкая анимация продолжается (%d кадров)"
               % paints)
-    check((d1["rafLive"] or 0) <= (first["rafLive"] or 0),
-          "в покое живых RAF не больше, чем в первом цикле (%r против %r)"
-          % (d1["rafLive"], first["rafLive"]))
+    check((d1["rafLive"] or 0) == (marks["cycle1"]["rafLive"] or 0),
+          "в покое число живых RAF как в первом цикле (%r против %r)"
+          % (d1["rafLive"], marks["cycle1"]["rafLive"]))
 
     if not has_scene:
+        # Базовая ревизия: сцены/кадра CMV нет — проверяются только счётчики
+        # ресурсов циклов (это контроль для атрибуции утечек).
         path = os.path.join(out_dir, "cmv-e-leaks-%s.png" % label)
         pg.screenshot(path=path)
         report["shots"] = [os.path.basename(path)]
         pg.close()
         ctx.close()
+        control = run_control(browser, base, CYCLES)
+        report["control_no_map"] = control
+        report["attribution"] = {
+            "graph": {"listenersEl": grow["listenersEl"]["delta"] or 0,
+                      "obsAlive": grow["obsAlive"]["delta"] or 0,
+                      "netCreated": grow["networkCreated"]["delta"]},
+            "control_no_map": {"listenersEl":
+                               control["growth"]["listenersEl"]["delta"] or 0,
+                               "obsAlive":
+                               control["growth"]["obsAlive"]["delta"] or 0},
+        }
         return report
 
     # ── скрытая вкладка: рендер стоит, при возврате не появляется вторая копия
@@ -533,23 +442,94 @@ def run(browser, base, out_dir, fixtures_mod, label="cand"):
     back = pg.evaluate(SNAPSHOT)
     report["visible_again"] = back
     check(back["rafActive"] is True, "при возврате кадровый цикл возобновлён")
-    check((back["rafLive"] or 0) <= (first["rafLive"] or 0),
-          "при возврате живых RAF не больше, чем до скрытия (%r против %r)"
-          % (back["rafLive"], first["rafLive"]))
+    check((back["rafLive"] or 0) == (marks["cycle1"]["rafLive"] or 0),
+          "при возврате число живых RAF как до скрытия (%r против %r)"
+          % (back["rafLive"], marks["cycle1"]["rafLive"]))
     check(back["scenes"] == 1 and back["netCount"] == 1,
           "при возврате одна сцена и одна сеть (%d/%r)"
           % (back["scenes"], back["netCount"]))
     check((back["fxPaints"] or 0) > (hid1["fxPaints"] or 0),
           "после возврата кадры снова рисуются")
 
-    path = os.path.join(out_dir, "cmv-e-leaks-after-cycles-%s.png" % label)
+    path = os.path.join(out_dir, "cmv-e-leaks-after-cycles.png")
     pg.screenshot(path=path)
     report["shots"] = [os.path.basename(path)]
     report["console_errors"] = errors[:5]
     check(not errors, "ошибок в консоли нет (%d)" % len(errors))
     pg.close()
     ctx.close()
+
+    # ── контроль: цена перемонтирования страницы БЕЗ карты ──────────────────
+    control = run_control(browser, base, CYCLES)
+    report["control_no_map"] = control
+    graph_el = grow["listenersEl"]["delta"] or 0
+    ctrl_el = control["growth"]["listenersEl"]["delta"] or 0
+    graph_obs = grow["obsAlive"]["delta"] or 0
+    ctrl_obs = control["growth"]["obsAlive"]["delta"] or 0
+    report["attribution"] = {
+        "graph": {"listenersEl": graph_el, "obsAlive": graph_obs,
+                  "netCreated": grow["networkCreated"]["delta"]},
+        "control_no_map": {"listenersEl": ctrl_el, "obsAlive": ctrl_obs},
+        "note": ("Показатели элемента-слушателей и наблюдателей на ЖИВОМ "
+                 "графе не растут (scene.handlers/observerCount стабильны). "
+                 "Рост глобальных счётчиков сравнивается с контролем без "
+                 "карты: он отражает перемонтирование страницы маршрутом."),
+    }
+    check(graph_el <= ctrl_el * 1.25 + 20,
+          "рост обработчиков элементов у карты не больше, чем у обычного "
+          "перехода страницы (карта %+d, контроль без карты %+d за %d циклов)"
+          % (graph_el, ctrl_el, CYCLES))
+    heap1 = marks["cycle1"].get("heapBytes")
+    heapN = last.get("heapBytes")
+    if heap1 and heapN:
+        report["heap_growth"] = {
+            "cycle1": heap1, "cycle20": heapN, "delta": heapN - heap1,
+            "start": start.get("heapBytes"),
+        }
+        check(heapN - heap1 <= 8 * 1024 * 1024,
+              "после принудительного GC куча не выросла больше 8 МБ "
+              "(цикл1 %.1f МБ -> цикл20 %.1f МБ, %+d КБ)"
+              % (heap1 / 1048576.0, heapN / 1048576.0,
+                 (heapN - heap1) // 1024))
     return report
+
+
+def run_control(browser, base, cycles):
+    """Контроль: те же 20 переключений маршрута, но БЕЗ карты.
+
+    `#/modules` ↔ `#/how` — две обычные страницы админки. Их рост обработчиков
+    и наблюдателей показывает стоимость перемонтирования страницы как такового.
+    Сравнение с циклами карты отделяет утечку графа от общей цены маршрутов.
+    """
+    ctx = browser.new_context(viewport={"width": DESKTOP[0],
+                                        "height": DESKTOP[1]},
+                              device_scale_factor=1)
+    ctx.add_init_script(INSTRUMENT)
+    ctx.add_init_script(M.TMA_STUB)
+    ctx.route("**/api/**", W15._routes())
+    pg = ctx.new_page()
+    pg.goto(base + "#/modules", wait_until="load")
+    pg.wait_for_timeout(1500)
+    out = {"start": pg.evaluate(SNAPSHOT)}
+    for i in range(1, cycles + 1):
+        pg.evaluate("(r) => { window.location.hash = r; }",
+                    "#/how" if i % 2 else "#/modules")
+        pg.wait_for_timeout(320)
+        if i in (1, 10, cycles):
+            out["cycle%d" % i] = pg.evaluate(SNAPSHOT)
+    out["growth"] = _diff(out["cycle1"], out["cycle%d" % cycles],
+                          ["listeners", "listenersEl", "listenersDoc",
+                           "listenersWin", "obsAlive", "obsCreated", "rafLive"])
+    pg.close()
+    ctx.close()
+    print("  контроль без карты: listeners %+d (элементы %+d, doc+win %+d), "
+          "наблюдатели %+d" % (
+              out["growth"]["listeners"]["delta"],
+              out["growth"]["listenersEl"]["delta"],
+              (out["growth"]["listenersDoc"]["delta"] or 0)
+              + (out["growth"]["listenersWin"]["delta"] or 0),
+              out["growth"]["obsAlive"]["delta"]))
+    return out
 
 
 def main():
@@ -603,7 +583,7 @@ def main():
         print("ERROR:\n" + report["error"][-1500:])
         return 3
     print("checks=%d fails=%d -> %s" % (len(report["checks"]),
-                                       len(report["fails"]), out))
+                                        len(report["fails"]), out))
     return 0 if not report["fails"] else 2
 
 

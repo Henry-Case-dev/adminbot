@@ -608,39 +608,43 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
              "(smartmodule_utils/direct_chat); декларация stages снята, "
              "события не выдумываются",
     ),
-    # ── direct_chat: стадия answer_cache эмитит mca07_answer_cache ──────────
+    # ── direct_chat: стадия answer_cache снята вместе с кешем ответов ────────
+    # RLR-04 (R-04.1/§4, owner corrective 2026-11-05): стадия `form_guard` и
+    # событие `postprocess_form` DEPRECATED — post-L2 form-reroll снят, в коде
+    # нет эмиттера (форма проверяется только при явной трансформации внутри
+    # `verbalize_validated`). Декларация не висит: стадия/событие убраны из
+    # active-набора; реконсиляция манифеста — RLR-06.
+    # Incidental (pre-existing, EVOL-031): стадия `answer_cache`/событие
+    # `mca07_answer_cache` тоже без эмиттера — legacy text-replay удалён,
+    # поэтому висячая декларация снята в том же проходе.
     ProcessDefinition(
-        process_id="direct.reply", version="1",
+        process_id="direct.reply", version="2",
         purpose="Прямой ответ: решение → tool chain → память → ответ",
         inputs=("user message",), outputs=("telegram reply",),
-        stages=("queued", "decision", "character", "speech", "llm", "form_guard",
-                "claim_check", "write", "deliver", "answer_cache"),
+        stages=("queued", "decision", "character", "speech", "llm",
+                "claim_check", "write", "deliver"),
         branches=("retrieval", "tools"),
         trigger_kind="per_message",
         settings_ref=("DIRECT_DECISION_MAKING_ENABLED",
                       "MCA_CHARACTER_LAYERS_ENABLED",
                       "MCA_CHARACTER_SPEECH_ENABLED",
-                      "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
                       "MCA_NUMERIC_CLAIM_GUARD_ENABLED"),
         state_source=("task_jobs", "mca_events"),
         recovery_ops=("resume_job", "delivery_reconcile"),
         widget_id="Ответы (decision/System2)",
-        stages_to_events={"answer_cache": "mca07_answer_cache",
-                          "speech": "speech_understanding",
-                          "form_guard": "postprocess_form",
+        stages_to_events={"speech": "speech_understanding",
                           "claim_check": "numeric_claim_guard"},
-        instrumentation=("answer_cache", "speech", "form_guard",
-                         "claim_check"),
+        instrumentation=("speech", "claim_check"),
         owner_feature="direct_chat",
         enabled_gate="DIRECT_DECISION_MAKING_ENABLED",
-        event_names=("mca07_answer_cache", "speech_understanding",
-                     "postprocess_form", "numeric_claim_guard"),
-        note="mca-08 (ADR-1028-11 D9): стадии character/speech/form_guard; "
-             "notable-only — read-side `character` без per-reply success-"
-             "события (урок M-ASAP31-2), события speech/form_guard — на "
-             "clarify/form-reject. mca-15 (ADR-1028-12 D7): AMEND stage "
-             "`claim_check` (numeric_claim_guard — notable-only, только при "
-             "нарушении)",
+        event_names=("speech_understanding", "numeric_claim_guard"),
+        note="mca-08 (ADR-1028-11 D9): стадии character/speech; notable-only "
+             "— read-side `character` без per-reply success-события (урок "
+             "M-ASAP31-2), событие speech — на clarify. mca-15 (ADR-1028-12 "
+             "D7): AMEND stage `claim_check` (numeric_claim_guard — "
+             "notable-only, только при нарушении). RLR-04: `form_guard`/"
+             "`postprocess_form` DEPRECATED (эмиттера нет; см. коммент выше); "
+             "`answer_cache` снята вместе с legacy text-replay (EVOL-031).",
     ),
     # ── mca-08: scoped-просьбы по стилю/темам (CRUD notable-only) ───────────
     ProcessDefinition(

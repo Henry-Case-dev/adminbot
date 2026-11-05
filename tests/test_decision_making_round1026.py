@@ -1,4 +1,4 @@
-﻿"""A7 `decision-making-round1026` (Эпик 3 Wave 5, §38–§48, ADR-1026-20 D1–D12).
+"""A7 `decision-making-round1026` (Эпик 3 Wave 5, §38–§48, ADR-1026-20 D1–D12).
 
 Покрытие (T-3651…T-3662):
   * Контракт решения: `action` ≠ `style`, `style=silent` невозможен, аддитивные
@@ -530,7 +530,8 @@ class _CaptureRouter:
 
 class _ToolAndStageLLM:
     """LLM с обоими контурами: `generate_chat` (tool-раунд + финал) и
-    `generate` (Stage-1 Синтезатор + Stage-2 Вербализатор)."""
+    `generate`. RLR-02-LEGACY: `generate` в tool-ходе вне L1 не вызывается —
+    счётчик нужен, чтобы это падало при возврате второго автора."""
 
     def __init__(self):
         self.chat_calls = 0
@@ -562,11 +563,8 @@ class TestHandleOrder:
         svc, react, bot, msg, user = _drive(monkeypatch, "Ок")
         svc.llm = MagicMock()
         svc.llm.generate = AsyncMock(return_value="не должно")
-        synth = AsyncMock(return_value=("SYNTH", "serious"))
-        svc._synthesize_direct_answer = synth
         await svc.handle(bot, msg, user)
         assert svc.llm.generate.await_count == 0
-        synth.assert_not_awaited()
         react.assert_not_awaited()
         svc._send_direct_answer.assert_not_awaited()
         bot.send_message.assert_not_called()
@@ -645,8 +643,9 @@ class TestHandleOrder:
     @pytest.mark.asyncio
     async def test_tool_path_runs_tools_then_final_action(self, monkeypatch):
         """§46 REQ-A7-25: `action=tool` → инструмент **реально исполнен**
-        (router.dispatch) → итоговое действие (текст пользователю через
-        существующий Stage-2), не короткое замыкание."""
+        (router.dispatch) → итоговое действие (текст пользователю), не
+        короткое замыкание. RLR-02-LEGACY: текст — финал tool-loop, второго
+        автора нет (§2 R-02.1)."""
         import services.direct_chat_service as dcs
         router = _CaptureRouter()
         llm = _ToolAndStageLLM()
@@ -663,10 +662,11 @@ class TestHandleOrder:
         assert logged and logged[0].action == ACTION_TOOL
         assert logged[0].reason_code == REASON_TOOL_RESULT
         assert logged[0].tool_calls == ("execute_web_search",)
-        # Итоговое действие после tool → текст пользователю (Stage-1 + Stage-2).
-        assert llm.generate_calls == 2
+        # Итоговое действие после tool → текст пользователю. Это ровно тот
+        # текст, который родился в tool-loop: отдельной Stage-1/Stage-2 нет.
+        assert llm.generate_calls == 0
         svc._send_direct_answer.assert_awaited_once()
-        assert svc._send_direct_answer.await_args.args[2] == "итоговый текст"
+        assert svc._send_direct_answer.await_args.args[2] == "финал инструмента"
         react.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -697,8 +697,10 @@ class TestHandleOrder:
 
     @pytest.mark.asyncio
     async def test_await_count_two_on_tool_path(self, monkeypatch):
-        """F-1c/инвариант 13: ровно 2 физических LLM-вызова System 2
-        (Stage-1 + Stage-2) на tool-ходе — третьего вызова нет."""
+        """F-1c/инвариант 13 (RLR-02-LEGACY): на tool-ходе вне L1 нет ни
+        одного дополнительного LLM-вызова — второй автор удалён, а не
+        «спрятан». Инвариант «ровно N авторских генераций» закреплён здесь
+        как «ровно ноль стадий после tool-loop»."""
         import services.direct_chat_service as dcs
         svc, _react, bot, msg, user = _drive(
             monkeypatch, "Бот, загугли новости", tool_router=MagicMock())
@@ -712,7 +714,9 @@ class TestHandleOrder:
 
         monkeypatch.setattr(dcs, "chat_with_tools", fake_chat_with_tools)
         await svc.handle(bot, msg, user)
-        assert svc.llm.generate.await_count == 2
+        assert svc.llm.generate.await_count == 0
+        svc._send_direct_answer.assert_awaited_once()
+        assert svc._send_direct_answer.await_args.args[2] == "финал инструмента"
 
     @pytest.mark.asyncio
     async def test_await_count_zero_on_silent_path(self, monkeypatch):
@@ -721,11 +725,8 @@ class TestHandleOrder:
         svc, react, bot, msg, user = _drive(monkeypatch, "Ок")
         svc.llm = MagicMock()
         svc.llm.generate = AsyncMock(side_effect=[_SYNTH_JSON, "финал"])
-        synth = AsyncMock(return_value=("S", "serious"))
-        svc._synthesize_direct_answer = synth
         await svc.handle(bot, msg, user)
         assert svc.llm.generate.await_count == 0
-        synth.assert_not_awaited()
         react.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -913,6 +914,10 @@ class TestBounds:
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 597
         assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
+        # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
+        # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
+        # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
                     if s.category is not None]) == 572
         assert len(pc.GROUPS) == 121

@@ -122,7 +122,6 @@ from services.sandbox_reply import DEFAULT_NO_KEY_REPLY
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
     DIRECT_L1_PLANNER_SYSTEM_PROMPT,
-    DIRECT_SYNTHESIZER_SYSTEM_PROMPT,
     DIRECT_VERBALIZER_SYSTEM_PROMPT,
     PREV_CHAT_VERBALIZER_R1023,
 )
@@ -207,6 +206,10 @@ from services.token_counter import (
 from services.context_middleware import truncate_keep_header
 from services.reply_postprocess import strip_reasoning_tags
 from services import anticliche_cache
+from services import l2_continuation as _l2_cont
+# ── RLR-06-OBSERVABILITY (§7): трасса одного хода по `correlation_id` —
+# digest'ы/метаданные через существующий `mca_events` (без сырых текстов).
+from services import turn_trace as _ttrace
 from services.agentic_events import emit_agentic_event
 from services import usage_events
 from services.negative_constraints import (
@@ -221,10 +224,7 @@ from services.prompt_style_blocks import (
     resolve_prompt,
 )
 from services.system2_handoff import (
-    normalize_response_mode,
-    parse_direct_synthesis,
     redact_secrets,
-    stage2_payload,
 )
 from services.tool_loop import (
     ToolLoopResult,
@@ -266,6 +266,8 @@ from services import direct_llm_react as _llm_react
 # ── ASAP 7 (F1, §1.1–§1.5): pre-tool L1 Planner + capability allowlist. ────
 from services import direct_l1 as _l1
 from services import direct_capabilities as _caps
+# ── UNIFIED-REPLY UR-A (§2.1): фрозен-контракты одного хода (TurnRequest). ──
+from services import turn_types as _tt
 # ── ASAP 8 v6 (D04, §18C.7): execution modes / orchestrator / evidence. ────
 from services import direct_execution as _dx
 # ── ASAP-EVIDENCE-ROUTING-01 v3 (§1): runtime evidence policy. Единственный
@@ -2116,6 +2118,32 @@ def _delivered_payload(payload: str) -> str:
         return str(payload or "")
 
 
+async def _send_traced(bot, chat_id: int, text: str, reply_to, *,
+                       correlation_id, op_name: str, channel: str = "plain",
+                       reason: str = ""):
+    """Plain-доставка + трасса (§7): рендер → egress-guard → факт отправки.
+
+    Регистрирует операции с digest'ом после каждой и ИТОГ доставки с реальными
+    Telegram ID (все чанки). Возврат — id первого сообщения (прежняя
+    семантика `send_chunked_reply`, потребители не меняются)."""
+    _ttrace.note_op(correlation_id, op_name, text)
+    _ttrace.note_op(correlation_id, _ttrace.OP_EGRESS_SANITIZE,
+                    _delivered_payload(text))
+    # Без трассы хода (нет correlation_id) вызов доставки остаётся
+    # БАЙТ-в-БАЙТ прежним: лишний kwarg не появляется.
+    sent_ids: list = []
+    extra = {"sent_ids": sent_ids} if correlation_id else {}
+    first = await send_chunked_reply(bot, chat_id, text, reply_to, **extra)
+    _ttrace.note_delivery(
+        correlation_id,
+        outcome=("success" if first is not None else "failed"),
+        tg_message_ids=(sent_ids or ([first] if isinstance(first, int)
+                                     else [])),
+        chunks=(len(sent_ids) or None), channel=channel,
+        reason=(reason or ("" if first is not None else "send_failed")))
+    return first
+
+
 # ── ADD-EXP §6: диагностика слоя «Выражение» на боевом пути ─────────────────
 #: Маркер слоя в финальном system (проверка «политика доехала»).
 EXPRESSION_MARKER = "<Expression_Settings>"
@@ -2134,6 +2162,53 @@ def _expression_diag(cls: str, *, chat_id: int, stage: str, detail: str = "",
                                    detail=detail, mode=mode)
     except Exception:      # pragma: no cover — диагностика не рвёт ход
         pass
+
+
+def _log_l2_continuation(chat_id: int, correlation_id: str | None,
+                         result, *, diag_out: dict | None = None) -> None:
+    """UR-19 / R-08.14: факт и причина продолжения финального ответа видны.
+
+    `stop_reason` не маскируется: `cap`/`no_progress` означают НЕЗАВЕРШЁННЫЙ
+    текст (вызывающий не выдаёт его за готовый ответ). Fail-open: диагностика
+    не рвёт ход.
+    """
+    try:
+        if diag_out is not None:
+            diag_out.update({
+                "continuation_calls": int(result.continuation_calls),
+                "continuation_stop_reason": str(result.stop_reason),
+                "continuation_completed": bool(result.completed),
+                "finish_reasons": list(result.finish_reasons),
+            })
+        if not result.continued:
+            return
+        # Незавершённый ответ — WARNING: он не доставляется как готовый,
+        # но причина обязана быть видна в продовых логах (§7).
+        _log = logger.info if result.completed else logger.warning
+        _log(
+            "[direct] l2 continuation | chat=%s | calls=%d | stop=%s | "
+            "finish=%s | chars=%d", chat_id, result.continuation_calls,
+            result.stop_reason, ",".join(result.finish_reasons),
+            len(result.text))
+        try:
+            from services import mca_events as _mca_events
+            _mca_events.emit_mca_event(
+                "llm_continuation",
+                outcome=("success" if result.completed else "skipped"),
+                component="direct_chat", stage="l2_continuation",
+                reason_code=str(result.stop_reason),
+                chat_id=int(chat_id), trace_id=correlation_id,
+                usage_json={
+                    "calls": int(result.continuation_calls),
+                    "completed": bool(result.completed),
+                    "finish_reasons": list(result.finish_reasons),
+                    "chars": len(result.text),
+                })
+        except Exception:      # pragma: no cover — событие не рвёт ход
+            pass
+    except Exception:          # pragma: no cover — диагностика не рвёт ход
+        logger.warning("[direct] l2 continuation log failed | chat=%s",
+                       chat_id)
 
 
 def _expression_record_raw(*, chat_id: int, correlation_id: str | None,
@@ -2574,13 +2649,10 @@ def _evidence_supplied(query: str, reply_text: str, plan,
     для которых в ``source_reuse`` есть СВЕЖИЙ ПРОЧИТАННЫЙ источник с реально
     доставленной выдержкой. Заполняется вызывающим (`_evidence_reuse_claims`),
     а не здесь: функция остаётся чистой и без I/O."""
-    act = str(getattr(plan, "response_act", "") or "")
-    structure = str(getattr(plan, "structure", "") or "")
     has_text = bool(str(reply_text or "").strip())
     # Только трансформация поданного текста (пересказ/сводка): план не несёт
     # собственных новых внешних claim (проверка claims — в политике).
-    transformed = bool(has_text and (act == "summarization"
-                                     or structure == "summary"))
+    transformed = bool(has_text and _plan_declares_text_transform(plan))
     attributed = False
     try:
         attributed = _evp.is_attributed_speech(str(query or ""))
@@ -2590,6 +2662,73 @@ def _evidence_supplied(query: str, reply_text: str, plan,
         text=str(reply_text or ""), urls=tuple(urls or ()),
         transformed_only=transformed, attributed_only=bool(attributed),
         verified_reuse=frozenset(verified_reuse or ()))
+
+
+# ── RLR-03.3 (REMOVE-LEGACY-REPHRASING v2.0, R-03.3 / R-06 «явный запрос
+# перепиши/переведи» / §8 «Explicit rewrite/translate») ────────────────────
+# Узкая проверка защищённых данных существует давно (`FormContract` +
+# `check_form_contract`), но в свободном Direct/Initiative контракт логически
+# некорректен (R-03.1) и потому не создавался вовсе. Для ЯВНОЙ трансформации
+# поданного текста он корректен.
+#
+# Сигнал — функциональное поле плана L1 `preserve_source_facts` (канон EVR5,
+# документировано рядом с `recheck`/осью поиска): модель ставит true только
+# когда человек просит переписать/отредактировать/перевести ПОДАННЫЙ им текст
+# с сохранением смысла. Суммарный акт (`response_act=summarization` /
+# `structure=summary`) сюда НЕ входит: в сводке числа исходника вправе
+# сжиматься, и строгая буквальная сверка откатила бы честный пересказ к
+# полному исходнику (дефект приёмки). Обычные акты (`answer`/`other`/
+# `explanation`/`creative`) с этим полем тоже дают контракт — именно так
+# «перепиши»/«переведи» перестают уходить без проверки.
+
+def _plan_preserves_source_facts(plan) -> bool:
+    """План L1 просит сохранить факты поданного текста (R-03.3).
+
+    Строгий boolean по прецеденту `recheck`: только реальный ``True``.
+    Никогда не бросает: отсутствие/мусор → False (свободная речь)."""
+    try:
+        return getattr(plan, "preserve_source_facts", False) is True
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
+def _plan_declares_text_transform(plan) -> bool:
+    """Evidence-класс «ход только пересказывает поданный текст» (§1.2 п.3).
+
+    ЭТО НЕ сигнал контракта защищённых данных: сводка — законная
+    трансформация, в которой числа исходника могут сжиматься. Класс нужен
+    только evidence-политике (`text_transform_or_translation`)."""
+    try:
+        act = str(getattr(plan, "response_act", "") or "")
+        structure = str(getattr(plan, "structure", "") or "")
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+    return act == "summarization" or structure == "summary"
+
+
+def _explicit_transform_contract(plan, reply_text, roster_names=()):
+    """(``FormContract`` | None, исходный текст) для явной трансформации.
+
+    Контракт создаётся ТОЛЬКО когда (а) план выставил
+    ``preserve_source_facts=true`` и (б) исходник реально подан пользователем
+    (текст reply-родителя). Свободная речь L2, сводка/пересказ и «перескажи
+    переписку» без поданного исходника контракта не получают: сравнивать
+    финальный ответ с чужим авторским текстом нельзя (R-03.1), а подставлять
+    вопрос пользователя как source значило бы откатывать честный пересказ в
+    эхо вопроса.
+
+    Возвращаемый исходник — прозрачный исход при нарушении защищённых данных
+    (`verbalize_validated` вернёт его вместо литературной правки).
+    """
+    if not _plan_preserves_source_facts(plan):
+        return None, ""
+    source = str(reply_text or "").strip()
+    if not source:
+        return None, ""
+    names = tuple(sorted({
+        str(name or "").strip() for name in (roster_names or ())
+        if str(name or "").strip()}))
+    return _nc.FormContract(source_text=source, roster_names=names), source
 
 
 def _evidence_reuse_claims(plan, *, chat_id=None, bypass: bool = False,
@@ -2690,95 +2829,35 @@ async def _evidence_context(chat_id: int, required_caps=(), *,
 #: считается в «прочем» ДО упаковки (иначе evidence забирает её место).
 _EVIDENCE_NOTE_RESERVE_CHARS = 260
 
-#: Одна машинная инструкция для единственной повторной генерации (§2.3).
-EVIDENCE_EGRESS_HINT = (
-    "[SYSTEM] В предыдущем ответе есть существенное внешнее утверждение, "
-    "которого нет в доставленных доказательствах. Убери это утверждение "
-    "(или замени на подтверждённое) и сохрани остальной текст: тон, шутку и "
-    "форму. Не пиши, что ты что-то проверял, если проверки не было; "
-    "«ничего не найдено» не означает «не существует».")
-
+#: BGS-02: guard больше НЕ подсказывает Writer'у убрать claim (повторной
+#: генерации нет), поэтому прежняя машинная подсказка удалена.
 
 async def _run_evidence_egress_guard(*, answer, decision, evidence_text="",
-                                     delivered_keys=(), lookup=None,
-                                     rewrite=None, drop_allowed: bool = True
-                                     ) -> tuple[str, dict]:
-    """Bounded outbound guard (§2.3): ≤1 lookup, ≤1 regeneration, затем
-    детерминированное удаление ТОЛЬКО неподтверждённого предложения.
+                                     delivered_keys=()) -> tuple[str, dict]:
+    """Наблюдение egress-проверки (§2.3/BGS-02): код + место, 0 правок текста.
 
-    Второго Writer'а нет: ``rewrite`` — существующий Writer-вызов хода
-    (hint-ретрай), ``lookup`` — существующий tool-путь (один адресный
-    запрос). При недоступности проверки ответ НЕ превращается в «данных
-    недостаточно»: максимум честная пометка в статистике события.
-    Возврат ``(answer, stats)``; никогда не бросает."""
-    stats: dict = {"guard_action": _evp.GUARD_NONE, "lookup_used": 0,
-                   "retry_used": 0, "dropped_claim": 0, "reason_code": "",
-                   "note": ""}
+    Раньше здесь были адресный lookup, повторная генерация и детерминированное
+    удаление неподтверждённого предложения. BGS-02 снимает смысловую
+    постцензуру: готовый ответ доставляется байт-в-байт, второй поиск после
+    Writer'а не запускается, а неподтверждённое утверждение остаётся с честной
+    пометкой в событии (неопределённость формулирует L2, а не алгоритм).
+    Техническая санитаризация машинных маркеров живёт отдельно
+    (``outgoing_guard.sanitize_outgoing``) и этим guard'ом не затрагивается.
+
+    Возврат ``(answer, stats)``: ``answer`` — ровно входной текст. Никогда не
+    бросает."""
+    stats: dict = {"observed": 0, "code": _evp.GUARD_NONE,
+                   "sentence_index": -1, "char_start": -1, "char_end": -1,
+                   "claim_key": "", "reason_code": "", "note": ""}
     if decision is None or not str(answer or "").strip() \
             or not _evp.egress_guard_enabled():
         return answer, stats
-    text = str(answer)
-    extra = ""
     try:
-        lookup_used = False
-        retry_used = False
-        verdict = _evp.guard_egress(
-            answer=text, decision=decision, evidence_text=evidence_text,
+        observation = _evp.guard_egress(
+            answer=str(answer), decision=decision, evidence_text=evidence_text,
             delivered_keys=delivered_keys)
-        stats["guard_action"] = verdict.action
-        stats["note"] = verdict.note
-        if verdict.action == _evp.GUARD_NONE:
-            return text, stats
-        # 1. Один адресный lookup по существу claim (существующий tool-путь).
-        if verdict.lookup_allowed and lookup is not None:
-            lookup_used = True
-            stats["lookup_used"] = 1
-            try:
-                fetched = await lookup(verdict.sentence)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                fetched = ""
-            extra = str(fetched or "")
-            verdict = _evp.guard_egress(
-                answer=text, decision=decision,
-                evidence_text=(str(evidence_text or "") + "\n" + extra),
-                delivered_keys=delivered_keys, lookup_used=True)
-            stats["guard_action"] = verdict.action
-            stats["note"] = verdict.note
-            if verdict.action == _evp.GUARD_NONE:
-                return text, stats
-        # 2. Одна повторная генерация тем же Writer'ом (взаимоисключающе с
-        #    freshness-ретраем — решает вызывающий).
-        if verdict.rewrite_allowed and rewrite is not None:
-            retry_used = True
-            stats["retry_used"] = 1
-            try:
-                new_text = await rewrite(EVIDENCE_EGRESS_HINT,
-                                         str(evidence_text or "") + extra)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                new_text = None
-            if new_text and str(new_text).strip():
-                text = str(new_text).strip()
-                verdict = _evp.guard_egress(
-                    answer=text, decision=decision,
-                    evidence_text=(str(evidence_text or "") + "\n" + extra),
-                    delivered_keys=delivered_keys, lookup_used=lookup_used,
-                    retry_used=True)
-                stats["guard_action"] = verdict.action
-                stats["note"] = verdict.note
-                if verdict.action == _evp.GUARD_NONE:
-                    return text, stats
-        # 3. Удаление только высокорискового предложения (остальной текст —
-        #    тон/шутка/ритм — сохраняется).
-        if drop_allowed and verdict.drop_allowed:
-            text = _evp.drop_claim_sentence(text, verdict.sentence)
-            stats["dropped_claim"] = 1
-            stats["guard_action"] = _evp.GUARD_DROP_CLAIM
-            stats["reason_code"] = _evp.REASON_EVIDENCE_CLAIM_REMOVED
-        return text, stats
+        stats.update(observation.event_fields())
+        return answer, stats
     except asyncio.CancelledError:
         raise
     except Exception:      # pragma: no cover - защитная ветка
@@ -3207,6 +3286,29 @@ def _correction_frame_facts(blocks) -> dict:
             return {}
         return attrs
     return {}
+
+
+def _optional_int(value) -> int | None:
+    """Необязательное целое из строки/числа (иначе None). Никогда не бросает."""
+    try:
+        if value is None or isinstance(value, bool):
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+#: UNIFIED-REPLY UR-A: оси диагностики L1, общие для обоих триггеров
+#: (R17-safe: числа/короткие коды; тексты чата сюда не попадают).
+_TURN_DIAGNOSTIC_KEYS = (
+    "source", "inherited", "fallback", "repair", "override",
+    "credential_source", "temperature_configured", "temperature_applied",
+    "temperature_unsupported", "l1_context_budget", "l1_context_source",
+    "l1_context_chars", "l1_line_chars_cap", "l1_reply_chars_cap",
+    "l1_reply_total_chars", "l1_reply_delivered_chars", "l1_reply_truncated",
+    "l1_kept_mid", "l1_profile_source", "l1_profile_chars",
+    "social_attribution",
+)
 
 
 class DirectChatService:
@@ -3963,6 +4065,18 @@ class DirectChatService:
                 force_reply_required=_force_required,
                 reply_to_bot=_reply_bot, is_private=_is_private,
                 addressed=True)
+            # ── RLR-06-OBSERVABILITY (§7): трасса ОДНОГО хода по
+            # `correlation_id`. Источник/чат/триггер фиксируются здесь;
+            # ChatClock, L1, инструменты, Writer и операции доставки —
+            # по мере их фактического выполнения. Никаких сырых текстов:
+            # только id/коды/числа/digest'ы.
+            _ttrace.begin(
+                correlation_id, chat_id=chat_id, trigger=_trigger_type,
+                source_message_id=_trigger_id,
+                source_author_id=(user_id or None),
+                idempotency_key=_ttrace.idempotency_key(
+                    chat_id=chat_id, tg_message_id=_trigger_id,
+                    revision=1, user_id=(user_id or None)))
             # F-5 / §3.3 (строка 0): OFF kill-switch → политика не строится,
             # но причина решения фиксируется как `disabled` (диагностический
             # контракт). Наблюдаемый формат A1-лога сохраняется байт-в-байт.
@@ -4401,6 +4515,17 @@ class DirectChatService:
                     _l1_action = "reply"
                     l1_plan.action = "reply"
                     l1_meta["override"] = "decision_off"
+                # §7: L1-решение этого хода — в трассу (план, не речь).
+                _ttrace.note_l1(
+                    correlation_id, action=str(_l1_action or ""),
+                    response_act=str(getattr(l1_plan, "response_act", "")),
+                    structure=str(getattr(l1_plan, "structure", "")),
+                    plan_source=str(getattr(l1_plan, "source", "")),
+                    execution_mode=str(
+                        getattr(l1_plan, "execution_mode", "")),
+                    override=str(l1_meta.get("override") or ""),
+                    model=str(getattr(self.llm, "_chat_model", "") or ""),
+                    fallback=str(l1_meta.get("fallback") or ""))
                 if _l1_action == "silent":
                     if l1_plan.confidence_bucket == "low":
                         # §1.3: low confidence — SILENT демотируется в дет.
@@ -4431,6 +4556,8 @@ class DirectChatService:
                                            and _dctx.addressed),
                                 reason="l1_silent")
                         # вне allowed → тишина (§1.7, семантика :2684-2731).
+                        _ttrace.note_stop(correlation_id, "silent",
+                                          "l1_silent")
                         return
                 if _l1_action == "react":
                     # §1.7: reaction только из ALLOWED_LLM_REACTIONS;
@@ -4451,6 +4578,8 @@ class DirectChatService:
                             logger.warning(
                                 "[direct] l1 react invalid — silence | "
                                 "chat=%s", chat_id)
+                            _ttrace.note_stop(correlation_id, "silent",
+                                              "l1_react_invalid")
                             return
                     else:
                         _react_source = "l1_planner"
@@ -4475,6 +4604,17 @@ class DirectChatService:
                     return
                 # action == reply → pipeline продолжается (capability resolve
                 # → tools ∅ | подсет → L2 Writer — стадии ниже).
+                # §7: финальное (после всех override/demote) L1-решение хода.
+                _ttrace.note_l1(
+                    correlation_id, action=str(_l1_action or ""),
+                    response_act=str(getattr(l1_plan, "response_act", "")),
+                    structure=str(getattr(l1_plan, "structure", "")),
+                    plan_source=str(getattr(l1_plan, "source", "")),
+                    execution_mode=str(
+                        getattr(l1_plan, "execution_mode", "")),
+                    override=str(l1_meta.get("override") or ""),
+                    model=str(getattr(self.llm, "_chat_model", "") or ""),
+                    fallback=str(l1_meta.get("fallback") or ""))
             # ── MCA-23 (W3): ResponsePlan — детерминированная классификация
             # ДО LLM-стадии (0 LLM-вызовов; §8 fast path не меняется: для
             # очевидного chat/micro тот же один Stage-1 вызов). Extent-блок
@@ -4598,6 +4738,9 @@ class DirectChatService:
                             chat_id, _scrubbed_on)
                 _pcomp.emit_layer_events_once(_composer_manifest)
             time_line = await self._chat_time_line(chat_id)
+            # §7: ChatClock хода — значение и источник (per-chat tz → global).
+            _ttrace.note_clock(correlation_id, line=time_line,
+                               source="limits.chat_timezone")
             # ASAP-VISION-SYNC-01 §4.4: финальная сборка payload перечитывает
             # медиа-состояние БЕЗ ожидания — если анализ завершился после L1,
             # Writer получает актуальную ревизию (старый pending-снимок
@@ -4847,7 +4990,14 @@ class DirectChatService:
                             longform_max_tokens=longform_max_tokens,
                             required_caps=tuple(getattr(
                                 _evidence_decision, "required_caps", ())
-                                or ()))
+                                or ()),
+                            # UR-06: явная просьба человека («проверь в
+                            # интернете») сильнее мнения планера — ось
+                            # получает user_forced, а не демотируется в
+                            # not_applicable.
+                            explicit_request=bool(getattr(
+                                _evidence_decision, "explicit_request",
+                                False)))
                     elif self.tool_router is not None:
                         # ASAP-3.2 (ADR-1028-5 D10, §44/§45): fallback
                         # recompose на tool-пути — tool schemas ВХОДЯТ в
@@ -5133,52 +5283,22 @@ class DirectChatService:
                 _log_coordinator_decision(
                     coordinator, chat_id=chat_id,
                     with_decision_fields=decision_on)
-            # Раунд 10.22 (F5, ADR-1022-5): System 2 (Синтезатор тулов →
-            # Вербализатор) — ТОЛЬКО при реально вызванных тулах, успешном
-            # tool-финале и НЕ lore_compiled (детерминированная HTML-история
-            # остаётся вне System 2, Д-9). Любой сбой → финал tool-loop.
-            # A1 (D4): то же условие, выраженное через решение координатора
-            # (`action == tool` ⇔ те же условия) — Вербализатор не запускается
-            # при не-текстовом решении (молчание/реакция не генерируют текст).
-            response_mode = "serious"      # F3: fail-safe до Stage-2
+            response_mode = "serious"      # F3: fail-safe до Writer
             # MCA-15 (D5, T-4931; K2): контракт проверки чисел ЭТОГО хода из
             # per-turn `ctx.metric_results` (+intent). K2 OFF/ошибка → None
             # (байт-паритет). Один контракт на System2 и финальную сборку.
             numeric_contract = self._numeric_contract_from_ctx(tool_ctx)
-            # ── ASAP 7 (F1, §1.2): гейт System2 демонтирован из primary path
-            # (guard `not direct_l1_on`); его роль забрал L2 Writer ниже.
-            if (not direct_l1_on
-                    and getattr(settings, "SYSTEM2_DIRECT_ENABLED", True)
-                    and isinstance(raw, ToolLoopResult)
-                    and not raw.degraded
-                    and bool(getattr(raw, "tool_trace", None))
-                    and not getattr(tool_ctx, "lore_compiled", False)
-                    and (coordinator is None
-                         or coordinator.action == ACTION_TOOL)
-                    # MCA-23 фаза 2 (§18-I): media-план с УСПЕШНО доставлен-
-                    # ным медиа — Writer-регенерация бесполезна (тул уже
-                    # отправил файл; idempotent). Провал media-тула → Writer
-                    # работает как раньше (честная деградация §19).
-                    and _extent.media_writer_needed(response_plan, raw)):
-                synthesized = await self._synthesize_direct_answer(
-                    chat_id, query, raw, temperature,
-                    correlation_id=correlation_id,
-                    bundle=evidence_bundle,
-                    character_block=character_block,
-                    style_directives=style_directives,
-                    numeric_contract=numeric_contract,
-                    plan=response_plan,
-                    # P0-HA QUALITY (блокер 4 review-w4): выборка хода есть
-                    # и при выключенном L1 — system Stage-2 получает ту же
-                    # инструкцию сборки; без выборки "" → байт-паритет.
-                    history_assembly_block=(
-                        HISTORY_COVERAGE_ASSEMBLY_BLOCK
-                        if history_sample is not None else ""))
-                if synthesized:
-                    # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
-                    raw, response_mode = synthesized
-                    if coordinator is not None:
-                        coordinator.style = response_mode
+            # ── RLR-02 (REMOVE-LEGACY-REPHRASING v2.0; R-00.1/R-02.1/R-02.4):
+            # второй автор демонтирован ФИЗИЧЕСКИ. Раньше здесь при
+            # `not direct_l1_on` + успешном ToolLoopResult + непустом
+            # tool_trace + `SYSTEM2_DIRECT_ENABLED` запускался
+            # `_synthesize_direct_answer` (Stage-1 JSON-справка → Stage-2
+            # Вербализатор, с `FormContract(source_text=draft_text)`). Ни
+            # флаг, ни отключённый L1, ни failover, ни недоступный инструмент
+            # больше не возвращают эту ветку: вызова не существует, функции
+            # не существует. Ошибка L2 — диагностируемая ошибка (LLMError →
+            # честная фраза недоступности либо retry/fallback того же этапа),
+            # а не переход в legacy-текст.
             if direct_l1_on:
                 # ── ASAP 7 (F1, §1.1/§1.2) + v6 D04 (§18C.2): evidence
                 # packaging (дет., БЕЗ LLM; fair allocation per source) →
@@ -5275,6 +5395,19 @@ class DirectChatService:
                 else:
                     _evidence = ""
                     _evidence_delivered = ""
+                # ── RLR-06-OBSERVABILITY (§7): вызовы инструментов
+                # (имя/статус/ошибка/размер/источники) + coverage
+                # доставленного Writer'у evidence. Текстов и URL нет.
+                _ttrace.note_tools(
+                    correlation_id,
+                    tool_results=(getattr(raw, "tool_results", None)
+                                  if isinstance(raw, ToolLoopResult) else ()),
+                    rounds=(int(getattr(raw, "rounds_used", 0) or 0)
+                            if isinstance(raw, ToolLoopResult) else 0),
+                    degraded=bool(getattr(raw, "degraded", False)),
+                    reason=str(getattr(raw, "reason", "") or ""),
+                    pack=_ev_pack if "_ev_pack" in locals() else None,
+                    decision=_evidence_decision)
                 _media_skip = (isinstance(raw, ToolLoopResult)
                                and not _extent.media_writer_needed(
                                    response_plan, raw))
@@ -5287,6 +5420,19 @@ class DirectChatService:
                 if _ev_note:
                     user_blocks = list(user_blocks or []) + [_ev_note]
                 if not _media_skip:
+                    # ── RLR-03.3: явная трансформация поданного текста
+                    # («перепиши/переведи этот текст») — единственный случай,
+                    # где исходник пользователя служит source_text узкой
+                    # проверки защищённых данных (числа/даты/отрицания/имена).
+                    # Сигнал — функциональное поле плана L1
+                    # `preserve_source_facts` (канон EVR5); сводка/пересказ и
+                    # свободный ход контракта не получают (form_contract=None).
+                    _transform_source_text = str(
+                        getattr(tool_ctx, "reply_source_text", "") or "")
+                    _form_contract, _form_source = \
+                        _explicit_transform_contract(
+                            l1_plan, _transform_source_text,
+                            roster_names=self._turn_aliases_snapshot().values())
                     # plan-блок уже построен выше (нужен измерителю payload).
                     _l2 = await self._l2_write_answer(
                         chat_id, query, temperature=temperature,
@@ -5295,6 +5441,8 @@ class DirectChatService:
                         style_directives=style_directives,
                         numeric_contract=numeric_contract,
                         response_plan=response_plan,
+                        form_contract=_form_contract,
+                        form_fallback_text=_form_source,
                         plan_block=_plan_block, user_blocks=user_blocks,
                         time_line=time_line, evidence=_evidence,
                         lessons_block=_lessons_block,
@@ -5340,6 +5488,8 @@ class DirectChatService:
             # БЛОК 7.2b (T-1921): единая стадия пост-обработки — reasoning-
             # теги-черновики не уходят пользователю (no-op без тегов).
             answer = strip_reasoning_tags(str(raw).strip())
+            # §7: операция доставки видна в трассе (digest после каждой).
+            _ttrace.note_op(correlation_id, _ttrace.OP_REASONING_STRIP, answer)
             # БЛОК 7.2c (T-1922, ADR-1020-7 §2): при ctx.lore_compiled
             # доставляем ГОТОВЫЙ текст истории (детерминизм в коде), а не
             # сжатую диспетчерскую ремарку. Обычный путь не меняется.
@@ -5349,86 +5499,73 @@ class DirectChatService:
             lore_story = lore_story_override(tool_ctx, l1_plan, response_plan)
             if lore_story:
                 answer = strip_reasoning_tags(lore_story)
-            # MCA-15 (D5, T-4931; K2): финальный numeric-гард — покрывает
-            # lore-story в обход verbalizer, fallback и прямые тексты. Одна
-            # детерминированная коррекция (verified_phrase/снятие), без
-            # второго LLM-вызова; событие — notable-only.
-            answer, _numeric_stats = _nc.apply_numeric_guard(
+                # §7: детерминированная подмена текста историей — названная
+                # операция (иначе расхождение raw_final ↔ delivered было бы
+                # необъяснимым).
+                _ttrace.note_op(correlation_id, _ttrace.OP_LORE_OVERRIDE,
+                                answer)
+            # ── RLR-04 (R-04.2; §4 «apply_numeric_guard с заменой/обнулением
+            # финала»): постфактум-правка семантики готового текста СНЯТА на
+            # ВСЕХ путях доставки. Проверенные числа приходят в Writer ДО
+            # генерации (`numeric_contract`), а расхождение — только
+            # наблюдение: текст уходит как написан (без verified_phrase, без
+            # снятия предложений и без превращения реплики в молчание).
+            # Текст «Летописца» — тоже авторская речь МОДЕЛИ
+            # (`LoreCompilerService.llm.generate`, writer `lore_writer`), а не
+            # детерминированная сборка кода, поэтому гард к нему неприменим.
+            _numeric_observed = _nc.check_numeric_claims(
                 answer, numeric_contract)
-            if _numeric_stats.get("mismatch"):
+            if _numeric_observed:
+                # Event-honesty (R-07/§8): ничего не исправлено — честный код
+                # НАБЛЮДЕНИЯ, а не `numeric_claim_corrected`.
                 _mca_events.emit_mca_event(
-                    "numeric_claim_guard",
-                    outcome=("skipped" if _numeric_stats.get("fallback")
-                             else "success"),
+                    "numeric_claim_guard", outcome="skipped",
                     component="direct_chat", stage="claim_check",
-                    reason_code=_numeric_stats.get("reason"),
+                    reason_code=_numeric_observed,
                     chat_id=chat_id,
-                    usage_json={"answer_chars": len(answer)})
+                    usage_json={"answer_chars": len(answer),
+                                "observed": True,
+                                "corrected": False})
                 logger.info(
-                    "[direct] final numeric guard | chat=%s | corrected=%s | "
-                    "fallback=%s", chat_id,
-                    bool(_numeric_stats.get("corrected")),
-                    bool(_numeric_stats.get("fallback")))
-            # ── ASAP-EVIDENCE-ROUTING-01 v3 (§2.3): bounded outbound guard.
-            # Ровно один раз, после L2 и до отправки. Неподтверждённое
-            # существенное внешнее утверждение → максимум один адресный
-            # lookup + одна регенерация, затем детерминированное удаление
-            # только этого предложения. Второго Writer'а нет; ответ не
-            # превращается в «данных недостаточно».
-            _evidence_retry_used_here = False
+                    "[direct] final numeric claim observed (delivered as "
+                    "written) | chat=%s | code=%s | lore=%s",
+                    chat_id, _numeric_observed, bool(lore_story))
+            # ── BGS-02: egress-проверка — ТОЛЬКО наблюдение. Раньше здесь
+            # были адресный lookup, повторная генерация и удаление
+            # неподтверждённого предложения; смысловая постцензура снята:
+            # готовый ответ доставляется байт-в-байт, а наблюдение уходит
+            # в событие EVIDENCE_EGRESS_CHECK (код + место).
             if _evidence_decision is not None and _evp.egress_guard_enabled():
-                async def _ev_lookup(claim):
-                    return await self._evidence_lookup(
-                        tool_ctx, claim, chat_id=chat_id,
-                        correlation_id=correlation_id,
-                        lore=bool(lore_enabled),
-                        image=bool(image_enabled),
-                        decision=_evidence_decision,
-                        user_forbids=bool(_evp.is_external_forbidden(query)))
-
-                async def _ev_rewrite(hint, extra_evidence):
-                    return await self._evidence_rewrite(
-                        chat_id, query, plan_block=_plan_block,
-                        user_blocks=user_blocks,
-                        response_plan=response_plan,
-                        character_block=character_block,
-                        style_directives=style_directives,
-                        numeric_contract=numeric_contract,
-                        time_line=time_line,
-                        evidence=(_evidence + "\n" + extra_evidence).strip(),
-                        lessons_block=_lessons_block,
-                        speech_block=_speech_block,
-                        temperature=temperature,
-                        correlation_id=correlation_id,
-                        hint=hint,
-                        max_tokens=(longform_max_tokens
-                                    if response_plan is not None
-                                    and response_plan.is_longform()
-                                    else None),
-                        # EVOL v5 §4.5: повтор идёт по тем же речевым блокам —
-                        # манифест объявляет ТО ЖЕ представление, что ушло.
-                        speech=_speech_projection)
-
-                _answer_guarded, _ev_egress = \
+                # ``_answer_delivered`` — ТОТ ЖЕ answer байт-в-байт: guard
+                # ничего не вырезает, поэтому доставляется исходный текст.
+                _answer_delivered, _ev_egress = \
                     await _run_evidence_egress_guard(
                         answer=answer, decision=_evidence_decision,
                         evidence_text=_evidence_delivered,
                         delivered_keys=_evp.delivered_claim_keys(
-                            _evidence_decision, _evidence_delivered),
-                        lookup=_ev_lookup, rewrite=_ev_rewrite)
-                if _answer_guarded != answer:
-                    answer = _answer_guarded
-                    _evidence_retry_used_here = bool(
-                        _ev_egress.get("retry_used"))
+                            _evidence_decision, _evidence_delivered))
                 self._emit_evidence_egress_event(
                     chat_id, correlation_id, _ev_egress)
-                if _ev_egress.get("reason_code"):
+                # ── RLR-06 (§7, fold-in): `_answer_delivered` — ЯВНЫЙ инвариант
+                # «доставленный текст = answer». BGS-02 сделал guard
+                # наблюдающим, поэтому расхождение здесь было бы настоящей
+                # смысловой правкой: она обязана быть видна и в логе, и в
+                # трассе (операция с digest), а не молча исчезнуть.
+                if _answer_delivered != answer:
+                    logger.warning(
+                        "[direct] evidence egress changed delivered text | "
+                        "chat=%s | chars=%d->%d", chat_id, len(answer),
+                        len(str(_answer_delivered or "")))
+                _ttrace.note_op(correlation_id, _ttrace.OP_EGRESS_GUARD,
+                                _answer_delivered)
+                if _ev_egress.get("observed"):
                     logger.info(
-                        "[direct] evidence egress | chat=%s | action=%s | "
-                        "lookup=%s | retry=%s", chat_id,
-                        _ev_egress.get("guard_action"),
-                        _ev_egress.get("lookup_used"),
-                        _ev_egress.get("retry_used"))
+                        "[direct] evidence egress observed | chat=%s | "
+                        "code=%s | sentence=%s | chars=%s-%s", chat_id,
+                        _ev_egress.get("code"),
+                        _ev_egress.get("sentence_index"),
+                        _ev_egress.get("char_start"),
+                        _ev_egress.get("char_end"))
             if not answer:
                 if coordinator is not None:
                     _log_coordinator_outcome(
@@ -5439,16 +5576,17 @@ class DirectChatService:
                     chat_id, target_name)
                 await react_moai(bot, chat_id, message.message_id)
                 return
-            # ── MCA-22 (C7, T-4311; ADR-1028-6 D8/§18): exact duplicate
-            # guard — bounded safety net conversational-ответов. new
-            # tg_message_id AND normalized(final) == normalized(recent
-            # bot answer) → максимум ОДНА regeneration с фиксированным
-            # коротким hint; второй совпавший ответ отправляется + metric
-            # (loop запрещён). Exemptions §18 — детерминированные тексты.
-            # Paraphrase-postprocessor НЕ создаётся (инвариант тестом).
-            _freshness_retry_used = False
-            if _fresh.freshness_guard_enabled() and self.db is not None \
-                    and not _evidence_retry_used_here:
+            # ── RLR-04 (R-05.1–R-05.4; §4 «duplicate_guard_retry по совпадению
+            # текстов»): reroll по совпадению текстов СНЯТ. Два РАЗНЫХ
+            # входящих события могут законно получить одинаковый авторский
+            # текст — он доставляется как написан (без второго LLM-вызова,
+            # без вставки jitter-фразы и без отказа отвечать).
+            # Идемпотентность доставки обеспечивается идентичностью СОБЫТИЯ
+            # (`check_update_seen`/`mark_update_seen` по
+            # `(chat_id, tg_message_id, revision, user_id)`, correlation_id,
+            # durable ledger, send reservations/SendRecheck), а не сравнением
+            # текстов двух разных реплик.
+            if _fresh.freshness_guard_enabled() and self.db is not None:
                 try:
                     _recent = await self.db.list_recent_bot_outputs(
                         chat_id, limit=1)
@@ -5458,78 +5596,19 @@ class DirectChatService:
                                 if _recent else None)
                 _dup = _fresh.evaluate_duplicate(
                     answer, _recent_text, new_tg_message_id=_trigger_tg_id)
-                if _dup.duplicate and not _dup.exempt and \
-                        _dup.regeneration_allowed and \
-                        not getattr(tool_ctx, "lore_compiled", False):
-                    # Первый совпавший ответ НЕ отправляется (replay-block),
-                    # затем ровно одна regeneration c hint (простой путь —
-                    # raw:str; tool-loop/структурные ответы guard'ом на
-                    # regeneration не трогаются — bounded).
+                if _dup.duplicate and not _dup.exempt:
+                    # Только наблюдение (R-07): текст не меняется, LLM не
+                    # вызывается. Причина повторяемости лечится в L1/контексте
+                    # (R-05.3), а не постфактум-редактурой готовой речи.
                     _fresh.emit_freshness_event(
-                        "DIRECT_FINAL_REPLAY_BLOCKED", outcome="skipped",
-                        reason_code="direct_final_replay_blocked",
-                        chat_id=chat_id, message_id=_trigger_tg_id)
-                    try:
-                        _hint_payload = list(payload) + [{
-                            "role": "user",
-                            "content": _fresh.DUPLICATE_GUARD_HINT}]
-                        raw = await self.llm.generate(
-                            _hint_payload, temperature=temperature,
-                            chat_id=chat_id, module="direct_chat",
-                            step="duplicate_guard_retry",
-                            correlation_id=correlation_id)
-                        _answer2 = strip_reasoning_tags(str(raw).strip())
-                        _dup2 = _fresh.evaluate_duplicate(
-                            _answer2, _recent_text,
-                            new_tg_message_id=_trigger_tg_id,
-                            regeneration_already_used=True)
-                        if _answer2 and not (_dup2.duplicate and
-                                             not _dup2.exempt):
-                            answer = _answer2
-                            _freshness_retry_used = True
-                            _fresh.emit_freshness_event(
-                                "DIRECT_FRESHNESS_RETRY", outcome="success",
-                                reason_code="direct_freshness_retry",
-                                chat_id=chat_id, message_id=_trigger_tg_id,
-                                attempt=2)
-                        else:
-                            # bounded: второй совпавший → отправить + metric.
-                            _fresh.emit_freshness_event(
-                                "DIRECT_FRESHNESS_RETRY",
-                                outcome="silent",
-                                reason_code="duplicate_sent_after_retry",
-                                chat_id=chat_id, message_id=_trigger_tg_id,
-                                attempt=2)
-                    except Exception:
-                        logger.warning(
-                            "[direct] duplicate guard retry failed — "
-                            "send as-is | chat=%s", chat_id, exc_info=True)
-            # MCA-15 (D5, T-4931; K2): regeneration после duplicate-guard
-            # могла вернуть незаземлённое число — повторяем ТОТ ЖЕ
-            # детерминированный гард (без нового LLM-вызова).
-            if _freshness_retry_used:
-                answer, _numeric_stats2 = _nc.apply_numeric_guard(
-                    answer, numeric_contract)
-                if _numeric_stats2.get("mismatch"):
-                    _mca_events.emit_mca_event(
-                        "numeric_claim_guard",
-                        outcome=("skipped" if _numeric_stats2.get("fallback")
-                                 else "success"),
-                        component="direct_chat", stage="claim_check",
-                        reason_code=_numeric_stats2.get("reason"),
-                        chat_id=chat_id,
-                        usage_json={"answer_chars": len(answer)})
-                if not answer.strip():
-                    # Гард снял единственную неподтверждённую фразу.
-                    if coordinator is not None:
-                        _log_coordinator_outcome(
-                            chat_id=chat_id, action=ACTION_REACT,
-                            style=response_mode, chars=0)
-                    logger.warning(
-                        "[direct] numeric guard emptied regenerated answer — "
-                        "silence | chat=%s user=%s", chat_id, target_name)
-                    await react_moai(bot, chat_id, message.message_id)
-                    return
+                        "DIRECT_FINAL_REPEATED_TEXT", outcome="skipped",
+                        chat_id=chat_id, message_id=_trigger_tg_id,
+                        usage_json={"observed": True,
+                                    "text_chars": len(answer)})
+                    logger.info(
+                        "[direct] repeated text observed — delivered as "
+                        "written | chat=%s | code=%s",
+                        chat_id, _dup.reason_code)
             if coordinator is not None:
                 _log_coordinator_outcome(
                     chat_id=chat_id, action=ACTION_REPLY,
@@ -5580,6 +5659,9 @@ class DirectChatService:
                         len(_style_outcome.conflicts),
                         len(_style_outcome.failed))
                 answer = _style_outcome.text
+                # §7: единственный разрешённый детерминированный проход стиля
+                # владельца — названная операция с digest результата.
+                _ttrace.note_op(correlation_id, _ttrace.OP_STYLE, answer)
             # ── ADD-EXP §6: форма/проход не должен незаметно «съесть» мат —
             # сравнение raw-флагов L2 с текстом после style-pass.
             _expression_postprocess_check(
@@ -5761,6 +5843,11 @@ class DirectChatService:
                 self._breaker.on_failure()
         finally:
             permit.release()   # раунд N (T-840): слот пула возвращён
+            # ── RLR-06-OBSERVABILITY (§7): закрыть трассу хода. Если
+            # текстовая доставка не состоялась (silence/react/картинка/
+            # ошибка), событие доставки всё равно эмитится с исходом
+            # `skipped`/причиной — «нет трассы» не равно «успешный ответ».
+            _ttrace.close(correlation_id)
             # ── P0 MEME-IMAGE-ONLY (owner 02.11.2026), блокер B1 ───────────
             # Картинка РЕАЛЬНО доставлена в этом ходу → пользователь уже
             # получил ответ, значит ход отвечен. Единая точка на ВСЕ выходы из
@@ -5831,6 +5918,366 @@ class DirectChatService:
             parts.append("clarify=assume")
         return " ".join(parts)
 
+    # ── UNIFIED-REPLY UR-A (§2, §6): один движок хода Direct/Initiative ──────
+    # Один резолв типа хода, слота/бюджета, прав и один код L1. Адаптеры
+    # (`handle` → `_plan_direct_l1`, `handle_initiative` →
+    # `plan_initiative_decision`) различаются только сборкой контекста и
+    # правом на молчание — исполнение одно.
+
+    async def _resolve_turn_slot_meta(self, chat_id: int, *,
+                                      prompt_text: str) -> tuple:
+        """UR-02.1: один резолв слота/ключа/бюджета L1 для обоих триггеров.
+
+        Возвращает ``(SlotBudgetMeta, L1ModelSlot)``: первый — данные
+        трассы/контракта (без секретов), второй — транспорт попытки
+        (api_key остаётся только здесь). ``NoApiKeyForChat`` пробрасывается:
+        решение «молчать или упасть» принимает адаптер (право говорить), а не
+        резолв.
+        """
+        credential_source = await _l1.authorize_l1_call(self.llm, chat_id)
+        slot = _l1.resolve_l1_model(chat_id)
+        try:
+            fallback_model = str(hot.get(
+                "models.llm_model_name",
+                getattr(settings, "LLM_MODEL_NAME", "")) or "")
+        except Exception:      # pragma: no cover - защитная ветка
+            fallback_model = ""
+        budget, budget_meta = await _l1.resolve_l1_context_budget(
+            base_url=slot.base_url, model=slot.model,
+            fallback_model=fallback_model,
+            mandatory_tokens=count_tokens(prompt_text))
+        return _tt.SlotBudgetMeta(
+            slot=("l1_slot" if slot.dedicated else "main"),
+            model=str(slot.model or ""),
+            base_url=str(slot.base_url or ""),
+            dedicated=bool(slot.dedicated),
+            budget_tokens=int(budget),
+            budget_source=str(budget_meta.get("source") or ""),
+            fallback_model=fallback_model,
+            credential_source=str(credential_source or "global"),
+            temperature=_l1.l1_temperature(None)), slot
+
+    async def _resolve_turn_tool_state(self, chat_id: int, *,
+                                       lore_enabled=None,
+                                       image_enabled=None):
+        """UR-01.5/UR-02.3: фактически доступные capabilities ДО планирования.
+
+        Одна копия для обоих триггеров: набор объявленных tools и его
+        capability-проекция. Прямой ход передаёт уже разрешённые им флаги
+        (там возможен pre-gate картинки), инициатива резолвит их сама тем же
+        каталоговым путём. Никогда не бросает.
+        """
+        if lore_enabled is None or image_enabled is None:
+            try:
+                from services.chat_params import get_chat_param as _cpg
+                lore_enabled = await _cpg(
+                    chat_id, "flags.lore_compiler_enabled",
+                    hot.get("flags.lore_compiler_enabled",
+                            settings.LORE_COMPILER_ENABLED))
+                from services import image_generation
+                image_enabled = await image_generation.resolve_module_enabled(
+                    chat_id)
+            except Exception:      # pragma: no cover - fail-open
+                logger.warning(
+                    "[direct] turn tool-state resolve failed — slim set | "
+                    "chat=%s", chat_id, exc_info=True)
+                lore_enabled, image_enabled = False, False
+        try:
+            announced = {t["function"]["name"] for t in
+                         active_tools(bool(lore_enabled), bool(image_enabled))
+                         if isinstance(t, dict) and t.get("function")}
+        except Exception:      # pragma: no cover - защитная ветка
+            announced = set()
+        capabilities = tuple(_caps.available_capabilities(announced))
+        return _tt.ToolStateSnapshot(
+            capabilities=capabilities,
+            announced=tuple(sorted(announced)),
+            search_available=("web_search" in capabilities),
+            fetch_available=("fetch_url" in capabilities),
+            source="active_tools")
+
+    def _turn_aliases_snapshot(self) -> dict:
+        """UR-01.3: действующие алиасы чата на момент хода (uid → имя)."""
+        try:
+            raw = dict(getattr(self.aliases, "aliases", None) or {})
+        except Exception:      # pragma: no cover - fail-open
+            return {}
+        snapshot: dict = {}
+        for key, value in raw.items():
+            try:
+                snapshot[int(key)] = str(value)
+            except (TypeError, ValueError):
+                continue
+        return snapshot
+
+    def _build_reply_parent_ref(self, message):
+        """Reply/quote-родитель хода как ссылочный объект (UR-01.3)."""
+        parent = getattr(message, "reply_to_message", None)
+        if parent is None:
+            return None
+        tg_id = getattr(parent, "message_id", None)
+        try:
+            tg_id = int(tg_id) if tg_id is not None else None
+        except (TypeError, ValueError):
+            tg_id = None
+        author = getattr(parent, "from_user", None)
+        author_uid = getattr(author, "id", None)
+        try:
+            author_uid = int(author_uid) if author_uid is not None else None
+        except (TypeError, ValueError):
+            author_uid = None
+        alias = ""
+        if author_uid is not None:
+            try:
+                alias = str(self.aliases.resolve(
+                    author_uid,
+                    getattr(author, "first_name", None),
+                    getattr(author, "username", None)) or "")
+            except Exception:      # pragma: no cover - fail-open
+                alias = ""
+        return _tt.ReplyParentRef(
+            tg_id=tg_id, author_uid=author_uid, alias=alias,
+            source_ref=(f"msg:{tg_id}" if tg_id is not None else ""))
+
+    async def _build_turn_request(self, *, trigger_type: str, chat_id: int,
+                                  correlation_id: str | None,
+                                  slot_meta,
+                                  source_message_id: int | None = None,
+                                  raw_text: str = "",
+                                  media_markers=(),
+                                  speaker_uid: int | None = None,
+                                  reply_parent=None,
+                                  addressee=None,
+                                  opportunity=None,
+                                  lore_enabled=None,
+                                  image_enabled=None,
+                                  delivery=None):
+        """UR-01: единственный конструктор `TurnRequest` для обоих входов."""
+        tool_state = await self._resolve_turn_tool_state(
+            chat_id, lore_enabled=lore_enabled, image_enabled=image_enabled)
+        return _tt.TurnRequest(
+            trigger_type=_tt.resolve_turn_type(trigger_type),
+            chat_id=int(chat_id),
+            correlation_id=str(correlation_id or ""),
+            source_message_id=source_message_id,
+            raw_text=str(raw_text or ""),
+            media_markers=tuple(media_markers or ()),
+            speaker_uid=speaker_uid,
+            reply_parent=reply_parent,
+            addressee=addressee,
+            aliases_snapshot=self._turn_aliases_snapshot(),
+            opportunity=opportunity,
+            capabilities=tool_state.capabilities,
+            tool_state=tool_state,
+            model_slot=slot_meta,
+            delivery=delivery or _tt.DeliveryPolicy(
+                trigger=_tt.resolve_turn_type(trigger_type)),
+            turn_started_at_utc=int(time.time()),
+            time_snapshot=None)
+
+    async def _execute_turn(self, req, *, slot, l1_messages: list[dict],
+                            l1_input_chars: int,
+                            message_id: int | None = None,
+                            meta: dict | None = None,
+                            started_monotonic: float | None = None) -> tuple:
+        """§2.1: единственный исполнитель планирующей стадии хода.
+
+        Резолвит тип хода (слот/схема/repair — одна таблица), пишет ход в
+        трассу вместе с `TurnRequest` и выполняет ОДИН код L1: permission-учёт
+        уже сделан в `req.model_slot.credential_source`, ladder слот→main,
+        bounded repair невалидного JSON, единственный retry без temperature,
+        учёт usage/plan_meta. Возвращает ``(L1Plan | None, meta)``.
+        ``NoApiKeyForChat`` не глотает — это делает адаптер по праву говорить.
+        """
+        policy = _tt.turn_policy(req.trigger_type)
+        _l1.record_turn_trace(req, policy=policy)
+        meta = meta if meta is not None else {}
+        meta.setdefault("source", "main")
+        meta.setdefault("inherited", True)
+        meta.setdefault("fallback", "")
+        meta.setdefault("repair", 0)
+        meta.setdefault("override", "")
+        meta["credential_source"] = str(
+            req.model_slot.credential_source or "global")
+        meta.setdefault("temperature_applied", False)
+        meta["l1_context_budget"] = int(req.model_slot.budget_tokens)
+        meta["l1_context_source"] = str(req.model_slot.budget_source or "")
+        meta["turn_type"] = policy.turn_type
+        meta["trigger_type"] = req.turn_type
+        meta["plan_schema"] = policy.plan_schema
+        chat_id = int(req.chat_id)
+        correlation_id = req.correlation_id or None
+        credential_source = str(meta["credential_source"] or "global")
+        started = (started_monotonic
+                   if started_monotonic is not None else time.monotonic())
+        input_chars = int(l1_input_chars)
+
+        def _record_llm_call(source_label: str, attempt_messages,
+                             current_slot, *, temperature=None):
+            # §7: классификация LLM-вызовов хода — планирующая стадия.
+            _ttrace.note_llm_call(correlation_id, _ttrace.CALL_PLANNING)
+            async def _call():
+                if source_label == "l1_slot":
+                    assert current_slot is not None and current_slot.dedicated
+                    # dedicated: (content, usage)
+                    return await _l1.dedicated_generate(
+                        self.llm, attempt_messages, current_slot,
+                        max_output_tokens=_l1.l1_max_output_tokens(),
+                        timeout_seconds=_l1.l1_timeout_seconds(),
+                        temperature=temperature)
+                text = await asyncio.wait_for(
+                    self.llm.generate(
+                        attempt_messages,
+                        temperature=temperature,
+                        chat_id=chat_id, module="direct_chat",
+                        step="l1_planner", correlation_id=correlation_id,
+                        max_output_tokens=_l1.l1_max_output_tokens()),
+                    timeout=float(_l1.l1_timeout_seconds()))
+                return str(text or ""), None
+            return _call
+
+        plan: _l1.L1Plan | None = None
+        last_error: str = ""
+        # §1.6 ladder: (1) configured L1 slot — только если dedicated;
+        # (2) main model — при fallback ON. Не-dedicated слот = inherit main:
+        # попытка одна (повтор того же вызова бессмыслен), далее
+        # deterministic fallback вызывающего.
+        attempts: list[tuple[str, bool]] = []
+        if slot.dedicated:
+            attempts.append(("l1_slot", True))
+            attempts.append(("main", True))       # fallback ON-гейт ниже
+        else:
+            attempts.append(("main", False))
+        raw_text = ""
+        temperature = _l1.l1_temperature(None)
+        meta["temperature_configured"] = (
+            float(temperature) if temperature is not None else None)
+        for attempt_index, (label, needs_fallback_gate) in enumerate(attempts):
+            if needs_fallback_gate and attempt_index > 0 \
+                    and not _l1.l1_fallback_enabled():
+                break
+            try:
+                raw_text, usage = await _record_llm_call(
+                    label, l1_messages, slot, temperature=temperature)()
+                if label == "l1_slot":
+                    # D03: dedicated-слот — учёт вручную (llm.generate не
+                    # задействован); температура реально ушла в payload.
+                    meta["temperature_applied"] = temperature is not None
+                    await _l1.record_l1_usage(
+                        self.llm, usage=usage, messages=l1_messages,
+                        content=raw_text, model=slot.model, chat_id=chat_id,
+                        correlation_id=correlation_id,
+                        credential_source=credential_source)
+                plan = _l1.parse_l1_plan(raw_text)
+                if plan is not None:
+                    plan.source = "llm"
+                    meta["source"] = label
+                    meta["inherited"] = label != "l1_slot"
+                    break
+                # §1.3 (D14): невалидный JSON → bounded repair, ровно 1.
+                if meta["repair"] == 0:
+                    meta["repair"] = 1
+                    repair_messages = _l1.build_repair_messages(l1_messages,
+                                                                raw_text)
+                    raw_text, usage2 = await _record_llm_call(
+                        label, repair_messages, slot, temperature=temperature)()
+                    if label == "l1_slot":
+                        # D03 (§18C.1): repair-попытка учтена ТАКЖЕ.
+                        await _l1.record_l1_usage(
+                            self.llm, usage=usage2,
+                            messages=repair_messages, content=raw_text,
+                            model=slot.model, chat_id=chat_id,
+                            correlation_id=correlation_id,
+                            credential_source=credential_source)
+                    plan = _l1.parse_l1_plan(raw_text)
+                    if plan is not None:
+                        plan.source = "repair"
+                        meta["source"] = label
+                        meta["inherited"] = label != "l1_slot"
+                        break
+            except NoApiKeyForChat:
+                # D03: политика ключей/бюджета блокирует попытку целиком —
+                # НЕ ladder (fallback на main те же ключи не получит).
+                raise
+            except Exception as exc:      # LLMError/TimeoutError → ladder
+                # D03 (§18C.6): dedicated-провайдер отверг temperature →
+                # честный единственный retry БЕЗ неё + флаг unsupported.
+                last_error = f"{type(exc).__name__}"
+                if (label == "l1_slot" and temperature is not None
+                        and not meta.get("temperature_unsupported")
+                        and "temperature" in str(exc).lower()):
+                    meta["temperature_unsupported"] = True
+                    meta["temperature_applied"] = False
+                    logger.warning(
+                        "[direct] l1 dedicated temperature unsupported — "
+                        "retry without | chat=%s", chat_id)
+                    try:
+                        raw_text, usage = await _record_llm_call(
+                            label, l1_messages, slot, temperature=None)()
+                        await _l1.record_l1_usage(
+                            self.llm, usage=usage, messages=l1_messages,
+                            content=raw_text, model=slot.model,
+                            chat_id=chat_id,
+                            correlation_id=correlation_id,
+                            credential_source=credential_source)
+                        plan = _l1.parse_l1_plan(raw_text)
+                        if plan is not None:
+                            plan.source = "llm"
+                            meta["source"] = label
+                            meta["inherited"] = False
+                            break
+                    except Exception as retry_exc:
+                        last_error = f"{type(retry_exc).__name__}"
+                logger.warning(
+                    "[direct] l1 planner attempt failed | chat=%s | "
+                    "source=%s | error=%s", chat_id, label,
+                    _exc_brief(exc))
+        latency_ms = int((time.monotonic() - started) * 1000)
+        fallback_flag = "deterministic" if plan is None else ""
+        if plan is None:
+            logger.warning(
+                "[direct] l1 planner outage — deterministic fallback | "
+                "chat=%s | trigger=%s | last_error=%s",
+                chat_id, req.turn_type, last_error or "invalid")
+        try:
+            resolved_caps, _rejected_caps = _caps.resolve_capabilities(
+                (plan.capabilities_needed if plan is not None else ()),
+                req.tool_state.announced)
+        except Exception:      # pragma: no cover - защитная ветка
+            resolved_caps = []
+        _l1.emit_l1_plan_event(
+            run_id=correlation_id, chat_id=chat_id,
+            message_id=message_id, plan=plan,
+            requested=(plan.capabilities_needed if plan is not None else ()),
+            resolved=tuple(resolved_caps),
+            inherited=bool(meta.get("inherited")),
+            fallback=fallback_flag, latency_ms=latency_ms,
+            input_chars=input_chars,
+            source=str(meta.get("source") or "main"))
+        # Диагностика: одни и те же оси у обоих триггеров + прикладные extras
+        # адаптера (капы цитаты, профиль решений) — читает Inspector.
+        diag: dict = {}
+        for key in _TURN_DIAGNOSTIC_KEYS:
+            diag[key] = meta.get(key)
+        diag.update({
+            "model": str(slot.model or ""),
+            "trigger_type": req.turn_type,
+            "turn_type": policy.turn_type,
+            "plan_schema": policy.plan_schema,
+            "slot_policy": policy.slot_policy,
+            "repair_policy": policy.repair_policy,
+            "available_capabilities": int(len(req.capabilities)),
+        })
+        _l1.record_l1_diagnostics(chat_id, **diag)
+        # F2-FOLLOWUP (§1.10): durable plan_meta на usage-строке — все ходы
+        # (reply/silent/react) идут через этот единственный вызов, строка
+        # step="l1_planner" уже записана (llm.generate / manual record).
+        await self._attach_l1_plan_meta(
+            correlation_id, plan, meta, chat_id=chat_id,
+            fallback_flag=fallback_flag,
+            latency_ms=latency_ms, input_chars=input_chars)
+        return plan, meta
+
     async def _plan_direct_l1(self, chat_id: int, message, query: str,
                               correlation_id: str | None, *, bundle,
                               target_name: str, user_id: int | None,
@@ -5860,59 +6307,29 @@ class DirectChatService:
         (генерится llm.generate; для dedicated слота — вручную) + agentic
         event ``L1_PLAN`` (§1.5). Никогда не бросает, КРОМЕ
         NoApiKeyForChat (блок политики); ``None``-план → сигнал
-        deterministic fallback (D13/D14)."""
+        deterministic fallback (D13/D14).
 
-        def _record_llm_call(source_label: str, attempt_messages, slot, *,
-                             temperature=None):
-            async def _call():
-                if source_label == "l1_slot":
-                    assert slot is not None and slot.dedicated
-                    # dedicated: (content, usage)
-                    return await _l1.dedicated_generate(
-                        self.llm, attempt_messages, slot,
-                        max_output_tokens=_l1.l1_max_output_tokens(),
-                        timeout_seconds=_l1.l1_timeout_seconds(),
-                        temperature=temperature)
-                text = await asyncio.wait_for(
-                    self.llm.generate(
-                        attempt_messages,
-                        temperature=temperature,
-                        chat_id=chat_id, module="direct_chat",
-                        step="l1_planner", correlation_id=correlation_id,
-                        max_output_tokens=_l1.l1_max_output_tokens()),
-                    timeout=float(_l1.l1_timeout_seconds()))
-                return str(text or ""), None
-            return _call
-
+        UR-A (§2.1): L1 больше не отдельный код — адаптер собирает контекст
+        прямого хода, строит `TurnRequest` и передаёт его единственному
+        исполнителю `_execute_turn` (слот/право/бюджет — общий резолв).
+        """
         started = time.monotonic()
         meta: dict = {"source": "main", "inherited": True, "fallback": "",
                       "repair": 0, "override": "",
                       "credential_source": "global",
                       "temperature_applied": False}
-        # ── D03 (§18C.1): единая permission-политика ПЕРЕД платными
-        # попытками (тот же resolver, что у обычных вызовов).
-        credential_source = await _l1.authorize_l1_call(self.llm, chat_id)
-        meta["credential_source"] = credential_source
-        # ── ER-08 (02.11.2026): бюджет пакета L1 выводится из РЕАЛЬНОГО окна
-        # L1-модели (Model Capacity Resolver + Stage Auto Budget, стадия
-        # direct.l1), а не из код-константы 1600. Слот резолвится здесь же:
-        # он нужен и для бюджета, и для ladder ниже.
-        slot = _l1.resolve_l1_model(chat_id)
-        try:
-            _fallback_model = str(hot.get(
-                "models.llm_model_name",
-                getattr(settings, "LLM_MODEL_NAME", "")) or "")
-        except Exception:      # pragma: no cover - защитная ветка
-            _fallback_model = ""
         system_prompt_l1 = resolve_prompt(
             "prompts.direct_l1_planner_system_prompt",
             DIRECT_L1_PLANNER_SYSTEM_PROMPT)
-        _l1_budget, _l1_budget_meta = await _l1.resolve_l1_context_budget(
-            base_url=slot.base_url, model=slot.model,
-            fallback_model=_fallback_model,
-            mandatory_tokens=count_tokens(system_prompt_l1))
-        meta["l1_context_budget"] = int(_l1_budget)
-        meta["l1_context_source"] = str(_l1_budget_meta.get("source") or "")
+        # ── UR-A (UR-02.1): один резолв слота/ключа/бюджета на оба триггера.
+        # D03 (§18C.1): permission-политика — ПЕРЕД платными попытками
+        # (NoApiKeyForChat пробрасывается: тот же sandbox-путь).
+        _slot_meta, slot = await self._resolve_turn_slot_meta(
+            chat_id, prompt_text=system_prompt_l1)
+        meta["credential_source"] = str(_slot_meta.credential_source)
+        _l1_budget = int(_slot_meta.budget_tokens)
+        meta["l1_context_budget"] = _l1_budget
+        meta["l1_context_source"] = str(_slot_meta.budget_source or "")
         try:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
@@ -5944,14 +6361,28 @@ class DirectChatService:
         meta["social_attribution"] = (
             str(getattr(_social_frame, "attribution_status", "")) or "")
         meta["social_hint"] = _social_hint
-        # §1.4: список доступных capability (по активному набору tools).
-        try:
-            announced = {t["function"]["name"] for t in
-                         active_tools(lore_enabled, image_enabled)
-                         if isinstance(t, dict) and t.get("function")}
-        except Exception:
-            announced = set()
-        available_caps = _caps.available_capabilities(announced)
+        # §1.4 + UR-A (UR-02.3): набор доступных capability — общий резолвер
+        # хода (тот же у инициативы), а не отдельная копия в адаптере.
+        _turn_req = await self._build_turn_request(
+            trigger_type="direct", chat_id=chat_id,
+            correlation_id=correlation_id, slot_meta=_slot_meta,
+            source_message_id=getattr(message, "message_id", None),
+            raw_text=query,
+            media_markers=extra_media_markers,
+            speaker_uid=user_id,
+            reply_parent=self._build_reply_parent_ref(message),
+            addressee=_tt.AddresseeRef(
+                user_id=user_id,
+                label=str(getattr(bundle, "addressee", None) or "чат"),
+                source=("bundle" if getattr(bundle, "addressee", None)
+                        else "chat")),
+            lore_enabled=bool(lore_enabled),
+            image_enabled=bool(image_enabled),
+            delivery=_tt.DeliveryPolicy(
+                kind="text", force_reply=bool(force_required),
+                direct_request=bool(force_required), recheck=False,
+                trigger="direct"))
+        available_caps = list(_turn_req.tool_state.capabilities)
         # ── SOUL-1 (W2, §4 п.5): L1 — машинная стадия (`machine_json`):
         # канал-контракт без Core/юмора; ON даёт ту же строку + трассу.
         _l1_gates = await _composer_resolve_gates(chat_id)
@@ -6019,147 +6450,14 @@ class DirectChatService:
             {"role": "user", "content": context_text},
         ]
         meta["input_chars"] = input_chars
-        plan: _l1.L1Plan | None = None
-        last_error: str = ""
-        # §1.6 ladder: (1) configured L1 slot — только если dedicated;
-        # (2) main model — при fallback ON (когда slot dedicated). Не-
-        # dedicated слот = inherit main: попытка одна (повтор того же
-        # вызова бессмысленен), далее deterministic fallback.
-        attempts: list[tuple[str, bool]] = []
-        if slot.dedicated:
-            attempts.append(("l1_slot", True))
-            attempts.append(("main", True))       # fallback ON-гейт ниже
-        else:
-            attempts.append(("main", False))
-        raw_text = ""
-        temperature = _l1.l1_temperature(None)
-        meta["temperature_configured"] = (
-            float(temperature) if temperature is not None else None)
-        for attempt_index, (label, needs_fallback_gate) in enumerate(attempts):
-            if needs_fallback_gate and attempt_index > 0 \
-                    and not _l1.l1_fallback_enabled():
-                break
-            try:
-                raw_text, usage = await _record_llm_call(
-                    label, messages, slot, temperature=temperature)()
-                if label == "l1_slot":
-                    # D03: dedicated-слот — учёт вручную (llm.generate не
-                    # задействован); температура реально ушла в payload.
-                    meta["temperature_applied"] = temperature is not None
-                    await _l1.record_l1_usage(
-                        self.llm, usage=usage, messages=messages,
-                        content=raw_text, model=slot.model, chat_id=chat_id,
-                        correlation_id=correlation_id,
-                        credential_source=credential_source)
-                plan = _l1.parse_l1_plan(raw_text)
-                if plan is not None:
-                    plan.source = "llm"
-                    meta["source"] = label
-                    meta["inherited"] = label != "l1_slot"
-                    break
-                # §1.3 (D14): невалидный JSON → bounded repair, ровно 1.
-                if meta["repair"] == 0:
-                    meta["repair"] = 1
-                    repair_messages = _l1.build_repair_messages(messages,
-                                                                raw_text)
-                    raw_text, usage2 = await _record_llm_call(
-                        label, repair_messages, slot, temperature=temperature)()
-                    if label == "l1_slot":
-                        # D03 (§18C.1): repair-попытка учтена ТАКЖЕ.
-                        await _l1.record_l1_usage(
-                            self.llm, usage=usage2,
-                            messages=repair_messages, content=raw_text,
-                            model=slot.model, chat_id=chat_id,
-                            correlation_id=correlation_id,
-                            credential_source=credential_source)
-                    plan = _l1.parse_l1_plan(raw_text)
-                    if plan is not None:
-                        plan.source = "repair"
-                        meta["source"] = label
-                        meta["inherited"] = label != "l1_slot"
-                        break
-            except NoApiKeyForChat:
-                # D03: политика ключей/бюджета блокирует попытку целиком —
-                # НЕ ladder (fallback на main те же ключи не получит).
-                raise
-            except Exception as exc:      # LLMError/TimeoutError → ladder
-                # D03 (§18C.6): dedicated-провайдер отверг temperature →
-                # честный единственный retry БЕЗ неё + флаг unsupported.
-                last_error = f"{type(exc).__name__}"
-                if (label == "l1_slot" and temperature is not None
-                        and not meta.get("temperature_unsupported")
-                        and "temperature" in str(exc).lower()):
-                    meta["temperature_unsupported"] = True
-                    meta["temperature_applied"] = False
-                    logger.warning(
-                        "[direct] l1 dedicated temperature unsupported — "
-                        "retry without | chat=%s", chat_id)
-                    try:
-                        raw_text, usage = await _record_llm_call(
-                            label, messages, slot, temperature=None)()
-                        await _l1.record_l1_usage(
-                            self.llm, usage=usage, messages=messages,
-                            content=raw_text, model=slot.model,
-                            chat_id=chat_id,
-                            correlation_id=correlation_id,
-                            credential_source=credential_source)
-                        plan = _l1.parse_l1_plan(raw_text)
-                        if plan is not None:
-                            plan.source = "llm"
-                            meta["source"] = label
-                            meta["inherited"] = False
-                            break
-                    except Exception as retry_exc:
-                        last_error = f"{type(retry_exc).__name__}"
-                logger.warning(
-                    "[direct] l1 planner attempt failed | chat=%s | "
-                    "source=%s | error=%s", chat_id, label,
-                    _exc_brief(exc))
-        latency_ms = int((time.monotonic() - started) * 1000)
-        fallback_flag = "deterministic" if plan is None else ""
-        if plan is None:
-            logger.warning(
-                "[direct] l1 planner outage — deterministic fallback | "
-                "chat=%s | last_error=%s", chat_id, last_error or "invalid")
-        _l1.emit_l1_plan_event(
-            run_id=correlation_id, chat_id=chat_id,
-            message_id=getattr(message, "message_id", None), plan=plan,
-            requested=(plan.capabilities_needed if plan is not None else ()),
-            resolved=(), inherited=bool(meta.get("inherited")),
-            fallback=fallback_flag, latency_ms=latency_ms,
-            input_chars=input_chars,
-            source=str(meta.get("source") or "main"))
-        _l1.record_l1_diagnostics(
-            chat_id,
-            model=str(slot.model or ""),
-            source=str(meta.get("source") or "main"),
-            credential_source=str(meta.get("credential_source") or "global"),
-            temperature_configured=meta.get("temperature_configured"),
-            temperature_applied=bool(meta.get("temperature_applied")),
-            temperature_unsupported=bool(
-                meta.get("temperature_unsupported")),
-            repair=int(meta.get("repair") or 0),
-            fallback=fallback_flag,
-            # ER-08-RC §3: те же оси, что в plan_meta (Inspector видит
-            # срез цитаты без обращения к durable-таблице).
-            l1_reply_chars_cap=meta.get("l1_reply_chars_cap"),
-            l1_line_chars_cap=meta.get("l1_line_chars_cap"),
-            l1_reply_total_chars=meta.get("l1_reply_total_chars"),
-            l1_reply_delivered_chars=meta.get("l1_reply_delivered_chars"),
-            l1_reply_truncated=meta.get("l1_reply_truncated"),
-            l1_kept_mid=meta.get("l1_kept_mid"),
-            # ASAP-FC-VOICE-01 / B: источник и размер профиля решений —
-            # frame | legacy (без текста профиля, R17).
-            l1_profile_source=meta.get("l1_profile_source"),
-            l1_profile_chars=meta.get("l1_profile_chars"))
-        # F2-FOLLOWUP (§1.10): durable plan_meta на usage-строке — все ходы
-        # (reply/silent/react) идут через этот единственный вызов, строка
-        # step="l1_planner" уже записана (llm.generate / manual record).
-        await self._attach_l1_plan_meta(
-            correlation_id, plan, meta, chat_id=chat_id,
-            fallback_flag=fallback_flag,
-            latency_ms=latency_ms, input_chars=input_chars)
-        return plan, meta
+        # ── UR-A (§2.1): единственный исполнитель планирующей стадии хода.
+        # Тип хода/слот/схема/repair/учёт usage — одна копия кода на оба
+        # триггера; адаптер отдаёт собранный контекст и TurnRequest.
+        return await self._execute_turn(
+            _turn_req, slot=slot, l1_messages=messages,
+            l1_input_chars=input_chars,
+            message_id=getattr(message, "message_id", None),
+            meta=meta, started_monotonic=started)
 
     async def _attach_l1_plan_meta(self, correlation_id, plan, meta, *,
                                    chat_id: int | None = None,
@@ -6223,7 +6521,8 @@ class DirectChatService:
         ``response_plan``: класс берётся из планируемого содержания (поля
         плана + optional ``external_claims`` из того же L1-вызова), затем
         обязательные read-only capabilities проверяются `allowed()` (RBAC →
-        запрет сети → доступность провайдера → квота → SSRF → privacy).
+        запрет сети → доступность провайдера → квота → SSRF). Содержательного
+        вето по теме в политике нет (BGS-01).
         Ни LLM, ни сети; сбой политики не роняет ход (решение «не требуется»
         с машинной пометкой — честная деградация, не тишина).
 
@@ -6519,126 +6818,49 @@ class DirectChatService:
         except Exception:      # pragma: no cover - защитная ветка
             return ""
 
-    async def _evidence_lookup(self, tool_ctx, claim_text: str, *,
-                               chat_id: int, correlation_id, lore: bool,
-                               image: bool, decision=None,
-                               user_forbids: bool = False) -> str:
-        """Один адресный read-only lookup для egress-guard (§2.3).
-
-        Тот же существующий tool-путь (`run_simple_tools`, 0 LLM-вызовов) с
-        единственным шагом web_search по существу claim. Ровно один раз на
-        ход; сбой → пустая выдержка (guard деградирует честно, а не молчит).
-
-        Lookup НЕ обходит §1.5: адресный запрос разрешён только когда
-        `web_search` уже входит в `required_caps` решения политики, и заново
-        проходит ту же точку :func:`evidence_policy.allowed` (RBAC → запрет
-        сети/явный запрет пользователя → провайдер/ключ → квота). Иначе — 0
-        сетевых вызовов и честный лог вместо обхода рубильника."""
-        if self.tool_router is None:
-            return ""
-        caps = tuple(getattr(decision, "required_caps", ()) or ())
-        if decision is not None and "web_search" not in caps:
-            return ""
-        try:
-            context = await _evidence_context(
-                chat_id, ("web_search",), user_forbids=bool(user_forbids))
-            ok, code = _evp.allowed("web_search", context)
-            if not ok:
-                logger.info(
-                    "[direct] evidence lookup blocked — no network call | "
-                    "chat=%s | code=%s", chat_id, code or "-")
-                return ""
-        except asyncio.CancelledError:
-            raise
-        except Exception:      # pragma: no cover - защитная ветка
-            return ""
-        try:
-            plan = _l1.L1Plan(action="reply", execution_mode="simple_tools",
-                              confidence=1.0, confidence_bucket="high",
-                              source="llm")
-            plan.capabilities_needed = ("web_search",)
-            schemas = active_tools(bool(lore), bool(image))
-            announced = {t["function"]["name"] for t in schemas
-                         if isinstance(t, dict) and t.get("function")}
-            result = await _dx.run_simple_tools(
-                plan=plan, router=self.tool_router, ctx=tool_ctx,
-                query=str(claim_text or "")[:256], chat_id=chat_id,
-                correlation_id=correlation_id, announced=announced)
-            if result is None:
-                return ""
-            pack = _dx.build_evidence_pack(
-                result, None, capacity_chars=_l1.evidence_max_chars())
-            return str(pack.text or "")
-        except asyncio.CancelledError:
-            raise
-        except Exception:      # pragma: no cover - защитная ветка
-            return ""
-
-    async def _evidence_rewrite(self, chat_id: int, query: str, *,
-                                plan_block: str, user_blocks, response_plan,
-                                character_block: str, style_directives: str,
-                                numeric_contract, time_line: str,
-                                evidence: str, lessons_block: str,
-                                speech_block: str, temperature,
-                                correlation_id, hint: str, max_tokens=None,
-                                speech=None
-                                ) -> str | None:
-        """Единственная повторная генерация egress-guard (§2.3).
-
-        Тот же Writer (`_l2_write_answer`), тот же route — второго Writer'а
-        нет; ``hint`` едет одним user-блоком в том же payload. Вызывается не
-        более одного раза и взаимоисключающе с freshness-ретраем.
-
-        ``speech`` (EVOL v5 §4.5/§9.4): ТА ЖЕ проекция прогона, что у первого
-        вызова — повтор идёт по тем же user-блокам, поэтому манифест обязан
-        записать то же представление контекста, что реально ушло (иначе
-        ``internal`` при речевом payload — ложь манифеста, сц.70)."""
-        try:
-            blocks = list(user_blocks or []) + [str(hint or "")]
-            out = await self._l2_write_answer(
-                chat_id, query, temperature=temperature,
-                correlation_id=correlation_id,
-                character_block=character_block,
-                style_directives=style_directives,
-                numeric_contract=numeric_contract,
-                response_plan=response_plan,
-                plan_block=plan_block, user_blocks=blocks,
-                time_line=time_line, evidence=evidence,
-                lessons_block=lessons_block, speech_block=speech_block,
-                max_tokens=max_tokens, speech=speech)
-            if out is None:
-                return None
-            text, _mode = out
-            return strip_reasoning_tags(str(text or "").strip())
-        except asyncio.CancelledError:
-            raise
-        except Exception:      # pragma: no cover - защитная ветка
-            return None
-
     def _emit_evidence_egress_event(self, chat_id: int, correlation_id,
                                     stats: dict) -> None:
-        """`EVIDENCE_EGRESS_CHECK` (§4.5) — только enum/числа (R17)."""
+        """`EVIDENCE_EGRESS_CHECK` (§4.5) — НАБЛЮДЕНИЕ: код + место (R17).
+
+        BGS-02: событие больше не сообщает об удалении/повторе (их нет), а
+        фиксирует факт «в готовом тексте осталось неподтверждённое
+        high-risk-утверждение» — диагностика без правки доставленного текста.
+        Только enum/числа: пользовательский текст в поле ``sentence`` не едет.
+        """
         try:
-            outcome = "success" if stats.get("guard_action") == _evp.GUARD_NONE \
-                else ("skipped" if stats.get("note") else "success")
+            observed = int(stats.get("observed") or 0)
+            # 0 — валидное место (первое предложение / нулевой символ):
+            # ``or -1`` превращал его в «не найдено» и врал в inspector
+            # (§BGS-02.9), поэтому подменяем только отсутствующее значение.
+            _idx = stats.get("sentence_index")
+            _start = stats.get("char_start")
+            _end = stats.get("char_end")
+            sentence_index = -1 if _idx is None else int(_idx)
+            char_start = -1 if _start is None else int(_start)
+            char_end = -1 if _end is None else int(_end)
             emit_agentic_event(
                 _EVIDENCE_EVENT_EGRESS, run_id=correlation_id,
                 chat_id=chat_id,
-                guard_action=str(stats.get("guard_action") or ""),
-                lookup_used=int(stats.get("lookup_used") or 0),
-                retry_used=int(stats.get("retry_used") or 0),
-                dropped_claim=int(stats.get("dropped_claim") or 0),
-                reason=str(stats.get("reason_code") or ""))
+                observed=observed,
+                code=str(stats.get("code") or _evp.GUARD_NONE),
+                sentence_index=sentence_index,
+                char_start=char_start,
+                char_end=char_end,
+                reason=str(stats.get("reason_code") or ""),
+                note=str(stats.get("note") or ""))
             _mca_events.emit_mca_event(
-                "evidence_egress_check", outcome=outcome,
+                "evidence_egress_check", outcome="success",
                 component="direct_chat", stage=_evp.EVIDENCE_STAGE,
                 reason_code=stats.get("reason_code") or None,
                 chat_id=chat_id,
-                usage_json={"guard_action": str(
-                    stats.get("guard_action") or ""),
-                    "lookup_used": int(stats.get("lookup_used") or 0),
-                    "retry_used": int(stats.get("retry_used") or 0),
-                    "dropped_claim": int(stats.get("dropped_claim") or 0)})
+                usage_json={"observed": observed,
+                            "code": str(stats.get("code")
+                                        or _evp.GUARD_NONE),
+                            "sentence_index": sentence_index,
+                            "char_start": char_start,
+                            "char_end": char_end,
+                            "claim_key": str(stats.get("claim_key") or ""),
+                            "note": str(stats.get("note") or "")})
         except Exception:      # pragma: no cover - телеметрия не рвёт чат
             pass
 
@@ -6737,54 +6959,43 @@ class DirectChatService:
                              correlation_id, l1_plan, response_plan,
                              fallback_meta: dict, time_line: str,
                              tool_schemas, longform_max_tokens=None,
-                             required_caps=()):
-        """v6 D04 (§18C.7): tool-фаза L1-пайплайна со СТРОГИМИ execution
-        modes. ``none`` (или resolved tools = ∅ / needs_clarification) →
-        ``None`` (Writer без evidence). ``simple_tools`` →
-        детерминированные/параллельные tools (0 LLM — третий вызов
-        запрещён). ``adaptive_tool_chain`` → bounded orchestrator
-        (kill-switch OFF → честная демотация в simple). Возврат —
-        ChainResult (ToolLoopResult-совместимый) или ``None``.
+                             required_caps=(), explicit_request: bool = False):
+        """ЕДИНЫЙ живой tool-этап Direct и Initiative (UR-03/UR-06, BGS-01).
 
-        ASAP-EVIDENCE-ROUTING-01 v3 (§0.2 C1/§2.1): ``required_caps`` —
-        runtime-обязательные read-only capabilities. ``execution_mode=none``
-        от L1-плана не может скрыть обязательную проверку (mode
-        переопределяется с наблюдаемой причиной), а деривация шагов получает
-        их независимо от ``capabilities_needed``."""
+        Это единственная точка входа tool-фазы обоих путей: тело — вызов
+        `direct_execution.run_tool_phase`, а не собственная копия цепочки.
+        Поэтому ось L1-плана `knowledge_origin`/`search_intent` РЕАЛЬНО
+        управляет поиском в проде (раньше её видели только тесты), а не
+        остаётся полем JSON.
+
+        Порядок и гейты — контракт `run_tool_phase`:
+        SILENT/REACT → 0 вызовов; `not_applicable` → сеть структурно снята
+        (поиск ради отчётности запрещён); прямой запрет человека («не ищи в
+        интернете», детектор `evidence_policy`) → пропуск с собственной
+        причиной; `required|beneficial` (в т.ч. runtime-обязательные caps от
+        evidence-политики) → один реальный поиск ДО L2. Содержательного вето
+        по теме нет (BGS-01). Ровно ОДНА tool-фаза на ход: adaptive-ветка
+        получает дет. поиск первым шагом и продолжение БЕЗ повтора поиска.
+
+        Паритет прежнего пути сохранён: без роутера/схем и на
+        `needs_clarification` (уточняющий вопрос вместо платных вызовов)
+        возвращается ``None``. Возврат — ChainResult
+        (ToolLoopResult-совместимый) или ``None``; evidence-пакет/трассу
+        собирает сам `run_tool_phase`, live-путь ниже упаковывает пакет из
+        `raw` своим бюджетом (второго tool-исполнения нет). CancelledError —
+        проброс."""
         plan = l1_plan or _l1.L1Plan()
-        required = tuple(required_caps or ())
-        if getattr(plan, "needs_clarification", False) or self.tool_router is None:
+        if self.tool_router is None:
             return None
-        if not tool_schemas:
+        if getattr(plan, "needs_clarification", False) or not tool_schemas:
             return None
-        mode, demote_reason = _dx.resolve_execution_mode(
-            plan, tool_schemas, required_caps=required)
-        announced = {t["function"]["name"] for t in tool_schemas
-                     if isinstance(t, dict) and t.get("function")}
-        if mode == _dx.EXECUTION_ADAPTIVE:
-            result = await _dx.run_adaptive_chain(
-                llm=self.llm, router=self.tool_router, ctx=tool_ctx,
-                plan=plan, query=query, tool_schemas=tool_schemas,
-                chat_id=chat_id, correlation_id=correlation_id)
-            if result is not None:
-                result.chain_meta.setdefault("demote_reason", "")
-                return result
-            demote_reason = "orchestrator_unavailable"
-        try:
-            result = await _dx.run_simple_tools(
-                plan=plan, router=self.tool_router, ctx=tool_ctx,
-                query=query, chat_id=chat_id,
-                correlation_id=correlation_id, announced=announced,
-                required_caps=required)
-        except Exception:      # паритет fail-soft прежнего tool-пути
-            logger.warning("[direct] simple execution failed — fail-soft",
-                           exc_info=True)
-            result = None
-        if result is not None and (demote_reason
-                                   or mode == _dx.EXECUTION_ADAPTIVE):
-            result.chain_meta["demote_reason"] = (demote_reason
-                                                  or "adaptive_fallback")
-        return result
+        result = await _dx.run_tool_phase(
+            plan=plan, router=self.tool_router, ctx=tool_ctx, query=query,
+            chat_id=chat_id, correlation_id=correlation_id,
+            tool_schemas=tool_schemas, llm=self.llm,
+            required_caps=tuple(required_caps or ()),
+            explicit_request=bool(explicit_request))
+        return result.raw
 
     # ── P0-HA SEGMENTS (архконтракт §2): сегментное накопление выборки ──────
 
@@ -7408,6 +7619,7 @@ class DirectChatService:
                                character_block: str = "",
                                style_directives: str = "",
                                numeric_contract=None, response_plan=None,
+                               form_contract=None, form_fallback_text=None,
                                plan_block: str = "", user_blocks=None,
                                time_line: str = "", evidence: str = "",
                                lessons_block: str = "",
@@ -7604,6 +7816,27 @@ class DirectChatService:
                              "expression_mode": _expr_mode,
                              "expression_rendered": bool(_expr_rendered),
                              "provider_error": False})
+        # ── RLR-06-OBSERVABILITY (§7): манифест ЗАПРОСА L2 — контекстные
+        # блоки и ревизии owner-промптов, provider/model/fallback. Полный
+        # приватный payload не сохраняется: только состав, версии и id.
+        _ttrace.note_l2_request(
+            correlation_id, manifest=_c_manifest, composer=bool(_c_on),
+            provider=_ttrace.provider_of(
+                getattr(self.llm, "_base_url", "")
+                or getattr(settings, "LLM_BASE_URL", "")),
+            model=str(getattr(self.llm, "_chat_model", "")
+                      or getattr(settings, "LLM_MODEL_NAME", "") or ""),
+            fallback_model=str(
+                getattr(self.llm, "_fallback_model", "")
+                or getattr(settings, "LLM_FALLBACK_MODEL", "") or ""),
+            max_output_tokens=max_tokens,
+            writer_name=str(writer or "l2_writer"),
+            # Без композера манифеста нет — состав блоков и заводские ревизии
+            # owner-промптов берутся из фактических частей payload и реестра.
+            blocks=list(parts) + ([_closing] if _closing else []),
+            prompt_keys=(
+                "prompts.direct_chat_verbalizer_system_prompt",
+                "prompts.direct_l1_planner_system_prompt"))
         # ── v6 D04 (§18C.4): L2 fallback-репак под РЕАЛЬНОЕ окно
         # fallback-модели (plan/memory/lessons/character/evidence;
         # защищённые блоки: current request, mandatory tool evidence,
@@ -7623,15 +7856,41 @@ class DirectChatService:
             _l2_fb_adapter = _expression_marker_checked_adapter(
                 _l2_fb_adapter, chat_id=chat_id, mode=_expr_mode)
 
+        # ── UR-18/UR-19: фактический `finish_reason` нужен потребителю.
+        # Реальный клиент (`LLMClient.generate_with_metadata`) его отдаёт;
+        # текст-двойники клиента (только `generate`) сигнала не имеют —
+        # для них ответ считается завершённым (прежнее поведение).
+        # Проверка по КЛАССУ: авто-атрибуты моков не должны включать
+        # «метаданные», которых у реализации нет.
+        _meta_method = getattr(type(self.llm), "generate_with_metadata", None)
+        _call_kwargs = dict(
+            temperature=temperature, chat_id=chat_id, module="direct_chat",
+            correlation_id=correlation_id,
+            fallback_payload_adapter=_l2_fb_adapter,
+            max_output_tokens=max_tokens)
+
+        async def _call_l2(msgs, *, step: str):
+            """Один вызов провайдера финальной стадии (первый или продолжение).
+
+            Оба вызова идут ОДНИМ путём: тот же клиент, тот же провайдер/
+            fallback-адаптер, тот же correlation_id; отличается только step,
+            чтобы в трассе продолжение было видно отдельно (§7).
+            """
+            if callable(_meta_method):
+                return await _meta_method(self.llm, msgs, step=step,
+                                          **_call_kwargs)
+            return _l2_cont.TextCompletion(
+                await self.llm.generate(msgs, step=step, **_call_kwargs))
+
+        #: §7: что ФАКТИЧЕСКИ вернул автор (raw final) и метаданные завершения.
+        #: Нужно для digest'а raw_final и классификации LLM-вызовов; сырой
+        #: текст живёт только в этом замыкании и в digest не сохраняется.
+        _author_out: dict = {}
+
         async def _generate(messages):
             _fallbacks_before = _llm_fallbacks_total()
             try:
-                reply = await self.llm.generate(
-                    messages, temperature=temperature, chat_id=chat_id,
-                    module="direct_chat", step="l2_writer",
-                    correlation_id=correlation_id,
-                    fallback_payload_adapter=_l2_fb_adapter,
-                    max_output_tokens=max_tokens)
+                completion = await _call_l2(messages, step="l2_writer")
             except Exception:
                 # §6 `provider_limitation`: вызов со слоем упал — не
                 # маскируем как «исправлено» (существующие fallback-события
@@ -7643,30 +7902,101 @@ class DirectChatService:
                     if diag_out is not None:
                         diag_out["provider_error"] = True
                 raise
+            _author_out["completion"] = completion
+            # ── UR-19 / R-08.14 / §3.2: фактический `finish_reason` первого
+            # авторского вызова. `length` — НЕЗАКОНЧЕННЫЙ output: тот же
+            # логический ответ продолжается тем же автором (явная граница
+            # накопленных токенов), а не отдаётся чату обрезком и не
+            # переписывается вторым автором. Отказ/невозможность продолжения
+            # → пустой текст → существующий честный исход вызывающего
+            # (`_l2_write_answer` → None), не фиктивный успех.
+            _continuation = await _l2_cont.complete_truncated_answer(
+                completion, messages=messages,
+                call=lambda msgs: _call_l2(msgs, step="l2_continuation"))
+            _log_l2_continuation(chat_id, correlation_id, _continuation,
+                                 diag_out=diag_out)
             if _expr_rendered and _llm_fallbacks_total() > _fallbacks_before:
                 _expression_diag("provider_limitation", chat_id=chat_id,
                                  stage="l2_writer", detail="fallback_model",
                                  mode=_expr_mode)
                 if diag_out is not None:
                     diag_out["provider_error"] = True
-            return reply
+            if not _continuation.completed:
+                # Пустой текст сюда отдавать НЕЛЬЗЯ: на пути явной
+                # трансформации form-guard увидел бы «потерю защищённых
+                # данных», восстановил исходник и выдал незаконченный ответ за
+                # успешную переписку. Отказ поднимается до валидатора и
+                # превращается в честный `None` вызывающего.
+                raise _l2_cont.IncompleteContinuation(_continuation)
+            _author_out["continuation"] = _continuation
+            _author_out["text"] = _continuation.text
+            return _continuation.text
 
         enabled_rules = (channel_enabled_rules("plain", response_mode)
                          if modes_on else None)
-        text, stats = await verbalize_validated(
-            _generate, base_messages, max_retries=2,
-            enabled_rules=enabled_rules,
-            dynamic_rules=anticliche_cache.get_rules() or None,
-            form_contract=None,
-            fallback_text=None,
-            numeric_contract=numeric_contract)
+        try:
+            text, stats = await verbalize_validated(
+                _generate, base_messages, max_retries=2,
+                enabled_rules=enabled_rules,
+                dynamic_rules=anticliche_cache.get_rules() or None,
+                form_contract=form_contract,
+                fallback_text=form_fallback_text,
+                numeric_contract=numeric_contract,
+                # §7: `semantic_rewrite_count` — измерение ХОДА, а не литерал:
+                # счётчик литературных вызовов живёт в трассе этого
+                # `correlation_id`, поэтому второй автор в том же ходе виден.
+                author_state=_ttrace.author_state(correlation_id))
+        except _l2_cont.IncompleteContinuation as exc:
+            # UR-19 / R-FAIL.2 / §3.2: ответ остался незавершённым. Честный
+            # отказ вызывающего (None → существующий error/silence/clarify
+            # outcome) вместо обрезка и вместо восстановленного исходника
+            # явной трансформации. Вторая генерация/второй вариант не
+            # запускаются.
+            logger.warning(
+                "[direct] l2 unfinished answer — honest refusal | chat=%s | "
+                "stop=%s | calls=%d | chars=%d | transform=%s", chat_id,
+                exc.result.stop_reason, exc.result.continuation_calls,
+                len(exc.result.text), form_contract is not None)
+            if diag_out is not None:
+                diag_out["unfinished_answer"] = True
+            # §7 «Критично»: незавершённый ответ НЕ выглядит обычным успехом.
+            _ttrace.note_l2_refusal(
+                correlation_id, "unfinished_answer",
+                stop_reason=str(exc.result.stop_reason),
+                continuation_calls=int(exc.result.continuation_calls),
+                text=exc.result.text,
+                finish_reason=str(getattr(_author_out.get("completion"),
+                                          "finish_reason", "") or ""))
+            return None
         logger.info(
             "[direct] l2 writer | chat=%s | mode=%s | attempts=%d | "
             "retries=%d | hits=%d | fallback=%s", chat_id, response_mode,
             stats.get("attempts", 0), stats.get("retries", 0),
             len(stats.get("hits") or []), bool(stats.get("fallback")))
+        # RLR-03.3: явная трансформация — находка узкой проверки защищённых
+        # данных видна (ответ не считается «прошедшим проверку»). Новой
+        # генерации/ПРАВКИ здесь нет: исходник либо вернулся вместо правки,
+        # либо авторский текст остался как написан (+ требование уточнения).
+        if stats.get("form_guard_reason"):
+            logger.warning(
+                "[direct] explicit transform protected facts | chat=%s | "
+                "reason=%s | restored_source=%s | clarification=%s",
+                chat_id, stats.get("form_guard_reason"),
+                bool(stats.get("form_fallback")),
+                bool(stats.get("needs_clarification")))
         if not text.strip():
+            # §7 «Критично»: пустой финал — честный отказ, не «успех».
+            _ttrace.note_l2_refusal(correlation_id, "empty_final")
             return None
+        # ── RLR-06-OBSERVABILITY (§7): завершение L2 — `finish_reason`,
+        # завершённость, usage, digest raw final и первая стадия
+        # детерминированной очистки (`reasoning_marker_strip`/
+        # `machine_marker_strip`). Сырого текста в событии нет.
+        _ttrace.note_l2_completion(
+            correlation_id,
+            raw_text=str(_author_out.get("text") or ""),
+            final_text=text, completion=_author_out.get("completion"),
+            stats=stats, continuation=_author_out.get("continuation"))
         # ── EVOL v5 §12.4 (DIRECT-SELF-CORRECTION-01): какой ход ФАКТИЧЕСКИ
         # дал итоговый ответ (сборка с рамкой возражения → writer/fallback).
         # Отдельного семантического вердикта («признал / не признал») нет:
@@ -7696,256 +8026,6 @@ class DirectChatService:
                                text=text, mode=_expr_mode,
                                rendered=_expr_rendered)
         return text, response_mode
-
-    # ── System 2 direct (F5, раунд 10.22, ADR-1022-5) — legacy-ветка ────
-
-    async def _synthesize_direct_answer(self, chat_id: int, query: str,
-                                        raw, temperature,
-                                        correlation_id: str | None = None,
-                                        bundle=None,
-                                        character_block: str = "",
-                                        style_directives: str = "",
-                                        numeric_contract=None,
-                                        plan=None,
-                                        history_assembly_block: str = ""
-                                        ) -> tuple[str, str] | None:
-        """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
-
-        Stage-1 получает ТОЛЬКО санитизированную «кашу» логов; Stage-2 —
-        ONLY валидированную JSON-справку (изоляция). Любой сбой/невалидный
-        JSON/пустой ответ → ``None`` (fail-safe, R17: логи без содержимого).
-
-        Раунд 10.23 (F3, ADR-1023-3): возвращает ``(текст, response_mode)`` —
-        режим нужен вызывающему, чтобы выбрать канал доставки (deep_research →
-        safe-HTML «Летописца»). Роутера третьим вызовом нет: режим едет в
-        том же JSON Stage-1.
-
-        MCA-07 (T-3852, ADR-1027-7 D6/SC-09): при переданном `bundle` Stage-1
-        получает scoped-срез ЕДИНОГО EvidenceBundle (адресат/ветка/ограничения/
-        `context_version`) — System2 после tool loop НЕ теряет контекст и НЕ
-        получает только вопрос+tool output. `bundle=None`/gate OFF → прежний
-        Stage-1 (байт-в-байт, паритет).
-
-        MCA-08 (D2, AM-2): `character_block` — опциональный хвост
-        владельческой основы (persona + Character_Rules) у verbalizer-промпта
-        (default "" → байт-паритет всех текущих вызовов); второго сборщика
-        промпта нет.
-
-        MCA-08 (D5/D8, T-4904/T-4907): `style_directives` — опциональный
-        `<Style_Requests>`-блок (K3; default "" → паритет). `form_contract`
-        строится из проверенного черновика (финал tool-loop) для form-гардов
-        постпроцессора (K4; без контракта — байт-паритет 2.58.54).
-
-        MCA-15 (D5, T-4931): `numeric_contract` — опциональный контракт
-        проверки чисел ЭТОГО хода (default None → паритет); нарушение →
-        ≤1 numeric-повтор тем же Вербализатором, затем детерминированная
-        замена/снятие (второго LLM-судьи нет).
-
-        MCA-23 (W3, §4/§11): `plan` — ResponsePlan, классифицированный до
-        LLM-стадии. Непустой план → Вербализатор получает extent-блок
-        («ОЖИДАЕМАЯ ПОЛНОТА») ВМЕСТО mode-блока (response_mode остаётся
-        compat-алиасом: routing/format/доставка без изменений); при
-        longform-плане из собранного промпта детерминированно вычищается
-        старый cap-текст (PG-кастом не правится, WARN в лог) и на Stage-2
-        передаётся max_output_tokens. plan=None (тесты/legacy) → байт-
-        паритет прежней сборки.
-
-        P0-HA QUALITY (волна 4, блокер 4 review-w4): `history_assembly_block`
-        — опциональный блок инструкции финальной сборки по находкам истории
-        (default "" → байт-паритет). Шов хода передаёт ПОЛНЫЙ
-        HISTORY_COVERAGE_ASSEMBLY_BLOCK ТОЛЬКО при активной выборке
-        (System2 может нести выборку при выключенном L1 —@@HISTORY_COVERAGE
-        на этом пути не возникает, но правило качества сборки должны
-        получать оба Writer-канала); аппенд в system Stage-2 ПОСЛЕ scrub,
-        целиком, как в `_l2_write_answer`.
-        """
-        draft_text = strip_reasoning_tags(str(raw).strip())
-        form_contract = (_nc.FormContract(source_text=draft_text)
-                         if draft_text else None)
-        try:
-            tool_context = redact_secrets(
-                str(getattr(raw, "tool_context", "") or ""))
-            trace = getattr(raw, "tool_trace", []) or []
-            trace_summary = ", ".join(
-                f"{entry.get('tool')}:{entry.get('out_chars')}"
-                for entry in trace if entry.get("tool")) or "-"
-            synth_user = (
-                f"СООБЩЕНИЕ ЮЗЕРА:\n{query}\n\n"
-                f"ИНСТРУМЕНТЫ (сводка):\n{trace_summary}\n\n"
-                f"ВЫВОДЫ ИНСТРУМЕНТОВ:\n{tool_context}"
-            )
-            # MCA-07 D6: scoped-срез bundle не теряется после tool loop.
-            bundle_slice = _bundle_scoped_slice(bundle)
-            if bundle_slice:
-                synth_user = f"{bundle_slice}\n\n{synth_user}"
-            # ── SOUL-1 (W2, §4 п.4): Stage-1 — машинный профиль
-            # (`machine_json`): только канал-контракт, Core/юмор физически
-            # не подключаются. OFF → байт-в-байт прежняя строка ниже.
-            _c_gates = await _composer_resolve_gates(chat_id)
-            _stage1_base = resolve_prompt(
-                "prompts.direct_chat_synthesizer_system_prompt",
-                DIRECT_SYNTHESIZER_SYSTEM_PROMPT)
-            if _pcomp.composer_enabled_now(_c_gates):
-                _stage1_manifest = _pcomp.compose_machine_system(
-                    _stage1_base, writer="system2_stage1", chat_id=chat_id,
-                    run_id=correlation_id)
-                _pcomp.emit_layer_events_once(_stage1_manifest)
-            synth_messages = [
-                {"role": "system", "content": _stage1_base},
-                {"role": "user", "content": synth_user},
-            ]
-            raw_synth = await self.llm.generate(
-                synth_messages, temperature=temperature, chat_id=chat_id,
-                module="direct_chat", step="stage1",
-                correlation_id=correlation_id)
-            data = parse_direct_synthesis(str(raw_synth))
-            if data is None:
-                logger.info(
-                    "[direct] system2: невалидная справка — fallback | chat=%s",
-                    chat_id)
-                return None
-            # Review iter1 (M1): при kill-switch OFF режим не выбирается вовсе
-            # (fail-safe serious) — включая маршрут доставки.
-            modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
-            response_mode = (normalize_response_mode(data.get("response_mode"))
-                             if modes_on else "serious")
-            verbalizer_template = (
-                resolve_prompt("prompts.direct_chat_verbalizer_system_prompt",
-                               DIRECT_VERBALIZER_SYSTEM_PROMPT)
-                if modes_on else PREV_CHAT_VERBALIZER_R1023)
-            # MCA-23 (W3, §11): план — источник полноты; extent-блок заменяет
-            # mode-блок. plan=None → "" → прежняя mode-сборка (паритет).
-            _plan_extent_block = ""
-            if plan is not None and modes_on:
-                _plan_extent_block = _extent.render_extent_block(plan)
-            # Review iter1 (H2): direct deep_research доставляется safe-HTML
-            # (`parse_mode="HTML"` + escape_lore_html) → HTML-capable блок.
-            # ── SOUL-1 (W2, §4 п.3): тот же композер, что у L2 (Core/личность
-            # из того же хода — общая ревизия identity). OFF → прежняя строка.
-            if _pcomp.composer_enabled_now(_c_gates):
-                verbalizer_system, _s2_manifest = \
-                    await self._compose_speech_system(
-                        chat_id=chat_id, writer="system2_stage2",
-                        run_id=correlation_id,
-                        base_prompt=verbalizer_template,
-                        base_key="prompts.direct_chat_verbalizer_system_prompt",
-                        base_default=DIRECT_VERBALIZER_SYSTEM_PROMPT,
-                        base_source=("legacy_mode" if not modes_on else ""),
-                        include_mode_block=bool(modes_on),
-                        gates=_c_gates, response_mode=response_mode,
-                        response_plan=plan, extent_block=_plan_extent_block,
-                        identity_text=character_block,
-                        identity_source=("chat"
-                                         if mca_gates.character_layers_enabled()
-                                         else "legacy_persona"),
-                        identity_skipped=("" if _c_gates.persona_enabled
-                                          else "persona_disabled"),
-                        style_block=style_directives,
-                        style_skip=("style_scope_disabled"
-                                    if not mca_gates.style_scope_enabled()
-                                    else "style_requests_absent"))
-                _pcomp.emit_layer_events_once(_s2_manifest)
-            else:
-                verbalizer_system = (compose_verbalizer_system(
-                    verbalizer_template, response_mode, "plain",
-                    html_safe=True,
-                    character_block=character_block,
-                    style_directives=style_directives,
-                    extent_block=_plan_extent_block)
-                    if modes_on else verbalizer_template)
-            # MCA-23 (W3, §11/§32): prompt-conflict scrub — старый cap-текст
-            # (PG-кастом 10.23) не должен душить longform. Детерминированная
-            # вычистка из ФИНАЛЬНОЙ сборки; БД не трогается, WARN в лог.
-            # SOUL-1 (W2, §4 «доп.»): скраб больше НЕ гейтится режимами —
-            # Stage-2 приведён к единому решению с L2 (шаг нормализации один).
-            verbalizer_system, _scrubbed = _extent.scrub_for_plan(
-                verbalizer_system, plan)
-            if _scrubbed:
-                logger.warning(
-                    "[direct] extent-conflict scrub | chat=%s | "
-                    "stage=verbalizer | removed=%d", chat_id, _scrubbed)
-            # ── P0-HA QUALITY (волна 4, блокер 4 review-w4): ход с выборкой
-            # истории получает ту же инструкцию финальной сборки, что L2
-            # Writer. Аппенд ПОСЛЕ scrub, ЦЕЛИКОМ, ровно один раз; пустая
-            # строка (без выборки) — байт-паритет прежней сборки
-            # (ADDENDUM #3 §2.10: инструкции не сокращаются).
-            if history_assembly_block:
-                verbalizer_system = (verbalizer_system + "\n\n"
-                                     + history_assembly_block)
-            # MCA-23 (W3, §Model slots): longform-план получает явный
-            # max_tokens; compact/micro/None → None (ключ не едет, паритет).
-            _longform_tokens = (_extent.longform_max_output_tokens()
-                                if (plan is not None
-                                    and plan.is_longform()) else None)
-            base_messages = [
-                {"role": "system", "content": verbalizer_system},
-                {"role": "user",
-                 # spec F3 §3.1: служебный response_mode в Stage-2 не утекает.
-                 "content": "СПРАВКА (JSON):\n" + json.dumps(
-                     stage2_payload(data), ensure_ascii=False)},
-            ]
-
-            async def _generate(messages):
-                return await self.llm.generate(
-                    messages, temperature=temperature, chat_id=chat_id,
-                    module="direct_chat", step="stage2",
-                    correlation_id=correlation_id,
-                    max_output_tokens=_longform_tokens)
-
-            enabled_rules = (channel_enabled_rules("plain", response_mode)
-                             if modes_on else None)
-            text, stats = await verbalize_validated(
-                _generate, base_messages, max_retries=2,
-                enabled_rules=enabled_rules,
-                dynamic_rules=anticliche_cache.get_rules() or None,
-                form_contract=form_contract,
-                fallback_text=(draft_text or None),
-                numeric_contract=numeric_contract)
-            logger.info(
-                "[direct] system2 | chat=%s | mode=%s | attempts=%d | retries=%d | "
-                "hits=%d | fallback=%s", chat_id, response_mode,
-                stats.get("attempts", 0), stats.get("retries", 0),
-                len(stats.get("hits") or []), bool(stats.get("fallback")))
-            # MCA-08 (D8, T-4908): notable-событие form-гарда (единственный
-            # журнал; reason_code = эквивалент meaning_changed из санкции).
-            _form_rejects = int(stats.get("form_guard_rejects") or 0)
-            if _form_rejects:
-                _mca_events.emit_mca_event(
-                    "postprocess_form", outcome="skipped",
-                    level=_mca_events.LEVEL_WARN, component="direct_chat",
-                    stage="form_guard",
-                    reason_code=(stats.get("form_guard_reason")
-                                 or "form_guard_rejected"),
-                    chat_id=chat_id, attempt=_form_rejects)
-                logger.info(
-                    "[direct] system2 form guard | chat=%s | rejects=%d | "
-                    "retry=%s | form_fallback=%s", chat_id, _form_rejects,
-                    bool(stats.get("form_retry")),
-                    bool(stats.get("form_fallback")))
-            # MCA-15 (D5, T-4931): notable-событие numeric-гарда — только при
-            # нарушении (per-reply «успехов» нет); R17-safe (код, без текста).
-            _num_mismatch = int(stats.get("numeric_claim_mismatch") or 0)
-            if _num_mismatch:
-                _num_fallback = bool(stats.get("numeric_claim_fallback"))
-                _mca_events.emit_mca_event(
-                    "numeric_claim_guard",
-                    outcome=("skipped" if _num_fallback else "success"),
-                    component="direct_chat", stage="claim_check",
-                    reason_code=("numeric_claim_fallback" if _num_fallback
-                                 else "numeric_claim_corrected"),
-                    chat_id=chat_id, attempt=_num_mismatch)
-                logger.info(
-                    "[direct] system2 numeric guard | chat=%s | mismatch=%d "
-                    "| retry=%s | fallback=%s", chat_id, _num_mismatch,
-                    bool(stats.get("numeric_claim_retry")), _num_fallback)
-            if not text.strip():
-                return None
-            return text, response_mode
-        except Exception as exc:                # fail-safe → финал tool-loop
-            logger.info(
-                "[direct] system2 failed — fallback tool-loop | chat=%s | "
-                "error=%s", chat_id, _exc_brief(exc))
-            return None
 
     # ── Context Partitioning (58.6) ─────────────────────────────
 
@@ -7997,10 +8077,15 @@ class DirectChatService:
                 _verify_style_payload(_rich_payload, style_outcome, chat_id,
                                       stage="direct_rich",
                                       correlation_id=correlation_id)
+                _ttrace.note_op(correlation_id, _ttrace.OP_RICH,
+                                _rich_payload)
                 sent = await _tg_send.send_rich_message(bot, chat_id,
                                                         _rich_payload)
                 sent_id = getattr(sent, "message_id", None)
                 if sent_id is not None:
+                    _ttrace.note_delivery(
+                        correlation_id, outcome="success",
+                        tg_message_ids=[sent_id], channel="rich")
                     return sent_id
                 logger.warning(
                     "[direct] rich send: no message_id — legacy path | "
@@ -8013,28 +8098,53 @@ class DirectChatService:
             _verify_style_payload(text, style_outcome, chat_id,
                                   stage="direct_plain",
                                   correlation_id=correlation_id)
-            return await send_chunked_reply(bot, chat_id, text, reply_to)
+            return await _send_traced(
+                bot, chat_id, text, reply_to, correlation_id=correlation_id,
+                op_name=_ttrace.OP_PLAIN, channel="plain")
         escaped = escape_lore_html(text)
         if len(escaped) <= _LORE_HTML_MAX_SINGLE_CHARS:
             try:
                 _verify_style_payload(escaped, style_outcome, chat_id,
                                       stage="direct_safe_html",
                                       correlation_id=correlation_id)
-                return await send_chunked_reply(
-                    bot, chat_id, escaped, reply_to, parse_mode="HTML")
+                _ttrace.note_op(correlation_id, _ttrace.OP_HTML, escaped)
+                _ttrace.note_op(correlation_id, _ttrace.OP_EGRESS_SANITIZE,
+                                _delivered_payload(escaped))
+                _html_ids: list = []
+                # Без correlation_id — прежний вызов байт-в-байт (kwargs те же).
+                _html_extra = ({"sent_ids": _html_ids} if correlation_id
+                               else {})
+                sent = await send_chunked_reply(
+                    bot, chat_id, escaped, reply_to, parse_mode="HTML",
+                    **_html_extra)
+                _ttrace.note_delivery(
+                    correlation_id,
+                    outcome=("success" if sent is not None else "failed"),
+                    tg_message_ids=(_html_ids
+                                    or ([sent] if isinstance(sent, int)
+                                        else [])),
+                    chunks=(len(_html_ids) or None), channel="html",
+                    reason=("" if sent is not None else "send_failed"))
+                return sent
             except TelegramBadRequest as exc:
                 logger.warning(
                     "[direct] safe-HTML send failed — plain fallback | "
                     "chat=%s | error=%s", chat_id, _exc_brief(exc))
-                return await send_chunked_reply(bot, chat_id, text, reply_to)
+                # Тот же смысловой payload уходит plain — это НЕ регенерация.
+                return await _send_traced(
+                    bot, chat_id, text, reply_to,
+                    correlation_id=correlation_id, op_name=_ttrace.OP_PLAIN,
+                    channel="plain", reason="html_fallback")
         logger.info("[direct] text too long for safe HTML — plain | "
                     "chat=%s | chars=%d", chat_id, len(escaped))
         _plain_payload = strip_lore_html(text)
         _verify_style_payload(_plain_payload, style_outcome, chat_id,
                               stage="direct_plain_long",
                               correlation_id=correlation_id)
-        return await send_chunked_reply(bot, chat_id, _plain_payload,
-                                        reply_to)
+        return await _send_traced(
+            bot, chat_id, _plain_payload, reply_to,
+            correlation_id=correlation_id, op_name=_ttrace.OP_PLAIN,
+            channel="plain", reason="too_long_for_html")
 
     async def _chat_time_line(self, chat_id: int) -> str:
         """10.20 (БЛОК 5.1, О2/О4 FINAL, ADR-1020-3): строка Time Injection
@@ -12742,9 +12852,14 @@ class DirectChatService:
         реакции, повод наблюдателя КАК ПРЕДЛОЖЕНИЕ (может отклонить). Форму
         участия (написать в чат / Telegram-reply на конкретное сообщение /
         реакция / молчание) выбирает ТОЛЬКО L1 — транспорта-резолвера больше
-        нет. Один вызов L1 (без repair-лестницы — инициатива вторична:
-        outage/невалидный JSON → None → SILENT, не повтор). Никогда не
-        бросает."""
+        нет.
+
+        UR-A (UR-02): исполнение — общий L1-исполнитель `_execute_turn`, тот
+        же, что у прямого хода: тот же резолв слота/ключа/бюджета, та же схема
+        плана, тот же bounded repair и учёт usage, те же фактические
+        capabilities. Отличаются только сборка контекста (повод вместо цитаты)
+        и право на молчание: outage/невалидный JSON после repair или блок
+        политики ключей → None → SILENT. Никогда не бросает."""
         # Граница хода: пин кадра предыдущего чата снимается — инициативный
         # цикл обходит несколько чатов, и кадр чата A не должен доехать до B
         # (ревью W2/P1, F1).
@@ -12827,23 +12942,24 @@ class DirectChatService:
             _init_conditions.append(
                 "разрешённые реакции: "
                 + " ".join(_llm_react.ALLOWED_LLM_REACTIONS))
-        # ER-08: тот же бюджет пакета из реального окна L1-модели (инициатива —
-        # не отдельный контур; main-модель, слотовый fallback не применяется).
+        # ── UR-A (UR-02.1): тот же резолв слота/ключа/бюджета, что у Direct.
         _init_prompt = resolve_prompt(
             "prompts.direct_l1_planner_system_prompt",
             DIRECT_L1_PLANNER_SYSTEM_PROMPT)
         try:
-            _init_model = str(hot.get(
-                "models.llm_model_name",
-                getattr(settings, "LLM_MODEL_NAME", "")) or "")
-            _init_base = str(hot.get(
-                "models.llm_base_url",
-                getattr(settings, "LLM_BASE_URL", "")) or "")
-        except Exception:      # pragma: no cover - защитная ветка
-            _init_model, _init_base = "", ""
-        _init_budget, _init_budget_meta = await _l1.resolve_l1_context_budget(
-            base_url=_init_base, model=_init_model,
-            mandatory_tokens=count_tokens(_init_prompt))
+            _slot_meta, slot = await self._resolve_turn_slot_meta(
+                chat_id, prompt_text=_init_prompt)
+        except NoApiKeyForChat as exc:
+            # Право инициативы на молчание: блокировка политики ключей/
+            # бюджета — не повод падать в heartbeat-цикле (в отличие от
+            # прямого обращения, где это осознанный sandbox-ответ).
+            if not _tt.turn_policy("initiative").silent_on_policy_block:
+                raise
+            logger.warning(
+                "[f6] initiative L1 blocked by key policy — silent | "
+                "chat=%s | reason=%s", chat_id, _exc_brief(exc))
+            return None
+        _init_budget = int(_slot_meta.budget_tokens)
         # ASAP-FC-VOICE-01 / B: тот же профиль решений, что у Direct (одна
         # точка сборки); кадр принимается только для ЭТОГО чата и только с
         # версией из `_initiative_ctx` (иначе — честный legacy/absent). Это
@@ -12852,10 +12968,33 @@ class DirectChatService:
         # существующие критерии silent).
         _init_profile = bot_persona.build_decision_profile_block(
             _initiative_ctx, chat_id=chat_id)
+        # ── UR-A (UR-01/UR-02.3): тот же `TurnRequest`, что у прямого хода, и
+        # те же ФАКТИЧЕСКИ доступные capabilities (раньше — пустой список,
+        # из-за чего инициатива не видела собственный инструментарий).
+        _turn_req = await self._build_turn_request(
+            trigger_type="initiative", chat_id=chat_id,
+            correlation_id=correlation_id, slot_meta=_slot_meta,
+            source_message_id=None,
+            raw_text="",
+            speaker_uid=None,
+            reply_parent=None,
+            addressee=_tt.AddresseeRef(
+                user_id=addressee_id, label=addressee_label,
+                source=("observer" if addressee_id is not None else "chat")),
+            opportunity=_tt.OpportunityRef(
+                intent_id=_optional_int(row.get("intent_id")),
+                goal=goal, kind=kind, origin=origin,
+                created_at=_optional_int(row.get("created_at")),
+                source_refs=tuple(
+                    str(ref) for ref in (row.get("source_refs") or ())
+                    if str(ref or "").strip())),
+            delivery=_tt.DeliveryPolicy(
+                kind="text", force_reply=False, direct_request=False,
+                recheck=True, trigger="initiative"))
         context_text = _l1.build_l1_context(
             query=task, window=window, speaker="наблюдатель",
             addressee=addressee_label,
-            capabilities=(),
+            capabilities=list(_turn_req.tool_state.capabilities),
             force_line="; ".join(_init_conditions),
             decision_profile=_init_profile, bot_replies=bot_replies,
             # ASAP3-ACCEPT (fail-open, то же что Writer-сайт ниже): частичный DI-объект
@@ -12867,22 +13006,22 @@ class DirectChatService:
         # капы; те же оси, что у Direct-сайта, в существующем канале.
         _init_reply_stats = _l1.reply_delivery_stats(
             context_text, _init_budget, total_chars=0)
-        _l1.record_l1_diagnostics(
-            chat_id, source="initiative_l1",
-            l1_context_budget=int(_init_budget),
-            l1_context_source=str(_init_budget_meta.get("source") or ""),
-            l1_reply_chars_cap=int(_init_reply_stats["chars_cap"]),
-            l1_line_chars_cap=int(_l1.window_line_chars(
+        meta: dict = {
+            "l1_reply_chars_cap": int(_init_reply_stats["chars_cap"]),
+            "l1_line_chars_cap": int(_l1.window_line_chars(
                 window, budget_tokens=_init_budget)),
-            l1_reply_total_chars=int(_init_reply_stats["total_chars"]),
-            l1_reply_delivered_chars=int(
+            "l1_reply_total_chars": int(_init_reply_stats["total_chars"]),
+            "l1_reply_delivered_chars": int(
                 _init_reply_stats["delivered_chars"]),
-            l1_reply_truncated=bool(_init_reply_stats["truncated"]),
-            l1_kept_mid=bool(_init_reply_stats["kept_mid"]),
-            # ASAP-FC-VOICE-01 / B: источник/размер профиля решений (frame|legacy).
-            l1_profile_source=bot_persona.decision_profile_source(
+            "l1_reply_truncated": bool(_init_reply_stats["truncated"]),
+            "l1_kept_mid": bool(_init_reply_stats["kept_mid"]),
+            # ASAP-FC-VOICE-01 / B: источник/размер профиля решений
+            # (frame|legacy).
+            "l1_profile_source": bot_persona.decision_profile_source(
                 _init_profile),
-            l1_profile_chars=int(len(_init_profile)))
+            "l1_profile_chars": int(len(_init_profile)),
+            "input_chars": int(len(context_text)),
+        }
         messages = [
             {"role": "system",
              "content": _init_prompt},
@@ -12895,20 +13034,19 @@ class DirectChatService:
                 _pcomp.compose_machine_system(
                     messages[0]["content"], writer="initiative_l1",
                     chat_id=chat_id, run_id=correlation_id))
-        try:
-            raw = await asyncio.wait_for(
-                self.llm.generate(
-                    messages, temperature=_l1.l1_temperature(None),
-                    chat_id=chat_id, module="direct_chat",
-                    step="l1_planner", correlation_id=correlation_id,
-                    max_output_tokens=_l1.l1_max_output_tokens()),
-                timeout=float(_l1.l1_timeout_seconds()))
-        except Exception:
+        # ── UR-A (§2.1): тот же исполнитель, что у Direct: резолв слота,
+        # bounded repair невалидного JSON, retry без temperature, учёт usage.
+        plan, _plan_meta = await self._execute_turn(
+            _turn_req, slot=slot, l1_messages=messages,
+            l1_input_chars=len(context_text), message_id=None, meta=meta,
+            started_monotonic=time.monotonic())
+        if plan is None:
+            # Инициатива вторична: outage/невалидный JSON после общего
+            # repair-маршрута → честное молчание (SILENT), не падение.
             logger.warning(
-                "[f6] initiative L1 decision unavailable — silent | chat=%s",
-                chat_id, exc_info=True)
-            return None
-        return _l1.parse_l1_plan(raw)
+                "[f6] initiative L1 decision unavailable — silent | "
+                "chat=%s", chat_id)
+        return plan
 
     async def generate_initiative_reply(self, chat_id: int,
                                         intent_row: dict, *,
@@ -13090,10 +13228,20 @@ class DirectChatService:
             if _init_reuse is not None:
                 _initiative_pack = _init_reuse
                 _initiative_evidence = _init_reuse.text
+            # ── UR-03/UR-06 (BGS-01): решение «нужен ли поиск» — та же ось
+            # L1 (`knowledge_origin`/`search_intent`), что у Direct. Запрос
+            # по-прежнему ТОЛЬКО из claim'ов (`_init_search_query`): служебная
+            # формулировка цели уводила единственный сетевой вызов в мусор.
+            # Технические гейты (флаг сети, RBAC, квоты, SSRF) остаются в
+            # `_l1_tool_subset` ниже — ось не даёт сети в обход них.
+            _init_axis = _l1.resolve_search_axis(
+                plan, required_caps=_initiative_caps)
             _init_want_tools = bool(
                 _init_reuse is not None
-                or (getattr(_initiative_decision, "required", False)
-                    and _initiative_caps and _init_search_query))
+                or (_init_search_query and (
+                    (getattr(_initiative_decision, "required", False)
+                     and _initiative_caps)
+                    or _init_axis.search_expected)))
             if _init_router is not None and _init_want_tools:
                 try:
                     _init_schemas, _init_rejected = await self._l1_tool_subset(
@@ -13107,7 +13255,11 @@ class DirectChatService:
                         correlation_id=correlation_id, l1_plan=plan,
                         response_plan=response_plan, fallback_meta={},
                         time_line="", tool_schemas=_init_schemas,
-                        required_caps=_initiative_caps)
+                        required_caps=_initiative_caps,
+                        # У инициативы нет просьбы человека (решение
+                        # Architect «г», §5.2): `user_forced` не рождается,
+                        # поиск решает ось плана + runtime-политика.
+                        explicit_request=False)
                     if _init_raw is not None:
                         _initiative_pack = _dx.build_evidence_pack(
                             _init_raw, response_plan,
@@ -13148,48 +13300,22 @@ class DirectChatService:
                 evidence=_initiative_evidence,
                 writer="initiative_writer", max_tokens=700,
                 speech=_init_speech)
-            # Bounded egress-guard того же класса/теми же средствами: ≤1
-            # адресный lookup (разрешённый политикой), ≤1 регенерация тем же
-            # Writer'ом, затем удаление только неподтверждённого предложения.
+            # BGS-02: то же наблюдение, что в Direct (единый postprocess):
+            # без адресного lookup, без повторной генерации и без удаления
+            # предложения. Инициатива не получает «отдельного» режима.
             if result and _initiative_decision is not None \
                     and _evp.egress_guard_enabled():
-                async def _init_lookup(claim):
-                    return await self._evidence_lookup(
-                        _init_tool_ctx, claim, chat_id=chat_id,
-                        correlation_id=correlation_id, lore=False,
-                        image=False, decision=_initiative_decision,
-                        user_forbids=bool(
-                            _evp.is_external_forbidden(_goal_query)))
-
-                async def _init_rewrite(hint, extra_evidence):
-                    return await self._evidence_rewrite(
-                        chat_id, _goal_query, plan_block=plan_block,
-                        user_blocks=_initiative_blocks,
-                        response_plan=response_plan,
-                        character_block=persona_block, style_directives="",
-                        numeric_contract=None, time_line="",
-                        evidence=(_initiative_evidence + "\n"
-                                  + extra_evidence).strip(),
-                        lessons_block="", speech_block="",
-                        temperature=temperature,
-                        correlation_id=correlation_id, hint=hint,
-                        max_tokens=700,
-                        # EVOL v5 §4.5: та же проекция — манифест повтора
-                        # объявляет реальное представление контекста.
-                        speech=_init_speech)
-
-                _init_guarded, _init_egress = \
+                # ``_init_delivered`` == исходный Writer-текст (guard не
+                # мутирует), поэтому результат хода не подменяется.
+                _init_delivered, _init_egress = \
                     await _run_evidence_egress_guard(
                         answer=str(result[0] or ""),
                         decision=_initiative_decision,
                         evidence_text=_initiative_evidence,
                         delivered_keys=_evp.delivered_claim_keys(
-                            _initiative_decision, _initiative_evidence),
-                        lookup=_init_lookup, rewrite=_init_rewrite)
+                            _initiative_decision, _initiative_evidence))
                 self._emit_evidence_egress_event(
                     chat_id, correlation_id, _init_egress)
-                if _init_guarded != str(result[0] or ""):
-                    result = (_init_guarded, result[1])
         except Exception:
             logger.warning(
                 "[f6] initiative writer failed | chat=%s", chat_id,

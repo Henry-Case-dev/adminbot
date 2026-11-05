@@ -171,7 +171,13 @@ class TestRolesUi:
         # (БЛОК 3.2); итого 5.
         # EVOL-021 (18baa36b): +1 — осознанное окно записи статуса/эпизода
         # (aria-label «Закрыть окно записи», closeStatusRecord); итого 6.
-        assert HTML.count(">✕</button>") == 6
+        # EVOL-COG-MAP S3 (1f0499634, предок базы ветки): +1 — осознанная
+        # карточка узла/ребра графа (`data-cog-card-close`,
+        # closeCogCard(), aria-label «Закрыть карточку»); итого 7.
+        # Проверено: счёт в web/index.html = 6 на 1f0499634^ и 7 на 1f0499634,
+        # сам блэйм 7-й кнопки указывает на 1f0499634. Это устаревший счётчик,
+        # а не дефект продукта; == оставлен, чтобы пин ловил любую новую ✕.
+        assert HTML.count(">✕</button>") == 7
 
     def test_backend_enrichment_markers(self):
         assert "global_user_display_info" in AVATARS

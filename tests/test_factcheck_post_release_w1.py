@@ -313,7 +313,7 @@ class TestPlannerPartialAndCauses:
                      fsp.SearchQuery(text="чипсет процессор линии PCIe",
                                      intent="entity_check")),
             needs_web=True, needs_primary_fetch=False,
-            dropped_privacy=(), claim_text=CLAIM)
+            claim_text=CLAIM)
         agg = ScriptedAggregator([
             sa.AllSearchEnginesFailedException("down", reason="provider_error"),
             ("Линии PCIe у устройства\n"
@@ -337,7 +337,7 @@ class TestPlannerPartialAndCauses:
                      fsp.SearchQuery(text="40 56 линии итог",
                                      intent="numeric_verification")),
             needs_web=True, needs_primary_fetch=False,
-            dropped_privacy=(), claim_text=CLAIM)
+            claim_text=CLAIM)
         agg = ScriptedAggregator([
             ("Линии PCIe: 40 от CPU + 56 от чипсета\n"
              "https://example.org/pcie"),

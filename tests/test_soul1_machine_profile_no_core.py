@@ -108,6 +108,13 @@ def build_service():
         _build_speech_understanding = D._build_speech_understanding
         _attach_l1_plan_meta = D._attach_l1_plan_meta
         _compose_speech_system = D._compose_speech_system
+        # UR-A: контракт/движок хода - те же методы реального сервиса.
+        _resolve_turn_slot_meta = D._resolve_turn_slot_meta
+        _resolve_turn_tool_state = D._resolve_turn_tool_state
+        _turn_aliases_snapshot = D._turn_aliases_snapshot
+        _build_reply_parent_ref = D._build_reply_parent_ref
+        _build_turn_request = D._build_turn_request
+        _execute_turn = D._execute_turn
 
         async def _history_partial(self, chat_id, window):
             # ASAP2 T10-BOUNDARY: у стенда окно = вся сохранённая история
@@ -246,35 +253,3 @@ async def test_direct_l1_planner_stage_has_no_core_and_no_extra_calls():
     assert manifest is not None
     assert manifest.profile == "machine_json"
 
-
-@pytest.mark.asyncio
-async def test_direct_stage1_synthesizer_has_no_core_and_no_extra_calls():
-    from services import prompt_style_blocks as psb
-    from services.chat_prompts import DIRECT_SYNTHESIZER_SYSTEM_PROMPT as CANON
-    Stub, D = build_service()
-    raw = type("R", (), {"tool_context": "tool output",
-                         "tool_trace": [{"tool": "web", "out_chars": 10}]})()
-
-    composer_off()
-    llm_off = StubLLM()
-    await D._synthesize_direct_answer(Stub(llm_off), 12345, "q", raw, 0.7,
-                                     character_block=CORE)
-
-    composer_on()
-    llm_on = StubLLM()
-    await D._synthesize_direct_answer(Stub(llm_on), 12345, "q", raw, 0.7,
-                                     character_block=CORE)
-
-    stage1_on = [c for c in llm_on.captured if c["step"] == "stage1"]
-    stage1_off = [c for c in llm_off.captured if c["step"] == "stage1"]
-    assert stage1_on and stage1_off
-    assert stage1_on[0]["messages"][0]["content"] == \
-        stage1_off[0]["messages"][0]["content"] == psb.resolve_prompt(
-            "prompts.direct_chat_synthesizer_system_prompt", CANON)
-    assert CORE not in stage1_on[0]["messages"][0]["content"]
-    assert llm_on.calls == llm_off.calls, "композер добавил LLM-вызов"
-    manifest = pc.get_manifest(12345, writer="system2_stage1")
-    assert manifest is not None and manifest.profile == "machine_json"
-    # Stage-2 того же вызова — речевой профиль (личность по контракту есть).
-    stage2 = [c for c in llm_on.captured if c["step"] == "stage2"]
-    assert stage2 and CORE in stage2[0]["messages"][0]["content"]

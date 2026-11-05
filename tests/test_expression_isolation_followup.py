@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """FIX-CORRECTIVE-FOLLOWUP (21.10.2026, §1-2) — изоляция Expression.
 
 Требование владельца: регулирование нецензурной лексики принадлежит ТОЛЬКО
@@ -202,6 +202,10 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # пересмотра собственного ответа — l2-writer-self-correction-rca1
     # (sha12 44736968bc76); набор фабричных текстов пересчитан по этой ревизии.
     # Было 630ca46dff76, затем 54ac2b8ac34b, стало e9dc109330a8.
+    # UNIFIED-REPLY UR-06/UR-03 (05.11.2026): changed = 1 — в канон L1-планера
+    # добавлены функциональные поля оси поиска knowledge_origin/search_intent
+    # (метка l1-planner-source-facts, sha12 2354a5cc57c4); набор пересчитан.
+    # Было e9dc109330a8, стало a701aea74399 (EVR4), затем a29e68dc1de6 (EVR5, RLR-03.3).
     # Переутверждено осознанно (SOUL-AMD.3.2).
-    assert pr.FACTORY_SET_SHA256_12 == "e9dc109330a8"
+    assert pr.FACTORY_SET_SHA256_12 == "a29e68dc1de6"
 

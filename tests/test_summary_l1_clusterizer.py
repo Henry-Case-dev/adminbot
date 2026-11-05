@@ -978,6 +978,10 @@ class TestCanon:
         # (Settings-поля сохранены no-op; дрейф 466→465 — внешний, EVOL-016/012).
         assert len(pc.REGISTRY) == 597
         assert len({f.name for f in dataclasses.fields(Settings)}) == 468
+        # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
+        # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
+        # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
+        # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
                     if s.category is not None]) == 572
         assert len(pc.GROUPS) == 121
@@ -1232,7 +1236,18 @@ class TestLivePathInvariants:
         await gen._run(-100, False)
         assert llm.calls == 1
         # OFF-цепочка: прежний одиночный канон (с {max_symbols}) — L1 не протёк.
-        assert llm.messages[0]["content"] == SYSTEM_PROMPT.replace(
-            "{max_symbols}", "3800")
+        # UNIFIED-CORE (P0, 20.10.2026, 37097f7c): к жанровому канону
+        # добавляется РОВНО один спроектированный слой речи
+        # (`speech_owner_block`, тот же вызов, что и в проде), поэтому
+        # ожидание собирается этим хелпером, а не литералом: подмена канона
+        # L1-промптом, дубль/пропажа слоя — по-прежнему красные.
+        canon = SYSTEM_PROMPT.replace("{max_symbols}", "3800")
+        from services.prompt_composer import speech_owner_block
+        owner_block = await speech_owner_block(-100)
+        expected = f"{canon}\n\n{owner_block}" if owner_block else canon
+        assert llm.messages[0]["content"] == expected
+        assert llm.messages[0]["content"].startswith(canon)
+        assert SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT not in \
+            llm.messages[0]["content"]
         assert SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT != SYSTEM_PROMPT
         assert delivered

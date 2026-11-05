@@ -52,8 +52,11 @@ def max_patterns() -> int:
     return max(1, min(result, ANTICLICHE_MAX_PATTERNS_HARD_CEILING))
 
 # R17-safe whitelist статусов (review iter1 L1): применяется в записи.
+# AC-DATA: добавлены честные итоги стадии источников, чтобы кэш не показывал
+# «ok» при недоступных источниках и не выдумывал новый код на лету.
 ALLOWED_STATUSES: frozenset[str] = frozenset({
     "never", "ok", "fetch_error", "llm_error", "parse_error", "empty",
+    "unchanged", "sources_unavailable", "partial_success",
 })
 
 _SELECT_SQL = (
@@ -78,6 +81,19 @@ _UPSERT_SQL = (
     "RETURNING version"
 )
 _STATUS_SQL = "UPDATE anticliche_cache SET last_status = $1 WHERE id = 1"
+
+# AC-DATA (§1 arch): активная опубликованная версия читается из immutable
+# ``anticliche_snapshot``; при её отсутствии/сбое — материализованный снимок
+# ``anticliche_cache`` (это и есть LKG предыдущей версии). Пустой массив НЕ
+# означает «нет правил»: статус-код отличается от пустого результата.
+_ACTIVE_SNAPSHOT_SQL = (
+    "SELECT version, effective_rule_count, published_at, checksum, "
+    "compiler_version, state, publisher, parent_version "
+    "FROM anticliche_snapshot WHERE state = 'published' "
+    "ORDER BY version DESC LIMIT 1")
+_ACTIVE_CACHE_SQL = (
+    "SELECT patterns, version, updated_at, fetched_at, source "
+    "FROM anticliche_cache WHERE id = 1")
 
 # Runtime-PG (DI из bot.py; прецедент worker_budget.set_worker_budget_pg).
 _runtime_pg = None
@@ -205,6 +221,92 @@ def _safe_status(status) -> str:
     """Whitelist R17-safe статусов (review iter1 L1)."""
     value = str(status or "never")
     return value if value in ALLOWED_STATUSES else "never"
+
+
+def _iso_or_none(value) -> str | None:
+    try:
+        return value.isoformat() if hasattr(value, "isoformat") else (
+            str(value) if value else None)
+    except Exception:      # pragma: no cover — defensive
+        return None
+
+
+async def read_active_version(pg=None) -> dict:
+    """Действующая версия банка + честный статус источника данных (§1 arch).
+
+    Возвращает ``{status, version, rules, published_at, checksum,
+    compiler_version, publisher, bank_source, reason}``:
+
+    * ``ok`` — есть опубликованный snapshot (immutable);
+    * ``lkg`` — snapshot недоступен/отсутствует, используется материализованный
+      снимок ``anticliche_cache`` (last-known-good предыдущей версии);
+    * ``none`` — действующего набора реально нет (``Нет опубликованных
+      правил``), а не «не загрузилось»;
+    * ``unavailable`` — PG недоступен: version/rules = ``None``, НЕ ``0``.
+
+    Инвариант AC-INV-08: при наличии действующего набора нули не отдаются.
+    """
+    pool = _pool(pg)
+    base = {"version": None, "rules": None, "published_at": None,
+            "checksum": "", "compiler_version": "", "publisher": "",
+            "bank_source": None, "reason": ""}
+    if pool is None:
+        return {**base, "status": "unavailable", "reason": "pg_unavailable"}
+    reason = ""
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(_ACTIVE_SNAPSHOT_SQL)
+    except Exception:
+        row = None
+        reason = "snapshot_read_failed"
+    if row is not None:
+        row = dict(row)
+        try:
+            version = int(row.get("version") or 0)
+        except (TypeError, ValueError):
+            version = 0
+        try:
+            rules = int(row.get("effective_rule_count") or 0)
+        except (TypeError, ValueError):
+            rules = 0
+        if version > 0:
+            return {**base, "status": "ok", "version": version,
+                    "rules": rules,
+                    "published_at": _iso_or_none(row.get("published_at")),
+                    "checksum": str(row.get("checksum") or ""),
+                    "compiler_version": str(
+                        row.get("compiler_version") or ""),
+                    "publisher": str(row.get("publisher") or ""),
+                    "bank_source": "snapshot", "reason": ""}
+        reason = reason or "snapshot_version_zero"
+    try:
+        async with pool.acquire() as conn:
+            cache_row = await conn.fetchrow(_ACTIVE_CACHE_SQL)
+    except Exception:
+        return {**base, "status": "unavailable",
+                "reason": "cache_read_failed"}
+    if cache_row is None:
+        return {**base, "status": "none", "reason": reason or "no_row"}
+    cache_row = dict(cache_row)
+    patterns = cache_row.get("patterns")
+    count = len(patterns) if isinstance(patterns, (list, tuple)) else 0
+    try:
+        version = int(cache_row.get("version") or 0)
+    except (TypeError, ValueError):
+        version = 0
+    if count <= 0:
+        return {**base, "status": "none", "version": version or None,
+                "rules": 0, "bank_source": "cache",
+                "reason": reason or "empty_bank"}
+    return {**base, "status": "lkg", "version": version,
+            "rules": count,
+            "published_at": _iso_or_none(cache_row.get("updated_at")
+                                         or cache_row.get("fetched_at")),
+            "checksum": "",
+            "compiler_version": "",
+            "publisher": str(cache_row.get("source") or ""),
+            "bank_source": "cache",
+            "reason": reason or "snapshot_absent"}
 
 
 async def mark_status(pg, status: str) -> None:

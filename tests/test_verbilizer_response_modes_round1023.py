@@ -339,14 +339,17 @@ class TestPlainTableGuard:
         assert "bullet_list" in summary_serious
 
     @pytest.mark.asyncio
-    async def test_table_in_plain_rejected_and_regenerated(self):
-        gen = AsyncMock(side_effect=["| a | b |\n|---|---|", "чистый ответ"])
+    async def test_table_in_plain_observed_not_regenerated(self):
+        """BGS-04 §5: Telegram принимает обычный текст — таблица это
+        вкусовая форма, а не повод переписывать ответ."""
+        gen = AsyncMock(return_value="| a | b |\n|---|---|")
         text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
             enabled_rules=channel_enabled_rules("plain", "deep_research"))
-        assert text == "чистый ответ"
-        assert gen.await_count == 2
+        assert text == "| a | b |\n|---|---|"
+        assert gen.await_count == 1
         assert stats["fallback"] is False
+        assert stats["format_observed"] == ["plain_no_tables"]
 
     @pytest.mark.asyncio
     async def test_table_in_rich_not_rejected(self):
@@ -394,13 +397,13 @@ class TestTwoCallModes:
         assert FORMAT_PLAIN_BLOCK not in stage2_system
 
     @pytest.mark.asyncio
-    async def test_summary_plain_table_regenerated(self):
+    async def test_summary_plain_table_delivered(self):
+        """BGS-04: саммари с таблицей доставляется без третьего вызова."""
         editor = json.dumps({"response_mode": "deep_research", "digest": _DIGEST})
-        gen, llm = _summary_generator([
-            editor, "| a | b |\n|---|---|", "чистый текст без таблиц"])
+        gen, llm = _summary_generator([editor, "| a | b |\n|---|---|"])
         draft = await gen._generate_two_call("сырая история", 3800, -100)
-        assert draft.text == "чистый текст без таблиц"
-        assert llm.generate.await_count == 3
+        assert draft.text == "| a | b |\n|---|---|"
+        assert llm.generate.await_count == 2
 
     @pytest.mark.asyncio
     async def test_summary_kill_switch_off_prev_narrator(self, monkeypatch):
@@ -457,56 +460,84 @@ class TestFactcheckTwoCallMode:
         assert "земля плоская" in stage2_user     # содержательная часть жива
 
 
-class TestDirectTwoCallMode:
-    @staticmethod
-    def _service(side_effect):
-        from services.direct_chat_service import DirectChatService
-        svc = DirectChatService.__new__(DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=side_effect)
-        return svc
+class TestSingleWriterMode:
+    """Режимы Вербализатора на ЕДИНСТВЕННОМ авторе хода (L2 Writer).
+
+    RLR-02-LEGACY: прежний класс `TestDirectTwoCallMode` проверял роутер
+    режимов на удалённой паре «Синтезатор → Вербализатор»
+    (`_synthesize_direct_answer`). Механизм (роутер `plan_response_mode` +
+    `compose_verbalizer_system`) и его владелец не менялись — сменился только
+    исполнитель, поэтому три намерения покрытия сохранены на живой стадии:
+    режимный/канальный блок едет системной частью Writer'а, служебное поле
+    `response_mode` не утекает в user-часть, kill-switch возвращает прежний
+    канон без режимных блоков.
+    """
 
     @staticmethod
-    def _raw():
-        from services.tool_loop import ToolLoopResult
-        return ToolLoopResult(
-            "финал tool-loop", rounds_used=2,
-            tool_trace=[{"round": 1, "tool": "execute_web_search", "ok": True,
-                         "out_chars": 20}],
-            tool_context="сырые логи")
+    async def _drive(monkeypatch, plan, *, question="что там", evidence="",
+                     user_blocks=None):
+        from tests.test_soul1_composer_parity_off import (
+            StubLLM, build_service)
+        # Композер OFF: сборку system делает владелец
+        # `compose_verbalizer_system` (байт-паритет с легаси-каналом).
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "false")
+        Stub, D = build_service()
+        llm = StubLLM()
+        await D._l2_write_answer(
+            Stub(llm), 12345, question, temperature=0.7, character_block="",
+            response_plan=plan, evidence=evidence, user_blocks=user_blocks,
+            max_tokens=4096)
+        return llm.captured[-1]["messages"]
 
     @pytest.mark.asyncio
-    async def test_mode_returned_and_prompt_composed(self):
-        svc = self._service([_direct_json("deep_research"), "разбор"])
-        text, mode = await svc._synthesize_direct_answer(
-            -100, "что там", self._raw(), None)
-        assert (text, mode) == ("разбор", "deep_research")
-        stage2_system = svc.llm.generate.await_args_list[1].args[0][0]["content"]
-        assert MODE_DEEP_RESEARCH_BLOCK in stage2_system
-        assert FORMAT_PLAIN_BLOCK in stage2_system
+    async def test_mode_block_composed_for_single_writer(self, monkeypatch):
+        """Без плана режим = `serious` → его блок едет системной частью."""
+        msgs = await self._drive(monkeypatch, None)
+        system = msgs[0]["content"]
+        assert MODE_SERIOUS_BLOCK in system
+        assert MODE_CASUAL_BLOCK not in system
 
     @pytest.mark.asyncio
-    async def test_stage2_user_content_excludes_response_mode(self):
-        """spec §3.1: служебный response_mode не попадает в Stage-2."""
-        svc = self._service([_direct_json("deep_research"), "разбор"])
-        await svc._synthesize_direct_answer(-100, "что там", self._raw(), None)
-        stage2_user = svc.llm.generate.await_args_list[1].args[0][1]["content"]
-        assert "response_mode" not in stage2_user
-        assert "СПРАВКА (JSON):" in stage2_user
-        assert "погода" in stage2_user            # содержательная часть жива
-
-    @pytest.mark.asyncio
-    async def test_kill_switch_off_forces_serious_and_no_html_block(
+    async def test_deep_research_plan_keeps_extent_and_channel_block(
             self, monkeypatch):
-        """Review iter1 (M1): OFF → режим serious, доставка не уходит safe-HTML."""
+        """План deep_research: extent-блок вместо mode-блока + plain-канал.
+
+        Это ровно тот маршрут, на котором легаси-тест проверял пару
+        «режим + канальный блок»; единственный автор хода собирается тем же
+        владельцем, поэтому контракт не ослаблен.
+        """
+        from services.response_extent import ResponsePlan
+        plan = ResponsePlan(task_kind="research", extent="detailed",
+                            structure="report", delivery_hint="plain",
+                            tool_policy="none", source="l1")
+        msgs = await self._drive(monkeypatch, plan)
+        system = msgs[0]["content"]
+        assert "ОЖИДАЕМАЯ ПОЛНОТА: " in system      # extent-блок выбран
+        assert FORMAT_PLAIN_BLOCK in system        # канальный блок plain
+        assert MODE_SERIOUS_BLOCK not in system
+
+    @pytest.mark.asyncio
+    async def test_writer_user_content_excludes_response_mode(
+            self, monkeypatch):
+        """spec §3.1: служебный response_mode не попадает в user-часть."""
+        msgs = await self._drive(
+            monkeypatch, None,
+            evidence="[tool: execute_web_search out_chars=20]",
+            user_blocks=["<Current_Question>что там</Current_Question>"])
+        user = msgs[1]["content"]
+        assert "response_mode" not in user
+        assert "что там" in user                       # вопрос жив
+        assert "execute_web_search" in user            # evidence доехал
+
+    @pytest.mark.asyncio
+    async def test_kill_switch_off_returns_previous_canon(self, monkeypatch):
+        """Review iter1 (M1): OFF → прежний канон, режимных блоков нет."""
         monkeypatch.setattr(Settings, "SMART_VERBALIZER_MODES_ENABLED", False)
-        svc = self._service([_direct_json("deep_research"), "ответ"])
-        text, mode = await svc._synthesize_direct_answer(
-            -100, "q", self._raw(), None)
-        assert (text, mode) == ("ответ", "serious")
-        stage2_system = svc.llm.generate.await_args_list[1].args[0][0]["content"]
-        assert stage2_system == PREV_CHAT_VERBALIZER_R1023
-        assert MODE_DEEP_RESEARCH_BLOCK not in stage2_system
+        msgs = await self._drive(monkeypatch, None)
+        system = msgs[0]["content"]
+        assert system == PREV_CHAT_VERBALIZER_R1023
+        assert MODE_SERIOUS_BLOCK not in system
+        assert FORMAT_PLAIN_BLOCK not in system
 
 
 # ── E. Финальная доставка без сырого HTML (H2) ──────────────────────

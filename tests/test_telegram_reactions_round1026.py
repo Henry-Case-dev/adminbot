@@ -503,12 +503,21 @@ class TestBoundaries:
         # mca-15 (2.58.56, numeric guard): +1 silent-path вызов
         # (пустой ответ после повторного numeric-гарда) → 3;
         # stale-guard обновлён при mca-16 (round 10.39, pre-existing).
-        assert src.count("await react_moai(bot, chat_id, message.message_id)") == 3
+        # RLR-04 (R-04.2, owner corrective 2026-11-05): numeric-гард больше не
+        # правит свободную речь, поэтому silent-path «гард опустошил ответ» и
+        # его react удалены → 2. Молчание никогда не подменяет нормальный
+        # разговор (что и требует корректировка), а непустой ответ как раньше
+        # не доставлялся.
+        assert src.count("await react_moai(bot, chat_id, message.message_id)") == 2
 
     def test_counts_unchanged(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 597
         assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
+        # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
+        # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
+        # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
                     if s.category is not None]) == 572
         assert len(pc.GROUPS) == 121

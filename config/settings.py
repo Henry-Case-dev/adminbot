@@ -176,6 +176,34 @@ def _env_float_min(key: str, default: float, min_value: float) -> float:
     return val
 
 
+# ── RLR-05-ADMIN (REMOVE-LEGACY-REPHRASING v2.0 §6.2/§6.4, 05.11.2026) ─────
+# Ключи снятого rephrasing-пути. `SYSTEM2_DIRECT_ENABLED` остаётся читаемым
+# для старых .env (совместимость конфигурации), но больше НЕ является
+# gateway к двойному Writer: эффективное значение всегда False при любом
+# сыром значении (true/false/0/null). Значения ключа никогда не мигрировали
+# в PG (env-only ClassVar), поэтому историю/ревизии он не затрагивает.
+# Полная классификация — plans/features/remove-legacy-rephrasing/
+# migration-manifest.json (строится из services.param_catalog).
+LEGACY_REPHRASING_DEPRECATED_ENV: frozenset[str] = frozenset({
+    "SYSTEM2_DIRECT_ENABLED",
+})
+
+
+def resolve_legacy_rephrasing_env_flag(name: str, raw_value) -> bool:
+    """Эффективный флаг параметра снятого rephrasing-пути.
+
+    `deprecated_compat`-ключи не активируют старую архитектуру ни при каком
+    сыром значении (False/0/None/true → False). Прочие имена сюда не
+    попадают и не меняют своё обычное поведение.
+    """
+    if name in LEGACY_REPHRASING_DEPRECATED_ENV:
+        return False
+    if isinstance(raw_value, str):
+        return raw_value.strip().lower() in (
+            "1", "true", "on", "yes", "enabled")
+    return bool(raw_value)
+
+
 @dataclass(frozen=True)
 class Settings:
     API_TOKEN: str = os.getenv("API_TOKEN", "")
@@ -561,12 +589,20 @@ class Settings:
     # ── Раунд 10.22 (F3/F4/F5, ADR-1022-3/4/5): env-only ClassVar kill-switch
     # двухвызовных пайплайнов System 2 (Слой-1 → Слой-2). default ON, Δ
     # каталога = 0. OFF → ровно одиночный путь 10.21 (байт-в-байт).
+    # RLR-05-ADMIN (05.11.2026): FACTCHECK/SUMMARY остаются специализированными
+    # пайплайнами; DIRECT переведён в `deprecated_compat` — ключ читается для
+    # старых .env, но эффективно всегда False (двойной Writer недостижим).
     SYSTEM2_FACTCHECK_ENABLED: ClassVar[bool] = _env_bool(
         "SYSTEM2_FACTCHECK_ENABLED", True)
     SYSTEM2_SUMMARY_ENABLED: ClassVar[bool] = _env_bool(
         "SYSTEM2_SUMMARY_ENABLED", True)
-    SYSTEM2_DIRECT_ENABLED: ClassVar[bool] = _env_bool(
-        "SYSTEM2_DIRECT_ENABLED", True)
+    # RLR-02 (REMOVE-LEGACY-REPHRASING v2.0, §4/§6.4): DEPRECATED_COMPAT.
+    # Ключ намеренно остаётся ЧИТАЕМЫМ (старые .env/значения БД не ломают
+    # старт) и не имеет потребителя в активном графе: legacy-цепочка
+    # «Синтезатор → Вербализатор» для Direct удалена физически.
+    # RLR-05: резолвер делает ЛЮБОЕ значение (true/1/on/false/0/null) False.
+    SYSTEM2_DIRECT_ENABLED: ClassVar[bool] = resolve_legacy_rephrasing_env_flag(
+        "SYSTEM2_DIRECT_ENABLED", _env_bool("SYSTEM2_DIRECT_ENABLED", True))
     # ── Раунд 10.23 (F3, ADR-1023-3): env-only ClassVar kill-switch умного
     # Вербализатора (3 режима: casual/serious/deep_research) + канальных
     # форматных блоков. default ON, Δ каталога = 0 (в param_catalog не входит).

@@ -763,18 +763,19 @@ class TestFreshness:
         finally:
             hot.set_config_cache(None)
 
-    def test_truthset_o_duplicate_guard_bounded(self):
+    def test_truthset_o_duplicate_text_is_observation_only(self):
+        """RLR-04 (R-05.1): совпадение текста — наблюдение, reroll-API нет."""
         v = fresh.evaluate_duplicate(
             "Привет, как дела сегодня", "привет, как дела сегодня",
             new_tg_message_id=8001)
-        assert v.duplicate is True and v.regeneration_allowed is True
-        # ровно ОДНА попытка: повторное совпадение → отправить + metric
-        v2 = fresh.evaluate_duplicate(
-            "Привет, как дела сегодня", "привет, как дела сегодня",
-            new_tg_message_id=8001, regeneration_already_used=True)
-        assert v2.duplicate is True
-        assert v2.regeneration_allowed is False
-        assert v2.reason_code == "duplicate_sent_after_retry"
+        assert v.duplicate is True and v.exempt is False
+        assert not hasattr(v, "regeneration_allowed")
+        # нет параметра «вторая попытка»: вердикт не зависит от истории
+        import inspect
+        params = inspect.signature(fresh.evaluate_duplicate).parameters
+        assert "regeneration_already_used" not in params
+        assert not hasattr(fresh, "DUPLICATE_GUARD_HINT")
+        assert not hasattr(fresh, "DUPLICATE_GUARD_MAX_ATTEMPTS")
 
     def test_duplicate_guard_exemptions(self):
         assert fresh.evaluate_duplicate(

@@ -192,7 +192,8 @@ class LoreCompilerService:
             # повторного (дорогого) LLM-вызова — честное «ничего не изменилось».
             # MCA-15 (T-4932, §7.3): старые агрегаты истории не проверены этим
             # ходом → stats_recheck=True (перепроверка — повторной компиляцией;
-            # lore не удаляется), numeric-гард direct снимет непроверенные числа.
+            # lore не удаляется). RLR-04: числа в рассказе пост-фактум НЕ
+            # правятся (текст модели); расхождение только наблюдается.
             logger.info("[lore] update no-new-data | chat=%s", chat_id)
             return {"status": "ok", "is_update": True, "unchanged": True,
                     "story": str(previous.get("story") or ""),

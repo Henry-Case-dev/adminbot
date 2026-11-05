@@ -1,17 +1,17 @@
 ﻿# Workflow state
 
-Task: MEME-PIPELINE-REFactor-01 (P1,P2,P3,P6,P7,P8 merged; S3/P9 under review; P4/P5 await web) + EVOL COG-MAP S3 review
-Task source: plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md, -meme-command-autodelete.md, -meme-joke-speech-layers.md, -initiative-independence-coordination.md
+Task: UNIFIED-REPLY (UR-01..30) + BEHAVIOR-GATES-SIMPLIFICATION-01 (urgent parity) + EPIC-CM-VISUAL-01 (A–E shipped, 2.58.158) + PVR-FC-CORRECTIVE-01 (queued, blocked_by unified-reply) + goodmorning-quantum-media (shipped 2.58.157)
+Task source: plans/owner_inputs/2026-11-05-unified-reply.md, 2026-11-05-behavior-gates-simplification.md, 2026-11-03-epic-cm-visual-01.md, 2026-11-05-pvr-fc-corrective-01.md, 2026-11-05-goodmorning-quantum-media.md
 Status: in_progress
-Primary phase: review
-Active feature: COG-MAP S3 review + P9 diagnostics review
-Active lanes: Reviewer ses_e618a23e6ffeskPywCvo0iYSiB (S3 card, worktree -814456b9); Reviewer ses_e617f3292ffeIpfXyCgs7ciuY1 (P9 diagnostics, worktree -5c06113d)
-Join barriers: S3 verdict -> merge -> web freed -> P4 (UI fields + diagnostics display) -> P5 web label -> 13-criteria memo acceptance -> release 2.58.151; P9 verdict -> merge
-Last verified: prod 2.58.150 @ 345a2ed7; meme map 141/164 required rows VERIFIED; P8 coordination merged a43e366e (37/37 rows, all five text call sites + AST guard, schema v41 claim table); P6 joke-speech on the single composer with real-payload review; P7 initiative layers 4/4; S3 branch committed 87b8954a (card, four transitions, Back/Esc, stand 293 checks); P9 branch 6d09347b (two independent blocks, honesty semantics)
-Next unlocks: (1) S3 verdict -> merge; (2) P9 verdict -> merge; (3) P4 MEME-UI-FIELDS (fields, L/T/J numbers, diagnostics display, web labels) after web free; (4) P5 MEME-ACC-12; (5) 13-criteria acceptance -> release; (6) EVOL COG S4 -> S12 rerun -> EVOL DoD; (7) FINAL v8 packages; (8) E/P epic (H last)
+Primary phase: build
+Active feature: UR-B live wiring (search axis) building; UR-A merged (dc296207); BGS-01/02/03/04 merged
+Active lanes: Reviewer BGS-02 `69a0c6ae` ses_e581b4017ffeaiAK73IGltzg1Y
+Join barriers: UR-B wiring -> review -> live search proven -> UR-C-CLOCK/UR-D/UR-E/UR-F; BGS-05/BGS-06/BGS-07/BGS-08 remain open
+Last verified: prod 2.58.158 @ 40a62248 (healthz 2.58.158, app.js served sha256 932a94f9158593326b57d8f5eadfca818149df887875b26350b842c928d4a9e1 = local, index ?v=2.58.158, both reset handlers present, NRestarts 0); prod 2.58.157 @ 6fd3dcf3 (GoodMorning pool scan by deployed code = 14 files incl. 13/14, sizes match; live send behaviour pending 07:00 Asia/Yekaterinburg); evol/impl `6e42c346` with BGS-01 (`da6299e9`) + BGS-03/04 (`2618cb1e`) merged; BGS map 39 VERIFIED / 104 PENDING
+Next unlocks: (1) BGS-02 verdict -> merge; (2) close the 6 remaining BGS-01/03/04 rows with real proof; (3) BGS-05 budgets after UR-C/UR-D; (4) BGS-06 backend catalog + UI after UR-F/PVR; (5) CMV residual 52 rows (one real defect fixed and shipped, framedim attribution stays open)
 Next execution: awaiting_children
-Review: pending (S3, P9); approved (P8, P7, P6, P3, P2, P1)
-Deployment: verified (2.58.150 @ 345a2ed7); rollback 40d615f1
+Review: approved (BGS-01 both halves, BGS-03/04, reset-view, GoodMorning, CMV perf code); pending (BGS-02)
+Deployment: verified (2.58.158 @ 40a62248); postdeploy observation pending for GoodMorning live send 07:00 Asia/Yekaterinburg
 Human gate: none
-Progress scope: plans/progress_scope.json | fresh
-Updated: 2026-11-03T11:20:00+13:00
+Progress scope: plans/progress_scope.json | fresh (3336/5012 = 66%)
+Updated: 2026-11-05T06:45:00+12:00

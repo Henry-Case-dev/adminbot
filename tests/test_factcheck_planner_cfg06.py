@@ -8,7 +8,9 @@ TEST-LIFECYCLE: CONTRACT owner=CFG-06
   * осмысленные запросы (фикс 06A.4): из claim/claim_items, с различающимися
     интентами (entity/numeric/temporal/origin), НЕ дословный слайс клейма,
     ≤200 символов, ≤3 запросов;
-  * privacy (06G.3): имена участников чата не утекают в веб-запрос;
+  * имена людей (BGS-01, §0.1): упоминание человека в реплике НЕ запрещает
+    проверку и НЕ вычищается из клейма/запроса (обязательной деперсонализации
+    запроса больше нет);
   * структурный evidence: URL отдельно от текста, стабильные ID ev-N
     текущего прогона, allowlist = ID этого прогона; SafeFetch — инъекция
     (сеть off), fail-open;
@@ -143,7 +145,10 @@ def _decision(claim="в Килякете выпало 120 мм осадков з
 
 
 class _Ctx:
-    """Лёгкий stand-in ConversationContext (только authors)."""
+    """Лёгкий stand-in ConversationContext (только авторы/тексты сообщений).
+
+    BGS-01: планировщику контекст больше не передаётся; класс оставлен для
+    оркестраторных сценариев этого файла, где ctx нужен гейту/атрибуции."""
 
     def __init__(self, authors):
         self.messages = [type("M", (), {"author": a, "text": "текст",
@@ -204,14 +209,16 @@ class TestPlanBuilding:
                    if q.intent == fsp.INTENT_NUMERIC][0]
         assert "120" in numeric.text
 
-    def test_privacy_authors_not_leaked(self, planner_on):
+    def test_participant_name_kept_in_claim_and_queries(self, planner_on):
+        """BGS-01 (§0.1): имя участника не вычищается — упоминание человека
+        не останавливает проверку и не обедняет поисковый запрос."""
         claim = "Вася утверждает, что в Килякете выпало 120 мм осадков"
-        plan = fsp.build_retrieval_plan(
-            _decision(claim), ctx=_Ctx(["Вася", "Петя"]), claim_text=claim)
-        assert plan is not None
-        assert "Вася" in plan.dropped_privacy
-        for q in plan.queries:
-            assert "вася" not in q.text.lower()
+        plan = fsp.build_retrieval_plan(_decision(claim), claim_text=claim)
+        assert plan is not None and plan.queries
+        assert "Вася" in plan.claim_text              # имя в тезисе сохранено
+        joined = " ".join(q.text.lower() for q in plan.queries)
+        assert "вася" in joined                        # имя уходит в запрос
+        assert "килякет" in joined and "120" in joined  # тема и число целы
 
     def test_chat_scope_no_web_plan(self, planner_on):
         assert fsp.build_retrieval_plan(
@@ -433,9 +440,9 @@ class TestOrchestratorAnchor:
         assert agg.calls, "envelope-ветка должна идти через единый retrieval"
         # ...и выдача контура передана сервису (второго поиска нет)
         assert svc.retrievals and svc.retrievals[0].search_text
-        # из planner-запросов: privacy (участники не утекают)
-        for query, _max in agg.calls:
-            assert "вася" not in query.lower()
+        # из planner-запросов: тема клейма сохранена (BGS-01: имена не
+        # вычищаются — смысл запроса берётся из самого тезиса)
+        assert any("килякет" in query.lower() for query, _max in agg.calls)
         # EvidenceMap остался от ветки (не перезаписан planner-картой):
         # доставленный текст — вердикт ветки, рендер выполнен
         assert len(bot.sent) == 1

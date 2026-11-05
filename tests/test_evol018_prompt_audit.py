@@ -94,10 +94,10 @@ def test_grep_audit_counts_are_stable():
     """
     files = sum(len(list((ROOT / sub).glob("*.py")))
                 for sub in pr._AUDIT_SCAN_MODULES)
-    assert files == 293, (
+    assert files == 294, (
         f"файлов под аудитом {files}: обновите §5 контракта и этот пин")
     assert files < pr._AUDIT_TREE_MAX_FILES, (
-        "потолок _AUDIT_TREE_MAX_FILES срезает обход — «293 файла» тогда "
+        "потолок _AUDIT_TREE_MAX_FILES срезает обход — «294 файла» тогда "
         "перестаёт быть полным числом")
 
     every = pr.audit_unregistered_prompt_constants(ROOT, blocks=[],

@@ -33,6 +33,28 @@ MATRIX = (ROOT / "tools" / "ui_round1025_matrix.py").read_text(encoding="utf-8")
 ENV_EXAMPLE = (ROOT / ".env.example").read_text(encoding="utf-8")
 
 
+def _js_body(src: str, header: str, what: str = "") -> str:
+    r"""Тело JS-функции по заголовку — brace-matching, без magic-длины.
+
+    Используется вместо `re.search(header + '[\s\S]{0,N}...')`: окно в символах
+    ломается от любого роста функции и не доказывает, что вызов принадлежит
+    именно этому телу.
+    """
+    m = re.search(header, src)
+    assert m, "не найден заголовок функции: %s" % (what or header)
+    start = src.find("{", m.end() - 1)
+    assert start >= 0, "у функции %s нет тела" % (what or header)
+    depth = 0
+    for i in range(start, len(src)):
+        if src[i] == "{":
+            depth += 1
+        elif src[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[start + 1:i]
+    raise AssertionError("незакрытое тело функции: %s" % (what or header))
+
+
 class TestGlassRollback:
     def test_flag_default_off(self):
         assert re.search(
@@ -200,11 +222,29 @@ class TestAuroraResize:
 
     def test_resize_wired_in_app(self):
         assert "_auroraResize();" in APP_JS
-        assert re.search(r"_onResize = function[\s\S]{0,400}_auroraResize\(\)",
-                         APP_JS)
-        assert re.search(r"setFullscreenFromTma:[\s\S]{0,900}_auroraResize\(\)",
-                         APP_JS)
+        # Инвариант — ВЫЗОВ внутри тела обработчика, а не «сколько символов
+        # до ближайшего совпадения»: прежнее magic-окно (`{0,400}`/`{0,900}`)
+        # краснело от любого роста функции в сторону (P4 добавил в
+        # `setFullscreenFromTma` ветку диагностики) и при этом ничего не
+        # доказывало про принадлежность вызова.
+        assert "_auroraResize()" in _js_body(
+            APP_JS, r"_onResize = function\s*\(\)\s*\{"), \
+            "window-resize не пересчитывает OGL-фон"
+        # Fullscreen/viewport-переход: `setFullscreenFromTma` обязан дойти до
+        # пересчёта фона — напрямую либо через единственный путь перерисовки
+        # canvas `_fsRedraw`.
+        fs_body = _js_body(
+            APP_JS, r"setFullscreenFromTma:\s*function\s*\(\)\s*\{")
+        if "_auroraResize()" not in fs_body:
+            assert "_fsRedraw()" in fs_body, \
+                "setFullscreenFromTma не перерисовывает фон"
+            assert "_auroraResize()" in _js_body(
+                APP_JS, r"_fsRedraw:\s*function\s*\(\)\s*\{"), \
+                "_fsRedraw не пересчитывает OGL-фон"
         assert "_onVV" in APP_JS
+        assert "_auroraResize()" in _js_body(
+            APP_JS, r"_onVV = function\s*\(\)\s*\{"), \
+            "visualViewport-пересчёт не трогает OGL-фон"
 
 
 class TestVersionAndInvariants:

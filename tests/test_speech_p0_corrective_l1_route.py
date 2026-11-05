@@ -1,4 +1,4 @@
-"""P0-CORRECTIVE §1.1: маршрут L1 по материалу просьбы + один payload.
+﻿"""P0-CORRECTIVE §1.1: маршрут L1 по материалу просьбы + один payload.
 
 Доказывает по `source-owner-p0-corrective-2026-10-25.md` §1.1 и
 `evidence/p0-hotfix/l1-harness-audit.md` §3/§5/§8:
@@ -183,7 +183,12 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
     # EVOL W17: слепок EVR1 = прод 2.58.147 (eb496e938c49), активные байты —
     # ревизия EVR2 (контракт двух фаз «саммари/проверка»).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "ef61a9dd6798"
+    # UNIFIED-REPLY UR-06/UR-03: слепок EVR3 — прежние активные байты
+    # ef61a9dd6798; EVR4 — ось поиска (8d172f40241d); RLR-03.3: активные
+    # байты — ревизия EVR5 с полем preserve_source_facts.
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR4) == "8d172f40241d"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "2354a5cc57c4"
     # усиление не отменило прежние ветки
     assert "response_act=research" in prev2
     # ступень вперёд и цель отката указывают на новый слепок
@@ -202,27 +207,38 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
     # прода 2.58.147 (EVR1); далее Волна 5 — EVR1 → EVR0 (канон ред.6), W2.
     # ASAP-FC-VOICE-01 / B: верхняя ступень снимает ТОЛЬКО правило профиля
     # решений → байты прода 2.58.148 (EVR2); затем EVR2 → EVR1 (2.58.147).
+    # UNIFIED-REPLY UR-06/UR-03: верхняя ступень снимала ТОЛЬКО ось поиска →
+    # байты EVR3, ниже — прежний стек. RLR-03.3: теперь верхняя ступень —
+    # снятие поля preserve_source_facts → байты EVR4, ось поиска ниже.
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][0] == (
             cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
-            cp.PREV_DIRECT_L1_PLANNER_EVR2)
+            cp.PREV_DIRECT_L1_PLANNER_EVR4)
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][1] == (
+            cp.PREV_DIRECT_L1_PLANNER_EVR4,
+            cp.PREV_DIRECT_L1_PLANNER_EVR3)
+    assert pm.ROLLBACK_MIGRATIONS[
+        "prompts.direct_l1_planner_system_prompt"][2] == (
+            cp.PREV_DIRECT_L1_PLANNER_EVR3,
+            cp.PREV_DIRECT_L1_PLANNER_EVR2)
+    assert pm.ROLLBACK_MIGRATIONS[
+        "prompts.direct_l1_planner_system_prompt"][3] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR2,
             cp.PREV_DIRECT_L1_PLANNER_EVR1)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][2] == (
+        "prompts.direct_l1_planner_system_prompt"][4] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR1,
             cp.PREV_DIRECT_L1_PLANNER_EVR0)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][3] == (
+        "prompts.direct_l1_planner_system_prompt"][5] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR0, prev6)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][4] == (prev6, prev5)
+        "prompts.direct_l1_planner_system_prompt"][6] == (prev6, prev5)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][5] == (prev5, prev4)
+        "prompts.direct_l1_planner_system_prompt"][7] == (prev5, prev4)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][6] == (prev4, prev3)
+        "prompts.direct_l1_planner_system_prompt"][8] == (prev4, prev3)
 
 
 # ── 3. Payload: research 1×1, answer 0×0, без дублей ────────────────────────

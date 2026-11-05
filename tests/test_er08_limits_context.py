@@ -585,18 +585,24 @@ class TestL1PackageLosses:
         assert long_message.strip() in ctx
 
     def test_live_path_passes_derived_budget(self):
-        """AST-проверка живой проводки: оба L1-сайта передают бюджет, а
-        прямой путь — и кап исходного сообщения из него."""
+        """AST-проверка живой проводки: оба L1-сайта берут бюджет из одного
+        резолва хода (UR-A), а прямой путь — и кап исходного сообщения из
+        него."""
         text = (ROOT / "services/direct_chat_service.py").read_text(
             encoding="utf-8")
+        # Один резолв слота/бюджета на оба триггера (UR-02.1).
+        resolver = text[text.index("async def _resolve_turn_slot_meta"):]
+        resolver = resolver[:resolver.index("async def _resolve_turn_tool_state")]
+        assert "await _l1.resolve_l1_context_budget(" in resolver
+        assert "mandatory_tokens=count_tokens(prompt_text)" in resolver
         plan = text[text.index("async def _plan_direct_l1"):]
         plan = plan[:plan.index("async def _attach_l1_plan_meta")]
-        assert "await _l1.resolve_l1_context_budget(" in plan
+        assert "await self._resolve_turn_slot_meta(" in plan
         assert "budget_tokens=_l1_budget" in plan
         assert "cap_chars=_l1.message_cap_chars(_l1_budget)" in plan
         init = text[text.index("async def plan_initiative_decision"):]
         init = init[:init.index("async def generate_initiative_reply")]
-        assert "await _l1.resolve_l1_context_budget(" in init
+        assert "await self._resolve_turn_slot_meta(" in init
         assert "budget_tokens=_init_budget" in init
 
     def test_reply_truncated_is_truthful_on_the_real_path(self):
@@ -678,7 +684,10 @@ class TestL1PackageLosses:
         init = text[text.index("async def plan_initiative_decision"):]
         init = init[:init.index("async def generate_initiative_reply")]
         for key in keys:
-            assert f"{key}=" in init, f"{key} нет в инициативном L1-сайте"
+            # UR-A: инициатива заполняет те же оси через meta хода (единый
+            # исполнитель), а не отдельным вызовом диагностики.
+            assert (f'"{key}":' in init) or (f"{key}=" in init), \
+                f"{key} нет в инициативном L1-сайте"
         helper = text[text.index("def _l1_usage_plan_meta"):]
         helper = helper[:helper.index("def _l1_usage_diag")] \
             if "def _l1_usage_diag" in helper else helper[:4000]

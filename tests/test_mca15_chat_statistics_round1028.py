@@ -55,7 +55,6 @@ from services.tool_router import (
     _dig_json_payload,
     _stats_json_payload,
 )
-from tests.test_direct_two_call_round1022 import _SYNTH_JSON, _tool_raw
 
 CHAT_ID = -100777
 
@@ -1102,47 +1101,35 @@ class TestNumericClaimsCheck:
 class TestNumericGuardVerbalize:
     @pytest.mark.system2
     @pytest.mark.asyncio
-    async def test_retry_once_then_corrected(self, monkeypatch):
+    async def test_free_form_number_is_observation_only(self, monkeypatch):
+        """R-04.2: свободная речь не получает вставку verified_phrase —
+        ровно один вызов, авторский текст доставлен как написан."""
         monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
                             lambda: False)
         c = _contract(claims=(_claim(),), phrase="сообщений с совпадением: 9",
                       expected=True)
-        seen: list = []
+        calls: list = []
 
         async def gen(messages):
-            seen.append(messages[-1]["content"])
-            return ("он писал 7 сообщений" if len(seen) == 1
-                    else "он писал 9 сообщений")
-
-        text, stats = await nc.verbalize_validated(
-            gen, [{"role": "user", "content": "x"}], numeric_contract=c)
-        assert text == "он писал 9 сообщений"
-        assert stats["numeric_claim_mismatch"] == 1
-        assert stats["numeric_claim_retry"] is True
-        assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_CORRECTED
-        assert "9" in seen[1]          # повтор несёт verified_phrase
-
-    @pytest.mark.system2
-    @pytest.mark.asyncio
-    async def test_retry_exhausted_deterministic_fallback(self, monkeypatch):
-        monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
-                            lambda: False)
-        c = _contract(claims=(_claim(),), phrase="сообщений с совпадением: 9",
-                      expected=True)
-
-        async def gen(messages):
+            calls.append(messages[-1]["content"])
             return "он писал 7 сообщений"
 
         text, stats = await nc.verbalize_validated(
             gen, [{"role": "user", "content": "x"}], numeric_contract=c)
-        assert text == "сообщений с совпадением: 9"     # verified_phrase
-        assert stats["numeric_claim_fallback"] is True
-        assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_FALLBACK
-        assert stats["attempts"] == 2                   # ≤1 коррекция
+        assert len(calls) == 1                     # второго вызова LLM нет
+        assert text == "он писал 7 сообщений"      # текст автора цел
+        assert stats["numeric_claim_mismatch"] == 1
+        assert stats["numeric_claim_retry"] is False
+        assert stats["numeric_claim_fallback"] is False
+        assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_MISMATCH
+        assert stats["attempts"] == 1
+        assert stats["semantic_rewrite_count"] == 0
 
     @pytest.mark.system2
     @pytest.mark.asyncio
-    async def test_no_claims_caveat(self, monkeypatch):
+    async def test_no_claims_is_observation_not_caveat(self, monkeypatch):
+        """Нет подтверждённых измерений: оговорка не подставляется в готовую
+        речь — расхождение только в stats."""
         monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
                             lambda: False)
 
@@ -1152,8 +1139,10 @@ class TestNumericGuardVerbalize:
         text, stats = await nc.verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
             numeric_contract=_contract(expected=True))
-        assert text == nc.NUMERIC_CLAIM_CAVEAT
-        assert stats["numeric_claim_fallback"] is True
+        assert text == "он писал 7 сообщений"
+        assert nc.NUMERIC_CLAIM_CAVEAT not in text
+        assert stats["numeric_claim_mismatch"] == 1
+        assert stats["numeric_claim_fallback"] is False
 
     @pytest.mark.system2
     @pytest.mark.asyncio
@@ -1191,48 +1180,15 @@ class TestNumericGuardVerbalize:
 
 
 class TestNumericGuardSendPaths:
-    """Пять путей отправки: обычный/System2, fallback, lore-story (обход
-    verbalizer), постпроцессор, финальная сборка — один и тот же гард."""
+    """RLR-04 (R-04.2): пост-L2 правка речи снята на ВСЕХ путях доставки.
 
-    @pytest.mark.system2
-    @pytest.mark.asyncio
-    async def test_system2_uses_contract_and_emits_event(self, monkeypatch):
-        monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
-                            lambda: False)
-        events: list = []
-        monkeypatch.setattr(
-            mca_events, "emit_mca_event",
-            lambda name, **kw: events.append({"event_name": name, **kw}))
-        svc = DirectChatService.__new__(DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[
-            _SYNTH_JSON, "он писал 7 сообщений", "он писал 9 сообщений"])
-        contract = _contract(claims=(_claim(),),
-                             phrase="сообщений с совпадением: 9",
-                             expected=True)
-        text, _mode = await svc._synthesize_direct_answer(
-            1, "q", _tool_raw(), None, numeric_contract=contract)
-        assert text == "он писал 9 сообщений"
-        guard = [e for e in events if e["event_name"] == "numeric_claim_guard"]
-        assert guard and guard[0]["reason_code"] == "numeric_claim_corrected"
-
-    @pytest.mark.asyncio
-    async def test_fallback_lore_bypass_and_plain_covered(self):
-        """Финальный гард покрывает fallback/прямой текст и lore-story в
-        обход verbalizer (A41: число не публикуется)."""
-        svc = DirectChatService.__new__(DirectChatService)
-        ctx = ToolContext(CHAT_ID, "q")
-        ctx.metric_results.append(
-            cs.build_metric_result(_measure_dict(), _prefix_query()))
-        contract = svc._numeric_contract_from_ctx(ctx)
-        # прямой/fallback текст
-        text, stats = nc.apply_numeric_guard("он писал 7 сообщений", contract)
-        assert stats["corrected"] is True and "9" in text
-        # lore-story (HTML, в обход verbalizer)
-        story = "<b>он писал 7 сообщений</b> за всё время."
-        text2, stats2 = nc.apply_numeric_guard(story, contract)
-        assert "он писал" not in text2 and stats2["corrected"] is True
-        assert "9" in text2
+    Числа приходят в Writer ДО генерации; расхождение — только наблюдение.
+    `apply_numeric_guard` оставлен хелпером без продуктовых вызывающих:
+    текст «Летописца» пишет модель (`lore_compiler_service`, writer
+    `lore_writer`), поэтому и он не правится. Route-регрессии —
+    `tests/test_rlr_dcs_postprocess.py::test_lore_story_number_delivered_
+    without_guard`.
+    """
 
     def test_contract_from_ctx_claims_and_expected(self):
         svc = DirectChatService.__new__(DirectChatService)
@@ -1274,10 +1230,10 @@ class TestNumericGuardSendPaths:
         assert legacy == {"truncated": True, "total_mentions": 5}
 
     @pytest.mark.asyncio
-    async def test_handle_final_guard_blocks_ungrounded_number(
+    async def test_handle_final_guard_keeps_writers_number(
             self, monkeypatch):
-        """Реальный `handle` (K2 ON): незаземлённое число не публикуется
-        (финальная сборка — та же функция `apply_numeric_guard`)."""
+        """RLR-04 (R-04.2): реальный `handle` (K2 ON) доставляет число
+        Writer'а как написано — постфактум-подмены/снятия фразы нет."""
         from tests.test_direct_chat import (
             FakeLLM, FakeMemory, _bot, _force_self_awareness, _make_service,
             _message)
@@ -1289,8 +1245,9 @@ class TestNumericGuardSendPaths:
                        message_id=77)
         await service.handle(bot, msg, msg.from_user)
         sent = bot.send_message.await_args.args[1]
-        assert "5 раз" not in sent
+        assert "5 раз" in sent                     # авторский текст цел
         assert "Ну и что" in sent
+        assert nc.NUMERIC_CLAIM_CAVEAT not in sent  # подмены нет
 
 
 # ── T-4929/T-4932: stats-режим инструмента и урезание ───────────────────────
@@ -1629,10 +1586,45 @@ REGRESSION_245_TESTS = {
     "stale_cache_after_import":
         "TestMetricResultContract.test_repeat_after_import_recompute_no_cache",
     "lore_story_bypass":
-        "TestNumericGuardSendPaths.test_fallback_lore_bypass_and_plain_covered",
+        "TestLoreStoryDelivery.test_lore_story_not_numeric_corrected",
     "banter_vs_request":
         "TestStatsIntent.test_banter_without_request_no_report",
 }
+
+
+class TestLoreStoryDelivery:
+    """RLR-04 (ревью 05.11): рассказ «Летописца» — речь МОДЕЛИ
+    (`LoreCompilerService.llm.generate`, writer `lore_writer`), поэтому
+    numeric-гард к доставке неприменим: число наблюдается, текст уходит как
+    написан (без `verified_phrase` и без потери предложения)."""
+
+    @pytest.mark.asyncio
+    async def test_lore_story_not_numeric_corrected(self, monkeypatch):
+        import services.direct_chat_service as _dcs
+        from tests.test_direct_chat import (
+            FakeLLM, FakeMemory, _bot, _force_self_awareness, _make_service,
+            _message)
+        _force_self_awareness(monkeypatch, False)
+        story = "он писал 7 сообщений за всё время."
+        monkeypatch.setattr(_dcs, "lore_story_override",
+                            lambda tool_ctx, l1_plan=None, response_plan=None:
+                            story)
+        contract = nc.NumericContract(claims=(_claim(),),
+                                      verified_phrase="сообщений: 9")
+        monkeypatch.setattr(DirectChatService, "_numeric_contract_from_ctx",
+                            lambda self, tool_ctx: contract)
+        service = _make_service(memory=FakeMemory(window=[]),
+                                llm=FakeLLM(text="ответ Writer'а"))
+        bot = _bot()
+        msg = _message(text="расскажи историю про это", message_id=9011,
+                       chat_id=-1009988)
+        await service.handle(bot, msg, msg.from_user)
+
+        assert bot.send_message.await_count == 1
+        sent = bot.send_message.await_args.args[1]
+        assert sent == story                       # рассказ цел, не пусто
+        assert "сообщений: 9" not in sent          # verified_phrase не вставлена
+        assert "7 сообщений" in sent               # число автора не снято
 
 
 class TestRegressionList245:

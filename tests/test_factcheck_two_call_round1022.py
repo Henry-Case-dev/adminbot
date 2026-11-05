@@ -80,23 +80,26 @@ class TestFactcheckTwoCall:
         assert result == "одиночный"
 
     @pytest.mark.asyncio
-    async def test_validator_exhausted_falls_back_to_single(self):
-        # FINAL v8 §1.1: стиль больше не тратит повторы — исчерпание даёт
-        # независимый guard формата доставки (таблицы), не клише.
+    async def test_plain_table_delivered_without_reroll(self):
+        # BGS-04 §5: таблица в обычном тексте — наблюдение, а не причина
+        # перегенерировать авторский ответ (Telegram принимает plain-текст).
+        # Одиночный fallback (третья генерация) тоже не запускается.
         table = "| a | b |\n|---|---|"
         service, llm = _service(
             [_ANALYST_JSON, table, table, "одиночный"])
         result = await service.check_claim("t")
-        assert result == "одиночный"
-        assert llm.generate.await_count == 4   # 1 аналитик + 2 вербализ + 1 single
+        assert result == table
+        assert llm.generate.await_count == 2   # 1 аналитик + 1 вербализ
 
     @pytest.mark.asyncio
-    async def test_validator_retry_success(self):
+    async def test_plain_table_observed_not_regenerated(self):
+        # BGS-04 §4/§5: формат доставки не тратит повторную генерацию —
+        # второй ответ доставляется как есть.
         table = "| a | b |\n|---|---|"
         service, llm = _service([_ANALYST_JSON, table, "чистый дерзкий текст"])
         result = await service.check_claim("t")
-        assert result == "чистый дерзкий текст"
-        assert llm.generate.await_count == 3
+        assert result == table
+        assert llm.generate.await_count == 2
 
     @pytest.mark.asyncio
     async def test_kill_switch_off_single_call(self, monkeypatch):

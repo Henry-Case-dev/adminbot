@@ -1,0 +1,283 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "note": "Планировочный граф UNIFIED-REPLY (UR-01..UR-30). Порядок соответствует §10 источника; UR-C-CLOCK и UR-C-SCHED выделены из сквозного времени §9, которое §10 не оформил отдельным пакетом.",
+  "purpose": "Дать Builder независимые исполнимые срезы с одним владельцем на файл и явными join-барьерами.",
+  "release_order": [
+    "UR-A",
+    "UR-B",
+    "UR-C",
+    "UR-C-CLOCK",
+    "UR-C-SCHED",
+    "UR-D",
+    "UR-E",
+    "UR-F",
+    "UR-G"
+  ],
+  "waves": {
+    "W1": [
+      "UR-A"
+    ],
+    "W2": [
+      "UR-B",
+      "UR-C"
+    ],
+    "W3": [
+      "UR-C-CLOCK"
+    ],
+    "W4": [
+      "UR-C-SCHED",
+      "UR-D"
+    ],
+    "W5": [
+      "UR-E"
+    ],
+    "W6": [
+      "UR-F"
+    ],
+    "W7": [
+      "UR-G"
+    ]
+  },
+  "shared_file_note": "direct_chat_service.py, direct_l1.py, param_catalog.py и стадии саммари/фактчека имеют последовательных владельцев (A -> C -> CLOCK -> D -> E); параллельные полосы по этим файлам запрещены. web/app.js, web/index.html, web/static/app.css дополнительно сериализованы внешним пакетом EPIC-CM-VISUAL-01 (CMV-D/E).",
+  "architecture": "Контракт доставлен: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966, статус ARCHITECT_VALIDATED, checkpoint-1 «контракты сфризены»). Барьер UR-A СНЯТ 2026-11-05 и срез принят (ur/a-turn-engine @4cc99286 → merge dc296207): services/turn_types.py создан как единственный новый модуль контрактов (§2.1 TurnRequest + enums/таблица политик), единый исполнитель _execute_turn стоит на обеих трассах. Для UR-C-CLOCK, UR-C-SCHED, UR-D, UR-F записи сохранены как «срез не начат», новых архитектурных проходов не требуется: те же §3-§5 контракта их уже фиксируют.",
+  "architecture_evidence": {
+    "contract": "plans/features/unified-reply/arch/unified-reply-contract.md",
+    "commit": "4359b966",
+    "status": "ARCHITECT_VALIDATED",
+    "lifted_for": ["UR-A"],
+    "note": "Контракт применён срезом UR-A (4cc99286, merge dc296207): services/turn_types.py — единственный новый файл контрактов, только фрозен-датаклассы/enums без логики исполнения. Файла services/turn_request.py в проекте никогда не существовало — имя в write_scope было исправлено на turn_types.py и это подтверждено фактом среза. Барьер UR-A больше не действует."
+  },
+  "slices": [
+    {
+      "id": "UR-A",
+      "title": "Инфраструктура хода: TurnRequest/ContextSelection-DTO, единый L1 planner и capability resolution для Direct и Initiative",
+      "wave": "W1",
+      "depends_on": [],
+      "write_scope": [
+        "services/direct_chat_service.py",
+        "services/direct_l1.py",
+        "services/direct_capabilities.py",
+        "services/turn_types.py",
+        "tests/test_ur_turn_engine.py"
+      ],
+      "write_scope_note": "services/turn_types.py — единственный разрешённый новый модуль контракта (§2 контракта: «только фрозен-датаклассы и enums, без логики»); прежнее имя services/turn_request.py было ошибочным — такого файла в проекте никогда не было. services/direct_context_composer.py НЕ добавлен в write_scope UR-A: §2.6 контракта закрепляет composer за UR-C (UR-A — R, чтение), и один писатель на файл сохраняется; ContextSelection-типы UR-A кладёт в turn_types.py, сборку делает UR-C.",
+      "acceptance": "Direct и Initiative проходят один L1-код: на трассе совпадают резолв слота, схема плана, repair и набор доступных capabilities, difference только в trigger/action/delivery; отдельный path plan_initiative_decision(capabilities=()) исчез, прямое обращение не теряется, значимые поля TurnRequest видны в трассе.",
+      "can_parallel_with": [
+        "UR-B",
+        "UR-C"
+      ],
+      "join_barrier": "до UR-B, UR-C: единый вход и права нужны tools и контексту",
+      "risk": "R3",
+      "next_role": "Reviewer (принят: merge dc296207); живое подключение tools/контекста — за UR-B/UR-C",
+      "why_one_slice": "Один связный результат: один вход и один L1 на два режима; разделение дало бы две копии permission/fallback-логики.",
+      "status_note": "Принят и влит: ur/a-turn-engine @4cc99286 -> merge dc296207 (tests/test_ur_turn_engine.py — 15 passed). Привязано 15/21 строк карты. services/turn_types.py — единственный новый файл контрактов (файла turn_request.py нет и не было). Открыто по смыслу вне среза: UR-RES-01 (весь контур L1→отправка), UR-02.7 (обязательность L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический/процессный объём); живой tool-этап по-прежнему _l1_tool_phase (UR-B), сборка контекста — UR-C."
+    },
+    {
+      "id": "UR-B",
+      "title": "Tools и поиск: общий executor, Search-first, приватный публичный запрос, трасса источников",
+      "wave": "W2",
+      "depends_on": [
+        "UR-A"
+      ],
+      "write_scope": [
+        "services/direct_execution.py",
+        "services/tool_router.py",
+        "services/search_service.py",
+        "services/search_aggregator.py",
+        "tests/test_ur_search_first.py"
+      ],
+      "acceptance": "Для REPLY обоих режимов один tool-этап и одна структура ToolEvidence; при knowledge_origin=open_world|mixed без search_intent решение нормализуется к required и до L2 происходит реальный execute_web_search; запрос целевой (без полного чата, ключей, токенов, телефонов, e-mail и приватных ссылок) и privacy_blocked не генерируется (BGS-01); трасса содержит search_called/status/sources, а при пустой выдаче нет «я проверил».",
+      "can_parallel_with": [
+        "UR-C"
+      ],
+      "join_barrier": "до UR-C-CLOCK (вызов time-helper в оркестраторе) и до UR-G",
+      "risk": "R3",
+      "next_role": "Reviewer (повторно на живом подключении после UR-A)",
+      "why_one_slice": "Один проверяемый результат — фактический поиск с честной трассой; отдельная ветка для инициативы запрещена источником.",
+      "bgs01_note": "Acceptance приведён к решению владельца BGS-01 (2026-11-05): privacy-вето удалено, обязательное обезличивание запроса больше не требуется.",
+      "status_note": "Влит: ur/b-search @5adaa21b -> merge da6299e9. Привязано 13/24 строк (см. evidence/ur-b-evidence.md). Открыто: run_tool_phase не вызывается живыми маршрутами, поля оси не запрашиваются промптом L1."
+    },
+    {
+      "id": "UR-C",
+      "title": "Контекст, память и собственная история: ContextSelection, единый allocator, retrieval, ledger бота",
+      "wave": "W2",
+      "depends_on": [
+        "UR-A"
+      ],
+      "write_scope": [
+        "services/direct_context_composer.py",
+        "services/model_capacity.py",
+        "services/auto_budget.py",
+        "services/summary_memory.py",
+        "services/mca_retrieval_context.py",
+        "services/bot_output_ledger.py",
+        "services/thread_chain.py",
+        "services/direct_chat_service.py",
+        "services/direct_l1.py",
+        "services/database.py",
+        "tests/test_ur_context_selection.py",
+        "tests/test_ur_bot_output_history.py"
+      ],
+      "acceptance": "Полный Current Question и reply-ветка доходят без пред-усечения; единственный allocator на model_capacity/auto_budget не режет помещающееся и снимает нерелевантное первым; старая ветка и эпизод извлекаются retrieval'ом с датой и источником; собственные доставленные реплики приходят из mca_bot_outputs как события диалога (не style anchors) с верными tg_message_id/sent_at/reply_parent, включая несколько чанков и правку.",
+      "can_parallel_with": [
+        "UR-B"
+      ],
+      "join_barrier": "до UR-C-CLOCK и UR-D; без него нет общего входа контекста",
+      "risk": "R3",
+      "next_role": "Reviewer (повторно на живом подключении после UR-A)",
+      "why_one_slice": "Один результат — что именно видит модель; контекст, память и self-history разделяются только одним контрактом отбора.",
+      "status_note": "Влит: ur/c-context @e0985f5c -> merge 9ac64a61. Привязано 21/66 строк (см. evidence/ur-c-evidence.md). Открыто: build_context_selection вызывается только из тестов; model_capacity.py/direct_l1.py/direct_chat_service.py/param_catalog.py в diff не входили."
+    },
+    {
+      "id": "UR-C-CLOCK",
+      "title": "Единое время чата: ChatClock/TimeSnapshot, миграция timezone, инъекция во все LLM-маршруты",
+      "wave": "W3",
+      "depends_on": [
+        "UR-A",
+        "UR-B",
+        "UR-C"
+      ],
+      "write_scope": [
+        "services/chat_clock.py",
+        "services/canonical_context.py",
+        "services/chat_params.py",
+        "services/param_catalog.py",
+        "services/direct_chat_service.py",
+        "services/direct_l1.py",
+        "services/direct_execution.py",
+        "services/factcheck_service.py",
+        "services/temporal_factcheck.py",
+        "services/summary_generator.py",
+        "tests/test_ur_chat_clock.py",
+        "tests/test_ur_time_injection.py"
+      ],
+      "acceptance": "Один IANA-пояс на чат с миграцией приоритетов и read-only legacy; ChatClock считает локальное время из серверного UTC-instant, DST и полу-сдвиги верны; <Chat_Time_Context> присутствует в финальном outbound payload Direct/Initiative/Factcheck/Summary/repair/fallback с правильным chat_id и не теряется при fallback, а дата источника остаётся отдельной; невалидная зона и отсутствие tzdata дают честную деградацию.",
+      "can_parallel_with": [],
+      "join_barrier": "серийный join после UR-B и UR-C: один писатель на direct_chat_service.py, param_catalog.py и стадии",
+      "risk": "R3",
+      "next_role": "Architect (контракт ChatClock/TimeSnapshot) -> Builder",
+      "why_one_slice": "Один сквозной результат — фактическое время на всех стадиях; §9 объявляет его обязательной частью эпика."
+    },
+    {
+      "id": "UR-C-SCHED",
+      "title": "Расписание по поясу каждого чата: Summary-слоты 00/06/12/18 и Goodmorning",
+      "wave": "W4",
+      "depends_on": [
+        "UR-C-CLOCK"
+      ],
+      "write_scope": [
+        "services/summary_scheduler.py",
+        "services/goodmorning_scheduler.py",
+        "services/chat_params.py",
+        "services/summary_generator.py",
+        "tests/test_ur_per_chat_schedule.py"
+      ],
+      "acceptance": "Два чата с разными поясами получают разные корректные локальные слоты; слот захватывается атомарно по уникальному ключу, DST gap/повтор обрабатываются правилом, смена пояса пересчитывает только будущее; при простое нет пачки просроченных саммари; manual /summary и Goodmorning используют чатовую зону, отдельного GOODMORNING_TZ и второго планировщика нет.",
+      "can_parallel_with": [
+        "UR-D",
+        "UR-E"
+      ],
+      "join_barrier": "до UR-G; параллелен UR-D и UR-E",
+      "risk": "R2",
+      "next_role": "Architect (ключ слота/идемпотентность) -> Builder",
+      "why_one_slice": "Один результат — локальное расписание конкретного чата; отдельно от инъекции времени, потому что acceptance про отсутствие дублей, а не про payload."
+    },
+    {
+      "id": "UR-D",
+      "title": "L2 и output: общий Writer, LLMCompletion с finish_reason, continuatio, безопасная отправка",
+      "wave": "W4",
+      "depends_on": [
+        "UR-C",
+        "UR-C-CLOCK"
+      ],
+      "write_scope": [
+        "services/llm_client.py",
+        "services/response_extent.py",
+        "services/direct_chat_service.py",
+        "services/mca_intents.py",
+        "services/telegram_send.py",
+        "tests/test_ur_completion_contract.py",
+        "tests/test_ur_no_partial_send.py"
+      ],
+      "acceptance": "Инициатива пишет общим L2 без max_tokens=700 и ручных 12 строк; finish_reason доезжает до Writer, при length ответ продолжается с сохранением плана и адресата до отправки, при невозможности фиксируется incomplete_generation и обрубок не публикуется; chunk_text сохраняет привязку первого чанка к reply; SendRecheck и повтор после crash не дублируют отправку.",
+      "can_parallel_with": [
+        "UR-C-SCHED",
+        "UR-E"
+      ],
+      "join_barrier": "до UR-E и UR-F",
+      "risk": "R3",
+      "next_role": "Architect (контракт LLMCompletion/continuation) -> Builder",
+      "why_one_slice": "Один результат — целостный текст, который уходит в чат; writer и транспорт связаны общим решением о завершённости."
+    },
+    {
+      "id": "UR-E",
+      "title": "Речь: снятие автоподражания, один deterministic style pass, отсутствие избыточных retry, регрессия диалога",
+      "wave": "W5",
+      "depends_on": [
+        "UR-D"
+      ],
+      "write_scope": [
+        "services/negative_constraints.py",
+        "services/style_policy.py",
+        "services/prompt_composer.py",
+        "services/direct_chat_service.py",
+        "tests/test_ur_speech_single_pass.py",
+        "tests/test_ur_dialog_regression.py"
+      ],
+      "acceptance": "В payload нет style_anchors с директивой подражания, при этом свои доставленные реплики остаются в истории; детерминированные правила применяются ровно один раз и не меняют адресата, числа, ссылки и смысл; косметическое клише не вызывает полной перегенерации обычного разговора; исторический диалог 04.11 пройден по адресации, фактам и отсутствию рефрена.",
+      "can_parallel_with": [],
+      "join_barrier": "до UR-F и UR-G",
+      "risk": "R2",
+      "next_role": "Architect (манифест инструкций) -> Builder",
+      "why_one_slice": "Один результат — как звучит ответ; правки стиля и anti-cliché нельзя разносить, они конкурируют за один текст."
+    },
+    {
+      "id": "UR-F",
+      "title": "UI: «Как бот отвечает», инспектор «Что бот видел», компактные advanced-настройки, «Модули -> Время»",
+      "wave": "W6",
+      "depends_on": [
+        "UR-E"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "services/param_catalog.py",
+        "tests/js/ur_ui_settings_test.js",
+        "tests/test_ur_ui_effective_config.py"
+      ],
+      "acceptance": "Три уровня раздела читаемы на 320/390/430 и desktop; статус, источник и эффективное значение приходят от backend (effective_value/source/active_consumer/status/reason_inactive), no-op и legacy не редактируются; инспектор различает L1/L2, свежую и старую память, намерение и реальный tool call, показывает часы хода; в «Модули -> Время» одно поле с поиском IANA и серверными часами, дублирующих поясов нет.",
+      "can_parallel_with": [],
+      "join_barrier": "Внешний барьер: web/app.js, web/index.html, web/static/app.css свободны (CMV-D/E смержены); внутри эпика — после UR-E",
+      "risk": "R2",
+      "next_role": "Architect (контракт effective-config) -> Builder",
+      "why_one_slice": "Один результат — читаемый интерфейс правды о рантайме; UI нельзя резать по экранам, иначе появятся конкурирующие представления одного состояния."
+    },
+    {
+      "id": "UR-G",
+      "title": "Независимое ревью, E2E, чеклисты §11 и продовая верификация",
+      "wave": "W7",
+      "depends_on": [
+        "UR-A",
+        "UR-B",
+        "UR-C",
+        "UR-C-CLOCK",
+        "UR-C-SCHED",
+        "UR-D",
+        "UR-E",
+        "UR-F"
+      ],
+      "write_scope": [
+        "plans/features/unified-reply/reports/**",
+        "tests/test_ur_acceptance_trace.py",
+        "tools/ui_unified_reply_e2e.py"
+      ],
+      "acceptance": "Каждый чеклист А-Д подтверждён machine trace L1 plan -> sources -> tools -> evidence -> L2 completion -> style -> send на конкретном кандидате; негативные сценарии ловят регресс; payload capture подтверждает Chat_Time_Context во всех маршрутах; на рабочем развёртывании выполнены E2E по двум чатам с разными поясами; ни одна строка не закрыта отчётом или числом тестов.",
+      "can_parallel_with": [],
+      "join_barrier": "финальный барьер эпика: после приёмки всех пакетов",
+      "risk": "R2",
+      "next_role": "Reviewer (независимо) -> DevOps",
+      "why_one_slice": "Один результат — независимое подтверждение целого маршрута; разбиение по чеклистам создало бы параллельные вердикты на одном кандидате."
+    }
+  ]
+}

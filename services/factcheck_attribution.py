@@ -15,9 +15,9 @@
 * ``attribution_evidence_ref``/``attach_attribution_evidence`` — привязка
   evidence к автору/цитате/контексту (ср. VERIFIED 06D.4: тезис → выдержка
   → источник; source_kind="chat", url=None — внешней ссылки нет);
-* ``external_safe_claim``/``with_external_claim`` — privacy (06G.3): в
-  веб-запросы уходит только тезис, имена участников (включая упомянутого
-  автора) вычищены существующим planner-фильтром `_strip_privacy` (W4);
+* ``attribution_thesis``/``with_claim_thesis`` — тезис клейма для внешнего
+  поиска: содержательная часть без обвязки «X сказал, что …». BGS-01: имена
+  внутри тезиса НЕ вычищаются (проверяется факт, а не личность говорящего);
 
 Честный отказ: совпадения нет → вызывающий отвечает готовой репликой
 (``FACTCHECK_ATTRIBUTION_MISS_PHRASES``) БЕЗ домыслов и БЕЗ внешнего поиска
@@ -33,7 +33,7 @@
 chat-ref без URL не даёт ссылки и не ломает renderer).
 
 TEST-LIFECYCLE: CONTRACT owner=CFG-06
-  (tests/test_factcheck_attribution_cfg06.py: found/miss/privacy/OFF).
+  (tests/test_factcheck_attribution_cfg06.py: found/miss/thesis/OFF).
 """
 from __future__ import annotations
 
@@ -299,36 +299,25 @@ def attach_attribution_evidence(verdict, match: AttributionMatch):
         return verdict
 
 
-# ── Privacy: веб-запросы без участников/цитат приватного чата (06G.3) ────────
+# ── Тезис атрибуционного клейма (что проверяется по существу) ────────────────
 
-def external_safe_claim(claim_text: str | None, ctx,
-                        attribution: AttributionClaim | None) -> str:
-    """Privacy-версия клейма для внешнего поиска: тезис без атрибуционной
-    обвязки; имена участников (включая упомянутого автора) вычищены
-    существующим planner-фильтром `_strip_privacy` (W4-инвариант).
-    Fail-open → очищаемый тезис/вход. Никогда не бросает."""
+def attribution_thesis(claim_text: str | None,
+                       attribution: AttributionClaim | None) -> str:
+    """Тезис для внешнего поиска: содержательная часть клейма без
+    атрибуционной обвязки («Вася сказал, что …» → «…»).
+
+    BGS-01 (§0.1): имена НЕ вычищаются — упоминание человека внутри тезиса
+    остаётся в запросе, потому что проверяется сам факт. Удаляется только
+    обвязка «кто это сказал» (её разбирает детектор атрибуции). Fail-open →
+    исходный клейм. Никогда не бросает."""
     thesis = str(attribution.thesis_text if attribution is not None
                  else claim_text or "").strip()
-    authors: list[str] = []
-    try:
-        if ctx is not None:
-            authors.extend(str(m.author) for m in ctx.messages if m.author)
-    except Exception:      # pragma: no cover
-        pass
-    if attribution is not None:
-        authors.append(attribution.author_mention)
-    try:
-        from services.factcheck_planner import _strip_privacy
-        clean, _dropped = _strip_privacy(
-            thesis, tuple(a for a in authors if a))
-    except Exception:      # pragma: no cover — фильтр недоступен
-        clean = thesis
-    return clean or thesis or str(claim_text or "")
+    return thesis or str(claim_text or "")
 
 
-def with_external_claim(envelope, claim_text: str):
+def with_claim_thesis(envelope, claim_text: str):
     """Frozen-replace envelope: поисковые стадии временной ветки получают
-    privacy-клейм (провенанс-поля не меняются). Никогда не бросает."""
+    тезис клейма (провенанс-поля не меняются). Никогда не бросает."""
     cleaned = str(claim_text or "").strip()
     if not cleaned or envelope is None:
         return envelope

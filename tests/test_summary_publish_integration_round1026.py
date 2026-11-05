@@ -676,6 +676,12 @@ class TestOnDelivery:
 
         monkeypatch.setattr("services.summary_l1_clusterizer.run_l1",
                             fake_run_l1)
+        # Предпосылка теста — rich-доставка, а НЕ возможности установленного
+        # aiogram. `_rich_media_supported()` читает версию библиотеки
+        # (requirements.txt: aiogram>=3.31; поле `media` у InputRichMessage), и
+        # без явного пина тест молча проверял окружение, а не контракт
+        # DoD-14. Соседние тесты файла пинят то же значение (632/557).
+        monkeypatch.setattr(sg, "_rich_media_supported", lambda: True)
         llm = MagicMock()
         llm.generate = AsyncMock(return_value=_L2_JSON)
         gen = _gen(FakeMemory(rows=_rows()), llm)
@@ -1309,6 +1315,10 @@ class TestBoundaries:
         # categorized 458→459 (ключ в категории models).
         assert len(pc.REGISTRY) == 597
         assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
+        # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
+        # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
+        # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
                     if s.category is not None]) == 572
         assert len(pc.GROUPS) == 121

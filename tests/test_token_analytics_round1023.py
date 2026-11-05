@@ -544,31 +544,31 @@ class _NullTyping:
 
 
 class TestOrchestratorCorrelation:
+
     @pytest.mark.asyncio
-    async def test_direct_stage1_stage2_share_id(self):
-        from services.direct_chat_service import DirectChatService
-        from services.tool_loop import ToolLoopResult
-        svc = DirectChatService.__new__(DirectChatService)
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[
-            json.dumps({"user_question": "q", "facts": [],
-                        "answer_outline": "o", "limitations": []}),
-            "чистый ответ",
-        ])
-        raw = ToolLoopResult(
-            "финал", rounds_used=2,
-            tool_trace=[{"round": 1, "tool": "t", "ok": True,
-                         "out_chars": 3}],
-            tool_context="ctx")
-        res = await svc._synthesize_direct_answer(
-            -1, "q", raw, None, correlation_id="DIR-1")
-        assert res is not None
-        calls = svc.llm.generate.await_args_list
-        assert calls[0].kwargs["step"] == "stage1"
-        assert calls[1].kwargs["step"] == "stage2"
-        assert calls[0].kwargs["correlation_id"] == "DIR-1"
-        assert calls[1].kwargs["correlation_id"] == "DIR-1"
-        assert calls[0].kwargs["module"] == "direct_chat"
+    async def test_direct_turn_shares_one_id_between_planner_and_writer(
+            self, monkeypatch):
+        """RLR-02-LEGACY: после демонтажа второго автора ход Direct состоит из
+        двух смысловых стадий — L1-планировщик и единственный Writer. Аналитика
+        токенов обязана видеть их одним прогоном: оба вызова несут ОДИН
+        `correlation_id` хода (и `module="direct_chat"`).
+
+        Раньше это проверялось на удалённой паре «Синтезатор → Вербализатор»
+        (`test_direct_stage1_stage2_share_id`); перенесено на живую топологию.
+        """
+        from tests.test_asap7_direct_l1 import _FakeLLM, _drive, _plan_json
+
+        llm = _FakeLLM(l1=_plan_json(), l2="готовый ответ")
+        svc, _react, bot, msg, user = _drive(
+            monkeypatch, "что там", llm=llm)
+        await svc.handle(bot, msg, user)
+        planner = llm.calls_of("l1_planner")
+        writer = llm.calls_of("l2_writer")
+        assert planner and writer, llm.steps()
+        cid = planner[0]["correlation_id"]
+        assert cid, "у прогона нет correlation_id — аналитика развалится"
+        assert writer[0]["correlation_id"] == cid
+        assert planner[0]["module"] == writer[0]["module"] == "direct_chat"
 
     @pytest.mark.asyncio
     async def test_factcheck_creates_one_id_for_both_stages(self):

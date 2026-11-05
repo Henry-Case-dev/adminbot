@@ -1,35 +1,37 @@
-"""CFG-07C-G — словарь egress-классов и runtime-guard public_speech_guard.
+"""BGS-03 — словарь речевых наблюдений: диагностика, не редактирование.
 
 ЕДИНЫЙ ИСТОЧНИК honesty-классов («честное ограничение / честный отказ /
-честная недоступность / подтверждённый вердикт») и FORBIDDEN-словаря
-метаречи для тест-гардов CFG-07A.3/.5, CFG-07D.1/.2
-(tests/test_cfg07_egress_dictionary.py) и runtime-guard'а на точке
-outbound (07C.1–.6, CFG-07CG-TAIL: детерминированный `guard_public_text`
-на delivery-швах фактчека v2 — factcheck_orchestrator + tool_route).
+честная недоступность / подтверждённый вердикт») и закрытого словаря
+метаречи/машинных артефактов.
+
+Контракт BEHAVIOR-GATES-SIMPLIFICATION-01 (BGS-03 §1–2):
+
+* наблюдение НЕ меняет живой ответ: ``guard_public_text`` возвращает
+  исходный текст байт-в-байт и только сообщает коды находок (место
+  срабатывания + код в событии ``speech_observation``);
+* ни одна фраза словаря («по моим наблюдениям», «я нейросеть», «мои
+  промпты», «сейчас пошучу», «проверил весь интернет») не приводит к
+  вырезанию слов, к пустому сообщению, к fail-closed или к повторной
+  генерации — за содержание отвечает человек, а не ножницы;
+* техническая очистка настоящих машинных маркеров (<thought>, ``fact:ID``,
+  ``msg:ID``, target-маркер) живёт в ``services/outgoing_guard`` — узкая
+  идемпотентная функция; сюда живые слова не переносятся;
+* каноны фактчека/промптов не трогаются; модуль — детерминированные
+  предикаты (0 LLM-вызовов, 0 сетевых обращений).
 
 Границы словаря (07A.7 — НЕ растущий black-list):
 
 * honesty-классы НЕ копируют тексты пулов — ссылаются на живые пулы
   smartmodule_phrases / factcheck_renderer / checkup_prompts как на
   единственные источники (фраза, добавленная в пул, автоматически
-  попадает в класс; гарды сверяют идентичность объектов);
+  попадает в класс);
 * FORBIDDEN-словарь — закрытые семьи метаречи владельца (корпус
   07a1-corpus MB-*, аддендум L342/L345/L376/L377); расширение = осознанная
   правка с источником, а не авто-рост по инцидентам;
 * обычные слова «лог/анализ/проверка/модуль/инструмент» в содержательном
-  контексте НЕ нарушение (07C.2, план §6.4) — словарь держит только
-  конкретные backstage-формулы;
+  контексте НЕ нарушение — словарь держит только конкретные формулы;
 * прямой вопрос о внутреннем устройстве в явном техническом/админ
-  контексте разрешает честное объяснение возможностей (07A.5) — блокировка
-  метаречи не подменяет правду;
-* каноны фактчека/промптов не трогаются (W3-фриз CFG-06); модуль —
-  детерминированные предикаты + детерминированный sanitize (0 LLM-
-  вызовов, 0 сетевых обращений);
-* машинные артефакты корпуса (FA-06/07/08 остатки, JSON-эхо FA-01/02,
-  метка SF-16, MB-10/11/12) — детерминированные детекторы/срез этого
-  модуля с id-кодами корпуса (волна 07D.5); смысловая метаречь без
-  дословной формулы (инверсии overclaim) — триггер bounded retry
-  (metatext_retry_reason), не тихий срез;
+  контексте не считается находкой;
 * предикаты применяются к ОТВЕТАМ модели (реплики, fallback-фразы),
   НЕ к байтам канонов: каноны легитимно содержат запреты-примеры
   (блок ANTI_BOT перечисляет запрещённые самоописания дословно).
@@ -37,11 +39,14 @@ outbound (07C.1–.6, CFG-07CG-TAIL: детерминированный `guard_p
 from __future__ import annotations
 
 import dataclasses
+import logging
 import re
 
 from services import smartmodule_phrases as ph
 from services.checkup_prompts import CHECKUP_FALLBACK_NOTICE
 from services.factcheck_renderer import _NO_LINKS_NOTICE, _VERDICT_HEADLINE
+
+logger = logging.getLogger(__name__)
 
 #: Корпус 07A-1 — source of record словаря (FORBIDDEN/SOURCE_FIX/POSITIVE).
 CORPUS_PATH = "plans/features/cfg/evidence/cfg-07a/07a1-corpus.json"
@@ -209,18 +214,27 @@ _MARKERS: tuple[tuple[str, ...], tuple[re.Pattern, ...]] = tuple(
     (fam, tuple(_marker_re(m) for m in fam))
     for fam in _BACKSTAGE_FAMILIES)
 
-#: Сработавший маркер → семья (для сообщений гардов).
-_MARKED: tuple[tuple[tuple[re.Pattern, ...], str], ...] = tuple(
-    (res, fam[0]) for fam, res in _MARKERS)
+#: Сработавшие маркеры по семьям (для наблюдения: код = сам маркер).
+_MARKED: tuple[tuple[str, tuple[re.Pattern, ...]], ...] = tuple(
+    (fam[0], res) for fam, res in _MARKERS)
 
 
 def find_backstage_metatext(text) -> tuple[str, ...]:
-    """Головные фразы FORBIDDEN-семей, найденные в тексте (пусто — чисто)."""
+    """Сработавшие формулы FORBIDDEN-семей (пусто — чисто).
+
+    BGS-03: это НАБЛЮДЕНИЕ (код находки), а не основание для правки текста.
+    Возвращается сам сработавший маркер (casefold), а не голова семьи:
+    владелец видит, что именно совпало («мои промпты», «сейчас пошучу»)."""
     body = str(text or "")
     hits: list[str] = []
-    for res, head in _MARKED:
-        if any(r.search(body) for r in res):
-            hits.append(head)
+    for _head, res in _MARKED:
+        for pattern in res:
+            match = pattern.search(body)
+            if match is None:
+                continue
+            code = match.group(0).casefold()
+            if code not in hits:
+                hits.append(code)
     return tuple(hits)
 
 
@@ -258,7 +272,8 @@ def claims_total_verification(text) -> bool:
 # Источник — записи 07a1-corpus.json (source of record); каждая семья несёт
 # id корпуса для telemetry (R17: коды, не приватные тексты). Это НЕ растущий
 # black-list (07A.7): расширение = осознанная правка с записью корпуса.
-# Детерминированный ремонт — срез формулы (факты/числа/ссылки не меняются);
+# Детерминированный ремонт снят вместе с редактированием живого текста:
+# детекторы остаются только для наблюдения (BGS-03).
 # retry на машинные артефакты НЕ тратится (ремонт существует).
 
 #: Границы машинного токена: латиница/кириллица/цифры/подчёркивание —
@@ -271,111 +286,62 @@ def _token_re(token: str) -> re.Pattern:
                       re.IGNORECASE)
 
 
-def _token_cut_re(token: str) -> re.Pattern:
-    """Срез-версия токена: окружающие пробелы и одна висячая запятая/
-    двоеточие за формулой убираются (без огрызков)."""
-    return re.compile(rf"\s*(?<![{_TOK}]){re.escape(token)}(?![{_TOK}])"
-                      rf"(?:\s*[,:])?", re.IGNORECASE)
-
-
 @dataclasses.dataclass(frozen=True)
 class MachineArtifact:
-    """Семья машинных артефактов корпуса 07A-1 (07D.5).
+    """Семья машинных артефактов корпуса 07A-1 (07D.5): только детектор.
 
-    ``detect`` — детектор попадия; ``strip`` — детерминированный срез
-    (применяется только к найденному — содержательные слова целы)."""
+    ``detect`` — попадия семьи для наблюдения; редактирование текста в этом
+    модуле отсутствует (BGS-03 §1)."""
 
     corpus_id: str
     kind: str
     detect: tuple[re.Pattern, ...]
-    strip: tuple[re.Pattern, ...]
-
-
-def _bracket_block_re(head: str) -> re.Pattern:
-    r"""Срез bracket-вставки целиком: «[ГОЛОВКА …]» до закрывающей скобки
-    или конца строки (незакрытая — срезается по голове). ``head``
-    передаётся с ведущей '[' — экранируется ТЕЛО без неё (иначе '\['
-    превращается в открывающий char-class и режет чужие скобки)."""
-    return re.compile(
-        rf"\s*\[{re.escape(head[1:])}"
-        rf"[^\]\n]*\]?", re.IGNORECASE)
 
 
 _MACHINE_FAMILIES: tuple[MachineArtifact, ...] = (
     # FA-06: сервисный refusal-токен воркера (nostalgia), kind=word_ci.
     MachineArtifact(
         corpus_id="FA-06", kind="service_echo",
-        detect=(_token_re("UNCHANGED"),),
-        strip=(_token_cut_re("UNCHANGED"),)),
+        detect=(_token_re("UNCHANGED"),)),
     # FA-07: layer-A маркер nostalgia в Direct-контексте.
     MachineArtifact(
         corpus_id="FA-07", kind="service_echo",
-        detect=(_token_re("nostalgia_hint"),),
-        strip=(re.compile(rf"\s*(?<![{_TOK}])nostalgia_hint\s*:"
-                          rf"(?![{_TOK}])", re.IGNORECASE),)),
+        detect=(_token_re("nostalgia_hint"),)),
     # FA-08: bracket-вставка checkup-fallback (SYSTEM-only формат).
     MachineArtifact(
         corpus_id="FA-08", kind="bracket",
         detect=(re.compile(re.escape("[системное уведомление"),
-                           re.IGNORECASE),),
-        strip=(_bracket_block_re("[системное уведомление"),)),
+                           re.IGNORECASE),)),
     # FA-01/FA-02: сырой JSON-фрагмент (ключ Stage-1/handoff в тексте).
     MachineArtifact(
         corpus_id="FA-01", kind="json_echo",
         detect=(re.compile(r'"\s*reason\s*"\s*:', re.IGNORECASE),
-                re.compile(r'\{\s*"reason"', re.IGNORECASE)),
-        strip=(re.compile(r'\s*\{[^{}\n]*"\s*reason\s*"\s*:[^{}\n]*\}',
-                          re.IGNORECASE),
-               re.compile(r'\s*"\s*reason\s*"\s*:[^,\n]*(?:,)?',
-                          re.IGNORECASE),
-               re.compile(r'\s*\{\s*"reason"[^{}\n]*\}?', re.IGNORECASE))),
+                re.compile(r'\{\s*"reason"', re.IGNORECASE))),
     MachineArtifact(
         corpus_id="FA-02", kind="json_echo",
-        detect=(re.compile(r'"\s*response_mode\s*"', re.IGNORECASE),),
-        strip=(re.compile(r'\s*\{[^{}\n]*"\s*response_mode\s*"[^{}\n]*\}',
-                          re.IGNORECASE),
-               re.compile(r'\s*"\s*response_mode\s*"\s*:[^,\n]*(?:,)?',
-                          re.IGNORECASE),
-               re.compile(r'\s*"\s*response_mode\s*"', re.IGNORECASE))),
+        detect=(re.compile(r'"\s*response_mode\s*"', re.IGNORECASE),)),
     # SF-16: метка архивных блоков как самостоятельный артефакт в речи
     # (E3-эхо MB-02; запрет в digest уже живёт в system2_handoff).
     MachineArtifact(
         corpus_id="SF-16", kind="label",
-        detect=(re.compile(r"архивная справка", re.IGNORECASE),),
-        strip=(re.compile(r"\s*\[Архивная справка[^\]\n]*\]?",
-                          re.IGNORECASE),
-               re.compile(r'\s*[«"][^»"]*Архивная справка[^»"]*[»"]'
-                          r"(?:\s*:)?", re.IGNORECASE),
-               re.compile(r"\s*Архивная справка\s*:", re.IGNORECASE))),
+        detect=(re.compile(r"архивная справка", re.IGNORECASE),)),
     # MB-10: техполя фактчек-семьи в речи (период проверки/(unknown)/…).
     MachineArtifact(
         corpus_id="MB-10", kind="tech_field",
         detect=(_token_re("период проверки"), _token_re("(unknown)"),
                 _token_re("precision"), _token_re("as_of"),
-                _token_re("uncertainty")),
-        strip=(_token_cut_re("период проверки"), _token_cut_re("(unknown)"),
-               _token_cut_re("precision"), _token_cut_re("as_of"),
-               _token_cut_re("uncertainty"))),
+                _token_re("uncertainty"))),
     # MB-11: англ. reason-коды Writer-заметки как видимый текст.
     MachineArtifact(
         corpus_id="MB-11", kind="reason_code",
         detect=(_token_re("tool_not_active"), _token_re("capability_not_ready"),
-                _token_re("no_tool"), _token_re("low_confidence")),
-        strip=(_token_cut_re("tool_not_active"),
-               _token_cut_re("capability_not_ready"),
-               _token_cut_re("no_tool"), _token_cut_re("low_confidence"))),
+                _token_re("no_tool"), _token_re("low_confidence"))),
     # MB-12: имена tool-ов Writer-payload в содержательных репликах.
     MachineArtifact(
         corpus_id="MB-12", kind="tool_name",
         detect=(_token_re("execute_web_search"), _token_re("query_chat_memory"),
                 _token_re("dig_into_lore"), _token_re("compile_lore_story"),
-                _token_re("get_bot_health"), _token_re("fetch_article")),
-        strip=(_token_cut_re("execute_web_search"),
-               _token_cut_re("query_chat_memory"),
-               _token_cut_re("dig_into_lore"),
-               _token_cut_re("compile_lore_story"),
-               _token_cut_re("get_bot_health"),
-               _token_cut_re("fetch_article"))),
+                _token_re("get_bot_health"), _token_re("fetch_article"))),
 )
 
 
@@ -388,11 +354,9 @@ def find_machine_artifacts(text) -> tuple[str, ...]:
 
 # ── 07D.5: смысловой слой — инверсные/вариативные формулировки ───────────────
 # Закрытые сеты (07D.2) ловят дословный прямой порядок. Инверсия («весь
-# интернет я проверил») — НЕ дословная формула: её нельзя срезать без риска
-# огрызка, поэтому она триггерит ОДИН bounded retry с причиной (пере-
-# использование retry-бюджета Вербализатора), а не тихий срез и не новый
-# black-list (07A.7). Источник — та же семья тотальной проверки
-# (аддендум L343) + зафиксированный остаток 07cg-tail §2.2.
+# интернет я проверил») — тоже находка для наблюдения: живой ответ по ней
+# не перегенерируется и не режется (BGS-03 §1–2, BGS-04 §4). Источник —
+# та же семья тотальной проверки (аддендум L343) + остаток 07cg-tail §2.2.
 
 #: Объект тотального охвата (формы из закрытого сета 07D.2); lookahead
 #: отсекает «весь интернет-магазин» («интернет-магазин» — другой объект);
@@ -418,19 +382,9 @@ _SEM_VERIFY_VERB_RE = re.compile(
     rf"(?<![{_TOK}])(?<!\bне\s)(?<!\bне\s\s)"
     rf"{_SEM_VERIFY_VERB_BODY}(?![{_TOK}])", re.IGNORECASE)
 
-#: Срез-грамматика инверсии: «объект + (местоимение/наречие)* + глагол»
-#: (прямой порядок уже срезается закрытым сетом _TOTAL_RE). Используется
-#: на деградационном пути после неудачного retry и на delivery-шве.
-_INVERSE_STRIP_RE = re.compile(
-    rf"\s*(?<![{_TOK}]){_SEM_TOTAL_OBJ_BODY}"
-    rf"(?:\s+(?:я|мы|ты|вы|он|она|они|оно|уже|давно|сам|сама|сами|тут"
-    rf"|ведь|честно))*\s+{_SEM_VERIFY_VERB_BODY}"
-    rf"(?![{_TOK}])(?:\s*[,:])?", re.IGNORECASE)
-
-
 def _closed_total_hits(sentence: str) -> bool:
-    """Предложение уже покрыто закрытым сетом 07D.2 (детерминированный
-    ремонт существует — смысловой слой его не задваивает)."""
+    """Предложение уже покрыто закрытым сетом 07D.2 (смысловой слой его
+    не задваивает в наблюдении)."""
     return any(r.search(sentence) for r in _TOTAL_RE)
 
 
@@ -449,10 +403,12 @@ def find_semantic_metatext(text) -> tuple[str, ...]:
 
 
 def metatext_retry_reason(text) -> str | None:
-    """Причина bounded-retry (CFG-07D.5): смысловая метаречь, НЕ пойманная
-    закрытыми сетами. Дословные формулы и машинные артефакты → None:
-    для них существует детерминированный ремонт, бюджет retry не тратится.
-    Никогда не бросает."""
+    """Код наблюдения смысловой метаречи (совместимое имя прежнего retry).
+
+    BGS-03/04: код БОЛЬШЕ НЕ является причиной повторной генерации —
+    ``verbalize_validated`` только записывает его в
+    ``stats['metatext_observed']`` и не меняет текст. Дословные формулы и
+    машинные артефакты → None (у них отдельные коды). Никогда не бросает."""
     try:
         body = str(text or "")
         if (contains_backstage_metatext(body)
@@ -531,19 +487,26 @@ def is_explicit_admin_context(text) -> bool:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Runtime-guard на точке outbound (07C.1–.5, CFG-07CG-TAIL)
-# Детерминированный sanitize: 0 LLM-вызовов, факты/ссылки/имена/цитаты/
-# числа не меняются; honesty-классы и админ-контекст проходят байт-в-байт.
+# Наблюдение на точке outbound (BGS-03)
+# 0 LLM-вызовов, 0 сетевых обращений, НОЛЬ правок текста: находки словаря
+# уходят в событие/лог (место + код), живой ответ доставляется байт-в-байт.
 # ═══════════════════════════════════════════════════════════════════════════
+
+#: Имя события наблюдения (mca_events, §17.1-совместимое).
+OBSERVATION_EVENT = "speech_observation"
+#: Компонент события — сам наблюдатель.
+OBSERVATION_COMPONENT = "public_speech_guard"
+
 
 @dataclasses.dataclass(frozen=True)
 class GuardResult:
-    """Итог guard'а на одном outbound-тексте.
+    """Итог наблюдения на одном outbound-тексте.
 
-    ``text`` — что доставлять: исходный текст (чисто/honesty/админ),
-    урезанный (маркеры срезаны, факты целы) или "" (вырожденный остаток —
-    шов ОБЯЗАН подставить честный класс: enum-статус/пул, 07C.4).
-    ``findings`` — головные фразы семей + ``overclaim:total_verification``.
+    ``text`` — ВСЕГДА исходный текст: словарь больше не редактирует и не
+    блокирует живой ответ (BGS-03 §1–2). ``findings`` — коды для
+    владельца/телеметрии (сработавшие маркеры, ``overclaim:...``,
+    ``semantic:...``, id машинных артефактов корпуса). ``changed`` и
+    ``repaired`` сохранены ради совместимости швов и всегда ``False``/``True``.
     """
 
     text: str
@@ -553,83 +516,68 @@ class GuardResult:
     repaired: bool = True
 
 
-_ALL_MARKER_RES: tuple[re.Pattern, ...] = tuple(
-    r for _fam, rs in _MARKERS for r in rs)
+def find_speech_observations(text) -> tuple[str, ...]:
+    """Все диагностические коды текста (закрытые семьи + overclaim +
+    машинные артефакты + смысловые инверсии). 0 LLM; коды — не текст."""
+    body = str(text or "")
+    if not body.strip():
+        return ()
+    findings: list[str] = list(find_backstage_metatext(body))
+    if claims_total_verification(body):
+        findings.append("overclaim:total_verification")
+    findings.extend(find_machine_artifacts(body))
+    findings.extend(find_semantic_metatext(body))
+    return tuple(findings)
 
 
-def _wrap_strip_re(r: re.Pattern) -> re.Pattern:
-    """Срез-версия маркера: захват окружающих пробелов и одной висячей
-    запятой/двоеточия («По моим логам, источники…» → «источники…»,
-    «проверил всё в интернете: тезис…» → «тезис…») без огрызков."""
-    return re.compile(rf"\s*(?:{r.pattern})(?:\s*[,:])?", re.IGNORECASE)
+def emit_speech_observation(findings, *, seam: str = "",
+                            chat_id: int | None = None) -> None:
+    """Событие наблюдения: место срабатывания + коды (R17: без текста).
+
+    Fail-open: недоступная телеметрия не влияет на доставку."""
+    codes = tuple(str(code) for code in (findings or ()) if str(code))
+    if not codes:
+        return
+    # Место срабатывания: бизнес-шов, если вызывающий его назвал, иначе —
+    # точка входа самого наблюдателя (без домыслов о вызывающем).
+    stage = str(seam or "guard_public_text")
+    try:
+        from services import mca_events
+        # Literal имени события — чтобы сканеры/панель наблюдаемости видели
+        # реальную точку эмиссии (OBSERVATION_EVENT — то же имя).
+        mca_events.emit_mca_event(
+            "speech_observation", outcome=mca_events.OUTCOME_SUCCESS,
+            component=OBSERVATION_COMPONENT, stage=stage,
+            chat_id=int(chat_id) if chat_id else None,
+            usage_json={"codes": list(codes)})
+    except Exception:      # pragma: no cover - телеметрия не рвёт доставку
+        logger.debug("[speech_observation] event failed", exc_info=True)
+    logger.info("[speech_observation] seam=%s | codes=%s",
+                stage, ",".join(codes))
 
 
-_STRIP_RES: tuple[re.Pattern, ...] = tuple(
-    _wrap_strip_re(r) for r in _ALL_MARKER_RES + _TOTAL_RE)
+def guard_public_text(text, *, admin_context: bool = False,
+                      seam: str = "", chat_id: int | None = None
+                      ) -> GuardResult:
+    """Наблюдение за одним исходящим текстом (BGS-03 §1–2).
 
-#: Срез машинных артефактов (07D.5) — точечные формулы семей корпуса.
-_MACHINE_STRIP_RES: tuple[re.Pattern, ...] = tuple(
-    r for fam in _MACHINE_FAMILIES for r in fam.strip)
-
-
-def _strip_matches(text: str) -> str:
-    """Срез FORBIDDEN-формул/overclaim/машинных артефактов/инверсных
-    overclaim-формул + уборка следов вырезания (пустые скобки, двойные
-    пробелы, висячая пунктуация в начале). Меняет ТОЛЬКО найденные
-    формулы — содержательные слова/числа остаются."""
-    out = text
-    for r in _STRIP_RES + _MACHINE_STRIP_RES + (_INVERSE_STRIP_RE,):
-        out = r.sub(" ", out)
-    out = re.sub(r"\(\s*\)", " ", out)
-    out = re.sub(r"\s{2,}", " ", out).strip()
-    return re.sub(r"^[\s,;:\-–—]+", "", out)
-
-
-def strip_guard_findings(text) -> str:
-    """Детерминированный срез ВСЕХ распознанных формул (закрытые семьи,
-    overclaim, машинные артефакты, инверсные overclaim-формулы) —
-    деградационный путь bounded retry (07D.5) и повторное применение
-    швами; guard идемпотентен."""
-    return _strip_matches(str(text or ""))
-
-
-def guard_public_text(text, *, admin_context: bool = False) -> GuardResult:
-    """Egress-guard одного исходящего текста (07C.1/.2): детерминированно,
-    без LLM, fail-soft (внутренняя ошибка → исходный текст без флагов).
-
-    Порядок решения: пустой/честный класс/админ-контекст → байт-в-байт;
-    FORBIDDEN-маркеры и overclaim-формулы → срез + findings; результат без
-    букв/цифр → ``text=""`` (вырожден, шов подменяет честным классом).
-    Применяется ТОЛЬКО к ответам модели — не к клеймам, поисковым
-    запросам, машинному JSON и логам (07C.5)."""
+    Детерминированно, без LLM, fail-soft. Текст НЕ меняется ни на одном
+    пути: результат всегда ``text == исходный``. Находки словаря попадают в
+    ``findings`` и в событие ``speech_observation`` (место ``seam`` + коды),
+    но не приводят ни к вырезанию слов, ни к пустому сообщению, ни к retry.
+    Честные классы и явный админ-контекст не считаются находками."""
     src = str(text or "")
     try:
         if not src.strip():
             return GuardResult(text=src, admin_context=bool(admin_context))
         if admin_context:
-            # Наблюдение 4 review-07cg: легитимная техсправка админу не
-            # режется (развязка через is_explicit_admin_context на шве).
             return GuardResult(text=src, admin_context=True)
         if honest_failure_is_allowed(src):
             return GuardResult(text=src)
-        findings = list(find_backstage_metatext(src))
-        overclaim = claims_total_verification(src)
-        if overclaim:
-            findings.append("overclaim:total_verification")
-        # 07D.5: машинные артефакты корпуса (ремонт — срез ниже) и
-        # смысловой слой (инверсии overclaim). Retry с причиной живёт
-        # в Вербализаторе; здесь находка честно телеметрируется, а срез
-        # ниже (_INVERSE_STRIP_RE в _strip_matches) — defense-in-depth:
-        # шов без retry-бюджета не доставляет известную инверсную
-        # формулу (review-07d5 F4).
-        findings.extend(find_machine_artifacts(src))
-        findings.extend(find_semantic_metatext(src))
+        findings = find_speech_observations(src)
         if not findings:
             return GuardResult(text=src)
-        cleaned = _strip_matches(src)
-        repaired = bool(re.search(r"[0-9a-zа-яё]", cleaned, re.IGNORECASE))
-        return GuardResult(text=cleaned if repaired else "",
-                           findings=tuple(findings), changed=True,
-                           repaired=repaired)
-    except Exception:      # fail-soft: guard не роняет доставку
+        emit_speech_observation(findings, seam=seam, chat_id=chat_id)
+        return GuardResult(text=src, findings=findings)
+    except Exception:      # fail-soft: наблюдение не роняет доставку
         return GuardResult(text=src, admin_context=bool(admin_context))

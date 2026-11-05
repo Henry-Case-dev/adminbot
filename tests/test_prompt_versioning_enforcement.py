@@ -418,6 +418,79 @@ def test_restore_backup_refuses_without_journal(monkeypatch):
         "текущее"
 
 
+def test_restore_backup_apply_keeps_history_and_adds_revision(env):
+    """Успешный ``restore_backup(apply=True)`` — откат БЕЗ потери истории.
+
+    Контракт §3.4/§3.6 (PVR-REV-01): возврат старого текста не переписывает
+    историю и не «переиспользует» старую ревизию, а добавляет НОВУЮ ревизию
+    (``origin=restored``) с собственным событием ``manual_rollback``; прежние
+    ревизии остаются читаемыми и считаемыми, повторный откат — no-op.
+    """
+    first = "Первый ручной текст прикола (к нему откатываемся)."
+    second = "Второй ручной текст прикола (текущий до отката)."
+    for text in (first, second):
+        resp = env.client.post("/api/config",
+                               json={"items": [{"key": JOKE_KEY, "value": text}]},
+                               headers=_hdr())
+        assert resp.status_code == 200, resp.text
+
+    before_ids = set(env.journal.revisions)
+    before_events = list(env.journal.activations)
+    assert len(before_ids) == 2, "подготовка: две ручные ревизии"
+    assert len(before_events) == 2
+    backup = {"keys": {JOKE_KEY: {"text": first, "category": "prompts"}}}
+
+    result = asyncio.run(pf.restore_backup(backup, apply=True,
+                                           cache=env.cache, actor="owner"))
+
+    # 1) Значение промпта вернулось к байтам бэкапа.
+    assert [row["key"] for row in result["applied"]] == [JOKE_KEY]
+    assert env.global_value(JOKE_KEY) == first
+
+    # 2) История не потеряна: прежние ревизии на месте, добавлена РОВНО одна.
+    assert before_ids <= set(env.journal.revisions), "история ревизий потеряна"
+    new_ids = set(env.journal.revisions) - before_ids
+    assert len(new_ids) == 1, (
+        "откат обязан дать ровно одну новую ревизию, добавлено: %s"
+        % sorted(new_ids))
+    restored = env.journal.revisions[new_ids.pop()]
+    assert (restored.block_id, restored.scope, restored.origin,
+            restored.chat_id, restored.body) == (
+        JOKE_BLOCK, "global", "restored", None, first)
+    assert {env.journal.revisions[rev].body for rev in before_ids} == {
+        first, second}, "байты прежних ревизий изменились"
+
+    # 3) Событие отката — своё (kind=manual_rollback), прошлые не стёрты.
+    events = env.journal.activations
+    assert events[:len(before_events)] == before_events, (
+        "события активации прежних правок потеряны")
+    added = events[len(before_events):]
+    assert [(e.block_id, e.scope, e.chat_id, e.kind, e.outcome,
+             e.revision_id, e.actor) for e in added] == [
+        (JOKE_BLOCK, "global", None, "manual_rollback", "applied",
+         restored.revision_id, "owner")]
+
+    # 4) Публичное чтение истории: три ревизии, активна восстановленная,
+    #    прежние ревизии по-прежнему перечисляются (читаемы по id).
+    listed = asyncio.run(prp.list_versions(JOKE_BLOCK, scope="global",
+                                           store=env.journal, actor="owner"))
+    ids = {row["revision_id"] for row in listed["revisions"]}
+    assert ids == set(env.journal.revisions) == before_ids | {
+        restored.revision_id}
+    assert listed["active"]["revision_id"] == restored.revision_id
+    readable = {asyncio.run(prp.get_revision_source(
+        rev, store=env.journal, actor="owner"))["body"] for rev in ids}
+    assert readable == {first, second}
+
+    # 5) Повтор того же отката — no-op: ни ревизии, ни события.
+    again = asyncio.run(pf.restore_backup(backup, apply=True,
+                                          cache=env.cache, actor="owner"))
+    assert again["applied"] == [] and again["planned_changed"] == 0
+    assert set(env.journal.revisions) == ids, "повтор отката дублировал ревизию"
+    assert len(env.journal.activations) == len(events), (
+        "повтор отката добавил событие")
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Слой 3 — рантайм-страж обхода + две мутации, доказывающие, что он падает
 # ═══════════════════════════════════════════════════════════════════════════

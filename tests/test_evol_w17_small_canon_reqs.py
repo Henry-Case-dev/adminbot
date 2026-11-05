@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """EVOL W17 — две малые требования владельца: ER-S25 и ER-54.
 
 Источник (владелец, `plans/current_task.md`, читается из основного репозитория):
@@ -116,8 +116,21 @@ def test_scenario25_canon_has_two_phase_contract():
     # правило статуса секции [ПРОФИЛЬ РЕШЕНИЙ].
     assert cp.PREV_DIRECT_L1_PLANNER_EVR2 == (
         cp.PREV_DIRECT_L1_PLANNER_EVR1 + cp._DIRECT_L1_TWO_PHASE_EVR2)
-    assert canon == cp.PREV_DIRECT_L1_PLANNER_EVR2 \
-        + cp._DIRECT_L1_DECISION_PROFILE_EVR3
+    # UNIFIED-REPLY UR-06/UR-03: слепок EVR3 — прежние активные байты
+    # (EVR2 + правило профиля решений), новые байты = EVR3 + ось поиска в
+    # схеме/тексте.
+    assert cp.PREV_DIRECT_L1_PLANNER_EVR3 == (
+        cp.PREV_DIRECT_L1_PLANNER_EVR2 + cp._DIRECT_L1_DECISION_PROFILE_EVR3)
+    assert canon == (cp.PREV_DIRECT_L1_PLANNER_EVR3
+                     .replace(' "recheck": false}',
+                              ' "recheck": false,\n'
+                              ' "knowledge_origin": "",\n'
+                              ' "search_intent": ""}', 1)
+                     + cp._DIRECT_L1_SEARCH_AXIS_EVR4).replace(
+        ' "search_intent": ""}',
+        ' "search_intent": "",\n'
+        ' "preserve_source_facts": false}', 1) \
+        + cp._DIRECT_L1_SOURCE_FACTS_EVR5
     # Обе фазы названы, и у каждой свой маркер из СУЩЕСТВУЮЩИХ полей плана.
     assert "САММАРИ И ПРОВЕРКА" in canon
     assert "response_act=summarization" in canon
@@ -140,7 +153,7 @@ def test_scenario25_canon_has_two_phase_contract():
     assert "Материал важнее оценки" in canon
     # Печать и метка — та же ревизия, что в реестре (канон не «висит» мимо).
     label, seal = pr.FACTORY_REVISION_SEALS["direct.base.l1_planner"]
-    assert label == "l1-planner-decision-profile"
+    assert label == "l1-planner-source-facts"
     assert pr.FACTORY_REVISION_LABELS["direct.base.l1_planner"] == label
     assert pr.sha12(pr.factory_text("direct.base.l1_planner")) == seal
     assert pr.seal_integrity() == {}
@@ -223,12 +236,13 @@ def test_scenario25_check_phase_reaches_runtime_policy():
     assert quiet.claims == ()
 
 
-def test_scenario25_factcheck_phase_does_not_rewrite_summary():
-    """Egress фазы проверки снимает ТОЛЬКО её claim, пересказ не переписан.
+def test_scenario25_factcheck_phase_observation_keeps_summary_intact():
+    """Egress фазы проверки только НАБЛЮДАЕТ claim, пересказ не переписан.
 
-    Сценарий 25: сводка остаётся сводкой. Атрибутированный пересказ чужой
-    речи не является нашим claim и не может быть вырезан; неподтверждённое
-    утверждение фазы проверки — может (и только оно).
+    BGS-02: сводка остаётся сводкой, а неподтверждённое утверждение фазы
+    проверки больше не вырезается — оно помечается (код + место). Раньше
+    здесь было удаление ровно этого предложения; теперь ни одного байта текста
+    guard не меняет, включая чужую атрибутированную речь.
     """
     plan = l1.normalize_l1_plan({
         "action": "reply",
@@ -252,23 +266,17 @@ def test_scenario25_factcheck_phase_does_not_rewrite_summary():
     # Сводка — чужая атрибутированная речь: под egress не попадает.
     assert ep.is_attributed_speech(summary_part) is True
 
-    first = ep.guard_egress(answer=answer, decision=decision, evidence_text="")
-    assert first.action == ep.GUARD_ONE_LOOKUP
-    assert first.sentence == check_part
-    second = ep.guard_egress(answer=answer, decision=decision,
-                             evidence_text="", lookup_used=True)
-    assert second.action == ep.GUARD_HINT_RETRY
-    third = ep.guard_egress(answer=answer, decision=decision,
-                            evidence_text="", lookup_used=True,
-                            retry_used=True)
-    assert third.action == ep.GUARD_DROP_CLAIM
-    assert third.sentence == check_part
-    assert third.reason_code == ep.REASON_EVIDENCE_CLAIM_REMOVED
+    observation = ep.guard_egress(answer=answer, decision=decision,
+                                  evidence_text="")
+    assert observation.action == ep.GUARD_OBSERVED_UNVERIFIED
+    assert observation.sentence == check_part
+    assert observation.reason_code == ep.REASON_EVIDENCE_CLAIM_OBSERVED
+    # Место указывает ровно на предложение проверки в исходном тексте.
+    assert answer[observation.char_start:observation.char_end] == check_part
 
-    # Пересказ не переписан ни на байт: удалено ровно предложение проверки.
-    remainder = ep.drop_claim_sentence(answer, third.sentence)
-    assert remainder.strip() == summary_part
-    assert summary_part in remainder
+    # Никакого второго прохода/удаления: контракта «вырезать» больше нет.
+    assert not hasattr(ep, "drop_claim_sentence")
+    assert not hasattr(ep, "GUARD_DROP_CLAIM")
 
 
 def test_scenario25_migration_applies_only_to_deployed_bytes():
@@ -284,10 +292,17 @@ def test_scenario25_migration_applies_only_to_deployed_bytes():
     assert _sha12(deployed) == DEPLOYED_L1_SHA12
     steps = pm.PROMPT_MIGRATIONS[L1_KEY]
     assert (deployed, active) in steps
-    assert steps[0] == (cp.PREV_DIRECT_L1_PLANNER_EVR2, active)
+    # UNIFIED-REPLY UR-06/UR-03: верхняя ступень была EVR3 → EVR4 (ось поиска);
+    # RLR-03.3: теперь EVR4 → EVR5 (поле preserve_source_facts); ступени
+    # W17/FC-VOICE не тронуты — стек цел.
+    assert steps[0] == (cp.PREV_DIRECT_L1_PLANNER_EVR4, active)
     assert steps[0][0] != active
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    assert (active, cp.PREV_DIRECT_L1_PLANNER_EVR2) in rollback
+    assert (active, cp.PREV_DIRECT_L1_PLANNER_EVR4) in rollback
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR4,
+            cp.PREV_DIRECT_L1_PLANNER_EVR3) in rollback
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR3,
+            cp.PREV_DIRECT_L1_PLANNER_EVR2) in rollback
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR2, deployed) in rollback
     # Кастом владельца (те же байты + хвост) ступенью не узнаётся: правка
     # привязана к точному совпадению, а не к подстроке.

@@ -2,17 +2,18 @@
 
 Размеченный корпус проходит через РЕАЛЬНЫЕ швы: политика обязательности
 (`evidence_policy.evaluate_evidence_need` + `allowed`), сборка пакета из уже
-прочитанного источника (`source_reuse` + `direct_execution`), bounded
-egress-guard (`evidence_policy.guard_egress`). Сеть не вызывается ни разу:
+прочитанного источника (`source_reuse` + `direct_execution`), egress-наблюдение
+(`evidence_policy.guard_egress`). Сеть не вызывается ни разу:
 «вызов» — это решение политики + факт запуска tool-фазы на мок-роутере.
 
 Считаются заявленные контрактом метрики (§6.2 п.7):
 ``eligible_factual``, ``verified_fresh``, ``verified_reuse``,
 ``alternate_source``, ``attempted_failed``, ``valid_skip``, ``invalid_skip``,
-``unnecessary_search``, ``unsupported_blocked``.
+``unnecessary_search``, ``unsupported_observed``.
 Утверждения: ``invalid_skip == 0`` и ``unnecessary_search == 0`` для
-исключённых классов; ни один внешний claim не уходит в чат без проверки —
-если проверки не было, guard обязан его удалить/пометить.
+исключённых классов; BGS-02: отсутствие проверки больше НЕ удаляет claim из
+доставленного ответа — оно даёт наблюдение (код + место), а текст едет
+байт-в-байт (см. ``assert guarded == case["answer"]``).
 
 Латентность честная: это CPU-время политики/упаковки/guard'а без сети и без
 LLM, поэтому числа сравнимы «до/после» только между собой, а не с боем.
@@ -139,7 +140,7 @@ def _plan(over: dict) -> l1.L1Plan:
 
 def _ok_ctx(**over) -> ep.EvidenceContext:
     values = dict(
-        rbac_ok=True, privacy_ok=True, user_forbids_external=False,
+        rbac_ok=True, user_forbids_external=False,
         network_allowed={"web_search": True, "fetch_url": True},
         capabilities={"web_search": (True, ""), "fetch_url": (True, ""),
                       "fact_check": (True, "")},
@@ -179,7 +180,7 @@ def _metrics() -> dict:
     return {key: 0 for key in (
         "eligible_factual", "verified_fresh", "verified_reuse",
         "alternate_source", "attempted_failed", "valid_skip", "invalid_skip",
-        "unnecessary_search", "unsupported_blocked")}
+        "unnecessary_search", "unsupported_observed")}
 
 
 def _expected_required(case, *, warm: bool) -> bool:
@@ -248,36 +249,34 @@ def _run_corpus(*, warm: bool = False) -> tuple[dict, float]:
         # 2) В исключённых классах сеть не запускается.
         if not expected_required and dispatch:
             m["unnecessary_search"] += 1
-        # 3) Egress: неподтверждённый внешний claim не уходит в чат.
-        verdict = ep.guard_egress(answer=case["answer"], decision=decision,
-                                  evidence_text="")
+        # 3) BGS-02: egress — наблюдение, текст доставляется байт-в-байт.
+        observation = ep.guard_egress(answer=case["answer"], decision=decision,
+                                     evidence_text="")
+        guarded, stats = _guard_sync(case["answer"], decision)
+        assert guarded == case["answer"], query       # ни одной правки текста
+        assert stats["observed"] == int(observation.observed), (query, stats)
         if case.get("guard"):
-            assert verdict.action != ep.GUARD_NONE, (query, verdict)
-            guarded, _stats = _guard_sync(case["answer"], decision)
-            assert guarded != case["answer"], query
-            assert _stats["dropped_claim"] == 1, (query, _stats)
+            assert observation.action == ep.GUARD_OBSERVED_UNVERIFIED, \
+                (query, observation)
+            assert observation.reason_code == \
+                ep.REASON_EVIDENCE_CLAIM_OBSERVED, query
             if not decision.required:
-                m["unsupported_blocked"] += 1
+                m["unsupported_observed"] += 1
         else:
             # Никакого другого источника правды: либо проверка обязательна
             # (fetch), либо класс не несёт собственного внешнего claim.
-            m["alternate_source"] += int(verdict.action == ep.GUARD_NONE)
+            m["alternate_source"] += int(observation.action == ep.GUARD_NONE)
     elapsed = time.perf_counter() - started
     return m, elapsed
 
 
 def _guard_sync(answer: str, decision):
-    async def _lookup(_claim):
-        return ""
+    """Egress-наблюдение через продовый choke-point (без lookup/rewrite).
 
-    async def _rewrite(_hint, _extra):
-        # Writer проигнорировал подсказку (вернул тот же текст) — типичный
-        # случай, при котором guard обязан удалить только спорное предложение.
-        return answer
-
+    BGS-02: у guard'а больше нет ни адресного lookup'а, ни повторной
+    генерации — второй Writer недоступен физически."""
     return asyncio.run(dcs._run_evidence_egress_guard(
-        answer=answer, decision=decision, evidence_text="",
-        lookup=_lookup, rewrite=_rewrite))
+        answer=answer, decision=decision, evidence_text=""))
 
 
 def test_corpus45_zero_invalid_skip_zero_unnecessary_search():
@@ -288,7 +287,7 @@ def test_corpus45_zero_invalid_skip_zero_unnecessary_search():
     assert m["eligible_factual"] >= 4, m
     assert m["verified_fresh"] >= 4, m
     assert m["valid_skip"] >= 4, m
-    assert m["unsupported_blocked"] >= 2, m
+    assert m["unsupported_observed"] >= 2, m
 
 
 def test_corpus46_metrics_before_and_after_are_honest():
@@ -320,7 +319,7 @@ def test_corpus46_metrics_before_and_after_are_honest():
     assert m_after["verified_fresh"] == m_before["verified_fresh"] - seeded, \
         (m_before, m_after, seeded)
     assert m_before["valid_skip"] == m_after["valid_skip"]
-    assert m_before["unsupported_blocked"] == m_after["unsupported_blocked"]
+    assert m_before["unsupported_observed"] == m_after["unsupported_observed"]
     # Латентность — реальные секунды CPU (без сети/LLM).
     assert 0.0 <= elapsed_before < 30.0
     assert 0.0 <= elapsed_after < 30.0

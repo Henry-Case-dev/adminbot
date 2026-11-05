@@ -1,0 +1,2400 @@
+{
+ "webroot": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\EPIC-PROMPT-VERSIONING-UX-01-pv-ux\\web",
+ "failures": [
+  "core-extras: в «Характере» не одна карточка версий: 0",
+  "core-extras: в «Характере» нет единой кнопки «История версий»",
+  "core-extras: legacy-блок «Дополнительно: версии и откат» остался",
+  "core-extras: отдельный «Откатить» в «Характере» остался"
+ ],
+ "notes": [
+  {
+   "label": "320",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 1,
+    "colsRaw": "280px",
+    "gridW": 280,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false,
+    "rects": [
+     {
+      "id": "core",
+      "cardW": 280,
+      "cardH": 83,
+      "bodyW": 150,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -182,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "expression",
+      "cardW": 280,
+      "cardH": 83,
+      "bodyW": 168,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -184,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "humor",
+      "cardW": 280,
+      "cardH": 83,
+      "bodyW": 167,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "включено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -219,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "style",
+      "cardW": 280,
+      "cardH": 83,
+      "bodyW": 168,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -172,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "examples",
+      "cardW": 280,
+      "cardH": 83,
+      "bodyW": 167,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "заводское",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -197,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "try",
+      "cardW": 280,
+      "cardH": 83,
+      "bodyW": 186,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -174,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "learning",
+      "cardW": 280,
+      "cardH": 83,
+      "bodyW": 186,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -196,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "all",
+      "cardW": 280,
+      "cardH": 66,
+      "bodyW": 178,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -158,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "inspector",
+      "cardW": 280,
+      "cardH": 66,
+      "bodyW": 178,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -96,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "capabilities",
+      "cardW": 280,
+      "cardH": 66,
+      "bodyW": 160,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -121,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "320/grid",
+   "cols": 1,
+   "colsRaw": "280px",
+   "gridW": 280,
+   "minCardW": 280,
+   "minBodyW": 150,
+   "maxVoidPx": 13,
+   "overlapMax": 0,
+   "badges": [
+    "включено",
+    "готово",
+    "заводское",
+    "изменено",
+    "открыть"
+   ]
+  },
+  {
+   "label": "320/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "colsRaw": "",
+    "gridW": null,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true,
+    "rects": []
+   }
+  },
+  {
+   "label": "320/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "360",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 1,
+    "colsRaw": "320px",
+    "gridW": 320,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false,
+    "rects": [
+     {
+      "id": "core",
+      "cardW": 320,
+      "cardH": 83,
+      "bodyW": 190,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -222,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "expression",
+      "cardW": 320,
+      "cardH": 83,
+      "bodyW": 208,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -224,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "humor",
+      "cardW": 320,
+      "cardH": 83,
+      "bodyW": 207,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "включено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -259,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "style",
+      "cardW": 320,
+      "cardH": 83,
+      "bodyW": 208,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -212,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "examples",
+      "cardW": 320,
+      "cardH": 83,
+      "bodyW": 207,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "заводское",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -237,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "try",
+      "cardW": 320,
+      "cardH": 83,
+      "bodyW": 226,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -214,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "learning",
+      "cardW": 320,
+      "cardH": 83,
+      "bodyW": 226,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -236,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "all",
+      "cardW": 320,
+      "cardH": 66,
+      "bodyW": 218,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -198,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "inspector",
+      "cardW": 320,
+      "cardH": 66,
+      "bodyW": 218,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -136,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "capabilities",
+      "cardW": 320,
+      "cardH": 66,
+      "bodyW": 200,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -161,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "360/grid",
+   "cols": 1,
+   "colsRaw": "320px",
+   "gridW": 320,
+   "minCardW": 320,
+   "minBodyW": 190,
+   "maxVoidPx": 13,
+   "overlapMax": 0,
+   "badges": [
+    "включено",
+    "готово",
+    "заводское",
+    "изменено",
+    "открыть"
+   ]
+  },
+  {
+   "label": "360/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "colsRaw": "",
+    "gridW": null,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true,
+    "rects": []
+   }
+  },
+  {
+   "label": "360/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "390",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 1,
+    "colsRaw": "350px",
+    "gridW": 350,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false,
+    "rects": [
+     {
+      "id": "core",
+      "cardW": 350,
+      "cardH": 83,
+      "bodyW": 220,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -252,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "expression",
+      "cardW": 350,
+      "cardH": 83,
+      "bodyW": 238,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -254,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "humor",
+      "cardW": 350,
+      "cardH": 83,
+      "bodyW": 237,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "включено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -289,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "style",
+      "cardW": 350,
+      "cardH": 83,
+      "bodyW": 238,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -242,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "examples",
+      "cardW": 350,
+      "cardH": 83,
+      "bodyW": 237,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "заводское",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -267,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "try",
+      "cardW": 350,
+      "cardH": 83,
+      "bodyW": 256,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -244,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "learning",
+      "cardW": 350,
+      "cardH": 83,
+      "bodyW": 256,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -266,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "all",
+      "cardW": 350,
+      "cardH": 66,
+      "bodyW": 248,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -228,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "inspector",
+      "cardW": 350,
+      "cardH": 66,
+      "bodyW": 248,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -166,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "capabilities",
+      "cardW": 350,
+      "cardH": 66,
+      "bodyW": 230,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -191,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "390/grid",
+   "cols": 1,
+   "colsRaw": "350px",
+   "gridW": 350,
+   "minCardW": 350,
+   "minBodyW": 220,
+   "maxVoidPx": 13,
+   "overlapMax": 0,
+   "badges": [
+    "включено",
+    "готово",
+    "заводское",
+    "изменено",
+    "открыть"
+   ]
+  },
+  {
+   "label": "390/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "colsRaw": "",
+    "gridW": null,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true,
+    "rects": []
+   }
+  },
+  {
+   "label": "390/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "412",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 1,
+    "colsRaw": "372px",
+    "gridW": 372,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false,
+    "rects": [
+     {
+      "id": "core",
+      "cardW": 372,
+      "cardH": 83,
+      "bodyW": 242,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -274,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "expression",
+      "cardW": 372,
+      "cardH": 83,
+      "bodyW": 260,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -276,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "humor",
+      "cardW": 372,
+      "cardH": 83,
+      "bodyW": 259,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "включено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -311,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "style",
+      "cardW": 372,
+      "cardH": 83,
+      "bodyW": 260,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -264,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "examples",
+      "cardW": 372,
+      "cardH": 83,
+      "bodyW": 259,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "заводское",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -289,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "try",
+      "cardW": 372,
+      "cardH": 83,
+      "bodyW": 278,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -266,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "learning",
+      "cardW": 372,
+      "cardH": 83,
+      "bodyW": 278,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -288,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "all",
+      "cardW": 372,
+      "cardH": 66,
+      "bodyW": 270,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -250,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "inspector",
+      "cardW": 372,
+      "cardH": 66,
+      "bodyW": 270,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -188,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "capabilities",
+      "cardW": 372,
+      "cardH": 66,
+      "bodyW": 252,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -213,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "412/grid",
+   "cols": 1,
+   "colsRaw": "372px",
+   "gridW": 372,
+   "minCardW": 372,
+   "minBodyW": 242,
+   "maxVoidPx": 13,
+   "overlapMax": 0,
+   "badges": [
+    "включено",
+    "готово",
+    "заводское",
+    "изменено",
+    "открыть"
+   ]
+  },
+  {
+   "label": "412/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "colsRaw": "",
+    "gridW": null,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true,
+    "rects": []
+   }
+  },
+  {
+   "label": "412/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "430",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 1,
+    "colsRaw": "390px",
+    "gridW": 390,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false,
+    "rects": [
+     {
+      "id": "core",
+      "cardW": 390,
+      "cardH": 83,
+      "bodyW": 260,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -292,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "expression",
+      "cardW": 390,
+      "cardH": 83,
+      "bodyW": 278,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -294,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "humor",
+      "cardW": 390,
+      "cardH": 83,
+      "bodyW": 277,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "включено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -329,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "style",
+      "cardW": 390,
+      "cardH": 83,
+      "bodyW": 278,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -282,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "examples",
+      "cardW": 390,
+      "cardH": 83,
+      "bodyW": 277,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "заводское",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -307,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "try",
+      "cardW": 390,
+      "cardH": 83,
+      "bodyW": 296,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -284,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "learning",
+      "cardW": 390,
+      "cardH": 83,
+      "bodyW": 296,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -306,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "all",
+      "cardW": 390,
+      "cardH": 66,
+      "bodyW": 288,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -268,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "inspector",
+      "cardW": 390,
+      "cardH": 66,
+      "bodyW": 288,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -206,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "capabilities",
+      "cardW": 390,
+      "cardH": 66,
+      "bodyW": 270,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -231,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "430/grid",
+   "cols": 1,
+   "colsRaw": "390px",
+   "gridW": 390,
+   "minCardW": 390,
+   "minBodyW": 260,
+   "maxVoidPx": 13,
+   "overlapMax": 0,
+   "badges": [
+    "включено",
+    "готово",
+    "заводское",
+    "изменено",
+    "открыть"
+   ]
+  },
+  {
+   "label": "430/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "colsRaw": "",
+    "gridW": null,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true,
+    "rects": []
+   }
+  },
+  {
+   "label": "430/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "520",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 2,
+    "colsRaw": "236px 236px",
+    "gridW": 480,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false,
+    "rects": [
+     {
+      "id": "core",
+      "cardW": 236,
+      "cardH": 99,
+      "bodyW": 106,
+      "bodyH": 73,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -138,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "expression",
+      "cardW": 236,
+      "cardH": 83,
+      "bodyW": 124,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -140,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "humor",
+      "cardW": 236,
+      "cardH": 83,
+      "bodyW": 123,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "включено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -175,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "style",
+      "cardW": 236,
+      "cardH": 83,
+      "bodyW": 124,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -128,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "examples",
+      "cardW": 236,
+      "cardH": 83,
+      "bodyW": 123,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "заводское",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -153,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "try",
+      "cardW": 236,
+      "cardH": 83,
+      "bodyW": 142,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -130,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "learning",
+      "cardW": 236,
+      "cardH": 83,
+      "bodyW": 142,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -152,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "all",
+      "cardW": 236,
+      "cardH": 83,
+      "bodyW": 134,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -114,
+      "titleOverflowPx": 0,
+      "voidPx": 30,
+      "hitCenter": null
+     },
+     {
+      "id": "inspector",
+      "cardW": 236,
+      "cardH": 86,
+      "bodyW": 134,
+      "bodyH": 60,
+      "titleH": 39,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -112,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "capabilities",
+      "cardW": 236,
+      "cardH": 86,
+      "bodyW": 116,
+      "bodyH": 60,
+      "titleH": 39,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -109,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "520/grid",
+   "cols": 2,
+   "colsRaw": "236px 236px",
+   "gridW": 480,
+   "minCardW": 236,
+   "minBodyW": 106,
+   "maxVoidPx": 30,
+   "overlapMax": 0,
+   "badges": [
+    "включено",
+    "готово",
+    "заводское",
+    "изменено",
+    "открыть"
+   ]
+  },
+  {
+   "label": "520/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "colsRaw": "",
+    "gridW": null,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true,
+    "rects": []
+   }
+  },
+  {
+   "label": "520/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "landscape",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 3,
+    "colsRaw": "257.328px 257.328px 257.344px",
+    "gridW": 788,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false,
+    "rects": [
+     {
+      "id": "core",
+      "cardW": 257,
+      "cardH": 83,
+      "bodyW": 128,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -160,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "expression",
+      "cardW": 257,
+      "cardH": 83,
+      "bodyW": 146,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -161,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "humor",
+      "cardW": 257,
+      "cardH": 83,
+      "bodyW": 144,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "включено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -196,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "style",
+      "cardW": 257,
+      "cardH": 83,
+      "bodyW": 146,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -149,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "examples",
+      "cardW": 257,
+      "cardH": 83,
+      "bodyW": 144,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "заводское",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -174,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "try",
+      "cardW": 257,
+      "cardH": 83,
+      "bodyW": 163,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -151,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "learning",
+      "cardW": 257,
+      "cardH": 83,
+      "bodyW": 163,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -174,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "all",
+      "cardW": 257,
+      "cardH": 86,
+      "bodyW": 155,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -136,
+      "titleOverflowPx": 0,
+      "voidPx": 33,
+      "hitCenter": null
+     },
+     {
+      "id": "inspector",
+      "cardW": 257,
+      "cardH": 86,
+      "bodyW": 155,
+      "bodyH": 60,
+      "titleH": 39,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -134,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "capabilities",
+      "cardW": 257,
+      "cardH": 86,
+      "bodyW": 137,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -99,
+      "titleOverflowPx": 0,
+      "voidPx": 33,
+      "hitCenter": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "landscape/grid",
+   "cols": 3,
+   "colsRaw": "257.328px 257.328px 257.344px",
+   "gridW": 788,
+   "minCardW": 257,
+   "minBodyW": 128,
+   "maxVoidPx": 33,
+   "overlapMax": 0,
+   "badges": [
+    "включено",
+    "готово",
+    "заводское",
+    "изменено",
+    "открыть"
+   ]
+  },
+  {
+   "label": "landscape/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "colsRaw": "",
+    "gridW": null,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true,
+    "rects": []
+   }
+  },
+  {
+   "label": "landscape/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "narrow-desktop",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 3,
+    "colsRaw": "232px 232px 232px",
+    "gridW": 712,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false,
+    "rects": [
+     {
+      "id": "core",
+      "cardW": 232,
+      "cardH": 116,
+      "bodyW": 102,
+      "bodyH": 90,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -134,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "expression",
+      "cardW": 232,
+      "cardH": 83,
+      "bodyW": 120,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -136,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "humor",
+      "cardW": 232,
+      "cardH": 83,
+      "bodyW": 119,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "включено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -171,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "style",
+      "cardW": 232,
+      "cardH": 83,
+      "bodyW": 120,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -124,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "examples",
+      "cardW": 232,
+      "cardH": 83,
+      "bodyW": 119,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "заводское",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -149,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "try",
+      "cardW": 232,
+      "cardH": 83,
+      "bodyW": 138,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -126,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "learning",
+      "cardW": 232,
+      "cardH": 83,
+      "bodyW": 138,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -148,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "all",
+      "cardW": 232,
+      "cardH": 86,
+      "bodyW": 130,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -110,
+      "titleOverflowPx": 0,
+      "voidPx": 33,
+      "hitCenter": null
+     },
+     {
+      "id": "inspector",
+      "cardW": 232,
+      "cardH": 86,
+      "bodyW": 130,
+      "bodyH": 60,
+      "titleH": 39,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -108,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "capabilities",
+      "cardW": 232,
+      "cardH": 86,
+      "bodyW": 112,
+      "bodyH": 60,
+      "titleH": 39,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -105,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "narrow-desktop/grid",
+   "cols": 3,
+   "colsRaw": "232px 232px 232px",
+   "gridW": 712,
+   "minCardW": 232,
+   "minBodyW": 102,
+   "maxVoidPx": 33,
+   "overlapMax": 0,
+   "badges": [
+    "включено",
+    "готово",
+    "заводское",
+    "изменено",
+    "открыть"
+   ]
+  },
+  {
+   "label": "narrow-desktop/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "colsRaw": "",
+    "gridW": null,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true,
+    "rects": []
+   }
+  },
+  {
+   "label": "narrow-desktop/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "desktop",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 4,
+    "colsRaw": "246px 246px 246px 246px",
+    "gridW": 1008,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false,
+    "rects": [
+     {
+      "id": "core",
+      "cardW": 246,
+      "cardH": 83,
+      "bodyW": 116,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -148,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "expression",
+      "cardW": 246,
+      "cardH": 83,
+      "bodyW": 134,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -150,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "humor",
+      "cardW": 246,
+      "cardH": 83,
+      "bodyW": 133,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "включено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -185,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "style",
+      "cardW": 246,
+      "cardH": 83,
+      "bodyW": 134,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 70,
+      "badgeText": "изменено",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -138,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "examples",
+      "cardW": 246,
+      "cardH": 83,
+      "bodyW": 133,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 71,
+      "badgeText": "заводское",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -163,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "try",
+      "cardW": 246,
+      "cardH": 83,
+      "bodyW": 152,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -140,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "learning",
+      "cardW": 246,
+      "cardH": 83,
+      "bodyW": 152,
+      "bodyH": 57,
+      "titleH": 20,
+      "badgeW": 52,
+      "badgeText": "готово",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -162,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "all",
+      "cardW": 246,
+      "cardH": 83,
+      "bodyW": 144,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -124,
+      "titleOverflowPx": 0,
+      "voidPx": 30,
+      "hitCenter": null
+     },
+     {
+      "id": "inspector",
+      "cardW": 246,
+      "cardH": 86,
+      "bodyW": 144,
+      "bodyH": 60,
+      "titleH": 39,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -122,
+      "titleOverflowPx": 0,
+      "voidPx": 13,
+      "hitCenter": null
+     },
+     {
+      "id": "capabilities",
+      "cardW": 246,
+      "cardH": 86,
+      "bodyW": 126,
+      "bodyH": 40,
+      "titleH": 20,
+      "badgeW": 60,
+      "badgeText": "открыть",
+      "boxOverlap": 0,
+      "inkOverlap": 0,
+      "inkOutsideCard": -87,
+      "titleOverflowPx": 0,
+      "voidPx": 33,
+      "hitCenter": null
+     }
+    ]
+   }
+  },
+  {
+   "label": "desktop/grid",
+   "cols": 4,
+   "colsRaw": "246px 246px 246px 246px",
+   "gridW": 1008,
+   "minCardW": 246,
+   "minBodyW": 116,
+   "maxVoidPx": 33,
+   "overlapMax": 0,
+   "badges": [
+    "включено",
+    "готово",
+    "заводское",
+    "изменено",
+    "открыть"
+   ]
+  },
+  {
+   "label": "desktop/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "colsRaw": "",
+    "gridW": null,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true,
+    "rects": []
+   }
+  },
+  {
+   "label": "desktop/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "320/font2x/stress",
+   "overflow": 0,
+   "titleH": 117,
+   "overlapMax": 0,
+   "escapedMax": -82
+  },
+  {
+   "label": "320/longwords/stress",
+   "overflow": 0,
+   "titleH": 117,
+   "overlapMax": 0,
+   "escapedMax": -86
+  },
+  {
+   "label": "360/font2x/stress",
+   "overflow": 0,
+   "titleH": 78,
+   "overlapMax": 0,
+   "escapedMax": -94
+  },
+  {
+   "label": "360/longwords/stress",
+   "overflow": 0,
+   "titleH": 117,
+   "overlapMax": 0,
+   "escapedMax": -84
+  }
+ ],
+ "post_calls": [
+  {
+   "path": "block/core.personality.compact",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "text": "КОНТЕНТ ЧАТА A — де\nПроверка P0A-UX.ржим тон.",
+    "scope": "chat",
+    "reason": "owner_edit:core.compact"
+   }
+  },
+  {
+   "path": "block/core.personality.compact",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "text": "КОНТЕНТ ЧАТА A — де ещё разржим тон.",
+    "scope": "chat",
+    "reason": "owner_edit:core.compact"
+   }
+  },
+  {
+   "path": "block/core.personality.compact",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "text": "КОНТЕНТ ЧАТА A — де ещё разржим тон.",
+    "scope": "chat",
+    "reason": "owner_edit:core.compact"
+   }
+  },
+  {
+   "path": "block/core.personality.compact",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "text": "КОНТЕНТ ЧАТА A — де xржим тон.",
+    "scope": "chat",
+    "reason": "owner_edit:core.compact"
+   }
+  },
+  {
+   "path": "style",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "document": {
+     "rules": [
+      {
+       "id": "trailing_period.hard.strip",
+       "kind": "trailing_period",
+       "strictness": "hard",
+       "scope": "global",
+       "enabled": false,
+       "params": {
+        "ellipsis": "keep"
+       },
+       "reason": "владелец просил"
+      }
+     ],
+     "soft_instructions": []
+    },
+    "scope": "chat",
+    "reason": "owner_edit:style_policy"
+   }
+  },
+  {
+   "path": "style",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "document": {
+     "rules": [
+      {
+       "id": "trailing_period.hard.strip",
+       "kind": "trailing_period",
+       "strictness": "hard",
+       "scope": "global",
+       "enabled": false,
+       "params": {
+        "ellipsis": "keep"
+       },
+       "reason": "владелец просил"
+      }
+     ],
+     "soft_instructions": []
+    },
+    "scope": "chat",
+    "reason": "owner_edit:style_policy"
+   }
+  },
+  {
+   "path": "core/meta",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "detail_level": "full",
+    "scope": "chat"
+   }
+  },
+  {
+   "path": "core/meta",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "enabled": false,
+    "scope": "chat"
+   }
+  },
+  {
+   "path": "humor/craft",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "enabled": false,
+    "scope": "chat"
+   }
+  },
+  {
+   "path": "humor/craft",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "disabled_techniques": [
+     "deadpan"
+    ],
+    "scope": "chat"
+   }
+  },
+  {
+   "path": "humor/technique/test",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "technique": "deadpan",
+    "profile": "speech_plain"
+   }
+  },
+  {
+   "path": "learning/humor",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "action": "pause"
+   }
+  },
+  {
+   "path": "memory/lessons/action",
+   "chat": "-100500",
+   "body": {
+    "lesson_id": "L1",
+    "version": 2,
+    "action": "suspend"
+   }
+  },
+  {
+   "path": "examples",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "input_text": "вход из e2e",
+    "reply_text": "ответ из e2e",
+    "technique": "other",
+    "context_note": "",
+    "tags": [],
+    "rudeness_level": 0,
+    "source_kind": "owner_manual",
+    "scope": "global",
+    "library_version": "",
+    "status": "active",
+    "expected_revision": null,
+    "category": "mat",
+    "expression_mode": "occasional",
+    "owner_approved": false
+   }
+  },
+  {
+   "path": "examples/11/why",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {}
+  },
+  {
+   "path": "examples/11/approve",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {}
+  },
+  {
+   "path": "examples/11/archive",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {}
+  },
+  {
+   "path": "examples/11",
+   "chat": "-100500",
+   "method": "DELETE",
+   "body": {}
+  },
+  {
+   "path": "examples/seed",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {}
+  },
+  {
+   "path": "examples/policy",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "enabled": true,
+    "ab_enabled": true,
+    "max_items": 2,
+    "max_tokens": 300,
+    "diversity_min_distance": 0.3,
+    "recency_penalty": 0.2,
+    "ab_versions": [
+     "A",
+     "B"
+    ],
+    "scope": "chat"
+   }
+  },
+  {
+   "path": "expression/live-check",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "message": "бот, как настроение?"
+   }
+  }
+ ],
+ "dialogs": [
+  "Есть несохранённые изменения для «Чат A». Переключить область и потерять их?",
+  "Удалить пример №11 без возможности вернуть?"
+ ]
+}

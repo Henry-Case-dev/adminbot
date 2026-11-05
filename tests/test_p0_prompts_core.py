@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """P0-PROMPTS-CORE — реестр, provenance и свобода речи в Personality Core.
 
 Источник: `plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md`
@@ -139,8 +139,12 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # пересмотра собственного ответа — l2-writer-self-correction-rca1
     # (sha12 44736968bc76); набор фабричных текстов пересчитан по этой ревизии.
     # Было 630ca46dff76, затем 54ac2b8ac34b, стало e9dc109330a8.
+    # UNIFIED-REPLY UR-06/UR-03 (05.11.2026): changed = 1 — канон
+    # direct.base.l1_planner получил поля оси поиска knowledge_origin/
+    # search_intent (метка l1-planner-source-facts, sha12 2354a5cc57c4);
+    # остальные каноны байт-в-байт. Было e9dc109330a8, стало a701aea74399 (EVR4), затем a29e68dc1de6 (EVR5, RLR-03.3).
     # Переутверждено осознанно (SOUL-AMD.3.2).
-    assert pr.FACTORY_SET_SHA256_12 == "e9dc109330a8"
+    assert pr.FACTORY_SET_SHA256_12 == "a29e68dc1de6"
 
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"

@@ -136,8 +136,7 @@ function FakeNetwork(el, data, options) {
     };
   };
   this.getScale = function () { return 1.25; };
-  this.viewPos = { x: 3, y: -4 };
-  this.getViewPosition = function () { return self.viewPos; };
+  this.getViewPosition = function () { return { x: 3, y: -4 }; };
   this.destroy = function () {
     self.destroyed = true;
     self.handlers = {};
@@ -300,12 +299,9 @@ function newCtx(extra) {
     _cogPaintFromVis: methods._cogPaintFromVis,
     _cogPaintStatic: methods._cogPaintStatic,
     _cogPaintFx: methods._cogPaintFx,
-    _cogCullEdges: methods._cogCullEdges,
     _cogFrameState: methods._cogFrameState,
     _cogResolveLod: methods._cogResolveLod,
     _cogPaintLabels: methods._cogPaintLabels,
-    _cogBlitLabel: methods._cogBlitLabel,
-    _cogLabelSprite: methods._cogLabelSprite,
     destroyCognitionGraph: methods.destroyCognitionGraph,
   };
   Object.assign(ctx, extra || {});
@@ -376,13 +372,6 @@ function newCtx(extra) {
   eq(ctx._cogScene, null, 'циклы: сцена снята');
   eq(roAlive, 0, 'циклы: ResizeObserver отключён');
   eq(ioAlive, 0, 'циклы: IntersectionObserver отключён');
-  // CMV-PERF: баланс регистрации. Каждая сцена ставит на контейнер свой
-  // слушатель («Раскрыть» район), `destroyCognitionGraph` обязан его снять —
-  // иначе 20 переключений embedded↔fullscreen копили бы обработчики.
-  eq(elA.listenerCount(), 0,
-    'циклы: контейнер A освобождён (add/remove сбалансированы)');
-  eq(elB.listenerCount(), 0,
-    'циклы: контейнер B освобождён (add/remove сбалансированы)');
   eq(ctx._cogFitScale, 0, 'циклы: геометрия кадра сброшена вместе со сценой');
   // Повторный destroy безопасен (unmount + смена вкладки могут идти подряд).
   methods.destroyCognitionGraph.call(ctx);
@@ -695,36 +684,11 @@ function newCtx(extra) {
     'подписи: выбранный узел подписан всегда (приоритет 0)');
   const fxCanvas = fxEl.children[0];
   const fxOps = fxCanvas.__ops || [];
-  /* CMV-PERF: подпись растеризуется ОДИН раз в свой offscreen-спрайт
-   * (текст+контур), а кадр делает `drawImage`. Поэтому «текст реально
-   * нарисован» проверяется по журналу КАНВАСА СПРАЙТА, а по журналу слоя —
-   * что спрайт действительно скомпонован в кадр. */
-  const spriteRecs = Object.keys(ctxFx._cogScene.labelSprites || {})
-    .map((k) => ctxFx._cogScene.labelSprites[k]);
-  ok(spriteRecs.length > 0, 'подписи: спрайты текста построены');
-  const spriteOps = spriteRecs.reduce(
-    (acc, r) => acc.concat(r.canvas.__ops || []), []);
-  const texts = spriteOps.filter((o) => o.op === 'strokeText');
-  const fills = spriteOps.filter((o) => o.op === 'fillText');
+  const texts = fxOps.filter((o) => o.op === 'strokeText');
+  const fills = fxOps.filter((o) => o.op === 'fillText');
   ok(texts.length > 0, 'подписи: текст РЕАЛЬНО нарисован контуром (strokeText)');
   eq(texts.length, fills.length,
     'подписи: у каждого текста есть и контур, и заливка (без плашки)');
-  // Текст растеризуется РОВНО ОДИН раз на подпись: повторный кадр не добавляет
-  // ни `strokeText`, ни `fillText`, ни новых спрайтов (CMV-PERF: measure/draw
-  // текста на каждом кадре — это то, что стоило ~4.8 мс кадра на телефоне).
-  const spritesAfterFirst = spriteRecs.length;
-  ctxFx._cogPaintStatic();
-  ctxFx._cogPaintStatic();
-  const spriteRecs2 = Object.keys(ctxFx._cogScene.labelSprites || {});
-  eq(spriteRecs2.length, spritesAfterFirst,
-    'подписи: кэш спрайтов текста не растёт с кадрами');
-  const spriteOps2 = spriteRecs.reduce(
-    (acc, r) => acc.concat(r.canvas.__ops || []), []);
-  eq(spriteOps2.filter((o) => o.op === 'strokeText').length, texts.length,
-    'подписи: текст не перерисовывается на неизменном кадре');
-  const blits = fxOps.filter((o) => o.op === 'drawImage');
-  ok(blits.length >= ctxFx._cogLabels.shown,
-    'подписи: слой компонует спрайты текста в кадр (drawImage)');
   // §4.4 спеки: «никаких чёрных прямоугольников под каждой подписью».
   // Проверяем не отсутствие метода, а ОПЕРАЦИИ: под подписью не должно быть
   // закрашенного прямоугольника (мутация «вернуть плашку» это ломает).
@@ -735,7 +699,7 @@ function newCtx(extra) {
     width: Math.max(12, String(t.text).length * 12 * 0.55) + 6,
     height: 17,
   }));
-  const plates = spriteOps.concat(fxOps).filter((o) => o.op === 'fillRect'
+  const plates = fxOps.filter((o) => o.op === 'fillRect'
     && o.w > 8 && o.h > 6 && o.h < 60
     && labelBoxes.some((b) => Math.abs((o.x + o.w / 2) - b.x) < b.width / 2
       && Math.abs((o.y + o.h / 2) - b.y) < b.height / 2 + 4));
@@ -746,57 +710,6 @@ function newCtx(extra) {
   ok(texts.every((t) => t.width <= 3.0) && texts.some((t) => t.width <= 2.6),
     'подписи: контур не толще 2.6 px при кегле 11–12 (замечание ревью)');
 
-  /* ── 7b. CMV-PERF: план подписей не пересобирается на неизменном кадре ───
-   * Прежний ключ включал камеру с точностью 0.5 px ⇒ при панорамировании план
-   * 702 узлов (сортировка + коллизии + 702 объекта) пересобирался КАЖДЫЙ кадр,
-   * и `measureText` вызывался на кадре. Проверяем инвариант счётчиками. */
-  const labelCount = { alloc: 0, measure: 0 };
-  const realAllocateLabels = global.window.CognitiveMap.allocateLabels;
-  global.window.CognitiveMap.allocateLabels = function (items, opts) {
-    labelCount.alloc += 1;
-    return realAllocateLabels(items, opts);
-  };
-  const fxScene = ctxFx._cogScene;
-  const origMeasureText = fxScene.fxCtx.measureText.bind(fxScene.fxCtx);
-  fxScene.fxCtx.measureText = function (t) {
-    labelCount.measure += 1;
-    return origMeasureText(t);
-  };
-  try {
-    fxScene.labelKey = null;
-    fxScene.labelPlan = null;
-    fxScene.labelAnchor = null;
-    fxScene.labelCharFont = 0;
-    ctxFx._cogPaintStatic();
-    eq(labelCount.alloc, 1, 'подписи: первый кадр строит план один раз');
-    eq(labelCount.measure, 1,
-      'подписи: ширина символа меряется один раз на сцену/кегль');
-    ctxFx._cogPaintStatic();
-    ctxFx._cogPaintStatic();
-    eq(labelCount.alloc, 1,
-      'подписи: неизменный кадр НЕ пересобирает план (0 вызовов аллокатора)');
-    eq(labelCount.measure, 1,
-      'подписи: на неизменном кадре текст НЕ перемеряется');
-    // Малый сдвиг камеры (в пределах panLimit) — план переиспользуется сдвигом.
-    const net7 = ctxFx.cognitionNetwork;
-    const camStart = fxScene.cam || { x: 0, y: 0, scale: 1.25 };
-    net7.viewPos = { x: camStart.x + 4, y: camStart.y, scale: 1.25 };
-    ctxFx._cogPaintStatic();
-    eq(labelCount.alloc, 1,
-      'подписи: малый сдвиг камеры решает сдвиг плана, а не пересборка');
-    // Большой сдвиг — план пересобирается, чтобы новые узлы получили имена.
-    net7.viewPos = { x: camStart.x + 400, y: camStart.y };
-    ctxFx._cogPaintStatic();
-    eq(labelCount.alloc, 2,
-      'подписи: уход камеры за panLimit пересобирает план');
-    // Выбор/снятие выбора НЕ портит кэш плана (снимаются только к рисованию).
-    // Проверка «план, как его вернул аллокатор, кадром не меняется» стоит в
-    // блоке forced-подписей ниже — там аллокатор ЯВНО отсекает выбранный узел,
-    // и старая реализация (вычёркивание из `alloc.labels`) была бы видна.
-  } finally {
-    global.window.CognitiveMap.allocateLabels = realAllocateLabels;
-  }
-
   /* ── forced-подпись: выбранный подписан ДАЖЕ если аллокатор его отсёк ───── */
   // Мутация B11 («выбранный теряет подпись») выживала, потому что аллокатор в
   // песочнице и так отдавал выбранный узел. Здесь аллокатор его ЯВНО отсекает
@@ -805,8 +718,6 @@ function newCtx(extra) {
   const realAllocate = global.window.CognitiveMap.allocateLabels;
   let allocCalls = 0;
   let lastAllocOpts = null;
-  let planLenAtBuild = 0;
-  let planLabelsRef = null;
   global.window.CognitiveMap.allocateLabels = function (items, opts) {
     allocCalls += 1;
     lastAllocOpts = opts;
@@ -814,8 +725,6 @@ function newCtx(extra) {
     // Отсекаем ВЫБРАННЫЙ из плана аллокатора: подпись должна прийти из
     // принудительного слоя, а не из плана.
     plan.labels = plan.labels.filter((l) => String(l.id) !== 'par:1:3');
-    planLenAtBuild = plan.labels.length;
-    planLabelsRef = plan.labels;
     return plan;
   };
   try {
@@ -831,24 +740,9 @@ function newCtx(extra) {
     const forcedOne = (ctxFx._cogLabels.forced || []).find(
       (l) => String(l.id) === 'par:1:3');
     ok(forcedOne, 'forced: подпись выбранного в списке принудительных');
-    // CMV-PERF: текст растеризуется в спрайт, а слой его компонует. Проверяем
-    // оба шага: `fillText` в спрайте И `drawImage` спрайта в кадре (иначе
-    // «подпись есть в плане, но на экране её нет» осталась бы незамеченной).
-    const forcedSprites = Object.keys(ctxFx._cogScene.labelSprites || {})
-      .map((k) => ctxFx._cogScene.labelSprites[k])
-      .filter((r) => (r.canvas.__ops || []).some(
-        (o) => o.op === 'fillText' && o.text === forcedOne.text));
-    ok(forcedSprites.length > 0,
-      'forced: текст принудительной подписи реально растеризован (fillText)');
-    ok((fxCanvas.__ops || []).some((o) => o.op === 'drawImage'),
-      'forced: спрайт подписи скомпонован в кадр (drawImage)');
-    // CMV-PERF: кадр НЕ вычёркивает подписи из кэша плана. Старая реализация
-    // удаляла конфликтующие с принудительной подписью боксы прямо из
-    // `alloc.labels` — план деградировал от одного кадра выбора.
-    eq((ctxFx._cogScene.labelPlan.labels || []).length, planLenAtBuild,
-      'подписи: кадр не вычёркивает подписи из кэша плана');
-    ok(ctxFx._cogScene.labelPlan.labels === planLabelsRef,
-      'подписи: кадр не подменяет массив плана (список к рисованию отдельный)');
+    ok((fxCanvas.__ops || []).some(
+      (o) => o.op === 'fillText' && o.text === forcedOne.text),
+      'forced: текст принудительной подписи реально нарисован (fillText)');
     // §5.1 спеки: LOD подписей считается от ОТНОСИТЕЛЬНОГО r = scale/fitScale,
     // а не от абсолютного vis-масштаба (мутация B15 «scale: cam.scale»).
     ok(lastAllocOpts && typeof lastAllocOpts.scale === 'number',

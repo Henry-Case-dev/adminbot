@@ -100,10 +100,24 @@ def test_l1_rules_positive_criteria_present():
     from services.chat_prompts import _DIRECT_L1_EXTERNAL_CLAIMS_EVR1
     from services.chat_prompts import _DIRECT_L1_TWO_PHASE_EVR2
     from services.chat_prompts import _DIRECT_L1_DECISION_PROFILE_EVR3
+    from services.chat_prompts import _DIRECT_L1_SEARCH_AXIS_EVR4
+    from services.chat_prompts import _DIRECT_L1_SOURCE_FACTS_EVR5
     # ASAP-FC-VOICE-01 / B: + одно правило статуса секции [ПРОФИЛЬ РЕШЕНИЙ].
-    assert DIRECT_L1_PLANNER_SYSTEM_PROMPT == \
+    # UNIFIED-REPLY UR-06/UR-03: + ось поиска (суффикс) и две строки схемы.
+    # RLR-03.3: + поле preserve_source_facts (суффикс) и строка схемы.
+    assert DIRECT_L1_PLANNER_SYSTEM_PROMPT == (
         (w2_canon + _DIRECT_L1_EXTERNAL_CLAIMS_EVR1
-         + _DIRECT_L1_TWO_PHASE_EVR2 + _DIRECT_L1_DECISION_PROFILE_EVR3)
+         + _DIRECT_L1_TWO_PHASE_EVR2
+         + _DIRECT_L1_DECISION_PROFILE_EVR3).replace(
+            ' "recheck": false}',
+            ' "recheck": false,\n'
+            ' "knowledge_origin": "",\n'
+            ' "search_intent": ""}', 1)
+        + _DIRECT_L1_SEARCH_AXIS_EVR4).replace(
+            ' "search_intent": ""}',
+            ' "search_intent": "",\n'
+            ' "preserve_source_facts": false}', 1) \
+        + _DIRECT_L1_SOURCE_FACTS_EVR5
     assert '"action": "reply|react|silent"' in new_canon
 
 

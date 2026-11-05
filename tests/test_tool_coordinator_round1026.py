@@ -1,4 +1,4 @@
-﻿"""A1 `tool-coordinator-round1026` (Эпик 3 Wave 1, §13/§14, ADR-1026-14 D1–D10).
+"""A1 `tool-coordinator-round1026` (Эпик 3 Wave 1, §13/§14, ADR-1026-14 D1–D10).
 
 Покрытие:
   * Координатор (программный слой в существующем Синтезаторе): намерение /
@@ -388,40 +388,6 @@ class TestChainMechanism:
 
 # ── 4. Изоляция Вербализатора + отсутствие wire-`action` ───────────────────
 
-def _synth_service(side_effect):
-    svc = DirectChatService.__new__(DirectChatService)
-    svc.llm = MagicMock()
-    svc.llm.generate = AsyncMock(side_effect=side_effect)
-    return svc
-
-
-class TestVerbalizerIsolation:
-    @pytest.mark.asyncio
-    async def test_stage2_excludes_raw_tool_logs(self):
-        raw = ToolLoopResult(
-            "финал", rounds_used=2, tool_trace=_trace("execute_web_search"),
-            tool_context="СЕКРЕТНЫЙ_ЛОГ_ТУЛА")
-        svc = _synth_service([_SYNTH_JSON, "ответ"])
-        await svc._synthesize_direct_answer(-100, "q", raw, None)
-        stage2_user = svc.llm.generate.await_args_list[1].args[0][1]["content"]
-        assert "СЕКРЕТНЫЙ_ЛОГ_ТУЛА" not in stage2_user
-        assert stage2_user.startswith("СПРАВКА (JSON):")
-
-    @pytest.mark.asyncio
-    async def test_stage2_gets_style_not_service_fields(self):
-        raw = ToolLoopResult(
-            "финал", rounds_used=2, tool_trace=_trace("execute_web_search"),
-            tool_context="логи")
-        svc = _synth_service([_SYNTH_JSON, "ответ"])
-        await svc._synthesize_direct_answer(-100, "q", raw, None)
-        stage2_system = svc.llm.generate.await_args_list[1].args[0][0]["content"]
-        stage2_user = svc.llm.generate.await_args_list[1].args[0][1]["content"]
-        # Стиль (response_mode) едет системным блоком Вербализатора.
-        assert "response_mode" not in stage2_user
-        assert "action" not in stage2_user
-        assert stage2_system
-
-
 class TestNoWireAction:
     def test_stage1_contract_keys_unchanged(self):
         data = parse_direct_synthesis(_SYNTH_JSON)
@@ -450,20 +416,22 @@ class TestNoWireAction:
         assert not hasattr(d, "to_json")
 
 
-# ── 5. Интеграция в `handle`: гейт Stage-2 и OFF/legacy ────────────────────
+# ── 5. Наблюдаемость координатора на legacy-пути (L1 OFF) ──────────────────
 
-def _drive_handle(monkeypatch, raw, *, enabled=True, lore=False,
-                  synth=("SYNTH", "serious")):
+
+def _drive_handle(monkeypatch, raw, *, enabled=True, lore=False):
+    """Ход с выключенным L1: координатор строится, второго автора нет.
+
+    RLR-02-LEGACY: гейт `_synthesize_direct_answer` удалён, поэтому мока
+    Вербализатора больше нет — проверяется только наблюдаемость координатора
+    и фактически доставленный текст (он же финал tool-loop).
+    """
     import services.direct_chat_service as dcs
     from tests.test_direct_chat import _bot, _make_service, _message, _user
     monkeypatch.setattr(Settings, "DIRECT_COORDINATOR_ENABLED", enabled)
-    # ASAP 7 (F1): файл проверяет legacy-гейт System2/координатора — пин
-    # DIRECT_L1_ENABLED=false (его контракт — legacy-ветка).
     monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
     svc = _make_service(tool_router=MagicMock())
-    synth_mock = AsyncMock(return_value=synth)
     send = AsyncMock(return_value=None)
-    svc._synthesize_direct_answer = synth_mock
     svc._send_direct_answer = send
 
     async def fake_chat_with_tools(llm, payload, *, tools, router, ctx,
@@ -474,97 +442,7 @@ def _drive_handle(monkeypatch, raw, *, enabled=True, lore=False,
         return raw
 
     monkeypatch.setattr(dcs, "chat_with_tools", fake_chat_with_tools)
-    return svc, synth_mock, send, _bot(), _message(), _user()
-
-
-class TestHandleGate:
-    @pytest.mark.asyncio
-    async def test_tool_action_calls_verbalizer(self, monkeypatch):
-        raw = ToolLoopResult("финал", rounds_used=2,
-                             tool_trace=_trace("execute_web_search"),
-                             tool_context="логи")
-        svc, synth, send, bot, msg, user = _drive_handle(monkeypatch, raw)
-        await svc.handle(bot, msg, user)
-        synth.assert_awaited_once()
-        assert send.await_args.args[2] == "SYNTH"
-
-    @pytest.mark.asyncio
-    async def test_plain_turn_skips_verbalizer(self, monkeypatch):
-        raw = ToolLoopResult("просто", rounds_used=1, tool_trace=[],
-                             tool_context="")
-        svc, synth, send, bot, msg, user = _drive_handle(monkeypatch, raw)
-        await svc.handle(bot, msg, user)
-        synth.assert_not_awaited()
-        assert send.await_args.args[2] == "просто"
-
-    @pytest.mark.asyncio
-    async def test_degraded_skips_verbalizer(self, monkeypatch):
-        raw = ToolLoopResult("частичный", rounds_used=4, degraded=True,
-                             reason="round_limit",
-                             tool_trace=_trace("execute_web_search"),
-                             tool_context="логи")
-        svc, synth, _send, bot, msg, user = _drive_handle(monkeypatch, raw)
-        await svc.handle(bot, msg, user)
-        synth.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_lore_compiled_skips_verbalizer(self, monkeypatch):
-        raw = ToolLoopResult("финал", rounds_used=2,
-                             tool_trace=_trace("compile_lore_story"),
-                             tool_context="логи")
-        svc, synth, send, bot, msg, user = _drive_handle(
-            monkeypatch, raw, lore=True)
-        await svc.handle(bot, msg, user)
-        synth.assert_not_awaited()
-        assert send.await_args.args[2] == "HTML история"
-
-    @pytest.mark.asyncio
-    async def test_gate_equivalence_on_off(self, monkeypatch):
-        """Координатор не меняет исход гейта Stage-2 (ON ≡ OFF)."""
-        scenarios = {
-            "tool": ToolLoopResult("f", rounds_used=2,
-                                   tool_trace=_trace("a"), tool_context=""),
-            "plain": ToolLoopResult("f", rounds_used=1, tool_trace=[],
-                                    tool_context=""),
-            "degraded": ToolLoopResult("f", rounds_used=4, degraded=True,
-                                       reason="round_limit",
-                                       tool_trace=_trace("a"),
-                                       tool_context=""),
-        }
-        for name, raw in scenarios.items():
-            for enabled in (True, False):
-                svc, synth, _send, bot, msg, user = _drive_handle(
-                    monkeypatch, raw, enabled=enabled)
-                await svc.handle(bot, msg, user)
-                expected = name == "tool"
-                assert synth.await_count == (1 if expected else 0), (
-                    name, enabled)
-
-
-class TestHandleTwoCallPreserved:
-    @pytest.mark.asyncio
-    async def test_await_count_is_two(self, monkeypatch):
-        from tests.test_direct_chat import _bot, _make_service, _message, _user
-        import services.direct_chat_service as dcs
-        # ASAP 7 (F1): legacy System2-контракт — DIRECT_L1_ENABLED=false.
-        monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
-        raw = ToolLoopResult("финал", rounds_used=2,
-                             tool_trace=_trace("execute_web_search"),
-                             tool_context="логи")
-        svc = _make_service(tool_router=MagicMock())
-        svc.llm = MagicMock()
-        svc.llm.generate = AsyncMock(side_effect=[_SYNTH_JSON, "дерзкий ответ"])
-        svc._send_direct_answer = AsyncMock(return_value=999)
-        svc.remember_bot_reply = AsyncMock()
-
-        async def fake_chat_with_tools(llm, payload, *, tools, router, ctx,
-                                       temperature, chat_id, **kwargs):
-            return raw
-
-        monkeypatch.setattr(dcs, "chat_with_tools", fake_chat_with_tools)
-        await svc.handle(_bot(), _message(), _user())
-        # Ровно 2 физических LLM-вызова System 2 (Stage-1 + Stage-2).
-        assert svc.llm.generate.await_count == 2
+    return svc, send, _bot(), _message(), _user()
 
 
 class TestCoordinatorObservability:
@@ -573,7 +451,7 @@ class TestCoordinatorObservability:
         raw = ToolLoopResult("финал", rounds_used=2,
                              tool_trace=_trace("execute_web_search"),
                              tool_context="СЕКРЕТ_ТУЛА")
-        svc, _synth, _send, bot, msg, user = _drive_handle(monkeypatch, raw)
+        svc, _send, bot, msg, user = _drive_handle(monkeypatch, raw)
         query_secret = "СЕКРЕТ_ЗАПРОСА_42"
         msg.text = query_secret
         with caplog.at_level("INFO", logger="services.direct_chat_service"):
@@ -591,7 +469,7 @@ class TestCoordinatorObservability:
         raw = ToolLoopResult("финал", rounds_used=2,
                              tool_trace=_trace("execute_web_search"),
                              tool_context="логи")
-        svc, _synth, _send, bot, msg, user = _drive_handle(
+        svc, _send, bot, msg, user = _drive_handle(
             monkeypatch, raw, enabled=False)
         with caplog.at_level("INFO", logger="services.direct_chat_service"):
             await svc.handle(bot, msg, user)
@@ -818,7 +696,33 @@ class TestBounds:
                                              # Новых endpoint'ов/RBAC-правок нет;
                                              # routes.py НЕ менялся. Test-only
                                              # allowlist-дельта.
-                                             "web/api/gates.py"))
+                                             "web/api/gates.py",
+                                             # NOTE (PINS-258151, 03.11.2026 —
+                                             # тот же NOTE-санкционный прецедент:
+                                             # allowlist отставал от уже
+                                             # ВЫПУЩЕННОГО кода, не от новой
+                                             # несанкционированной правки):
+                                             # EVOL-COG-MAP (`770f53c1` W7-S1,
+                                             # ancestor release/2.58.151) —
+                                             # NEW файл-зона
+                                             # `web/api/cognitive_map.py`
+                                             # (свой router, регистрация в
+                                             # `web/app.py`; `web/api/routes.py`
+                                             # НЕ менялся — F11 byte-freeze
+                                             # держится) + клиентский адаптер
+                                             # `web/static/cognitive-map.js`;
+                                             # MEME-PIPELINE-REFACTOR-01 P4
+                                             # (`e25bd479`, ancestor
+                                             # release/2.58.151) — NEW файл-зона
+                                             # `web/api/mechanism_diagnostics.py`
+                                             # (маршрут диагностики мемов вынесен
+                                             # ИЗ routes.py, Δ routes=0;
+                                             # переиздание F11 — в
+                                             # tools/_meme_p4_reissue_f8.py).
+                                             # Иных web/-путей в diff нет.
+                                             "web/api/cognitive_map.py",
+                                             "web/static/cognitive-map.js",
+                                             "web/api/mechanism_diagnostics.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
         # санкционированно переведён на единый single-writer
@@ -941,6 +845,10 @@ class TestBounds:
         # ASAP5 §22 (27.10.2026): +5 «Типы медиа» → 587/466/562/121/119.
         assert len(pc.REGISTRY) == 597
         assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
+        # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
+        # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
+        # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
+        # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
                     if s.category is not None]) == 572   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
         assert len(pc.GROUPS) == 121

@@ -30,6 +30,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections import deque
 from dataclasses import dataclass
 
 from config.settings import settings
@@ -156,6 +157,62 @@ RESPONSE_ACT_ALIASES = {
 # значение от LLM или дет. деривация из capabilities (никогда не тихо).
 EXECUTION_MODES = ("none", "simple_tools", "adaptive_tool_chain")
 
+# ── UNIFIED-REPLY UR-06 (owner input 2026-11-05, §4): ось знания/поиска ─────
+# ОДНА схема для Direct и Initiative: оба режима нормализуются одной функцией
+# `normalize_l1_plan` (инициатива вызывает `parse_l1_plan` → та же функция).
+# Наборы закрытые; невалидное/отсутствующее значение → "" (план валиден).
+# Пустой `search_intent` при `knowledge_origin=open_world|mixed` — СТРУКТУРНАЯ
+# инварианта сервера: нормализуется в `required` (не словарь ключевых слов).
+KNOWLEDGE_ORIGINS = ("conversation_only", "internal_memory", "open_world",
+                     "mixed")
+SEARCH_INTENTS = ("required", "beneficial", "not_applicable")
+OPEN_WORLD_ORIGINS = frozenset({"open_world", "mixed"})
+SEARCH_REQUIRED = "required"
+SEARCH_BENEFICIAL = "beneficial"
+SEARCH_NOT_APPLICABLE = "not_applicable"
+#: capability-имя существующего runtime-слоя (`direct_capabilities`).
+SEARCH_CAPABILITY = "web_search"
+
+
+@dataclass(frozen=True)
+class SearchAxis:
+    """Нормализованная ось поиска хода (UR-06).
+
+    ``source`` — машинная причина значения, чтобы не было «тихой» подмены:
+
+    * ``llm`` — значение плана (с нормализацией open_world → required);
+    * ``normalized_open_world`` — сервер добавил `required` к origin без intent;
+    * ``runtime_evidence`` — существующая evidence-policy потребовала проверку
+      (пока канон промпта L1 не дополнен полями оси, это единственный живой
+      сигнал в проде — решение политики не понижается мнением модели);
+    * ``user_forced`` — явная просьба человека «проверь в интернете»: модель
+      не может демотировать её в `not_applicable`;
+    * ``unspecified`` — поля нет и runtime-политика проверки не требует.
+    """
+
+    knowledge_origin: str = ""
+    search_intent: str = SEARCH_NOT_APPLICABLE
+    source: str = "unspecified"
+    user_forced: bool = False
+
+    @property
+    def search_expected(self) -> bool:
+        """Ход обязан/может выполнить поиск до L2 (не SILENT/REACT-гейт)."""
+        return self.search_intent in (SEARCH_REQUIRED, SEARCH_BENEFICIAL)
+
+
+def normalize_search_intent(knowledge_origin, search_intent) -> str:
+    """Нормализация оси (UR-06): open_world|mixed без intent → required.
+
+    Никогда не бросает. Невалидный intent → "" (план не инвалидируется)."""
+    intent = str(search_intent or "").strip().lower()
+    if intent not in SEARCH_INTENTS:
+        intent = ""
+    if not intent and str(knowledge_origin or "").strip().lower() \
+            in OPEN_WORLD_ORIGINS:
+        return SEARCH_REQUIRED
+    return intent
+
 # SOUL-1 (W3, SOUL-05.1): РОВНО ОДНО необязательное поле L1 — совет по приёму
 # юмора. Это не приказ быть смешным и не новая личность: значение по умолчанию
 # ``none``, невалидное → ``none`` (план не инвалидируется). Приёмы — W4
@@ -274,6 +331,20 @@ class L1Plan:
     # прочитанный источник) и никогда не отменяет обязательную; на
     # инициативном пути игнорируется (там нет просьбы человека).
     recheck: bool = False
+    # ── RLR-03.3 (REMOVE-LEGACY-REPHRASING v2.0, R-03.3/R-06, 05.11.2026):
+    # строгий boolean (прецедент `recheck`/`needs_clarification`): просьба
+    # изменить/перевести ПОДАННЫЙ текст с сохранением смысла.
+    # Единственный сигнал, по которому свободный L2 строит узкий контракт
+    # защищённых данных (`FormContract`); сводка/пересказ сюда не относятся.
+    preserve_source_facts: bool = False
+    # ── UNIFIED-REPLY UR-06/UR-08: ось знания/поиска. Схема ОДНА для Direct и
+    # Initiative (`normalize_l1_plan`); закрытые наборы, "" — поле не пришло.
+    # `knowledge_origin` — откуда содержание ответа; `search_intent` — нужен ли
+    # реальный поиск ДО L2. `search_intent_source` — машинная причина значения
+    # (llm | normalized_open_world | "") для трассы, без скрытых подмен.
+    knowledge_origin: str = ""
+    search_intent: str = ""
+    search_intent_source: str = ""
 
     def effective_extent(self) -> str:
         """Явная форма пользователя поверх semantic extent (§2.5)."""
@@ -600,6 +671,25 @@ def normalize_l1_plan(data) -> L1Plan | None:
     # «true»-строка, 1, null, отсутствие → False (план не инвалидируется).
     # Поле только ДОБАВЛЯЕТ проверку; обязательность исполняет runtime.
     plan.recheck = data.get("recheck") is True
+    # ── RLR-03.3 (REMOVE-LEGACY-REPHRASING v2.0, R-03.3/R-06): строгий boolean
+    # по прецеденту `recheck`: только реальный true → True; «true»-строка, 1,
+    # null, отсутствие → False (план остаётся валидным, свободная речь). Поле
+    # НЕ означает сводку/пересказ — только явную трансформацию поданного
+    # текста с сохранением смысла.
+    plan.preserve_source_facts = data.get("preserve_source_facts") is True
+    # ── UNIFIED-REPLY UR-06/UR-08 (owner 2026-11-05 §4): ось знания/поиска.
+    # Разбор аддитивный: невалидное значение → "" (план валиден). Серверная
+    # структурная нормализация: `open_world|mixed` без `search_intent` →
+    # `required` (до tool-фазы). Источник значения фиксируется, чтобы трасса
+    # отличала мнение модели от нормализации.
+    plan.knowledge_origin = _closed(data.get("knowledge_origin"),
+                                    KNOWLEDGE_ORIGINS, "")
+    raw_search_intent = _closed(data.get("search_intent"), SEARCH_INTENTS, "")
+    plan.search_intent = normalize_search_intent(plan.knowledge_origin,
+                                                 raw_search_intent)
+    plan.search_intent_source = ("llm" if raw_search_intent
+                                 else ("normalized_open_world"
+                                       if plan.search_intent else ""))
     # ── L1D (22.10.2026): форма участия. Невалидное/отсутствующее delivery →
     # "" (обычное сообщение); id — только положительные целые.
     plan.delivery = _closed(data.get("delivery"), L1_DELIVERY_MODES, "")
@@ -638,6 +728,62 @@ def parse_l1_plan(raw) -> L1Plan | None:
         return normalize_l1_plan(parse_json_object(raw))
     except Exception:      # pragma: no cover - защитная ветка
         return None
+
+
+def resolve_search_axis(plan, *, required_caps=(), explicit_request=False
+                        ) -> SearchAxis:
+    """Итоговая ось поиска хода: план + существующая runtime-политика (UR-06).
+
+    Порядок — контракт (не словарь слов):
+
+    1. явная просьба человека → `required` (``user_forced``): модель не
+       демотирует прямое поручение проверить. Признак поручения ставит
+       вызывающий детерминированно (`_evidence_explicit_request`), поэтому
+       здесь он СИЛЬНЕЕ плана и не зависит от `required_caps` и от наличия
+       ключевого слова в фразе. Доступность инструмента решает executor:
+       `required` без `execute_web_search` → честный ``unavailable``, а не
+       «тихий» пропуск;
+    2. runtime-политика (`required_caps`, existing evidence-policy) требует
+       `web_search` → `required` (``runtime_evidence``): пока канон промпта L1
+       не содержит полей оси, это единственный живой сигнал в проде — мнение
+       модели (в т.ч. `not_applicable`/`none`) его не понижает;
+    3. `open_world|mixed` без intent → `required` (``normalized_open_world``);
+    4. intent модели как есть; отсутствие обоих сигналов → `not_applicable`
+       (``unspecified``).
+
+    SILENT/REACT здесь не превращаются в поиск: участие решает executor
+    (tool-фаза не запускается вовсе). Никогда не бросает."""
+    try:
+        origin = str(getattr(plan, "knowledge_origin", "") or "").strip().lower()
+        if origin not in KNOWLEDGE_ORIGINS:
+            origin = ""
+        intent = str(getattr(plan, "search_intent", "") or "").strip().lower()
+        if intent not in SEARCH_INTENTS:
+            intent = ""
+        caps = {str(c or "").strip().lower() for c in (required_caps or ())
+                if str(c or "").strip()}
+        runtime_required = SEARCH_CAPABILITY in caps
+        # UR-06 (review-fix UR-B-3): явная просьба человека — не «рекомендация
+        # круга», а требуемый поиск. Раньше `user_forced` рождался только при
+        # непустом `required_caps`: прямое поручение без capability и без
+        # ключевого слова молча превращалось в `not_applicable` (тихий
+        # пропуск). Отсутствие инструмента — забота executor'а: он отдаёт
+        # `unavailable`/`search_tool_absent`, а не «поиска не требовалось».
+        if explicit_request:
+            return SearchAxis(origin, SEARCH_REQUIRED, "user_forced", True)
+        if runtime_required:
+            return SearchAxis(origin, SEARCH_REQUIRED, "runtime_evidence",
+                              False)
+        if not intent and origin in OPEN_WORLD_ORIGINS:
+            return SearchAxis(origin, SEARCH_REQUIRED,
+                              "normalized_open_world", False)
+        if not intent:
+            return SearchAxis(origin, SEARCH_NOT_APPLICABLE, "unspecified",
+                              False)
+        return SearchAxis(origin, intent, "llm", False)
+    except Exception:      # pragma: no cover - защитная ветка
+        return SearchAxis(search_intent=SEARCH_NOT_APPLICABLE,
+                          source="unspecified")
 
 
 REPAIR_ANNOTATION = (
@@ -2295,6 +2441,99 @@ def get_l1_diagnostics(chat_id: int | None) -> dict | None:
         return None
 
 
+# ── UNIFIED-REPLY UR-A (§2.1): трасса хода несёт сам TurnRequest ─────────────
+# Трасса — process-local (как `_l1_diagnostics`): последние ходы чата вместе с
+# контрактным объектом `TurnRequest`, чтобы инспекция видела фактические поля
+# хода (тип, адресат, права, слот), а не реконструкцию по логам. Тексты чата
+# в БД/лог не пишутся (R17) — объект живёт только в памяти процесса.
+
+_TURN_TRACE_MAX_CHATS = 64
+_TURN_TRACE_MAX_TURNS = 4
+_turn_trace: dict[int, "deque[TurnTraceEntry]"] = {}
+
+
+@dataclass(frozen=True)
+class TurnTraceEntry:
+    """Запись трассы хода: контракт `TurnRequest` + резолв политики (UR-02)."""
+
+    turn_type: str
+    trigger_type: str
+    plan_schema: str
+    slot_policy: str
+    repair_policy: str
+    slot: str
+    model: str
+    capabilities: tuple[str, ...]
+    request: object            # services.turn_types.TurnRequest (сам объект)
+    ts: int
+
+
+def record_turn_trace(request, policy=None) -> "TurnTraceEntry | None":
+    """Запомнить ход в трассе чата (fail-open, bounded). Никогда не бросает."""
+    try:
+        from services import turn_types as _tt
+        if request is None:
+            return None
+        pol = policy or _tt.turn_policy(getattr(request, "trigger_type", ""))
+        slot_meta = getattr(request, "model_slot", None)
+        entry = TurnTraceEntry(
+            turn_type=str(getattr(pol, "turn_type", "") or ""),
+            trigger_type=str(getattr(request, "trigger_type", "") or ""),
+            plan_schema=str(getattr(pol, "plan_schema", "") or ""),
+            slot_policy=str(getattr(pol, "slot_policy", "") or ""),
+            repair_policy=str(getattr(pol, "repair_policy", "") or ""),
+            slot=str(getattr(slot_meta, "slot", "") or ""),
+            model=str(getattr(slot_meta, "model", "") or ""),
+            capabilities=tuple(getattr(request, "capabilities", ()) or ()),
+            request=request,
+            ts=int(time.time()))
+        chat_id = int(getattr(request, "chat_id", 0) or 0)
+        entry_queue = _turn_trace.get(chat_id)
+        if entry_queue is None:
+            entry_queue = deque(maxlen=_TURN_TRACE_MAX_TURNS)
+            _turn_trace[chat_id] = entry_queue
+            if len(_turn_trace) > _TURN_TRACE_MAX_CHATS:
+                try:
+                    oldest = min(_turn_trace, key=lambda c: (
+                        _turn_trace[c][-1].ts if _turn_trace[c] else 0))
+                    _turn_trace.pop(oldest, None)
+                except Exception:      # pragma: no cover - fail-open
+                    _turn_trace.clear()
+        entry_queue.append(entry)
+        return entry
+    except Exception:          # pragma: no cover - fail-open
+        return None
+
+
+def get_turn_trace(chat_id: int | None, limit: int = 1) -> list:
+    """Последние ходы чата (старые → новые), ``limit`` записей. Fail-open."""
+    try:
+        if chat_id is None:
+            return []
+        history = list(_turn_trace.get(int(chat_id)) or ())
+        count = max(1, int(limit))
+        return history[-count:]
+    except Exception:          # pragma: no cover - fail-open
+        return []
+
+
+def last_turn_request(chat_id: int | None):
+    """`TurnRequest` последнего хода чата (или None)."""
+    history = get_turn_trace(chat_id, limit=1)
+    return history[-1].request if history else None
+
+
+def reset_turn_trace(chat_id: int | None = None) -> None:
+    """Сбросить трассу чата (или всю) — для тестов и диагностики."""
+    try:
+        if chat_id is None:
+            _turn_trace.clear()
+        else:
+            _turn_trace.pop(int(chat_id), None)
+    except Exception:          # pragma: no cover - fail-open
+        pass
+
+
 __all__ = [
     "ACTIONS", "L1_EXTENTS", "LONGFORM_L1_EXTENTS", "L1Plan", "L1ModelSlot",
     "FutureIntent", "FUTURE_INTENT_KINDS", "FUTURE_INTENT_GOAL_MAX",
@@ -2313,4 +2552,10 @@ __all__ = [
     "emit_l1_plan_event", "build_l2_plan_block",
     "analysis_directive_needed", "rejected_note",
     "derive_execution_mode", "record_l1_diagnostics", "get_l1_diagnostics",
+    "TurnTraceEntry", "record_turn_trace", "get_turn_trace",
+    "last_turn_request", "reset_turn_trace",
+    "KNOWLEDGE_ORIGINS", "SEARCH_INTENTS", "OPEN_WORLD_ORIGINS",
+    "SEARCH_REQUIRED", "SEARCH_BENEFICIAL", "SEARCH_NOT_APPLICABLE",
+    "SEARCH_CAPABILITY", "SearchAxis", "normalize_search_intent",
+    "resolve_search_axis",
 ]

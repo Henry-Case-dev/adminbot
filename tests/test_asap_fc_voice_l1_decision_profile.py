@@ -1,4 +1,4 @@
-"""ASAP-FC-VOICE-01 / B — характер как ДАННЫЕ для decision-планеров.
+﻿"""ASAP-FC-VOICE-01 / B — характер как ДАННЫЕ для decision-планеров.
 
 Контракт `plans/features/asap-fc-voice-01/arch/l1-decision-profile-contract.md`
 §2/§6 (пп.17-23) и `plans/owner_inputs/2026-11-02-asap-fc-voice-01.md` §5:
@@ -256,6 +256,13 @@ async def test_direct_service_l1_payload_gets_profile_from_turn_frame(
         _build_speech_understanding = D._build_speech_understanding
         _attach_l1_plan_meta = D._attach_l1_plan_meta
         _compose_speech_system = D._compose_speech_system
+        # UR-A: контракт/движок хода — те же методы реального сервиса.
+        _resolve_turn_slot_meta = D._resolve_turn_slot_meta
+        _resolve_turn_tool_state = D._resolve_turn_tool_state
+        _turn_aliases_snapshot = D._turn_aliases_snapshot
+        _build_reply_parent_ref = D._build_reply_parent_ref
+        _build_turn_request = D._build_turn_request
+        _execute_turn = D._execute_turn
 
         def _l1_reply_block(self, message, budget_tokens=None):
             return D._l1_reply_block(self, message, budget_tokens=budget_tokens)
@@ -595,12 +602,26 @@ def test_canon_revision_keeps_deployed_bytes_as_rollback_target():
     deployed_sha12 = hashlib.sha256(
         cp.PREV_DIRECT_L1_PLANNER_EVR2.encode("utf-8")).hexdigest()[:12]
     assert deployed_sha12 == "09f3d533d173"
-    assert CANON.startswith(cp.PREV_DIRECT_L1_PLANNER_EVR2)
-    # правило добавлено ОДНОЙ секцией, а не переписыванием канона
-    assert len(CANON) > len(cp.PREV_DIRECT_L1_PLANNER_EVR2)
-    assert CANON.replace(
-        CANON[len(cp.PREV_DIRECT_L1_PLANNER_EVR2):], "") == \
-        cp.PREV_DIRECT_L1_PLANNER_EVR2
+    # UNIFIED-REPLY UR-06/UR-03: правило профиля решений — по-прежнему одна
+    # секция поверх байтов EVR2; ось поиска добавлена ПОСЛЕ неё (EVR4), и она
+    # трогает ещё и схему JSON. Поэтому дельта проверяется снятием РОВНО
+    # добавленного: секция оси + две строки схемы → должны остаться байты EVR3.
+    assert cp._DIRECT_L1_DECISION_PROFILE_EVR3 in CANON
+    assert cp._DIRECT_L1_SEARCH_AXIS_EVR4 in CANON
+    # RLR-03.3: поверх EVR4 добавлено поле preserve_source_facts (секция +
+    # строка схемы); снимается ровно это, затем ось поиска → байты EVR3.
+    assert cp._DIRECT_L1_SOURCE_FACTS_EVR5 in CANON
+    assert len(CANON) > len(cp.PREV_DIRECT_L1_PLANNER_EVR4)
+    assert CANON.replace(cp._DIRECT_L1_SOURCE_FACTS_EVR5, "").replace(
+        ' "search_intent": "",\n'
+        ' "preserve_source_facts": false}',
+        ' "search_intent": ""}', 1) == cp.PREV_DIRECT_L1_PLANNER_EVR4
+    assert cp.PREV_DIRECT_L1_PLANNER_EVR4.replace(
+        cp._DIRECT_L1_SEARCH_AXIS_EVR4, "").replace(
+        ' "recheck": false,\n'
+        ' "knowledge_origin": "",\n'
+        ' "search_intent": ""}',
+        ' "recheck": false}', 1) == cp.PREV_DIRECT_L1_PLANNER_EVR3
 
 
 def test_migration_and_rollback_only_match_exact_deployed_bytes():
@@ -608,13 +629,18 @@ def test_migration_and_rollback_only_match_exact_deployed_bytes():
         (old, new) for old, new in
         pm.PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"])
     assert forward[cp.PREV_DIRECT_L1_PLANNER_EVR2] == CANON
+    assert forward[cp.PREV_DIRECT_L1_PLANNER_EVR3] == CANON
     rollback = dict(
         pm.ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"])
-    assert rollback[CANON] == cp.PREV_DIRECT_L1_PLANNER_EVR2
+    assert rollback[CANON] == cp.PREV_DIRECT_L1_PLANNER_EVR4
+    assert rollback[cp.PREV_DIRECT_L1_PLANNER_EVR4] == \
+        cp.PREV_DIRECT_L1_PLANNER_EVR3
+    assert rollback[cp.PREV_DIRECT_L1_PLANNER_EVR3] == \
+        cp.PREV_DIRECT_L1_PLANNER_EVR2
     # печать и метка заводской ревизии согласованы с активными байтами
     assert pr.seal_integrity() == {}
     label, sealed = pr.FACTORY_REVISION_SEALS["direct.base.l1_planner"]
-    assert label == "l1-planner-decision-profile"
+    assert label == "l1-planner-source-facts"
     assert sealed == pr.sha12(CANON)
     assert pr.sealed_factory_revision("direct.base.l1_planner").endswith(
         pr.sha12(label))
