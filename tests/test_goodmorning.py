@@ -28,7 +28,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from config.settings import settings
 from services import slot_claims
-from services.goodmorning_captions import GOODMORNING_CAPTIONS, pick_caption
+from services.goodmorning_captions import GOODMORNING_CAPTIONS
 from services.goodmorning_relay import (
     MEDIA_ANIMATION,
     MEDIA_AUDIO,
