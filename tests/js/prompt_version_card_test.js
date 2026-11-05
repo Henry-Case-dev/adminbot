@@ -257,47 +257,132 @@ function activeRow(origin, created, rev) {
     'смена промпта/чата не должна тащить чужое сообщение');
 })();
 
-let s = stateOf({ hist: { data: { active: null, baseline: { baseline: null },
-                                  factory_matches_active: true,
-                                  entries: [] }, error: '', entries: [] } });
-assert.strictEqual(s.state.text, 'Наследуется от глобального',
-  'чат без своего override должен наследовать глобальное');
+let s = stateOf({ hist: { data: {
+  // PVR-01 contract: chat без override — действует глобальная версия.
+  effective_origin: 'global', effective_status: 'matched',
+  effective_content_hash: 'ab12cd34ef56ab12',
+  effective_revision_id: 'rev-g1',
+  revisions: [{ revision_id: 'rev-g1', created_at: '2026-11-03T23:42:00+00:00' }],
+  active: null, baseline: { baseline: null },
+  factory_matches_active: true, entries: [] }, error: '', entries: [] } });
+assert.strictEqual(s.state.text, 'Действует глобальная версия',
+  'чат без своего override наследует глобальную версию (PVR-01.7): '
+  + s.state.text);
+assert.strictEqual(s.state.detail, 'наследуется чатом');
 
 s = stateOf({ chatId: null,
-              hist: { data: { active: activeRow('manual'), baseline: null,
-                              entries: [] }, error: '', entries: [] } });
-assert.strictEqual(s.state.kind, 'global');
-assert.ok(s.state.detail.indexOf('03.11 23:42') >= 0,
-  'время последней доказанной записи должно быть человеческим: '
-  + JSON.stringify(s.state.detail));
-
-s = stateOf({ hist: { data: { active: activeRow('factory'),
-                              baseline: { baseline: null }, entries: [] },
-                      error: '', entries: [] } });
-assert.strictEqual(s.state.text, 'Исходный из кода');
+              hist: { data: {
+                effective_origin: 'global', effective_status: 'matched',
+                effective_content_hash: 'ab12cd34ef56ab12',
+                effective_revision_id: 'rev-1',
+                revisions: [{ revision_id: 'rev-1',
+                              created_at: '2026-11-03T23:42:00+00:00' }],
+                active: activeRow('manual'), baseline: null, entries: [] },
+                error: '', entries: [] } });
+assert.strictEqual(s.state.text, 'Действует глобальная версия');
+assert.ok(s.activeLabel.indexOf('03.11 23:42') >= 0,
+  'дата действующей ревизии — из реальной строки ревизий: '
+  + JSON.stringify(s.activeLabel));
 
 s = stateOf({ hist: { data: {
+  effective_origin: 'code', effective_status: 'matched',
+  effective_content_hash: 'ff00ff00ff00ff00',
+  effective_revision_id: 'rev-f1',
+  revisions: [{ revision_id: 'rev-f1',
+                created_at: '2026-11-01T10:00:00+00:00' }],
+  active: activeRow('factory'), baseline: { baseline: null }, entries: [] },
+  error: '', entries: [] } });
+assert.strictEqual(s.state.text, 'Исходный из кода');
+
+// C3.6: baseline — отдельный указатель, НЕ синоним активного. Метка
+// состояния не превращается в «Базовый…» от совпадения указателей.
+s = stateOf({ hist: { data: {
+  effective_origin: 'chat_override', effective_status: 'matched',
+  effective_content_hash: '1212121212121212',
+  effective_revision_id: 'rev-9',
+  revisions: [{ revision_id: 'rev-9',
+                created_at: '2026-11-03T21:00:00+00:00' }],
   active: activeRow('manual', null, 'rev-9'),
   baseline: { baseline: { revision_id: 'rev-9',
                           assigned_at: '2026-11-03T21:00:00+00:00',
                           assigned_by: '77' } },
+  journal_active_revision_id: 'rev-9',
   entries: [] }, error: '', entries: [] } });
-assert.strictEqual(s.state.text, 'Базовый по выбору владельца');
+assert.strictEqual(s.state.text, 'Действует в этом чате',
+  'baseline-указатель не подменяет метку действующей версии (C3.6): '
+  + s.state.text);
 assert.strictEqual(s.hasBaseline, true);
 
-s = stateOf({ chatId: 42, hist: { data: { active: activeRow('manual'),
-                                          baseline: null, entries: [] },
-                                  error: '', entries: [] } });
+s = stateOf({ chatId: 42, hist: { data: {
+  effective_origin: 'chat_override', effective_status: 'matched',
+  effective_content_hash: '3434343434343434',
+  effective_revision_id: 'rev-1',
+  revisions: [{ revision_id: 'rev-1',
+                created_at: '2026-11-03T23:42:00+00:00' }],
+  active: activeRow('manual'), baseline: null, entries: [] },
+  error: '', entries: [] } });
 assert.strictEqual(s.state.text, 'Действует в этом чате');
-assert.ok(s.state.detail.indexOf('изменён вручную') >= 0,
-  'фраза «изменён вручную · дата» обязательна');
+assert.ok(s.state.detail.indexOf('локальная версия') >= 0,
+  'фраза «локальная версия» обязательна: ' + JSON.stringify(s.state.detail));
+
+// ── PVR-01.2/01.7: честный unmatched — без выдуманной ревизии ────────────
+// Текст действует, но в журнале нет ревизии с такими байтами. Журнальный
+// указатель при этом существует (data.active/journal_*) — он НЕ даёт метку
+// «активная» (мутация «журнальный указатель = matched» обязана падать).
+s = stateOf({ hist: { data: {
+  effective_origin: 'global', effective_status: 'unmatched',
+  effective_content_hash: 'abababababababab',
+  effective_revision_id: null,
+  revisions: [{ revision_id: 'rev-1', created_at: '2026-11-03T23:42:00+00:00' }],
+  active: activeRow('manual', null, 'rev-1'),
+  journal_active_revision_id: 'rev-1',
+  baseline: { baseline: null }, entries: [] }, error: '', entries: [] } });
+assert.strictEqual(s.state.text, 'Не сопоставлено с историей',
+  'несопоставленный текст честно называется: ' + s.state.text);
+assert.strictEqual(s.isActiveEntry({ revision_id: 'rev-1' }), false,
+  'при unmatched ни одна ревизия не помечена активной — включая '
+  + 'журнальный указатель');
+assert.strictEqual(s.canActivate({ revision_id: 'rev-1', actionable: true }),
+  true, 'при unmatched применение сохранённой ревизии доступно — это '
+  + 'честный способ устранить несоответствие');
+assert.ok(s.detailsLines.join(' ').indexOf('не сопоставлена') >= 0,
+  'в подробностях честно сказано, что ревизия не сопоставлена');
+
+// ── PVR-01.7: drift — ни одна карточка не активна ────────────────────────
+s = stateOf({ hist: { data: {
+  effective_origin: 'global', effective_status: 'drift',
+  effective_content_hash: 'cdcdcdcdcdcdcdcd',
+  effective_revision_id: 'rev-2',
+  revisions: [{ revision_id: 'rev-1' }, { revision_id: 'rev-2' }],
+  active: activeRow('manual', null, 'rev-1'),
+  journal_active_revision_id: 'rev-1',
+  baseline: { baseline: null }, entries: [] }, error: '', entries: [] } });
+assert.strictEqual(s.state.text, 'Журнал и действующий текст расходятся');
+assert.strictEqual(s.drifted, true);
+assert.strictEqual(s.isActiveEntry({ revision_id: 'rev-2' }), false,
+  'при drift даже эффективная ревизия не помечается активной');
+assert.strictEqual(s.isActiveEntry({ revision_id: 'rev-1' }), false);
+
+// ── PVR-05.2 handoff: недоступный журнал — честная метка ─────────────────
+s = stateOf({ hist: { error: 'История временно недоступна: журнал версий '
+                            + 'недоступен (ошибка чтения)',
+                      data: null, entries: [] } });
+assert.strictEqual(s.state.text, 'История временно недоступна');
+assert.ok(s.state.detail.indexOf('журнал версий недоступен') >= 0,
+  'причина сохраняется рядом с меткой');
 
 // ── 3. Действия: только по фактическим правам/статусам ───────────────────
 function canActivate(patch, entry) {
   return stateOf(patch).canActivate(entry);
 }
-const baseData = { active: activeRow('manual'), baseline: null,
-                   manageable: true, can_activate: true, entries: [] };
+// PVR-01: состояние карточек теперь несёт effective-контракт; «активная»
+// ревизия — та, которую резолвер сопоставил с действующим текстом.
+const baseData = {
+  effective_origin: 'chat_override', effective_status: 'matched',
+  effective_content_hash: '1212121212121212',
+  effective_revision_id: 'rev-1',
+  active: activeRow('manual'), baseline: null,
+  manageable: true, can_activate: true, entries: [] };
 const ok = { revision_id: 'rev-2', actionable: true, status: 'inactive' };
 assert.strictEqual(canActivate({ hist: { data: baseData, error: '',
                                          entries: [] } }, ok), true);
@@ -354,29 +439,40 @@ assert.strictEqual(d.diffClass('@@ -1 +1 @@'), 'pv-diff__hunk');
 assert.strictEqual(d.diffClass('--- a'), 'pv-diff__meta');
 assert.strictEqual(d.diffClass(' контекст'), 'pv-diff__ctx');
 
-// ── 5. Догрузка страниц: без дублей и без потолка 50 ─────────────────────
+// ── 5. Догрузка страниц ревизий: без дублей, по revisions_cursor, без
+// событий в основном списке ────────────────────────────────────────────────
 async function pagingTest() {
-  const page1 = { order: 1, revision_id: 'r1' };
-  const page2 = [{ order: 51, revision_id: 'r51' },
-                 { order: 52, revision_id: 'r52' }];
+  const rev1 = { revision_id: 'r1', status: 'inactive' };
+  const revPage2 = [{ revision_id: 'r51', status: 'inactive' },
+                    { revision_id: 'r52', status: 'inactive' }];
   const calls = [];
   const c = ctx({
-    hist: { data: null, error: '', entries: [page1], nextCursor: 'C1',
+    hist: { data: { revisions: [rev1], entries: [] },
+            error: '', entries: [], events: [], nextCursor: 'C1',
             more: true, moreLoading: false, moreError: '',
+            nextEventsCursor: '', moreEvents: false,
+            moreEventsLoading: false, moreEventsError: '',
             viewId: '', viewBody: '', viewError: '', diff: null,
             diffTitle: '', diffLoading: false, diffError: '', busyRev: '',
             result: null },
     root: { api: async function (url) {
       calls.push(url);
-      return { entries: page2, page: { next_cursor: 'C2', has_more: true } };
+      return { revisions: revPage2,
+               revisions_page: { next_cursor: 'C2', has_more: true } };
     } },
   });
   const scope = c;
   await CARD.methods.loadMore.call(scope);
-  assert.strictEqual(c.hist.entries.length, 3, 'вторая страница не догружена');
-  assert.ok(String(calls[0]).indexOf('cursor=C1') > 0,
-    'догрузка должна идти по стабильному курсору: ' + calls[0]);
+  assert.strictEqual(c.revisionRows.length, 3, 'вторая страница не догружена');
+  assert.ok(String(calls[0]).indexOf('revisions_cursor=C1') > 0,
+    'догрузка ревизий идёт по стабильному revisions_cursor: ' + calls[0]);
   assert.strictEqual(c.hist.nextCursor, 'C2');
+  // События активации в основной список не попадают (PVR-02.1/C1.2).
+  c.hist.data.activations = [{ activation_id: 7, revision_id: 'r1',
+                               status: 'was_applied' }];
+  assert.strictEqual(c.revisionRows.length, 3,
+    'событие активации не превратилось в строку основного списка');
+  assert.strictEqual(c.eventRows.length, 1);
 }
 
 // ── 6. Назначение базовой: только указатель + честная фраза ──────────────
