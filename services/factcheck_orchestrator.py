@@ -1268,11 +1268,29 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         from services.factcheck_renderer import (
             deliver_factcheck,
             render_factcheck,
+            visible_text,
         )
         presentation = render_factcheck(presentation, verdict)
-        await deliver_factcheck(bot, req.chat_id, presentation,
-                                reply_to_message_id=(
-                                    presentation.reply_to_message_id))
+        delivered_first_id = await deliver_factcheck(
+            bot, req.chat_id, presentation,
+            reply_to_message_id=(presentation.reply_to_message_id))
+        # UR-23.4 (UR-C): доставленный вердикт — в тот же durable ledger
+        # `mca_bot_outputs`, что и другие прямые ответы (MCA-22 C2);
+        # correlation_id — pipeline_run_id прогона. Только после
+        # подтверждённой отправки; в ledger идёт видимый доставленный текст
+        # (plain), а не HTML-разметка чанков. Fail-open: запись не рвёт
+        # доставку; verdict/content pipeline не затронут.
+        if delivered_first_id is not None:
+            from services import bot_output_ledger as _bol
+            await _bol.record_factcheck_output(
+                db, chat_id=req.chat_id, tg_message_id=delivered_first_id,
+                text=(visible_text(presentation.text)
+                      if presentation.parse_mode else presentation.text),
+                bot_user_id=getattr(bot, "id", None),
+                parent_message_ref=(f"tg:{presentation.reply_to_message_id}"
+                                    if presentation.reply_to_message_id
+                                    else None),
+                correlation_id=pipeline_run_id)
     # P0-FACTCHECK-CORRECTIVE (§6): кеш готовых вердиктов (legacy slug
     # `factcheck`) удалён — повторная проверка всегда выполняется заново.
     # Защита от двойной доставки того же Telegram update — уже СУЩЕСТВУЮЩАЯ
