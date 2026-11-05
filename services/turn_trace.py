@@ -154,7 +154,9 @@ class TurnTrace:
     __slots__ = (
         "correlation_id", "chat_id", "trigger", "flow", "source_message_id",
         "source_author_id", "idempotency_key", "clock", "clock_source",
-        "clock_ts", "l1", "tools", "tool_rounds", "tool_degraded",
+        "clock_ts", "clock_timezone", "clock_as_of_utc",
+        "clock_config_version", "clock_timezone_source",
+        "l1", "tools", "tool_rounds", "tool_degraded",
         "tool_reason", "coverage", "llm_calls", "manifest", "request",
         "completion", "semantic_rewrite_count", "raw_final_digest",
         "delivered_digest", "divergence_reason", "digest_match", "ops",
@@ -173,6 +175,11 @@ class TurnTrace:
         self.source_message_id = source_message_id
         self.source_author_id = source_author_id
         self.idempotency_key = _code(idempotency_key, 96)
+        # UR-C-CLOCK (UR-26.7): структурированные поля ChatClock (аддитивно).
+        self.clock_timezone = ""
+        self.clock_as_of_utc = ""
+        self.clock_config_version = ""
+        self.clock_timezone_source = ""
         self.clock = ""
         self.clock_source = ""
         self.clock_ts = None
@@ -462,11 +469,16 @@ def note_llm_call(correlation_id, kind: str, count: int = 1) -> None:
         pass
 
 
-def note_clock(correlation_id, *, line: str = "", source: str = "") -> None:
+def note_clock(correlation_id, *, line: str = "", source: str = "",
+               timezone: str = "", as_of_utc: str = "",
+               config_version: str = "", timezone_source: str = "") -> None:
     """ChatClock хода: значение + источник часов (§7).
 
-    Строка часов генерируется кодом (`format_chat_time`), это не текст чата;
-    всё равно ограничиваем длину и оставляем только допустимые символы."""
+    Строка часов генерируется кодом (`chat_clock.render_chat_time_context`,
+    UR-C-CLOCK), это не текст чата; всё равно ограничиваем длину и оставляем
+    только допустимые символы. UR-26.7: аддитивные структурированные поля
+    (timezone/as_of_utc/config_version/timezone_source) для диагностики хода.
+    """
     trace = get(correlation_id)
     if trace is None:
         return
@@ -477,6 +489,15 @@ def note_clock(correlation_id, *, line: str = "", source: str = "") -> None:
         trace.clock = clock[:96]
         trace.clock_source = _code(source, 64)
         trace.clock_ts = int(time.time())
+        # UR-26.7 (аддитивно, только коды/числа — без текстов чата).
+        if str(timezone or "").strip():
+            trace.clock_timezone = _code(timezone, 64)
+        if str(as_of_utc or "").strip():
+            trace.clock_as_of_utc = _code(as_of_utc, 32)
+        if str(config_version or "").strip():
+            trace.clock_config_version = _code(config_version, 64)
+        if str(timezone_source or "").strip():
+            trace.clock_timezone_source = _code(timezone_source, 32)
     except Exception:      # pragma: no cover
         pass
 

@@ -830,9 +830,13 @@ _UNTRUSTED_WRAPPING = (
 
 
 def _orchestrator_messages(*, query: str, allowlist, evidence_sources,
-                           steps_done) -> list[dict]:
+                           steps_done, time_context: str = "") -> list[dict]:
     """Компактный пакет оркестратора (R17: имена/коды + bounded-срезы
-    данных в огороженных блоках). Никогда не бросает."""
+    данных в огороженных блоках). Никогда не бросает.
+
+    UR-C-CLOCK (UR-26.2/UR-26.3): ``time_context`` — авторитетный блок
+    ChatClock (phase="plan", reuse снапшота L1); data-контент, ровно один
+    блок на payload оркестратора."""
     try:
         tools_lines = []
         for schema in allowlist or []:
@@ -865,13 +869,17 @@ def _orchestrator_messages(*, query: str, allowlist, evidence_sources,
         steps_lines = [
             f"{idx + 1}. {s.get('tool')} ({s.get('reason') or '-'})"
             for idx, s in enumerate(steps_done or [])]
+        time_block = ""
+        if str(time_context or "").strip():
+            time_block = f"{str(time_context).strip()}\n\n"
         user = (
             f"ЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n"
             f"{_boundary_cut(str(query or ''), ORCHESTRATOR_QUERY_CHARS)}\n\n"
             f"ALLOWED TOOLS:\n{chr(10).join(tools_lines) or 'нет'}\n\n"
             f"СДЕЛАННЫЕ ШАГИ:\n{chr(10).join(steps_lines) or 'нет'}\n\n"
             f"EVIDENCE SO FAR:\n{chr(10).join(evidence_lines) or 'нет'}\n\n"
-            "Дай решение следующего шага (одна JSON-строка по схеме).")
+            + time_block
+            + "Дай решение следующего шага (одна JSON-строка по схеме).")
         return [{"role": "system", "content": ORCHESTRATOR_SYSTEM_PROMPT},
                 {"role": "user", "content": user}]
     except Exception:      # pragma: no cover - защитная ветка
@@ -906,11 +914,15 @@ def _parse_orchestrator_decision(raw) -> dict:
 
 async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                              tool_schemas, chat_id, correlation_id,
-                             reply_text: str = "") -> ChainResult | None:
+                             reply_text: str = "",
+                             time_context: str = "") -> ChainResult | None:
     """adaptive_tool_chain (§18C.7): bounded orchestrator ↔ allowlisted
     tools → evidence sources. Границы: steps/time/tokens/metered; cycle-
     защита; tool output untrusted; orchestrator никогда не пишет прозу
-    (L2 — единственный Writer). CancelledError — проброс."""
+    (L2 — единственный Writer). CancelledError — проброс.
+
+    UR-C-CLOCK: ``time_context`` — блок ChatClock (phase="plan") во всех
+    orchestrator-payload'ах цепочки (reuse снапшота L1, UR-26.2)."""
     allow_names = set()
     for schema in tool_schemas or []:
         try:
@@ -943,7 +955,8 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                 break
             messages = _orchestrator_messages(
                 query=query, allowlist=tool_schemas,
-                evidence_sources=evidence_sources, steps_done=steps_done)
+                evidence_sources=evidence_sources, steps_done=steps_done,
+                time_context=time_context)
             try:
                 raw_decision = await llm.generate(
                     messages, temperature=None, chat_id=chat_id,
@@ -1825,7 +1838,8 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
                          announced=None, addressee: str = "",
                          reply_text: str = "", private_terms=(),
                          capacity_chars: int | None = None,
-                         prepend_sources=(), emit_trace: bool = True
+                         prepend_sources=(), emit_trace: bool = True,
+                         time_context: str = ""
                          ) -> ToolPhaseResult:
     """ЕДИНЫЙ tool-этап Direct и Initiative (UR-03) + Search-first (UR-06).
 
@@ -1987,7 +2001,8 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
                     second = await run_adaptive_chain(
                         llm=llm, router=router, ctx=ctx, plan=plan_view,
                         query=query, tool_schemas=remaining, chat_id=chat_id,
-                        correlation_id=correlation_id)
+                        correlation_id=correlation_id,
+                        time_context=time_context)
                 except asyncio.CancelledError:
                     raise
                 except Exception:      # поиск уже выполнен — не теряем его
@@ -2009,7 +2024,8 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
                 raw = await run_adaptive_chain(
                     llm=llm, router=router, ctx=ctx, plan=plan_view,
                     query=query, tool_schemas=adaptive_schemas,
-                    chat_id=chat_id, correlation_id=correlation_id)
+                    chat_id=chat_id, correlation_id=correlation_id,
+                    time_context=time_context)
             if raw is None:
                 demote_reason = "orchestrator_unavailable"
                 mode = EXECUTION_SIMPLE
@@ -2407,6 +2423,12 @@ def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
 L2_EVIDENCE_FLOOR_TOKENS = 400
 
 
+#: UR-C-CLOCK: открывающий тег блока часов чата. Такой блок в fallback-репаке
+#: защищён ЦЕЛИКОМ: разрезанный `<Chat_Time_Context>` дал бы запасной модели
+#: повреждённые часы (доверие к «сейчас» сломано хуже, чем его отсутствие).
+_CLOCK_BLOCK_OPEN = "<Chat_Time_Context"
+
+
 def build_l2_fallback_adapter(*, system: str, parts: list[str],
                               evidence: str, query: str,
                               fallback_budget_tokens: int,
@@ -2415,8 +2437,12 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
     раз при переключении на fallback-модель). Пересобирает пакет под
     РЕАЛЬНОЕ окно fallback:
       * защищённые блоки: system (safety/role), текущий запрос/plan
-        (query), обязательный tool evidence (floor);
-      * сжимаемые: time_line/user_blocks/lessons/speech (по порядку);
+        (query), обязательный tool evidence (floor) и блок часов чата
+        ``<Chat_Time_Context>`` (UR-C-CLOCK: целиком, без разреза; не
+        влезает — честная CAPACITY-пометка, блок выкидывается целиком);
+      * сжимаемые: user_blocks/lessons/speech и прочие строки (по порядку);
+        пустая строка наследования времени остаётся обычной сжимаемой
+        строкой (в rest она просто не попадает — как раньше);
       * защищённый минимум не помещается → честная capacity reason
         (callback + явная пометка в пакете), НЕ слепая отправка.
     Никогда не бросает (ошибка → вход без изменений, fail-open паритет)."""
@@ -2435,6 +2461,7 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
             used = sys_tokens + min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS)
             kept: list[str] = []
             capacity_reason = ""
+            clock_dropped = False
             if used + rest_tokens <= budget:
                 kept = rest
             else:
@@ -2447,9 +2474,23 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                     capacity_reason = "fallback_window_exceeded"
                     remaining = max(0, budget // 4)
                 for part in rest:
+                    tokens = _safe_count_tokens(part)
+                    if _CLOCK_BLOCK_OPEN in part:
+                        # UR-C-CLOCK (review 5c96a396): блок часов ЦЕЛИКОМ
+                        # защищён от сжатия. Влез → целиком; не влез (в т.ч.
+                        # после исчерпания бюджета более ранними блоками) →
+                        # выкидывается целиком с CAPACITY-пометкой. Разрез
+                        # (head+tail) для этого блока запрещён: обрезок
+                        # выглядел бы как «авторитетные» часы с неверным
+                        # временем.
+                        if tokens <= remaining:
+                            kept.append(part)
+                            remaining -= tokens
+                        else:
+                            clock_dropped = True
+                        continue
                     if remaining <= 0:
                         break
-                    tokens = _safe_count_tokens(part)
                     if tokens <= remaining:
                         kept.append(part)
                         remaining -= tokens
@@ -2464,7 +2505,9 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                     kept.append(head + ("\n[…обрезано под окно fallback]\n"
                                         if tail else "") + tail)
                     remaining = 0
-                capacity_reason = capacity_reason or "fallback_repacked"
+                capacity_reason = capacity_reason or (
+                    "fallback_clock_dropped" if clock_dropped
+                    else "fallback_repacked")
             user_parts = list(kept)
             if evidence.strip():
                 evidence_out = evidence
@@ -2484,6 +2527,18 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                         on_capacity_reason("fallback_window_exceeded")
                     except Exception:
                         pass
+            if clock_dropped:
+                # Честная ёмкость: часы НЕ едут обрезанными (мутация «резать
+                # блок» ломает регрессию test_fallback_adapter_clock_*).
+                user_parts.append(
+                    "[CAPACITY] Часовой контекст чата (время, дата, пояс) "
+                    "не поместился в окно запасной модели и не отправлён: "
+                    "точное «сейчас» недоступно — не выдумывай время.")
+                if on_capacity_reason is not None:
+                    try:
+                        on_capacity_reason("fallback_clock_dropped")
+                    except Exception:
+                        pass
             adapted = dict(incoming)
             adapted["messages"] = [
                 {"role": "system", "content": system},
@@ -2492,8 +2547,8 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
             ]
             logger.info(
                 "direct: L2 fallback repack | budget=%d | blocks=%d | "
-                "capacity_reason=%s", budget, len(user_parts),
-                capacity_reason or "-")
+                "capacity_reason=%s | clock_dropped=%s", budget,
+                len(user_parts), capacity_reason or "-", clock_dropped)
             return adapted
         except Exception:
             logger.warning(

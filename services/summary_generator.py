@@ -27,6 +27,8 @@ from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
 from config.settings import settings
 from services import hot_config as hot
+# UR-C-CLOCK: единственный источник времени чата (UR-26.5).
+from services import chat_clock as _cclock
 from services.canonical_context import format_context_item
 from services.chat_params import (
     get_chat_param as _chat_limit,  # G-3 per-chat
@@ -4111,7 +4113,19 @@ class SummaryGenerator:
         ответ), `LLMError` на повторе пробрасывается (R13-ветка внешнего except).
 
         F7 (ADR-1023-7 D4): `correlation_id`/`step` — аддитивная телеметрия.
-        """
+
+        UR-C-CLOCK (UR-26.5): answer-снапшот ChatClock чата прикрепляется
+        к payload ДО supervised-транспорта (переживает provider-switch);
+        идемпотентно — ровно один блок на payload."""
+        try:
+            if chat_id is not None:
+                _sg_snap = await _cclock.snapshot(chat_id)
+                payload = _cclock.attach_time_context(
+                    payload, _sg_snap, phase=_cclock.PHASE_ANSWER)
+        except Exception:      # pragma: no cover - fail-open honest
+            logger.warning("[chat_clock] summary time block skipped | "
+                           "chat_id=%s | step=%s", chat_id, step,
+                           exc_info=True)
         started = time.monotonic()
         # Epic 60 (65.7, T-475): «печатает…» вокруг LLM-точки (manual И cron).
         # Epic 60 (65.1, T-469): LLMBadResponseError (пустой ответ) — молчание

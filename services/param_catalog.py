@@ -3419,8 +3419,18 @@ for _hidden_name in _HIDDEN_CATALOG_FIELDS:
 # вводящая в заблуждение карточка «Дополнительный стиль обложки» с
 # textarea). Один user-facing источник правды: `Summary → Стили обложки`
 # (per-chat выбор через POST /api/cover/select). Runtime-ключ остаётся.
+# UR-C-CLOCK (UR-24.2/24.3): legacy timezone-ключи скрыты из рабочего UI —
+# read-only совместимость; часы читает канонический `limits.chat_timezone`
+# через ChatClock (services/chat_clock.py). Значения остаются читаемыми.
+# Имена — ключи REGISTRY (settings-поля), не pg_key.
 _HIDDEN_CATALOG_PG_KEYS: frozenset[str] = frozenset({
     "prompts.summary_cover_style_id",
+    # UR-24.2: разрозненный legacy-редактор пояса саммари выведен из
+    # рабочего UI (ключ read-only, ChatClock использует его как fallback).
+    "SUMMARY_TIMEZONE",
+    # UR-24.2/§4: GOODMORNING_TZ — самостоятельное старое timezone-поле,
+    # после перехода НЕ остаётся отдельным рабочим поясом чата.
+    "GOODMORNING_TZ",
 })
 for _hidden_key in _HIDDEN_CATALOG_PG_KEYS:
     _hidden_spec = REGISTRY.get(_hidden_key)
@@ -3464,23 +3474,11 @@ _SELECT_WIDGET_PRESETS: dict[str, dict] = {
         "select_options": ("after_sleep", "fixed"),
         "select_labels": ("Запускать после сна", "Своё время (час ниже)"),
     },
-    # 10.20 (БЛОК 5.1, О4 FINAL): «Часовой пояс чата» — select с человеческими
-    # названиями (значения — IANA-имена для zoneinfo; пусто → фолбэк на
-    # limits.summary_timezone). Preцедент _SELECT_WIDGET_PRESETS.
-    "CHAT_TIMEZONE": {
-        "widget": "select",
-        "select_options": (
-            "", "Europe/Kaliningrad", "Europe/Moscow", "Europe/Kyiv",
-            "Asia/Yekaterinburg", "Asia/Almaty", "Asia/Tbilisi",
-            "Asia/Novosibirsk", "Asia/Krasnoyarsk", "Asia/Dubai",
-            "Asia/Vladivostok", "Europe/Berlin", "UTC"),
-        "select_labels": (
-            "Как у саммари (по умолчанию)", "UTC+2 (Калининград)",
-            "UTC+3 (Москва)", "UTC+2/+3 (Киев)", "UTC+5 (Екатеринбург/Пермь)",
-            "UTC+5 (Алматы)", "UTC+4 (Тбилиси)", "UTC+7 (Новосибирск)",
-            "UTC+7 (Красноярск)", "UTC+4 (Дубай)", "UTC+10 (Владивосток)",
-            "UTC+1/+2 (Берлин)", "UTC (0)"),
-    },
+    # UR-C-CLOCK (UR-24.2): захардкоженный select из 12 зон УДАЛЕН —
+    # канонический ключ limits.chat_timezone остаётся рабочим str-полем
+    # (любой корректный IANA ID; невалидный блокируется на сохранении).
+    # Единая редакторская поверхность «Модули → Время» с полным справочником
+    # zoneinfo — волна UI (UR-29).
     # F8 (10.23, ADR-1023-8): режим Вербализатора по умолчанию — select.
     "prompts.verbilizer_default_mode": {
         "widget": "select",
@@ -3991,6 +3989,36 @@ def normalize_value(pg_key: str, value):
         logger.warning("[catalog] нормализация не удалась | key=%s | type=%s",
                        pg_key, spec.type, exc_info=True)
         return value
+
+
+#: UR-24.4: pg-ключ со строгой валидацией значения ПОВЕРХ типа каталога.
+#: Канонический пояс чата: непустой мусор блокируется НА СОХРАНЕНИИ, чтобы
+#: невалидная зона не проваливалась молча на следующий слой канонической
+#: цепочки ChatClock ("" — наследование, валидно).
+_TZ_STRICT_PG_KEY = "limits.chat_timezone"
+
+
+def validate_value_rule(pg_key: str, value) -> str | None:
+    """Правило валидации значения сверх типа каталога (путь СОХРАНЕНИЯ).
+
+    Возвращает текст ошибки или None. Для ``limits.chat_timezone``:
+    непустая строка, не резолвящаяся через ``zoneinfo.ZoneInfo`` → отказ
+    (мусорная «Mars/Olympus_Mons» не сохраняется); ``""``/пробелы —
+    наследование, валидно. Остальные ключи — без правил (None)."""
+    if pg_key != _TZ_STRICT_PG_KEY or value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None                     # "" = наследование, не зона
+    try:
+        import zoneinfo
+        zoneinfo.ZoneInfo(text)
+    except Exception:
+        return (f"{_TZ_STRICT_PG_KEY}: неизвестный IANA-часовой пояс "
+                f"{text!r} — укажите корректный идентификатор zoneinfo "
+                f"(например Europe/Berlin) или оставьте пустым для "
+                f"наследования")
+    return None
 
 
 def _cast_to_type(spec: ParamSpec, value):

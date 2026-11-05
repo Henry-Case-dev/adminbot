@@ -538,16 +538,21 @@ class TestTimeInjection:
                                    fallback_tz=SETTINGS_TZ)
         assert "Текущее время в чате" in line
 
-    def test_catalog_has_chat_timezone_select(self):
+    def test_catalog_canonical_chat_timezone_no_hardcoded_select(self):
+        # UR-C-CLOCK (UR-24.2): канонический ключ остаётся записью каталога,
+        # захардкоженный select из 12 зон УДАЛЕН (полный справочник IANA —
+        # волна UI UR-29); legacy-ключи скрыты из рабочего UI (read-only).
         from services import param_catalog as pc
         spec = pc.get("CHAT_TIMEZONE")
         assert spec is not None
         assert spec.pg_key == "limits.chat_timezone"
-        assert spec.widget == "select"
-        assert spec.select_options and spec.select_labels
-        assert len(spec.select_options) == len(spec.select_labels)
-        assert "UTC+3 (Москва)" in spec.select_labels
-        assert "Europe/Moscow" in spec.select_options
+        assert not (spec.widget == "select" and spec.select_options), \
+            "захардкоженный select из 12 зон должен быть удалён (UR-24.2)"
+        assert spec.widget != "select"
+        # Legacy timezone-ключи — read-only compat (hidden → UI/API write
+        # отклоняется понятным кодом, значения читаемы ChatClock'ом).
+        assert pc.get("SUMMARY_TIMEZONE").hidden is True
+        assert pc.get("GOODMORNING_TZ").hidden is True
 
 
 # ── T-1877: /summary — архив ≠ свежее ───────────────────────────────────────

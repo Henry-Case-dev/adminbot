@@ -134,9 +134,16 @@ def _reviewer_json(status, issues=None):
 
 
 def _review_content_payload(reviewer_messages, index):
-    """JSON-хвост user-контента Reviewer (после строки-инструкции)."""
+    """JSON-хвост user-контента Reviewer (после строки-инструкции).
+
+    UR-C-CLOCK: payload дополнен машинным блоком <Chat_Time_Context> —
+    отрезаем его перед парсингом (блок не часть JSON-контракта Reviewer)."""
     content = reviewer_messages[index][1]["content"]
-    return json.loads(content.split("\n", 1)[1])
+    head = content.split("\n", 1)[1]
+    block_at = head.find("<Chat_Time_Context")
+    if block_at != -1:
+        head = head[:block_at].rstrip()
+    return json.loads(head)
 
 
 def _doc_with_p0_no_evidence(anchors):

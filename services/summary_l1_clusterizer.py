@@ -43,6 +43,8 @@ import time
 from config.settings import settings
 from services.llm_client import LLMBadResponseError, LLMError
 from services.prompt_style_blocks import resolve_prompt
+# UR-C-CLOCK: единственный источник времени чата (UR-26.5).
+from services import chat_clock as _cclock
 from services.summary_hybrid_budget import (
     estimate_and_split,
     hybrid_input_budget,
@@ -1912,6 +1914,17 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         {"role": "system", "content": system},
         {"role": "user", "content": user_content},
     ]
+    # UR-C-CLOCK (UR-26.5): один план-снапшот ChatClock на L1-стадию прогона
+    # (вход для «сегодня/вчера» в кластеризации); идемпотентно, без блока —
+    # только если часы недоступны (честный skip_reason в логе).
+    try:
+        if chat_id is not None:
+            _s1_snap = await _cclock.snapshot(chat_id)
+            messages = _cclock.attach_time_context(
+                messages, _s1_snap, phase=_cclock.PHASE_PLAN)
+    except Exception:      # pragma: no cover - fail-open honest
+        logger.warning("[chat_clock] L1 time block skipped | chat=%s",
+                       chat_id, exc_info=True)
 
     # ── ASAP-2 (контракт (b)/(c)/§15): call → parse → repair → validate →
     #    (ровно одна correction-повторная попытка, если причина всё ещё

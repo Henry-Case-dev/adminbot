@@ -2145,6 +2145,15 @@ class InitiativeObserverRunner:
                  "content": build_digest_user_prompt(
                      sample, alias_resolver=self._aliases)},
             ]
+            # UR-C-CLOCK (UR-26.3): наблюдатель видит часы чата при оценке
+            # уместности (пропущенный интервал vs сейчас).
+            try:
+                from services import chat_clock as _cclock
+                _obs_snap = await _cclock.snapshot(chat_id)
+                messages = _cclock.attach_time_context(
+                    messages, _obs_snap, phase=_cclock.PHASE_PLAN)
+            except Exception:      # pragma: no cover - fail-open honest
+                pass
             raw = await asyncio.wait_for(
                 self._llm.generate(messages, temperature=0.2,
                                    chat_id=chat_id, module="initiative",
@@ -2180,6 +2189,15 @@ class InitiativeObserverRunner:
                  rows, memory_hints=hints, digest=digest,
                  alias_resolver=self._aliases)},
         ]
+        # UR-C-CLOCK (UR-26.3): наблюдатель вырабатывает временный повод —
+        # «уместно ли сейчас» решается по ChatClock, не по догадке.
+        try:
+            from services import chat_clock as _cclock
+            _obs_snap = await _cclock.snapshot(int(chat_id))
+            messages = _cclock.attach_time_context(
+                messages, _obs_snap, phase=_cclock.PHASE_PLAN)
+        except Exception:      # pragma: no cover - fail-open honest
+            pass
         try:
             raw = await asyncio.wait_for(
                 self._llm.generate(messages, temperature=0.2,
