@@ -3,11 +3,15 @@
 
 Проверяет ОДИН переиспользуемый компонент `prompt-version-card` на всех
 редакторах промптов и его поведение против настоящих HTTP-контрактов
-(`GET /api/prompts/{key}/versions` с `entries[]`/`page.next_cursor`,
+(`GET /api/prompts/{key}/versions` с плоским состоянием PVR-01
+(effective_origin/effective_content_hash/effective_revision_id, journal_*,
+baseline/factory, draft_dirty), основным списком `revisions[]`
+(`revisions_cursor`), вторичным `activations[]` («была применена»),
 `/revisions/{id}/source`, `/revisions/diff`, `/activate`, `/baseline`,
 `/baseline/restore`, `/factory/restore`, `/revisions/{id}/copy-to-global`).
 
-Что утверждается (контракт EPIC-PROMPT-VERSIONING-UX-01 §2.1/§2.2/§6):
+Что утверждается (контракт EPIC-PROMPT-VERSIONING-UX-01 §2.1/§2.2/§6 +
+PVR-FC-CORRECTIVE-01 PVR-UI):
 
   * карточка показывает человеческое состояние (без act:/fac:/sha/id);
   * «История версий» открывается панелью (боковая на десктопе, полноэкранная
@@ -65,13 +69,17 @@ LONG_BODY = ("строка один\nстрока два\nстрока три\n"
 TOTAL_ENTRIES = 130          # > 50: проверяем досье целиком, а не «последние N»
 
 STATE = {
-    "entries": [],           # объединённая лента журнала (новые сверху)
+    # PVR-FC-CORRECTIVE-01 (PVR-BACKEND d5ee97ef): основной список панели —
+    # ТОЛЬКО revisions (revisions_cursor); события активации — вторичный
+    # список «История действий» (activations_cursor), статус «была применена».
+    "revisions": [],
+    "activations": [],
     "entries_page_size": 50,
     "journal_down": False,
     "code_only": False,
     "posts": [],             # все POST/DELETE с путём и телом
     "gets": [],
-    "active": "rev-manual-2",
+    "active": "rev-002",     # сопоставленная действующая ревизия
     "baseline": None,        # revision_id или None
     "baseline_cleared": False,
     "factory_restored": False,
@@ -91,8 +99,13 @@ def _body(rev_id):
     return "текст версии %s\nвторая строка" % rev_id
 
 
-def build_entries():
-    """Лента: 130 записей, среди них retired/несовместимая/событие."""
+def build_revisions():
+    """Ревизии: 130 сохранённых версий, среди них retired/несовместимая.
+
+    Форма строки — как у реального ``list_versions`` (PVR-BACKEND): без
+    entry_type/order/event_id/kind/outcome/detail_code, статус «active»
+    несёт ревизия, сопоставленная с действующим текстом.
+    """
     rows = []
     for i in range(1, TOTAL_ENTRIES + 1):
         rev = "rev-%03d" % i
@@ -108,17 +121,11 @@ def build_entries():
             reason_text = ("Несовместима с текущей схемой <2>: читать и "
                            "сравнивать можно, применять нельзя.")
         rows.append({
-            "entry_type": "revision",
-            "order": i,
             "created_at": "2026-11-03T%02d:%02d:00+00:00" % (10 + (i % 10), i % 60),
             "revision_id": rev,
-            "event_id": None,
             "source": "manual",
             "source_label": "ручная",
             "origin": "manual",
-            "kind": "manual_edit",
-            "outcome": "applied",
-            "detail_code": "",
             "actor": "" if i % 3 else "77",
             "scope": "chat",
             "chat_id": CHAT_A,
@@ -137,24 +144,38 @@ def build_entries():
             "schema_compat": "2" if i == 9 else "",
             "retired": i == 7,
         })
-    # событие без текста: «Применить» не должно появляться
-    rows.insert(2, {
-        "entry_type": "activation", "order": 0,
-        "created_at": "2026-11-03T09:00:00+00:00", "revision_id": "",
-        "event_id": "act-1", "source": "restored",
-        "source_label": "назначена базовая", "origin": "", "kind":
-        "baseline_assign", "outcome": "recorded", "detail_code": "",
-        "actor": "77", "scope": "chat", "chat_id": CHAT_A, "status": "inactive",
-        "status_label": "неактивная", "actionable": True, "reason": "",
-        "reason_text": "", "body_available": False, "chars": 0,
-        "sha256_12": "", "release_id": "", "factory_revision": "",
-        "schema_compat": "", "retired": False,
-    })
-    # Объединённая лента: порядковый номер = ранг в ленте, начиная с 1
-    # (реальный API не отдаёт «0» и не оставляет дыр).
-    for idx, row in enumerate(rows):
-        row["order"] = idx + 1
     return rows
+
+
+def build_activations():
+    """События активации (PVR-02.2): «была применена», никогда не active.
+
+    Два события применения ОДНОЙ ревизии (C3.1) + назначение baseline —
+    все во вторичном списке, без второй карточки редакции.
+    """
+    return [
+        {"activation_id": 42, "kind": "manual_edit", "outcome": "applied",
+         "revision_id": "rev-002", "scope": "chat", "chat_id": CHAT_A,
+         "release_id": "", "actor": "77", "detail_code": "",
+         "created_at": "2026-11-03T09:00:00+00:00",
+         "source": "manual", "source_label": "ручная",
+         "status": "was_applied", "status_label": "была применена",
+         "actionable": True, "reason_text": "", "body_available": True},
+        {"activation_id": 41, "kind": "manual_edit", "outcome": "applied",
+         "revision_id": "rev-002", "scope": "chat", "chat_id": CHAT_A,
+         "release_id": "", "actor": "77", "detail_code": "",
+         "created_at": "2026-11-02T09:00:00+00:00",
+         "source": "manual", "source_label": "ручная",
+         "status": "was_applied", "status_label": "была применена",
+         "actionable": True, "reason_text": "", "body_available": True},
+        {"activation_id": 40, "kind": "baseline_assign", "outcome": "recorded",
+         "revision_id": "", "scope": "chat", "chat_id": CHAT_A,
+         "release_id": "", "actor": "77", "detail_code": "baseline:manual",
+         "created_at": "2026-11-01T09:00:00+00:00",
+         "source": "restored", "source_label": "назначена базовая",
+         "status": "event", "status_label": "событие",
+         "actionable": False, "reason_text": "", "body_available": False},
+    ]
 
 
 def _block_for(key):
@@ -173,11 +194,22 @@ def _versions_payload(url, key=""):
             k, v = part.split("=", 1)
             params[k] = v
     size = min(int(params.get("page_size", 50) or 50), 200)
+    # PVR-BACKEND: три независимых курсора — merged-лента (совместимость),
+    # revisions (основной список) и activations (вторичный список).
     start = int(params.get("cursor", 0) or 0)
-    rows = STATE["entries"]
+    rev_start = int(params.get("revisions_cursor", 0) or 0)
+    act_start = int(params.get("activations_cursor", 0) or 0)
+    rows = STATE["revisions"]
     page = rows[start:start + size]
     nxt = start + size
     has_more = nxt < len(rows)
+    rev_page = rows[rev_start:rev_start + size]
+    rev_nxt = rev_start + size
+    rev_more = rev_nxt < len(rows)
+    acts = STATE["activations"]
+    act_page = acts[act_start:act_start + size]
+    act_nxt = act_start + size
+    act_more = act_nxt < len(acts)
     baseline = None
     if STATE["baseline"]:
         baseline = {
@@ -223,12 +255,35 @@ def _versions_payload(url, key=""):
             "can_restore_baseline": bool(STATE["baseline"]),
             "can_copy_to_global": True,
         },
+        # ── PVR-01: плоский контракт эффективного состояния ──
+        "effective_origin": "chat_override",
+        "effective_origin_label": "локальная версия чата",
+        "effective_content_hash": "123456789abc",
+        "effective_revision_id": STATE["active"] or None,
+        "effective_status": "matched",
+        "effective_status_label":
+            "Действующий текст совпадает с сохранённой версией",
+        "effective_diagnostics": [],
+        "journal_last_activation_id": 42,
+        "journal_active_revision_id": STATE["active"] or None,
+        "baseline_revision_id": STATE["baseline"] or None,
+        "factory_revision_id": "fac:deadbeefcafe",
+        "draft_dirty": False,
+        # Основной список = ревизии; события — вторичный список.
+        "revisions": rev_page,
+        "revisions_page": {"order": "oldest", "paging": "newest_first",
+                           "next_cursor": str(rev_nxt) if rev_more else "",
+                           "has_more": rev_more, "returned": len(rev_page)},
+        "activations": act_page,
+        "activations_page": {"order": "newest_first",
+                             "next_cursor": str(act_nxt) if act_more else "",
+                             "has_more": act_more, "returned": len(act_page)},
+        # merged-лента остаётся в ответе (совместимость с прежним API).
         "entries": page,
         "page": {"page_size": size, "order": "newest_first",
                  "next_cursor": str(nxt) if has_more else "",
                  "has_more": has_more, "returned": len(page),
                  "rank_start": start + 1, "total_known": None},
-        "revisions": [], "activations": [],
         "supported_schema_compat": ["1", "2"],
     }
 
@@ -369,7 +424,7 @@ def make_api_handler():
             if path.endswith("/activate"):
                 rev = str(body.get("revision_id") or "")
                 STATE["active"] = rev
-                for row in STATE["entries"]:
+                for row in STATE["revisions"]:
                     if row["status"] in ("retired", "incompatible"):
                         continue        # статус-гейт журнала не перетирается
                     row["status"] = ("active" if row["revision_id"] == rev
@@ -377,6 +432,18 @@ def make_api_handler():
                     row["status_label"] = ("активная"
                                            if row["revision_id"] == rev
                                            else "неактивная")
+                # Событие применения добавляется в append-only ленту событий
+                # (C1.3: одна ревизия в интерфейсе, событие — во вторичной).
+                STATE["activations"].insert(0, {
+                    "activation_id": 100 + len(STATE["activations"]),
+                    "kind": "manual_edit", "outcome": "applied",
+                    "revision_id": rev, "scope": "chat", "chat_id": CHAT_A,
+                    "release_id": "", "actor": "77", "detail_code": "",
+                    "created_at": "2026-11-03T09:30:00+00:00",
+                    "source": "manual", "source_label": "ручная",
+                    "status": "was_applied", "status_label": "была применена",
+                    "actionable": True, "reason_text": "",
+                    "body_available": True})
                 key = path.split("/api/prompts/", 1)[1][: -len("/activate")]
                 if "core.personality.compact" in key:
                     STATE["core_text"]["compact"] = _body(rev)
@@ -632,7 +699,7 @@ def open_panel(page):
 def panel_rows(page):
     return page.evaluate(
         "() => Array.from(document.querySelectorAll('[data-pv-row]'))"
-        ".map((el) => ({order: el.getAttribute('data-pv-order'),"
+        ".map((el) => ({rev: el.getAttribute('data-prompt-history-revision'),"
         " status: el.getAttribute('data-pv-status'),"
         " text: (el.textContent || '').replace(/\\s+/g, ' ').trim()}))")
 
@@ -796,7 +863,7 @@ def run_editor(label, page, shots, width):
     """)
     check(card and card["cards"] == 1, label,
           "карточка версий не одна в редакторе: %r" % (card,))
-    check("изменён вручную" in (card["state"] or ""), label,
+    check("Действует в этом чате" in (card["state"] or ""), label,
           "состояние не человеческое: %r" % (card["state"],))
     check(card["hasRaw"] is False, label,
           "в карточке остались сырые act:/fac:/sha")
@@ -854,9 +921,9 @@ def run_editor(label, page, shots, width):
               "в шапке панели нет %r: %r" % (needle, meta_txt[:200]))
     check(meta["rows"] == 50, label,
           "первая страница не 50 записей: %d" % meta["rows"])
-    orders = [r["order"] for r in panel_rows(page)]
-    check(orders[0] == "1", label,
-          "порядок строк не начинается с 1: %r" % (orders[:3],))
+    revs = [r["rev"] for r in panel_rows(page)]
+    check(revs[0] == "rev-001", label,
+          "основной список ревизий не начинается с rev-001: %r" % (revs[:3],))
     shot(page, shots, "history_%s" % label)
     page.click("[data-pv-load-more]")
     page.wait_for_timeout(500)
@@ -865,8 +932,9 @@ def run_editor(label, page, shots, width):
           "история не листается дальше 50: %d" % len(rows2))
     check(len(rows2) == 100, label,
           "вторая страница не догрузила ровно 50: %d" % len(rows2))
-    check([r["order"] for r in rows2][-1] == "100", label,
-          "порядковые номера после догрузки не непрерывны")
+    revs2 = [r["rev"] for r in rows2]
+    check(revs2[-1] == "rev-100", label,
+          "после догрузки ревизии непрерывны: %r" % (revs2[-3:],))
 
     # 3) «Посмотреть» — полный дословный текст, без пересохранения
     posts_before = len(STATE["posts"])
@@ -911,12 +979,39 @@ def run_editor(label, page, shots, width):
         check(incompat[0]["activate"] is False
               and "Несовместима" in incompat[0]["reason"], label,
               "у несовместимой версии нет честной причины: %r" % (incompat[0],))
-    # строка-событие без revision_id — «Применить» не рисуется
-    events = [r for r in reasons if not r["rev"]]
-    check(bool(events), label, "событий журнала нет в ленте")
-    if events:
-        check(events[0]["activate"] is False, label,
-              "у события журнала есть кнопка «Применить»")
+    # События активации — ТОЛЬКО во вторичном «Истории действий» (PVR-02.1/
+    # PVR-02.2/C1.2): в основном списке событий нет, статус события —
+    # «была применена», своей кнопки «Применить» у событий нет.
+    main_list_events = page.evaluate(
+        "() => Array.from(document.querySelectorAll("
+        "'[data-prompt-history-versions] [data-pv-row]'))"
+        ".filter((el) => !el.getAttribute('data-prompt-history-revision'))"
+        ".length")
+    check(main_list_events == 0, label,
+          "в основном списке есть строки-события журнала: %d"
+          % main_list_events)
+    page.click("[data-pv-events-toggle]")
+    page.wait_for_selector("[data-pv-events]", state="visible")
+    page.wait_for_timeout(200)
+    ev = page.evaluate(
+        "() => { const block = document.querySelector('[data-pv-events]');"
+        " const rows = Array.from(block.querySelectorAll('[data-pv-event-row]'));"
+        " return {count: rows.length,"
+        " statuses: rows.map((el) => el.getAttribute('data-pv-event-status')),"
+        " activateButtons: block.querySelectorAll('[data-pv-row-activate]').length,"
+        " baselineButtons: block.querySelectorAll('[data-pv-row-baseline]').length,"
+        " text: (block.textContent || '').replace(/\\s+/g, ' ').trim()}; }")
+    check(ev["count"] >= 3, label,
+          "в «Истории действий» нет событий активации: %r" % (ev,))
+    check(all(s != "active" for s in ev["statuses"]), label,
+          "МУТАЦИЯ: событие помечено active в списке действий: %r"
+          % (ev["statuses"],))
+    check(ev["activateButtons"] == 0 and ev["baselineButtons"] == 0, label,
+          "у событий есть свои кнопки применения/назначения: %r" % (ev,))
+    check("была применена" in ev["text"], label,
+          "статус события «была применена» не показан: %r" % (ev["text"][:200],))
+    page.click("[data-pv-events-toggle]")
+    page.wait_for_timeout(200)
 
     # 6) «Применить эту версию»: server-confirmed, не оптимистично
     target_rev = row_rev(page, 4)
@@ -1007,7 +1102,7 @@ def run_editor(label, page, shots, width):
     page.wait_for_timeout(700)
     check(any(p["method"] == "DELETE" and p["path"].endswith("/baseline")
               for p in STATE["posts"]), label, "DELETE /baseline не отправлен")
-    click_row(page, 6, "[data-pv-row-baseline]")
+    click_row(page, 5, "[data-pv-row-baseline]")
     page.wait_for_timeout(800)
     page.click("[data-pv-restore-baseline]")
     page.wait_for_timeout(900)
@@ -1056,15 +1151,17 @@ def run_editor(label, page, shots, width):
     check("ДОПИСАНО" in (value or ""), label,
           "после отмены подтверждения черновик потерян: %r" % (value,))
 
-    # 12) журнал недоступен: честный 503-текст, черновик остаётся
+    # 12) журнал недоступен: честный 503-текст (PVR-05.2), черновик остаётся
     STATE["journal_down"] = True
     page.click("[data-prompt-history-toggle]")
     page.wait_for_selector("[data-pv-panel-error]", state="visible")
     err = page.evaluate(
         "() => ((document.querySelector('[data-pv-panel-error]') || {})"
         ".textContent || '').trim()")
-    check("Журнал версий недоступен" in err, label,
-          "503 журнала не показан честно: %r" % (err,))
+    check("История временно недоступна" in err, label,
+          "503 журнала не показан каноничной меткой PVR-05.2: %r" % (err,))
+    check("журнал версий недоступен" in err, label,
+          "причина недоступности потеряна: %r" % (err,))
     check(page.evaluate(
         "() => document.querySelectorAll('[data-pv-row-activate]').length") == 0,
         label, "при недоступном журнале рисуются кнопки действий")
@@ -1264,7 +1361,8 @@ def main():
     if args.port:
         PORT = args.port
         BASE = "http://127.0.0.1:%d" % PORT
-    STATE["entries"] = build_entries()
+    STATE["revisions"] = build_revisions()
+    STATE["activations"] = build_activations()
     serve_static(PORT, os.path.abspath(args.webroot))
     print("[pvr-s4-e2e] webroot = %s" % os.path.abspath(args.webroot))
 
@@ -1279,7 +1377,11 @@ def main():
             DIALOGS.clear()
             STATE["posts"] = []
             STATE["gets"] = []
-            STATE["active"] = "rev-manual-2"
+            STATE["active"] = "rev-002"
+            # Свежий журнал на каждый сценарий: статусы не тащат мутации
+            # предыдущей ширины (остальное пересобирает /activate).
+            STATE["revisions"] = build_revisions()
+            STATE["activations"] = build_activations()
             STATE["baseline"] = None
             STATE["factory_restored"] = False
             STATE["journal_down"] = False
