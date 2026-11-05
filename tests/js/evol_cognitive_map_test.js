@@ -1063,10 +1063,13 @@ const S3 = (function () {
       text: null, status: 'superseded', chat_id: 1,
       provenance: { record: 'graph_facts.supersedes', chat_id: 1,
         new_fact_id: 6, old_fact_id: 5 } },
+    { id: 'ent:1:7', kind: 'entity', title: '', text: null, status: null,
+      chat_id: 1, provenance: { record: 'graph_entities', entity_id: 7,
+        chat_id: 1 } },
   ], edges: [] });
   const obs = CM.nodeCard(empty.byId['obs:1:5'], empty);
   eq3(obs.text, null, 'у наблюдения нет текста — карточка не выдумывает');
-  eq3(obs.textNote, 'текст записи не сохранён', 'отсутствие текста названо');
+  eq3(obs.textNote, 'Текст записи отсутствует', 'отсутствие текста названо');
   eq3(obs.provenance.sourceRefs.length, 1,
     'ссылки источника показаны (реальные refs записи)');
   eq3(action(obs, 'source').enabled, false,
@@ -1074,11 +1077,27 @@ const S3 = (function () {
   ok3(/наблюдения/.test(action(obs, 'source').reason),
     'причина отказа у наблюдения названа');
   const evt = CM.nodeCard(empty.byId['evt:1:revision:6'], empty);
-  eq3(evt.textNote, 'текст записи не сохранён',
+  eq3(evt.textNote, 'Текст записи отсутствует',
     'у записи изменения текста нет — это сказано');
   ok3(/изменения/.test(action(evt, 'source').reason),
     'у записи изменения нет сообщения — причина названа');
   ok3(evt.history.available === false, 'у самого события версий нет');
+
+  // ── 19a. CMV-CARD-07: узел без заголовка ────────────────────────────────
+  // Шапка карточки — нейтральная метка, сырой ID не становится заголовком;
+  // сам ID сохраняется в модели карточки (детали/атрибут) и не пропадает.
+  const ent = CM.nodeCard(empty.byId['ent:1:7'], empty);
+  eq3(ent.title, 'Без названия',
+    'без заголовка шапка карточки не показывает сырой ID');
+  eq3(ent.titleAbsent, true, 'отсутствие заголовка помечено для деталей');
+  eq3(ent.id, 'ent:1:7', 'ID записи остаётся в карточке (детали/атрибут)');
+  eq3(ent.textNote, 'Текст записи отсутствует',
+    'у узла без текста absent-формулировка та же');
+  eq3(CM.nodeCard(byId('fact:-1001:1'), model).title,
+    'Любит утренний кофе без сахара',
+    'реальное название не подменяется меткой');
+  eq3(CM.nodeCard(byId('fact:-1001:1'), model).titleAbsent, false,
+    'у записи с названием пометки об отсутствии нет');
 
   // ── 20. детерминизм и защита от мусора ─────────────────────────────────
   eq3(JSON.stringify(CM.nodeCard(byId('fact:-1001:1'), model)),

@@ -13142,7 +13142,7 @@
                   <span v-if="cogTruncated.active && !cogEmpty"
                         class="text-xs cog-truncated" data-cog-truncated
                         :title="cogTruncated.hint"
-                        tabindex="0" role="note">Показана часть графа</span>
+                        tabindex="0" role="note">Отображена часть графа</span>
                   <!-- Честная полнота: «показано X из Y» — НЕЙТРАЛЬНО (серый
                        текст без предупреждений). После правки S1 это нормальное
                        состояние почти любого реального чата (окрестность сидов
@@ -14683,7 +14683,7 @@
                     <span v-if="cogTruncated.active && !cogEmpty"
                           class="text-xs cog-truncated" data-cog-truncated
                           :title="cogTruncated.hint"
-                          tabindex="0" role="note">Показана часть графа</span>
+                          tabindex="0" role="note">Отображена часть графа</span>
                     <span v-if="cogCompleteness.active && !cogEmpty"
                           class="text-xs text-gray-500 cog-completeness"
                           data-cog-completeness>{{ cogCompleteness.text }}</span>
@@ -14828,6 +14828,14 @@
 
                 <div class="cog-card__section" data-cog-card-provenance>
                   <div class="cog-card__label">Происхождение</div>
+                  <!-- CMV-CARD-07: у записи без заголовка сырой ID остаётся
+                       раскрываемым в деталях (секция скрыта в свёрнутом виде
+                       встроенной панели), а не в заголовке карточки. -->
+                  <div v-if="cogCard.titleAbsent" class="cog-card__row"
+                       data-cog-card-id-row>
+                    <span class="cog-card__key">Запись</span>
+                    <span class="cog-card__value">{{ cogCard.id }}</span>
+                  </div>
                   <div v-if="cogCard.provenance.origin" class="cog-card__row"
                        data-cog-origin>
                     <span class="cog-card__key">Откуда</span>

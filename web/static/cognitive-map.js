@@ -2019,14 +2019,19 @@
     return {
       kind: 'node',
       id: node.id,
-      title: node.title || node.id,
+      /* CMV-CARD-07: без заголовка — нейтральная метка «Без названия», сырой
+       * ID не попадает в заголовок; сам ID остаётся в карточке (details/
+       * атрибут data-cog-card-id) и раскрывается строкой «Запись». */
+      title: node.title || 'Без названия',
+      titleAbsent: !node.title,
       kindKey: kindKey,
       kindLabel: KIND_LABELS[kindKey],
       scope: node.scope === 'global' ? 'global' : 'chat',
       chatId: node.chatId,
       text: node.text === null || node.text === undefined ? null : String(node.text),
+      /* CMV-CARD-03: отсутствие текста названо требуемой формулировкой. */
       textNote: (node.text === null || node.text === undefined)
-        ? 'текст записи не сохранён' : '',
+        ? 'Текст записи отсутствует' : '',
       status: node.status === null || node.status === undefined
         ? null : String(node.status),
       isolated: node.isolated === true,
