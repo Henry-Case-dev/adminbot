@@ -502,7 +502,7 @@ async def on_startup():
         setup_summary(generator, db, aliases, bot.id)
         _summary_service = SummarySchedulerService(generator, db)
         _summary_service.start()  # BEFORE dp.start_polling (RESEARCH §c)
-        logger.info("SmartModule Summary (Epic 24) initialized (TZ=%s)", hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
+        logger.info("SmartModule Summary (Epic 24) initialized (per-chat local slots 00/06/12/18 via ChatClock, UR-C-SCHED)")
     else:
         logger.info(
             "SmartModule Summary disabled (SUMMARY_ENABLED=False) — "
@@ -871,13 +871,16 @@ async def on_startup():
                        exc_info=True)
 
     # ── Goodmorning (Epic 30) — без роутера (D91): чистый планировщик-сервис ──
+    # UR-C-SCHED (UR-28.5): GOODMORNING_TIME остаётся часом рассылки; пояс
+    # каждого чата берётся из ChatClock (services/chat_clock.py) — отдельного
+    # рабочего GOODMORNING_TZ у расписания больше нет (legacy read-only).
     global _goodmorning_scheduler
     goodmorning_relay = GoodmorningRelay(bot=bot, media_dir=hot.get("reactions.goodmorning_media_dir", settings.GOODMORNING_MEDIA_DIR))
     _goodmorning_scheduler = GoodmorningSchedulerService(
         relay=goodmorning_relay,
         time_str=hot.get("reactions.goodmorning_time", settings.GOODMORNING_TIME),
-        tz=hot.get("reactions.goodmorning_tz", settings.GOODMORNING_TZ),
         target_chat_ids=hot.get("reactions.goodmorning_target_chat_ids", settings.GOODMORNING_TARGET_CHAT_IDS),
+        db=db,
     )
     _goodmorning_scheduler.start()  # ДО dp.start_polling; пустые targets → WARNING, no-op
 

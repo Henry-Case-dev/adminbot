@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
-  "candidate_commit": "7edcb2b4",
+  "candidate_commit": "5d8c8598",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -2120,8 +2120,17 @@
       "acceptance": "Один механизм планирует локальные слоты 00/06/12/18 в IANA-поясе каждого чата с вычислением next_due_at_utc через zoneinfo, на существующем scheduler и task/run ledger, без второго планировщика и без прохода по поясу первого чата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Один механизм: тикер + zoneinfo-слоты каждого чата, без второго планировщика и пояса первого чата",
+          "observation": "TestPerChatTimezones::test_two_chats_fire_at_own_local_time_same_sweep (Yeka 13:00 UTC и Berlin 17:00 UTC в ОДНОМ процессе - свип не идёт по поясу первого чата); test_ticker_interval_and_anti_race (существующий AsyncIOScheduler, один job, без CronTrigger); next_due вычисляется zoneinfo (TestNextDue::test_next_due_uses_chat_zone, helper next_due_utc); task/run ledger не менялся (test_summary_inc01_* на тикере)",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_sched.py",
+          "artifact_sha256": "bba49be1ef4a8970ae3ae15dfee3534a944e610446c2e83838113e9cd747af44",
+          "candidate_commit": "5d8c8598"
+        }
+      ]
     },
     {
       "source_id": "M-00387",
@@ -3051,8 +3060,17 @@
       "acceptance": "Саммари планируется по локальным слотам своего чата; смена пояса, рестарт и переход на летнее время не дают повторных публикаций.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Саммари по локальным слотам своего чата; без дублей при рестарте/DST/смене пояса",
+          "observation": "TestPerChatTimezones (два пояса, один свип: Yeka 13:00 UTC, Berlin 17:00 UTC), TestDstBerlinSpring (DST-день 2026-03-29: ровно 5 запусков на своих UTC-instant), TestSameDateDedup (повторный тик и рестарт без дубля)",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_sched.py",
+          "artifact_sha256": "bba49be1ef4a8970ae3ae15dfee3534a944e610446c2e83838113e9cd747af44",
+          "candidate_commit": "5d8c8598"
+        }
+      ]
     },
     {
       "source_id": "L00041",
@@ -5336,8 +5354,17 @@
       "acceptance": "Саммари планируется по локальным слотам 00/06/12/18 в IANA-поясе каждого чата через существующий scheduler, без второго параллельного планировщика.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Per-chat слоты 00/06/12/18 через существующий scheduler, без второго планировщика",
+          "observation": "ОДИН тикер APScheduler 60s (max_instances=1, coalesce=True) вместо глобального cron; слот каждого чата через chat_clock.resolve_chat_timezone; частота и gates не менялись (test_summary_scheduler.py::test_no_parallel_global_cron + TestPerChatTimezones); см. ur-c-sched-evidence.md",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_sched.py",
+          "artifact_sha256": "bba49be1ef4a8970ae3ae15dfee3534a944e610446c2e83838113e9cd747af44",
+          "candidate_commit": "5d8c8598"
+        }
+      ]
     },
     {
       "source_id": "L00380",
@@ -5351,8 +5378,17 @@
       "acceptance": "Слот имеет уникальный ключ chat_id + local_schedule_date + local_slot + UTC-instant + version и атомарно захватывается; DST-gap переносится на первый допустимый instant дня, повтор часа даёт один запуск, а смена пояса пересчитывает только будущие слоты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Уникальный ключ слота, атомарный claim, DST gap/fold, смена пояса - только будущие слоты",
+          "observation": "PK (kind,chat_id,local_date,local_slot) + INSERT OR IGNORE (test_claim_is_atomic_single_winner: второй претендент False, cv победителя сохранён); gap->первый валидный instant дня, fold->ранний (test_slot_math_gap_and_fold_deterministic); повтор часа = один запуск (DST-spring 5 запусков); CAS-перебронь fired=0 при изменившемся instant (test_timezone_change_recomputes_future_slots_only: Yeka->Berlin, 12:00 в 11:00 UTC, один раз)",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_sched.py",
+          "artifact_sha256": "bba49be1ef4a8970ae3ae15dfee3534a944e610446c2e83838113e9cd747af44",
+          "candidate_commit": "5d8c8598"
+        }
+      ]
     },
     {
       "source_id": "L00381",
@@ -5366,8 +5402,17 @@
       "acceptance": "При простое/рестарте нет пачки просроченных саммари: coalescing до одного актуального слота либо честный skip с reason_code; покрытый период не пересказывается, per-chat gates и идемпотентность сохранены, старый глобальный cron не активен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Без пачки просроченных: coalescing одного актуального слота либо честный skip с reason_code",
+          "observation": "TestMissedSlotExpired: вне due-окна запуск не происходит; строка fired=0 reason=missed_slot_expired; ровно один skip-лог; TestGoodmorningPerChat::test_goodmorning_expired_morning_no_night_catchup; covered-period не пересказывается - неизменный coverage-контур генератора (test_hotfix5_summary_cover_window_round1025, 276 passed общий прогон)",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_sched.py",
+          "artifact_sha256": "bba49be1ef4a8970ae3ae15dfee3534a944e610446c2e83838113e9cd747af44",
+          "candidate_commit": "5d8c8598"
+        }
+      ]
     },
     {
       "source_id": "L00382",
@@ -5396,8 +5441,17 @@
       "acceptance": "Goodmorning сохраняет GOODMORNING_TIME как час рассылки, но timezone берёт из ChatClock чата; target_chat_ids, per-chat gate, дедуп и ручная настройка времени сохранены, отдельный редактор GOODMORNING_TZ удалён, а медиа-рассылка не переписана.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "GOODMORNING_TIME - час рассылки, пояс - ChatClock чата; targets/gate/dedup сохранены; GOODMORNING_TZ из расписания убран",
+          "observation": "TestGoodmorningPerChat::test_goodmorning_time_hour_semantics_per_chat_tz (07:30 в поясах чатов: Yeka 02:30 UTC, Berlin 06:30 UTC; дедуп); gate ДО claim не съедает слот (test_goodmorning_gate_preserved_and_slot_not_consumed); конструктор без tz (см. отчёт ur-c-sched-evidence.md; редактор GOODMORNING_TZ скрыт каталогом в UR-C-CLOCK, param_catalog:3625); test_goodmorning.py: start-False/targets/relay",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_sched.py",
+          "artifact_sha256": "bba49be1ef4a8970ae3ae15dfee3534a944e610446c2e83838113e9cd747af44",
+          "candidate_commit": "5d8c8598"
+        }
+      ]
     },
     {
       "source_id": "L00385",
@@ -7285,8 +7339,17 @@
       "acceptance": "После перехода на per-chat расписание не остаётся двух рабочих timezone-полей и старого параллельного общего cron Summary; TimeContext не встраивается только в Direct.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Нет двух рабочих tz-полей и старого параллельного cron Summary; TimeContext не только в Direct",
+          "observation": "test_summary_scheduler.py::test_no_parallel_global_cron (нет CronTrigger, один job); goodmorning без tz-параметра; TimeContext в Factcheck/Initiative/Summary доказан test_ur_c_clock (строки UR-26.2/UR-27 карты, candidate 7632fdb6); сводка - ur-c-sched-evidence.md",
+          "type": "test",
+          "artifact_path": "tests/test_summary_scheduler.py",
+          "artifact_sha256": "0d84e37be91ab7297af9b458cb1b4b283520c02198fb813d4f61a4bb53326b06",
+          "candidate_commit": "5d8c8598"
+        }
+      ]
     },
     {
       "source_id": "L00485",
@@ -7686,7 +7749,8 @@
     "UR-A": "4cc99286",
     "UR-D": "6374eedc",
     "UR-C-CLOCK": "7632fdb6",
-    "UR-E": "b2738117"
+    "UR-E": "b2738117",
+    "UR-C-SCHED": "5d8c8598"
   },
   "architecture_note": "Барьер UR-A снят и реализован: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966) имеет статус ARCHITECT_VALIDATED и фиксирует контракт модулей (§2), карту владения файлами (§2.6) и checkpoint-1 «контракты сфризены». По этому контракту срезом UR-A создан ровно один новый файл — services/turn_types.py (фрозен-датаклассы/enums, без логики исполнения); файла services/turn_request.py в проекте никогда не существовало, имя в графе исправлено. Датаклассы §2.2/§2.3 намеренно не дублируются: ContextSelection/ContextFragment — services/direct_context_composer.py (UR-C), ToolEvidence/SourceRecord — services/direct_execution.py (UR-B)."
 }
