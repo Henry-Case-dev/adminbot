@@ -40,7 +40,7 @@ import logging
 import os
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from config.settings import settings
 from services import tool_result
@@ -87,8 +87,14 @@ REASON_ADAPTIVE_NO_TOOLS = "adaptive_no_tools"
 REASON_EVIDENCE_REQUIRED = "evidence_required_overrides_plan"
 
 # ── Границы adaptive-цепочки (§18C.7: max steps/tokens/cost) ───────────────
-# Числа — код-дефолты; env-overrides читаются per-call (см. ниже). При
-# добавлении ClassVar в config.Settings getattr-приоритет у Settings.
+# BGS-05 (контракт behavior-gates-simplification §4): числа ниже — НЕ общий
+# потолок интеллекта, а НИЖНИЙ FALLBACK на случай недоступного резолвера
+# (`resolve_orchestrator_budget`: окно модели из существующего Model Capacity
+# Resolver — тот же вызов, что у Direct primary). Финансовые/технические
+# границы не мигрируют: `ORCHESTRATOR_MAX_METERED_CALLS` — денежный
+# анти-абьюз потолок (retained_as_technical), env-оверрайды
+# `DIRECT_ORCHESTRATOR_*` — жёсткие потолки (см. ниже). При добавлении
+# ClassVar в config.Settings getattr-приоритет у Settings.
 # ER-08: отдельной оси «время» у оркестратора больше нет — используется общий
 # дедлайн tool-цепочки (см. `orchestrator_max_time_seconds`).
 ORCHESTRATOR_MAX_STEPS = 4
@@ -97,6 +103,21 @@ ORCHESTRATOR_MAX_METERED_CALLS = 4
 ORCHESTRATOR_QUERY_CHARS = 800
 ORCHESTRATOR_TOOL_DESC_CHARS = 140
 ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS = 400
+
+# BGS-05: доли окна модели в производных границах оркестратора. Это
+# КОЭФФИЦИЕНТЫ формулы (воспроизводимый расчёт), а не квоты: при окне 16k
+# действуют legacy-фолбэки, при 128k+ границы растут пропорционально ёмкости.
+#: +1 шаг оркестратора на каждые ~16k токенов окна (пол/потолок — ниже).
+ORCHESTRATOR_STEPS_WINDOW_DIVISOR = 16384
+#: Анти-цикл: физический потолок шагов независимо от размера окна.
+ORCHESTRATOR_STEPS_HARD_MAX = 16
+#: Кумулятивный бюджет решений оркестратора ≈ 1/16 окна.
+ORCHESTRATOR_TOKENS_WINDOW_DIVISOR = 16
+#: Срез запроса в payload оркестратора, символов ≈ window_tokens (~¼ окна
+#: при 4 char/token); структурная граница запроса — бюджет L1-стадии.
+ORCHESTRATOR_QUERY_WINDOW_DIVISOR = 1
+#: Сниппет одного источника в payload, символов ≈ окно/32 (~3% окна).
+ORCHESTRATOR_SNIPPET_WINDOW_DIVISOR = 32
 
 
 def _env_flag(name: str, default: bool) -> bool:
@@ -130,8 +151,40 @@ def _limit(name: str, default: int, minimum: int = 1) -> int:
     return value if value >= minimum else minimum
 
 
+def _explicit_ceiling(name: str, minimum: int = 1) -> int:
+    """BGS-05: env/settings ``DIRECT_ORCHESTRATOR_*`` как ЖЁСТКИЙ потолок.
+
+    Возвращает явное значение оператора или ``0`` («потолок не задан»).
+    В отличие от прежнего ``_limit`` НИКОГДА не подставляет legacy-дефолт —
+    иначе динамическое значение из окна модели было бы мёртвым ножом.
+    settings-ClassVar приоритетен (см. комментарий у констант)."""
+    try:
+        declared = getattr(settings, name, None)
+        raw = declared if declared is not None else os.getenv(name)
+        if raw is None:
+            return 0
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    return value if value >= minimum else 0
+
+
+def _apply_ceiling(value: int, ceiling: int) -> int:
+    """``min(value, ceiling)`` при заданном потолке (``>0``), иначе ``value``."""
+    value = max(1, int(value or 0))
+    ceiling = int(ceiling or 0)
+    return min(value, ceiling) if ceiling > 0 else value
+
+
 def orchestrator_max_steps() -> int:
-    return _limit("DIRECT_ORCHESTRATOR_MAX_STEPS", ORCHESTRATOR_MAX_STEPS)
+    """ЖЁСТКИЙ потолок шагов adaptive-цепочки (BGS-05).
+
+    Env/settings ``DIRECT_ORCHESTRATOR_MAX_STEPS``; не задан → ``0`` —
+    потолка нет, действует динамическое значение из окна модели
+    (:func:`resolve_orchestrator_budget`). Динамические шаги всегда
+    ≥ :data:`ORCHESTRATOR_MAX_STEPS`, поэтому старое поведение «без env»
+    сохраняется как нижняя граница, а не как молчаливый потолок."""
+    return _explicit_ceiling("DIRECT_ORCHESTRATOR_MAX_STEPS")
 
 
 def orchestrator_max_time_seconds() -> float:
@@ -172,8 +225,133 @@ def orchestrator_max_time_seconds() -> float:
 
 
 def orchestrator_max_total_tokens() -> int:
-    return _limit("DIRECT_ORCHESTRATOR_MAX_TOTAL_TOKENS",
-                  ORCHESTRATOR_MAX_TOTAL_TOKENS)
+    """ЖЁСТКИЙ потолок кумулятивных токенов оркестратора (BGS-05).
+
+    Env/settings ``DIRECT_ORCHESTRATOR_MAX_TOTAL_TOKENS``; не задан → ``0`` —
+    потолка нет, действует динамическое значение из окна модели."""
+    return _explicit_ceiling("DIRECT_ORCHESTRATOR_MAX_TOTAL_TOKENS")
+
+
+# ── BGS-05: динамические границы оркестратора из реального окна модели ──────
+# Новый бюджетный движок НЕ пишется (запрет контракта §4): источник окна —
+# существующий Model Capacity Resolver (`model_capacity.resolve_stage_window`,
+# тот же вызов/слот, что у Direct primary в direct_chat_service; без
+# base_url/model — sync-путь `resolve_evidence_window_tokens`, без сети).
+# Legacy-числа становятся нижними fallback'ами; env — жёсткие потолки.
+
+
+@dataclass(frozen=True)
+class OrchestratorBudget:
+    """Границы adaptive-цепочки, выведенные из окна модели (BGS-05.1).
+
+    Воспроизводимый расчёт: все поля — детерминированная функция
+    ``window_tokens`` (:func:`orchestrator_budget_for_window`) плюс жёсткие
+    env-потолки (:func:`resolve_orchestrator_budget`). Числа попадают в
+    chain_meta (наблюдаемая причина границ, §9)."""
+
+    window_tokens: int          # 0 = резолвер недоступен (legacy-фолбэк)
+    window_source: str          # capacity source / "fallback_default"
+    max_steps: int
+    max_total_tokens: int
+    query_chars: int
+    snippet_chars: int
+
+    def as_meta(self) -> dict:
+        """R17-safe числа для chain_meta/логов."""
+        return {
+            "window_tokens": self.window_tokens,
+            "window_source": self.window_source,
+            "max_steps": self.max_steps,
+            "max_tokens": self.max_total_tokens,
+        }
+
+
+def orchestrator_budget_for_window(window_tokens: int) -> OrchestratorBudget:
+    """Чистая деривация границ из окна модели. Никогда не бросает.
+
+    Окно ≤ 0 (резолвер недоступен) → legacy-константы (нижний fallback,
+    контракт §4). Иначе — доли окна из коэффициентов выше: шаги и токены
+    растут с ёмкостью (пол — legacy-числа, потолок шагов — анти-цикл
+    :data:`ORCHESTRATOR_STEPS_HARD_MAX`), срезы payload перестают резать
+    середину запроса/сниппета локальным дефолтом (BGS-05.3: структурная
+    граница запроса — бюджет L1-стадии, сниппет — превью при структурном
+    ``EvidenceSource`` с delivered/total/ref)."""
+    try:
+        window = max(0, int(window_tokens or 0))
+    except (TypeError, ValueError):
+        window = 0
+    if window <= 0:
+        return OrchestratorBudget(
+            window_tokens=0, window_source="fallback_default",
+            max_steps=ORCHESTRATOR_MAX_STEPS,
+            max_total_tokens=ORCHESTRATOR_MAX_TOTAL_TOKENS,
+            query_chars=ORCHESTRATOR_QUERY_CHARS,
+            snippet_chars=ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS)
+    steps = max(
+        ORCHESTRATOR_MAX_STEPS,
+        min(ORCHESTRATOR_STEPS_HARD_MAX,
+            window // ORCHESTRATOR_STEPS_WINDOW_DIVISOR))
+    total_tokens = max(ORCHESTRATOR_MAX_TOTAL_TOKENS,
+                       window // ORCHESTRATOR_TOKENS_WINDOW_DIVISOR)
+    query_chars = max(ORCHESTRATOR_QUERY_CHARS,
+                      window // ORCHESTRATOR_QUERY_WINDOW_DIVISOR)
+    snippet_chars = max(ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS,
+                        window // ORCHESTRATOR_SNIPPET_WINDOW_DIVISOR)
+    return OrchestratorBudget(
+        window_tokens=window, window_source="",
+        max_steps=steps, max_total_tokens=total_tokens,
+        query_chars=query_chars, snippet_chars=snippet_chars)
+
+
+async def _orchestrator_window(llm) -> tuple[int, str]:
+    """``(window_tokens, source)`` оркестратора из существующего резолвера.
+
+    Приоритет (BGS-05.1: доступная модель + конфигурация провайдера):
+    1. runtime-discovery ``resolve_stage_window(base_url, model,
+       slot="direct.primary")`` — ТОТ же вызов и слот, что у Direct primary
+       (direct_chat_service); внутри того же хода это cache-hit без сети;
+    2. sync-путь ``resolve_evidence_window_tokens`` (registry/env/fallback,
+       сети нет);
+    3. ``(0, "fallback_default")`` → legacy-константы. Никогда не бросает."""
+    model = str(getattr(llm, "_chat_model", "") or "")
+    base_url = str(getattr(llm, "_base_url", "") or "")
+    if model and base_url:
+        try:
+            from services import model_capacity as _mc
+            window, source = await _mc.resolve_stage_window(
+                base_url, model, slot="direct.primary")
+            if int(window or 0) > 0:
+                return int(window), str(source or "")
+        except Exception:      # pragma: no cover - защитная ветка
+            logger.debug("[direct-exec] orchestrator window resolver failed",
+                         exc_info=True)
+    try:
+        from services.model_capacity import resolve_evidence_window_tokens
+        window, source = resolve_evidence_window_tokens(model or None)
+        if int(window or 0) > 0:
+            return int(window), str(source or "")
+    except Exception:      # pragma: no cover - защитная ветка
+        pass
+    return 0, "fallback_default"
+
+
+async def resolve_orchestrator_budget(*, llm) -> OrchestratorBudget:
+    """Границы adaptive-цепочки: окно модели + env-потолки сверху.
+
+    Финансовые/временные границы здесь НЕ пересчитываются: metered-вызовы
+    (`orchestrator_max_metered_calls` — денежный потолок) и дедлайн
+    (`orchestrator_max_time_seconds`) остаются прежними защитами (контракт
+    §4 «остаётся жёсткой защитой»). Никогда не бросает."""
+    window, source = await _orchestrator_window(llm)
+    limits = orchestrator_budget_for_window(window)
+    if source:
+        limits = replace(limits, window_source=source)
+    limits = replace(
+        limits,
+        max_steps=_apply_ceiling(limits.max_steps, orchestrator_max_steps()),
+        max_total_tokens=_apply_ceiling(
+            limits.max_total_tokens, orchestrator_max_total_tokens()))
+    return limits
 
 
 def orchestrator_max_metered_calls() -> int:
@@ -830,14 +1008,32 @@ _UNTRUSTED_WRAPPING = (
 
 
 def _orchestrator_messages(*, query: str, allowlist, evidence_sources,
-                           steps_done, time_context: str = "") -> list[dict]:
+                           steps_done, time_context: str = "",
+                           query_chars: int = ORCHESTRATOR_QUERY_CHARS,
+                           snippet_chars: int =
+                           ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS) -> list[dict]:
     """Компактный пакет оркестратора (R17: имена/коды + bounded-срезы
     данных в огороженных блоках). Никогда не бросает.
+
+    BGS-05: ``query_chars``/``snippet_chars`` — производные окна модели
+    (:func:`resolve_orchestrator_budget`); дефолты — legacy-фолбэк (нижняя
+    граница), локальный дефолт больше не режет середину запроса/сниппета
+    на больших окнах (BGS-05.3). Полные источники остаются структурными
+    (``EvidenceSource`` delivered/total/truncated/ref) — сниппет в payload
+    не выдаётся за полную статью.
 
     UR-C-CLOCK (UR-26.2/UR-26.3): ``time_context`` — авторитетный блок
     ChatClock (phase="plan", reuse снапшота L1); data-контент, ровно один
     блок на payload оркестратора."""
     try:
+        try:
+            query_cap = max(1, int(query_chars))
+        except (TypeError, ValueError):
+            query_cap = ORCHESTRATOR_QUERY_CHARS
+        try:
+            snippet_cap = max(1, int(snippet_chars))
+        except (TypeError, ValueError):
+            snippet_cap = ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS
         tools_lines = []
         for schema in allowlist or []:
             try:
@@ -863,8 +1059,7 @@ def _orchestrator_messages(*, query: str, allowlist, evidence_sources,
                 + (f" | ref={src.content_ref}" if src.content_ref else "")
                 + "]")
             snippet = _UNTRUSTED_WRAPPING.format(
-                _boundary_cut(str(src.content or ""),
-                              ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS))
+                _boundary_cut(str(src.content or ""), snippet_cap))
             evidence_lines.append(f"{header}\n{snippet}")
         steps_lines = [
             f"{idx + 1}. {s.get('tool')} ({s.get('reason') or '-'})"
@@ -874,7 +1069,7 @@ def _orchestrator_messages(*, query: str, allowlist, evidence_sources,
             time_block = f"{str(time_context).strip()}\n\n"
         user = (
             f"ЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n"
-            f"{_boundary_cut(str(query or ''), ORCHESTRATOR_QUERY_CHARS)}\n\n"
+            f"{_boundary_cut(str(query or ''), query_cap)}\n\n"
             f"ALLOWED TOOLS:\n{chr(10).join(tools_lines) or 'нет'}\n\n"
             f"СДЕЛАННЫЕ ШАГИ:\n{chr(10).join(steps_lines) or 'нет'}\n\n"
             f"EVIDENCE SO FAR:\n{chr(10).join(evidence_lines) or 'нет'}\n\n"
@@ -934,10 +1129,19 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
             allow_names.add(name)
     if not allow_names:
         return None
+    # BGS-05: границы из реального окна модели (Model Capacity Resolver,
+    # тот же слот, что у Direct primary). env DIRECT_ORCHESTRATOR_* —
+    # жёсткие потолки внутри резолва; metered/дедлайн — прежние защиты.
+    limits = await resolve_orchestrator_budget(llm=llm)
     budget = ChainBudget(timeout_seconds=orchestrator_max_time_seconds(),
                          max_metered=orchestrator_max_metered_calls())
-    max_steps = orchestrator_max_steps()
-    max_tokens = orchestrator_max_total_tokens()
+    max_steps = limits.max_steps
+    max_tokens = limits.max_total_tokens
+    logger.info(
+        "[direct-exec] adaptive chain budget | chat=%s | window=%d | "
+        "source=%s | max_steps=%d | max_tokens=%d", chat_id,
+        limits.window_tokens, limits.window_source or "unknown",
+        max_steps, max_tokens)
     spent_tokens = 0
     tool_results: list = []
     tool_trace: list = []
@@ -956,7 +1160,9 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
             messages = _orchestrator_messages(
                 query=query, allowlist=tool_schemas,
                 evidence_sources=evidence_sources, steps_done=steps_done,
-                time_context=time_context)
+                time_context=time_context,
+                query_chars=limits.query_chars,
+                snippet_chars=limits.snippet_chars)
             try:
                 raw_decision = await llm.generate(
                     messages, temperature=None, chat_id=chat_id,
@@ -1044,20 +1250,27 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
     degraded = bool(limitations) or stop_reason not in ("finish",)
     logger.info(
         "[direct-exec] adaptive chain done | chat=%s | reason=%s | "
-        "steps=%d | ok=%d | metered=%d | tokens~%d", chat_id, stop_reason,
-        len(evidence_sources), ok_count, budget.metered_calls, spent_tokens)
+        "steps=%d | ok=%d | metered=%d | tokens~%d | window=%d | "
+        "source=%s", chat_id, stop_reason,
+        len(evidence_sources), ok_count, budget.metered_calls, spent_tokens,
+        limits.window_tokens, limits.window_source or "unknown")
     context = "\n".join(s.content for s in evidence_sources if s.content)
+    meta = {"mode": EXECUTION_ADAPTIVE,
+            "reason": stop_reason,
+            "steps": len(evidence_sources),
+            "ok": ok_count,
+            "metered": budget.metered_calls,
+            "cost_calls": budget.cost_calls,
+            "tokens_spent": spent_tokens}
+    # BGS-05.1: границы цепочки наблюдаемы (воспроизводимый расчёт из окна
+    # модели + env-потолки), а не молчаливые числа.
+    meta.update(limits.as_meta())
+    meta["max_metered"] = int(orchestrator_max_metered_calls())
     return ChainResult("", rounds_used=len(steps_done), degraded=degraded,
                        reason=stop_reason, tool_trace=tool_trace,
                        tool_context=context, tool_results=tool_results,
                        evidence_sources=evidence_sources,
-                       chain_meta={"mode": EXECUTION_ADAPTIVE,
-                                   "reason": stop_reason,
-                                   "steps": len(evidence_sources),
-                                   "ok": ok_count,
-                                   "metered": budget.metered_calls,
-                                   "cost_calls": budget.cost_calls,
-                                   "tokens_spent": spent_tokens})
+                       chain_meta=meta)
 
 
 def _safe_count_tokens(text: str) -> int:
@@ -2566,6 +2779,8 @@ __all__ = [
     "ChainResult", "ChainBudget", "adaptive_orchestrator_enabled",
     "orchestrator_max_steps", "orchestrator_max_time_seconds",
     "orchestrator_max_total_tokens", "orchestrator_max_metered_calls",
+    "OrchestratorBudget", "orchestrator_budget_for_window",
+    "resolve_orchestrator_budget",
     "resolve_execution_mode", "derive_simple_steps", "run_simple_tools",
     "run_adaptive_chain", "build_evidence_pack", "l2_evidence_budget_chars",
     "build_reuse_evidence_pack", "delivered_chars_by_claim",
