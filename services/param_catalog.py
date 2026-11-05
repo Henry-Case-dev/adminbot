@@ -531,14 +531,18 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("limits_web", "limits", "Веб-страницы: лимиты",
               "Длина пересказа и кулдаун веб-страниц.", 14),
     GroupSpec("limits_chat", "limits", "Прямой чат: контекст",
-              "Окно контекста, ветки, паузы, замки и срок жизни записей.", 15),
+              "Окно контекста, ветки, паузы и срок жизни записей.", 15),
+    # UR-F (UR-14/UR-21.13): «стилевые якоря» из подписи сняты — секции
+    # <style_anchors> в сборке ответа больше нет, подпись не обещает её.
     GroupSpec("limits_chat_behavior", "limits", "Прямой чат: поведение",
-              "Молчание после кулдаунов, стилевые якоря, «печатает…».", 16),
+              "Частота участия (антиспам) и индикатор «печатает…».", 16),
     # ASAP-3.1 (санкция spec 10.1 #6): rename группы — tokens ≠ «слова».
     GroupSpec("limits_chat_budgets", "limits", "Прямой чат: бюджеты (токены)",
               "Как контекст делится между блоками (карта, ветка, память).", 17),
-    GroupSpec("limits_temperature", "limits", "Температура ответов",
-              "Насколько свободно и креативно отвечает прямой чат.", 18),
+    # UR-F (UR-21.23): честная лексика «Свобода формулировок».
+    GroupSpec("limits_temperature", "limits", "Свобода формулировок",
+              "Насколько свободно бот подбирает слова (сэмплинг модели "
+              "ответов; поиск/память/контекст не заменяет).", 18),
     GroupSpec("limits_memory", "limits", "Память",
               "Сроки хранения сообщений, фактов, бэкапов, кэша.", 19),
     GroupSpec("limits_graph", "limits", "Граф знаний",
@@ -548,8 +552,11 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Доля бюджета чата на поиск по памяти и порог повторов.", 21),
     # EVOL-031: группа limits_smart_cache («Умный кэш») удалена вместе
     # с Exact Match Cache готовых ответов.
-    GroupSpec("limits_service", "limits", "Служебное",
-              "Технические интервалы и кулдаун /info — обычно не трогать.", 23),
+    # UR-F (UR-21.20/BGS-06.6): «Служебное» = технические ограничения
+    # («Система и нагрузка»): технические ожидания очереди + интервалы.
+    GroupSpec("limits_service", "limits", "Служебное (технические)",
+              "Технические ожидания очереди, интервалы и кулдаун /info — "
+              "обычно не трогать; safety-пределы сохранены.", 23),
     GroupSpec("limits_user_aliases", "limits", "Имена людей",
               "Как бот обращается к людям: алиас → имя → никнейм.", 24),
     GroupSpec("limits_youtube_proxy", "limits", "YouTube: прокси",
@@ -631,8 +638,9 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Мастер-рубильник пересказа веб-страниц.", 8),
     GroupSpec("flags_summary", "flags", "Саммари: доступ и стриминг",
               "Стриминг пересказов и доступ по списку/админу.", 9),
+    # UR-F (UR-14/UR-16): подпись без снятых механизмов (якоря/настроение).
     GroupSpec("flags_chat_behavior", "flags", "Поведение в чате",
-              "Стиль ответов, настроение, importance, индикатор набора.", 10),
+              "Конспект разговора, importance-удержание, индикатор набора.", 10),
     # EVOL-031: группа flags_smart_cache («Умный кэш: рубильник») удалена
     # вместе с Exact Match Cache готовых ответов.
     GroupSpec("flags_throttle", "flags", "Троттлинг",
@@ -768,7 +776,7 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("reactions_summary", "reactions", "Саммари",
               "Кому доступно /summary, алиасы имён, чаты.", 12),
     GroupSpec("reactions_chat", "reactions", "Прямой чат",
-              "Слова-триггеры и слова настроения.", 13),
+              "Слова-триггеры прямых обращений.", 13),
     GroupSpec("reactions_memory", "reactions", "Память",
               "Папка бэкапов памяти.", 14),
     GroupSpec("reactions_word_reactions", "reactions", "Словесные реакции",
@@ -1643,10 +1651,18 @@ _FLAGS: list[tuple] = [
      "flags_decision_making",
      "При ответе на сообщение бота он сам решает: ответить, поставить "
      "реакцию или промолчать. Выключено — всегда текстовый ответ."),
-    ("CHAT_STYLE_ANCHORS_ENABLED", "Стилевые якоря", "flags_chat_behavior",
-     "Бот запоминает фразы, сказанные вами, и повторяет их стиль. Выключено — стиль не копируется."),
-    ("CHAT_MOOD_ENABLED", "Определение настроения собеседника", "flags_chat_behavior",
-     "Бот следит за настроением сообщений и подстраивает ответы. Выключено — ответы нейтральные."),
+    # UR-F (UR-14/UR-21.13/UR-14.2): автоподражание прежним ответам снято
+    # (секция <style_anchors> удалена из сборки Direct/Initiative), mood-ярлык
+    # не подмешивается в L2 (UR-16). Ключи ниже — deprecated: скрыты из
+    # рабочего UI (см. _UR_F_WITHOUT_RUNTIME_READER), значение читаемо по
+    # PG-ключу; подпись не обещает рабочего поведения.
+    ("CHAT_STYLE_ANCHORS_ENABLED", "Стилевые якоря (снято)", "flags_chat_behavior",
+     "Не работает: автоподражание прежним ответам бота снято (UNIFIED-REPLY "
+     "UR-14). Значение сохраняется, но рантайм его не читает."),
+    ("CHAT_MOOD_ENABLED", "Определение настроения собеседника (снято)", "flags_chat_behavior",
+     "Не работает: тон выбирает L1-планировщик по реальному контексту "
+     "(UR-16), лексический mood-ярлык в ответ не подмешивается. Значение "
+     "сохраняется, но рантайм его не читает."),
     ("CHAT_RUNNING_SUMMARY_ENABLED", "Бегущий конспект", "flags_chat_behavior",
      "Бот держит краткий конспект длинного разговора. Выключено — контекст только из сообщений."),
     # EVOL-031: параметр CHAT_DEDUP_ENABLED («Дедуп одинаковых текстов
@@ -1893,9 +1909,15 @@ _LIMITS: list[tuple] = [
     # 10.20 (БЛОК 5.1, О4 FINAL, ADR-1020-3): «Часовой пояс чата» — per-chat
     # ключ limits.chat_timezone для Time Injection (диалог ≠ расписания
     # воркеров). Пусто → фолбэк на «Часовой пояс саммари».
+    # UR-F (UR-24.2/UR-29.1): канонический ключ limits.chat_timezone скрыт
+    # из общего каталога — ЕДИНСТВЕННАЯ редакторская поверхность «Модули →
+    # Время» (вкладка mod_time, GET/POST /api/config/time). Значение и
+    # per-chat override читаемы (ChatClock), запись идёт только через
+    # поверхность «Время».
     ("CHAT_TIMEZONE", "Часовой пояс чата", "str", "limits_chat_behavior",
-     "Часовой пояс, в котором бот называет текущее время в диалоге. "
-     "Пусто — берётся пояс саммари. Меняется, если чат живёт в другом поясе."),
+     "Единственный IANA-пояс чата: в нём бот называет текущее время в "
+     "диалоге. Редактируется ТОЛЬКО в «Модули → Время» (с полным "
+     "справочником зон, часами и наследованием); в общем каталоге поля нет."),
     ("SUMMARY_THROTTLE_SECONDS", "Троттлинг /summary, сек", "float", "limits_summary",
      "Минимальная пауза между запросами пересказа. Больше — реже можно просить."),
     ("SUMMARY_CHUNK_DELAY", "Пауза между чанками саммари, сек", "float", "limits_summary",
@@ -1980,8 +2002,10 @@ _LIMITS: list[tuple] = [
      "Сколько обращений подряд без перерыва разрешено. Меньше — бот чаще уходит в паузу."),
     ("CHAT_COOLDOWN_SECONDS", "Кулдаун direct_chat, сек", "float", "limits_chat",
      "Пауза между ответами в прямом чате. Больше — бот реже отвечает."),
-    ("CHAT_DIRECT_REPLY_TTL_DAYS", "Срок жизни фактов прямых ответов, дней", "int", "limits_chat",
-     "Сколько дней помнить, что бот уже отвечал человеку. Пусто = 30 (дефолт), 0 = вечно. Больше — дольше помнит."),
+    ("CHAT_DIRECT_REPLY_TTL_DAYS", "История того, кому бот уже отвечал, дней", "int", "limits_chat",
+     "Сколько дней хранить историю «кому бот уже отвечал» (антиспам и "
+     "факты прямых ответов). Это НЕ срок жизни всей памяти: память живёт "
+     "по своим правилам. Пусто = 30 (дефолт), 0 = вечно."),
     ("CHAT_GLOBAL_CONTEXT_MAX_CHARS", "Потолок <Global_Context>, символов", "int", "limits_chat",
      "Максимальный размер фона разговора. Больше — точнее, но дороже."),
     ("CHAT_THREAD_MAX_DEPTH", "Глубина <Conversation_Thread>", "int", "limits_chat",
@@ -1992,15 +2016,21 @@ _LIMITS: list[tuple] = [
     # («Умный кэш») удалены вместе с кешем готовых ответов; потолок строк
     # общей таблицы smart_cache (маркеры/срезы) — env-only
     # SMART_CACHE_MAX_ROWS (в каталог не возвращается).
-    ("CHAT_LOCK_WAIT_SECONDS", "Таймаут per-chat замка, сек", "float", "limits_chat",
-     "Сколько ждать, пока чат освободится. Больше — терпеливее, но дольше тишина."),
-    ("CHAT_LOCK_MAX_ENTRIES", "Потолок словаря замков", "int", "limits_chat",
-     "Технический: сколько чатов держать в памяти замков. Обычно не трогать. "
-     "Не влияет: значение сохраняется в конфиге, но рантайм его не читает."),
+    # UR-F (UR-21.20): технические ожидания очереди переехали из
+    # «Прямой чат: контекст» в «Служебное» (= «Технические ограничения»
+    # на вкладке «Диагностика»); safety-семантика значений сохранена.
+    ("CHAT_LOCK_WAIT_SECONDS", "Таймаут per-chat замка, сек", "float", "limits_service",
+     "Техническое ожидание очереди: сколько ждать, пока чат освободится. "
+     "Больше — терпеливее, но дольше тишина. Safety-пределы сохранены."),
+    ("CHAT_LOCK_MAX_ENTRIES", "Потолок словаря замков (снято)", "int", "limits_chat",
+     "Не работает: неиспользуемый параметр — рантайм его не читает "
+     "(UR-21.21). Сохраняется для совместимости, из рабочего UI выведено."),
     ("SMARTMODULE_CONCURRENCY_PER_CHAT", "Одновременных запросов нейросети на чат", "int", "limits_chat",
      "Сколько генераций одного чата могут выполняться одновременно; 1 = строгая очередь (как раньше)."),
-    ("SMARTMODULE_CONCURRENCY_WAIT_SECONDS", "Ожидание слота генерации (smart module), сек", "float", "limits_chat",
-     "Сколько ждать свободный слот в поиске/фактчеке/ютубе/вебе/чекапе. Больше — терпеливее, но дольше тишина."),
+    ("SMARTMODULE_CONCURRENCY_WAIT_SECONDS", "Ожидание слота генерации (smart module), сек", "float", "limits_service",
+     "Техническое ожидание очереди: сколько ждать свободный слот в "
+     "поиске/фактчеке/ютубе/вебе/чекапе. Больше — терпеливее, но дольше "
+     "тишина. Safety-пределы сохранены."),
     ("GRAPH_DEDUP_SIMILARITY_HIGH", "Порог дедупа HIGH", "float", "limits_graph",
      "Выше порога — факты считаются дублями. Больше — реже дубли, но грязнее память."),
     ("GRAPH_DEDUP_SIMILARITY_LOW", "Порог дедупа LOW", "float", "limits_graph",
@@ -2060,8 +2090,11 @@ _LIMITS: list[tuple] = [
      "Сколько участников максимум в карте имён. Больше — полнее, но дороже."),
     ("CHAT_BRANCH_CONTEXT_HOPS", "Ходов в итоге ветки <Conversation_Branch>", "int", "limits_chat",
      "Сколько последних ходов reply-цепочки показывать над фоном. Больше — полнее, но дороже."),
-    ("CHAT_CURRENT_QUESTION_MAX_CHARS", "Макс. длина текущего вопроса (символов)", "int", "limits_chat",
-     "Максимальная длина блока текущего вопроса. Больше — длиннее вопросы видит бот, но дороже."),
+    ("CHAT_CURRENT_QUESTION_MAX_CHARS", "Срез блока «текущий вопрос» (символов)", "int", "limits_chat",
+     "Ограничителя входа больше нет: полное сообщение доходит до "
+     "L1/Writer'а (свой бюджет), как лимит вопроса ключ не редактируется "
+     "(UR-21.01). Значение задаёт только дефолтный cap рендера блока "
+     "<Current_Question> в сборке payload'а."),
     ("CHAT_LEVEL2_MIN_RAW_COUNT", "Порог сжатия конспекта в широкий фон (сообщений)", "int", "limits_chat",
      "Сколько сообщений покрывал конспект, чтобы он сжимался в широкий уровень. Меньше — уровни строятся раньше."),
     ("CHAT_LEVEL2_MAX_CHARS", "Макс. длина широкого фона (символов)", "int", "limits_chat",
@@ -2073,24 +2106,39 @@ _LIMITS: list[tuple] = [
      "int", "limits_summary_legacy",
      "Максимальный размер контекста обычного (Legacy) пересказа. Больше — "
      "полнее, но дороже. На Hybrid-статью не влияет."),
-    ("CHAT_SILENCE_AFTER_COOLDOWNS", "Кулдаунов подряд до молчания", "int", "limits_chat_behavior",
-     "Сколько кулдаунов подряд до «молчания». Меньше — бот быстрее замолкает."),
-    ("CHAT_STYLE_ANCHORS_COUNT", "Число стилевых якорей", "int", "limits_chat_behavior",
-     "Сколько фраз помнить для копирования стиля. Больше — точнее, но дороже."),
-    ("CHAT_STYLE_ANCHOR_MAX_CHARS", "Обрезка якоря, символов", "int", "limits_chat_behavior",
-     "Длина одной фразы-якоря. Больше — полнее, но дороже."),
+    ("CHAT_SILENCE_AFTER_COOLDOWNS", "Частота участия: пауза после кулдаунов", "int", "limits_chat_behavior",
+     "Антиспам, не стиль ответа: сколько кулдаунов подряд до «молчания» "
+     "(бот перестаёт отвечать, пока не появится новое обращение). "
+     "Меньше — бот быстрее замолкает."),
+    ("CHAT_STYLE_ANCHORS_COUNT", "Число стилевых якорей (снято)", "int", "limits_chat_behavior",
+     "Не работает: секция стилевых якорей удалена из сборки ответа "
+     "(UR-14). Значение сохраняется, но рантайм его не читает."),
+    ("CHAT_STYLE_ANCHOR_MAX_CHARS", "Обрезка якоря (снято), символов", "int", "limits_chat_behavior",
+     "Не работает: секция стилевых якорей удалена из сборки ответа "
+     "(UR-14). Значение сохраняется, но рантайм его не читает."),
     ("TYPING_INTERVAL_SECONDS", "Интервал «печатает…», сек", "float", "limits_chat_behavior",
      "Как часто обновлять индикатор «печатает…». Меньше — живее, но больше запросов."),
-    ("CHAT_TEMPERATURE_PRECISE", "Креативность (Точный режим)", "float", "limits_temperature",
-     "Насколько строго бот отвечает в режиме «точный». Больше — свободнее, меньше — суше."),
-    ("CHAT_TEMPERATURE_BALANCED", "Креативность (Сбалансированный режим)", "float", "limits_temperature",
-     "Насколько свободно отвечает в режиме «сбалансированный». Больше — креативнее."),
-    ("CHAT_TEMPERATURE_CHATTY", "Креативность (Болтливый режим)", "float", "limits_temperature",
-     "Насколько вольные ответы в режиме «болтливый». Больше — креативнее и непредсказуемее."),
+    # UR-F (UR-21.23): честная лексика «Свобода формулировок» — сэмплинг
+    # применяется ТОЛЬКО к модели ответов (не web/context/память); пометку
+    # «провайдер игнорирует температуру» отдаёт effective-config
+    # (reason_inactive в /api/config, см. provider_ignores_temperature).
+    ("CHAT_TEMPERATURE_PRECISE", "Свобода формулировок: точный", "float", "limits_temperature",
+     "Сэмплинг модели ответов в режиме «Точный». Влияет только на подбор "
+     "слов, не на объём ответа и не на то, какие факты бот использует."),
+    ("CHAT_TEMPERATURE_BALANCED", "Свобода формулировок: сбалансированный", "float", "limits_temperature",
+     "Сэмплинг модели ответов в режиме «Сбалансированный». Влияет только на "
+     "подбор слов, не на объём ответа и не на используемые факты."),
+    ("CHAT_TEMPERATURE_CHATTY", "Свобода формулировок: болтливый", "float", "limits_temperature",
+     "Сэмплинг модели ответов в режиме «Болтливый». Влияет только на подбор "
+     "слов, не на объём ответа и не на используемые факты."),
     # Раунд 10.4 (B-8): пресет — выпадающий список (widget/select-опции —
     # поля ParamSpec; опции ниже в _SELECT_WIDGET_PRESETS, REGISTRY без роста).
-    ("CHAT_TEMPERATURE_PRESET_DEFAULT", "Режим креативности по умолчанию", "str", "limits_temperature",
-     "Какой режим свободы ответов используется по умолчанию. Точный — строже, болтливый — вольнее."),
+    ("CHAT_TEMPERATURE_PRESET_DEFAULT", "Свобода формулировок", "str", "limits_temperature",
+     "Насколько свободно бот подбирает слова в обычном диалоге: Точный — "
+     "строже, Сбалансированный — средне, Болтливый — вольнее. Действует "
+     "только на сэмплинг модели ответов: поиск, память и объём контекста он "
+     "не заменяет. Если провайдер модели игнорирует температуру, рядом с "
+     "полем будет честная пометка об этом."),
     ("GRAPH_FACT_WEIGHT_DIRECT", "Стартовый вес прямых фактов", "float", "limits_graph",
      "Сколько весит факт, сказанный напрямую. Больше — важнее прямые слова."),
     ("GRAPH_FACT_WEIGHT_BOT", "Стартовый вес слов бота о себе", "float", "limits_graph",
@@ -2126,11 +2174,13 @@ _LIMITS: list[tuple] = [
     # F3 (10.19, ADR-1019-3 D2): группа limits_chat_budgets → limits_chat_context
     # (в limits_chat_budgets остаются только доли CHAT_BUDGET_*_RATIO).
     ("CHAT_CONTEXT_BUDGET_TOKENS", "Контекст: бюджет Direct, токенов", "int", "limits_chat_context",
-     "Суммарный потолок текста на ответ в прямом чате (все блоки вместе). "
-     "0 — не задано (глобальный дефолт); −1 — безлимит (агрегатное усечение "
-     "не применяется, потолки отдельных блоков действуют). Должен быть не "
-     "меньше суммы потолков блоков — иначе они режутся дважды. Больше — "
-     "полнее, но дороже."),
+     "Реальное рабочее окно: суммарный потолок текста на ответ в прямом "
+     "чате (все блоки вместе). 0 — не задано (глобальный дефолт); −1 — "
+     "безлимит (агрегатное усечение не применяется, потолки отдельных "
+     "блоков действуют). Ручной предел — экспертный осознанный cap: "
+     "заниженное значение режет контекст (память/источники теряются), "
+     "должен быть не меньше суммы потолков блоков — иначе они режутся "
+     "дважды. Больше — полнее, но дороже."),
     ("CHAT_BUDGET_MAP_RATIO", "Доля бюджета: MAP", "float", "limits_chat_budgets",
      "Доля контекста на карту памяти. Больше — важнее карта."),
     ("CHAT_BUDGET_GLOBAL_RATIO", "Доля бюджета: Global", "float", "limits_chat_budgets",
@@ -2141,13 +2191,16 @@ _LIMITS: list[tuple] = [
      "Доля контекста на факты памяти. Больше — важнее память."),
     ("CHAT_BUDGET_TARGET_RATIO", "Доля бюджета: Target", "float", "limits_chat_budgets",
      "Доля контекста на целевое сообщение. Больше — важнее само сообщение."),
-    ("CHAT_BUDGET_ANCHORS_RATIO", "Доля бюджета: Anchors", "float", "limits_chat_budgets",
-     "Доля контекста на стилевые якоря. Больше — важнее стиль."),
+    ("CHAT_BUDGET_ANCHORS_RATIO", "Доля бюджета: Anchors (снято)", "float", "limits_chat_budgets",
+     "Не работает: секция стилевых якорей удалена из сборки ответа (UR-14), "
+     "делить контекст на неё больше нечего. Значение сохраняется, но на "
+     "ответ не влияет."),
     ("CHAT_BUDGET_BRANCH_RATIO", "Доля бюджета: Branch", "float", "limits_chat_budgets",
      "Доля контекста на итог ветки. Больше — важнее ветка."),
-    ("CHAT_BUDGET_RESPONSE_RATIO", "Доля бюджета: Response", "float", "limits_chat_budgets",
-     "Доля контекста на сам ответ. Больше — место под ответ. "
-     "Не влияет: значение сохраняется в конфиге, но рантайм его не читает."),
+    ("CHAT_BUDGET_RESPONSE_RATIO", "Доля бюджета: Response (снято)", "float", "limits_chat_budgets",
+     "Не работает: подтверждённый no-op — рантайм это значение не читает "
+     "и искусственный смысл ему не назначается (UR-21.17). Сохраняется "
+     "только для совместимости, из рабочего UI выведено."),
     ("CHAT_BUDGET_RESERVE_RATIO", "Доля бюджета: Reserve", "float", "limits_chat_budgets",
      "Запасной резерв бюджета. Больше — запас на непредвиденное."),
     # EVOL-031: параметр CHAT_DEDUP_TTL_SECONDS удалён вместе с
@@ -2471,10 +2524,12 @@ _REACTIONS: list[tuple] = [
      "В каких чатах собирать пересказы. Список ID."),
     ("CHAT_BOTWORD_PATTERN", "Шаблон триггеров «бот»-семьи", "str", "reactions_chat",
      "Шаблон-триггер прямых обращений к боту. Изменять осторожно."),
-    ("CHAT_MOOD_NEGATIVE_WORDS", "CSV негативных слов", "str", "reactions_chat",
-     "Слова, по которым бот определяет плохое настроение. Через запятую."),
-    ("CHAT_MOOD_POSITIVE_WORDS", "CSV позитивных слов", "str", "reactions_chat",
-     "Слова, по которым бот определяет хорошее настроение. Через запятую."),
+    ("CHAT_MOOD_NEGATIVE_WORDS", "CSV негативных слов (снято)", "str", "reactions_chat",
+     "Не работает: mood-ярлык больше не подмешивается в ответ (UR-16). "
+     "Значение сохраняется, но рантайм его не читает."),
+    ("CHAT_MOOD_POSITIVE_WORDS", "CSV позитивных слов (снято)", "str", "reactions_chat",
+     "Не работает: mood-ярлык больше не подмешивается в ответ (UR-16). "
+     "Значение сохраняется, но рантайм его не читает."),
     ("MEMORY_BACKUP_DIR", "Папка бэкапов памяти", "str", "reactions_memory",
      "Куда складывать бэкапы памяти. Относительно корня медиа."),
 ]
@@ -3231,6 +3286,145 @@ def resolve_progressive_level(spec: ParamSpec) -> str:
     return "basic"
 
 
+# ── UR-F (UR-22.1/UR-21.24/BGS-06.5): эффективная применимость ключа ────────
+# Единый источник статуса для UI: UI НЕ угадывает «работает ли параметр» —
+# бэкенд отдаёт status/active_consumer/units/reason_inactive рядом с
+# effective_value и source (web/api/routes.py::get_config).
+#   status: "active" | "no_op" | "legacy" | "inactive"
+#   consumer: реальный рантайм-ридер ("" — не подтверждён; UI ничего не
+#   рисует); units — единицы значения; note — человеческая причина.
+# Ключи вне таблицы считаются "active" с пустым consumer (честное
+# «данных нет», не выдумка). Никаких новых «настроек для настройки».
+EFFECTIVE_STATUS_META: dict[str, dict] = {
+    # UR-21.17/UR-21.21/UR-14.2 — снятые/no-op ключи (скрыты из UI;
+    # мета нужна для честных PG-путей и диагностики).
+    "limits.chat_budget_response_ratio": {
+        "status": "no_op", "consumer": "",
+        "note": "Рантайм значение не читает (подтверждённый no-op)."},
+    "limits.chat_lock_max_entries": {
+        "status": "no_op", "consumer": "",
+        "note": "Неиспользуемый параметр, рантайм не читает."},
+    "flags.chat_style_anchors_enabled": {
+        "status": "no_op", "consumer": "",
+        "note": "Секция стилевых якорей удалена из сборки ответа (UR-14)."},
+    "limits.chat_style_anchors_count": {
+        "status": "no_op", "consumer": "",
+        "note": "Секция стилевых якорей удалена из сборки ответа (UR-14)."},
+    "limits.chat_style_anchor_max_chars": {
+        "status": "no_op", "consumer": "",
+        "note": "Секция стилевых якорей удалена из сборки ответа (UR-14)."},
+    "limits.chat_budget_anchors_ratio": {
+        "status": "no_op", "consumer": "",
+        "note": "Блока стилевых якорей больше нет — делить нечего (UR-14)."},
+    "flags.chat_mood_enabled": {
+        "status": "no_op", "consumer": "",
+        "note": "Тон выбирает L1 по контексту (UR-16); mood-инструкций нет."},
+    "reactions.chat_mood_positive_words": {
+        "status": "no_op", "consumer": "",
+        "note": "Mood-ярлык в ответ не подмешивается (UR-16)."},
+    "reactions.chat_mood_negative_words": {
+        "status": "no_op", "consumer": "",
+        "note": "Mood-ярлык в ответ не подмешивается (UR-16)."},
+    # UR-24.2 — канонический пояс: единственная поверхность «Модули → Время».
+    "limits.chat_timezone": {
+        "status": "active", "consumer": "services.chat_clock.ChatClock",
+        "units": "IANA", "note": "Редактируется только в «Модули → Время»."},
+    # UR-21.15/UR-21.19/UR-21.20/UR-21.22 — честный смысл действующих ключей.
+    "limits.chat_direct_reply_ttl_days": {
+        "status": "active",
+        "consumer": "services.direct_chat_service (история ответов/антиспам)",
+        "units": "дней",
+        "note": "История «кому бот уже отвечал», НЕ срок жизни памяти."},
+    "limits.chat_context_budget_tokens": {
+        "status": "active",
+        "consumer": "services.model_capacity / auto_budget",
+        "units": "токенов",
+        "note": "Реальное рабочее окно; ручной предел — экспертный cap."},
+    "limits.chat_lock_wait_seconds": {
+        "status": "active",
+        "consumer": "services.direct_chat_service (per-chat замок)",
+        "units": "сек",
+        "note": "Техническое ожидание очереди (система и нагрузка)."},
+    "limits.smartmodule_concurrency_wait_seconds": {
+        "status": "active",
+        "consumer": "services.smartmodule_concurrency",
+        "units": "сек",
+        "note": "Техническое ожидание слота генерации."},
+    "limits.chat_silence_after_cooldowns": {
+        "status": "active",
+        "consumer": "services.direct_chat_service (частота участия)",
+        "units": "кулдаунов",
+        "note": "Антиспам/частота участия, не стиль ответа."},
+    # RLR-05: legacy-ключи снятого rephrasing-пути — статус из манифеста.
+    "limits.anticliche_max_patterns": {
+        "status": "legacy",
+        "consumer": "детектор клише (только диагностика)",
+        "note": "Лимит детектора; повторную генерацию не обещает."},
+}
+# Единицы по типу — fallback для ключей вне таблицы (UR-20.9: значение с
+# единицами; берётся из суффикса ключа, не выдумывается).
+_UNITS_BY_TYPE_AND_KEY: tuple[tuple[str, str], ...] = (
+    ("_tokens", "токенов"), ("_seconds", "сек"), ("_minutes", "мин"),
+    ("_hours", "ч"), ("_days", "дней"), ("_chars", "символов"),
+    ("_messages", "сообщений"), ("_ratio", "доля"),
+)
+
+
+def effective_meta(pg_key: str) -> dict:
+    """UR-22.1: {status, active_consumer, units, reason_inactive} ключа.
+
+    Fail-open: для ключа вне таблицы — status "active" с честным пустым
+    consumer (UI не рисует непроверенное). reason_inactive непуст только
+    у no_op/inactive/legacy — это текст честной пометки, не приписка.
+    Никогда не бросает."""
+    try:
+        meta = dict(EFFECTIVE_STATUS_META.get(str(pg_key or "")) or {})
+        status = str(meta.get("status") or "active")
+        out = {
+            "status": status,
+            "active_consumer": str(meta.get("consumer") or ""),
+            "units": str(meta.get("units") or ""),
+            "reason_inactive": "",
+        }
+        if not out["units"]:
+            low = str(pg_key or "").lower()
+            for marker, units in _UNITS_BY_TYPE_AND_KEY:
+                if marker in low:
+                    out["units"] = units
+                    break
+        if status in ("no_op", "inactive", "legacy"):
+            out["reason_inactive"] = str(meta.get("note") or "")
+        return out
+    except Exception:      # pragma: no cover - fail-open
+        return {"status": "active", "active_consumer": "", "units": "",
+                "reason_inactive": ""}
+
+
+# UR-F (UR-21.23): семейства моделей, для которых сэмплинг (temperature)
+# провайдер игнорирует/отклоняет — консервативный список reasoning-семейств
+# (прецедент mca_vision._is_reasoning_model; второй список не создаётся).
+_TEMPERATURE_IGNORED_MODEL_TOKENS: tuple[str, ...] = (
+    "o1", "o3", "o4-", "gpt-5-thinking", "deepseek-r", "-r1", "qwq",
+    "reasoning", "thinking",
+)
+
+
+def provider_ignores_temperature(model: str) -> bool:
+    """True, если модель по имени относится к reasoning-семействам, которые
+    провайдеры принимают, но игнорируют (или отклоняют) temperature.
+
+    Честная детекция по имени модели (консервативная): неизвестные модели →
+    False (пометку не рисуем). Никогда не бросает."""
+    try:
+        name = str(model or "").strip().lower()
+        if not name:
+            return False
+        return any(token in name
+                   for token in _TEMPERATURE_IGNORED_MODEL_TOKENS)
+    except Exception:      # pragma: no cover - fail-open
+        return False
+
+
 def _build_registry() -> dict[str, ParamSpec]:
     """Единый реестр: ключ — settings_field (или env_name для env-only)."""
     registry: dict[str, ParamSpec] = {}
@@ -3460,6 +3654,34 @@ for _mig_row in LEGACY_REPHRASING_MIGRATION:
         hidden=(_mig_spec.hidden or _mig_row.migration_class in (
             MIGRATION_REMOVED, MIGRATION_DEPRECATED_COMPAT)),
     )
+
+# UR-F (UR-14.2/UR-21.13/UR-21.17/UR-21.21/UR-24.2): ключи БЕЗ активного
+# рантайм-ридера выведены из рабочего UI и каталогового API (params-meta/
+# get_config), как removed/deprecated_compat в RLR-05. Запись остаётся в
+# REGISTRY (права/пины), значение читаемо по PG-ключу, DML/миграций нет.
+# Отдельно сюда входит канонический `CHAT_TIMEZONE`: его единственная
+# редакторская поверхность — «Модули → Время» (UR-29.1), поэтому общий
+# каталог-контрол не показывается, но запись через /api/config/time жива.
+# Заголовки/описания этих ключей НЕ обещают рабочего поведения (см. записи
+# выше с пометкой «снято»/«Не работает»).
+_UR_F_WITHOUT_RUNTIME_READER: frozenset[str] = frozenset({
+    "CHAT_STYLE_ANCHORS_ENABLED",       # UR-14: секция <style_anchors> удалена
+    "CHAT_STYLE_ANCHORS_COUNT",         # UR-21.13
+    "CHAT_STYLE_ANCHOR_MAX_CHARS",      # UR-21.13
+    "CHAT_BUDGET_ANCHORS_RATIO",        # UR-14.2: делить нечего — блока нет
+    "CHAT_MOOD_ENABLED",                # UR-16: mood-ярлык в L2 не подмешивается
+    "CHAT_MOOD_POSITIVE_WORDS",         # UR-16
+    "CHAT_MOOD_NEGATIVE_WORDS",         # UR-16
+    "CHAT_BUDGET_RESPONSE_RATIO",       # UR-21.17: подтверждённый no-op
+    "CHAT_LOCK_MAX_ENTRIES",            # UR-21.21: неиспользуемый параметр
+    "CHAT_TIMEZONE",                    # UR-24.2: единственная поверхность — «Время»
+})
+for _urf_name in _UR_F_WITHOUT_RUNTIME_READER:
+    _urf_spec = REGISTRY.get(_urf_name)
+    if _urf_spec is None:
+        raise ValueError(
+            "UR-F dead-key manifest: catalog key missing: " + _urf_name)
+    REGISTRY[_urf_name] = dataclasses.replace(_urf_spec, hidden=True)
 
 # Раунд 10.4 (B-7/B-8): select-виджеты — опции/подписи (без роста записей).
 _SELECT_WIDGET_PRESETS: dict[str, dict] = {

@@ -83,7 +83,10 @@ assert.strictEqual(card.toggleKey, 'flags.budgets_enabled',
 
 // tma-menu-freeze: F5 (10.24) санкционировал +1 карточку → 12→13;
 // MCA-19 (10.43, ADR-1028-19 D16) санкционировал +1 карточку → 13→14.
-assert.strictEqual(data.modules.length, 15, 'карточек модулей — 14');
+// UR-F (UR-29.1/UR-24.2) санкционировал +1 карточку «Время» (noToggle,
+// единая поверхность пояса) → 15→16.
+assert.strictEqual(data.modules.length, 16,
+  'карточек модулей — 16 (+mod_time по UR-F)');
 
 // 2) Вкладка mod_budgets получила источник flags_module_budgets.
 const tab = data.tabs.filter((t) => t.id === 'mod_budgets')[0];
@@ -105,7 +108,10 @@ assert(groups.indexOf('flags_module_budgets') >= 0,
 // ASAP 7 F3/ASAP 8 F10 (re-pin): +mod_initiative → 28 вкладок.
 // EVOL-031 (`28d55bd1`, released): вкладка `smart_cache` снята вместе с
 // Exact Match Cache / direct_dedup (TAB_RULES 23→22) → 28−1 = 27.
-assert.strictEqual(data.tabs.length, 27, 'tma-menu-freeze: вкладок 27 (−smart_cache)');
+// UR-F (UR-29.1/UR-24.2): +mod_time («Модули → Время», тип timeEditor,
+// вне TAB_RULES — у вкладки нет каталоговых групп) → 27→28.
+assert.strictEqual(data.tabs.length, 28,
+  'tma-menu-freeze: вкладок 28 (+mod_time по UR-F)');
 const ids = data.tabs.map((t) => t.id);
 assert.strictEqual(ids.indexOf('smart_cache'), -1,
   'EVOL-031: вкладка smart_cache снята и не вернулась');
