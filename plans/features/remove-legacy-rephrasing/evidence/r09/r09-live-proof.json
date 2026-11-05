@@ -1,8 +1,8 @@
 {
  "meta": {
-  "started_at": "2026-11-05T14:56:11+1200",
+  "started_at": "2026-11-05T15:25:45+1200",
   "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\remove-legacy-rephrasing-d38f02602685-d60b30ca",
-  "commit": "71c3d95ad0c6d268b1a1dfdc13e2665033f2b670",
+  "commit": "d484ca692fb04cb533c68ab7bcd6f71cde7ee875",
   "branch": "rlr/live-proof",
   "llm_provider_host": "nano-gpt.com",
   "llm_model": "deepseek/deepseek-v4.1-flash",
@@ -10,13 +10,17 @@
   "fallback_model": "deepseek-v4-flash",
   "search_keys_configured": true,
   "telegram_send": "stubbed (RecordingBot) — no network",
+  "runner_path": "tools\\rlr_live_proof.py",
+  "runner_sha256": "e621bb78b5ce206ed3c66483897f67a61ad451af2e7d710559c948dee41fea28",
+  "worktree_dirty": false,
+  "worktree_dirty_paths": [],
   "longform_max_output_tokens_env": "120"
  },
  "scenarios": {
   "s1": {
    "error": null,
-   "elapsed_s": 6.0,
-   "correlation_id": "90b994cba71e49548edf2c316d00cd67",
+   "elapsed_s": 6.5,
+   "correlation_id": "75b4dbe9507f421694ab366fa59e3bff",
    "background_tasks_drained": 1,
    "l1_plan_fields": {
     "action": "reply",
@@ -25,7 +29,7 @@
     "preserve_source_facts": false,
     "search_intent": "not_applicable",
     "knowledge_origin": "conversation_only",
-    "extent": "compact",
+    "extent": "micro",
     "structure": "chat"
    },
    "llm_calls_by_class": {
@@ -40,6 +44,13 @@
    "refused": null,
    "semantic_rewrite_count": 0,
    "finish_reason": "stop",
+   "model": "deepseek/deepseek-v4.1-flash",
+   "provider": "nano-gpt.com",
+   "usage": {
+    "prompt_tokens": 2755,
+    "completion_tokens": 63,
+    "total_tokens": 2818
+   },
    "completion": {
     "finish_reason": "stop",
     "finish_reason_raw": "stop",
@@ -50,39 +61,40 @@
     "provider": "nano-gpt.com",
     "model": "deepseek/deepseek-v4.1-flash",
     "usage": {
-     "prompt_tokens": 2748,
-     "completion_tokens": 73,
-     "total_tokens": 2821
+     "prompt_tokens": 2755,
+     "completion_tokens": 63,
+     "total_tokens": 2818
     },
     "max_output_tokens_sent": null,
-    "chars": 219,
+    "chars": 180,
     "continuation_calls": 0,
     "continuation_stop_reason": "not_needed",
     "text_source": "author",
     "metadata_available": true
    },
+   "completion_source": "turn_trace",
    "continuation_calls": 0,
    "continuation_completed": true,
    "continuation_stop_reason": "not_needed",
    "raw_final": {
-    "chars": 219,
-    "digest_runner": "3f1eefebb9a0c4b0",
-    "digest_trace": "3f1eefebb9a0c4b0",
+    "chars": 180,
+    "digest_runner": "f97142351700d488",
+    "digest_trace": "f97142351700d488",
     "digest_agrees": true,
-    "excerpt": "Привет! Да честно — ничем таким, что стоило бы запомнить: утро прошло в обычной рутине, так что ярких событий не случилось. Разве что запомнилось, что ты объявился в такую рань — вот это уже интереснее любого моего дня.",
-    "tail": "… что запомнилось, что ты объявился в такую рань — вот это уже интереснее любого моего дня.",
+    "excerpt": "Привет! Сегодня, если честно, ничем особенным не занимался — просто был тут, ждал, пока ты появишься. Запомнилось как раз твоё «привет» в три ночи, вот это по-настоящему врезалось.",
+    "tail": "… появишься. Запомнилось как раз твоё «привет» в три ночи, вот это по-настоящему врезалось.",
     "ends_with_sentence_punct": true
    },
    "final_after_l2_sanitize": {
-    "chars": 219,
-    "digest_runner": "3f1eefebb9a0c4b0",
+    "chars": 180,
+    "digest_runner": "f97142351700d488",
     "same_as_raw": true
    },
    "delivered": {
     "messages": 1,
-    "chars": 219,
-    "digest_runner": "83c849fd5f3d865b",
-    "digest_trace": "83c849fd5f3d865b",
+    "chars": 180,
+    "digest_runner": "9e589e39f9762ded",
+    "digest_trace": "9e589e39f9762ded",
     "digest_match_trace": false,
     "written_equals_sent": false,
     "ops_between": [
@@ -92,55 +104,114 @@
     ],
     "text_diff": {
      "equal": false,
-     "prefix": 18,
-     "suffix": 41,
-     "removed": "— ничем таким, что стоило бы запомнить: утро прошло в обычной рутине, так что ярких событий не случилось. Разве что запомнилось, что ты объявился в такую рань —",
-     "added": "- ничем таким, что стоило бы запомнить: утро прошло в обычной рутине, так что ярких событий не случилось. Разве что запомнилось, что ты объявился в такую рань -",
-     "removed_chars": 160,
-     "added_chars": 160,
+     "raw_chars": 180,
+     "sent_chars": 180,
+     "raw_text": "Привет! Сегодня, если честно, ничем особенным не занимался — просто был тут, ждал, пока ты появишься. Запомнилось как раз твоё «привет» в три ночи, вот это по-настоящему врезалось.",
+     "sent_text": "Привет! Сегодня, если честно, ничем особенным не занимался - просто был тут, ждал, пока ты появишься. Запомнилось как раз твоё \"привет\" в три ночи, вот это по-настоящему врезалось.",
+     "normalized_raw": "Привет! Сегодня, если честно, ничем особенным не занимался - просто был тут, ждал, пока ты появишься. Запомнилось как раз твоё \"привет\" в три ночи, вот это по-настоящему врезалось.",
+     "normalized_sent": "Привет! Сегодня, если честно, ничем особенным не занимался - просто был тут, ждал, пока ты появишься. Запомнилось как раз твоё \"привет\" в три ночи, вот это по-настоящему врезалось.",
      "punct_only": true,
-     "other_char_delta": 0
+     "other_char_delta": 0,
+     "truncated": false,
+     "hidden_chars": 0,
+     "prefix": 59,
+     "suffix": 45,
+     "removed_span": "— просто был тут, ждал, пока ты появишься. Запомнилось как раз твоё «привет»",
+     "added_span": "- просто был тут, ждал, пока ты появишься. Запомнилось как раз твоё \"привет\"",
+     "removed_chars": 76,
+     "added_chars": 76,
+     "diff_ops": {
+      "ops": [
+       {
+        "tag": "replace",
+        "raw_index": [
+         59,
+         60
+        ],
+        "sent_index": [
+         59,
+         60
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         127,
+         128
+        ],
+        "sent_index": [
+         127,
+         128
+        ],
+        "removed": "«",
+        "added": "\"",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         134,
+         135
+        ],
+        "sent_index": [
+         134,
+         135
+        ],
+        "removed": "»",
+        "added": "\"",
+        "removed_chars": 1,
+        "added_chars": 1
+       }
+      ],
+      "truncated_ops": false,
+      "total_ops": 3
+     }
     },
-    "excerpt": "Привет! Да честно - ничем таким, что стоило бы запомнить: утро прошло в обычной рутине, так что ярких событий не случилось. Разве что запомнилось, что ты объявился в такую рань - вот это уже интереснее любого моего дня.",
-    "tail": "… что запомнилось, что ты объявился в такую рань - вот это уже интереснее любого моего дня."
+    "excerpt": "Привет! Сегодня, если честно, ничем особенным не занимался - просто был тут, ждал, пока ты появишься. Запомнилось как раз твоё \"привет\" в три ночи, вот это по-настоящему врезалось.",
+    "tail": "… появишься. Запомнилось как раз твоё \"привет\" в три ночи, вот это по-настоящему врезалось."
    },
    "divergence_reason": "owner_style_punctuation",
    "ops": [
     {
      "op": "reasoning_marker_strip",
      "changed": false,
-     "chars": 219,
-     "digest": "3f1eefebb9a0c4b0"
+     "chars": 180,
+     "digest": "f97142351700d488"
     },
     {
      "op": "evidence_egress_guard",
      "changed": false,
-     "chars": 219,
-     "digest": "3f1eefebb9a0c4b0"
+     "chars": 180,
+     "digest": "f97142351700d488"
     },
     {
      "op": "owner_style_punctuation",
      "changed": true,
-     "chars": 219,
-     "digest": "83c849fd5f3d865b"
+     "chars": 180,
+     "digest": "9e589e39f9762ded"
     },
     {
      "op": "plain_render",
      "changed": false,
-     "chars": 219,
-     "digest": "83c849fd5f3d865b"
+     "chars": 180,
+     "digest": "9e589e39f9762ded"
     },
     {
      "op": "egress_sanitize",
      "changed": false,
-     "chars": 219,
-     "digest": "83c849fd5f3d865b"
+     "chars": 180,
+     "digest": "9e589e39f9762ded"
     },
     {
      "op": "telegram_chunk",
      "changed": false,
-     "chars": 219,
-     "digest": "83c849fd5f3d865b"
+     "chars": 180,
+     "digest": "9e589e39f9762ded"
     }
    ],
    "delivery_outcome": "success",
@@ -151,29 +222,86 @@
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_delivery",
      "stage": "delivery",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "retrieved",
      "stage": null,
-     "outcome": "skipped"
+     "outcome": "skipped",
+     "matched_by": "trace_id"
+    },
+    {
+     "event": "DIRECT_FRESH_GENERATION",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_bundle",
+     "stage": "bundle",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "speech_extent",
+     "stage": "direct_pre_send",
+     "outcome": "failed",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered"
     }
    ],
+   "events_by_matched_by": {
+    "trace_id": 4,
+    "unfiltered": 8
+   },
    "event_payloads": [
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
       "manifest": {
        "manifest_id": "",
@@ -251,13 +379,13 @@
        "provider": "nano-gpt.com",
        "model": "deepseek/deepseek-v4.1-flash",
        "usage": {
-        "prompt_tokens": 2748,
-        "completion_tokens": 73,
-        "total_tokens": 2821
+        "prompt_tokens": 2755,
+        "completion_tokens": 63,
+        "total_tokens": 2818
        },
        "max_output_tokens_sent": null,
-       "chars": 219,
-       "raw_final_digest": "3f1eefebb9a0c4b0",
+       "chars": 180,
+       "raw_final_digest": "f97142351700d488",
        "continuation_calls": 0,
        "continuation_stop_reason": "not_needed",
        "text_source": "author"
@@ -273,57 +401,167 @@
      "event": "direct_turn_delivery",
      "stage": "delivery",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"3f1eefebb9a0c4b0\", \"chars\": 219, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"3f1eefebb9a0c4b0\", \"chars\": 219, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"83c849fd5f3d865b\", \"chars\": 219, \"changed\": true}, {\"op"
+      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"f97142351700d488\", \"chars\": 180, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"f97142351700d488\", \"chars\": 180, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"9e589e39f9762ded\", \"chars\": 180, \"changed\": true}, {\"op"
      }
     },
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 101, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:56, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847377, \"l1\": {\"action\": \"reply\", \"response_act\": \"answer\", \"st"
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 101, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 08:25, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793849151, \"l1\": {\"action\": \"reply\", \"response_act\": \"answer\", \"st"
      }
     },
     {
      "event": "retrieved",
      "stage": null,
      "outcome": "skipped",
+     "matched_by": "trace_id",
      "usage": {
       "selected": 0,
       "considered": 0,
       "excluded_codes": {}
      }
+    },
+    {
+     "event": "DIRECT_FRESH_GENERATION",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_bundle",
+     "stage": "bundle",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "speech_extent",
+     "stage": "direct_pre_send",
+     "outcome": "failed",
+     "matched_by": "unfiltered",
+     "usage": {
+      "extent": "micro",
+      "status": "conflict",
+      "one_word": 0,
+      "one_word_exact": 0,
+      "context": "regular",
+      "words": 27,
+      "reason": "micro_extent_exceeded"
+     }
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "observed": 0,
+      "code": "none",
+      "sentence_index": -1,
+      "char_start": -1,
+      "char_end": -1,
+      "claim_key": "",
+      "note": ""
+     }
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "required": true,
+      "required_unmet": true,
+      "evidence_class": "externally_factual",
+      "skip_reason": "",
+      "failure_code": "capability_not_ready",
+      "claim_count": 0,
+      "source_kind": "web",
+      "required_caps": "",
+      "network_calls": 0,
+      "note": "factual_plan_act+blocked"
+     }
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered",
+     "usage": null
     }
    ],
    "http_calls": [
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": 512,
-     "ms": 2657,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 5719,
+      "completion_tokens": 171,
+      "total_tokens": 5890
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 2531
     },
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": null,
-     "ms": 2030,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 2755,
+      "completion_tokens": 63,
+      "total_tokens": 2818
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 2641
     },
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": null,
-     "ms": 1000,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 163,
+      "completion_tokens": 28,
+      "total_tokens": 191
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 1640
     }
    ]
   },
   "s2": {
    "error": null,
-   "elapsed_s": 7.2,
-   "correlation_id": "cb2868292e1545cd811dd336f901c410",
+   "elapsed_s": 8.7,
+   "correlation_id": "fb9ffc8d2a734dfabcbf4730b6b6d5ca",
    "background_tasks_drained": 1,
    "l1_plan_fields": {
     "action": "reply",
@@ -333,7 +571,7 @@
     "search_intent": "required",
     "knowledge_origin": "open_world",
     "extent": "micro",
-    "structure": "answer"
+    "structure": "chat"
    },
    "llm_calls_by_class": {
     "planning": 1,
@@ -349,6 +587,13 @@
    "refused": null,
    "semantic_rewrite_count": 0,
    "finish_reason": "stop",
+   "model": "deepseek/deepseek-v4.1-flash",
+   "provider": "nano-gpt.com",
+   "usage": {
+    "prompt_tokens": 4872,
+    "completion_tokens": 83,
+    "total_tokens": 4955
+   },
    "completion": {
     "finish_reason": "stop",
     "finish_reason_raw": "stop",
@@ -359,39 +604,40 @@
     "provider": "nano-gpt.com",
     "model": "deepseek/deepseek-v4.1-flash",
     "usage": {
-     "prompt_tokens": 5140,
-     "completion_tokens": 73,
-     "total_tokens": 5213
+     "prompt_tokens": 4872,
+     "completion_tokens": 83,
+     "total_tokens": 4955
     },
     "max_output_tokens_sent": null,
-    "chars": 204,
+    "chars": 250,
     "continuation_calls": 0,
     "continuation_stop_reason": "not_needed",
     "text_source": "author",
     "metadata_available": true
    },
+   "completion_source": "turn_trace",
    "continuation_calls": 0,
    "continuation_completed": true,
    "continuation_stop_reason": "not_needed",
    "raw_final": {
-    "chars": 204,
-    "digest_runner": "068366f6ae123155",
-    "digest_trace": "068366f6ae123155",
+    "chars": 250,
+    "digest_runner": "047cdb18e59a9c4a",
+    "digest_trace": "047cdb18e59a9c4a",
     "digest_agrees": true,
-    "excerpt": "Курс разнится по биржам: CoinMarketCap даёт $77 884, Coinbase — $83 850, Binance — около $80 804, TradingView — $85 314. Так что ориентир — примерно $78–85 тыс. за 1 BTC, точная цифра зависит от площадки.",
-    "tail": "…5 314. Так что ориентир — примерно $78–85 тыс. за 1 BTC, точная цифра зависит от площадки.",
+    "excerpt": "В поиске цифры разошлись: CoinMarketCap даёт около $77 884 за BTC, TradingView — около $85 314, Trust Wallet — $77 503, Revolut — $77 387, Binance — $80 804. Похоже, выдача смешала данные разных моментов, так что одной надёжной цифры назвать не могу.",
+    "tail": "…хоже, выдача смешала данные разных моментов, так что одной надёжной цифры назвать не могу.",
     "ends_with_sentence_punct": true
    },
    "final_after_l2_sanitize": {
-    "chars": 204,
-    "digest_runner": "068366f6ae123155",
+    "chars": 250,
+    "digest_runner": "047cdb18e59a9c4a",
     "same_as_raw": true
    },
    "delivered": {
     "messages": 1,
-    "chars": 204,
-    "digest_runner": "41ef59b50663222f",
-    "digest_trace": "41ef59b50663222f",
+    "chars": 250,
+    "digest_runner": "2fac62026baffb91",
+    "digest_trace": "2fac62026baffb91",
     "digest_match_trace": false,
     "written_equals_sent": false,
     "ops_between": [
@@ -401,55 +647,129 @@
     ],
     "text_diff": {
      "equal": false,
-     "prefix": 62,
-     "suffix": 65,
-     "removed": "— $83 850, Binance — около $80 804, TradingView — $85 314. Так что ориентир —",
-     "added": "- $83 850, Binance - около $80 804, TradingView - $85 314. Так что ориентир -",
-     "removed_chars": 77,
-     "added_chars": 77,
+     "raw_chars": 250,
+     "sent_chars": 250,
+     "raw_text": "В поиске цифры разошлись: CoinMarketCap даёт около $77 884 за BTC, TradingView — около $85 314, Trust Wallet — $77 503, Revolut — $77 387, Binance — $80 804. Похоже, выдача смешала данные разных моментов, так что одной надёжной цифры назвать не могу.",
+     "sent_text": "В поиске цифры разошлись: CoinMarketCap даёт около $77 884 за BTC, TradingView - около $85 314, Trust Wallet - $77 503, Revolut - $77 387, Binance - $80 804. Похоже, выдача смешала данные разных моментов, так что одной надёжной цифры назвать не могу.",
+     "normalized_raw": "В поиске цифры разошлись: CoinMarketCap даёт около $77 884 за BTC, TradingView - около $85 314, Trust Wallet - $77 503, Revolut - $77 387, Binance - $80 804. Похоже, выдача смешала данные разных моментов, так что одной надёжной цифры назвать не могу.",
+     "normalized_sent": "В поиске цифры разошлись: CoinMarketCap даёт около $77 884 за BTC, TradingView - около $85 314, Trust Wallet - $77 503, Revolut - $77 387, Binance - $80 804. Похоже, выдача смешала данные разных моментов, так что одной надёжной цифры назвать не могу.",
      "punct_only": true,
-     "other_char_delta": 0
+     "other_char_delta": 0,
+     "truncated": false,
+     "hidden_chars": 0,
+     "prefix": 79,
+     "suffix": 102,
+     "removed_span": "— около $85 314, Trust Wallet — $77 503, Revolut — $77 387, Binance —",
+     "added_span": "- около $85 314, Trust Wallet - $77 503, Revolut - $77 387, Binance -",
+     "removed_chars": 69,
+     "added_chars": 69,
+     "diff_ops": {
+      "ops": [
+       {
+        "tag": "replace",
+        "raw_index": [
+         79,
+         80
+        ],
+        "sent_index": [
+         79,
+         80
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         109,
+         110
+        ],
+        "sent_index": [
+         109,
+         110
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         128,
+         129
+        ],
+        "sent_index": [
+         128,
+         129
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         147,
+         148
+        ],
+        "sent_index": [
+         147,
+         148
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       }
+      ],
+      "truncated_ops": false,
+      "total_ops": 4
+     }
     },
-    "excerpt": "Курс разнится по биржам: CoinMarketCap даёт $77 884, Coinbase - $83 850, Binance - около $80 804, TradingView - $85 314. Так что ориентир - примерно $78–85 тыс. за 1 BTC, точная цифра зависит от площадки.",
-    "tail": "…5 314. Так что ориентир - примерно $78–85 тыс. за 1 BTC, точная цифра зависит от площадки."
+    "excerpt": "В поиске цифры разошлись: CoinMarketCap даёт около $77 884 за BTC, TradingView - около $85 314, Trust Wallet - $77 503, Revolut - $77 387, Binance - $80 804. Похоже, выдача смешала данные разных моментов, так что одной надёжной цифры назвать не могу.",
+    "tail": "…хоже, выдача смешала данные разных моментов, так что одной надёжной цифры назвать не могу."
    },
    "divergence_reason": "owner_style_punctuation",
    "ops": [
     {
      "op": "reasoning_marker_strip",
      "changed": false,
-     "chars": 204,
-     "digest": "068366f6ae123155"
+     "chars": 250,
+     "digest": "047cdb18e59a9c4a"
     },
     {
      "op": "evidence_egress_guard",
      "changed": false,
-     "chars": 204,
-     "digest": "068366f6ae123155"
+     "chars": 250,
+     "digest": "047cdb18e59a9c4a"
     },
     {
      "op": "owner_style_punctuation",
      "changed": true,
-     "chars": 204,
-     "digest": "41ef59b50663222f"
+     "chars": 250,
+     "digest": "2fac62026baffb91"
     },
     {
      "op": "plain_render",
      "changed": false,
-     "chars": 204,
-     "digest": "41ef59b50663222f"
+     "chars": 250,
+     "digest": "2fac62026baffb91"
     },
     {
      "op": "egress_sanitize",
      "changed": false,
-     "chars": 204,
-     "digest": "41ef59b50663222f"
+     "chars": 250,
+     "digest": "2fac62026baffb91"
     },
     {
      "op": "telegram_chunk",
      "changed": false,
-     "chars": 204,
-     "digest": "41ef59b50663222f"
+     "chars": 250,
+     "digest": "2fac62026baffb91"
     }
    ],
    "delivery_outcome": "success",
@@ -460,7 +780,7 @@
      "round": 1,
      "status": "ok",
      "error": "",
-     "out_chars": 6857,
+     "out_chars": 5883,
      "truncated": false,
      "attempt": 1,
      "refs": 0
@@ -471,39 +791,104 @@
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_delivery",
      "stage": "delivery",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "reply_search_evidence",
      "stage": "search",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "capability_check",
      "stage": null,
-     "outcome": "failed"
+     "outcome": "failed",
+     "matched_by": "trace_id"
     },
     {
      "event": "retrieved",
      "stage": null,
-     "outcome": "skipped"
+     "outcome": "skipped",
+     "matched_by": "trace_id"
+    },
+    {
+     "event": "DIRECT_FRESH_GENERATION",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_bundle",
+     "stage": "bundle",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "speech_extent",
+     "stage": "direct_pre_send",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_delivery",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered"
     }
    ],
+   "events_by_matched_by": {
+    "trace_id": 6,
+    "unfiltered": 9
+   },
    "event_payloads": [
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
       "manifest": {
        "manifest_id": "",
@@ -591,13 +976,13 @@
        "provider": "nano-gpt.com",
        "model": "deepseek/deepseek-v4.1-flash",
        "usage": {
-        "prompt_tokens": 5140,
-        "completion_tokens": 73,
-        "total_tokens": 5213
+        "prompt_tokens": 4872,
+        "completion_tokens": 83,
+        "total_tokens": 4955
        },
        "max_output_tokens_sent": null,
-       "chars": 204,
-       "raw_final_digest": "068366f6ae123155",
+       "chars": 250,
+       "raw_final_digest": "047cdb18e59a9c4a",
        "continuation_calls": 0,
        "continuation_stop_reason": "not_needed",
        "text_source": "author"
@@ -614,69 +999,193 @@
      "event": "direct_turn_delivery",
      "stage": "delivery",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"068366f6ae123155\", \"chars\": 204, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"068366f6ae123155\", \"chars\": 204, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"41ef59b50663222f\", \"chars\": 204, \"changed\": true}, {\"op"
+      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"047cdb18e59a9c4a\", \"chars\": 250, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"047cdb18e59a9c4a\", \"chars\": 250, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"2fac62026baffb91\", \"chars\": 250, \"changed\": true}, {\"op"
      }
     },
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 102, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:56, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847391, \"l1\": {\"action\": \"reply\", \"response_act\": \"answer\", \"st"
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 102, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 08:26, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793849165, \"l1\": {\"action\": \"reply\", \"response_act\": \"answer\", \"st"
      }
     },
     {
      "event": "reply_search_evidence",
      "stage": "search",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": null
     },
     {
      "event": "capability_check",
      "stage": null,
      "outcome": "failed",
+     "matched_by": "trace_id",
      "usage": null
     },
     {
      "event": "retrieved",
      "stage": null,
      "outcome": "skipped",
+     "matched_by": "trace_id",
      "usage": {
       "selected": 0,
       "considered": 0,
       "excluded_codes": {}
      }
+    },
+    {
+     "event": "DIRECT_FRESH_GENERATION",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_bundle",
+     "stage": "bundle",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "speech_extent",
+     "stage": "direct_pre_send",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "extent": "compact",
+      "status": "pass",
+      "one_word": 0,
+      "one_word_exact": 0,
+      "context": "regular",
+      "words": 39
+     }
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "observed": 0,
+      "code": "none",
+      "sentence_index": -1,
+      "char_start": -1,
+      "char_end": -1,
+      "claim_key": "",
+      "note": ""
+     }
+    },
+    {
+     "event": "evidence_delivery",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "fetched": 1,
+      "delivered_to_writer": 1,
+      "coverage_ratio": 1.0,
+      "capacity_chars": 38400,
+      "limits": 0
+     }
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "required": true,
+      "required_unmet": true,
+      "evidence_class": "externally_factual",
+      "skip_reason": "",
+      "failure_code": "capability_not_ready",
+      "claim_count": 1,
+      "source_kind": "web",
+      "required_caps": "",
+      "network_calls": 0,
+      "note": "explicit_search+blocked"
+     }
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered",
+     "usage": null
     }
    ],
    "http_calls": [
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": 512,
-     "ms": 3547,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 5713,
+      "completion_tokens": 196,
+      "total_tokens": 5909
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 3702
     },
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": null,
-     "ms": 2188,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 4872,
+      "completion_tokens": 83,
+      "total_tokens": 4955
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 2422
     },
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": null,
-     "ms": 1452,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 183,
+      "completion_tokens": 35,
+      "total_tokens": 218
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 906
     }
    ]
   },
   "s3": {
    "error": null,
-   "elapsed_s": 4.3,
-   "correlation_id": null,
+   "elapsed_s": 6.2,
+   "correlation_id": "r09-s3-cfcb83136a41",
    "background_tasks_drained": 0,
    "l1_plan_fields": {},
    "llm_calls_by_class": {
@@ -689,41 +1198,121 @@
    "final_calls_from_writer": 1,
    "refused": null,
    "semantic_rewrite_count": null,
-   "finish_reason": null,
-   "completion": {},
+   "finish_reason": "stop",
+   "model": "deepseek/deepseek-v4.1-flash",
+   "provider": "nano-gpt.com",
+   "usage": {
+    "prompt_tokens": 2636,
+    "completion_tokens": 9,
+    "total_tokens": 2645,
+    "reasoning_tokens": 0,
+    "completion_tokens_details": {
+     "reasoning_tokens": 0,
+     "image_tokens": 0,
+     "audio_tokens": 0,
+     "accepted_prediction_tokens": 0,
+     "rejected_prediction_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 2048,
+    "prompt_tokens_details": {
+     "cached_tokens": 2048,
+     "cache_write_tokens": 0,
+     "audio_tokens": 0,
+     "video_tokens": 0
+    },
+    "citation_tokens": 0,
+    "num_search_queries": 0,
+    "input_tokens": 588,
+    "cost": 6.745799999999999e-05,
+    "currency": "USD"
+   },
+   "completion": {
+    "finish_reason": "stop",
+    "finish_reason_raw": "stop",
+    "completed": true,
+    "is_truncated": false,
+    "attempt": 1,
+    "fallback_used": false,
+    "provider": "nano-gpt.com",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "usage": {
+     "prompt_tokens": 2636,
+     "completion_tokens": 9,
+     "total_tokens": 2645,
+     "reasoning_tokens": 0,
+     "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+     },
+     "cache_creation_input_tokens": 0,
+     "cache_read_input_tokens": 2048,
+     "prompt_tokens_details": {
+      "cached_tokens": 2048,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+     },
+     "citation_tokens": 0,
+     "num_search_queries": 0,
+     "input_tokens": 588,
+     "cost": 6.745799999999999e-05,
+     "currency": "USD"
+    },
+    "max_output_tokens_sent": 700,
+    "chars": 24,
+    "continuation_calls": 0,
+    "continuation_stop_reason": "not_needed",
+    "text_source": "author",
+    "metadata_available": true
+   },
+   "completion_source": "writer_completion_object",
    "continuation_calls": 0,
    "continuation_completed": true,
    "continuation_stop_reason": "not_needed",
    "raw_final": {
-    "chars": 16,
-    "digest_runner": "28fa4e152571b267",
+    "chars": 24,
+    "digest_runner": "b7be716d149ad018",
     "digest_trace": null,
     "digest_agrees": false,
-    "excerpt": "Как день прошёл?",
-    "tail": "Как день прошёл?",
+    "excerpt": "Привет! Как день прошёл?",
+    "tail": "Привет! Как день прошёл?",
     "ends_with_sentence_punct": true
    },
    "final_after_l2_sanitize": {
-    "chars": 16,
-    "digest_runner": "28fa4e152571b267",
+    "chars": 24,
+    "digest_runner": "b7be716d149ad018",
     "same_as_raw": true
    },
    "delivered": {
     "messages": 1,
-    "chars": 16,
-    "digest_runner": "28fa4e152571b267",
+    "chars": 24,
+    "digest_runner": "b7be716d149ad018",
     "digest_trace": null,
     "digest_match_trace": null,
     "written_equals_sent": true,
     "ops_between": [],
     "text_diff": {
      "equal": true,
-     "diffs": [],
+     "raw_chars": 24,
+     "sent_chars": 24,
+     "raw_text": "Привет! Как день прошёл?",
+     "sent_text": "Привет! Как день прошёл?",
+     "normalized_raw": "Привет! Как день прошёл?",
+     "normalized_sent": "Привет! Как день прошёл?",
      "punct_only": true,
-     "other_char_delta": 0
+     "other_char_delta": 0,
+     "truncated": false,
+     "hidden_chars": 0,
+     "diff_ops": [],
+     "removed_span": "",
+     "added_span": ""
     },
-    "excerpt": "Как день прошёл?",
-    "tail": "Как день прошёл?"
+    "excerpt": "Привет! Как день прошёл?",
+    "tail": "Привет! Как день прошёл?"
    },
    "divergence_reason": null,
    "ops": [],
@@ -735,98 +1324,118 @@
     {
      "event": "initiative_decided",
      "stage": "intent_due",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "initiative_delivery_manifest",
      "stage": "delivery_manifest",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "unfiltered"
     },
     {
      "event": "bot_output_recorded",
      "stage": null,
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "unfiltered"
     },
     {
      "event": "speech_extent",
      "stage": "initiative_pre_send",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "unfiltered"
     },
     {
      "event": "initiative_writer_generated",
      "stage": "initiative",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "unfiltered"
     },
     {
      "event": "evidence_egress_check",
      "stage": "evidence_policy",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "unfiltered"
     },
     {
      "event": "evidence_policy_decided",
      "stage": "evidence_policy",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "unfiltered"
     },
     {
      "event": "random_uses",
      "stage": "conversation_variant",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "unfiltered"
     },
     {
      "event": "random_fallback",
      "stage": "fallback",
-     "outcome": "silent"
+     "outcome": "silent",
+     "matched_by": "unfiltered"
     },
     {
      "event": "PIPELINE_START",
      "stage": "queued",
-     "outcome": "start"
+     "outcome": "start",
+     "matched_by": "unfiltered"
     }
    ],
+   "events_by_matched_by": {
+    "trace_id": 1,
+    "unfiltered": 9
+   },
    "event_payloads": [
     {
      "event": "initiative_decided",
      "stage": "intent_due",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": null
     },
     {
      "event": "initiative_delivery_manifest",
      "stage": "delivery_manifest",
      "outcome": "success",
+     "matched_by": "unfiltered",
      "usage": null
     },
     {
      "event": "bot_output_recorded",
      "stage": null,
      "outcome": "success",
+     "matched_by": "unfiltered",
      "usage": null
     },
     {
      "event": "speech_extent",
      "stage": "initiative_pre_send",
      "outcome": "success",
+     "matched_by": "unfiltered",
      "usage": {
       "extent": "micro",
       "status": "pass",
       "one_word": 0,
       "one_word_exact": 0,
       "context": "initiative",
-      "words": 3
+      "words": 4
      }
     },
     {
      "event": "initiative_writer_generated",
      "stage": "initiative",
      "outcome": "success",
+     "matched_by": "unfiltered",
      "usage": {
-      "chars": 16
+      "chars": 24
      }
     },
     {
      "event": "evidence_egress_check",
      "stage": "evidence_policy",
      "outcome": "success",
+     "matched_by": "unfiltered",
      "usage": {
       "observed": 0,
       "code": "none",
@@ -841,35 +1450,39 @@
      "event": "evidence_policy_decided",
      "stage": "evidence_policy",
      "outcome": "success",
+     "matched_by": "unfiltered",
      "usage": {
-      "required": true,
-      "required_unmet": true,
-      "evidence_class": "externally_factual",
-      "skip_reason": "",
-      "failure_code": "no_relevant_results",
+      "required": false,
+      "required_unmet": false,
+      "evidence_class": "social",
+      "skip_reason": "no_new_external_claim",
+      "failure_code": "",
       "claim_count": 0,
       "source_kind": "",
       "required_caps": "",
       "network_calls": 0,
-      "note": "factual_plan_act+blocked+no_addressable_query"
+      "note": "initiative_without_claim_query"
      }
     },
     {
      "event": "random_uses",
      "stage": "conversation_variant",
      "outcome": "success",
+     "matched_by": "unfiltered",
      "usage": null
     },
     {
      "event": "random_fallback",
      "stage": "fallback",
      "outcome": "silent",
+     "matched_by": "unfiltered",
      "usage": null
     },
     {
      "event": "PIPELINE_START",
      "stage": "queued",
      "outcome": "start",
+     "matched_by": "unfiltered",
      "usage": null
     }
    ],
@@ -879,12 +1492,44 @@
     "reason_codes": [],
     "action": "reply",
     "selected_candidate": "trigger:intent_due:2934a3a63b0d0be0"
-   }
+   },
+   "http_calls": [
+    {
+     "channel": "primary",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": 512,
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 5850,
+      "completion_tokens": 171,
+      "total_tokens": 6021
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 3172
+    },
+    {
+     "channel": "primary",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": 700,
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 2636,
+      "completion_tokens": 9,
+      "total_tokens": 2645
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 2577
+    }
+   ]
   },
   "s4": {
    "error": null,
-   "elapsed_s": 12.4,
-   "correlation_id": "c37694947d294740aa01084125de94c0",
+   "elapsed_s": 12.3,
+   "correlation_id": "e096595f027f42c7995881c5f464c082",
    "background_tasks_drained": 0,
    "l1_plan_fields": {},
    "llm_calls_by_class": {
@@ -897,7 +1542,11 @@
    "refused": null,
    "semantic_rewrite_count": 0,
    "finish_reason": null,
+   "model": null,
+   "provider": null,
+   "usage": null,
    "completion": {},
+   "completion_source": "writer_completion_object",
    "continuation_calls": null,
    "continuation_completed": null,
    "continuation_stop_reason": null,
@@ -925,14 +1574,43 @@
     "ops_between": [],
     "text_diff": {
      "equal": false,
+     "raw_chars": 0,
+     "sent_chars": 38,
+     "raw_text": "",
+     "sent_text": "мои мозги расплавились от твоего бреда",
+     "normalized_raw": "",
+     "normalized_sent": "мои мозги расплавились от твоего бреда",
+     "punct_only": false,
+     "other_char_delta": 38,
+     "truncated": false,
+     "hidden_chars": 0,
      "prefix": 0,
      "suffix": 0,
-     "removed": "",
-     "added": "мои мозги расплавились от твоего бреда",
+     "removed_span": "",
+     "added_span": "мои мозги расплавились от твоего бреда",
      "removed_chars": 0,
      "added_chars": 38,
-     "punct_only": false,
-     "other_char_delta": 38
+     "diff_ops": {
+      "ops": [
+       {
+        "tag": "insert",
+        "raw_index": [
+         0,
+         0
+        ],
+        "sent_index": [
+         0,
+         38
+        ],
+        "removed": "",
+        "added": "мои мозги расплавились от твоего бреда",
+        "removed_chars": 0,
+        "added_chars": 38
+       }
+      ],
+      "truncated_ops": false,
+      "total_ops": 1
+     }
     },
     "excerpt": "мои мозги расплавились от твоего бреда",
     "tail": "мои мозги расплавились от твоего бреда"
@@ -947,37 +1625,65 @@
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
-     "outcome": "skipped"
+     "outcome": "skipped",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_delivery",
      "stage": "delivery",
-     "outcome": "skipped"
+     "outcome": "skipped",
+     "matched_by": "trace_id"
     },
     {
      "event": "retrieved",
      "stage": null,
-     "outcome": "skipped"
+     "outcome": "skipped",
+     "matched_by": "trace_id"
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered"
     }
    ],
+   "events_by_matched_by": {
+    "trace_id": 4,
+    "unfiltered": 3
+   },
    "event_payloads": [
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 104, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:56, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847410, \"l1\": {\"action\": \"reply\", \"response_act\": \"other\", \"str"
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 104, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 08:26, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793849188, \"l1\": {\"action\": \"reply\", \"response_act\": \"other\", \"str"
      }
     },
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
      "outcome": "skipped",
+     "matched_by": "trace_id",
      "usage": {
       "manifest": {
        "manifest_id": "",
@@ -1050,6 +1756,7 @@
      "event": "direct_turn_delivery",
      "stage": "delivery",
      "outcome": "skipped",
+     "matched_by": "trace_id",
      "usage": {
       "raw_head": "{\"ops\": [], \"raw_final_digest\": \"\", \"delivered_digest\": \"\", \"digest_match\": null, \"divergence_reason\": \"\", \"semantic_rewrite_count\": 0, \"llm_calls\": {\"planning\": 1}, \"delivery\": {\"outcome\": \"skipped\", \"reason\": \"no_text_delivery\", \"chat_id\": -100***67890, \"tg_message_ids\": [], \"idempotency_key\": \"di"
      }
@@ -1058,48 +1765,119 @@
      "event": "retrieved",
      "stage": null,
      "outcome": "skipped",
+     "matched_by": "trace_id",
      "usage": {
       "selected": 0,
       "considered": 0,
       "excluded_codes": {}
      }
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "required": false,
+      "required_unmet": false,
+      "evidence_class": "social",
+      "skip_reason": "no_new_external_claim",
+      "failure_code": "",
+      "claim_count": 0,
+      "source_kind": "",
+      "required_caps": "",
+      "network_calls": 0,
+      "note": "degraded_plan_without_signal"
+     }
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered",
+     "usage": null
     }
    ],
    "http_calls": [
     {
      "channel": "primary",
-     "model": "invalid/primary-model",
+     "requested_model": "invalid/primary-model",
      "max_tokens": 512,
-     "ms": 2218,
-     "error": "LLMTransportError"
+     "status": null,
+     "response_model": null,
+     "usage": null,
+     "finish_reason": null,
+     "error": "LLMTransportError",
+     "ms": 2170,
+     "http_status": null
     },
     {
      "channel": "fallback",
-     "model": null,
+     "requested_model": null,
      "max_tokens": null,
-     "ms": 1265,
-     "error": null
+     "response_model": null,
+     "usage": null,
+     "finish_reason": null,
+     "http_status": 401,
+     "error": null,
+     "ms": 1219
     },
     {
      "channel": "primary",
-     "model": "invalid/primary-model",
+     "requested_model": "invalid/primary-model",
      "max_tokens": null,
-     "ms": 2047,
-     "error": "LLMTransportError"
+     "status": null,
+     "response_model": null,
+     "usage": null,
+     "finish_reason": null,
+     "error": "LLMTransportError",
+     "ms": 2014,
+     "http_status": null
     },
     {
      "channel": "fallback",
-     "model": null,
+     "requested_model": null,
      "max_tokens": null,
-     "ms": 437,
-     "error": null
+     "response_model": null,
+     "usage": null,
+     "finish_reason": null,
+     "http_status": 401,
+     "error": null,
+     "ms": 438
     }
-   ]
+   ],
+   "fallback_leg": {
+    "primary_attempts": 2,
+    "primary_statuses": [
+     null,
+     null
+    ],
+    "primary_errors": [
+     "LLMTransportError",
+     "LLMTransportError"
+    ],
+    "fallback_attempts": 2,
+    "fallback_statuses": [
+     401,
+     401
+    ],
+    "fallback_errors": [
+     null,
+     null
+    ]
+   }
   },
   "s4b": {
    "error": null,
-   "elapsed_s": 9.6,
-   "correlation_id": "73439e4053c84b9a9b76ca5634f8e870",
+   "elapsed_s": 9.7,
+   "correlation_id": "67f3a97a22a241c8a577fac68adcdb45",
    "background_tasks_drained": 1,
    "l1_plan_fields": {
     "action": "reply",
@@ -1125,6 +1903,13 @@
    "refused": null,
    "semantic_rewrite_count": 0,
    "finish_reason": "stop",
+   "model": "deepseek/deepseek-v4.1-flash",
+   "provider": "nano-gpt.com",
+   "usage": {
+    "prompt_tokens": 2727,
+    "completion_tokens": 23,
+    "total_tokens": 2750
+   },
    "completion": {
     "finish_reason": "stop",
     "finish_reason_raw": "stop",
@@ -1135,39 +1920,40 @@
     "provider": "nano-gpt.com",
     "model": "deepseek/deepseek-v4.1-flash",
     "usage": {
-     "prompt_tokens": 2731,
-     "completion_tokens": 27,
-     "total_tokens": 2758
+     "prompt_tokens": 2727,
+     "completion_tokens": 23,
+     "total_tokens": 2750
     },
     "max_output_tokens_sent": null,
-    "chars": 78,
+    "chars": 71,
     "continuation_calls": 0,
     "continuation_stop_reason": "not_needed",
     "text_source": "author",
     "metadata_available": true
    },
+   "completion_source": "turn_trace",
    "continuation_calls": 0,
    "continuation_completed": true,
    "continuation_stop_reason": "not_needed",
    "raw_final": {
-    "chars": 78,
-    "digest_runner": "ec6b1a3d29c0b44c",
-    "digest_trace": "ec6b1a3d29c0b44c",
+    "chars": 71,
+    "digest_runner": "d663c566a003138a",
+    "digest_trace": "d663c566a003138a",
     "digest_agrees": true,
-    "excerpt": "Вася, я сегодня в порядке — и, судя по вопросу, ты тоже не прочь это услышать.",
-    "tail": "Вася, я сегодня в порядке — и, судя по вопросу, ты тоже не прочь это услышать.",
+    "excerpt": "Вася, сегодня я в порядке — бодр, собран и готов болтать сколько нужно.",
+    "tail": "Вася, сегодня я в порядке — бодр, собран и готов болтать сколько нужно.",
     "ends_with_sentence_punct": true
    },
    "final_after_l2_sanitize": {
-    "chars": 78,
-    "digest_runner": "ec6b1a3d29c0b44c",
+    "chars": 71,
+    "digest_runner": "d663c566a003138a",
     "same_as_raw": true
    },
    "delivered": {
     "messages": 1,
-    "chars": 78,
-    "digest_runner": "6b8e09c56ff6c74c",
-    "digest_trace": "6b8e09c56ff6c74c",
+    "chars": 71,
+    "digest_runner": "2b82a2cf725afac8",
+    "digest_trace": "2b82a2cf725afac8",
     "digest_match_trace": false,
     "written_equals_sent": false,
     "ops_between": [
@@ -1177,55 +1963,84 @@
     ],
     "text_diff": {
      "equal": false,
+     "raw_chars": 71,
+     "sent_chars": 71,
+     "raw_text": "Вася, сегодня я в порядке — бодр, собран и готов болтать сколько нужно.",
+     "sent_text": "Вася, сегодня я в порядке - бодр, собран и готов болтать сколько нужно.",
+     "normalized_raw": "Вася, сегодня я в порядке - бодр, собран и готов болтать сколько нужно.",
+     "normalized_sent": "Вася, сегодня я в порядке - бодр, собран и готов болтать сколько нужно.",
+     "punct_only": true,
+     "other_char_delta": 0,
+     "truncated": false,
+     "hidden_chars": 0,
      "prefix": 26,
-     "suffix": 51,
-     "removed": "—",
-     "added": "-",
+     "suffix": 44,
+     "removed_span": "—",
+     "added_span": "-",
      "removed_chars": 1,
      "added_chars": 1,
-     "punct_only": true,
-     "other_char_delta": 0
+     "diff_ops": {
+      "ops": [
+       {
+        "tag": "replace",
+        "raw_index": [
+         26,
+         27
+        ],
+        "sent_index": [
+         26,
+         27
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       }
+      ],
+      "truncated_ops": false,
+      "total_ops": 1
+     }
     },
-    "excerpt": "Вася, я сегодня в порядке - и, судя по вопросу, ты тоже не прочь это услышать.",
-    "tail": "Вася, я сегодня в порядке - и, судя по вопросу, ты тоже не прочь это услышать."
+    "excerpt": "Вася, сегодня я в порядке - бодр, собран и готов болтать сколько нужно.",
+    "tail": "Вася, сегодня я в порядке - бодр, собран и готов болтать сколько нужно."
    },
    "divergence_reason": "owner_style_punctuation",
    "ops": [
     {
      "op": "reasoning_marker_strip",
      "changed": false,
-     "chars": 78,
-     "digest": "ec6b1a3d29c0b44c"
+     "chars": 71,
+     "digest": "d663c566a003138a"
     },
     {
      "op": "evidence_egress_guard",
      "changed": false,
-     "chars": 78,
-     "digest": "ec6b1a3d29c0b44c"
+     "chars": 71,
+     "digest": "d663c566a003138a"
     },
     {
      "op": "owner_style_punctuation",
      "changed": true,
-     "chars": 78,
-     "digest": "6b8e09c56ff6c74c"
+     "chars": 71,
+     "digest": "2b82a2cf725afac8"
     },
     {
      "op": "plain_render",
      "changed": false,
-     "chars": 78,
-     "digest": "6b8e09c56ff6c74c"
+     "chars": 71,
+     "digest": "2b82a2cf725afac8"
     },
     {
      "op": "egress_sanitize",
      "changed": false,
-     "chars": 78,
-     "digest": "6b8e09c56ff6c74c"
+     "chars": 71,
+     "digest": "2b82a2cf725afac8"
     },
     {
      "op": "telegram_chunk",
      "changed": false,
-     "chars": 78,
-     "digest": "6b8e09c56ff6c74c"
+     "chars": 71,
+     "digest": "2b82a2cf725afac8"
     }
    ],
    "delivery_outcome": "success",
@@ -1236,29 +2051,86 @@
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_delivery",
      "stage": "delivery",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "retrieved",
      "stage": null,
-     "outcome": "skipped"
+     "outcome": "skipped",
+     "matched_by": "trace_id"
+    },
+    {
+     "event": "DIRECT_FRESH_GENERATION",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_bundle",
+     "stage": "bundle",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "speech_extent",
+     "stage": "direct_pre_send",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered"
     }
    ],
+   "events_by_matched_by": {
+    "trace_id": 4,
+    "unfiltered": 8
+   },
    "event_payloads": [
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
       "manifest": {
        "manifest_id": "",
@@ -1336,13 +2208,13 @@
        "provider": "nano-gpt.com",
        "model": "deepseek/deepseek-v4.1-flash",
        "usage": {
-        "prompt_tokens": 2731,
-        "completion_tokens": 27,
-        "total_tokens": 2758
+        "prompt_tokens": 2727,
+        "completion_tokens": 23,
+        "total_tokens": 2750
        },
        "max_output_tokens_sent": null,
-       "chars": 78,
-       "raw_final_digest": "ec6b1a3d29c0b44c",
+       "chars": 71,
+       "raw_final_digest": "d663c566a003138a",
        "continuation_calls": 0,
        "continuation_stop_reason": "not_needed",
        "text_source": "author"
@@ -1359,78 +2231,226 @@
      "event": "direct_turn_delivery",
      "stage": "delivery",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"ec6b1a3d29c0b44c\", \"chars\": 78, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"ec6b1a3d29c0b44c\", \"chars\": 78, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"6b8e09c56ff6c74c\", \"chars\": 78, \"changed\": true}, {\"op\": "
+      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"d663c566a003138a\", \"chars\": 71, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"d663c566a003138a\", \"chars\": 71, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"2b82a2cf725afac8\", \"chars\": 71, \"changed\": true}, {\"op\": "
      }
     },
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 114, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:56, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847419, \"l1\": {\"action\": \"reply\", \"response_act\": \"answer\", \"st"
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 114, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 08:26, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793849196, \"l1\": {\"action\": \"reply\", \"response_act\": \"answer\", \"st"
      }
     },
     {
      "event": "retrieved",
      "stage": null,
      "outcome": "skipped",
+     "matched_by": "trace_id",
      "usage": {
       "selected": 0,
       "considered": 0,
       "excluded_codes": {}
      }
+    },
+    {
+     "event": "DIRECT_FRESH_GENERATION",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_bundle",
+     "stage": "bundle",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "speech_extent",
+     "stage": "direct_pre_send",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "extent": "compact",
+      "status": "pass",
+      "one_word": 0,
+      "one_word_exact": 0,
+      "context": "regular",
+      "words": 12
+     }
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "observed": 0,
+      "code": "none",
+      "sentence_index": -1,
+      "char_start": -1,
+      "char_end": -1,
+      "claim_key": "",
+      "note": ""
+     }
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "required": true,
+      "required_unmet": true,
+      "evidence_class": "externally_factual",
+      "skip_reason": "",
+      "failure_code": "capability_not_ready",
+      "claim_count": 0,
+      "source_kind": "web",
+      "required_caps": "",
+      "network_calls": 0,
+      "note": "factual_plan_act+blocked"
+     }
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered",
+     "usage": null
     }
    ],
    "http_calls": [
     {
      "channel": "primary",
-     "model": "invalid/primary-model",
+     "requested_model": "invalid/primary-model",
      "max_tokens": 512,
-     "ms": 2188,
-     "error": "LLMTransportError"
+     "status": null,
+     "response_model": null,
+     "usage": null,
+     "finish_reason": null,
+     "error": "LLMTransportError",
+     "ms": 2172,
+     "http_status": null
     },
     {
      "channel": "fallback",
-     "model": null,
+     "requested_model": null,
      "max_tokens": null,
-     "ms": 3952,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 5685,
+      "completion_tokens": 170,
+      "total_tokens": 5855
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 3702
     },
     {
      "channel": "primary",
-     "model": "invalid/primary-model",
+     "requested_model": "invalid/primary-model",
      "max_tokens": null,
+     "status": null,
+     "response_model": null,
+     "usage": null,
+     "finish_reason": null,
+     "error": "LLMTransportError",
+     "ms": 2047,
+     "http_status": null
+    },
+    {
+     "channel": "fallback",
+     "requested_model": null,
+     "max_tokens": null,
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 2727,
+      "completion_tokens": 23,
+      "total_tokens": 2750
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 1811
+    },
+    {
+     "channel": "primary",
+     "requested_model": "invalid/primary-model",
+     "max_tokens": null,
+     "status": null,
+     "response_model": null,
+     "usage": null,
+     "finish_reason": null,
+     "error": "LLMTransportError",
      "ms": 2031,
-     "error": "LLMTransportError"
+     "http_status": null
     },
     {
      "channel": "fallback",
-     "model": null,
+     "requested_model": null,
      "max_tokens": null,
-     "ms": 1391,
-     "error": null
-    },
-    {
-     "channel": "primary",
-     "model": "invalid/primary-model",
-     "max_tokens": null,
-     "ms": 2016,
-     "error": "LLMTransportError"
-    },
-    {
-     "channel": "fallback",
-     "model": null,
-     "max_tokens": null,
-     "ms": 889,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 123,
+      "completion_tokens": 27,
+      "total_tokens": 150
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 922
     }
-   ]
+   ],
+   "fallback_leg": {
+    "primary_attempts": 3,
+    "primary_statuses": [
+     null,
+     null,
+     null
+    ],
+    "primary_errors": [
+     "LLMTransportError",
+     "LLMTransportError",
+     "LLMTransportError"
+    ],
+    "fallback_attempts": 3,
+    "fallback_statuses": [
+     200,
+     200,
+     200
+    ],
+    "fallback_errors": [
+     null,
+     null,
+     null
+    ]
+   }
   },
   "s5": {
    "error": null,
-   "elapsed_s": 8.0,
-   "correlation_id": "29a60c49a75c41569d7f957153299854",
+   "elapsed_s": 13.4,
+   "correlation_id": "bcc1122f3cda4e3b887ae56c1d6677dc",
    "background_tasks_drained": 1,
    "l1_plan_fields": {
     "action": "reply",
@@ -1445,17 +2465,24 @@
    "llm_calls_by_class": {
     "planning": 1,
     "final": 1,
-    "continuation": 1
+    "continuation": 2
    },
    "llm_calls_observed_events": {
     "planning": 1,
     "final": 1,
-    "continuation": 1
+    "continuation": 2
    },
    "final_calls_from_writer": 1,
    "refused": null,
    "semantic_rewrite_count": 0,
    "finish_reason": "length",
+   "model": "deepseek/deepseek-v4.1-flash",
+   "provider": "nano-gpt.com",
+   "usage": {
+    "prompt_tokens": 2714,
+    "completion_tokens": 120,
+    "total_tokens": 2834
+   },
    "completion": {
     "finish_reason": "length",
     "finish_reason_raw": "length",
@@ -1471,34 +2498,35 @@
      "total_tokens": 2834
     },
     "max_output_tokens_sent": 120,
-    "chars": 585,
-    "continuation_calls": 1,
+    "chars": 728,
+    "continuation_calls": 2,
     "continuation_stop_reason": "completed",
     "text_source": "author",
     "metadata_available": true
    },
-   "continuation_calls": 1,
+   "completion_source": "turn_trace",
+   "continuation_calls": 2,
    "continuation_completed": true,
    "continuation_stop_reason": "completed",
    "raw_final": {
-    "chars": 585,
-    "digest_runner": "3446ef574b158718",
-    "digest_trace": "3446ef574b158718",
+    "chars": 728,
+    "digest_runner": "674bde977fc4a9e0",
+    "digest_trace": "674bde977fc4a9e0",
     "digest_agrees": true,
-    "excerpt": "Однажды утром я проснулся и понял: ключи исчезли. Не просто потерялись — испарились, будто их никогда и не было. Я перерыл весь чат: под «привет» Васи, за старыми смайликами, среди недосказанных фраз и забытых точек. Перелистал каждое сообщение, заглянул в пустые диалоги, потряс невидимые карманы пе…",
-    "tail": "…йней мере, до следующего утра. Вася, кстати, до сих пор уверен, что это он их тогда нашёл.",
+    "excerpt": "Вася, слушай, как это было. Просыпаюсь в четверг, а ключи — тю-тю. От квартиры, от машины, от почтового ящика — весь пучок испарился, будто его стёрли из истории. Я полез в личку — нет. В «Избранное» — пусто. В закреплённые сообщения — там вообще одни старые мемы. Перерыл весь чат: сверху вниз, сниз…",
+    "tail": "…ери. С тех пор проверяю карманы дважды: один раз наяву, второй — на всякий случай, в чате.",
     "ends_with_sentence_punct": true
    },
    "final_after_l2_sanitize": {
-    "chars": 585,
-    "digest_runner": "3446ef574b158718",
+    "chars": 728,
+    "digest_runner": "674bde977fc4a9e0",
     "same_as_raw": true
    },
    "delivered": {
     "messages": 1,
-    "chars": 585,
-    "digest_runner": "9121a0555f2146f0",
-    "digest_trace": "9121a0555f2146f0",
+    "chars": 728,
+    "digest_runner": "f41c15518c5669a5",
+    "digest_trace": "f41c15518c5669a5",
     "digest_match_trace": false,
     "written_equals_sent": false,
     "ops_between": [
@@ -1508,55 +2536,309 @@
     ],
     "text_diff": {
      "equal": false,
-     "prefix": 71,
-     "suffix": 97,
-     "removed": "— испарились, будто их никогда и не было. Я перерыл весь чат: под «привет» Васи, за старыми смайликами, среди недосказанных фраз и забытых точек. Перелистал каждое сообщение, заглянул в пустые диалоги",
-     "added": "- испарились, будто их никогда и не было. Я перерыл весь чат: под \"привет\" Васи, за старыми смайликами, среди недосказанных фраз и забытых точек. Перелистал каждое сообщение, заглянул в пустые диалоги",
-     "removed_chars": 417,
-     "added_chars": 417,
+     "raw_chars": 728,
+     "sent_chars": 728,
+     "raw_text": "Вася, слушай, как это было. Просыпаюсь в четверг, а ключи — тю-тю. От квартиры, от машины, от почтового ящика — весь пучок испарился, будто его стёрли из истории. Я полез в личку — нет. В «Избранное» — пусто. В закреплённые сообщения — там вообще одни старые мемы. Перерыл весь чат: сверху вниз, снизу вверх,… до самого первого «привета». Заглянул в поиск по слову «ключ» — и нашёл только ключевые слова, ключи шифрования и чей-то ник «Ключик1998». Уже начал подозревать заговор. Потом смотрю — а они лежат в самом низу, под диван, куда я их вчера скинул вместе с носками. Достал, отряхнул от пыли и чатовой пыли, и повесил на гвоздь у двери. С тех пор проверяю карманы дважды: один раз наяву, второй — на всякий случай, в чате.",
+     "sent_text": "Вася, слушай, как это было. Просыпаюсь в четверг, а ключи - тю-тю. От квартиры, от машины, от почтового ящика - весь пучок испарился, будто его стёрли из истории. Я полез в личку - нет. В \"Избранное\" - пусто. В закреплённые сообщения - там вообще одни старые мемы. Перерыл весь чат: сверху вниз, снизу вверх,… до самого первого \"привета\". Заглянул в поиск по слову \"ключ\" - и нашёл только ключевые слова, ключи шифрования и чей-то ник \"Ключик1998\". Уже начал подозревать заговор. Потом смотрю - а они лежат в самом низу, под диван, куда я их вчера скинул вместе с носками. Достал, отряхнул от пыли и чатовой пыли, и повесил на гвоздь у двери. С тех пор проверяю карманы дважды: один раз наяву, второй - на всякий случай, в чате.",
+     "normalized_raw": "Вася, слушай, как это было. Просыпаюсь в четверг, а ключи - тю-тю. От квартиры, от машины, от почтового ящика - весь пучок испарился, будто его стёрли из истории. Я полез в личку - нет. В \"Избранное\" - пусто. В закреплённые сообщения - там вообще одни старые мемы. Перерыл весь чат: сверху вниз, снизу вверх,… до самого первого \"привета\". Заглянул в поиск по слову \"ключ\" - и нашёл только ключевые слова, ключи шифрования и чей-то ник \"Ключик1998\". Уже начал подозревать заговор. Потом смотрю - а они лежат в самом низу, под диван, куда я их вчера скинул вместе с носками. Достал, отряхнул от пыли и чатовой пыли, и повесил на гвоздь у двери. С тех пор проверяю карманы дважды: один раз наяву, второй - на всякий случай, в чате.",
+     "normalized_sent": "Вася, слушай, как это было. Просыпаюсь в четверг, а ключи - тю-тю. От квартиры, от машины, от почтового ящика - весь пучок испарился, будто его стёрли из истории. Я полез в личку - нет. В \"Избранное\" - пусто. В закреплённые сообщения - там вообще одни старые мемы. Перерыл весь чат: сверху вниз, снизу вверх,… до самого первого \"привета\". Заглянул в поиск по слову \"ключ\" - и нашёл только ключевые слова, ключи шифрования и чей-то ник \"Ключик1998\". Уже начал подозревать заговор. Потом смотрю - а они лежат в самом низу, под диван, куда я их вчера скинул вместе с носками. Достал, отряхнул от пыли и чатовой пыли, и повесил на гвоздь у двери. С тех пор проверяю карманы дважды: один раз наяву, второй - на всякий случай, в чате.",
      "punct_only": true,
-     "other_char_delta": 0
+     "other_char_delta": 0,
+     "truncated": false,
+     "hidden_chars": 0,
+     "prefix": 58,
+     "suffix": 26,
+     "removed_span": "— тю-тю. От квартиры, от машины, от почтового ящика — весь пучок испарился, будто его стёрли из истории. Я полез в личку — нет. В «Избранное» — пусто. В закреплённые сообщения — там вообще одни старые мемы. Перерыл весь чат: сверху вниз, снизу вверх,… до самого первого «привета». Заглянул в поиск по слову «ключ» — и нашёл только ключевые слова, ключи шифрования и чей-то ник «Ключик1998». Уже начал подозревать заговор. Потом смотрю — а они лежат в самом низу, под диван, куда я их вчера скинул вместе с носками. Достал, отряхнул от пыли и чатовой пыли, и повесил на гвоздь у двери. С тех пор проверяю карманы дважды: один раз наяву, второй —",
+     "added_span": "- тю-тю. От квартиры, от машины, от почтового ящика - весь пучок испарился, будто его стёрли из истории. Я полез в личку - нет. В \"Избранное\" - пусто. В закреплённые сообщения - там вообще одни старые мемы. Перерыл весь чат: сверху вниз, снизу вверх,… до самого первого \"привета\". Заглянул в поиск по слову \"ключ\" - и нашёл только ключевые слова, ключи шифрования и чей-то ник \"Ключик1998\". Уже начал подозревать заговор. Потом смотрю - а они лежат в самом низу, под диван, куда я их вчера скинул вместе с носками. Достал, отряхнул от пыли и чатовой пыли, и повесил на гвоздь у двери. С тех пор проверяю карманы дважды: один раз наяву, второй -",
+     "removed_chars": 644,
+     "added_chars": 644,
+     "diff_ops": {
+      "ops": [
+       {
+        "tag": "replace",
+        "raw_index": [
+         58,
+         59
+        ],
+        "sent_index": [
+         58,
+         59
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         110,
+         111
+        ],
+        "sent_index": [
+         110,
+         111
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         179,
+         180
+        ],
+        "sent_index": [
+         179,
+         180
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         188,
+         189
+        ],
+        "sent_index": [
+         188,
+         189
+        ],
+        "removed": "«",
+        "added": "\"",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         198,
+         199
+        ],
+        "sent_index": [
+         198,
+         199
+        ],
+        "removed": "»",
+        "added": "\"",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         200,
+         201
+        ],
+        "sent_index": [
+         200,
+         201
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         234,
+         235
+        ],
+        "sent_index": [
+         234,
+         235
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         328,
+         329
+        ],
+        "sent_index": [
+         328,
+         329
+        ],
+        "removed": "«",
+        "added": "\"",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         336,
+         337
+        ],
+        "sent_index": [
+         336,
+         337
+        ],
+        "removed": "»",
+        "added": "\"",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         365,
+         366
+        ],
+        "sent_index": [
+         365,
+         366
+        ],
+        "removed": "«",
+        "added": "\"",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         370,
+         371
+        ],
+        "sent_index": [
+         370,
+         371
+        ],
+        "removed": "»",
+        "added": "\"",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         372,
+         373
+        ],
+        "sent_index": [
+         372,
+         373
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         435,
+         436
+        ],
+        "sent_index": [
+         435,
+         436
+        ],
+        "removed": "«",
+        "added": "\"",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         446,
+         447
+        ],
+        "sent_index": [
+         446,
+         447
+        ],
+        "removed": "»",
+        "added": "\"",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         493,
+         494
+        ],
+        "sent_index": [
+         493,
+         494
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       },
+       {
+        "tag": "replace",
+        "raw_index": [
+         701,
+         702
+        ],
+        "sent_index": [
+         701,
+         702
+        ],
+        "removed": "—",
+        "added": "-",
+        "removed_chars": 1,
+        "added_chars": 1
+       }
+      ],
+      "truncated_ops": false,
+      "total_ops": 16
+     }
     },
-    "excerpt": "Однажды утром я проснулся и понял: ключи исчезли. Не просто потерялись - испарились, будто их никогда и не было. Я перерыл весь чат: под \"привет\" Васи, за старыми смайликами, среди недосказанных фраз и забытых точек. Перелистал каждое сообщение, заглянул в пустые диалоги, потряс невидимые карманы пе…",
-    "tail": "…йней мере, до следующего утра. Вася, кстати, до сих пор уверен, что это он их тогда нашёл."
+    "excerpt": "Вася, слушай, как это было. Просыпаюсь в четверг, а ключи - тю-тю. От квартиры, от машины, от почтового ящика - весь пучок испарился, будто его стёрли из истории. Я полез в личку - нет. В \"Избранное\" - пусто. В закреплённые сообщения - там вообще одни старые мемы. Перерыл весь чат: сверху вниз, сниз…",
+    "tail": "…ери. С тех пор проверяю карманы дважды: один раз наяву, второй - на всякий случай, в чате."
    },
    "divergence_reason": "owner_style_punctuation",
    "ops": [
     {
      "op": "reasoning_marker_strip",
      "changed": false,
-     "chars": 585,
-     "digest": "3446ef574b158718"
+     "chars": 728,
+     "digest": "674bde977fc4a9e0"
     },
     {
      "op": "evidence_egress_guard",
      "changed": false,
-     "chars": 585,
-     "digest": "3446ef574b158718"
+     "chars": 728,
+     "digest": "674bde977fc4a9e0"
     },
     {
      "op": "owner_style_punctuation",
      "changed": true,
-     "chars": 585,
-     "digest": "9121a0555f2146f0"
+     "chars": 728,
+     "digest": "f41c15518c5669a5"
     },
     {
      "op": "plain_render",
      "changed": false,
-     "chars": 585,
-     "digest": "9121a0555f2146f0"
+     "chars": 728,
+     "digest": "f41c15518c5669a5"
     },
     {
      "op": "egress_sanitize",
      "changed": false,
-     "chars": 585,
-     "digest": "9121a0555f2146f0"
+     "chars": 728,
+     "digest": "f41c15518c5669a5"
     },
     {
      "op": "telegram_chunk",
      "changed": false,
-     "chars": 585,
-     "digest": "9121a0555f2146f0"
+     "chars": 728,
+     "digest": "f41c15518c5669a5"
     }
    ],
    "delivery_outcome": "success",
@@ -1567,48 +2849,108 @@
     {
      "event": "llm_continuation",
      "stage": "l2_continuation",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_delivery",
      "stage": "delivery",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "retrieved",
      "stage": null,
-     "outcome": "skipped"
+     "outcome": "skipped",
+     "matched_by": "trace_id"
+    },
+    {
+     "event": "DIRECT_FRESH_GENERATION",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_bundle",
+     "stage": "bundle",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "speech_extent",
+     "stage": "direct_pre_send",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered"
     }
    ],
+   "events_by_matched_by": {
+    "trace_id": 5,
+    "unfiltered": 8
+   },
    "event_payloads": [
     {
      "event": "llm_continuation",
      "stage": "l2_continuation",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "calls": 1,
+      "calls": 2,
       "completed": true,
       "finish_reasons": [
        "length",
+       "length",
        "stop"
       ],
-      "chars": 585
+      "chars": 728
      }
     },
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
       "manifest": {
        "manifest_id": "",
@@ -1686,9 +3028,9 @@
         "total_tokens": 2834
        },
        "max_output_tokens_sent": 120,
-       "chars": 585,
-       "raw_final_digest": "3446ef574b158718",
-       "continuation_calls": 1,
+       "chars": 728,
+       "raw_final_digest": "674bde977fc4a9e0",
+       "continuation_calls": 2,
        "continuation_stop_reason": "completed",
        "text_source": "author"
       },
@@ -1696,7 +3038,7 @@
       "llm_calls": {
        "planning": 1,
        "final": 1,
-       "continuation": 1
+       "continuation": 2
       }
      }
     },
@@ -1704,71 +3046,211 @@
      "event": "direct_turn_delivery",
      "stage": "delivery",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"3446ef574b158718\", \"chars\": 585, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"3446ef574b158718\", \"chars\": 585, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"9121a0555f2146f0\", \"chars\": 585, \"changed\": true}, {\"op"
+      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"674bde977fc4a9e0\", \"chars\": 728, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"674bde977fc4a9e0\", \"chars\": 728, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"f41c15518c5669a5\", \"chars\": 728, \"changed\": true}, {\"op"
      }
     },
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 105, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:57, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847428, \"l1\": {\"action\": \"reply\", \"response_act\": \"creative\", \""
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 105, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 08:26, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793849207, \"l1\": {\"action\": \"reply\", \"response_act\": \"creative\", \""
      }
     },
     {
      "event": "retrieved",
      "stage": null,
      "outcome": "skipped",
+     "matched_by": "trace_id",
      "usage": {
       "selected": 0,
       "considered": 0,
       "excluded_codes": {}
      }
+    },
+    {
+     "event": "DIRECT_FRESH_GENERATION",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_bundle",
+     "stage": "bundle",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "speech_extent",
+     "stage": "direct_pre_send",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "extent": "longform",
+      "status": "pass",
+      "one_word": 0,
+      "one_word_exact": 0,
+      "context": "regular",
+      "words": 120
+     }
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "observed": 0,
+      "code": "none",
+      "sentence_index": -1,
+      "char_start": -1,
+      "char_end": -1,
+      "claim_key": "",
+      "note": ""
+     }
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "required": false,
+      "required_unmet": false,
+      "evidence_class": "social",
+      "skip_reason": "pure_social_or_creative",
+      "failure_code": "",
+      "claim_count": 0,
+      "source_kind": "",
+      "required_caps": "",
+      "network_calls": 0,
+      "note": "social_act"
+     }
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered",
+     "usage": null
     }
    ],
    "http_calls": [
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": 512,
-     "ms": 3062,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 5744,
+      "completion_tokens": 171,
+      "total_tokens": 5915
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 4061
     },
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": 120,
-     "ms": 2922,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 2714,
+      "completion_tokens": 120,
+      "total_tokens": 2834
+     },
+     "finish_reason": "length",
+     "http_status": 200,
+     "error": null,
+     "ms": 3297
     },
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": 120,
-     "ms": 1968,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 2964,
+      "completion_tokens": 120,
+      "total_tokens": 3084
+     },
+     "finish_reason": "length",
+     "http_status": 200,
+     "error": null,
+     "ms": 3608
     },
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": 120,
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 3083,
+      "completion_tokens": 42,
+      "total_tokens": 3125
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 2406
+    },
+    {
+     "channel": "primary",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": null,
-     "ms": 1531,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 381,
+      "completion_tokens": 39,
+      "total_tokens": 420
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 1516
     }
    ],
    "forced": {
-    "DIRECT_LONGFORM_MAX_OUTPUT_TOKENS": 128
+    "env_DIRECT_LONGFORM_MAX_OUTPUT_TOKENS": 120,
+    "max_tokens_sent": 120,
+    "max_tokens_in_http_calls": [
+     512,
+     120,
+     120,
+     120,
+     null
+    ]
    }
   },
   "s6": {
    "error": null,
-   "elapsed_s": 4.0,
-   "correlation_id": "d31796cf5ee84eae864c13c1dd2a6221",
+   "elapsed_s": 5.8,
+   "correlation_id": "ec9a76cc6a804de1899e9a8e9d1113c1",
    "background_tasks_drained": 1,
    "l1_plan_fields": {
     "action": "reply",
-    "response_act": "other",
+    "response_act": "creative",
     "execution_mode": "none",
     "preserve_source_facts": true,
     "search_intent": "not_applicable",
@@ -1788,6 +3270,13 @@
    "refused": null,
    "semantic_rewrite_count": 0,
    "finish_reason": "stop",
+   "model": "deepseek/deepseek-v4.1-flash",
+   "provider": "nano-gpt.com",
+   "usage": {
+    "prompt_tokens": 2684,
+    "completion_tokens": 42,
+    "total_tokens": 2726
+   },
    "completion": {
     "finish_reason": "stop",
     "finish_reason_raw": "stop",
@@ -1798,88 +3287,99 @@
     "provider": "nano-gpt.com",
     "model": "deepseek/deepseek-v4.1-flash",
     "usage": {
-     "prompt_tokens": 2762,
-     "completion_tokens": 47,
-     "total_tokens": 2809
+     "prompt_tokens": 2684,
+     "completion_tokens": 42,
+     "total_tokens": 2726
     },
     "max_output_tokens_sent": null,
-    "chars": 103,
+    "chars": 86,
     "continuation_calls": 0,
     "continuation_stop_reason": "not_needed",
     "text_source": "author",
     "metadata_available": true
    },
+   "completion_source": "turn_trace",
    "continuation_calls": 0,
    "continuation_completed": true,
    "continuation_stop_reason": "not_needed",
    "raw_final": {
-    "chars": 103,
-    "digest_runner": "b4f00c5f0bde22ea",
-    "digest_trace": "b4f00c5f0bde22ea",
+    "chars": 86,
+    "digest_runner": "60803f9add9372f4",
+    "digest_trace": "60803f9add9372f4",
     "digest_agrees": true,
-    "excerpt": "Вчера в 19:40 я взял билет на поезд № 42 до станции Кемь, заплатив 3 500 рублей, и прибыл туда в 06:15.",
-    "tail": "… я взял билет на поезд № 42 до станции Кемь, заплатив 3 500 рублей, и прибыл туда в 06:15.",
+    "excerpt": "Вчера в 19:40 я взял билет до Кеми на поезд № 42, отдал 3 500 рублей и прибыл в 06:15.",
+    "tail": "Вчера в 19:40 я взял билет до Кеми на поезд № 42, отдал 3 500 рублей и прибыл в 06:15.",
     "ends_with_sentence_punct": true
    },
    "final_after_l2_sanitize": {
-    "chars": 103,
-    "digest_runner": "b4f00c5f0bde22ea",
+    "chars": 86,
+    "digest_runner": "60803f9add9372f4",
     "same_as_raw": true
    },
    "delivered": {
     "messages": 1,
-    "chars": 103,
-    "digest_runner": "b4f00c5f0bde22ea",
-    "digest_trace": "b4f00c5f0bde22ea",
+    "chars": 86,
+    "digest_runner": "60803f9add9372f4",
+    "digest_trace": "60803f9add9372f4",
     "digest_match_trace": true,
     "written_equals_sent": true,
     "ops_between": [],
     "text_diff": {
      "equal": true,
-     "diffs": [],
+     "raw_chars": 86,
+     "sent_chars": 86,
+     "raw_text": "Вчера в 19:40 я взял билет до Кеми на поезд № 42, отдал 3 500 рублей и прибыл в 06:15.",
+     "sent_text": "Вчера в 19:40 я взял билет до Кеми на поезд № 42, отдал 3 500 рублей и прибыл в 06:15.",
+     "normalized_raw": "Вчера в 19:40 я взял билет до Кеми на поезд № 42, отдал 3 500 рублей и прибыл в 06:15.",
+     "normalized_sent": "Вчера в 19:40 я взял билет до Кеми на поезд № 42, отдал 3 500 рублей и прибыл в 06:15.",
      "punct_only": true,
-     "other_char_delta": 0
+     "other_char_delta": 0,
+     "truncated": false,
+     "hidden_chars": 0,
+     "diff_ops": [],
+     "removed_span": "",
+     "added_span": ""
     },
-    "excerpt": "Вчера в 19:40 я взял билет на поезд № 42 до станции Кемь, заплатив 3 500 рублей, и прибыл туда в 06:15.",
-    "tail": "… я взял билет на поезд № 42 до станции Кемь, заплатив 3 500 рублей, и прибыл туда в 06:15."
+    "excerpt": "Вчера в 19:40 я взял билет до Кеми на поезд № 42, отдал 3 500 рублей и прибыл в 06:15.",
+    "tail": "Вчера в 19:40 я взял билет до Кеми на поезд № 42, отдал 3 500 рублей и прибыл в 06:15."
    },
    "divergence_reason": "",
    "ops": [
     {
      "op": "reasoning_marker_strip",
      "changed": false,
-     "chars": 103,
-     "digest": "b4f00c5f0bde22ea"
+     "chars": 86,
+     "digest": "60803f9add9372f4"
     },
     {
      "op": "evidence_egress_guard",
      "changed": false,
-     "chars": 103,
-     "digest": "b4f00c5f0bde22ea"
+     "chars": 86,
+     "digest": "60803f9add9372f4"
     },
     {
      "op": "owner_style_punctuation",
      "changed": false,
-     "chars": 103,
-     "digest": "b4f00c5f0bde22ea"
+     "chars": 86,
+     "digest": "60803f9add9372f4"
     },
     {
      "op": "plain_render",
      "changed": false,
-     "chars": 103,
-     "digest": "b4f00c5f0bde22ea"
+     "chars": 86,
+     "digest": "60803f9add9372f4"
     },
     {
      "op": "egress_sanitize",
      "changed": false,
-     "chars": 103,
-     "digest": "b4f00c5f0bde22ea"
+     "chars": 86,
+     "digest": "60803f9add9372f4"
     },
     {
      "op": "telegram_chunk",
      "changed": false,
-     "chars": 103,
-     "digest": "b4f00c5f0bde22ea"
+     "chars": 86,
+     "digest": "60803f9add9372f4"
     }
    ],
    "delivery_outcome": "success",
@@ -1890,29 +3390,86 @@
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_delivery",
      "stage": "delivery",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
-     "outcome": "success"
+     "outcome": "success",
+     "matched_by": "trace_id"
     },
     {
      "event": "retrieved",
      "stage": null,
-     "outcome": "skipped"
+     "outcome": "skipped",
+     "matched_by": "trace_id"
+    },
+    {
+     "event": "DIRECT_FRESH_GENERATION",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_bundle",
+     "stage": "bundle",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "speech_extent",
+     "stage": "direct_pre_send",
+     "outcome": "failed",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered"
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered"
     }
    ],
+   "events_by_matched_by": {
+    "trace_id": 4,
+    "unfiltered": 8
+   },
    "event_payloads": [
     {
      "event": "direct_turn_writer",
      "stage": "l2_writer",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
       "manifest": {
        "manifest_id": "",
@@ -1961,11 +3518,6 @@
          "block": "untagged",
          "rendered": true,
          "skip": ""
-        },
-        {
-         "block": "untagged",
-         "rendered": true,
-         "skip": ""
         }
        ],
        "revisions": {
@@ -1990,13 +3542,13 @@
        "provider": "nano-gpt.com",
        "model": "deepseek/deepseek-v4.1-flash",
        "usage": {
-        "prompt_tokens": 2762,
-        "completion_tokens": 47,
-        "total_tokens": 2809
+        "prompt_tokens": 2684,
+        "completion_tokens": 42,
+        "total_tokens": 2726
        },
        "max_output_tokens_sent": null,
-       "chars": 103,
-       "raw_final_digest": "b4f00c5f0bde22ea",
+       "chars": 86,
+       "raw_final_digest": "60803f9add9372f4",
        "continuation_calls": 0,
        "continuation_stop_reason": "not_needed",
        "text_source": "author"
@@ -2012,62 +3564,244 @@
      "event": "direct_turn_delivery",
      "stage": "delivery",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"b4f00c5f0bde22ea\", \"chars\": 103, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"b4f00c5f0bde22ea\", \"chars\": 103, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"b4f00c5f0bde22ea\", \"chars\": 103, \"changed\": false}, {\"o"
+      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"60803f9add9372f4\", \"chars\": 86, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"60803f9add9372f4\", \"chars\": 86, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"60803f9add9372f4\", \"chars\": 86, \"changed\": false}, {\"op\":"
      }
     },
     {
      "event": "direct_turn_context",
      "stage": "turn_context",
      "outcome": "success",
+     "matched_by": "trace_id",
      "usage": {
-      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 106, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:57, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847438, \"l1\": {\"action\": \"reply\", \"response_act\": \"other\", \"str"
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 106, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 08:27, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793849221, \"l1\": {\"action\": \"reply\", \"response_act\": \"creative\", \""
      }
     },
     {
      "event": "retrieved",
      "stage": null,
      "outcome": "skipped",
+     "matched_by": "trace_id",
      "usage": {
       "selected": 0,
       "considered": 0,
       "excluded_codes": {}
      }
+    },
+    {
+     "event": "DIRECT_FRESH_GENERATION",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_bundle",
+     "stage": "bundle",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "speech_extent",
+     "stage": "direct_pre_send",
+     "outcome": "failed",
+     "matched_by": "unfiltered",
+     "usage": {
+      "extent": "micro",
+      "status": "conflict",
+      "one_word": 0,
+      "one_word_exact": 0,
+      "context": "regular",
+      "words": 21,
+      "reason": "micro_extent_exceeded"
+     }
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "observed": 1,
+      "code": "observed_unverified_claim",
+      "sentence_index": 0,
+      "char_start": 0,
+      "char_end": 86,
+      "claim_key": "15,19,3,40,42,500,6",
+      "note": "unsupported_claim_observed"
+     }
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": {
+      "required": false,
+      "required_unmet": false,
+      "evidence_class": "social",
+      "skip_reason": "pure_social_or_creative",
+      "failure_code": "",
+      "claim_count": 0,
+      "source_kind": "",
+      "required_caps": "",
+      "network_calls": 0,
+      "note": "social_act"
+     }
+    },
+    {
+     "event": "quote_resolver_step",
+     "stage": null,
+     "outcome": "success",
+     "matched_by": "unfiltered",
+     "usage": null
+    },
+    {
+     "event": "mca07_retrieval",
+     "stage": "retrieval",
+     "outcome": "silent",
+     "matched_by": "unfiltered",
+     "usage": null
     }
    ],
    "http_calls": [
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": 512,
-     "ms": 2656,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 5777,
+      "completion_tokens": 170,
+      "total_tokens": 5947
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 3562
     },
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": null,
-     "ms": 1312,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 2684,
+      "completion_tokens": 42,
+      "total_tokens": 2726
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 2203
     },
     {
      "channel": "primary",
-     "model": "deepseek/deepseek-v4.1-flash",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
      "max_tokens": null,
-     "ms": 1687,
-     "error": null
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 142,
+      "completion_tokens": 38,
+      "total_tokens": 180
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 1796
     }
    ]
   },
   "s7": {
    "scenario": "factcheck",
    "error": null,
-   "elapsed_s": 16.2,
-   "llm_calls_total": 4,
-   "result_chars": 633,
-   "result_digest": "3d7e5cce8567d2a1",
-   "result_excerpt": "Вердикт: Не подтверждается: сегодня биткоин торгуется около $77 тыс. с дневным ростом меньше процента; цифра 104 500 относится к майскому максимуму, а не к текущему дню. • Сегодня курс биткоина вырос на 12% — не подтверждается • Курс биткоина достиг 104 500 долларов — вводит в заблуждение (в середине мая) Источники: https://capital.com/ru-int/analysis/bitcoin-price-change-over-time, https://korres…",
-   "result_tail": "…ыли числа, которых нет в проверенных данных. Ниже — только результат структурной проверки.",
+   "elapsed_s": 20.7,
+   "correlation_id": null,
+   "correlation_id_note": "check_claim не принимает correlation_id и не открывает turn_trace: идентификатора хода у этого пути нет",
+   "llm_calls_total": 2,
+   "llm_calls": [
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "finish_reason": "stop",
+     "usage": {
+      "prompt_tokens": 3506,
+      "completion_tokens": 935,
+      "total_tokens": 4441
+     },
+     "ms": 13125
+    },
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "finish_reason": "stop",
+     "usage": {
+      "prompt_tokens": 3050,
+      "completion_tokens": 354,
+      "total_tokens": 3404
+     },
+     "ms": 6219
+    }
+   ],
+   "model": "deepseek/deepseek-v4.1-flash",
+   "models": [
+    "deepseek/deepseek-v4.1-flash"
+   ],
+   "usage_total": {
+    "prompt_tokens": 6556,
+    "completion_tokens": 1289,
+    "total_tokens": 7845
+   },
+   "finish_reasons": [
+    "stop",
+    "stop"
+   ],
+   "final_finish_reason": "stop",
+   "http_calls": [
+    {
+     "channel": "primary",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": null,
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 3506,
+      "completion_tokens": 935,
+      "total_tokens": 4441
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 13125
+    },
+    {
+     "channel": "primary",
+     "requested_model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": null,
+     "response_model": "deepseek/deepseek-v4.1-flash",
+     "usage": {
+      "prompt_tokens": 3050,
+      "completion_tokens": 354,
+      "total_tokens": 3404
+     },
+     "finish_reason": "stop",
+     "http_status": 200,
+     "error": null,
+     "ms": 6219
+    }
+   ],
+   "result_chars": 1038,
+   "result_digest": "53826cc52834fe82",
+   "result_excerpt": "Цифры ты не округлил, а выдумал. Рост был - около 3% за сутки, а не 12%. Цена доходила до района $104 000, а не $104 500. Ты взял реальное событие и раздул его в четыре раза, чтобы звучало поярче.  И вот что смешно: тебе даже не нужно было врать. Рост действительно резкий, действительно обновил максимум с 31 января, и причина реальная - заявление Трампа о торговом соглашении с Британией. Причина п…",
+   "result_tail": "…чешь звучать убедительно, не надо накручивать - реальный скачок и так говорит сам за себя.",
    "events": []
   }
  }
