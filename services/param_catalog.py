@@ -3422,11 +3422,12 @@ for _hidden_name in _HIDDEN_CATALOG_FIELDS:
 # UR-C-CLOCK (UR-24.2/24.3): legacy timezone-ключи скрыты из рабочего UI —
 # read-only совместимость; часы читает канонический `limits.chat_timezone`
 # через ChatClock (services/chat_clock.py). Значения остаются читаемыми.
+# Имена — ключи REGISTRY (settings-поля), не pg_key.
 _HIDDEN_CATALOG_PG_KEYS: frozenset[str] = frozenset({
     "prompts.summary_cover_style_id",
     # UR-24.2: разрозненный legacy-редактор пояса саммари выведен из
     # рабочего UI (ключ read-only, ChatClock использует его как fallback).
-    "limits.summary_timezone",
+    "SUMMARY_TIMEZONE",
     # UR-24.2/§4: GOODMORNING_TZ — самостоятельное старое timezone-поле,
     # после перехода НЕ остаётся отдельным рабочим поясом чата.
     "GOODMORNING_TZ",

@@ -1043,10 +1043,14 @@ class TestHandleFlow:
         assert llm.messages[0]["role"] == "system"
         assert llm.messages[0]["content"] == CHAT_SYSTEM_PROMPT
         assert llm.messages[1]["role"] == "user"
-        # 10.20 (БЛОК 5.1, О2 FINAL, ADR-1020-3): Time Injection — строка
-        # времени ПЕРВЫМ user-блоком; system при этом статичен (выше).
+        # UR-C-CLOCK (UR-25.6/26.2, контракт §3.2): прежняя строка
+        # `[Текущее время в чате: …]` заменена единым блоком
+        # <Chat_Time_Context> (phase="answer" на legacy answer path); system
+        # при этом статичен (выше).
         user_content = llm.messages[1]["content"]
-        assert user_content.startswith("[Текущее время в чате: ")
+        assert user_content.count("<Chat_Time_Context") == 1
+        assert user_content.startswith('<Chat_Time_Context source="server"')
+        assert 'phase="answer"' in user_content
         assert "\n\n<UserResolutionMap>" in user_content
         # Reply на сообщение юзера
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77

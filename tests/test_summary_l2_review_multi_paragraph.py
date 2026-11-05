@@ -131,8 +131,16 @@ class _Seq:
 
     @property
     def user_payloads(self):
-        return [json.loads(m[1]["content"].split("\n", 1)[1])
-                for m in self.calls]
+        # UR-C-CLOCK: payload дополнен машинным блоком <Chat_Time_Context> —
+        # отрезаем его перед парсингом JSON-контракта Reviewer.
+        payloads = []
+        for m in self.calls:
+            head = m[1]["content"].split("\n", 1)[1]
+            block_at = head.find("<Chat_Time_Context")
+            if block_at != -1:
+                head = head[:block_at].rstrip()
+            payloads.append(json.loads(head))
+        return payloads
 
 
 def _issue(paragraph_id, anchors, reason, instruction="исправь"):
