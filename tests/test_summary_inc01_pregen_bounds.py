@@ -27,6 +27,7 @@ TEST-LIFECYCLE: REGRESSION owner=INC-SUMMARY-01/<case>
 """
 import asyncio
 import dataclasses
+import datetime
 import logging
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -52,6 +53,16 @@ pytestmark = pytest.mark.asap41
 CHAT = -100123
 BUSY_CHAT = -100111
 FREE_CHAT = -100222
+
+# UR-C-SCHED: тик теперь запускает чат только в due-окне ЛОКАЛЬНОГО слота
+# (глобальный пояс по умолчанию Asia/Yekaterinburg +5): 18:00 local = 13:00 UTC.
+_URCS_DUE_UTC = datetime.datetime(2026, 1, 15, 13, 0, 30,
+                                  tzinfo=datetime.timezone.utc)
+
+
+def _tick_now(service):
+    """Тик с now-инъекцией внутрь due-окна слота 18:00 (UR-C-SCHED)."""
+    return service._tick(now_utc=_URCS_DUE_UTC)
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -354,7 +365,7 @@ async def test_tick_hung_chat_does_not_stall_other_chats(tmp_path, monkeypatch):
 
     t0 = time.perf_counter()
     with patch("services.summary_scheduler.settings", mod):
-        await service._tick()
+        await _tick_now(service)
     elapsed = time.perf_counter() - t0
 
     assert elapsed < 10.0
@@ -387,7 +398,7 @@ async def test_tick_chat_timeout_is_last_resort_and_loop_survives(monkeypatch):
     mod = dataclasses.replace(settings, SUMMARY_TARGET_CHAT_IDS=(-1, -2, -3))
     with patch("services.summary_scheduler.settings", mod):
         t0 = time.perf_counter()
-        await service._tick()
+        await _tick_now(service)
         elapsed = time.perf_counter() - t0
 
     assert calls == [-1, -2, -3]        # все три чата попытались
@@ -493,7 +504,7 @@ async def test_permit_timeout_clean_skip_without_run_row_and_tick_continues(
     mod = dataclasses.replace(settings,
                               SUMMARY_TARGET_CHAT_IDS=(BUSY_CHAT, FREE_CHAT))
     with patch("services.summary_scheduler.settings", mod):
-        await service._tick()
+        await _tick_now(service)
     assert {c.args[0] for c in bot.send_message.await_args_list} == {FREE_CHAT}
     assert len(await _runs_for_chat(db, FREE_CHAT)) == 1
     assert await _runs_for_chat(db, BUSY_CHAT) == []

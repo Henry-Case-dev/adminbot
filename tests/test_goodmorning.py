@@ -37,6 +37,7 @@ from services.goodmorning_scheduler import (
 #: внутри due-окна слота (120 c).
 GM_DUE_UTC = datetime.datetime(2026, 1, 15, 2, 30, 30,
                                tzinfo=datetime.timezone.utc)
+UTC_TZ = datetime.timezone.utc
 
 
 @pytest.fixture(autouse=True)
@@ -336,8 +337,9 @@ class TestGoodmorningSchedulerService:
             relay=relay, time_str="07:00",
             target_chat_ids=(1, 2, 3),
         )
+        gm_0700 = datetime.datetime(2026, 1, 15, 2, 0, 30, tzinfo=UTC_TZ)
         with caplog.at_level(logging.WARNING):
-            await service._tick(now_utc=GM_DUE_UTC)
+            await service._tick(now_utc=gm_0700)
         assert relay.send_goodmorning.await_count == 3
 
     @pytest.mark.asyncio
