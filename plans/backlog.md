@@ -485,6 +485,7 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
 - `plans/features/cfg/evidence/cfg-final/canary/canary_final.py` всё ещё передаёт `ctx=` и читает `dropped_privacy` → теперь упал бы с `TypeError`; в рабочем пути не используется. Решение PM: помечать устаревшим на месте (починка не нужна), правка — отдельным bookkeeping-касанием cfg-evidence. Источник: ревью BGS-01 (`1da5fefa`).
 - Предсуществующие падения тестов (не от BGS-полос): аудит точек записи `217 vs 207` (`database.py`, лишний `prompt_release_policy.py`), `test_verbilizer_response_modes_round1023` (1 failed + 2 errors), мем `SEND_POINTS`, `mca07_answer_cache`, таксономия агрегатора (2), `history_w4` (8), `sent=`/`projection`, 3 падения пинов, 6 JS. Источник: прогоны полос BGS-01/03/04 (05.11.2026).
 - `tools/ui_cmv_d_fullscreen_e2e.py` и `tools/ui_evol_w15_composition_e2e.py` ожидают старый совмещённый контракт «Сбросить вид» (карточка закрыта / полный showcase восстановлен). Источник: ревью разделения контракта «Сбросить вид» (05.11.2026).
+- Предсуществующее падение тест-инфраструктуры DCS: `test_budget_global_toggle_round1024` — 3 теста падают одинаково на базе и кандидате (×3, регрессии среза BGS-05 нет): тестовые двойники переопределяют `_render_thread`/`_build_user_content` без параметра `projection` → TypeError, заглушка отстала от расширенной сигнатуры. Owner: тест-инфра DCS. Источник: прогон полосы BGS-05 (06.11.2026), причина — `plans/features/evol/reports/rc-v5-selfcorrection-review.md:136`.
 
 ## Координация: параллельная перезапись карты BGS (05.11.2026)
 

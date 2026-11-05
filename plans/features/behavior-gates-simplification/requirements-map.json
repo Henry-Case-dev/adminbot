@@ -3082,8 +3082,23 @@
       "acceptance": "Пересчёт выполнен в рамках работающих model_capacity, auto_budget и общего UR executor; расчёт воспроизводим и объясним, без обещания безграничных вычислений и бесплатных вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Деривация границ — воспроизводимая чистая функция окна модели",
+          "observation": "orchestrator_budget_for_window(131072) дважды даёт идентичный OrchestratorBudget; окно из существующего резолвера resolve_stage_window(base_url, model, slot=\"direct.primary\") → (131072, \"runtime\") проходит в resolve_orchestrator_budget: max_total_tokens=131072//16=8192 (>6000), max_steps=8, query_chars=131072, snippet_chars=131072//32=4096. Падение runtime-резолвера не бросает: sync-путь resolve_evidence_window_tokens → (16384, \"unknown_fallback\") с честным source, границы выведены из окна, не захардкожены.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs05_budgets.py",
+          "candidate_commit": "d3027ede"
+        },
+        {
+          "ref": "Интеграция в общей цепочке и наблюдаемый chain_meta",
+          "observation": "В run_adaptive_chain единственный вызов limits = await resolve_orchestrator_budget(llm=llm) (services/direct_execution.py:1135); meta.update(limits.as_meta()) (:1267) добавляет window_tokens/window_source/max_steps/max_tokens, плюс metered/cost_calls/tokens_spent/reason — границы прогона наблюдаемы, а не молчаливые числа.",
+          "type": "static",
+          "artifact_path": "services/direct_execution.py",
+          "candidate_commit": "d3027ede"
+        }
+      ]
     },
     {
       "source_id": "L00145",
@@ -3097,8 +3112,23 @@
       "acceptance": "Legacy-дефолты 4 шага, 6000 токенов, 800 символов запроса и 400 символов snippet не являются незаметным общим потолком после UR; миграция значений зафиксирована.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Legacy 4/6000/800/400 — нижний fallback, окно поднимает границы",
+          "observation": "Окно 0/недоступно → ровно legacy-константы (max_steps=ORCHESTRATOR_MAX_STEPS=4, max_total_tokens=6000, query_chars=800, snippet_chars=400) с window_source=\"fallback_default\"; окно 128k даёт max_steps=8 (>4, в пределах анти-цикла ORCHESTRATOR_STEPS_HARD_MAX), max_total_tokens=8192, query_chars=131072, snippet_chars=4096 — legacy больше не общий потолок. Без env динамика не обрезается legacy-числом: _apply_ceiling(8, 0) == 8 (регрессия «мёртвого ножа»).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs05_budgets.py",
+          "candidate_commit": "d3027ede"
+        },
+        {
+          "ref": "env-потолки остаются жёсткими поверх динамики; миграции каталога срез не вводил",
+          "observation": "DIRECT_ORCHESTRATOR_MAX_STEPS=2 связывает динамику 8 → 2 и в юните, и в живой цепочке (chain_meta[\"max_steps\"]==2); Settings-classvar приоритетнее env. DIRECT_ORCHESTRATOR_* не имеют карточек в каталоге (env-only), ни одна запись REGISTRY не получила migration_class от среза — миграция значений зафиксирована как env-потолки без новых редактируемых ножей.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs05_budgets.py",
+          "candidate_commit": "d3027ede"
+        }
+      ]
     },
     {
       "source_id": "L00146",
@@ -3112,8 +3142,31 @@
       "acceptance": "При превышении ёмкости данные и доказательства сохраняются структурно, применяется адаптивный выбор, continuation или честная причина остановки; усечение по [:N] посередине и выдача фрагмента за полную статью не допускаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "verified_scope": "Срез доказывает: деривация границ из окна убирает срезы середины запроса/сниппета локальными дефолтами и даёт честный stop-reason в chain_meta. Продолжение цепочки (continuation) и механизм честной причины остановки — предсуществующие механизмы run_adaptive_chain, этим срезом не менявшиеся; они проверены только в объёме наблюдаемого reason (max_steps/cycle_detected/partial).",
+      "evidence": [
+        {
+          "ref": "Хвост длинного запроса не теряется на большом окне",
+          "observation": "Запрос ~3.6 тыс. символов с маркером на позиции >900 целиком доходит до последнего сообщения _orchestrator_messages при caps от окна 131072 — локального усечения [:800] больше нет; структурная граница запроса — бюджет L1-стадии (комментарий теста: «не [:800] оркестратора»).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs05_budgets.py",
+          "candidate_commit": "d3027ede"
+        },
+        {
+          "ref": "Сниппет — структурный EvidenceSource, не [:N]-обрубок",
+          "observation": "Докстринг orchestrator_budget_for_window (services/direct_execution.py:269-278): срезы payload перестают резать середину запроса/сниппета локальным дефолтом; сниппет — превью при структурном EvidenceSource с delivered/total/ref, усечённый фрагмент не выдаётся за полную статью.",
+          "type": "static",
+          "artifact_path": "services/direct_execution.py",
+          "candidate_commit": "d3027ede"
+        },
+        {
+          "ref": "Адаптивный выбор и честная причина остановки наблюдаемы",
+          "observation": "На окне 128k цепочка делает 8 шагов (131072//16384) и завершается с chain_meta reason=\"max_steps\", window_tokens=131072, window_source=\"runtime\"; без окна — 4 шага и честный window_source=\"fallback_default\"; повтор того же вызова инструмента даёт reason=\"cycle_detected\".",
+          "type": "test",
+          "artifact_path": "tests/test_bgs05_budgets.py",
+          "candidate_commit": "d3027ede"
+        }
+      ]
     },
     {
       "source_id": "L00147",
@@ -3127,8 +3180,30 @@
       "acceptance": "Лимиты API, доступ к платному инструменту, safeguards от зацикливания и timeout на зависшие сетевые вызовы/Telegram сохранены, и у каждого есть наблюдаемый reason, а не тайное молчание.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Денежный потолок не поднимается окном (ANC-10)",
+          "observation": "На окне 128k цепочка: chain_meta[\"max_metered\"]==4 (env не задан → legacy-фолбэк), metered==0; при этом шаги/токены на окне работают (max_steps==8, window_tokens==131072) — мигрирована именно «интеллектуальная» часть границ. METERED_TOOLS не изменился (execute_web_search, fetch_article, fact_check, generate_image, transcribe_video); env DIRECT_ORCHESTRATOR_MAX_METERED_CALLS=7 читается, не задан → 4 (не 0 и не окно-производное).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs05_budgets.py",
+          "candidate_commit": "d3027ede"
+        },
+        {
+          "ref": "Анти-цикл и дедлайн без изменений",
+          "observation": "Повтор того же (tool, args) → bounded stop: chain_meta[\"reason\"]==\"cycle_detected\", ровно один dispatch в роутер. ER-08-резолв дедлайна не тронут: DIRECT_ORCHESTRATOR_MAX_TIME_SECONDS override 42.0 → 42.0, None → MCA_TOOL_CHAIN_TIMEOUT_SECONDS 360.0.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs05_budgets.py",
+          "candidate_commit": "d3027ede"
+        },
+        {
+          "ref": "Наблюдаемые причины отказов в chain_meta",
+          "observation": "chain_meta несёт metered/cost_calls (ER-08: отказ chain_cost_limit объясняется числами, а не догадкой), max_metered, reason (max_steps/cycle_detected/ok/partial) — services/direct_execution.py:1258-1268.",
+          "type": "static",
+          "artifact_path": "services/direct_execution.py",
+          "candidate_commit": "d3027ede"
+        }
+      ]
     },
     {
       "source_id": "L00148",
@@ -3157,8 +3232,23 @@
       "acceptance": "Логика поиска и инструментов общая для Direct и Initiative; дополнительной специализированной «свободы» для одного режима нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Один llm — один бюджет вне зависимости от режима",
+          "observation": "Два последовательных resolve_orchestrator_budget на том же llm дают идентичный OrchestratorBudget; окно резолвится тем же вызовом resolve_stage_window со слотом direct.primary — режим-специфичной деривации нет.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs05_budgets.py",
+          "candidate_commit": "d3027ede"
+        },
+        {
+          "ref": "Единственная точка резолва — общая цепочка",
+          "observation": "resolve_orchestrator_budget вызывается ровно один раз — внутри run_adaptive_chain (services/direct_execution.py:1135), общего пути Direct и Initiative; ветвления бюджета по чату/режиму в модуле нет.",
+          "type": "static",
+          "artifact_path": "services/direct_execution.py",
+          "candidate_commit": "d3027ede"
+        }
+      ]
     },
     {
       "source_id": "L00153",
@@ -4049,7 +4139,7 @@
   "architecture_classification": "ARCH_REUSE_CONFIRMED_WITH_UNRESOLVED_ARCH_DOC",
   "architecture_note": "arch/bgs-integration-contract.md в этом worktree ОТСУТСТВУЕТ (документ архитектора утерян при рестарте сервера). Настоящая карта не выдумывает контрактов: она использует фактически существующие контракты (evidence_policy.allowed/guard_egress, ToolEvidence из UR-B, public_speech_guard/outgoing_guard, negative_constraints/style_policy, param_catalog + effective-config UR-20—22) и фиксирует только зависимости и порядок записи. Если Builder обнаружит новую общую границу (новый ToolEvidence-статус, изменение схемы настроек, общий валидатор речи на несколько подсистем), работа останавливается и вопрос уходит Architect — PM контракт не замораживает.",
   "placement": "Волна 1 (параллельно): BGS-01-PRIVACY (активный лейн ur/b-search, кандидат 1001514e на ревью), BGS-03-SPEECH, BGS-04-GUARD-SCOPE, backend-часть BGS-06-ADMIN. Волна 2: BGS-02-EGRESS (после BGS-01, общий файл services/evidence_policy.py). Волна 3: BGS-05-BUDGET после UR-C/UR-D; UI-часть BGS-06 после UR-F/PVR UI. Волна 4: BGS-07-MATRIX (join) и BGS-08-ACCEPT (финальные проверки).",
-  "merge_state": "BGS-01-PRIVACY: ur/b-search 5adaa21b + bgs/factcheck-privacy 1da5fefa слиты в da6299e9 (Reviewer Approved). BGS-03-SPEECH и BGS-04-GUARD-SCOPE: bgs/speech-guards bb9b0b7b слит как 2618cb1e (Reviewer Approved). BGS-02-EGRESS: bgs/egress-guard 48e85ded (+док-привязка e2fdd9d8) принят Reviewer и слит как b0bb2310; прогон полосы после слияния — 162 passed (test_bgs02_egress_observation, test_evol_evidence_routing, test_evol_evidence_corpus, test_bgs0304_speech_observation, test_bgs01_factcheck_no_name_strip). BGS-04-GUARD-SCOPE: доработка детектора отрицания 88a0e61a (G2b, services/negative_constraints.py + tests/test_bgs0304_negation_contract.py) принята Reviewer и слита мёржа 85878c36; BGS-04.10 переведён в VERIFIED с честным verified_scope (перенос отрицания между частями фразы, слово «ничего», конструкция «не мог бы не» остаются вне доказанного объёма). Единственная открытая строка среза — BGS-00.9 (UI-проверяемость настроенной формы, ждёт UI-волны UR-F/PVR). BGS-05-BUDGET, BGS-06-ADMIN, BGS-07-MATRIX, BGS-08-ACCEPT не начаты.",
+  "merge_state": "BGS-01-PRIVACY: ur/b-search 5adaa21b + bgs/factcheck-privacy 1da5fefa слиты в da6299e9 (Reviewer Approved). BGS-03-SPEECH и BGS-04-GUARD-SCOPE: bgs/speech-guards bb9b0b7b слит как 2618cb1e (Reviewer Approved). BGS-02-EGRESS: bgs/egress-guard 48e85ded (+док-привязка e2fdd9d8) принят Reviewer и слит как b0bb2310; прогон полосы после слияния — 162 passed (test_bgs02_egress_observation, test_evol_evidence_routing, test_evol_evidence_corpus, test_bgs0304_speech_observation, test_bgs01_factcheck_no_name_strip). BGS-04-GUARD-SCOPE: доработка детектора отрицания 88a0e61a (G2b, services/negative_constraints.py + tests/test_bgs0304_negation_contract.py) принята Reviewer и слита мёржа 85878c36; BGS-04.10 переведён в VERIFIED с честным verified_scope (перенос отрицания между частями фразы, слово «ничего», конструкция «не мог бы не» остаются вне доказанного объёма). Единственная открытая строка среза — BGS-00.9 (UI-проверяемость настроенной формы, ждёт UI-волны UR-F/PVR). BGS-05-BUDGET: ветка bgs/budgets (d3027ede) слита мёржа 9c825b67; строки BGS-05.1/.2/.3/.4/.6 привязаны VERIFIED на кандидате d3027ede (тесты test_bgs05_budgets.py + services/direct_execution.py; у BGS-05.3 честный verified_scope — continuation/stop-reason остаются предсуществующими механизмами цепочки), агрегатная строка BGS-05 и BGS-05.5 остаются PENDING по рекомендации ревьюера. BGS-06-ADMIN, BGS-07-MATRIX, BGS-08-ACCEPT не начаты.",
   "blocked_by_upstream": [
     "unified-reply:UR-C, unified-reply:UR-D — BGS-05-BUDGET пересчитывает пределы поверх их executor/budget",
     "unified-reply:UR-B — BGS-01 применяется к свежему UR-B дереву, а не к релизному снимку",
