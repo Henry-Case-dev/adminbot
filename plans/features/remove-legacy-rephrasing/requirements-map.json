@@ -2,8 +2,9 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md",
   "source_sha256": "8dc7751c893704b895b4fcfd8475b504e668294e6966688a278ab6e261bb3f22",
-  "candidate_commit": "d49b10ac",
+  "candidate_commit": "df00f178",
   "deployed_commit": "",
+  "candidate_commit_note": "Продвинут с d49b10ac до df00f178 при сборке DoD-артефактов коррекции (2026-11-05): df00f178 = merge RLR-09 live-model proof artifacts (47e1e2c3). Построчные candidate-привязки не перекатывались: каждая строка остаётся на кандидате, который её реально доказал; R-09.1–R-09.4 привязаны к 47e1e2c3 (артефакт evidence/r09/r09-live-proof.json, sha256 26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e), R-09.5 и документационная R-CONF.13 — к df00f178 (plans-артефакты conflict-resolution-matrix.md и dod.md).",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-remove-legacy-rephrasing-v2",
@@ -805,8 +806,17 @@
       "acceptance": "Conflict Resolution Matrix с точными ссылками на заменённые пункты зафиксирована; при противоречиях локального `current_task.md` и новых коммитов продуктовое решение применяется только в зоне незапрошенного смыслового переписывания, остальные договорённости не отменяются; владельцу не отправляются инженерные вопросы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Conflict Resolution Matrix зафиксирована с точными ссылками на заменённые пункты",
+          "observation": "plans/features/remove-legacy-rephrasing/conflict-resolution-matrix.md на HEAD df00f178: §5 источника процитирован дословно (строки 140–157 снимка, source_sha256 8dc7751c...); по каждой из 12 строк таблицы §5 указаны — что изменила коррекция в пересекающейся зоне, где сохранён исходный текст (строки UR-15/UR-18/UR-19/UR-14/UR-23/UR-06–UR-08 в unified-reply-карте, BGS-01/BGS-02/BGS-03/BGS-04/BGS-04.10/BGS-05 в behavior-gates-карте, immutable-снапшоты owner_inputs, нетронутый current_task.md), точные строки карт (R-CONF.1–R-CONF.13) и текущий статус; машиночитаемая запись замен — supersedes_in_other_maps этой карты (replaced_in_overlapping_zone / scope_narrowed / confirmed). Пересекающаяся зона ограничена незапрошенным смысловым переписыванием; коррекция не создавала Human Gate и не направляла владельцу инженерных вопросов.",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/conflict-resolution-matrix.md",
+          "candidate_commit": "df00f178"
+        }
+      ],
+      "candidate_commit": "df00f178"
     },
     {
       "source_id": "MAN-L00171",
@@ -1520,7 +1530,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "Подтверждены 19 строк §8 из 21: R-08.1, R-08.2, R-08.3, R-08.4, R-08.5, R-08.6, R-08.7, R-08.8, R-08.9, R-08.10, R-08.12, R-08.13, R-08.14, R-08.15, R-08.16, R-08.17, R-08.18, R-08.19, R-08.20 (tests/test_rlr_negative_matrix.py — 8 строк, tests/test_rlr_proof_restart.py — R-08.20, tests/test_rlr_length_continuation.py — R-08.14, tests/test_rlr_acceptance_rows.py — 9 строк на кандидате 5d8dac73). Остаются R-08.11 и R-08.CFG (конфигурационная строка вне нумерации §8), поэтому сводная строка держится PENDING."
+      "pending_reason": "Подтверждены 19 строк §8 из 21 (R-08.1–R-08.10 и R-08.12–R-08.20: tests/test_rlr_negative_matrix.py — 8 строк на реальных гейтах 74ce5246, tests/test_rlr_proof_restart.py — R-08.20, tests/test_rlr_length_continuation.py — R-08.14 на 673677a1, tests/test_rlr_acceptance_rows.py — 9 строк на 5d8dac73). Остаются R-08.11 (явная переписка/перевод: happy-path наблюдался живым сценарием s6 прогона r09-live-proof на 47e1e2c3 — preserve_source_facts=true, факты сохранены, но полная строка с контрактом translate/нет скрытого post-editor не привязана к durable-тесту) и R-08.CFG (сводная проверка всех негативных сценариев в реальных конфигурациях/feature gates — частично покрыта прогонами на реальных гейтах, отдельной сводной привязки нет), поэтому сводная строка держится PENDING."
     },
     {
       "source_id": "MAN-L00217",
@@ -3338,8 +3348,25 @@
       "acceptance": "Выполнен минимальный реальный прогон Direct без tools, Direct с поиском, Initiative с reply, fallback модели, длинного ответа, explicit rewrite и фактчека (при доступных ключах), дополненный controlled fixtures для отказов при недоступности провайдера.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Минимальный реальный прогон выполнен на живых провайдерах и реальном поиске",
+          "observation": "Один прогон tools/rlr_live_proof.py (коммит раннера d484ca69, runner_sha256 e621bb78b5ce206ed3c66483897f67a61ad451af2e7d710559c948dee41fea28, worktree_dirty=false) выполнил 8 сценариев: s1 Direct без tools, s2 Direct с реальным веб-поиском (Tavily/Exa заданы, execute_web_search status=ok, 5883 симв.), s3 Initiative reply (настоящий handle_initiative), s4/s4b provider fallback (обе ноги, фактические HTTP-статусы 401/200), s5 длинный ответ с finish_reason=length (max_tokens=120 реально в теле), s6 явная переписка с защищаемыми фактами, s7 структурированный фактчек (FactCheckService + реальный SearchAggregator). Ключи LLM/fallback/embedding/поиска заданы, TCP 443 доступен — прогон реальный; controlled fixtures для отказов не потребовались (провайдеры доступны), каждый LLM-вызов несёт http_status/usage/finish_reason.",
+          "type": "live",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09/r09-live-proof.json",
+          "artifact_sha256": "26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e",
+          "candidate_commit": "47e1e2c3"
+        },
+        {
+          "ref": "Человеческий отчёт прогона с честными границами утверждений",
+          "observation": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md: сводная таблица 8 сценариев, детали по каждому, раздел «Что именно утверждается и что нет» и воспроизведение с пересчётом без повторного прогона (tools/rlr_r09_verify.py). Зафиксированная граница: живая доставка в Telegram не проверялась — транспорт подменён RecordingBot, ни одного сетевого вызова Bot API; живая доставка остаётся на release/прод (R-DOD.9/R-PROC.5 PENDING).",
+          "type": "live",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md",
+          "candidate_commit": "47e1e2c3"
+        }
+      ],
+      "candidate_commit": "47e1e2c3"
     },
     {
       "source_id": "L00222",
@@ -3353,8 +3380,25 @@
       "acceptance": "В trace видны LLM calls с разделением L1/Tool planning, единственной финальной смысловой генерации, допустимых continuation/transport retry с отдельными reason, `semantic_rewrite_count=0` и реальные операции postprocess.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Классификация LLM-вызовов и semantic_rewrite_count=0 в трассе прогона",
+          "observation": "llm_calls по классам planning/tool/final/continuation/provider_retry сняты из trace.llm_calls (note_llm_call) и продублированы независимым третьим каналом — обёрткой точек отправки LLMClient._post_with_key/_post_fallback (channel, requested_model, max_tokens, http_status, response_model, usage, finish_reason на каждый фактический HTTP). Итог: final=1 в s1/s2/s4b/s5/s6 и по фактическому завершению Writer'а у s3; continuation=2 в s5 (stage l2_continuation, llm_continuation success); provider_retry=2 в s4b; semantic_rewrite_count=0 во всех сценариях с трассой хода; пост-операции — закрытый список из 11 имён (turn_trace.OP_NAMES), необъяснённая правка помечается unexplained_text_change; двойной счёт вызовов фактчека исправлен (llm_calls_total=2 по фактическим HTTP).",
+          "type": "live",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09/r09-live-proof.json",
+          "artifact_sha256": "26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e",
+          "candidate_commit": "47e1e2c3"
+        },
+        {
+          "ref": "Сводка и границы по классам вызовов в отчёте прогона",
+          "observation": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md §2–§5: метод съёма двумя независимыми каналами трассы плюс контроль HTTP-точек; в s3 инициатива без turn_trace — завершение из фактического объекта (completion_source=writer_completion_object), у s7 фактчек — отдельный пайплайн без semantic_rewrite_count; второй финальный вызов отсутствует нигде.",
+          "type": "live",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md",
+          "candidate_commit": "47e1e2c3"
+        }
+      ],
+      "candidate_commit": "47e1e2c3"
     },
     {
       "source_id": "L00223",
@@ -3368,8 +3412,25 @@
       "acceptance": "Reviewer сравнил `L2 raw_final` с фактически отправленным Telegram payload по сохранённым/извлечённым частям (не только хеши) и подтвердил, что ни одна скрытая функция не переписывает и не удаляет смысл.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Сравнение raw_final с payload, подготовленным к отправке, по полным текстам (не только хеши)",
+          "observation": "Для s1/s2/s4b/s5/s6 text_diff хранит полные raw_text/sent_text, пунктуационно нормализованные версии, полный список diff_ops (truncated_ops=false), hidden_chars и other_char_delta; посимвольная проверка полных строк: other_char_delta=0 и punct_only=true — единственная меняющая операция owner_style_punctuation (— → -, «» → \"). s3 инициатива передана в транспорт байт-в-байт (written_equals_sent=true, одинаковые digest b7be716d149ad018), s6 — digest_match=true при сохранении всех защищаемых фактов (19:40, № 42, 3 500, 06:15, Кемь). Честная граница, зафиксированная в артефакте: сеть Telegram не задействована (RecordingBot вместо aiogram Bot), сравнение выполнено с payload на последнем шаге перед bot.send_message; живая доставка в Telegram остаётся непроверенной до release/прод (R-DOD.9/R-PROC.5 PENDING). Приёмка воспроизвела пересчёт артефакта tools/rlr_r09_verify.py без повторного прогона; скрытых переписывающих функций в разрешённых операциях не обнаружено.",
+          "type": "live",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09/r09-live-proof.json",
+          "artifact_sha256": "26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e",
+          "candidate_commit": "47e1e2c3"
+        },
+        {
+          "ref": "Отчёт прогона: разделы «Что именно утверждается и что нет» и исправления по замечаниям приёмки",
+          "observation": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md §0 и §5: не утверждается живая доставка в Telegram; все расхождения raw↔delivered объяснены закрытым списком операций; замечания приёмки (усечение diff, отсутствие usage у s3/s7, неверные ярлыки s5/s6, неподтверждённый 401 s4) устранены в 14ec5672/d484ca69.",
+          "type": "live",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md",
+          "candidate_commit": "47e1e2c3"
+        }
+      ],
+      "candidate_commit": "47e1e2c3"
     },
     {
       "source_id": "L00224",
@@ -3383,8 +3444,25 @@
       "acceptance": "Подтверждено, что точность из источников, история собственных ответов, reply/время, продуктовые форматы, память/эмбеддинги и речевые настройки не сломаны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Смежные функции не сломаны в рамках сценариев живого прогона",
+          "observation": "Точность из источников: s2 — реальный поиск исполнен (execute_web_search, status=ok), s7 — фактчек отклонил неподтверждённые числа (заявленный «рост 12%» → фактический ≈3%, «$104 500» → район $104 000) и указал источник, вердикт структурированный. История собственных ответов и память: фоновый memorize/rerank-вызов наблюдался в s1 (третий HTTP), БД/эмбеддинги не пересоздавались (миграций данных нет). Reply/время: инициатива s3 доставлена байт-в-байт с корректным initiative_status (sent/initiative_reply/action=reply). Продуктовые форматы: явная переписка s6 — preserve_source_facts=true выставлен самой моделью в L1-плане, все защищаемые факты сохранены, ни одна операция текст не изменила. Речевые настройки: единственная меняющая операция — owner_style_punctuation (выбор владельца, §4), один детерминированный проход. Граница честности: покрытие ограничено восемью сценариями прогона, это не полная регрессия; мем-пайплайн и саммари отдельно не упражнялись (R-06.2/R-06.3 остаются PENDING).",
+          "type": "live",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09/r09-live-proof.json",
+          "artifact_sha256": "26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e",
+          "candidate_commit": "47e1e2c3"
+        },
+        {
+          "ref": "Побочные находки прогона — не блокеры R-09",
+          "observation": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md §6: 401 второй ноги fallback — состояние ключа .env (владелец/DevOps, не код); initiative без turn_trace и failed-наблюдения speech_extent/capability_check — related-nonblocking, на доставку и авторство не влияют.",
+          "type": "live",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md",
+          "candidate_commit": "47e1e2c3"
+        }
+      ],
+      "candidate_commit": "47e1e2c3"
     },
     {
       "source_id": "L00225",
@@ -3398,8 +3476,25 @@
       "acceptance": "DONE не выдаётся по прохождению unit tests, внешнему документу, изменению boolean flag, комментарию `paraphrase disabled` или непроверенному деплою.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "DONE не провозглашён: релиз и прод-проверка зафиксированы как not yet",
+          "observation": "Статус задачи не провозглашён: deployed_commit пуст, релиз и прод-проверка не выполнялись; сводный DoD-документ plans/features/remove-legacy-rephrasing/dod.md честно фиксирует п.9 (Reviewer/DevOps релиз и прод) как not yet и пп. 3/5/6/8 как partially с перечнем недостающего; в карте строки R-DOD.8/R-DOD.9/R-PROC.5 остаются PENDING. Единственное основание статусов — реальный прогон на живых провайдерах с durable-артефактом и воспроизводимым пересчётом, а не unit-green/boolean flag/комментарий.",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/dod.md",
+          "candidate_commit": "df00f178"
+        },
+        {
+          "ref": "Durable-артефакт реального прогона как единственное основание утверждений",
+          "observation": "plans/features/remove-legacy-rephrasing/evidence/r09/r09-live-proof.json (112 011 байт, sha256 26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e) фиксирует в meta commit/runner_sha256/worktree_dirty, полный diff и http_calls; отчёт r09-live-proof.md разделяет «утверждается/не утверждается». Ни один пункт §10 не закрыт формой «тесты зелёные» или ссылкой на внешний документ.",
+          "type": "live",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09/r09-live-proof.json",
+          "artifact_sha256": "26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e",
+          "candidate_commit": "47e1e2c3"
+        }
+      ],
+      "candidate_commit": "47e1e2c3"
     },
     {
       "source_id": "L00227",
@@ -3549,7 +3644,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Текущий статус — proven (dod.md п.1): R-02.1–R-02.5 VERIFIED, R-08.3 VERIFIED, route-matrix 35 путей, R-09 live final=1 (47e1e2c3). Формальная привязка строки и R-01.*/R-DEF.* — на release-волне."
     },
     {
       "source_id": "L00240",
@@ -3564,7 +3660,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Текущий статус — proven (dod.md п.2): R-02.*, R-BND.1/2 VERIFIED, R-ADM.4 VERIFIED (SYSTEM2_DIRECT_ENABLED нейтрализован, false/0/null не активируют двойную архитектуру). Формальная привязка — на release-волне."
     },
     {
       "source_id": "L00241",
@@ -3579,7 +3676,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Текущий статус — partially (dod.md п.3): код снят на c8d9866e (numeric/egress/duplicate/freshness = наблюдения; tests/test_rlr_dcs_postprocess.py), R-04.1 VERIFIED, live semantic_rewrite_count=0 (47e1e2c3); не хватает перепривязки R-04.2–R-04.6/R-BAN.*/R-BND.4–R-BND.10 (их pending_reason устарели относительно c8d9866e) и UI-части BGS-04 (волна UR-F/PVR)."
     },
     {
       "source_id": "L00242",
@@ -3594,7 +3692,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Текущий статус — proven (dod.md п.4): R-08.14 VERIFIED (673677a1/8eb6893b) + live s5 continuation=2 с честным unfinished_answer, s4/s4b честный fallback с фактическими статусами (47e1e2c3). Формальная привязка — на release-волне."
     },
     {
       "source_id": "L00243",
@@ -3609,7 +3708,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Текущий статус — partially (dod.md п.5): R-08.19/R-08.20/R-OBS.5/R-OBS.7 VERIFIED, R-CONF.11 VERIFIED; не хватает привязки R-05.2/R-06.9 и живой Telegram-доставки (в live-прогоне транспорт подменён RecordingBot) — release/прод."
     },
     {
       "source_id": "L00244",
@@ -3624,7 +3724,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Текущий статус — partially (dod.md п.6): backend R-ADM.2/3/4 + R-CONF.11 VERIFIED (d49b10ac/a4593936); UI-часть R-ADM.1/5/6/7 ждёт волну UR-F/PVR (blocked_by_upstream)."
     },
     {
       "source_id": "L00245",
@@ -3639,7 +3740,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Текущий статус — proven (dod.md п.7): R-CONF.11 VERIFIED (d49b10ac), DML/миграций данных нет, правка код-канона L1 c010a9fc аддитивна с сохранением прежней ревизии EVR4 для отката. Формальная привязка — на release-волне."
     },
     {
       "source_id": "L00246",
@@ -3654,7 +3756,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Текущий статус — partially (dod.md п.8): conflict-resolution-matrix.md создан (R-CONF.13 VERIFIED, df00f178); route-matrix.md снят на c8d9866e — нужно точечное переснятие зон после RLR-03.3 (598ff965/c010a9fc) и RLR-08.14 (l2_continuation); приложение к человеческому отчёту — на release-волне."
     },
     {
       "source_id": "L00247",
@@ -3669,7 +3772,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Текущий статус — not yet (dod.md п.9): релиз не выполнен (deployed_commit пуст), прод-проверка и живая Telegram-доставка не проводились, durable-итог релиза не записан; срезовые приёмки Reviewer есть, R-PROC.5 PENDING."
     }
   ],
   "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл); для стабильных отчётов добавляется artifact_sha256. Плановые строки остаются PENDING с пустым evidence и candidate_commit=\"\" до появления реального кандидата. Зелёные тесты без утверждения о наблюдаемом поведении, устное заверение и внешний документ доказательством не считаются (R-09.5). Привязка среза RLR-05-ADMIN: строки R-ADM.2/R-ADM.3/R-ADM.4/R-CONF.11 привязаны к d49b10ac с указанием реальных путей; artifact_sha256 намеренно не проставлялся, потому что манифест и каталог правятся следующими волнами (UI UR-F/PVR) и хеш-привязка дала бы ложно-красные проверки; стабильность подтверждается прогоном 61 passed после слияния a4593936. Привязка срезов RLR-02/RLR-03/RLR-04: строки привязаны к тому кандидату, который реально доказал поведение (0e3f96be — legacy-ветка, 63085f70 — verbalize-ветка, 93e64dc8 — числовой data-stage фактчека, d49b10ac — принятая backend-часть RLR-05), по одному-двум свидетельствам на строку; artifact_sha256 не проставлялся, пока прямая часть RLR-04 и UI-волна правят те же модули, — стабильность подтверждается прогоном 40 passed на HEAD 20d19ad0. Привязка срезов RLR-03.3 и RLR-07-PROOF (proof-часть): R-03.3 привязан к ветке c39e371d (merge 15e8bcc3), R-08.14 — к 673677a1 (merge 8eb6893b), восемь строк §8 и R-08.20 — к 74ce5246 (merge 9885b4b5); у каждой строки дополнительно есть сквозная запись, привязанная к текущему HEAD 8eb6893b, с фактическим прогоном на этом дереве (12 / 17 / 25 / 4 passed). artifact_sha256 не проставлялся: те же файлы правятся следующими волнами RLR-07. Привязка остатка §8 (RLR-07-PROOF, кандидат 5d8dac73): девять строк R-08.1/2/3/4/10/12/13/15/17 привязаны к тестовому файлу tests/test_rlr_acceptance_rows.py с указанием наблюдаемого поведения по именам тестов; у каждой строки есть вторая запись, привязанная к текущему HEAD 01bb89ee (слияние среза и прогон 16 passed на этом дереве). artifact_sha256 намеренно не проставлялся: файл принадлежит ещё не закрытому срезу RLR-07 (R-08.11, R-08.CFG), хеш дал бы ложно-красные проверки при его расширении. Привязка среза RLR-06-OBSERVABILITY (кандидат b3303d39, merge 71c3d95a): десять строк R-OBS.0-R-OBS.9 привязаны к tests/test_rlr_observability.py (6 passed на слитом дереве) и к services/turn_trace.py как к модулю-источнику полей трассы; artifact_sha256 не проставлялся, пока идут соседние волны RLR-07/RLR-08, работающие с теми же модулями. Отказ L2 проверен на отсутствие текста во всей трассе хода, а не только в событии доставки; журнал mca_bot_outputs не тронут.",
