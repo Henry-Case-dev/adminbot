@@ -368,6 +368,11 @@ _STAGE_EVENT_KEYS = frozenset({
     "review_attempt", "verdict", "finding_codes", "blocking_count",
     "paragraph_ids", "revision_target", "revision_result",
     "revision_failure_reason", "deterministic_validation_codes",
+    # UR-26.5/UR-30.4: payload-наблюдаемость стадии — finish-код, usage,
+    # chars, digest'ы (blake2s 16 hex, без текста), наличие ChatClock-блока,
+    # явный код решения (repair/correction/supervisor). R17-safe.
+    "finish_reason", "usage", "chars", "text_digest", "document_digest",
+    "clock", "decision",
 })
 _STAGE_EVENTS_MAX = 24
 

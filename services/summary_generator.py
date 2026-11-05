@@ -1355,7 +1355,8 @@ class SummaryGenerator:
 
     async def _merge_writer_documents(self, chat_id: int, documents: list,
                                       package: dict, service: dict,
-                                      length: dict, correlation_id: str
+                                      length: dict, correlation_id: str,
+                                      ctx=None
                                       ) -> tuple[dict | None, object | None]:
         """Merge-pass иерархического Writer (T-4609): сегментные §99-документы
         → одна статья. Один LLM-вызов с бюджетом; невалидный merge →
@@ -1371,7 +1372,7 @@ class SummaryGenerator:
         result = await run_l2(
             self.llm, package, service=service,
             correlation_id=correlation_id, chat_id=chat_id,
-            source_input=merge_content, length=length)
+            source_input=merge_content, length=length, ctx=ctx)
         if result.usable:
             return result.document, result
         # Детерминированный merge (merge-LLM не дал валидный §99): склейка
@@ -1502,7 +1503,7 @@ class SummaryGenerator:
                 self.llm, package, service=service,
                 correlation_id=correlation_id, chat_id=chat_id,
                 source_input=source_input, length=length,
-                anchor_map=anchor_map)
+                anchor_map=anchor_map, ctx=ctx)
         # ── CAPACITY_OVERFLOW: иерархический Writer (по ledger-сегментам). ──
         # Anchor-L2 — WHOLE_WINDOW-контур; overflow остаётся v1 (anchors не
         # протекают в v1 merge; рассинхрон map/evidence исключён).
@@ -1522,7 +1523,7 @@ class SummaryGenerator:
             return await run_l2(self.llm, package, service=service,
                                 correlation_id=correlation_id,
                                 chat_id=chat_id, source_input=source_input,
-                                length=length)
+                                length=length, ctx=ctx)
         logger.info(
             "L2_WRITER_HIERARCHICAL | run_id=%s | chat_id=%s | segments=%d | "
             "allowance=%d", correlation_id or "none", chat_id,
@@ -1556,7 +1557,7 @@ class SummaryGenerator:
             result = await run_l2(
                 self.llm, seg_package, service=service,
                 correlation_id=correlation_id, chat_id=chat_id,
-                source_input=content, length=length)
+                source_input=content, length=length, ctx=ctx)
             if not result.usable:
                 # Честный writer-фейл (сегмент) → вызывающий контур
                 # (LEVEL-3) решает; окно не теряется.
@@ -1569,7 +1570,7 @@ class SummaryGenerator:
         else:
             merged_doc, merge_result = await self._merge_writer_documents(
                 chat_id, documents, package, service, length,
-                correlation_id)
+                correlation_id, ctx=ctx)
             if merged_doc is None:
                 # Merge не дал валидного документа ни через LLM, ни
                 # детерминированно — честный writer-фейл (LEVEL-3 решит).
@@ -2378,7 +2379,7 @@ class SummaryGenerator:
         try:
             l1_result = await run_l1(
                 llm=self.llm, rows=rows, chat_id=chat_id,
-                correlation_id=correlation_id,
+                correlation_id=correlation_id, ctx=ctx,
                 focus_block=(exec_input.focus_block
                              if exec_input is not None
                              else _apply_focus("", focus)),
@@ -2663,7 +2664,8 @@ class SummaryGenerator:
                 for _page in _pages:
                     _page_result = await run_l2(
                         self.llm, _page, service=service,
-                        correlation_id=correlation_id, chat_id=chat_id)
+                        correlation_id=correlation_id, chat_id=chat_id,
+                        ctx=ctx)
                     calls_so_far += _l2_writer_calls(_page_result)
                     if not _page_result.usable:
                         _page_fail = _page_result
@@ -2720,7 +2722,8 @@ class SummaryGenerator:
                 else:
                     l2_result = await run_l2(
                         self.llm, package_result.package, service=service,
-                        correlation_id=correlation_id, chat_id=chat_id)
+                        correlation_id=correlation_id, chat_id=chat_id,
+                        ctx=ctx)
                 calls_so_far += (_l2_writer_calls(l2_result)
                                  + _l2_review_extra_calls(l2_result))
                 # Волна E (T-4440): SUMMARY_L2_REVIEW — исход bounded review

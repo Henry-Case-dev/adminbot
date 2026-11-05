@@ -118,6 +118,7 @@ from services.summary_source_anchors import (
 )
 # S7 (ADR-1026-9 D6/SC-07): §109-детали ошибки — http_status/attempts.
 from services.summary_run_log import attempts_of, http_status_of
+from services import summary_stage_events as _stage_events_mod
 from services.token_counter import count_tokens, resolve_chat_limit
 # ── ASAP 4.1 волна 2 (эпик asap-4-1-durable-whole-window-summary, T-4604–
 # T-4606; spec §1 A.2/A.3; ADR-1028-8 D2): capacity engine + CoverageLedger.
@@ -1694,7 +1695,7 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                  _budget_label: str | None = None,
                  _legacy_fallback: bool = False,
                  _map_mode: bool = False,
-                 source_window=None) -> L1Result:
+                 source_window=None, ctx=None) -> L1Result:
     """Один прогон L1: §92-вход → §93-упаковка → LLM-вызов(ы) → §95-v2.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
@@ -1891,6 +1892,15 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         # Пустой вход: LLM не дёргаем (пустое не публикуется, §106).
         duration = (time.perf_counter() - started) * 1000.0
         result = empty_result(**dict(base_kwargs, duration_ms=duration))
+        # UR-26.5/UR-30.4: стадия l1_plan завершена без LLM-вызова — честный
+        # код отсутствия payload'а (нет вызова — нет clock-блока).
+        _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+            _stage_events_mod.STAGE_L1_PLAN, attempt=1, status="empty",
+            reason_code="empty_payload", started=started, model=model,
+            provider=_stage_events_mod.provider_host(base_url),
+            finish_reason="no_llm_call", usage=None, chars=0, text_digest=None,
+            clock={"clock_included": False, "skip_reason": "no_llm_call"},
+            decision="empty_payload"))
         _log_complete(correlation_id=correlation_id, chat_id=chat_id,
                       result=result, model=model, base_url=base_url,
                       tokens_in=0, tokens_out=0, tokens_estimated=True,
@@ -1964,6 +1974,14 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                        error_type=type(exc).__name__, duration_ms=duration,
                        http_status=http_status_of(exc),
                        attempts=attempts_of(exc))
+            # UR-26.5/UR-30.4: ошибка стадии — явное событие (transport-код).
+            _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+                _stage_events_mod.STAGE_L1_PLAN, attempt=int(attempts or 1),
+                status="error", reason_code=reason, started=started,
+                model=model, provider=_stage_events_mod.provider_host(base_url),
+                finish_reason=f"llm_{type(exc).__name__}",
+                clock=_stage_events_mod.clock_meta(messages, chat_id=chat_id),
+                decision="l1_transport_error"))
             return error_result(reason, duration_ms=duration, **base_kwargs)
         except Exception as exc:
             duration = (time.perf_counter() - started) * 1000.0
@@ -2274,6 +2292,27 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
             "summary.l1", int(tokens_in) if tokens_in is not None else packed)
     except Exception:      # fail-open: наблюдаемость не рвёт результат
         pass
+
+    # ── UR-26.5/UR-30.4: payload-наблюдаемость stage1 (l1_plan) ──
+    # Явное событие: модель/провайдер, finish/usage/chars, digest сырого
+    # ответа плана, наличие ChatClock-блока в исходящем payload'е. Без
+    # сырых текстов (R17).
+    _l1_status = str(getattr(result, "status", "") or "invalid")
+    _l1_reason = (str(getattr(result, "invalid_reason", None) or "")
+                  or None) if _l1_status == STATUS_INVALID else None
+    _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+        _stage_events_mod.STAGE_L1_PLAN, attempt=int(attempts or 1),
+        status=_l1_status,
+        reason_code=_l1_reason, started=started, model=model,
+        provider=_stage_events_mod.provider_host(base_url),
+        finish_reason=("parsed" if _l1_status != STATUS_INVALID
+                       else "parse_invalid"),
+        usage={"input_tokens": tokens_in, "output_tokens": tokens_out},
+        chars=len(str(raw or "")),
+        text_digest=_stage_events_mod.text_digest(raw),
+        clock=_stage_events_mod.clock_meta(messages, chat_id=chat_id),
+        decision=f"l1_{_l1_status}",
+        output_count=int(getattr(result, "threads_count", 0) or 0) or None))
 
     _log_complete(correlation_id=correlation_id, chat_id=chat_id,
                   result=result, model=model, base_url=base_url,
