@@ -2,9 +2,9 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md",
   "source_sha256": "8dc7751c893704b895b4fcfd8475b504e668294e6966688a278ab6e261bb3f22",
-  "candidate_commit": "df00f178",
-  "deployed_commit": "",
-  "candidate_commit_note": "Продвинут с d49b10ac до df00f178 при сборке DoD-артефактов коррекции (2026-11-05): df00f178 = merge RLR-09 live-model proof artifacts (47e1e2c3). Построчные candidate-привязки не перекатывались: каждая строка остаётся на кандидате, который её реально доказал; R-09.1–R-09.4 привязаны к 47e1e2c3 (артефакт evidence/r09/r09-live-proof.json, sha256 26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e), R-09.5 и документационная R-CONF.13 — к df00f178 (plans-артефакты conflict-resolution-matrix.md и dod.md).",
+  "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2",
+  "deployed_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2",
+  "candidate_commit_note": "Продвинут с d49b10ac до df00f178 при сборке DoD-артефактов коррекции (2026-11-05): df00f178 = merge RLR-09 live-model proof artifacts (47e1e2c3). Построчные candidate-привязки не перекатывались: каждая строка остаётся на кандидате, который её реально доказал; R-09.1–R-09.4 привязаны к 47e1e2c3 (артефакт evidence/r09/r09-live-proof.json, sha256 26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e), R-09.5 и документационная R-CONF.13 — к df00f178 (plans-артефакты conflict-resolution-matrix.md и dod.md). 05.11.2026 (release-bind): кандидат продвинут до 5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2 (release/2.58.159: мёрж 71d67d14 + bump 2.58.158→2.58.159); DevOps задеплоил и проверил прод (healthz 2.58.159, NRestarts 0, хэши ассетов совпали, deployed SHA = review-кандидат). Все VERIFIED-строки получили сквозную release-привязку к 5e0cb201; исторические построчные привязки сохранены; R-08.11 и RLR-04 direct-строки (R-04.2–R-04.6, R-05.1, R-06.9) перевязаны на релизный кандидат с реальными прогонами тестов на дереве HEAD 9ca6bb07 (код идентичен релизу).",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-remove-legacy-rephrasing-v2",
@@ -120,6 +120,13 @@
           "type": "static",
           "artifact_path": "services/direct_chat_service.py",
           "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -255,8 +262,23 @@
       "acceptance": "Свободный текст L2 не вызывает новый LLM-вызов и смысловую правку по причинам `form_retry`, `numeric_claim_retry`, `metatext_retry`, `format_retry`, `cliche_retry`, `evidence_egress_retry`, `duplicate_guard_retry`, `freshness_retry` и эквивалентным aliases: в активном коде ни одно из этих семейств не перегенерирует готовую реплику.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Ни одно из восьми семейств не перегенерирует готовую реплику: сводка по отдельным доказательствам R-BAN.FORM..R-BAN.FRESHNESS + структурный инвариант постобработки",
+          "observation": "tests/test_rlr_dcs_postprocess.py (merge c8d9866e): во всех ходах файла FORBIDDEN_REROLL_STEPS={duplicate_guard_retry} пуст, llm.call_count==1 где заявлено, test_no_post_l2_llm_step_in_direct_postprocess_source — в исходнике постобработки Direct нет ни одного step-а reroll; numeric/freshness/format/duplicate — наблюдения или сняты (@ d69f52da), form/metatext/cliche — наблюдения verbalize-полосы (@ 63085f70, tests/test_rlr_verbalize_scope.py 18 passed), evidence — observation-only (@ e2fdd9d8). Число авторских вызовов свободного пути — ровно один.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00083",
@@ -270,8 +292,23 @@
       "acceptance": "Причина `form_retry` (форма/структура свободного текста) не запускает новый LLM-вызов и смысловую правку готового L2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Форма не входит в машинный слой свободной речи и не перегенерирует текст",
+          "observation": "tests/test_rlr_verbalize_scope.py (18 passed на 63085f70, артефакт тот же на слитом дереве 20d19ad0): test_free_form_text_with_all_diagnostics_is_delivered_as_written — в stats свободного пути нет form_guard_rejects, текст байт-в-байт; test_machine_validation_is_not_used_for_free_speech — у verbalize_validated нет параметра validator/form_contract/scrubber; test_free_form_path_has_no_reroll_mechanism_in_source (AST) — нет петель и канонов повтора формы.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00083",
@@ -285,8 +322,23 @@
       "acceptance": "Причина `numeric_claim_retry` не запускает новый LLM-вызов и смысловую правку готового L2; числа проверяются и передаются до генерации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Числа — data-stage до Writer, постфактум-гард снят со всех путей доставки (см. R-04.2)",
+          "observation": "tests/test_rlr_factcheck_numeric_stage.py (93e64dc8, merge b9bd717b): проверенные числа входят в payload Writer'а до генерации, test_no_post_l2_numeric_rewrite — apply_numeric_guard в фактчеке не вызывается, verified_phrase не передаётся; tests/test_rlr_dcs_postprocess.py (d69f52da, merge c8d9866e): numeric_claim_guard — наблюдение outcome=skipped/corrected=false, ни одного нового вызова и правки текста.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00083",
@@ -300,8 +352,23 @@
       "acceptance": "Причина `metatext_retry` не запускает новый LLM-вызов и смысловую правку готового L2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Метатекст — только наблюдение в свободной речи",
+          "observation": "tests/test_rlr_verbalize_scope.py (18 passed на 63085f70, артефакт тот же на слитом дереве 20d19ad0): test_free_form_text_with_all_diagnostics_is_delivered_as_written — отрицания/метатекст/клише в stats свободного пути только наблюдаются, текст байт-в-байт, один вызов; test_free_form_path_has_no_reroll_mechanism_in_source (AST) — канонов повтора нет.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00083",
@@ -315,8 +382,23 @@
       "acceptance": "Причина `format_retry` не запускает новый LLM-вызов и смысловую правку готового L2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Формат — рендер того же текста, без новой генерации (см. R-04.5)",
+          "observation": "tests/test_rlr_dcs_postprocess.py (d69f52da, merge c8d9866e): test_table_and_list_delivered_without_new_generation — один вызов Writer'а, текст байт-в-байт; test_invalid_html_renders_same_text_plain — plain тем же текстом без LLM; format_retry-промпт недостижим (tests/test_negative_constraints_round1022.py::test_metatext_and_format_retry_prompts_unreachable).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00083",
@@ -330,8 +412,23 @@
       "acceptance": "Причина `cliche_retry` не запускает новый LLM-вызов и смысловую правку готового L2; Anti-Cliché остаётся диагностикой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Anti-Cliché — диагностика, возврат генератора виден счётчиком",
+          "observation": "tests/test_rlr_verbalize_scope.py (18 passed на 63085f70, артефакт тот же на слитом дереве 20d19ad0): test_free_form_text_with_all_diagnostics_is_delivered_as_written — anti_cliche_retries=0, клише только в cliche_observed; test_second_literary_call_in_turn_fails_the_invariant — инъекция второго литературного вызова даёт semantic_rewrite_count=1 при неизменном тексте; tests/test_rlr_dcs_postprocess.py @ d69f52da — публичный speech-гард тоже не запускает генерацию ради клише (см. R-04.4).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00083",
@@ -345,8 +442,23 @@
       "acceptance": "Причина `evidence_egress_retry` не запускает новый LLM-вызов и смысловую правку готового L2; evidence-этап работает до Writer.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Egress — observation-only после Writer, evidence-этап работает до генерации",
+          "observation": "tests/test_bgs02_egress_observation.py (e2fdd9d8, merge b0bb2310): guard не запускает ни второй поиск, ни повторную генерацию, не удаляет предложения — delivered == answer байт-в-байт; evidence-этап до Writer доказан tests/test_rlr_no_second_author.py::test_evidence_pack_delivered_to_l2_with_attribution (0e3f96be/20d19ad0 — блок <Tool_Evidence> в payload L2 до генерации без нового LLM-этапа).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00083",
@@ -360,8 +472,23 @@
       "acceptance": "Причина `duplicate_guard_retry` не запускает новый LLM-вызов и смысловую правку готового L2; дубль доставки закрывается идемпотентностью события.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Совпадение текстов не триггерит reroll; дубль доставки закрыт идентичностью события",
+          "observation": "tests/test_rlr_dcs_postprocess.py (d69f52da, merge c8d9866e): test_two_events_same_text_are_two_answers — совпавший текст доставляется как написан, без LLM-вызова и правки; test_same_event_redelivery_is_blocked — повторная обработка того же update: direct_update_dedup_hit, 0 LLM, 0 повторных отправок (идемпотентность по (chat_id, tg_message_id, revision, user_id) в durable SmartCache).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00083",
@@ -375,8 +502,23 @@
       "acceptance": "Причина `freshness_retry` не запускает новый LLM-вызов и смысловую правку готового L2; актуальность обеспечивается сбором фактов до Writer.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Freshness — только наблюдение: события-reroll нет, dead reroll-API удалён, актуальность — facts до Writer",
+          "observation": "tests/test_rlr_dcs_postprocess.py (d69f52da, merge c8d9866e): test_two_events_same_text_are_two_answers ассертит отсутствие \"direct_freshness_retry\" среди причин DIRECT_FRESHNESS_RETRY — повторяемость наблюдается (DIRECT_FINAL_REPEATED_TEXT outcome=skipped), LLM не вызывается; dead duplicate-reroll API удалён из services/response_freshness.py (81406ca3); актуальность до Writer обеспечена evidence-этапом (test_evidence_pack_delivered_to_l2_with_attribution @ 0e3f96be/20d19ad0).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00126",
@@ -405,6 +547,13 @@
           "type": "static",
           "artifact_path": "config/settings.py",
           "candidate_commit": "d49b10ac"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -428,6 +577,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_no_second_author.py",
           "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -459,8 +615,23 @@
       "acceptance": "Глобальные free-form reroll-ветки `verbalize_validated` удалены; machine-contract validation сохранена отдельно при необходимости.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Free-form reroll-ветки удалены, машинный протокол чинится отдельно (зеркало R-04.1/R-04.4 карты)",
+          "observation": "tests/test_rlr_verbalize_scope.py (18 passed на 63085f70; артефакт тот же на слитом дереве 20d19ad0): test_free_form_path_has_no_reroll_mechanism_in_source (AST — в verbalize_validated нет петель и канонов повтора), test_invalid_machine_json_is_repaired_in_machine_stage_only и test_machine_repair_is_bounded_and_reports_unrepaired — repair_machine_payload чинит машинный протокол отдельно (≤1 повтор, видимая причина, потолок _MAX_RETRIES_HARD_CAP).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00130",
@@ -474,8 +645,23 @@
       "acceptance": "`apply_numeric_guard` с заменой/обнулением финала не правит free-form постфактум; расчёты и claims проверяются до L2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "apply_numeric_guard без продуктовых вызывающих; расчёты — data-stage до L2 (см. R-04.2)",
+          "observation": "tests/test_rlr_dcs_postprocess.py (d69f52da): test_apply_numeric_guard_has_no_product_caller — в services/ и handlers/ ни одного вызова; test_free_form_number_delivered_as_written и test_lore_story_number_delivered_without_guard — free-form и рассказ уходят без гарда; tests/test_rlr_factcheck_numeric_stage.py (93e64dc8): MetricResult/TemporalClaimEnvelope канонизируются до Writer, test_no_post_l2_numeric_rewrite.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00131",
@@ -489,8 +675,23 @@
       "acceptance": "`evidence_policy.guard_egress` content rewrite/drop исполняет решение BGS-02: provenance и диагностика сохранены, содержательная правка после L2 отсутствует.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "guard_egress — observation-only: rewrite/drop удалены, provenance и диагностика сохранены",
+          "observation": "tests/test_bgs02_egress_observation.py (e2fdd9d8, merge b0bb2310): delivered == answer во всех сценариях, событие EVIDENCE_EGRESS_CHECK несёт код+место без текста (0-based индекс предложения, честное состояние evidence); drop_claim_sentence/_evidence_rewrite удалены из evidence_policy (надгробие в docstring :1162); sanitizer машинных маркеров (outgoing_guard.sanitize_outgoing) не затронут (RBAC/SSRF-тесты файла зелёные).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00132",
@@ -504,8 +705,23 @@
       "acceptance": "Словарь режущих фраз `public_speech_guard` исполняет решение BGS-03: речевой цензуры нет, machine-artifact cleanup сохранён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "BGS-03: словарь не режет, обнаружение observability-only, sanitizer маркеров узкий (зеркало BGS-03.1/03.2/03.3 карты behavior-gates-simplification)",
+          "observation": "tests/test_bgs0304_speech_observation.py (2618cb1e; артефакт не изменился и перепроверен в объединённом кандидате da6299e9): естественные фразы OWNER_PHRASES и их цитаты байт-в-байт; находки словаря фиксируются событием без правки текста и без LLM-retry/fail-closed; настоящий <thought>/fact:123/target-marker очищается узким идемпотентным sanitizer, обычная речь не повреждается.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00133",
@@ -519,8 +735,23 @@
       "acceptance": "`duplicate_guard_retry` по совпадению текстов удалён как reroll; durable idempotency сохранена как отдельный механизм.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Reroll удалён, идемпотентность — отдельный механизм по идентичности события (см. R-05.1/R-BAN.DUPLICATE)",
+          "observation": "tests/test_rlr_dcs_postprocess.py (d69f52da): test_two_events_same_text_are_two_answers — совпадение текстов не триггерит reroll; test_same_event_redelivery_is_blocked — тот же update повторно не доставляется (durable SmartCache-маркер, direct_update_dedup_hit); рестарт-механика отдельно доказана строкой R-08.20 VERIFIED (tests/test_rlr_proof_restart.py @ 74ce5246: маркер пишется до отправки, живёт 24 ч, повторной отправки после рестарта нет).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00134",
@@ -534,8 +765,23 @@
       "acceptance": "Anti-Cliché остаётся диагностикой/владельческой настройкой и не влияет на free-form generation после факта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Anti-Cliché не влияет на готовый текст: retries=0, инъекция второго вызова видна счётчиком",
+          "observation": "tests/test_rlr_verbalize_scope.py (18 passed на 63085f70; артефакт тот же на слитом дереве 20d19ad0): test_free_form_text_with_all_diagnostics_is_delivered_as_written — anti_cliche_retries=0, клише только cliche_observed; test_second_literary_call_in_turn_fails_the_invariant — инъекция второго литературного вызова даёт semantic_rewrite_count=1 при неизменном тексте; test_free_form_path_has_no_reroll_mechanism_in_source (AST).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00135",
@@ -549,8 +795,23 @@
       "acceptance": "`style_policy` (owner-selected `no_quotes`/`no_emoji`/`no_trailing_period` и др.) выполняется ровно одним прозрачным deterministic pass.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Ровно один проход direct_pre_send в реальном ходу; повтор — no-op; protected spans целы (согласуется с R-08.18 VERIFIED @ 74ce5246)",
+          "observation": "tests/test_rlr_dcs_postprocess.py (d69f52da): test_owner_rules_single_pass_and_protected_spans — calls.count(\"direct_pre_send\") == 1 в реальном handle(), код и URL не испорчены; отдельный прогон no_quotes/no_emoji — детерминированный результат, второй проход repaired=0, protected span `x = «y»` сохранён с extra_protected.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00136",
@@ -776,6 +1037,13 @@
           "type": "static",
           "artifact_path": "plans/features/remove-legacy-rephrasing/admin-migration-manifest.md",
           "candidate_commit": "d49b10ac"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -814,6 +1082,13 @@
           "type": "static",
           "artifact_path": "plans/features/remove-legacy-rephrasing/conflict-resolution-matrix.md",
           "candidate_commit": "df00f178"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "df00f178"
@@ -845,6 +1120,13 @@
           "type": "static",
           "artifact_path": "services/turn_trace.py",
           "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "b3303d39"
@@ -876,6 +1158,13 @@
           "type": "static",
           "artifact_path": "services/turn_trace.py",
           "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "b3303d39"
@@ -937,6 +1226,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_acceptance_rows.py",
           "candidate_commit": "01bb89ee"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -967,6 +1263,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_acceptance_rows.py",
           "candidate_commit": "01bb89ee"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -997,6 +1300,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_acceptance_rows.py",
           "candidate_commit": "01bb89ee"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1027,6 +1337,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_acceptance_rows.py",
           "candidate_commit": "01bb89ee"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1057,6 +1374,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_negative_matrix.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1087,6 +1411,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_negative_matrix.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1117,6 +1448,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_negative_matrix.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1147,6 +1485,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_negative_matrix.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1177,6 +1522,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_negative_matrix.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1207,6 +1559,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_acceptance_rows.py",
           "candidate_commit": "01bb89ee"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1222,8 +1581,23 @@
       "acceptance": "Explicit rewrite/translate работает как задача, при исходном формальном контракте не меняет protected facts и не включает скрытый post-editor.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Explicit rewrite/translate работает как задача: protected facts под контрактом, скрытого post-editor нет",
+          "observation": "tests/test_rlr_explicit_transform.py, прогон на дереве HEAD 9ca6bb07 (код идентичен релизному кандидату 5e0cb201, ветка rlr/explicit-transform слита ранее, 598ff965/c010a9fc): test_faithful_rewrite_is_delivered_as_written — явная задача переписывания доставляется как написано одним авторским вызовом; test_translation_keeps_numbers_names_and_dates и test_translation_with_negation_is_delivered_as_written — перевод по контракту сохраняет числа/имена/даты и отрицания; test_translation_that_drops_a_number_returns_source и test_explicit_rewrite_that_breaks_protected_facts_returns_source — потеря числа или поломка protected facts возвращает source, не публикуется; test_contract_signal_comes_from_the_plan_field_only и test_plan_field_is_a_strict_boolean — сигнал контракта берётся только из явного поля плана L1 preserve_source_facts; test_free_form_reply_has_no_form_contract — без явной задачи скрытый post-editor не включается. Прогон: tests/test_rlr_dcs_postprocess.py + tests/test_rlr_explicit_transform.py — 29 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_explicit_transform.py",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        },
+        {
+          "ref": "Стыковка с acceptance-rows: durable-строка §8 R-08.11 на том же дереве",
+          "observation": "tests/test_rlr_acceptance_rows.py — 16 passed на дереве HEAD 9ca6bb07 (9 строк §8 и семь параметризованных/негативных кейсов того же файла): привязка строки §8 сохраняется на релизном кандидате; явная переписка/перевод идёт одним логическим Writer-этапом задачи без второго литературного прохода.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00207",
@@ -1252,6 +1626,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_acceptance_rows.py",
           "candidate_commit": "01bb89ee"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1282,6 +1663,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_acceptance_rows.py",
           "candidate_commit": "01bb89ee"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1326,6 +1714,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_length_continuation.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1356,6 +1751,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_acceptance_rows.py",
           "candidate_commit": "01bb89ee"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1386,6 +1788,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_negative_matrix.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1416,6 +1825,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_acceptance_rows.py",
           "candidate_commit": "01bb89ee"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1446,6 +1862,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_negative_matrix.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1476,6 +1899,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_negative_matrix.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1513,6 +1943,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_proof_restart.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1530,7 +1967,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "Подтверждены 19 строк §8 из 21 (R-08.1–R-08.10 и R-08.12–R-08.20: tests/test_rlr_negative_matrix.py — 8 строк на реальных гейтах 74ce5246, tests/test_rlr_proof_restart.py — R-08.20, tests/test_rlr_length_continuation.py — R-08.14 на 673677a1, tests/test_rlr_acceptance_rows.py — 9 строк на 5d8dac73). Остаются R-08.11 (явная переписка/перевод: happy-path наблюдался живым сценарием s6 прогона r09-live-proof на 47e1e2c3 — preserve_source_facts=true, факты сохранены, но полная строка с контрактом translate/нет скрытого post-editor не привязана к durable-тесту) и R-08.CFG (сводная проверка всех негативных сценариев в реальных конфигурациях/feature gates — частично покрыта прогонами на реальных гейтах, отдельной сводной привязки нет), поэтому сводная строка держится PENDING."
+      "pending_reason": "Подтверждены и привязаны 20 строк §8 из 21 (R-08.1–R-08.20, включая R-08.11 на 5e0cb201: tests/test_rlr_explicit_transform.py + tests/test_rlr_acceptance_rows.py). Открытой остаётся сводная R-08.CFG: сквозная проверка всех негативных сценариев в реальных конфигурациях/feature gates частично покрыта прогонами на реальных гейтах (74ce5246, 5d8dac73, 673677a1, c8d9866e), отдельной сводной привязки нет, поэтому R-08.21 держится PENDING до неё."
     },
     {
       "source_id": "MAN-L00217",
@@ -1674,6 +2111,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_no_second_author.py",
           "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1704,6 +2148,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_verbalize_scope.py",
           "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1719,9 +2170,23 @@
       "acceptance": "Отсутствие `form_contract` в `_l2_write_answer` не трактуется как чистота маршрута: в HEAD проверены все остальные причины retry/fallback общего кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "Проверка остальных причин retry/fallback в direct-маршруте (numeric/freshness/duplicate/format) относится к ещё не слитой части среза RLR-04."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Все остальные семейства retry/fallback direct-маршрута проверены на слитом дереве: ни одно не перегенерирует готовую реплику",
+          "observation": "Слияние rlr/dcs-postprocess (d69f52da, merge c8d9866e): numeric — observation-only, apply_numeric_guard без продуктовых вызывающих (test_apply_numeric_guard_has_no_product_caller); freshness/duplicate — reroll удалён, события-reroll нет (test_two_events_same_text_are_two_answers: DIRECT_FRESHNESS_RETRY отсутствует); format — список/таблица без новой генерации (test_table_and_list_delivered_without_new_generation); структурно test_no_post_l2_llm_step_in_direct_postprocess_source — в постобработке Direct нет ни одного reroll-шага; форма остаётся только при явной трансформации (R-03.3), а транспортный retry того же вызова — отдельная строка R-EXC.NET.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00028",
@@ -1743,6 +2208,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_verbalize_scope.py",
           "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1758,9 +2230,23 @@
       "acceptance": "Каждое пост-Writer вмешательство (`apply_numeric_guard`, evidence egress lookup/rewrite/drop, `duplicate_guard_retry`, `style_policy`) разобрано отдельно; удаление одного перефразирования не выдаётся за выполненное задание.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "Разбор каждого пост-Writer вмешательства в direct-маршруте (`apply_numeric_guard`, evidence egress, `duplicate_guard_retry`, `style_policy`) не слит; в speech-модуле осталось только наблюдение."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Все четыре пост-Writer вмешательства разобраны по отдельности, каждое со своим доказательством",
+          "observation": "(1) apply_numeric_guard — снят со всех путей доставки, наблюдение numeric_claim_guard outcome=skipped (tests/test_rlr_dcs_postprocess.py @ d69f52da); (2) evidence egress — BGS-02 observation-only, rewrite/drop удалены (tests/test_bgs02_egress_observation.py @ e2fdd9d8); (3) duplicate_guard_retry — reroll удалён, dead API из response_freshness удалён (81406ca3), наблюдение DIRECT_FINAL_REPEATED_TEXT outcome=skipped (@ d69f52da); (4) style_policy — ровно один детерминированный проход direct_pre_send с protected spans (test_owner_rules_single_pass_and_protected_spans @ d69f52da). Сводно: test_no_post_l2_llm_step_in_direct_postprocess_source — ни одного LLM-шага в постобработке.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00030",
@@ -1789,6 +2275,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_factcheck_numeric_stage.py",
           "candidate_commit": "93e64dc8"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -1886,7 +2379,14 @@
           "observation": "Кандидат 20d19ad0 — текущий HEAD ветки evol/impl: в нём одновременно есть слияние b9bd717b (числовой data-stage фактчека, ветка 93e64dc8) и слияние 20d19ad0 (verbalize, ветка 63085f70). На этом дереве прогнаны tests/test_rlr_verbalize_scope.py (18 passed), tests/test_rlr_factcheck_numeric_stage.py (11 passed), tests/test_rlr_no_second_author.py (11 passed) — 40 passed; файлы тестов идентичны соответствующим веткам.",
           "type": "test",
           "artifact_path": "tests/test_rlr_verbalize_scope.py",
-          "candidate_commit": "20d19ad0"
+          "candidate_commit": "df00f178"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2037,6 +2537,13 @@
           "type": "static",
           "artifact_path": "config/settings.py",
           "candidate_commit": "d49b10ac"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2060,6 +2567,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_no_second_author.py",
           "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2090,6 +2604,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_factcheck_numeric_stage.py",
           "candidate_commit": "93e64dc8"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2113,6 +2634,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_no_second_author.py",
           "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2143,6 +2671,13 @@
           "type": "static",
           "artifact_path": "services/system2_handoff.py",
           "candidate_commit": "0e3f96be"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2194,7 +2729,14 @@
           "observation": "Кандидат 20d19ad0 — текущий HEAD ветки evol/impl: в нём одновременно есть слияние b9bd717b (числовой data-stage фактчека, ветка 93e64dc8) и слияние 20d19ad0 (verbalize, ветка 63085f70). На этом дереве прогнаны tests/test_rlr_verbalize_scope.py (18 passed), tests/test_rlr_factcheck_numeric_stage.py (11 passed), tests/test_rlr_no_second_author.py (11 passed) — 40 passed; файлы тестов идентичны соответствующим веткам.",
           "type": "test",
           "artifact_path": "tests/test_rlr_verbalize_scope.py",
-          "candidate_commit": "20d19ad0"
+          "candidate_commit": "df00f178"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2224,7 +2766,14 @@
           "observation": "Кандидат 20d19ad0 — текущий HEAD ветки evol/impl: в нём одновременно есть слияние b9bd717b (числовой data-stage фактчека, ветка 93e64dc8) и слияние 20d19ad0 (verbalize, ветка 63085f70). На этом дереве прогнаны tests/test_rlr_verbalize_scope.py (18 passed), tests/test_rlr_factcheck_numeric_stage.py (11 passed), tests/test_rlr_no_second_author.py (11 passed) — 40 passed; файлы тестов идентичны соответствующим веткам.",
           "type": "test",
           "artifact_path": "tests/test_rlr_verbalize_scope.py",
-          "candidate_commit": "20d19ad0"
+          "candidate_commit": "df00f178"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2276,6 +2825,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_explicit_transform.py",
           "candidate_commit": "8eb6893b"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2312,7 +2868,14 @@
           "observation": "Кандидат 20d19ad0 — текущий HEAD ветки evol/impl: в нём одновременно есть слияние b9bd717b (числовой data-stage фактчека, ветка 93e64dc8) и слияние 20d19ad0 (verbalize, ветка 63085f70). На этом дереве прогнаны tests/test_rlr_verbalize_scope.py (18 passed), tests/test_rlr_factcheck_numeric_stage.py (11 passed), tests/test_rlr_no_second_author.py (11 passed) — 40 passed; файлы тестов идентичны соответствующим веткам.",
           "type": "test",
           "artifact_path": "tests/test_rlr_verbalize_scope.py",
-          "candidate_commit": "20d19ad0"
+          "candidate_commit": "df00f178"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2351,6 +2914,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_verbalize_scope.py",
           "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2366,9 +2936,30 @@
       "acceptance": "`apply_numeric_guard()` и его повторное применение после freshness не подменяют содержательные предложения готового L2, не вставляют `verified_phrase` вместо них и не превращают нормальный разговор в молчание; точные числа/источники приходят в L2 до генерации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "`apply_numeric_guard` и его повтор после freshness в direct-маршруте не сняты (services/direct_chat_service.py:5295, 5416); в speech-модуле числа уже только наблюдаются — неслитая часть среза."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "apply_numeric_guard снят со ВСЕХ путей доставки Direct (свободная речь и рассказ «Летописца» — тоже авторская речь модели); расхождение — только наблюдение",
+          "observation": "tests/test_rlr_dcs_postprocess.py (17 тестов, ветка rlr/dcs-postprocess, merge c8d9866e): test_free_form_number_delivered_as_written (l1 off/on) — «5 раз» доставлено как написано, NUMERIC_CLAIM_CAVEAT и verified_phrase не подставлены, тишины нет, FORBIDDEN_REROLL_STEPS пуст, событие numeric_claim_guard outcome=skipped, corrected=false; test_lore_story_number_delivered_without_guard[empty|verified_phrase × single|multi] на реальном handle() — рассказ с «7 сообщений» цел, «сообщений: 9» не вставлена, реакции-тишины нет; test_lore_story_mismatch_is_only_observation — только наблюдение; test_apply_numeric_guard_has_no_product_caller — в services/ и handlers/ не осталось ни одного вызова apply_numeric_guard (хелпер оставлен осознанно для будущей сборки строки кодом, docstring фиксирует отсутствие продуктовых вызывающих).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Точные числа/источники приходят в Writer ДО генерации (вторая половина acceptance)",
+          "observation": "tests/test_rlr_factcheck_numeric_stage.py: test_invented_number_is_not_published — валидированный набор уходит Writer'у в payload ДО генерации (numbers.checked: value 42, source measurement, ref, unit), вызовов сверх аналитика и Writer нет; test_validated_numbers_keep_writer_text — два физических вызова (аналитик + Writer), текст Writer'а не переписан. Прогон файла после merge b9bd717b — 11 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_factcheck_numeric_stage.py",
+          "candidate_commit": "93e64dc8"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00087",
@@ -2382,9 +2973,30 @@
       "acceptance": "`_run_evidence_egress_guard()`/`_evidence_rewrite()`/`drop_claim_sentence()` не выполняют в обычном финальном ответе автоматических повторов с дополнительным поиском и смыслового удаления предложений (решение BGS-02 исполнено); после Writer остаётся диагностика, фактчек различает подтверждение, опровержение и нехватку данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "evidence egress lookup/rewrite/drop в direct-маршруте не снят — неслитая часть среза."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "BGS-02 исполнен: egress-guard — observation-only, доставляется ровно текст Writer'а",
+          "observation": "tests/test_bgs02_egress_observation.py (кандидат полосы bgs/egress-observation, merge b0bb2310): delivered == answer байт-в-байт во всех сценариях (подтверждён/не подтверждён/ошибка guard), смысловых удалений и повторной генерации нет, машинная подсказка EVIDENCE_EGRESS_HINT удалена (attr-проверка), событие EVIDENCE_EGRESS_CHECK несёт код+место без текста; плечо facts/verdicts фактчека (подтверждение/опровержение/нехватка) доказано tests/test_rlr_factcheck_numeric_stage.py::test_insufficient_evidence_stays_insufficient и ::test_refuted_verdict_reports_without_softening.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Смысловая постцензура удалена из кода: drop_claim_sentence/_evidence_rewrite не существуют",
+          "observation": "git grep по services/ на слитом дереве: drop_claim_sentence и _evidence_rewrite удалены, осталась только надгробная строка в docstring services/evidence_policy.py:1162 («удалены как смысловая постцензура»); _run_evidence_egress_guard возвращает ровно входной текст (0 правок), второй поиск после Writer не запускается.",
+          "type": "static",
+          "artifact_path": "services/evidence_policy.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00088",
@@ -2398,9 +3010,23 @@
       "acceptance": "`public_speech_guard` не вырезает естественные формулировки («по моим наблюдениям», «по инструкции», «я программа») по словарям и не запускает ради них новую генерацию (решение BGS-03 исполнено); остаётся узкая очистка настоящих служебных артефактов с формальным, а не псевдо-семантическим различием.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "`public_speech_guard` (BGS-03) в принятых кандидатах не менялся — неслитая часть среза."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "BGS-03 исполнен в активном коде: речевой гард байт-в-байт, обнаружение — observability-only, узкий sanitizer сохранён (зеркало VERIFIED-строк карты behavior-gates-simplification: BGS-03/03.1/03.2/03.3/03.6-03.9)",
+          "observation": "tests/test_bgs0304_speech_observation.py: test_natural_phrase_passthrough_byte_identical и test_quoted_phrase_passthrough_byte_identical (параметризация OWNER_PHRASES, включая «по моим наблюдениям») — естественные формулировки и их цитаты возвращаются байт-в-байт; LLM-retry по словарю и fail-closed для разговорного содержания отсутствуют (находки фиксируются событием с кодом и местом, текст не меняется); настоящий <thought>/fact:123/target-marker очищается, обычная речь с кавычками и двоеточиями не повреждается; ложное совпадение не даёт пустого сообщения. Артефакт не изменился при слиянии полосы и перепроверен в объединённом кандидате da6299e9; мутация «гард снова вырезает фразу» роняет тесты (отчёт bgs-03-04-residual-evidence.md §7).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00089",
@@ -2414,9 +3040,23 @@
       "acceptance": "`format_retry` не пересоздаёт весь ответ ради списков/таблиц: существующее содержимое рендерится безопасным plain/HTML renderer; специализированные машинные схемы валидируются до Writer, а специально запрошенный формат — часть задачи и плана Writer.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "`format_retry`/plain-renderer не менялись — неслитая часть среза."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Список/таблица доставляются тем же текстом без новой генерации; невалидная HTML-разметка сериализуется в plain тем же текстом без LLM",
+          "observation": "tests/test_rlr_dcs_postprocess.py (merge c8d9866e): test_table_and_list_delivered_without_new_generation (таблица и список) — ровно один вызов Writer'а, доставлен тот же текст байт-в-байт; test_invalid_html_renders_same_text_plain — TelegramBadRequest на HTML → повторная отправка plain с ИСХОДНЫМ смысловым payload, LLM не вызывается; семейство format_retry недостижимо в активном коде (tests/test_negative_constraints_round1022.py::test_metatext_and_format_retry_prompts_unreachable, prompt удалён); машинные схемы чинятся отдельно до Writer (repair_machine_payload, привязка R-04.1).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00090",
@@ -2430,9 +3070,23 @@
       "acceptance": "Настроенный владельцем deterministic стиль применяется одним прозрачным проходом, второй LLM для исправления косметики не добавляется; неподдерживаемая Telegram разметка преобразуется без изменения текста либо честно уходит в plain fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "Deterministic style pass в direct-маршруте не менялся — неслитая часть среза."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Один прозрачный проход формы в реальном ходу, второй LLM не добавляется, неподдерживаемая разметка — plain тем же текстом",
+          "observation": "tests/test_rlr_dcs_postprocess.py (merge c8d9866e): test_owner_rules_single_pass_and_protected_spans — apply_style_policy вызывается ровно один раз (stage=direct_pre_send), код `print(1)` и URL не испорчены; отдельный прогон no_quotes/no_emoji — детерминированный результат («Он сказал привет.»), повторный проход no-op (repaired=0), protected span `x = «y»` цел с extra_protected; test_invalid_html_renders_same_text_plain — неподдерживаемая Telegram разметка уходит в plain с исходным текстом, ни одного дополнительного LLM-вызова (FORBIDDEN_REROLL_STEPS пуст во всех ходах файла).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00092",
@@ -2461,9 +3115,30 @@
       "acceptance": "`duplicate_guard_retry` и аналогичные обходы, переписывающие завершённый авторский текст только из-за совпадения или похожести на прошлое другое сообщение бота, удалены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "`duplicate_guard_retry` в direct-маршруте не удалён — неслитая часть среза."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "duplicate_guard_retry снят: совпавший текст двух разных событий доставляется как написан, без второго LLM-вызова",
+          "observation": "tests/test_rlr_dcs_postprocess.py (merge c8d9866e): test_two_events_same_text_are_two_answers (l1 off/on) — при совпадении нормализованного текста с прошлой репликой бота доставляются два независимых ответа (send_count==2), first == second байт-в-байт, FORBIDDEN_REROLL_STEPS пуст, события DIRECT_FRESHNESS_RETRY нет; test_no_post_l2_llm_step_in_direct_postprocess_source — структурно в постобработке Direct нет шага step=\"duplicate_guard_retry\"; dead API duplicate-reroll удалён из services/response_freshness.py (81406ca3, sync react safety-net 508a3406), наблюдение повторяемости логирует reason-код вместо константы (9d14003e).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Dead duplicate-reroll API удалён из response_freshness",
+          "observation": "Ветка rlr/dcs-postprocess: 81406ca3 удаляет неиспользуемый reroll-API из services/response_freshness.py; evaluate_duplicate остаётся только наблюдением (outcome=skipped, текст не меняется, LLM не вызывается — direct_chat_service:5589-5611).",
+          "type": "static",
+          "artifact_path": "services/response_freshness.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00095",
@@ -2478,7 +3153,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Поведенческое ядро доказано на смежных кандидатах, но строка целиком (связка correlation_id + tg_message_id + durable idempotency + retry-send semantics + send reservations + SendRecheck как один контракт RLR-01-ROUTE) к одному кандидату не привязана: повторная доставка того же update блокируется (tests/test_rlr_dcs_postprocess.py::test_same_event_redelivery_is_blocked — direct_update_dedup_hit, 0 LLM, 0 отправок @ d69f52da; R-08.5/R-08.20 VERIFIED @ 74ce5246), механика retry-send/reservations/SendRecheck отдельно не перепроверялась — остаётся на DoD среза RLR-01-ROUTE."
     },
     {
       "source_id": "L00096",
@@ -2494,7 +3170,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "Лечение повторяемости в L1/контексте/истории принятыми кандидатами не проверялось."
+      "pending_reason": "Часть «не постфактум-редактированием» и законность одинакового ответа доказаны (d69f52da: test_two_events_same_text_are_two_answers — постфактум-редактуры нет, reroll-семейство удалено), но позитивная половина — лечение ПРИЧИНЫ повторяемости в L1/контексте/истории собственных ответов и настройках — принятыми кандидатами отдельно не проверялась."
     },
     {
       "source_id": "L00097",
@@ -2508,9 +3184,23 @@
       "acceptance": "Вместо duplicate guard не появились случайная вставка, jitter-фраза, синонимайзер или отказ отвечать.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "Проверка отсутствия jitter/синонимайзера/отказа вместо duplicate guard — на неслитой части."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Никаких замен duplicate guard: без jitter/синонимайзера/отказа — тот же текст доставлен обоим событиям",
+          "observation": "tests/test_rlr_dcs_postprocess.py (merge c8d9866e): test_two_events_same_text_are_two_answers (l1 off/on) — при совпавшем тексте доставлены оба ответа (bot.send_message.await_count == 2, отказа нет), first == second байт-в-байт (нет ни jitter-фразы, ни синонимайзера, ни случайной вставки: текст идентичен выходу единственного Writer-вызова), llm.steps без reroll-шагов.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00099",
@@ -2601,7 +3291,14 @@
           "observation": "Кандидат 20d19ad0 — текущий HEAD ветки evol/impl: в нём одновременно есть слияние b9bd717b (числовой data-stage фактчека, ветка 93e64dc8) и слияние 20d19ad0 (verbalize, ветка 63085f70). На этом дереве прогнаны tests/test_rlr_verbalize_scope.py (18 passed), tests/test_rlr_factcheck_numeric_stage.py (11 passed), tests/test_rlr_no_second_author.py (11 passed) — 40 passed; файлы тестов идентичны соответствующим веткам.",
           "type": "test",
           "artifact_path": "tests/test_rlr_verbalize_scope.py",
-          "candidate_commit": "20d19ad0"
+          "candidate_commit": "df00f178"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2677,9 +3374,30 @@
       "acceptance": "Точные цитаты, ссылки, числа и авторство не переписываются после Writer; при сборе evidence сохраняются provenance и ссылка на конкретное сообщение/URL.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "Текст свободного пути доставляется как написан (доказано), но пост-Writer numeric/egress в direct-маршруте ещё не снят; provenance evidence-пакета подтверждён отдельно (R-02.2)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Все пост-Writer механизмы в direct-маршруте — наблюдение или технический рендер: текст доходит байт-в-байт, числа/цитаты/ссылки не переписываются",
+          "observation": "tests/test_rlr_dcs_postprocess.py (merge c8d9866e): число в свободной речи и в рассказе «Летописца» доставляется как написано (test_free_form_number_delivered_as_written, test_lore_story_number_delivered_without_guard); код и URL не испорчены единственным проходом формы (test_owner_rules_single_pass_and_protected_spans: `print(1)` и https://example.org/a?b=1 целы); тест-файл tests/test_bgs02_egress_observation.py (e2fdd9d8) — delivered == answer байт-в-байт, неподтверждённое предложение не удаляется; тест-файл tests/test_rlr_verbalize_scope.py (63085f70) — свободный текст доставляется байт-в-байт без пост-Writer петель. Provenance evidence-пакета (ссылка на конкретное сообщение/URL) подтверждён отдельной строкой R-02.2.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Egress-наблюдение не трогает доставляемый текст (цитаты и доказательства остаются)",
+          "observation": "tests/test_bgs02_egress_observation.py: доставка байт-в-байт во всех ветках guard'а; событие несёт только код и место находки, сам текст не удаляется и не перефразируется.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00110",
@@ -2783,6 +3501,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_verbalize_scope.py",
           "candidate_commit": "63085f70"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2798,9 +3523,23 @@
       "acceptance": "При невалидном форматировании Telegram тот же текст сериализуется в plain, без отправки сломанного HTML и без просьбы к LLM переписать.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "Plain-fallback форматирования Telegram в принятых кандидатах не менялся — неслитая часть."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Невалидный HTML → plain тем же текстом, сломанная разметка не отправляется, LLM не перепрашивается",
+          "observation": "tests/test_rlr_dcs_postprocess.py::test_invalid_html_renders_same_text_plain (merge c8d9866e): TelegramBadRequest на parse_mode=HTML → ровно 2 вызова send_message (HTML, затем plain), calls[1][\"text\"] == answer (исходный смысловой payload), parse_mode plain, ни одного LLM-вызова; согласуется с R-08.16 VERIFIED @ 74ce5246 (rich fail → plain, тот же документ).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "d69f52da"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00119",
@@ -2919,6 +3658,13 @@
           "type": "static",
           "artifact_path": "plans/features/remove-legacy-rephrasing/migration-manifest.json",
           "candidate_commit": "d49b10ac"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2949,6 +3695,13 @@
           "type": "static",
           "artifact_path": "services/param_catalog.py",
           "candidate_commit": "d49b10ac"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -2979,6 +3732,13 @@
           "type": "static",
           "artifact_path": "config/settings.py",
           "candidate_commit": "d49b10ac"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ]
     },
@@ -3062,6 +3822,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_observability.py",
           "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "b3303d39"
@@ -3093,6 +3860,13 @@
           "type": "static",
           "artifact_path": "services/turn_trace.py",
           "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "b3303d39"
@@ -3124,6 +3898,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_observability.py",
           "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "b3303d39"
@@ -3155,6 +3936,13 @@
           "type": "static",
           "artifact_path": "services/turn_trace.py",
           "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "b3303d39"
@@ -3186,6 +3974,13 @@
           "type": "static",
           "artifact_path": "services/turn_trace.py",
           "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "b3303d39"
@@ -3217,6 +4012,13 @@
           "type": "static",
           "artifact_path": "services/turn_trace.py",
           "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "b3303d39"
@@ -3248,6 +4050,13 @@
           "type": "static",
           "artifact_path": "services/turn_trace.py",
           "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "b3303d39"
@@ -3272,6 +4081,13 @@
           "type": "test",
           "artifact_path": "tests/test_rlr_observability.py",
           "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "b3303d39"
@@ -3364,6 +4180,13 @@
           "type": "live",
           "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md",
           "candidate_commit": "47e1e2c3"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "47e1e2c3"
@@ -3396,6 +4219,13 @@
           "type": "live",
           "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md",
           "candidate_commit": "47e1e2c3"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "47e1e2c3"
@@ -3428,6 +4258,13 @@
           "type": "live",
           "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md",
           "candidate_commit": "47e1e2c3"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "47e1e2c3"
@@ -3460,6 +4297,13 @@
           "type": "live",
           "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09-live-proof.md",
           "candidate_commit": "47e1e2c3"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "47e1e2c3"
@@ -3492,6 +4336,13 @@
           "artifact_path": "plans/features/remove-legacy-rephrasing/evidence/r09/r09-live-proof.json",
           "artifact_sha256": "26cfe4d4d3fb4ed0476d9eb2743bbd4c0798a7131347792ac9f62e1b0b98886e",
           "candidate_commit": "47e1e2c3"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Исторические построчные доказательства сохранены без изменений; запись привязки ведётся в этой карте.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
         }
       ],
       "candidate_commit": "47e1e2c3"
@@ -3822,7 +4673,7 @@
   "architecture_classification": "ARCH_REUSE_CONFIRMED",
   "architecture_note": "Коррекция — демонтаж существующего поведения, а не новый интерфейс. Опирается на уже существующие контракты: TurnRequest/L1/L2 и ToolEvidence из UNIFIED-REPLY (UR-A/UR-B), services/direct_chat_service.py как единственный владелец финального маршрута, services/negative_constraints.py (verbalize_validated), services/evidence_policy.py (allowed/guard_egress), services/public_speech_guard.py, services/param_catalog.py + services/config_migrations.py для конфиг-миграции, services/mca_trace.py/services/oversight.py + web/api/oversight.py для трассы. Новых общих границ не замораживается: поля трассы §7 аддитивны к существующему payload, migration manifest §6.2 классифицирует существующие ключи. Если Builder обнаружит потребность в новом общем контракте (новый статус ToolEvidence, новая версия схемы трассы, общий валидатор на несколько подсистем) — работа останавливается по этой границе и вопрос уходит Architect; PM контракт не изобретает. Один писатель на services/direct_chat_service.py зафиксирован цепочкой зависимостей графа.",
   "placement": "Волна 1 (параллельно): RLR-01-ROUTE (единственный писатель direct_chat_service.py) и backend-часть RLR-05-ADMIN (param_catalog/config_migrations, UI — после UR-F/PVR). RLR-07-PROOF в это время выполняет только read-only baseline (R-PROC.1). Волна 2: RLR-02-LEGACY. Волна 3: RLR-03-FORMCONTRACT. Волна 4: RLR-04-REROLL. Волна 5: RLR-06-OBSERVABILITY (поля трассы описывают уже финальный маршрут). Волна 6: RLR-07-PROOF (матрица маршрутов, 21 сценарий R-08, реальный LLM). Волна 7: RLR-08-DOD (сверка DoD, конфликтная матрица, релизная проверка).",
-  "merge_state": "Слито и принято Reviewer (по срезам): RLR-02-LEGACY — вся ветка rlr/legacy-writer (0e3f96be, merge b62bc51e): второго автора нет физически, факты инструментов идут до L2, ошибка L2 честная, специализированные пайплайны целы; RLR-03-FORMCONTRACT — свободная часть (rlr/verbalize-scope 63085f70, merge 20d19ad0) и числовой data-stage фактчека (rlr/factcheck-numeric-stage 93e64dc8, merge b9bd717b); RLR-04-REROLL — только свободная часть (reroll-семейства в speech-модуле стали наблюдениями, semantic_rewrite_count измеряется); RLR-05-ADMIN backend-часть — d49b10ac/merge a4593936 (см. ниже, не переоткрывалась). Локальный прогон на рабочем дереве HEAD 20d19ad0: test_rlr_no_second_author.py 11 passed, test_rlr_verbalize_scope.py 18 passed, test_rlr_factcheck_numeric_stage.py 11 passed (итого 40). Остаётся PENDING: прямая часть RLR-04 (apply_numeric_guard/freshness, evidence egress, public_speech_guard, format_retry, deterministic style, duplicate_guard_retry) — не слита; R-03.3 — узкая проверка явных трансформаций не подключена в боевом `_l2_write_answer` (form_contract=None); R-06.1 — одиночный путь 10.21 (kill-switch/fallback фактчека) без числового контракта; R-06.2/R-06.3 — саммари/память/GraphRAG и мем-пайплайн отдельно не доказаны; R-PROC.4 — остатки-потребители (неиспользуемый parse_direct_synthesis, ссылки в tools/er65_prompt_segment_snapshot.py, метаданные param_catalog); UI-часть RLR-05 (R-ADM.1/5/6/7) ждёт волну UR-F/PVR и RLR-06. R-FAIL.4 привязан к кандидату verbalize-ветки 63085f70, поэтому в прогоне среза RLR-02 с кандидатом 0e3f96be он выглядит не имеющим привязки к этому кандидату — это граница кандидата, а не отсутствие доказательства. RLR-05-ADMIN (backend-часть, без изменений): манифест миграции, классы, скрытие removed/deprecated_compat из редактируемого каталога при сохранённой читаемости, отключение SYSTEM2_DIRECT_ENABLED при любом сыром значении и честные подписи реализованы в d49b10ac, приняты Reviewer (Approved) и слиты мёржом a4593936; после слияния tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed. Доказаны R-ADM.2, R-ADM.3, R-ADM.4 и сохранность PVR-истории/версий (R-CONF.11). Дополнительно слито и принято Reviewer: RLR-03.3 — ветка rlr/explicit-transform (c39e371d, merge 15e8bcc3): боевой путь `_l2_write_answer` строит узкий контракт из функционального поля плана L1 `preserve_source_facts` и поданного исходника (`_explicit_transform_contract`), проверка отрицаний скриптовая (`_has_cyrillic`), канон EVR5 описывает поле; свободный ход по-прежнему без контракта. Остаточный риск: сигнал зависит от того, выставит ли модель поле в плане L1 — это проверяется живой проверкой R-09 (строки R-09.1–R-09.4 остаются PENDING). R-08.14 — ветка 673677a1 (merge 8eb6893b): продолжение того же ответа на `finish_reason=length` через services/l2_continuation.py, без второго авторского варианта и без публикации обрезка. RLR-07-PROOF (частично) — ветка rlr/proof-tests (74ce5246, merge 9885b4b5): доказаны R-08.20 (durable-маркер, нет повторной отправки после рестарта) и восемь строк §8 (R-08.5/6/7/8/9/16/18/19); R-08.21 как сводная строка остаётся PENDING — покрыты восемь строк из 21. Прогон на текущем HEAD 8eb6893b: test_rlr_explicit_transform.py 12 passed, test_rlr_length_continuation.py 17 passed, test_rlr_negative_matrix.py 25 passed, test_rlr_proof_restart.py 4 passed. RLR-07-PROOF (остаток §8) — ветка rlr/acceptance-rows (5d8dac73, merge 01bb89ee): приняты Reviewer (Approved) и привязаны как VERIFIED строки R-08.1, R-08.2, R-08.3, R-08.4, R-08.10, R-08.12, R-08.13, R-08.15, R-08.17 (tests/test_rlr_acceptance_rows.py, 16 passed на дереве 01bb89ee); доказательство построено на реальных швах DirectChatService.handle/_l2_write_answer/handle_initiative/run_adaptive_chain/LLMClient fallback/chunking, мокаются только I/O-края, а состояние feature-gates проверяется ассертом. Итого по §8 подтверждено 19 строк из 21; R-08.21 остаётся PENDING и пересчитана под фактическое покрытие, R-08.11 и R-08.CFG остаются PENDING. НЕБЛОКИРУЮЩАЯ находка Reviewer по R-08.13: при bounded stop без единого evidence причина остановки (orchestrator_invalid_output/stop_reason) остаётся в ChainResult/chain_meta и не попадает в payload Writer'а, то есть модель не знает, почему цепочка встала; это отдельная follow-up задача (передать причину в Writer), она не отменяет доказанное отсутствие второго текстового писателя и не блокирует строку R-08.13.",
+  "merge_state": "Слито и принято Reviewer (по срезам): RLR-02-LEGACY — вся ветка rlr/legacy-writer (0e3f96be, merge b62bc51e): второго автора нет физически, факты инструментов идут до L2, ошибка L2 честная, специализированные пайплайны целы; RLR-03-FORMCONTRACT — свободная часть (rlr/verbalize-scope 63085f70, merge 20d19ad0) и числовой data-stage фактчека (rlr/factcheck-numeric-stage 93e64dc8, merge b9bd717b); RLR-04-REROLL — свободная часть (verbalize) плюс прямая часть direct-маршрута: rlr/dcs-postprocess (d69f52da, merge c8d9866e) — apply_numeric_guard снят со ВСЕХ путей доставки (числа и рассказ «Летописца» — только наблюдение numeric_claim_guard outcome=skipped), duplicate_guard_retry удалён (включая dead reroll-API response_freshness), формат/HTML-fallback/style_policy — технические проходы тем же текстом; egress-guard — observation-only (BGS-02, ветка e2fdd9d8, merge b0bb2310); public_speech_guard — BGS-03 исполнен и VERIFIED в карте behavior-gates-simplification (2618cb1e, перепроверен в da6299e9); tests/test_rlr_dcs_postprocess.py — 17 тестов, привязка строк на d69f52da/93e64dc8/63085f70/e2fdd9d8/2618cb1e. Локальный прогон на рабочем дереве HEAD 20d19ad0: test_rlr_no_second_author.py 11 passed, test_rlr_verbalize_scope.py 18 passed, test_rlr_factcheck_numeric_stage.py 11 passed (итого 40). Остаётся PENDING: R-05.2 — сводный контракт идемпотентности доставки (RLR-01-ROUTE; ядро доказано @ 74ce5246/d69f52da, строка целиком не привязана) и R-05.3 — позитивное лечение повторяемости в L1/контексте; R-EXC.NET — транспортный retry/fallback того же LLM-вызова; R-06.1 — одиночный путь 10.21 (kill-switch/fallback фактчека) без числового контракта; R-06.2/R-06.3 — саммари/память/GraphRAG и мем-пайплайн отдельно не доказаны; R-PROC.4 — остатки-потребители (неиспользуемый parse_direct_synthesis, ссылки в tools/er65_prompt_segment_snapshot.py, метаданные param_catalog); UI-часть RLR-05 (R-ADM.1/5/6/7) ждёт волну UR-F/PVR и RLR-06; сводный остаток DoD — R-CONF.2/6/7/8, R-DEF.*, R-OPS.IDEM, R-BND.3/R-BND.12/R-BND.13, R-07.1/R-07.2, R-08.21/R-08.CFG (route-matrix обновлена на HEAD 9ca6bb07 в зонах 19/31: Q3/Q6 решены слияниями 8eb6893b и 15e8bcc3). R-FAIL.4 привязан к кандидату verbalize-ветки 63085f70, поэтому в прогоне среза RLR-02 с кандидатом 0e3f96be он выглядит не имеющим привязки к этому кандидату — это граница кандидата, а не отсутствие доказательства. RLR-05-ADMIN (backend-часть, без изменений): манифест миграции, классы, скрытие removed/deprecated_compat из редактируемого каталога при сохранённой читаемости, отключение SYSTEM2_DIRECT_ENABLED при любом сыром значении и честные подписи реализованы в d49b10ac, приняты Reviewer (Approved) и слиты мёржом a4593936; после слияния tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed. Доказаны R-ADM.2, R-ADM.3, R-ADM.4 и сохранность PVR-истории/версий (R-CONF.11). Дополнительно слито и принято Reviewer: RLR-03.3 — ветка rlr/explicit-transform (c39e371d, merge 15e8bcc3): боевой путь `_l2_write_answer` строит узкий контракт из функционального поля плана L1 `preserve_source_facts` и поданного исходника (`_explicit_transform_contract`), проверка отрицаний скриптовая (`_has_cyrillic`), канон EVR5 описывает поле; свободный ход по-прежнему без контракта. Остаточный риск: сигнал зависит от того, выставит ли модель поле в плане L1 — это проверяется живой проверкой R-09 (строки R-09.1–R-09.4 остаются PENDING). R-08.14 — ветка 673677a1 (merge 8eb6893b): продолжение того же ответа на `finish_reason=length` через services/l2_continuation.py, без второго авторского варианта и без публикации обрезка. RLR-07-PROOF (частично) — ветка rlr/proof-tests (74ce5246, merge 9885b4b5): доказаны R-08.20 (durable-маркер, нет повторной отправки после рестарта) и восемь строк §8 (R-08.5/6/7/8/9/16/18/19); R-08.21 как сводная строка остаётся PENDING — покрыты восемь строк из 21. Прогон на текущем HEAD 8eb6893b: test_rlr_explicit_transform.py 12 passed, test_rlr_length_continuation.py 17 passed, test_rlr_negative_matrix.py 25 passed, test_rlr_proof_restart.py 4 passed. RLR-07-PROOF (остаток §8) — ветка rlr/acceptance-rows (5d8dac73, merge 01bb89ee): приняты Reviewer (Approved) и привязаны как VERIFIED строки R-08.1, R-08.2, R-08.3, R-08.4, R-08.10, R-08.12, R-08.13, R-08.15, R-08.17 (tests/test_rlr_acceptance_rows.py, 16 passed на дереве 01bb89ee); доказательство построено на реальных швах DirectChatService.handle/_l2_write_answer/handle_initiative/run_adaptive_chain/LLMClient fallback/chunking, мокаются только I/O-края, а состояние feature-gates проверяется ассертом. Итого по §8 подтверждено 19 строк из 21; R-08.21 остаётся PENDING и пересчитана под фактическое покрытие, R-08.11 и R-08.CFG остаются PENDING. НЕБЛОКИРУЮЩАЯ находка Reviewer по R-08.13: при bounded stop без единого evidence причина остановки (orchestrator_invalid_output/stop_reason) остаётся в ChainResult/chain_meta и не попадает в payload Writer'а, то есть модель не знает, почему цепочка встала; это отдельная follow-up задача (передать причину в Writer), она не отменяет доказанное отсутствие второго текстового писателя и не блокирует строку R-08.13.",
   "blocked_by_upstream": [
     "unified-reply:UR-B/UR-D/UR-E — незавершённые лейны делят services/direct_chat_service.py и services/direct_execution.py; интеграция в одно безопасное окно (§9.3), второй владелец файла запрещён.",
     "unified-reply:UR-F / PVR UI — UI-часть RLR-05-ADMIN (web/app.js, web/index.html) выполняется после их слияния; backend-часть не блокируется.",
