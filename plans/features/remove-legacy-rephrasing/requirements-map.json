@@ -820,8 +820,24 @@
       "acceptance": "Для каждого логического хода по `correlation_id` в существующем tracing/oversight (с доступом по правам) собраны доступные поля трассы; новая БД сырых переписок не создаётся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Трасса одного хода собирается по correlation_id в существующем журнале событий",
+          "observation": "test_normal_turn_traces_stages_and_digests_match (параметризован composer=False/True): после реального handle() события context/writer/delivery лежат на одном trace_id, correlation_id непустой; _turn() отбирает ход именно по trace_id. test_no_chat_text_in_trace_payloads подтверждает, что в событиях только digest/коды/числа и каждый payload укладывается в лимит usage_json. Локальный прогон tests/test_rlr_observability.py на рабочем дереве HEAD 71c3d95a (слияние среза) — 6 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Новой БД сырых переписок нет: эмиссия идёт существующей точкой mca_events",
+          "observation": "Модуль эмитит ровно три события (EVENT_CONTEXT/EVENT_WRITER/EVENT_DELIVERY) через services.mca_events.emit_mca_event и не заводит собственного хранилища; сырьё остаётся в mca_bot_outputs.",
+          "type": "static",
+          "artifact_path": "services/turn_trace.py",
+          "candidate_commit": "b3303d39"
+        }
+      ],
+      "candidate_commit": "b3303d39"
     },
     {
       "source_id": "MAN-L00182",
@@ -835,8 +851,24 @@
       "acceptance": "Скрытые `retry` или `return draft` после неудачной проверки не считаются обычным успехом; для приватности достаточно digest/метаданных и доступа к существующему Inspector, журнал `mca_bot_outputs` не очищается и не отключается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Незавершённый ответ — честный отказ, а не обычный успех; текста отказа в трассе нет",
+          "observation": "test_unfinished_answer_is_not_a_normal_success: при невозможности продолжения событие writer имеет outcome='failed', completion.refused=True, refused_reason='unfinished_answer', text_source='none'; вместо текста только raw_final_digest (равен text_digest отправленной фразы) и chars, ключа 'text' нет; delivery.outcome != 'success'; уникальная фраза отказа и её 12-символьный префикс отсутствуют во ВСЕЙ JSON-трассе хода; bot.send_message не вызывался ни разу (обрезок не опубликован). Локальный прогон tests/test_rlr_observability.py на рабочем дереве HEAD 71c3d95a (слияние среза) — 6 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Отказ L2 не копирует текст ни в каком виде, журнал mca_bot_outputs не тронут",
+          "observation": "note_l2_refusal() принимает явные параметры (reason/stop_reason/continuation_calls/finish_reason/text) и пишет только raw_final_digest (blake2s) и chars — «срезов до N символов» нет; произвольные поля вызывающего не переносятся. Срез b3303d39 меняет только services/turn_trace.py и tests/test_rlr_observability.py, журнал mca_bot_outputs не очищается и не отключается.",
+          "type": "static",
+          "artifact_path": "services/turn_trace.py",
+          "candidate_commit": "b3303d39"
+        }
+      ],
+      "candidate_commit": "b3303d39"
     },
     {
       "source_id": "MAN-L00188",
@@ -3012,8 +3044,17 @@
       "acceptance": "Трасса содержит trigger (`direct|initiative|factcheck|...`), source message/author, active chat, ChatClock/version.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Контекст хода: trigger, сообщение/автор, чат, ChatClock, версия L1",
+          "observation": "test_normal_turn_traces_stages_and_digests_match проверяет payload direct_turn_context: flow='direct', trigger='force_keyword' (реальное значение матрицы, не литерал), chat_id, source_message_id=4242, непустой clock (ChatClock хода) и l1.action='reply'. Локальный прогон tests/test_rlr_observability.py на рабочем дереве HEAD 71c3d95a (слияние среза) — 6 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "b3303d39"
+        }
+      ],
+      "candidate_commit": "b3303d39"
     },
     {
       "source_id": "L00174",
@@ -3027,8 +3068,24 @@
       "acceptance": "Трасса содержит L1 action/plan ID, tool invocations, их источники, ошибки и coverage.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Вызовы инструментов и coverage пишутся в трассу без текстов и URL",
+          "observation": "note_tools() наполняет trace.tools через _tool_entry (tool, round, status, error-код, out_chars, truncated, attempt, refs — число источников) и trace.coverage (sources, delivered, capacity_chars, delivered_chars, limits, required_claims, evidence_class, required); вызывается из services/direct_chat_service.py (ветка tool-loop). Источники/ошибки берутся из существующего envelope-журнала ToolLoopResult.tool_results (MCA-11).",
+          "type": "static",
+          "artifact_path": "services/turn_trace.py",
+          "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "L1 action/plan и число tool-раундов видны в той же трассе",
+          "observation": "note_l1() фиксирует action/response_act плана, note_tools() — tool_rounds и классификацию CALL_TOOL; контекстное событие с l1.action проверено тестом на b3303d39 (см. R-OBS.1).",
+          "type": "static",
+          "artifact_path": "services/turn_trace.py",
+          "candidate_commit": "b3303d39"
+        }
+      ],
+      "candidate_commit": "b3303d39"
     },
     {
       "source_id": "L00175",
@@ -3042,8 +3099,24 @@
       "acceptance": "Трасса содержит L2 request manifest: контекстные блоки, ревизии owner prompts, fallback provider/model — без обязательного хранения полного приватного payload в открытом логе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Манифест запроса L2: блоки и ревизии owner-промптов на обоих путях композера",
+          "observation": "test_normal_turn_traces_stages_and_digests_match: writer['manifest']['composer'] равен фактическому режиму, blocks непуст (у каждого 'block' и 'rendered'), revisions непусты, writer='l2_writer'; request несёт model, provider и fallback_model. Манифест обязан быть непустым и на пути без композера (composer=False). Локальный прогон tests/test_rlr_observability.py на рабочем дереве HEAD 71c3d95a (слияние среза) — 6 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Полный приватный payload в открытый лог не пишется",
+          "observation": "test_no_chat_text_in_trace_payloads: ни вопрос чата (SECRET_QUERY), ни авторский текст (SECRET_ANSWER) не встречаются в JSON всей трассы хода, при этом digest'ы на месте. Локальный прогон tests/test_rlr_observability.py на рабочем дереве HEAD 71c3d95a (слияние среза) — 6 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "b3303d39"
+        }
+      ],
+      "candidate_commit": "b3303d39"
     },
     {
       "source_id": "L00176",
@@ -3057,8 +3130,24 @@
       "acceptance": "Трасса содержит L2 completion: `finish_reason`, завершённость, length/usage и устойчивый digest raw final.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Завершение L2: finish_reason, завершённость, usage и digest raw final",
+          "observation": "test_normal_turn_traces_stages_and_digests_match: completion.finish_reason='stop', completed=True, text_source='author', непустой raw_final_digest, usage.total_tokens=18, model фактического автора из метаданных UR-18. test_continuation_is_classified_not_a_rewrite: при finish_reason='length' continuation_calls=1 и completed=True. Локальный прогон tests/test_rlr_observability.py на рабочем дереве HEAD 71c3d95a (слияние среза) — 6 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Все поля завершения — явный список, без произвольных полей вызывающего",
+          "observation": "note_l2_completion() пишет фиксированный набор (finish_reason/finish_reason_raw/completed/is_truncated/attempt/fallback_used/provider/model/usage/max_output_tokens_sent/chars/raw_final_digest/continuation_*); находки проверок попадают в completion['checks'] только при реальном срабатывании.",
+          "type": "static",
+          "artifact_path": "services/turn_trace.py",
+          "candidate_commit": "b3303d39"
+        }
+      ],
+      "candidate_commit": "b3303d39"
     },
     {
       "source_id": "L00177",
@@ -3072,8 +3161,24 @@
       "acceptance": "Трасса содержит упорядоченный список доставочных операций (`reasoning_marker_strip`, `HTML_escape`, `owner_style_punctuation`, `Telegram_chunk` и т.п.) и итоговый digest.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Упорядоченный список доставочных операций и итоговый digest",
+          "observation": "test_normal_turn_traces_stages_and_digests_match: ops содержит OP_PLAIN и OP_EGRESS_SANITIZE, последняя операция — OP_CHUNK (telegram_chunk), delivered_digest совпадает с raw_final_digest при неизменённом тексте. test_reasoning_marker_strip_names_the_exact_cause: изменившая текст операция ровно одна и названа reasoning_marker_strip. Локальный прогон tests/test_rlr_observability.py на рабочем дереве HEAD 71c3d95a (слияние среза) — 6 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Имена операций — фиксированный словарь, а не свободные подписи",
+          "observation": "OP_NAMES/OP_* задают точные имена (l2_scrubber, reasoning_marker_strip, machine_marker_strip, lore_story_override, evidence_egress_guard, owner_style_punctuation, rich_render, html_escape, plain_render, egress_sanitize, telegram_chunk); note_op() пишет digest после каждой операции.",
+          "type": "static",
+          "artifact_path": "services/turn_trace.py",
+          "candidate_commit": "b3303d39"
+        }
+      ],
+      "candidate_commit": "b3303d39"
     },
     {
       "source_id": "L00178",
@@ -3087,8 +3192,24 @@
       "acceptance": "Трасса содержит `semantic_rewrite_count=0` для обычного ответа и классификацию LLM-вызовов planning/tool/final/continuation/provider_retry, без сваливания всего в «stage2».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "semantic_rewrite_count=0 — измерение, а не литерал; LLM-вызовы классифицированы",
+          "observation": "test_normal_turn_traces_stages_and_digests_match: writer['semantic_rewrite_count']==0 при llm_calls['planning']==1 и llm_calls['final']==1, ровно один шаг l2_writer; test_continuation_is_classified_not_a_rewrite: второй вызов провайдера учтён как continuation (llm_calls['continuation']==1, шаг l2_continuation), semantic_rewrite_count остаётся 0. Классы берутся из счётчиков хода, «всё под stage2» не сваливается. Локальный прогон tests/test_rlr_observability.py на рабочем дереве HEAD 71c3d95a (слияние среза) — 6 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Классификатор вызовов: planning/tool/final/continuation/provider_retry",
+          "observation": "note_llm_call() принимает CALL_PLANNING/CALL_TOOL/CALL_FINAL/CALL_CONTINUATION/CALL_PROVIDER_RETRY; retry считается как (attempt-1)+len(fallback_chain), а не как новый автор.",
+          "type": "static",
+          "artifact_path": "services/turn_trace.py",
+          "candidate_commit": "b3303d39"
+        }
+      ],
+      "candidate_commit": "b3303d39"
     },
     {
       "source_id": "L00179",
@@ -3102,8 +3223,24 @@
       "acceptance": "Трасса содержит delivery outcome, исходный идемпотентный ключ и фактические Telegram IDs.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Итог доставки: outcome, исходный идемпотентный ключ, реальные Telegram ID",
+          "observation": "test_normal_turn_traces_stages_and_digests_match: delivery.outcome='success', tg_message_ids==[999], idempotency_key события доставки совпадает с ключом контекста хода (direct:<chat>:4242:...). Локальный прогон tests/test_rlr_observability.py на рабочем дереве HEAD 71c3d95a (слияние среза) — 6 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "b3303d39"
+        },
+        {
+          "ref": "Ключ идемпотентности строится детерминированно из чата/сообщения/ревизии",
+          "observation": "idempotency_key() формируется из chat_id, tg_message_id и revision; note_delivery() фиксирует outcome, tg_message_ids и ключ, не сохраняя текст.",
+          "type": "static",
+          "artifact_path": "services/turn_trace.py",
+          "candidate_commit": "b3303d39"
+        }
+      ],
+      "candidate_commit": "b3303d39"
     },
     {
       "source_id": "L00180",
@@ -3117,8 +3254,17 @@
       "acceptance": "При расхождении raw_final ↔ delivered трасса фиксирует точную разрешённую причину без нового LLM-судьи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Расхождение raw_final ↔ delivered называет точную разрешённую причину",
+          "observation": "test_reasoning_marker_strip_names_the_exact_cause: digest_match=False, divergence_reason ровно OP_REASONING_STRIP, список изменивших текст операций == [reasoning_marker_strip]; в обычном ходе divergence_reason пуст и digest_match=True, то есть причина не выдумывается. Нового LLM-судьи в трассе нет — причина это имя операции. Локальный прогон tests/test_rlr_observability.py на рабочем дереве HEAD 71c3d95a (слияние среза) — 6 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "b3303d39"
+        }
+      ],
+      "candidate_commit": "b3303d39"
     },
     {
       "source_id": "L00184",
@@ -3526,7 +3672,7 @@
       "evidence": []
     }
   ],
-  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл); для стабильных отчётов добавляется artifact_sha256. Плановые строки остаются PENDING с пустым evidence и candidate_commit=\"\" до появления реального кандидата. Зелёные тесты без утверждения о наблюдаемом поведении, устное заверение и внешний документ доказательством не считаются (R-09.5). Привязка среза RLR-05-ADMIN: строки R-ADM.2/R-ADM.3/R-ADM.4/R-CONF.11 привязаны к d49b10ac с указанием реальных путей; artifact_sha256 намеренно не проставлялся, потому что манифест и каталог правятся следующими волнами (UI UR-F/PVR) и хеш-привязка дала бы ложно-красные проверки; стабильность подтверждается прогоном 61 passed после слияния a4593936. Привязка срезов RLR-02/RLR-03/RLR-04: строки привязаны к тому кандидату, который реально доказал поведение (0e3f96be — legacy-ветка, 63085f70 — verbalize-ветка, 93e64dc8 — числовой data-stage фактчека, d49b10ac — принятая backend-часть RLR-05), по одному-двум свидетельствам на строку; artifact_sha256 не проставлялся, пока прямая часть RLR-04 и UI-волна правят те же модули, — стабильность подтверждается прогоном 40 passed на HEAD 20d19ad0. Привязка срезов RLR-03.3 и RLR-07-PROOF (proof-часть): R-03.3 привязан к ветке c39e371d (merge 15e8bcc3), R-08.14 — к 673677a1 (merge 8eb6893b), восемь строк §8 и R-08.20 — к 74ce5246 (merge 9885b4b5); у каждой строки дополнительно есть сквозная запись, привязанная к текущему HEAD 8eb6893b, с фактическим прогоном на этом дереве (12 / 17 / 25 / 4 passed). artifact_sha256 не проставлялся: те же файлы правятся следующими волнами RLR-07. Привязка остатка §8 (RLR-07-PROOF, кандидат 5d8dac73): девять строк R-08.1/2/3/4/10/12/13/15/17 привязаны к тестовому файлу tests/test_rlr_acceptance_rows.py с указанием наблюдаемого поведения по именам тестов; у каждой строки есть вторая запись, привязанная к текущему HEAD 01bb89ee (слияние среза и прогон 16 passed на этом дереве). artifact_sha256 намеренно не проставлялся: файл принадлежит ещё не закрытому срезу RLR-07 (R-08.11, R-08.CFG), хеш дал бы ложно-красные проверки при его расширении.",
+  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл); для стабильных отчётов добавляется artifact_sha256. Плановые строки остаются PENDING с пустым evidence и candidate_commit=\"\" до появления реального кандидата. Зелёные тесты без утверждения о наблюдаемом поведении, устное заверение и внешний документ доказательством не считаются (R-09.5). Привязка среза RLR-05-ADMIN: строки R-ADM.2/R-ADM.3/R-ADM.4/R-CONF.11 привязаны к d49b10ac с указанием реальных путей; artifact_sha256 намеренно не проставлялся, потому что манифест и каталог правятся следующими волнами (UI UR-F/PVR) и хеш-привязка дала бы ложно-красные проверки; стабильность подтверждается прогоном 61 passed после слияния a4593936. Привязка срезов RLR-02/RLR-03/RLR-04: строки привязаны к тому кандидату, который реально доказал поведение (0e3f96be — legacy-ветка, 63085f70 — verbalize-ветка, 93e64dc8 — числовой data-stage фактчека, d49b10ac — принятая backend-часть RLR-05), по одному-двум свидетельствам на строку; artifact_sha256 не проставлялся, пока прямая часть RLR-04 и UI-волна правят те же модули, — стабильность подтверждается прогоном 40 passed на HEAD 20d19ad0. Привязка срезов RLR-03.3 и RLR-07-PROOF (proof-часть): R-03.3 привязан к ветке c39e371d (merge 15e8bcc3), R-08.14 — к 673677a1 (merge 8eb6893b), восемь строк §8 и R-08.20 — к 74ce5246 (merge 9885b4b5); у каждой строки дополнительно есть сквозная запись, привязанная к текущему HEAD 8eb6893b, с фактическим прогоном на этом дереве (12 / 17 / 25 / 4 passed). artifact_sha256 не проставлялся: те же файлы правятся следующими волнами RLR-07. Привязка остатка §8 (RLR-07-PROOF, кандидат 5d8dac73): девять строк R-08.1/2/3/4/10/12/13/15/17 привязаны к тестовому файлу tests/test_rlr_acceptance_rows.py с указанием наблюдаемого поведения по именам тестов; у каждой строки есть вторая запись, привязанная к текущему HEAD 01bb89ee (слияние среза и прогон 16 passed на этом дереве). artifact_sha256 намеренно не проставлялся: файл принадлежит ещё не закрытому срезу RLR-07 (R-08.11, R-08.CFG), хеш дал бы ложно-красные проверки при его расширении. Привязка среза RLR-06-OBSERVABILITY (кандидат b3303d39, merge 71c3d95a): десять строк R-OBS.0-R-OBS.9 привязаны к tests/test_rlr_observability.py (6 passed на слитом дереве) и к services/turn_trace.py как к модулю-источнику полей трассы; artifact_sha256 не проставлялся, пока идут соседние волны RLR-07/RLR-08, работающие с теми же модулями. Отказ L2 проверен на отсутствие текста во всей трассе хода, а не только в событии доставки; журнал mca_bot_outputs не тронут.",
   "live_policy_note": "PET_PROJECT: деплой и прод-проверка разрешены после независимого ревью без отдельного согласования владельца. На этапе планирования live_required=false у всех строк: обязательные проверки исполняются агентом локально/на стенде, а post-deploy проверка (R-PROC.5, R-DOD.9) добавляется как live/production evidence на release-стадии по фактическому кандидату. Ручное участие владельца гейтом не является.",
   "supersedes_in_other_maps": [
     {
