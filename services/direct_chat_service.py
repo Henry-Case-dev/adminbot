@@ -13173,8 +13173,8 @@ class DirectChatService:
         _init_speech = SpeechProjection(run_id=str(correlation_id or ""))
         # ── UR-04/UR-10.3 (UNIFIED-REPLY): диалог для Writer'а отбирает
         # ОБЩИЙ ContextSelection (коллектор окна + единый аллокатор по слоту
-        # `initiative.l2`, UR-C), а не ручная нарезка
-        # `render_window_lines(window, 12)`: свежие соседи — P1, остальное
+        # `initiative.l2`, UR-C), а не ручная нарезка окна по числу строк:
+        # свежие соседи — P1, остальное
         # окно — фон P3, лишнее снимает аллокатор по реальному бюджету
         # модели. Рендер строк с метками — ТОТ ЖЕ общий рендерер (один
         # владелец формата, EVOL v5); selection решает, ЧТО видно, окно —
@@ -13430,9 +13430,10 @@ class DirectChatService:
                 time_line=_cclock.render_chat_time_context(
                     _init_answer_snap, phase=_cclock.PHASE_ANSWER),
                 evidence=_initiative_evidence,
-                # UR-04/UR-19.1: инициативный max_tokens=700 удалён — Writer
-                # вычисляет физически допустимый output из реального ресурса
-                # модели и размера входа (общий путь с Direct, один код).
+                # UR-04/UR-19.1: инициативный фиксированный токен-лимит 700
+                # удалён — Writer вычисляет физически допустимый output из
+                # реального ресурса модели и размера входа (общий путь с
+                # Direct, один код).
                 writer="initiative_writer",
                 speech=_init_speech)
             # BGS-02: то же наблюдение, что в Direct (единый postprocess):
