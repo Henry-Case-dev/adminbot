@@ -141,6 +141,30 @@ async def record_delivered_output(
         return None
 
 
+async def record_factcheck_output(
+        db, *, chat_id: int, tg_message_id: int | None, text: str | None,
+        bot_user_id: int | None = None, parent_message_ref: str | None = None,
+        correlation_id: str | None = None) -> int | None:
+    """UR-23.4: доставленный фактчек-ответ — в ТОТ ЖЕ durable ledger
+    (`mca_bot_outputs`), что и другие прямые ответы (MCA-22 C2).
+
+    Раньше factcheck-доставка шла через общий `send_chunked_reply` без
+    записи — ответы фактчека были невидимы для «бот помнит свои ответы»
+    (UR-23) и duplicate/observability-логики. Форма записи — как у direct:
+    correlation_id, chat, точный доставленный текст + content_hash digest,
+    tg_message_id, parent_message_ref. Маркер ветки —
+    `source_feature='factcheck'`. Таксономия закрытого набора НЕ
+    расширяется: вердикт с секциями/ссылками — `rich_message` (прецедент
+    summary-статей/чанков). Вызывается ТОЛЬКО после подтверждённой
+    отправки (недоставленный вердикт не пишется); fail-open как базовая
+    запись; verdict/content pipeline фактчека не затрагивается."""
+    return await record_delivered_output(
+        db, chat_id=chat_id, tg_message_id=tg_message_id, text=text,
+        bot_user_id=bot_user_id, output_kind="rich_message",
+        parent_message_ref=parent_message_ref, correlation_id=correlation_id,
+        source_feature="factcheck")
+
+
 async def resolve_bot_output_by_tg(db, chat_id: int,
                                    tg_message_id: int) -> dict | None:
     """Ledger-строка по `(chat_id, tg_message_id)` (quote-priority 5, §5).

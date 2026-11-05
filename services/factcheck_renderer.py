@@ -609,22 +609,30 @@ def split_entity_safe(text: str, limit: int = _CHUNK_LIMIT) -> list[str]:
 
 async def deliver_factcheck(bot, chat_id: int,
                             presentation: FactcheckPresentation, *,
-                            reply_to_message_id: int | None = None) -> None:
+                            reply_to_message_id: int | None = None
+                            ) -> int | None:
     """Доставка презентации: СУЩЕСТВУЮЩИЙ ``send_chunked_reply`` (общая
     функция НЕ меняется). С HTML — pre-split entity-safe чанков, reply
     только у первой части; TelegramBadRequest парсинга → деградирует
-    ТОЛЬКО сломанный чанк (в plain), остальные идут как есть."""
+    ТОЛЬКО сломанный чанк (в plain), остальные идут как есть.
+
+    UR-23.4: возвращает message_id ПЕРВОЙ фактически доставленной части
+    (или None — не доставлено ничего) — для durable ledger по реальному id.
+    Сама доставка байт-в-байт прежняя."""
     if not presentation.parse_mode:
-        await send_chunked_reply(bot, chat_id, presentation.text,
-                                 reply_to_message_id)
-        return
+        return await send_chunked_reply(bot, chat_id, presentation.text,
+                                        reply_to_message_id)
     rid = reply_to_message_id
+    first_id: int | None = None
     for chunk in split_entity_safe(presentation.text, _CHUNK_LIMIT):
         try:
-            await send_chunked_reply(bot, chat_id, chunk, rid,
-                                     parse_mode=presentation.parse_mode)
+            part_id = await send_chunked_reply(bot, chat_id, chunk, rid,
+                                               parse_mode=presentation.parse_mode)
         except TelegramBadRequest:
             logger.warning("[factcheck_v2] HTML chunk failed — plain "
                            "degradation | chat=%s", chat_id, exc_info=True)
-            await send_chunked_reply(bot, chat_id, visible_text(chunk), rid)
+            part_id = await send_chunked_reply(bot, chat_id, visible_text(chunk), rid)
+        if first_id is None:
+            first_id = part_id
         rid = None
+    return first_id
