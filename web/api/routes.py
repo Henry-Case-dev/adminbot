@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import time
+import zoneinfo
 from typing import Any, Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -19,7 +20,7 @@ from aiogram.utils.web_app import WebAppUser
 
 from config.settings import settings
 from services import access as access_srv
-from services import bot_persona, chat_keys, chat_params, chat_usage, param_catalog
+from services import bot_persona, chat_clock, chat_keys, chat_params, chat_usage, param_catalog
 from services import hot_config as hot
 from services import roles as roles_srv
 from services.config_cache import (
@@ -39,13 +40,16 @@ from services.param_catalog import (
     CATEGORIES,
     CATEGORY_CONTENT,
     CATEGORY_KEYS,
+    CATEGORY_LIMITS,
     CATEGORY_PROMPTS,
     GROUPS,
+    effective_meta,
     get_by_pg_key,
     group_order,
     known_param_keys,
     known_secret_keys,
     known_sections,
+    provider_ignores_temperature,
     resolve_progressive_level,
     validate_value_rule,
 )
@@ -549,10 +553,36 @@ async def get_config(
             value = _ensure_keyvalue_object(value, pg_key=key)
             if chat_id is not None and global_value is not None:
                 global_value = _ensure_keyvalue_object(global_value, pg_key=key)
+        # ── UR-F (UR-22.1/UR-21.24/BGS-06.5): эффективная применимость ──
+        # source — 3 честных состояния: chat (per-chat override) / global
+        # (явная строка в bot_settings) / default (код-дефолт, строки нет).
+        # Дискриминатор global vs default — updated_at из PG (None = строки
+        # нет, значение синтетическое из каталога). UI не угадывает.
+        if chat_source == "chat":
+            eff_source = "chat"
+        elif cache.get_updated_at(key) is not None:
+            eff_source = "global"
+        else:
+            eff_source = "default"
+        eff = effective_meta(key)
+        # UR-21.23: честная пометка «провайдер игнорирует температуру» —
+        # для группы limits_temperature по фактической модели ответов.
+        if (spec is not None and spec.group == "limits_temperature"
+                and not eff["reason_inactive"]
+                and provider_ignores_temperature(_primary_model_name())):
+            eff["reason_inactive"] = (
+                "Текущая модель ответов относится к reasoning-семейству: "
+                "провайдер принимает, но игнорирует temperature — режим "
+                "«Свобода формулировок» на неё не влияет.")
+            eff["status"] = "inactive"
         items.append({"key": key, "value": value, "category": category,
                       "secret": secret,
                       "chat_source": chat_source,
                       "global_value": global_value,
+                      # UR-22.1: эффективное значение + источник + мета.
+                      "effective_value": value,
+                      "source": eff_source,
+                      "eff": eff,
                       "title": spec.title_ru if spec else key,
                       "type": spec.type if spec else "str",
                       # F7: updated_at из PG; in-memory/деградация — null
@@ -876,6 +906,248 @@ async def get_params_meta(
     return {"items": items}
 
 
+# ── UR-F (UR-24.2/UR-29.1/UR-29.2): единая поверхность «Модули → Время» ─────
+# Канонический ключ limits.chat_timezone скрыт из общего каталога
+# (param_catalog._UR_F_WITHOUT_RUNTIME_READER); его чтение/запись живёт
+# ЗДЕСЬ: полный справочник IANA-зон, эффективное значение + источник,
+# серверные часы (не браузерные), сохранение с валидацией и возвратом
+# validated effective + now_local, сброс override = «наследование».
+
+#: Канонический ключ пояса (зеркало services.chat_clock.CANON_TZ_KEY).
+_CANON_TZ_PG_KEY = "limits.chat_timezone"
+
+
+def _primary_model_name() -> str:
+    """Имя текущей основной модели ответов (hot → settings-дефолт).
+
+    Нужно для честной пометки UR-21.23 (провайдер игнорирует temperature).
+    Fail-open: пустая строка → пометка не рисуется."""
+    try:
+        return str(hot.get("models.llm_model_name",
+                           settings.LLM_MODEL_NAME) or "").strip()
+    except Exception:      # pragma: no cover - fail-open
+        return ""
+
+
+@api_router.get("/config/timezones")
+async def get_config_timezones(
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """UR-29.1: ПОЛНЫЙ справочник IANA-зон для редактора «Модули → Время».
+
+    Источник — ``zoneinfo.available_timezones()`` (тот же tzdata, которым
+    валидирует chat_clock/validate_value_rule); нового стора и статического
+    поля каталога нет. Секретов нет — публичный справочник часовых поясов.
+    Никогда не бросает: пустой список — честная деградация редактора."""
+    try:
+        zones = sorted(zoneinfo.available_timezones())
+    except Exception:
+        logger.warning("[api] zoneinfo list unavailable", exc_info=True)
+        zones = []
+    return {"zones": zones, "count": len(zones)}
+
+
+async def _build_time_state(chat_id: int | None, cache: ConfigCache
+                            ) -> dict:
+    """Рабочая сборка состояния «Времени» (GET и POST-response, UR-29.2).
+
+    Эффективное значение + источник берёт ChatClock (каноническая цепочка
+    UR-24.3), локальные часы — ZoneInfo на серверном UTC-инstant; сырое
+    per-chat значение (``configured``) — chat_params overrides. Для
+    глобального скоупа ``configured`` — глобальное значение из кэша."""
+    snap = await chat_clock.snapshot(chat_id)
+    configured = None
+    if chat_id is not None:
+        try:
+            from services.chat_params import get_chat_params_cache
+            cache_chat = get_chat_params_cache()
+            if cache_chat is not None:
+                root = await cache_chat.get_chat_params(int(chat_id))
+                raw = (dict((root or {}).get("overrides") or {})
+                       .get(_CANON_TZ_PG_KEY))
+                if raw is not None:
+                    configured = str(raw)
+        except Exception:      # pragma: no cover - fail-open
+            configured = None
+    else:
+        try:
+            raw = cache.get(_CANON_TZ_PG_KEY)
+            configured = str(raw) if raw is not None else None
+        except Exception:      # pragma: no cover - fail-open
+            configured = None
+    offset = snap.local_datetime.utcoffset()
+    is_dst = False
+    try:
+        dst = offset.dst() if offset is not None else None
+        is_dst = bool(dst and dst != datetime.timedelta(0))
+    except Exception:      # pragma: no cover
+        is_dst = False
+    return {
+        "chat_id": chat_id,
+        "iana": snap.timezone,
+        "source": snap.timezone_source,
+        "config_version": snap.config_version,
+        "configured": configured,
+        "now_local": snap.local_datetime.isoformat(),
+        "as_of_utc": snap.as_of_utc.isoformat(),
+        "utc_offset": snap.utc_offset,
+        "is_dst": is_dst,
+        "weekday": snap.weekday,
+        # Явная деградация (UR-24.4) видна UI как отдельный статус.
+        "utc_fallback": snap.timezone_source == "utc_fallback",
+    }
+
+
+async def _time_write_payload(chat_id: int | None, value: str,
+                              cache: ConfigCache, actor_id: int) -> dict:
+    """Записать пояс (per-chat override или глобально) и вернуть честное
+    состояние ПОСЛЕ записи: validated effective timezone + now_local по
+    UTC (UR-29.2). Валидация IANA — общий validate_value_rule."""
+    error = validate_value_rule(_CANON_TZ_PG_KEY, value)
+    if error:
+        raise HTTPException(status_code=422, detail=error)
+    if chat_id is None:
+        if not can_edit_param(cache, actor_id, _CANON_TZ_PG_KEY):
+            raise HTTPException(status_code=403,
+                                detail="нет права на параметр")
+        await cache.set(_CANON_TZ_PG_KEY, value, CATEGORY_LIMITS)
+    else:
+        root = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
+        overrides = dict(root.get("overrides") or {})
+        overrides[_CANON_TZ_PG_KEY] = value
+        meta = dict(root.get("meta") or {})
+        meta["updated_by"] = actor_id
+        try:
+            await chat_params.set_chat_params(
+                chat_id, {"overrides": overrides, "meta": meta},
+                changed_by=actor_id, pg=cache.pg)
+        except chat_params.ChatParamsConflict as exc:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "conflict",
+                        "current_updated_at": exc.current_updated_at,
+                        "conflicting": [], "applied": []})
+    state = await _build_time_state(chat_id, cache)
+    state["saved"] = value
+    return state
+
+
+@api_router.get("/config/time")
+async def get_config_time(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+    chat_id: int | None = Query(default=None),
+):
+    """UR-29.1/29.2: эффективный пояс чата/глобала + источник + серверные
+    часы. Скоуп — ``chat_id`` (query или X-Chat-Id); без чата — глобальный
+    слой. 403 — нет доступа к чату. Никогда не вычисляет время в браузере."""
+    cache: ConfigCache = get_cache(request)
+    scope_chat = chat_id if chat_id is not None \
+        else _chat_id_or_none(x_chat_id)
+    if scope_chat is not None:
+        ctx = await roles_srv.access_for(user.id, scope_chat, cache=cache)
+        if not access_srv.can_access_chat(ctx, scope_chat):
+            raise HTTPException(status_code=403, detail="нет доступа к чату")
+    return await _build_time_state(scope_chat, cache)
+
+
+class TimezoneUpdateRequest(BaseModel):
+    """Тело POST /config/time: пустая строка = наследование (в per-chat
+    скоупе сохраняется как явное значение "" — тождественно наследованию)."""
+    timezone: str
+    chat_id: int | None = None
+
+
+@api_router.post("/config/time")
+async def post_config_time(
+    request: Request,
+    payload: TimezoneUpdateRequest,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """UR-29.2: сохранить пояс и вернуть validated effective + now_local.
+
+    Права: per-chat — как POST /api/config на ключ (доступ к чату +
+    can_edit по матрице); глобально — can_edit_param. Ошибка валидации →
+    422 с причиной (прежнее значение остаётся — UI не применяет черновик)."""
+    cache: ConfigCache = get_cache(request)
+    scope_chat = payload.chat_id if payload.chat_id is not None \
+        else _chat_id_or_none(x_chat_id)
+    if scope_chat is not None:
+        ctx = await roles_srv.access_for(user.id, scope_chat, cache=cache)
+        if not access_srv.can_access_chat(ctx, scope_chat):
+            raise HTTPException(status_code=403, detail="нет доступа к чату")
+        if not cache.pg_available:
+            raise HTTPException(status_code=503,
+                                detail="PostgreSQL недоступен (R6)")
+        if chat_params.is_dm_scope(scope_chat) and not ctx.is_dm_owner:
+            raise HTTPException(
+                status_code=403, detail="в чужом ЛС пояс не меняется")
+        try:
+            db_overrides = await access_srv.db_override_map(cache.pg)
+        except Exception:
+            db_overrides = {}
+        matrix = access_srv.effective_matrix(
+            _CANON_TZ_PG_KEY, db_overrides.get(_CANON_TZ_PG_KEY), None)
+        if not access_srv.can_edit_param(ctx, matrix):
+            raise HTTPException(status_code=403, detail="нет права на ключ")
+    value = str(payload.timezone or "")
+    return await _time_write_payload(scope_chat, value, cache, user.id)
+
+
+@api_router.delete("/config/time")
+async def delete_config_time(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+    chat_id: int | None = Query(default=None),
+):
+    """«Вернуть общую настройку»: снять per-chat override пояса →
+    наследование (UR-29.1). Гейт — как DELETE /api/config/chat/{key};
+    404 — override нет; глобальный слой не удаляется."""
+    cache: ConfigCache = get_cache(request)
+    scope_chat = chat_id if chat_id is not None \
+        else _chat_id_or_none(x_chat_id)
+    if scope_chat is None:
+        raise HTTPException(status_code=422,
+                            detail="сброс возможен только для чата")
+    ctx = await roles_srv.access_for(user.id, scope_chat, cache=cache)
+    if chat_params.is_dm_scope(scope_chat):
+        dm_allowed = bool(ctx.is_dm_owner)
+    else:
+        dm_allowed = bool(ctx.is_global_admin or ctx.is_local_admin)
+    if not dm_allowed:
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    if ctx.is_dm_owner:
+        await chat_params.ensure_scope_profile(scope_chat, dm=True,
+                                               pg=cache.pg)
+    root = await chat_params.get_all_chat_params(scope_chat, pg=cache.pg)
+    overrides = dict(root.get("overrides") or {})
+    if _CANON_TZ_PG_KEY not in overrides:
+        raise HTTPException(status_code=404,
+                            detail="override пояса не установлен")
+    overrides.pop(_CANON_TZ_PG_KEY, None)
+    meta = dict(root.get("meta") or {})
+    meta["updated_by"] = user.id
+    try:
+        await chat_params.set_chat_params(
+            scope_chat, {"overrides": overrides, "meta": meta},
+            changed_by=user.id, pg=cache.pg)
+    except chat_params.ChatParamsConflict as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "conflict",
+                    "current_updated_at": exc.current_updated_at,
+                    "conflicting": [], "applied": []})
+    state = await _build_time_state(scope_chat, cache)
+    state["reset"] = True
+    return state
+
+
 def _alias_diagnostics_payload(report: dict, names: dict) -> dict:
     """R17-safe срез диагностики алиасов (P0 corrective 25.10.2026, F7).
 
@@ -944,6 +1216,184 @@ async def direct_context_diagnostics(
             resolver.scope_report, resolver.aliases)
     except Exception:
         pass
+    return out
+
+
+# ── UR-F/R-ADM.5 (RLR-06 §7): диагностика ОДНОГО ответа ─────────────────────
+# Единственный источник — существующие durable-события трассы хода
+# (services/turn_trace.py → mca_events, trace_id = correlation_id):
+#   direct_turn_context (L1 + tools + clock + llm_calls),
+#   direct_turn_writer  (манифест + completion + honest checks),
+#   direct_turn_delivery (ops + digest + divergence + итог).
+# Нового стора нет; сырых текстов чата нет (turn_trace уже шёл на digest'ы).
+_TURN_STAGE_EVENTS = frozenset({
+    "direct_turn_context", "direct_turn_writer", "direct_turn_delivery",
+})
+
+
+async def mca_events_query(db, **kwargs) -> list[dict]:
+    """Тонкая обёртка над существующим mca_events.query_events (REUSE)."""
+    from services import mca_events as _me
+    return await _me.query_events(db, **kwargs)
+
+
+def _turn_usage_json(row: dict) -> dict:
+    """Безопасно разобрать usage_json события (строка JSON или dict)."""
+    raw = row.get("usage_json")
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            return {}
+    return {}
+
+
+def _turn_chain_view(rows: list[dict]) -> dict:
+    """Собрать L1 → tools → Writer → ops → delivery из событий одной трассы.
+
+    Отдаёт только коды/числа (R17). Отсутствующая стадия — честное
+    «нет данных» (None), не выдуманный успех."""
+    context: dict | None = None
+    writer: dict | None = None
+    delivery: dict | None = None
+    first_ts = 0
+    for row in rows:
+        name = str(row.get("event_name") or "")
+        if name not in _TURN_STAGE_EVENTS:
+            continue
+        payload = _turn_usage_json(row)
+        ts = int(row.get("ts") or 0)
+        if first_ts == 0 or (ts and ts < first_ts):
+            first_ts = ts or first_ts
+        if name == "direct_turn_context" and context is None:
+            context = {
+                "outcome": row.get("outcome") or "",
+                "ts": ts,
+                "flow": payload.get("flow") or "",
+                "trigger": payload.get("trigger") or "",
+                "l1": payload.get("l1") or {},
+                "tool_rounds": payload.get("tool_rounds") or 0,
+                "tool_degraded": bool(payload.get("tool_degraded")),
+                "tool_reason": payload.get("tool_reason") or "",
+                "tools": payload.get("tools") or [],
+                "coverage": payload.get("coverage") or {},
+                "llm_calls": payload.get("llm_calls") or {},
+                "idempotency_key": payload.get("idempotency_key") or "",
+                # UR-29.3: фактическое время хода (ChatClock снапшот).
+                "clock": {
+                    "timezone": payload.get("clock_timezone") or "",
+                    "as_of_utc": payload.get("clock_as_of_utc") or "",
+                    "timezone_source": payload.get(
+                        "clock_timezone_source") or "",
+                    "config_version": payload.get("clock_config_version")
+                        or "",
+                },
+                "stop_reason": payload.get("stop_reason") or "",
+            }
+        elif name == "direct_turn_writer" and writer is None:
+            completion = payload.get("completion") or {}
+            writer = {
+                "outcome": row.get("outcome") or "",
+                "ts": ts,
+                "manifest": payload.get("manifest") or {},
+                "request": payload.get("request") or {},
+                "completion": completion,
+                "semantic_rewrite_count": int(
+                    payload.get("semantic_rewrite_count") or 0),
+                "llm_calls": payload.get("llm_calls") or {},
+            }
+        elif name == "direct_turn_delivery" and delivery is None:
+            delivery = {
+                "outcome": row.get("outcome") or "",
+                "ts": ts,
+                "ops": payload.get("ops") or [],
+                "raw_final_digest": payload.get("raw_final_digest") or "",
+                "delivered_digest": payload.get("delivered_digest") or "",
+                "digest_match": payload.get("digest_match"),
+                "divergence_reason": payload.get("divergence_reason") or "",
+                "semantic_rewrite_count": int(
+                    payload.get("semantic_rewrite_count") or 0),
+                "delivery": payload.get("delivery") or {},
+            }
+    return {"context": context, "writer": writer, "delivery": delivery,
+            "ts": first_ts}
+
+
+@api_router.get("/direct/turn-diagnostics")
+async def direct_turn_diagnostics(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: int = Query(...),
+    trace_id: str | None = Query(default=None),
+    turn: int = Query(default=1, ge=1, le=8),
+):
+    """R-ADM.5/UR-20.3: диагностика ОДНОГО ответа — L1 → tools → Writer →
+    фактические deterministic ops → delivery, из существующей трассы
+    ``turn_trace`` (mca_events, trace_id = correlation_id хода).
+
+    Выбор хода: явный ``trace_id`` либо N-я (``turn``) из последних цепочек
+    чата. R17: только коды/числа/digest'ы — сырых текстов нет (их нет и в
+    самих событиях). Отсутствие данных — честное ``available: false`` с
+    причиной; никаких фейковых успехов. RBAC — как /api/config на чат."""
+    cache: ConfigCache = get_cache(request)
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if not access_srv.can_access_chat(ctx, chat_id):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    from services import lore_runtime
+    db = lore_runtime.get_lore_db()
+    out: dict = {"chat_id": chat_id, "available": False, "turns": []}
+    if db is None:
+        out["reason"] = "telemetry_unavailable"
+        return out
+    try:
+        rows = await mca_events_query(db, chat_id=chat_id, limit=400)
+    except Exception:
+        logger.warning("[turn-diagnostics] query failed", exc_info=True)
+        rows = []
+    chains: dict[str, list[dict]] = {}
+    order: list[str] = []
+    for row in rows:
+        tid = str(row.get("trace_id") or "")
+        if not tid or str(row.get("event_name") or "") \
+                not in _TURN_STAGE_EVENTS:
+            continue
+        chains.setdefault(tid, []).append(row)
+        if tid not in order:
+            order.append(tid)
+    if not chains:
+        out["reason"] = "no_turn_traces"
+        return out
+    # Новые цепочки — первыми (по максимальному ts события).
+    def _chain_max_ts(tid: str) -> int:
+        return max((int(r.get("ts") or 0) for r in chains[tid]), default=0)
+    ordered = sorted(order, key=_chain_max_ts, reverse=True)
+    out["turns"] = [{"trace_id": tid,
+                     "ts": _chain_max_ts(tid),
+                     "trigger": next((
+                         str(r.get("stage") or "") for r in chains[tid]
+                         if r.get("event_name") == "direct_turn_context"),
+                         "")}
+                    for tid in ordered[:8]]
+    selected: list[dict] | None = None
+    selected_id = ""
+    if trace_id:
+        selected_id = str(trace_id)
+        selected = chains.get(selected_id)
+        if selected is None:
+            out["reason"] = "trace_not_found"
+            return out
+    else:
+        index = min(max(1, int(turn)), len(ordered)) - 1
+        selected_id = ordered[index]
+        selected = chains[selected_id]
+    view = _turn_chain_view(selected)
+    out["available"] = True
+    out["trace_id"] = selected_id
+    out.update(view)
     return out
 
 
