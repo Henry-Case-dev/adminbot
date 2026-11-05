@@ -295,8 +295,12 @@ async def test_reasoning_marker_strip_names_the_exact_cause(monkeypatch, events)
 @pytest.mark.asyncio
 async def test_unfinished_answer_is_not_a_normal_success(monkeypatch, events):
     """Продолжение невозможно → трасса показывает отказ и его причину,
-    доставки нет (обрезок не публикуется как готовый ответ)."""
-    llm = _StagedLLM(writer=[("Обрезок ответа", "length"),
+    доставки нет (обрезок не публикуется как готовый ответ).
+
+    Текст отказа НЕ попадает в события ни в каком виде — только digest и
+    длина (§7 приватность; срез «до N символов» тоже был бы текстом)."""
+    refusal_text = "ФРАЗА_ОТКАЗА_ZXQ91"
+    llm = _StagedLLM(writer=[(refusal_text, "length"),
                              ("", "length")])
     svc, bot, msg, user = _drive(monkeypatch, llm)
     await svc.handle(bot, msg, user)
@@ -308,11 +312,20 @@ async def test_unfinished_answer_is_not_a_normal_success(monkeypatch, events):
     assert payload["completion"]["refused"] is True
     assert payload["completion"]["refused_reason"] == "unfinished_answer"
     assert payload["completion"]["text_source"] == "none"
+    # Вместо текста — digest и длина: сравнение возможно, чтение — нет.
+    assert payload["completion"]["raw_final_digest"] == \
+        turn_trace.text_digest(refusal_text)
+    assert payload["completion"]["chars"] == len(refusal_text)
+    assert "text" not in payload["completion"]
 
     delivery = _event(events, turn_trace.EVENT_DELIVERY)
     assert delivery["outcome"] != "success"
     assert _payload(events, turn_trace.EVENT_DELIVERY)["delivery"]["outcome"] \
         != "success"
+    # Фраза отказа отсутствует во ВСЕЙ трассе хода, а не только в доставке.
+    blob = json.dumps(turn, ensure_ascii=False)
+    assert refusal_text not in blob, "текст отказа попал в трассу"
+    assert refusal_text[:12] not in blob, "попал фрагмент текста отказа"
     # обрезок не ушёл в чат: доставки не было вовсе
     assert bot.send_message.await_count == 0
 

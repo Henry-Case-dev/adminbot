@@ -40,6 +40,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import threading
 import time
 from collections import OrderedDict
@@ -167,11 +168,11 @@ class TurnTrace:
                  source_author_id=None, idempotency_key: str = ""):
         self.correlation_id = str(correlation_id)
         self.chat_id = int(chat_id) if chat_id is not None else None
-        self.trigger = str(trigger or "")
-        self.flow = str(flow or FLOW_DIRECT)
+        self.trigger = _code(trigger, 32)
+        self.flow = _code(flow, 16) or FLOW_DIRECT
         self.source_message_id = source_message_id
         self.source_author_id = source_author_id
-        self.idempotency_key = str(idempotency_key or "")
+        self.idempotency_key = _code(idempotency_key, 96)
         self.clock = ""
         self.clock_source = ""
         self.clock_ts = None
@@ -295,12 +296,55 @@ class TurnTrace:
 # эмиссия (fail-open; одна точка — существующий mca_events)
 # ════════════════════════════════════════════════════════════════════════════
 
+#: Ключи, в которых по смыслу может оказаться текст чата/промпта. Такие
+#: значения НИКОГДА не пишутся — только digest и длина (§7 приватность).
+_TEXT_KEYS = frozenset({
+    "text", "content", "answer", "query", "prompt", "raw", "payload",
+    "note", "message", "sentence", "draft", "phrase", "reason_text",
+})
+#: Строка длиннее этого — не код/enum/id, а потенциальный текст: заменяется
+#: digest'ом. Короткие коды (finish_reason/model/revision/op) остаются.
+_MAX_FIELD_CHARS = 64
+#: Форма кода/enum/id: без пробелов и произвольной пунктуации.
+_CODE_RE = re.compile(r"^[A-Za-z0-9_.:/+@()\-]{1,96}$")
+
+
+def _code(value, limit: int = 32) -> str:
+    """Оставить только код/enum/id; любой текст (в т.ч. без пробелов) → ''.
+
+    Это НЕ «срез до N символов»: фраза чата, даже короткая, не является
+    кодом и отбрасывается целиком."""
+    text = str(value if value is not None else "").strip()
+    if not text or len(text) > 96 or not _CODE_RE.match(text):
+        return ""
+    return text[:limit]
+
+
+def _scrub(value, *, key: str = ""):
+    """Рекурсивно убрать текст из payload'а: text-ключи и длинные строки →
+    digest + длина. Всё, что похоже на код/enum/id, остаётся как есть."""
+    if isinstance(value, dict):
+        return {str(k): _scrub(v, key=str(k)) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_scrub(item, key=key) for item in value]
+    if isinstance(value, str):
+        if key in _TEXT_KEYS or len(value) > _MAX_FIELD_CHARS:
+            return {"digest": text_digest(value), "chars": len(value)}
+        return value
+    return value
+
+
 def _pack(payload: dict) -> dict:
     """Уложить payload в лимит `usage_json` без потери смысла полей.
 
     Крупные списки усекаются ДЕТЕРМИНИРОВАННО и это видно (`truncated`), а не
-    молча: обрезанный JSON в `mca_events` был бы нечитаем."""
-    data = dict(payload)
+    молча: обрезанный JSON в `mca_events` был бы нечитаем.
+
+    Здесь же — последний сеть против утечки текста (§7): значения
+    text-подобных ключей и любые строки длиннее `_MAX_FIELD_CHARS` заменяются
+    digest'ом и длиной. Полевой код обязан не передавать текст, а эта сеть
+    ловит будущую регрессию, даже если она появится в новом поле."""
+    data = _scrub(dict(payload))
     try:
         if len(json.dumps(data, ensure_ascii=False)) <= _PAYLOAD_LIMIT:
             return data
@@ -320,7 +364,7 @@ def _pack(payload: dict) -> dict:
                     data[key] = {"count": len(value)}
         data["truncated"] = True
     except Exception:      # pragma: no cover — упаковка не рвёт эмиссию
-        return dict(payload)
+        return _scrub(dict(payload))
     return data
 
 
@@ -419,35 +463,45 @@ def note_llm_call(correlation_id, kind: str, count: int = 1) -> None:
 
 
 def note_clock(correlation_id, *, line: str = "", source: str = "") -> None:
-    """ChatClock хода: значение + источник часов (§7)."""
+    """ChatClock хода: значение + источник часов (§7).
+
+    Строка часов генерируется кодом (`format_chat_time`), это не текст чата;
+    всё равно ограничиваем длину и оставляем только допустимые символы."""
     trace = get(correlation_id)
     if trace is None:
         return
     try:
-        trace.clock = str(line or "")[:120]
-        trace.clock_source = str(source or "")[:64]
+        clock = str(line or "").strip()
+        # Часы — сгенерированный штамп: разрешаем цифры/пунктуацию/буквы,
+        # но не бесконечную строку.
+        trace.clock = clock[:96]
+        trace.clock_source = _code(source, 64)
         trace.clock_ts = int(time.time())
     except Exception:      # pragma: no cover
         pass
 
 
 def note_l1(correlation_id, *, action: str = "", response_act: str = "",
-            structure: str = "", plan_source: str = "", execution_mode: str = "",
-            override: str = "", model: str = "", fallback: str = "") -> None:
-    """L1 action/plan этого хода (план — не авторская речь, §7)."""
+            structure: str = "", plan_source: str = "",
+            execution_mode: str = "", override: str = "", model: str = "",
+            fallback: str = "") -> None:
+    """L1 action/plan этого хода (план — не авторская речь, §7).
+
+    Значения L1 приходят из ответа модели, поэтому каждое проверяется как
+    код/enum: свободный текст (даже короткий) отбрасывается."""
     trace = get(correlation_id)
     if trace is None:
         return
     try:
         trace.l1 = {
-            "action": str(action or ""),
-            "response_act": str(response_act or ""),
-            "structure": str(structure or ""),
-            "plan_source": str(plan_source or ""),
-            "execution_mode": str(execution_mode or ""),
-            "override": str(override or ""),
-            "model": str(model or "")[:64],
-            "fallback": str(fallback or "")[:64],
+            "action": _code(action, 24),
+            "response_act": _code(response_act, 32),
+            "structure": _code(structure, 24),
+            "plan_source": _code(plan_source, 24),
+            "execution_mode": _code(execution_mode, 24),
+            "override": _code(override, 48),
+            "model": _code(model, 64),
+            "fallback": _code(fallback, 64),
         }
     except Exception:      # pragma: no cover
         pass
@@ -461,11 +515,11 @@ def _tool_entry(entry: dict) -> dict:
     except Exception:
         ref_count = 0
     return {
-        "tool": str(entry.get("tool") or "")[:40],
+        "tool": _code(entry.get("tool"), 40),
         "round": entry.get("round"),
-        "status": str(entry.get("status") or "")[:32],
-        "error": str(entry.get("error_code")
-                     or entry.get("error_type") or "")[:40],
+        "status": _code(entry.get("status"), 32),
+        "error": _code(entry.get("error_code")
+                       or entry.get("error_type"), 40),
         "out_chars": int(entry.get("out_chars") or 0),
         "truncated": bool(entry.get("truncated")),
         "attempt": entry.get("attempt"),
@@ -487,7 +541,7 @@ def note_tools(correlation_id, *, tool_results=None, rounds: int = 0,
     try:
         trace.tool_rounds = int(rounds or 0)
         trace.tool_degraded = bool(degraded)
-        trace.tool_reason = str(reason or "")[:40]
+        trace.tool_reason = _code(reason, 40)
         entries = []
         for item in list(tool_results or [])[:12]:
             if isinstance(item, dict):
@@ -510,8 +564,8 @@ def note_tools(correlation_id, *, tool_results=None, rounds: int = 0,
         if decision is not None:
             coverage["required_claims"] = len(
                 getattr(decision, "claims", None) or ())
-            coverage["evidence_class"] = str(
-                getattr(decision, "evidence_class", "") or "")
+            coverage["evidence_class"] = _code(
+                getattr(decision, "evidence_class", ""), 32)
             coverage["required"] = bool(getattr(decision, "required", False))
         trace.coverage = coverage
     except Exception:      # pragma: no cover — трасса не рвёт ход
@@ -566,7 +620,8 @@ def prompt_revisions(keys) -> dict:
                 if revision:
                     break
             if revision:
-                revisions[str(key)[:48]] = str(revision)[:32]
+                revisions[_code(key, 48) or str(key)[:48]] = _code(
+                    revision, 48)
     except Exception:      # pragma: no cover — реестр недоступен
         return {}
     return revisions
@@ -590,28 +645,29 @@ def note_l2_request(correlation_id, *, manifest=None, provider: str = "",
         built_blocks: list = []
         revisions: dict = {}
         manifest_id = ""
-        writer = str(writer_name or "")[:24]
+        writer = _code(writer_name, 24)
         profile = ""
         representation = ""
         tokens_total = 0
         if manifest is not None:
-            manifest_id = str(getattr(manifest, "manifest_id", "") or "")[:40]
-            writer = str(getattr(manifest, "writer", "") or writer)[:24]
-            profile = str(getattr(manifest, "profile", "") or "")[:24]
-            representation = str(
-                getattr(manifest, "context_representation", "") or "")[:16]
+            manifest_id = _code(
+                getattr(manifest, "manifest_id", ""), 40)
+            writer = _code(getattr(manifest, "writer", ""), 24) or writer
+            profile = _code(getattr(manifest, "profile", ""), 24)
+            representation = _code(
+                getattr(manifest, "context_representation", ""), 16)
             tokens_total = int(getattr(manifest, "tokens_total", 0) or 0)
             for layer in tuple(getattr(manifest, "layers", ()) or ())[:16]:
+                layer_name = _code(getattr(layer, "layer", ""), 24)
+                block_id = _code(getattr(layer, "block_id", ""), 32)
                 built_blocks.append({
-                    "block": ("%s:%s" % (
-                        str(getattr(layer, "layer", "") or "")[:24],
-                        str(getattr(layer, "block_id", "") or "")[:32])),
+                    "block": ("%s:%s" % (layer_name, block_id)).strip(":"),
                     "rendered": bool(getattr(layer, "rendered", False)),
-                    "skip": str(getattr(layer, "skip_reason", "") or "")[:32],
+                    "skip": _code(getattr(layer, "skip_reason", ""), 32),
                 })
             versions = dict(getattr(manifest, "versions", {}) or {})
             for key, value in list(versions.items())[:8]:
-                revisions[str(key)[:48]] = str(value)[:32]
+                revisions[_code(key, 48)] = _code(value, 48)
         else:
             # Путь без композера: состав блоков и заводские ревизии owner-
             # промптов всё равно обязаны быть видны (§7).
@@ -628,9 +684,9 @@ def note_l2_request(correlation_id, *, manifest=None, provider: str = "",
             "revisions": revisions,
         }
         trace.request = {
-            "provider": str(provider or "")[:48],
-            "model": str(model or "")[:64],
-            "fallback_model": str(fallback_model or "")[:64],
+            "provider": _code(provider, 48),
+            "model": _code(model, 64),
+            "fallback_model": _code(fallback_model, 64),
             "max_output_tokens": (int(max_output_tokens)
                                   if max_output_tokens else None),
         }
@@ -672,15 +728,16 @@ def note_l2_completion(correlation_id, *, raw_text: str = "",
         usage = getattr(completion, "usage", None)
         usage_dict = dict(usage) if isinstance(usage, dict) else {}
         trace.completion = {
-            "finish_reason": finish_reason or "unknown",
-            "finish_reason_raw": getattr(completion, "finish_reason_raw", None),
+            "finish_reason": _code(finish_reason) or "unknown",
+            "finish_reason_raw": _code(
+                getattr(completion, "finish_reason_raw", None), 48),
             "metadata_available": completion is not None,
             "completed": bool(getattr(continuation, "completed", True)),
             "is_truncated": bool(getattr(completion, "is_truncated", False)),
             "attempt": attempt,
             "fallback_used": bool(getattr(completion, "fallback_used", False)),
-            "provider": str(getattr(completion, "provider", "") or "")[:48],
-            "model": str(getattr(completion, "model", "") or "")[:64],
+            "provider": _code(getattr(completion, "provider", ""), 48),
+            "model": _code(getattr(completion, "model", ""), 64),
             "usage": {k: usage_dict[k] for k in
                       ("prompt_tokens", "completion_tokens", "total_tokens")
                       if k in usage_dict},
@@ -690,8 +747,8 @@ def note_l2_completion(correlation_id, *, raw_text: str = "",
             "raw_final_digest": trace.raw_final_digest,
             "continuation_calls": int(
                 getattr(continuation, "continuation_calls", 0) or 0),
-            "continuation_stop_reason": str(
-                getattr(continuation, "stop_reason", "") or "")[:32],
+            "continuation_stop_reason": _code(
+                getattr(continuation, "stop_reason", "")),
             "text_source": ("source_restored" if stats.get("form_fallback")
                             else "author"),
         }
@@ -722,38 +779,50 @@ def note_l2_completion(correlation_id, *, raw_text: str = "",
         logger.debug("[turn_trace] completion note failed", exc_info=True)
 
 
-def note_l2_refusal(correlation_id, reason: str, **fields) -> None:
-    """Честный отказ L2: НЕ обычный успех (outcome=failed + причина)."""
+def note_l2_refusal(correlation_id, reason: str, *, stop_reason=None,
+                    continuation_calls=None, finish_reason=None,
+                    text: str = "") -> None:
+    """Честный отказ L2: НЕ обычный успех (outcome=failed + причина).
+
+    Текст отказа здесь НЕ пишется ни в каком виде (§7 приватность): только
+    digest, длина и коды причины. Никаких «срезов до N символов» — срез всё
+    равно остаётся текстом чата."""
     trace = get(correlation_id)
     if trace is None:
         return
     try:
+        trace.raw_final_digest = text_digest(text)
         trace.completion.update({
             "refused": True,
-            "refused_reason": str(reason or "")[:64],
+            "refused_reason": _code(reason, 64),
             "text_source": "none",
+            "chars": len(str(text or "")),
+            "raw_final_digest": trace.raw_final_digest,
         })
-        for key, value in (fields or {}).items():
-            if value is None:
-                continue
-            trace.completion[str(key)[:32]] = (
-                value if isinstance(value, (int, float, bool))
-                else str(value)[:64])
-        trace.raw_final_digest = text_digest(fields.get("text", ""))
+        # Коды/числа — явным списком; произвольные поля вызывающего не
+        # переносятся (нет поверхности для утечки текста).
+        if stop_reason is not None:
+            trace.completion["continuation_stop_reason"] = _code(stop_reason)
+        if finish_reason is not None:
+            trace.completion["finish_reason"] = _code(finish_reason) or "unknown"
+        if continuation_calls is not None:
+            try:
+                trace.completion["continuation_calls"] = int(
+                    continuation_calls)
+            except Exception:      # pragma: no cover
+                pass
         emit_writer(trace, outcome="failed")
     except Exception:      # pragma: no cover
         pass
 
 
-def note_op(correlation_id, name: str, text, *, note: str = "") -> None:
+def note_op(correlation_id, name: str, text) -> None:
     """Записать фактически применённую доставочную операцию (+digest)."""
     trace = get(correlation_id)
     if trace is None or name not in OP_NAMES:
         return
     try:
         trace._append_op(name, text)
-        if note:
-            trace.ops[-1]["note"] = str(note)[:32]
     except Exception:      # pragma: no cover
         pass
 
@@ -776,9 +845,9 @@ def note_delivery(correlation_id, *, outcome: str = "success",
         trace.delivered_digest = trace._last_digest
         trace._divergence()
         trace.delivery = {
-            "outcome": str(outcome or "")[:24],
-            "channel": str(channel or "")[:16],
-            "reason": str(reason or "")[:64],
+            "outcome": _code(outcome, 24),
+            "channel": _code(channel, 16),
+            "reason": _code(reason, 64),
             "chat_id": trace.chat_id,
             "tg_message_ids": [int(x) for x in list(tg_message_ids or ())
                                if isinstance(x, int)][:8],
@@ -795,8 +864,8 @@ def note_stop(correlation_id, outcome: str, reason: str) -> None:
     trace = get(correlation_id)
     if trace is None:
         return
-    trace.stop_outcome = str(outcome or "")[:24]
-    trace.stop_reason = str(reason or "")[:64]
+    trace.stop_outcome = _code(outcome, 24)
+    trace.stop_reason = _code(reason, 64)
 
 
 def close(correlation_id) -> None:
