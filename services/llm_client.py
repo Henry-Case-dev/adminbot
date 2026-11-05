@@ -361,6 +361,16 @@ _TRUNCATION_FINISH_REASONS = frozenset({"length", "max_tokens"})
 _FINISH_REASON_UNKNOWN = "unknown"
 
 
+def is_truncation_finish_reason(value) -> bool:
+    """``finish_reason`` сообщает НЕЗАКОНЧЕННЫЙ output (``length``/``max_tokens``).
+
+    UR-19: единственная точка правды о провайдерских токенах обрезки. Сам
+    клиент ничего не перегенерирует и не продолжает — решение принимает
+    вызывающий (см. `services/l2_continuation.py`).
+    """
+    return str(value or "").strip().lower() in _TRUNCATION_FINISH_REASONS
+
+
 @dataclass(frozen=True)
 class LLMProviderAttempt:
     """UR-18: одна НОГА цепочки провайдеров в одном вызове generate.
@@ -435,7 +445,7 @@ class LLMCompletion:
         """UR-18: ``length``/эквивалент = НЕЗАКОНЧЕННЫЙ output, а не готовый
         ответ. Это только статус: продолжение/отказ решает вызывающий
         (UR-19), сам llm_client ничего не перегенеряет."""
-        return self.finish_reason in _TRUNCATION_FINISH_REASONS
+        return is_truncation_finish_reason(self.finish_reason)
 
 
 def _choice_finish_reason(data) -> tuple[str, str | None]:
