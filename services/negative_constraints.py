@@ -81,6 +81,41 @@ _NEGATION_RE = re.compile(
     r"(?<![0-9a-zа-яё_])(?:не|ни|никогда|без|нет)(?![0-9a-zа-яё_])")
 _NAME_BOUNDARY_CHARS = r"0-9a-zа-яё_"
 
+# ── G2b и ПЕРЕВОД (RLR-03.3, блокер приёмки 05.11.2026): письменность ──────
+# Отрицание в этом гарде — ЛЕКСИКОН РУССКИХ частиц (`_NEGATION_CUES`). К
+# переводу на другую письменность он неприменим: в «Kirill did not send ...»
+# русской «не» нет по построению, и требовать её значило бы откатывать верный
+# перевод к исходнику. Поэтому при РАЗНОЙ письменности источника и результата
+# сравниваются только числа/даты (G2), а лексические признаки отрицания
+# пропускаются. Для ТОЙ ЖЕ письменности проверка прежняя и не ослаблена;
+# списки частиц не расширены (R-03.2).
+_CYRILLIC_RE = re.compile(r"[\u0400-\u04FF\u0500-\u052F]")
+_LATIN_RE = re.compile(r"[A-Za-z\u00C0-\u024F]")
+SCRIPT_CYRILLIC = "cyrillic"
+SCRIPT_LATIN = "latin"
+
+
+def _dominant_script(text: str) -> str:
+    """Преобладающая письменность текста: ``cyrillic`` | ``latin`` | ``""``.
+
+    Нужна ровно для одного решения: применим ли русский лексикон отрицаний к
+    результату трансформации. Считаются БУКВЫ (цифры/пунктуация/эмодзи не
+    участвуют); смешанный текст решается по большинству, при равенстве или
+    отсутствии букв — ``""`` (проверка остаётся строгой). Никогда не бросает.
+    """
+    try:
+        source = str(text or "")
+        cyrillic = len(_CYRILLIC_RE.findall(source))
+        latin = len(_LATIN_RE.findall(source))
+    except Exception:      # pragma: no cover - защитная ветка
+        return ""
+    if cyrillic > latin:
+        return SCRIPT_CYRILLIC
+    if latin > cyrillic:
+        return SCRIPT_LATIN
+    return ""
+
+
 # ── G2b (BGS-04.10): отрицание вне числового окна ──────────────────────────
 # Закрытый СПИСОК куэ-токенов, а не префикс: слова на «не-/ни-», которые не
 # являются отрицанием («неделя», «низкий», «небо», «немного», «нибудь»),
@@ -179,6 +214,11 @@ def check_form_contract(candidate: str, contract: FormContract, *,
     детерминированная: она ничего не перегенерирует и не переписывает
     (R-03.2/R-03.3). Применяется только там, где есть исходный текст и
     требование сохранить смысл; для свободной речи L2 контракт не создаётся.
+
+    Перевод на ДРУГУЮ письменность (кириллица ↔ латиница): числа/даты и имена
+    ростера проверяются как прежде (выкинутое число → отказ), а лексические
+    признаки русского отрицания не сравниваются — они неприменимы к тексту
+    другой письменности. Для той же письменности G2/G2b прежние.
     """
     try:
         text = str(candidate or "")
@@ -186,9 +226,17 @@ def check_form_contract(candidate: str, contract: FormContract, *,
             return FORM_GUARD_LEAK_BLOCKED          # G1
         counts_src, neg_src = _number_signature(contract.source_text)
         counts_cand, neg_cand = _number_signature(text)
-        if counts_src != counts_cand or neg_src != neg_cand:
-            return FORM_GUARD_REJECTED              # G2
-        if _negation_signature(contract.source_text) \
+        if counts_src != counts_cand:
+            return FORM_GUARD_REJECTED              # G2: числа, даты
+        # Отрицание — русский лексикон: сравниваем только внутри одной
+        # письменности (перевод «did not send» не содержит русской «не»).
+        script_src = _dominant_script(contract.source_text)
+        script_cand = _dominant_script(text)
+        same_script = not (script_src and script_cand
+                           and script_src != script_cand)
+        if same_script and neg_src != neg_cand:
+            return FORM_GUARD_REJECTED              # G2: число под отрицанием
+        if same_script and _negation_signature(contract.source_text) \
                 != _negation_signature(text):
             return FORM_GUARD_REJECTED              # G2b (BGS-04.10)
         if contract.roster_names:                   # G3

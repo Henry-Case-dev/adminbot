@@ -189,6 +189,70 @@ async def test_translation_keeps_numbers_names_and_dates(monkeypatch):
     assert len(llm.calls_of("l2_writer")) == 1
 
 
+@pytest.mark.asyncio
+async def test_translation_with_negation_is_delivered_as_written(monkeypatch):
+    """Блокер приёмки: верный перевод отрицательной фразы не откатывается.
+
+    «Кирилл не прислал 3 файла 5 ноября.» → «Kirill did not send 3 files on
+    5 November.»: русской «не» в переводе нет по построению, поэтому
+    лексикон отрицаний к другой письменности не применяется — текст уходит
+    как написан, а числа/даты остаются под проверкой.
+    """
+    source = "Кирилл не прислал 3 файла 5 ноября."
+    translated = "Kirill did not send 3 files on 5 November."
+    svc, llm, seen, bot, msg, user = _drive(
+        monkeypatch, query="переведи этот текст на английский", l2_text=translated,
+        plan={"response_act": "other", "structure": "chat",
+              "preserve_source_facts": True},
+        reply=_source_message(text=source))
+    await svc.handle(bot, msg, user)
+
+    assert isinstance(seen.get("form_contract"), nc.FormContract)
+    assert _delivered(svc) == translated
+    assert len(llm.calls_of("l2_writer")) == 1
+
+
+@pytest.mark.asyncio
+async def test_translation_that_drops_a_number_returns_source(monkeypatch):
+    """Перевод, потерявший число, защищённые данные нарушил → исходник."""
+    source = "Кирилл не прислал 3 файла 5 ноября."
+    translated = "Kirill did not send the files on 5 November."
+    svc, llm, seen, bot, msg, user = _drive(
+        monkeypatch, query="переведи этот текст на английский", l2_text=translated,
+        plan={"response_act": "other", "structure": "chat",
+              "preserve_source_facts": True},
+        reply=_source_message(text=source))
+    await svc.handle(bot, msg, user)
+
+    assert isinstance(seen.get("form_contract"), nc.FormContract)
+    assert _delivered(svc) == source
+    assert len(llm.calls_of("l2_writer")) == 1
+
+
+def test_same_script_negation_loss_is_still_rejected():
+    """Регресс не сломан: русский → русский с потерей «не» — по-прежнему
+    отказ узкой проверки (письменность одна, лексикон применим)."""
+    source = "Кирилл не прислал 3 файла 5 ноября."
+    assert nc._dominant_script(source) == nc.SCRIPT_CYRILLIC
+    # потеря «не» при сохранённых числах
+    assert nc.check_form_contract(
+        "Кирилл прислал 3 файла 5 ноября.",
+        nc.FormContract(source_text=source)) == nc.FORM_GUARD_REJECTED
+    # верная правка того же языка — проходит
+    assert nc.check_form_contract(
+        "Как выяснилось, Кирилл не прислал 3 файла 5 ноября.",
+        nc.FormContract(source_text=source)) is None
+    # латиница ↔ латиница: лексикон тот же (русский), проверка остаётся
+    # строгой по числам
+    assert nc.check_form_contract(
+        "Kirill sent 3 files on 5 November.",
+        nc.FormContract(source_text="Kirill sent 3 files on 5 November.")) is None
+    assert nc.check_form_contract(
+        "Kirill sent files on 5 November.",
+        nc.FormContract(source_text="Kirill sent 3 files on 5 November.")) \
+        == nc.FORM_GUARD_REJECTED
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # (e) Сводка/пересказ поданного текста: строгой буквальной проверки НЕТ
 # ════════════════════════════════════════════════════════════════════════════
