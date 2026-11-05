@@ -35462,6 +35462,14 @@
           more: false,
           moreLoading: false,
           moreError: '',
+          // Вторичная лента «История действий» (события активации,
+          // «была применена»): PVR-02.2/C1.2 — события НЕ в основном списке.
+          eventsOpen: false,
+          events: [],
+          nextEventsCursor: '',
+          moreEvents: false,
+          moreEventsLoading: false,
+          moreEventsError: '',
           viewId: '',
           viewBody: '',
           viewError: '',
@@ -35703,6 +35711,11 @@
         h.more = false;
         h.moreError = '';
         h.error = '';
+        h.events = [];
+        h.nextEventsCursor = '';
+        h.moreEvents = false;
+        h.moreEventsLoading = false;
+        h.moreEventsError = '';
         h.viewId = '';
         h.viewBody = '';
         h.viewError = '';
@@ -35784,6 +35797,13 @@
           if (this._cacheKey() !== cacheKey) return;
           h.data = data || null;
           h.entries = (data && data.entries) || [];
+          // Основной список = ревизии (revisions_cursor), вторичный «История
+          // действий» = события активации (activations_cursor) — PVR-02.1.
+          h.events = (data && data.activations) || [];
+          h.nextEventsCursor = (data && data.activations_page
+            && data.activations_page.next_cursor) || '';
+          h.moreEvents = !!(data && data.activations_page
+            && data.activations_page.has_more);
           h.nextCursor = (data && data.page && data.page.next_cursor) || '';
           h.more = !!(data && data.page && data.page.has_more);
           _pvStateCache.set(cacheKey, { at: Date.now(), data: h.data });
@@ -35804,7 +35824,9 @@
           h.loading = false;
         }
       },
-      // Постраничная догрузка: полный список, а не «последние 50».
+      // Постраничная догрузка ОСНОВНОГО списка (ревизии) по стабильному
+      // revisions_cursor: полный список, не «последние 50» и не смесь с
+      // событиями (PVR-02.1/C1.2).
       loadMore: async function () {
         var h = this.hist;
         if (!h.more || h.moreLoading || !h.nextCursor) return;
@@ -35814,25 +35836,67 @@
         try {
           var data = await this.root.api(
             '/api/prompts/' + encodeURIComponent(this.promptKey)
-              + '/versions?page_size=50&cursor='
+              + '/versions?page_size=50&revisions_cursor='
               + encodeURIComponent(h.nextCursor),
             { global: !this.isChatScope, chatId: this.chatIdNum,
               silent403: true });
           if (this._cacheKey() !== cacheKey) return;
+          var rows = this.revisionRows;
           var seen = {};
-          h.entries.forEach(function (e) {
-            seen[String(e.order)] = true;
+          rows.forEach(function (r) { seen[r.revision_id] = true; });
+          var target = (h.data = h.data || {});
+          var list = target.revisions = target.revisions || [];
+          ((data && data.revisions) || []).forEach(function (r) {
+            if (r && r.revision_id && !seen[r.revision_id]) list.push(r);
           });
-          ((data && data.entries) || []).forEach(function (e) {
-            if (!seen[String(e.order)]) h.entries.push(e);
-          });
-          h.nextCursor = (data && data.page && data.page.next_cursor) || '';
-          h.more = !!(data && data.page && data.page.has_more);
+          h.nextCursor = (data && data.revisions_page
+            && data.revisions_page.next_cursor) || '';
+          h.more = !!(data && data.revisions_page && data.revisions_page.has_more);
         } catch (err) {
           if (this._cacheKey() !== cacheKey) return;
           h.moreError = this.errText(err);
         } finally {
           h.moreLoading = false;
+        }
+      },
+      // Вторичный переключатель «История действий» (PVR-02.2): события
+      // активации со статусом «была применена», никогда не active.
+      toggleEvents: function () {
+        this.hist.eventsOpen = !this.hist.eventsOpen;
+      },
+      loadMoreEvents: async function () {
+        var h = this.hist;
+        if (!h.moreEvents || h.moreEventsLoading || !h.nextEventsCursor) return;
+        var cacheKey = this._cacheKey();
+        h.moreEventsLoading = true;
+        h.moreEventsError = '';
+        try {
+          var data = await this.root.api(
+            '/api/prompts/' + encodeURIComponent(this.promptKey)
+              + '/versions?page_size=50&activations_cursor='
+              + encodeURIComponent(h.nextEventsCursor),
+            { global: !this.isChatScope, chatId: this.chatIdNum,
+              silent403: true });
+          if (this._cacheKey() !== cacheKey) return;
+          var seen = {};
+          h.events.forEach(function (ev) {
+            if (ev && ev.activation_id != null) seen[String(ev.activation_id)] = true;
+          });
+          ((data && data.activations) || []).forEach(function (ev) {
+            if (ev && (ev.activation_id == null
+                       || !seen[String(ev.activation_id)])) {
+              h.events.push(ev);
+            }
+          });
+          h.nextEventsCursor = (data && data.activations_page
+            && data.activations_page.next_cursor) || '';
+          h.moreEvents = !!(data && data.activations_page
+            && data.activations_page.has_more);
+        } catch (err) {
+          if (this._cacheKey() !== cacheKey) return;
+          h.moreEventsError = this.errText(err);
+        } finally {
+          h.moreEventsLoading = false;
         }
       },
       sourceLabel: function (entry) {
