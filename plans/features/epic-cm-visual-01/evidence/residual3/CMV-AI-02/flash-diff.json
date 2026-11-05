@@ -1,0 +1,100 @@
+{
+ "prePos": {
+  "x": 828,
+  "y": 490.1875,
+  "sx": 578,
+  "sy": 209,
+  "inside": true
+ },
+ "timeline": [
+  {
+   "meanLuma": 56.59,
+   "meanDelta": 13.618,
+   "t": 148
+  },
+  {
+   "meanLuma": 56.59,
+   "meanDelta": 0.089,
+   "t": 217
+  },
+  {
+   "meanLuma": 56.58,
+   "meanDelta": 0.072,
+   "t": 275
+  },
+  {
+   "meanLuma": 56.58,
+   "meanDelta": 0.071,
+   "t": 336
+  },
+  {
+   "meanLuma": 56.58,
+   "meanDelta": 0.077,
+   "t": 402
+  },
+  {
+   "meanLuma": 56.57,
+   "meanDelta": 0.075,
+   "t": 468
+  },
+  {
+   "meanLuma": 56.57,
+   "meanDelta": 0.051,
+   "t": 541
+  },
+  {
+   "meanLuma": 56.56,
+   "meanDelta": 0.084,
+   "t": 605
+  },
+  {
+   "meanLuma": 56.57,
+   "meanDelta": 0.062,
+   "t": 667
+  },
+  {
+   "meanLuma": 56.57,
+   "meanDelta": 0.047,
+   "t": 726
+  },
+  {
+   "meanLuma": 56.58,
+   "meanDelta": 0.062,
+   "t": 788
+  },
+  {
+   "meanLuma": 56.58,
+   "meanDelta": 0.091,
+   "t": 852
+  },
+  {
+   "meanLuma": 56.58,
+   "meanDelta": 0.056,
+   "t": 917
+  },
+  {
+   "meanLuma": 56.58,
+   "meanDelta": 0.058,
+   "t": 995
+  },
+  {
+   "meanLuma": 56.57,
+   "meanDelta": 0.079,
+   "t": 1067
+  },
+  {
+   "meanLuma": 56.58,
+   "meanDelta": 0.082,
+   "t": 1131
+  }
+ ],
+ "state": {
+  "selected": "paradigm:-1001234567890:184",
+  "pulseHit": {
+   "id": "paradigm:-1001234567890:184",
+   "kind": "click",
+   "duration": 600
+  },
+  "fxPaints": 73
+ }
+}
