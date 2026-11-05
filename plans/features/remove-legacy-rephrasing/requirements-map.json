@@ -37,8 +37,23 @@
       "acceptance": "Коррекция имеет высокий/срочный приоритет и интегрируется максимально рано с учётом уже выполняющихся durable Assignment и пересечений по коду: старт не откладывается до завершения несвязанных работ, окно выбирается по реальным пересечениям файлов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Срочная коррекция стартовала и интегрировалась рано, по пересечениям файлов",
+          "observation": "Таймлайн 05.11: intake 5a1fce62 → карта/граф 87e54376 → срезы слиты в тот же день последовательно по правилам пересечений (d49b10ac RLR-05, 23313135/c8d9866e RLR-04, 20d19ad0/b9bd717b RLR-03, 8eb6893b, 15e8bcc3, 5d8dac73, df00f178 RLR-09) → release 2.58.159 @5e0cb201 в тот же день; несвязанные работы влились отдельными мёржами без блокировки коррекции.",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/plan.md",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00023",
@@ -52,8 +67,23 @@
       "acceptance": "Исполнитель работает с актуальным локальным `current_task.md`, HEAD рабочей ветки и незакоммиченными правками, а не с описанием опубликованного релиза; перечень §0 использован как ориентир точечного поиска по call graph, а не как закрытый список имён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Работа по актуальному HEAD/call graph; §0 — ориентир, не закрытый список",
+          "observation": "route-matrix §1: проверка построена по import graph/call sites, а не по списку имён §0; находки вне списка §0 (потребитель numeric guard в доставке «Летописца», duplicate_guard_retry в пост-обработке) зафиксированы в матрице и сняты в RLR-04 (23313135/c8d9866e, d69f52da).",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/route-matrix.md",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00014",
@@ -67,8 +97,23 @@
       "acceptance": "Покрыты все реально достижимые варианты ответа Direct и Initiative (legacy/System2, tool-loop, fallback, длинные ответы, rich/plain delivery и смежные точки отправки), а специализированные пайплайны сохранены в описанных ниже границах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Все достижимые варианты Direct/Initiative покрыты; спец-пайплайны сохранены в границах",
+          "observation": "route-matrix §2: 35 строк — legacy/System2 (3-4), tool-loop (2), L1-off (3), fallback/error (15-17), length (19), rich/plain (20), медиа/картинки (8-10), инициативы (11-14), смежные точки отправки (28-30); спец-пайплайны (21-27, 30) сохранены как отдельные продукты; 4 needs-check зоны задокументированы честно (Q1/Q2/Q4/Q5 + Q7 закрыт R-08.20), без догадок.",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/route-matrix.md",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00015",
@@ -97,8 +142,23 @@
       "acceptance": "План и доказательства готовятся до финального авторского текста; финальный текст создаётся одним логическим Writer-этапом, после которого допускаются только технически необходимые или явно выбранные владельцем детерминированные несмысловые преобразования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "План/доказательства до Writer; после — только несмысловые детерминированные ops",
+          "observation": "Во всех ходах партий шаги ровно [l1_planner(,…), l2_writer]; _no_reroll/_no_legacy_stage; расхождение raw_final↔delivered только с названной причиной ops (test_reasoning_marker_strip_names_the_exact_cause; digest_match=True в обычном ходе); правила владельца — один механический проход (no_quotes/no_emoji с protected spans).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00032",
@@ -142,8 +202,23 @@
       "acceptance": "Подготовка (поиск, память, тема/адресат, разбор задачи, анализ, факты, схема L1, дедуп источников, упаковка Evidence, структурированное промежуточное представление) может включать LLM-вызовы, но не владеет финальной Telegram-репликой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Подготовка не владеет финальной Telegram-репликой",
+          "observation": "Черновик до Writer не публикуется (test_provider_error_is_honest…), проза оркестратора не доставляется (test_r0813_invalid_orchestrator_schema_bounded_stop), текст инструмента не публикуется (test_r0802…), fallback-план L1 не текст (test_r0804_planner_outage_keeps_single_writer) — все четыре пути в одной партии acceptance_rows/no_second_author.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00038",
@@ -157,8 +232,23 @@
       "acceptance": "Финальный Writer (L2) — единственная логическая стадия, которая из плана, фактов, диалога, характера и времени чата формулирует окончательное смысловое сообщение; стиль и жанр создаются внутри неё, а не отдельным литературным переписчиком.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "L2 — единственная логическая финальная стадия; стиль создаётся внутри неё",
+          "observation": "Ровно один l2_writer в каждом ходе партий; semantic_rewrite_count=0 — измерение, а не литерал (test_semantic_rewrite_count_counts_from_literary_calls); второй литературный вызов ломает инвариант (test_second_literary_call_in_turn_fails_the_invariant); единственный style-pass direct_pre_send (test_owner_rules_single_pass_and_protected_spans).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00040",
@@ -187,8 +277,23 @@
       "acceptance": "Разрешённое техническое преобразование не создаёт нового смыслового авторства: удаление настоящих machine/reasoning/target markers, экранирование HTML/Markdown, нормализация платформенных разделителей, нарезка Telegram без потерь, буквальные пунктуационные правила владельца с protected spans, RichMessage из того же текста; изменения трассируемы и не удаляют информацию и не меняют утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Техпреобразования traced, без удаления информации и смены утверждений",
+          "observation": "Трасса называет операцию точно: test_reasoning_marker_strip_names_the_exact_cause (divergence_reason=reasoning_marker_strip, черновик не доехал, «Готово» цело); без ops — digest_match=True; chunking без потерь (R-08.17); HTML-escape тем же payload (R-08.16); no_quotes/no_emoji — один проход, код/URL защищены (test_owner_rules_single_pass_and_protected_spans).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00044",
@@ -247,8 +352,23 @@
       "acceptance": "Содержательный ответ Direct и Initiative идёт строго по маршруту `TurnRequest + ContextSelection → L1 Plan/Decision → Tools + EvidenceBundle (при необходимости) → единый L2 Writer → технический delivery renderer → Telegram` без промежуточного авторского этапа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Маршрут TurnRequest→L1→Tools/Evidence→единый L2→delivery→Telegram без промежуточного авторского этапа",
+          "observation": "test_both_traces_execute_through_single_turn_engine (TurnRequest на обоих триггерах), test_r0801/test_r0802 (шаги L1→L2 и L1→tools→L2), test_normal_turn_traces_stages_and_digests_match (ops доставки и digest), R-08.17 (Telegram-чанки) — один коридор без второго автора.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00083",
@@ -599,8 +719,23 @@
       "acceptance": "`FormContract(source_text=draft_text)` для свободного чата лишён consumer, а dead code удалён при отсутствии других целей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "FormContract(source_text=draft) свободного чата без consumer",
+          "observation": "test_free_form_reply_has_no_form_contract (продовый шов) + test_machine_validation_is_not_used_for_free_speech; AST-проверка test_free_form_path_has_no_reroll_mechanism_in_source: в verbalize_validated нет петель/ретраев/подстановки verified_phrase, одна точка generate_call.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ],
       "pending_reason": "Потребителя `FormContract(source_text=draft_text)` в свободном чате больше нет (боевой L2 передаёт form_contract=None), но мёртвый код не удалён: класс FormContract и check_form_contract используются только тестами — вопрос связан с R-03.3 (проверка явных трансформаций не подключена)."
     },
     {
@@ -825,8 +960,23 @@
       "acceptance": "L1 planning, Web Search, `ToolEvidence`, memory и ChatClock сохранены/развиты по UR-A как вход и интеллект, а не как rewrite.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "L1 planning / Web Search / ToolEvidence / память / ChatClock — вход и интеллект",
+          "observation": "test_initiative_receives_real_capabilities + test_explicit_search_request_resolves_same_tools (реальные allowlist-тулы на обеих трассах); ось поиска живая (test_axis_open_world_reaches_provider); <Tool_Evidence> до Writer (no_second_author); собственные слова бота — диалог-факт (test_bot_turn_is_dialog_fact_not_style_anchor); ChatClock в payload/трассе (см. R-06.8).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00137",
@@ -840,8 +990,23 @@
       "acceptance": "Factcheck judgement/citations, Summary и meme pipeline сохранены как специализированные стадии для разных реальных задач.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Factcheck judgement/citations, Summary и мем-пайплайн — специализированные стадии",
+          "observation": "Factcheck: test_factcheck_two_call_still_produces_own_final_text + R-08.12 (структура preserved); Summary: stage1/stage2 на месте, файлы не менялись (diff 5a1fce62→5e0cb201 пуст); мем: MEME_*_PROMPT без изменений, путь генерации жив (negative_matrix (ж)).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ],
       "pending_reason": "Фактчек и саммари доказаны (свой финальный этап сохранён), мем-пайплайн в принятых кандидатах отдельно не проверялся."
     },
     {
@@ -856,8 +1021,37 @@
       "acceptance": "SSRF/URL guard, secret redaction, tool permissions, output marker-strip, Telegram escaping и send idempotency сохранены как техническая целостность.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "SSRF/URL guard и tool permissions сохранены",
+          "observation": "test_rbac_and_ssrf_still_block_with_their_own_reasons (BGS-02): RBAC и SSRF блокируют со своими кодами при живом egress-наблюдении; test_missing_tool_is_honest_not_search: RBAC-режет схемы честным tool_absent.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Secret redaction сохранена",
+          "observation": "test_safe_text_masks_secret_tokens, test_redact_url_drops_query_and_userinfo, test_literal_catalog_secret_masked: маскирование секретов в безопасном тексте и URL (файл зелёный в партии 327 passed на HEAD 7b1bebc4).",
+          "type": "test",
+          "artifact_path": "tests/test_external_log_round1024.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Output marker-strip / Telegram escaping / send idempotency сохранены",
+          "observation": "reasoning_marker_strip назван в трассе, черновик не доехал до пользователя (observability); HTML-escape тем же payload (negative_matrix (з)); дедуп update (dcs_postprocess) и restart-маркер до отправки (proof_restart).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00144",
@@ -871,8 +1065,23 @@
       "acceptance": "UNIFIED-REPLY UR-01–UR-05 (общий L1, tool execution, L2 Writer) сохранены без исключений как целевая топология; подтверждено, изменений не требуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-01–UR-05 сохранены без исключений как целевая топология",
+          "observation": "test_turn_policy_is_identical_for_both_triggers, test_both_traces_execute_through_single_turn_engine, test_live_helper_delegates_to_unified_phase, test_both_live_call_sites_use_the_single_tool_phase: единые L1 / tool-этап / L2 без исключений; регресс silent/react и явного поиска зелёный (файлы 15+19 passed).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00145",
@@ -901,8 +1110,23 @@
       "acceptance": "UNIFIED-REPLY UR-18/UR-19 (completion metadata, продолжение ответа после `length`) сохранены: продолжение того же текста не является новым paraphrase, обрыва нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-18/UR-19 сохранены: продолжение — не paraphrase, обрыва нет",
+          "observation": "Метаданные UR-18 в трассе (finish_reason, raw_final_digest, text_source=author, provider/model); test_continuation_is_classified_not_a_rewrite + test_rlr_length_continuation.py (17 passed): продолжение — тот же автор с префиксом, исчерпание/сбой — честный отказ без публикации обрезка; fallback-нога не теряет метаданные (test_r0815_provider_fallback_same_stage_protected_blocks).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00147",
@@ -916,8 +1140,23 @@
       "acceptance": "UNIFIED-REPLY UR-14/UR-23 сохранены: бот помнит свои ответы, но не подражает им автоматически; это не путается с post-hoc duplicate reroll.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-14/UR-23 сохранены: помнит свои ответы, не подражает; не путается с reroll",
+          "observation": "test_bot_turn_is_dialog_fact_not_style_anchor (UR-23.5: ledger — факт диалога, не стилевой образец/источник истины); test_two_events_same_text_are_two_answers: duplicate-reroll удалён, одинаковый текст двух событий законен.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00148",
@@ -931,8 +1170,23 @@
       "acceptance": "UNIFIED-REPLY UR-06–UR-08 / BGS-01 применяются по позднему решению BGS-01 для web policy; настоящая коррекция не меняет поиск повторно и не вводит privacy guard.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-06–UR-08/BGS-01 по позднему решению; поиск не меняется повторно, privacy guard не вводится",
+          "observation": "test_personal_topic_and_name_still_reach_provider (имя участника — не основание не искать) и test_axis_not_applicable_blocks_keyword_search (структурный запрет без содержательного вето): ось BGS-01 живая; egress-гард только наблюдает и возвращает свой вход без изменений (test_search_unavailable_honest_evidence…; BGS-02 observation-bound).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00149",
@@ -1006,8 +1260,23 @@
       "acceptance": "PVR-FC FC-01–FC-07 не ослаблены: claim-aware evidence, вердикт, источники и честные статусы сохранены, проверка факта не превращена в post-L2 speech rewrite.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-FC FC-01–FC-07 не ослаблены коррекцией",
+          "observation": "test_r0812_insufficient_evidence_is_not_upgraded + test_r0812_composite_claim_structure_preserved_no_rewrite: claim-aware evidence/вердикт/источники/честные статусы сохранены, фактчек не стал post-L2 speech rewrite; числовой data-stage — R-03.4 VERIFIED.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ],
       "pending_reason": "Принятые кандидаты доказывают только часть PVR-FC: числовой data-stage и честные вердикты фактчека; FC-01–FC-07 целиком (claim-aware evidence, источники, полный набор статусов) этим срезом не перепроверены."
     },
     {
@@ -1053,7 +1322,7 @@
       "source_text_sha256": "5c62ca9b8c5bdde56c7bf1585e43ae34def631e18056cd7f86a0b5d65ae95085",
       "source_excerpt": "| Speech/Character owner rules | Владелец управляет тоном, матом, пунктуацией | Сохранить; ручные тексты/версии не переписывать |",
       "disposition": "required",
-      "reason": "Реальный риск для Speech/Character-правил возникает при снятии пост-правок в RLR-04 (free-form retry, numeric post-edit). Срез RLR-05-ADMIN не касался Speech/Character-модулей и текстов, но это лишь отсутствие изменений, а не доказательство, что владелец по-прежнему управляет тоном/матом/пунктуацией и ручные тексты не переписаны. PENDING до RLR-04.",
+      "reason": "Риск снятия пост-правок устранён и доказан объединёнными наборами: правила владельца (no_quotes/no_emoji/тире) применяются ровно одним проходом с protected spans (test_owner_rules_single_pass_and_protected_spans, test_owner_no_quotes_no_emoji_exactly_one_mechanical_pass на реальном конфиг-слое), ручные тексты/версии не переписываются (R-ADM.3: скрытие ≠ удаление, DML нет; revisions owner-промптов видны в manifest трассы Writer'а). Без отдельного доказательства в этой коррекции осталось управление тоном/матом: kind-набор style_policy — пунктуация/кавычки/emoji, тон/мат живут в персоне-слое и проверяются наборами Speech/Character, а не срезами RLR.",
       "req_id": "R-CONF.12",
       "slice": "RLR-05-ADMIN",
       "acceptance": "Speech/Character owner rules сохранены: владелец управляет тоном, матом, пунктуацией; ручные тексты и версии не переписываются.",
@@ -1181,8 +1450,23 @@
       "acceptance": "Reachability установлен на HEAD для всех перечисленных путей (direct with/without tools, L1 enabled/disabled, legacy flags, initiative, fallback, error return, deep_research/HTML, direct images, tool-delivered media, factcheck, summary, scheduled messages, user-requested rewrite), и для каждого показано число независимых финальных авторских генераций и место реальной постобработки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Reachability на HEAD для всех перечисленных путей, с числом авторов и постобработкой",
+          "observation": "route-matrix §2: все 35 строк привязаны к call sites/гейтам с числом финальных авторских генераций и местом постобработки; строки 19/31 пересняты на HEAD 9ca6bb07; между 9ca6bb07 и release-кандидатом 5e0cb201 RLR-файлы маршрута (direct_chat_service, direct_l1, negative_constraints, style_policy и др.) не менялись — diff содержит только bump версии и несвязанные goodmorning/web правки других фич.",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/route-matrix.md",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00190",
@@ -1196,8 +1480,23 @@
       "acceptance": "Проверка путей выполнена не по grep имени: проверены import graph, call sites, toggles, реальные конфигурации/рантайм и возможные поздние `rewrite`-функции; результат оформлен таблицей с конкретными call-site и route outcome без отдельного бесконечного аудита.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Проверка не по grep имени: import graph, call sites, toggles, реальные конфигурации/рантайм",
+          "observation": "route-matrix §1/§7: точки вызова verbalize_validated (4 production-точки), отсутствие _synthesize_direct_answer, резолв флагов settings/direct_l1, потребители media_delivered/is_truncated; реальные значения прод-конфигураций закрыты живым прогоном R-09 (R-09.1–R-09.4 VERIFIED на релизе 2.58.159).",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/route-matrix.md",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00196",
@@ -1959,7 +2258,7 @@
       "source_text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "source_excerpt": "",
       "disposition": "required",
-      "reason": "",
+      "reason": "Единый прогон «матрица гейтов × сценарии» (DIRECT_L1_ENABLED on/off, SYSTEM2_DIRECT_ENABLED any, SYSTEM2_VALIDATOR_LOOP_ENABLED, SPEECH_STYLE_POLICY_ENABLED, SYSTEM2_FACTCHECK_ENABLED, SUMMARY_L2_REVIEW_ENABLED) отсутствует — рабочий список RLR-07 п.3. 20 из 21 конкретных строк R-08.1–R-08.20 VERIFIED на реальных гейтах (negative_matrix/acceptance_rows/proof_restart: гейты ассертятся включёнными, l1 on/off, рестарт нового процесса), но сценарии фактчека/саммари не прогоняются в единой матрице гейтов.",
       "req_id": "R-08.21",
       "slice": "RLR-07-PROOF",
       "acceptance": "Каждый негативный сценарий проверен с учётом реальных конфигов и feature gates, а не только на мокированном идеальном happy path.",
@@ -1975,7 +2274,7 @@
       "source_text_sha256": "27a47f45e383eadd832dac53a6d7220a5f835487b022aa96e19738edfcc3cd44",
       "source_excerpt": "**Каждый негативный сценарий проверять с учётом реальных конфигов и feature gates**, а не только мокированного идеального happy path.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не все негативные сценарии имеют варианты с legacy-флагами и L1 off: например R-08.12 (фактчек), R-08.15 (fallback), R-08.17 (chunking) — без l1-off параметризации. Текущее покрытие: каждый Direct-сценарий ассертит свои гейты (negative_matrix/acceptance_rows), l1 on/off — для сценариев R-08.1–R-08.9/13. Остаётся PENDING до расширения матрицы гейтов (RLR-07 п.3).",
       "req_id": "R-08.CFG",
       "slice": "RLR-07-PROOF",
       "acceptance": "Все негативные сценарии R-08 прогоняются в реальных конфигурациях и feature gates (включая legacy-флаги и L1 off), а не только в мокированном happy path.",
@@ -2328,8 +2627,30 @@
       "acceptance": "Продолжение после `finish_reason=length` описано и реализовано как дописывание того же логического сообщения, а не как написание альтернативного текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Продолжение после finish_reason=length — дописывание того же логического сообщения",
+          "observation": "test_truncated_answer_is_continued_once_with_prefix / test_short_echo_of_truncated_word_is_not_glued / test_repeated_tail_is_removed_exactly_once: обрезанный ответ продолжается ровно один раз, написанный фрагмент идёт как assistant-префикс, итог = часть1+часть2 без «worword» и без независимого варианта с нуля. Прогон файла на HEAD 7b1bebc4 — 17 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_length_continuation.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Продолжение классифицируется отдельно и не является вторым автором",
+          "observation": "test_continuation_is_classified_not_a_rewrite (llm_calls.continuation=1, semantic_rewrite_count=0, delivery digest_match=True) и test_continuation_is_not_a_semantic_rewrite (attempts=1 при двух вызовах провайдера).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00047",
@@ -2343,8 +2664,30 @@
       "acceptance": "Новый ход после нового сообщения/события с новым idempotency key не считается повторным Writer'ом и не переписывает предыдущий ответ.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Новый ход/новое событие — независимый ответ, не повторный Writer",
+          "observation": "test_two_events_same_text_are_two_answers (l1 off/on) и test_equal_text_two_events_two_answers_and_redelivery_blocked: два РАЗНЫХ события с одинаковым текстом получают по одному ответу без reroll/jitter-фразы; повторная доставка того же update не отвечает вовсе (DIRECT_UPDATE_DEDUP_HIT).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Идемпотентный ключ привязан к событию, не к тексту",
+          "observation": "test_normal_turn_traces_stages_and_digests_match: ctx['idempotency_key'] = 'direct:<chat>:<message_id>:…' на каждый ход; событие доставки несёт тот же ключ и реальные tg_message_ids.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00048",
@@ -2432,8 +2775,37 @@
       "acceptance": "L1 решает отвечать ли, кому, в какой форме, насколько подробно, нужны ли инструменты/веб-поиск и какой контекст взять, и не производит заменяющий финальную речь draft; при решении `silent`/`react` L2 не вызывается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "L1 решает действие/форму/подробность/инструменты, не пишет заменяющий draft",
+          "observation": "test_r0801_direct_without_tools_one_l1_then_one_l2: план L1 → ровно один l2_writer, доставлен текст L2, стадий после L2 нет; test_r0813_invalid_orchestrator_schema_bounded_stop: проза оркестратора не доставляется (orchestrator_invalid_output — решение, не автор).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "При решении silent/react L2 не вызывается",
+          "observation": "test_r0803_initiative_silent_or_react_writes_no_text (silent/react): ни отправки, ни l2_writer в шагах LLM; test_r0803_initiative_reply_uses_shared_l2_once: reply идёт общим L2 ровно один раз.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Один движок хода для обоих триггеров",
+          "observation": "test_both_traces_execute_through_single_turn_engine + test_silent_and_react_survive_single_engine: обе трассы через _execute_turn с TurnRequest; silent/react сохранены. Файл — 15 passed на HEAD 7b1bebc4.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00061",
@@ -2447,8 +2819,37 @@
       "acceptance": "ToolRouter выполняет инструменты и собирает результаты с source provenance; промежуточный результат для Writer — данные/evidence, а свободный текст старого инструмента сохраняется как атрибутированный `tool_result`, если только действие не объявлено терминальным и детерминированным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Инструменты исполняет ToolRouter, факты идут в Writer с source provenance",
+          "observation": "test_evidence_pack_delivered_to_l2_with_attribution и test_r0802_search_evidence_then_single_l2_not_retold: <Tool_Evidence> с '[ИСТОЧНИК 1 | execute_web_search | ok]' в payload L2 ДО генерации; свободный текст инструмента не публикуется как ответ.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Промежуточный результат — данные/evidence, сбой — честный статус",
+          "observation": "test_search_unavailable_honest_evidence_and_no_sentence_dropped: search_status=unavailable, блоки «СТАТУС ИНСТРУМЕНТОВ / не выполнился / честно скажи, что эта часть недоступна» в payload Writer'а до генерации; сырой tool dump не публикуется.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_negative_matrix.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Живой tool-этап един на ход (Direct и Initiative)",
+          "observation": "test_exactly_one_tool_phase_per_turn, test_adaptive_mode_does_not_repeat_the_search, test_both_live_call_sites_use_the_single_tool_phase: один run_tool_phase на ход, у живых call site нет собственных копий цепочки.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00062",
@@ -2462,8 +2863,37 @@
       "acceptance": "L2 пишет окончательный текст сразу в настроенном характере, получая общий для Direct/Initiative базовый речевой composer, реальные факты, владельческие настройки, reply-привязку, релевантную память (включая собственные слова бота), ChatClock и результаты поиска; character/style не дублируются в нескольких слоях.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Реальные факты и результаты поиска доходят до единственного Writer'а",
+          "observation": "test_r0802_search_evidence_then_single_l2_not_retold (Tool_Evidence с атрибуцией) и test_r0810_metric_result_reaches_writer_and_is_delivered (проверенный MetricResult: metric_id + human_label в payload до генерации); доставлен ровно текст L2.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Composer/владельческие настройки/reply/память/ChatClock — в пакет Writer'а",
+          "observation": "test_normal_turn_traces_stages_and_digests_match (оба режима композера): manifest запроса несёт blocks + revisions owner-промптов; ctx['clock'] — ChatClock хода; test_success_reply_and_memorize: строка «[Текущее время в чате: …» — первый user-блок payload; R-08.17: reply_to_message_id на первом чанке; test_bot_turn_is_dialog_fact_not_style_anchor: собственные слова бота — факт диалога, не стилевой образец.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Стиль/характер не дублируются по слоям",
+          "observation": "Единственный mechanical style-pass direct_pre_send в реальном ходу (test_owner_rules_single_pass_and_protected_spans: passes.count('direct_pre_send')==1), без второго литературного прохода (_no_reroll).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00063",
@@ -2477,8 +2907,30 @@
       "acceptance": "Степень подробности определяют план и задача, а не скрытый fixed cap/жанровая инструкция «будь кратким» и не повторный Formatter; физические границы Telegram/API сохраняются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Подробность определяют план и задача — скрытого fixed cap нет",
+          "observation": "test_r0817_long_reply_chunked_without_loss: ответ >5000 символов (140 «пунктов») доставлен целиком, склейка чанков воспроизводит текст с точностью до закрытой типографики; единственное ограничение — физический лимит Telegram (чанки ≤4096).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Повторного Formatter/пересказчика нет",
+          "observation": "После l2_writer ни одной LLM-стадии (_no_reroll/_no_legacy_stage во всех ходах партий); таблица/список доставляются байт-в-байт (test_table_and_list_delivered_without_new_generation: llm.call_count==1).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00064",
@@ -2492,8 +2944,30 @@
       "acceptance": "Специфические решения инициативы (уместность, silence/react, SendRecheck, target, cooldown, дедуп отправки) и Direct (явное обращение, reply) сохранены как логика выбора/доставки, а не второй Writer.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Решения инициативы (silence/react/SendRecheck/target) и Direct — логика выбора/доставки",
+          "observation": "test_initiative_trace_carries_opportunity_and_addressee: TurnRequest несёт opportunity/addressee и delivery.recheck=True; test_r0803_*: silent/react/reply исполняются без второго автора; test_case7b_stale_target_with_addressee_cancels: устаревшая цель отменяет отправку.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Дедуп отправки сохранён",
+          "observation": "test_same_event_redelivery_is_blocked: повтор update — 0 LLM, 0 отправок, событие DIRECT_UPDATE_DEDUP_HIT.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00066",
@@ -3152,8 +3626,30 @@
       "acceptance": "Защита от повторной доставки одного логического действия сохранена: `correlation_id`, `tg_message_id`, durable idempotency key, retry-send semantics, логические send reservations и SendRecheck; повторная обработка одного входящего события не отправляет дубль.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Повторная обработка одного события не отправляет дубль",
+          "observation": "test_same_event_redelivery_is_blocked и test_equal_text_two_events_two_answers_and_redelivery_blocked: дедуп по идентичности update на durable SQLite-маркере; test_tool_delivered_media_suppresses_second_text: повтор media-события не даёт ни второго фото, ни текста, маркер check_update_seen=True.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "После рестарта дубля нет; correlation/ключ/tg id в трассе доставки",
+          "observation": "test_no_resend_of_same_logical_answer_after_process_restart: новый процесс, durable-маркер, повтор update — 0 LLM и 0 отправок; событие доставки трассы несёт idempotency_key хода и tg_message_ids (trace_id = correlation_id).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_proof_restart.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ],
       "pending_reason": "Поведенческое ядро доказано на смежных кандидатах, но строка целиком (связка correlation_id + tg_message_id + durable idempotency + retry-send semantics + send reservations + SendRecheck как один контракт RLR-01-ROUTE) к одному кандидату не привязана: повторная доставка того же update блокируется (tests/test_rlr_dcs_postprocess.py::test_same_event_redelivery_is_blocked — direct_update_dedup_hit, 0 LLM, 0 отправок @ d69f52da; R-08.5/R-08.20 VERIFIED @ 74ce5246), механика retry-send/reservations/SendRecheck отдельно не перепроверялась — остаётся на DoD среза RLR-01-ROUTE."
     },
     {
@@ -3229,8 +3725,30 @@
       "acceptance": "Фактчек сохраняет Claim Extraction/verification, источники, evidence mapping, verdict и review до конечного вывода; конечная речь из валидированной структуры — один final Writer, PVR-FC (включая `insufficient_evidence` и технические ошибки) не ослаблен и не удалён ради лозунга.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Factcheck: Claim Extraction/verification/источники/verdict до конечного вывода",
+          "observation": "test_factcheck_two_call_still_produces_own_final_text: verbalize_validated вызывается один раз и получает «АНАЛИЗ (JSON)»; test_r0812_composite_claim_structure_preserved_no_rewrite: claim/findings/verdict той же структуры в payload Writer'а, 2 вызова, текст доставлен как написан.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "PVR-FC не ослаблен: insufficient_evidence и технические ошибки честны",
+          "observation": "test_r0812_insufficient_evidence_is_not_upgraded: серверное сведение не поднимает insufficient_evidence до supported, структурный отчёт без смягчения; числовой data-stage фактчека — R-03.4 VERIFIED (test_rlr_factcheck_numeric_stage.py — 11 passed на HEAD).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ],
       "pending_reason": "Двухвызовный (структурный) маршрут покрыт числовым data-stage и честными вердиктами (93e64dc8), но одиночный путь 10.21 — kill-switch SYSTEM2_FACTCHECK_ENABLED=false и fallback при two_call=None — заканчивается `_finalize` без числового контракта; полнота PVR-FC (FC-01–FC-07) этим срезом не доказана — задокументированное ограничение ревьюера."
     },
     {
@@ -3245,8 +3763,30 @@
       "acceptance": "Саммари/глубокий сон/память/GraphRAG остаются отдельными продуктами/данными со своими семантическими стадиями и валидаторами структурированных данных, а не переписыванием готового Telegram-ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Саммари — отдельный продукт со своими семантическими стадиями",
+          "observation": "test_specialised_modules_untouched_by_this_slice: step='stage1'/'stage2' в summary_generator на месте; direct-демонтаж их не задел.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Память/GraphRAG/документный контур саммари не переписывают готовый Telegram-ответ",
+          "observation": "Diff 5a1fce62 (база коррекции) → 5e0cb201 (релиз) по services/summary_generator.py, summary_l2_writer.py, summary_l2_review.py — пуст: файлы коррекцией не менялись; маршруты 26-27 route-matrix — отдельный документный контур с собственным writer/review, не переписывание реплики Direct/Initiative.",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/route-matrix.md",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ],
       "pending_reason": "Доказано только сохранение шагов stage1/stage2 в services/summary_generator.py; глубокий сон, память и GraphRAG собственными наборами в принятых кандидатах не проверялись."
     },
     {
@@ -3261,8 +3801,30 @@
       "acceptance": "Мем-пайплайн (`выжимка → генерация прикола → генерация изображения`) сохранён: текст действующих мем-промптов и версионирование не изменены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Тексты действующих мем-промптов и версионирование не изменены",
+          "observation": "Побайтовое сравнение MEME_SUMMARY_SYSTEM_PROMPT / MEME_JOKE_PROMPT / MEME_IMAGE_PROMPT / JOKE_LENGTH_DIRECTIVE между базой коррекции 5a1fce62 и release-кандидатом 5e0cb201: все четыре совпадают (SAME); конвейер STAGE_SUMMARY→STAGE_JOKE→STAGE_IMAGE в meme_initiative.py на месте.",
+          "type": "static",
+          "artifact_path": "services/meme_initiative.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Мем-пайплайн исполняется: выжимка → прикол → изображение",
+          "observation": "test_tool_delivered_media_suppresses_second_text: реальный путь generate_and_send (подменён только провайдер изображения), доставка без текста, record/send/idempotency сохранены.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_negative_matrix.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ],
       "pending_reason": "Отдельного доказательства мем-пайплайна (текст промптов и версионирование) в принятых кандидатах нет; проверка — вместе с мем-наборами после остальных срезов."
     },
     {
@@ -3314,8 +3876,30 @@
       "acceptance": "Специальный терминальный инструмент (готовый deterministic report, файл, изображение, доставка медиа) может завершить ход без текстового L2, и после успешно отправленной картинки не отправляется второе пояснение; если инструмент вернул только evidence — L2 нужен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Терминальный инструмент завершает ход без текстового L2; второго пояснения нет",
+          "observation": "test_tool_delivered_media_suppresses_second_text: доставлено ровно одно фото, send_message=0, caption без промпта; повтор update — без второго фото/текста; калибровка: текстовый ход тем же ботом отвечает текстом («photo,text»), значит подавление — реальная ветка, не артефакт.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_negative_matrix.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Если инструмент вернул только evidence — L2 нужен",
+          "observation": "test_r0802_search_evidence_then_single_l2_not_retold: evidence из инструмента → ровно один l2_writer, ответ доставлен.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00106",
@@ -3329,8 +3913,23 @@
       "acceptance": "Ответ без инструментов идёт L1 → L2 без forced synthetic Stage-1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Ответ без инструментов: L1 → L2 без forced synthetic Stage-1",
+          "observation": "test_r0801_direct_without_tools_one_l1_then_one_l2: шаги ровно ['l1_planner','l2_writer'] при присутствующем роутере без dispatched; test_missing_tool_capability_single_call_path_too: без инструментов тоже один автор, без псевдо-справки; _no_legacy_stage: stage1/stage2 отсутствуют.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00107",
@@ -3344,8 +3943,23 @@
       "acceptance": "Молчание/реакция не добавляют L2 ради форматирования; доставка выполняется согласно принятому решению.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Молчание/реакция не добавляют L2 и инструментов",
+          "observation": "test_r0803_initiative_silent_or_react_writes_no_text: status silent/reacted, отправок нет, l2_writer нет; test_silent_and_react_make_no_tool_calls: search.queries пусты, skip_reason=SKIP_PARTICIPATION_WITHOUT_TEXT.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00108",
@@ -3359,8 +3973,37 @@
       "acceptance": "ChatClock по выбранному часовому поясу приходит в L1/L2, а также в фактчек/саммари по их требованиям; живое время не подменяется выдуманным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "ChatClock приходит в L2 первым user-блоком, время собирается кодом",
+          "observation": "test_success_reply_and_memorize: user_content.startswith(«[Текущее время в чате: »), system при этом статичен — живое время собирается кодом хода, а не выдумывается моделью.",
+          "type": "test",
+          "artifact_path": "tests/test_direct_chat.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Формат строки времени в сборке контекста (дата/время чата)",
+          "observation": "test_memory_core_round1020: time_line соответствует регулярному выражению с датой и временем чата (день.месяц.год, чч:мм) — формат стабилен и строится сервером.",
+          "type": "test",
+          "artifact_path": "tests/test_memory_core_round1020.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "ChatClock зафиксирован в трассе каждого хода",
+          "observation": "test_normal_turn_traces_stages_and_digests_match: ctx['clock'] непуст для каждого хода (событие context).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00109",
@@ -3411,8 +4054,30 @@
       "acceptance": "HTML/RichMessage renderer экранирует/разбивает текст, но не сокращает и не пересказывает; fallback Rich → plain использует тот же смысловой payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "HTML/Rich renderer экранирует и разбивает, не сокращает и не пересказывает",
+          "observation": "test_invalid_html_renders_same_text_plain: HTML-ветка экранирует разметку, fallback plain — тот же смысловой payload; test_html_and_rich_fallback_keep_same_payload: Rich fail → plain того же документа без второй генерации.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Разбивка длинного текста без потерь",
+          "observation": "test_r0817_long_reply_chunked_without_loss: склейка чанков воспроизводит текст, ссылка и авторство не разрезаны, reply только на первом чанке.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00112",
@@ -3441,8 +4106,37 @@
       "acceptance": "При сбое провайдера до получения завершённого L2 выполняется bounded retry по документированной политике либо fallback-модель на том же смысловом пакете/плане с capacity-aware перепаковкой, защищающей исходный вопрос, роль, время и обязательные доказательства; фактический provider и причина фиксируются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Fallback-модель — та же стадия Writer'а, защищённые блоки целы",
+          "observation": "test_r0815_provider_fallback_same_stage_protected_blocks: реальный LLMClient с fallback-ногой; в перепакованном payload сохранены system/роль, текущий вопрос, <Tool_Evidence> с находкой; «СПРАВКА (JSON)» (legacy Stage-1) отсутствует; attempts=1, semantic_rewrite_count=0.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сбой провайдера честен, черновик до Writer не публикуется",
+          "observation": "test_provider_error_is_honest_not_draft_not_second_author: шаги [l1_planner, l2_writer], доставлена честная фраза CHAT_ERROR_PHRASES, черновик «ЧЕРНОВИК ДО WRITER» не опубликован, stage1/stage2 нет.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Фактический provider/model фиксируются в трассе",
+          "observation": "test_normal_turn_traces_stages_and_digests_match: writer.request несёт provider/fallback_model, completion.model — фактический автор из метаданных завершения UR-18.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00115",
@@ -3456,8 +4150,37 @@
       "acceptance": "При `finish_reason=length` продолжается тот же логический ответ с явной границей накопленных токенов, без обрезка и без независимого «переписчика для завершения», с защитой от дублирования и противоречивых продолжений; при невозможности — честное техническое состояние вместо фиктивного успеха.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Продолжение того же ответа с явной границей накопленных токенов",
+          "observation": "test_truncated_answer_is_continued_once_with_prefix: continuation messages = system/user + assistant(PART1) + user-граница с len и count_tokens написанного; исходный system/user контекст сохранён; test_continuation_messages_carry_explicit_accumulated_boundary.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_length_continuation.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Без обрезка и без «переписчика завершения»; защита от дублей/противоречий",
+          "observation": "test_cap_exhausted_does_not_publish_truncated_text и test_provider_error_during_continuation_is_honest: обрезок не публикуется, второй вариант не генерируется; test_repeated_tail_is_removed_exactly_once + strip_exact_overlap/join тесты: эхо снимается ровно один раз, стык слова и десятичная точка целы.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_length_continuation.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Невозможность продолжения — честный отказ, а не фиктивный успех",
+          "observation": "test_unfinished_answer_is_not_a_normal_success: refused=True, refused_reason=unfinished_answer, text_source=none, доставки нет, обрезок не уходит в чат.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00116",
@@ -3471,8 +4194,23 @@
       "acceptance": "При сбое инструмента L2 получает статус ошибки и доступные факты и может честно ответить без выдуманной проверки; при отсутствии обязательного evidence неполнота обозначается явно, без публикации сырого tool dump и без незаметной регенерации старым маршрутом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Сбой инструмента: L2 получает статус и факты, отвечает честно",
+          "observation": "test_search_unavailable_honest_evidence_and_no_sentence_dropped: поиск реально вызван и упал — search_status=unavailable в событии reply_search_evidence; в payload Writer'а до генерации честные «ОГРАНИЧЕНИЯ»; утверждение доставлено как написано (ни вырезанного предложения, ни post-цензуры: egress-guard вернул ровно свой вход); _no_reroll: регенерации старым маршрутом нет.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_negative_matrix.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00117",
@@ -3553,8 +4291,37 @@
       "acceptance": "При пустом final не подставляется произвольная фраза «к сожалению…» и не доставляются фальшивые verified claims: используется существующий законный error/silence/clarification outcome по триггеру и плану, причина фиксируется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Пустой final → законное молчание, без заглушки «к сожалению…»",
+          "observation": "test_empty_answer_silence_with_moai: пустой ответ модели — молчание + 🗿, send_message не вызван, memorize не запланирован, причина 'empty answer' в журнале; test_bad_response_silence_with_moai: LLMBadResponseError — молчание без R13-фразы.",
+          "type": "test",
+          "artifact_path": "tests/test_direct_chat.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Фальшивые verified claims не подставляются; маркер молчания не имитирует ответ",
+          "observation": "test_free_form_number_delivered_as_written и test_lore_story_number_delivered_without_guard: verified_phrase не вставляется в доставленный текст; test_empty_answer_repeat_retried_live: «пустой ответ» не кешируется как результат — повтор даёт новую попытку без фейкового успеха.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Clarification/отказ — исход по плану, причина названа",
+          "observation": "test_explicit_rewrite_without_source_keeps_author_text_and_flags_clarification: clarification-флаг без подмены авторского текста; test_unfinished_answer_is_not_a_normal_success: refused_reason в трассе, доставки нет.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_verbalize_scope.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00120",
@@ -3568,8 +4335,30 @@
       "acceptance": "Cancel/restart не исполняет один и тот же logical send дважды, сохраняет результаты инструментов и контекст и не возобновляет отправку с устаревшим текстом при смене target/reply в инициативе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Рестарт/повторная доставка не исполняют logical send дважды",
+          "observation": "test_no_resend_of_same_logical_answer_after_process_restart: новый процесс, durable-маркер пишется ДО отправки, повтор update — 0 отправок; test_same_event_redelivery_is_blocked: то же в рамках процесса (DIRECT_UPDATE_DEDUP_HIT).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_proof_restart.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Не возобновляет отправку с устаревшим текстом при смене target/reply",
+          "observation": "test_case7b_stale_target_with_addressee_cancels: устаревшая цель отменяет отправку; test_plan_logical_send_cancelled_no_chunks и test_plan_logical_send_recheck_once_for_all_chunks: §18D — recheck ровно один раз, отменённая отправка не нарезается на чанки.",
+          "type": "test",
+          "artifact_path": "tests/test_asap8_initreply_binding.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00122",
@@ -4374,8 +5163,23 @@
       "acceptance": "До реализации зафиксированы текущий исполняемый маршрут, локальный HEAD, активные Assignment и пересечения с UR-A/BGS/PVR-FC — как короткий рабочий контроль конфликтов, а не отдельная исследовательская задача.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "До реализации зафиксированы маршрут/HEAD/пересечения как рабочий контроль конфликтов",
+          "observation": "route-matrix.md: снимок 35 путей на HEAD c8d9866e (зоны 19/31 пересняты на 9ca6bb07), метод §1 (import graph, call sites, гейты), пересечения с UR-A/BGS/PVR-FC отражены в merge_state карты; документ рабочий, не отдельная исследовательская задача.",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/route-matrix.md",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00230",
@@ -4389,8 +5193,30 @@
       "acceptance": "В существующей архитектурной волне Direct/Initiative интегрированы общий `TurnRequest/ToolEvidence/L2`; достижимый legacy rephrase и content reroll убраны, реальные machine/data стадии сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Общий TurnRequest/ToolEvidence/L2 на Direct и Initiative",
+          "observation": "test_both_traces_execute_through_single_turn_engine + test_same_input_resolves_same_turn_type + test_initiative_receives_real_capabilities: один _execute_turn, одна схема/repair/слот/temperature на обоих триггерах; test_evidence_pack_delivered_to_l2_with_attribution: Tool_Evidence в общем шве.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Достижимых legacy rephrase/content reroll нет; machine-стадии целы",
+          "observation": "test_legacy_entrypoints_do_not_exist + test_flag_has_no_consumer_in_active_graph (второго автора физически нет), test_no_post_l2_llm_step_in_direct_postprocess_source + test_free_form_path_has_no_reroll_mechanism_in_source (AST: петель ретраев нет), test_factcheck_two_call_still_produces_own_final_text (специализированная стадия жива).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_no_second_author.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00231",
@@ -4404,8 +5230,23 @@
       "acceptance": "Последствия BGS-02/03/04 подключены в том же цикле: нет второго независимого PR и второго владельца `direct_chat_service.py`; совпадающие файлы оформлены точными зависимостями, параллелится только независимая UI/config/test работа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "BGS-02/03/04 в том же цикле, один владелец direct_chat_service.py",
+          "observation": "merge_state карты: срезы слиты последовательно в evol/impl (b62bc51e RLR-02, 20d19ad0 RLR-03 verbalize, b9bd717b numeric, c8d9866e RLR-04 removals, BGS-03@2618cb1e, b0bb2310) — второго независимого PR и второго владельца файла нет; правила записи plan.md §«Обязательные правила записи» соблюдены в истории коммитов (d49b10ac → 23313135 → c8d9866e → 8eb6893b/15e8bcc3).",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/plan.md",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00232",
@@ -4419,8 +5260,37 @@
       "acceptance": "Dead consumers удалены, конфиги/админка/описания/миграционный manifest и тесты обновлены; память/эмбеддинги не перестраиваются, user prompts и история версий не редактируются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Dead consumers удалены (numeric guard, duplicate reroll)",
+          "observation": "test_apply_numeric_guard_has_no_product_caller: ни один доставляемый текст не правится apply_numeric_guard (последний потребитель — доставка «Летописца» — удалён d69f52da); test_no_post_l2_llm_step_in_direct_postprocess_source + FORBIDDEN duplicate_guard_retry во всех ходах партий: reroll-стадии отсутствуют.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_dcs_postprocess.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Конфиги/админка/описания/миграционный manifest и тесты обновлены",
+          "observation": "test_rlr_admin_manifest.py — 26 passed на HEAD 7b1bebc4: test_json_manifest_matches_code_source (JSON-зеркало совпадает с кодом), test_manifest_covers_all_removed_path_keys_and_behaviours (8 ключей и снятые поведения классифицированы), test_catalog_rows_exist_readable_and_carry_classification (рабочие подписи/потребители в каталоге), test_removed_and_deprecated_keys_have_no_editable_control (мёртвых переключателей нет).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_admin_manifest.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Память/эмбеддинги не перестраиваются; user prompts и история версий не редактируются",
+          "observation": "test_synthesizer_prompt_is_hidden_but_readable_and_untouched: deprecated-промпт скрыт из UI/API, но значение и ревизии не удалены, DML нет; память/эмбеддинги коррекцией не перестраивались (миграции нет — см. production-привязку релиза).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_admin_manifest.py",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00233",
@@ -4434,8 +5304,30 @@
       "acceptance": "Независимый Reviewer проверил отрицательные сценарии и фактические traces и вернул замечания Builder до исправления; DevOps выполнил миграцию (при необходимости), выкладку и прод-проверку.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Reviewer проверил негативные сценарии и traces, замечания возвращены Builder до исправления",
+          "observation": "Review-находки 05.11 исправлены до мёржа: numeric-гард потерял последнего продуктового потребителя (d69f52da), рассказ «Летописца» доставляется без guard-правки (d69f52da), ось not_applicable не отправляет сырой текст в сеть (репро ревью, ur_b), явная трансформация переведена на сигнал плана EVR5 (15e8bcc3); merge_state — «Слито и принято Reviewer (по срезам)».",
+          "type": "static",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "7b1bebc4"
+        },
+        {
+          "ref": "DevOps: выкладка и прод-проверка выполнены; миграция не требовалась",
+          "observation": "Release 2.58.159 @5e0cb201 задеплоен; healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали (через-привязка в VERIFIED-строках карты); миграция БД не требовалась — DML нет (R-ADM.2/R-ADM.3).",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        },
+        {
+          "ref": "Сквозная release-привязка: код строки вошёл в релиз 2.58.159",
+          "observation": "Тот же код вошёл в release 2.58.159 (мёрж 71d67d14 эпика df00f178, bump 5e0cb201); DevOps задеплоил кандидата и проверил прод: healthz отдаёт 2.58.159, NRestarts 0, хэши ассетов совпали — deployed SHA равен review-кандидату 5e0cb201. Доказательства строки сняты на дереве HEAD 7b1bebc4, который содержит 5e0cb201; RLR-файлы маршрута между 9ca6bb07 и 5e0cb201 не менялись.",
+          "type": "production",
+          "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "candidate_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2"
+        }
+      ]
     },
     {
       "source_id": "L00234",
