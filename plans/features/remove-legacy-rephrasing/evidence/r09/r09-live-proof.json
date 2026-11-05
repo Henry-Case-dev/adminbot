@@ -1,0 +1,2074 @@
+{
+ "meta": {
+  "started_at": "2026-11-05T14:56:11+1200",
+  "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\remove-legacy-rephrasing-d38f02602685-d60b30ca",
+  "commit": "71c3d95ad0c6d268b1a1dfdc13e2665033f2b670",
+  "branch": "rlr/live-proof",
+  "llm_provider_host": "nano-gpt.com",
+  "llm_model": "deepseek/deepseek-v4.1-flash",
+  "fallback_host": "api.deepseek.com",
+  "fallback_model": "deepseek-v4-flash",
+  "search_keys_configured": true,
+  "telegram_send": "stubbed (RecordingBot) — no network",
+  "longform_max_output_tokens_env": "120"
+ },
+ "scenarios": {
+  "s1": {
+   "error": null,
+   "elapsed_s": 6.0,
+   "correlation_id": "90b994cba71e49548edf2c316d00cd67",
+   "background_tasks_drained": 1,
+   "l1_plan_fields": {
+    "action": "reply",
+    "response_act": "answer",
+    "execution_mode": "none",
+    "preserve_source_facts": false,
+    "search_intent": "not_applicable",
+    "knowledge_origin": "conversation_only",
+    "extent": "compact",
+    "structure": "chat"
+   },
+   "llm_calls_by_class": {
+    "planning": 1,
+    "final": 1
+   },
+   "llm_calls_observed_events": {
+    "planning": 1,
+    "final": 1
+   },
+   "final_calls_from_writer": 1,
+   "refused": null,
+   "semantic_rewrite_count": 0,
+   "finish_reason": "stop",
+   "completion": {
+    "finish_reason": "stop",
+    "finish_reason_raw": "stop",
+    "completed": true,
+    "is_truncated": false,
+    "attempt": 1,
+    "fallback_used": false,
+    "provider": "nano-gpt.com",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "usage": {
+     "prompt_tokens": 2748,
+     "completion_tokens": 73,
+     "total_tokens": 2821
+    },
+    "max_output_tokens_sent": null,
+    "chars": 219,
+    "continuation_calls": 0,
+    "continuation_stop_reason": "not_needed",
+    "text_source": "author",
+    "metadata_available": true
+   },
+   "continuation_calls": 0,
+   "continuation_completed": true,
+   "continuation_stop_reason": "not_needed",
+   "raw_final": {
+    "chars": 219,
+    "digest_runner": "3f1eefebb9a0c4b0",
+    "digest_trace": "3f1eefebb9a0c4b0",
+    "digest_agrees": true,
+    "excerpt": "Привет! Да честно — ничем таким, что стоило бы запомнить: утро прошло в обычной рутине, так что ярких событий не случилось. Разве что запомнилось, что ты объявился в такую рань — вот это уже интереснее любого моего дня.",
+    "tail": "… что запомнилось, что ты объявился в такую рань — вот это уже интереснее любого моего дня.",
+    "ends_with_sentence_punct": true
+   },
+   "final_after_l2_sanitize": {
+    "chars": 219,
+    "digest_runner": "3f1eefebb9a0c4b0",
+    "same_as_raw": true
+   },
+   "delivered": {
+    "messages": 1,
+    "chars": 219,
+    "digest_runner": "83c849fd5f3d865b",
+    "digest_trace": "83c849fd5f3d865b",
+    "digest_match_trace": false,
+    "written_equals_sent": false,
+    "ops_between": [
+     "owner_style_punctuation",
+     "plain_render",
+     "egress_sanitize"
+    ],
+    "text_diff": {
+     "equal": false,
+     "prefix": 18,
+     "suffix": 41,
+     "removed": "— ничем таким, что стоило бы запомнить: утро прошло в обычной рутине, так что ярких событий не случилось. Разве что запомнилось, что ты объявился в такую рань —",
+     "added": "- ничем таким, что стоило бы запомнить: утро прошло в обычной рутине, так что ярких событий не случилось. Разве что запомнилось, что ты объявился в такую рань -",
+     "removed_chars": 160,
+     "added_chars": 160,
+     "punct_only": true,
+     "other_char_delta": 0
+    },
+    "excerpt": "Привет! Да честно - ничем таким, что стоило бы запомнить: утро прошло в обычной рутине, так что ярких событий не случилось. Разве что запомнилось, что ты объявился в такую рань - вот это уже интереснее любого моего дня.",
+    "tail": "… что запомнилось, что ты объявился в такую рань - вот это уже интереснее любого моего дня."
+   },
+   "divergence_reason": "owner_style_punctuation",
+   "ops": [
+    {
+     "op": "reasoning_marker_strip",
+     "changed": false,
+     "chars": 219,
+     "digest": "3f1eefebb9a0c4b0"
+    },
+    {
+     "op": "evidence_egress_guard",
+     "changed": false,
+     "chars": 219,
+     "digest": "3f1eefebb9a0c4b0"
+    },
+    {
+     "op": "owner_style_punctuation",
+     "changed": true,
+     "chars": 219,
+     "digest": "83c849fd5f3d865b"
+    },
+    {
+     "op": "plain_render",
+     "changed": false,
+     "chars": 219,
+     "digest": "83c849fd5f3d865b"
+    },
+    {
+     "op": "egress_sanitize",
+     "changed": false,
+     "chars": 219,
+     "digest": "83c849fd5f3d865b"
+    },
+    {
+     "op": "telegram_chunk",
+     "changed": false,
+     "chars": 219,
+     "digest": "83c849fd5f3d865b"
+    }
+   ],
+   "delivery_outcome": "success",
+   "stop_reason": "",
+   "tools": [],
+   "tool_rounds": 0,
+   "events": [
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success"
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped"
+    }
+   ],
+   "event_payloads": [
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "success",
+     "usage": {
+      "manifest": {
+       "manifest_id": "",
+       "writer": "l2_writer",
+       "profile": "",
+       "composer": false,
+       "context_representation": "",
+       "tokens_total": 0,
+       "blocks": [
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Response_Plan",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "UserResolutionMap",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Global_Context",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Target_User",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Current_Question",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        }
+       ],
+       "revisions": {
+        "prompts.direct_chat_verbalizer_system_prompt": "fac:44736968bc76(l2-writer-self-correction-rca1)",
+        "prompts.direct_l1_planner_system_prompt": "fac:2354a5cc57c4(l1-planner-source-facts)"
+       }
+      },
+      "request": {
+       "provider": "nano-gpt.com",
+       "model": "deepseek/deepseek-v4.1-flash",
+       "fallback_model": "deepseek-v4-flash",
+       "max_output_tokens": null
+      },
+      "completion": {
+       "finish_reason": "stop",
+       "finish_reason_raw": "stop",
+       "metadata_available": true,
+       "completed": true,
+       "is_truncated": false,
+       "attempt": 1,
+       "fallback_used": false,
+       "provider": "nano-gpt.com",
+       "model": "deepseek/deepseek-v4.1-flash",
+       "usage": {
+        "prompt_tokens": 2748,
+        "completion_tokens": 73,
+        "total_tokens": 2821
+       },
+       "max_output_tokens_sent": null,
+       "chars": 219,
+       "raw_final_digest": "3f1eefebb9a0c4b0",
+       "continuation_calls": 0,
+       "continuation_stop_reason": "not_needed",
+       "text_source": "author"
+      },
+      "semantic_rewrite_count": 0,
+      "llm_calls": {
+       "planning": 1,
+       "final": 1
+      }
+     }
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"3f1eefebb9a0c4b0\", \"chars\": 219, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"3f1eefebb9a0c4b0\", \"chars\": 219, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"83c849fd5f3d865b\", \"chars\": 219, \"changed\": true}, {\"op"
+     }
+    },
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 101, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:56, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847377, \"l1\": {\"action\": \"reply\", \"response_act\": \"answer\", \"st"
+     }
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped",
+     "usage": {
+      "selected": 0,
+      "considered": 0,
+      "excluded_codes": {}
+     }
+    }
+   ],
+   "http_calls": [
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": 512,
+     "ms": 2657,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": null,
+     "ms": 2030,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": null,
+     "ms": 1000,
+     "error": null
+    }
+   ]
+  },
+  "s2": {
+   "error": null,
+   "elapsed_s": 7.2,
+   "correlation_id": "cb2868292e1545cd811dd336f901c410",
+   "background_tasks_drained": 1,
+   "l1_plan_fields": {
+    "action": "reply",
+    "response_act": "answer",
+    "execution_mode": "simple_tools",
+    "preserve_source_facts": false,
+    "search_intent": "required",
+    "knowledge_origin": "open_world",
+    "extent": "micro",
+    "structure": "answer"
+   },
+   "llm_calls_by_class": {
+    "planning": 1,
+    "tool": 1,
+    "final": 1
+   },
+   "llm_calls_observed_events": {
+    "planning": 1,
+    "tool": 1,
+    "final": 1
+   },
+   "final_calls_from_writer": 1,
+   "refused": null,
+   "semantic_rewrite_count": 0,
+   "finish_reason": "stop",
+   "completion": {
+    "finish_reason": "stop",
+    "finish_reason_raw": "stop",
+    "completed": true,
+    "is_truncated": false,
+    "attempt": 1,
+    "fallback_used": false,
+    "provider": "nano-gpt.com",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "usage": {
+     "prompt_tokens": 5140,
+     "completion_tokens": 73,
+     "total_tokens": 5213
+    },
+    "max_output_tokens_sent": null,
+    "chars": 204,
+    "continuation_calls": 0,
+    "continuation_stop_reason": "not_needed",
+    "text_source": "author",
+    "metadata_available": true
+   },
+   "continuation_calls": 0,
+   "continuation_completed": true,
+   "continuation_stop_reason": "not_needed",
+   "raw_final": {
+    "chars": 204,
+    "digest_runner": "068366f6ae123155",
+    "digest_trace": "068366f6ae123155",
+    "digest_agrees": true,
+    "excerpt": "Курс разнится по биржам: CoinMarketCap даёт $77 884, Coinbase — $83 850, Binance — около $80 804, TradingView — $85 314. Так что ориентир — примерно $78–85 тыс. за 1 BTC, точная цифра зависит от площадки.",
+    "tail": "…5 314. Так что ориентир — примерно $78–85 тыс. за 1 BTC, точная цифра зависит от площадки.",
+    "ends_with_sentence_punct": true
+   },
+   "final_after_l2_sanitize": {
+    "chars": 204,
+    "digest_runner": "068366f6ae123155",
+    "same_as_raw": true
+   },
+   "delivered": {
+    "messages": 1,
+    "chars": 204,
+    "digest_runner": "41ef59b50663222f",
+    "digest_trace": "41ef59b50663222f",
+    "digest_match_trace": false,
+    "written_equals_sent": false,
+    "ops_between": [
+     "owner_style_punctuation",
+     "plain_render",
+     "egress_sanitize"
+    ],
+    "text_diff": {
+     "equal": false,
+     "prefix": 62,
+     "suffix": 65,
+     "removed": "— $83 850, Binance — около $80 804, TradingView — $85 314. Так что ориентир —",
+     "added": "- $83 850, Binance - около $80 804, TradingView - $85 314. Так что ориентир -",
+     "removed_chars": 77,
+     "added_chars": 77,
+     "punct_only": true,
+     "other_char_delta": 0
+    },
+    "excerpt": "Курс разнится по биржам: CoinMarketCap даёт $77 884, Coinbase - $83 850, Binance - около $80 804, TradingView - $85 314. Так что ориентир - примерно $78–85 тыс. за 1 BTC, точная цифра зависит от площадки.",
+    "tail": "…5 314. Так что ориентир - примерно $78–85 тыс. за 1 BTC, точная цифра зависит от площадки."
+   },
+   "divergence_reason": "owner_style_punctuation",
+   "ops": [
+    {
+     "op": "reasoning_marker_strip",
+     "changed": false,
+     "chars": 204,
+     "digest": "068366f6ae123155"
+    },
+    {
+     "op": "evidence_egress_guard",
+     "changed": false,
+     "chars": 204,
+     "digest": "068366f6ae123155"
+    },
+    {
+     "op": "owner_style_punctuation",
+     "changed": true,
+     "chars": 204,
+     "digest": "41ef59b50663222f"
+    },
+    {
+     "op": "plain_render",
+     "changed": false,
+     "chars": 204,
+     "digest": "41ef59b50663222f"
+    },
+    {
+     "op": "egress_sanitize",
+     "changed": false,
+     "chars": 204,
+     "digest": "41ef59b50663222f"
+    },
+    {
+     "op": "telegram_chunk",
+     "changed": false,
+     "chars": 204,
+     "digest": "41ef59b50663222f"
+    }
+   ],
+   "delivery_outcome": "success",
+   "stop_reason": "",
+   "tools": [
+    {
+     "tool": "execute_web_search",
+     "round": 1,
+     "status": "ok",
+     "error": "",
+     "out_chars": 6857,
+     "truncated": false,
+     "attempt": 1,
+     "refs": 0
+    }
+   ],
+   "tool_rounds": 1,
+   "events": [
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success"
+    },
+    {
+     "event": "reply_search_evidence",
+     "stage": "search",
+     "outcome": "success"
+    },
+    {
+     "event": "capability_check",
+     "stage": null,
+     "outcome": "failed"
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped"
+    }
+   ],
+   "event_payloads": [
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "success",
+     "usage": {
+      "manifest": {
+       "manifest_id": "",
+       "writer": "l2_writer",
+       "profile": "",
+       "composer": false,
+       "context_representation": "",
+       "tokens_total": 0,
+       "blocks": [
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Response_Plan",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "UserResolutionMap",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Global_Context",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Target_User",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Current_Question",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Tool_Evidence",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        }
+       ],
+       "revisions": {
+        "prompts.direct_chat_verbalizer_system_prompt": "fac:44736968bc76(l2-writer-self-correction-rca1)",
+        "prompts.direct_l1_planner_system_prompt": "fac:2354a5cc57c4(l1-planner-source-facts)"
+       }
+      },
+      "request": {
+       "provider": "nano-gpt.com",
+       "model": "deepseek/deepseek-v4.1-flash",
+       "fallback_model": "deepseek-v4-flash",
+       "max_output_tokens": null
+      },
+      "completion": {
+       "finish_reason": "stop",
+       "finish_reason_raw": "stop",
+       "metadata_available": true,
+       "completed": true,
+       "is_truncated": false,
+       "attempt": 1,
+       "fallback_used": false,
+       "provider": "nano-gpt.com",
+       "model": "deepseek/deepseek-v4.1-flash",
+       "usage": {
+        "prompt_tokens": 5140,
+        "completion_tokens": 73,
+        "total_tokens": 5213
+       },
+       "max_output_tokens_sent": null,
+       "chars": 204,
+       "raw_final_digest": "068366f6ae123155",
+       "continuation_calls": 0,
+       "continuation_stop_reason": "not_needed",
+       "text_source": "author"
+      },
+      "semantic_rewrite_count": 0,
+      "llm_calls": {
+       "planning": 1,
+       "tool": 1,
+       "final": 1
+      }
+     }
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"068366f6ae123155\", \"chars\": 204, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"068366f6ae123155\", \"chars\": 204, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"41ef59b50663222f\", \"chars\": 204, \"changed\": true}, {\"op"
+     }
+    },
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 102, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:56, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847391, \"l1\": {\"action\": \"reply\", \"response_act\": \"answer\", \"st"
+     }
+    },
+    {
+     "event": "reply_search_evidence",
+     "stage": "search",
+     "outcome": "success",
+     "usage": null
+    },
+    {
+     "event": "capability_check",
+     "stage": null,
+     "outcome": "failed",
+     "usage": null
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped",
+     "usage": {
+      "selected": 0,
+      "considered": 0,
+      "excluded_codes": {}
+     }
+    }
+   ],
+   "http_calls": [
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": 512,
+     "ms": 3547,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": null,
+     "ms": 2188,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": null,
+     "ms": 1452,
+     "error": null
+    }
+   ]
+  },
+  "s3": {
+   "error": null,
+   "elapsed_s": 4.3,
+   "correlation_id": null,
+   "background_tasks_drained": 0,
+   "l1_plan_fields": {},
+   "llm_calls_by_class": {
+    "planning": 1,
+    "final": 1
+   },
+   "llm_calls_observed_events": {
+    "planning": 1
+   },
+   "final_calls_from_writer": 1,
+   "refused": null,
+   "semantic_rewrite_count": null,
+   "finish_reason": null,
+   "completion": {},
+   "continuation_calls": 0,
+   "continuation_completed": true,
+   "continuation_stop_reason": "not_needed",
+   "raw_final": {
+    "chars": 16,
+    "digest_runner": "28fa4e152571b267",
+    "digest_trace": null,
+    "digest_agrees": false,
+    "excerpt": "Как день прошёл?",
+    "tail": "Как день прошёл?",
+    "ends_with_sentence_punct": true
+   },
+   "final_after_l2_sanitize": {
+    "chars": 16,
+    "digest_runner": "28fa4e152571b267",
+    "same_as_raw": true
+   },
+   "delivered": {
+    "messages": 1,
+    "chars": 16,
+    "digest_runner": "28fa4e152571b267",
+    "digest_trace": null,
+    "digest_match_trace": null,
+    "written_equals_sent": true,
+    "ops_between": [],
+    "text_diff": {
+     "equal": true,
+     "diffs": [],
+     "punct_only": true,
+     "other_char_delta": 0
+    },
+    "excerpt": "Как день прошёл?",
+    "tail": "Как день прошёл?"
+   },
+   "divergence_reason": null,
+   "ops": [],
+   "delivery_outcome": null,
+   "stop_reason": null,
+   "tools": null,
+   "tool_rounds": null,
+   "events": [
+    {
+     "event": "initiative_decided",
+     "stage": "intent_due",
+     "outcome": "success"
+    },
+    {
+     "event": "initiative_delivery_manifest",
+     "stage": "delivery_manifest",
+     "outcome": "success"
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success"
+    },
+    {
+     "event": "speech_extent",
+     "stage": "initiative_pre_send",
+     "outcome": "success"
+    },
+    {
+     "event": "initiative_writer_generated",
+     "stage": "initiative",
+     "outcome": "success"
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success"
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success"
+    },
+    {
+     "event": "random_uses",
+     "stage": "conversation_variant",
+     "outcome": "success"
+    },
+    {
+     "event": "random_fallback",
+     "stage": "fallback",
+     "outcome": "silent"
+    },
+    {
+     "event": "PIPELINE_START",
+     "stage": "queued",
+     "outcome": "start"
+    }
+   ],
+   "event_payloads": [
+    {
+     "event": "initiative_decided",
+     "stage": "intent_due",
+     "outcome": "success",
+     "usage": null
+    },
+    {
+     "event": "initiative_delivery_manifest",
+     "stage": "delivery_manifest",
+     "outcome": "success",
+     "usage": null
+    },
+    {
+     "event": "bot_output_recorded",
+     "stage": null,
+     "outcome": "success",
+     "usage": null
+    },
+    {
+     "event": "speech_extent",
+     "stage": "initiative_pre_send",
+     "outcome": "success",
+     "usage": {
+      "extent": "micro",
+      "status": "pass",
+      "one_word": 0,
+      "one_word_exact": 0,
+      "context": "initiative",
+      "words": 3
+     }
+    },
+    {
+     "event": "initiative_writer_generated",
+     "stage": "initiative",
+     "outcome": "success",
+     "usage": {
+      "chars": 16
+     }
+    },
+    {
+     "event": "evidence_egress_check",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "usage": {
+      "observed": 0,
+      "code": "none",
+      "sentence_index": -1,
+      "char_start": -1,
+      "char_end": -1,
+      "claim_key": "",
+      "note": ""
+     }
+    },
+    {
+     "event": "evidence_policy_decided",
+     "stage": "evidence_policy",
+     "outcome": "success",
+     "usage": {
+      "required": true,
+      "required_unmet": true,
+      "evidence_class": "externally_factual",
+      "skip_reason": "",
+      "failure_code": "no_relevant_results",
+      "claim_count": 0,
+      "source_kind": "",
+      "required_caps": "",
+      "network_calls": 0,
+      "note": "factual_plan_act+blocked+no_addressable_query"
+     }
+    },
+    {
+     "event": "random_uses",
+     "stage": "conversation_variant",
+     "outcome": "success",
+     "usage": null
+    },
+    {
+     "event": "random_fallback",
+     "stage": "fallback",
+     "outcome": "silent",
+     "usage": null
+    },
+    {
+     "event": "PIPELINE_START",
+     "stage": "queued",
+     "outcome": "start",
+     "usage": null
+    }
+   ],
+   "initiative_status": {
+    "status": "sent",
+    "delivery_kind": "initiative_reply",
+    "reason_codes": [],
+    "action": "reply",
+    "selected_candidate": "trigger:intent_due:2934a3a63b0d0be0"
+   }
+  },
+  "s4": {
+   "error": null,
+   "elapsed_s": 12.4,
+   "correlation_id": "c37694947d294740aa01084125de94c0",
+   "background_tasks_drained": 0,
+   "l1_plan_fields": {},
+   "llm_calls_by_class": {
+    "planning": 1
+   },
+   "llm_calls_observed_events": {
+    "planning": 1
+   },
+   "final_calls_from_writer": 0,
+   "refused": null,
+   "semantic_rewrite_count": 0,
+   "finish_reason": null,
+   "completion": {},
+   "continuation_calls": null,
+   "continuation_completed": null,
+   "continuation_stop_reason": null,
+   "raw_final": {
+    "chars": 0,
+    "digest_runner": "",
+    "digest_trace": "",
+    "digest_agrees": null,
+    "excerpt": "",
+    "tail": "",
+    "ends_with_sentence_punct": null
+   },
+   "final_after_l2_sanitize": {
+    "chars": 0,
+    "digest_runner": "",
+    "same_as_raw": null
+   },
+   "delivered": {
+    "messages": 1,
+    "chars": 38,
+    "digest_runner": "f557ccdb035e25b1",
+    "digest_trace": "",
+    "digest_match_trace": null,
+    "written_equals_sent": null,
+    "ops_between": [],
+    "text_diff": {
+     "equal": false,
+     "prefix": 0,
+     "suffix": 0,
+     "removed": "",
+     "added": "мои мозги расплавились от твоего бреда",
+     "removed_chars": 0,
+     "added_chars": 38,
+     "punct_only": false,
+     "other_char_delta": 38
+    },
+    "excerpt": "мои мозги расплавились от твоего бреда",
+    "tail": "мои мозги расплавились от твоего бреда"
+   },
+   "divergence_reason": "",
+   "ops": [],
+   "delivery_outcome": "skipped",
+   "stop_reason": "",
+   "tools": [],
+   "tool_rounds": 0,
+   "events": [
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "skipped"
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "skipped"
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped"
+    }
+   ],
+   "event_payloads": [
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 104, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:56, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847410, \"l1\": {\"action\": \"reply\", \"response_act\": \"other\", \"str"
+     }
+    },
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "skipped",
+     "usage": {
+      "manifest": {
+       "manifest_id": "",
+       "writer": "l2_writer",
+       "profile": "",
+       "composer": false,
+       "context_representation": "",
+       "tokens_total": 0,
+       "blocks": [
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Response_Plan",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "UserResolutionMap",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Global_Context",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Target_User",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Current_Question",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        }
+       ],
+       "revisions": {
+        "prompts.direct_chat_verbalizer_system_prompt": "fac:44736968bc76(l2-writer-self-correction-rca1)",
+        "prompts.direct_l1_planner_system_prompt": "fac:2354a5cc57c4(l1-planner-source-facts)"
+       }
+      },
+      "request": {
+       "provider": "127.0.0.1",
+       "model": "invalid/primary-model",
+       "fallback_model": "deepseek-v4-flash",
+       "max_output_tokens": null
+      },
+      "completion": {},
+      "semantic_rewrite_count": 0,
+      "llm_calls": {
+       "planning": 1
+      }
+     }
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "skipped",
+     "usage": {
+      "raw_head": "{\"ops\": [], \"raw_final_digest\": \"\", \"delivered_digest\": \"\", \"digest_match\": null, \"divergence_reason\": \"\", \"semantic_rewrite_count\": 0, \"llm_calls\": {\"planning\": 1}, \"delivery\": {\"outcome\": \"skipped\", \"reason\": \"no_text_delivery\", \"chat_id\": -100***67890, \"tg_message_ids\": [], \"idempotency_key\": \"di"
+     }
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped",
+     "usage": {
+      "selected": 0,
+      "considered": 0,
+      "excluded_codes": {}
+     }
+    }
+   ],
+   "http_calls": [
+    {
+     "channel": "primary",
+     "model": "invalid/primary-model",
+     "max_tokens": 512,
+     "ms": 2218,
+     "error": "LLMTransportError"
+    },
+    {
+     "channel": "fallback",
+     "model": null,
+     "max_tokens": null,
+     "ms": 1265,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "invalid/primary-model",
+     "max_tokens": null,
+     "ms": 2047,
+     "error": "LLMTransportError"
+    },
+    {
+     "channel": "fallback",
+     "model": null,
+     "max_tokens": null,
+     "ms": 437,
+     "error": null
+    }
+   ]
+  },
+  "s4b": {
+   "error": null,
+   "elapsed_s": 9.6,
+   "correlation_id": "73439e4053c84b9a9b76ca5634f8e870",
+   "background_tasks_drained": 1,
+   "l1_plan_fields": {
+    "action": "reply",
+    "response_act": "answer",
+    "execution_mode": "none",
+    "preserve_source_facts": false,
+    "search_intent": "not_applicable",
+    "knowledge_origin": "conversation_only",
+    "extent": "micro",
+    "structure": "chat"
+   },
+   "llm_calls_by_class": {
+    "planning": 1,
+    "final": 1,
+    "provider_retry": 2
+   },
+   "llm_calls_observed_events": {
+    "planning": 1,
+    "final": 1,
+    "provider_retry": 2
+   },
+   "final_calls_from_writer": 1,
+   "refused": null,
+   "semantic_rewrite_count": 0,
+   "finish_reason": "stop",
+   "completion": {
+    "finish_reason": "stop",
+    "finish_reason_raw": "stop",
+    "completed": true,
+    "is_truncated": false,
+    "attempt": 2,
+    "fallback_used": true,
+    "provider": "nano-gpt.com",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "usage": {
+     "prompt_tokens": 2731,
+     "completion_tokens": 27,
+     "total_tokens": 2758
+    },
+    "max_output_tokens_sent": null,
+    "chars": 78,
+    "continuation_calls": 0,
+    "continuation_stop_reason": "not_needed",
+    "text_source": "author",
+    "metadata_available": true
+   },
+   "continuation_calls": 0,
+   "continuation_completed": true,
+   "continuation_stop_reason": "not_needed",
+   "raw_final": {
+    "chars": 78,
+    "digest_runner": "ec6b1a3d29c0b44c",
+    "digest_trace": "ec6b1a3d29c0b44c",
+    "digest_agrees": true,
+    "excerpt": "Вася, я сегодня в порядке — и, судя по вопросу, ты тоже не прочь это услышать.",
+    "tail": "Вася, я сегодня в порядке — и, судя по вопросу, ты тоже не прочь это услышать.",
+    "ends_with_sentence_punct": true
+   },
+   "final_after_l2_sanitize": {
+    "chars": 78,
+    "digest_runner": "ec6b1a3d29c0b44c",
+    "same_as_raw": true
+   },
+   "delivered": {
+    "messages": 1,
+    "chars": 78,
+    "digest_runner": "6b8e09c56ff6c74c",
+    "digest_trace": "6b8e09c56ff6c74c",
+    "digest_match_trace": false,
+    "written_equals_sent": false,
+    "ops_between": [
+     "owner_style_punctuation",
+     "plain_render",
+     "egress_sanitize"
+    ],
+    "text_diff": {
+     "equal": false,
+     "prefix": 26,
+     "suffix": 51,
+     "removed": "—",
+     "added": "-",
+     "removed_chars": 1,
+     "added_chars": 1,
+     "punct_only": true,
+     "other_char_delta": 0
+    },
+    "excerpt": "Вася, я сегодня в порядке - и, судя по вопросу, ты тоже не прочь это услышать.",
+    "tail": "Вася, я сегодня в порядке - и, судя по вопросу, ты тоже не прочь это услышать."
+   },
+   "divergence_reason": "owner_style_punctuation",
+   "ops": [
+    {
+     "op": "reasoning_marker_strip",
+     "changed": false,
+     "chars": 78,
+     "digest": "ec6b1a3d29c0b44c"
+    },
+    {
+     "op": "evidence_egress_guard",
+     "changed": false,
+     "chars": 78,
+     "digest": "ec6b1a3d29c0b44c"
+    },
+    {
+     "op": "owner_style_punctuation",
+     "changed": true,
+     "chars": 78,
+     "digest": "6b8e09c56ff6c74c"
+    },
+    {
+     "op": "plain_render",
+     "changed": false,
+     "chars": 78,
+     "digest": "6b8e09c56ff6c74c"
+    },
+    {
+     "op": "egress_sanitize",
+     "changed": false,
+     "chars": 78,
+     "digest": "6b8e09c56ff6c74c"
+    },
+    {
+     "op": "telegram_chunk",
+     "changed": false,
+     "chars": 78,
+     "digest": "6b8e09c56ff6c74c"
+    }
+   ],
+   "delivery_outcome": "success",
+   "stop_reason": "",
+   "tools": [],
+   "tool_rounds": 0,
+   "events": [
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success"
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped"
+    }
+   ],
+   "event_payloads": [
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "success",
+     "usage": {
+      "manifest": {
+       "manifest_id": "",
+       "writer": "l2_writer",
+       "profile": "",
+       "composer": false,
+       "context_representation": "",
+       "tokens_total": 0,
+       "blocks": [
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Response_Plan",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "UserResolutionMap",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Global_Context",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Target_User",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Current_Question",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        }
+       ],
+       "revisions": {
+        "prompts.direct_chat_verbalizer_system_prompt": "fac:44736968bc76(l2-writer-self-correction-rca1)",
+        "prompts.direct_l1_planner_system_prompt": "fac:2354a5cc57c4(l1-planner-source-facts)"
+       }
+      },
+      "request": {
+       "provider": "127.0.0.1",
+       "model": "invalid/primary-model",
+       "fallback_model": "deepseek/deepseek-v4.1-flash",
+       "max_output_tokens": null
+      },
+      "completion": {
+       "finish_reason": "stop",
+       "finish_reason_raw": "stop",
+       "metadata_available": true,
+       "completed": true,
+       "is_truncated": false,
+       "attempt": 2,
+       "fallback_used": true,
+       "provider": "nano-gpt.com",
+       "model": "deepseek/deepseek-v4.1-flash",
+       "usage": {
+        "prompt_tokens": 2731,
+        "completion_tokens": 27,
+        "total_tokens": 2758
+       },
+       "max_output_tokens_sent": null,
+       "chars": 78,
+       "raw_final_digest": "ec6b1a3d29c0b44c",
+       "continuation_calls": 0,
+       "continuation_stop_reason": "not_needed",
+       "text_source": "author"
+      },
+      "semantic_rewrite_count": 0,
+      "llm_calls": {
+       "planning": 1,
+       "final": 1,
+       "provider_retry": 2
+      }
+     }
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"ec6b1a3d29c0b44c\", \"chars\": 78, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"ec6b1a3d29c0b44c\", \"chars\": 78, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"6b8e09c56ff6c74c\", \"chars\": 78, \"changed\": true}, {\"op\": "
+     }
+    },
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 114, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:56, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847419, \"l1\": {\"action\": \"reply\", \"response_act\": \"answer\", \"st"
+     }
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped",
+     "usage": {
+      "selected": 0,
+      "considered": 0,
+      "excluded_codes": {}
+     }
+    }
+   ],
+   "http_calls": [
+    {
+     "channel": "primary",
+     "model": "invalid/primary-model",
+     "max_tokens": 512,
+     "ms": 2188,
+     "error": "LLMTransportError"
+    },
+    {
+     "channel": "fallback",
+     "model": null,
+     "max_tokens": null,
+     "ms": 3952,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "invalid/primary-model",
+     "max_tokens": null,
+     "ms": 2031,
+     "error": "LLMTransportError"
+    },
+    {
+     "channel": "fallback",
+     "model": null,
+     "max_tokens": null,
+     "ms": 1391,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "invalid/primary-model",
+     "max_tokens": null,
+     "ms": 2016,
+     "error": "LLMTransportError"
+    },
+    {
+     "channel": "fallback",
+     "model": null,
+     "max_tokens": null,
+     "ms": 889,
+     "error": null
+    }
+   ]
+  },
+  "s5": {
+   "error": null,
+   "elapsed_s": 8.0,
+   "correlation_id": "29a60c49a75c41569d7f957153299854",
+   "background_tasks_drained": 1,
+   "l1_plan_fields": {
+    "action": "reply",
+    "response_act": "creative",
+    "execution_mode": "none",
+    "preserve_source_facts": false,
+    "search_intent": "not_applicable",
+    "knowledge_origin": "conversation_only",
+    "extent": "normal",
+    "structure": "story"
+   },
+   "llm_calls_by_class": {
+    "planning": 1,
+    "final": 1,
+    "continuation": 1
+   },
+   "llm_calls_observed_events": {
+    "planning": 1,
+    "final": 1,
+    "continuation": 1
+   },
+   "final_calls_from_writer": 1,
+   "refused": null,
+   "semantic_rewrite_count": 0,
+   "finish_reason": "length",
+   "completion": {
+    "finish_reason": "length",
+    "finish_reason_raw": "length",
+    "completed": true,
+    "is_truncated": true,
+    "attempt": 1,
+    "fallback_used": false,
+    "provider": "nano-gpt.com",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "usage": {
+     "prompt_tokens": 2714,
+     "completion_tokens": 120,
+     "total_tokens": 2834
+    },
+    "max_output_tokens_sent": 120,
+    "chars": 585,
+    "continuation_calls": 1,
+    "continuation_stop_reason": "completed",
+    "text_source": "author",
+    "metadata_available": true
+   },
+   "continuation_calls": 1,
+   "continuation_completed": true,
+   "continuation_stop_reason": "completed",
+   "raw_final": {
+    "chars": 585,
+    "digest_runner": "3446ef574b158718",
+    "digest_trace": "3446ef574b158718",
+    "digest_agrees": true,
+    "excerpt": "Однажды утром я проснулся и понял: ключи исчезли. Не просто потерялись — испарились, будто их никогда и не было. Я перерыл весь чат: под «привет» Васи, за старыми смайликами, среди недосказанных фраз и забытых точек. Перелистал каждое сообщение, заглянул в пустые диалоги, потряс невидимые карманы пе…",
+    "tail": "…йней мере, до следующего утра. Вася, кстати, до сих пор уверен, что это он их тогда нашёл.",
+    "ends_with_sentence_punct": true
+   },
+   "final_after_l2_sanitize": {
+    "chars": 585,
+    "digest_runner": "3446ef574b158718",
+    "same_as_raw": true
+   },
+   "delivered": {
+    "messages": 1,
+    "chars": 585,
+    "digest_runner": "9121a0555f2146f0",
+    "digest_trace": "9121a0555f2146f0",
+    "digest_match_trace": false,
+    "written_equals_sent": false,
+    "ops_between": [
+     "owner_style_punctuation",
+     "plain_render",
+     "egress_sanitize"
+    ],
+    "text_diff": {
+     "equal": false,
+     "prefix": 71,
+     "suffix": 97,
+     "removed": "— испарились, будто их никогда и не было. Я перерыл весь чат: под «привет» Васи, за старыми смайликами, среди недосказанных фраз и забытых точек. Перелистал каждое сообщение, заглянул в пустые диалоги",
+     "added": "- испарились, будто их никогда и не было. Я перерыл весь чат: под \"привет\" Васи, за старыми смайликами, среди недосказанных фраз и забытых точек. Перелистал каждое сообщение, заглянул в пустые диалоги",
+     "removed_chars": 417,
+     "added_chars": 417,
+     "punct_only": true,
+     "other_char_delta": 0
+    },
+    "excerpt": "Однажды утром я проснулся и понял: ключи исчезли. Не просто потерялись - испарились, будто их никогда и не было. Я перерыл весь чат: под \"привет\" Васи, за старыми смайликами, среди недосказанных фраз и забытых точек. Перелистал каждое сообщение, заглянул в пустые диалоги, потряс невидимые карманы пе…",
+    "tail": "…йней мере, до следующего утра. Вася, кстати, до сих пор уверен, что это он их тогда нашёл."
+   },
+   "divergence_reason": "owner_style_punctuation",
+   "ops": [
+    {
+     "op": "reasoning_marker_strip",
+     "changed": false,
+     "chars": 585,
+     "digest": "3446ef574b158718"
+    },
+    {
+     "op": "evidence_egress_guard",
+     "changed": false,
+     "chars": 585,
+     "digest": "3446ef574b158718"
+    },
+    {
+     "op": "owner_style_punctuation",
+     "changed": true,
+     "chars": 585,
+     "digest": "9121a0555f2146f0"
+    },
+    {
+     "op": "plain_render",
+     "changed": false,
+     "chars": 585,
+     "digest": "9121a0555f2146f0"
+    },
+    {
+     "op": "egress_sanitize",
+     "changed": false,
+     "chars": 585,
+     "digest": "9121a0555f2146f0"
+    },
+    {
+     "op": "telegram_chunk",
+     "changed": false,
+     "chars": 585,
+     "digest": "9121a0555f2146f0"
+    }
+   ],
+   "delivery_outcome": "success",
+   "stop_reason": "",
+   "tools": [],
+   "tool_rounds": 0,
+   "events": [
+    {
+     "event": "llm_continuation",
+     "stage": "l2_continuation",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success"
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped"
+    }
+   ],
+   "event_payloads": [
+    {
+     "event": "llm_continuation",
+     "stage": "l2_continuation",
+     "outcome": "success",
+     "usage": {
+      "calls": 1,
+      "completed": true,
+      "finish_reasons": [
+       "length",
+       "stop"
+      ],
+      "chars": 585
+     }
+    },
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "success",
+     "usage": {
+      "manifest": {
+       "manifest_id": "",
+       "writer": "l2_writer",
+       "profile": "",
+       "composer": false,
+       "context_representation": "",
+       "tokens_total": 0,
+       "blocks": [
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Response_Plan",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "UserResolutionMap",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Global_Context",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Target_User",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Current_Question",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        }
+       ],
+       "revisions": {
+        "prompts.direct_chat_verbalizer_system_prompt": "fac:44736968bc76(l2-writer-self-correction-rca1)",
+        "prompts.direct_l1_planner_system_prompt": "fac:2354a5cc57c4(l1-planner-source-facts)"
+       }
+      },
+      "request": {
+       "provider": "nano-gpt.com",
+       "model": "deepseek/deepseek-v4.1-flash",
+       "fallback_model": "deepseek-v4-flash",
+       "max_output_tokens": 120
+      },
+      "completion": {
+       "finish_reason": "length",
+       "finish_reason_raw": "length",
+       "metadata_available": true,
+       "completed": true,
+       "is_truncated": true,
+       "attempt": 1,
+       "fallback_used": false,
+       "provider": "nano-gpt.com",
+       "model": "deepseek/deepseek-v4.1-flash",
+       "usage": {
+        "prompt_tokens": 2714,
+        "completion_tokens": 120,
+        "total_tokens": 2834
+       },
+       "max_output_tokens_sent": 120,
+       "chars": 585,
+       "raw_final_digest": "3446ef574b158718",
+       "continuation_calls": 1,
+       "continuation_stop_reason": "completed",
+       "text_source": "author"
+      },
+      "semantic_rewrite_count": 0,
+      "llm_calls": {
+       "planning": 1,
+       "final": 1,
+       "continuation": 1
+      }
+     }
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"3446ef574b158718\", \"chars\": 585, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"3446ef574b158718\", \"chars\": 585, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"9121a0555f2146f0\", \"chars\": 585, \"changed\": true}, {\"op"
+     }
+    },
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 105, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:57, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847428, \"l1\": {\"action\": \"reply\", \"response_act\": \"creative\", \""
+     }
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped",
+     "usage": {
+      "selected": 0,
+      "considered": 0,
+      "excluded_codes": {}
+     }
+    }
+   ],
+   "http_calls": [
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": 512,
+     "ms": 3062,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": 120,
+     "ms": 2922,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": 120,
+     "ms": 1968,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": null,
+     "ms": 1531,
+     "error": null
+    }
+   ],
+   "forced": {
+    "DIRECT_LONGFORM_MAX_OUTPUT_TOKENS": 128
+   }
+  },
+  "s6": {
+   "error": null,
+   "elapsed_s": 4.0,
+   "correlation_id": "d31796cf5ee84eae864c13c1dd2a6221",
+   "background_tasks_drained": 1,
+   "l1_plan_fields": {
+    "action": "reply",
+    "response_act": "other",
+    "execution_mode": "none",
+    "preserve_source_facts": true,
+    "search_intent": "not_applicable",
+    "knowledge_origin": "conversation_only",
+    "extent": "micro",
+    "structure": "chat"
+   },
+   "llm_calls_by_class": {
+    "planning": 1,
+    "final": 1
+   },
+   "llm_calls_observed_events": {
+    "planning": 1,
+    "final": 1
+   },
+   "final_calls_from_writer": 1,
+   "refused": null,
+   "semantic_rewrite_count": 0,
+   "finish_reason": "stop",
+   "completion": {
+    "finish_reason": "stop",
+    "finish_reason_raw": "stop",
+    "completed": true,
+    "is_truncated": false,
+    "attempt": 1,
+    "fallback_used": false,
+    "provider": "nano-gpt.com",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "usage": {
+     "prompt_tokens": 2762,
+     "completion_tokens": 47,
+     "total_tokens": 2809
+    },
+    "max_output_tokens_sent": null,
+    "chars": 103,
+    "continuation_calls": 0,
+    "continuation_stop_reason": "not_needed",
+    "text_source": "author",
+    "metadata_available": true
+   },
+   "continuation_calls": 0,
+   "continuation_completed": true,
+   "continuation_stop_reason": "not_needed",
+   "raw_final": {
+    "chars": 103,
+    "digest_runner": "b4f00c5f0bde22ea",
+    "digest_trace": "b4f00c5f0bde22ea",
+    "digest_agrees": true,
+    "excerpt": "Вчера в 19:40 я взял билет на поезд № 42 до станции Кемь, заплатив 3 500 рублей, и прибыл туда в 06:15.",
+    "tail": "… я взял билет на поезд № 42 до станции Кемь, заплатив 3 500 рублей, и прибыл туда в 06:15.",
+    "ends_with_sentence_punct": true
+   },
+   "final_after_l2_sanitize": {
+    "chars": 103,
+    "digest_runner": "b4f00c5f0bde22ea",
+    "same_as_raw": true
+   },
+   "delivered": {
+    "messages": 1,
+    "chars": 103,
+    "digest_runner": "b4f00c5f0bde22ea",
+    "digest_trace": "b4f00c5f0bde22ea",
+    "digest_match_trace": true,
+    "written_equals_sent": true,
+    "ops_between": [],
+    "text_diff": {
+     "equal": true,
+     "diffs": [],
+     "punct_only": true,
+     "other_char_delta": 0
+    },
+    "excerpt": "Вчера в 19:40 я взял билет на поезд № 42 до станции Кемь, заплатив 3 500 рублей, и прибыл туда в 06:15.",
+    "tail": "… я взял билет на поезд № 42 до станции Кемь, заплатив 3 500 рублей, и прибыл туда в 06:15."
+   },
+   "divergence_reason": "",
+   "ops": [
+    {
+     "op": "reasoning_marker_strip",
+     "changed": false,
+     "chars": 103,
+     "digest": "b4f00c5f0bde22ea"
+    },
+    {
+     "op": "evidence_egress_guard",
+     "changed": false,
+     "chars": 103,
+     "digest": "b4f00c5f0bde22ea"
+    },
+    {
+     "op": "owner_style_punctuation",
+     "changed": false,
+     "chars": 103,
+     "digest": "b4f00c5f0bde22ea"
+    },
+    {
+     "op": "plain_render",
+     "changed": false,
+     "chars": 103,
+     "digest": "b4f00c5f0bde22ea"
+    },
+    {
+     "op": "egress_sanitize",
+     "changed": false,
+     "chars": 103,
+     "digest": "b4f00c5f0bde22ea"
+    },
+    {
+     "op": "telegram_chunk",
+     "changed": false,
+     "chars": 103,
+     "digest": "b4f00c5f0bde22ea"
+    }
+   ],
+   "delivery_outcome": "success",
+   "stop_reason": "",
+   "tools": [],
+   "tool_rounds": 0,
+   "events": [
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "success"
+    },
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success"
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped"
+    }
+   ],
+   "event_payloads": [
+    {
+     "event": "direct_turn_writer",
+     "stage": "l2_writer",
+     "outcome": "success",
+     "usage": {
+      "manifest": {
+       "manifest_id": "",
+       "writer": "l2_writer",
+       "profile": "",
+       "composer": false,
+       "context_representation": "",
+       "tokens_total": 0,
+       "blocks": [
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Response_Plan",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "UserResolutionMap",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Global_Context",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Target_User",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "Current_Question",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        },
+        {
+         "block": "untagged",
+         "rendered": true,
+         "skip": ""
+        }
+       ],
+       "revisions": {
+        "prompts.direct_chat_verbalizer_system_prompt": "fac:44736968bc76(l2-writer-self-correction-rca1)",
+        "prompts.direct_l1_planner_system_prompt": "fac:2354a5cc57c4(l1-planner-source-facts)"
+       }
+      },
+      "request": {
+       "provider": "nano-gpt.com",
+       "model": "deepseek/deepseek-v4.1-flash",
+       "fallback_model": "deepseek-v4-flash",
+       "max_output_tokens": null
+      },
+      "completion": {
+       "finish_reason": "stop",
+       "finish_reason_raw": "stop",
+       "metadata_available": true,
+       "completed": true,
+       "is_truncated": false,
+       "attempt": 1,
+       "fallback_used": false,
+       "provider": "nano-gpt.com",
+       "model": "deepseek/deepseek-v4.1-flash",
+       "usage": {
+        "prompt_tokens": 2762,
+        "completion_tokens": 47,
+        "total_tokens": 2809
+       },
+       "max_output_tokens_sent": null,
+       "chars": 103,
+       "raw_final_digest": "b4f00c5f0bde22ea",
+       "continuation_calls": 0,
+       "continuation_stop_reason": "not_needed",
+       "text_source": "author"
+      },
+      "semantic_rewrite_count": 0,
+      "llm_calls": {
+       "planning": 1,
+       "final": 1
+      }
+     }
+    },
+    {
+     "event": "direct_turn_delivery",
+     "stage": "delivery",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"ops\": [{\"op\": \"reasoning_marker_strip\", \"digest\": \"b4f00c5f0bde22ea\", \"chars\": 103, \"changed\": false}, {\"op\": \"evidence_egress_guard\", \"digest\": \"b4f00c5f0bde22ea\", \"chars\": 103, \"changed\": false}, {\"op\": \"owner_style_punctuation\", \"digest\": \"b4f00c5f0bde22ea\", \"chars\": 103, \"changed\": false}, {\"o"
+     }
+    },
+    {
+     "event": "direct_turn_context",
+     "stage": "turn_context",
+     "outcome": "success",
+     "usage": {
+      "raw_head": "{\"flow\": \"direct\", \"trigger\": \"free_will\", \"source_message_id\": 106, \"source_author_id\": 10, \"chat_id\": -100***67890, \"clock\": \"[Текущее время в чате: 05.11.2026, 07:57, Четверг]\", \"clock_source\": \"limits.chat_timezone\", \"clock_ts\": 1793847438, \"l1\": {\"action\": \"reply\", \"response_act\": \"other\", \"str"
+     }
+    },
+    {
+     "event": "retrieved",
+     "stage": null,
+     "outcome": "skipped",
+     "usage": {
+      "selected": 0,
+      "considered": 0,
+      "excluded_codes": {}
+     }
+    }
+   ],
+   "http_calls": [
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": 512,
+     "ms": 2656,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": null,
+     "ms": 1312,
+     "error": null
+    },
+    {
+     "channel": "primary",
+     "model": "deepseek/deepseek-v4.1-flash",
+     "max_tokens": null,
+     "ms": 1687,
+     "error": null
+    }
+   ]
+  },
+  "s7": {
+   "scenario": "factcheck",
+   "error": null,
+   "elapsed_s": 16.2,
+   "llm_calls_total": 4,
+   "result_chars": 633,
+   "result_digest": "3d7e5cce8567d2a1",
+   "result_excerpt": "Вердикт: Не подтверждается: сегодня биткоин торгуется около $77 тыс. с дневным ростом меньше процента; цифра 104 500 относится к майскому максимуму, а не к текущему дню. • Сегодня курс биткоина вырос на 12% — не подтверждается • Курс биткоина достиг 104 500 долларов — вводит в заблуждение (в середине мая) Источники: https://capital.com/ru-int/analysis/bitcoin-price-change-over-time, https://korres…",
+   "result_tail": "…ыли числа, которых нет в проверенных данных. Ниже — только результат структурной проверки.",
+   "events": []
+  }
+ }
+}
