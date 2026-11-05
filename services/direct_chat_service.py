@@ -7827,7 +7827,14 @@ class DirectChatService:
             fallback_model=str(
                 getattr(self.llm, "_fallback_model", "")
                 or getattr(settings, "LLM_FALLBACK_MODEL", "") or ""),
-            max_output_tokens=max_tokens)
+            max_output_tokens=max_tokens,
+            writer_name=str(writer or "l2_writer"),
+            # Без композера манифеста нет — состав блоков и заводские ревизии
+            # owner-промптов берутся из фактических частей payload и реестра.
+            blocks=list(parts) + ([_closing] if _closing else []),
+            prompt_keys=(
+                "prompts.direct_chat_verbalizer_system_prompt",
+                "prompts.direct_l1_planner_system_prompt"))
         # ── v6 D04 (§18C.4): L2 fallback-репак под РЕАЛЬНОЕ окно
         # fallback-модели (plan/memory/lessons/character/evidence;
         # защищённые блоки: current request, mandatory tool evidence,

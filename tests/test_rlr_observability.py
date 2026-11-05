@@ -122,7 +122,7 @@ def _completion(text, finish_reason, correlation_id=None):
         correlation_id=correlation_id)
 
 
-def _drive(monkeypatch, llm, *, text="бот, как дела?"):
+def _drive(monkeypatch, llm, *, text="бот, как дела?", composer=False):
     """Продовый ход Direct (`handle`) с РЕАЛЬНОЙ доставкой (не замоканной)."""
     from config.settings import Settings
     from tests.test_direct_chat import _bot, _make_service, _message, _user
@@ -130,6 +130,17 @@ def _drive(monkeypatch, llm, *, text="бот, как дела?"):
     monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", True)
     monkeypatch.setattr(Settings, "DIRECT_DECISION_MAKING_ENABLED", True)
     monkeypatch.setattr(Settings, "PERSONA_ENABLED", False)
+    # Композер речевых слоёв: ось переключаема, оба пути обязаны нести
+    # манифест запроса L2 (блоки + ревизии owner-промптов) — часть §7.
+    from services import mca_gates as _gates
+    from services import prompt_composer as _pcomp
+    monkeypatch.setattr(_gates, "unified_composer_env_enabled",
+                        lambda: bool(composer))
+    monkeypatch.setattr(_gates, "unified_composer_enabled",
+                        lambda: bool(composer))
+    monkeypatch.setattr(_pcomp, "composer_enabled_now",
+                        lambda gates: bool(getattr(
+                            gates, "unified_composer_enabled", False)))
     svc = _make_service(llm=llm)
     bot = _bot()
     msg = _message(text=text, message_id=4242, chat_id=CHAT_ID)
@@ -152,11 +163,16 @@ def _turn(seen, correlation_id=None):
 # ════════════════════════════════════════════════════════════════════════════
 
 @pytest.mark.asyncio
-async def test_normal_turn_traces_stages_and_digests_match(monkeypatch, events):
+@pytest.mark.parametrize("composer", [False, True])
+async def test_normal_turn_traces_stages_and_digests_match(monkeypatch, events,
+                                                           composer):
     """Обычный ответ: одна финальная генерация, `semantic_rewrite_count=0`,
-    digest raw final == digest доставленного текста."""
+    digest raw final == digest доставленного текста.
+
+    Оба режима композера: манифест запроса (блоки + ревизии owner-промптов)
+    обязан быть непустым и на пути без композера."""
     llm = _StagedLLM(writer=[(SECRET_ANSWER, "stop")])
-    svc, bot, msg, user = _drive(monkeypatch, llm)
+    svc, bot, msg, user = _drive(monkeypatch, llm, composer=composer)
     await svc.handle(bot, msg, user)
 
     correlation_id, turn = _turn(events)
@@ -189,8 +205,12 @@ async def test_normal_turn_traces_stages_and_digests_match(monkeypatch, events):
     assert writer["completion"]["model"] == "test-model"
     assert writer["llm_calls"].get("final") == 1
     # манифест запроса: блоки/ревизии owner-промптов (payload не хранится)
-    assert "manifest" in writer and "blocks" in writer["manifest"]
-    assert "revisions" in writer["manifest"]
+    manifest = writer["manifest"]
+    assert manifest["composer"] is composer
+    assert manifest["blocks"], "контекстные блоки Writer'а не записаны"
+    assert all("block" in b and "rendered" in b for b in manifest["blocks"])
+    assert manifest["revisions"], "ревизии owner-промптов не записаны"
+    assert manifest["writer"] == "l2_writer"
 
     # ── доставка: операции с digest'ом, совпадение raw_final ↔ delivered
     delivery = _payload(events, turn_trace.EVENT_DELIVERY)
@@ -266,6 +286,35 @@ async def test_reasoning_marker_strip_names_the_exact_cause(monkeypatch, events)
     # снятый черновик до пользователя не доехал
     sent = bot.send_message.await_args.args[1]
     assert "черновик" not in sent and "Готово" in sent
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# (e) незавершённый ответ — честный отказ, а не «обычный успех»
+# ════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_unfinished_answer_is_not_a_normal_success(monkeypatch, events):
+    """Продолжение невозможно → трасса показывает отказ и его причину,
+    доставки нет (обрезок не публикуется как готовый ответ)."""
+    llm = _StagedLLM(writer=[("Обрезок ответа", "length"),
+                             ("", "length")])
+    svc, bot, msg, user = _drive(monkeypatch, llm)
+    await svc.handle(bot, msg, user)
+
+    _, turn = _turn(events)
+    writer = _event(events, turn_trace.EVENT_WRITER)
+    assert writer["outcome"] == "failed"
+    payload = _payload(events, turn_trace.EVENT_WRITER)
+    assert payload["completion"]["refused"] is True
+    assert payload["completion"]["refused_reason"] == "unfinished_answer"
+    assert payload["completion"]["text_source"] == "none"
+
+    delivery = _event(events, turn_trace.EVENT_DELIVERY)
+    assert delivery["outcome"] != "success"
+    assert _payload(events, turn_trace.EVENT_DELIVERY)["delivery"]["outcome"] \
+        != "success"
+    # обрезок не ушёл в чат: доставки не было вовсе
+    assert bot.send_message.await_count == 0
 
 
 # ════════════════════════════════════════════════════════════════════════════

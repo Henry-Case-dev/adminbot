@@ -518,9 +518,65 @@ def note_tools(correlation_id, *, tool_results=None, rounds: int = 0,
         pass
 
 
+def _block_labels(parts) -> list:
+    """Ярлыки контекстных блоков user-части БЕЗ их содержимого (§7).
+
+    На пути без композера манифеста нет, но состав блоков известен: берём
+    ведущий машинный тег (`<Current_Question>`, `<Tool_Evidence>`, …).
+    Текст блока в трассу не попадает — только имя блока."""
+    out: list = []
+    for part in list(parts or ())[:16]:
+        text = str(part or "").strip()
+        if not text:
+            continue
+        tag = ""
+        if text.startswith("<"):
+            end = text.find(">")
+            if 0 < end <= 48:
+                tag = text[1:end].strip()
+        out.append({"block": (tag or "untagged")[:48], "rendered": True,
+                    "skip": ""})
+    return out
+
+
+def prompt_revisions(keys) -> dict:
+    """Заводские ревизии запрошенных owner-промптов (без I/O, §7).
+
+    Читается существующий реестр промптов (PVR: единый контроль версий) —
+    второй реестр не создаётся. Ключ резолвится в блок (`block_for`), затем
+    берётся заводская ревизия блока; нет блока → пусто (честно, без выдумки)."""
+    revisions: dict = {}
+    try:
+        from services import prompt_registry as _pr
+        for key in list(keys or ())[:8]:
+            block_id = ""
+            try:
+                spec = _pr.block_for(str(key))
+                block_id = str(getattr(spec, "block_id", "") or "")
+            except Exception:      # pragma: no cover — один ключ не рвёт всё
+                block_id = ""
+            revision = ""
+            for candidate in (block_id, str(key)):
+                if not candidate:
+                    continue
+                try:
+                    revision = _pr.factory_revision(candidate)
+                except Exception:      # pragma: no cover
+                    revision = ""
+                if revision:
+                    break
+            if revision:
+                revisions[str(key)[:48]] = str(revision)[:32]
+    except Exception:      # pragma: no cover — реестр недоступен
+        return {}
+    return revisions
+
+
 def note_l2_request(correlation_id, *, manifest=None, provider: str = "",
                     model: str = "", fallback_model: str = "",
-                    max_output_tokens=None, composer: bool = False) -> None:
+                    max_output_tokens=None, composer: bool = False,
+                    blocks=None, prompt_keys=None,
+                    writer_name: str = "") -> None:
     """Манифест ЗАПРОСА L2: блоки + ревизии owner-промптов, provider/model.
 
     Полный приватный payload не сохраняется (§7): блоки описываются
@@ -531,22 +587,22 @@ def note_l2_request(correlation_id, *, manifest=None, provider: str = "",
     if trace is None:
         return
     try:
-        blocks: list = []
+        built_blocks: list = []
         revisions: dict = {}
         manifest_id = ""
-        writer = ""
+        writer = str(writer_name or "")[:24]
         profile = ""
         representation = ""
         tokens_total = 0
         if manifest is not None:
             manifest_id = str(getattr(manifest, "manifest_id", "") or "")[:40]
-            writer = str(getattr(manifest, "writer", "") or "")[:24]
+            writer = str(getattr(manifest, "writer", "") or writer)[:24]
             profile = str(getattr(manifest, "profile", "") or "")[:24]
             representation = str(
                 getattr(manifest, "context_representation", "") or "")[:16]
             tokens_total = int(getattr(manifest, "tokens_total", 0) or 0)
             for layer in tuple(getattr(manifest, "layers", ()) or ())[:16]:
-                blocks.append({
+                built_blocks.append({
                     "block": ("%s:%s" % (
                         str(getattr(layer, "layer", "") or "")[:24],
                         str(getattr(layer, "block_id", "") or "")[:32])),
@@ -556,6 +612,11 @@ def note_l2_request(correlation_id, *, manifest=None, provider: str = "",
             versions = dict(getattr(manifest, "versions", {}) or {})
             for key, value in list(versions.items())[:8]:
                 revisions[str(key)[:48]] = str(value)[:32]
+        else:
+            # Путь без композера: состав блоков и заводские ревизии owner-
+            # промптов всё равно обязаны быть видны (§7).
+            built_blocks = _block_labels(blocks)
+            revisions = prompt_revisions(prompt_keys)
         trace.manifest = {
             "manifest_id": manifest_id,
             "writer": writer,
@@ -563,7 +624,7 @@ def note_l2_request(correlation_id, *, manifest=None, provider: str = "",
             "composer": bool(composer),
             "context_representation": representation,
             "tokens_total": tokens_total,
-            "blocks": blocks,
+            "blocks": built_blocks,
             "revisions": revisions,
         }
         trace.request = {
