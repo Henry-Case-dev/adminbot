@@ -68,6 +68,14 @@
           "observation": "Отбор «активной» карточки и drift-детект выполняет effective_drift/resolve_effective_state; UI получает готовое поле состояния, а не считает метку сам.",
           "artifact_path": "services/prompt_release_policy.py",
           "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        },
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 3 Drift (ни одной активной карточки + data-pv-drift баннер) и § 1 origin-метки из effective-контракта (PVR-01.7 handoff); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: drift-баннер без активной карточки",
+          "observation": "UI-часть handoff: при drift ни одна редакция не помечена активной, показывается отдельный честный drift-баннер без автоматической правки данных; origin-метки берутся из effective_* («Действует в этом чате» / «Действует глобальная версия» / «Из кода»), UI не угадывает по истории; мутация unmatched-указателя не выдаёт активную карточку.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
         }
       ]
     },
@@ -212,6 +220,14 @@
           "observation": "503 partial_save в web/api/routes.py — явный код честного статуса при неудаче после PG-коммита.",
           "artifact_path": "web/api/routes.py",
           "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        },
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 8 Save-честность (operation_id в POST /api/config; 503 partial_save → saveState sync_pending, sticky-бар «Частично сохранено: сверьте действующее значение», кнопка перепроверки) (PVR-03.2 handoff); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: sync_pending-рендер + повторная сверка",
+          "observation": "UI-часть handoff: 503 partial_save рендерится как sync_pending — не «ошибка» и не «Сохранено»; липкий бар помечает частичное сохранение с кнопкой перепроверки, после перепроверки sync_pending-статус снимается; CAS 409 сохраняет черновик редактора (§ 9 того же теста).",
+          "artifact_path": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
         }
       ]
     },
@@ -398,6 +414,14 @@
           "observation": "503 при недоступном PG/журнале — существующие коды ответов роутов, без fallback-подделки данных.",
           "artifact_path": "web/api/routes.py",
           "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        },
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 6 (errText 503 → каноничная метка «История временно недоступна») + tests/ui_prompt_version_card_e2e.py @ 9889d6e0: блок 12 (журнал недоступен: честный 503-текст, черновик остаётся) (PVR-05.2 handoff); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: метка недоступной истории",
+          "observation": "UI-часть handoff: при 503 журнала панель показывает ровно каноничную метку «История временно недоступна» вместо сочинённых данных; редактор и черновик не затронуты (e2e-блок 12 проверяет тот же 503-текст с целым черновиком).",
+          "artifact_path": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
         }
       ]
     },
@@ -844,6 +868,14 @@
           "observation": "События активации отдаются бэкендом только как was_applied и никогда как active, включая прошлые события. Передача в PVR-UI: layout основного списка (только revisions, события вторично в деталях выбранной редакции).",
           "artifact_path": "tests/test_pvr_backend_state.py",
           "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 5 (основной список = только revisionRows, пагинация по revisions_cursor; события отдельной лентой, загрузка по activations_cursor) + e2e: события никогда не активны и без activate/baseline-кнопок; review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: события отдельной лентой «История действий»",
+          "observation": "UI-часть handoff: основной список содержит только ревизии (rev-001.., курсор revisions_cursor), события активации — вторичный переключатель «История действий» (was_applied, курсор activations_cursor), без кнопок activate/baseline и никогда с меткой active; мутация «applied-событие попало в основной список / помечено active» падает.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
         }
       ]
     },
@@ -2106,8 +2138,17 @@
       "acceptance": "Переключение чата при несохранённом черновике показывает предупреждение, автосохранения не происходит, и введённый текст не теряется без решения пользователя.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/ui_prompt_version_card_e2e.py @ 9889d6e0: блок 11 «черновик: индикатор, подтверждение при смене чата, сохранение» (data-pv-dirty, scope-панель, диалог подтверждения); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: черновик переживает смену чата",
+          "observation": "e2e #11: ввод «ДОПИСАНО» даёт индикатор несохранённого черновика; смена чата спрашивает подтверждение (никакого автосохранения); после отмены подтверждения введённый текст остаётся в редакторе — черновик не потерян.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "5408e7664e2c55b27142ddd3622df68f63191dbd230430ee6ac1ae9b032606a9"
+        }
+      ]
     },
     {
       "source_id": "L00241",
@@ -2121,8 +2162,25 @@
       "acceptance": "Метки «Активная», «Базовая», «Из кода», «Импортирована», «Недоступна» не смешиваются в интерфейсе, а «Назначить базовой» не активирует ревизию.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/ui_prompt_version_card_e2e.py @ 9889d6e0: блок 5 «доступность действий: причины вместо кнопок» + блок 7 «Назначить базовой не меняет действующий текст» с B3-мутацией (assign дополнительно активирует — обязана падать); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: назначение не активирует",
+          "observation": "e2e #5: retired/несовместимые ревизии показывают «Недоступна» с причиной вместо кнопки (activate=false); e2e #7: «Назначить базовой» выводит «Базовая версия изменена, действующий текст пока прежний», уходит ровно один POST /baseline без POST /activate (мутация B3 падает), активная ревизия и текст редактора не изменились.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "5408e7664e2c55b27142ddd3622df68f63191dbd230430ee6ac1ae9b032606a9"
+        },
+        {
+          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
+          "type": "test",
+          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 1 origin-метки из effective-контракта (без смешивания «Активная»/«Действует глобальная версия»/«Из кода») + § 7 retired/incompatible читаемы, но не активируемы (unit #7); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: labels not mixed",
+          "observation": "Метки статуса берутся из effective_* контракта и не смешиваются: chat_override → «Действует в этом чате», global → «Действует глобальная версия», code → «Из кода»; retired/incompatible ревизии показываются как читаемые, но без активирующих действий.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
+        }
+      ]
     },
     {
       "source_id": "L00242",
