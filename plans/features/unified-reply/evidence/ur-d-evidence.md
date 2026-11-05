@@ -1,6 +1,6 @@
 # UR-D evidence — L2/output: общий Writer, LLMCompletion, continuation, безопасная отправка
 
-Slice: `UR-D` · Candidate: branch `ur/d-writer`, коммит `4e0bf18b` (base `6180380d`, `evol/impl`).
+Slice: `UR-D` · Candidate: branch `ur/d-writer`, коммит `6374eedc` (base `6180380d`, `evol/impl`; кодовые коммиты 2fb426c6 -> a22a5ab8 -> 4e0bf18b -> 6374eedc).
 Карта: `plans/features/unified-reply/requirements-map.json` (slice `UR-D`, 11 строк).
 Основной тест-файл: `tests/test_ur_d_writer.py` (17 тестов, CONTRACT owner=UNIFIED-REPLY/UR-D).
 
@@ -25,7 +25,7 @@ Slice: `UR-D` · Candidate: branch `ur/d-writer`, коммит `4e0bf18b` (base 
 * **Скрытые капы речи**: из `<Initiative_Context>` удалены «Держись в рамках ожидаемой полноты» и
   «не устраивай доклад» — полноту несёт extent-блок плана (UR-04 §3 источника).
 
-## Покрытие по строкам карты (status VERIFIED, кандидат 4e0bf18b)
+## Покрытие по строкам карты (status VERIFIED, кандидат 6374eedc)
 
 | Req | Тест(ы) (`tests/test_ur_d_writer.py`, если не указано иное) | Что доказывает |
 |---|---|---|

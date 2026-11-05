@@ -2508,7 +2508,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
@@ -2926,7 +2926,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
@@ -2950,7 +2950,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
@@ -3394,7 +3394,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
@@ -3946,7 +3946,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
@@ -3970,7 +3970,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
@@ -3994,7 +3994,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
@@ -4018,7 +4018,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         },
         {
           "ref": "Вычисление физически допустимого output",
@@ -4026,7 +4026,7 @@
           "type": "code",
           "artifact_path": "services/response_extent.py",
           "artifact_sha256": "dbd365a87f2024e655e2c84ea1c3bc036e5865fe2f95bec9b50a1e30439a3ba2",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
@@ -4050,7 +4050,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
@@ -4074,7 +4074,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
@@ -4098,7 +4098,7 @@
           "type": "test",
           "artifact_path": "tests/test_ur_d_writer.py",
           "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
-          "candidate_commit": "4e0bf18b"
+          "candidate_commit": "6374eedc"
         }
       ]
     },
