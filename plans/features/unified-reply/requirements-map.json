@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
-  "candidate_commit": "95e5815d",
+  "candidate_commit": "7edcb2b4",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -22,7 +22,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись.",
+  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись. UR-G: кандидат 7edcb2b4 (merge 9e3af353 в evol/impl) — привязано 31/40 VERIFIED (28 proven-existing + 3 proven-new; evidence plans/features/unified-reply/evidence/ur-g-acceptance.md + tests/test_ur_g_acceptance.py + цитированные existing-тесты; сьют 709 passed / 0 failed). 9 строк PENDING с точными зависимостями: UR-30.2 (UR-23.4 — factcheck-доставка не пишет ledger), UR-30.4 (payload-матрица UR-26.3/26.4/26.5), UR-30.5 (UR-C-SCHED per-chat scheduler), UR-ACC-B2 (preprod-прогон размеченного набора), UR-ACC-D6 (fixture диалог.txt + live-модель), UR-ACC-E4 (UR-26.5 summary repair/supervisor payload), UR-ACC-E5/UR-ACC-E6 (UR-C-SCHED: UR-28.5), UR-ACC-E9 (postdeploy live-наблюдение после деплоя). Эпические строки UR-G в additional_requirements (UR-30.7, UR-SAVETY, UR-DONE-CRITERION, UR-EXEC-RULE, UR-BAN-10, UR-EXEC-WORKFLOW, UR-ACC-TRACE) не менялись.",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -5410,8 +5410,49 @@
       "acceptance": "UR-23..29 внедрены в общий Context Builder и delivery path с сохранением существующих компонентов; изменения БД аддитивные, память и эмбеддинги не пересоздаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-30",
+          "observation": "Композитное доказательство: оба триггера через общий turn engine/writer/clock/ledger; DDL аддитивна; embedding-файлы UR-коммитами не тронуты (git-scope C8).",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_turn_engine.py",
+          "observation": "test_both_traces_execute_through_single_turn_engine: UR-23..29 сидят в общем Context Builder/delivery, одна policy/schema/repair.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_d_writer.py",
+          "observation": "test_both_triggers_share_writer_seam: единый Writer seam на оба триггера.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "3b4b4f58aee68d124adbe40b3cf6745a6e06436440a4c55b231c539a0298b5ce",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_c_clock.py",
+          "observation": "TestTurnClockWiring: ChatClock вбит в payload обоих трасс.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_clock.py",
+          "artifact_sha256": "c9c1c01c0617c10503d6a77475b4d4bc5d128927cf1ac8a4385fa1ae43bf3159",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_bot_output_history.py",
+          "observation": "TestLedgerHistoryReadPath: ledger read-path доставляет историю (DDL аддитивна, mca_bot_outputs v22).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00399",
@@ -5419,14 +5460,31 @@
       "source_text_sha256": "7dfc400d691eb256f148419ec286a17131302d3fe0eeccd4d506190a4a2d81ce",
       "source_excerpt": "- self-output: Direct → Initiative → Factcheck → Summary, несколько чанков, правка, retry/failure, TTL `bot_replies` прошёл, вчерашняя цитата, несколько участников и чатов — слова бота доступны только в своём чате, правильно датируются и **",
       "disposition": "required",
-      "reason": "",
+      "reason": "blocked: композитный прогон Direct→Initiative→Factcheck→Summary невозможен — factcheck-доставка не пишет ledger; write-path неполноты = строка UR-23.4 (PENDING, slice UR-C)",
       "req_id": "UR-30.2",
       "slice": "UR-G",
       "acceptance": "Тест self-output на frozen UTC clock и реальном payload capture покрывает Direct -> Initiative -> Factcheck -> Summary, несколько чанков, правку, retry/failure, истёкший TTL bot_replies, вчерашнюю цитату и несколько участников/чатов: слова бота доступны только в своём чате, верно датируются и не становятся стилевыми командами.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-30.2",
+          "observation": "Композитный тест Direct→Initiative→Factcheck→Summary невозможен: фактчек-доставка (services/smartmodule_utils.py:331) не пишет ledger.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_bot_output_history.py",
+          "observation": "Частично proven-existing: чат-scope, ревизии, чанки+correlation+порядок, sent_at, TTL-restore родителя, «факт диалога» — доказаны.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00400",
@@ -5440,8 +5498,33 @@
       "acceptance": "Тест timezone покрывает Europe/Warsaw зимой и летом, Europe/Berlin DST spring/fall, Asia/Kathmandu UTC+05:45, Pacific/Auckland смену суток и UTC, соседние чаты с разными поясами на одном absolute timestamp, смену зоны во время процесса, невозможное/неоднозначное местное время, invalid IANA, отсутствие tzdata и старые legacy overrides.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-30.3",
+          "observation": "proven-new: probes закрыли пробелы timezone-матрицы; gap/fold local→UTC неприменим на этом HEAD (slot-вычисления UR-28 pending, см. UR-30.5).",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_g_acceptance.py",
+          "observation": "TestUrGTimezoneMatrix (4 теста): Warsaw зима +01/лето +02; соседние чаты Warsaw/Kathmandu/UTC — разные локальные даты; смена пояса между ходами при неизменяемом plan-снапшоте; invalid IANA → явный utc_fallback.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_g_acceptance.py",
+          "artifact_sha256": "8fb18fc5cb6af9d2e373567cd3fd7ab0a033a67b95fc24710c53d97a8382b1d8",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_c_clock.py",
+          "observation": "TestDstAndOffsets + TestCanonicalChain + TestHonestFallback: Berlin DST, Kathmandu +05:45, Auckland, независимость от TZ контейнера, legacy overrides.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_clock.py",
+          "artifact_sha256": "c9c1c01c0617c10503d6a77475b4d4bc5d128927cf1ac8a4385fa1ae43bf3159",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00401",
@@ -5449,14 +5532,39 @@
       "source_text_sha256": "db8e688e13bd30a6f17e21ff808b6cf84dc1f6f1c50900ce389b974687ced173",
       "source_excerpt": "- модельные входы: Direct L1/L2, Initiative L1/tool/L2, Factcheck single/temporal/stage1/2, Summary legacy/hybrid L1/L2/reviewer/repair/supervisor/fallback — **все** получают один соответствующий TimeContext, который не обрезан бюджетом; ни",
       "disposition": "required",
-      "reason": "",
+      "reason": "blocked: payload-тесты stage1/stage2 фактчека и summary reviewer/repair/supervisor отсутствуют; зависит от UR-26.3/UR-26.4/UR-26.5 (PENDING, slice UR-C-CLOCK)",
       "req_id": "UR-30.4",
       "slice": "UR-G",
       "acceptance": "Тест модельных входов подтверждает, что Direct L1/L2, Initiative L1/tool/L2, Factcheck single/temporal/stage1/stage2 и Summary legacy/hybrid L1/L2/reviewer/repair/supervisor/fallback получают один соответствующий TimeContext, не обрезанный бюджетом, и нет стадии с clock_included=false без документированного невидимого пользователю режима.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-30.4",
+          "observation": "Полная payload-матрица не закрыта: stage1/stage2 фактчека и summary reviewer/repair/supervisor без payload-тестов.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_c_clock.py",
+          "observation": "Proven-existing: Direct L1/L2, фактчек single-path, summary generator/clusterizer, fallback adapter, observer; budget drop/keep.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_clock.py",
+          "artifact_sha256": "c9c1c01c0617c10503d6a77475b4d4bc5d128927cf1ac8a4385fa1ae43bf3159",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_g_acceptance.py",
+          "observation": "Proven-new TestUrGInitiativeClockPayloads: initiative L1 plan-блок + L2 answer-блок (Europe/Warsaw).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_g_acceptance.py",
+          "artifact_sha256": "8fb18fc5cb6af9d2e373567cd3fd7ab0a033a67b95fc24710c53d97a8382b1d8",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00402",
@@ -5464,14 +5572,23 @@
       "source_text_sha256": "f0d36c29bdd409b91f1f13c3cb0ea28e85605d7e974286ad3904478ba92e528d",
       "source_excerpt": "- cron: один пользовательский timezone влияет и на чатовые ответы, и на локальную дату Summary, и на **следующий** слот саммари и Goodmorning конкретного чата. Две разные зоны не приводят к одному общему локальному расписанию. DST, рестарт,",
       "disposition": "required",
-      "reason": "",
+      "reason": "blocked: per-chat слоты/claim-ключ/гонка двух workers не реализованы (глобальный CronTrigger в одной зоне); зависит от slice UR-C-SCHED (UR-28/28.2/28.3/28.5)",
       "req_id": "UR-30.5",
       "slice": "UR-G",
       "acceptance": "Тест cron подтверждает, что один пользовательский timezone влияет на чатовые ответы, локальную дату Summary и следующий слот Summary и Goodmorning конкретного чата; две разные зоны не дают одного общего расписания, а DST, рестарт, race двух workers и смена зоны не дают повторной публикации.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-30.5",
+          "observation": "Код-наблюдение: services/summary_scheduler.py:140 и goodmorning_scheduler.py:92 — глобальные кроны одной зоны; slot_claim отсутствует (grep 0).",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00403",
@@ -5485,8 +5602,33 @@
       "acceptance": "Тест UI подтверждает, что по выбранному чату «Модули -> Время» совпадает с финальным LLM payload и summary schedule, прежние две редактируемые зоны недоступны, а логи и инспектор показывают точный источник времени без секретов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-30.6",
+          "observation": "«Модули → Время» совпадает с финальным LLM payload; остаточный под-скоуп «совпадает с summary schedule» = UR-28.4 (PENDING).",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_ui_effective_config.py",
+          "observation": "test_chat_timezone_hidden_single_surface, test_timezones_full_iana_list, test_time_global_state_from_server, post valid/invalid: один IANA + источник, legacy убраны, валидация 422.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_c_clock.py",
+          "observation": "TestTurnClockWiring: payload = UI-пояс (turnClockLine из clock_timezone/as_of_utc).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_clock.py",
+          "artifact_sha256": "c9c1c01c0617c10503d6a77475b4d4bc5d128927cf1ac8a4385fa1ae43bf3159",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00407",
@@ -5650,8 +5792,41 @@
       "acceptance": "Direct и Initiative с одной внешней задачей используют одну L1 permission/model/repair политику, один Tool Executor и один L2 Writer; отличия только в trigger/action/recheck/delivery.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-A1",
+          "observation": "Direct и Initiative: одна L1 policy/schema/repair, один capabilities-helper, одна tool-фаза, один Writer + общий speech composer.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_turn_engine.py",
+          "observation": "test_turn_policy_is_identical_for_both_triggers, slot/schema/repair equality, shared capabilities-helper, no empty-capabilities shortcut.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_d_writer.py",
+          "observation": "test_both_triggers_share_writer_seam + share_speech_composer: один Writer и composer на оба триггера.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "3b4b4f58aee68d124adbe40b3cf6745a6e06436440a4c55b231c539a0298b5ce",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_b_live_wiring.py",
+          "observation": "test_both_live_call_sites_use_the_single_tool_phase, test_live_helper_delegates_to_unified_phase: единая tool-фаза.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "artifact_sha256": "30d40a103962e0cf34251380e8e5052aaebb265425527e4b087886c5847dec2c",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00430",
@@ -5665,8 +5840,33 @@
       "acceptance": "Текстовая инициатива делает настоящий execute_web_search, а при SILENT/REACT лишнего платного поиска нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-A2",
+          "observation": "Текстовая инициатива делает реальный execute_web_search через единую tool-фазу; SILENT/REACT — ноль платных вызовов.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_b_live_wiring.py",
+          "observation": "test_initiative_call_site_reaches_provider, no-claim → no call, SILENT/REACT → 0 tool-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "artifact_sha256": "30d40a103962e0cf34251380e8e5052aaebb265425527e4b087886c5847dec2c",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_turn_engine.py",
+          "observation": "test_silent_and_react_survive_single_engine: бесплатные исходы без платного поиска.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00431",
@@ -5680,8 +5880,33 @@
       "acceptance": "Исходы инициативы silent/react/reply конкретному сообщению верны с учётом адресата и freshness; прямое обращение не теряется из-за инициативного режима.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-A3",
+          "observation": "Исходы silent/react/reply верны с учётом адресата и freshness; прямой запрос не проходит гейт молчания.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_turn_engine.py",
+          "observation": "test_policy_block_keeps_initiative_silent_and_direct_raising, test_initiative_trace_carries_opportunity_and_addressee.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_d_writer.py",
+          "observation": "TestDeliveryBoundary: sendrecheck подавляет после ответа; устаревшая цель отменяет семантический ответ.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "3b4b4f58aee68d124adbe40b3cf6745a6e06436440a4c55b231c539a0298b5ce",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00432",
@@ -5695,8 +5920,33 @@
       "acceptance": "Новое обращение или смена контекста во время web/tool обработки отменяет или перепроверяет устаревшую инициативу; повтор после прерывания не дублирует пост.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-A4",
+          "observation": "Прерывание/смена контекста отменяет-перепроверяет; после рестарта дублей нет (маркер до доставки).",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_d_writer.py",
+          "observation": "stale target cancels, sendrecheck suppresses, restart no-resend/no tool-repay, fresh answer для нового update.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "3b4b4f58aee68d124adbe40b3cf6745a6e06436440a4c55b231c539a0298b5ce",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_proof_restart.py",
+          "observation": "no resend после рестарта процесса; маркер пишется до доставки.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_proof_restart.py",
+          "artifact_sha256": "b2cd545c3a29c03654406c0d15f19dd2a9bc44bf71fc5ffcdf343c82b966acb6",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00434",
@@ -5725,8 +5975,33 @@
       "acceptance": "Явная просьба проверить в интернете даёт реальный вызов в 100% доступных сценариев; при отключённом поиске — честный unavailable.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-B1",
+          "observation": "Явная просьба проверить в интернете даёт реальный вызов; отключённый/отсутствующий инструмент → техническая причина, не имитация.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_turn_engine.py",
+          "observation": "test_explicit_search_request_resolves_same_tools: явная просьба → те же инструменты.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_b_live_wiring.py",
+          "observation": "axis reaches provider, runtime policy сильнее мнения модели; missing tool → честная техническая причина.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "artifact_sha256": "30d40a103962e0cf34251380e8e5052aaebb265425527e4b087886c5847dec2c",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00437",
@@ -5734,14 +6009,31 @@
       "source_text_sha256": "de9c7d6f6406589a3a4a42a9221ad6855424ae058d56aefbe0bce6727c5cbaa2",
       "source_excerpt": "- [ ] Внешние факты о моделях/ценах/новостях/доступности API без слова «поиск» — Web Search выполняется в >=95% размеченных случаев; реальные источники используются L2.",
       "disposition": "required",
-      "reason": "",
+      "reason": "blocked: «≥95% размеченных случаев» — preprod-метрика; нужен прогон размеченного сценарного набора с реальным поиском на preprod (трасса search_called/search_status/source_count)",
       "req_id": "UR-ACC-B2",
       "slice": "UR-G",
       "acceptance": "Внешние факты о моделях/ценах/новостях/API без слова «поиск» дают Web Search в >=95% размеченных случаев, и L2 использует реальные источники.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-B2",
+          "observation": "Структурные прокси доказаны; метрика ≥95% требует preprod-прогона размеченного набора.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_b_live_wiring.py",
+          "observation": "Структурные прокси: axis absent → plan requested search; keywords → search; L2 получает evidence pack с атрибуцией (test_rlr_no_second_author).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "artifact_sha256": "30d40a103962e0cf34251380e8e5052aaebb265425527e4b087886c5847dec2c",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00438",
@@ -5755,8 +6047,41 @@
       "acceptance": "Шутка об актуальном публичном событии не заблокирована жанром «юмор»; приватная внутренняя шутка либо не ищется по смыслу, либо ищется целевым запросом без полного дампа чата и секретов — privacy-вето не возникает ни в одном из случаев.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-B3",
+          "observation": "Жанр/форма не входит в ось решения; публичная шутка ищется, приватная — нет; privacy-вето не возникает.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "observation": "Файл целиком: privacy_blocked не эмитится, классификатора нет (BGS-01).",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "artifact_sha256": "98c592ef2d198af21071407480a992117b82c8ca6769e4737884e29af33df6cf",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_unified_reply_ur_b_search_first.py",
+          "observation": "TestNoTopicVeto + TestSearchFirstExecution + TestPayloadHygiene: приватная шутка без поиска/целевым запросом, публичный вопрос ищется.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_g_acceptance.py",
+          "observation": "TestUrGB3JokeGenre.test_public_event_joke_phrasing_is_searchable: публичное событие в юмористической формулировке ищется (новый probe).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_g_acceptance.py",
+          "artifact_sha256": "8fb18fc5cb6af9d2e373567cd3fd7ab0a033a67b95fc24710c53d97a8382b1d8",
+          "candidate_commit": "7edcb2b4"
+        }
+      ],
       "bgs_note": "BGS-07 §8 (UR-08): уточнена формулировка «не утекла поисковику» — проверяется отсутствие дампа чата/секретов, а не запрет темы.",
       "superseded_text": "Шутка об актуальном публичном событии не заблокирована жанром «юмор», а приватная внутренняя шутка не утекает поисковику.",
       "superseded_by": "BGS-01 (owner 2026-11-05)"
@@ -5773,8 +6098,41 @@
       "acceptance": "При пустом/timeout/противоречивом результате нет уверенного вымысла, ложных ссылок и «я проверил»; search_status и source count правдивы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-B4",
+          "observation": "empty/timeout/противоречие → честный search_status и source_count; «я проверил» и выдуманные ссылки не появляются.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_unified_reply_ur_b_search_first.py",
+          "observation": "TestHonestStatus.empty_result_honest; TestEvidenceAndTrace.contradictory → SEARCH_STATUS_CONTRADICTORY.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_b_live_wiring.py",
+          "observation": "missing tool → honest, не search.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "artifact_sha256": "30d40a103962e0cf34251380e8e5052aaebb265425527e4b087886c5847dec2c",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_negative_matrix.py",
+          "observation": "test_search_unavailable_honest_evidence_and_no_sentence_dropped: предложение не выбрасывается.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_negative_matrix.py",
+          "artifact_sha256": "c0965c185a290a6c73324fef1c2d636841aa0a263a246e8b65bd517a27771984",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00440",
@@ -5788,8 +6146,25 @@
       "acceptance": "Поисковый запрос не содержит Telegram UID/user_id, API-ключей и токенов, телефонов, e-mail и приватных ссылок; упоминание участника или его имени в содержательном запросе само по себе не запрещено (BGS-01).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-B5",
+          "observation": "Поисковый запрос без запрещённых токенов; слово участника и осмысленный запрос сохранены (sanitize: direct_execution.py:1343-1366).",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_unified_reply_ur_b_search_first.py",
+          "observation": "TestPayloadHygiene: UID/ключи (sk-/ghp_/api_key)/телефоны/@mention/t.me/e-mail вычищены; idempotent; partial-word guard; чат целиком не отправляется.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "7edcb2b4"
+        }
+      ],
       "bgs_note": "BGS-01 §2 п.4: «персональные данные» уточнены до конкретного списка (UID, ключи/токены, телефоны, e-mail, приватные ссылки).",
       "superseded_text": "Публичный поисковый запрос не содержит Telegram UID, персональных данных, приватных цитат и ссылок.",
       "superseded_by": "BGS-01 (owner 2026-11-05)"
@@ -5821,8 +6196,33 @@
       "acceptance": "Текущая реплика длиннее 800 символов: важная информация в середине и конце доступна L1/L2 без предварительного среза.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-C1",
+          "observation": "Длинная реплика: важная информация в середине/конце доступна L1/L2; Writer получает полный текст.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_context_selection.py",
+          "observation": "long_question_keeps_middle_and_end, overflow_splits_with_source, p0_overflow_explicit: >800 симв. середина/конец доступны.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_direct_chat.py",
+          "observation": "test_current_question_cap_and_escape: единственный усечитель — allocator.",
+          "type": "test",
+          "artifact_path": "tests/test_direct_chat.py",
+          "artifact_sha256": "12093fb2aa1b6fbda5217c7eaf64f5c889d317d4f5205d8b917c97208790754b",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00445",
@@ -5836,8 +6236,25 @@
       "acceptance": "Reply-ветка длиннее 3 ходов и эпизод старше свежего окна: L1 различает авторов, а L2 получает исходные подтверждения через retrieval.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-C2",
+          "observation": "Ветка >3 ходов: авторы различены, старый эпизод доступен, retrieval-запрос осмысленный.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_context_selection.py",
+          "observation": "reply_branch >3 hops keeps authors; old episode reachable; query несёт topic/addressee/reply-parent и реальные UID.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00446",
@@ -5851,8 +6268,33 @@
       "acceptance": "Значение 200 в UI не приписывается фактическому количеству сообщений в prompt; инспектор различает raw window, selected и included.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-C3",
+          "observation": "Константные капы окна не выдаются за количество сообщений; инспектор показывает реальные стадии.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_context_selection.py",
+          "observation": "test_provenance_counts_are_truthful: raw→selected→included правдивы.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_ui_effective_config.py",
+          "observation": "TestTurnDiagnostics.chain_view: инспектор различает стадии; шоты urf-inspector-*.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00447",
@@ -5866,8 +6308,33 @@
       "acceptance": "При противоречащем старом факте и более новой правке приоритет у достоверной коррекции; бот не приписывает человеку слова другого участника.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-C4",
+          "observation": "Приоритет достоверной коррекции; противоречащий источник помечен; атрибуция корректна.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_context_selection.py",
+          "observation": "later correction beats older fact; corrected version dropped first under pressure; contradictory flagged for L2.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_direct_chat.py",
+          "observation": "факт о третьем лице не приписывается спрашивающему.",
+          "type": "test",
+          "artifact_path": "tests/test_direct_chat.py",
+          "artifact_sha256": "12093fb2aa1b6fbda5217c7eaf64f5c889d317d4f5205d8b917c97208790754b",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00448",
@@ -5881,8 +6348,41 @@
       "acceptance": "Память, созданная самим ботом из шутки/roleplay, не выдаётся за реальный исторический факт.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-C5",
+          "observation": "Само-созданная из шутки/roleplay память — supporting-авторитет, не подтверждение истинности.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_bot_output_history.py",
+          "observation": "test_bot_turn_is_dialog_fact_not_style_anchor: authority=supporting, без «подражай».",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_context_selection.py",
+          "observation": "test_no_memory_no_invention.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_factcheck_numeric_stage.py",
+          "observation": "insufficient evidence остаётся insufficient.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_factcheck_numeric_stage.py",
+          "artifact_sha256": "6b68b14fd0ce4654867269a7f89b1097a2eba89a9f4ef2b527a24e5bc375ee4b",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00449",
@@ -5896,8 +6396,33 @@
       "acceptance": "Собственные сообщения не выпадают из истории после TTL кэша: восстановление по mca_bot_outputs с sent_at_utc, reply_parent, tg_message_id и корректной ревизией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-C6",
+          "observation": "После TTL история восстанавливается из mca_bot_outputs с sent_at/reply_parent/tg_message_id и актуальной ревизией.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_bot_output_history.py",
+          "observation": "sent_at из ledger, reply_parent переживает TTL, latest revision wins, chunks correlation+порядок.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_context_selection.py",
+          "observation": "test_bot_output_survives_ttl_with_date_and_parent.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00450",
@@ -5911,8 +6436,33 @@
       "acceptance": "Извлечённая старая шутка бота используется как доказательство его прежних слов, но не как образец стиля и не как подтверждение истинности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-C7",
+          "observation": "Старая шутка бота — доказательство его слов, не стилевой якорь.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_bot_output_history.py",
+          "observation": "bot_statement = supporting-доказательство прежних слов, не стиль и не истина.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_e_speech.py",
+          "observation": "TestNoAutoImitation: оба Writer payload без «подражай»-якорей.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00451",
@@ -5926,8 +6476,25 @@
       "acceptance": "Текущий embedding provider/model и векторный индекс не пересоздавались, все существующие facts/stories доступны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-C8",
+          "observation": "proven-new (статика): git log UR-коммитов по embedding_control_plane/memory_maintenance — пусто; DDL аддитивна (database.py:887 v22; v38/v39 — EVOL-015/016); индексы не пересоздавались.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_context_selection.py",
+          "observation": "test_old_episode_reachable_with_real_messages: retrieval-path цел — все facts/stories доступны.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00452",
@@ -5941,8 +6508,33 @@
       "acceptance": "Конспект не «умирает по 60 минутам» в UI и не выдаётся за актуальный без watermark; неизменившийся диапазон не сжимается повторно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-C9",
+          "observation": "Конспект живёт по watermark; неизменённый диапазон не пересжимается; UI не выдаёт устаревший конспект за актуальный.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_context_selection.py",
+          "observation": "watermark-правила: no refresh на текущем/непокрытом, refresh при displaced, fill_ratio не триггер; coverage отчёт честный.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_ui_effective_config.py",
+          "observation": "test_renamed_rows_honest + ur-f UR-21.15: UI «за последний час, если:» вместо TTL-формулировки.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00454",
@@ -5971,8 +6563,33 @@
       "acceptance": "При finish_reason=length ни один сырой обрубок не отправлен: continuation в том же ходе либо честный terminal failure.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-D1",
+          "observation": "finish_reason=length: continuation тем же планом до отправки либо честный terminal failure; сырой обрубок не публикуется.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_length_continuation.py",
+          "observation": "truncated → continuation once with prefix; cap exhausted → не публикуется; provider error → honest; untouched pass-through; no-progress стоп.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_length_continuation.py",
+          "artifact_sha256": "c2b735361ca440e99077c67d7b4ad6ad690e4e0d1c43dc239bdb2242efebbc4d",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_d_writer.py",
+          "observation": "length_finish_reason_continues_same_author; completed before sending; unfinished initiative не публикуется.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "3b4b4f58aee68d124adbe40b3cf6745a6e06436440a4c55b231c539a0298b5ce",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00457",
@@ -5986,8 +6603,41 @@
       "acceptance": "Падение модели посреди продолжения не оставляет частично опубликованный текст и не даёт дублирующую отправку после recovery.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-D2",
+          "observation": "Падение посреди продолжения: без частичной публикации и дублей.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_length_continuation.py",
+          "observation": "provider error during continuation → honest, частичный текст не опубликован.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_length_continuation.py",
+          "artifact_sha256": "c2b735361ca440e99077c67d7b4ad6ad690e4e0d1c43dc239bdb2242efebbc4d",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_d_writer.py",
+          "observation": "restart redelivery: без повторной отправки и без tool-repay.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "3b4b4f58aee68d124adbe40b3cf6745a6e06436440a4c55b231c539a0298b5ce",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_proof_restart.py",
+          "observation": "no resend после рестарта.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_proof_restart.py",
+          "artifact_sha256": "b2cd545c3a29c03654406c0d15f19dd2a9bc44bf71fc5ffcdf343c82b966acb6",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00458",
@@ -6001,8 +6651,33 @@
       "acceptance": "Длинный завершённый ответ разбивается Telegram на логические части без потери слов; короткая переписка не становится лекцией из-за большого output budget.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-D3",
+          "observation": "Длинный ответ бьётся без потери слов; короткая переписка не раздувается.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_d_writer.py",
+          "observation": "TestChunkedDelivery: lossless и pure; первый чанк в reply, остальные нет.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "3b4b4f58aee68d124adbe40b3cf6745a6e06436440a4c55b231c539a0298b5ce",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_acceptance_rows.py",
+          "observation": "test_r0817_long_reply_chunked_without_loss; extent из плана, скрытых директив краткости нет.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "artifact_sha256": "b6263e5769fa3dbfb3bf58c6e15dd84c3b56db4aef93dd66be3e42ebdeb28538",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00459",
@@ -6016,8 +6691,41 @@
       "acceptance": "Автоподражание выключено, но доставленные собственные ответы остаются в хронологии и доступны L1/L2, включая старый reply; стиль/мат/сленг/кавычки/владельческие инструкции сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-D4",
+          "observation": "Автоподражание снято; свои ответы в хронологии доступны (ledger read-path); владельческие инструкции сохранены байт-в-байт.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_e_speech.py",
+          "observation": "TestNoAutoImitation (оба Writer); владельческий стиль доходит до единственного Writer-вызова.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_direct_chat.py",
+          "observation": "нет style anchors даже с ответами; per-chat override изолирован.",
+          "type": "test",
+          "artifact_path": "tests/test_direct_chat.py",
+          "artifact_sha256": "12093fb2aa1b6fbda5217c7eaf64f5c889d317d4f5205d8b917c97208790754b",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_direct_chat_prompts.py",
+          "observation": "PVR-снапшоты byte-exact: владельческий текст сохранён байт-в-байт; TestOwnerRulesExactlyOnce (test_rlr_dcs_postprocess.py:279).",
+          "type": "test",
+          "artifact_path": "tests/test_direct_chat_prompts.py",
+          "artifact_sha256": "f947de06ebc862afbdc7e2588e717a562c3299f8fb8607933af7d8810920dd7f",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00460",
@@ -6031,8 +6739,41 @@
       "acceptance": "Форматные и фактологические проверки работают, а косметическое клише не вызывает повторной генерации всего текста в обычном чате.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-D5",
+          "observation": "Форматные/фактологические проверки работают; косметическое клише не перегенерирует текст (RLR-04 superseded — observation).",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_explicit_transform.py",
+          "observation": "явные трансформы валидируются (числа/имена/даты).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_explicit_transform.py",
+          "artifact_sha256": "40af5f6445c21eb2b2aeecb7c52691d88095e794f1b46a635cad8612f63e1196",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_factcheck_numeric_stage.py",
+          "observation": "invented number не публикуется; no post-L2 numeric rewrite.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_factcheck_numeric_stage.py",
+          "artifact_sha256": "6b68b14fd0ce4654867269a7f89b1097a2eba89a9f4ef2b527a24e5bc375ee4b",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_e_speech.py",
+          "observation": "test_no_regeneration_on_style_violation: клише → diagnostic-only, semantic_rewrite_count=0.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00461",
@@ -6040,14 +6781,31 @@
       "source_text_sha256": "f9a147d039fc510b042d597a15167890a7818aafce9b100f136d80985811fb06",
       "source_excerpt": "- [ ] Исторический `диалог.txt` пройден целиком: правильные участники, отсутствие рефрена «4 утра/диагноз» как навязчивого ответа, фактическая информация по возможности проверена.",
       "disposition": "required",
-      "reason": "",
+      "reason": "blocked: fixture «диалог.txt» (04.11.2026) отсутствует в репозитории; полный прогон требует fixture + живую модель на preprod; структурные компоненты доказаны UR-D TestDeliveryBoundary",
       "req_id": "UR-ACC-D6",
       "slice": "UR-G",
       "acceptance": "Исторический диалог.txt пройден целиком: верные участники, отсутствие рефрена «4 утра/диагноз», фактическая информация по возможности проверена.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-D6",
+          "observation": "Fixture «диалог.txt» (04.11.2026) вне репозитория; полный прогон — preprod с живой моделью.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_d_writer.py",
+          "observation": "Структурная часть: TestDeliveryBoundary (reply-edges, отсутствие второго автора, честная доставка) доказана.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "3b4b4f58aee68d124adbe40b3cf6745a6e06436440a4c55b231c539a0298b5ce",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00463",
@@ -6076,8 +6834,33 @@
       "acceptance": "Настройки отражают реальные значения и причины неактивности; CHAT_BUDGET_RESPONSE_RATIO не редактируется как рабочая опция.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-E1",
+          "observation": "Настройки показывают реальные значения + reason_inactive; мёртвые ключи не редактируются.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_ui_effective_config.py",
+          "observation": "dead keys hidden но registry readable, не обещаны рабочими, absent из config/params_meta; effective_meta_honest; renamed_rows_honest.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_admin_manifest.py",
+          "observation": "removed/deprecated keys без редактируемых контролов (CHAT_BUDGET_RESPONSE_RATIO hidden/no_op).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_admin_manifest.py",
+          "artifact_sha256": "133e9163dd23f91a7fa7fe880580045a129814ea46fe30a4e0aa230432e0f5ba",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00466",
@@ -6091,8 +6874,41 @@
       "acceptance": "«Что бот видел» открывает реальный ход и отличает L1 от L2, старую память от свежей, фактический tool call от намерения L1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-E2",
+          "observation": "«Что бот видел» = реальный ход; различает L1/L2, старую/свежую память, факт вызова от намерения.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_ui_effective_config.py",
+          "observation": "chain view различает стадии; missing stages honest; no traces honest-unavailable.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_observability.py",
+          "observation": "normal turn трассирует стадии, digests совпадают.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_observability.py",
+          "artifact_sha256": "6dde972af7a431f87004bd984e635de779ec6ec58387a070ff15ec1a64e79f9c",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_b_live_wiring.py",
+          "observation": "exactly one tool phase per turn: факт вызова vs намерение L1 (tool_trace ms/status).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "artifact_sha256": "30d40a103962e0cf34251380e8e5052aaebb265425527e4b087886c5847dec2c",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00467",
@@ -6106,8 +6922,33 @@
       "acceptance": "В «Модули -> Время» виден один действующий IANA-пояс чата, источник наследования и корректные серверные часы; дублирующие редактируемые пояса из Direct/Summary исчезли.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-E3",
+          "observation": "Один действующий IANA + источник наследования + серверные часы; шоты urf-time-*, bu-time-*.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_ui_effective_config.py",
+          "observation": "single surface, полный IANA-список, глобальное состояние с сервера, 422 на невалидную зону, 404 delete без override.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_ui_effective_config.py",
+          "artifact_sha256": "e9115de5047c047cedd6e4866efc05a0b17ce34d292c6d758c1e0781c8dfe152",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_c_clock.py",
+          "observation": "TestCanonicalChain: chat→chat_legacy→global→global_legacy→GOODMORNING_TZ→factory.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_clock.py",
+          "artifact_sha256": "c9c1c01c0617c10503d6a77475b4d4bc5d128927cf1ac8a4385fa1ae43bf3159",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00468",
@@ -6115,14 +6956,39 @@
       "source_text_sha256": "f16fb00ab67be7ae8ee1082ec2583e78841ebe12c271753561482961751153e7",
       "source_excerpt": "- [ ] При захвате **всех** модельных payload (Direct/Initiative/Factcheck/Summary/repair/fallback) Chat_Time_Context присутствует, привязан к правильному `chat_id` и не теряется при fallback; временные факты источника остаются отдельными.",
       "disposition": "required",
-      "reason": "",
+      "reason": "blocked: полный захват всех payload не закрыт — services/summary_l2_repair.py не содержит attach Chat_Time_Context; зависит от UR-26.5 (PENDING, slice UR-C-CLOCK)",
       "req_id": "UR-ACC-E4",
       "slice": "UR-G",
       "acceptance": "При захвате всех модельных payload (Direct/Initiative/Factcheck/Summary/repair/fallback) Chat_Time_Context присутствует, привязан к правильному chat_id и не теряется при fallback.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-E4",
+          "observation": "Полный захват payload не закрыт: summary_l2_repair.py без attach; reviewer attach есть (summary_l2_review.py:1022/1166), payload-теста нет.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_c_clock.py",
+          "observation": "Proven-existing: Direct L1/L2/orchestrator, fallback adapter (chat_id-привязка, не теряется при fallback), фактчек, summary generator, observer.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_c_clock.py",
+          "artifact_sha256": "c9c1c01c0617c10503d6a77475b4d4bc5d128927cf1ac8a4385fa1ae43bf3159",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_ur_g_acceptance.py",
+          "observation": "Proven-new TestUrGInitiativeClockPayloads: initiative L1/L2 payload с Chat_Time_Context.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_g_acceptance.py",
+          "artifact_sha256": "8fb18fc5cb6af9d2e373567cd3fd7ab0a033a67b95fc24710c53d97a8382b1d8",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00469",
@@ -6130,14 +6996,23 @@
       "source_text_sha256": "3c206ca37b32ca5d342ebd968ac5203886e5068c7e64c0fae53a951666cae45a",
       "source_excerpt": "- [ ] Саммари в двух чатах с разными поясами имеет разные корректные локальные слоты 00/06/12/18, DST и изменение зоны не приводят к повторной отправке; manual Summary использует те же часы чата.",
       "disposition": "required",
-      "reason": "",
+      "reason": "blocked: саммари по собственным локальным слотам 00/06/12/18 не реализовано; зависит от slice UR-C-SCHED (UR-28/28.2 per-chat слоты, claim-ключ, DST); ручное Summary по чатовой зоне = UR-28.4 (PENDING)",
       "req_id": "UR-ACC-E5",
       "slice": "UR-G",
       "acceptance": "Саммари в двух чатах с разными поясами имеет разные корректные локальные слоты 00/06/12/18; DST и смена зоны не дают повторной отправки; manual Summary использует те же часы.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-E5",
+          "observation": "Код-наблюдение: services/summary_scheduler.py:140 глобальный cron; per-chat слот-вычислений нет (grep slot_claim = 0).",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00470",
@@ -6145,14 +7020,23 @@
       "source_text_sha256": "2d89cf82d366eca2bd67388a3cfbcb38014338214660bf3ea605c698f6512e55",
       "source_excerpt": "- [ ] Goodmorning в этих же двух чатах наступает по их **собственному** локальному `GOODMORNING_TIME`, а не глобальному `GOODMORNING_TZ`; отдельной действующей настройки «часовой пояс рассылки» нет.",
       "disposition": "required",
-      "reason": "",
+      "reason": "blocked: per-chat GOODMORNING_TIME×ChatClock не реализовано; зависит от UR-28.5 (PENDING, slice UR-C-SCHED); леджер-запись goodmorning уже есть (goodmorning_relay.py:159)",
       "req_id": "UR-ACC-E6",
       "slice": "UR-G",
       "acceptance": "Goodmorning в этих же двух чатах наступает по их собственному локальному GOODMORNING_TIME, а не по глобальному GOODMORNING_TZ; отдельной настройки пояса рассылки нет.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-E6",
+          "observation": "Код-наблюдение: services/goodmorning_scheduler.py:69-92 глобальный GOODMORNING_TZ CronTrigger; per-chat GOODMORNING_TIME×ChatClock нет.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00471",
@@ -6166,8 +7050,33 @@
       "acceptance": "Мобильные 320/390/430 и desktop: нет обрезанных заголовков, громадных карточек под один параметр и ложной индикации успешного применения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-E7",
+          "observation": "Нет обрезанных заголовков/громадных карточек/ложного успеха; desktop=mobile parity; 320px покрыт отзывчивой сеткой (принятое ограничение UR-F).",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Артефакт: plans/features/unified-reply/evidence/ur-f-evidence.md",
+          "observation": "ur-f-evidence.md UR-22.2 + BGS-06.10: desktop/mobile 320-430 проверены, ограничение по отдельным 320/430 шотам зафиксировано и принято ревью UR-F.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-f-evidence.md",
+          "artifact_sha256": "31ba473340df3754a8dca1293619e10ced004d88afff29bf09062c9f63ff7b2e",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Артефакт: plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "observation": "urf-visual-report.json: 8 экранов, hScroll=false, deadFound=[], 0 ошибок консоли; 22 шота desktop-1440/mobile-390 + Browser Use real Chrome.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-visual-report.json",
+          "artifact_sha256": "3942ea95f69646c5f701cb6443c0cff8840dd84d786b6d6a9d4f2bfe390a00a8",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00472",
@@ -6181,8 +7090,41 @@
       "acceptance": "Нет потерь промптов, их истории версий, назначенных заводских версий, per-chat overrides и данных памяти; новые тяжёлые агенты не добавлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-E8",
+          "observation": "Никаких потерь промптов/историй версий/override/памяти/фаб-назначений; новых тяжёлых LLM-агентов UR-волна не добавила.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_direct_chat_prompts.py",
+          "observation": "PVR-снапшоты byte-exact: промпты и версии без потерь.",
+          "type": "test",
+          "artifact_path": "tests/test_direct_chat_prompts.py",
+          "artifact_sha256": "f947de06ebc862afbdc7e2588e717a562c3299f8fb8607933af7d8810920dd7f",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_direct_chat.py",
+          "observation": "test_per_chat_override_isolated_and_inherit_restored: overrides без потерь.",
+          "type": "test",
+          "artifact_path": "tests/test_direct_chat.py",
+          "artifact_sha256": "12093fb2aa1b6fbda5217c7eaf64f5c889d317d4f5205d8b917c97208790754b",
+          "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Тест-доказательство: tests/test_rlr_admin_manifest.py",
+          "observation": "catalog rows readable с классификацией: фаб-назначения сохранены; миграции аддитивны, память целая (C6/C8).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_admin_manifest.py",
+          "artifact_sha256": "133e9163dd23f91a7fa7fe880580045a129814ea46fe30a4e0aa230432e0f5ba",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00473",
@@ -6190,14 +7132,23 @@
       "source_text_sha256": "f4ed50f2bbbedbd90a0bf3caeeb9c4c2ad254f7d5f94d4c44906209451b078e9",
       "source_excerpt": "- [ ] После интеграции есть реальные E2E, независимый негативный Reviewer и проверка на рабочем развёртывании; техническая ошибка возвращается Builder/DevOps, не закрывается «невозможно».",
       "disposition": "required",
-      "reason": "",
+      "reason": "blocked: live_required (postdeploy) — требуется деплой кандидата и postdeploy live-наблюдение на рабочем развёртывании (PET_PROJECT: после независимого ревью); E2E-часть доказана прогоном 709 passed / 0 failed на 7edcb2b4",
       "req_id": "UR-ACC-E9",
       "slice": "UR-G",
       "acceptance": "После интеграции есть реальные E2E, независимый негативный Reviewer и проверка на рабочем развёртывании; техническая ошибка возвращается Builder/DevOps, а не закрывается «невозможно».",
       "live_required": true,
       "live_when": "postdeploy",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-E9",
+          "observation": "live_required (postdeploy): проверка на рабочем развёртывании требует деплоя кандидата; независимый негативный Reviewer — следующий процессный гейт.",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00477",
@@ -6379,8 +7330,17 @@
       "acceptance": "Не создаётся OpenSpec и не переносится проект в GitHub Issues/PR как система заданий; работа идёт в текущем plans/ и существующем workflow.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-BAN-09",
+          "observation": "proven-new (статика): openspec/ и .openspec/ в корне отсутствуют, .github/ отсутствует; работа ведётся в plans/ (requirements-map, slice-graph, evidence этого каталога).",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-g-acceptance.md",
+          "artifact_sha256": "39b34ceb8e227ed443f99626fcd0fca7a28a8c8d4dedc6c97b8341ec68bd30b5",
+          "candidate_commit": "7edcb2b4"
+        }
+      ]
     },
     {
       "source_id": "L00489",
