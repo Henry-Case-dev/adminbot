@@ -299,6 +299,12 @@ function newCtx(extra) {
     _cogOnSceneClick: methods._cogOnSceneClick,
     _cogCounts: methods._cogCounts,
     _cogSetHover: methods._cogSetHover,
+    // CMV-PHY-04: dblclick-фокус, pinch и прерывание твина камеры.
+    _cogInterruptCameraAnim: methods._cogInterruptCameraAnim,
+    _cogDblClickFocus: methods._cogDblClickFocus,
+    _cogPinchFrame: methods._cogPinchFrame,
+    _cogPinchStep: methods._cogPinchStep,
+    _cogFocusTargetScale: methods._cogFocusTargetScale,
     _cogPulseSelected: methods._cogPulseSelected,
     _cogPaintFromVis: methods._cogPaintFromVis,
     _cogPaintStatic: methods._cogPaintStatic,
@@ -328,13 +334,16 @@ function newCtx(extra) {
   eq(roAlive, 1, 'циклы: один ResizeObserver');
   eq(ioAlive, 1, 'циклы: один IntersectionObserver');
   const listeners = baseline.listeners;
-  // 8 обычных обработчиков (кадр/выбор/снятие/hover/hover-out/клик/зум/перетаск)
-  // + 2 `once` стабилизации + 1 `animationFinished` = 11 (CMV-B добавил hover
+  // 10 обычных обработчиков (кадр/выбор/снятие/hover/hover-out/клик/зум/
+  // перетаск/dblclick-фокус/прерывание твина на dragStart)
+  // + 2 `once` стабилизации + 1 `animationFinished` = 13 (CMV-B добавил hover
   // и `afterDrawing` как единый сигнал кадра §6 контракта).
   // CMV-C добавил ОДИН слушатель контейнера сцены («Раскрыть» по району,
-  // bubble-фаза, §6 контракта) — итого 12; он снимается в destroy.
-  eq(listeners, 12,
-    'циклы: 8 обработчиков + 2 once + animationFinished + click района');
+  // bubble-фаза, §6 контракта).
+  // CMV-PHY-04 добавил 6 слушателей контейнера: wheel (снятие твина) и
+  // 4 touch-фазы pinch + click района — итого 19; все снимаются в destroy.
+  eq(listeners, 19,
+    'циклы: 10 обработчиков + 2 once + animationFinished + 6 слушателей сцены');
   eq(baseline.rafActive, false, 'циклы: кадров до стабилизации нет');
   eq(baseline.fxCanvas, false, 'циклы: в песочнице без DOM слоя `fx` нет');
 
@@ -770,6 +779,33 @@ function newCtx(extra) {
   eq(ctxFx._cogScene.hoverId, 'fact:1:1', 'hover: состояние записано');
   eq(fxEl.style.cursor, 'pointer', 'hover: курсор меняется на pointer');
   eq(ctxFx._cogDebugCounters().rafActive, true, 'hover: запрошен кадр реакции');
+  // CMV-AI-01: рампа проходит через ЖИВОЙ кадр сцены — `hoverAt` из
+  // `_cogSetHover` доходит до слоя `fx`, активное свечение в начале ярко
+  // НЕ вспыхивает, а после рампы яркость ровно прежняя. Активное свечение
+  // опознаём по альфе 0.50: дальний ≤0.10, ближний 0.22, центры районов
+  // ≤0.348 — только активный узел даёт 0.50.
+  {
+    const savedSel = ctxFx._cogSelectedId;
+    ctxFx._cogSelectedId = null;            // активным будет hover, не выбор
+    const tHover = ctxFx._cogScene.hoverAt;
+    ok(tHover > 0, 'hover: момент наведения записан (hoverAt)');
+    const fxOps = fxEl.children[0].__ops;
+    function glowAlphas(extraMs) {
+      const at = fxOps.length;
+      ctxFx._cogPaintFx(tHover + extraMs);
+      return fxOps.slice(at).filter((o) => o.op === 'drawImage')
+        .map((o) => o.alpha);
+    }
+    const midAlphas = glowAlphas(30);       // 30 ms < hoverMs
+    const endAlphas = glowAlphas(400);      // рампа давно завершена
+    ok(midAlphas.length > 0, 'hover-рампа: кадр с hover реально нарисован');
+    const midMax = midAlphas.reduce((m, a) => Math.max(m, a), 0);
+    ok(midMax < 0.45,
+      'hover-рампа: в начале яркость заметно меньше финальной (' + midMax + ')');
+    ok(endAlphas.some((a) => Math.abs(a - 0.5) < 1e-6),
+      'hover-рампа: после рампы яркость ровно прежняя (0.50 на кадре)');
+    ctxFx._cogSelectedId = savedSel;
+  }
   ctxFx._cogSetHover(null);
   eq(fxEl.style.cursor, '', 'hover: уход сбрасывает курсор');
   ctxFx._cogPaintStatic();
@@ -853,6 +889,283 @@ function newCtx(extra) {
 
   global.document.createElement = prevCreate;
   delete global.window.devicePixelRatio;
+
+  /* ── CMV-AI-01: рампа hover-свечения 150–220 ms (§7.2 спеки) ───────────────
+   * Прямо через слой `fx` (реальный код кадра): множитель нарастает плавно
+   * от 0 до 1 за CONFIG.motion.hoverMs, и после рампы яркость ТОЧНО прежняя.
+   * Мутация «мгновенное свечение одним кадром» красит aThird/aHalf. */
+  {
+    const Vr = global.window.CogVisual;
+    const opsR = [];
+    const ctxR = {
+      globalAlpha: 1, lineWidth: 1, fillStyle: '', strokeStyle: '',
+      font: '', lineJoin: '', lineCap: '', textAlign: '', textBaseline: '',
+      createRadialGradient() { return { addColorStop() {} }; },
+      clearRect() {}, fillRect() {}, save() {}, restore() {},
+      setTransform() {}, measureText: () => ({ width: 90 }),
+      beginPath() {}, moveTo() {}, lineTo() {}, closePath() {},
+      arc() {}, stroke() {}, fill() {}, fillText() {}, strokeText() {},
+      drawImage(img, x, y, w, h) {
+        opsR.push({ op: 'drawImage', x, y, w, h, alpha: ctxR.globalAlpha });
+      },
+    };
+    const fxR = Vr.createFx({
+      dpr: 1,
+      makeCanvas: (w, h) => ({ width: w, height: h, getContext: () => ctxR }),
+    });
+    const RNODES = [{ id: 'n1', kind: 'fact', degree: 2 }];
+    const RPOS = { n1: { x: 0, y: 0 } };
+    function rFrame(extra) {
+      return Object.assign({
+        now: 0, width: 400, height: 300,
+        camera: { x: 0, y: 0, scale: 1 },
+        positions: RPOS, nodes: RNODES, edges: [], incident: [],
+        selection: null, hover: 'n1', hoverAt: 1000,
+        fitScale: 1, lod: 2, keyIds: null, pulse: null, flash: 0,
+        reducedMotion: false,
+      }, extra || {});
+    }
+    const hoverMs = Vr.CONFIG.motion.hoverMs;
+    ok(hoverMs >= 150 && hoverMs <= 220,
+      'AI-01: hoverMs подключён и в полосе 150–220 ms (' + hoverMs + ')');
+    // Базовый кадр без hover: ровно 2 drawImage (дальний + ближний ореолы).
+    opsR.length = 0;
+    fxR.paint(ctxR, rFrame({ now: 999, hover: null }));
+    eq(opsR.filter((o) => o.op === 'drawImage').length, 2,
+      'AI-01: база — дальний и ближний ореолы без активного');
+    function activeAlphaAt(t, extra) {
+      opsR.length = 0;
+      fxR.paint(ctxR, rFrame(Object.assign({ now: t }, extra || {})));
+      const di = opsR.filter((o) => o.op === 'drawImage');
+      // Активное свечение — ПОСЛЕДНИЙ drawImage кадра (порядок §2.1); когда
+      // рампа ещё = 0, активного спрайта нет вовсе → на кадре их 2, не 3.
+      return di.length > 2 ? di[di.length - 1].alpha : 0;
+    }
+    const T = 1000;
+    const aStart = activeAlphaAt(T);
+    const aThird = activeAlphaAt(T + hoverMs / 3);
+    const aHalf = activeAlphaAt(T + hoverMs / 2);
+    const aFull = activeAlphaAt(T + hoverMs);
+    const aStable = activeAlphaAt(T + hoverMs * 3);
+    const aPast = activeAlphaAt(9999, { hoverAt: T - 100000 });
+    const aLegacy = activeAlphaAt(T + 10, { hoverAt: undefined });
+    const aReduced = activeAlphaAt(T + 10, { reducedMotion: true });
+    const aStatic = activeAlphaAt(0);
+    eq(aStart, 0, 'AI-01: в момент наведения усиления ещё нет');
+    ok(aThird > 0.03 && aThird < 0.45 * aFull,
+      'AI-01: на 1/3 рампы яркость заметно меньше финала (' + aThird + ')');
+    ok(aHalf > aThird && aHalf < 0.9 * aFull,
+      'AI-01: рампа монотонна и на половине ещё не завершена (' + aHalf + ')');
+    ok(Math.abs(aFull - 0.5) < 1e-9,
+      'AI-01: в конце рампы яркость ровно прежняя (' + aFull + ')');
+    eq(aStable, aFull, 'AI-01: после рампы состояние стабильно');
+    eq(aPast, aFull, 'AI-01: hoverAt в прошлом — тот же финал');
+    eq(aLegacy, aFull,
+      'AI-01: кадр без hoverAt (старые вызовы) — финал, не ноль');
+    eq(aReduced, aFull, 'AI-01: reduced-motion — конечное состояние (§7.3)');
+    eq(aStatic, aFull, 'AI-01: вневременный статичный кадр — финал');
+  }
+
+  /* ── CMV-PHY-04a: double-click → плавный твин камеры на узел ──────────────
+   * Обработчика doubleClick не было (камера стояла 0 кадров). Твин обязан
+   * идти 350–500 ms с easing и заканчиваться ЦЕНТРОМ НА УЗЛЕ.
+   * Мутация «обработчик удалён» красит проверку события. */
+  {
+    const ctxD = newCtx();
+    const elD = sceneEl('embedded');
+    ctxD.$refs.cognitionGraph = elD;
+    await methods.renderCognitionGraph.call(ctxD);
+    ctxD.cognitionNetwork.emit('stabilizationIterationsDone');
+    const netD = ctxD.cognitionNetwork;
+    // ГЛАВНАЯ проверка — через реальное vis-событие doubleClick.
+    const beforeEmit = netD.moveToCalls.length;
+    netD.emit('doubleClick', { nodes: ['par:1:3'] });
+    eq(netD.moveToCalls.length, beforeEmit + 1,
+      'dblclick: vis-событие doubleClick двигает камеру ровно один раз');
+    const mv = netD.moveToCalls[netD.moveToCalls.length - 1];
+    ok(mv.animation && mv.animation.duration >= 350
+        && mv.animation.duration <= 500,
+      'dblclick: длительность твина в полосе 350–500 ms');
+    eq(mv.animation.easingFunction, 'easeInOutQuad',
+      'dblclick: easing есть (§6(4) спеки)');
+    eq(mv.position, { x: 0, y: 0 },
+      'dblclick: твин заканчивается центром на узле (позиция par:1:3)');
+    ok(mv.scale > 0, 'dblclick: масштаб фокуса положительный');
+    // Тап по пустоте камеру не трогает.
+    eq(methods._cogDblClickFocus.call(ctxD, { nodes: [] }), null,
+      'dblclick: тап по пустоте фокус не двигает');
+    eq(netD.moveToCalls.length, beforeEmit + 1, 'dblclick: лишних moveTo нет');
+    // reduced-motion: прыжок без анимации (§7.3).
+    const ctxRmD = newCtx({ reducedMotion: true });
+    ctxRmD.$refs.cognitionGraph = sceneEl('embedded');
+    await methods.renderCognitionGraph.call(ctxRmD);
+    ctxRmD.cognitionNetwork.emit('stabilizationIterationsDone');
+    const rmBefore = ctxRmD.cognitionNetwork.moveToCalls.length;
+    const rmInfo = methods._cogDblClickFocus.call(ctxRmD,
+      { nodes: ['par:1:3'] });
+    ok(rmInfo && rmInfo.duration === 0,
+      'dblclick: reduced-motion без анимации');
+    eq(ctxRmD.cognitionNetwork.moveToCalls[rmBefore].animation, false,
+      'dblclick: reduced-motion — animation:false');
+    methods.destroyCognitionGraph.call(ctxD);
+    methods.destroyCognitionGraph.call(ctxRmD);
+  }
+
+  /* ── CMV-PHY-04b: pinch зумится вокруг точки жеста (±20 px) ───────────────
+   * Проба batch3: vis якорил зум в центр полотна (дрейф 428–443 px). Наш
+   * перехват держит мировую точку под ЦЕНТРОМ ЖЕСТА. Мутация «якорь в
+   * центре полотна» даёт дрейф ~440 px и красит тест. */
+  {
+    const ctxP = newCtx();
+    const elP = sceneEl('embedded');
+    elP.clientWidth = 800;
+    elP.clientHeight = 400;
+    elP.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 400 });
+    ctxP.$refs.cognitionGraph = elP;
+    await methods.renderCognitionGraph.call(ctxP);
+    ctxP.cognitionNetwork.emit('stabilizationIterationsDone');
+    const netP = ctxP.cognitionNetwork;
+    const sceneP = ctxP._cogScene;
+    sceneP.width = 800;
+    sceneP.height = 400;
+    function touch(type, pts) {
+      const ev = { touches: pts };
+      ev.preventDefault = () => { ev.prevented = true; };
+      ev.stopPropagation = () => { ev.stopped = true; };
+      (elP.listeners[type] || []).forEach((cb) => cb(ev));
+      return ev;
+    }
+    const W = 800;
+    const H = 400;
+    // Жест: центр (600, 120) — НЕ центр полотна (400, 200); щипок ×2.2.
+    const g0 = { x: 600, y: 120 };
+    const cam0 = netP.getViewPosition();
+    const s0 = netP.getScale();
+    const w0x = cam0.x + (g0.x - W / 2) / s0;
+    const w0y = cam0.y + (g0.y - H / 2) / s0;
+    touch('touchstart', [
+      { clientX: g0.x - 50, clientY: g0.y },
+      { clientX: g0.x + 50, clientY: g0.y },
+    ]);
+    ok(sceneP.pinch && sceneP.pinch.spread0 === 100,
+      'pinch: сессия начата со вторым пальцем');
+    const moveEv = touch('touchmove', [
+      { clientX: g0.x - 110, clientY: g0.y },
+      { clientX: g0.x + 110, clientY: g0.y },
+    ]);
+    ok(moveEv.stopped && moveEv.prevented,
+      'pinch: жест не доходит до vis (stopPropagation), страница не зумится');
+    const mvP = netP.moveToCalls[netP.moveToCalls.length - 1];
+    ok(mvP && mvP.animation === false,
+      'pinch: шаг применяется мгновенно (без твина)');
+    const s1 = mvP.scale;
+    ok(Math.abs(s1 - s0 * 2.2) < 1e-9,
+      'pinch: масштаб по размаху пальцев (×2.2)');
+    // ЯКОРЬ: мировая точка w0 осталась под центром жеста (±20 px экранных).
+    const w1x = mvP.position.x + (g0.x - W / 2) / s1;
+    const w1y = mvP.position.y + (g0.y - H / 2) / s1;
+    const driftPx = Math.hypot(w1x - w0x, w1y - w0y) * s1;
+    ok(driftPx <= 20,
+      'pinch: точка под пальцами не уплывает (' + driftPx.toFixed(1) + ' px)');
+    ok(Math.abs(mvP.position.x - (w0x - (g0.x - W / 2) / s1)) < 1e-9
+        && Math.abs(mvP.position.y - (w0y - (g0.y - H / 2) / s1)) < 1e-9,
+      'pinch: камера = якорь минус смещение центра жеста (точная формула)');
+    // Одиночный палец (жест завершён) камеру не двигает.
+    const cntP = netP.moveToCalls.length;
+    sceneP.pinch = null;
+    (elP.listeners['touchmove'] || []).forEach((cb) => cb({
+      touches: [{ clientX: 10, clientY: 10 }],
+      preventDefault() {}, stopPropagation() {},
+    }));
+    eq(netP.moveToCalls.length, cntP,
+      'pinch: одиночный палец камеру не двигает');
+    // Сессия закрывается, когда отпущены все пальцы; «хвостовой» палец
+    // между делом не создаёт новую сессию и не дёргает камеру.
+    touch('touchstart', [
+      { clientX: g0.x - 50, clientY: g0.y },
+      { clientX: g0.x + 50, clientY: g0.y },
+    ]);
+    touch('touchend', [{ clientX: g0.x - 110, clientY: g0.y }]);
+    ok(sceneP.pinch, 'pinch: сессия живёт до отпускания всех пальцев');
+    const cntP2 = netP.moveToCalls.length;
+    touch('touchmove', [{ clientX: g0.x - 130, clientY: g0.y }]);
+    eq(netP.moveToCalls.length, cntP2,
+      'pinch: после снятия одного пальца камера не двигается');
+    touch('touchend', []);
+    eq(sceneP.pinch, null, 'pinch: сессия закрыта по отпускании всех пальцев');
+    // Клампы масштаба как у vis (1e-5…10): чудовищный щипок не ломает камеру.
+    touch('touchstart', [
+      { clientX: g0.x - 10, clientY: g0.y },
+      { clientX: g0.x + 10, clientY: g0.y },
+    ]);
+    touch('touchmove', [
+      { clientX: 0, clientY: g0.y },
+      { clientX: 9000, clientY: g0.y },
+    ]);
+    const mvQ = netP.moveToCalls[netP.moveToCalls.length - 1];
+    ok(mvQ.scale > 0 && mvQ.scale <= 10,
+      'pinch: масштаб ограничен потолком 10');
+    methods.destroyCognitionGraph.call(ctxP);
+    eq((elP.listeners['touchmove'] || []).length, 0,
+      'pinch: touch-слушатели сняты вместе со сценой');
+  }
+
+  /* ── CMV-PHY-04c: wheel/drag немедленно прерывают анимацию камеры ─────────
+   * Проба batch3: wheel во время фокуса глотался ~660 ms. vis ведёт твин
+   * функцией `viewFunction` на `initRedraw` — снимаем её тем же способом,
+   * что и сам vis; финальная камера = цель колеса, а не цель твина.
+   * Мутация «wheel-слушатель не подключён» красит проверку off-вызова. */
+  {
+    const ctxI = newCtx();
+    const elI = sceneEl('embedded');
+    ctxI.$refs.cognitionGraph = elI;
+    await methods.renderCognitionGraph.call(ctxI);
+    ctxI.cognitionNetwork.emit('stabilizationIterationsDone');
+    const netI = ctxI.cognitionNetwork;
+    const tween = function fakeTween() {};
+    const offCalls = [];
+    function fakeView(t) {
+      return {
+        viewFunction: t, easingTime: 0.4,
+        body: { emitter: { off(ev, fn) { offCalls.push([ev, fn]); } } },
+      };
+    }
+    // Прямое прерывание: твин снят тем же способом, что и сам vis.
+    netI.view = fakeView(tween);
+    ok(methods._cogInterruptCameraAnim.call(ctxI) === true,
+      'interrupt: запущенный твин обнаружен');
+    eq(offCalls, [['initRedraw', tween]],
+      'interrupt: твин снят ровно тем же способом, что и в самом vis');
+    eq(netI.view.viewFunction, undefined, 'interrupt: viewFunction снята');
+    eq(netI.view.easingTime, 0, 'interrupt: easingTime сброшен');
+    // Wheel: capture-слушатель сцены снимает твин ДО vis-шага колеса —
+    // финальная камера будет целью колеса, а не целью твина.
+    netI.view = fakeView(tween);
+    const wheelListeners = elI.listeners['wheel'] || [];
+    eq(wheelListeners.length, 1,
+      'interrupt: wheel-слушатель на сцене ровно один');
+    wheelListeners.forEach((cb) => cb({ deltaY: -120 }));
+    eq(offCalls.length, 2, 'interrupt: колесо сняло твин немедленно');
+    eq(netI.view.viewFunction, undefined,
+      'interrupt: после колеса кадр твина не перезапишет жест');
+    // dragStart — тот же немедленный контроль (§6(3) спеки).
+    netI.view = fakeView(tween);
+    netI.emit('dragStart', {});
+    eq(offCalls.length, 3, 'interrupt: drag тоже снимает твин');
+    // Когда твина нет — прерывание честно false и не падает.
+    netI.view = null;
+    eq(methods._cogInterruptCameraAnim.call(ctxI), false,
+      'interrupt: без vis-view — false, без исключений');
+    const ctxI2 = newCtx();
+    ctxI2.cognitionNetwork = { getScale: () => 1 };
+    eq(methods._cogInterruptCameraAnim.call(ctxI2), false,
+      'interrupt: сеть без view — false');
+    methods.destroyCognitionGraph.call(ctxI);
+    eq((elI.listeners['wheel'] || []).length, 0,
+      'снос: wheel-слушатель снят вместе со сценой');
+    eq((elI.listeners['touchstart'] || []).length, 0,
+      'снос: touch-слушатели сняты вместе со сценой');
+  }
 
   console.log('EVOL-CMV-A-SCENE-OK checks=' + checks);
   console.log('EVOL-CMV-B-SCENE-OK checks=' + checks);
