@@ -22,7 +22,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись. UR-G: кандидат 7edcb2b4 (merge 9e3af353 в evol/impl) — привязано 31/40 VERIFIED (28 proven-existing + 3 proven-new; evidence plans/features/unified-reply/evidence/ur-g-acceptance.md + tests/test_ur_g_acceptance.py + цитированные existing-тесты; сьют 709 passed / 0 failed). 9 строк PENDING с точными зависимостями: UR-30.2 (UR-23.4 — factcheck-доставка не пишет ledger), UR-30.4 (payload-матрица UR-26.3/26.4/26.5), UR-30.5 (UR-C-SCHED per-chat scheduler), UR-ACC-B2 (preprod-прогон размеченного набора), UR-ACC-D6 (fixture диалог.txt + live-модель), UR-ACC-E4 (UR-26.5 summary repair/supervisor payload), UR-ACC-E5/UR-ACC-E6 (UR-C-SCHED: UR-28.5), UR-ACC-E9 (postdeploy live-наблюдение после деплоя). Эпические строки UR-G в additional_requirements (UR-30.7, UR-SAVETY, UR-DONE-CRITERION, UR-EXEC-RULE, UR-BAN-10, UR-EXEC-WORKFLOW, UR-ACC-TRACE) не менялись.",
+  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись. UR-G: кандидат 7edcb2b4 (merge 9e3af353 в evol/impl) — привязано 31/40 VERIFIED (28 proven-existing + 3 proven-new; evidence plans/features/unified-reply/evidence/ur-g-acceptance.md + tests/test_ur_g_acceptance.py + цитированные existing-тесты; сьют 709 passed / 0 failed). 9 строк PENDING с точными зависимостями: UR-30.2 (UR-23.4 — factcheck-доставка не пишет ledger), UR-30.4 (payload-матрица UR-26.3/26.4/26.5), UR-30.5 (UR-C-SCHED per-chat scheduler), UR-ACC-B2 (preprod-прогон размеченного набора), UR-ACC-D6 (fixture диалог.txt + live-модель), UR-ACC-E4 (UR-26.5 summary repair/supervisor payload), UR-ACC-E5/UR-ACC-E6 (UR-C-SCHED: UR-28.5), UR-ACC-E9 (postdeploy live-наблюдение после деплоя). Эпические строки UR-G в additional_requirements (UR-30.7, UR-SAVETY, UR-DONE-CRITERION, UR-EXEC-RULE, UR-BAN-10, UR-EXEC-WORKFLOW, UR-ACC-TRACE) не менялись. Биндинг UR-23.4 (2026-11-06, один писатель, карта): кандидаты 38f60f2d (factcheck-доставка пишет ledger; tests/test_ur234_factcheck_ledger.py — 7 passed) и d4116ed7 (summary пишет полный доставленный текст; tests/test_summary_ledger_full_text.py — 3 passed; ревью Approved: пункт «без молчаливого preview по [:20000]» закрыт полностью — publication-gate барьер соответствует сохранённому полному тексту), merge 42900fce в evol/impl — строка VERIFIED. UR-30.2: зависимость от UR-23.4 снята, остаётся PENDING только на композитный acceptance-прогон Direct→Initiative→Factcheck→Summary (тест не написан/не запущен). Итого по карте 142/261 required VERIFIED.",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -4879,9 +4879,25 @@
       "acceptance": "Записи ledger полны на всех send-paths (Direct, Initiative, Summary, Factcheck и другие): только после подтверждённой отправки, с точным текстом или content_ref, UTC-временем, id сообщения, ревизией правки, связью чанков одним correlation_id и без молчаливого preview по [:20000].",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Factcheck-доставка пишет durable ledger mca_bot_outputs (кандидат 38f60f2d, ветка ur/234-ledger, merge 42900fce)",
+          "observation": "tests/test_ur234_factcheck_ledger.py — 7 passed: temporal-фактчек и pipeline-доставка после подтверждённой отправки пишут ровно одну ledger-запись source_feature='factcheck' с реальным tg_message_id; content_text/content_hash совпадают с фактически доставленным текстом (digest); чанковая доставка >4096 даёт одну запись без double-write; mutation-чувствительность: удаление ledger-записи ломает тесты; renderer v2 прокидывает id первого доставленного сообщения.",
+          "type": "test",
+          "artifact_path": "tests/test_ur234_factcheck_ledger.py",
+          "artifact_sha256": "0dda990b27bf01674d54e61a4fe26d616b04eb29baebba2e177597353101ead8",
+          "candidate_commit": "38f60f2d"
+        },
+        {
+          "ref": "Summary публикует в ledger полный доставленный текст; ревью Approved: пункт «без молчаливого preview по [:20000]» закрыт полностью (кандидат d4116ed7, merge 42900fce)",
+          "observation": "tests/test_summary_ledger_full_text.py — 3 passed: _record_published_output пишет полный доставленный текст, а не [:20000]-preview; content_hash считается от полного текста, и content-hash поиск находит точный текст; ancillary-поля (чанк, kind/correlation/source_feature) сохраняются; digest-дедупликация: прежний [:20000]-preview больше не совпадает с полным текстом. Publication-gate барьер теперь соответствует сохранённому полному тексту.",
+          "type": "test",
+          "artifact_path": "tests/test_summary_ledger_full_text.py",
+          "artifact_sha256": "0807241095636e651738b15df95d520377bd75cea505679a23ec3a96ed2f3dee",
+          "candidate_commit": "d4116ed7"
+        }
+      ]
     },
     {
       "source_id": "L00334",
@@ -5460,7 +5476,7 @@
       "source_text_sha256": "7dfc400d691eb256f148419ec286a17131302d3fe0eeccd4d506190a4a2d81ce",
       "source_excerpt": "- self-output: Direct → Initiative → Factcheck → Summary, несколько чанков, правка, retry/failure, TTL `bot_replies` прошёл, вчерашняя цитата, несколько участников и чатов — слова бота доступны только в своём чате, правильно датируются и **",
       "disposition": "required",
-      "reason": "blocked: композитный прогон Direct→Initiative→Factcheck→Summary невозможен — factcheck-доставка не пишет ledger; write-path неполноты = строка UR-23.4 (PENDING, slice UR-C)",
+      "reason": "blocked: композитный acceptance-прогон Direct→Initiative→Factcheck→Summary ещё не написан/не запущен; прежний блокер снят — UR-23.4 VERIFIED (merge 42900fce: factcheck-доставка пишет ledger 38f60f2d, summary пишет полный текст d4116ed7)",
       "req_id": "UR-30.2",
       "slice": "UR-G",
       "acceptance": "Тест self-output на frozen UTC clock и реальном payload capture покрывает Direct -> Initiative -> Factcheck -> Summary, несколько чанков, правку, retry/failure, истёкший TTL bot_replies, вчерашнюю цитату и несколько участников/чатов: слова бота доступны только в своём чате, верно датируются и не становятся стилевыми командами.",
@@ -5484,7 +5500,8 @@
           "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
           "candidate_commit": "7edcb2b4"
         }
-      ]
+      ],
+      "pending_reason": "Зависимость от UR-23.4 снята (VERIFIED, merge 42900fce: tests/test_ur234_factcheck_ledger.py — 7 passed, tests/test_summary_ledger_full_text.py — 3 passed, ревью Approved). Остаточный пробел — сам композитный acceptance-прогон: единого теста self-output на frozen UTC clock с реальным payload capture по цепочке Direct→Initiative→Factcheck→Summary (несколько чанков, правка, retry/failure, истёкший TTL bot_replies, вчерашняя цитата, несколько участников/чатов) на HEAD 42900fce пока нет; существующие доказательства (test_ur_bot_output_history.py, тесты UR-23.4) покрывают этапы по отдельности, но не весь композит."
     },
     {
       "source_id": "L00400",
