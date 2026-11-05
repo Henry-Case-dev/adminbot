@@ -1336,13 +1336,15 @@ def build_search_query(plan, *, query: str = "", private_terms=(),
         terms: list[str] = []
         try:
             from services.search_aggregator import content_terms
-            # FC-SHORT-TOKENS: токенизатор теперь отдаёт и 2-симв. якоря
-            # («не» и т.п.), а фильтр ниже (≥3 симв. или цифры) их отбросит.
-            # Окно кандидатов — с запасом, иначе короткие токены вытесняют
-            # тему из limit-окна ещё до пост-фильтров (репро Reviewer:
-            # «причины бессонницы» выпадали из запроса).
-            candidates = content_terms(clean_body,
-                                       limit=max(1, int(max_terms)) * 3)
+            # FC-SHORT-TOKENS corrective: токенизатор отдаёт и короткие
+            # якоря, поэтому фиксированное окно limit переполнялось
+            # обрывками, которые пост-фильтр всё равно отбросит, — тема
+            # вытеснялась вплоть до сырого текста («причины бессонницы»
+            # выпадали из запроса; 40 обрывков «аа аб ав…» уходили
+            # провайдеру целиком). Берём ВСЕ токены текста: пост-фильтр
+            # ниже НЕ ослаблен, размер запроса по-прежнему держат budget
+            # и max_terms в tail-сборке.
+            candidates = content_terms(clean_body, limit=None)
         except Exception:      # pragma: no cover - защитная ветка
             candidates = [t.lower() for t in _SEARCH_TOKEN_RE.findall(clean_body)]
         for raw in candidates:
@@ -1353,6 +1355,10 @@ def build_search_query(plan, *, query: str = "", private_terms=(),
                 continue
             if word not in terms:
                 terms.append(word)
+        # Приоритет теме (FC-SHORT-TOKENS corrective): длинные/
+        # цифро-латинские термы первыми, короткие якоря (цифры 1–2) —
+        # последними и только если осталось место в tail (stable sort).
+        terms.sort(key=lambda w: len(w) < 3)
         parts: list[str] = []
         for entity in entities:
             if entity and entity not in parts:

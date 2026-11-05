@@ -117,3 +117,77 @@ class TestRelevanceOverlapGuard:
         terms = content_terms("почему не работает принтер")
         doc = "Принтер не работает после обновления — очередь печати зависает"
         assert is_relevant_result(doc, terms) is True
+
+
+class TestRelevanceDenominator:
+    """FC-SHORT-TOKENS corrective: пол считают только токены, которые
+    haystack реально видит (≥4 симв. или цифры/латиница)."""
+
+    def test_printer_only_doc_relevant_with_negation_term(self):
+        # термы принтер/не/работает: «не» знаменатель не поднимает,
+        # документ только про принтер остаётся релевантным (пол как раньше)
+        terms = ["принтер", "не", "работает"]
+        doc = "Выбрал новый принтер для дома"
+        assert is_relevant_result(doc, terms) is True
+
+    def test_offtopic_doc_with_single_ne_is_not_relevant(self):
+        terms = ["принтер", "не", "работает"]
+        doc = "Обзор кофеварок этого сезона не удивил"
+        assert is_relevant_result(doc, terms) is False
+
+    def test_rtx_4060_doc_relevant_denominator_not_raised(self):
+        # цифро-латинские термы видят haystack: знаменатель 3, совпали rtx
+        # и 4060 → релевантен; короткая кириллица тут не в знаменателе
+        terms = ["цена", "rtx", "4060"]
+        doc = "Обзор RTX 4060"
+        assert is_relevant_result(doc, terms) is True
+
+    def test_negation_alone_is_empty_denominator(self):
+        # «не» не может дать совпадение ни в каком документе; если в термах
+        # ОДНИ невидимые токены — знаменатель пуст, прежний контракт
+        # «нет (видимых) терминов → True»
+        doc = "Не куплен, не проверен, не работает"
+        assert is_relevant_result(doc, ["не"]) is True
+        # но среди видимых термов «не» совпадений не добавляет и чужой
+        # документ с одиночным «не» не делает релевантным
+        assert is_relevant_result(doc, ["принтер", "не"]) is False
+
+
+class TestSearchQueryWindow:
+    """FC-SHORT-TOKENS corrective: окно кандидатов не вытесняет тему
+    короткими обрывками; пост-фильтр «короче 3 и не число» сохранён."""
+
+    @staticmethod
+    def _plan():
+        from services import direct_l1 as _l1
+        return _l1.normalize_l1_plan(dict(
+            action="reply", confidence=0.9, knowledge_origin="open_world"))
+
+    @staticmethod
+    def _scraps(count: int) -> list[str]:
+        import itertools
+        pairs = ("".join(p) for p in
+                 itertools.product("бвгджзйклмнпрстфхцчшщ", "аеёиоуыэюя")
+                 if "".join(p) not in _SHORT_TOKEN_STOPWORDS)
+        return list(itertools.islice(pairs, count))
+
+    def test_scraps_flood_keeps_theme_not_raw_text(self):
+        from services import direct_execution as dx
+        scraps = self._scraps(40)
+        assert len(scraps) == 40
+        query = " ".join(scraps) + " причины бессонницы"
+        task = dx.build_search_query(self._plan(), query=query)
+        assert task.usable is True
+        # тема в запросе, обрывков нет (по словам), сырой текст не ушёл
+        assert task.query == "причины бессонницы"
+        assert not (set(task.query.split()) & set(scraps))
+        assert task.query != query.strip()
+
+    def test_negation_does_not_reach_search_query(self):
+        # пост-фильтр «короче 3 и не число — вон» сохранён: «не» в UR-запрос
+        # не попадает; «почему» (не служебное) и тема остаются
+        from services import direct_execution as dx
+        task = dx.build_search_query(
+            self._plan(), query="почему не работает принтер")
+        assert task.usable is True
+        assert task.query == "почему работает принтер"
