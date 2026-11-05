@@ -3419,8 +3419,17 @@ for _hidden_name in _HIDDEN_CATALOG_FIELDS:
 # вводящая в заблуждение карточка «Дополнительный стиль обложки» с
 # textarea). Один user-facing источник правды: `Summary → Стили обложки`
 # (per-chat выбор через POST /api/cover/select). Runtime-ключ остаётся.
+# UR-C-CLOCK (UR-24.2/24.3): legacy timezone-ключи скрыты из рабочего UI —
+# read-only совместимость; часы читает канонический `limits.chat_timezone`
+# через ChatClock (services/chat_clock.py). Значения остаются читаемыми.
 _HIDDEN_CATALOG_PG_KEYS: frozenset[str] = frozenset({
     "prompts.summary_cover_style_id",
+    # UR-24.2: разрозненный legacy-редактор пояса саммари выведен из
+    # рабочего UI (ключ read-only, ChatClock использует его как fallback).
+    "limits.summary_timezone",
+    # UR-24.2/§4: GOODMORNING_TZ — самостоятельное старое timezone-поле,
+    # после перехода НЕ остаётся отдельным рабочим поясом чата.
+    "GOODMORNING_TZ",
 })
 for _hidden_key in _HIDDEN_CATALOG_PG_KEYS:
     _hidden_spec = REGISTRY.get(_hidden_key)
@@ -3464,23 +3473,11 @@ _SELECT_WIDGET_PRESETS: dict[str, dict] = {
         "select_options": ("after_sleep", "fixed"),
         "select_labels": ("Запускать после сна", "Своё время (час ниже)"),
     },
-    # 10.20 (БЛОК 5.1, О4 FINAL): «Часовой пояс чата» — select с человеческими
-    # названиями (значения — IANA-имена для zoneinfo; пусто → фолбэк на
-    # limits.summary_timezone). Preцедент _SELECT_WIDGET_PRESETS.
-    "CHAT_TIMEZONE": {
-        "widget": "select",
-        "select_options": (
-            "", "Europe/Kaliningrad", "Europe/Moscow", "Europe/Kyiv",
-            "Asia/Yekaterinburg", "Asia/Almaty", "Asia/Tbilisi",
-            "Asia/Novosibirsk", "Asia/Krasnoyarsk", "Asia/Dubai",
-            "Asia/Vladivostok", "Europe/Berlin", "UTC"),
-        "select_labels": (
-            "Как у саммари (по умолчанию)", "UTC+2 (Калининград)",
-            "UTC+3 (Москва)", "UTC+2/+3 (Киев)", "UTC+5 (Екатеринбург/Пермь)",
-            "UTC+5 (Алматы)", "UTC+4 (Тбилиси)", "UTC+7 (Новосибирск)",
-            "UTC+7 (Красноярск)", "UTC+4 (Дубай)", "UTC+10 (Владивосток)",
-            "UTC+1/+2 (Берлин)", "UTC (0)"),
-    },
+    # UR-C-CLOCK (UR-24.2): захардкоженный select из 12 зон УДАЛЕН —
+    # канонический ключ limits.chat_timezone остаётся рабочим str-полем
+    # (любой корректный IANA ID; невалидный блокируется на сохранении).
+    # Единая редакторская поверхность «Модули → Время» с полным справочником
+    # zoneinfo — волна UI (UR-29).
     # F8 (10.23, ADR-1023-8): режим Вербализатора по умолчанию — select.
     "prompts.verbilizer_default_mode": {
         "widget": "select",
