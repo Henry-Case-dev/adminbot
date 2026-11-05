@@ -100,19 +100,40 @@ class _MetaLLM:
         return [c for c in self.calls_of(step) if c["text_facade"]]
 
 
-def _drive(monkeypatch, query, llm):
+def _drive(monkeypatch, query, llm, reply=None):
     """Продовый Direct-путь (`handle`) с двойником, отдающим метаданные."""
     from tests.test_asap7_direct_l1 import _drive as drive_handle
-    from tests.test_asap7_direct_l1 import _plan_json
 
-    assert not isinstance(llm.l1_reply, list)
-    svc, react, bot, msg, user = drive_handle(monkeypatch, query, llm=llm)
+    svc, react, bot, msg, user = drive_handle(monkeypatch, query, reply=reply,
+                                              llm=llm)
     return svc, react, bot, msg, user
 
 
 def _plan(**over):
     from tests.test_asap7_direct_l1 import _plan_json
     return _plan_json(**over)
+
+
+def _source_message(text):
+    from tests.test_rlr_explicit_transform import TRANSFORM_PLAN
+    from tests.test_rlr_explicit_transform import _source_message as build
+
+    return TRANSFORM_PLAN, build(text=text)
+
+
+def _spy_l2_kwargs(monkeypatch):
+    """Захват kwargs РЕАЛЬНОГО шва `_l2_write_answer` (проверка трансформации)."""
+    from services import direct_chat_service as dcs
+
+    seen: dict = {}
+    real = dcs.DirectChatService._l2_write_answer
+
+    async def spy(self, chat_id, query, **kwargs):
+        seen.update(kwargs)
+        return await real(self, chat_id, query, **kwargs)
+
+    monkeypatch.setattr(dcs.DirectChatService, "_l2_write_answer", spy)
+    return seen
 
 
 def _stats_spy(monkeypatch):
@@ -140,9 +161,34 @@ def _delivered(svc):
 PART1 = "Сервер подняли ночью, но у базы потерялась цело"
 PART2 = "стность: часть таблиц не отвечала."
 
+#: Обрыв ВНУТРИ короткого слова: повтор «wor» короче порога длинного эха.
+PART1_WORD = "The deploy log says we lost the wor"
+PART2_WORD = "word is done."
+
 
 # ════════════════════════════════════════════════════════════════════════════
-# (a) Обрезка → ОДНО продолжение с префиксом; итог = часть1+часть2
+# (a2) Короткий повтор ОБОРВАННОГО слова через реальный `handle`
+# ════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_short_echo_of_truncated_word_is_not_glued(monkeypatch):
+    """«wor» + «word is done.»: повтор длиной 3 символа — короче порога длинного
+    эха, но это дописывание того же слова. В чат не должно уйти «worword»."""
+    llm = _MetaLLM(l1=_plan(),
+                   writer=[(PART1_WORD, "length"), (PART2_WORD, "stop")])
+    svc, react, bot, msg, user = _drive(monkeypatch, "что в логах?", llm)
+
+    await svc.handle(bot, msg, user)
+
+    delivered = _delivered(svc)
+    assert delivered == "The deploy log says we lost the word is done."
+    assert "worword" not in delivered
+    assert "word is done." in delivered
+    assert len(llm.calls_of("l2_continuation")) == 1
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# (b) Обрезка → ОДНО продолжение с префиксом; итог = часть1+часть2
 # ════════════════════════════════════════════════════════════════════════════
 
 @pytest.mark.asyncio
@@ -236,6 +282,52 @@ async def test_provider_error_during_continuation_is_honest(monkeypatch):
     assert len(llm.calls_of("l2_continuation")) == 1
 
 
+@pytest.mark.asyncio
+async def test_unfinished_transform_does_not_send_source_as_success(
+        monkeypatch):
+    """«Перепиши» + исчерпанное продолжение: исходник НЕ доставляется.
+
+    Без этой гарантии пустой авторский текст попадал в form-guard как «потеря
+    защищённых данных», исходник восстанавливался и уходил пользователю —
+    незаконченная переписка выдавалась за успешную.
+    """
+    source = "Кирилл не прислал 3 файла"
+    transform_plan, reply = _source_message(source)
+    seen = _spy_l2_kwargs(monkeypatch)
+    writer = [("Кирилл так и не ", "length")] + [
+        ("прислал ", "length") for _ in range(cont.MAX_CONTINUATION_CALLS)]
+    llm = _MetaLLM(l1=_plan(**transform_plan), writer=writer)
+    svc, react, bot, msg, user = _drive(
+        monkeypatch, "перепиши этот текст", llm, reply=reply)
+
+    await svc.handle(bot, msg, user)
+
+    # Путь действительно трансформация: контракт с исходником построен.
+    from services import negative_constraints as nc
+    assert isinstance(seen.get("form_contract"), nc.FormContract)
+    assert seen["form_fallback_text"] == source
+    # Ни исходника, ни обрезка: честный исход (тишина/уточнение), не «успех».
+    assert svc._send_direct_answer.await_count == 0
+    assert len(llm.calls_of("l2_writer")) == 1
+    assert len(llm.calls_of("l2_continuation")) == cont.MAX_CONTINUATION_CALLS
+
+
+@pytest.mark.asyncio
+async def test_complete_transform_is_still_delivered(monkeypatch):
+    """Контроль к предыдущему: завершённая переписка доставляется как написана."""
+    source = "Кирилл не прислал 3 файла"
+    transform_plan, reply = _source_message(source)
+    rewritten = "Как оказалось, Кирилл так и не прислал 3 файла."
+    llm = _MetaLLM(l1=_plan(**transform_plan), writer=[(rewritten, "stop")])
+    svc, react, bot, msg, user = _drive(
+        monkeypatch, "перепиши этот текст", llm, reply=reply)
+
+    await svc.handle(bot, msg, user)
+
+    assert _delivered(svc) == rewritten
+    assert llm.calls_of("l2_continuation") == []
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # (d) Ответ не обрезан → один вызов, текст байт-в-байт
 # ════════════════════════════════════════════════════════════════════════════
@@ -304,15 +396,40 @@ def test_exact_overlap_and_full_restart_are_stripped():
     assert cont.strip_exact_overlap("конец и", "и вот так") == "и вот так"
 
 
+def test_short_echo_is_stripped_only_when_it_continues_a_word():
+    """Повтор короче 8 символов снимается, только если дописывает слово."""
+    # Обрыв внутри слова: «wor» + «word…» — это продолжение, а не новый повтор.
+    assert cont.strip_exact_overlap("we lost the wor", "word is done.") \
+        == "d is done."
+    # Кириллица, тот же механизм.
+    assert cont.strip_exact_overlap("потерялась цело", "целостность цела") \
+        == "стность цела"
+    # Целое короткое слово повторно НЕ съедается: «и»/«and» — законный повтор.
+    assert cont.strip_exact_overlap("конец и", "и вот так") == "и вот так"
+    assert cont.strip_exact_overlap("one and", "and more") == "and more"
+    # Продолжение не длиннее написанного куска — это не дописывание слова.
+    assert cont.strip_exact_overlap("слова wor", "wor") == "wor"
+
+
 def test_join_keeps_word_and_space_boundaries():
     # Обрыв посреди слова: склейка без вставок, ни одной буквы не теряем.
     assert cont.join_fragments("потерялась цело", "стность") == \
         "потерялась целостность"
+    # Короткое эхо оборванного слова: слово целое, без «worword».
+    joined = cont.join_fragments(
+        "we lost the wor", cont.strip_exact_overlap("we lost the wor",
+                                                    "word is done."))
+    assert joined == "we lost the word is done."
     # Конец фразы + новое слово: один пробел, без слипания.
     assert cont.join_fragments("Готово.", "Дальше расскажу") == \
         "Готово. Дальше расскажу"
     # Провайдер сам дал ведущий пробел — второй не появляется.
     assert cont.join_fragments("Готово.", " Дальше") == "Готово. Дальше"
+    # «.» сразу после цифры — десятичная точка, а не конец фразы.
+    assert cont.join_fragments("value is 3.", "14 exactly") == \
+        "value is 3.14 exactly"
+    # Конец фразы после НЕ-цифры по-прежнему даёт пробел.
+    assert cont.join_fragments("Готово.", "14 минут") == "Готово. 14 минут"
 
 
 @pytest.mark.asyncio

@@ -113,6 +113,23 @@ class ContinuationResult:
         return self.continuation_calls > 0
 
 
+class IncompleteContinuation(RuntimeError):
+    """Ответ остался НЕЗАВЕРШЁННЫМ (лимит продолжений / нет прогресса).
+
+    Бросается вместо пустого текста намеренно: пустая строка прошла бы
+    form-guard явной трансформации как «потеря защищённых данных» и вернула бы
+    пользователю исходник — незаконченный ответ был бы выдан за успешную
+    трансформацию (§3.2: «не фиктивный успех»). Вызывающий обязан отдать
+    честный отказ, а не текст.
+    """
+
+    def __init__(self, result: "ContinuationResult") -> None:
+        self.result = result
+        super().__init__(
+            f"incomplete answer: {result.stop_reason} "
+            f"(calls={result.continuation_calls}, chars={len(result.text)})")
+
+
 def _finish_reason_of(completion) -> str:
     """Нормализованный `finish_reason` завершения (для трассы); нет — ''."""
     value = getattr(completion, "finish_reason", "")
@@ -149,22 +166,69 @@ def build_continuation_messages(
     return out
 
 
+def _trailing_word_run(text: str) -> str:
+    """Хвостовой кусок слова, оборванный концом текста ('' если не оборван).
+
+    «lost the wor» → «wor» (слово не дописано), «lost the word » → ''
+    (последний символ — не буква/цифра, слова здесь не обрываются).
+    """
+    index = len(text)
+    while index > 0 and text[index - 1].isalnum():
+        index -= 1
+    return text[index:]
+
+
+def _leading_word_run(text: str) -> str:
+    """Первый кусок слова в продолжении (пусто, если оно начинается не с буквы)."""
+    index = 0
+    while index < len(text) and text[index].isalnum():
+        index += 1
+    return text[:index]
+
+
+def _incomplete_word_echo(prefix: str, fragment: str) -> str:
+    """Голова продолжения без повтора, если она ДОПИСЫВАЕТ оборванное слово.
+
+    Обрыв внутри слова невидим по длине: «wor» + «word is done.» — повтор в три
+    символа, который правило ``OVERLAP_MIN_CHARS`` не ловит, и в чат уходило
+    «worword». Здесь повтор снимается НЕЗАВИСИМО от длины, но только при
+    строгом признаке продолжения слова: написанное кончается куском слова, а
+    продолжение начинается С ЭТОГО ЖЕ куска и ДЛИННЕЕ его (то есть дописывает
+    слово). Целые короткие повторы («и», «and», «word») под правило не
+    попадают: продолжение не длиннее написанного куска → '' (не эхо).
+    """
+    tail = _trailing_word_run(prefix)
+    if not tail or not fragment:
+        return ""
+    head = _leading_word_run(fragment)
+    if len(head) <= len(tail) or not head.startswith(tail):
+        return ""
+    return fragment[len(tail):]
+
+
 def strip_exact_overlap(prefix: str, fragment: str) -> str:
     """Снять точное эхо провайдера «хвост написанного = голова продолжения».
 
     Снимается РОВНО один раз и только точное совпадение:
     * провайдер повторил весь написанный текст (начал ответ заново) → снимаем
       весь повтор;
+    * провайдер дописал оборванное слово, повторив его начало («wor»+«word…»)
+      → снимаем повтор независимо от длины (иначе слово склеивается как
+      «worword»);
     * провайдер повторил хвост (последние слова / предложение) → снимаем этот
       хвост из головы продолжения.
 
-    Совпадение короче ``OVERLAP_MIN_CHARS`` не считается эхом: это может быть
-    законный повтор автора, и удаление исказило бы текст.
+    Длинное совпадение (≥ ``OVERLAP_MIN_CHARS``) считается эхом всегда; более
+    короткое — только как продолжение оборванного слова: законный короткий
+    повтор автора («и», «and») не удаляется.
     """
     if not prefix or not fragment:
         return fragment
     if len(fragment) >= len(prefix) and fragment.startswith(prefix):
         return fragment[len(prefix):]
+    word_echo = _incomplete_word_echo(prefix, fragment)
+    if word_echo:
+        return word_echo
     max_k = min(len(prefix), len(fragment), OVERLAP_WINDOW)
     last = prefix[-1]
     for size in range(max_k, OVERLAP_MIN_CHARS - 1, -1):
@@ -177,12 +241,20 @@ def strip_exact_overlap(prefix: str, fragment: str) -> str:
     return fragment
 
 
+def _is_decimal_point(prefix: str) -> bool:
+    """Последняя «.» — десятичная точка («3.»), а не конец фразы."""
+    return len(prefix) >= 2 and prefix[-2].isdigit()
+
+
 def join_fragments(prefix: str, fragment: str) -> str:
     """Склеить части без обрыва слова и без потери пробела на стыке.
 
     * у продолжения есть свой ведущий пробел/перевод строки — склейка как есть;
     * написанное кончилось знаком конца фразы, а продолжение начинается словом
       — ставится один пробел (иначе слова слиплись бы);
+    * НО если «.» стоит сразу после цифры, а продолжение начинается с цифры —
+      это десятичная точка («3.» + «14» = «3.14»), пробел не ставится: иначе
+      меняется смысл числа;
     * иначе продолжение — хвост ТОГО ЖЕ слова: склейка без вставок, ни одна
       буква не теряется и не появляется.
     """
@@ -193,7 +265,9 @@ def join_fragments(prefix: str, fragment: str) -> str:
     if fragment[0].isspace() or prefix[-1].isspace():
         return prefix + fragment
     if prefix[-1] in _SENTENCE_TAIL:
-        if fragment[0].isalnum() or fragment[0] in "\"'«(":
+        decimal_split = fragment[0].isdigit() and _is_decimal_point(prefix)
+        if not decimal_split and (fragment[0].isalnum()
+                                  or fragment[0] in "\"'«("):
             return prefix + " " + fragment
     return prefix + fragment
 
@@ -214,7 +288,9 @@ async def complete_truncated_answer(
 
     Ошибка провайдера на продолжении НЕ ловится: вызывающий получает её так
     же, как ошибку первого вызова (честное техническое состояние), а не
-    «готовый» обрезок.
+    «готовый» обрезок. Незавершённый результат возвращается с
+    ``completed=False``/``stop_reason`` — решение о доставке за вызывающим
+    (пустой текст вместо него отдавать нельзя: см. `IncompleteContinuation`).
     """
     text = str(getattr(completion, "text", "") or "")
     reasons: list[str] = [_finish_reason_of(completion)]

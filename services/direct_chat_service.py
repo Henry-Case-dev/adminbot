@@ -7783,18 +7783,38 @@ class DirectChatService:
                 if diag_out is not None:
                     diag_out["provider_error"] = True
             if not _continuation.completed:
-                return ""
+                # Пустой текст сюда отдавать НЕЛЬЗЯ: на пути явной
+                # трансформации form-guard увидел бы «потерю защищённых
+                # данных», восстановил исходник и выдал незаконченный ответ за
+                # успешную переписку. Отказ поднимается до валидатора и
+                # превращается в честный `None` вызывающего.
+                raise _l2_cont.IncompleteContinuation(_continuation)
             return _continuation.text
 
         enabled_rules = (channel_enabled_rules("plain", response_mode)
                          if modes_on else None)
-        text, stats = await verbalize_validated(
-            _generate, base_messages, max_retries=2,
-            enabled_rules=enabled_rules,
-            dynamic_rules=anticliche_cache.get_rules() or None,
-            form_contract=form_contract,
-            fallback_text=form_fallback_text,
-            numeric_contract=numeric_contract)
+        try:
+            text, stats = await verbalize_validated(
+                _generate, base_messages, max_retries=2,
+                enabled_rules=enabled_rules,
+                dynamic_rules=anticliche_cache.get_rules() or None,
+                form_contract=form_contract,
+                fallback_text=form_fallback_text,
+                numeric_contract=numeric_contract)
+        except _l2_cont.IncompleteContinuation as exc:
+            # UR-19 / R-FAIL.2 / §3.2: ответ остался незавершённым. Честный
+            # отказ вызывающего (None → существующий error/silence/clarify
+            # outcome) вместо обрезка и вместо восстановленного исходника
+            # явной трансформации. Вторая генерация/второй вариант не
+            # запускаются.
+            logger.warning(
+                "[direct] l2 unfinished answer — honest refusal | chat=%s | "
+                "stop=%s | calls=%d | chars=%d | transform=%s", chat_id,
+                exc.result.stop_reason, exc.result.continuation_calls,
+                len(exc.result.text), form_contract is not None)
+            if diag_out is not None:
+                diag_out["unfinished_answer"] = True
+            return None
         logger.info(
             "[direct] l2 writer | chat=%s | mode=%s | attempts=%d | "
             "retries=%d | hits=%d | fallback=%s", chat_id, response_mode,
