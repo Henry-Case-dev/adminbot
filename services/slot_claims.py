@@ -269,8 +269,16 @@ class SqliteSlotClaimStore:
     def try_claim(self, *, kind: str, chat_id: int, local_date: str,
                   local_slot: str, slot_utc_instant: int,
                   config_version: str, claimed_at: int, fired: bool = True,
-                  reason_code: str = "") -> bool:
-        """Атомарная бронь слота. ``True`` — слот наш (rowcount == 1)."""
+                  reason_code: str = "",
+                  recompute_if_instant_differs: bool = False) -> bool:
+        """Атомарная бронь слота. ``True`` — слот наш.
+
+        ``recompute_if_instant_differs=True`` (ТОЛЬКО due-путь запуска):
+        если слот был занят честным skip (``fired=0``), а вычисленный
+        instant ОТЛИЧАЕТСЯ (смена пояса чата, §4.5) — CAS-перебронь
+        ``... WHERE fired=0 AND slot_utc_instant<>?``: будущий слот
+        пересчитывается в новый пояс ровно одним претендентом. Строки с
+        ``fired=1`` неизменяемы — уже выданное не перепубликуется."""
         conn = _connect(self.path)
         try:
             cursor = conn.execute(_INSERT_CLAIM_SQL, (
@@ -278,6 +286,18 @@ class SqliteSlotClaimStore:
                 int(slot_utc_instant), str(config_version or ""),
                 int(claimed_at), 1 if fired else 0, str(reason_code or ""),
             ))
+            if int(cursor.rowcount or 0) == 1:
+                return True
+            if not recompute_if_instant_differs:
+                return False
+            cursor = conn.execute(
+                f"UPDATE {SLOT_CLAIMS_TABLE} SET slot_utc_instant=?, "
+                "config_version=?, claimed_at=?, fired=1, reason_code='' "
+                "WHERE kind=? AND chat_id=? AND local_date=? AND "
+                "local_slot=? AND fired=0 AND slot_utc_instant<>?",
+                (int(slot_utc_instant), str(config_version or ""),
+                 int(claimed_at), str(kind), int(chat_id), str(local_date),
+                 str(local_slot), int(slot_utc_instant)))
             return int(cursor.rowcount or 0) == 1
         finally:
             conn.close()
@@ -425,7 +445,8 @@ async def claim_slot_if_due(*, kind: str, db, chat_id, now_utc,
                     local_date=slot.local_date.isoformat(),
                     local_slot=slot.label,
                     slot_utc_instant=int(slot.slot_utc.timestamp()),
-                    config_version=cv, claimed_at=now_ts, fired=True)
+                    config_version=cv, claimed_at=now_ts, fired=True,
+                    recompute_if_instant_differs=True)
             except Exception as exc:
                 logger.warning(
                     "[slot_claims] claim failed (kind=%s chat=%s) — "

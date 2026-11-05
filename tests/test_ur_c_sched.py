@@ -252,11 +252,42 @@ class TestDstBerlinSpring:
         assert ref.label == "00:00"
         assert ref.slot_utc == datetime.datetime(2026, 1, 15, 23, 0, tzinfo=UTC)
 
-
 # ── UR-28.2 / UR-RES-09: идемпотентность одного локального дня ─────────────
 
 
 class TestSameDateDedup:
+
+
+    @pytest.mark.asyncio
+    async def test_timezone_change_recomputes_future_slots_only(
+            self, claims_db):
+        """Смена пояса (UR-28.2/§4.5): прошедшие слоты не перепубликуются,
+        БУДУЩИЕ слоты пересчитываются на новый пояс чата (12:00 Berlin
+        стреляет в 11:00 UTC вместо 07:00 UTC)."""
+        db = await claims_db()
+        svc, gen, _ = _make_summary_service(db, targets=(CHAT_YEKA,))
+        with _targets_patch((CHAT_YEKA,)):
+            # До смены: 12:00 YEKA (07:00 UTC) уже вне due-окна → skip, без
+            # запуска; будущие слоты ещё не наступили.
+            before = datetime.datetime(2026, 1, 15, 9, 0, 0, tzinfo=UTC)
+            await svc._tick(now_utc=before)
+            assert gen.generate_and_send.await_count == 0
+            # Владелец переносит чат в Europe/Berlin.
+            set_chat_override(CHAT_YEKA,
+                              {"limits.chat_timezone": "Europe/Berlin"})
+            after = datetime.datetime(2026, 1, 15, 11, 0, 30, tzinfo=UTC)
+            await svc._tick(now_utc=after)
+        assert gen.generate_and_send.await_count == 1, (
+            "будущий слот 12:00 пересчитан в новый пояс (11:00 UTC) и "
+            "запущен один раз")
+        store = SqliteSlotClaimStore(db.db_path)
+        row = store.lookup(kind="summary", chat_id=CHAT_YEKA,
+                           local_date="2026-01-15", local_slot="12:00")
+        assert row is not None and row["fired"] == 1
+        assert row["slot_utc_instant"] == int(datetime.datetime(
+            2026, 1, 15, 11, 0, 0, tzinfo=UTC).timestamp())
+        await db.close()
+
     @pytest.mark.asyncio
     async def test_same_slot_fires_once_across_ticks_and_restart(
             self, claims_db):
