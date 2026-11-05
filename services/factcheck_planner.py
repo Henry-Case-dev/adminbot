@@ -435,12 +435,16 @@ def _years(text: str) -> list[str]:
 #: материала изображений (метки способа распознавания/инструментов) — не
 #: тезис и не поисковые термы. Убираются ТОЛЬКО на поисковом пути; тексты
 #: внутри обёрток остаются тезисом (для картинки это и есть утверждение).
+#: Inline-совпадение: предложение-разбиение может отрезать метку от
+#: закрывающей скобки, поэтому сбрасываются и строки-остатки меток.
 _SEARCH_SERVICE_LABEL_RE = re.compile(
-    r"^[ \t]*Текст с изображения(?:\s+\d+)?[ \t]*"
-    r"\(OCR, не слова автора\)[ \t]*:?[ \t]*$"
-    r"|^[ \t]*Визуальное описание изображения(?:\s+\d+)?[ \t]*"
-    r"\(результат модели;[^)]*\)[ \t]*:?[ \t]*$",
-    re.MULTILINE)
+    r"Текст с изображения(?:\s+\d+)?[ \t]*"
+    r"\(OCR, не слова автора\)[ \t]*:?"
+    r"|Визуальное описание изображения(?:\s+\d+)?[ \t]*"
+    r"\(результат модели;[^)]*\)[ \t]*:?")
+
+_SEARCH_LABEL_PREFIXES = ("Текст с изображения",
+                          "Визуальное описание изображения")
 
 
 def search_thesis_text(text: str) -> str:
@@ -450,7 +454,12 @@ def search_thesis_text(text: str) -> str:
     техметками в публичный поисковик не уходит — запросы строятся от
     смысловых формулировок). Детерминированно, без LLM."""
     cleaned = _SEARCH_SERVICE_LABEL_RE.sub("", str(text or ""))
-    return re.sub(r"\n{2,}", "\n", cleaned).strip()
+    lines = []
+    for line in cleaned.splitlines():
+        if line.strip().startswith(_SEARCH_LABEL_PREFIXES):
+            continue          # строка-остаток метки (после разбиения на части)
+        lines.append(line)
+    return re.sub(r"\n{2,}", "\n", "\n".join(lines)).strip()
 
 
 def _make_query(terms: list[str], intent: str, *, tail: str = "",
@@ -504,23 +513,27 @@ def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
     хотя проверяется тезис).
 
     FC-01.1/FC-02.2 (corrective 05.11.2026): служебные обёртки материала
-    изображений (наши метки OCR/vision) вынесены из ПОИСКОВОГО пути —
-    тезис для запросов строится из содержательных формулировок, служебные
-    метки не уходят в публичный поисковик и не считаются тезисом. Сам клейм
+    изображений (наши метки OCR/vision) вынесены из ПОИСКОВОГО пути ДО
+    разбиения на предложения — тезис для запросов строится из содержательных
+    формулировок, служебные метки не уходят в публичный поисковик. Сам клейм
     для аналитика остаётся с метками."""
+    claim_thesis = search_thesis_text(claim).strip()
+    claim_low = claim_thesis.lower()
     units: list[str] = []
-    claim_low = str(claim or "").strip().lower()
     for item in items or ():
-        text = str(getattr(item, "text", "") or "").strip()
-        if claim_low and text.lower() not in claim_low:
+        text = search_thesis_text(
+            str(getattr(item, "text", "") or "")).strip()
+        if not text:
             continue
-        if text and getattr(item, "verifiable", True) is not False \
+        if claim_thesis and text.lower() not in claim_low:
+            continue
+        if getattr(item, "verifiable", True) is not False \
                 and text.lower() not in {u.lower() for u in units}:
             units.append(text)
     if not units or (len(units) == 1 and units[0].lower() == claim_low):
-        # гейт не декомпозировал → предложения самого клейма
-        units = [s.strip() for s in re.split(r"(?<=[.!?;])\s+", claim)
-                 if s.strip()] or [claim]
+        # гейт не декомпозировал → предложения тезиса без служебных меток
+        units = [s.strip() for s in re.split(r"(?<=[.!?;])\s+", claim_thesis)
+                 if s.strip()] or [claim_thesis]
     return [search_thesis_text(u) for u in units if u][:cap]
 
 
