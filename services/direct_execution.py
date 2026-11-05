@@ -1336,7 +1336,13 @@ def build_search_query(plan, *, query: str = "", private_terms=(),
         terms: list[str] = []
         try:
             from services.search_aggregator import content_terms
-            candidates = content_terms(clean_body, limit=max(1, int(max_terms)))
+            # FC-SHORT-TOKENS: токенизатор теперь отдаёт и 2-симв. якоря
+            # («не» и т.п.), а фильтр ниже (≥3 симв. или цифры) их отбросит.
+            # Окно кандидатов — с запасом, иначе короткие токены вытесняют
+            # тему из limit-окна ещё до пост-фильтров (репро Reviewer:
+            # «причины бессонницы» выпадали из запроса).
+            candidates = content_terms(clean_body,
+                                       limit=max(1, int(max_terms)) * 3)
         except Exception:      # pragma: no cover - защитная ветка
             candidates = [t.lower() for t in _SEARCH_TOKEN_RE.findall(clean_body)]
         for raw in candidates:
