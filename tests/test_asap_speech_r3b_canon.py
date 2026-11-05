@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """SPEECH-CANON R3b — канон = фактическое поведение (T20 + T10-BOUNDARY).
 
 T20 (matrix §6.3 #20): после ответа человека на собственный уточняющий вопрос
@@ -180,14 +180,23 @@ def test_l1_owner_contract_byte_intact():
         + cp._DIRECT_L1_CONTINUATION_R3B
         + cp._DIRECT_L1_INTENT_UPDATE_PA5
         + cp._DIRECT_L1_PLANNER_RULES_PA5W2)
-    assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT == (
-        w2_canon + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
-        + cp._DIRECT_L1_TWO_PHASE_EVR2
-        + cp._DIRECT_L1_DECISION_PROFILE_EVR3).replace(
-        ' "recheck": false}',
-        ' "recheck": false,\n'
-        ' "knowledge_origin": "",\n'
-        ' "search_intent": ""}', 1) + cp._DIRECT_L1_SEARCH_AXIS_EVR4
+    evr4_canon = (
+        (w2_canon + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
+         + cp._DIRECT_L1_TWO_PHASE_EVR2
+         + cp._DIRECT_L1_DECISION_PROFILE_EVR3).replace(
+            ' "recheck": false}',
+            ' "recheck": false,\n'
+            ' "knowledge_origin": "",\n'
+            ' "search_intent": ""}', 1)
+        + cp._DIRECT_L1_SEARCH_AXIS_EVR4)
+    # RLR-03.3: активные байты = EVR4 + поле сохранения фактов поданного
+    # текста (+ строка схемы); слепок EVR4 — ровно прежние активные байты.
+    assert cp.PREV_DIRECT_L1_PLANNER_EVR4 == evr4_canon
+    assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT == evr4_canon.replace(
+        ' "search_intent": ""}',
+        ' "search_intent": "",\n'
+        ' "preserve_source_facts": false}', 1) \
+        + cp._DIRECT_L1_SOURCE_FACTS_EVR5
     # EVOL W17: слепок EVR1 — ровно прод-байты 2.58.147 (две фазы добавлены
     # поверх них, ничего не переписано).
     assert cp.PREV_DIRECT_L1_PLANNER_EVR1 == (
@@ -226,6 +235,8 @@ def test_ladder_and_rollback_chain():
     # 2.58.113, L2 — evidence-discipline (EVR1) → tech-reasoning (EVR0) → R3b
     assert pm.ROLLBACK_MIGRATIONS[L1_KEY] == [
         (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+         cp.PREV_DIRECT_L1_PLANNER_EVR4),
+        (cp.PREV_DIRECT_L1_PLANNER_EVR4,
          cp.PREV_DIRECT_L1_PLANNER_EVR3),
         (cp.PREV_DIRECT_L1_PLANNER_EVR3,
          cp.PREV_DIRECT_L1_PLANNER_EVR2),
@@ -272,7 +283,7 @@ def test_labels_and_fingerprint_consistent():
     # Волна 5: метки трёх каналов Direct бампнуты (прежние метки — история).
     # EVOL W17: метка L1 — ревизия EVR2 (две фазы «саммари/проверка»).
     # UNIFIED-REPLY UR-06/UR-03: метка L1 — ревизия EVR4 (ось поиска).
-    assert "l1-planner-search-axis" in pr.factory_revision(
+    assert "l1-planner-source-facts" in pr.factory_revision(
         "direct.base.l1_planner")
     # EVOL v5 §12.2 (04.11.2026): метка L2 — ревизия с секцией возражения.
     assert "l2-writer-self-correction-rca1" in pr.factory_revision(

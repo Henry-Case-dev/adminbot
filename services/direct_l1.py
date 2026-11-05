@@ -331,6 +331,12 @@ class L1Plan:
     # прочитанный источник) и никогда не отменяет обязательную; на
     # инициативном пути игнорируется (там нет просьбы человека).
     recheck: bool = False
+    # ── RLR-03.3 (REMOVE-LEGACY-REPHRASING v2.0, R-03.3/R-06, 05.11.2026):
+    # строгий boolean (прецедент `recheck`/`needs_clarification`): просьба
+    # изменить/перевести ПОДАННЫЙ текст с сохранением смысла.
+    # Единственный сигнал, по которому свободный L2 строит узкий контракт
+    # защищённых данных (`FormContract`); сводка/пересказ сюда не относятся.
+    preserve_source_facts: bool = False
     # ── UNIFIED-REPLY UR-06/UR-08: ось знания/поиска. Схема ОДНА для Direct и
     # Initiative (`normalize_l1_plan`); закрытые наборы, "" — поле не пришло.
     # `knowledge_origin` — откуда содержание ответа; `search_intent` — нужен ли
@@ -665,6 +671,12 @@ def normalize_l1_plan(data) -> L1Plan | None:
     # «true»-строка, 1, null, отсутствие → False (план не инвалидируется).
     # Поле только ДОБАВЛЯЕТ проверку; обязательность исполняет runtime.
     plan.recheck = data.get("recheck") is True
+    # ── RLR-03.3 (REMOVE-LEGACY-REPHRASING v2.0, R-03.3/R-06): строгий boolean
+    # по прецеденту `recheck`: только реальный true → True; «true»-строка, 1,
+    # null, отсутствие → False (план остаётся валидным, свободная речь). Поле
+    # НЕ означает сводку/пересказ — только явную трансформацию поданного
+    # текста с сохранением смысла.
+    plan.preserve_source_facts = data.get("preserve_source_facts") is True
     # ── UNIFIED-REPLY UR-06/UR-08 (owner 2026-11-05 §4): ось знания/поиска.
     # Разбор аддитивный: невалидное значение → "" (план валиден). Серверная
     # структурная нормализация: `open_world|mixed` без `search_intent` →

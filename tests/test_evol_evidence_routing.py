@@ -1,4 +1,4 @@
-"""ASAP-EVIDENCE-ROUTING-01 v3 — контрактные тесты runtime evidence policy.
+﻿"""ASAP-EVIDENCE-ROUTING-01 v3 — контрактные тесты runtime evidence policy.
 
 Offline: без сети, без живых провайдеров, без Telegram-публикаций. Мокаются
 существующие швы (`ToolRouter.dispatch`, Writer/LLM, capability-состояния),
@@ -2210,15 +2210,18 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     block = "direct.base.l1_planner"
     label, seal = pr.FACTORY_REVISION_SEALS[block]
     assert pr.FACTORY_REVISION_LABELS[block] == label
-    # Метка ревизии EVR4 (UR-06/UR-03): ось поиска в схеме L1.
-    assert label == "l1-planner-search-axis"
+    # Метка ревизии EVR5 (RLR-03.3): поле сохранения фактов поданного текста.
+    assert label == "l1-planner-source-facts"
     assert pr.sha12(pr.factory_text(block)) == seal
     assert pr.seal_integrity() == {}
+    assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR4) == "8d172f40241d"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR2) == "09f3d533d173"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR0) == "14743d288ea3"
     steps = pm.PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"]
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR4,
+            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) in steps
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR3,
             cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) in steps
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR2,
@@ -2228,6 +2231,8 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     rollback = pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"]
     assert (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+            cp.PREV_DIRECT_L1_PLANNER_EVR4) in rollback
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR4,
             cp.PREV_DIRECT_L1_PLANNER_EVR3) in rollback
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR3,
             cp.PREV_DIRECT_L1_PLANNER_EVR2) in rollback

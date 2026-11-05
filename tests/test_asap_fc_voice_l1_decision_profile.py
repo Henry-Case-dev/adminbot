@@ -1,4 +1,4 @@
-"""ASAP-FC-VOICE-01 / B — характер как ДАННЫЕ для decision-планеров.
+﻿"""ASAP-FC-VOICE-01 / B — характер как ДАННЫЕ для decision-планеров.
 
 Контракт `plans/features/asap-fc-voice-01/arch/l1-decision-profile-contract.md`
 §2/§6 (пп.17-23) и `plans/owner_inputs/2026-11-02-asap-fc-voice-01.md` §5:
@@ -608,8 +608,16 @@ def test_canon_revision_keeps_deployed_bytes_as_rollback_target():
     # добавленного: секция оси + две строки схемы → должны остаться байты EVR3.
     assert cp._DIRECT_L1_DECISION_PROFILE_EVR3 in CANON
     assert cp._DIRECT_L1_SEARCH_AXIS_EVR4 in CANON
-    assert len(CANON) > len(cp.PREV_DIRECT_L1_PLANNER_EVR3)
-    assert CANON.replace(cp._DIRECT_L1_SEARCH_AXIS_EVR4, "").replace(
+    # RLR-03.3: поверх EVR4 добавлено поле preserve_source_facts (секция +
+    # строка схемы); снимается ровно это, затем ось поиска → байты EVR3.
+    assert cp._DIRECT_L1_SOURCE_FACTS_EVR5 in CANON
+    assert len(CANON) > len(cp.PREV_DIRECT_L1_PLANNER_EVR4)
+    assert CANON.replace(cp._DIRECT_L1_SOURCE_FACTS_EVR5, "").replace(
+        ' "search_intent": "",\n'
+        ' "preserve_source_facts": false}',
+        ' "search_intent": ""}', 1) == cp.PREV_DIRECT_L1_PLANNER_EVR4
+    assert cp.PREV_DIRECT_L1_PLANNER_EVR4.replace(
+        cp._DIRECT_L1_SEARCH_AXIS_EVR4, "").replace(
         ' "recheck": false,\n'
         ' "knowledge_origin": "",\n'
         ' "search_intent": ""}',
@@ -624,13 +632,15 @@ def test_migration_and_rollback_only_match_exact_deployed_bytes():
     assert forward[cp.PREV_DIRECT_L1_PLANNER_EVR3] == CANON
     rollback = dict(
         pm.ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"])
-    assert rollback[CANON] == cp.PREV_DIRECT_L1_PLANNER_EVR3
+    assert rollback[CANON] == cp.PREV_DIRECT_L1_PLANNER_EVR4
+    assert rollback[cp.PREV_DIRECT_L1_PLANNER_EVR4] == \
+        cp.PREV_DIRECT_L1_PLANNER_EVR3
     assert rollback[cp.PREV_DIRECT_L1_PLANNER_EVR3] == \
         cp.PREV_DIRECT_L1_PLANNER_EVR2
     # печать и метка заводской ревизии согласованы с активными байтами
     assert pr.seal_integrity() == {}
     label, sealed = pr.FACTORY_REVISION_SEALS["direct.base.l1_planner"]
-    assert label == "l1-planner-search-axis"
+    assert label == "l1-planner-source-facts"
     assert sealed == pr.sha12(CANON)
     assert pr.sealed_factory_revision("direct.base.l1_planner").endswith(
         pr.sha12(label))

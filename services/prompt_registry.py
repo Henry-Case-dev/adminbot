@@ -198,7 +198,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # сигналом поиска оставалась runtime-политика. Прежние байты —
     # PREV_DIRECT_L1_PLANNER_EVR3. Правила/участие/внешние утверждения/профиль
     # решений и тексты владельца не менялись.
-    "direct.base.l1_planner": "l1-planner-search-axis",
+    "direct.base.l1_planner": "l1-planner-source-facts",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -396,8 +396,8 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "direct.base.l2_writer": ("l2-writer-self-correction-rca1",
                               "44736968bc76"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
-    "direct.base.l1_planner": ("l1-planner-search-axis",
-                               "8d172f40241d"),
+    "direct.base.l1_planner": ("l1-planner-source-facts",
+                               "2354a5cc57c4"),
     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
@@ -2907,7 +2907,13 @@ def factory_set_fingerprint() -> str:
 #: ``l1-planner-search-axis``, печать ``8d172f40241d``); прочие каноны,
 #: включая тексты владельца, байт-в-байт. Было ``e9dc109330a8``, стало
 #: ``a701aea74399``.
-FACTORY_SET_SHA256_12 = "a701aea74399"
+#: RLR-03.3 (REMOVE-LEGACY-REPHRASING v2.0, 05.11.2026): changed = 1 —
+#: ``direct.base.l1_planner`` получил функциональное необязательное поле
+#: ``preserve_source_facts`` в схеме и абзац его контракта (метка
+#: ``l1-planner-source-facts``, печать ``2354a5cc57c4``); прочие каноны,
+#: включая тексты владельца и характер, байт-в-байт. Было ``a701aea74399``,
+#: стало ``a29e68dc1de6``.
+FACTORY_SET_SHA256_12 = "a29e68dc1de6"
 
 
 
