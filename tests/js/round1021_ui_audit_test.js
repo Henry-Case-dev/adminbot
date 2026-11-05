@@ -260,13 +260,16 @@ const CSS = fs.readFileSync(
     'sticky(M-1/L-3): фолбэк НЕ добавляет padding-bottom');
 }
 
-// ── 6. Инвариант меню: 27 вкладок / 6 NAV_ITEMS / 15 модулей (ASAP 7 F3:
-//       +mod_initiative; EVOL-031 `28d55bd1`: −smart_cache → 27) ────────────
+// ── 6. Инвариант меню: 28 вкладок / 6 NAV_ITEMS / 16 модулей (UR-F
+//       UR-29.1: +mod_time; история: ASAP 7 F3 +mod_initiative, EVOL-031
+//       `28d55bd1` −smart_cache) ────────────────────────────────────────────
 {
-  // Число — точный пин (новая/пропавшая вкладка = красный), но НЕ 28:
-  // EVOL-031 удалил вкладку smart_cache (TAB_RULES 23→22), см. round1024.
-  assert.strictEqual(data.tabs.length, 27, 'меню: 27 вкладок (−smart_cache)');
-  assert.strictEqual(data.modules.length, 15, 'меню: 15 модулей');
+  // Число — точный пин (новая/пропавшая вкладка = красный):
+  // EVOL-031 удалил smart_cache (27), UR-F добавил mod_time (28).
+  assert.strictEqual(data.tabs.length, 28,
+    'меню: 28 вкладок (+mod_time по UR-F)');
+  assert.strictEqual(data.modules.length, 16,
+    'меню: 16 модулей (+mod_time по UR-F)');
   const navBlock = APP_JS.slice(APP_JS.indexOf('var NAV_ITEMS = ['),
     APP_JS.indexOf('];', APP_JS.indexOf('var NAV_ITEMS = [')));
   const navCount = (navBlock.match(/route:\s*'#/g) || []).length;

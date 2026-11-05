@@ -116,12 +116,17 @@ function makeSaveCtx(configItems, keyDrafts) {
       // в ASAP 8 F10 (pre-existing gap, REV-F7 nb-4).
       'mod_initiative',
       // EVOL-031 (30.10.2026): вкладка «Умный кэш» удалена из витрины.
+      // UR-F (UR-29.1/UR-24.2): +mod_time («Модули → Время») после
+      // mod_initiative — единая поверхность пояса чата.
+      'mod_time',
       'modules', 'memory_rag', 'people_names', 'relations',
       'permsoc', 'access', 'chat_lore', 'status', 'info', 'oversight',
     ];
     assert.deepStrictEqual(data.tabs.map((t) => t.id), expectedTabs,
       'меню: состав/порядок вкладок не изменён');
-    assert.strictEqual(data.modules.length, 15, 'меню: 15 карточек модулей');
+    // UR-F (UR-29.1): +карточка «Время» (noToggle) → 15→16.
+    assert.strictEqual(data.modules.length, 16,
+      'меню: 16 карточек модулей (+mod_time по UR-F)');
   }
 
   // ── sentinel: SECRET_MASK / isSecretMask ───────────────────────────────

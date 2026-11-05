@@ -259,6 +259,13 @@
         { id: 'text-limits', title: 'Частота и лимиты',
           category: null, groups: ['limits_intent'] },
       ] },
+    // UR-F (UR-29.1/UR-24.2): «Модули → Время» — ЕДИНСТВЕННАЯ поверхность
+    // пояса чата (limits.chat_timezone скрыт из общего каталога): полный
+    // справочник IANA, серверные часы, источник/наследование, save/reset.
+    // Тип timeEditor: литерал time занят guard'ом Chart.js без date-adapter
+    // (tests/js/routing_test.js п.3).
+    { id: 'mod_time', icon: 'history', label: 'Время', type: 'timeEditor',
+      menu: 'modules' },
     // Список-витрина 11 модулей (не config; карточки + модалки).
     { id: 'modules', icon: 'extension', label: 'Модули', type: 'modules',
       menu: 'modules' },
@@ -423,6 +430,8 @@
     mod_vision: 'visibility',
     // ASAP 7 F3 (§3.2): bolt — из сабсета (инициатива/импульс).
     mod_initiative: 'bolt',
+    // UR-F (UR-29.1): «Модули → Время» — history (часы) из сабсета.
+    mod_time: 'history',
     memory_rag: 'memory', people_names: 'badge',
     relations: 'group', permsoc: 'admin_panel_settings',
     access: 'supervisor_account', chat_lore: 'auto_stories',
@@ -690,6 +699,15 @@
       keywords: ['инициатива', 'намерения', 'интенты', 'напоминания',
                  'проактив', 'heartbeat', 'intents', 'initiative',
                  'кстати'] },
+    // ═══ UR-F (UR-29.1/UR-24.2): «Модули → Время» — единая поверхность ═══
+    // пояса чата (limits.chat_timezone из общего каталога выведен; его
+    // запись — ТОЛЬКО здесь, через /api/config/time). Мастер-тумблера нет
+    // (пояс не модуль-флаг) → noToggle.
+    { id: 'mod_time', title: 'Время',
+      subtitle: 'Часовой пояс чата и серверные часы', icon: 'history',
+      toggleKey: null, tab: 'mod_time', noToggle: true,
+      keywords: ['время', 'часовой пояс', 'часы', 'timezone', 'iana',
+                 'пояс'] },
   ];
 
   // ═══ F5 (ADR-1025-15 D1/D6): витринные метаданные workspace-маршрута ═══
@@ -707,8 +725,13 @@
     // мёртвых тумблеров нет (§5:2963).
     mod_summary: ['overview', 'settings', 'clusterizer', 'writer',
       'hybrid', 'legacy', 'models', 'limits', 'testing', 'styles'],
-    mod_direct: ['overview', 'settings', 'synthesizer', 'verbalizer', 'models',
-      'limits', 'testing'],
+    // UR-F (UR-20.1/20.2/20.3/20.9): «Прямые ответы» — три смысловых уровня:
+    // overview = «Как бот отвечает», inspector = «Что бот видел при ответе»,
+    // settings = «Дополнительные настройки». Промпт-редакторы (synthesizer/
+    // verbalizer), модели/лимиты/тестирование остаются рабочими вкладками
+    // (R-ADM.7: редакторы и история версий не редизайнятся).
+    mod_direct: ['overview', 'inspector', 'settings', 'synthesizer',
+      'verbalizer', 'models', 'limits', 'testing'],
     mod_factcheck: ['overview', 'settings', 'synthesizer', 'verbalizer',
       'models', 'limits', 'testing'],
     mod_search: ['overview', 'settings', 'prompts', 'models', 'limits',
@@ -756,7 +779,24 @@
     hybrid: 'HYBRID SUMMARY', legacy: 'LEGACY SUMMARY FALLBACK',
     // EXTRA (ADR-1028-4 D12/§56): редактор обложечных стилей.
     styles: 'Стили обложки',
+    // UR-F (UR-20.x): инспектор хода «Что бот видел при ответе».
+    inspector: 'Что бот видел',
   };
+  // UR-F (UR-20.1/20.2/20.9): подписи уровней «Прямых ответов» — три
+  // смысловых уровня вместо десятков карточек. flat-карта выше остаётся
+  // каноном для остальных модулей (Δ других вкладок нет).
+  var WORKSPACE_TAB_LABELS_OVERRIDES = {
+    mod_direct: {
+      overview: 'Как бот отвечает',
+      inspector: 'Что бот видел',
+      settings: 'Дополнительные настройки',
+    },
+  };
+  function workspaceTabLabelOf(moduleId, tabId) {
+    var ov = WORKSPACE_TAB_LABELS_OVERRIDES[moduleId];
+    if (ov && ov[tabId]) return ov[tabId];
+    return WORKSPACE_TAB_LABELS[tabId] || tabId || '';
+  }
   // P1 «Инициатива»: старые адреса вкладок (`settings`/`limits`) не ломаются —
   // они открывают «Текстовую инициативу», где теперь живут их параметры.
   // Псевдоним действует ТОЛЬКО для этого модуля (у других `settings`/`limits`
@@ -1603,6 +1643,8 @@
     // маршрут (симметрично images/budgets); при OFF kill-switch `applyRoute`
     // откатывает на витрину `#/modules` (тот же механизм).
     '#/modules/vision': 'mod_vision',
+    // UR-F (UR-29.1): «Модули → Время» — канонический маршрут.
+    '#/modules/time': 'mod_time',
     '#/permsoc': 'permsoc',
     '#/ai': 'llm_providers',
     '#/ai/llm': 'llm_providers',
@@ -1644,6 +1686,8 @@
     mod_budgets: '#/modules/budgets',
     mod_images: '#/modules/images',
     mod_vision: '#/modules/vision',
+    // UR-F (UR-29.1): «Время» — свой маршрут в разделе «Модули».
+    mod_time: '#/modules/time',
     llm_providers: '#/ai/llm', prompts: '#/ai/prompts',
     // F1 (ADR-1025-1 D3): «Память» живёт в своём разделе.
     memory_rag: '#/memory/rag',
@@ -3799,6 +3843,22 @@
         configError: '',          // F-13 (AC-3, MED-021): баннер loadConfig
                                   // (403/503/сеть) — объясняет пустую вкладку
         configChatUpdatedAt: null, // F-7: optimistic-метка чата (X-Chat-Id)
+        // ── UR-F (UR-29.1/29.2): состояние «Модули → Время» ──────────────
+        timeState: null,           // GET/POST /api/config/time (эфф. пояс+часы)
+        timeZones: [],             // GET /api/config/timezones (полный IANA)
+        timeZonesLoaded: false,
+        timeDraft: '',             // черновик поля пояса ('' = наследование)
+        timeSaving: false,
+        timeError: '',             // причина неуспеха (прежнее значение живо)
+        timeNow: null,             // тикающие часы: {date, time, weekday}
+        timeClockTimer: null,      // setInterval id (только клиентский рендер)
+        timeStateFetchedAt: 0,     // момент ответа сервера (база тикающих часов)
+        // ── UR-F (UR-20.3/R-ADM.5): инспектор «Что бот видел» ────────────
+        turnDiag: null,            // GET /api/direct/turn-diagnostics
+        turnDiagTurn: 1,           // выбранный ход (1 = последний)
+        turnDiagTraceId: '',       // явный выбор по trace_id
+        turnDiagBusy: false,
+        turnDiagError: '',
         // Раунд 10.23 (F8, ADR-1023-8): вкладка «Промпты» — активный режим
         // Вербализатора (Tabs) и блок мониторинга динамического анти-клише.
         promptMode: 'casual',      // редактируемый режим: casual|serious|deep_research
@@ -4993,7 +5053,8 @@
         if (!ws) return [];
         var self = this;
         return (ws.module.tabs || []).map(function (id) {
-          return { id: id, label: WORKSPACE_TAB_LABELS[id] || id };
+          return { id: id,
+                   label: workspaceTabLabelOf(ws.module.id, id) };
         }).filter(function (t) {
           return self.workspaceTabHasContent(ws.module, t.id);
         });
@@ -5558,6 +5619,16 @@
           { id: 'serious', label: 'Serious' },
           { id: 'deep_research', label: 'Deep Research' },
         ];
+      },
+      // UR-F (UR-29.1): интерактивный поиск по полному IANA-справочнику
+      // (computed — шаблон итерируется без скобок; max 40 подсказок).
+      timeZoneMatches: function () {
+        var draft = String(this.timeDraft || '').trim().toLowerCase();
+        var zones = this.timeZones || [];
+        if (!draft) return [];
+        return zones.filter(function (z) {
+          return z.toLowerCase().indexOf(draft) >= 0;
+        }).slice(0, 40);
       },
       // 10.11 (spec §2.2): две смысловые зоны «Провайдеров». ОБЯЗАНЫ быть
       // computed (не methods): шаблон обращается как к bare-ref
@@ -9621,6 +9692,16 @@
         // модель сбрасывается сразу (никакого «чужого графа» ни кадра), а
         // ответ прошлого чата отбрасывается по поколению запроса.
         this._cogInvalidateForChatSwitch();
+        // UR-F (UR-29.1): смена чата подхватывает ЕГО настройки пояса без
+        // записи в чужой чат (перезапрос состояния + сброс черновика).
+        if (this.activeTab === 'mod_time') {
+          this.enterTimeTab();
+        }
+        // UR-F (UR-20.3): инспектор — данные именно этого хода ЭТОГО чата.
+        if (this.activeTab === 'mod_direct'
+            && this.workspaceTab === 'inspector') {
+          this.inspectorTabEnter();
+        }
       },
       // ASAP-2.1 (T-3982, §13:3212–3219): stale/invalid promptKey в URL —
       // не переключать UI в пустой editing state; вернуть на канонический
@@ -9651,6 +9732,24 @@
         if (id === 'prompts') {
           this._syncPromptModeFromConfig();
           this.maybeLoadCliche();
+        }
+        // UR-F (UR-29.1): вход в «Время» — подтянуть состояние пояса/часы
+        // и полный справочник зон (идемпотентно, fail-open).
+        if (id === 'mod_time') {
+          this.enterTimeTab();
+        } else {
+          this.stopTimeClock();
+        }
+        // UR-F (UR-20.3): инспектор хода живёт на workspace-вкладке
+        // «inspector» модуля «Прямые ответы» — данные грузит
+        // inspectorTabEnter() при активации вкладки workspace.
+        if (id === 'mod_direct') {
+          var self2 = this;
+          this.$nextTick(function () {
+            if (self2.workspaceTab === 'inspector') {
+              self2.inspectorTabEnter();
+            }
+          });
         }
         // MCA-16 (ADR-1028-15 D9/T-5007): вход в «Память» — подтянуть уроки
         // опыта (идемпотентно, fail-open; admin-only данные).
@@ -9691,6 +9790,12 @@
         // MCA-19 (T-5103/T-5116): вкладка «Модели» vision-модуля — живая
         // effective-линия (fail-open: 403/RBAC → линии нет).
         if (tab === 'models') this.maybeLoadVisionState();
+        // UR-F (UR-20.3): вход на вкладку инспектора «Прямых ответов» —
+        // загрузить трассу хода (ЕДИНСТВЕННЫЙ workspaceTab-watcher: дубликат
+        // ключа в объекте watch молча перезаписал бы существующую логику).
+        if (tab === 'inspector' && this.activeTab === 'mod_direct') {
+          this.inspectorTabEnter();
+        }
         // CFG-02A (§02A.2): «Основные настройки» модуля «Генерация
         // изображений» — факты суточной квоты из существующего
         // /api/workers/budget (fail-open, окно 30 c).
@@ -14613,10 +14718,25 @@
       // в области чата/ЛС — «глобальная настройка» (наследование) либо
       // «настройки чата» (локальное переопределение, PERMsoc).
       configSourceLabel: function (item) {
-        if (!item || this.scopeKind === 'global') return '';
-        return (item.chat_source === 'chat')
+        if (!item) return '';
+        // UR-F (UR-22.1/BGS-06.5): источник эффективного значения —
+        // chat/global/default от бэкенда (не догадка UI). Legacy-контракт
+        // (payload без поля source): не chat → глобальная настройка.
+        var explicit = (item.source === 'chat' || item.source === 'global'
+          || item.source === 'default');
+        var src = explicit ? item.source
+          : ((item.chat_source === 'chat') ? 'chat' : 'global');
+        if (this.scopeKind === 'global') {
+          // В глобальной области показываем только честный «default» —
+          // явную global-строку подчёркивать нечем (форма и так глобальная).
+          return src === 'default'
+            ? 'Источник: заводское значение (в базе не задано)' : '';
+        }
+        return (src === 'chat')
           ? 'Источник: настройки чата'
-          : 'Источник: глобальная настройка';
+          : (src === 'default'
+            ? 'Источник: заводское значение (наследование)'
+            : 'Источник: глобальная настройка');
       },
       configSourceTitle: function (item) {
         if (!item) return '';
@@ -14632,16 +14752,41 @@
       // включено при глобально выключенном» и не применяемые локально
       // глобальные параметры. Приоритет локального НЕ предполагается.
       configItemNotice: function (item) {
-        if (!item || this.scopeKind === 'global') return '';
+        if (!item) return '';
+        var notes = [];
         // §43/ревью Medium: показываем ТОЛЬКО фактическое расхождение —
         // локальное включение при глобально выключенном (per_chat override
         // wins, см. web/api/routes.py::get_config). Не шумим на
         // per_chat=false (~101 параметр) — там источник уже говорит всё.
-        if (item.chat_source === 'chat' && item.global_value === false
-            && item.value === true) {
-          return 'Локально включено, хотя глобально выключено';
+        if (this.scopeKind !== 'global'
+            && item.chat_source === 'chat'
+            && item.global_value === false && item.value === true) {
+          notes.push('Локально включено, хотя глобально выключено');
         }
-        return '';
+        // UR-F (UR-21.23/UR-22.1/UR-21.24): честная применимость от бэкенда
+        // (no-op/legacy + «провайдер игнорирует temperature») — и в
+        // глобальной области тоже: статус не зависит от скоупа.
+        var eff = item.eff || {};
+        if (eff.reason_inactive) notes.push(eff.reason_inactive);
+        return notes.join(' · ');
+      },
+      // UR-F (UR-20.9/UR-22.1/BGS-06.5): статус-бейдж применимости ключа
+      // из effective-меты бэкенда (active — без бейджа, шума нет).
+      configEffBadge: function (item) {
+        var eff = item && item.eff || {};
+        var status = eff.status || 'active';
+        if (status === 'active') return null;
+        if (status === 'legacy') {
+          return { text: 'legacy', cls: 'badge-muted' };
+        }
+        if (status === 'no_op') return { text: 'не влияет', cls: 'badge-warn' };
+        return { text: 'не применяется', cls: 'badge-warn' };
+      },
+      // UR-F (UR-20.9): единицы значения из effective-меты (не выдумка —
+      // бэкенд-таблица/суффикс ключа).
+      configUnitsSuffix: function (item) {
+        var eff = item && item.eff || {};
+        return eff.units || '';
       },
       resetChatOverride: async function (item) {
         // F-14 (§6.3) + F3 (ревью 2): сброс override — global admin (любой
@@ -14671,6 +14816,283 @@
         } finally {
           this.saving.delete(item.key);
         }
+      },
+
+      // ═══ UR-F (UR-29.1/29.2): «Модули → Время» ═════════════════════════
+      // Единая поверхность пояса: полный IANA-справочник, серверные часы
+      // (клиент НЕ вычисляет часовые пояса), источник/наследование,
+      // сохранение с честной ошибкой и сброс override = «наследование».
+      timeScopeChatId: function () {
+        return (this.scopeKind && this.scopeKind !== 'global')
+          ? this.activeChatId : null;
+      },
+      enterTimeTab: async function () {
+        this.timeError = '';
+        this.timeDraft = '';
+        await this.loadTimeState();
+        this.ensureTimeZones();
+        this.startTimeClock();
+      },
+      loadTimeState: async function () {
+        var self = this;
+        var chatId = this.timeScopeChatId();
+        var qs = chatId != null
+          ? ('?chat_id=' + encodeURIComponent(chatId)) : '';
+        try {
+          var data = await this.api('/api/config/time' + qs);
+          self.timeState = data || null;
+          // Черновик = сырое значение override; NULL (нет override) и ''
+          // (явное наследование) показываются одинаково: пустое поле.
+          self.timeDraft = (data && data.configured != null)
+            ? String(data.configured) : '';
+          self.timeStateFetchedAt = Date.now();
+        } catch (e) {
+          self.timeError = (e && e.message) || 'не удалось загрузить пояс';
+          self.timeState = null;
+        }
+      },
+      ensureTimeZones: async function () {
+        if (this.timeZonesLoaded) return;
+        var self = this;
+        try {
+          var data = await this.api('/api/config/timezones');
+          self.timeZones = (data && data.zones) || [];
+          self.timeZonesLoaded = true;
+        } catch (e) {
+          // Честная деградация: редактор остаётся с ручным вводом,
+          // поиск по полному списку недоступен (показываем причину).
+          self.timeZones = [];
+        }
+      },
+      startTimeClock: function () {
+        this.stopTimeClock();
+        if (typeof setInterval !== 'function') return;
+        var self = this;
+        this.timeClockTimer = setInterval(function () {
+          self.timeNowTick();
+        }, 1000);
+        this.timeNowTick();
+      },
+      stopTimeClock: function () {
+        if (this.timeClockTimer && typeof clearInterval === 'function') {
+          clearInterval(this.timeClockTimer);
+        }
+        this.timeClockTimer = null;
+        this.timeNow = null;
+      },
+      // Тикающие часы ТОЛЬКО от серверной базы: as_of_utc + зафиксированный
+      // offset; браузерная timezone не используется вовсе (UR-29.2).
+      timeNowTick: function () {
+        var st = this.timeState;
+        if (!st || !st.as_of_utc) { this.timeNow = null; return; }
+        var baseMs = Date.parse(st.as_of_utc);
+        if (isNaN(baseMs)) { this.timeNow = null; return; }
+        var fetchedAt = this.timeStateFetchedAt || Date.now();
+        var offsetMs = 0;
+        var m = /^([+-])(\d{2}):(\d{2})$/.exec(String(st.utc_offset || ''));
+        if (m) {
+          offsetMs = (Number(m[2]) * 3600 + Number(m[3]) * 60) * 1000
+            * (m[1] === '-' ? -1 : 1);
+        }
+        // Текущее мгновение серверных часов: база + фактический дрейф
+        // клиента относительно момента ответа (не браузерная зона).
+        var instant = baseMs + Math.max(0, Date.now() - fetchedAt);
+        var wall = new Date(instant + offsetMs);
+        var pad = function (n) {
+          return (n < 10 ? '0' : '') + n;
+        };
+        this.timeNow = {
+          date: pad(wall.getUTCDate()) + '.' +
+            pad(wall.getUTCMonth() + 1) + '.' + wall.getUTCFullYear(),
+          time: pad(wall.getUTCHours()) + ':' + pad(wall.getUTCMinutes()) +
+            ':' + pad(wall.getUTCSeconds()),
+          weekday: st.weekday || '',
+        };
+      },
+      timeSourceLabel: function (source) {
+        var labels = {
+          chat: 'настройки чата',
+          chat_legacy: 'старая настройка чата',
+          global: 'глобальная настройка',
+          global_legacy: 'глобальная старая настройка',
+          legacy_goodmorning: 'старая настройка рассылки',
+          factory: 'заводской дефолт',
+          utc_fallback: 'UTC (зона недоступна на сервере)',
+        };
+        return labels[source] || (source || 'неизвестный источник');
+      },
+      timeConfiguredLine: function () {
+        var st = this.timeState;
+        if (!st) return '';
+        if (st.chat_id != null) {
+          if (st.configured == null || st.configured === '') {
+            return 'Область: чат · поле пустое = наследование';
+          }
+          return 'Область: чат · задано явно для этого чата';
+        }
+        return 'Область: весь бот (глобальный пояс)';
+      },
+      saveTimezone: async function () {
+        if (this.timeSaving) return;
+        this.timeSaving = true;
+        this.timeError = '';
+        var self = this;
+        var chatId = this.timeScopeChatId();
+        try {
+          var data = await this.api('/api/config/time', {
+            method: 'POST',
+            body: JSON.stringify({
+              timezone: String(this.timeDraft || ''),
+              chat_id: chatId,
+            }),
+          });
+          // Сервер вернул validated effective + now_local по UTC (UR-29.2):
+          // UI показывает ИМЕННО его, а не свой пересчёт.
+          self.timeState = data;
+          self.timeDraft = (data && data.configured != null)
+            ? String(data.configured) : '';
+          self.timeStateFetchedAt = Date.now();
+          self.toast('Пояс сохранён: ' + ((data && data.iana) || ''), 'ok');
+          await this._preserveScroll(this.loadConfig);
+        } catch (e) {
+          // Ошибка (422 IANA / 403 права): прежнее значение сохранено —
+          // честная причина видна рядом с полем, черновик не применён.
+          // (ApiError.message несёт detail сервера; 409 приходит объектом.)
+          var reason = e && typeof e.message === 'string'
+            && e.message.indexOf('HTTP ') !== 0 ? e.message
+            : ((e && e.message) || 'не сохранено');
+          self.timeError = reason;
+          self.toast('Не сохранено: ' + self.timeError, 'err');
+        } finally {
+          self.timeSaving = false;
+        }
+      },
+      resetTimezone: async function () {
+        if (this.timeSaving) return;
+        var chatId = this.timeScopeChatId();
+        if (chatId == null) {
+          this.toast('Сброс возможен только для чата', 'warn');
+          return;
+        }
+        if (!window.confirm('Вернуть общую (глобальную) настройку пояса '
+          + 'для этого чата?')) return;
+        this.timeSaving = true;
+        this.timeError = '';
+        var self = this;
+        try {
+          var data = await this.api('/api/config/time?chat_id='
+            + encodeURIComponent(chatId), { method: 'DELETE' });
+          self.timeState = data;
+          self.timeDraft = (data && data.configured != null)
+            ? String(data.configured) : '';
+          self.timeStateFetchedAt = Date.now();
+          self.toast('Возвращена общая настройка', 'ok');
+          await this._preserveScroll(this.loadConfig);
+        } catch (e) {
+          self.timeError = (e && e.message) || 'не сброшено';
+          self.toast('Не сброшено: ' + self.timeError, 'err');
+        } finally {
+          self.timeSaving = false;
+        }
+      },
+      timeCanSave: function () {
+        if (this.timeSaving) return false;
+        if (this.scopeKind === 'global') {
+          // Глобальный слой правит только глобальный админ (сервер
+          // дополнительно проверит can_edit_param).
+          return !!this.isGlobalAdmin;
+        }
+        return !!(this.isGlobalAdmin || this.isDmCtx()
+          || this.isLocalAdminCtx());
+      },
+
+      // ═══ UR-F (UR-20.3/R-ADM.5): инспектор «Что бот видел» ═════════════
+      inspectorTabEnter: function () {
+        this.loadTurnDiagnostics(true);
+      },
+      loadTurnDiagnostics: async function (force) {
+        if (this.turnDiagBusy) return;
+        var chatId = this.activeChatId;
+        if (chatId == null) {
+          this.turnDiag = null;
+          this.turnDiagError = 'Выберите чат — инспектор показывает ход '
+            + 'конкретного чата';
+          return;
+        }
+        this.turnDiagBusy = true;
+        if (force) { this.turnDiagError = ''; }
+        var self = this;
+        try {
+          var qs = '?chat_id=' + encodeURIComponent(chatId)
+            + '&turn=' + encodeURIComponent(this.turnDiagTurn || 1);
+          if (this.turnDiagTraceId) {
+            qs += '&trace_id=' + encodeURIComponent(this.turnDiagTraceId);
+          }
+          var data = await this.api('/api/direct/turn-diagnostics' + qs);
+          self.turnDiag = data || null;
+          self.turnDiagError = '';
+        } catch (e) {
+          if (force || !this.turnDiag) {
+            self.turnDiag = null;
+            self.turnDiagError = (e && e.message)
+              || 'трасса недоступна';
+          }
+        } finally {
+          self.turnDiagBusy = false;
+        }
+      },
+      selectTurn: function (n) {
+        this.turnDiagTurn = n;
+        this.turnDiagTraceId = '';
+        this.loadTurnDiagnostics(true);
+      },
+      selectTurnTrace: function (tid) {
+        this.turnDiagTraceId = tid || '';
+        this.loadTurnDiagnostics(true);
+      },
+      turnFlowLabel: function (flow) {
+        return flow === 'direct' ? 'Direct' : (flow || '—');
+      },
+      turnClockLine: function (ctx) {
+        var clock = ctx && ctx.clock;
+        if (!clock || !clock.timezone) return 'нет данных';
+        var line = clock.timezone;
+        if (clock.as_of_utc) line += ' · ' + clock.as_of_utc;
+        if (clock.timezone_source) {
+          line += ' · источник: ' + this.timeSourceLabel(
+            clock.timezone_source);
+        }
+        return line;
+      },
+      turnToolLine: function (t) {
+        if (!t) return '';
+        var line = t.tool || '?';
+        line += ' · ' + (t.status || 'no_status');
+        if (t.error) line += ' · ошибка: ' + t.error;
+        if (t.refs != null) line += ' · источников: ' + t.refs;
+        if (t.out_chars != null) line += ' · символов: ' + t.out_chars;
+        return line;
+      },
+      turnOpLine: function (op) {
+        if (!op) return '';
+        var line = op.op || '?';
+        if (op.chunks) line += ' ×' + op.chunks;
+        line += op.changed ? ' · текст изменился' : ' · без изменений';
+        if (op.chars != null) line += ' · ' + op.chars + ' симв.';
+        return line;
+      },
+      turnDeliveryLabel: function (delivery, outcome) {
+        var d = delivery || {};
+        if (d.outcome === 'success' && d.digest_match === true) {
+          return 'доставлен как написан (digest совпал)';
+        }
+        if (d.divergence_reason) {
+          return 'текст менялся при доставке: ' + d.divergence_reason;
+        }
+        if (outcome && outcome !== 'success') {
+          return 'без доставки текста: ' + (d.reason || outcome);
+        }
+        return 'итог: ' + (d.outcome || outcome || 'нет данных');
       },
 
       // ═══ D07 (v6 §9B.2/§9B.3): global-view overrides — stack/popover ═══
@@ -19269,7 +19691,9 @@
         this.navigateTo(next);
       },
       workspaceTabLabel: function (tabId) {
-        return WORKSPACE_TAB_LABELS[tabId] || tabId || '';
+        var ws = this.workspace;
+        var mid = ws && ws.module ? ws.module.id : '';
+        return workspaceTabLabelOf(mid, tabId);
       },
       // ASAP-speech-arch U-03 (§8): UI-подпись Direct-вербализатора приведена к
       // его действительной роли. Ключ/ID не меняются (правки, история и
@@ -19894,6 +20318,11 @@
                   'diagnostics'].indexOf(tabId) >= 0;
         }
         if (tabId === 'overview') return true;
+        // UR-F (UR-20.3): инспектор «Что бот видел» — собственная секция
+        // «Прямых ответов» (трасса хода из существующих событий turn_trace).
+        if (tabId === 'inspector') {
+          return m.id === 'mod_direct';
+        }
         // ASAP-2.1 (T-3973): 'prep' удалён; стадии §85 — честный placeholder.
         if (tabId === 'clusterizer' || tabId === 'writer') return true;
         // ASAP-2 §13: вкладки секций Summary рендерятся только при наличии
@@ -21348,6 +21777,98 @@
         }
         return { requested: requested, l1On: l1On, text: lines };
       },
+      // ═══ UR-F (UR-20.2): «Как бот отвечает» — фактически действующие ═══
+      // режимы со статусом, человеческой формулировкой и одним рабочим
+      // control. Значения ТОЛЬКО из effective-config (не догадка UI);
+      // нет данных — честная строка, не выдуманный статус.
+      configItemByKey: function (key) {
+        var items = this.configItems || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i] && items[i].key === key) return items[i];
+        }
+        return null;
+      },
+      itemEffLine: function (item, activeText, offText) {
+        if (!item) return 'нет данных';
+        var on = item.value === true || item.value === 'true';
+        var src = (item.source === 'chat') ? ' · из настроек чата'
+          : (item.source === 'default' ? ' · заводское значение'
+            : (item.source === 'global' ? ' · глобальная настройка' : ''));
+        return ((on ? (activeText || 'включено') : (offText || 'выключено'))
+          + src);
+      },
+      directModesView: function () {
+        var self = this;
+        function item(key) { return self.configItemByKey(key); }
+        var search = item('flags.search_enabled');
+        var memory = item('flags.chat_running_summary_enabled');
+        var speech = item('limits.chat_temperature_preset_default');
+        var initiative = item('flags.initiative_enabled');
+        return {
+          search: {
+            title: 'Интернет для фактов',
+            line: this.itemEffLine(search, 'разрешён', 'выключен'),
+            available: !!search,
+            hint: 'Когда вопрос про внешний мир, бот проверяет факты '
+              + 'поиском, используя контекст разговора.',
+            controlRoute: '#/modules/search',
+            controlLabel: 'Настройки поиска',
+          },
+          memory: {
+            title: 'Память',
+            line: this.itemEffLine(memory, 'конспект включён',
+              'конспект выключен'),
+            available: !!memory,
+            hint: 'Бот держит краткий конспект длинного разговора и помнит '
+              + 'факты — независимо от срока «кому уже отвечал».',
+            controlRoute: '#/memory/rag',
+            controlLabel: 'Настройки памяти',
+          },
+          extent: {
+            title: 'Подробность',
+            line: 'выбирается планировщиком по каждому запросу',
+            available: true,
+            hint: 'Фиксированной настройки подробности нет: L1 оценивает '
+              + 'запрос и выбирает компактный или развёрнутый ответ; факт '
+              + 'виден в «Что бот видел».',
+            controlTab: 'inspector',
+            controlLabel: 'Что бот видел',
+          },
+          speech: {
+            title: 'Речь и характер',
+            item: speech,
+            line: speech
+              ? ('режим: ' + (speech.value || 'сбалансированный (по умолчанию)')
+                 + (speech.eff && speech.eff.reason_inactive
+                    ? ' · ' + speech.eff.reason_inactive : ''))
+              : 'нет данных',
+            available: !!speech,
+            hint: 'Свобода формулировок влияет только на подбор слов '
+              + 'моделью ответов; поиск, память и контекст она не заменяет.',
+            controlRoute: '#/ai/speech',
+            controlLabel: 'Речь и характер',
+          },
+          initiative: {
+            title: 'Инициатива',
+            line: this.itemEffLine(initiative, 'бот пишет первым',
+              'выключена'),
+            available: !!initiative,
+            hint: 'Проактивные намерения и напоминания — отдельный механизм '
+              + 'со своим журналом решений.',
+            controlRoute: '#/modules/initiative',
+            controlLabel: 'Модуль «Инициатива»',
+          },
+        };
+      },
+      // UR-F (UR-21.23): рабочий control «Свободы формулировок» — штатный
+      // select пресета (то же сохранение, что у каталога).
+      saveSpeechPreset: async function (event) {
+        var item = this.configItemByKey(
+          'limits.chat_temperature_preset_default');
+        if (!item) return;
+        item.value = event.target.value;
+        await this.saveConfigItem(item);
+      },
       // §84: «Проверить» для L1/L2 — reuse существующего блока `direct`.
       testDirectStage: async function (card) {
         if (!card) return;
@@ -22586,6 +23107,15 @@
           return this.hasPerm('section.reactions')
             || this.hasPerm('section.flags')
             || this.hasPerm('section.chat_lore')
+            || this.isGlobalAdmin || this.isLocalAdminCtx();
+        }
+        // UR-F (UR-29.1): «Модули → Время» — тот же гейт раздела «Модули»
+        // (просмотр часов безобиден; запись пояса дополнительно гейтит
+        // сервер can_edit по матрице ключа limits.chat_timezone).
+        if (tab.type === 'timeEditor') {
+          return this.hasPerm('section.reactions')
+            || this.hasPerm('section.flags')
+            || this.hasPerm('section.limits')
             || this.isGlobalAdmin || this.isLocalAdminCtx();
         }
         var sections = arr(p.sections), params = arr(p.params), keys = arr(p.keys);

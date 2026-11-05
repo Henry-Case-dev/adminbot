@@ -307,12 +307,14 @@ function summaryItem(extra) {
     })[0].value = null;
     const ctx = mkCtx({ configItems: items });
     const c = computed.moduleCounters.call(ctx);
-    assert.strictEqual(c.total, 15, 'h: всего 15 (ASAP 7 F3: +mod_initiative)');
+    // UR-F (UR-29.1): +карточка «Время» (noToggle) — входит в «Всего»,
+    // но не в on/off/issues → 15→16.
+    assert.strictEqual(c.total, 16, 'h: всего 16 (ASAP 7 F3 +mod_initiative, UR-F +mod_time noToggle)');
     assert.strictEqual(c.on, 1, 'h: включён ровно 1');
     assert.strictEqual(c.off, 13, 'h: выключено 13');
     assert.strictEqual(c.issues, 1, 'h: «Есть проблемы» = 1 (неизвестное)');
-    assert.strictEqual(c.total, c.on + c.off + c.issues,
-      'h: инвариант Всего = Вкл + Выкл + Проблемы (noToggle нет)');
+    assert.strictEqual(c.total, c.on + c.off + c.issues + 1,
+      'h: Всего = Вкл + Выкл + Проблемы + 1 noToggle («Время» по UR-F)');
 
     // noToggle: только в «Всего», не в on/off/issues
     const synth = MODULES.concat([{ id: 'mod_synthetic', title: 'Синтетика',
@@ -321,7 +323,8 @@ function summaryItem(extra) {
     const ctx2 = mkCtx({ configItems: items, modules: synth });
     ctx2.visibleModules = computed.visibleModules.call(ctx2);
     const c2 = computed.moduleCounters.call(ctx2);
-    assert.strictEqual(c2.total, 16, 'h: noToggle входит только в «Всего»');
+    assert.strictEqual(c2.total, 17,
+      'h: noToggle входит только в «Всего» (16 + синтетика noToggle)');
     assert.strictEqual(c2.on, 1, 'h: noToggle не в «Включено»');
     assert.strictEqual(c2.off, 13, 'h: noToggle не в «Выключено»');
     assert.strictEqual(c2.issues, 1, 'h: noToggle не в «Есть проблемы»');
@@ -331,7 +334,8 @@ function summaryItem(extra) {
       uiFlag: function (n) { return n !== 'IMAGE_MODULE_CARD_ENABLED'; } });
     ctx3.visibleModules = computed.visibleModules.call(ctx3);
     const c3 = computed.moduleCounters.call(ctx3);
-    assert.strictEqual(c3.total, 14, 'h: uiFlag OFF убирает карточку из «Всего» (ASAP 7 F3: база 15 − mod_images)');
+    assert.strictEqual(c3.total, 15,
+      'h: uiFlag OFF убирает карточку из «Всего» (база 16 по UR-F − mod_images)');
     const visIds = ctx3.visibleModules.map(function (m) { return m.id; });
     assert.strictEqual(visIds.indexOf('mod_images'), -1,
       'h: uiFlag OFF — вне витрины');
@@ -624,10 +628,13 @@ function summaryItem(extra) {
     // §45: счётчики честны — чат-включённый Summary в «Включено».
     const c = computed.moduleCounters.call(ctx);
     assert.strictEqual(c.on, 1, 'o: chat-ON при global OFF — в «Включено»');
-    assert.strictEqual(c.off, 14, 'o: остальные выключены (ASAP 7 F3: база 15)');
+    assert.strictEqual(c.off, 14,
+      'o: остальные выключены (ASAP 7 F3: база 15)');
     assert.strictEqual(c.issues, 0, 'o: конфликтов больше нет');
-    assert.strictEqual(c.total, c.on + c.off + c.issues,
-      'o: инвариант Всего = Вкл + Выкл + Проблемы');
+    // UR-F (UR-29.1): «Время» — noToggle, в on/off/issues не входит,
+    // поэтому инвариант = Вкл + Выкл + Проблемы (+1 noToggle).
+    assert.strictEqual(c.total, c.on + c.off + c.issues + 1,
+      'o: инвариант Всего = Вкл + Выкл + Проблемы + noToggle «Время»');
 
     // Фильтры: «Включённые» включают Summary; «Есть проблемы» — нет.
     const idsFor = function (f) {
