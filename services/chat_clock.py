@@ -146,22 +146,26 @@ async def resolve_chat_timezone(chat_id) -> tuple[str, str, str]:
         except Exception:      # pragma: no cover - fail-open
             per_chat = {}
 
-    _SENTINEL = object()
-
-    def _layer(key: str) -> str | None:
-        """Значение слоя или None (нет/"" → наследование, не зона)."""
+    def _chat_override(key: str) -> str | None:
+        """Значение per-chat override или None (нет/"" → наследование).
+        ТОЛЬКО overrides чата — global-слой сюда не подмешивается (иначе
+        глобальное значение выдавалось бы за per-chat с source="chat")."""
         raw = per_chat.get(key)
-        if raw is not None:
-            return str(raw).strip() or None
-        raw = hot.get(key, _SENTINEL)
-        if raw is _SENTINEL:
+        if raw is None:
             return None
-        return str(raw or "").strip() or None
+        return str(raw).strip() or None
 
-    # Слой 1: per-chat canonical.
-    v1 = _layer(CANON_TZ_KEY)
-    # Слой 2: per-chat legacy summary_timezone.
-    v2 = _layer(LEGACY_SUMMARY_TZ_KEY)
+    def _global_value(key: str, factory_default: str) -> str:
+        """Global-слой: ConfigCache/hot с settings-дефолтом (контракт R1
+        прежнего hot.get)."" — fail-open."""
+        try:
+            return str(hot.get(key, factory_default) or "").strip()
+        except Exception:      # pragma: no cover - fail-open
+            return ""
+
+    # Слой 1/2: per-chat canonical → per-chat legacy (только overrides).
+    v1 = _chat_override(CANON_TZ_KEY)
+    v2 = _chat_override(LEGACY_SUMMARY_TZ_KEY)
     if v1 is not None:
         if v2 is not None and v2 != v1:
             _log_conflict_once(chat_id, winner_key=CANON_TZ_KEY,
@@ -172,12 +176,11 @@ async def resolve_chat_timezone(chat_id) -> tuple[str, str, str]:
     if v2 is not None and _valid_iana(v2):
         return v2, "chat_legacy", cv
 
-    # Слой 3/4: global canonical → global legacy.
-    g1 = str(hot.get(CANON_TZ_KEY, getattr(settings, "CHAT_TIMEZONE", ""))
-             or "").strip()
-    g2 = str(hot.get(LEGACY_SUMMARY_TZ_KEY,
-                     getattr(settings, "SUMMARY_TIMEZONE", ""))
-             or "").strip()
+    # Слой 3/4: global canonical → global legacy (ConfigCache/hot, фаб-дефолт
+    # настроек — как в прежнем hot.get-контракте R1).
+    g1 = _global_value(CANON_TZ_KEY, getattr(settings, "CHAT_TIMEZONE", ""))
+    g2 = _global_value(LEGACY_SUMMARY_TZ_KEY,
+                       getattr(settings, "SUMMARY_TIMEZONE", ""))
     if g1:
         if g2 and g2 != g1:
             _log_conflict_once(chat_id, winner_key=CANON_TZ_KEY,
