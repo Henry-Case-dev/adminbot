@@ -136,12 +136,13 @@ from services.llm_client import (
 )
 from services.llm_circuit_breaker import STATE_HALF_OPEN, LLMCircuitBreaker
 from services.budget_limits import context_state
+# UR-C-CLOCK (contract §3): ЕДИНСТВЕННЫЙ источник времени чата.
+from services import chat_clock as _cclock
 from services.canonical_context import (
     RELATION_REPLY,
     SPEECH_LABEL_RE,
     SpeechProjection,
     SpeechRelation,
-    format_chat_time,
     format_context_item,
     format_speech_item,
     resolve_item_id,
@@ -4419,6 +4420,12 @@ class DirectChatService:
             # жёсткий override в reply (§1.7); SILENT → 🗿 (_execute_silent_
             # ack, конъюнкция неизменна); REACT → реакция из allowed-набора.
             if direct_l1_on:
+                # UR-C-CLOCK (UR-25.2): ОДИН план-снапшот времени чата на ход —
+                # L1, tool-оркестратор и legacy-payload видят один as_of;
+                # L2 ниже получает answer-снапшот (fresh только при пересечении
+                # минуты/даты). Время идёт из ChatClock, не из контейнера/LLM
+                # (UR-BAN-05).
+                snap_plan = await _cclock.snapshot(chat_id)
                 async with typing_active(bot, chat_id):
                     try:
                         l1_plan, l1_meta = await self._plan_direct_l1(
@@ -4437,7 +4444,8 @@ class DirectChatService:
                                 if _dctx is not None else False),
                             reactions_enabled=bool(getattr(
                                 _toggles if decision_on else None,
-                                "reactions", False)))
+                                "reactions", False)),
+                            time_snapshot=snap_plan)
                     except NoApiKeyForChat as exc:
                         # D03 (§18C.1): permission-политика (forbidden/
                         # budget) блокирует и dedicated L1 — тот же
@@ -4737,10 +4745,24 @@ class DirectChatService:
                             "stage=tool_phase_composer | removed=%d",
                             chat_id, _scrubbed_on)
                 _pcomp.emit_layer_events_once(_composer_manifest)
-            time_line = await self._chat_time_line(chat_id)
+            # UR-C-CLOCK (UR-25.2/UR-26.2): один план-снапшот хода; legacy-payload
+            # (single/chat_with_tools) — answer-фаза, tool-оркестратор — план.
+            if direct_l1_on:
+                _turn_snap = snap_plan
+            else:
+                _turn_snap = await _cclock.snapshot(chat_id)
+            time_line_plan = _cclock.render_chat_time_context(
+                _turn_snap, phase=_cclock.PHASE_PLAN)
+            time_line = _cclock.render_chat_time_context(
+                _turn_snap, phase=_cclock.PHASE_ANSWER)
             # §7: ChatClock хода — значение и источник (per-chat tz → global).
             _ttrace.note_clock(correlation_id, line=time_line,
-                               source="limits.chat_timezone")
+                               source="chat_clock",
+                               timezone=_turn_snap.timezone,
+                               as_of_utc=_turn_snap.as_of_utc.strftime(
+                                   "%Y-%m-%dT%H:%M:%S+00:00"),
+                               config_version=_turn_snap.config_version,
+                               timezone_source=_turn_snap.timezone_source)
             # ASAP-VISION-SYNC-01 §4.4: финальная сборка payload перечитывает
             # медиа-состояние БЕЗ ожидания — если анализ завершился после L1,
             # Writer получает актуальную ревизию (старый pending-снимок
@@ -4985,7 +5007,7 @@ class DirectChatService:
                             correlation_id=correlation_id, l1_plan=l1_plan,
                             response_plan=response_plan,
                             fallback_meta=_fallback_meta,
-                            time_line=time_line,
+                            time_line=time_line_plan,
                             tool_schemas=_l1_tool_schemas,
                             longform_max_tokens=longform_max_tokens,
                             required_caps=tuple(getattr(
@@ -5434,6 +5456,12 @@ class DirectChatService:
                             l1_plan, _transform_source_text,
                             roster_names=self._turn_aliases_snapshot().values())
                     # plan-блок уже построен выше (нужен измерителю payload).
+                    # UR-C-CLOCK (UR-25.2): L2 перед финальной сборкой получает
+                    # актуальный answer_as_of_utc — свежий снапшот ТОЛЬКО если
+                    # tool-цепочка пересекла минуту/дату, иначе reuse плана.
+                    snap_answer, _clock_refreshed = \
+                        await _cclock.ensure_answer_snapshot(
+                            _turn_snap, chat_id)
                     _l2 = await self._l2_write_answer(
                         chat_id, query, temperature=temperature,
                         correlation_id=correlation_id,
@@ -5444,7 +5472,9 @@ class DirectChatService:
                         form_contract=_form_contract,
                         form_fallback_text=_form_source,
                         plan_block=_plan_block, user_blocks=user_blocks,
-                        time_line=time_line, evidence=_evidence,
+                        time_line=_cclock.render_chat_time_context(
+                            snap_answer, phase=_cclock.PHASE_ANSWER),
+                        evidence=_evidence,
                         lessons_block=_lessons_block,
                         speech_block=_speech_block,
                         speech=_speech_projection,
@@ -6051,8 +6081,12 @@ class DirectChatService:
                                   opportunity=None,
                                   lore_enabled=None,
                                   image_enabled=None,
-                                  delivery=None):
-        """UR-01: единственный конструктор `TurnRequest` для обоих входов."""
+                                  delivery=None,
+                                  time_snapshot=None):
+        """UR-01: единственный конструктор `TurnRequest` для обоих входов.
+
+        UR-C-CLOCK: ``time_snapshot`` — план-снапшот ChatClock этого хода
+        (§3 контракта); TurnRequest несёт его неизменяемым."""
         tool_state = await self._resolve_turn_tool_state(
             chat_id, lore_enabled=lore_enabled, image_enabled=image_enabled)
         return _tt.TurnRequest(
@@ -6073,7 +6107,7 @@ class DirectChatService:
             delivery=delivery or _tt.DeliveryPolicy(
                 trigger=_tt.resolve_turn_type(trigger_type)),
             turn_started_at_utc=int(time.time()),
-            time_snapshot=None)
+            time_snapshot=time_snapshot)
 
     async def _execute_turn(self, req, *, slot, l1_messages: list[dict],
                             l1_input_chars: int,
@@ -6288,7 +6322,8 @@ class DirectChatService:
                               extra_media_markers: tuple = (),
                               bot_replies: tuple[str, ...] = (),
                               bot_replied_recently: bool = False,
-                              reactions_enabled: bool = False) -> tuple:
+                              reactions_enabled: bool = False,
+                              time_snapshot=None) -> tuple:
         """§1.1/§1.5/§1.6 + v6 D03: pre-tool L1 Planner — 1 LLM call →
         L1Plan.
 
@@ -6363,6 +6398,12 @@ class DirectChatService:
         meta["social_hint"] = _social_hint
         # §1.4 + UR-A (UR-02.3): набор доступных capability — общий резолвер
         # хода (тот же у инициативы), а не отдельная копия в адаптере.
+        # UR-C-CLOCK: план-снапшот времени создаётся ДО TurnRequest, чтобы
+        # один и тот же as_of уехал и в TurnRequest, и в L1-контекст.
+        snap_plan = time_snapshot
+        if snap_plan is None:
+            snap_plan = await _cclock.snapshot(chat_id)
+        meta["time_snapshot"] = snap_plan
         _turn_req = await self._build_turn_request(
             trigger_type="direct", chat_id=chat_id,
             correlation_id=correlation_id, slot_meta=_slot_meta,
@@ -6381,7 +6422,8 @@ class DirectChatService:
             delivery=_tt.DeliveryPolicy(
                 kind="text", force_reply=bool(force_required),
                 direct_request=bool(force_required), recheck=False,
-                trigger="direct"))
+                trigger="direct"),
+            time_snapshot=snap_plan)
         available_caps = list(_turn_req.tool_state.capabilities)
         # ── SOUL-1 (W2, §4 п.5): L1 — машинная стадия (`machine_json`):
         # канал-контракт без Core/юмора; ON даёт ту же строку + трассу.
@@ -6413,6 +6455,8 @@ class DirectChatService:
         meta["l1_profile_source"] = bot_persona.decision_profile_source(
             _decision_profile)
         meta["l1_profile_chars"] = int(len(_decision_profile))
+        # UR-C-CLOCK (UR-25.2/26.2): L1 видит время на начало планирования —
+        # тот же план-снапшот хода (создан выше, до TurnRequest).
         context_text = _l1.build_l1_context(
             query=query,
             current_question=self._render_current_question(
@@ -6432,7 +6476,9 @@ class DirectChatService:
             bot_replies=tuple(bot_replies or ()),
             history_partial=history_partial,
             alias_resolver=self.aliases,
-            budget_tokens=_l1_budget)
+            budget_tokens=_l1_budget,
+            time_context=_cclock.render_chat_time_context(
+                snap_plan, phase=_cclock.PHASE_PLAN))
         input_chars = len(context_text)
         meta["l1_context_chars"] = int(input_chars)
         # ER-08-RC (§3): фактическая доставка цитаты в СОБРАННОМ пакете —
@@ -6994,7 +7040,10 @@ class DirectChatService:
             chat_id=chat_id, correlation_id=correlation_id,
             tool_schemas=tool_schemas, llm=self.llm,
             required_caps=tuple(required_caps or ()),
-            explicit_request=bool(explicit_request))
+            explicit_request=bool(explicit_request),
+            # UR-C-CLOCK (UR-26.2/26.3): блок времени чата (phase="plan")
+            # доезжает до orchestrator-payload tool-фазы обоих триггеров.
+            time_context=str(time_line or ""))
         return result.raw
 
     # ── P0-HA SEGMENTS (архконтракт §2): сегментное накопление выборки ──────
@@ -8146,21 +8195,10 @@ class DirectChatService:
             correlation_id=correlation_id, op_name=_ttrace.OP_PLAIN,
             channel="plain", reason="too_long_for_html")
 
-    async def _chat_time_line(self, chat_id: int) -> str:
-        """10.20 (БЛОК 5.1, О2/О4 FINAL, ADR-1020-3): строка Time Injection
-        `[Текущее время в чате: DD.MM.YYYY, HH:MM, День недели]` в таймзоне
-        чата. Источник — НОВЫЙ ключ `limits.chat_timezone` (per-chat override
-        → global → код-дефолт; пусто → фолбэк `limits.summary_timezone`,
-        который НЕ трогаем). Вставляется ПЕРВЫМ user-блоком в `build_messages`
-        (system статичен — prompt-cache не ломаем).
-        """
-        tz = await _cp_g(
-            chat_id, "limits.chat_timezone",
-            hot.get("limits.chat_timezone",
-                    getattr(settings, "CHAT_TIMEZONE", "")))
-        fallback = hot.get("limits.summary_timezone",
-                           settings.SUMMARY_TIMEZONE)
-        return format_chat_time(tz_name=tz, fallback_tz=fallback)
+    # UR-C-CLOCK (contract §3.2): прежний `_chat_time_line` (строка
+    # `[Текущее время в чате: …]`) УДАЛЕН — Direct legacy answer path
+    # получает `render_chat_time_context` (блок <Chat_Time_Context>) от
+    # единственного ChatClock. Второго форматтера времени чата нет.
 
     def _build_speech_understanding(self, message, query: str, *, bundle=None):
         """MCA-08 (D6/D7, T-4898/T-4900): детерминированный речевой сигнал.
@@ -12971,6 +13009,10 @@ class DirectChatService:
         # ── UR-A (UR-01/UR-02.3): тот же `TurnRequest`, что у прямого хода, и
         # те же ФАКТИЧЕСКИ доступные capabilities (раньше — пустой список,
         # из-за чего инициатива не видела собственный инструментарий).
+        # UR-C-CLOCK (UR-26.3): инициативная L1 видит часы — тот же
+        # план-снапшот ChatClock, что у прямого хода (SILENT/REACT без L2
+        # получают время на этой стадии).
+        snap_plan = await _cclock.snapshot(chat_id)
         _turn_req = await self._build_turn_request(
             trigger_type="initiative", chat_id=chat_id,
             correlation_id=correlation_id, slot_meta=_slot_meta,
@@ -12990,7 +13032,8 @@ class DirectChatService:
                     if str(ref or "").strip())),
             delivery=_tt.DeliveryPolicy(
                 kind="text", force_reply=False, direct_request=False,
-                recheck=True, trigger="initiative"))
+                recheck=True, trigger="initiative"),
+            time_snapshot=snap_plan)
         context_text = _l1.build_l1_context(
             query=task, window=window, speaker="наблюдатель",
             addressee=addressee_label,
@@ -13000,7 +13043,9 @@ class DirectChatService:
             # ASAP3-ACCEPT (fail-open, то же что Writer-сайт ниже): частичный DI-объект
             # (tests/__new__) не должен падать в L1-пути инициативы.
             with_ids=True, alias_resolver=getattr(self, "aliases", None),
-            budget_tokens=_init_budget)
+            budget_tokens=_init_budget,
+            time_context=_cclock.render_chat_time_context(
+                snap_plan, phase=_cclock.PHASE_PLAN))
         # ER-08-RC (§3 «Наблюдаемость»): у инициативного хода цитаты нет
         # (reply_block не подаётся) — честные нули по доставке + действующие
         # капы; те же оси, что у Direct-сайта, в существующем канале.
@@ -13059,6 +13104,9 @@ class DirectChatService:
         plan-блок от L1-решения. Пустой результат → '' (вызывающий решает
         writer_failed). Никогда не бросает."""
         await self._refresh_turn_aliases(chat_id)
+        # UR-C-CLOCK (UR-26.3): инициатива — тот же ChatClock: план-снапшот
+        # для tool-фазы, answer-снапшот для Writer (один на стадию ответа).
+        _init_snap = await _cclock.snapshot(chat_id)
         try:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
@@ -13254,7 +13302,9 @@ class DirectChatService:
                         temperature=temperature, chat_id=chat_id,
                         correlation_id=correlation_id, l1_plan=plan,
                         response_plan=response_plan, fallback_meta={},
-                        time_line="", tool_schemas=_init_schemas,
+                        time_line=_cclock.render_chat_time_context(
+                            _init_snap, phase=_cclock.PHASE_PLAN),
+                        tool_schemas=_init_schemas,
                         required_caps=_initiative_caps,
                         # У инициативы нет просьбы человека (решение
                         # Architect «г», §5.2): `user_forced` не рождается,
@@ -13292,11 +13342,15 @@ class DirectChatService:
                                      "_chat_model", "") or ""))
                 if _init_note:
                     _initiative_blocks = _initiative_blocks + [_init_note]
+            _init_answer_snap, _init_clock_refreshed = \
+                await _cclock.ensure_answer_snapshot(_init_snap, chat_id)
             result = await self._l2_write_answer(
                 chat_id, _goal_query, temperature=temperature,
                 correlation_id=correlation_id,
                 character_block=persona_block, response_plan=response_plan,
                 plan_block=plan_block, user_blocks=_initiative_blocks,
+                time_line=_cclock.render_chat_time_context(
+                    _init_answer_snap, phase=_cclock.PHASE_ANSWER),
                 evidence=_initiative_evidence,
                 writer="initiative_writer", max_tokens=700,
                 speech=_init_speech)

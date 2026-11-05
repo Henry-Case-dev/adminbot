@@ -1039,6 +1039,9 @@ L1_WINDOW_MESSAGES = 20       # §1.5: окно последних N (дефол
 # `bot_persona.build_decision_profile_block` (закрытый набор измерений кадра),
 # и она защищена от сжатия — размер определяется составом данных, а не квотой.
 L1_PROFILE_SECTION = bot_persona.DECISION_PROFILE_SECTION
+#: UR-C-CLOCK (UR-25.6): секция авторитетного времени чата в L1-пакете —
+#: защищена в `_cap_context` («сейчас» не сжимается как стилистика).
+L1_TIME_SECTION = "ВРЕМЯ ЧАТА (ChatClock)"
 #: Имя секции «reply/цитата» — она защищена в `_cap_context` (фрагмент, на
 #: который отвечают, обязан дойти до планера).
 L1_REPLY_SECTION = "ОТВЕТ НА (reply/цитата)"
@@ -1611,7 +1614,8 @@ def build_l1_context(*, query, current_question: str = "",
                      budget_tokens: int | None = None,
                      with_ids: bool = False,
                      alias_resolver=None,
-                     history_partial: bool = False) -> str:
+                     history_partial: bool = False,
+                     time_context: str = "") -> str:
     """§1.5: compact-пакет L1. Полный Writer-контекст L1 НЕ получает.
     Кап бюджета ``limits.direct_l1_context_tokens`` (дефолт 1600):
     дет. деградация — сначала сокращается окно (заголовки/сообщение/
@@ -1687,6 +1691,12 @@ def build_l1_context(*, query, current_question: str = "",
             # измерений + фиксированные строки), поэтому отдельного капа нет.
             sections.append((L1_PROFILE_SECTION,
                              str(decision_profile).strip()))
+        # UR-C-CLOCK (UR-25.6/UR-26.2): время чата — авторитетный серверный
+        # блок ChatClock (phase="plan"); защищён в `_cap_context`, потому
+        # «сейчас» НЕ сжимается как стилистика (иначе L1 планировала бы
+        # «сегодня/завтра» по выдуманному времени).
+        if str(time_context or "").strip():
+            sections.append((L1_TIME_SECTION, str(time_context).strip()))
         text = "\n\n".join(f"[{name}]\n{body}" for name, body in sections)
         return _cap_context(text, sections_budget=sections, budget=budget)
     except Exception:          # pragma: no cover - защитная ветка
@@ -1715,7 +1725,7 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
         # последней и незащищённой).
         protected = {"СООБЩЕНИЕ", L1_REPLY_SECTION, "УЧАСТНИКИ",
                      "ДОСТУПНЫЕ ВОЗМОЖНОСТИ", "УСЛОВИЯ", HISTORY_SCOPE_SECTION,
-                     L1_PROFILE_SECTION}
+                     L1_PROFILE_SECTION, L1_TIME_SECTION}
 
         def _render(pairs) -> str:
             return "\n\n".join(f"[{name}]\n{body}" for name, body in pairs)

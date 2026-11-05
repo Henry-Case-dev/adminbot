@@ -830,9 +830,13 @@ _UNTRUSTED_WRAPPING = (
 
 
 def _orchestrator_messages(*, query: str, allowlist, evidence_sources,
-                           steps_done) -> list[dict]:
+                           steps_done, time_context: str = "") -> list[dict]:
     """Компактный пакет оркестратора (R17: имена/коды + bounded-срезы
-    данных в огороженных блоках). Никогда не бросает."""
+    данных в огороженных блоках). Никогда не бросает.
+
+    UR-C-CLOCK (UR-26.2/UR-26.3): ``time_context`` — авторитетный блок
+    ChatClock (phase="plan", reuse снапшота L1); data-контент, ровно один
+    блок на payload оркестратора."""
     try:
         tools_lines = []
         for schema in allowlist or []:
@@ -865,13 +869,17 @@ def _orchestrator_messages(*, query: str, allowlist, evidence_sources,
         steps_lines = [
             f"{idx + 1}. {s.get('tool')} ({s.get('reason') or '-'})"
             for idx, s in enumerate(steps_done or [])]
+        time_block = ""
+        if str(time_context or "").strip():
+            time_block = f"{str(time_context).strip()}\n\n"
         user = (
             f"ЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n"
             f"{_boundary_cut(str(query or ''), ORCHESTRATOR_QUERY_CHARS)}\n\n"
             f"ALLOWED TOOLS:\n{chr(10).join(tools_lines) or 'нет'}\n\n"
             f"СДЕЛАННЫЕ ШАГИ:\n{chr(10).join(steps_lines) or 'нет'}\n\n"
             f"EVIDENCE SO FAR:\n{chr(10).join(evidence_lines) or 'нет'}\n\n"
-            "Дай решение следующего шага (одна JSON-строка по схеме).")
+            + time_block
+            + "Дай решение следующего шага (одна JSON-строка по схеме).")
         return [{"role": "system", "content": ORCHESTRATOR_SYSTEM_PROMPT},
                 {"role": "user", "content": user}]
     except Exception:      # pragma: no cover - защитная ветка
@@ -906,11 +914,15 @@ def _parse_orchestrator_decision(raw) -> dict:
 
 async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                              tool_schemas, chat_id, correlation_id,
-                             reply_text: str = "") -> ChainResult | None:
+                             reply_text: str = "",
+                             time_context: str = "") -> ChainResult | None:
     """adaptive_tool_chain (§18C.7): bounded orchestrator ↔ allowlisted
     tools → evidence sources. Границы: steps/time/tokens/metered; cycle-
     защита; tool output untrusted; orchestrator никогда не пишет прозу
-    (L2 — единственный Writer). CancelledError — проброс."""
+    (L2 — единственный Writer). CancelledError — проброс.
+
+    UR-C-CLOCK: ``time_context`` — блок ChatClock (phase="plan") во всех
+    orchestrator-payload'ах цепочки (reuse снапшота L1, UR-26.2)."""
     allow_names = set()
     for schema in tool_schemas or []:
         try:
@@ -943,7 +955,8 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                 break
             messages = _orchestrator_messages(
                 query=query, allowlist=tool_schemas,
-                evidence_sources=evidence_sources, steps_done=steps_done)
+                evidence_sources=evidence_sources, steps_done=steps_done,
+                time_context=time_context)
             try:
                 raw_decision = await llm.generate(
                     messages, temperature=None, chat_id=chat_id,
@@ -1813,7 +1826,8 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
                          announced=None, addressee: str = "",
                          reply_text: str = "", private_terms=(),
                          capacity_chars: int | None = None,
-                         prepend_sources=(), emit_trace: bool = True
+                         prepend_sources=(), emit_trace: bool = True,
+                         time_context: str = ""
                          ) -> ToolPhaseResult:
     """ЕДИНЫЙ tool-этап Direct и Initiative (UR-03) + Search-first (UR-06).
 
@@ -1975,7 +1989,8 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
                     second = await run_adaptive_chain(
                         llm=llm, router=router, ctx=ctx, plan=plan_view,
                         query=query, tool_schemas=remaining, chat_id=chat_id,
-                        correlation_id=correlation_id)
+                        correlation_id=correlation_id,
+                        time_context=time_context)
                 except asyncio.CancelledError:
                     raise
                 except Exception:      # поиск уже выполнен — не теряем его
@@ -1997,7 +2012,8 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
                 raw = await run_adaptive_chain(
                     llm=llm, router=router, ctx=ctx, plan=plan_view,
                     query=query, tool_schemas=adaptive_schemas,
-                    chat_id=chat_id, correlation_id=correlation_id)
+                    chat_id=chat_id, correlation_id=correlation_id,
+                    time_context=time_context)
             if raw is None:
                 demote_reason = "orchestrator_unavailable"
                 mode = EXECUTION_SIMPLE
