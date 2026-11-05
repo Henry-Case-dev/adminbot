@@ -229,11 +229,36 @@ async def test_translation_that_drops_a_number_returns_source(monkeypatch):
     assert len(llm.calls_of("l2_writer")) == 1
 
 
+@pytest.mark.asyncio
+async def test_russian_answer_with_long_latin_quote_keeps_negation_check(
+        monkeypatch):
+    """Ужесточение: «латиницы больше» — НЕ основание пропускать проверку.
+
+    Русский ответ с длинной латинской цитатой содержит кириллицу, поэтому
+    русский лексикон отрицаний к нему применим: потерянное «не» → исходник,
+    хотя латинских букв в кандидате больше."""
+    source = "Кирилл не прислал 3 файла 5 ноября."
+    l2_text = ("Kirill sent 3 files on 5 November. The quick brown fox jumps "
+               "over the lazy dog again and again in a long english quote. "
+               "Это цитата из документа.")
+    assert nc._has_cyrillic(l2_text)                 # кириллица есть
+    svc, llm, seen, bot, msg, user = _drive(
+        monkeypatch, query="перескажи этот текст по-русски", l2_text=l2_text,
+        plan={"response_act": "answer", "structure": "chat",
+              "preserve_source_facts": True},
+        reply=_source_message(text=source))
+    await svc.handle(bot, msg, user)
+
+    assert isinstance(seen.get("form_contract"), nc.FormContract)
+    assert _delivered(svc) == source
+    assert len(llm.calls_of("l2_writer")) == 1
+
+
 def test_same_script_negation_loss_is_still_rejected():
     """Регресс не сломан: русский → русский с потерей «не» — по-прежнему
-    отказ узкой проверки (письменность одна, лексикон применим)."""
+    отказ узкой проверки (в результате есть кириллица, лексикон применим)."""
     source = "Кирилл не прислал 3 файла 5 ноября."
-    assert nc._dominant_script(source) == nc.SCRIPT_CYRILLIC
+    assert nc._has_cyrillic(source)
     # потеря «не» при сохранённых числах
     assert nc.check_form_contract(
         "Кирилл прислал 3 файла 5 ноября.",

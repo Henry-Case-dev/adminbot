@@ -85,35 +85,25 @@ _NAME_BOUNDARY_CHARS = r"0-9a-zа-яё_"
 # Отрицание в этом гарде — ЛЕКСИКОН РУССКИХ частиц (`_NEGATION_CUES`). К
 # переводу на другую письменность он неприменим: в «Kirill did not send ...»
 # русской «не» нет по построению, и требовать её значило бы откатывать верный
-# перевод к исходнику. Поэтому при РАЗНОЙ письменности источника и результата
-# сравниваются только числа/даты (G2), а лексические признаки отрицания
-# пропускаются. Для ТОЙ ЖЕ письменности проверка прежняя и не ослаблена;
-# списки частиц не расширены (R-03.2).
+# перевод к исходнику. Поэтому сравнение частиц идёт ТОЛЬКО когда кириллица
+# есть и в исходнике, и в результате; если в результате кириллицы нет ВООБЩЕ
+# (0 букв — это действительно текст другой письменности), лексическая проверка
+# пропускается, а числа/даты остаются под проверкой.
+# Важно: «больше латиницы» НЕ основание пропускать проверку — русский ответ с
+# длинной латинской цитатой по-прежнему обязан сохранить «не». Списки частиц
+# не расширены (R-03.2).
 _CYRILLIC_RE = re.compile(r"[\u0400-\u04FF\u0500-\u052F]")
-_LATIN_RE = re.compile(r"[A-Za-z\u00C0-\u024F]")
-SCRIPT_CYRILLIC = "cyrillic"
-SCRIPT_LATIN = "latin"
 
 
-def _dominant_script(text: str) -> str:
-    """Преобладающая письменность текста: ``cyrillic`` | ``latin`` | ``""``.
+def _has_cyrillic(text: str) -> bool:
+    """Есть ли в тексте хотя бы одна кириллическая буква.
 
-    Нужна ровно для одного решения: применим ли русский лексикон отрицаний к
-    результату трансформации. Считаются БУКВЫ (цифры/пунктуация/эмодзи не
-    участвуют); смешанный текст решается по большинству, при равенстве или
-    отсутствии букв — ``""`` (проверка остаётся строгой). Никогда не бросает.
-    """
+    Нужна ровно для одного решения: применим ли русский лексикон отрицаний.
+    Никогда не бросает."""
     try:
-        source = str(text or "")
-        cyrillic = len(_CYRILLIC_RE.findall(source))
-        latin = len(_LATIN_RE.findall(source))
+        return bool(_CYRILLIC_RE.search(str(text or "")))
     except Exception:      # pragma: no cover - защитная ветка
-        return ""
-    if cyrillic > latin:
-        return SCRIPT_CYRILLIC
-    if latin > cyrillic:
-        return SCRIPT_LATIN
-    return ""
+        return True        # сомнение → строгая проверка
 
 
 # ── G2b (BGS-04.10): отрицание вне числового окна ──────────────────────────
@@ -215,10 +205,11 @@ def check_form_contract(candidate: str, contract: FormContract, *,
     (R-03.2/R-03.3). Применяется только там, где есть исходный текст и
     требование сохранить смысл; для свободной речи L2 контракт не создаётся.
 
-    Перевод на ДРУГУЮ письменность (кириллица ↔ латиница): числа/даты и имена
-    ростера проверяются как прежде (выкинутое число → отказ), а лексические
-    признаки русского отрицания не сравниваются — они неприменимы к тексту
-    другой письменности. Для той же письменности G2/G2b прежние.
+    Перевод на ДРУГУЮ письменность: числа/даты и имена ростера проверяются как
+    прежде (выкинутое число → отказ). Лексические признаки русского отрицания
+    сравниваются, только когда кириллица есть и в исходнике, и в результате:
+    если в результате кириллицы нет вообще (перевод), лексикон к нему
+    неприменим. Русский ответ с длинной латинской цитатой остаётся строгим.
     """
     try:
         text = str(candidate or "")
@@ -228,15 +219,13 @@ def check_form_contract(candidate: str, contract: FormContract, *,
         counts_cand, neg_cand = _number_signature(text)
         if counts_src != counts_cand:
             return FORM_GUARD_REJECTED              # G2: числа, даты
-        # Отрицание — русский лексикон: сравниваем только внутри одной
-        # письменности (перевод «did not send» не содержит русской «не»).
-        script_src = _dominant_script(contract.source_text)
-        script_cand = _dominant_script(text)
-        same_script = not (script_src and script_cand
-                           and script_src != script_cand)
-        if same_script and neg_src != neg_cand:
+        # Отрицание — русский лексикон: применяем только к тексту с кириллицей
+        # (у перевода на другую письменность кириллицы 0 букв).
+        negation_applicable = (_has_cyrillic(contract.source_text)
+                              and _has_cyrillic(text))
+        if negation_applicable and neg_src != neg_cand:
             return FORM_GUARD_REJECTED              # G2: число под отрицанием
-        if same_script and _negation_signature(contract.source_text) \
+        if negation_applicable and _negation_signature(contract.source_text) \
                 != _negation_signature(text):
             return FORM_GUARD_REJECTED              # G2b (BGS-04.10)
         if contract.roster_names:                   # G3
