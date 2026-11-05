@@ -1,20 +1,35 @@
 """Epic 24 — APScheduler service for periodic summaries (R8, Section 33.10).
 
-Cron 00:00/06:00/12:00/18:00 Asia/Yekaterinburg; MemoryJobStore ONLY;
-max_instances=1 + coalesce=True (anti-race); start() before dp.start_polling.
+UNIFIED-REPLY UR-C-SCHED (arch contract §4, UR-28): per-chat расписание.
+ОДИН лёгкий тикер APScheduler (interval 60 c, `max_instances=1` +
+`coalesce=True` — семантика прежнего cron сохранена) вместо глобального
+cron `0,6,12,18` по `limits.summary_timezone`: на каждом тике для
+каждого чата вычисляется ЕГО локальный слот 00:00/06:00/12:00/18:00
+через ChatClock (services/chat_clock.py — единственный резолвер пояса,
+UR-24.3), слот атомарно бронируется (services/slot_claims.py, v42) и
+только затем запускается генератор. Чат в другом поясе стреляет в СВОЁ
+локальное время в рамках того же процесса/тикера; второго планировщика
+нет (UR-BAN-06). Просроченный слот — честный skip с
+`reason_code='missed_slot_expired'` (coalescing до одного актуального
+слота, UR-28.3); рестарт/повторный тик/конкурентный воркер дубль не
+создают (claim по chat+local_date+slot, fold/gap — детерминированные
+instant'ы, §4.3).
+
+MemoryJobStore ONLY; start() before dp.start_polling.
 
 ASAP 8 v6.3 B06.1: единый резолвер per-chat Summary — здесь ОДНА точка
-истины `summary_effective_enabled(chat_id)`; producer (cron/queue/trigger/
-manual/retry через generate_and_send) следует этому резолверу.
+истины `summary_effective_enabled(chat_id)`; producer (тикер/queue/
+trigger/manual/retry через generate_and_send) следует этому резолверу.
 """
 import asyncio
+import datetime
 import inspect
 import logging
 import os
 
 from apscheduler.schedulers import SchedulerNotRunningError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from config.settings import settings
 from services import hot_config as hot
@@ -41,6 +56,11 @@ _TRUTHY = frozenset({"1", "true", "yes", "on"})
 # снова пришлёт SIGKILL, `finally` не исполнится и терминал не запишется.
 SHUTDOWN_DRAIN_ENV = "SUMMARY_SHUTDOWN_DRAIN_SECONDS"
 SHUTDOWN_DRAIN_DEFAULT = 20.0
+
+# ── UR-C-SCHED: локальные слоты саммари каждого чата (частота не менялась) ──
+SLOT_TIMES: tuple[tuple[int, int], ...] = ((0, 0), (6, 0), (12, 0), (18, 0))
+CLAIM_KIND = "summary"
+TICKER_INTERVAL_SECONDS = 60
 
 
 def shutdown_drain_seconds() -> float:
@@ -123,7 +143,7 @@ async def summary_any_chat_opted_in(pg=None) -> bool:
 
 
 class SummarySchedulerService:
-    """Runs the summary pipeline on a fixed cron schedule."""
+    """Per-chat расписание саммари: тикер 60 c + локальные слоты ChatClock."""
 
     JOB_ID = "summary_job"
 
@@ -131,15 +151,18 @@ class SummarySchedulerService:
         self._generator = generator
         self._db = db
         self._stopping_logged = False
-        # MemoryJobStore only (default) — persistent stores break on pickle
-        self._scheduler = AsyncIOScheduler(timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
+        # MemoryJobStore only (default) — persistent stores break on pickle.
+        # Пояс планировщика НЕ задаётся: локальные слоты каждого чата
+        # считает ChatClock чата (UR-C-SCHED; глобального пояса cron нет).
+        self._scheduler = AsyncIOScheduler()
 
     def start(self) -> None:
+        # ОДИН тикер (arch §4.1): interval 60 c, max_instances=1,
+        # coalesce=True — прежняя анти-race семантика; per-chat слоты
+        # вычисляются на тике (никакого второго планировщика).
         self._scheduler.add_job(
             self._tick,
-            CronTrigger(
-                hour="0,6,12,18", minute=0, timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)
-            ),
+            IntervalTrigger(seconds=TICKER_INTERVAL_SECONDS),
             id=self.JOB_ID,
             replace_existing=True,
             max_instances=1,
@@ -147,11 +170,11 @@ class SummarySchedulerService:
         )
         self._scheduler.start()
         logger.info(
-            "SmartModule scheduler started (cron 0,6,12,18 %s)",
-            hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE),
-        )
+            "SmartModule scheduler started (per-chat local slots "
+            "00/06/12/18 via ChatClock; ticker %ss; claims=%s)",
+            TICKER_INTERVAL_SECONDS, "slot_claims")
 
-    async def _tick(self) -> None:
+    async def _tick(self, now_utc: datetime.datetime | None = None) -> None:
         # INC-SUMMARY-01 (shutdown): тик, попавший в окно остановки, новых
         # прогонов не начинает (генератор их не примет — ран бы не появился).
         # Fail-open: генератор-двойник без этого API (duck-typing в тестах)
@@ -172,6 +195,11 @@ class SummarySchedulerService:
         bounds = mca_gates.summary_pregen_bounds_enabled()
         chat_timeout = mca_gates.summary_tick_chat_timeout_seconds() \
             if bounds else 0.0
+        now = now_utc or datetime.datetime.now(datetime.timezone.utc)
+        from services.slot_claims import (
+            SUMMARY_DUE_WINDOW_SECONDS,
+            claim_slot_if_due,
+        )
         for raw_chat_id in target:
             # Хотфикс-5 (round10.25): chat_id из PG приходит строкой/NULL —
             # приводим к int ДО вызова, иначе per-chat override стиля не
@@ -190,13 +218,28 @@ class SummarySchedulerService:
             if chat_id > 0:
                 logger.debug("dm summary skip: chat_id=%s", chat_id)
                 continue
-            # B06.1: cron реально следует per-chat резолверу (emergency →
+            # B06.1: тик реально следует per-chat резолверу (emergency →
             # chat override → global default), а не только /api/config.
             enabled, source = await summary_effective_enabled(chat_id)
             if not enabled:
                 logger.info(
                     "summary: cron skip (disabled, source=%s) | chat_id=%s",
                     source, chat_id)
+                continue
+            # UR-C-SCHED (§4.2–4.5): локальный слот чата через ChatClock +
+            # атомарный claim. 'fire' — claim наш, запускаем генератор;
+            # остальные вердикты (занят/просрочен/тихо) — без запуска.
+            try:
+                verdict = await claim_slot_if_due(
+                    kind=CLAIM_KIND, db=self._db, chat_id=chat_id,
+                    now_utc=now, slot_seq=SLOT_TIMES,
+                    due_window_s=SUMMARY_DUE_WINDOW_SECONDS)
+            except Exception:
+                logger.exception(
+                    "summary: slot resolution failed — tick continues | "
+                    "chat_id=%s", chat_id)
+                continue
+            if verdict.action != "fire":
                 continue
             try:
                 if chat_timeout and chat_timeout > 0:

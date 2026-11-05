@@ -1770,6 +1770,15 @@ _SCHEMA_VERSION_MEME_QUOTA = 40
 # PG — no-op: состояние отправки живёт в операционной SQLite рядом с
 # `mca_bot_outputs` (PG-копия не читается никем и выдавала бы несуществующую
 # поддержку). Откат: cold git revert (таблица инертна, код v40 её не читает).
+# ── UNIFIED-REPLY UR-C-SCHED (arch contract §4.2; 06.11.2026): v42 —
+# аддитивная таблица брони слотов расписания `slot_claims` (PK
+# kind+chat_id+local_date+local_slot). DDL — в модуле-владельце механизма
+# (`services.slot_claims.SLOT_CLAIMS_DDL_SQLITE`, IF NOT EXISTS); шаг его
+# только применяет. Идемпотентно, повтор — no-op, PG — no-op (расписание
+# живёт в операционной SQLite рядом с summary_runs). Обратимость: DROP
+# таблицы безопасен (не читается старым кодом). `user_version` 41→42.
+_SCHEMA_VERSION_SLOT_CLAIMS = 42
+
 _SCHEMA_VERSION_PUBLISH_CLAIM = 41
 
 _MCA_FACTCHECK_RUNS_DDL = (
@@ -2810,6 +2819,7 @@ class DatabaseService:
         `version > current`). v13 (`schema_migrations`) — волна 0 `mca-14`;
         v14 (`task_jobs`, `mca-01`) и v15 (`mca_events`, `mca-13`)
         добавляются своими фичами отдельными строками."""
+        from services import slot_claims  # v42: имя шага у владельца DDL
         return [
             MigrationStep(1, "graphrag_v2",
                           lambda svc: svc._migrate_graphrag_v2()),
@@ -3012,6 +3022,16 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_PUBLISH_CLAIM,
                           "chat_publish_claim_v41",
                           lambda svc: svc._migrate_publish_claim_v41()),
+            # UNIFIED-REPLY UR-C-SCHED (arch contract §4.2; 06.11.2026):
+            # v42 — аддитивная таблица брони слотов расписания
+            # `slot_claims` (PK kind+chat_id+local_date+local_slot).
+            # DDL — в модуле-владельце механизма
+            # (`services.slot_claims.SLOT_CLAIMS_DDL_SQLITE`, IF NOT
+            # EXISTS), шаг его только применяет. Идемпотентно, повтор —
+            # no-op, PG — no-op, старый код v41 таблицу не читает.
+            MigrationStep(_SCHEMA_VERSION_SLOT_CLAIMS,
+                          slot_claims.SLOT_CLAIMS_MIGRATION_STEP_NAME,
+                          lambda svc: svc._migrate_slot_claims_v42()),
         ]
 
     @staticmethod
@@ -3414,6 +3434,32 @@ class DatabaseService:
         logger.info("[database] migration v41: %s", pub.CLAIM_TABLE)
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_PUBLISH_CLAIM}")
+        await self.db.commit()
+
+    async def _migrate_slot_claims_v42(self) -> None:
+        """v42 (UNIFIED-REPLY UR-C-SCHED, arch contract §4.2): бронь
+        слотов расписания `slot_claims`.
+
+        Аддитивно: одна новая таблица (PK kind+chat_id+local_date+
+        local_slot) + 1 индекс, без backfill. DDL — дословно в модуле-
+        владельце механизма (`services.slot_claims.SLOT_CLAIMS_DDL_
+        SQLITE`); шаг применяет именно его, второй копии выражений здесь
+        нет. Повтор и legacy-БД, где таблица уже создана тестами, —
+        no-op. Существующие строки не UPDATE/DELETE-ятся; пустая таблица
+        = честное «слотов не бранилось».
+
+        PG — no-op: расписание живёт в операционной SQLite рядом с
+        summary_runs. Откат: cold git revert (таблица инертна)."""
+        from services import slot_claims
+        for statement in slot_claims.SLOT_CLAIMS_DDL_SQLITE:
+            await self.db.execute(statement)
+        for statement in slot_claims._SLOT_CLAIMS_INDEX_DDL:
+            await self.db.execute(statement)
+        await self.db.commit()
+        logger.info("[database] migration v42: %s",
+                    slot_claims.SLOT_CLAIMS_TABLE)
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_SLOT_CLAIMS}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:
