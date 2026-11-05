@@ -470,7 +470,8 @@
       "clientHeight": 814,
       "overflowY": "auto"
      },
-     "placementValue": "full"
+     "placementValue": "full",
+     "absentNoteExactOnOtherRow": null
     },
     "text_absent": {
      "placement": "full",
@@ -482,11 +483,11 @@
       "right": 1428,
       "bottom": 892
      },
-     "titleText": "ent:-1001234567890:92",
+     "titleText": "Без названия",
      "titleFullNoClip": true,
      "textPresent": false,
      "textClassAbsent": true,
-     "textSnippet": "текст записи не сохранён",
+     "textSnippet": "Текст записи отсутствует",
      "metricsRows": [
       {
        "key": "importance",
@@ -514,15 +515,28 @@
       "clientHeight": 810,
       "overflowY": "auto"
      },
-     "placementValue": "full"
+     "placementValue": "full",
+     "expectedAbsentNote": "Текст записи отсутствует",
+     "absentNoteMatchesRequirement": true
+    },
+    "extra": {
+     "titleText": "Без названия",
+     "idInTitle": false,
+     "idInAttribute": "ent:-1001234567890:92",
+     "idRowPresent": true,
+     "idRowText": "Записьent:-1001234567890:92",
+     "idRowVisible": true,
+     "idRowInsideProvenance": true
     }
    },
    "console_errors": [],
    "errors": [],
    "sha256": {
-    "card-text-absent-negative-1440.png": "5ce1347a0acb7d6dabb24f6b9fcb8e6523dc0d9e0febfe06955fc3aa8c45637e",
-    "card-text-present-1440.png": "98b4d4ed6d7f7a72d52442259aa10d2563f419e80001c74b4124cf18c895b50e"
-   }
+    "card-text-absent-negative-1440.png": "f18a0be1ded0f3f2d8942e0143945be294972bd0c1f078408ae46e22dd143f73",
+    "card-text-present-1440.png": "f8875d63cde8ebbf921ab1f80156633be6b4d086cd270ad4f012c4145f0328b8"
+   },
+   "recheck_commit": "4cc230791c6f3f8c74b8c99bb1214db88de75d77",
+   "recheck_branch": "cmv/wording-and-no-title"
   },
   "CMV-CARD-07": {
    "shots": [
@@ -584,11 +598,11 @@
       "right": 1428,
       "bottom": 892
      },
-     "titleText": "ent:-1001234567890:92",
+     "titleText": "Без названия",
      "titleFullNoClip": true,
      "textPresent": false,
      "textClassAbsent": true,
-     "textSnippet": "текст записи не сохранён",
+     "textSnippet": "Текст записи отсутствует",
      "metricsRows": [
       {
        "key": "importance",
@@ -617,14 +631,39 @@
       "overflowY": "auto"
      },
      "placementValue": "full"
+    },
+    "extra": {
+     "titleText": "Без названия",
+     "idInTitle": false,
+     "idInAttribute": "ent:-1001234567890:92",
+     "idRowPresent": true,
+     "idRowText": "Записьent:-1001234567890:92",
+     "idRowVisible": true,
+     "idRowInsideProvenance": true,
+     "expected": {
+      "titleText": "Без названия",
+      "id": "ent:-1001234567890:92",
+      "absentNote": "Текст записи отсутствует"
+     },
+     "headerIsNeutralLabel": true,
+     "headerHasNoRawId": true,
+     "idAvailableInDetails": true
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:92"
     }
    },
    "console_errors": [],
    "errors": [],
    "sha256": {
-    "card-nameless-creature-1440.png": "a45eb89c5ebfb65a64b3c81663fa2af86e138f4b7ad3348bcf4076a0486b6ef1",
-    "card-untitled-negative-1440.png": "4b4a71b1027da9409b1d03e36e719c97edef6b39288de39b70feb87d172e902e"
-   }
+    "card-nameless-creature-1440.png": "584db5dc131b1b477a880485e3a512d4d02cd8c233897d31ee29d783cdca937b",
+    "card-untitled-negative-1440.png": "ac0cfe55c6debaa0be414b410f212984e49ea3d222d18aa63388a59246e9066e"
+   },
+   "recheck_commit": "4cc230791c6f3f8c74b8c99bb1214db88de75d77",
+   "recheck_branch": "cmv/wording-and-no-title"
   },
   "CMV-EMB-01": {
    "shots": [
