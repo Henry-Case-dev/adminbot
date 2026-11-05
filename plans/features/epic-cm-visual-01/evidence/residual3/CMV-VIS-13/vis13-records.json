@@ -1,0 +1,260 @@
+{
+ "fixture": 702,
+ "target": "paradigm:-1001234567890:184",
+ "started_at": "2026-11-05T21:31:53",
+ "payload_sha256": "5117f18beb06df41ca5085063cd0b7ed78bd8fdd7a887db9805b0c8762a9907d",
+ "records": [
+  {
+   "rev": "df00f178",
+   "side": "after",
+   "state": "selected",
+   "ratio": 1.8,
+   "target": "paradigm:-1001234567890:184",
+   "selected": "paradigm:-1001234567890:184",
+   "fit": 0.1122599704579025,
+   "card": false,
+   "detail": {
+    "id": "paradigm:-1001234567890:184",
+    "title": "Аня любит утренний кофе 184",
+    "kind": "paradigm"
+   },
+   "labels": 16,
+   "activeEdges": 13,
+   "pulse": 24,
+   "canvases": 4,
+   "scenes": 1,
+   "visNetworks": 1,
+   "dpr": 1,
+   "viewport": [
+    1536,
+    960
+   ],
+   "scale": 0.20207,
+   "shot": "after-selected-1536.png"
+  },
+  {
+   "rev": "df00f178",
+   "side": "after",
+   "state": "zoom",
+   "ratio": 2.6,
+   "target": "paradigm:-1001234567890:184",
+   "selected": "paradigm:-1001234567890:184",
+   "fit": 0.1122599704579025,
+   "card": false,
+   "detail": {
+    "id": "paradigm:-1001234567890:184",
+    "title": "Аня любит утренний кофе 184",
+    "kind": "paradigm"
+   },
+   "labels": 26,
+   "activeEdges": 13,
+   "pulse": 24,
+   "canvases": 4,
+   "scenes": 1,
+   "visNetworks": 1,
+   "dpr": 1,
+   "viewport": [
+    1536,
+    960
+   ],
+   "scale": 0.29188,
+   "shot": "after-zoom-1536.png"
+  },
+  {
+   "rev": "df00f178",
+   "side": "after",
+   "state": "fullscreen",
+   "ratio": 1.8,
+   "target": "paradigm:-1001234567890:184",
+   "selected": "paradigm:-1001234567890:184",
+   "fit": 0.1122599704579025,
+   "card": false,
+   "detail": {
+    "id": "paradigm:-1001234567890:184",
+    "title": "Аня любит утренний кофе 184",
+    "kind": "paradigm"
+   },
+   "labels": 16,
+   "activeEdges": 13,
+   "pulse": 24,
+   "canvases": 4,
+   "scenes": 1,
+   "visNetworks": 1,
+   "dpr": 1,
+   "viewport": [
+    1536,
+    960
+   ],
+   "scale": 0.20207,
+   "shot": "after-fullscreen-1536.png"
+  },
+  {
+   "rev": "9e238d06",
+   "side": "before",
+   "state": "selected",
+   "ratio": 1.8,
+   "target": "paradigm:-1001234567890:184",
+   "selected": "paradigm:-1001234567890:184",
+   "fit": 0.05626759159422289,
+   "card": false,
+   "detail": {
+    "id": "paradigm:-1001234567890:184",
+    "title": "Аня любит утренний кофе 184",
+    "kind": "paradigm"
+   },
+   "labels": 0,
+   "activeEdges": 0,
+   "pulse": 0,
+   "canvases": 3,
+   "scenes": 1,
+   "visNetworks": 1,
+   "dpr": 1,
+   "viewport": [
+    1536,
+    960
+   ],
+   "scale": 0.10128,
+   "shot": "before-selected-1536.png"
+  },
+  {
+   "rev": "9e238d06",
+   "side": "before",
+   "state": "zoom",
+   "ratio": 2.6,
+   "target": "paradigm:-1001234567890:184",
+   "selected": "paradigm:-1001234567890:184",
+   "fit": 0.05626759159422289,
+   "card": false,
+   "detail": {
+    "id": "paradigm:-1001234567890:184",
+    "title": "Аня любит утренний кофе 184",
+    "kind": "paradigm"
+   },
+   "labels": 0,
+   "activeEdges": 0,
+   "pulse": 0,
+   "canvases": 3,
+   "scenes": 1,
+   "visNetworks": 1,
+   "dpr": 1,
+   "viewport": [
+    1536,
+    960
+   ],
+   "scale": 0.1463,
+   "shot": "before-zoom-1536.png"
+  },
+  {
+   "rev": "9e238d06",
+   "side": "before",
+   "state": "fullscreen",
+   "ratio": 1.8,
+   "target": "paradigm:-1001234567890:184",
+   "selected": "paradigm:-1001234567890:184",
+   "fit": 0.05626759159422289,
+   "card": false,
+   "detail": {
+    "id": "paradigm:-1001234567890:184",
+    "title": "Аня любит утренний кофе 184",
+    "kind": "paradigm"
+   },
+   "labels": 0,
+   "activeEdges": 0,
+   "pulse": 0,
+   "canvases": 3,
+   "scenes": 1,
+   "visNetworks": 1,
+   "dpr": 1,
+   "viewport": [
+    1536,
+    960
+   ],
+   "scale": 0.10128,
+   "shot": "before-fullscreen-1536.png"
+  },
+  {
+   "rev": "dfba4080",
+   "side": "beforefull",
+   "state": "selected",
+   "ratio": 1.8,
+   "target": "paradigm:-1001234567890:184",
+   "selected": "paradigm:-1001234567890:184",
+   "fit": 0.08100053490919279,
+   "card": false,
+   "detail": {
+    "id": "paradigm:-1001234567890:184",
+    "title": "Аня любит утренний кофе 184",
+    "kind": "paradigm"
+   },
+   "labels": 16,
+   "activeEdges": 13,
+   "pulse": 24,
+   "canvases": 4,
+   "scenes": 1,
+   "visNetworks": 1,
+   "dpr": 1,
+   "viewport": [
+    1536,
+    960
+   ],
+   "scale": 0.1458,
+   "shot": "beforefull-selected-1536.png"
+  },
+  {
+   "rev": "dfba4080",
+   "side": "beforefull",
+   "state": "zoom",
+   "ratio": 2.6,
+   "target": "paradigm:-1001234567890:184",
+   "selected": "paradigm:-1001234567890:184",
+   "fit": 0.08100053490919279,
+   "card": false,
+   "detail": {
+    "id": "paradigm:-1001234567890:184",
+    "title": "Аня любит утренний кофе 184",
+    "kind": "paradigm"
+   },
+   "labels": 26,
+   "activeEdges": 13,
+   "pulse": 24,
+   "canvases": 4,
+   "scenes": 1,
+   "visNetworks": 1,
+   "dpr": 1,
+   "viewport": [
+    1536,
+    960
+   ],
+   "scale": 0.2106,
+   "shot": "beforefull-zoom-1536.png"
+  },
+  {
+   "rev": "dfba4080",
+   "side": "beforefull",
+   "state": "fullscreen",
+   "ratio": 1.8,
+   "target": "paradigm:-1001234567890:184",
+   "selected": "paradigm:-1001234567890:184",
+   "fit": 0.08100053490919279,
+   "card": false,
+   "detail": {
+    "id": "paradigm:-1001234567890:184",
+    "title": "Аня любит утренний кофе 184",
+    "kind": "paradigm"
+   },
+   "labels": 16,
+   "activeEdges": 13,
+   "pulse": 24,
+   "canvases": 4,
+   "scenes": 1,
+   "visNetworks": 1,
+   "dpr": 1,
+   "viewport": [
+    1536,
+    960
+   ],
+   "scale": 0.1458,
+   "shot": "beforefull-fullscreen-1536.png"
+  }
+ ]
+}
