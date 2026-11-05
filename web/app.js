@@ -35500,58 +35500,78 @@
         return b.baseline;
       },
       hasBaseline: function () { return !!this.baseline; },
-      // Одна человеческая фраза о состоянии (§2.1 ТЗ). Никаких id/хешей.
+      // Одна человеческая фраза о состоянии (§2.1 ТЗ / PVR-FC-CORRECTIVE-01
+      // PVR-01.x). Источник — ТОЛЬКО плоский контракт effective_* того же
+      // резолвера, что собирает LLM-payload (handoff PVR-01.7): журнал
+      // (data.active/journal_*) меткой «действует» не служит. Несопоставленный
+      // текст честно называется «Не сопоставлено с историей» без подстановки
+      // ближайшей ревизии; drift — отдельный честный статус без активной
+      // карточки (данные не правятся автоматически).
       state: function () {
         if (!this.promptKey) {
           return { kind: 'muted', text: 'Промпт не выбран', detail: '' };
         }
         if (this.hist.error) {
-          return { kind: 'warn', text: 'Состояние версий недоступно',
+          return { kind: 'warn', text: 'История временно недоступна',
                    detail: this.hist.error };
         }
         if (!this.data) {
           return { kind: 'muted', text: 'Проверяем состояние версий…', detail: '' };
         }
-        var a = this.data.active || null;
-        var base = this.baseline;
-        var when = (a && a.created_at) ? pvShortWhen(a.created_at) : '';
-        if (this.isChatScope && !a) {
-          return { kind: 'inherit', text: 'Наследуется от глобального', detail: '' };
+        var st = String(this.data.effective_status || 'unknown');
+        if (st === 'drift') {
+          return { kind: 'warn', text: 'Журнал и действующий текст расходятся',
+                   detail: 'ни одна версия не помечена активной' };
         }
-        if (a && base && base.revision_id === a.revision_id) {
-          return { kind: 'baseline', text: 'Базовый по выбору владельца',
-                   detail: when ? ('действует с ' + when) : '' };
+        if (st === 'unknown') {
+          return { kind: 'warn', text: 'Состояние неизвестно',
+                   detail: 'журнал недоступен' };
         }
-        if (a && a.origin === 'factory') {
-          return { kind: 'factory', text: 'Исходный из кода',
-                   detail: when ? ('поставка ' + when) : '' };
+        if (st === 'unmatched') {
+          return { kind: 'warn', text: 'Не сопоставлено с историей',
+                   detail: 'действующий текст без сохранённой ревизии' };
         }
-        if (a && a.origin === 'manual') {
-          return this.isChatScope
-            ? { kind: 'chat', text: 'Действует в этом чате',
-                detail: when ? ('изменён вручную · ' + when) : 'изменён вручную' }
-            : { kind: 'global', text: 'Изменён глобально',
-                detail: when ? ('вручную · ' + when) : 'вручную' };
+        var origin = String(this.data.effective_origin || 'unknown');
+        if (origin === 'chat_override') {
+          return { kind: 'chat', text: 'Действует в этом чате',
+                   detail: 'локальная версия' };
         }
-        if (a && a.origin === 'restored') {
-          return { kind: 'active', text: 'Действует восстановленная версия',
-                   detail: when ? ('восстановлена ' + when) : '' };
+        if (origin === 'global') {
+          return { kind: 'global', text: 'Действует глобальная версия',
+                   detail: this.isChatScope ? 'наследуется чатом' : '' };
         }
-        if (a) {
-          return { kind: 'active', text: 'Действует сохранённая версия',
-                   detail: when ? ('записана ' + when) : '' };
+        if (origin === 'code') {
+          return { kind: 'factory', text: 'Исходный из кода', detail: '' };
         }
-        if (this.isChatScope) {
-          return { kind: 'inherit', text: 'Наследуется от глобального', detail: '' };
-        }
-        return { kind: 'factory', text: 'Исходный из кода', detail: '' };
+        return { kind: 'muted', text: 'Состояние неизвестно', detail: '' };
       },
+      // Дата действующей ревизии — только из реально загруженной строки
+      // ревизий с тем же revision_id; не найдена — без даты (не выдумываем).
+      effectiveRevRow: function () {
+        var d = this.data;
+        var rid = d && d.effective_revision_id;
+        if (!rid) return null;
+        var rows = (d && d.revisions) || [];
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i] && rows[i].revision_id === rid) return rows[i];
+        }
+        return null;
+      },
+      // «действует: …» в панели — из effective-контракта (origin + честный
+      // статус), НЕ из журнального указателя (PVR-01.3/01.7 handoff).
       activeLabel: function () {
-        var a = this.data && this.data.active;
-        if (!a) return this.isChatScope ? 'наследуется от глобального' : 'версия из кода';
-        var src = _PV_SOURCE_LABELS[a.source] || 'сохранённая';
-        var when = a.created_at ? pvShortWhen(a.created_at) : '';
-        return when ? (src + ' · ' + when) : src;
+        var d = this.data;
+        if (!d) return '—';
+        var st = String(d.effective_status || 'unknown');
+        if (st === 'drift') return 'расходится с журналом';
+        if (st === 'unmatched') return 'не сопоставлено с историей';
+        if (st === 'unknown') return 'состояние неизвестно';
+        var origin = String(d.effective_origin || '');
+        var base = origin === 'chat_override' ? 'локальная версия чата'
+          : origin === 'global' ? 'глобальная версия' : 'исходная из кода';
+        var row = this.effectiveRevRow;
+        var when = (row && row.created_at) ? pvShortWhen(row.created_at) : '';
+        return when ? (base + ' · ' + when) : base;
       },
       factoryLabel: function () {
         if (!this.data) return '—';
@@ -35573,6 +35593,26 @@
         return when ? ('назначен ' + when + tail) : ('назначен' + tail);
       },
       entries: function () { return this.hist.entries || []; },
+      // Основной список панели — ТОЛЬКО сохранённые ревизии (PVR-02.1/C1.2):
+      // события активации живут во вторичном «Истории действий» и никогда
+      // не попадают в основную ленту.
+      revisionRows: function () {
+        var d = this.data;
+        var rows = (d && d.revisions) || [];
+        var seen = {};
+        var out = [];
+        rows.forEach(function (r) {
+          if (!r || !r.revision_id || seen[r.revision_id]) return;
+          seen[r.revision_id] = true;
+          out.push(r);
+        });
+        return out;
+      },
+      // Вторичная лента событий активации («была применена», не active).
+      eventRows: function () { return (this.data && this.data.activations) || []; },
+      drifted: function () {
+        return !!this.data && this.data.effective_status === 'drift';
+      },
       detailsLines: function () {
         var d = this.data;
         if (!d) return [];
@@ -35580,15 +35620,34 @@
         out.push('блок: ' + (d.block_id || '—'));
         out.push('ключ: ' + (d.pg_key || this.promptKey || '—'));
         out.push('область: ' + (d.scope === 'chat' ? 'чат ' + d.chat_id : 'глобальная'));
+        // PVR-01: плоский контракт эффективного состояния — происхождение,
+        // сопоставление с журналом и диагностика (без invent-значений).
+        out.push('происхождение действующего текста: '
+          + (d.effective_origin_label
+             || ({ chat_override: 'локальная версия чата', global: 'глобальная версия',
+                   code: 'исходная из кода' }[d.effective_origin] || d.effective_origin || '—')));
+        if (d.effective_content_hash) {
+          out.push('действующий sha256/12: ' + d.effective_content_hash);
+        }
+        if (d.effective_revision_id) {
+          out.push('действующая ревизия: ' + d.effective_revision_id);
+        } else if (d.effective_status === 'unmatched') {
+          out.push('действующая ревизия: не сопоставлена');
+        }
+        if (d.effective_status === 'drift') {
+          out.push('статус: журнал и действующий текст расходятся — '
+            + 'ни одна версия не помечена активной');
+        }
+        if ((d.effective_diagnostics || []).length) {
+          out.push('диагностика: ' + d.effective_diagnostics.join(', '));
+        }
+        // Журнальный указатель — отдельная журнальная строка (PVR-01.3),
+        // не «действующая».
+        if (d.journal_active_revision_id) {
+          out.push('журнальный указатель: ' + d.journal_active_revision_id);
+        }
         if (d.sealed_revision) out.push('печать кода: ' + d.sealed_revision);
         if (d.factory_revision) out.push('заводская ревизия: ' + d.factory_revision);
-        if (d.active) {
-          out.push('действующая ревизия: ' + (d.active.revision_id || '—'));
-          if (d.active.sha256_12) out.push('sha256/12: ' + d.active.sha256_12);
-          if (d.active.factory_revision_applied) {
-            out.push('применённая заводская метка: ' + d.active.factory_revision_applied);
-          }
-        }
         var b = this.baseline;
         if (b) out.push('базовая ревизия: ' + (b.revision_id || '—'));
         return out;
@@ -35612,9 +35671,21 @@
       },
       errText: function (err) {
         var status = (err && err.status) || 0;
-        var msg = (err && err.message) ? String(err.message) : 'ошибка';
+        var raw = err && err.message;
+        var msg;
+        if (raw && typeof raw === 'object') {
+          // Структурированный detail (FastAPI {code, message, ...}) — берём
+          // человеческое сообщение, а не «[object Object]».
+          msg = String(raw.message || raw.code || 'ошибка');
+        } else if (raw) {
+          msg = String(raw);
+        } else {
+          msg = 'ошибка';
+        }
         if (status === 503) {
-          return 'Журнал версий недоступен: ' + msg;
+          // PVR-05.2 handoff: каноничная честная метка недоступного журнала;
+          // редактор и черновик остаются на месте.
+          return 'История временно недоступна: ' + msg;
         }
         if (status === 409) {
           return 'Конфликт: настройки изменены в другом окне. ' + msg;
@@ -35788,11 +35859,16 @@
         if (entry.status_label) return String(entry.status_label);
         return entry.status || '';
       },
+      // Метка «активная» — только ревизия, сопоставленная резолвером с
+      // реально действующим текстом (status=matched + effective_revision_id).
+      // При drift/unmatched не активна НИ ОДНА строка (PVR-01.7); журнальный
+      // указатель (data.active) меткой не служит (PVR-01.3/C1.2).
       isActiveEntry: function (entry) {
         var d = this.data;
-        return !!(entry && d && d.active
-                  && entry.revision_id
-                  && d.active.revision_id === entry.revision_id);
+        if (!entry || !d) return false;
+        if (String(d.effective_status || '') !== 'matched') return false;
+        return !!(entry.revision_id && d.effective_revision_id
+                  && entry.revision_id === d.effective_revision_id);
       },
       isBaselineEntry: function (entry) {
         var b = this.baseline;
@@ -35897,23 +35973,38 @@
         return 'pv-diff__ctx';
       },
       // Сравнение «было → стало»: выбранная версия против действующей.
+      // Действующая — только сопоставленная эффективная ревизия; при
+      // drift/unmatched её нет, поэтому честно сравниваем с журнальным
+      // указателем (подпись «журнальная версия») или отказываемся без выдумок.
       compare: async function (entry) {
         var h = this.hist;
         if (!entry || !entry.revision_id) return;
         var d = this.data;
-        var target = (d && d.active && d.active.revision_id) || '';
+        var target = '';
+        var targetLabel = '';
+        if (d && d.effective_status === 'matched' && d.effective_revision_id) {
+          target = d.effective_revision_id;
+          targetLabel = 'действующая';
+        } else if (d && d.journal_active_revision_id) {
+          target = d.journal_active_revision_id;
+          targetLabel = 'журнальная версия (указатель)';
+        }
         if (!target) {
-          h.diffError = 'Нечего сравнивать: действующая версия не зафиксирована.';
+          h.diffError = 'Нечего сравнивать: действующий текст не сопоставлен '
+            + 'с сохранённой версией.';
           h.diff = null;
           return;
         }
         if (target === entry.revision_id) {
-          h.diffError = 'Это и есть действующая версия — отличий нет.';
+          h.diffError = targetLabel === 'действующая'
+            ? 'Это и есть действующая версия — отличий нет.'
+            : 'Это версия из журнального указателя — отличий нет.';
           h.diff = null;
           return;
         }
         var cacheKey = this._cacheKey();
-        h.diffTitle = 'было → стало: ' + this.sourceLabel(entry) + ' → действующая';
+        h.diffTitle = 'было → стало: ' + this.sourceLabel(entry) + ' → '
+          + targetLabel;
         h.diffLoading = true;
         h.diffError = '';
         h.diff = null;
