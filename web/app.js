@@ -30462,6 +30462,84 @@
           scene.onClick = function (ev) { self._cogOnSceneClick(ev); };
           el.addEventListener('click', scene.onClick);
           scene.handlers += 1;
+          // CMV-PHY-04c (§6(4) спеки): ручной жест обязан немедленно прерывать
+          // программную анимацию камеры. Колесо у vis якорится точно в курсор
+          // (проба batch3), но во время твина кадр `_transitionRedraw`
+          // перезаписывал результат — capture-слушатель снимает твин ДО
+          // применения шага колеса; сам wheel-зум vis не перехватываем.
+          scene.onWheel = function () { self._cogInterruptCameraAnim(); };
+          el.addEventListener('wheel', scene.onWheel,
+            { capture: true, passive: true });
+          scene.handlers += 1;
+          // CMV-PHY-04b (§6(4) спеки): pinch — зум вокруг ТОЧКИ ЖЕСТА, а не
+          // центра полотна (проба batch3: дрейф 428–443 px). Двухпальцевый
+          // жест перехватывается полностью (capture + stopPropagation: vis
+          // свой pinch не видит), шаг зума применяется нашим `moveTo` с
+          // явным якорем; одна сессия на жест, снятие в destroy.
+          scene.pinch = null;
+          scene.onPinchStart = function (ev) {
+            var st = self._cogScene;
+            var touches = ev && ev.touches;
+            if (!st || !touches || touches.length < 2 || st.pinch) return;
+            var a = touches[0];
+            var b = touches[1];
+            if (!a || !b) return;
+            if (ev && typeof ev.preventDefault === 'function') {
+              ev.preventDefault();
+            }
+            if (ev && typeof ev.stopPropagation === 'function') {
+              ev.stopPropagation();
+            }
+            var t0 = self._cogPinchFrame(st, a, b);
+            var net2 = self.cognitionNetwork;
+            if (!t0 || !net2) return;
+            st.pinch = t0;
+            // Жест — ручное управление: твин фокуса снимается немедленно.
+            self._cogInterruptCameraAnim();
+          };
+          scene.onPinchMove = function (ev) {
+            var st = self._cogScene;
+            if (!st || !st.pinch) return;
+            if (ev && typeof ev.preventDefault === 'function') {
+              ev.preventDefault();
+            }
+            if (ev && typeof ev.stopPropagation === 'function') {
+              ev.stopPropagation();
+            }
+            var touches = ev && ev.touches;
+            // Палец подняли до второго — сессия живёт до полного отпускания,
+            // «хвостовой» одиночный палец камеру не двигает.
+            if (!touches || touches.length < 2) return;
+            var step = self._cogPinchStep(st, touches[0], touches[1]);
+            if (!step) return;
+            self._cogInterruptCameraAnim();
+            try {
+              self.cognitionNetwork.moveTo({
+                position: { x: step.px, y: step.py },
+                scale: step.scale, animation: false });
+              self._cogCamera = self._cogCameraOf(
+                self.cognitionNetwork.getViewPosition(), step.scale);
+            } catch (e) { /* сеть уничтожена */ }
+          };
+          scene.onPinchEnd = function (ev) {
+            var st = self._cogScene;
+            if (!st || !st.pinch) return;
+            if (ev && typeof ev.stopPropagation === 'function') {
+              ev.stopPropagation();
+            }
+            var touches = ev && ev.touches;
+            // Сессия закрывается, когда отпущены ВСЕ пальцы жеста.
+            if (!touches || touches.length === 0) st.pinch = null;
+          };
+          el.addEventListener('touchstart', scene.onPinchStart,
+            { capture: true, passive: false });
+          el.addEventListener('touchmove', scene.onPinchMove,
+            { capture: true, passive: false });
+          el.addEventListener('touchend', scene.onPinchEnd,
+            { capture: true, passive: false });
+          el.addEventListener('touchcancel', scene.onPinchEnd,
+            { capture: true, passive: false });
+          scene.handlers += 4;
         }
         if (net && typeof net.on === 'function') {
           // CMV-B §6 контракта: `afterDrawing` — сигнал кадра и источник
@@ -30525,7 +30603,18 @@
             self._cogSyncPositions();
             self._cogPaintStatic();
           });
-          scene.handlers += 8;
+          // CMV-PHY-04a (§6(4) спеки): double-click/tap по узлу — плавная
+          // фокусировка 350–500 ms с easing (обработчика не было: камера
+          // стояла 0 кадров).
+          net.on('doubleClick', function (params) {
+            self._cogDblClickFocus(params);
+          });
+          // CMV-PHY-04c (§6(3) спеки): drag — ручной жест, твин фокуса
+          // снимается немедленно, управление переходит пользователю.
+          net.on('dragStart', function () {
+            self._cogInterruptCameraAnim();
+          });
+          scene.handlers += 10;
         }
         // F4 (ADR-1018-4 D2): физика выключается ПОСЛЕ первичной расстановки;
         // `once` (не `on`) — слушатели не копятся при повторных рендерах.
@@ -30739,6 +30828,135 @@
           if (typeof net.fit === 'function') net.fit(anim);
         } catch (e) { return false; }
         return false;
+      },
+      // ── CMV-PHY-04: жесты и программная анимация камеры ──────────────────
+      // §6(3–4) спеки: «Wheel/trackpad — зум около курсора; pinch — зум вокруг
+      // центра жеста; double-click/tap по узлу — плавная фокусировка…
+      // при ручном жесте — немедленный контроль пользователю».
+
+      /* Снимает запущенный твин камеры. vis ведёт анимацию функцией
+       * `viewFunction` (``_transitionRedraw``) на событии `initRedraw` и
+       * перезаписывает `view.scale/translation` каждый кадр — поэтому wheel
+       * во время фокуса «глотался» (~660 ms). Снимаем её тем же способом,
+       * которым сам vis завершает анимацию; возвращает true, если твин был. */
+      _cogInterruptCameraAnim: function () {
+        var net = this.cognitionNetwork;
+        if (!net || !net.view) return false;
+        var view = net.view;
+        var fn = view.viewFunction;
+        if (typeof fn !== 'function') return false;
+        var emitter = view.body && view.body.emitter;
+        if (!emitter || typeof emitter.off !== 'function') return false;
+        try {
+          emitter.off('initRedraw', fn);
+        } catch (e) { return false; }
+        view.viewFunction = undefined;
+        if ('easingTime' in view) view.easingTime = 0;
+        return true;
+      },
+      /* Начало pinch-сессии: якорь — мировая точка под ЦЕНТРОМ жеста в момент
+       * касания вторым пальцем (экранные px → сетевые через камеру и масштаб). */
+      _cogPinchFrame: function (scene, a, b) {
+        var net = this.cognitionNetwork;
+        var el = scene.el || this._cogEl;
+        if (!net || !el
+            || typeof el.getBoundingClientRect !== 'function') {
+          return null;
+        }
+        var s0 = null;
+        var cam = null;
+        try {
+          s0 = net.getScale();
+          cam = net.getViewPosition();
+        } catch (e) { return null; }
+        if (!(s0 > 0) || !cam) return null;
+        var rect = el.getBoundingClientRect();
+        var w = scene.width || el.clientWidth || 0;
+        var h = scene.height || el.clientHeight || 0;
+        if (!(w > 0) || !(h > 0) || !rect) return null;
+        var spread = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+        if (!(spread > 0)) return null;
+        var cx = (a.clientX + b.clientX) / 2 - rect.left;
+        var cy = (a.clientY + b.clientY) / 2 - rect.top;
+        return {
+          spread0: spread,
+          s0: s0,
+          // Мировая точка под центром жеста — она остаётся под пальцами.
+          wx: cam.x + (cx - w / 2) / s0,
+          wy: cam.y + (cy - h / 2) / s0,
+        };
+      },
+      /* Шаг pinch: масштаб по размаху пальцев (клампы как у vis: 1e-5…10),
+       * камера — так, чтобы якорная точка осталась под ТЕКУЩИМ центром
+       * жеста (зум + перенос двумя пальцами одной арифметикой). */
+      _cogPinchStep: function (scene, a, b) {
+        var pinch = scene.pinch;
+        var el = scene.el || this._cogEl;
+        if (!pinch || !el
+            || typeof el.getBoundingClientRect !== 'function') {
+          return null;
+        }
+        if (!(pinch.spread0 > 0) || !(pinch.s0 > 0)) return null;
+        var rect = el.getBoundingClientRect();
+        var w = scene.width || el.clientWidth || 0;
+        var h = scene.height || el.clientHeight || 0;
+        if (!(w > 0) || !(h > 0) || !rect) return null;
+        var spread = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+        if (!(spread > 0)) return null;
+        var scale = pinch.s0 * (spread / pinch.spread0);
+        if (!(scale > 1e-5)) scale = 1e-5;
+        if (scale > 10) scale = 10;
+        var cx = (a.clientX + b.clientX) / 2 - rect.left;
+        var cy = (a.clientY + b.clientY) / 2 - rect.top;
+        return {
+          scale: scale,
+          px: pinch.wx - (cx - w / 2) / scale,
+          py: pinch.wy - (cy - h / 2) / scale,
+        };
+      },
+      /* §12.2 спеки: масштаб фокуса — ×2–×3 ОТ ОБЗОРА (`fitScale`), а не
+       * абсолютная константа. Одна точка для dblclick-фокуса и поиска. */
+      _cogFocusTargetScale: function () {
+        var fit = this._cogFitScale;
+        return (fit && fit > 0)
+          ? Math.max(fit * 1.9, Math.min(fit * 3, 1.1)) : 1.1;
+      },
+      /* CMV-PHY-04a: double-click/tap по узлу — камера едет к узлу за
+       * `CONFIG.motion.dblClickMs` (450 ∈ [350, 500]) с easeInOutQuad и
+       * заканчивает ЦЕНТРОМ НА УЗЛЕ (единственный `moveTo` по позиции из
+       * кэша §5.1). Ручной жест прерывает твин (`_cogInterruptCameraAnim`);
+       * reduced-motion — мгновенный прыжок без анимации (§7.3). */
+      _cogDblClickFocus: function (params) {
+        var net = this.cognitionNetwork;
+        var scene = this._cogScene;
+        var id = (params && params.nodes && params.nodes.length)
+          ? params.nodes[0] : null;
+        if (!net || !scene || id === null || id === undefined) return null;
+        var pos = (scene.pos && scene.pos[id])
+          ? { x: scene.pos[id].x, y: scene.pos[id].y } : null;
+        if (!pos) {
+          try {
+            var all = (typeof net.getPositions === 'function')
+              ? net.getPositions() : null;
+            if (all && all[id]) pos = { x: all[id].x, y: all[id].y };
+          } catch (e) { pos = null; }
+        }
+        if (!pos) return null;
+        var V = cogVis();
+        var ms = (V && V.CONFIG && V.CONFIG.motion
+          && V.CONFIG.motion.dblClickMs > 0) ? V.CONFIG.motion.dblClickMs : 450;
+        var anim = this.reducedMotion
+          ? false : { duration: ms, easingFunction: 'easeInOutQuad' };
+        var scale = this._cogFocusTargetScale();
+        try {
+          net.moveTo({ position: pos, scale: scale, animation: anim });
+        } catch (e) { return null; }
+        return {
+          id: String(id),
+          position: pos,
+          scale: scale,
+          duration: anim ? ms : 0,
+        };
       },
       // Наблюдатели сцены. `window`/`document`-листенеры граф НЕ добавляет:
       // `visibilitychange` уже один (`onVisibilityChange`), размер — ResizeObserver.
@@ -31690,6 +31908,9 @@
           incident: incident,
           selection: selected,
           hover: hover,
+          // §7.2 спеки: рампа hover-свечения считается от момента наведения
+          // (`scene.hoverAt` ставится в `_cogSetHover`).
+          hoverAt: scene.hoverAt || 0,
           fitScale: this._cogFitScale || 0,
           lod: lod,
           keyIds: keyIds,
@@ -32966,12 +33187,9 @@
         if (!this.cognitionNetwork || nodeId == null) return;
         var anim = this.reducedMotion
           ? false : { duration: 500, easingFunction: 'easeInOutQuad' };
-        var fit = this._cogFitScale;
-        var target = (fit && fit > 0)
-          ? Math.max(fit * 1.9, Math.min(fit * 3, 1.1)) : 1.1;
         try {
           this.cognitionNetwork.focus(nodeId, {
-            scale: target, animation: anim });
+            scale: this._cogFocusTargetScale(), animation: anim });
           this.cognitionNetwork.selectNodes([nodeId]);
         } catch (e) { /* noop: сеть уничтожена */ }
         this.graphSelectNode(nodeId);
@@ -33141,6 +33359,44 @@
               catch (e) { /* noop */ }
             }
             scene.onClick = null;
+          }
+          // CMV-PHY-04c: wheel/pinch-слушатели снимаются вместе со сценой
+          // (§1 контракта — 20 переключений режима не копят обработчики).
+          if (scene.onWheel || scene.onPinchStart || scene.onPinchEnd) {
+            var gestEl = scene.el || this._cogEl || null;
+            if (gestEl
+                && typeof gestEl.removeEventListener === 'function') {
+              try {
+                if (scene.onWheel) {
+                  gestEl.removeEventListener('wheel', scene.onWheel, true);
+                }
+              } catch (e) { /* noop */ }
+              try {
+                if (scene.onPinchStart) {
+                  gestEl.removeEventListener('touchstart', scene.onPinchStart,
+                    true);
+                }
+              } catch (e) { /* noop */ }
+              try {
+                if (scene.onPinchMove) {
+                  gestEl.removeEventListener('touchmove', scene.onPinchMove,
+                    true);
+                }
+              } catch (e) { /* noop */ }
+              try {
+                if (scene.onPinchEnd) {
+                  gestEl.removeEventListener('touchend', scene.onPinchEnd,
+                    true);
+                  gestEl.removeEventListener('touchcancel', scene.onPinchEnd,
+                    true);
+                }
+              } catch (e) { /* noop */ }
+            }
+            scene.onWheel = null;
+            scene.onPinchStart = null;
+            scene.onPinchMove = null;
+            scene.onPinchEnd = null;
+            scene.pinch = null;
           }
           // §6 контракта: спрайты и пул буферов сносятся ВМЕСТЕ со сценой
           // (иначе 20 переключений режима оставляли бы кэш на каждый инстанс).
