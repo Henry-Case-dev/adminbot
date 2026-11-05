@@ -567,13 +567,29 @@ def _new_claim_id() -> str:
 
 # ── Валидация вердикта (D10/D11): честные дефолты, guard misleading_reuse ───
 
-def _aggregate_factual_verdict(top: str, parts: tuple) -> str:
-    """FC-PERCLAIM (§3.5, owner 21.10.2026): финальный enum выводится из
-    вердиктов частей, чтобы глобальный «Недостаточно данных» не прятал
-    частичные результаты. Недостаточность честна, ТОЛЬКО когда ни одна
-    часть не подтверждена/опровергнута после корректного поиска; выдуманных
-    подтверждений нет — агрегат опирается только на вердикты модели по
-    частям. Детерминированно, без новых LLM-вызовов."""
+def _aggregate_factual_verdict(top: str, parts: tuple, *,
+                               basis_marked: bool = False) -> str:
+    """FC-PERCLAIM (§3.5) + FC-04 (corrective 05.11.2026): финальный enum
+    согласован с вердиктами частей. Правила FC-04.5:
+
+    * все части supported → supported; все refuted → refuted;
+    * ``mixed`` требует содержательного подтверждения одной значимой части
+      И независимого опровержения/квалификации другой (или конфликта прямых
+      исследований) — часть-mixed засчитывается в обе стороны;
+    * один подтверждённый/опровергнутый элемент при непроверенных остальных
+      НЕ даёт mixed: частичный случай честно остаётся insufficient_evidence,
+      а разбор «Подтверждена только …; остальные части не установлены» виден
+      в parts;
+    * верхний ``mixed`` без двухстороннего содержания в частях понижается до
+      insufficient_evidence — кроме основания самостоятельной проверки
+      (uncertainty ``basis*``, proof_basis=logical): формальный вывод
+      принудительно «недостаточностью» не подменяется;
+    * статусы из старых частей не поднимаются (C1.9: понижение валидатором
+      не откатывается агрегатом).
+
+    Детерминированно, без новых LLM-вызовов. ``basis_marked`` передаётся
+    вызывающим (у verdict_from_payload есть uncertainty; из частей его
+    достать нельзя)."""
     vals: list[str] = []
     for part in parts or ():
         if isinstance(part, dict):
@@ -582,22 +598,34 @@ def _aggregate_factual_verdict(top: str, parts: tuple) -> str:
                 vals.append(value)
     if not vals or top not in FACTUAL_VERDICTS:
         return top
-    if all(v == "supported" for v in vals):
-        agg = "supported"
-    elif all(v == "refuted" for v in vals):
-        agg = "refuted"
-    elif any(v in ("supported", "refuted", "mixed") for v in vals):
-        agg = "mixed"
-    else:
-        return top                      # все части без доказательств — честно
-    if top == agg:
-        return top
+    support_side = any(v in ("supported", "mixed") for v in vals)
+    refute_side = any(v in ("refuted", "mixed") for v in vals)
+    both_sides = support_side and refute_side
+    all_supported = all(v == "supported" for v in vals)
+    all_refuted = all(v == "refuted" for v in vals)
     if top == "insufficient_evidence":
-        return agg                      # частичные доказательства ≠ «неизвестно»
-    if top == "supported" and agg == "mixed":
-        return "mixed"                  # глобальное подтверждение скрывает часть
-    if top == "refuted" and agg in ("mixed", "supported"):
-        return "mixed"                  # опровержение целого при подтверждённой части
+        # Эскалация честной недостаточности — только по содержанию частей:
+        # все подтверждены / все опровергнуты / двухстороннее содержание.
+        if all_supported:
+            return "supported"
+        if all_refuted:
+            return "refuted"
+        if both_sides:
+            return "mixed"
+        return top                      # частичный случай — разбор в parts
+    if top == "mixed":
+        if both_sides:
+            return "mixed"
+        if basis_marked:
+            return top                  # формальный вывод (proof_basis=logical)
+        return "insufficient_evidence"  # mixed без опоры в частях
+    # top supported/refuted: двухстороннее содержание частей раскрывает
+    # односторонний верхний статус; supported с неподтверждёнными частями —
+    # частичный случай (FC-04.5), кроме формального вывода (basis*).
+    if both_sides:
+        return "mixed"
+    if top == "supported" and not all_supported and not basis_marked:
+        return "insufficient_evidence"
     return top
 
 
@@ -685,10 +713,13 @@ def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
             or not part_texts.get(p.get("part_id"))
             else {**p, "text": part_texts[p.get("part_id")]}
             for p in parts_tuple)
-    # §3.5 (owner 21.10.2026): глобальный enum не скрывает частичные
-    # результаты корректного исследования (одна стадия-схема и для
-    # аналитика, и для validator — TH-2 не обходится через corrected).
-    factual = _aggregate_factual_verdict(factual, parts_tuple)
+    # §3.5 (owner 21.10.2026) + FC-04 (05.11.2026): глобальный enum согласован
+    # с частями; mixed — только при двухстороннем содержании; статусы из
+    # старых частей не поднимаются. basis* (формальный вывод) не понижается.
+    factual = _aggregate_factual_verdict(
+        factual, parts_tuple,
+        basis_marked=any(str(k).startswith("basis")
+                         for k in (uncertainty or {})))
     return TemporalVerdict(
         factual_verdict=factual,
         temporal_status=temporal,
@@ -706,6 +737,48 @@ def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
 def has_freshness_markers(text: str | None) -> bool:
     """Признаки подачи «старое как новое» (D11). Пусто → False."""
     return bool(text and _FRESHNESS_MARKERS.search(text))
+
+
+def _reconcile_validator_parts(top: str,
+                               parts: tuple) -> tuple[dict, ...]:
+    """FC-04.6/FC-04.7/C1.9 (corrective 05.11.2026): corrected-вердикт
+    validator'а применяется согласованно к ОБЕИМ сторонам. Части, статус
+    которых противоречит исправленному верхнему enum, понижаются до
+    insufficient_evidence с явной пометкой — старый статус из частей
+    агрегатором обратно не поднимается. Опровержение части согласуется с
+    недостаточностью целого и сохраняется, кроме случая, когда опровергнуты
+    ВСЕ части (иначе агрегат поднял бы refuted вопреки corrected)."""
+    if top == "mixed":
+        return tuple(parts)
+    stale_note = ("validator не подтвердил этот статус по выдержкам — "
+                  "понижен вместе с общим вердиктом")
+
+    def _demote(part: dict) -> dict:
+        fixed = {**part, "factual_verdict": "insufficient_evidence",
+                 # структурная метка для renderer'а: часть понизил validator,
+                 # это НЕ технический отказ проверки (FC-05.1)
+                 "validator_suppressed": True}
+        if not fixed.get("gap_note"):
+            fixed["gap_note"] = stale_note
+        return fixed
+
+    result: list[dict] = []
+    for part in parts or ():
+        if not isinstance(part, dict):
+            result.append(part)
+            continue
+        value = part.get("factual_verdict")
+        contradicts = (
+            (top == "insufficient_evidence"
+             and value in ("supported", "mixed"))
+            or (top == "supported" and value in ("refuted", "mixed"))
+            or (top == "refuted" and value in ("supported", "mixed")))
+        result.append(_demote(part) if contradicts else part)
+    if top == "insufficient_evidence" and result and all(
+            isinstance(p, dict) and p.get("factual_verdict") == "refuted"
+            for p in result):
+        result = [_demote(p) for p in result]
+    return tuple(result)
 
 
 def apply_validator(verdict: TemporalVerdict, payload: object,
@@ -729,6 +802,11 @@ def apply_validator(verdict: TemporalVerdict, payload: object,
         # disagree без валидных corrected — вердикт аналитика стоит
         # (сервер не понижает вердикт из-за мусорного ответа).
         return verdict, False
+    # FC-04.6/C1.9: corrected согласованно исправляет ОБЕ стороны —
+    # вердикт и разбор частей (иначе агрегат вернул бы старый статус).
+    reconciled_parts = _reconcile_validator_parts(
+        cf if cf in FACTUAL_VERDICTS else verdict.factual_verdict,
+        verdict.parts)
     merged = {
         "factual_verdict": cf if cf in FACTUAL_VERDICTS
         else verdict.factual_verdict,
@@ -736,7 +814,7 @@ def apply_validator(verdict: TemporalVerdict, payload: object,
         else verdict.temporal_status,
         "evaluated_period": verdict.evaluated_period,
         "uncertainty": verdict.uncertainty,
-        "parts": list(verdict.parts),
+        "parts": list(reconciled_parts),
         "evidence_refs": list(verdict.evidence_refs),
         "reason": verdict.reason,
         # ASAP-FC-VOICE-01 / A §4: смысловые поля аналитика переживают
@@ -949,16 +1027,26 @@ TEMPORAL_ANALYST_SYSTEM = (
     "(ev-1, ev-2, …); выдержки, которых нет в списке, ссылаться нельзя.\n"
     "(9) у многочастного утверждения заполни verdict КАЖДОЙ части в parts "
     "(включая evidence_refs части).\n"
-    "(10) если хотя бы одна часть подтверждена или опровергнута, а для "
-    "остальных данных недостаточно — общий factual_verdict=mixed, НЕ "
-    "insufficient_evidence; недостаточность целого — только когда ни одна "
-    "часть не проверена.\n"
-    "(11) inference_gap заполняй, когда из подтверждённых данных делают "
+    "(10) mixed — ТОЛЬКО когда одна значимая часть содержательно "
+    "подтверждена, а другая значимая часть НЕЗАВИСИМО опровергнута или "
+    "квалифицирована (либо прямые исследования конфликтуют); один "
+    "подтверждённый или опровергнутый элемент при непроверенных остальных — "
+    "НЕ mixed: общий factual_verdict=insufficient_evidence, а "
+    "подтверждённая/опровергнутая часть остаётся видна в parts "
+    "(«подтверждена только …; остальные части не установлены»)."
+    " (11) inference_gap заполняй, когда из подтверждённых данных делают "
     "вывод, которого они не дают (подмена причинности, обобщение, скачок): "
     "назови именно разрыв, а не пересказ findings; нет разрыва — null.\n"
     "(12) counterpoint заполняй, когда у тезиса есть сильное честное "
     "прочтение при тех же доказательствах; он не отменяет вердикт и не "
-    "противоречит findings, это формулировка вывода. Нет — null."
+    "противоречит findings, это формулировка вывода. Нет — null.\n"
+    "(13) причинный тезис НЕ доказывается одной ассоциацией/корреляцией: "
+    "причинность подтверждается только прямыми исследованиями "
+    "соответствующего дизайна; косвенная связь означает "
+    "insufficient_evidence для причинной части, а не supported. Для "
+    "формального вывода без внешних URL помечай основание в uncertainty "
+    "(ключ basis) — принудительная «недостаточность» к проверенному "
+    "расчёту не применяется."
     # §8 (FC-08): директива дополняет правила, не заменяя их; ровно один
     # носитель (см. комментарий у ANALYST_DIRECTIVE).
     "\n" + ANALYST_DIRECTIVE
@@ -989,14 +1077,22 @@ TEMPORAL_VALIDATOR_SYSTEM = (
     '"corrected_temporal_status": "current|outdated|old_but_valid|'
     'misleading_reuse|unknown|null", "note": "<короткое пояснение>"}\n'
     "Правила: (1) выдержки не подтверждают утверждение ЦЕЛИКОМ → "
-    "corrected_factual_verdict=insufficient_evidence; НО если из parts "
-    "черновика видно, что отдельные части подтверждены, а другие нет — "
-    "mixed, а не insufficient_evidence; (2) возраст "
+    "corrected_factual_verdict=insufficient_evidence; mixed ставь ТОЛЬКО "
+    "когда подтверждение одной значимой части и независимое "
+    "опровержение/квалификация другой видны в выдержках; один "
+    "подтверждённый/опровергнутый элемент при непроверенных остальных — "
+    "не mixed; (2) возраст "
     "публикации сам по себе не опровергает утверждение: старое, но верное "
     "— old_but_valid; (3) misleading_reuse — только если утверждение "
     "подаётся как свежее; (4) не выдумывай даты и факты, недостаток "
     "данных — insufficient_evidence/unknown; (5) если черновой вердикт "
-    "согласуется с выдержками — agree=true и corrected поля null."
+    "согласуется с выдержками — agree=true и corrected поля null; "
+    "(6) ассоциация/корреляция в выдержках не доказывает причинный тезис — "
+    "для причинной части без прямого исследования ставь "
+    "insufficient_evidence. Твоя corrected-оценка применяется сервером "
+    "согласованно с разбором частей: положительные части без прямого "
+    "подтверждения понижаются вместе с ней, старые статусы обратно не "
+    "возвращаются."
 )
 
 _URL_RE = re.compile(r"https?://[^\s)\]>\"']+")

@@ -1631,11 +1631,39 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
     if not matched and not parts:
         return verdict
     factual = tf._aggregate_factual_verdict(verdict.factual_verdict,
-                                           tuple(parts))
+                                           tuple(parts),
+                                           basis_marked=any(
+                                               str(k).startswith("basis")
+                                               for k in (verdict.uncertainty
+                                                         or {})))
     if not model_positive:
         # §F1: агрегация не поднимает вывод модели за счёт серверных частей;
         # честная неопределённость остаётся, конкретные пробелы видны в parts.
         factual = "insufficient_evidence"
+    # FC-04.7 (corrective 05.11.2026): положительный/mixed вердикт без хотя
+    # бы одного ПРЯМОГО подтверждающего evidence по сути запрещён. Частичный
+    # случай остаётся честным insufficient_evidence с разбором в parts;
+    # помеченное основание самостоятельной проверки (basis*, формальный
+    # вывод) прямую ссылку заменяет.
+    if factual in ("supported", "mixed") and not any(
+            str(k).startswith("basis") for k in (verdict.uncertainty or {})):
+        direct_exists = any(
+            str(getattr(e, "role", "")) == "supports"
+            for cov in coverage or ()
+            for e in (getattr(cov, "displayable_evidence", ()) or ()))
+        if not direct_exists:
+            factual = "insufficient_evidence"
+            uncertainty = dict(verdict.uncertainty or {})
+            uncertainty.setdefault(
+                "positive_without_direct_support",
+                "прямого подтверждающего источника по существу тезиса в этом "
+                "прогоне нет — подтверждённой остаётся только отмеченная "
+                "часть разбора, общий вывод не поднимается")
+            parts = [dict(p) for p in parts]
+            return dataclasses.replace(verdict, factual_verdict=factual,
+                                       parts=tuple(parts),
+                                       uncertainty=uncertainty,
+                                       reason=verdict.reason)
     reason = verdict.reason
     if factual in _CLAIM_POSITIVE and str(reason or "") in \
             _TECHNICAL_RETRIEVAL_REASONS:

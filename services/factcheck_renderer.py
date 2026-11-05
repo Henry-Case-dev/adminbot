@@ -336,14 +336,20 @@ def _technical_statuses(verdict: CheckedVerdict | None) -> list[str]:
 
 def _technical_headline_from_parts(verdict: CheckedVerdict | None) -> str | None:
     """Заголовок «Проверка не завершена: …», если содержательного разбора нет,
-    а части упали технически (Reviewer F3)."""
+    а части упали технически (Reviewer F3).
+
+    FC-04.6/FC-05.1 (corrective 05.11.2026): части, пониженные validator'ом
+    (``validator_suppressed``), — не технический отказ: проверка завершилась
+    содержательно, и заголовок незавершённой проверки ей не ставится."""
     if verdict is None:
         return None
     if str(verdict.factual_verdict or "") in (
             "supported", "refuted", "mixed"):
         return None
-    if any(_part_is_substantive(p) for p in (verdict.parts or ())
-           if isinstance(p, dict)):
+    parts = [p for p in (verdict.parts or ()) if isinstance(p, dict)]
+    if any(p.get("validator_suppressed") for p in parts):
+        return None
+    if any(_part_is_substantive(p) for p in parts):
         return None
     statuses = _technical_statuses(verdict)
     if not statuses:
