@@ -431,6 +431,28 @@ def _years(text: str) -> list[str]:
     return years[:3]
 
 
+#: FC-01.1/FC-02.2 (corrective 05.11.2026): собственные служебные обёртки
+#: материала изображений (метки способа распознавания/инструментов) — не
+#: тезис и не поисковые термы. Убираются ТОЛЬКО на поисковом пути; тексты
+#: внутри обёрток остаются тезисом (для картинки это и есть утверждение).
+_SEARCH_SERVICE_LABEL_RE = re.compile(
+    r"^[ \t]*Текст с изображения(?:\s+\d+)?[ \t]*"
+    r"\(OCR, не слова автора\)[ \t]*:?[ \t]*$"
+    r"|^[ \t]*Визуальное описание изображения(?:\s+\d+)?[ \t]*"
+    r"\(результат модели;[^)]*\)[ \t]*:?[ \t]*$",
+    re.MULTILINE)
+
+
+def search_thesis_text(text: str) -> str:
+    """Тезис для ПОИСКОВОГО пути: без служебных обёрток OCR/vision-меток
+    (FC-01.1: служебные данные хранятся отдельно от формулировки тезиса и
+    никогда не считаются доказательством; FC-02.2: произвольный OCR-блок с
+    техметками в публичный поисковик не уходит — запросы строятся от
+    смысловых формулировок). Детерминированно, без LLM."""
+    cleaned = _SEARCH_SERVICE_LABEL_RE.sub("", str(text or ""))
+    return re.sub(r"\n{2,}", "\n", cleaned).strip()
+
+
 def _make_query(terms: list[str], intent: str, *, tail: str = "",
                 quoted: str = "", claim_id: str = "",
                 purpose: str = QUERY_PURPOSE_BASE) -> SearchQuery | None:
@@ -479,7 +501,13 @@ def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
     BGS-01: часть принимается только если она — фрагмент ПРОВЕРЯЕМОГО
     клейма. Иначе план искал бы не тот текст, который проверяет вердикт
     (например, атрибуционная обвязка «X сказал» осталась бы в запросе,
-    хотя проверяется тезис)."""
+    хотя проверяется тезис).
+
+    FC-01.1/FC-02.2 (corrective 05.11.2026): служебные обёртки материала
+    изображений (наши метки OCR/vision) вынесены из ПОИСКОВОГО пути —
+    тезис для запросов строится из содержательных формулировок, служебные
+    метки не уходят в публичный поисковик и не считаются тезисом. Сам клейм
+    для аналитика остаётся с метками."""
     units: list[str] = []
     claim_low = str(claim or "").strip().lower()
     for item in items or ():
@@ -493,7 +521,7 @@ def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
         # гейт не декомпозировал → предложения самого клейма
         units = [s.strip() for s in re.split(r"(?<=[.!?;])\s+", claim)
                  if s.strip()] or [claim]
-    return [u for u in units if u][:cap]
+    return [search_thesis_text(u) for u in units if u][:cap]
 
 
 _YEAR_ONLY_RE = re.compile(
@@ -882,7 +910,8 @@ def _build_plan_inner(decision, *, claim_text, max_queries
     # числа частей (§3.2), а не «≤3 на всю новость».
     units = build_claim_units(items, claim)
     if not units:
-        units = (ClaimUnit(claim_id="c1", text=claim),)
+        units = (ClaimUnit(claim_id="c1",
+                           text=search_thesis_text(claim)),)
     explicit_cap = max_queries is not None and int(max_queries) > 0
     max_queries_value = (int(max_queries) if explicit_cap
                          else adaptive_query_budget(len(units)))
@@ -1195,6 +1224,10 @@ class RetrievalOutcome:
     #: осталось без попытки именно из-за дедлайна стадии. Отдельный счётчик:
     #: это не `source_extract_failed` и не «материалы не удалось разобрать».
     fetch_skipped_deadline: int = 0
+    #: FC-07.1 (corrective 05.11.2026): все attempted queries прогона —
+    #: в приватную диагностику (корреляция с correlation_id); это уже
+    #: деперсонализированные строки, ушедшие в поисковик, а не текст чата.
+    attempted_queries: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -1752,6 +1785,12 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     if eligible_urls and loop.time() >= deadline:
         # Дедлайн — фактическая причина, по которой открытие не состоялось.
         fetch_skipped = len([u for u in eligible_urls if u not in seen_urls])
+    # FC-07.1: attempted queries прогона (порядок попыток, без повторов).
+    attempted: list[str] = []
+    for run in runs:
+        for text in run.attempted_texts:
+            if text not in {a.lower() for a in attempted}:
+                attempted.append(text)
     return RetrievalOutcome(
         evidence_map=evidence_map, search_text=search_text,
         queries_attempted=counters["attempted"], queries_used=counters["used"],
@@ -1766,7 +1805,8 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         stale_sources_dropped=counters["stale"],
         refine_calls=counters["refine"],
         budget_seconds=budget,
-        fetch_skipped_deadline=fetch_skipped)
+        fetch_skipped_deadline=fetch_skipped,
+        attempted_queries=tuple(attempted))
 
 
 def _strong_binding_count(ref: EvidenceRef, runs: list[_ClaimRun]) -> int:

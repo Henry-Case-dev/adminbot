@@ -1307,6 +1307,16 @@ def evidence_diagnostics(*, retrieval, retrieval_state: str,
             if known else None),
         "retrieval_class": str(retrieval_state or ""),
         "technical_reason": str(getattr(verdict, "reason", "") or ""),
+        # FC-07.1 (corrective 05.11.2026): все attempted queries прогона —
+        # в приватной диагностике под correlation_id события (emit_evidence_
+        # diagnostics); это деперсонализированные поисковые строки, а не
+        # текст приватного чата. Причины отказа кандидатов — счётчиками
+        # off_topic/stale/irrelevant выше; цепочка claim_id → evidence_id →
+        # verdict живёт в coverage/parts прогона (record_temporal_run).
+        "attempted_queries": [
+            str(q)[:160] for q in
+            (tuple(getattr(retrieval, "attempted_queries", ()) or ())
+             if known else ())][:16],
     }
 
 

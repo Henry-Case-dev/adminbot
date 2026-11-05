@@ -943,7 +943,16 @@ def search_queries_for(parts: tuple[ClaimPart, ...],
     смысловому запросу на самостоятельную часть (сущности/термины/числа
     этой части), НЕ копия начала публикации. Годы заявленного периода
     добавляются к первому запросу (временное ограничение D8 сохранено).
-    Деградация: пустые части → смысловая формулировка всего клейма."""
+    Деградация: пустые части → смысловая формулировка всего клейма.
+
+    FC-01.1/FC-02.2 (corrective 05.11.2026): служебные обёртки OCR/vision
+    вынесены из запросов (REUSE factcheck_planner.search_thesis_text)."""
+    try:
+        from services.factcheck_planner import search_thesis_text
+    except Exception:          # pragma: no cover — модуль не рвёт поиск
+        def search_thesis_text(text: str) -> str:
+            return str(text or "")
+
     queries: list[str] = []
     seen: set[str] = set()
     years: list[int] = []
@@ -958,7 +967,7 @@ def search_queries_for(parts: tuple[ClaimPart, ...],
     for p in parts:
         if len(queries) >= max(1, int(max_queries)):
             break
-        text = _semantic_query_text(p.text)
+        text = _semantic_query_text(search_thesis_text(p.text))
         if not text:
             continue
         query = f"{text} {years_str}" if years_str and not queries else text
@@ -966,8 +975,10 @@ def search_queries_for(parts: tuple[ClaimPart, ...],
             seen.add(query.lower())
             queries.append(query)
     if not queries:
-        base = (_semantic_query_text(envelope.claim_text)
-                or normalize_text(envelope.claim_text)[:200])
+        base = (_semantic_query_text(
+                    search_thesis_text(envelope.claim_text))
+                or normalize_text(search_thesis_text(
+                    envelope.claim_text))[:200])
         queries.append(f"{base} {years_str}" if years_str else base)
     return queries[:max(1, int(max_queries))]
 
