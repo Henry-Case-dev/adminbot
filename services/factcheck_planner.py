@@ -239,7 +239,14 @@ class ClaimUnit:
 
 @dataclasses.dataclass(frozen=True)
 class ClaimEvidence:
-    """§3.1: доказательство с РОЛЬЮ для конкретного claim."""
+    """§3.1: доказательство с РОЛЬЮ для конкретного claim.
+
+    FC-03.2 (corrective 05.11.2026): кандидат хранит provenance-набор —
+    claim_id, url, нормализованный title, extracted passage (``note``/роль
+    в ClaimCoverage), дата/тип источника, relation (роль) и strength
+    (direct/indirect), плюс факт открытия страницы. Нечитаемая страница не
+    помечается прочитанной (``opened=False``), одна ссылка не доказывает
+    все части (claim_id входящей части)."""
     claim_id: str
     evidence_id: str
     url: str | None = None
@@ -247,6 +254,13 @@ class ClaimEvidence:
     published_at: int | None = None
     event_at: int | None = None
     note: str = ""
+    #: FC-03.2: direct — источник прямо подтверждает/опровергает тезис;
+    #: indirect — уточняет/косвенный (форум, корреляция без причинной связки)
+    strength: str = ""
+    #: нормализованный заголовок кандидата (первое предложение выдержки)
+    title: str = ""
+    #: страница кандидата была открыта и прочитана в этом прогоне
+    opened: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -257,6 +271,9 @@ class ClaimEvidence:
             "published_at": self.published_at,
             "event_at": self.event_at,
             "note": self.note,
+            "strength": self.strength,
+            "title": self.title,
+            "opened": self.opened,
         }
 
 
@@ -1034,8 +1051,15 @@ def _excerpt_from_html(html_text: str, *, limit: int = _EXCERPT_MAX_CHARS
 async def fetch_primary_evidence(url: str, *, fetch_text=None,
                                  max_bytes: int = 65536,
                                  timeout: float = 4.0) -> EvidenceRef | None:
-    """Первоисточник через СУЩЕСТВУЮЩИЙ SafeFetcher (REUSE; инъекция
-    `fetch_text` — прецедент enrich_evidence_dates). Fail-open → None."""
+    """Открыть страницу-кандидат через СУЩЕСТВУЮЩИЙ SafeFetcher (REUSE;
+    инъекция `fetch_text` — прецедент enrich_evidence_dates). Fail-open →
+    None.
+
+    FC-03.3 (corrective 05.11.2026): успешный fetch больше НЕ повышает
+    ``source_kind`` до primary. Тип источника — по происхождению
+    (``classify_source_kind``: gov/edu/research/reference/secondary), поэтому
+    форум, соцпост или SEO-пересказ после открытия страницы остаются
+    secondary и «первоисточником» не становятся."""
     if not url or not str(url).lower().startswith(("http://", "https://")):
         return None
     try:
@@ -1053,7 +1077,8 @@ async def fetch_primary_evidence(url: str, *, fetch_text=None,
         return None
     published_at, _source = tf.parse_publication_date(html_text, url)
     return EvidenceRef(evidence_id="", url=str(url), support=excerpt,
-                       source_kind="primary", published_at=published_at)
+                       source_kind=classify_source_kind(str(url)),
+                       published_at=published_at)
 
 
 def _assemble(refs: list[EvidenceRef]) -> EvidenceMap | None:
@@ -1235,6 +1260,9 @@ class _ClaimRun:
         self.irrelevant = 0
         #: тексты уже выполненных запросов этой части (без повторов «того же»)
         self.attempted_texts: set[str] = set()
+        #: FC-07.1: URL, открытые и прочитанные в этом прогоне (run-level
+        #: ``opened`` остаётся счётчиком; здесь — факт открытия по кандидату)
+        self.opened_urls: set[str] = set()
         #: найденая публикация оказалась старше заявленного события (§3.3)
         self.stale_hit = False
 
@@ -1317,6 +1345,16 @@ def _gap_note(status_detail: str, *, stale: bool = False,
     return note
 
 
+def _normalized_title(support: str, *, limit: int = 200) -> str:
+    """FC-03.2: нормализованный title кандидата — первое предложение
+    выдержки (support = «title. snippet» у строк поиска). Детерминированно."""
+    text = re.sub(r"\s{2,}", " ", str(support or "")).strip()
+    if not text:
+        return ""
+    first = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0]
+    return first[:limit].strip()
+
+
 def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
     """Итог части: статус поиска, детализированный исход, роль/ссылки, пробел."""
     claim = run.claim
@@ -1391,7 +1429,10 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
         claim_id=claim.claim_id, evidence_id=str(getattr(ref, "evidence_id", "")
                                                 or ""),
         url=ref.url, role=role, published_at=getattr(ref, "published_at", None),
-        event_at=claim.event_at, note=note_item)
+        event_at=claim.event_at, note=note_item,
+        strength=_relevance_for(ref, claim).strength,
+        title=_normalized_title(ref.support),
+        opened=(str(ref.url or "") in run.opened_urls))
         for ref, role, note_item in roles)
     return ClaimCoverage(
         claim=claim, search_status=search_status, status_detail=detail,
@@ -1649,9 +1690,12 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                     continue
                 fetched_total += 1
                 run.opened += 1
+                run.opened_urls.add(str(primary.url or ""))
                 key = run.key(primary)
                 previous = run.bound.get(key)
-                kind = str(primary.source_kind or "primary")
+                # FC-03.3: тип источника — по происхождению URL
+                # (classify_source_kind при открытии), а не по факту fetch.
+                kind = str(primary.source_kind or "secondary")
                 if previous is not None:
                     # Открытая страница даёт полную выдержку и дату, но не
                     # превращает энциклопедию/исследование в «первоисточник»:

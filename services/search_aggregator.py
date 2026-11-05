@@ -415,6 +415,19 @@ class ClaimRelevance:
             and not self.number_mismatch \
             and (self.entity_hit or self.word_hits >= 2)
 
+    @property
+    def strength(self) -> str:
+        """FC-03.2/FC-04: direct — прямое подтверждение/опровержение тезиса
+        (причинный тезис требует причинной связки: без неё роль уже
+        qualifies → indirect); qualifies — всегда косвенное. Пусто для
+        background/unrelated (они evidence-ролью не становятся)."""
+        if self.role in (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_CONTRADICTS) \
+                and not self.number_mismatch:
+            return "direct"
+        if self.role == EVIDENCE_ROLE_QUALIFIES:
+            return "indirect"
+        return ""
+
 
 def claim_relevance(text: str, *, claim_text: str = "",
                     anchor_terms=(), metrics=(), entities=(),
