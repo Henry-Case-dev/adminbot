@@ -2,13 +2,13 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
-  "candidate_commit": "7632fdb6",
+  "candidate_commit": "6374eedc",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-unified-reply",
   "task_id": "unified-reply",
-  "source_note": "Карта эпика (261 обязательная строка) к дословному снимку plans/owner_inputs/2026-11-05-unified-reply.md (503 строки, UR-01..UR-30, ред. 1.1) из plans/current_task.md L5651-6153. Родители UR-NN покрывают заголовки разделов, подтребования UR-NN.M — независимо проверяемые пункты; чеклисты §11 (А-Д) вынесены как UR-ACC-*, запреты §12 — UR-BAN-*, пакеты §10 — срезы UR-A..UR-G плюс UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28). Состояние 2026-11-05: UR-B (merge da6299e9) и UR-C (merge 9ac64a61) влиты и приняты ревью — привязано 34 строки VERIFIED (13/24 и 21/66), остальные PENDING с причиной в pending_reason. UR-A принят и влит (ur/a-turn-engine @4cc99286 -> merge dc296207): services/turn_types.py создан как единственный новый файл контрактов, единый _execute_turn стоит на обеих трассах; привязано 15/21 (12 items + 3 manual), остальные PENDING с причиной в pending_reason. Итого по карте 49 VERIFIED из 261 обязательной строки.",
+  "source_note": "Карта эпика (261 обязательная строка) к дословному снимку plans/owner_inputs/2026-11-05-unified-reply.md (503 строки, UR-01..UR-30, ред. 1.1) из plans/current_task.md L5651-6153. Родители UR-NN покрывают заголовки разделов, подтребования UR-NN.M — независимо проверяемые пункты; чеклисты §11 (А-Д) вынесены как UR-ACC-*, запреты §12 — UR-BAN-*, пакеты §10 — срезы UR-A..UR-G плюс UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28). Состояние 2026-11-05: UR-B (merge da6299e9) и UR-C (merge 9ac64a61) влиты и приняты ревью — привязано 34 строки VERIFIED (13/24 и 21/66), остальные PENDING с причиной в pending_reason. UR-A принят и влит (ur/a-turn-engine @4cc99286 -> merge dc296207): services/turn_types.py создан как единственный новый файл контрактов, единый _execute_turn стоит на обеих трассах; привязано 15/21 (12 items + 3 manual), остальные PENDING с причиной в pending_reason. Итого по карте 49 VERIFIED из 261 обязательной строки. После биндинга UR-D (кандидат 6374eedc): +17 строк VERIFIED (11 items из ветки ur/d-writer + 6 additional_requirements), итого 66/261; UR-04.3, UR-05.2, UR-21.23 остаются PENDING с причиной в pending_reason.",
   "evidence_convention": "Каждая закрытая строка требует candidate-bound evidence с artifact_path (repo-relative), observation и типом; для финальных отчётов — artifact_sha256. Устные заверения, число тестов и скриншоты без реального payload/trace доказательством не считаются.",
   "live_policy_note": "PET_PROJECT: деплой и проверка на проде разрешены после независимого ревью без отдельного согласования. live_required=true только у строк, которые физически проверяются на рабочем развёртывании (UR-ACC-E9, UR-30.7) и у размеченного набора поиска (UR-08.2, preprod).",
   "plan_ref": "plans/features/unified-reply/plan.md",
@@ -22,7 +22,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза).",
+  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 17/20 (UR-D, кандидат 6374eedc, ветка ur/d-writer @4556f6e3, merge в evol/impl ожидается) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза).",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -441,8 +441,17 @@
       "acceptance": "generate_initiative_reply переведён на общую L2 с TurnRequest/L1Plan/ContextSelection/ToolEvidence; writer=initiative_writer допустим только как диагностическая метка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Один Writer-шов на оба триггера; writer — только метка трассы",
+          "observation": "test_both_triggers_share_writer_seam: Direct-ход handle() и handle_initiative() пишут одним _l2_write_answer (один класс, один шов); writer == {l2_writer, initiative_writer} — только имена наблюдаемости. test_initiative_window_from_shared_selection_no_hard_cap: окно L2 инициативы собирает общий ContextSelection (collect_window_fragments + build_context_selection, бюджет слота initiative.l2), ручная сборка 12 строк убрана.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "M-00111",
@@ -456,8 +465,17 @@
       "acceptance": "В инициативном промпте остаются факты «никто не звал», цель участия, свежесть, адресат и необходимость reply; скрытая директива «не устраивай доклад» не добавляется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Скрытая директива «не устраивай доклад» удалена; полноту несёт extent плана",
+          "observation": "test_initiative_no_hidden_briefness_directive: «не устраивай доклад» в payload нет; полнота задаётся блоком плана («ОЖИДАЕМАЯ ПОЛНОТА: РАЗВЁРНУТЫЙ ТЕКСТ» при longform, «КОМПАКТ» при compact), а не скрытым be-brief-хаком; факты повода остаются в промпте.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "M-00113",
@@ -472,7 +490,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Идентичность набора источников L1 и L2 не доказана: общий ContextSelection подключён к окну Writer'а L2 инициативы (test_initiative_window_from_shared_selection_no_hard_cap), но L1 в живом ходе ещё читает собственный сборщик контекста (подключение ContextSelection к build_l1_context — незакрытые строки UR-C). Нужен контракт/тест на один общий selected-sources set для обеих стадий с разными форматами — решение по реализации."
     },
     {
       "source_id": "M-00117",
@@ -486,8 +505,17 @@
       "acceptance": "handle_initiative сохраняет существующий контракт отправки (SendRecheck, отказ от устаревшего повода, reply/чат/реакция только по L1, проверка target, logical send), прямые ответы сохраняют force/direct-семантику.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Граница отправки сохранена: SendRecheck, target, reply-привязка",
+          "observation": "test_sendrecheck_suppresses_send_after_answer (человек уже получил ответ → cancelled/already_answered, 0 отправок), test_stale_target_cancels_semantic_reply (недоступная цель reply → cancelled без отправки в чат), test_first_chunk_bound_to_reply_others_not (delivery=reply по плану L1: первый chunk с reply_to_message_id, остальные без привязки).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "M-00119",
@@ -502,7 +530,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "freshness версии контекста перед отправкой и crash-replay (повтор после сбоя не дублирует отправку и не переоплачивает инструмент) тестом не покрыты; строитель добавляет сфокусированный durable-тест — привязать к кандидату после его посадки, если зелёный."
     },
     {
       "source_id": "M-00125",
@@ -1039,8 +1068,25 @@
       "acceptance": "Добавлен обратно-совместимый структурированный путь (generate_with_metadata или деталь результата): LLMCompletion содержит text, finish_reason, провайдера/модель, usage, max_output_tokens_sent, attempt/correlation_id и диагностику fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "generate_with_metadata отдаёт полный LLMCompletion; generate() остаётся str",
+          "observation": "tests/test_llm_completion_metadata_ur18.py: finish_reason нормализован (отсутствует/null/не-строка → unknown, НЕ stop), usage как есть (нет → None, не нули), max_output_tokens_sent равен фактически отправленному телу, attempt/correlation_id честные, fallback-нога пишет свой provider/model и цепочку отказов; test_generate_returns_same_string_as_before — generate() байт-в-байт str.",
+          "type": "test",
+          "artifact_path": "tests/test_llm_completion_metadata_ur18.py",
+          "artifact_sha256": "bf3903a393a62ec86fffb0649ca86054ea3e93293e10f7ab8f7f2f4fd6107b5f",
+          "candidate_commit": "6374eedc"
+        },
+        {
+          "ref": "Метаданные completion доезжают до Writer",
+          "observation": "test_length_finish_reason_continues_same_author и test_fallback_keeps_finish_reason: finish_reason читается Writer'ом и переживает fallback (fallback_chain[0].channel == primary).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "M-00259",
@@ -1054,8 +1100,25 @@
       "acceptance": "finish_reason=length (или эквивалент провайдера) трактуется как незаконченный output и проверяется до Writer-postprocess и отправки; незнакомое поле не приравнивается автоматически к stop.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "length/MAX_TOKENS = незаконченный output; unknown не приравнивается к stop",
+          "observation": "test_text_only_completion_has_no_truncation_signal: is_truncated_output верен для length и эквивалента провайдера MAX_TOKENS, ложен для stop и текст-двойника без finish_reason; unknown — ни stop, ни обрезка. test_missing_field_is_unknown_not_stop: отсутствующее поле → unknown, не stop.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_length_continuation.py",
+          "artifact_sha256": "c2b735361ca440e99077c67d7b4ad6ad690e4e0d1c43dc239bdb2242efebbc4d",
+          "candidate_commit": "6374eedc"
+        },
+        {
+          "ref": "length проверяется до postprocess и отправки",
+          "observation": "test_length_finish_reason_continues_same_author (length → продолжение тем же автором, не публикация), test_unfinished_initiative_not_published (length без прогресса → writer_failed, Telegram ничего не отправляет), test_length_answer_completed_before_sending (восстановленный текст уходит целиком до send).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "M-00273",
@@ -1474,7 +1537,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Рантайм-половина не доказана: tone_temperature() читается из settings (services/direct_chat_service.py:4778, 13307 на кандидате 6374eedc), но скоупинг «только для соответствующей модели» и честная пометка при игноре температуры провайдером не реализованы и не проверены; UI-половина («Свобода формулировок», honest-пометка) — зона UR-F (param_catalog/effective-config, UR-22.1). Нужно решение, где закрывается рантайм-половина (кандидат — BGS-05-BUDGET, бюджеты/сэмплинг direct_execution.py, depends_on UR-D); без новых квот/классификаторов (ADDENDUM #3 §2.10)."
     },
     {
       "source_id": "M-00315",
@@ -2237,8 +2301,17 @@
       "acceptance": "Исправление обрыва требуется независимо от конкретного исходного finish_reason: доказана сама возможность публикации обрубка при max_tokens=700 без проверки finish_reason, поэтому правка не может быть отклонена из-за недоказанной причины.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Публикация обрубка при 700 без проверки finish_reason устранена",
+          "observation": "test_semantic_constants_are_not_sent (ни один вызов Writer'а не несёт 700/4096/16384), test_unfinished_initiative_not_published (невосстановимый length → writer_failed, sent == []), test_length_answer_completed_before_sending (целостный ответ до отправки) — возможность публикации обрубка при фиксированном max_tokens=700 устранена независимо от недоказанной исходной причины обрыва.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "M-00073B",
@@ -2500,8 +2573,17 @@
       "acceptance": "Ответ с finish_reason=length не публикуется обрубком: либо продолжение в том же ходе, либо честный отказ без отправки частичного текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "length без прогресса не публикуется; восстанавливаемый length уходит целиком",
+          "observation": "test_unfinished_initiative_not_published (initiative writer_failed, Telegram 0 отправок) и test_length_answer_completed_before_sending (одна логическая отправка целого текста).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00034",
@@ -2909,8 +2991,17 @@
       "acceptance": "Инициативный ответ собирается общим L2 из TurnRequest/L1Plan/ContextSelection/ToolEvidence; ручная сборка 12 строк и max_tokens=700 удалены из активного маршрута.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Общий Writer-шов и общий композер на оба триггера; 700/ручная сборка удалены",
+          "observation": "test_both_triggers_share_writer_seam (writer_calls == {l2_writer, initiative_writer}, один _l2_write_answer) и test_both_triggers_share_speech_composer (форс UNIFIED_COMPOSER: один base_key prompts.direct_chat_verbalizer_system_prompt для обоих). test_initiative_no_hidden_briefness_directive: «не устраивай доклад» в payload нет, extent-блок из плана есть.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00115",
@@ -2924,8 +3015,17 @@
       "acceptance": "Отправка отделена от права говорить: handle_initiative сохраняет SendRecheck, semantic addressee, проверку target и единый счётчик отправки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "SendRecheck/target/счётчик отправки сохранены",
+          "observation": "test_sendrecheck_suppresses_send_after_answer (already_answered -> cancelled, 0 отправок) и test_stale_target_cancels_semantic_reply (недоступная цель reply -> cancel без отправки в чат). Прежние suite-тесты I6/initreply_binding зелёные.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00121",
@@ -3359,8 +3459,17 @@
       "acceptance": "Инициативный Writer не рендерит окно через render_window_lines(window, 12): L2 инициативы использует общий ContextSelection.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Окно инициативы из общего ContextSelection, без ручного потолка 12",
+          "observation": "test_initiative_window_from_shared_selection_no_hard_cap: бюджет слота initiative.l2 (resolve_stage_budget) -> collect_window_fragments + build_context_selection; при полном бюджете видно 30 строк (>12), при effective_input_budget=40 аллокатор оставляет 8; метки [M1] от общего рендера. render_window_lines(window, 12) из активного маршрута удалён.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00173",
@@ -3902,8 +4011,17 @@
       "acceptance": "LLMClient отдаёт структурированный результат (text/finish_reason/провайдер/usage/max_output_tokens_sent/attempt) без потери finish_reason при fallback; generate() остаётся str-совместимым.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "LLMCompletion доезжает до Writer; generate() str-совместим; fallback сохраняет finish_reason",
+          "observation": "test_length_finish_reason_continues_same_author (writer читает finish_reason первого вызова), test_generate_stays_str_compatible, test_fallback_keeps_finish_reason (реальный LLMClient: finish_reason=length с fallback-ноги, fallback_chain[0].channel=primary).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00261",
@@ -3917,8 +4035,17 @@
       "acceptance": "Output вычисляется по реальному окну модели, размеру входа и response_plan.extent; инициативный 700 и универсальные 4096/16384 убраны как семантические границы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Динамический output из реального ресурса и фактического входа",
+          "observation": "test_output_computed_from_real_capacity (patch resolve_capacity: max_output=8000, window=32768 -> sent max_tokens == min(8000, 32768 - input_tokens) по count_tokens фактических сообщений) и test_unknown_resource_sends_no_max_tokens_key (None -> ключа нет).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00263",
@@ -3932,8 +4059,17 @@
       "acceptance": "Инициативный max_tokens=700 удалён; output рассчитывается по реальному max_output модели, размеру входа, response_plan.extent и доступному ресурсу, а короткий extent не создаёт текстовый обрубок.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Инициативный 700 удалён; короткий extent не создаёт обрубок",
+          "observation": "test_semantic_constants_are_not_sent (оба writer-имени, ни один вызов не несёт 700/4096/16384), test_length_answer_completed_before_sending (continuation держит границу, текст цел).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00264",
@@ -3947,8 +4083,25 @@
       "acceptance": "Провайдерский max_output сохранён, но универсальные longform-4096 и ceiling 16384 не являются семантическими границами: при требовании платформы ставится вычисленное физически допустимое значение с запасом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "4096/16384 не семантическая граница активных маршрутов",
+          "observation": "test_semantic_constants_are_not_sent, test_unknown_resource_sends_no_max_tokens_key и обновлённый test_d12_longform_not_cut_by_hidden_cap в tests/test_asap7_direct_l1.py (longform уходит целиком, без констант; SHA256 c0bfcd54df97c97c63e9cd64c405b602a7fbe40a448a0cddcabebf9cee9f3bb4).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        },
+        {
+          "ref": "Вычисление физически допустимого output",
+          "observation": "response_extent.writer_max_output_tokens(): prov max_output сохранён, window-input кламп, WRITER_MIN_OUTPUT_TOKENS=1024 floor, unknown -> None; модель/endpoint от клиента хода (без settings-fallback).",
+          "type": "code",
+          "artifact_path": "services/response_extent.py",
+          "artifact_sha256": "dbd365a87f2024e655e2c84ea1c3bc036e5865fe2f95bec9b50a1e30439a3ba2",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00265",
@@ -3962,8 +4115,17 @@
       "acceptance": "При length ответ продолжается с уже полученным текстом и неизменным планом/источниками, не повторяет абзацы и не меняет адресата, останавливается по ёмкости или отсутствию прогресса, а технический предел попыток/времени остаётся safety-лимитом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Continuation тем же автором: план/адресат неизменны, граница явная, bounded",
+          "observation": "test_length_finish_reason_continues_same_author: steps == [l2_writer, l2_continuation], continuation-сообщения содержат написанное как assistant-ход, system не меняется; MAX_CONTINUATION_CALLS=2 (l2_continuation.py), весь tests/test_rlr_length_continuation.py зелёный.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00266",
@@ -3977,8 +4139,17 @@
       "acceptance": "Продолжение выполняется до отправки; при невозможности восстановить целостный ответ фиксируется incomplete_generation, обрубок не публикуется, применяется честный fallback или инициатива отменяется, а дописывание точки к обрезанному слову запрещено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Продолжение до отправки; incomplete_generation - честный отказ",
+          "observation": "test_unfinished_initiative_not_published (handle_initiative -> writer_failed, sent == [], частичный текст не уходит) и test_length_answer_completed_before_sending (продолжение ДО send). IncompleteContinuation в _l2_write_answer -> None (l2_continuation.py).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00267",
@@ -3992,8 +4163,17 @@
       "acceptance": "chunk_text сохраняет лимит Telegram и привязку первого chunk к reply, не меняет текст по содержанию и применяется только после валидированного завершения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "chunk_text lossless/чистый; первый chunk - reply; после валидации",
+          "observation": "test_chunk_text_is_lossless_and_pure (join == исходник, каждый chunk <= CHUNK_LIMIT, идемпотентно) и test_first_chunk_bound_to_reply_others_not (delivery=reply: первый send с reply_to_message_id=555, остальные без; конкатенация чанков == слова авторского текста).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_d_writer.py",
+          "artifact_sha256": "ebfa97ac1fd0325bbd60fd503652237f328b28da1868bba5059eec0d84d2c1c1",
+          "candidate_commit": "6374eedc"
+        }
+      ]
     },
     {
       "source_id": "L00269",
@@ -6021,7 +6201,8 @@
     "UR-B": "da6299e9",
     "UR-C": "9ac64a61",
     "note": "Все три среза уже в evol/impl: 9ac64a61 (UR-C) — предок da6299e9 (UR-B), 4cc99286 — ветка UR-A, влитая merge dc296207 (файлы среза в HEAD те же байты). Поле candidate_commit — последний принятый кандидат среза, по которому шла проверка.",
-    "UR-A": "4cc99286"
+    "UR-A": "4cc99286",
+    "UR-D": "6374eedc"
   },
   "architecture_note": "Барьер UR-A снят и реализован: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966) имеет статус ARCHITECT_VALIDATED и фиксирует контракт модулей (§2), карту владения файлами (§2.6) и checkpoint-1 «контракты сфризены». По этому контракту срезом UR-A создан ровно один новый файл — services/turn_types.py (фрозен-датаклассы/enums, без логики исполнения); файла services/turn_request.py в проекте никогда не существовало, имя в графе исправлено. Датаклассы §2.2/§2.3 намеренно не дублируются: ContextSelection/ContextFragment — services/direct_context_composer.py (UR-C), ToolEvidence/SourceRecord — services/direct_execution.py (UR-B)."
 }
