@@ -880,8 +880,23 @@
       "acceptance": "Прямой ответ без инструментов: L1 → один L2; после L2 нет ни LLM-rewrite, ни смыслового удаления.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Прямой ответ без инструментов: ровно один L1-план и один L2, после L2 ни переписывания, ни смыслового удаления",
+          "observation": "test_r0801_direct_without_tools_one_l1_then_one_l2 на реальном `DirectChatService.handle`: `router.dispatched == []` (tool_policy=none), фактические LLM-стадии строго ['l1_planner', 'l2_writer'], доставленный текст совпадает с авторским L2 с точностью до закрытого набора типографических замен, сигнатура отрицаний та же, ни одной legacy-стадии (stage1/stage2/duplicate_guard_retry/format_retry и т.п.) в ходе нет.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "5d8dac73"
+        },
+        {
+          "ref": "Слияние среза rlr/acceptance-rows в evol/impl и повторный прогон на этом дереве",
+          "observation": "Ветка rlr/acceptance-rows (5d8dac73) принята Reviewer (Approved) и слита мёржом 01bb89ee (текущий HEAD); на этом дереве `tests/test_rlr_acceptance_rows.py` — 16 passed (9 строк §8 и семь параметризованных/негативных кейсов того же файла).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "01bb89ee"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00197",
@@ -895,8 +910,23 @@
       "acceptance": "Прямой ответ с поиском/историей: tools/evidence → один L2; нет промежуточного свободного авторского черновика, который затем литературно пересказывает другая модель.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Ответ с поиском: текст инструмента приходит в Writer как данные с атрибуцией, а не как черновик ответа",
+          "observation": "test_r0802_search_evidence_then_single_l2_not_retold: `execute_web_search` реально вызван, стадии ['l1_planner', 'l2_writer'], в payload Writer'а есть `<Tool_Evidence>` и `[ИСТОЧНИК 1 | execute_web_search | ok]`, доставленный текст не равен свободному тексту инструмента и совпадает с авторским L2 (слова и отрицания целы), второго литературного прохода по evidence нет.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "5d8dac73"
+        },
+        {
+          "ref": "Слияние среза rlr/acceptance-rows в evol/impl и повторный прогон на этом дереве",
+          "observation": "Ветка rlr/acceptance-rows (5d8dac73) принята Reviewer (Approved) и слита мёржом 01bb89ee (текущий HEAD); на этом дереве `tests/test_rlr_acceptance_rows.py` — 16 passed (9 строк §8 и семь параметризованных/негативных кейсов того же файла).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "01bb89ee"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00198",
@@ -910,8 +940,23 @@
       "acceptance": "Инициатива с поиском: L1 может решить `silent/react/reply`; при `reply` используется общий L2 и evidence, постперегенерации нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Инициатива: silent/react не пишут текста, reply идёт тем же общим L2 один раз",
+          "observation": "test_r0803_initiative_silent_or_react_writes_no_text (parametrize silent/react, реальный `handle_initiative`): ни одной отправки (`sent == []`) и ни одного вызова `l2_writer`; test_r0803_initiative_reply_uses_shared_l2_once: tools/evidence → общий `_l2_write_answer` (writer=initiative_writer), `llm.steps().count('l2_writer') == 1`, `<Tool_Evidence>` и текст поиска в payload, ровно одна отправка через `telegram_send.send_text`, доставленный текст = авторский L2, legacy-стадий нет.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "5d8dac73"
+        },
+        {
+          "ref": "Слияние среза rlr/acceptance-rows в evol/impl и повторный прогон на этом дереве",
+          "observation": "Ветка rlr/acceptance-rows (5d8dac73) принята Reviewer (Approved) и слита мёржом 01bb89ee (текущий HEAD); на этом дереве `tests/test_rlr_acceptance_rows.py` — 16 passed (9 строк §8 и семь параметризованных/негативных кейсов того же файла).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "01bb89ee"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00199",
@@ -925,8 +970,23 @@
       "acceptance": "L1 или старый `SYSTEM2_DIRECT_ENABLED=false`: старый флаг не активирует двойной Writer, технологическая деградация не меняет архитектуру.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Старый флаг SYSTEM2_DIRECT_ENABLED и технологическая деградация L1 не включают второго писателя",
+          "observation": "test_r0804_legacy_flag_resolves_false_for_any_raw_value: реальный `resolve_legacy_rephrasing_env_flag` даёт False для True/False/0/1/None/'true'/'0'/'' и `Settings.SYSTEM2_DIRECT_ENABLED is False`, при этом другие имена флагов не глушатся; test_r0804_planner_outage_keeps_single_writer: отказ L1-планера → детерминированный fallback-план, стадии ['l1_planner', 'l2_writer'], диагностика `planner_fallback_reason == 'planner_outage'`, доставлен текст единственного L2, второй генерации нет.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "5d8dac73"
+        },
+        {
+          "ref": "Слияние среза rlr/acceptance-rows в evol/impl и повторный прогон на этом дереве",
+          "observation": "Ветка rlr/acceptance-rows (5d8dac73) принята Reviewer (Approved) и слита мёржом 01bb89ee (текущий HEAD); на этом дереве `tests/test_rlr_acceptance_rows.py` — 16 passed (9 строк §8 и семь параметризованных/негативных кейсов того же файла).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "01bb89ee"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00200",
@@ -1090,8 +1150,23 @@
       "acceptance": "Stats/измерения/калькуляции: в Writer входят проверенные `MetricResult`; post-L2 не вставляет чужую фразу и не скрывает невозможность данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Stats/измерения: в Writer входят проверенные MetricResult, после L2 нет ни вставки, ни удаления числа",
+          "observation": "test_r0810_metric_result_reaches_writer_and_is_delivered на реальной SQLite+FTS (`chat_statistics.measure` исполняется по-настоящему): `MetricResult.value == 4`, unit 'messages', его `metric_id` и `human_label` присутствуют в payload Writer'а ДО генерации, доставленный текст = авторский L2, события `numeric_claim_guard` нет; test_r0810_unvalidated_number_not_replaced_after_l2: выдуманное «12 345» остаётся как написано, `verified_phrase` не вставлен, наблюдение `numeric_claim_guard` с outcome 'skipped', `corrected=False`, `observed=True` — невозможность данных не скрывается.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "5d8dac73"
+        },
+        {
+          "ref": "Слияние среза rlr/acceptance-rows в evol/impl и повторный прогон на этом дереве",
+          "observation": "Ветка rlr/acceptance-rows (5d8dac73) принята Reviewer (Approved) и слита мёржом 01bb89ee (текущий HEAD); на этом дереве `tests/test_rlr_acceptance_rows.py` — 16 passed (9 строк §8 и семь параметризованных/негативных кейсов того же файла).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "01bb89ee"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00206",
@@ -1120,8 +1195,23 @@
       "acceptance": "Factcheck многосоставного утверждения сохраняет sources→claims→verdict, не превращает `insufficient_evidence` в `mixed` и не переписывает литературно готовый вердикт.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Фактчек многосоставного утверждения: структура sources→claims→verdict сохранена, insufficient_evidence не поднимается",
+          "observation": "test_r0812_composite_claim_structure_preserved_no_rewrite: `_check_claim_two_call` — два вызова (структурный Stage-1 + единственный Writer), результат равен тексту Writer'а без литературного переписывания, а payload Writer'а несёт ту же структуру (claim, verdict, список assertion и статусы ['true', 'unverifiable']); test_r0812_insufficient_evidence_is_not_upgraded: `merge_claim_coverage` при серверном покрытии 'confirmed' и вердикте модели 'insufficient_evidence' оставляет insufficient_evidence во всех частях, детерминированный отчёт печатает «Вердикт: данных недостаточно» и не содержит «частично».",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "5d8dac73"
+        },
+        {
+          "ref": "Слияние среза rlr/acceptance-rows в evol/impl и повторный прогон на этом дереве",
+          "observation": "Ветка rlr/acceptance-rows (5d8dac73) принята Reviewer (Approved) и слита мёржом 01bb89ee (текущий HEAD); на этом дереве `tests/test_rlr_acceptance_rows.py` — 16 passed (9 строк §8 и семь параметризованных/негативных кейсов того же файла).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "01bb89ee"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00208",
@@ -1135,8 +1225,23 @@
       "acceptance": "Невалидная схема tool-call исправляется на machine stage либо честно завершается, без второго текстового писателя.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Невалидная схема: правка на machine stage либо честное завершение, второй текстовый писатель не появляется",
+          "observation": "test_r0813_invalid_plan_json_repaired_on_machine_stage: ровно один repair в L1-планере (`direct_l1.build_repair_messages`, REPAIR_ANNOTATION), стадии ['l1_planner', 'l1_planner', 'l2_writer'], доставлен единственный L2; test_r0813_invalid_twice_terminates_honestly_no_second_writer: дважды невалидный план → fallback-план, честная причина `planner_outage`, один L2; test_r0813_invalid_orchestrator_schema_bounded_stop на реальном `run_adaptive_chain`: инструмент не исполняется, `raw.reason == 'orchestrator_invalid_output'`, `chain_meta['reason']` тот же, `degraded=True`, проза оркестратора не доставлена, `l2_writer` ровно один. Граница: причина остановки видна в ChainResult/chain_meta, но не попадает в payload Writer'а — отдельный follow-up, не влияющий на отсутствие второго писателя.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "5d8dac73"
+        },
+        {
+          "ref": "Слияние среза rlr/acceptance-rows в evol/impl и повторный прогон на этом дереве",
+          "observation": "Ветка rlr/acceptance-rows (5d8dac73) принята Reviewer (Approved) и слита мёржом 01bb89ee (текущий HEAD); на этом дереве `tests/test_rlr_acceptance_rows.py` — 16 passed (9 строк §8 и семь параметризованных/негативных кейсов того же файла).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "01bb89ee"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00209",
@@ -1194,8 +1299,23 @@
       "acceptance": "Модель fallback/отвал провайдера: retry/fallback в той же стадии на семантически эквивалентном контексте с защищёнными блоками; перехода на legacy System2 нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Fallback модели/провайдера: та же стадия Writer'а, защищённые блоки целы, legacy-маршрута нет",
+          "observation": "test_r0815_provider_fallback_same_stage_protected_blocks: реальный `LLMClient` с активной fallback-ногой (primary падает), реальный `_l2_write_answer` с адаптером — перепакованный payload сохраняет непустую system-роль, текущий вопрос и обязательный `<Tool_Evidence>` с текстом поиска, метки legacy Stage-1 «СПРАВКА (JSON)» нет, литературный вызов один (`attempts == 1`, `semantic_rewrite_count == 0`), автором остаётся fallback-ответ той же стадии.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "5d8dac73"
+        },
+        {
+          "ref": "Слияние среза rlr/acceptance-rows в evol/impl и повторный прогон на этом дереве",
+          "observation": "Ветка rlr/acceptance-rows (5d8dac73) принята Reviewer (Approved) и слита мёржом 01bb89ee (текущий HEAD); на этом дереве `tests/test_rlr_acceptance_rows.py` — 16 passed (9 строк §8 и семь параметризованных/негативных кейсов того же файла).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "01bb89ee"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00211",
@@ -1239,8 +1359,23 @@
       "acceptance": "Длинная Telegram-реплика: chunking без обрыва или перестановки, авторство и ссылки сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Длинная Telegram-реплика: chunking без обрыва слова и перестановки, авторство и ссылка целы",
+          "observation": "test_r0817_long_reply_chunked_without_loss на реальном `_send_direct_answer` → `send_chunked_reply`: текст >5000 символов реально порезан на несколько чанков (каждый ≤4096), склейка чанков воспроизводит текст Writer'а с точностью до типографических замен и того же порядка слов, ссылка и авторская атрибуция («Вася, 12.10.2026») не разрезаны и лежат целиком в одном чанке, reply-привязка только на первом чанке, `l2_writer` ровно один.",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "5d8dac73"
+        },
+        {
+          "ref": "Слияние среза rlr/acceptance-rows в evol/impl и повторный прогон на этом дереве",
+          "observation": "Ветка rlr/acceptance-rows (5d8dac73) принята Reviewer (Approved) и слита мёржом 01bb89ee (текущий HEAD); на этом дереве `tests/test_rlr_acceptance_rows.py` — 16 passed (9 строк §8 и семь параметризованных/негативных кейсов того же файла).",
+          "type": "test",
+          "artifact_path": "tests/test_rlr_acceptance_rows.py",
+          "candidate_commit": "01bb89ee"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00213",
@@ -1353,7 +1488,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "Покрыты восемь из строк §8 (R-08.5, R-08.6, R-08.7, R-08.8, R-08.9, R-08.16, R-08.18, R-08.19 — tests/test_rlr_negative_matrix.py) и R-08.20 (tests/test_rlr_proof_restart.py); остальные строки §8 (R-08.1–R-08.4, R-08.10–R-08.15, R-08.17, R-08.CFG) — в работе, поэтому сводная строка остаётся PENDING."
+      "pending_reason": "Подтверждены 19 строк §8 из 21: R-08.1, R-08.2, R-08.3, R-08.4, R-08.5, R-08.6, R-08.7, R-08.8, R-08.9, R-08.10, R-08.12, R-08.13, R-08.14, R-08.15, R-08.16, R-08.17, R-08.18, R-08.19, R-08.20 (tests/test_rlr_negative_matrix.py — 8 строк, tests/test_rlr_proof_restart.py — R-08.20, tests/test_rlr_length_continuation.py — R-08.14, tests/test_rlr_acceptance_rows.py — 9 строк на кандидате 5d8dac73). Остаются R-08.11 и R-08.CFG (конфигурационная строка вне нумерации §8), поэтому сводная строка держится PENDING."
     },
     {
       "source_id": "MAN-L00217",
@@ -3391,7 +3526,7 @@
       "evidence": []
     }
   ],
-  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл); для стабильных отчётов добавляется artifact_sha256. Плановые строки остаются PENDING с пустым evidence и candidate_commit=\"\" до появления реального кандидата. Зелёные тесты без утверждения о наблюдаемом поведении, устное заверение и внешний документ доказательством не считаются (R-09.5). Привязка среза RLR-05-ADMIN: строки R-ADM.2/R-ADM.3/R-ADM.4/R-CONF.11 привязаны к d49b10ac с указанием реальных путей; artifact_sha256 намеренно не проставлялся, потому что манифест и каталог правятся следующими волнами (UI UR-F/PVR) и хеш-привязка дала бы ложно-красные проверки; стабильность подтверждается прогоном 61 passed после слияния a4593936. Привязка срезов RLR-02/RLR-03/RLR-04: строки привязаны к тому кандидату, который реально доказал поведение (0e3f96be — legacy-ветка, 63085f70 — verbalize-ветка, 93e64dc8 — числовой data-stage фактчека, d49b10ac — принятая backend-часть RLR-05), по одному-двум свидетельствам на строку; artifact_sha256 не проставлялся, пока прямая часть RLR-04 и UI-волна правят те же модули, — стабильность подтверждается прогоном 40 passed на HEAD 20d19ad0. Привязка срезов RLR-03.3 и RLR-07-PROOF (proof-часть): R-03.3 привязан к ветке c39e371d (merge 15e8bcc3), R-08.14 — к 673677a1 (merge 8eb6893b), восемь строк §8 и R-08.20 — к 74ce5246 (merge 9885b4b5); у каждой строки дополнительно есть сквозная запись, привязанная к текущему HEAD 8eb6893b, с фактическим прогоном на этом дереве (12 / 17 / 25 / 4 passed). artifact_sha256 не проставлялся: те же файлы правятся следующими волнами RLR-07.",
+  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл); для стабильных отчётов добавляется artifact_sha256. Плановые строки остаются PENDING с пустым evidence и candidate_commit=\"\" до появления реального кандидата. Зелёные тесты без утверждения о наблюдаемом поведении, устное заверение и внешний документ доказательством не считаются (R-09.5). Привязка среза RLR-05-ADMIN: строки R-ADM.2/R-ADM.3/R-ADM.4/R-CONF.11 привязаны к d49b10ac с указанием реальных путей; artifact_sha256 намеренно не проставлялся, потому что манифест и каталог правятся следующими волнами (UI UR-F/PVR) и хеш-привязка дала бы ложно-красные проверки; стабильность подтверждается прогоном 61 passed после слияния a4593936. Привязка срезов RLR-02/RLR-03/RLR-04: строки привязаны к тому кандидату, который реально доказал поведение (0e3f96be — legacy-ветка, 63085f70 — verbalize-ветка, 93e64dc8 — числовой data-stage фактчека, d49b10ac — принятая backend-часть RLR-05), по одному-двум свидетельствам на строку; artifact_sha256 не проставлялся, пока прямая часть RLR-04 и UI-волна правят те же модули, — стабильность подтверждается прогоном 40 passed на HEAD 20d19ad0. Привязка срезов RLR-03.3 и RLR-07-PROOF (proof-часть): R-03.3 привязан к ветке c39e371d (merge 15e8bcc3), R-08.14 — к 673677a1 (merge 8eb6893b), восемь строк §8 и R-08.20 — к 74ce5246 (merge 9885b4b5); у каждой строки дополнительно есть сквозная запись, привязанная к текущему HEAD 8eb6893b, с фактическим прогоном на этом дереве (12 / 17 / 25 / 4 passed). artifact_sha256 не проставлялся: те же файлы правятся следующими волнами RLR-07. Привязка остатка §8 (RLR-07-PROOF, кандидат 5d8dac73): девять строк R-08.1/2/3/4/10/12/13/15/17 привязаны к тестовому файлу tests/test_rlr_acceptance_rows.py с указанием наблюдаемого поведения по именам тестов; у каждой строки есть вторая запись, привязанная к текущему HEAD 01bb89ee (слияние среза и прогон 16 passed на этом дереве). artifact_sha256 намеренно не проставлялся: файл принадлежит ещё не закрытому срезу RLR-07 (R-08.11, R-08.CFG), хеш дал бы ложно-красные проверки при его расширении.",
   "live_policy_note": "PET_PROJECT: деплой и прод-проверка разрешены после независимого ревью без отдельного согласования владельца. На этапе планирования live_required=false у всех строк: обязательные проверки исполняются агентом локально/на стенде, а post-deploy проверка (R-PROC.5, R-DOD.9) добавляется как live/production evidence на release-стадии по фактическому кандидату. Ручное участие владельца гейтом не является.",
   "supersedes_in_other_maps": [
     {
@@ -3437,7 +3572,7 @@
   "architecture_classification": "ARCH_REUSE_CONFIRMED",
   "architecture_note": "Коррекция — демонтаж существующего поведения, а не новый интерфейс. Опирается на уже существующие контракты: TurnRequest/L1/L2 и ToolEvidence из UNIFIED-REPLY (UR-A/UR-B), services/direct_chat_service.py как единственный владелец финального маршрута, services/negative_constraints.py (verbalize_validated), services/evidence_policy.py (allowed/guard_egress), services/public_speech_guard.py, services/param_catalog.py + services/config_migrations.py для конфиг-миграции, services/mca_trace.py/services/oversight.py + web/api/oversight.py для трассы. Новых общих границ не замораживается: поля трассы §7 аддитивны к существующему payload, migration manifest §6.2 классифицирует существующие ключи. Если Builder обнаружит потребность в новом общем контракте (новый статус ToolEvidence, новая версия схемы трассы, общий валидатор на несколько подсистем) — работа останавливается по этой границе и вопрос уходит Architect; PM контракт не изобретает. Один писатель на services/direct_chat_service.py зафиксирован цепочкой зависимостей графа.",
   "placement": "Волна 1 (параллельно): RLR-01-ROUTE (единственный писатель direct_chat_service.py) и backend-часть RLR-05-ADMIN (param_catalog/config_migrations, UI — после UR-F/PVR). RLR-07-PROOF в это время выполняет только read-only baseline (R-PROC.1). Волна 2: RLR-02-LEGACY. Волна 3: RLR-03-FORMCONTRACT. Волна 4: RLR-04-REROLL. Волна 5: RLR-06-OBSERVABILITY (поля трассы описывают уже финальный маршрут). Волна 6: RLR-07-PROOF (матрица маршрутов, 21 сценарий R-08, реальный LLM). Волна 7: RLR-08-DOD (сверка DoD, конфликтная матрица, релизная проверка).",
-  "merge_state": "Слито и принято Reviewer (по срезам): RLR-02-LEGACY — вся ветка rlr/legacy-writer (0e3f96be, merge b62bc51e): второго автора нет физически, факты инструментов идут до L2, ошибка L2 честная, специализированные пайплайны целы; RLR-03-FORMCONTRACT — свободная часть (rlr/verbalize-scope 63085f70, merge 20d19ad0) и числовой data-stage фактчека (rlr/factcheck-numeric-stage 93e64dc8, merge b9bd717b); RLR-04-REROLL — только свободная часть (reroll-семейства в speech-модуле стали наблюдениями, semantic_rewrite_count измеряется); RLR-05-ADMIN backend-часть — d49b10ac/merge a4593936 (см. ниже, не переоткрывалась). Локальный прогон на рабочем дереве HEAD 20d19ad0: test_rlr_no_second_author.py 11 passed, test_rlr_verbalize_scope.py 18 passed, test_rlr_factcheck_numeric_stage.py 11 passed (итого 40). Остаётся PENDING: прямая часть RLR-04 (apply_numeric_guard/freshness, evidence egress, public_speech_guard, format_retry, deterministic style, duplicate_guard_retry) — не слита; R-03.3 — узкая проверка явных трансформаций не подключена в боевом `_l2_write_answer` (form_contract=None); R-06.1 — одиночный путь 10.21 (kill-switch/fallback фактчека) без числового контракта; R-06.2/R-06.3 — саммари/память/GraphRAG и мем-пайплайн отдельно не доказаны; R-PROC.4 — остатки-потребители (неиспользуемый parse_direct_synthesis, ссылки в tools/er65_prompt_segment_snapshot.py, метаданные param_catalog); UI-часть RLR-05 (R-ADM.1/5/6/7) ждёт волну UR-F/PVR и RLR-06. R-FAIL.4 привязан к кандидату verbalize-ветки 63085f70, поэтому в прогоне среза RLR-02 с кандидатом 0e3f96be он выглядит не имеющим привязки к этому кандидату — это граница кандидата, а не отсутствие доказательства. RLR-05-ADMIN (backend-часть, без изменений): манифест миграции, классы, скрытие removed/deprecated_compat из редактируемого каталога при сохранённой читаемости, отключение SYSTEM2_DIRECT_ENABLED при любом сыром значении и честные подписи реализованы в d49b10ac, приняты Reviewer (Approved) и слиты мёржом a4593936; после слияния tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed. Доказаны R-ADM.2, R-ADM.3, R-ADM.4 и сохранность PVR-истории/версий (R-CONF.11). Дополнительно слито и принято Reviewer: RLR-03.3 — ветка rlr/explicit-transform (c39e371d, merge 15e8bcc3): боевой путь `_l2_write_answer` строит узкий контракт из функционального поля плана L1 `preserve_source_facts` и поданного исходника (`_explicit_transform_contract`), проверка отрицаний скриптовая (`_has_cyrillic`), канон EVR5 описывает поле; свободный ход по-прежнему без контракта. Остаточный риск: сигнал зависит от того, выставит ли модель поле в плане L1 — это проверяется живой проверкой R-09 (строки R-09.1–R-09.4 остаются PENDING). R-08.14 — ветка 673677a1 (merge 8eb6893b): продолжение того же ответа на `finish_reason=length` через services/l2_continuation.py, без второго авторского варианта и без публикации обрезка. RLR-07-PROOF (частично) — ветка rlr/proof-tests (74ce5246, merge 9885b4b5): доказаны R-08.20 (durable-маркер, нет повторной отправки после рестарта) и восемь строк §8 (R-08.5/6/7/8/9/16/18/19); R-08.21 как сводная строка остаётся PENDING — покрыты восемь строк из 21. Прогон на текущем HEAD 8eb6893b: test_rlr_explicit_transform.py 12 passed, test_rlr_length_continuation.py 17 passed, test_rlr_negative_matrix.py 25 passed, test_rlr_proof_restart.py 4 passed.",
+  "merge_state": "Слито и принято Reviewer (по срезам): RLR-02-LEGACY — вся ветка rlr/legacy-writer (0e3f96be, merge b62bc51e): второго автора нет физически, факты инструментов идут до L2, ошибка L2 честная, специализированные пайплайны целы; RLR-03-FORMCONTRACT — свободная часть (rlr/verbalize-scope 63085f70, merge 20d19ad0) и числовой data-stage фактчека (rlr/factcheck-numeric-stage 93e64dc8, merge b9bd717b); RLR-04-REROLL — только свободная часть (reroll-семейства в speech-модуле стали наблюдениями, semantic_rewrite_count измеряется); RLR-05-ADMIN backend-часть — d49b10ac/merge a4593936 (см. ниже, не переоткрывалась). Локальный прогон на рабочем дереве HEAD 20d19ad0: test_rlr_no_second_author.py 11 passed, test_rlr_verbalize_scope.py 18 passed, test_rlr_factcheck_numeric_stage.py 11 passed (итого 40). Остаётся PENDING: прямая часть RLR-04 (apply_numeric_guard/freshness, evidence egress, public_speech_guard, format_retry, deterministic style, duplicate_guard_retry) — не слита; R-03.3 — узкая проверка явных трансформаций не подключена в боевом `_l2_write_answer` (form_contract=None); R-06.1 — одиночный путь 10.21 (kill-switch/fallback фактчека) без числового контракта; R-06.2/R-06.3 — саммари/память/GraphRAG и мем-пайплайн отдельно не доказаны; R-PROC.4 — остатки-потребители (неиспользуемый parse_direct_synthesis, ссылки в tools/er65_prompt_segment_snapshot.py, метаданные param_catalog); UI-часть RLR-05 (R-ADM.1/5/6/7) ждёт волну UR-F/PVR и RLR-06. R-FAIL.4 привязан к кандидату verbalize-ветки 63085f70, поэтому в прогоне среза RLR-02 с кандидатом 0e3f96be он выглядит не имеющим привязки к этому кандидату — это граница кандидата, а не отсутствие доказательства. RLR-05-ADMIN (backend-часть, без изменений): манифест миграции, классы, скрытие removed/deprecated_compat из редактируемого каталога при сохранённой читаемости, отключение SYSTEM2_DIRECT_ENABLED при любом сыром значении и честные подписи реализованы в d49b10ac, приняты Reviewer (Approved) и слиты мёржом a4593936; после слияния tests/test_rlr_admin_manifest.py + tests/test_param_catalog.py — 61 passed. Доказаны R-ADM.2, R-ADM.3, R-ADM.4 и сохранность PVR-истории/версий (R-CONF.11). Дополнительно слито и принято Reviewer: RLR-03.3 — ветка rlr/explicit-transform (c39e371d, merge 15e8bcc3): боевой путь `_l2_write_answer` строит узкий контракт из функционального поля плана L1 `preserve_source_facts` и поданного исходника (`_explicit_transform_contract`), проверка отрицаний скриптовая (`_has_cyrillic`), канон EVR5 описывает поле; свободный ход по-прежнему без контракта. Остаточный риск: сигнал зависит от того, выставит ли модель поле в плане L1 — это проверяется живой проверкой R-09 (строки R-09.1–R-09.4 остаются PENDING). R-08.14 — ветка 673677a1 (merge 8eb6893b): продолжение того же ответа на `finish_reason=length` через services/l2_continuation.py, без второго авторского варианта и без публикации обрезка. RLR-07-PROOF (частично) — ветка rlr/proof-tests (74ce5246, merge 9885b4b5): доказаны R-08.20 (durable-маркер, нет повторной отправки после рестарта) и восемь строк §8 (R-08.5/6/7/8/9/16/18/19); R-08.21 как сводная строка остаётся PENDING — покрыты восемь строк из 21. Прогон на текущем HEAD 8eb6893b: test_rlr_explicit_transform.py 12 passed, test_rlr_length_continuation.py 17 passed, test_rlr_negative_matrix.py 25 passed, test_rlr_proof_restart.py 4 passed. RLR-07-PROOF (остаток §8) — ветка rlr/acceptance-rows (5d8dac73, merge 01bb89ee): приняты Reviewer (Approved) и привязаны как VERIFIED строки R-08.1, R-08.2, R-08.3, R-08.4, R-08.10, R-08.12, R-08.13, R-08.15, R-08.17 (tests/test_rlr_acceptance_rows.py, 16 passed на дереве 01bb89ee); доказательство построено на реальных швах DirectChatService.handle/_l2_write_answer/handle_initiative/run_adaptive_chain/LLMClient fallback/chunking, мокаются только I/O-края, а состояние feature-gates проверяется ассертом. Итого по §8 подтверждено 19 строк из 21; R-08.21 остаётся PENDING и пересчитана под фактическое покрытие, R-08.11 и R-08.CFG остаются PENDING. НЕБЛОКИРУЮЩАЯ находка Reviewer по R-08.13: при bounded stop без единого evidence причина остановки (orchestrator_invalid_output/stop_reason) остаётся в ChainResult/chain_meta и не попадает в payload Writer'а, то есть модель не знает, почему цепочка встала; это отдельная follow-up задача (передать причину в Writer), она не отменяет доказанное отсутствие второго текстового писателя и не блокирует строку R-08.13.",
   "blocked_by_upstream": [
     "unified-reply:UR-B/UR-D/UR-E — незавершённые лейны делят services/direct_chat_service.py и services/direct_execution.py; интеграция в одно безопасное окно (§9.3), второй владелец файла запрещён.",
     "unified-reply:UR-F / PVR UI — UI-часть RLR-05-ADMIN (web/app.js, web/index.html) выполняется после их слияния; backend-часть не блокируется.",
