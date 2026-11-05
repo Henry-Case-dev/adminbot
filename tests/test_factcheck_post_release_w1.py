@@ -218,8 +218,12 @@ class TestAggregatorFailureTaxonomy:
             if isinstance(result, Exception):
                 raise result
             return result
+        # Все три уровня каскада подменяются: юнит-тест таксономии причин
+        # не делает живых сетевых вызовов (реальный DDG-уровень давал
+        # плавающий «empty_results» вместо причины тестируемого сбоя).
         agg._search_tavily = engine_fn
         agg._search_exa = engine_fn
+        agg._search_ddg = engine_fn
 
     def test_timeout_is_not_provider_unavailable(self):
         agg = sa.SearchAggregator(tavily_api_key="t", exa_api_key="")

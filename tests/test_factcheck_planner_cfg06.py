@@ -319,7 +319,10 @@ class TestStructuredEvidence:
         ref = await fsp.fetch_primary_evidence("https://example.org/meteo",
                                                fetch_text=fake_fetch)
         assert ref is not None
-        assert ref.source_kind == "primary"
+        # FC-03.3 (corrective 05.11.2026): успешный fetch больше не повышает
+        # source_kind до primary — тип по происхождению URL (example.org —
+        # secondary, открывшаяся страница не становится «первоисточником»)
+        assert ref.source_kind == "secondary"
         assert ref.published_at == 1561968000     # 2019-07-01 08:00 UTC
         assert "120 мм" in ref.support
         assert "<p>" not in ref.support           # теги срезаны

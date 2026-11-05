@@ -361,8 +361,9 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "internal.image_probe": "image-probe-w2a",
     "internal.image_stage": "image-stage-w2a",
     # EVOL-018 (W2B, ревью F3): живые LLM-инструкции расширенного аудита.
-    "temporal.analyst": "temporal-analyst-voice01-semantics",
-    "temporal.validator": "temporal-validator-fc08",
+    # FC-04 (corrective 05.11.2026): бамп меток ревизии (правило mixed/causality).
+    "temporal.analyst": "temporal-analyst-fc04-corrective",
+    "temporal.validator": "temporal-validator-fc04-corrective",
     "temporal.fallback": "temporal-fallback-fc08",
     "memory.fact_retry": "fact-retry-evol006",
     "memory.memorize_compress": "memorize-compress-w2b",
@@ -520,8 +521,10 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "internal.image_stage": ("image-stage-w2a", "73b63febff17"),
     # EVOL-018 (W2B, ревью F3): живые LLM-инструкции расширенного аудита
     # (приватные имена + скобочные конкатенации без тройных кавычек).
-    "temporal.analyst": ("temporal-analyst-voice01-semantics", "506f9787af4e"),
-    "temporal.validator": ("temporal-validator-fc08", "d5418d060fdc"),
+    # FC-04 (corrective 05.11.2026): правило mixed/causality в analyst и
+    # validator переписано — бамп метки ревизии и печати sha12 (seal).
+    "temporal.analyst": ("temporal-analyst-fc04-corrective", "5baf6afaf2d8"),
+    "temporal.validator": ("temporal-validator-fc04-corrective", "e1c2038a835d"),
     "temporal.fallback": ("temporal-fallback-fc08", "c14641150137"),
     "memory.fact_retry": ("fact-retry-evol006", "e04f4b32ef63"),
     "memory.memorize_compress": ("memorize-compress-w2b", "fe2747b1f5cc"),
@@ -2913,7 +2916,11 @@ def factory_set_fingerprint() -> str:
 #: ``l1-planner-source-facts``, печать ``2354a5cc57c4``); прочие каноны,
 #: включая тексты владельца и характер, байт-в-байт. Было ``a701aea74399``,
 #: стало ``a29e68dc1de6``.
-FACTORY_SET_SHA256_12 = "a29e68dc1de6"
+#: FC-04 (PVR-FC corrective, 06.11.2026): changed = 1 — правило mixed и
+#: причинности в ``temporal.analyst``/``temporal.validator`` переписано
+#: (метки ``*-fc04-corrective``, печати ``5baf6afaf2d8``/``e1c2038a835d``).
+#: Было ``a29e68dc1de6``, стало ``30a072887fdd``.
+FACTORY_SET_SHA256_12 = "30a072887fdd"
 
 
 
