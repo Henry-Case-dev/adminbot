@@ -2022,6 +2022,15 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
         _cogView: { nodes: nodes, edges: [] },
         reducedMotion: false, _graphSearchMatches: [], _graphSearchIdx: 0,
         _graphSearchLastQ: '',
+        // CMV-NAV-02/03: список различимых результатов и честный конфликт —
+        // новые состояния поиска (без них поиск не работает).
+        _graphSearchListPending: false,
+        graphSearchResults: [], graphSearchConflict: null,
+        graphFilterGroup: '', cognitionMapCluster: '', cogHideDerived: false,
+        _cogSearchEntry: methods._cogSearchEntry,
+        _cogSearchBlockers: methods._cogSearchBlockers,
+        _cogRejectHiddenHit: methods._cogRejectHiddenHit,
+        _cogAcceptSearchHit: methods._cogAcceptSearchHit,
         toast() {}, renderCognitionGraph: async function () {},
         clearCognitionGraphSearch: methods.clearCognitionGraphSearch,
         // CMV-A §4.1: камера обзора — `_cogApplyFit` по формуле от позиций.
@@ -2038,13 +2047,34 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       }, extra || {});
     }
 
-    // Совпадение по подстроке без регистра + focus/selectNodes.
+    // CMV-NAV-02: несколько совпадений → список различимых результатов,
+    // БЕЗ автофокуса до выбора пользователя. Детерминированный порядок и
+    // цикл Enter сохранены — после первого показа списка.
     let net = makeNet();
     let toasts = [];
     let ctx = baseCtx(net, { graphSearchQuery: 'ОЛЕГ',
       toast(t, k) { toasts.push([t, k]); } });
     await methods.searchCognitionGraph.call(ctx);
-    assert.strictEqual(net.calls.focus.length, 1, 'F2: focus вызван');
+    // Первый Enter: только список, ни фокуса, ни выбора, ни (1/2).
+    assert.strictEqual(net.calls.focus.length, 0,
+      'NAV-02: список показывается без автофокуса');
+    assert.strictEqual(net.calls.select.length, 0,
+      'NAV-02: до выбора пользователя ничего не выбрано');
+    assert.strictEqual(ctx._cogSelectedId, undefined,
+      'NAV-02: выбор не поставлен без пользователя');
+    assert.strictEqual(ctx.graphSearchResults.length, 2,
+      'NAV-02: оба совпадения в списке');
+    assert.deepStrictEqual(
+      ctx.graphSearchResults.map(function (r) { return r.id; }),
+      ['ent:1:1', 'ent:1:2'], 'NAV-02: детерминированный порядок в списке');
+    assert.ok(ctx.graphSearchResults.every(function (r) {
+      return r.title && r.kindLabel && r.id;
+    }), 'NAV-02: каждый результат различим (имя + тип + ID)');
+    assert.strictEqual(ctx.graphSearchStatus, 'Найдено: 2 — выберите из списка',
+      'NAV-02: статус зовёт выбрать из списка, а не «Найден (1/2)»');
+    // Повторный Enter → цикл с первого совпадения (детерминированный).
+    await methods.searchCognitionGraph.call(ctx);
+    assert.strictEqual(net.calls.focus.length, 1, 'F2: focus после выбора');
     assert.strictEqual(net.calls.focus[0][0], 'ent:1:1', 'F2: первое совпадение');
     assert.strictEqual(net.calls.focus[0][1].scale, 1.1, 'F2: масштаб фокуса');
     assert.deepStrictEqual(net.calls.select[0], ['ent:1:1'], 'F2: selectNodes');
@@ -2052,13 +2082,24 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       'F2: статус «Найден…»');
     assert.ok(ctx.graphSearchStatus.indexOf('1/2') >= 0,
       'F2: счётчик 1/2');
-    // Повторный Enter по тому же запросу → циклический перебор на 2-е.
+    // Следующий Enter → перебор на 2-е.
     await methods.searchCognitionGraph.call(ctx);
     assert.strictEqual(net.calls.focus[1][0], 'ent:1:2', 'F2: перебор на 2-е');
     assert.ok(ctx.graphSearchStatus.indexOf('2/2') >= 0, 'F2: счётчик 2/2');
     // Следующий Enter → цикл замкнулся на первое.
     await methods.searchCognitionGraph.call(ctx);
     assert.strictEqual(net.calls.focus[2][0], 'ent:1:1', 'F2: цикл замкнулся');
+    // Выбор из списка: конкретный результат фокусируется без перебора.
+    net = makeNet();
+    ctx = baseCtx(net, { graphSearchQuery: 'ОЛЕГ' });
+    await methods.searchCognitionGraph.call(ctx);   // список
+    await methods.pickCogSearchResult.call(ctx, 'ent:1:2');
+    assert.strictEqual(net.calls.focus.length, 1,
+      'NAV-02: выбор из списка — один фокус');
+    assert.strictEqual(net.calls.focus[0][0], 'ent:1:2',
+      'NAV-02: фокус на выбранном из списка, а не на первом');
+    assert.ok(ctx.graphSearchStatus.indexOf('2/2') >= 0,
+      'NAV-02: после выбора статус с номером выбранного');
 
     // Пустой ввод → без focus, камера обзора через `moveTo` (CMV-A §4.1:
     // не `vis.fit()` — его масштаб зависит от размеров узлов).
@@ -2246,6 +2287,9 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       _cogPaintFrame: methods._cogPaintFrame,
       _cogDebugCounters: methods._cogDebugCounters,
       _cogApplyHighlight: methods._cogApplyHighlight,
+      // CMV-NAV-04: выбор синхронизируется с новой витриной при каждом рендере.
+      _cogViewHasId: methods._cogViewHasId,
+      _cogSyncSelectionToView: methods._cogSyncSelectionToView,
       _cogFocusColor: methods._cogFocusColor,
       _cogFallbackPosition: methods._cogFallbackPosition,
       _cogDrawLabels: methods._cogDrawLabels,

@@ -1004,13 +1004,25 @@ def _extract_usage(value):
 
 
 async def _call_llm(llm, slot: L2Slot, messages, *, correlation_id,
-                    llm_call=None, operation: str = "reviewer") -> tuple[str, dict]:
+                    llm_call=None, operation: str = "reviewer",
+                    time_snap=None) -> tuple[str, dict]:
     """Один логический вызов через существующий канал Writer (dedicated
     slot/глобальная модель). Возвращает ``(raw, usage)``; сетевые ошибки —
     наверх (LLMError/Exception).
 
     ASAP 4.1 волна 4 (T-4612): ``operation`` — честная метка supervised
-    вызова (reviewer/revision) для LLMExecutionSupervisor (ADR-1028-8 D5)."""
+    вызова (reviewer/revision) для LLMExecutionSupervisor (ADR-1028-8 D5).
+
+    UR-C-CLOCK (UR-26.5): ``time_snap`` — answer-снапшот ChatClock стадии
+    review/revision; блок добавляется в последний user-блок идемпотентно
+    (ровно один блок на payload)."""
+    if time_snap is not None:
+        try:
+            from services import chat_clock as _cclock
+            messages = _cclock.attach_time_context(
+                messages, time_snap, phase=_cclock.PHASE_ANSWER)
+        except Exception:      # pragma: no cover - fail-open honest
+            pass
     if llm_call is not None:
         raw_value = await llm_call(messages)
         raw, usage = _normalise_call_result(raw_value)
@@ -1146,6 +1158,15 @@ async def run_l2_with_review(llm, package, *, service=None,
     revisions_done = 0
     patch_failures = 0
     last_revision_burned = False
+    # UR-C-CLOCK (UR-26.5): один answer-снапшот ChatClock на стадию
+    # review/revision прогона (часы чата для «свежести» документов).
+    _rev_time_snap = None
+    try:
+        if chat_id is not None:
+            from services import chat_clock as _cclock
+            _rev_time_snap = await _cclock.snapshot(chat_id)
+    except Exception:      # pragma: no cover - fail-open honest
+        _rev_time_snap = None
     # ASAP 5 D4: fingerprint-стагнация вместо count-критерия (§50.25).
     prev_fps: frozenset = frozenset()
     prev_doc_fp: str | None = None
@@ -1180,7 +1201,7 @@ async def run_l2_with_review(llm, package, *, service=None,
                       semantic_map=semantic_map,
                       evidence_slices=evidence_slices)}],
                  correlation_id=correlation_id, llm_call=reviewer_call,
-                 operation="reviewer")
+                 operation="reviewer", time_snap=_rev_time_snap)
         except Exception as exc:  # noqa: BLE001 - outage-путь §50.29
             _record(ctx, _stage_event(
                 "l2_reviewer", attempt=metrics["l2_review_calls"] + 1,
@@ -1389,7 +1410,7 @@ async def run_l2_with_review(llm, package, *, service=None,
                           entries=entries,
                           title=str(current_doc.get("title") or ""))}],
                     correlation_id=correlation_id, llm_call=revision_call,
-                    operation="revision")
+                    operation="revision", time_snap=_rev_time_snap)
             except Exception as exc:  # noqa: BLE001 - revision outage
                 _record(ctx, _stage_event(
                     "revision", attempt=revisions_done + 1, status="error",
@@ -1432,7 +1453,7 @@ async def run_l2_with_review(llm, package, *, service=None,
                           issue=targeted_issue, source_excerpts=excerpts,
                           title=str(current_doc.get("title") or ""))}],
                     correlation_id=correlation_id, llm_call=revision_call,
-                    operation="revision")
+                    operation="revision", time_snap=_rev_time_snap)
             except Exception as exc:  # noqa: BLE001 - revision outage
                 _record(ctx, _stage_event(
                     "revision", attempt=revisions_done + 1, status="error",
@@ -1465,7 +1486,7 @@ async def run_l2_with_review(llm, package, *, service=None,
                           source_window_content=source_window_content,
                           semantic_map=semantic_map)}],
                     correlation_id=correlation_id, llm_call=revision_call,
-                    operation="revision")
+                    operation="revision", time_snap=_rev_time_snap)
             except Exception as exc:  # noqa: BLE001 - revision outage
                 _record(ctx, _stage_event(
                     "revision", attempt=revisions_done + 1, status="error",

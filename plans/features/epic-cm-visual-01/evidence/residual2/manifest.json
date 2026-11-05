@@ -1,0 +1,1268 @@
+{
+ "generated_at": "2026-11-05T19:22:46",
+ "branch": "cmv/residual-evidence-2",
+ "base_commit": "df00f178",
+ "batch": 2,
+ "rows": {
+  "CMV-LOD1-03": {
+   "shots": [
+    "label-space-mid-zoom-1440.png",
+    "lod0-no-selection-1440.png",
+    "lod0-selected-neighbors-1440.png"
+   ],
+   "facts": {
+    "lod0_before_selection": {
+     "lod0Reached": true,
+     "state": {
+      "scene": true,
+      "lod": 0,
+      "aggregates": 1,
+      "hiddenCount": 10,
+      "hiddenSample": [
+       "ent:-1001234567890:1",
+       "ent:-1001234567890:2",
+       "ent:-1001234567890:3",
+       "fact:-1001234567890:11",
+       "fact:-1001234567890:12",
+       "fact:-1001234567890:13",
+       "paradigm:-1001234567890:31",
+       "obs:-1001234567890:41"
+      ],
+      "viewNodes": 11,
+      "viewEdges": 6,
+      "selectedId": null,
+      "neighbors": [],
+      "labelsShown": 1,
+      "labelIds": [
+       "agg:belief:-1001234567890:21:1:3"
+      ],
+      "forcedIds": [],
+      "zoomMode": "medium",
+      "fx": {
+       "sprites": 11,
+       "gradients": 11,
+       "paints": 33,
+       "draws": 210,
+       "pooled": 11,
+       "edgeDraws": 0,
+       "activeEdges": 0,
+       "groupDraws": 1,
+       "groupFlows": 0,
+       "groups": 1
+      }
+     },
+     "neighborsHiddenBefore": {
+      "ent:-1001234567890:2": true,
+      "fact:-1001234567890:11": true
+     }
+    },
+    "selection": {
+     "selectedId": "ent:-1001234567890:1"
+    },
+    "lod0_with_selection": {
+     "state": {
+      "scene": true,
+      "lod": 0,
+      "aggregates": 1,
+      "hiddenCount": 8,
+      "hiddenSample": [
+       "ent:-1001234567890:2",
+       "ent:-1001234567890:3",
+       "fact:-1001234567890:12",
+       "fact:-1001234567890:13",
+       "paradigm:-1001234567890:31",
+       "obs:-1001234567890:41",
+       "evt:-1001234567890:revision:51",
+       "ent:-1001234567890:4"
+      ],
+      "viewNodes": 11,
+      "viewEdges": 6,
+      "selectedId": "ent:-1001234567890:1",
+      "neighbors": [
+       "fact:-1001234567890:11"
+      ],
+      "labelsShown": 1,
+      "labelIds": [],
+      "forcedIds": [
+       "ent:-1001234567890:1"
+      ],
+      "zoomMode": "medium",
+      "fx": {
+       "sprites": 16,
+       "gradients": 16,
+       "paints": 76,
+       "draws": 572,
+       "pooled": 11,
+       "edgeDraws": 38,
+       "activeEdges": 1,
+       "groupDraws": 1,
+       "groupFlows": 0,
+       "groups": 1
+      }
+     },
+     "neighborsHiddenAfter": {
+      "ent:-1001234567890:2": true,
+      "fact:-1001234567890:11": false
+     }
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:1"
+    },
+    "label_space_mid_zoom": {
+     "lod0Reached": true,
+     "zoomFactor": 0.45,
+     "labels": {
+      "lod": 0,
+      "allocKeys": [
+       "labels",
+       "hidden",
+       "shown",
+       "lod",
+       "maxLabels",
+       "budget",
+       "cap",
+       "fill",
+       "boxArea",
+       "mandatory",
+       "scale",
+       "forced"
+      ],
+      "labels": [
+       {
+        "id": "agg:belief:-1001234567890:21:0:0",
+        "text": "Группа · 11"
+       },
+       {
+        "id": "fact:-1001234567890:11",
+        "text": "Аня любит утренний кофе"
+       },
+       {
+        "id": "ent:-1001234567890:1",
+        "text": "Аня"
+       }
+      ],
+      "forced": [],
+      "hidden": [],
+      "shown": 3,
+      "sceneForcedLabels": [],
+      "sceneLabelPlanShown": 3
+     }
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "label-space-mid-zoom-1440.png": "4c466eb2f6e6371de08df93dff960b6feff2be1d5021a67b6f4f178aee32022f",
+    "lod0-no-selection-1440.png": "46c825c8a396c2ab2cf2bbe040cdb7fab18aa17934b7be3fe26d7c19114ccb93",
+    "lod0-selected-neighbors-1440.png": "2a10db6047c8de54aea52c9e5955b239ce6927c7a73908ae0b9b217247eba778"
+   }
+  },
+  "CMV-INT-07": {
+   "shots": [
+    "aggregates-visual-lod-1440.png"
+   ],
+   "facts": {
+    "dataset_full_view": {
+     "hasNet": true,
+     "dsCount": 11,
+     "clusterPrefixed": 0,
+     "dsSample": [
+      "ent:-1001234567890:1",
+      "ent:-1001234567890:2",
+      "ent:-1001234567890:3"
+     ],
+     "edgeDsCount": 6,
+     "modelNodes": 11,
+     "byIdCount": 11,
+     "viewNodes": 11
+    },
+    "lod0_reached": true,
+    "dataset_lod0": {
+     "hasNet": true,
+     "dsCount": 11,
+     "clusterPrefixed": 0,
+     "dsSample": [
+      "ent:-1001234567890:1",
+      "ent:-1001234567890:2",
+      "ent:-1001234567890:3"
+     ],
+     "edgeDsCount": 6,
+     "modelNodes": 11,
+     "byIdCount": 11,
+     "viewNodes": 11
+    },
+    "scene_lod0": {
+     "lod": 0,
+     "aggregates": 1,
+     "hiddenCount": 10,
+     "viewNodes": 11,
+     "viewEdges": 6
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": null
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "aggregates-visual-lod-1440.png": "5775a9e3feedacf1b22c07aaa2f12d18b4c6c5183b56a9b7b2d497b4efedc0be"
+   }
+  },
+  "CMV-LODB-04": {
+   "shots": [
+    "after-data-update-1440.png"
+   ],
+   "facts": {
+    "camera_before_update": {
+     "net": true,
+     "scale": 1.15,
+     "vx": -0.5,
+     "vy": -125.5,
+     "fitScale": 0.47559,
+     "selectedId": "ent:-1001234567890:1",
+     "netSelected": [
+      "ent:-1001234567890:1"
+     ],
+     "visNetworks": 1
+    },
+    "counters_before": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:1"
+    },
+    "api_calls_during_refresh": 2,
+    "camera_after_update": {
+     "net": true,
+     "scale": 1.15,
+     "vx": -0.5,
+     "vy": -125.5,
+     "fitScale": 0.47559,
+     "selectedId": "ent:-1001234567890:1",
+     "netSelected": [
+      "ent:-1001234567890:1"
+     ],
+     "visNetworks": 1
+    },
+    "dataset_after": {
+     "hasNet": true,
+     "dsCount": 12,
+     "clusterPrefixed": 0,
+     "dsSample": [
+      "ent:-1001234567890:1",
+      "ent:-1001234567890:2",
+      "ent:-1001234567890:3"
+     ],
+     "edgeDsCount": 7,
+     "modelNodes": 12,
+     "byIdCount": 12,
+     "viewNodes": 12
+    },
+    "new_node_present": {
+     "id": "ent:-1001234567890:97",
+     "title": "Новый узел обновления",
+     "kind": "entity",
+     "search": "новый узел обновления",
+     "aliases": []
+    },
+    "counters_after": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:1"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "after-data-update-1440.png": "1b5ede4f99e7e99757e28e03258f397c09a4764ffa2f4679b396890db85b4d62"
+   }
+  },
+  "CMV-NAV-04": {
+   "shots": [
+    "filter-fact-selection-kept-1440.png",
+    "filter-fact-selection-cleared-1440.png"
+   ],
+   "facts": {
+    "case_a_selection_kept": {
+     "selectedId": "fact:-1001234567890:11",
+     "filterState": {
+      "vm": true,
+      "group": "fact",
+      "cluster": "",
+      "hideDerived": false,
+      "viewNodes": 3,
+      "viewEdges": 0,
+      "detail": {
+       "id": "fact:-1001234567890:11"
+      },
+      "selectedId": "fact:-1001234567890:11",
+      "cardOpen": true
+     },
+     "camBefore": {
+      "net": true,
+      "scale": 1.15,
+      "vx": -0.5,
+      "vy": -125.5,
+      "fitScale": 0.47559,
+      "selectedId": "fact:-1001234567890:11",
+      "netSelected": [
+       "fact:-1001234567890:11"
+      ],
+      "visNetworks": 1
+     },
+     "camAfter": {
+      "net": true,
+      "scale": 1.15,
+      "vx": -0.5,
+      "vy": -125.5,
+      "fitScale": 0.82609,
+      "selectedId": "fact:-1001234567890:11",
+      "netSelected": [
+       "fact:-1001234567890:11"
+      ],
+      "visNetworks": 1
+     }
+    },
+    "case_b_selection_cleared": {
+     "selectedId": "ent:-1001234567890:1",
+     "filterState": {
+      "vm": true,
+      "group": "fact",
+      "cluster": "",
+      "hideDerived": false,
+      "viewNodes": 3,
+      "viewEdges": 0,
+      "detail": {
+       "id": "ent:-1001234567890:1"
+      },
+      "selectedId": "ent:-1001234567890:1",
+      "cardOpen": true
+     },
+     "camBefore": {
+      "net": true,
+      "scale": 1.15,
+      "vx": -0.5,
+      "vy": -125.5,
+      "fitScale": 0.75099,
+      "selectedId": "ent:-1001234567890:1",
+      "netSelected": [
+       "ent:-1001234567890:1"
+      ],
+      "visNetworks": 1
+     },
+     "camAfter": {
+      "net": true,
+      "scale": 1.15,
+      "vx": -0.5,
+      "vy": -125.5,
+      "fitScale": 0.82609,
+      "selectedId": "ent:-1001234567890:1",
+      "netSelected": [
+       "ent:-1001234567890:1"
+      ],
+      "visNetworks": 1
+     }
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:1"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "filter-fact-selection-cleared-1440.png": "f30cc9f977a71a1d31dab8580364e072e80d8764e6ad7d40d0b78430c48e34d7",
+    "filter-fact-selection-kept-1440.png": "4553c67ffd36a7bbe2145db0f840335bb86ad6e0843d44a487271c3e6ea8812e"
+   }
+  },
+  "CMV-NAV-06": {
+   "shots": [
+    "enter-search-result-1440.png",
+    "esc1-inspector-closed-fullscreen-open-1440.png",
+    "focus-returned-after-fullscreen-1440.png",
+    "tab-focus-visible-1440.png"
+   ],
+   "facts": {
+    "tab_sequence": [
+     {
+      "tag": "INPUT",
+      "cls": "field input graph-search__input",
+      "text": "",
+      "outline": "solid 2px rgb(119, 168, 255)",
+      "boxShadow": "",
+      "borderColor": "rgb(66, 214, 196)",
+      "rect": {
+       "x": 249,
+       "y": 189.4,
+       "w": 659.8,
+       "h": 39.6
+      }
+     },
+     {
+      "tag": "BUTTON",
+      "cls": "btn-ghost text-xs",
+      "text": "Найти",
+      "outline": "solid 2px rgb(119, 168, 255)",
+      "boxShadow": "",
+      "borderColor": "rgba(170, 182, 200, 0.14)",
+      "rect": {
+       "x": 914.8,
+       "y": 192.2,
+       "w": 64.3,
+       "h": 34
+      }
+     },
+     {
+      "tag": "SELECT",
+      "cls": "field text-xs w-28 shrink-0",
+      "text": "Все типыСущности (5)Факт",
+      "outline": "solid 2px rgb(119, 168, 255)",
+      "boxShadow": "",
+      "borderColor": "rgb(66, 214, 196)",
+      "rect": {
+       "x": 985.1,
+       "y": 189.2,
+       "w": 152,
+       "h": 40
+      }
+     },
+     {
+      "tag": "SELECT",
+      "cls": "field text-xs w-36 shrink-0",
+      "text": "Все кластерыПарадигмы: Б",
+      "outline": "solid 2px rgb(119, 168, 255)",
+      "boxShadow": "",
+      "borderColor": "rgb(66, 214, 196)",
+      "rect": {
+       "x": 1143.1,
+       "y": 189.2,
+       "w": 152,
+       "h": 40
+      }
+     }
+    ],
+    "enter_search_found": {
+     "vm": true,
+     "query": "Дача",
+     "status": "Найден: Дача (1/2)",
+     "matchIds": [
+      "ent:-1001234567890:3",
+      "fact:-1001234567890:13"
+     ],
+     "idx": 0,
+     "selectedId": "ent:-1001234567890:3",
+     "detail": {
+      "id": "ent:-1001234567890:3",
+      "kind": "entity",
+      "kindLabel": "Сущности"
+     },
+     "aliasesMap": {
+      "Костя": "Тень"
+     }
+    },
+    "enter_search_negative": {
+     "status": "Ничего не найдено",
+     "matchIds": [
+      "ent:-1001234567890:3",
+      "fact:-1001234567890:13"
+     ]
+    },
+    "esc_layers": {
+     "selectedBefore": "ent:-1001234567890:2",
+     "fullscreenBefore": true,
+     "selectionBeforeEsc": true,
+     "afterEsc1": {
+      "selection": "ent:-1001234567890:2",
+      "fullscreen": true
+     },
+     "afterEsc2": {
+      "fullscreen": false
+     },
+     "focusAfterClose": {
+      "active": "BUTTON.btn-ghost text-xs ml-auto cog-head__full",
+      "isFullBtn": true,
+      "btnExists": true
+     }
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:2"
+    },
+    "esc_negative_no_layers": {
+     "routeBefore": "#/",
+     "routeAfter": "#/"
+    },
+    "esc_levels_precise": {
+     "beforeEsc": {
+      "fullscreen": true,
+      "cogCardOpen": true,
+      "cardInDom": true,
+      "cardVisible": true,
+      "selectedId": "ent:-1001234567890:2",
+      "active": "DIV.cognition-graph cognition-graph--full"
+     },
+     "afterEsc1": {
+      "fullscreen": true,
+      "cogCardOpen": false,
+      "cardInDom": false,
+      "cardVisible": false,
+      "selectedId": "ent:-1001234567890:2",
+      "active": "DIV.cognition-graph cognition-graph--full"
+     },
+     "afterEsc2": {
+      "fullscreen": false,
+      "cogCardOpen": false,
+      "cardInDom": false,
+      "cardVisible": false,
+      "selectedId": "ent:-1001234567890:2",
+      "active": "BUTTON.btn-ghost text-xs ml-auto cog-head__full"
+     },
+     "focusAfterClose": {
+      "isFullBtn": true
+     }
+    },
+    "counters_reprobe": {
+     "visNetworks": 1,
+     "scenes": 1
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "enter-search-result-1440.png": "bf67b8f48564decda77ab91c382d734d441c90c45a7f4ef933cafd0c4480e9e1",
+    "esc1-inspector-closed-fullscreen-open-1440.png": "f0d8d937f0cc34c0f27cd009e10690b466da90ddd2cac113fdfe998cdfb27b13",
+    "focus-returned-after-fullscreen-1440.png": "40ac7968a7d27238c78edc8adff1f8f5c1f78d22170b241e91ff6a3d8e78e7d1",
+    "tab-focus-visible-1440.png": "06b55741e211510b14a46cb1cd50be830ca21c88ea07e2b364fb4153f37ff37f"
+   }
+  },
+  "CMV-NAV-01": {
+   "shots": [
+    "search-by-alias-1440.png",
+    "search-full-name-beyond-label-1440.png"
+   ],
+   "facts": {
+    "aliases_map": {
+     "Костя": "Тень"
+    },
+    "node_search_blob": {
+     "id": "ent:-1001234567890:2",
+     "title": "Костя",
+     "kind": "entity",
+     "search": "костя тень",
+     "aliases": [
+      "тень"
+     ]
+    },
+    "search_by_alias": {
+     "vm": true,
+     "query": "Тень",
+     "status": "Найден: Костя",
+     "matchIds": [
+      "ent:-1001234567890:2"
+     ],
+     "idx": 0,
+     "selectedId": "ent:-1001234567890:2",
+     "detail": {
+      "id": "ent:-1001234567890:2",
+      "kind": "entity",
+      "kindLabel": "Сущности"
+     },
+     "aliasesMap": {
+      "Костя": "Тень"
+     }
+    },
+    "api_calls_during_alias_search": 0,
+    "search_beyond_truncated_label": {
+     "vm": true,
+     "query": "заведомо",
+     "status": "Найден: Узел с исключительно длинным названием, которое заведомо не помещается в одну строку подписи на канве и должно сокращаться с многоточием при отрисовке",
+     "matchIds": [
+      "ent:-1001234567890:93"
+     ],
+     "idx": 0,
+     "selectedId": "ent:-1001234567890:93",
+     "detail": {
+      "id": "ent:-1001234567890:93",
+      "kind": "entity",
+      "kindLabel": "Сущности"
+     },
+     "aliasesMap": {
+      "Костя": "Тень"
+     }
+    },
+    "negative_no_match": {
+     "status": "Ничего не найдено",
+     "matchIds": [
+      "ent:-1001234567890:93"
+     ]
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:93"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "search-by-alias-1440.png": "9347dcdf1866f1545e4d1cee14f4b502d2f35ecb04ff2e5ce4cd4df27112a945",
+    "search-full-name-beyond-label-1440.png": "9386b80917a2629474ca5885aef5c3fd825663722a62cf486fd8650280eb0267"
+   }
+  },
+  "CMV-NAV-02": {
+   "shots": [
+    "dup-hits-step1-1440.png",
+    "dup-hits-step2-1440.png",
+    "dup-hits-step3-1440.png"
+   ],
+   "facts": {
+    "duplicate_hits_cycle": [
+     {
+      "step": 1,
+      "status": "Найден: Дубль показателя (1/3)",
+      "matchIds": [
+       "ent:-1001234567890:94",
+       "fact:-1001234567890:95",
+       "obs:-1001234567890:96"
+      ],
+      "idx": 0,
+      "selectedId": "ent:-1001234567890:94",
+      "detail": {
+       "id": "ent:-1001234567890:94",
+       "kind": "entity",
+       "kindLabel": "Сущности"
+      }
+     },
+     {
+      "step": 2,
+      "status": "Найден: Дубль показателя (2/3)",
+      "matchIds": [
+       "ent:-1001234567890:94",
+       "fact:-1001234567890:95",
+       "obs:-1001234567890:96"
+      ],
+      "idx": 1,
+      "selectedId": "fact:-1001234567890:95",
+      "detail": {
+       "id": "fact:-1001234567890:95",
+       "kind": "fact",
+       "kindLabel": "Факты"
+      }
+     },
+     {
+      "step": 3,
+      "status": "Найден: Дубль показателя (3/3)",
+      "matchIds": [
+       "ent:-1001234567890:94",
+       "fact:-1001234567890:95",
+       "obs:-1001234567890:96"
+      ],
+      "idx": 2,
+      "selectedId": "obs:-1001234567890:96",
+      "detail": {
+       "id": "obs:-1001234567890:96",
+       "kind": "observation",
+       "kindLabel": "Наблюдения"
+      }
+     }
+    ],
+    "unique_hit_no_counter": {
+     "status": "Найден: Дача (1/2)",
+     "matchIds": [
+      "ent:-1001234567890:3",
+      "fact:-1001234567890:13"
+     ]
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:3"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "dup-hits-step1-1440.png": "0e9043bbfaf41280608983e8a1d85fa1368272af53d34132d6273fffca8374e8",
+    "dup-hits-step2-1440.png": "d875e279cd98db01983ea4753f96cb7511bfa236bf37e409874a85646aee0264",
+    "dup-hits-step3-1440.png": "9ee8b093435c038ba8ba44862807e812866593a65ea5e79bd4acaed6f7b73171"
+   }
+  },
+  "CMV-NAV-03": {
+   "shots": [
+    "search-filtered-out-1440.png",
+    "hidden-result-revealed-1440.png"
+   ],
+   "facts": {
+    "negative_node_in_view": {
+     "status": "Найден: Аня любит утренний кофе",
+     "filterAfter": {
+      "group": "",
+      "cluster": "",
+      "hideDerived": false
+     }
+    },
+    "filtered_out_search": {
+     "filterBefore": {
+      "group": "fact",
+      "viewNodes": 5
+     },
+     "searchState": {
+      "vm": true,
+      "query": "исключительно",
+      "status": "Найден: Узел с исключительно длинным названием, которое заведомо не помещается в одну строку подписи на канве и должно сокращаться с многоточием при отрисовке",
+      "matchIds": [
+       "ent:-1001234567890:93"
+      ],
+      "idx": 0,
+      "selectedId": "ent:-1001234567890:93",
+      "detail": {
+       "id": "ent:-1001234567890:93",
+       "kind": "entity",
+       "kindLabel": "Сущности"
+      },
+      "aliasesMap": {
+       "Костя": "Тень"
+      }
+     },
+     "filterAfter": {
+      "group": "",
+      "cluster": "",
+      "hideDerived": false,
+      "viewNodes": 17
+     }
+    },
+    "conflict_ui_texts": {
+     "statusLine": {
+      "status": "Найден: Узел с исключительно длинным названием, которое заведомо не помещается в",
+      "showResultBtn": null
+     }
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "fact:-1001234567890:1"
+    },
+    "lod0_reached": true,
+    "hidden_sample_before": [
+     "fact:-1001234567890:1",
+     "fact:-1001234567890:2",
+     "fact:-1001234567890:3",
+     "fact:-1001234567890:4",
+     "fact:-1001234567890:5",
+     "fact:-1001234567890:6",
+     "fact:-1001234567890:7",
+     "fact:-1001234567890:8",
+     "fact:-1001234567890:9",
+     "fact:-1001234567890:10",
+     "fact:-1001234567890:11",
+     "fact:-1001234567890:12",
+     "fact:-1001234567890:13",
+     "fact:-1001234567890:14",
+     "fact:-1001234567890:15",
+     "fact:-1001234567890:16",
+     "fact:-1001234567890:17",
+     "fact:-1001234567890:18",
+     "fact:-1001234567890:19",
+     "fact:-1001234567890:20"
+    ],
+    "target": {
+     "id": "fact:-1001234567890:1",
+     "title": "Утро начинается с кофе 1",
+     "kind": "fact",
+     "search": "утро начинается с кофе 1",
+     "aliases": []
+    },
+    "reveal": {
+     "target": "fact:-1001234567890:1",
+     "hiddenBefore": {
+      "fact:-1001234567890:1": true
+     },
+     "hiddenAfter": {
+      "fact:-1001234567890:1": false
+     },
+     "search": {
+      "vm": true,
+      "query": "Утро начинается с кофе 1",
+      "status": "Найден: Утро начинается с кофе 1 (1/31)",
+      "matchIds": [
+       "fact:-1001234567890:1",
+       "fact:-1001234567890:16",
+       "belief:-1001234567890:151",
+       "ent:-1001234567890:166",
+       "evt:-1001234567890:196",
+       "fact:-1001234567890:106",
+       "fact:-1001234567890:121",
+       "fact:-1001234567890:136",
+       "paradigm:-1001234567890:181",
+       "belief:-1001234567890:61",
+       "fact:-1001234567890:31",
+       "obs:-1001234567890:91",
+       "belief:-1001234567890:361",
+       "belief:-1001234567890:451",
+       "belief:-1001234567890:661",
+       "ent:-1001234567890:271",
+       "ent:-1001234567890:571",
+       "fact:-1001234567890:211",
+       "fact:-1001234567890:241",
+       "fact:-1001234567890:301",
+       "fact:-1001234567890:316",
+       "fact:-1001234567890:331",
+       "fact:-1001234567890:421",
+       "fact:-1001234567890:511",
+       "fact:-1001234567890:541",
+       "fact:-1001234567890:601",
+       "fact:-1001234567890:616",
+       "fact:-1001234567890:631",
+       "obs:-1001234567890:391",
+       "obs:-1001234567890:691",
+       "paradigm:-1001234567890:481"
+      ],
+      "idx": 0,
+      "selectedId": "fact:-1001234567890:1",
+      "detail": {
+       "id": "fact:-1001234567890:1",
+       "kind": "fact",
+       "kindLabel": "Факты"
+      },
+      "aliasesMap": {
+       "Костя": "Тень"
+      }
+     },
+     "camera": {
+      "net": true,
+      "scale": 0.28868,
+      "vx": -364,
+      "vy": -201,
+      "fitScale": 0.09623,
+      "selectedId": "fact:-1001234567890:1",
+      "netSelected": [
+       "fact:-1001234567890:1"
+      ],
+      "visNetworks": 1
+     }
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "hidden-result-revealed-1440.png": "15456bd29566ac28864dd9990046b363d1cdd074bb9665e5b2479a201ecb7d24",
+    "search-filtered-out-1440.png": "39f9b4ceb48411e370534fc513ffaf17b77993027ee801774777896458fbb1a2"
+   }
+  },
+  "CMV-ERR-02": {
+   "shots": [
+    "single-node-card-1440.png"
+   ],
+   "facts": {
+    "dataset": {
+     "hasNet": true,
+     "dsCount": 1,
+     "clusterPrefixed": 0,
+     "dsSample": [
+      "ent:-1001234567890:1"
+     ],
+     "edgeDsCount": 0,
+     "modelNodes": 1,
+     "byIdCount": 1,
+     "viewNodes": 1
+    },
+    "scene_before": {
+     "viewNodes": 1,
+     "viewEdges": 0,
+     "neighbors": []
+    },
+    "selected": "ent:-1001234567890:1",
+    "scene_selected": {
+     "neighbors": [],
+     "viewEdges": 0,
+     "labelsShown": 1,
+     "forcedIds": []
+    },
+    "camera": {
+     "net": true,
+     "scale": 0.8,
+     "vx": 14,
+     "vy": 4,
+     "fitScale": 0.8,
+     "selectedId": "ent:-1001234567890:1",
+     "netSelected": [
+      "ent:-1001234567890:1"
+     ],
+     "visNetworks": 1
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:1"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "single-node-card-1440.png": "5f02d77e0d9991e6b5cfa7614a08d5c17e467a94aabfde7dc257d6c00dd5347e"
+   }
+  },
+  "CMV-ERR-03": {
+   "shots": [
+    "emoji-node-card-1440.png",
+    "no-kind-node-card-1440.png",
+    "same-name-pair-1440.png",
+    "weird-nodes-fullscreen-390.png"
+   ],
+   "facts": {
+    "weird_nodes_in_model": {
+     "ent:-1001234567890:201": {
+      "id": "ent:-1001234567890:201",
+      "title": "Дубль норм",
+      "kind": "entity",
+      "search": "дубль норм",
+      "aliases": []
+     },
+     "fact:-1001234567890:202": {
+      "id": "fact:-1001234567890:202",
+      "title": "Доверие строится постепенно 202",
+      "kind": "fact",
+      "search": "доверие строится постепенно 202",
+      "aliases": []
+     },
+     "ent:-1001234567890:203": {
+      "id": "ent:-1001234567890:203",
+      "title": "Терминатор в системе распределённых вычислений — очень длинная русская подпись узла когнитивной карты для проверки переноса",
+      "kind": "entity",
+      "search": "терминатор в системе распределенных вычислений — очень длинная русская подпись у",
+      "aliases": []
+     },
+     "ent:-1001234567890:204": {
+      "id": "ent:-1001234567890:204",
+      "title": "Quantum Flux Node",
+      "kind": "entity",
+      "search": "quantum flux node",
+      "aliases": []
+     },
+     "ent:-1001234567890:205": {
+      "id": "ent:-1001234567890:205",
+      "title": "🚀 Ракета Эмодзи 🎉",
+      "kind": "entity",
+      "search": "🚀 ракета эмодзи 🎉",
+      "aliases": []
+     },
+     "ent:-1001234567890:206": {
+      "id": "ent:-1001234567890:206",
+      "title": "Узел без типа",
+      "kind": "other",
+      "search": "узел без типа",
+      "aliases": []
+     }
+    },
+    "dataset": {
+     "hasNet": true,
+     "dsCount": 707,
+     "clusterPrefixed": 0,
+     "dsSample": [
+      "fact:-1001234567890:1",
+      "fact:-1001234567890:2",
+      "fact:-1001234567890:3"
+     ],
+     "edgeDsCount": 2406,
+     "modelNodes": 707,
+     "byIdCount": 707,
+     "viewNodes": 707
+    },
+    "client_state": {
+     "state": "ready",
+     "degraded": false,
+     "empty": false,
+     "stale": false,
+     "noticeKind": "ready"
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": null
+    },
+    "card_emoji_node": {
+     "id": "ent:-1001234567890:205",
+     "title": "🚀 Ракета Эмодзи 🎉",
+     "kind": "entity"
+    },
+    "card_no_kind_node": {
+     "id": "ent:-1001234567890:206",
+     "title": "Узел без типа",
+     "kind": "other",
+     "kindLabel": "Прочее"
+    },
+    "same_name_pair_fixed_ids": {
+     "ent:-1001234567890:9201": {
+      "id": "ent:-1001234567890:9201",
+      "title": "Дубль норм",
+      "kind": "entity"
+     },
+     "fact:-1001234567890:9202": {
+      "id": "fact:-1001234567890:9202",
+      "title": "Дубль норм",
+      "kind": "fact"
+     },
+     "ent:-1001234567890:9206": {
+      "id": "ent:-1001234567890:9206",
+      "title": "Узел без типа",
+      "kind": "other"
+     }
+    },
+    "dataset_fixed": {
+     "nodes": 708,
+     "edges": 2406
+    },
+    "client_state_fixed": {
+     "state": "ready",
+     "degraded": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "emoji-node-card-1440.png": "cb82ca49ca27532cebd954a1086f4a7be843477c8ccf79b2c7cc99a85c4e6714",
+    "no-kind-node-card-1440.png": "a571fdb93deda47b32360aee8b99d3584c052a3c73e8956d8c44e33dd7294f0d",
+    "same-name-pair-1440.png": "0995305a7c08ab8e2ac9321e4ce4f91ae47b8eea1853a359053cf6d03c208e11",
+    "weird-nodes-fullscreen-390.png": "b47a312e53cbe0f7bc89989c132310cba8e9b841029d75adbd89baa15ba2489a"
+   }
+  },
+  "CMV-FSM-01": {
+   "shots": [
+    "negative-no-fullscreen-390.png",
+    "fullscreen-390.png"
+   ],
+   "facts": {
+    "negative_closed": {
+     "present": false,
+     "innerW": 390,
+     "innerH": 844,
+     "dvhPx": 844
+    },
+    "fullscreen_geometry": {
+     "present": true,
+     "fsRect": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "right": 390,
+      "bottom": 844
+     },
+     "innerW": 390,
+     "innerH": 844,
+     "dvhPx": 844,
+     "pageScrollHeight": 844,
+     "pageClientHeight": 844,
+     "pageScrolls": false,
+     "pad": {
+      "t": "8px",
+      "b": "8px",
+      "l": "12px",
+      "r": "12px"
+     },
+     "safeEnv": {
+      "top": "0px",
+      "bottom": "0px"
+     },
+     "sceneRect": {
+      "x": 12,
+      "y": 277.8,
+      "w": 366,
+      "h": 548.1,
+      "right": 378,
+      "bottom": 825.9
+     },
+     "sheetRect": null,
+     "countersText": "в базе 320 узлов · 40 связей·из API 11 узлов · 6 связей",
+     "stateText": null,
+     "controls": [
+      {
+       "name": "search-input",
+       "x": 21,
+       "y": 87,
+       "w": 348,
+       "h": 44,
+       "min": 44,
+       "inVp": true,
+       "clipped": false,
+       "minHeightCss": "44px"
+      },
+      {
+       "name": "btn:Найти",
+       "x": 21,
+       "y": 137,
+       "w": 47.6,
+       "h": 44,
+       "min": 44,
+       "inVp": true,
+       "clipped": false,
+       "minHeightCss": "44px"
+      },
+      {
+       "name": "btn:Сбросить вид",
+       "x": 282.5,
+       "y": 137,
+       "w": 86.5,
+       "h": 44,
+       "min": 44,
+       "inVp": true,
+       "clipped": false,
+       "minHeightCss": "44px"
+      },
+      {
+       "name": "select0:Все типы",
+       "x": 74.6,
+       "y": 137,
+       "w": 97.9,
+       "h": 44,
+       "min": 44,
+       "inVp": true,
+       "clipped": false,
+       "minHeightCss": "44px"
+      },
+      {
+       "name": "select1:Все кластеры",
+       "x": 178.6,
+       "y": 137,
+       "w": 97.9,
+       "h": 44,
+       "min": 44,
+       "inVp": true,
+       "clipped": false,
+       "minHeightCss": "44px"
+      },
+      {
+       "name": "close",
+       "x": 280,
+       "y": 15,
+       "w": 89,
+       "h": 44,
+       "min": 44,
+       "inVp": true,
+       "clipped": false,
+       "minHeightCss": "44px"
+      }
+     ]
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": null
+    },
+    "closed_after_esc": {
+     "present": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "fullscreen-390.png": "94b288dc6d655b0996093408647d1ae9e3c6bdeaca72997d8e66b199a66f4f8a",
+    "negative-no-fullscreen-390.png": "d806818f804c2bee3998988c649a480d7c28bd79c4af783f4490f7202aed563a"
+   }
+  },
+  "CMV-FSM-02": {
+   "shots": [
+    "fullscreen-controls-390.png"
+   ],
+   "facts": {
+    "controls": [
+     {
+      "name": "search-input",
+      "x": 21,
+      "y": 87,
+      "w": 348,
+      "h": 44,
+      "min": 44,
+      "inVp": true,
+      "clipped": false,
+      "minHeightCss": "44px"
+     },
+     {
+      "name": "btn:Найти",
+      "x": 21,
+      "y": 137,
+      "w": 47.6,
+      "h": 44,
+      "min": 44,
+      "inVp": true,
+      "clipped": false,
+      "minHeightCss": "44px"
+     },
+     {
+      "name": "btn:Сбросить вид",
+      "x": 282.5,
+      "y": 137,
+      "w": 86.5,
+      "h": 44,
+      "min": 44,
+      "inVp": true,
+      "clipped": false,
+      "minHeightCss": "44px"
+     },
+     {
+      "name": "select0:Все типы",
+      "x": 74.6,
+      "y": 137,
+      "w": 97.9,
+      "h": 44,
+      "min": 44,
+      "inVp": true,
+      "clipped": false,
+      "minHeightCss": "44px"
+     },
+     {
+      "name": "select1:Все кластеры",
+      "x": 178.6,
+      "y": 137,
+      "w": 97.9,
+      "h": 44,
+      "min": 44,
+      "inVp": true,
+      "clipped": false,
+      "minHeightCss": "44px"
+     },
+     {
+      "name": "close",
+      "x": 280,
+      "y": 15,
+      "w": 89,
+      "h": 44,
+      "min": 44,
+      "inVp": true,
+      "clipped": false,
+      "minHeightCss": "44px"
+     }
+    ],
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": null
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "fullscreen-controls-390.png": "4f1afd4e8ef4e5f12262bd00927ac263075edde83af11b935a9ba9e718ad7deb"
+   }
+  }
+ },
+ "focused_reprobe_at": "2026-11-05T19:28:04"
+}

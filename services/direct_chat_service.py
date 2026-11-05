@@ -26,9 +26,13 @@ services/smartmodule_concurrency (ChatConcurrencyPool) — до N паралле
 CHAT_LOCK_BUSY_PHRASES.
 
 Epic 60 (Section 65, Фаза C, T-469…T-478): 🗿-молчание на пустой ответ
-(65.1), стачка кулдаунов → молчание (65.3), <style_anchors> (65.4), команды
+(65.1), стачка кулдаунов → молчание (65.3), команды
 /clear /persona /tone /forget (65.5), typing-индикатор (65.7), temperature-
-пресеты из user_prefs (65.8), mood-блок (65.9), protected_facts (65.10).
+пресеты из user_prefs (65.8), protected_facts (65.10).
+UR-E (UNIFIED-REPLY, owner 2026-11-05): секции <style_anchors> (65.4) и
+<mood> (65.9) УДАЛЕНЫ из активной сборки — автоподражание прошлым ответам
+бота и лексический mood-ярлык не подмешиваются в L2; прошлые реплики бота
+остаются обычными фрагментами истории диалога (UR-23), тон выбирает L1.
 
 Epic 60 (Section 66, Фаза D, T-487/T-490): /persona <имя> — карточка человека
 из графа (66.9); бюджеты контекста — доли от CHAT_CONTEXT_BUDGET_TOKENS с
@@ -36,10 +40,11 @@ Epic 60 (Section 66, Фаза D, T-487/T-490): /persona <имя> — карто�
 
 Раунд 8 (Context-Layer X-Features, spec.md; T-791…T-803 частично):
   * B2 (T-791): реордер user-блока «важное к концу» — map → branch → rag →
-    global → thread → target → protected → lore → mood → current → anchors →
-    sandwich; бюджет на effective-базе (неприкосновенные: target/protected/
+    global → thread → target → protected → lore → current → sandwich
+    (UR-E: mood/anchors исключены из активной сборки); бюджет на
+    effective-базе (неприкосновенные: target/protected/
     lore/current/sandwich), новая доля branch, порядок урезания
-    anchors→rag→thread→global(keep-head)→map→nostalgia (маркер слоя A —
+    rag→thread→global(keep-head)→map→nostalgia (маркер слоя A —
     последним, раунд 9 E1/T-826).
   * C1/C3/C5 (T-792/T-794/T-796): uid-рендеры «{имя} [{uid}]» / «{имя} [bot]»
     во внутренних строках (global/thread/branch) и <Target_User>; карта
@@ -136,12 +141,13 @@ from services.llm_client import (
 )
 from services.llm_circuit_breaker import STATE_HALF_OPEN, LLMCircuitBreaker
 from services.budget_limits import context_state
+# UR-C-CLOCK (contract §3): ЕДИНСТВЕННЫЙ источник времени чата.
+from services import chat_clock as _cclock
 from services.canonical_context import (
     RELATION_REPLY,
     SPEECH_LABEL_RE,
     SpeechProjection,
     SpeechRelation,
-    format_chat_time,
     format_context_item,
     format_speech_item,
     resolve_item_id,
@@ -830,10 +836,8 @@ _PERSONA_MAX_ITEMS = 10          # 66.9: карточка — до 10 факто
 # F8 (cognition-irony-dossier-round1013, spec §6): общий символьный бюджет
 # блоков досье [Факты]/[Локальные мемы/Ярлыки] (мемы режутся первыми).
 _PERSONA_DOSSIER_MAX_CHARS = 1200
-# Раунд 3 (3.7/C1, T-696): анти-залипание style_anchors («сцуко»-инцидент).
-_STYLE_ANCHOR_LOOKBACK = 5       # буфер выборки поверх count (ищем «разные»)
-_STICKY_MIN_WORD_LEN = 3         # короче — не «слово-префикс» (a/и/в…)
-_STICKY_MIN_FREQ = 2             # >=2 из окна = залипший префикс
+# UR-E (UR-14): константы анти-залипания style_anchors
+# (_STYLE_ANCHOR_LOOKBACK/_STICKY_*) удалены вместе с секцией.
 _BLOCK_RE = re.compile(          # 66.12: блок «<Tag>\n…\n</Tag>» (тело для обрезки)
     r"^(<[A-Za-z_]+>\n)(.*)(\n</[A-Za-z_]+>)\s*$", re.DOTALL)
 # Раунд 8 (B2/FR-23, п.25): sandwich-строка — финальное напоминание в конце
@@ -999,11 +1003,6 @@ def _format_generated_portrait_block(generated) -> str:
     if themes:
         parts.append("[Темы]\n" + "\n".join(themes))
     return "\n".join(parts)
-
-
-def _parse_mood_words(raw: str) -> tuple[str, ...]:
-    """65.9: comma-separated env → кортеж слов (нижний регистр)."""
-    return tuple(w.strip().lower() for w in str(raw or "").split(",") if w.strip())
 
 
 def _forward_source_of(message) -> str:
@@ -3349,10 +3348,6 @@ class DirectChatService:
         self.silence_streak = SilenceStreak(
             hot.get("limits.chat_cooldown_seconds", settings.CHAT_COOLDOWN_SECONDS),
             db if hot.get("flags.throttle_persistent_enabled", settings.THROTTLE_PERSISTENT_ENABLED) else None)
-        # Epic 60 (65.9, T-477): слова настроения — comma-separated env
-        # (правило п.49: никаких списков в коде).
-        self._mood_negative = _parse_mood_words(settings.CHAT_MOOD_NEGATIVE_WORDS)
-        self._mood_positive = _parse_mood_words(settings.CHAT_MOOD_POSITIVE_WORDS)
         # MCA-22 (C7): cache инжектится из bot.py (get_smart_cache()) —
         # ТОЛЬКО для update-identity маркеров Telegram (response_freshness,
         # 24 h; дедуп событий, не ответов). None → маркеров нет (паритет
@@ -4419,6 +4414,12 @@ class DirectChatService:
             # жёсткий override в reply (§1.7); SILENT → 🗿 (_execute_silent_
             # ack, конъюнкция неизменна); REACT → реакция из allowed-набора.
             if direct_l1_on:
+                # UR-C-CLOCK (UR-25.2): ОДИН план-снапшот времени чата на ход —
+                # L1, tool-оркестратор и legacy-payload видят один as_of;
+                # L2 ниже получает answer-снапшот (fresh только при пересечении
+                # минуты/даты). Время идёт из ChatClock, не из контейнера/LLM
+                # (UR-BAN-05).
+                snap_plan = await _cclock.snapshot(chat_id)
                 async with typing_active(bot, chat_id):
                     try:
                         l1_plan, l1_meta = await self._plan_direct_l1(
@@ -4437,7 +4438,8 @@ class DirectChatService:
                                 if _dctx is not None else False),
                             reactions_enabled=bool(getattr(
                                 _toggles if decision_on else None,
-                                "reactions", False)))
+                                "reactions", False)),
+                            time_snapshot=snap_plan)
                     except NoApiKeyForChat as exc:
                         # D03 (§18C.1): permission-политика (forbidden/
                         # budget) блокирует и dedicated L1 — тот же
@@ -4737,10 +4739,24 @@ class DirectChatService:
                             "stage=tool_phase_composer | removed=%d",
                             chat_id, _scrubbed_on)
                 _pcomp.emit_layer_events_once(_composer_manifest)
-            time_line = await self._chat_time_line(chat_id)
+            # UR-C-CLOCK (UR-25.2/UR-26.2): один план-снапшот хода; legacy-payload
+            # (single/chat_with_tools) — answer-фаза, tool-оркестратор — план.
+            if direct_l1_on:
+                _turn_snap = snap_plan
+            else:
+                _turn_snap = await _cclock.snapshot(chat_id)
+            time_line_plan = _cclock.render_chat_time_context(
+                _turn_snap, phase=_cclock.PHASE_PLAN)
+            time_line = _cclock.render_chat_time_context(
+                _turn_snap, phase=_cclock.PHASE_ANSWER)
             # §7: ChatClock хода — значение и источник (per-chat tz → global).
             _ttrace.note_clock(correlation_id, line=time_line,
-                               source="limits.chat_timezone")
+                               source="chat_clock",
+                               timezone=_turn_snap.timezone,
+                               as_of_utc=_turn_snap.as_of_utc.strftime(
+                                   "%Y-%m-%dT%H:%M:%S+00:00"),
+                               config_version=_turn_snap.config_version,
+                               timezone_source=_turn_snap.timezone_source)
             # ASAP-VISION-SYNC-01 §4.4: финальная сборка payload перечитывает
             # медиа-состояние БЕЗ ожидания — если анализ завершился после L1,
             # Writer получает актуальную ревизию (старый pending-снимок
@@ -4985,7 +5001,7 @@ class DirectChatService:
                             correlation_id=correlation_id, l1_plan=l1_plan,
                             response_plan=response_plan,
                             fallback_meta=_fallback_meta,
-                            time_line=time_line,
+                            time_line=time_line_plan,
                             tool_schemas=_l1_tool_schemas,
                             longform_max_tokens=longform_max_tokens,
                             required_caps=tuple(getattr(
@@ -5063,7 +5079,20 @@ class DirectChatService:
                             fallback_payload_adapter=(
                                 _fb_factory(time_line) if _fb_factory
                                 else None),
-                            max_output_tokens=longform_max_tokens)
+                            # UR-19.2: семантический ответ этого маршрута не
+                            # ограничивается универсальным longform-4096 —
+                            # ставится вычисленное физически допустимое
+                            # значение (неизвестный ресурс → None → ключа нет).
+                            # Модель/endpoint — только от клиента хода.
+                            max_output_tokens=await _extent.
+                            writer_max_output_tokens(
+                                model=str(getattr(self.llm, "_chat_model", "")
+                                          or ""),
+                                base_url=str(getattr(self.llm, "_base_url", "")
+                                             or ""),
+                                input_tokens=sum(
+                                    count_tokens(str(m.get("content") or ""))
+                                    for m in payload)))
             except NoApiKeyForChat as exc:
                 # Раунд 10 (F-7 §5.2) + D03: sandbox-фраза
                 # content.no_key_reply (LLM НЕ вызывается; тишины нет —
@@ -5434,6 +5463,12 @@ class DirectChatService:
                             l1_plan, _transform_source_text,
                             roster_names=self._turn_aliases_snapshot().values())
                     # plan-блок уже построен выше (нужен измерителю payload).
+                    # UR-C-CLOCK (UR-25.2): L2 перед финальной сборкой получает
+                    # актуальный answer_as_of_utc — свежий снапшот ТОЛЬКО если
+                    # tool-цепочка пересекла минуту/дату, иначе reuse плана.
+                    snap_answer, _clock_refreshed = \
+                        await _cclock.ensure_answer_snapshot(
+                            _turn_snap, chat_id)
                     _l2 = await self._l2_write_answer(
                         chat_id, query, temperature=temperature,
                         correlation_id=correlation_id,
@@ -5444,16 +5479,18 @@ class DirectChatService:
                         form_contract=_form_contract,
                         form_fallback_text=_form_source,
                         plan_block=_plan_block, user_blocks=user_blocks,
-                        time_line=time_line, evidence=_evidence,
+                        time_line=_cclock.render_chat_time_context(
+                            snap_answer, phase=_cclock.PHASE_ANSWER),
+                        evidence=_evidence,
                         lessons_block=_lessons_block,
                         speech_block=_speech_block,
                         speech=_speech_projection,
                         fallback_budget_tokens=(
                             _fallback_meta.get("l2_fallback_budget")),
-                        max_tokens=(longform_max_tokens
-                                    if response_plan is not None
-                                    and response_plan.is_longform()
-                                    else None),
+                        # UR-19.2: longform-4096/16384 больше не подставляются
+                        # как семантическая граница — Writer вычисляет
+                        # физически допустимый output сам (общий код обоих
+                        # режимов); явного override у вызывающего нет.
                         # P0-HA QUALITY (wiring §13): инструкция финальной
                         # сборки — ТОЛЬКО ходу с выборкой истории; без
                         # выборки параметр пуст → байт-паритет прежнего
@@ -6051,8 +6088,12 @@ class DirectChatService:
                                   opportunity=None,
                                   lore_enabled=None,
                                   image_enabled=None,
-                                  delivery=None):
-        """UR-01: единственный конструктор `TurnRequest` для обоих входов."""
+                                  delivery=None,
+                                  time_snapshot=None):
+        """UR-01: единственный конструктор `TurnRequest` для обоих входов.
+
+        UR-C-CLOCK: ``time_snapshot`` — план-снапшот ChatClock этого хода
+        (§3 контракта); TurnRequest несёт его неизменяемым."""
         tool_state = await self._resolve_turn_tool_state(
             chat_id, lore_enabled=lore_enabled, image_enabled=image_enabled)
         return _tt.TurnRequest(
@@ -6073,7 +6114,7 @@ class DirectChatService:
             delivery=delivery or _tt.DeliveryPolicy(
                 trigger=_tt.resolve_turn_type(trigger_type)),
             turn_started_at_utc=int(time.time()),
-            time_snapshot=None)
+            time_snapshot=time_snapshot)
 
     async def _execute_turn(self, req, *, slot, l1_messages: list[dict],
                             l1_input_chars: int,
@@ -6288,7 +6329,8 @@ class DirectChatService:
                               extra_media_markers: tuple = (),
                               bot_replies: tuple[str, ...] = (),
                               bot_replied_recently: bool = False,
-                              reactions_enabled: bool = False) -> tuple:
+                              reactions_enabled: bool = False,
+                              time_snapshot=None) -> tuple:
         """§1.1/§1.5/§1.6 + v6 D03: pre-tool L1 Planner — 1 LLM call →
         L1Plan.
 
@@ -6363,6 +6405,12 @@ class DirectChatService:
         meta["social_hint"] = _social_hint
         # §1.4 + UR-A (UR-02.3): набор доступных capability — общий резолвер
         # хода (тот же у инициативы), а не отдельная копия в адаптере.
+        # UR-C-CLOCK: план-снапшот времени создаётся ДО TurnRequest, чтобы
+        # один и тот же as_of уехал и в TurnRequest, и в L1-контекст.
+        snap_plan = time_snapshot
+        if snap_plan is None:
+            snap_plan = await _cclock.snapshot(chat_id)
+        meta["time_snapshot"] = snap_plan
         _turn_req = await self._build_turn_request(
             trigger_type="direct", chat_id=chat_id,
             correlation_id=correlation_id, slot_meta=_slot_meta,
@@ -6381,7 +6429,8 @@ class DirectChatService:
             delivery=_tt.DeliveryPolicy(
                 kind="text", force_reply=bool(force_required),
                 direct_request=bool(force_required), recheck=False,
-                trigger="direct"))
+                trigger="direct"),
+            time_snapshot=snap_plan)
         available_caps = list(_turn_req.tool_state.capabilities)
         # ── SOUL-1 (W2, §4 п.5): L1 — машинная стадия (`machine_json`):
         # канал-контракт без Core/юмора; ON даёт ту же строку + трассу.
@@ -6413,6 +6462,8 @@ class DirectChatService:
         meta["l1_profile_source"] = bot_persona.decision_profile_source(
             _decision_profile)
         meta["l1_profile_chars"] = int(len(_decision_profile))
+        # UR-C-CLOCK (UR-25.2/26.2): L1 видит время на начало планирования —
+        # тот же план-снапшот хода (создан выше, до TurnRequest).
         context_text = _l1.build_l1_context(
             query=query,
             current_question=self._render_current_question(
@@ -6432,7 +6483,9 @@ class DirectChatService:
             bot_replies=tuple(bot_replies or ()),
             history_partial=history_partial,
             alias_resolver=self.aliases,
-            budget_tokens=_l1_budget)
+            budget_tokens=_l1_budget,
+            time_context=_cclock.render_chat_time_context(
+                snap_plan, phase=_cclock.PHASE_PLAN))
         input_chars = len(context_text)
         meta["l1_context_chars"] = int(input_chars)
         # ER-08-RC (§3): фактическая доставка цитаты в СОБРАННОМ пакете —
@@ -6994,7 +7047,10 @@ class DirectChatService:
             chat_id=chat_id, correlation_id=correlation_id,
             tool_schemas=tool_schemas, llm=self.llm,
             required_caps=tuple(required_caps or ()),
-            explicit_request=bool(explicit_request))
+            explicit_request=bool(explicit_request),
+            # UR-C-CLOCK (UR-26.2/26.3): блок времени чата (phase="plan")
+            # доезжает до orchestrator-payload tool-фазы обоих триггеров.
+            time_context=str(time_line or ""))
         return result.raw
 
     # ── P0-HA SEGMENTS (архконтракт §2): сегментное накопление выборки ──────
@@ -7787,6 +7843,22 @@ class DirectChatService:
             {"role": "system", "content": verbalizer_system},
             {"role": "user", "content": user_content},
         ]
+        # ── UR-19/UR-19.1/UR-19.2: Writer вычисляет физически допустимый
+        # output из РЕАЛЬНОГО max_output модели, окна и размера СВОЕГО входа.
+        # Семантические константы (инициативный 700, longform-4096/16384)
+        # активным маршрутом больше не подставляются; неизвестный ресурс →
+        # None → ключ max_tokens не отправляется (дефолт провайдера). Явный
+        # ``max_tokens`` от вызывающего остаётся точечным override.
+        # Модель/endpoint — ТОЛЬКО от инжектированного клиента (как во всей
+        # остальной трассе этой функции): двойник без атрибутов даёт пустые
+        # строки → локальный резолв без сети, никаких живых probe из хода.
+        _writer_max_tokens = max_tokens
+        if _writer_max_tokens is None:
+            _writer_max_tokens = await _extent.writer_max_output_tokens(
+                model=str(getattr(self.llm, "_chat_model", "") or ""),
+                base_url=str(getattr(self.llm, "_base_url", "") or ""),
+                input_tokens=sum(count_tokens(str(m.get("content") or ""))
+                                 for m in base_messages))
         # ── ADD-EXP §6: «политика доехала?» — слой рендерен (манифест),
         # маркер есть в ФИНАЛЬНОМ system (после scrub); нет маркера →
         # честный класс `policy_not_injected`, а не молчание.
@@ -7829,7 +7901,7 @@ class DirectChatService:
             fallback_model=str(
                 getattr(self.llm, "_fallback_model", "")
                 or getattr(settings, "LLM_FALLBACK_MODEL", "") or ""),
-            max_output_tokens=max_tokens,
+            max_output_tokens=_writer_max_tokens,
             writer_name=str(writer or "l2_writer"),
             # Без композера манифеста нет — состав блоков и заводские ревизии
             # owner-промптов берутся из фактических частей payload и реестра.
@@ -7867,7 +7939,7 @@ class DirectChatService:
             temperature=temperature, chat_id=chat_id, module="direct_chat",
             correlation_id=correlation_id,
             fallback_payload_adapter=_l2_fb_adapter,
-            max_output_tokens=max_tokens)
+            max_output_tokens=_writer_max_tokens)
 
         async def _call_l2(msgs, *, step: str):
             """Один вызов провайдера финальной стадии (первый или продолжение).
@@ -8146,21 +8218,10 @@ class DirectChatService:
             correlation_id=correlation_id, op_name=_ttrace.OP_PLAIN,
             channel="plain", reason="too_long_for_html")
 
-    async def _chat_time_line(self, chat_id: int) -> str:
-        """10.20 (БЛОК 5.1, О2/О4 FINAL, ADR-1020-3): строка Time Injection
-        `[Текущее время в чате: DD.MM.YYYY, HH:MM, День недели]` в таймзоне
-        чата. Источник — НОВЫЙ ключ `limits.chat_timezone` (per-chat override
-        → global → код-дефолт; пусто → фолбэк `limits.summary_timezone`,
-        который НЕ трогаем). Вставляется ПЕРВЫМ user-блоком в `build_messages`
-        (system статичен — prompt-cache не ломаем).
-        """
-        tz = await _cp_g(
-            chat_id, "limits.chat_timezone",
-            hot.get("limits.chat_timezone",
-                    getattr(settings, "CHAT_TIMEZONE", "")))
-        fallback = hot.get("limits.summary_timezone",
-                           settings.SUMMARY_TIMEZONE)
-        return format_chat_time(tz_name=tz, fallback_tz=fallback)
+    # UR-C-CLOCK (contract §3.2): прежний `_chat_time_line` (строка
+    # `[Текущее время в чате: …]`) УДАЛЕН — Direct legacy answer path
+    # получает `render_chat_time_context` (блок <Chat_Time_Context>) от
+    # единственного ChatClock. Второго форматтера времени чата нет.
 
     def _build_speech_understanding(self, message, query: str, *, bundle=None):
         """MCA-08 (D6/D7, T-4898/T-4900): детерминированный речевой сигнал.
@@ -8309,9 +8370,9 @@ class DirectChatService:
                                   ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
-        target → relations → protected → lore → mood → current → anchors →
-        sandwich. Статика вверх, критичное (target/relations/protected/
-        current) ближе к концу. Раунд 9 (T-819/B4, spec §3.1.4): блок
+        target → relations → protected → lore → current → sandwich. Статика
+        вверх, критичное (target/relations/protected/current) ближе к концу.
+        Раунд 9 (T-819/B4, spec §3.1.4): блок
         <user_relations> (kind "relations") — СРАЗУ ПОСЛЕ ("target", …), до
         protected/lore; кап по символам — до инжекта; uncuttable (вне
         контекст-бюджета). Раунд 8 (C5/T-796): <Target_User> с uid автора
@@ -8321,7 +8382,12 @@ class DirectChatService:
         собирается РАНЬШЕ <RAG_Memory> (текст фона нужен для словарного
         дедупа RAG), контент-порядок blocks (rag → global) не меняется.
         Раунд 9 (E1/T-826, spec §3.5.1): маркер «золотых» (kind "nostalgia")
-        встаёт ПОСЛЕ relations, до mood (подсказка «важное к концу»)."""
+        встаёт ПОСЛЕ relations, до current (подсказка «важное к концу»).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) и style_anchors
+        (65.4) НЕ добавляются — лексический mood-ярлык не подмешивается в L2
+        как инструкция (тон выбирает L1, UR-16), автоподражание прошлым
+        ответам бота снято (UR-14); реплики бота остаются обычными
+        фрагментами истории."""
         window = await self.memory.get_window_messages(chat_id)
         # Раунд 10.23 (F1, ADR-1023-1): текущий пользовательский ход —
         # триггер маркировки (сопоставление по Telegram message_id).
@@ -8368,7 +8434,7 @@ class DirectChatService:
                 trigger_message_id=trigger_message_id,
                 history_sample=history_sample, projection=projection)
         # Раунд 9 (E1/T-826): второй элемент кортежа — маркер «золотых»
-        # (блок kind "nostalgia" ставится ПОЗЖЕ: после relations, до mood).
+        # (блок kind "nostalgia" ставится ПОЗЖЕ: после relations).
         # P0-HA ISOLATION (§3): при активной выборке RAG-память (включая
         # граф-активацию/golden/self-echo) — дополнение вне диапазона,
         # помечается баннером (источник не выключается, метки остаются).
@@ -8438,7 +8504,7 @@ class DirectChatService:
         if lore_inner:
             blocks.append(("lore", f"<chat_lore>\n{lore_inner}\n</chat_lore>"))
         # Раунд 9 (E1/T-826, spec §3.5.1): ностальгия-маркер — в user-контент
-        # ПОСЛЕ relations, до mood (compact: фикс-кап до инжекта, в общем
+        # ПОСЛЕ relations (compact: фикс-кап до инжекта, в общем
         # порядке урезания участвует последним — _apply_context_budget).
         # P0-HA ISOLATION (§3): «золотой» факт — память вне диапазона; при
         # активной выборке помечается баннером (источник не выключается).
@@ -8447,12 +8513,13 @@ class DirectChatService:
                 nostalgia_hint = (f"{_ha_supplement_banner(_ha_sample_id(history_sample))}"
                                   f"\n{nostalgia_hint}")
             blocks.append(("nostalgia", nostalgia_hint))
-        # Epic 60 (65.9, T-477): настроение — user-блок, промпт R50-4 не тронут.
-        # T-619: флаг и слова настроения — горячие точки (фолбек settings).
-        if hot.get("flags.chat_mood_enabled", settings.CHAT_MOOD_ENABLED):
-            mood = self._build_mood_block(_message_user_text(message))
-            if mood:
-                blocks.append(("mood", mood))
+        # ── UR-E (UR-16): лексический mood-ярлык («зло/радостно» → «подстрой
+        # тон») НЕ подмешивается в L2 как самостоятельная инструкция. Тон
+        # выбирает общий L1 по реальному контексту и отношениям (ось tone/
+        # emotional_mirroring плана); owner style и character-слои
+        # приоритетнее. Совместимый флаг CHAT_MOOD_ENABLED больше не создаёт
+        # скрытых директив: никаких «эмоциональных коррекций» payload нет ни
+        # при ON, ни при OFF.
         # ── EVOL v5 §12.2 (DIRECT-SELF-CORRECTION-01): рамка возражения ────
         # Собирается ПОСЛЕ цепочки/окна (метки прогона уже выданы — одна и та
         # же реплика адресуется одинаково во всех блоках), ставится перед
@@ -8487,10 +8554,14 @@ class DirectChatService:
             current = append_marker(current)
         if current:
             blocks.append(("current", current))
-        # Epic 60 (65.4, T-472): стилевые якоря — у конца (форма, не содержание).
-        anchors = await self._build_style_anchors(chat_id)
-        if anchors:
-            blocks.append(("anchors", anchors))
+        # ── UR-E (UR-14/UR-RES-06): секция <style_anchors> («подражай общей
+        # интонации этих ответов») из last_bot_replies УДАЛЕНА из активной
+        # сборки Direct/Initiative. Прошлые неудачные реплики бота не
+        # становятся инструкцией о том, как писать; собственные сообщения
+        # остаются полноценными участниками хронологической истории диалога
+        # (thread/самоописание, UR-23), а не стилевыми образцами.
+        # Владельческие промпты «Речь и характер», библиотеки примеров и
+        # prompt versioning не затронуты (UR-BAN-07).
         # Раунд 8 (B2/FR-23, п.25): sandwich-напоминание — последней строкой
         # user-контента (только если контент вообще есть).
         if blocks:
@@ -8893,7 +8964,7 @@ class DirectChatService:
         # ── Кандидаты → pieces (позиции = канонический порядок блоков) ──
         # map → branch → episode → history_supplement → rag → global
         # (head/middle/tail) → thread → target → relations → protected →
-        # lore → nostalgia → mood → current → anchors → sandwich.
+        # lore → nostalgia → current → sandwich (UR-E: mood/anchors сняты).
         canonical_order = _composer.CANONICAL_ORDER
         candidates: list[tuple[str, str]] = [
             (kind, text) for kind, text in blocks
@@ -11365,94 +11436,7 @@ class DirectChatService:
                 body, inner_budget, kind=kind) + closing
         return truncate_keep_header(text, limit_tokens, kind=kind)
 
-    # ── Epic 60 Фаза C (65.4/65.9/65.10): якоря, настроение, защита ──
-
-    @staticmethod
-    def _normalize_first_word(text: str) -> str:
-        """3.7/C1: первое слово ответа (lower, без пунктуации); пусто/короче
-        _STICKY_MIN_WORD_LEN → не «слово-префикс»."""
-        m = re.match(r"\s*([а-яёa-z0-9]+)", str(text).lower())
-        word = m.group(1) if m else ""
-        return word if len(word) >= _STICKY_MIN_WORD_LEN else ""
-
-    @staticmethod
-    def _detect_sticky(window) -> set[str]:
-        """3.7/C1: первые слова с частотой >= _STICKY_MIN_FREQ в окне
-        последних ответов → «залипшие» префиксы (исключаются из якорей)."""
-        from collections import Counter
-        prefixes = [DirectChatService._normalize_first_word(t)
-                    for t in window]
-        counts = Counter(p for p in prefixes if p)
-        return {word for word, cnt in counts.items()
-                if cnt >= _STICKY_MIN_FREQ}
-
-    async def _build_style_anchors(self, chat_id: int) -> str:
-        """65.4: секция <style_anchors> из последних ответов бота (bot_replies,
-        ASC). Раунд 3 (3.7/C1): анти-залипание — если >=2 из последних `count`
-        начинаются с одного и того же первого слова («сцуко,» и пр.), такие
-        ответы НЕ попадают в якоря (выбираются более старые различные из
-        буфера _STYLE_ANCHOR_LOOKBACK; повтор-префиксы исключаются);
-        не осталось ни одного → секции нет (безопаснее, чем модель-«попугай»).
-        Инструкция смягчена: «держи общую интонацию, НЕ копируй дословно, не
-        начинай каждый ответ с одного и того же слова». VERBATIM-шаблон в
-        тестах; user-блок — R50-4 неприкосновенен. Fail-open: ошибка БД →
-        WARNING + без секции."""
-        if not hot.get("flags.chat_style_anchors_enabled",
-                       settings.CHAT_STYLE_ANCHORS_ENABLED):
-            return ""
-        try:
-            count = hot.get("limits.chat_style_anchors_count",
-                            settings.CHAT_STYLE_ANCHORS_COUNT)
-            replies = await self.db.last_bot_replies(
-                chat_id, count + _STYLE_ANCHOR_LOOKBACK, time.time())
-        except Exception:
-            logger.warning("direct: style anchors read failed | chat=%s",
-                           chat_id, exc_info=True)
-            return ""
-        if not replies:
-            return ""
-        sticky = self._detect_sticky(replies[-count:])
-        selected: list[str] = []
-        used_prefixes: set[str] = set()
-        for text in reversed(replies):                 # свежие → старые
-            if len(selected) >= count:
-                break
-            first = self._normalize_first_word(text)
-            if first and (first in sticky or first in used_prefixes):
-                continue                               # залипший/повтор
-            if first:
-                used_prefixes.add(first)
-            selected.append(text)
-        if not selected:
-            return ""
-        selected.reverse()                             # хронология ASC
-        anchor_cap = hot.get("limits.chat_style_anchor_max_chars",
-                             settings.CHAT_STYLE_ANCHOR_MAX_CHARS)
-        body = "\n".join(
-            f"{i}. {t[:anchor_cap]}" for i, t in enumerate(selected, 1))
-        return (f"<style_anchors>\nподражай общей интонации этих ответов, "
-                f"но НЕ копируй дословно и не начинай каждый ответ с одного "
-                f"и того же слова; настройки выражения владельца важнее "
-                f"образца:\n{body}\n</style_anchors>")
-
-    def _build_mood_block(self, query: str) -> str:
-        """65.9: лёгкая эвристика по словам (без LLM-вызова). Блок ПОСЛЕ
-        <Target_User>; системный промпт R50-4 НЕ меняется ни на байт.
-        T-619: слова настроения — горячая точка (фолбек settings)."""
-        text = str(query or "").lower()
-        negative = _parse_mood_words(hot.get(
-            "reactions.chat_mood_negative_words", settings.CHAT_MOOD_NEGATIVE_WORDS))
-        positive = _parse_mood_words(hot.get(
-            "reactions.chat_mood_positive_words", settings.CHAT_MOOD_POSITIVE_WORDS))
-        mood = None
-        if any(w in text for w in negative):
-            mood = "зло"
-        elif any(w in text for w in positive):
-            mood = "радостно"
-        if mood is None:
-            return ""
-        return (f"<mood>собеседник звучит {mood}, "
-                f"подстрой тон под это, но не переигрывай</mood>")
+    # ── Epic 60 Фаза C (65.10): защита; 65.4/65.9 сняты UR-E (UR-14/UR-16) ──
 
     async def _build_protected_facts(self, chat_id: int, target_name: str,
                                      include_chat_level: bool = True,
@@ -11959,8 +11943,8 @@ class DirectChatService:
             test_empty_rag_section_omitted).
         Раунд 9 (E1/T-826, spec §3.5.1): возвращает (rag_block, nostalgia_hint)
         — hint «золотых» считается ПОСЛЕ F2-дедупа и F4-реранка, ДО рендера
-        (передаётся в user-контент блоком kind "nostalgia" ПОСЛЕ relations/
-        до mood); гейты: флаг memory.nostalgia_layer_a_enabled, чат группой
+        (передаётся в user-контент блоком kind "nostalgia" ПОСЛЕ relations);
+        гейты: флаг memory.nostalgia_layer_a_enabled, чат группой
         (chat_id < 0, D-12), query есть, kept непуст.
         Раунд 10.14 (F1, ADR-1014-2 D5/D7): include_self=True — свои прошлые
         слова участвуют; если среди kept есть self, первой строкой внутрь
@@ -11969,8 +11953,9 @@ class DirectChatService:
         SPEECH-P0-A2 (§self-echo, ПЕРЕОПРЕДЕЛЯЕТ D5/D7-фактичность): выводы
         бота (`bot_self_reply`/`bot_direct_reply`, существующий
         `provenance.is_self_referential_origin`) в ФАКТИЧЕСКИЙ RAG не
-        попадают — прошлые ответы остаются только в <style_anchors> как
-        интонация. Кандидаты читаются ОДНИМ retrieval
+        попадают — прошлые ответы остаются фрагментами истории диалога, а не
+        стилевыми инструкциями (UR-14: секции <style_anchors> больше нет).
+        Кандидаты читаются ОДНИМ retrieval
         (`get_rag_facts(with_meta=True)`; совместимый фолбэк — прежний
         tuple-контракт) и оцениваются СУЩЕСТВУЮЩИМ
         `graphrag_provenance.read_policy_rank`: rank 3 — обычная строка,
@@ -12971,6 +12956,10 @@ class DirectChatService:
         # ── UR-A (UR-01/UR-02.3): тот же `TurnRequest`, что у прямого хода, и
         # те же ФАКТИЧЕСКИ доступные capabilities (раньше — пустой список,
         # из-за чего инициатива не видела собственный инструментарий).
+        # UR-C-CLOCK (UR-26.3): инициативная L1 видит часы — тот же
+        # план-снапшот ChatClock, что у прямого хода (SILENT/REACT без L2
+        # получают время на этой стадии).
+        snap_plan = await _cclock.snapshot(chat_id)
         _turn_req = await self._build_turn_request(
             trigger_type="initiative", chat_id=chat_id,
             correlation_id=correlation_id, slot_meta=_slot_meta,
@@ -12990,7 +12979,8 @@ class DirectChatService:
                     if str(ref or "").strip())),
             delivery=_tt.DeliveryPolicy(
                 kind="text", force_reply=False, direct_request=False,
-                recheck=True, trigger="initiative"))
+                recheck=True, trigger="initiative"),
+            time_snapshot=snap_plan)
         context_text = _l1.build_l1_context(
             query=task, window=window, speaker="наблюдатель",
             addressee=addressee_label,
@@ -13000,7 +12990,9 @@ class DirectChatService:
             # ASAP3-ACCEPT (fail-open, то же что Writer-сайт ниже): частичный DI-объект
             # (tests/__new__) не должен падать в L1-пути инициативы.
             with_ids=True, alias_resolver=getattr(self, "aliases", None),
-            budget_tokens=_init_budget)
+            budget_tokens=_init_budget,
+            time_context=_cclock.render_chat_time_context(
+                snap_plan, phase=_cclock.PHASE_PLAN))
         # ER-08-RC (§3 «Наблюдаемость»): у инициативного хода цитаты нет
         # (reply_block не подаётся) — честные нули по доставке + действующие
         # капы; те же оси, что у Direct-сайта, в существующем канале.
@@ -13059,6 +13051,9 @@ class DirectChatService:
         plan-блок от L1-решения. Пустой результат → '' (вызывающий решает
         writer_failed). Никогда не бросает."""
         await self._refresh_turn_aliases(chat_id)
+        # UR-C-CLOCK (UR-26.3): инициатива — тот же ChatClock: план-снапшот
+        # для tool-фазы, answer-снапшот для Writer (один на стадию ответа).
+        _init_snap = await _cclock.snapshot(chat_id)
         try:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
@@ -13077,9 +13072,12 @@ class DirectChatService:
         rationale = str(row.get("rationale") or "").strip()[:200]
         context_block = (
             "<Initiative_Context>\n"
-            "Ты проявляешь инициативу сам (никто бота не звал). Держись "
-            "в рамках ожидаемой полноты и естественно, как участник чата; "
-            "не устраивай доклад.\n"
+            "Ты проявляешь инициативу сам (никто бота не звал); пиши "
+            "естественно, как участник чата.\n"
+            # UR-04 (UNIFIED-REPLY §3): факты повода остаются, глобальная
+            # директива «не устраивай доклад» и дублирующая «ожидаемая
+            # полнота» удалены — степень подробности определяет L1 план
+            # (extent-блок), скрытых капов подробности здесь нет.
             f"Предложение наблюдателя (kind={kind or 'unknown'}, "
             f"origin={origin or 'unknown'}): {goal or 'цель не указана'}\n"
             + (f"Причина повода: {rationale}\n" if rationale else "")
@@ -13091,17 +13089,63 @@ class DirectChatService:
         # метки прогона («[M3] Имя (U1): … ↳ Reply M2») — id остаются у L1
         # (машинная сторона), а Writer видит, кто кому и на что отвечает.
         _init_speech = SpeechProjection(run_id=str(correlation_id or ""))
-        window_block = _l1.render_window_lines(
-            window, 12, with_ids=True,
+        # ── UR-04/UR-10.3 (UNIFIED-REPLY): диалог для Writer'а отбирает
+        # ОБЩИЙ ContextSelection (коллектор окна + единый аллокатор по слоту
+        # `initiative.l2`, UR-C), а не ручная нарезка окна по числу строк:
+        # свежие соседи — P1, остальное
+        # окно — фон P3, лишнее снимает аллокатор по реальному бюджету
+        # модели. Рендер строк с метками — ТОТ ЖЕ общий рендерер (один
+        # владелец формата, EVOL v5); selection решает, ЧТО видно, окно —
+        # в каком порядке. Сбой общей сборки — fail-open на кандидатный
+        # хвост без ручного потолка (инициативу не роняем).
+        try:
+            # Модель/endpoint — только от инжектированного клиента (без
+            # settings-fallback): двойник без атрибутов → пустые строки →
+            # локальный резолв окна без сети (никаких живых probe из хода).
+            _init_stage_budget = await _auto_budget.resolve_stage_budget(
+                "initiative.l2",
+                base_url=str(getattr(self.llm, "_base_url", "") or ""),
+                model=str(getattr(self.llm, "_chat_model", "") or ""))
+            _init_fresh, _init_background = \
+                _composer.collect_window_fragments(
+                    window,
+                    # Имена в payload резолвит общий рендер строк
+                    # (alias_resolver ниже); collector'у имена не нужны —
+                    # его контракт ожидает .get()-словарь, а не AliasResolver.
+                    aliases=None,
+                    bot_user_id=getattr(self, "bot_id", None),
+                    now_ts=int(time.time()))
+            _selection = _composer.build_context_selection(
+                current_text="", chat_id=chat_id,
+                fresh_neighbours=_init_fresh,
+                background=_init_background,
+                budget_tokens=_init_stage_budget.effective_input_budget)
+            _selected_sources = (
+                {f.source_id for f in _selection.fresh_neighbours}
+                | {f.source_id for f in _selection.background})
+            _init_window_rows: list = []
+            for _row in [r for r in (window or []) if isinstance(r, dict)]:
+                _probe = _composer.row_to_fragment(
+                    _row, role=_composer.ROLE_FRESH_NEIGHBOUR)
+                if _probe.source_id in _selected_sources:
+                    _init_window_rows.append(_row)
+        except Exception:      # pragma: no cover - fail-open сборки
+            logger.warning("[f6] initiative context selection failed — "
+                           "candidate tail | chat=%s", chat_id, exc_info=True)
+            _init_window_rows = [r for r in (window or [])
+                                 if isinstance(r, dict)]
+        window_block = (_l1.render_window_lines(
+            _init_window_rows, max(1, len(_init_window_rows)),
+            with_ids=True,
             # ASAP3-ACCEPT: частично собранный объект (tests/__new__) без DI
             # алиасов не должен ронять инициативу — тот же fail-open, что и в
             # _refresh_turn_aliases.
             alias_resolver=getattr(self, "aliases", None),
             projection=_init_speech)
+            if _init_window_rows else [])
         _init_labels: dict = {}
         _init_names: dict = {}
-        for _row in [r for r in (window or [])
-                     if isinstance(r, dict)][-12:]:
+        for _row in _init_window_rows:
             _item_id = _l1.item_id_of_row(_row)
             _label = (_init_speech.label_of_item(_item_id)
                       if _item_id else None)
@@ -13254,7 +13298,9 @@ class DirectChatService:
                         temperature=temperature, chat_id=chat_id,
                         correlation_id=correlation_id, l1_plan=plan,
                         response_plan=response_plan, fallback_meta={},
-                        time_line="", tool_schemas=_init_schemas,
+                        time_line=_cclock.render_chat_time_context(
+                            _init_snap, phase=_cclock.PHASE_PLAN),
+                        tool_schemas=_init_schemas,
                         required_caps=_initiative_caps,
                         # У инициативы нет просьбы человека (решение
                         # Architect «г», §5.2): `user_forced` не рождается,
@@ -13292,13 +13338,21 @@ class DirectChatService:
                                      "_chat_model", "") or ""))
                 if _init_note:
                     _initiative_blocks = _initiative_blocks + [_init_note]
+            _init_answer_snap, _init_clock_refreshed = \
+                await _cclock.ensure_answer_snapshot(_init_snap, chat_id)
             result = await self._l2_write_answer(
                 chat_id, _goal_query, temperature=temperature,
                 correlation_id=correlation_id,
                 character_block=persona_block, response_plan=response_plan,
                 plan_block=plan_block, user_blocks=_initiative_blocks,
+                time_line=_cclock.render_chat_time_context(
+                    _init_answer_snap, phase=_cclock.PHASE_ANSWER),
                 evidence=_initiative_evidence,
-                writer="initiative_writer", max_tokens=700,
+                # UR-04/UR-19.1: инициативный фиксированный токен-лимит 700
+                # удалён — Writer вычисляет физически допустимый output из
+                # реального ресурса модели и размера входа (общий путь с
+                # Direct, один код).
+                writer="initiative_writer",
                 speech=_init_speech)
             # BGS-02: то же наблюдение, что в Direct (единый postprocess):
             # без адресного lookup, без повторной генерации и без удаления

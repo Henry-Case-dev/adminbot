@@ -48,6 +48,8 @@ import unicodedata
 from config.settings import settings
 from services.llm_client import LLMBadResponseError, LLMError
 from services.prompt_style_blocks import resolve_prompt, resolve_prompt_with_source
+# UR-C-CLOCK: единственный источник времени чата (UR-26.5).
+from services import chat_clock as _cclock
 # ── ASAP 8 F1 (§1.4 architecture): гранулярная детекция + deterministic
 # repair §99-документов. Чистый модуль (без LLM/IO) — writer остаётся
 # владельцем валидации; repair сам импортирует helpers этого модуля ЛЕНИВО
@@ -1678,6 +1680,16 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
         {"role": "system", "content": system},
         {"role": "user", "content": content},
     ]
+    # UR-C-CLOCK (UR-26.5): один answer-снапшот ChatClock на L2-стадию
+    # (Writer описывает «сегодня/вчера» по часам чата); идемпотентно.
+    try:
+        if chat_id is not None:
+            _s2_snap = await _cclock.snapshot(chat_id)
+            messages = _cclock.attach_time_context(
+                messages, _s2_snap, phase=_cclock.PHASE_ANSWER)
+    except Exception:      # pragma: no cover - fail-open honest
+        logger.warning("[chat_clock] L2 time block skipped | chat=%s",
+                       chat_id, exc_info=True)
 
     try:
         raw_value = await call(messages)

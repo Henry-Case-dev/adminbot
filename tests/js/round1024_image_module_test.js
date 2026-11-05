@@ -90,7 +90,9 @@ assert.strictEqual(card.icon, 'grid_view', 'F5: иконка — переисп�
 assert.strictEqual(card.title, 'Генерация изображений', 'F5: подпись карточки');
 
 // tma-menu-freeze: ровно +1 санкционированная карточка (12→13).
-assert.strictEqual(data.modules.length, 15, 'карточек модулей — 14');
+// UR-F (UR-29.1): +«Время» (noToggle) → 15→16.
+assert.strictEqual(data.modules.length, 16,
+  'карточек модулей — 16 (+mod_time по UR-F)');
 
 // 2) Вкладка mod_images: группы модуля — flags_module_images (F5) и
 // limits_images (CFG-02A §02A.1: суточная квота изображений видима в модуле;
@@ -134,13 +136,15 @@ data.tabs.filter((t) => t.id !== 'mod_images').forEach((t) => {
     'CFG-02A: один дом — limits_images живёт только на mod_images (' + t.id + ')');
 });
 
-// 4) Всего вкладок 27, без дублей.
+// 4) Всего вкладок 28, без дублей.
 //    ASAP 7 F3: +mod_initiative (было 28 после Этапа F3);
 //    EVOL-031 (`28d55bd1`, released): вкладка `smart_cache` удалена вместе с
 //    Exact Match Cache / direct_dedup (TAB_RULES 23→22), маршрут
-//    `#/ai/smart-cache` алиасится на «ИИ» → 28−1 = 27. Число сохранено как
-//    точный пин: любая новая/пропавшая вкладка снова покраснеет.
-assert.strictEqual(data.tabs.length, 27, 'F5: вкладок 27 (−smart_cache)');
+//    `#/ai/smart-cache` алиасится на «ИИ» → 28−1 = 27.
+//    UR-F (UR-29.1/UR-24.2): +mod_time («Модули → Время», type timeEditor,
+//    вне TAB_RULES — нет каталоговых групп) → 27→28. Точный пин: любая
+//    новая/пропавшая вкладка снова покраснеет.
+assert.strictEqual(data.tabs.length, 28, 'F5: вкладок 28 (+mod_time по UR-F)');
 const ids = data.tabs.map((t) => t.id);
 assert.strictEqual(ids.indexOf('smart_cache'), -1,
   'EVOL-031: вкладка smart_cache снята и не вернулась');

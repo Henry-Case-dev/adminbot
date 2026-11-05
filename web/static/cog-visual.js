@@ -299,8 +299,12 @@
       pulseBase: 0.82,
       pulseAmp: 0.18,
       pulseBudget: 24,
-      // Реактивные состояния (§7.4 контракта).
+      // Реактивные состояния (§7.4 контракта). `hoverMs` — рампа появления
+      // hover-свечения/соседей (§7.2 спеки: 150–220 ms), используется слоем
+      // `fx`; `dblClickMs` — фокусировка двойным кликом (§6(4) спеки:
+      // 350–500 ms с easing).
       hoverMs: 180,
+      dblClickMs: 450,
       clickMs: 600,
       searchMs: 900,
       searchBeats: 2,
@@ -1373,7 +1377,7 @@
      * рёбра повторяются в слое `fx` (он выше vis-канваса): тонкая тёмная
      * подложка для контраста + сигнальная линия оттенка активного узла.
      * Координаты — из кэша позиций; выдуманных линий нет. */
-    function drawActiveEdges(ctx, frame, activeId, active) {
+    function drawActiveEdges(ctx, frame, activeId, active, glowK) {
       var eCfg = cfg.edge || CONFIG.edge;
       var list = frame.incident || [];
       var scale = (frame.camera && frame.camera.scale > 0)
@@ -1388,7 +1392,11 @@
         (typeof eCfg.activeAlpha === 'number') ? eCfg.activeAlpha : 0.9);
       var shown = 0;
       ctx.lineCap = 'round';
-      ctx.globalAlpha = 1;
+      // Рампа появления hover-состояния (§7.2): связи соседей проявляются
+      // тем же множителем, что и свечение; после рампы множитель = 1 и кадр
+      // идентичен прежнему. Выбор (glowK = 1) рисуется как раньше.
+      ctx.globalAlpha = (typeof glowK === 'number')
+        ? clamp(glowK, 0, 1) : 1;
       for (var i = 0; i < list.length && shown < max; i += 1) {
         var edge = list[i];
         var otherId = (String(edge.from) === String(activeId))
@@ -1621,15 +1629,31 @@
           }
         }
         if (active) {
+          // §7.2 спеки: hover (без выбора) проявляется МЯГКОЙ РАМПОЙ
+          // `hoverMs` (150–220 ms) — свечение активного узла и связи соседей
+          // нарастают плавно, а не одним кадром; после рампы множитель = 1 и
+          // итоговая яркость ТОЧНО прежняя. В reduced-motion и в вневременном
+          // статичном кадре (now = 0) рампы нет — конечное состояние (§7.3).
+          var hoverK = 1;
+          if (selectedId === null && hoverId !== null && !reduced && now > 0) {
+            // Кадр без `hoverAt` (старые вызовы) показывает КОНЕЧНОЕ
+            // состояние: рампа не должна «прятать» hover задним числом.
+            var hoverAt = (typeof frame.hoverAt === 'number')
+              ? frame.hoverAt : -1;
+            var hoverMs = (cfg.motion && cfg.motion.hoverMs > 0)
+              ? cfg.motion.hoverMs : 180;
+            hoverK = clamp((now - hoverAt) / hoverMs, 0, 1);
+          }
           // §4.3/§12.2 спеки: сначала ВИДИМЫЕ связи выбранного (поверх узлов),
           // затем его ореол/кольцо — активный узел остаётся главным объектом.
-          activeEdges = drawActiveEdges(ctx, frame, String(active.id), active);
+          activeEdges = drawActiveEdges(ctx, frame, String(active.id), active,
+            hoverK);
           var hot = 1 + 0.6 * ((frame.flash > 0) ? frame.flash : 0);
           drawGlow(ctx, active.kind, 'active', active.sx, active.sy, active.r,
-            cfg.glow.active.alpha * hot);
+            cfg.glow.active.alpha * hot * hoverK);
           drawRing(ctx, active.sx, active.sy, active.r,
             selectedId !== null ? 1.9 : 1.6, colorOf(active.kind),
-            selectedId !== null ? 0.85 : 0.6, now);
+            selectedId !== null ? 0.85 : 0.6 * hoverK, now);
         }
         // 5) импульсы — только по реальным рёбрам активного узла.
         var impulses = 0;

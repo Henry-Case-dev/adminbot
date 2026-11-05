@@ -108,9 +108,10 @@ function vm(init) {
   assert.ok(INDEX.indexOf('data-initiative-trace') >= 0,
     'W5: trace проверки рендерится в том же блоке');
   // Навигация и хаб «ИИ» не менялись: состав nav-пунктов прежний.
+  // UR-F (UR-29.1): +карточка «Время» (mod_time) → 15→16.
   const navItems = (APP.match(/\{ id: 'mod_\w+', icon:/g) || []).length;
-  assert.strictEqual(navItems, 15,
-    'W5: пункты модулей не добавлены/не удалены (найдено: ' + navItems + ')');
+  assert.strictEqual(navItems, 16,
+    'W5: пункты модулей — 16 (+mod_time по UR-F; найдено: ' + navItems + ')');
   assert.ok(APP.indexOf("href=\"#/modules/initiative\"") >= 0
     || APP.indexOf("'#/modules/initiative'") >= 0
     || APP.indexOf('modules/initiative') >= 0,

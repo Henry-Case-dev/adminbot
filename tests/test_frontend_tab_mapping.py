@@ -473,8 +473,8 @@ def test_widget_keyvalue_on_summary_aliases():
     assert {s.pg_key for s in sel} == {
         "limits.chat_temperature_preset_default",
         "memory.deep_sleep_trigger",
-        # 10.20 (БЛОК 5.1, О4 FINAL): «Часовой пояс чата» — sanctioned Δ (+1).
-        "limits.chat_timezone",
+        # UR-C-CLOCK (UR-24.2): select «Часовой пояс чата» из 12 зон удалён —
+        # канонический ключ стал str-полем (полный IANA — волна UR-29).
         # 10.23 (F8/ADR-1023-8): режим Вербализатора по умолчанию — select.
         "prompts.verbilizer_default_mode",
         # ASAP-2 round1027 (§13/контракт (j)): режим Hybrid-статьи — select

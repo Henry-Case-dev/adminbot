@@ -1,0 +1,3861 @@
+{
+ "generated_at": "2026-11-05T21:29:45",
+ "branch": "cmv/residual-evidence-3",
+ "base_commit": "df00f178",
+ "batch": 3,
+ "rows": {
+  "CMV-ANI-01": {
+   "shots": [
+    "pulse-frame-00-1440.png",
+    "pulse-frame-01-1440.png",
+    "pulse-frame-02-1440.png",
+    "pulse-frame-03-1440.png",
+    "pulse-frame-04-1440.png",
+    "pulse-frame-05-1440.png",
+    "pulse-frame-06-1440.png",
+    "pulse-frame-07-1440.png",
+    "pulse-mobile-390.png"
+   ],
+   "facts": {
+    "pulse_plan_meta": {
+     "planSize": 24,
+     "motion": null,
+     "lod": 1
+    },
+    "band_meta": {
+     "candidates": 24,
+     "haloClean": 0,
+     "planSpread": {
+      "n": 24,
+      "periodMin": 3004,
+      "periodMax": 4855,
+      "phaseSpreadMs": 4665
+     },
+     "note": "diff-ряд сокращает статичных соседей; ok = нет другого пульсирующего узла в радиусе ореола"
+    },
+    "targets": [
+     {
+      "id": "belief:-1001234567890:362",
+      "period": 3488,
+      "phase": 1400,
+      "amp": 0.18
+     },
+     {
+      "id": "belief:-1001234567890:551",
+      "period": 3703,
+      "phase": 1707,
+      "amp": 0.18
+     },
+     {
+      "id": "belief:-1001234567890:165",
+      "period": 3259,
+      "phase": 4768,
+      "amp": 0.18
+     },
+     {
+      "id": "belief:-1001234567890:251",
+      "period": 3004,
+      "phase": 3991,
+      "amp": 0.18
+     },
+     {
+      "id": "fact:-1001234567890:327",
+      "period": 4522,
+      "phase": 4949,
+      "amp": 0.18
+     }
+    ],
+    "series_meta": {
+     "count": 85,
+     "intervalMs": 100,
+     "windowMs": 8500
+    },
+    "estimates": {
+     "belief:-1001234567890:362": {
+      "n": 85,
+      "cycles": 3,
+      "ampLuma": 0.019,
+      "residSigma": 0.007,
+      "snr": 2.5,
+      "corrCycle12": -0.28,
+      "periodic": false,
+      "waveform": [
+       161.35,
+       161.354,
+       161.353,
+       161.353,
+       161.35,
+       161.347,
+       161.343,
+       161.336,
+       161.34,
+       161.335,
+       161.333,
+       161.34,
+       161.34,
+       161.353,
+       161.358,
+       161.36,
+       161.37,
+       161.368,
+       161.36,
+       161.35
+      ],
+      "phaseMeasured": 1482.4,
+      "phaseExpected": 1400,
+      "phaseDelta": 82.4,
+      "expectedPeriod": 3488,
+      "diffWave": {
+       "n": 84,
+       "base": 0.22,
+       "sigma": 0.13,
+       "peaks": [
+        1405.7,
+        4905.1,
+        8105
+       ],
+       "period": 3349.7,
+       "inRange": true,
+       "singleInterval": false,
+       "min": 0.01,
+       "max": 0.43,
+       "swingPct": 42.0,
+       "coreSigma": null
+      },
+      "autocorr": {
+       "period": 3500,
+       "acfPeak": 0.2541,
+       "acfMean": 0.0068,
+       "acfMax": 0.2541,
+       "significance": 1.5,
+       "curve": [
+        {
+         "lag": 2800,
+         "r": 0.1208
+        },
+        {
+         "lag": 2850,
+         "r": 0.1208
+        },
+        {
+         "lag": 2900,
+         "r": 0.1346
+        },
+        {
+         "lag": 2950,
+         "r": 0.1346
+        },
+        {
+         "lag": 3000,
+         "r": 0.1484
+        },
+        {
+         "lag": 3050,
+         "r": 0.1484
+        },
+        {
+         "lag": 3100,
+         "r": 0.1641
+        },
+        {
+         "lag": 3150,
+         "r": 0.1641
+        },
+        {
+         "lag": 3200,
+         "r": 0.1482
+        },
+        {
+         "lag": 3250,
+         "r": 0.1482
+        },
+        {
+         "lag": 3300,
+         "r": 0.1481
+        },
+        {
+         "lag": 3350,
+         "r": 0.1481
+        },
+        {
+         "lag": 3400,
+         "r": 0.1971
+        },
+        {
+         "lag": 3450,
+         "r": 0.1971
+        },
+        {
+         "lag": 3500,
+         "r": 0.2541
+        },
+        {
+         "lag": 3550,
+         "r": 0.2541
+        },
+        {
+         "lag": 3600,
+         "r": 0.1779
+        },
+        {
+         "lag": 3650,
+         "r": 0.1779
+        },
+        {
+         "lag": 3700,
+         "r": 0.1393
+        },
+        {
+         "lag": 3750,
+         "r": 0.1393
+        },
+        {
+         "lag": 3800,
+         "r": 0.1086
+        },
+        {
+         "lag": 3850,
+         "r": 0.1086
+        },
+        {
+         "lag": 3900,
+         "r": 0.1024
+        },
+        {
+         "lag": 3950,
+         "r": 0.1024
+        },
+        {
+         "lag": 4000,
+         "r": 0.1042
+        },
+        {
+         "lag": 4050,
+         "r": 0.1042
+        },
+        {
+         "lag": 4100,
+         "r": 0.0744
+        },
+        {
+         "lag": 4150,
+         "r": 0.0744
+        },
+        {
+         "lag": 4200,
+         "r": 0.0191
+        },
+        {
+         "lag": 4250,
+         "r": 0.0191
+        },
+        {
+         "lag": 4300,
+         "r": -0.052
+        },
+        {
+         "lag": 4350,
+         "r": -0.052
+        },
+        {
+         "lag": 4400,
+         "r": -0.0758
+        },
+        {
+         "lag": 4450,
+         "r": -0.0758
+        },
+        {
+         "lag": 4500,
+         "r": -0.1608
+        },
+        {
+         "lag": 4550,
+         "r": -0.1608
+        },
+        {
+         "lag": 4600,
+         "r": -0.1905
+        },
+        {
+         "lag": 4650,
+         "r": -0.1905
+        },
+        {
+         "lag": 4700,
+         "r": -0.2125
+        },
+        {
+         "lag": 4750,
+         "r": -0.2125
+        },
+        {
+         "lag": 4800,
+         "r": -0.2274
+        },
+        {
+         "lag": 4850,
+         "r": -0.2274
+        },
+        {
+         "lag": 4900,
+         "r": -0.2266
+        },
+        {
+         "lag": 4950,
+         "r": -0.2266
+        },
+        {
+         "lag": 5000,
+         "r": -0.2239
+        },
+        {
+         "lag": 5050,
+         "r": -0.2239
+        },
+        {
+         "lag": 5100,
+         "r": -0.2143
+        },
+        {
+         "lag": 5150,
+         "r": -0.2143
+        },
+        {
+         "lag": 5200,
+         "r": -0.2125
+        },
+        {
+         "lag": 5250,
+         "r": -0.2125
+        },
+        {
+         "lag": 5300,
+         "r": -0.1417
+        }
+       ]
+      },
+      "periodMeasured": 3349.7,
+      "periodMatch": true
+     },
+     "belief:-1001234567890:551": {
+      "n": 85,
+      "cycles": 3,
+      "ampLuma": 0.029,
+      "residSigma": 0.023,
+      "snr": 1.3,
+      "corrCycle12": -0.048,
+      "periodic": false,
+      "waveform": [
+       162.095,
+       162.11,
+       162.106,
+       162.095,
+       162.095,
+       162.1,
+       162.085,
+       162.07,
+       162.077,
+       162.08,
+       162.095,
+       162.108,
+       162.123,
+       162.123,
+       162.113,
+       162.097,
+       162.07,
+       162.07,
+       162.065,
+       162.067
+      ],
+      "phaseMeasured": 1758.9,
+      "phaseExpected": 1707,
+      "phaseDelta": 51.9,
+      "expectedPeriod": 3703,
+      "diffWave": {
+       "n": 84,
+       "base": 0.32,
+       "sigma": 0.13,
+       "peaks": [
+        1505.3,
+        5505.2
+       ],
+       "period": 3999.9,
+       "inRange": true,
+       "singleInterval": true,
+       "min": 0.04,
+       "max": 0.56,
+       "swingPct": 52.0,
+       "coreSigma": null
+      },
+      "autocorr": {
+       "period": 3750,
+       "acfPeak": 0.3521,
+       "acfMean": -0.0393,
+       "acfMax": 0.3521,
+       "significance": 1.8,
+       "curve": [
+        {
+         "lag": 2800,
+         "r": -0.4069
+        },
+        {
+         "lag": 2850,
+         "r": -0.4069
+        },
+        {
+         "lag": 2900,
+         "r": -0.303
+        },
+        {
+         "lag": 2950,
+         "r": -0.303
+        },
+        {
+         "lag": 3000,
+         "r": -0.1941
+        },
+        {
+         "lag": 3050,
+         "r": -0.1941
+        },
+        {
+         "lag": 3100,
+         "r": -0.0592
+        },
+        {
+         "lag": 3150,
+         "r": -0.0592
+        },
+        {
+         "lag": 3200,
+         "r": 0.0311
+        },
+        {
+         "lag": 3250,
+         "r": 0.0311
+        },
+        {
+         "lag": 3300,
+         "r": 0.0939
+        },
+        {
+         "lag": 3350,
+         "r": 0.0939
+        },
+        {
+         "lag": 3400,
+         "r": 0.1646
+        },
+        {
+         "lag": 3450,
+         "r": 0.1646
+        },
+        {
+         "lag": 3500,
+         "r": 0.2325
+        },
+        {
+         "lag": 3550,
+         "r": 0.2325
+        },
+        {
+         "lag": 3600,
+         "r": 0.2918
+        },
+        {
+         "lag": 3650,
+         "r": 0.2918
+        },
+        {
+         "lag": 3700,
+         "r": 0.3521
+        },
+        {
+         "lag": 3750,
+         "r": 0.3521
+        },
+        {
+         "lag": 3800,
+         "r": 0.2614
+        },
+        {
+         "lag": 3850,
+         "r": 0.2614
+        },
+        {
+         "lag": 3900,
+         "r": 0.1735
+        },
+        {
+         "lag": 3950,
+         "r": 0.1735
+        },
+        {
+         "lag": 4000,
+         "r": 0.0548
+        },
+        {
+         "lag": 4050,
+         "r": 0.0548
+        },
+        {
+         "lag": 4100,
+         "r": -0.0591
+        },
+        {
+         "lag": 4150,
+         "r": -0.0591
+        },
+        {
+         "lag": 4200,
+         "r": -0.1713
+        },
+        {
+         "lag": 4250,
+         "r": -0.1713
+        },
+        {
+         "lag": 4300,
+         "r": -0.2211
+        },
+        {
+         "lag": 4350,
+         "r": -0.2211
+        },
+        {
+         "lag": 4400,
+         "r": -0.2599
+        },
+        {
+         "lag": 4450,
+         "r": -0.2599
+        },
+        {
+         "lag": 4500,
+         "r": -0.2832
+        },
+        {
+         "lag": 4550,
+         "r": -0.2832
+        },
+        {
+         "lag": 4600,
+         "r": -0.2897
+        },
+        {
+         "lag": 4650,
+         "r": -0.2897
+        },
+        {
+         "lag": 4700,
+         "r": -0.2711
+        },
+        {
+         "lag": 4750,
+         "r": -0.2711
+        },
+        {
+         "lag": 4800,
+         "r": -0.2281
+        },
+        {
+         "lag": 4850,
+         "r": -0.2281
+        },
+        {
+         "lag": 4900,
+         "r": -0.1347
+        },
+        {
+         "lag": 4950,
+         "r": -0.1347
+        },
+        {
+         "lag": 5000,
+         "r": -0.0539
+        },
+        {
+         "lag": 5050,
+         "r": -0.0539
+        },
+        {
+         "lag": 5100,
+         "r": 0.0572
+        },
+        {
+         "lag": 5150,
+         "r": 0.0572
+        },
+        {
+         "lag": 5200,
+         "r": 0.1294
+        },
+        {
+         "lag": 5250,
+         "r": 0.1294
+        },
+        {
+         "lag": 5300,
+         "r": 0.1807
+        }
+       ]
+      },
+      "periodMeasured": 3999.9,
+      "periodMatch": true
+     },
+     "belief:-1001234567890:165": {
+      "n": 85,
+      "cycles": 3,
+      "ampLuma": 0.036,
+      "residSigma": 0.018,
+      "snr": 2.0,
+      "corrCycle12": 0.72,
+      "periodic": false,
+      "waveform": [
+       161.535,
+       161.525,
+       161.513,
+       161.505,
+       161.493,
+       161.487,
+       161.473,
+       161.47,
+       161.468,
+       161.47,
+       161.478,
+       161.492,
+       161.503,
+       161.505,
+       161.52,
+       161.54,
+       161.537,
+       161.54,
+       161.538,
+       161.54
+      ],
+      "phaseMeasured": 1222.1,
+      "phaseExpected": 4768,
+      "phaseDelta": -286.9,
+      "expectedPeriod": 3259,
+      "diffWave": {
+       "n": 84,
+       "base": 0.3,
+       "sigma": 0.11,
+       "peaks": [
+        1405.7,
+        4905.1,
+        7804.6
+       ],
+       "period": 3199.5,
+       "inRange": true,
+       "singleInterval": false,
+       "min": 0.02,
+       "max": 0.5,
+       "swingPct": 48.0,
+       "coreSigma": null
+      },
+      "autocorr": {
+       "period": 3450,
+       "acfPeak": 0.3601,
+       "acfMean": 0.0733,
+       "acfMax": 0.3601,
+       "significance": 1.4,
+       "curve": [
+        {
+         "lag": 2800,
+         "r": 0.1042
+        },
+        {
+         "lag": 2850,
+         "r": 0.1042
+        },
+        {
+         "lag": 2900,
+         "r": 0.1662
+        },
+        {
+         "lag": 2950,
+         "r": 0.1662
+        },
+        {
+         "lag": 3000,
+         "r": 0.2236
+        },
+        {
+         "lag": 3050,
+         "r": 0.2236
+        },
+        {
+         "lag": 3100,
+         "r": 0.2825
+        },
+        {
+         "lag": 3150,
+         "r": 0.2825
+        },
+        {
+         "lag": 3200,
+         "r": 0.324
+        },
+        {
+         "lag": 3250,
+         "r": 0.324
+        },
+        {
+         "lag": 3300,
+         "r": 0.3488
+        },
+        {
+         "lag": 3350,
+         "r": 0.3488
+        },
+        {
+         "lag": 3400,
+         "r": 0.3601
+        },
+        {
+         "lag": 3450,
+         "r": 0.3601
+        },
+        {
+         "lag": 3500,
+         "r": 0.3467
+        },
+        {
+         "lag": 3550,
+         "r": 0.3467
+        },
+        {
+         "lag": 3600,
+         "r": 0.3169
+        },
+        {
+         "lag": 3650,
+         "r": 0.3169
+        },
+        {
+         "lag": 3700,
+         "r": 0.2786
+        },
+        {
+         "lag": 3750,
+         "r": 0.2786
+        },
+        {
+         "lag": 3800,
+         "r": 0.245
+        },
+        {
+         "lag": 3850,
+         "r": 0.245
+        },
+        {
+         "lag": 3900,
+         "r": 0.1944
+        },
+        {
+         "lag": 3950,
+         "r": 0.1944
+        },
+        {
+         "lag": 4000,
+         "r": 0.1377
+        },
+        {
+         "lag": 4050,
+         "r": 0.1377
+        },
+        {
+         "lag": 4100,
+         "r": 0.083
+        },
+        {
+         "lag": 4150,
+         "r": 0.083
+        },
+        {
+         "lag": 4200,
+         "r": 0.0209
+        },
+        {
+         "lag": 4250,
+         "r": 0.0209
+        },
+        {
+         "lag": 4300,
+         "r": -0.0213
+        },
+        {
+         "lag": 4350,
+         "r": -0.0213
+        },
+        {
+         "lag": 4400,
+         "r": -0.0638
+        },
+        {
+         "lag": 4450,
+         "r": -0.0638
+        },
+        {
+         "lag": 4500,
+         "r": -0.1039
+        },
+        {
+         "lag": 4550,
+         "r": -0.1039
+        },
+        {
+         "lag": 4600,
+         "r": -0.1423
+        },
+        {
+         "lag": 4650,
+         "r": -0.1423
+        },
+        {
+         "lag": 4700,
+         "r": -0.1661
+        },
+        {
+         "lag": 4750,
+         "r": -0.1661
+        },
+        {
+         "lag": 4800,
+         "r": -0.1789
+        },
+        {
+         "lag": 4850,
+         "r": -0.1789
+        },
+        {
+         "lag": 4900,
+         "r": -0.1953
+        },
+        {
+         "lag": 4950,
+         "r": -0.1953
+        },
+        {
+         "lag": 5000,
+         "r": -0.2007
+        },
+        {
+         "lag": 5050,
+         "r": -0.2007
+        },
+        {
+         "lag": 5100,
+         "r": -0.2044
+        },
+        {
+         "lag": 5150,
+         "r": -0.2044
+        },
+        {
+         "lag": 5200,
+         "r": -0.1954
+        },
+        {
+         "lag": 5250,
+         "r": -0.1954
+        },
+        {
+         "lag": 5300,
+         "r": -0.1804
+        }
+       ]
+      },
+      "periodMeasured": 3199.5,
+      "periodMatch": true
+     },
+     "belief:-1001234567890:251": {
+      "n": 85,
+      "cycles": 3,
+      "ampLuma": 0.065,
+      "residSigma": 0.037,
+      "snr": 1.8,
+      "corrCycle12": 0.53,
+      "periodic": false,
+      "waveform": [
+       160.104,
+       160.115,
+       160.088,
+       160.038,
+       160.037,
+       160.02,
+       160.04,
+       160.036,
+       160.03,
+       160.034,
+       160.025,
+       160.03,
+       160.012,
+       160.042,
+       160.048,
+       160.093,
+       160.083,
+       160.127,
+       160.103,
+       160.143
+      ],
+      "phaseMeasured": 976.3,
+      "phaseExpected": 3991,
+      "phaseDelta": -10.7,
+      "expectedPeriod": 3004,
+      "diffWave": {
+       "n": 84,
+       "base": 0.44,
+       "sigma": 0.1,
+       "peaks": [
+        1505.3,
+        5306.5,
+        7604.8
+       ],
+       "period": 3049.8,
+       "inRange": true,
+       "singleInterval": false,
+       "min": 0.04,
+       "max": 0.62,
+       "swingPct": 58.0,
+       "coreSigma": null
+      },
+      "autocorr": {
+       "period": 3600,
+       "acfPeak": 0.2851,
+       "acfMean": 0.1405,
+       "acfMax": 0.2851,
+       "significance": 1.2,
+       "curve": [
+        {
+         "lag": 2800,
+         "r": -0.0363
+        },
+        {
+         "lag": 2850,
+         "r": -0.0363
+        },
+        {
+         "lag": 2900,
+         "r": 0.0522
+        },
+        {
+         "lag": 2950,
+         "r": 0.0522
+        },
+        {
+         "lag": 3000,
+         "r": 0.1304
+        },
+        {
+         "lag": 3050,
+         "r": 0.1304
+        },
+        {
+         "lag": 3100,
+         "r": 0.1886
+        },
+        {
+         "lag": 3150,
+         "r": 0.1886
+        },
+        {
+         "lag": 3200,
+         "r": 0.2332
+        },
+        {
+         "lag": 3250,
+         "r": 0.2332
+        },
+        {
+         "lag": 3300,
+         "r": 0.2573
+        },
+        {
+         "lag": 3350,
+         "r": 0.2573
+        },
+        {
+         "lag": 3400,
+         "r": 0.2726
+        },
+        {
+         "lag": 3450,
+         "r": 0.2726
+        },
+        {
+         "lag": 3500,
+         "r": 0.2833
+        },
+        {
+         "lag": 3550,
+         "r": 0.2833
+        },
+        {
+         "lag": 3600,
+         "r": 0.2851
+        },
+        {
+         "lag": 3650,
+         "r": 0.2851
+        },
+        {
+         "lag": 3700,
+         "r": 0.2827
+        },
+        {
+         "lag": 3750,
+         "r": 0.2827
+        },
+        {
+         "lag": 3800,
+         "r": 0.2804
+        },
+        {
+         "lag": 3850,
+         "r": 0.2804
+        },
+        {
+         "lag": 3900,
+         "r": 0.261
+        },
+        {
+         "lag": 3950,
+         "r": 0.261
+        },
+        {
+         "lag": 4000,
+         "r": 0.2428
+        },
+        {
+         "lag": 4050,
+         "r": 0.2428
+        },
+        {
+         "lag": 4100,
+         "r": 0.2307
+        },
+        {
+         "lag": 4150,
+         "r": 0.2307
+        },
+        {
+         "lag": 4200,
+         "r": 0.1997
+        },
+        {
+         "lag": 4250,
+         "r": 0.1997
+        },
+        {
+         "lag": 4300,
+         "r": 0.1708
+        },
+        {
+         "lag": 4350,
+         "r": 0.1708
+        },
+        {
+         "lag": 4400,
+         "r": 0.138
+        },
+        {
+         "lag": 4450,
+         "r": 0.138
+        },
+        {
+         "lag": 4500,
+         "r": 0.1058
+        },
+        {
+         "lag": 4550,
+         "r": 0.1058
+        },
+        {
+         "lag": 4600,
+         "r": 0.0731
+        },
+        {
+         "lag": 4650,
+         "r": 0.0731
+        },
+        {
+         "lag": 4700,
+         "r": 0.0447
+        },
+        {
+         "lag": 4750,
+         "r": 0.0447
+        },
+        {
+         "lag": 4800,
+         "r": 0.0202
+        },
+        {
+         "lag": 4850,
+         "r": 0.0202
+        },
+        {
+         "lag": 4900,
+         "r": -0.0001
+        },
+        {
+         "lag": 4950,
+         "r": -0.0001
+        },
+        {
+         "lag": 5000,
+         "r": -0.0235
+        },
+        {
+         "lag": 5050,
+         "r": -0.0235
+        },
+        {
+         "lag": 5100,
+         "r": -0.0342
+        },
+        {
+         "lag": 5150,
+         "r": -0.0342
+        },
+        {
+         "lag": 5200,
+         "r": -0.0445
+        },
+        {
+         "lag": 5250,
+         "r": -0.0445
+        },
+        {
+         "lag": 5300,
+         "r": -0.0622
+        }
+       ]
+      },
+      "periodMeasured": 3049.8,
+      "periodMatch": true
+     },
+     "fact:-1001234567890:327": {
+      "n": 85,
+      "cycles": 4,
+      "ampLuma": 0.019,
+      "residSigma": 0.036,
+      "snr": 0.5,
+      "corrCycle12": -0.041,
+      "periodic": false,
+      "waveform": [
+       162.583,
+       162.594,
+       162.582,
+       162.583,
+       162.572,
+       162.572,
+       162.567,
+       162.563,
+       162.572,
+       162.562,
+       162.566,
+       162.557,
+       162.565,
+       162.578,
+       162.56,
+       162.573,
+       162.58,
+       162.572,
+       162.592,
+       162.593
+      ],
+      "phaseMeasured": 481.2,
+      "phaseExpected": 4949,
+      "phaseDelta": -1718.2,
+      "expectedPeriod": 4522,
+      "diffWave": {
+       "n": 84,
+       "base": 0.39,
+       "sigma": 0.12,
+       "peaks": [
+        2005.4,
+        6605.3,
+        7504.6
+       ],
+       "period": 2749.6,
+       "inRange": false,
+       "singleInterval": false,
+       "min": 0.03,
+       "max": 0.57,
+       "swingPct": 54.0,
+       "coreSigma": null
+      },
+      "autocorr": {
+       "period": 3800,
+       "acfPeak": 0.504,
+       "acfMean": 0.2083,
+       "acfMax": 0.504,
+       "significance": 1.3,
+       "curve": [
+        {
+         "lag": 2800,
+         "r": -0.0913
+        },
+        {
+         "lag": 2850,
+         "r": -0.0913
+        },
+        {
+         "lag": 2900,
+         "r": 0.0171
+        },
+        {
+         "lag": 2950,
+         "r": 0.0171
+        },
+        {
+         "lag": 3000,
+         "r": 0.1244
+        },
+        {
+         "lag": 3050,
+         "r": 0.1244
+        },
+        {
+         "lag": 3100,
+         "r": 0.2196
+        },
+        {
+         "lag": 3150,
+         "r": 0.2196
+        },
+        {
+         "lag": 3200,
+         "r": 0.2888
+        },
+        {
+         "lag": 3250,
+         "r": 0.2888
+        },
+        {
+         "lag": 3300,
+         "r": 0.3542
+        },
+        {
+         "lag": 3350,
+         "r": 0.3542
+        },
+        {
+         "lag": 3400,
+         "r": 0.4093
+        },
+        {
+         "lag": 3450,
+         "r": 0.4093
+        },
+        {
+         "lag": 3500,
+         "r": 0.4462
+        },
+        {
+         "lag": 3550,
+         "r": 0.4462
+        },
+        {
+         "lag": 3600,
+         "r": 0.4765
+        },
+        {
+         "lag": 3650,
+         "r": 0.4765
+        },
+        {
+         "lag": 3700,
+         "r": 0.4952
+        },
+        {
+         "lag": 3750,
+         "r": 0.4952
+        },
+        {
+         "lag": 3800,
+         "r": 0.504
+        },
+        {
+         "lag": 3850,
+         "r": 0.504
+        },
+        {
+         "lag": 3900,
+         "r": 0.4867
+        },
+        {
+         "lag": 3950,
+         "r": 0.4867
+        },
+        {
+         "lag": 4000,
+         "r": 0.4476
+        },
+        {
+         "lag": 4050,
+         "r": 0.4476
+        },
+        {
+         "lag": 4100,
+         "r": 0.4184
+        },
+        {
+         "lag": 4150,
+         "r": 0.4184
+        },
+        {
+         "lag": 4200,
+         "r": 0.3718
+        },
+        {
+         "lag": 4250,
+         "r": 0.3718
+        },
+        {
+         "lag": 4300,
+         "r": 0.3112
+        },
+        {
+         "lag": 4350,
+         "r": 0.3112
+        },
+        {
+         "lag": 4400,
+         "r": 0.2514
+        },
+        {
+         "lag": 4450,
+         "r": 0.2514
+        },
+        {
+         "lag": 4500,
+         "r": 0.204
+        },
+        {
+         "lag": 4550,
+         "r": 0.204
+        },
+        {
+         "lag": 4600,
+         "r": 0.1385
+        },
+        {
+         "lag": 4650,
+         "r": 0.1385
+        },
+        {
+         "lag": 4700,
+         "r": 0.0675
+        },
+        {
+         "lag": 4750,
+         "r": 0.0675
+        },
+        {
+         "lag": 4800,
+         "r": -0.0013
+        },
+        {
+         "lag": 4850,
+         "r": -0.0013
+        },
+        {
+         "lag": 4900,
+         "r": -0.0552
+        },
+        {
+         "lag": 4950,
+         "r": -0.0552
+        },
+        {
+         "lag": 5000,
+         "r": -0.1108
+        },
+        {
+         "lag": 5050,
+         "r": -0.1108
+        },
+        {
+         "lag": 5100,
+         "r": -0.1623
+        },
+        {
+         "lag": 5150,
+         "r": -0.1623
+        },
+        {
+         "lag": 5200,
+         "r": -0.1939
+        },
+        {
+         "lag": 5250,
+         "r": -0.1939
+        },
+        {
+         "lag": 5300,
+         "r": -0.2126
+        }
+       ]
+      },
+      "periodMeasured": 2749.6,
+      "periodMatch": false
+     }
+    },
+    "filmstrip": {
+     "node": "belief:-1001234567890:362",
+     "frames": 12,
+     "gapMs": 500,
+     "file": "pulse-filmstrip.png"
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": null,
+     "reducedMotion": false
+    },
+    "mobile_targets": [
+     {
+      "id": "belief:-1001234567890:362",
+      "period": 3488,
+      "phase": 1400
+     },
+     {
+      "id": "belief:-1001234567890:551",
+      "period": 3703,
+      "phase": 1707
+     },
+     {
+      "id": "belief:-1001234567890:165",
+      "period": 3259,
+      "phase": 4768
+     }
+    ],
+    "mobile_estimates": {
+     "belief:-1001234567890:362": {
+      "n": 60,
+      "cycles": 2,
+      "ampLuma": 7.065,
+      "residSigma": 4.118,
+      "snr": 1.7,
+      "corrCycle12": null,
+      "periodic": false,
+      "waveform": [
+       157.847,
+       147.26,
+       156.673,
+       147.25,
+       147.25,
+       157.35,
+       147.25,
+       147.25,
+       159.025,
+       157.849,
+       157.849,
+       161.38,
+       157.849,
+       157.849,
+       161.38,
+       157.849,
+       157.849,
+       161.38,
+       157.849,
+       157.849
+      ],
+      "phaseMeasured": 2354.4,
+      "phaseExpected": 1400,
+      "phaseDelta": 954.4
+     },
+     "belief:-1001234567890:551": {
+      "n": 60,
+      "cycles": 2,
+      "ampLuma": 5.455,
+      "residSigma": 2.878,
+      "snr": 1.9,
+      "corrCycle12": null,
+      "periodic": false,
+      "waveform": [
+       138.05,
+       145.313,
+       138.055,
+       138.055,
+       145.829,
+       138.045,
+       138.04,
+       145.824,
+       146.219,
+       148.94,
+       148.95,
+       146.219,
+       148.94,
+       148.95,
+       146.219,
+       146.219,
+       148.94,
+       146.219,
+       148.94,
+       146.219
+      ],
+      "phaseMeasured": 2684.7,
+      "phaseExpected": 1707,
+      "phaseDelta": 977.7
+     },
+     "belief:-1001234567890:165": {
+      "n": 60,
+      "cycles": 2,
+      "ampLuma": 6.28,
+      "residSigma": 3.101,
+      "snr": 2.0,
+      "corrCycle12": null,
+      "periodic": false,
+      "waveform": [
+       155.94,
+       165.346,
+       155.94,
+       155.93,
+       164.297,
+       155.93,
+       155.93,
+       166.397,
+       155.94,
+       165.345,
+       168.49,
+       165.345,
+       168.48,
+       168.48,
+       165.345,
+       168.48,
+       165.345,
+       168.48,
+       168.48,
+       165.345
+      ],
+      "phaseMeasured": 2362.8,
+      "phaseExpected": 4768,
+      "phaseDelta": 853.8
+     }
+    },
+    "counters_mobile": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": null,
+     "reducedMotion": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "pulse-filmstrip.png": "c68782d790fe4ce78ae2131c2f9611cb98720a1e5cceabd04ec7cde814997b55",
+    "pulse-frame-00-1440.png": "0ceac22876b0276ae9326af50563dd81235fed76e72365876a99956257947eeb",
+    "pulse-frame-01-1440.png": "b33fa26930eebfae6ce075b79666a817e3f663487d96533484e686ae960e9fe7",
+    "pulse-frame-02-1440.png": "f1d4e07547f3777badf7ced2bfd6b152a47e972d418673b0407600e3e77eb875",
+    "pulse-frame-03-1440.png": "fc91506e252bf86da49750784cacc851c7b930a6df353b681bad88353f84fe88",
+    "pulse-frame-04-1440.png": "d52007f12589ac63eabac050bac1c96f6f9ce49fc1a8d01d13f86b4383d8fcb4",
+    "pulse-frame-05-1440.png": "db85d97b5ed764d522537d21c0f341f4a412056dd016370fe5f879e3420993d8",
+    "pulse-frame-06-1440.png": "b67dd0e5cca6f5de7e606f1911c7fcccb75831bb6590b2f1519496e9dc015e1a",
+    "pulse-frame-07-1440.png": "cbab5f27b4aefddc2789e94f78947c893d8088285e28a59e1bf7e65b3221066f",
+    "pulse-mobile-390.png": "0e371fef64edb1b28dbe9424af74e264a8c4be1003ae303f5fb77d570908856c",
+    "pulse-series-mobile.json": "12f3b007b5b08bc4035f9d9b72fbd1e54355e6e8ddb1a4971245507362151159",
+    "pulse-series.json": "85fcf9d55c980ba31216944febc95910d04330f7a9f43426783aff591a0492c5"
+   }
+  },
+  "CMV-PHY-03": {
+   "shots": [
+    "pan-before-1440.png",
+    "pan-after-1440.png",
+    "nodedrag-after-1440.png"
+   ],
+   "facts": {
+    "empty_spot": {
+     "x": 340,
+     "y": 371.2,
+     "dmin": 123.5
+    },
+    "pan": {
+     "camBefore": {
+      "net": true,
+      "scale": 0.1704,
+      "vx": -473,
+      "vy": -139,
+      "fitScale": 0.09467,
+      "selectedId": null,
+      "settled": true,
+      "visNetworks": 1
+     },
+     "camAfter": {
+      "net": true,
+      "scale": 0.1704,
+      "vx": -1177.21,
+      "vy": -514.58,
+      "fitScale": 0.09467,
+      "selectedId": null,
+      "settled": true,
+      "visNetworks": 1
+     },
+     "apiCalls": 0
+    },
+    "drag_node": {
+     "id": "paradigm:-1001234567890:184",
+     "screen": {
+      "x": 948,
+      "y": 547.1875,
+      "sx": 698,
+      "sy": 273,
+      "nodeR": 27,
+      "coreR": 21.6,
+      "degree": 13,
+      "kind": "paradigm"
+     }
+    },
+    "nodedrag": {
+     "camAfter": {
+      "net": true,
+      "scale": 0.1704,
+      "vx": -1177.21,
+      "vy": -514.58,
+      "fitScale": 0.09467,
+      "selectedId": null,
+      "settled": true,
+      "visNetworks": 1
+     },
+     "apiCalls": 0,
+     "draggedDelta": 547.25,
+     "othersOver10px": 0,
+     "othersTotal": 701,
+     "othersMedian": 0.0,
+     "topDeltas": [
+      [
+       "paradigm:-1001234567890:184",
+       547.25
+      ],
+      [
+       "fact:-1001234567890:1",
+       0.0
+      ],
+      [
+       "fact:-1001234567890:2",
+       0.0
+      ],
+      [
+       "fact:-1001234567890:3",
+       0.0
+      ],
+      [
+       "fact:-1001234567890:4",
+       0.0
+      ],
+      [
+       "fact:-1001234567890:5",
+       0.0
+      ],
+      [
+       "fact:-1001234567890:6",
+       0.0
+      ],
+      [
+       "fact:-1001234567890:7",
+       0.0
+      ]
+     ],
+     "fitScaleStable": true
+    },
+    "positions_timeline_meta": {
+     "snapshots": 14,
+     "note": "полный ряд pos в artifact positions-timeline.json"
+    },
+    "model_unchanged": {
+     "targetTitle": {
+      "id": "paradigm:-1001234567890:184",
+      "title": "Аня любит утренний кофе 184",
+      "kind": "paradigm"
+     },
+     "apiCallsTotal": 0
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": null,
+     "reducedMotion": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "nodedrag-after-1440.png": "7aec42cbd5628b45f5372ac2027bf326f251200f2d35a16cb8c431d2f68614fb",
+    "pan-after-1440.png": "e244c7c35edbda89773e8a2494c011a6c20fa51a9d3dd34e23ddf2efc3a93f43",
+    "pan-before-1440.png": "913daf0e87c3e61cb7254508f3b30fea8337f5e13fc020ff33e15f91ddd72984",
+    "positions-timeline.json": "9f8c45a839b6e6cdb31d1f516f895c118a1231481d221aeabe24e36fa28aa635"
+   }
+  },
+  "CMV-PHY-04": {
+   "shots": [
+    "wheel-before-1440.png",
+    "wheel-after-1440.png",
+    "dblclick-after-1440.png"
+   ],
+   "facts": {
+    "wheel_zoom_at_cursor": {
+     "spot": {
+      "x": 1082.32,
+      "y": 414.9475
+     },
+     "worldBefore": {
+      "wx": 4612.13,
+      "wy": 1506.38,
+      "scale": 0.13645
+     },
+     "worldAfter": {
+      "wx": 4445.35,
+      "wy": 1307.07,
+      "scale": 0.15009
+     },
+     "cursorDriftPx": 39.01,
+     "scaleStep1": 1.1,
+     "trace": [
+      {
+       "net": true,
+       "scale": 0.13645,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": null,
+       "settled": true,
+       "visNetworks": 1,
+       "t": 0
+      },
+      {
+       "net": true,
+       "scale": 0.15009,
+       "vx": 1085.23,
+       "vy": -65.09,
+       "fitScale": 0.09746,
+       "selectedId": null,
+       "settled": true,
+       "visNetworks": 1,
+       "t": 60
+      },
+      {
+       "net": true,
+       "scale": 0.15009,
+       "vx": 1085.23,
+       "vy": -65.09,
+       "fitScale": 0.09746,
+       "selectedId": null,
+       "settled": true,
+       "visNetworks": 1,
+       "t": 120
+      },
+      {
+       "net": true,
+       "scale": 0.15009,
+       "vx": 1085.23,
+       "vy": -65.09,
+       "fitScale": 0.09746,
+       "selectedId": null,
+       "settled": true,
+       "visNetworks": 1,
+       "t": 180
+      },
+      {
+       "net": true,
+       "scale": 0.15009,
+       "vx": 1085.23,
+       "vy": -65.09,
+       "fitScale": 0.09746,
+       "selectedId": null,
+       "settled": true,
+       "visNetworks": 1,
+       "t": 240
+      },
+      {
+       "net": true,
+       "scale": 0.15009,
+       "vx": 1085.23,
+       "vy": -65.09,
+       "fitScale": 0.09746,
+       "selectedId": null,
+       "settled": true,
+       "visNetworks": 1,
+       "t": 300
+      },
+      {
+       "net": true,
+       "scale": 0.15009,
+       "vx": 1085.23,
+       "vy": -65.09,
+       "fitScale": 0.09746,
+       "selectedId": null,
+       "settled": true,
+       "visNetworks": 1,
+       "t": 960
+      }
+     ]
+    },
+    "dblclick": {
+     "camBefore": {
+      "net": true,
+      "scale": 0.13645,
+      "vx": 916,
+      "vy": -3,
+      "fitScale": 0.09746,
+      "selectedId": null,
+      "settled": true,
+      "visNetworks": 1
+     },
+     "camAfter": {
+      "net": true,
+      "scale": 0.13645,
+      "vx": 916,
+      "vy": -3,
+      "fitScale": 0.09746,
+      "selectedId": "paradigm:-1001234567890:184",
+      "settled": true,
+      "visNetworks": 1
+     },
+     "movedFrames": 0,
+     "firstMoveAt": null,
+     "lastMoveAt": null,
+     "timeline": [
+      {
+       "t": 15,
+       "scale": 0.1364,
+       "vx": 916,
+       "vy": -3
+      }
+     ]
+    },
+    "gesture_override": {
+     "searchState": {
+      "vm": true,
+      "query": "кофе 184",
+      "status": "Найден: Аня любит утренний кофе 184",
+      "matchIds": [
+       "paradigm:-1001234567890:184"
+      ],
+      "selectedId": "paradigm:-1001234567890:184",
+      "detail": {
+       "id": "paradigm:-1001234567890:184",
+       "kind": "paradigm"
+      }
+     },
+     "camEnd": {
+      "net": true,
+      "scale": 0.29238,
+      "vx": 916,
+      "vy": -3,
+      "fitScale": 0.09746,
+      "selectedId": "paradigm:-1001234567890:184",
+      "settled": true,
+      "visNetworks": 1
+     },
+     "animTargetScale": 0.29238,
+     "reachedAnimTarget": true,
+     "trace": [
+      {
+       "net": true,
+       "scale": 0.15931,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 49
+      },
+      {
+       "net": true,
+       "scale": 0.17299,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 143
+      },
+      {
+       "net": true,
+       "scale": 0.23848,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 332
+      },
+      {
+       "net": true,
+       "scale": 0.27133,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 446
+      },
+      {
+       "net": true,
+       "scale": 0.28901,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 556
+      },
+      {
+       "net": true,
+       "scale": 0.29238,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 662
+      },
+      {
+       "net": true,
+       "scale": 0.29238,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 757
+      },
+      {
+       "net": true,
+       "scale": 0.29238,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 848
+      },
+      {
+       "net": true,
+       "scale": 0.29238,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 943
+      },
+      {
+       "net": true,
+       "scale": 0.29238,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 1048
+      },
+      {
+       "net": true,
+       "scale": 0.29238,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 1147
+      },
+      {
+       "net": true,
+       "scale": 0.29238,
+       "vx": 916,
+       "vy": -3,
+       "fitScale": 0.09746,
+       "selectedId": "paradigm:-1001234567890:184",
+       "settled": true,
+       "visNetworks": 1,
+       "t": 1856
+      }
+     ],
+     "note": "wheel на ~180-200 мс поверх анимации фокуса поиска; если кривая монотонно дошла до цели анимации без ступени от колеса — жест не перехватывает управление мгновенно"
+    },
+    "pinch_cdp": {
+     "scaleBefore": 0.29238,
+     "scaleAfter": 0.64324,
+     "zoomed": true,
+     "camBefore": {
+      "net": true,
+      "scale": 0.29238,
+      "vx": 916,
+      "vy": -3,
+      "fitScale": 0.09746,
+      "selectedId": "paradigm:-1001234567890:184",
+      "settled": true,
+      "visNetworks": 1
+     },
+     "camAfter": {
+      "net": true,
+      "scale": 0.64324,
+      "vx": 921,
+      "vy": -3.35,
+      "fitScale": 0.09746,
+      "selectedId": "paradigm:-1001234567890:184",
+      "settled": true,
+      "visNetworks": 1
+     },
+     "worldAtGestureCenterBefore": {
+      "wx": 1771.04,
+      "wy": 934.13,
+      "scale": 0.29238
+     },
+     "worldAtGestureCenterAfter": {
+      "wx": 1309.66,
+      "wy": 422.62,
+      "scale": 0.64324
+     },
+     "anchorDriftPx": 443.1
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": "paradigm:-1001234567890:184",
+     "reducedMotion": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "dblclick-after-1440.png": "581c093b4f6f57005c2b632b2c78e923fa167d3bdb5ac26700d94e5c66f9cda8",
+    "gesture-poll.json": "dbdee970c9bbd406affda2023754dca7b60c9a5c0f2821986eec826264a07a1d",
+    "pinch-center.json": "ed645877d9381a8e2ff3d6da73a4983e17916d96cbf29c9cf7e7ad66483e60a0",
+    "wheel-after-1440.png": "00f64b8575442402bdbf0a8e55e7a8f283076177b9997d0addad7dbd338136de",
+    "wheel-before-1440.png": "9b2180ff758bb1b850eb86620d083bbe55020fc62fdbd35a5cd05797007c772a",
+    "wheel-timeline.json": "868b2313b6b0cf1342afbbdd7a1b174faff3a543c10e7cf094f585886a88a626"
+   }
+  },
+  "CMV-AI-01": {
+   "shots": [
+    "hover-peak-1440.png"
+   ],
+   "facts": {
+    "hover_node": {
+     "id": "paradigm:-1001234567890:184",
+     "screen": {
+      "x": 828,
+      "y": 490.1875,
+      "sx": 578,
+      "sy": 209,
+      "nodeR": 27,
+      "coreR": 21.6,
+      "degree": 13,
+      "kind": "paradigm"
+     }
+    },
+    "before": {
+     "cursor": "",
+     "hoverId": null,
+     "labelsShown": 16,
+     "activeEdges": null
+    },
+    "band_meta": {
+     "g": 16.0,
+     "inner": "[0.68g, 1.35g]",
+     "outer": "[1.35g, 2.7g] — зона активного ореола"
+    },
+    "hover_state": {
+     "scene": true,
+     "lod": 1,
+     "selectedId": null,
+     "hoverId": "obs:-1001234567890:490",
+     "cursor": "pointer",
+     "labelsShown": 15,
+     "forcedIds": [
+      "obs:-1001234567890:490"
+     ],
+     "labelIds": [
+      "paradigm:-1001234567890:288",
+      "paradigm:-1001234567890:182",
+      "paradigm:-1001234567890:488",
+      "paradigm:-1001234567890:481",
+      "paradigm:-1001234567890:187",
+      "paradigm:-1001234567890:186",
+      "paradigm:-1001234567890:188",
+      "paradigm:-1001234567890:85",
+      "paradigm:-1001234567890:581",
+      "paradigm:-1001234567890:485",
+      "paradigm:-1001234567890:384",
+      "paradigm:-1001234567890:584",
+      "paradigm:-1001234567890:585",
+      "paradigm:-1001234567890:588"
+     ],
+     "neighbors": [],
+     "fxCounters": {
+      "netCount": 1,
+      "netTotal": 1,
+      "instance": 1,
+      "scenes": 1,
+      "canvases": 2,
+      "rafActive": true,
+      "rafRunning": true,
+      "paused": false,
+      "observerCount": 2,
+      "listeners": 12,
+      "frames": 63,
+      "settled": true,
+      "fitScale": 0.09771149395731549,
+      "lod": 1,
+      "fxCanvas": true,
+      "fxSprites": 34,
+      "fxGradients": 34,
+      "fxPaints": 79,
+      "fxDraws": 42564,
+      "fxPooled": 702,
+      "fxEdgeDraws": 28,
+      "fxActiveEdges": 7,
+      "draws": 79,
+      "pulseCount": 24,
+      "positions": 702,
+      "labelsShown": 15,
+      "aggregates": 6,
+      "aggFlows": 12,
+      "aggGrouped": 702,
+      "aggDraws": 0,
+      "aggFlowDraws": 0,
+      "visibleNodes": 690,
+      "lodDensity": 140.72614691809738,
+      "hiddenByLod": 0
+     },
+     "frames": 63,
+     "pulseHit": null,
+     "detail": null,
+     "cardOpen": false,
+     "hoverHit": false
+    },
+    "after_leave": {
+     "cursor": "",
+     "hoverId": null,
+     "labelsShown": 14
+    },
+    "series": {
+     "baseline": [
+      {
+       "id": "paradigm:-1001234567890:184|inner",
+       "samples": [
+        {
+         "t": 8.4,
+         "ring": 159.06,
+         "core": 164.23,
+         "diff": null
+        },
+        {
+         "t": 107.9,
+         "ring": 159.07,
+         "core": 164.23,
+         "diff": 0.08
+        },
+        {
+         "t": 208.9,
+         "ring": 159.06,
+         "core": 164.23,
+         "diff": 0.11
+        },
+        {
+         "t": 308.1,
+         "ring": 159.04,
+         "core": 164.23,
+         "diff": 0.15
+        },
+        {
+         "t": 409.4,
+         "ring": 159.05,
+         "core": 164.23,
+         "diff": 0.16
+        }
+       ]
+      },
+      {
+       "id": "paradigm:-1001234567890:184|outer",
+       "samples": [
+        {
+         "t": 8.4,
+         "ring": 164.44,
+         "core": 161.54,
+         "diff": null
+        },
+        {
+         "t": 107.9,
+         "ring": 164.42,
+         "core": 161.54,
+         "diff": 0.07
+        },
+        {
+         "t": 208.9,
+         "ring": 164.42,
+         "core": 161.53,
+         "diff": 0.12
+        },
+        {
+         "t": 308.1,
+         "ring": 164.41,
+         "core": 161.53,
+         "diff": 0.13
+        },
+        {
+         "t": 409.4,
+         "ring": 164.42,
+         "core": 161.53,
+         "diff": 0.14
+        }
+       ]
+      }
+     ],
+     "ramp": [
+      {
+       "id": "paradigm:-1001234567890:184|inner",
+       "samples": [
+        {
+         "t": 6.8,
+         "ring": 159.05,
+         "core": 164.23,
+         "diff": null
+        },
+        {
+         "t": 56,
+         "ring": 159.07,
+         "core": 164.2,
+         "diff": 0.15
+        },
+        {
+         "t": 87.6,
+         "ring": 159.07,
+         "core": 164.2,
+         "diff": 0.15
+        },
+        {
+         "t": 120.7,
+         "ring": 159.07,
+         "core": 164.2,
+         "diff": 0.15
+        },
+        {
+         "t": 171.2,
+         "ring": 159.06,
+         "core": 164.2,
+         "diff": 0.16
+        },
+        {
+         "t": 205.7,
+         "ring": 159.06,
+         "core": 164.2,
+         "diff": 0.16
+        },
+        {
+         "t": 256.1,
+         "ring": 159.06,
+         "core": 164.2,
+         "diff": 0.16
+        },
+        {
+         "t": 287.2,
+         "ring": 159.06,
+         "core": 164.2,
+         "diff": 0.16
+        },
+        {
+         "t": 321.2,
+         "ring": 159.03,
+         "core": 164.19,
+         "diff": 0.25
+        },
+        {
+         "t": 371.6,
+         "ring": 159.03,
+         "core": 164.19,
+         "diff": 0.25
+        },
+        {
+         "t": 406.5,
+         "ring": 159.03,
+         "core": 164.19,
+         "diff": 0.25
+        },
+        {
+         "t": 456.8,
+         "ring": 159.03,
+         "core": 164.19,
+         "diff": 0.25
+        },
+        {
+         "t": 487.8,
+         "ring": 159.03,
+         "core": 164.19,
+         "diff": 0.25
+        },
+        {
+         "t": 522.5,
+         "ring": 159.03,
+         "core": 164.19,
+         "diff": 0.25
+        }
+       ]
+      },
+      {
+       "id": "paradigm:-1001234567890:184|outer",
+       "samples": [
+        {
+         "t": 6.8,
+         "ring": 164.42,
+         "core": 161.53,
+         "diff": null
+        },
+        {
+         "t": 56,
+         "ring": 164.4,
+         "core": 161.53,
+         "diff": 0.11
+        },
+        {
+         "t": 87.6,
+         "ring": 164.4,
+         "core": 161.53,
+         "diff": 0.11
+        },
+        {
+         "t": 120.7,
+         "ring": 164.4,
+         "core": 161.53,
+         "diff": 0.11
+        },
+        {
+         "t": 171.2,
+         "ring": 164.4,
+         "core": 161.54,
+         "diff": 0.13
+        },
+        {
+         "t": 205.7,
+         "ring": 164.4,
+         "core": 161.54,
+         "diff": 0.13
+        },
+        {
+         "t": 256.1,
+         "ring": 164.4,
+         "core": 161.54,
+         "diff": 0.13
+        },
+        {
+         "t": 287.2,
+         "ring": 164.4,
+         "core": 161.54,
+         "diff": 0.13
+        },
+        {
+         "t": 321.2,
+         "ring": 164.36,
+         "core": 161.5,
+         "diff": 0.25
+        },
+        {
+         "t": 371.6,
+         "ring": 164.36,
+         "core": 161.5,
+         "diff": 0.25
+        },
+        {
+         "t": 406.5,
+         "ring": 164.36,
+         "core": 161.5,
+         "diff": 0.25
+        },
+        {
+         "t": 456.8,
+         "ring": 164.36,
+         "core": 161.5,
+         "diff": 0.25
+        },
+        {
+         "t": 487.8,
+         "ring": 164.36,
+         "core": 161.5,
+         "diff": 0.25
+        },
+        {
+         "t": 522.5,
+         "ring": 164.36,
+         "core": 161.5,
+         "diff": 0.25
+        }
+       ]
+      }
+     ],
+     "decay": [
+      {
+       "id": "paradigm:-1001234567890:184|inner",
+       "samples": [
+        {
+         "t": 5.4,
+         "ring": 141.11,
+         "core": 155.77,
+         "diff": null
+        },
+        {
+         "t": 56.3,
+         "ring": 141.13,
+         "core": 155.73,
+         "diff": 0.05
+        },
+        {
+         "t": 86.9,
+         "ring": 141.13,
+         "core": 155.73,
+         "diff": 0.05
+        },
+        {
+         "t": 136.5,
+         "ring": 141.13,
+         "core": 155.73,
+         "diff": 0.06
+        },
+        {
+         "t": 169.7,
+         "ring": 141.13,
+         "core": 155.73,
+         "diff": 0.06
+        },
+        {
+         "t": 205.4,
+         "ring": 141.14,
+         "core": 155.73,
+         "diff": 0.07
+        },
+        {
+         "t": 254.9,
+         "ring": 141.13,
+         "core": 155.73,
+         "diff": 0.08
+        },
+        {
+         "t": 286.8,
+         "ring": 141.13,
+         "core": 155.73,
+         "diff": 0.08
+        },
+        {
+         "t": 320.1,
+         "ring": 141.12,
+         "core": 155.73,
+         "diff": 0.07
+        },
+        {
+         "t": 370.1,
+         "ring": 141.12,
+         "core": 155.73,
+         "diff": 0.07
+        },
+        {
+         "t": 406.2,
+         "ring": 141.12,
+         "core": 155.73,
+         "diff": 0.08
+        },
+        {
+         "t": 455.1,
+         "ring": 141.38,
+         "core": 155.73,
+         "diff": 0.34
+        }
+       ]
+      },
+      {
+       "id": "paradigm:-1001234567890:184|outer",
+       "samples": [
+        {
+         "t": 5.4,
+         "ring": 156,
+         "core": 141.81,
+         "diff": null
+        },
+        {
+         "t": 56.3,
+         "ring": 156.22,
+         "core": 141.79,
+         "diff": 0.4
+        },
+        {
+         "t": 86.9,
+         "ring": 156.22,
+         "core": 141.79,
+         "diff": 0.4
+        },
+        {
+         "t": 136.5,
+         "ring": 156.65,
+         "core": 141.8,
+         "diff": 1.22
+        },
+        {
+         "t": 169.7,
+         "ring": 156.58,
+         "core": 141.8,
+         "diff": 1.31
+        },
+        {
+         "t": 205.4,
+         "ring": 156.67,
+         "core": 141.8,
+         "diff": 1.37
+        },
+        {
+         "t": 254.9,
+         "ring": 156.23,
+         "core": 141.79,
+         "diff": 0.95
+        },
+        {
+         "t": 286.8,
+         "ring": 156.23,
+         "core": 141.79,
+         "diff": 0.95
+        },
+        {
+         "t": 320.1,
+         "ring": 155.81,
+         "core": 141.79,
+         "diff": 0.56
+        },
+        {
+         "t": 370.1,
+         "ring": 155.69,
+         "core": 141.79,
+         "diff": 0.44
+        },
+        {
+         "t": 406.2,
+         "ring": 155.73,
+         "core": 141.78,
+         "diff": 0.45
+        },
+        {
+         "t": 455.1,
+         "ring": 155.67,
+         "core": 141.84,
+         "diff": 0.4
+        }
+       ]
+      }
+     ]
+    },
+    "ramp_numbers": {
+     "band": "outer[1.35g,2.7g]",
+     "baseline": 164.42,
+     "final": 164.36,
+     "peak": 164.42,
+     "t90ms": 6.8,
+     "deltaPct": -0.0,
+     "deltaAbs": -0.06,
+     "diffDuringRamp": {
+      "max": 0.25,
+      "last": 0.25
+     },
+     "diffBaseline": 0.12,
+     "onsetMs": null,
+     "note": "ramp измеряется по плато diff (свечение против опорного кадра); ожидание ТЗ — 150-220 ms",
+     "diffAfterLeave": {
+      "max": 1.37,
+      "last": 0.4
+     },
+     "innerBand": {
+      "baseline": 159.06,
+      "final": 159.03
+     }
+    },
+    "decay_numbers": {
+     "first": 156,
+     "last": 155.67,
+     "absLastMinusBase": 8.75
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": null,
+     "reducedMotion": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "hover-peak-1440.png": "89581743f7c64633069419f3cb61d2a91a1aece146f2fed3c129e4f35472ccb7",
+    "hover-series.json": "63eddc3edbf1182d6a1dbcc2596eca310f9783f78ad271e1c89b730129286a79"
+   }
+  },
+  "CMV-AI-02": {
+   "shots": [
+    "click-pulse-1440.png"
+   ],
+   "facts": {
+    "click_node": {
+     "id": "paradigm:-1001234567890:184",
+     "screen": {
+      "x": 828,
+      "y": 490.1875,
+      "sx": 578,
+      "sy": 209,
+      "nodeR": 24,
+      "coreR": 19.2,
+      "degree": 13,
+      "kind": "paradigm"
+     }
+    },
+    "before": {
+     "selectedId": null,
+     "activeEdges": null,
+     "cardOpen": false
+    },
+    "far_node_dim": {
+     "farId": "ent:-1001234567890:679",
+     "lumaBefore": 27.94,
+     "lumaAfter": 22.18,
+     "dimmed": true
+    },
+    "after_click": {
+     "scene": {
+      "scene": true,
+      "lod": 1,
+      "selectedId": "paradigm:-1001234567890:184",
+      "hoverId": "paradigm:-1001234567890:184",
+      "cursor": "pointer",
+      "labelsShown": 16,
+      "forcedIds": [],
+      "labelIds": [
+       "paradigm:-1001234567890:184",
+       "paradigm:-1001234567890:182",
+       "paradigm:-1001234567890:183",
+       "belief:-1001234567890:164",
+       "belief:-1001234567890:163",
+       "belief:-1001234567890:155",
+       "fact:-1001234567890:203",
+       "paradigm:-1001234567890:88",
+       "paradigm:-1001234567890:285",
+       "paradigm:-1001234567890:382",
+       "paradigm:-1001234567890:483",
+       "paradigm:-1001234567890:583",
+       "paradigm:-1001234567890:584",
+       "paradigm:-1001234567890:585",
+       "paradigm:-1001234567890:685",
+       "paradigm:-1001234567890:686"
+      ],
+      "neighbors": [
+       "paradigm:-1001234567890:183",
+       "paradigm:-1001234567890:185",
+       "fact:-1001234567890:130",
+       "belief:-1001234567890:150",
+       "belief:-1001234567890:155",
+       "belief:-1001234567890:163",
+       "belief:-1001234567890:164",
+       "paradigm:-1001234567890:182",
+       "belief:-1001234567890:154",
+       "fact:-1001234567890:143",
+       "evt:-1001234567890:196",
+       "fact:-1001234567890:203"
+      ],
+      "fxCounters": {
+       "netCount": 1,
+       "netTotal": 1,
+       "instance": 1,
+       "scenes": 1,
+       "canvases": 2,
+       "rafActive": true,
+       "rafRunning": true,
+       "paused": false,
+       "observerCount": 2,
+       "listeners": 12,
+       "frames": 67,
+       "settled": true,
+       "fitScale": 0.100210970464135,
+       "lod": 1,
+       "fxCanvas": true,
+       "fxSprites": 37,
+       "fxGradients": 37,
+       "fxPaints": 90,
+       "fxDraws": 50564,
+       "fxPooled": 702,
+       "fxEdgeDraws": 156,
+       "fxActiveEdges": 13,
+       "draws": 90,
+       "pulseCount": 24,
+       "positions": 702,
+       "labelsShown": 16,
+       "aggregates": 6,
+       "aggFlows": 13,
+       "aggGrouped": 702,
+       "aggDraws": 0,
+       "aggFlowDraws": 0,
+       "visibleNodes": 692,
+       "lodDensity": 141.55394778232147,
+       "hiddenByLod": 0
+      },
+      "frames": 67,
+      "pulseHit": {
+       "id": "paradigm:-1001234567890:184",
+       "kind": "click",
+       "duration": 600
+      },
+      "detail": {
+       "id": "paradigm:-1001234567890:184",
+       "kind": "paradigm",
+       "title": "Аня любит утренний кофе 184"
+      },
+      "cardOpen": true,
+      "clickHit": true
+     }
+    },
+    "pulse_numbers": {
+     "band": "outer[1.5r,3r]",
+     "series": [
+      163.55,
+      163.55,
+      163.55,
+      163.52,
+      163.52,
+      163.53,
+      163.54,
+      163.54,
+      163.54,
+      163.54,
+      163.53,
+      163.55,
+      163.55,
+      163.55,
+      163.55,
+      163.66
+     ],
+     "base": 163.55,
+     "peak": 163.66,
+     "peaksAbove60": 0,
+     "innerBand": [
+      156.51,
+      156.51,
+      156.51,
+      156.52,
+      156.52,
+      156.53,
+      156.52,
+      156.52,
+      156.52,
+      156.52,
+      156.52,
+      156.53,
+      156.53,
+      156.53,
+      156.53,
+      156.49
+     ],
+     "pulseHit": {
+      "id": "paradigm:-1001234567890:184",
+      "kind": "click",
+      "duration": 600
+     }
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": "paradigm:-1001234567890:184",
+     "reducedMotion": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "click-fresh.json": "8ca00bfaac2ff3de1d43b0b60c3950e367f2514dafe4b324bcf0c9077b582111",
+    "click-pulse-1440.png": "023435f86964f586cabfb3dbadd680a669d4c19b78097a0456122001b750db3a",
+    "click-series.json": "94b4a4758f5fa1e7b781e6c0c8eeb4c02953680e7ff548034f9c9983f1ce5cef",
+    "flash-after.png": "0dedd52a79f69da0e5691ec2b2c8c9a8a6ed64c12b6a19de7db07272ff57d720",
+    "flash-diff.json": "f5f53d9a6fd90f966f51d58ac31a7cf619c21325a9ec924a1607becb062d7f6c",
+    "flash-t0.png": "1e2ccd0001fd55af55e3f4648942a6651071cec626b911a98a27954e8c633d63"
+   }
+  },
+  "CMV-AI-03": {
+   "shots": [
+    "search-focused-desktop1440.png",
+    "search-focused-mobile390.png"
+   ],
+   "facts": {
+    "focus_desktop1440": {
+     "camBefore": {
+      "net": true,
+      "scale": 0.06989,
+      "vx": -302,
+      "vy": -219,
+      "fitScale": 0.09984,
+      "selectedId": null,
+      "settled": true,
+      "visNetworks": 1
+     },
+     "camAfter": {
+      "net": true,
+      "scale": 0.29953,
+      "vx": -493,
+      "vy": 59,
+      "fitScale": 0.09984,
+      "selectedId": "paradigm:-1001234567890:184",
+      "settled": true,
+      "visNetworks": 1
+     },
+     "camFinal": {
+      "net": true,
+      "scale": 0.29953,
+      "vx": -493,
+      "vy": 59,
+      "fitScale": 0.09984,
+      "selectedId": "paradigm:-1001234567890:184",
+      "settled": true,
+      "visNetworks": 1
+     },
+     "animMoves": 0,
+     "animDurationMs": null,
+     "animTail": [],
+     "search": {
+      "vm": true,
+      "query": "кофе 184",
+      "status": "Найден: Аня любит утренний кофе 184",
+      "matchIds": [
+       "paradigm:-1001234567890:184"
+      ],
+      "selectedId": "paradigm:-1001234567890:184",
+      "detail": {
+       "id": "paradigm:-1001234567890:184",
+       "kind": "paradigm"
+      }
+     },
+     "pulse": {
+      "beats": 2,
+      "base": 148.83,
+      "peak": 149.08,
+      "peakTimes": [
+       1202.7,
+       1702.6
+      ]
+     }
+    },
+    "stays_selected_desktop1440": {
+     "selectedId": "paradigm:-1001234567890:184",
+     "matchIds": [
+      "paradigm:-1001234567890:184"
+     ],
+     "detail": {
+      "id": "paradigm:-1001234567890:184",
+      "kind": "paradigm"
+     }
+    },
+    "counters_desktop1440": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": "paradigm:-1001234567890:184",
+     "reducedMotion": false
+    },
+    "focus_mobile390": {
+     "camBefore": {
+      "net": true,
+      "scale": 0.12697,
+      "vx": 496,
+      "vy": -623,
+      "fitScale": 0.18139,
+      "selectedId": null,
+      "settled": true,
+      "visNetworks": 1
+     },
+     "camAfter": {
+      "net": true,
+      "scale": 0.54417,
+      "vx": -123,
+      "vy": -877,
+      "fitScale": 0.18139,
+      "selectedId": "paradigm:-1001234567890:184",
+      "settled": true,
+      "visNetworks": 1
+     },
+     "camFinal": {
+      "net": true,
+      "scale": 0.54417,
+      "vx": -123,
+      "vy": -877,
+      "fitScale": 0.18139,
+      "selectedId": "paradigm:-1001234567890:184",
+      "settled": true,
+      "visNetworks": 1
+     },
+     "animMoves": 0,
+     "animDurationMs": null,
+     "animTail": [],
+     "search": {
+      "vm": true,
+      "query": "кофе 184",
+      "status": "Найден: Аня любит утренний кофе 184",
+      "matchIds": [
+       "paradigm:-1001234567890:184"
+      ],
+      "selectedId": "paradigm:-1001234567890:184",
+      "detail": {
+       "id": "paradigm:-1001234567890:184",
+       "kind": "paradigm"
+      }
+     },
+     "pulse": {
+      "beats": 1,
+      "base": 148.16,
+      "peak": 148.37,
+      "peakTimes": [
+       1307.4
+      ]
+     }
+    },
+    "stays_selected_mobile390": {
+     "selectedId": "paradigm:-1001234567890:184",
+     "matchIds": [
+      "paradigm:-1001234567890:184"
+     ],
+     "detail": {
+      "id": "paradigm:-1001234567890:184",
+      "kind": "paradigm"
+     }
+    },
+    "counters_mobile390": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": "paradigm:-1001234567890:184",
+     "reducedMotion": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "focus-duration.json": "231776fd4bff850bfb830a28224a7a8ecab586ba67116a98cd5d7ed1bd73d3f0",
+    "search-focused-desktop1440.png": "ddfe585364a1b7cca8884d7e4674a1e4bfef1986100ff849ce1e13d6c3ef3b52",
+    "search-focused-mobile390.png": "7f065ff486ba6555985a48433a13bbd63334dbdb78a399c3ac18a8d4b0396b8e",
+    "search-pulse-desktop1440.json": "51c4074bb8a9aed57d32ba99ef2370257c71976072e0af595e9734f2214c7404",
+    "search-pulse-mobile390.json": "f343a51070b6a648fac376b5c30089dba532901f81e78579e2e0bd454381a761"
+   }
+  },
+  "CMV-AI-04": {
+   "shots": [
+    "before-update-1440.png",
+    "after-update-1440.png"
+   ],
+   "facts": {
+    "update": {
+     "framesDuringUpdate": [
+      {
+       "t": 0,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 39
+      },
+      {
+       "t": 108,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 41
+      },
+      {
+       "t": 207,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 43
+      },
+      {
+       "t": 308,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 45
+      },
+      {
+       "t": 408,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 47
+      },
+      {
+       "t": 508,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 49
+      },
+      {
+       "t": 608,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 51
+      },
+      {
+       "t": 708,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 53
+      },
+      {
+       "t": 808,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 55
+      },
+      {
+       "t": 908,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 57
+      },
+      {
+       "t": 1007,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 59
+      },
+      {
+       "t": 1108,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 61
+      },
+      {
+       "t": 1207,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 63
+      },
+      {
+       "t": 1308,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 65
+      },
+      {
+       "t": 1408,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 67
+      },
+      {
+       "t": 1507,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 69
+      },
+      {
+       "t": 1608,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 71
+      },
+      {
+       "t": 1708,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 73
+      },
+      {
+       "t": 1807,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 75
+      },
+      {
+       "t": 1908,
+       "scale": 0.1374,
+       "vx": -53,
+       "vy": -183,
+       "frames": 77
+      }
+     ],
+     "movedOldNodes": 0,
+     "movedSample": [],
+     "oldNodesTotal": 702,
+     "newNodePresent": true,
+     "fxBefore": {
+      "px": 483208,
+      "meanLuma": 49.22,
+      "changedShare": null,
+      "meanDelta": null
+     },
+     "fxAfter": {
+      "px": 483208,
+      "meanLuma": 49.23,
+      "changedShare": 0.00386,
+      "meanDelta": 0.041
+     },
+     "apiCalls": 1
+    },
+    "scene_states": {
+     "before": {
+      "scene": true,
+      "lod": 1,
+      "selectedId": null,
+      "hoverId": null,
+      "cursor": "",
+      "labelsShown": 16,
+      "forcedIds": [],
+      "labelIds": [
+       "paradigm:-1001234567890:184",
+       "paradigm:-1001234567890:288",
+       "paradigm:-1001234567890:488",
+       "paradigm:-1001234567890:284",
+       "paradigm:-1001234567890:186",
+       "paradigm:-1001234567890:581",
+       "paradigm:-1001234567890:483",
+       "paradigm:-1001234567890:282",
+       "paradigm:-1001234567890:384",
+       "paradigm:-1001234567890:584",
+       "paradigm:-1001234567890:585",
+       "paradigm:-1001234567890:588",
+       "paradigm:-1001234567890:586",
+       "paradigm:-1001234567890:683",
+       "paradigm:-1001234567890:582",
+       "belief:-1001234567890:163"
+      ],
+      "neighbors": [],
+      "fxCounters": {
+       "netCount": 1,
+       "netTotal": 1,
+       "instance": 1,
+       "scenes": 1,
+       "canvases": 2,
+       "rafActive": true,
+       "rafRunning": true,
+       "paused": false,
+       "observerCount": 2,
+       "listeners": 12,
+       "frames": 38,
+       "settled": true,
+       "fitScale": 0.09811515620965659,
+       "lod": 1,
+       "fxCanvas": true,
+       "fxSprites": 33,
+       "fxGradients": 33,
+       "fxPaints": 52,
+       "fxDraws": 23506,
+       "fxPooled": 702,
+       "fxEdgeDraws": 0,
+       "fxActiveEdges": 0,
+       "draws": 52,
+       "pulseCount": 24,
+       "positions": 702,
+       "labelsShown": 16,
+       "aggregates": 6,
+       "aggFlows": 14,
+       "aggGrouped": 702,
+       "aggDraws": 0,
+       "aggFlowDraws": 0,
+       "visibleNodes": 697,
+       "lodDensity": 142.79564907865765,
+       "hiddenByLod": 0
+      },
+      "frames": 38,
+      "pulseHit": null,
+      "detail": null,
+      "cardOpen": false
+     },
+     "after": {
+      "scene": true,
+      "lod": 1,
+      "selectedId": null,
+      "hoverId": null,
+      "cursor": "",
+      "labelsShown": 16,
+      "forcedIds": [],
+      "labelIds": [
+       "paradigm:-1001234567890:184",
+       "paradigm:-1001234567890:288",
+       "paradigm:-1001234567890:488",
+       "paradigm:-1001234567890:284",
+       "paradigm:-1001234567890:186",
+       "paradigm:-1001234567890:581",
+       "paradigm:-1001234567890:483",
+       "paradigm:-1001234567890:282",
+       "paradigm:-1001234567890:384",
+       "paradigm:-1001234567890:584",
+       "paradigm:-1001234567890:585",
+       "paradigm:-1001234567890:588",
+       "paradigm:-1001234567890:586",
+       "paradigm:-1001234567890:683",
+       "paradigm:-1001234567890:582",
+       "belief:-1001234567890:163"
+      ],
+      "neighbors": [],
+      "fxCounters": {
+       "netCount": 1,
+       "netTotal": 1,
+       "instance": 1,
+       "scenes": 1,
+       "canvases": 2,
+       "rafActive": true,
+       "rafRunning": true,
+       "paused": false,
+       "observerCount": 2,
+       "listeners": 12,
+       "frames": 112,
+       "settled": true,
+       "fitScale": 0.09811515620965659,
+       "lod": 1,
+       "fxCanvas": true,
+       "fxSprites": 33,
+       "fxGradients": 33,
+       "fxPaints": 143,
+       "fxDraws": 89203,
+       "fxPooled": 702,
+       "fxEdgeDraws": 0,
+       "fxActiveEdges": 0,
+       "draws": 143,
+       "pulseCount": 24,
+       "positions": 703,
+       "labelsShown": 16,
+       "aggregates": 6,
+       "aggFlows": 14,
+       "aggGrouped": 703,
+       "aggDraws": 0,
+       "aggFlowDraws": 0,
+       "visibleNodes": 698,
+       "lodDensity": 143.00259929471366,
+       "hiddenByLod": 1
+      },
+      "frames": 112,
+      "pulseHit": null,
+      "detail": null,
+      "cardOpen": false
+     }
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": null,
+     "reducedMotion": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "after-update-1440.png": "aa270613b79a059df4189d3ec45a2afb02a898d6fc18d0bba8066768f9e6c845",
+    "before-update-1440.png": "62a1196f473e1bb73b4d112a0b6f7ab638bd12ba07798cf34616ca1a65d3c270"
+   }
+  },
+  "CMV-PERF-05": {
+   "shots": [
+    "perf05-desktop1440.png",
+    "perf05-mobile390.png"
+   ],
+   "facts": {
+    "load_timeline_desktop1440": {
+     "loadEventEnd": 304.9,
+     "domContentLoaded": 260.3,
+     "fcp": 72,
+     "longtasksBeforeLoad": 1,
+     "longtasks": [
+      {
+       "start": 58,
+       "dur": 162
+      }
+     ],
+     "netCreated": [],
+     "netCount": 0,
+     "netNow": false,
+     "visNetworks": 0,
+     "settled": false,
+     "frames": null
+    },
+    "settled_desktop1440": {
+     "settled": true,
+     "frames": 12,
+     "netCount": 0
+    },
+    "rest_5s_desktop1440": {
+     "ms": 5002,
+     "visFrames": 0,
+     "sceneFrames": 100,
+     "fxPaints": 100,
+     "longtasksInWindow": 0
+    },
+    "window17s_desktop1440": {
+     "ms": 17003,
+     "visFrames": 1,
+     "sceneFrames": 340,
+     "fxPaints": 341,
+     "longtasksInWindow": 0
+    },
+    "window34s_desktop1440": {
+     "ms": 34012,
+     "visFrames": 2,
+     "sceneFrames": 679,
+     "fxPaints": 681,
+     "longtasksInWindow": 0,
+     "apiCalls": 39
+    },
+    "rest_after_polls_desktop1440": {
+     "ms": 4000,
+     "visFrames": 1,
+     "sceneFrames": 80,
+     "fxPaints": 81,
+     "longtasksInWindow": 0
+    },
+    "counters_desktop1440": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": null,
+     "reducedMotion": false
+    },
+    "load_timeline_mobile390": {
+     "loadEventEnd": 278.5,
+     "domContentLoaded": 246.8,
+     "fcp": 72,
+     "longtasksBeforeLoad": 1,
+     "longtasks": [
+      {
+       "start": 52,
+       "dur": 151
+      }
+     ],
+     "netCreated": [],
+     "netCount": 0,
+     "netNow": false,
+     "visNetworks": 0,
+     "settled": false,
+     "frames": null
+    },
+    "settled_mobile390": {
+     "settled": true,
+     "frames": 10,
+     "netCount": 0
+    },
+    "rest_5s_mobile390": {
+     "ms": 5007,
+     "visFrames": 0,
+     "sceneFrames": 100,
+     "fxPaints": 100,
+     "longtasksInWindow": 0
+    },
+    "window17s_mobile390": {
+     "ms": 17001,
+     "visFrames": 1,
+     "sceneFrames": 340,
+     "fxPaints": 341,
+     "longtasksInWindow": 0
+    },
+    "window34s_mobile390": {
+     "ms": 34009,
+     "visFrames": 2,
+     "sceneFrames": 679,
+     "fxPaints": 681,
+     "longtasksInWindow": 0,
+     "apiCalls": 39
+    },
+    "rest_after_polls_mobile390": {
+     "ms": 4002,
+     "visFrames": 1,
+     "sceneFrames": 80,
+     "fxPaints": 81,
+     "longtasksInWindow": 0
+    },
+    "counters_mobile390": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": null,
+     "reducedMotion": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "perf05-desktop1440.png": "30dbabea0656d000f0eddf58438202d0f3191b38586fb4b425d3094eb6b74b86",
+    "perf05-mobile390.png": "af73eb6ddb16a8afab9c68011f94d46d3f029120d3444fdb8b0b66ebfdb9e593"
+   }
+  },
+  "CMV-VIS-13": {
+   "shots": [
+    "after-selected-1536.png",
+    "after-zoom-1536.png",
+    "after-fullscreen-1536.png",
+    "before-selected-1536.png",
+    "before-zoom-1536.png",
+    "before-fullscreen-1536.png",
+    "beforefull-selected-1536.png",
+    "beforefull-zoom-1536.png",
+    "beforefull-fullscreen-1536.png"
+   ],
+   "facts": {
+    "payloadSha256": "5117f18beb06df41ca5085063cd0b7ed78bd8fdd7a887db9805b0c8762a9907d",
+    "fixture": 702,
+    "target": "paradigm:-1001234567890:184",
+    "viewport": [
+     1536,
+     960
+    ],
+    "dpr": 1,
+    "revisions": {
+     "after": "df00f178",
+     "before": "9e238d06 (pre-CMV)",
+     "beforefull": "dfba4080 (A+B+C)"
+    },
+    "records": [
+     {
+      "side": "after",
+      "state": "selected",
+      "target": "paradigm:-1001234567890:184",
+      "selected": "paradigm:-1001234567890:184",
+      "scale": 0.20207,
+      "fit": 0.1122599704579025,
+      "visNetworks": 1,
+      "dpr": 1
+     },
+     {
+      "side": "after",
+      "state": "zoom",
+      "target": "paradigm:-1001234567890:184",
+      "selected": "paradigm:-1001234567890:184",
+      "scale": 0.29188,
+      "fit": 0.1122599704579025,
+      "visNetworks": 1,
+      "dpr": 1
+     },
+     {
+      "side": "after",
+      "state": "fullscreen",
+      "target": "paradigm:-1001234567890:184",
+      "selected": "paradigm:-1001234567890:184",
+      "scale": 0.20207,
+      "fit": 0.1122599704579025,
+      "visNetworks": 1,
+      "dpr": 1
+     },
+     {
+      "side": "before",
+      "state": "selected",
+      "target": "paradigm:-1001234567890:184",
+      "selected": "paradigm:-1001234567890:184",
+      "scale": 0.10128,
+      "fit": 0.05626759159422289,
+      "visNetworks": 1,
+      "dpr": 1
+     },
+     {
+      "side": "before",
+      "state": "zoom",
+      "target": "paradigm:-1001234567890:184",
+      "selected": "paradigm:-1001234567890:184",
+      "scale": 0.1463,
+      "fit": 0.05626759159422289,
+      "visNetworks": 1,
+      "dpr": 1
+     },
+     {
+      "side": "before",
+      "state": "fullscreen",
+      "target": "paradigm:-1001234567890:184",
+      "selected": "paradigm:-1001234567890:184",
+      "scale": 0.10128,
+      "fit": 0.05626759159422289,
+      "visNetworks": 1,
+      "dpr": 1
+     },
+     {
+      "side": "beforefull",
+      "state": "selected",
+      "target": "paradigm:-1001234567890:184",
+      "selected": "paradigm:-1001234567890:184",
+      "scale": 0.1458,
+      "fit": 0.08100053490919279,
+      "visNetworks": 1,
+      "dpr": 1
+     },
+     {
+      "side": "beforefull",
+      "state": "zoom",
+      "target": "paradigm:-1001234567890:184",
+      "selected": "paradigm:-1001234567890:184",
+      "scale": 0.2106,
+      "fit": 0.08100053490919279,
+      "visNetworks": 1,
+      "dpr": 1
+     },
+     {
+      "side": "beforefull",
+      "state": "fullscreen",
+      "target": "paradigm:-1001234567890:184",
+      "selected": "paradigm:-1001234567890:184",
+      "scale": 0.1458,
+      "fit": 0.08100053490919279,
+      "visNetworks": 1,
+      "dpr": 1
+     }
+    ],
+    "allSelectedEqualsTarget": true
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "after-fullscreen-1536.png": "961fd2c6aa15cd762caac8364d4d1cbcddf7277b5beaa387c93c2be184568bb0",
+    "after-selected-1536.png": "9f63b07106ac8c88900b52c298fb33a3080595bb3f2d9d95b30eb0d900474b8b",
+    "after-zoom-1536.png": "5d3c360c0f454845bef161c3eabd2710a8aa60d28057b09d4eb73855afb4f580",
+    "before-fullscreen-1536.png": "b95a6e50e510c3d783f1a1a416537d4674d809d01a0f25e4523c04073b5fab3a",
+    "before-selected-1536.png": "4558fdd22462c94e0ca97b23cded79df1114d14cccaa86aaefa70c64175fa57c",
+    "before-zoom-1536.png": "98249018f6e64de91cd36d3322bb414651cf6902828689dca83d355d6e90a40f",
+    "beforefull-fullscreen-1536.png": "c846cee3c0ee39bbe5126121f64b80f5e4a96b3f6522e34d25684aa6dca6e5ed",
+    "beforefull-selected-1536.png": "2073b31c3cb004df65dce23a7ad2c0471693e856eca9686b9f351ea9d41ddc9d",
+    "beforefull-zoom-1536.png": "eb08022bb8c83338ad61cea519cadf76b280581c4ca3a84cbc723e41cb2e183e",
+    "vis13-records.json": "a04093c3617694534b337b14f9ff2dc17e94647ec4002ada7b7607f7afbebe72"
+   }
+  },
+  "CMV-PERF-06": {
+   "shots": [
+    "cmv-e-leaks-after-cycles-cand3.png"
+   ],
+   "facts": {
+    "tool": "tools/ui_cmv_e_leaks.py @ cmv/perf 57912225 (исправленный стенд: WeakRef, isConnected)",
+    "repoServed": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\epic-cm-visual-01-f86a34680b25-221c5f98",
+    "cycles": 20,
+    "checksTotal": 28,
+    "fails": [],
+    "checksSummary": [
+     "инструментация vis.Network установлена до циклов",
+     "после 20 циклов в DOM ровно одна сцена (1)",
+     "одна сеть vis в DOM (1)",
+     "живых Network instances ровно 1 (1)",
+     "число canvas не выросло (4 -> 4)",
+     "слушатели на ЖИВЫХ узлах в документе не накапливаются (838 -> 838 за 19 циклов)",
+     "слушатели на document/window не накапливаются (28 -> 28)",
+     "живых объектов ResizeObserver не больше (10 -> 10)",
+     "живых объектов IntersectionObserver не больше (1 -> 1)",
+     "живых объектов visNetwork не больше (1 -> 1)",
+     "наблюдатели создаются (диагностика obsCreated=26)",
+     "активных RAF не больше (живо 5 -> 5)",
+     "обработчики ЖИВОЙ сцены не растут (scene.handlers 12 -> 12)",
+     "наблюдатели ЖИВОЙ сцены не растут (2 -> 2)",
+     "после принудительного GC куча не выросла больше 8 МБ (цикл1 26.8 МБ -> цикл20 27.4 МБ, +524 КБ)",
+     "в покое кадров не больше потолка 24 fps (30 за 1500 мс)",
+     "в покое мягкая анимация продолжается (30 кадров)",
+     "в покое живых RAF не больше, чем в первом цикле (5 против 5)",
+     "состояние скрытой вкладки выставлено",
+     "в скрытой вкладке кадров декора нет (0 за 1400 мс)",
+     "в скрытой вкладке кадров сцены нет (0)",
+     "в скрытой вкладке RAF не запрошен",
+     "сцена помечена на паузе",
+     "при возврате кадровый цикл возобновлён",
+     "при возврате живых RAF не больше, чем до скрытия (5 против 5)",
+     "при возврате одна сцена и одна сеть (1/1)",
+     "после возврата кадры снова рисуются",
+     "ошибок в консоли нет (0)"
+    ],
+    "growth": {
+     "liveConnected": {
+      "before": 838,
+      "after": 838,
+      "delta": 0
+     },
+     "liveDetached": {
+      "before": 40,
+      "after": 110,
+      "delta": 70
+     },
+     "obsAlive": {
+      "before": 20,
+      "after": 20,
+      "delta": 0
+     },
+     "rafLive": {
+      "before": 5,
+      "after": 5,
+      "delta": 0
+     },
+     "networkCreated": {
+      "before": 2,
+      "after": 40,
+      "delta": 38
+     },
+     "targetsAlive": {
+      "before": 439,
+      "after": 477,
+      "delta": 38
+     },
+     "windowListeners": {
+      "before": 26,
+      "after": 26,
+      "delta": 0
+     },
+     "documentListeners": {
+      "before": 2,
+      "after": 2,
+      "delta": 0
+     },
+     "added": {
+      "before": 929,
+      "after": 2000,
+      "delta": 1071
+     },
+     "removed": {
+      "before": 22,
+      "after": 428,
+      "delta": 406
+     }
+    },
+    "heap": {
+     "cycle1": 28148240,
+     "cycle20": 28685540,
+     "delta": 537300,
+     "start": 28281836
+    },
+    "idle": {
+     "paints": 30,
+     "ms": 1500,
+     "before": {
+      "added": 2001,
+      "removed": 429,
+      "addByType": {
+       "resize": 75,
+       "change": 254,
+       "click": 582,
+       "keydown": 442,
+       "mouseenter": 5,
+       "mouseleave": 5,
+       "input": 45,
+       "compositionstart": 45,
+       "compositionend": 45,
+       "beforeunload": 1,
+       "hashchange": 1,
+       "scroll": 6,
+       "visibilitychange": 2,
+       "contextlost": 1,
+       "wheel": 45,
+       "touchstart": 5,
+       "touchmove": 4,
+       "pointerdown": 87,
+       "focusin": 4,
+       "focusout": 4,
+       "mouseup": 5,
+       "webglcontextlost": 1,
+       "__playwright_global_listeners_check__": 1,
+       "mousemove": 42,
+       "pointerup": 83,
+       "touchend": 1,
+       "touchcancel": 1,
+       "mousedown": 1,
+       "auxclick": 1,
+       "dblclick": 1,
+       "contextmenu": 42,
+       "pointermove": 82,
+       "pointercancel": 82
+      },
+      "remByType": {
+       "resize": -69,
+       "click": -40,
+       "pointerdown": -80,
+       "pointermove": -80,
+       "pointerup": -80,
+       "pointercancel": -80
+      },
+      "windowListeners": 26,
+      "documentListeners": 2,
+      "liveConnected": 838,
+      "liveDetached": 5,
+      "liveByTag": {
+       "BUTTON": 718,
+       "CANVAS": 9,
+       "SELECT": 7,
+       "INPUT": 22,
+       "DIV": 82
+      },
+      "detByTag": {
+       "?": 5
+      },
+      "targetsAlive": 420,
+      "targetsCollected": 381,
+      "obsCreated": 167,
+      "obsAlive": 17,
+      "obsByKind": {
+       "ro": 10,
+       "io": 1,
+       "mo": 6
+      },
+      "obsStacks": {
+       "ResizeObserver @     at ensureResizeObserver (/static/polygon-background.js?v=__APP_VERSION__:N:15) |     at Object.start (/static/polygon-background.js?v=__APP_VERSION__:N:5) |     at Proxy._syncBgLayer (/web/app.js?": 1,
+       "ResizeObserver @     at Ye (/static/vendor/liquidglass.core.0.5.3.min.js?v=__APP_VERSION__:98:N) |     at Object.yt (/static/vendor/liquidglass.core.0.5.3.min.js?v=__APP_VERSION__:98:N) |     at Object.sync (/static/g": 1,
+       "MutationObserver @     at Proxy._initLiquidGlassObserver (/web/app.js?v=__APP_VERSION__:N:28) |     at Proxy.mounted (/web/app.js?v=__APP_VERSION__:N:12) |     at /static/vendor/vue.global.prod.min.js:7:N": 1,
+       "ResizeObserver @     at Proxy._initLiquidGlassObserver (/web/app.js?v=__APP_VERSION__:N:36) |     at Proxy.mounted (/web/app.js?v=__APP_VERSION__:N:12) |     at /static/vendor/vue.global.prod.min.js:7:N": 1,
+       "ResizeObserver @     at Proxy._initHeaderHeight (/web/app.js?v=__APP_VERSION__:N:38) |     at Proxy.mounted (/web/app.js?v=__APP_VERSION__:N:12) |     at /static/vendor/vue.global.prod.min.js:7:N": 1,
+       "MutationObserver @     at Viewport._bind (/web/app.js?v=__APP_VERSION__:N:20) |     at new Viewport (/web/app.js?v=__APP_VERSION__:N:12) |     at Object.attach (/web/app.js?v=__APP_VERSION__:N:18)": 4,
+       "ResizeObserver @     at Viewport._bind (/web/app.js?v=__APP_VERSION__:N:20) |     at new Viewport (/web/app.js?v=__APP_VERSION__:N:12) |     at Object.attach (/web/app.js?v=__APP_VERSION__:N:18)": 4,
+       "ResizeObserver @     at ensureResizeObserver (/static/aurora-flow.js?v=__APP_VERSION__:N:18) |     at Object.start (/static/aurora-flow.js?v=__APP_VERSION__:N:5) |     at Proxy._syncBgLayer (/web/app.js?v=__APP_VERSIO": 1,
+       "MutationObserver @     at InjectedScript._setupGlobalListenersRemovalDetection (<anonymous>:N:5) |     at new InjectedScript (<anonymous>:N:10) |     at <anonymous>:N:16": 1,
+       "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at new gB (/static/vendor/vis-network/vis-network.": 41,
+       "ResizeObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 41,
+       "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 41,
+       "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB._afterStabilize (/web/app.js?v=__APP_VERSION": 17,
+       "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VE": 12
+      },
+      "rafLive": 5,
+      "rafTotal": 1929,
+      "rafDone": 1882,
+      "canvasesCreated": 618,
+      "networkCreated": 40,
+      "domScenes": 1,
+      "domCanvases": 4,
+      "domVisRoots": 1,
+      "scenes": 1,
+      "netCount": 1,
+      "netTotal": 41,
+      "rafActive": true,
+      "paused": false,
+      "frames": 15,
+      "draws": 21,
+      "fxPaints": 21,
+      "sprites": 16,
+      "instance": 1,
+      "listenersApp": 12,
+      "observersApp": 2,
+      "full": false
+     },
+     "after": {
+      "added": 2001,
+      "removed": 429,
+      "addByType": {
+       "resize": 75,
+       "change": 254,
+       "click": 582,
+       "keydown": 442,
+       "mouseenter": 5,
+       "mouseleave": 5,
+       "input": 45,
+       "compositionstart": 45,
+       "compositionend": 45,
+       "beforeunload": 1,
+       "hashchange": 1,
+       "scroll": 6,
+       "visibilitychange": 2,
+       "contextlost": 1,
+       "wheel": 45,
+       "touchstart": 5,
+       "touchmove": 4,
+       "pointerdown": 87,
+       "focusin": 4,
+       "focusout": 4,
+       "mouseup": 5,
+       "webglcontextlost": 1,
+       "__playwright_global_listeners_check__": 1,
+       "mousemove": 42,
+       "pointerup": 83,
+       "touchend": 1,
+       "touchcancel": 1,
+       "mousedown": 1,
+       "auxclick": 1,
+       "dblclick": 1,
+       "contextmenu": 42,
+       "pointermove": 82,
+       "pointercancel": 82
+      },
+      "remByType": {
+       "resize": -69,
+       "click": -40,
+       "pointerdown": -80,
+       "pointermove": -80,
+       "pointerup": -80,
+       "pointercancel": -80
+      },
+      "windowListeners": 26,
+      "documentListeners": 2,
+      "liveConnected": 838,
+      "liveDetached": 5,
+      "liveByTag": {
+       "BUTTON": 718,
+       "CANVAS": 9,
+       "SELECT": 7,
+       "INPUT": 22,
+       "DIV": 82
+      },
+      "detByTag": {
+       "?": 5
+      },
+      "targetsAlive": 420,
+      "targetsCollected": 381,
+      "obsCreated": 167,
+      "obsAlive": 17,
+      "obsByKind": {
+       "ro": 10,
+       "io": 1,
+       "mo": 6
+      },
+      "obsStacks": {
+       "ResizeObserver @     at ensureResizeObserver (/static/polygon-background.js?v=__APP_VERSION__:N:15) |     at Object.start (/static/polygon-background.js?v=__APP_VERSION__:N:5) |     at Proxy._syncBgLayer (/web/app.js?": 1,
+       "ResizeObserver @     at Ye (/static/vendor/liquidglass.core.0.5.3.min.js?v=__APP_VERSION__:98:N) |     at Object.yt (/static/vendor/liquidglass.core.0.5.3.min.js?v=__APP_VERSION__:98:N) |     at Object.sync (/static/g": 1,
+       "MutationObserver @     at Proxy._initLiquidGlassObserver (/web/app.js?v=__APP_VERSION__:N:28) |     at Proxy.mounted (/web/app.js?v=__APP_VERSION__:N:12) |     at /static/vendor/vue.global.prod.min.js:7:N": 1,
+       "ResizeObserver @     at Proxy._initLiquidGlassObserver (/web/app.js?v=__APP_VERSION__:N:36) |     at Proxy.mounted (/web/app.js?v=__APP_VERSION__:N:12) |     at /static/vendor/vue.global.prod.min.js:7:N": 1,
+       "ResizeObserver @     at Proxy._initHeaderHeight (/web/app.js?v=__APP_VERSION__:N:38) |     at Proxy.mounted (/web/app.js?v=__APP_VERSION__:N:12) |     at /static/vendor/vue.global.prod.min.js:7:N": 1,
+       "MutationObserver @     at Viewport._bind (/web/app.js?v=__APP_VERSION__:N:20) |     at new Viewport (/web/app.js?v=__APP_VERSION__:N:12) |     at Object.attach (/web/app.js?v=__APP_VERSION__:N:18)": 4,
+       "ResizeObserver @     at Viewport._bind (/web/app.js?v=__APP_VERSION__:N:20) |     at new Viewport (/web/app.js?v=__APP_VERSION__:N:12) |     at Object.attach (/web/app.js?v=__APP_VERSION__:N:18)": 4,
+       "ResizeObserver @     at ensureResizeObserver (/static/aurora-flow.js?v=__APP_VERSION__:N:18) |     at Object.start (/static/aurora-flow.js?v=__APP_VERSION__:N:5) |     at Proxy._syncBgLayer (/web/app.js?v=__APP_VERSIO": 1,
+       "MutationObserver @     at InjectedScript._setupGlobalListenersRemovalDetection (<anonymous>:N:5) |     at new InjectedScript (<anonymous>:N:10) |     at <anonymous>:N:16": 1,
+       "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at new gB (/static/vendor/vis-network/vis-network.": 41,
+       "ResizeObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 41,
+       "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 41,
+       "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB._afterStabilize (/web/app.js?v=__APP_VERSION": 17,
+       "ResizeObserver @     at g.value (/static/vendor/vis-network/vis-network.min.js:33:N) |     at gB.setOptions (/static/vendor/vis-network/vis-network.min.js:33:N) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VE": 12
+      },
+      "rafLive": 5,
+      "rafTotal": 2384,
+      "rafDone": 2337,
+      "canvasesCreated": 618,
+      "networkCreated": 40,
+      "domScenes": 1,
+      "domCanvases": 4,
+      "domVisRoots": 1,
+      "scenes": 1,
+      "netCount": 1,
+      "netTotal": 41,
+      "rafActive": true,
+      "paused": false,
+      "frames": 45,
+      "draws": 51,
+      "fxPaints": 51,
+      "sprites": 16,
+      "instance": 1,
+      "listenersApp": 12,
+      "observersApp": 2,
+      "full": false
+     }
+    },
+    "note": "прогон на кандидате cmv/residual-evidence-3 (df00f178), exit 0"
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "cmv-e-leaks-after-cycles-cand3.png": "7d84677b72878a7b82d49e6cb28b7e22c2ff9f9841c954a317ae241f7489fefd",
+    "cmv-e-leaks-cand3.json": "b7478134accf7be8c0fb2581ca723b3aeafc14fa6c25309c967ba3ca72d38ac1"
+   }
+  }
+ }
+}

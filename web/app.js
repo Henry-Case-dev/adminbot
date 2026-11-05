@@ -259,6 +259,13 @@
         { id: 'text-limits', title: 'Частота и лимиты',
           category: null, groups: ['limits_intent'] },
       ] },
+    // UR-F (UR-29.1/UR-24.2): «Модули → Время» — ЕДИНСТВЕННАЯ поверхность
+    // пояса чата (limits.chat_timezone скрыт из общего каталога): полный
+    // справочник IANA, серверные часы, источник/наследование, save/reset.
+    // Тип timeEditor: литерал time занят guard'ом Chart.js без date-adapter
+    // (tests/js/routing_test.js п.3).
+    { id: 'mod_time', icon: 'history', label: 'Время', type: 'timeEditor',
+      menu: 'modules' },
     // Список-витрина 11 модулей (не config; карточки + модалки).
     { id: 'modules', icon: 'extension', label: 'Модули', type: 'modules',
       menu: 'modules' },
@@ -423,6 +430,8 @@
     mod_vision: 'visibility',
     // ASAP 7 F3 (§3.2): bolt — из сабсета (инициатива/импульс).
     mod_initiative: 'bolt',
+    // UR-F (UR-29.1): «Модули → Время» — history (часы) из сабсета.
+    mod_time: 'history',
     memory_rag: 'memory', people_names: 'badge',
     relations: 'group', permsoc: 'admin_panel_settings',
     access: 'supervisor_account', chat_lore: 'auto_stories',
@@ -690,6 +699,15 @@
       keywords: ['инициатива', 'намерения', 'интенты', 'напоминания',
                  'проактив', 'heartbeat', 'intents', 'initiative',
                  'кстати'] },
+    // ═══ UR-F (UR-29.1/UR-24.2): «Модули → Время» — единая поверхность ═══
+    // пояса чата (limits.chat_timezone из общего каталога выведен; его
+    // запись — ТОЛЬКО здесь, через /api/config/time). Мастер-тумблера нет
+    // (пояс не модуль-флаг) → noToggle.
+    { id: 'mod_time', title: 'Время',
+      subtitle: 'Часовой пояс чата и серверные часы', icon: 'history',
+      toggleKey: null, tab: 'mod_time', noToggle: true,
+      keywords: ['время', 'часовой пояс', 'часы', 'timezone', 'iana',
+                 'пояс'] },
   ];
 
   // ═══ F5 (ADR-1025-15 D1/D6): витринные метаданные workspace-маршрута ═══
@@ -707,8 +725,13 @@
     // мёртвых тумблеров нет (§5:2963).
     mod_summary: ['overview', 'settings', 'clusterizer', 'writer',
       'hybrid', 'legacy', 'models', 'limits', 'testing', 'styles'],
-    mod_direct: ['overview', 'settings', 'synthesizer', 'verbalizer', 'models',
-      'limits', 'testing'],
+    // UR-F (UR-20.1/20.2/20.3/20.9): «Прямые ответы» — три смысловых уровня:
+    // overview = «Как бот отвечает», inspector = «Что бот видел при ответе»,
+    // settings = «Дополнительные настройки». Промпт-редакторы (synthesizer/
+    // verbalizer), модели/лимиты/тестирование остаются рабочими вкладками
+    // (R-ADM.7: редакторы и история версий не редизайнятся).
+    mod_direct: ['overview', 'inspector', 'settings', 'synthesizer',
+      'verbalizer', 'models', 'limits', 'testing'],
     mod_factcheck: ['overview', 'settings', 'synthesizer', 'verbalizer',
       'models', 'limits', 'testing'],
     mod_search: ['overview', 'settings', 'prompts', 'models', 'limits',
@@ -756,7 +779,24 @@
     hybrid: 'HYBRID SUMMARY', legacy: 'LEGACY SUMMARY FALLBACK',
     // EXTRA (ADR-1028-4 D12/§56): редактор обложечных стилей.
     styles: 'Стили обложки',
+    // UR-F (UR-20.x): инспектор хода «Что бот видел при ответе».
+    inspector: 'Что бот видел',
   };
+  // UR-F (UR-20.1/20.2/20.9): подписи уровней «Прямых ответов» — три
+  // смысловых уровня вместо десятков карточек. flat-карта выше остаётся
+  // каноном для остальных модулей (Δ других вкладок нет).
+  var WORKSPACE_TAB_LABELS_OVERRIDES = {
+    mod_direct: {
+      overview: 'Как бот отвечает',
+      inspector: 'Что бот видел',
+      settings: 'Дополнительные настройки',
+    },
+  };
+  function workspaceTabLabelOf(moduleId, tabId) {
+    var ov = WORKSPACE_TAB_LABELS_OVERRIDES[moduleId];
+    if (ov && ov[tabId]) return ov[tabId];
+    return WORKSPACE_TAB_LABELS[tabId] || tabId || '';
+  }
   // P1 «Инициатива»: старые адреса вкладок (`settings`/`limits`) не ломаются —
   // они открывают «Текстовую инициативу», где теперь живут их параметры.
   // Псевдоним действует ТОЛЬКО для этого модуля (у других `settings`/`limits`
@@ -1603,6 +1643,8 @@
     // маршрут (симметрично images/budgets); при OFF kill-switch `applyRoute`
     // откатывает на витрину `#/modules` (тот же механизм).
     '#/modules/vision': 'mod_vision',
+    // UR-F (UR-29.1): «Модули → Время» — канонический маршрут.
+    '#/modules/time': 'mod_time',
     '#/permsoc': 'permsoc',
     '#/ai': 'llm_providers',
     '#/ai/llm': 'llm_providers',
@@ -1644,6 +1686,8 @@
     mod_budgets: '#/modules/budgets',
     mod_images: '#/modules/images',
     mod_vision: '#/modules/vision',
+    // UR-F (UR-29.1): «Время» — свой маршрут в разделе «Модули».
+    mod_time: '#/modules/time',
     llm_providers: '#/ai/llm', prompts: '#/ai/prompts',
     // F1 (ADR-1025-1 D3): «Память» живёт в своём разделе.
     memory_rag: '#/memory/rag',
@@ -3799,6 +3843,22 @@
         configError: '',          // F-13 (AC-3, MED-021): баннер loadConfig
                                   // (403/503/сеть) — объясняет пустую вкладку
         configChatUpdatedAt: null, // F-7: optimistic-метка чата (X-Chat-Id)
+        // ── UR-F (UR-29.1/29.2): состояние «Модули → Время» ──────────────
+        timeState: null,           // GET/POST /api/config/time (эфф. пояс+часы)
+        timeZones: [],             // GET /api/config/timezones (полный IANA)
+        timeZonesLoaded: false,
+        timeDraft: '',             // черновик поля пояса ('' = наследование)
+        timeSaving: false,
+        timeError: '',             // причина неуспеха (прежнее значение живо)
+        timeNow: null,             // тикающие часы: {date, time, weekday}
+        timeClockTimer: null,      // setInterval id (только клиентский рендер)
+        timeStateFetchedAt: 0,     // момент ответа сервера (база тикающих часов)
+        // ── UR-F (UR-20.3/R-ADM.5): инспектор «Что бот видел» ────────────
+        turnDiag: null,            // GET /api/direct/turn-diagnostics
+        turnDiagTurn: 1,           // выбранный ход (1 = последний)
+        turnDiagTraceId: '',       // явный выбор по trace_id
+        turnDiagBusy: false,
+        turnDiagError: '',
         // Раунд 10.23 (F8, ADR-1023-8): вкладка «Промпты» — активный режим
         // Вербализатора (Tabs) и блок мониторинга динамического анти-клише.
         promptMode: 'casual',      // редактируемый режим: casual|serious|deep_research
@@ -4019,6 +4079,14 @@
         _graphSearchMatches: [],       // текущий список совпадений (по label)
         _graphSearchIdx: 0,            // индекс перебора (Enter циклически)
         _graphSearchLastQ: '',         // последний запрос (сброс перебора)
+        _graphSearchListPending: false,// CMV-NAV-02: первый Enter — только список
+        // CMV-NAV-02: различимые результаты поиска (полное имя + тип + ID).
+        // Пусто = выбирать не из чего: одно совпадение фокусируется сразу.
+        graphSearchResults: [],
+        // CMV-NAV-03: честный конфликт «результат скрыт фильтром витрины»
+        // {id, title, blocks, blocksLabel} с действием «Показать результат».
+        // Молчаливое снятие фильтров запрещено требованием CMV-NAV-03.
+        graphSearchConflict: null,
         memoryWidgetBusy: false,
         reducedMotion: false,          // prefers-reduced-motion (анимации off)
         // hotfix6 (ADR-1025-12 D1/D4): диагностика tier стекла (R17-safe) +
@@ -4985,7 +5053,8 @@
         if (!ws) return [];
         var self = this;
         return (ws.module.tabs || []).map(function (id) {
-          return { id: id, label: WORKSPACE_TAB_LABELS[id] || id };
+          return { id: id,
+                   label: workspaceTabLabelOf(ws.module.id, id) };
         }).filter(function (t) {
           return self.workspaceTabHasContent(ws.module, t.id);
         });
@@ -5550,6 +5619,16 @@
           { id: 'serious', label: 'Serious' },
           { id: 'deep_research', label: 'Deep Research' },
         ];
+      },
+      // UR-F (UR-29.1): интерактивный поиск по полному IANA-справочнику
+      // (computed — шаблон итерируется без скобок; max 40 подсказок).
+      timeZoneMatches: function () {
+        var draft = String(this.timeDraft || '').trim().toLowerCase();
+        var zones = this.timeZones || [];
+        if (!draft) return [];
+        return zones.filter(function (z) {
+          return z.toLowerCase().indexOf(draft) >= 0;
+        }).slice(0, 40);
       },
       // 10.11 (spec §2.2): две смысловые зоны «Провайдеров». ОБЯЗАНЫ быть
       // computed (не methods): шаблон обращается как к bare-ref
@@ -8825,10 +8904,11 @@
         for (var i = 0; i < parts.length; i += 1) texts.push(parts[i].text);
         return texts.join(' · ');
       },
-      // §2.2 спеки: усечённый ответ помечается ЯВНО («Показана часть графа») и
-      // объясняется по hover/клику. Заметность — не цветом предупреждения
-      // (нейтральность §9.1 контракта сохранена: это нормальное состояние
-      // реального чата), а рамкой/весом и подсказкой с точными числами.
+      // §2.2 спеки: усечённый ответ помечается ЯВНО («Отображена часть
+      // графа») и объясняется по hover/клику. Заметность — не цветом
+      // предупреждения (нейтральность §9.1 контракта сохранена: это
+      // нормальное состояние реального чата), а рамкой/весом и подсказкой
+      // с точными числами.
       cogTruncated: function () {
         var model = this.cognitionGraphData || null;
         if (!model) return { active: false, hint: '' };
@@ -9612,6 +9692,16 @@
         // модель сбрасывается сразу (никакого «чужого графа» ни кадра), а
         // ответ прошлого чата отбрасывается по поколению запроса.
         this._cogInvalidateForChatSwitch();
+        // UR-F (UR-29.1): смена чата подхватывает ЕГО настройки пояса без
+        // записи в чужой чат (перезапрос состояния + сброс черновика).
+        if (this.activeTab === 'mod_time') {
+          this.enterTimeTab();
+        }
+        // UR-F (UR-20.3): инспектор — данные именно этого хода ЭТОГО чата.
+        if (this.activeTab === 'mod_direct'
+            && this.workspaceTab === 'inspector') {
+          this.inspectorTabEnter();
+        }
       },
       // ASAP-2.1 (T-3982, §13:3212–3219): stale/invalid promptKey в URL —
       // не переключать UI в пустой editing state; вернуть на канонический
@@ -9642,6 +9732,24 @@
         if (id === 'prompts') {
           this._syncPromptModeFromConfig();
           this.maybeLoadCliche();
+        }
+        // UR-F (UR-29.1): вход в «Время» — подтянуть состояние пояса/часы
+        // и полный справочник зон (идемпотентно, fail-open).
+        if (id === 'mod_time') {
+          this.enterTimeTab();
+        } else {
+          this.stopTimeClock();
+        }
+        // UR-F (UR-20.3): инспектор хода живёт на workspace-вкладке
+        // «inspector» модуля «Прямые ответы» — данные грузит
+        // inspectorTabEnter() при активации вкладки workspace.
+        if (id === 'mod_direct') {
+          var self2 = this;
+          this.$nextTick(function () {
+            if (self2.workspaceTab === 'inspector') {
+              self2.inspectorTabEnter();
+            }
+          });
         }
         // MCA-16 (ADR-1028-15 D9/T-5007): вход в «Память» — подтянуть уроки
         // опыта (идемпотентно, fail-open; admin-only данные).
@@ -9682,6 +9790,12 @@
         // MCA-19 (T-5103/T-5116): вкладка «Модели» vision-модуля — живая
         // effective-линия (fail-open: 403/RBAC → линии нет).
         if (tab === 'models') this.maybeLoadVisionState();
+        // UR-F (UR-20.3): вход на вкладку инспектора «Прямых ответов» —
+        // загрузить трассу хода (ЕДИНСТВЕННЫЙ workspaceTab-watcher: дубликат
+        // ключа в объекте watch молча перезаписал бы существующую логику).
+        if (tab === 'inspector' && this.activeTab === 'mod_direct') {
+          this.inspectorTabEnter();
+        }
         // CFG-02A (§02A.2): «Основные настройки» модуля «Генерация
         // изображений» — факты суточной квоты из существующего
         // /api/workers/budget (fail-open, окно 30 c).
@@ -14604,10 +14718,25 @@
       // в области чата/ЛС — «глобальная настройка» (наследование) либо
       // «настройки чата» (локальное переопределение, PERMsoc).
       configSourceLabel: function (item) {
-        if (!item || this.scopeKind === 'global') return '';
-        return (item.chat_source === 'chat')
+        if (!item) return '';
+        // UR-F (UR-22.1/BGS-06.5): источник эффективного значения —
+        // chat/global/default от бэкенда (не догадка UI). Legacy-контракт
+        // (payload без поля source): не chat → глобальная настройка.
+        var explicit = (item.source === 'chat' || item.source === 'global'
+          || item.source === 'default');
+        var src = explicit ? item.source
+          : ((item.chat_source === 'chat') ? 'chat' : 'global');
+        if (this.scopeKind === 'global') {
+          // В глобальной области показываем только честный «default» —
+          // явную global-строку подчёркивать нечем (форма и так глобальная).
+          return src === 'default'
+            ? 'Источник: заводское значение (в базе не задано)' : '';
+        }
+        return (src === 'chat')
           ? 'Источник: настройки чата'
-          : 'Источник: глобальная настройка';
+          : (src === 'default'
+            ? 'Источник: заводское значение (наследование)'
+            : 'Источник: глобальная настройка');
       },
       configSourceTitle: function (item) {
         if (!item) return '';
@@ -14623,16 +14752,41 @@
       // включено при глобально выключенном» и не применяемые локально
       // глобальные параметры. Приоритет локального НЕ предполагается.
       configItemNotice: function (item) {
-        if (!item || this.scopeKind === 'global') return '';
+        if (!item) return '';
+        var notes = [];
         // §43/ревью Medium: показываем ТОЛЬКО фактическое расхождение —
         // локальное включение при глобально выключенном (per_chat override
         // wins, см. web/api/routes.py::get_config). Не шумим на
         // per_chat=false (~101 параметр) — там источник уже говорит всё.
-        if (item.chat_source === 'chat' && item.global_value === false
-            && item.value === true) {
-          return 'Локально включено, хотя глобально выключено';
+        if (this.scopeKind !== 'global'
+            && item.chat_source === 'chat'
+            && item.global_value === false && item.value === true) {
+          notes.push('Локально включено, хотя глобально выключено');
         }
-        return '';
+        // UR-F (UR-21.23/UR-22.1/UR-21.24): честная применимость от бэкенда
+        // (no-op/legacy + «провайдер игнорирует temperature») — и в
+        // глобальной области тоже: статус не зависит от скоупа.
+        var eff = item.eff || {};
+        if (eff.reason_inactive) notes.push(eff.reason_inactive);
+        return notes.join(' · ');
+      },
+      // UR-F (UR-20.9/UR-22.1/BGS-06.5): статус-бейдж применимости ключа
+      // из effective-меты бэкенда (active — без бейджа, шума нет).
+      configEffBadge: function (item) {
+        var eff = item && item.eff || {};
+        var status = eff.status || 'active';
+        if (status === 'active') return null;
+        if (status === 'legacy') {
+          return { text: 'legacy', cls: 'badge-muted' };
+        }
+        if (status === 'no_op') return { text: 'не влияет', cls: 'badge-warn' };
+        return { text: 'не применяется', cls: 'badge-warn' };
+      },
+      // UR-F (UR-20.9): единицы значения из effective-меты (не выдумка —
+      // бэкенд-таблица/суффикс ключа).
+      configUnitsSuffix: function (item) {
+        var eff = item && item.eff || {};
+        return eff.units || '';
       },
       resetChatOverride: async function (item) {
         // F-14 (§6.3) + F3 (ревью 2): сброс override — global admin (любой
@@ -14662,6 +14816,283 @@
         } finally {
           this.saving.delete(item.key);
         }
+      },
+
+      // ═══ UR-F (UR-29.1/29.2): «Модули → Время» ═════════════════════════
+      // Единая поверхность пояса: полный IANA-справочник, серверные часы
+      // (клиент НЕ вычисляет часовые пояса), источник/наследование,
+      // сохранение с честной ошибкой и сброс override = «наследование».
+      timeScopeChatId: function () {
+        return (this.scopeKind && this.scopeKind !== 'global')
+          ? this.activeChatId : null;
+      },
+      enterTimeTab: async function () {
+        this.timeError = '';
+        this.timeDraft = '';
+        await this.loadTimeState();
+        this.ensureTimeZones();
+        this.startTimeClock();
+      },
+      loadTimeState: async function () {
+        var self = this;
+        var chatId = this.timeScopeChatId();
+        var qs = chatId != null
+          ? ('?chat_id=' + encodeURIComponent(chatId)) : '';
+        try {
+          var data = await this.api('/api/config/time' + qs);
+          self.timeState = data || null;
+          // Черновик = сырое значение override; NULL (нет override) и ''
+          // (явное наследование) показываются одинаково: пустое поле.
+          self.timeDraft = (data && data.configured != null)
+            ? String(data.configured) : '';
+          self.timeStateFetchedAt = Date.now();
+        } catch (e) {
+          self.timeError = (e && e.message) || 'не удалось загрузить пояс';
+          self.timeState = null;
+        }
+      },
+      ensureTimeZones: async function () {
+        if (this.timeZonesLoaded) return;
+        var self = this;
+        try {
+          var data = await this.api('/api/config/timezones');
+          self.timeZones = (data && data.zones) || [];
+          self.timeZonesLoaded = true;
+        } catch (e) {
+          // Честная деградация: редактор остаётся с ручным вводом,
+          // поиск по полному списку недоступен (показываем причину).
+          self.timeZones = [];
+        }
+      },
+      startTimeClock: function () {
+        this.stopTimeClock();
+        if (typeof setInterval !== 'function') return;
+        var self = this;
+        this.timeClockTimer = setInterval(function () {
+          self.timeNowTick();
+        }, 1000);
+        this.timeNowTick();
+      },
+      stopTimeClock: function () {
+        if (this.timeClockTimer && typeof clearInterval === 'function') {
+          clearInterval(this.timeClockTimer);
+        }
+        this.timeClockTimer = null;
+        this.timeNow = null;
+      },
+      // Тикающие часы ТОЛЬКО от серверной базы: as_of_utc + зафиксированный
+      // offset; браузерная timezone не используется вовсе (UR-29.2).
+      timeNowTick: function () {
+        var st = this.timeState;
+        if (!st || !st.as_of_utc) { this.timeNow = null; return; }
+        var baseMs = Date.parse(st.as_of_utc);
+        if (isNaN(baseMs)) { this.timeNow = null; return; }
+        var fetchedAt = this.timeStateFetchedAt || Date.now();
+        var offsetMs = 0;
+        var m = /^([+-])(\d{2}):(\d{2})$/.exec(String(st.utc_offset || ''));
+        if (m) {
+          offsetMs = (Number(m[2]) * 3600 + Number(m[3]) * 60) * 1000
+            * (m[1] === '-' ? -1 : 1);
+        }
+        // Текущее мгновение серверных часов: база + фактический дрейф
+        // клиента относительно момента ответа (не браузерная зона).
+        var instant = baseMs + Math.max(0, Date.now() - fetchedAt);
+        var wall = new Date(instant + offsetMs);
+        var pad = function (n) {
+          return (n < 10 ? '0' : '') + n;
+        };
+        this.timeNow = {
+          date: pad(wall.getUTCDate()) + '.' +
+            pad(wall.getUTCMonth() + 1) + '.' + wall.getUTCFullYear(),
+          time: pad(wall.getUTCHours()) + ':' + pad(wall.getUTCMinutes()) +
+            ':' + pad(wall.getUTCSeconds()),
+          weekday: st.weekday || '',
+        };
+      },
+      timeSourceLabel: function (source) {
+        var labels = {
+          chat: 'настройки чата',
+          chat_legacy: 'старая настройка чата',
+          global: 'глобальная настройка',
+          global_legacy: 'глобальная старая настройка',
+          legacy_goodmorning: 'старая настройка рассылки',
+          factory: 'заводской дефолт',
+          utc_fallback: 'UTC (зона недоступна на сервере)',
+        };
+        return labels[source] || (source || 'неизвестный источник');
+      },
+      timeConfiguredLine: function () {
+        var st = this.timeState;
+        if (!st) return '';
+        if (st.chat_id != null) {
+          if (st.configured == null || st.configured === '') {
+            return 'Область: чат · поле пустое = наследование';
+          }
+          return 'Область: чат · задано явно для этого чата';
+        }
+        return 'Область: весь бот (глобальный пояс)';
+      },
+      saveTimezone: async function () {
+        if (this.timeSaving) return;
+        this.timeSaving = true;
+        this.timeError = '';
+        var self = this;
+        var chatId = this.timeScopeChatId();
+        try {
+          var data = await this.api('/api/config/time', {
+            method: 'POST',
+            body: JSON.stringify({
+              timezone: String(this.timeDraft || ''),
+              chat_id: chatId,
+            }),
+          });
+          // Сервер вернул validated effective + now_local по UTC (UR-29.2):
+          // UI показывает ИМЕННО его, а не свой пересчёт.
+          self.timeState = data;
+          self.timeDraft = (data && data.configured != null)
+            ? String(data.configured) : '';
+          self.timeStateFetchedAt = Date.now();
+          self.toast('Пояс сохранён: ' + ((data && data.iana) || ''), 'ok');
+          await this._preserveScroll(this.loadConfig);
+        } catch (e) {
+          // Ошибка (422 IANA / 403 права): прежнее значение сохранено —
+          // честная причина видна рядом с полем, черновик не применён.
+          // (ApiError.message несёт detail сервера; 409 приходит объектом.)
+          var reason = e && typeof e.message === 'string'
+            && e.message.indexOf('HTTP ') !== 0 ? e.message
+            : ((e && e.message) || 'не сохранено');
+          self.timeError = reason;
+          self.toast('Не сохранено: ' + self.timeError, 'err');
+        } finally {
+          self.timeSaving = false;
+        }
+      },
+      resetTimezone: async function () {
+        if (this.timeSaving) return;
+        var chatId = this.timeScopeChatId();
+        if (chatId == null) {
+          this.toast('Сброс возможен только для чата', 'warn');
+          return;
+        }
+        if (!window.confirm('Вернуть общую (глобальную) настройку пояса '
+          + 'для этого чата?')) return;
+        this.timeSaving = true;
+        this.timeError = '';
+        var self = this;
+        try {
+          var data = await this.api('/api/config/time?chat_id='
+            + encodeURIComponent(chatId), { method: 'DELETE' });
+          self.timeState = data;
+          self.timeDraft = (data && data.configured != null)
+            ? String(data.configured) : '';
+          self.timeStateFetchedAt = Date.now();
+          self.toast('Возвращена общая настройка', 'ok');
+          await this._preserveScroll(this.loadConfig);
+        } catch (e) {
+          self.timeError = (e && e.message) || 'не сброшено';
+          self.toast('Не сброшено: ' + self.timeError, 'err');
+        } finally {
+          self.timeSaving = false;
+        }
+      },
+      timeCanSave: function () {
+        if (this.timeSaving) return false;
+        if (this.scopeKind === 'global') {
+          // Глобальный слой правит только глобальный админ (сервер
+          // дополнительно проверит can_edit_param).
+          return !!this.isGlobalAdmin;
+        }
+        return !!(this.isGlobalAdmin || this.isDmCtx()
+          || this.isLocalAdminCtx());
+      },
+
+      // ═══ UR-F (UR-20.3/R-ADM.5): инспектор «Что бот видел» ═════════════
+      inspectorTabEnter: function () {
+        this.loadTurnDiagnostics(true);
+      },
+      loadTurnDiagnostics: async function (force) {
+        if (this.turnDiagBusy) return;
+        var chatId = this.activeChatId;
+        if (chatId == null) {
+          this.turnDiag = null;
+          this.turnDiagError = 'Выберите чат — инспектор показывает ход '
+            + 'конкретного чата';
+          return;
+        }
+        this.turnDiagBusy = true;
+        if (force) { this.turnDiagError = ''; }
+        var self = this;
+        try {
+          var qs = '?chat_id=' + encodeURIComponent(chatId)
+            + '&turn=' + encodeURIComponent(this.turnDiagTurn || 1);
+          if (this.turnDiagTraceId) {
+            qs += '&trace_id=' + encodeURIComponent(this.turnDiagTraceId);
+          }
+          var data = await this.api('/api/direct/turn-diagnostics' + qs);
+          self.turnDiag = data || null;
+          self.turnDiagError = '';
+        } catch (e) {
+          if (force || !this.turnDiag) {
+            self.turnDiag = null;
+            self.turnDiagError = (e && e.message)
+              || 'трасса недоступна';
+          }
+        } finally {
+          self.turnDiagBusy = false;
+        }
+      },
+      selectTurn: function (n) {
+        this.turnDiagTurn = n;
+        this.turnDiagTraceId = '';
+        this.loadTurnDiagnostics(true);
+      },
+      selectTurnTrace: function (tid) {
+        this.turnDiagTraceId = tid || '';
+        this.loadTurnDiagnostics(true);
+      },
+      turnFlowLabel: function (flow) {
+        return flow === 'direct' ? 'Direct' : (flow || '—');
+      },
+      turnClockLine: function (ctx) {
+        var clock = ctx && ctx.clock;
+        if (!clock || !clock.timezone) return 'нет данных';
+        var line = clock.timezone;
+        if (clock.as_of_utc) line += ' · ' + clock.as_of_utc;
+        if (clock.timezone_source) {
+          line += ' · источник: ' + this.timeSourceLabel(
+            clock.timezone_source);
+        }
+        return line;
+      },
+      turnToolLine: function (t) {
+        if (!t) return '';
+        var line = t.tool || '?';
+        line += ' · ' + (t.status || 'no_status');
+        if (t.error) line += ' · ошибка: ' + t.error;
+        if (t.refs != null) line += ' · источников: ' + t.refs;
+        if (t.out_chars != null) line += ' · символов: ' + t.out_chars;
+        return line;
+      },
+      turnOpLine: function (op) {
+        if (!op) return '';
+        var line = op.op || '?';
+        if (op.chunks) line += ' ×' + op.chunks;
+        line += op.changed ? ' · текст изменился' : ' · без изменений';
+        if (op.chars != null) line += ' · ' + op.chars + ' симв.';
+        return line;
+      },
+      turnDeliveryLabel: function (delivery, outcome) {
+        var d = delivery || {};
+        if (d.outcome === 'success' && d.digest_match === true) {
+          return 'доставлен как написан (digest совпал)';
+        }
+        if (d.divergence_reason) {
+          return 'текст менялся при доставке: ' + d.divergence_reason;
+        }
+        if (outcome && outcome !== 'success') {
+          return 'без доставки текста: ' + (d.reason || outcome);
+        }
+        return 'итог: ' + (d.outcome || outcome || 'нет данных');
       },
 
       // ═══ D07 (v6 §9B.2/§9B.3): global-view overrides — stack/popover ═══
@@ -19260,7 +19691,9 @@
         this.navigateTo(next);
       },
       workspaceTabLabel: function (tabId) {
-        return WORKSPACE_TAB_LABELS[tabId] || tabId || '';
+        var ws = this.workspace;
+        var mid = ws && ws.module ? ws.module.id : '';
+        return workspaceTabLabelOf(mid, tabId);
       },
       // ASAP-speech-arch U-03 (§8): UI-подпись Direct-вербализатора приведена к
       // его действительной роли. Ключ/ID не меняются (правки, история и
@@ -19885,6 +20318,11 @@
                   'diagnostics'].indexOf(tabId) >= 0;
         }
         if (tabId === 'overview') return true;
+        // UR-F (UR-20.3): инспектор «Что бот видел» — собственная секция
+        // «Прямых ответов» (трасса хода из существующих событий turn_trace).
+        if (tabId === 'inspector') {
+          return m.id === 'mod_direct';
+        }
         // ASAP-2.1 (T-3973): 'prep' удалён; стадии §85 — честный placeholder.
         if (tabId === 'clusterizer' || tabId === 'writer') return true;
         // ASAP-2 §13: вкладки секций Summary рендерятся только при наличии
@@ -21339,6 +21777,98 @@
         }
         return { requested: requested, l1On: l1On, text: lines };
       },
+      // ═══ UR-F (UR-20.2): «Как бот отвечает» — фактически действующие ═══
+      // режимы со статусом, человеческой формулировкой и одним рабочим
+      // control. Значения ТОЛЬКО из effective-config (не догадка UI);
+      // нет данных — честная строка, не выдуманный статус.
+      configItemByKey: function (key) {
+        var items = this.configItems || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i] && items[i].key === key) return items[i];
+        }
+        return null;
+      },
+      itemEffLine: function (item, activeText, offText) {
+        if (!item) return 'нет данных';
+        var on = item.value === true || item.value === 'true';
+        var src = (item.source === 'chat') ? ' · из настроек чата'
+          : (item.source === 'default' ? ' · заводское значение'
+            : (item.source === 'global' ? ' · глобальная настройка' : ''));
+        return ((on ? (activeText || 'включено') : (offText || 'выключено'))
+          + src);
+      },
+      directModesView: function () {
+        var self = this;
+        function item(key) { return self.configItemByKey(key); }
+        var search = item('flags.search_enabled');
+        var memory = item('flags.chat_running_summary_enabled');
+        var speech = item('limits.chat_temperature_preset_default');
+        var initiative = item('flags.initiative_enabled');
+        return {
+          search: {
+            title: 'Интернет для фактов',
+            line: this.itemEffLine(search, 'разрешён', 'выключен'),
+            available: !!search,
+            hint: 'Когда вопрос про внешний мир, бот проверяет факты '
+              + 'поиском, используя контекст разговора.',
+            controlRoute: '#/modules/search',
+            controlLabel: 'Настройки поиска',
+          },
+          memory: {
+            title: 'Память',
+            line: this.itemEffLine(memory, 'конспект включён',
+              'конспект выключен'),
+            available: !!memory,
+            hint: 'Бот держит краткий конспект длинного разговора и помнит '
+              + 'факты — независимо от срока «кому уже отвечал».',
+            controlRoute: '#/memory/rag',
+            controlLabel: 'Настройки памяти',
+          },
+          extent: {
+            title: 'Подробность',
+            line: 'выбирается планировщиком по каждому запросу',
+            available: true,
+            hint: 'Фиксированной настройки подробности нет: L1 оценивает '
+              + 'запрос и выбирает компактный или развёрнутый ответ; факт '
+              + 'виден в «Что бот видел».',
+            controlTab: 'inspector',
+            controlLabel: 'Что бот видел',
+          },
+          speech: {
+            title: 'Речь и характер',
+            item: speech,
+            line: speech
+              ? ('режим: ' + (speech.value || 'сбалансированный (по умолчанию)')
+                 + (speech.eff && speech.eff.reason_inactive
+                    ? ' · ' + speech.eff.reason_inactive : ''))
+              : 'нет данных',
+            available: !!speech,
+            hint: 'Свобода формулировок влияет только на подбор слов '
+              + 'моделью ответов; поиск, память и контекст она не заменяет.',
+            controlRoute: '#/ai/speech',
+            controlLabel: 'Речь и характер',
+          },
+          initiative: {
+            title: 'Инициатива',
+            line: this.itemEffLine(initiative, 'бот пишет первым',
+              'выключена'),
+            available: !!initiative,
+            hint: 'Проактивные намерения и напоминания — отдельный механизм '
+              + 'со своим журналом решений.',
+            controlRoute: '#/modules/initiative',
+            controlLabel: 'Модуль «Инициатива»',
+          },
+        };
+      },
+      // UR-F (UR-21.23): рабочий control «Свободы формулировок» — штатный
+      // select пресета (то же сохранение, что у каталога).
+      saveSpeechPreset: async function (event) {
+        var item = this.configItemByKey(
+          'limits.chat_temperature_preset_default');
+        if (!item) return;
+        item.value = event.target.value;
+        await this.saveConfigItem(item);
+      },
       // §84: «Проверить» для L1/L2 — reuse существующего блока `direct`.
       testDirectStage: async function (card) {
         if (!card) return;
@@ -22577,6 +23107,15 @@
           return this.hasPerm('section.reactions')
             || this.hasPerm('section.flags')
             || this.hasPerm('section.chat_lore')
+            || this.isGlobalAdmin || this.isLocalAdminCtx();
+        }
+        // UR-F (UR-29.1): «Модули → Время» — тот же гейт раздела «Модули»
+        // (просмотр часов безобиден; запись пояса дополнительно гейтит
+        // сервер can_edit по матрице ключа limits.chat_timezone).
+        if (tab.type === 'timeEditor') {
+          return this.hasPerm('section.reactions')
+            || this.hasPerm('section.flags')
+            || this.hasPerm('section.limits')
             || this.isGlobalAdmin || this.isLocalAdminCtx();
         }
         var sections = arr(p.sections), params = arr(p.params), keys = arr(p.keys);
@@ -30045,6 +30584,9 @@
         // computed/шаблон, публикуется в реактивные поля СРАЗУ (B1): иначе
         // счётчики и сообщение о пустоте расходились с фактической сценой.
         this._cogView = view;
+        // CMV-NAV-04: выбор живёт только внутри видимой витрины («видно ≠
+        // выбрано» недопустимо); камера/зум/фильтры не трогаются.
+        this._cogSyncSelectionToView(view);
         // CMV-B §5.8: новая витрина инвалидирует кэш подписей/рёбер активного
         // узла. Без этого план, посчитанный при создании сети (витрина ещё не
         // присвоена), залипал бы пустым — «карта без имён».
@@ -30463,6 +31005,84 @@
           scene.onClick = function (ev) { self._cogOnSceneClick(ev); };
           el.addEventListener('click', scene.onClick);
           scene.handlers += 1;
+          // CMV-PHY-04c (§6(4) спеки): ручной жест обязан немедленно прерывать
+          // программную анимацию камеры. Колесо у vis якорится точно в курсор
+          // (проба batch3), но во время твина кадр `_transitionRedraw`
+          // перезаписывал результат — capture-слушатель снимает твин ДО
+          // применения шага колеса; сам wheel-зум vis не перехватываем.
+          scene.onWheel = function () { self._cogInterruptCameraAnim(); };
+          el.addEventListener('wheel', scene.onWheel,
+            { capture: true, passive: true });
+          scene.handlers += 1;
+          // CMV-PHY-04b (§6(4) спеки): pinch — зум вокруг ТОЧКИ ЖЕСТА, а не
+          // центра полотна (проба batch3: дрейф 428–443 px). Двухпальцевый
+          // жест перехватывается полностью (capture + stopPropagation: vis
+          // свой pinch не видит), шаг зума применяется нашим `moveTo` с
+          // явным якорем; одна сессия на жест, снятие в destroy.
+          scene.pinch = null;
+          scene.onPinchStart = function (ev) {
+            var st = self._cogScene;
+            var touches = ev && ev.touches;
+            if (!st || !touches || touches.length < 2 || st.pinch) return;
+            var a = touches[0];
+            var b = touches[1];
+            if (!a || !b) return;
+            if (ev && typeof ev.preventDefault === 'function') {
+              ev.preventDefault();
+            }
+            if (ev && typeof ev.stopPropagation === 'function') {
+              ev.stopPropagation();
+            }
+            var t0 = self._cogPinchFrame(st, a, b);
+            var net2 = self.cognitionNetwork;
+            if (!t0 || !net2) return;
+            st.pinch = t0;
+            // Жест — ручное управление: твин фокуса снимается немедленно.
+            self._cogInterruptCameraAnim();
+          };
+          scene.onPinchMove = function (ev) {
+            var st = self._cogScene;
+            if (!st || !st.pinch) return;
+            if (ev && typeof ev.preventDefault === 'function') {
+              ev.preventDefault();
+            }
+            if (ev && typeof ev.stopPropagation === 'function') {
+              ev.stopPropagation();
+            }
+            var touches = ev && ev.touches;
+            // Палец подняли до второго — сессия живёт до полного отпускания,
+            // «хвостовой» одиночный палец камеру не двигает.
+            if (!touches || touches.length < 2) return;
+            var step = self._cogPinchStep(st, touches[0], touches[1]);
+            if (!step) return;
+            self._cogInterruptCameraAnim();
+            try {
+              self.cognitionNetwork.moveTo({
+                position: { x: step.px, y: step.py },
+                scale: step.scale, animation: false });
+              self._cogCamera = self._cogCameraOf(
+                self.cognitionNetwork.getViewPosition(), step.scale);
+            } catch (e) { /* сеть уничтожена */ }
+          };
+          scene.onPinchEnd = function (ev) {
+            var st = self._cogScene;
+            if (!st || !st.pinch) return;
+            if (ev && typeof ev.stopPropagation === 'function') {
+              ev.stopPropagation();
+            }
+            var touches = ev && ev.touches;
+            // Сессия закрывается, когда отпущены ВСЕ пальцы жеста.
+            if (!touches || touches.length === 0) st.pinch = null;
+          };
+          el.addEventListener('touchstart', scene.onPinchStart,
+            { capture: true, passive: false });
+          el.addEventListener('touchmove', scene.onPinchMove,
+            { capture: true, passive: false });
+          el.addEventListener('touchend', scene.onPinchEnd,
+            { capture: true, passive: false });
+          el.addEventListener('touchcancel', scene.onPinchEnd,
+            { capture: true, passive: false });
+          scene.handlers += 4;
         }
         if (net && typeof net.on === 'function') {
           // CMV-B §6 контракта: `afterDrawing` — сигнал кадра и источник
@@ -30526,7 +31146,18 @@
             self._cogSyncPositions();
             self._cogPaintStatic();
           });
-          scene.handlers += 8;
+          // CMV-PHY-04a (§6(4) спеки): double-click/tap по узлу — плавная
+          // фокусировка 350–500 ms с easing (обработчика не было: камера
+          // стояла 0 кадров).
+          net.on('doubleClick', function (params) {
+            self._cogDblClickFocus(params);
+          });
+          // CMV-PHY-04c (§6(3) спеки): drag — ручной жест, твин фокуса
+          // снимается немедленно, управление переходит пользователю.
+          net.on('dragStart', function () {
+            self._cogInterruptCameraAnim();
+          });
+          scene.handlers += 10;
         }
         // F4 (ADR-1018-4 D2): физика выключается ПОСЛЕ первичной расстановки;
         // `once` (не `on`) — слушатели не копятся при повторных рендерах.
@@ -30740,6 +31371,135 @@
           if (typeof net.fit === 'function') net.fit(anim);
         } catch (e) { return false; }
         return false;
+      },
+      // ── CMV-PHY-04: жесты и программная анимация камеры ──────────────────
+      // §6(3–4) спеки: «Wheel/trackpad — зум около курсора; pinch — зум вокруг
+      // центра жеста; double-click/tap по узлу — плавная фокусировка…
+      // при ручном жесте — немедленный контроль пользователю».
+
+      /* Снимает запущенный твин камеры. vis ведёт анимацию функцией
+       * `viewFunction` (``_transitionRedraw``) на событии `initRedraw` и
+       * перезаписывает `view.scale/translation` каждый кадр — поэтому wheel
+       * во время фокуса «глотался» (~660 ms). Снимаем её тем же способом,
+       * которым сам vis завершает анимацию; возвращает true, если твин был. */
+      _cogInterruptCameraAnim: function () {
+        var net = this.cognitionNetwork;
+        if (!net || !net.view) return false;
+        var view = net.view;
+        var fn = view.viewFunction;
+        if (typeof fn !== 'function') return false;
+        var emitter = view.body && view.body.emitter;
+        if (!emitter || typeof emitter.off !== 'function') return false;
+        try {
+          emitter.off('initRedraw', fn);
+        } catch (e) { return false; }
+        view.viewFunction = undefined;
+        if ('easingTime' in view) view.easingTime = 0;
+        return true;
+      },
+      /* Начало pinch-сессии: якорь — мировая точка под ЦЕНТРОМ жеста в момент
+       * касания вторым пальцем (экранные px → сетевые через камеру и масштаб). */
+      _cogPinchFrame: function (scene, a, b) {
+        var net = this.cognitionNetwork;
+        var el = scene.el || this._cogEl;
+        if (!net || !el
+            || typeof el.getBoundingClientRect !== 'function') {
+          return null;
+        }
+        var s0 = null;
+        var cam = null;
+        try {
+          s0 = net.getScale();
+          cam = net.getViewPosition();
+        } catch (e) { return null; }
+        if (!(s0 > 0) || !cam) return null;
+        var rect = el.getBoundingClientRect();
+        var w = scene.width || el.clientWidth || 0;
+        var h = scene.height || el.clientHeight || 0;
+        if (!(w > 0) || !(h > 0) || !rect) return null;
+        var spread = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+        if (!(spread > 0)) return null;
+        var cx = (a.clientX + b.clientX) / 2 - rect.left;
+        var cy = (a.clientY + b.clientY) / 2 - rect.top;
+        return {
+          spread0: spread,
+          s0: s0,
+          // Мировая точка под центром жеста — она остаётся под пальцами.
+          wx: cam.x + (cx - w / 2) / s0,
+          wy: cam.y + (cy - h / 2) / s0,
+        };
+      },
+      /* Шаг pinch: масштаб по размаху пальцев (клампы как у vis: 1e-5…10),
+       * камера — так, чтобы якорная точка осталась под ТЕКУЩИМ центром
+       * жеста (зум + перенос двумя пальцами одной арифметикой). */
+      _cogPinchStep: function (scene, a, b) {
+        var pinch = scene.pinch;
+        var el = scene.el || this._cogEl;
+        if (!pinch || !el
+            || typeof el.getBoundingClientRect !== 'function') {
+          return null;
+        }
+        if (!(pinch.spread0 > 0) || !(pinch.s0 > 0)) return null;
+        var rect = el.getBoundingClientRect();
+        var w = scene.width || el.clientWidth || 0;
+        var h = scene.height || el.clientHeight || 0;
+        if (!(w > 0) || !(h > 0) || !rect) return null;
+        var spread = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+        if (!(spread > 0)) return null;
+        var scale = pinch.s0 * (spread / pinch.spread0);
+        if (!(scale > 1e-5)) scale = 1e-5;
+        if (scale > 10) scale = 10;
+        var cx = (a.clientX + b.clientX) / 2 - rect.left;
+        var cy = (a.clientY + b.clientY) / 2 - rect.top;
+        return {
+          scale: scale,
+          px: pinch.wx - (cx - w / 2) / scale,
+          py: pinch.wy - (cy - h / 2) / scale,
+        };
+      },
+      /* §12.2 спеки: масштаб фокуса — ×2–×3 ОТ ОБЗОРА (`fitScale`), а не
+       * абсолютная константа. Одна точка для dblclick-фокуса и поиска. */
+      _cogFocusTargetScale: function () {
+        var fit = this._cogFitScale;
+        return (fit && fit > 0)
+          ? Math.max(fit * 1.9, Math.min(fit * 3, 1.1)) : 1.1;
+      },
+      /* CMV-PHY-04a: double-click/tap по узлу — камера едет к узлу за
+       * `CONFIG.motion.dblClickMs` (450 ∈ [350, 500]) с easeInOutQuad и
+       * заканчивает ЦЕНТРОМ НА УЗЛЕ (единственный `moveTo` по позиции из
+       * кэша §5.1). Ручной жест прерывает твин (`_cogInterruptCameraAnim`);
+       * reduced-motion — мгновенный прыжок без анимации (§7.3). */
+      _cogDblClickFocus: function (params) {
+        var net = this.cognitionNetwork;
+        var scene = this._cogScene;
+        var id = (params && params.nodes && params.nodes.length)
+          ? params.nodes[0] : null;
+        if (!net || !scene || id === null || id === undefined) return null;
+        var pos = (scene.pos && scene.pos[id])
+          ? { x: scene.pos[id].x, y: scene.pos[id].y } : null;
+        if (!pos) {
+          try {
+            var all = (typeof net.getPositions === 'function')
+              ? net.getPositions() : null;
+            if (all && all[id]) pos = { x: all[id].x, y: all[id].y };
+          } catch (e) { pos = null; }
+        }
+        if (!pos) return null;
+        var V = cogVis();
+        var ms = (V && V.CONFIG && V.CONFIG.motion
+          && V.CONFIG.motion.dblClickMs > 0) ? V.CONFIG.motion.dblClickMs : 450;
+        var anim = this.reducedMotion
+          ? false : { duration: ms, easingFunction: 'easeInOutQuad' };
+        var scale = this._cogFocusTargetScale();
+        try {
+          net.moveTo({ position: pos, scale: scale, animation: anim });
+        } catch (e) { return null; }
+        return {
+          id: String(id),
+          position: pos,
+          scale: scale,
+          duration: anim ? ms : 0,
+        };
       },
       // Наблюдатели сцены. `window`/`document`-листенеры граф НЕ добавляет:
       // `visibilitychange` уже один (`onVisibilityChange`), размер — ResizeObserver.
@@ -31701,6 +32461,9 @@
           incident: incident,
           selection: selected,
           hover: hover,
+          // §7.2 спеки: рампа hover-свечения считается от момента наведения
+          // (`scene.hoverAt` ставится в `_cogSetHover`).
+          hoverAt: scene.hoverAt || 0,
           fitScale: this._cogFitScale || 0,
           // CMV-PERF: готовый радиус в сетевых единицах (кэш `_cogApplyNodeSizes`).
           radii: scene.radii || null,
@@ -32699,6 +33462,11 @@
       // F2 (T-1560/1561, spec §5): поиск по имени/алиасу с фокусом. Алиасы
       // уже разложены в модели (`summaryAliasesMap` при загрузке), поэтому
       // поиск — чистый `CognitiveMap.searchNodes` без новых запросов.
+      // CMV-NAV-02: несколько совпадений → список различимых результатов
+      // (полное имя + тип + ID) и ВЫБОР пользователя; автофокус на первом
+      // одноимённом объекте запрещён. Детерминированный порядок и цикл Enter
+      // сохранены — после первого показа списка. Единственное совпадение
+      // фокусируется сразу (CMV-NAV-01: поиск с фокусировкой найденного).
       searchCognitionGraph: async function () {
         var q = String(this.graphSearchQuery || '').trim();
         if (!this.cognitionNetwork) {
@@ -32710,39 +33478,118 @@
         var C = window.CognitiveMap;
         var model = this.cognitionGraphData || null;
         var hits = C ? C.searchNodes(model, q) : [];
+        this.graphSearchConflict = null;  // новый запрос — прошлый конфликт снят
         if (!hits.length) {
           this._graphSearchMatches = [];
+          this._graphSearchMatchIds = [];
+          this.graphSearchResults = [];
           this._graphSearchIdx = 0;
           this.graphSearchStatus = 'Ничего не найдено';
           this.toast('В графе нет узла «' + q + '»', 'warn');
           return;
         }
-        var node = hits[0];
-        // Узел мог быть скрыт витриной (фильтр) — честно снимаем фильтры,
-        // прежде чем фокусировать: пустой фокус вместо узла недопустим.
-        var view = this._cogView || { nodes: [] };
-        var inView = false;
-        for (var i = 0; i < view.nodes.length; i += 1) {
-          if (view.nodes[i].id === node.id) { inView = true; break; }
-        }
-        if (!inView) {
-          this.graphFilterGroup = '';
-          this.cognitionMapCluster = '';
-          this.cogHideDerived = false;
-          await this.renderCognitionGraph();
-        }
-        // циклический перебор при повторном поиске того же запроса
-        var needle = String(q).toLowerCase();
-        if (needle !== this._graphSearchLastQ) { this._graphSearchIdx = -1; }
-        this._graphSearchLastQ = needle;
         this._graphSearchMatches = hits;
         // CMV-C: найденные совпадения — «закреплённые» узлы: они видны и
         // подписаны независимо от LOD/агрегатов (§5.5/§9 спеки).
         this._graphSearchMatchIds = hits.map(function (h) { return h.id; });
+        // CMV-NAV-02: список — когда есть из чего выбирать; один результат
+        // не превращается в лишний шаг выбора.
+        this.graphSearchResults = (hits.length > 1)
+          ? hits.map(function (h) { return this._cogSearchEntry(h); }, this)
+          : [];
         var sceneSearch = this._cogScene;
         if (sceneSearch) sceneSearch.searchRev = (sceneSearch.searchRev || 0) + 1;
+        // циклический перебор при повторном поиске того же запроса
+        var needle = String(q).toLowerCase();
+        if (needle !== this._graphSearchLastQ) {
+          this._graphSearchIdx = -1;
+          this._graphSearchListPending = true;  // первый Enter — только список
+        }
+        this._graphSearchLastQ = needle;
+        if (hits.length > 1 && this._graphSearchListPending) {
+          // CMV-NAV-02: фокус не ставится, пока пользователь не выбрал
+          // результат из списка; порядок в списке детерминированный.
+          this._graphSearchListPending = false;
+          this._graphSearchIdx = -1;
+          this.graphSearchStatus = 'Найдено: ' + hits.length
+            + ' — выберите из списка';
+          return;
+        }
         this._graphSearchIdx = (this._graphSearchIdx + 1) % hits.length;
-        node = hits[this._graphSearchIdx];
+        await this._cogAcceptSearchHit(
+          hits[this._graphSearchIdx], this._graphSearchIdx, hits.length);
+      },
+      // CMV-NAV-02: элемент списка результатов — полное имя, тип, ID.
+      _cogSearchEntry: function (node) {
+        var C = window.CognitiveMap;
+        return {
+          id: node.id,
+          title: node.title || String(node.id),
+          kind: node.kind || 'other',
+          kindLabel: (C && node.kind) ? (C.KIND_LABELS[node.kind] || node.kind)
+            : '',
+        };
+      },
+      // CMV-NAV-03: какие АКТИВНЫЕ ограничения витрины скрывают узел.
+      // `hideDerived` прячет только производные рёбра — узел скрыть не может,
+      // поэтому «нужным ограничением» бывает только тип или кластер.
+      _cogSearchBlockers: function (node) {
+        var blocks = [];
+        if (this.graphFilterGroup && node.kind !== this.graphFilterGroup) {
+          blocks.push('type');
+        }
+        var clusterId = this.cognitionMapCluster;
+        if (clusterId) {
+          var C = window.CognitiveMap;
+          var clusters = (C && this.cognitionGraphData)
+            ? C.computeClusters(this.cognitionGraphData) : [];
+          var inCluster = false;
+          for (var i = 0; i < clusters.length; i += 1) {
+            if (clusters[i].id === clusterId) {
+              inCluster = clusters[i].nodeIds.indexOf(node.id) >= 0;
+              break;
+            }
+          }
+          if (!inCluster) blocks.push('cluster');
+        }
+        return blocks;
+      },
+      // CMV-NAV-03: конфликт вместо молчаливого сброса — фильтры НЕ меняются,
+      // фокус НЕ ставится; действие у пользователя («Показать результат»).
+      _cogRejectHiddenHit: function (node, blocks) {
+        var labels = { type: 'по типу', cluster: 'по кластеру' };
+        var parts = [];
+        for (var i = 0; i < blocks.length; i += 1) {
+          parts.push(labels[blocks[i]] || blocks[i]);
+        }
+        this.graphSearchConflict = {
+          id: node.id,
+          title: node.title || String(node.id),
+          blocks: blocks.slice(),
+          blocksLabel: parts.join(' и '),
+        };
+        this.graphSearchStatus = 'Найден: «'
+          + (node.title || String(node.id)) + '» — скрыт фильтром ('
+          + this.graphSearchConflict.blocksLabel + ')';
+        return null;
+      },
+      // Общий хвост поиска и выбора из списка: узел вне витрины без
+      // блокирующих фильтров — один повтор рендера (витрина не успела);
+      // узел, скрытый фильтром, — честный конфликт (CMV-NAV-03). Затем —
+      // прежний путь: фокус, выбор, панель подробностей, пульс (§7.2 спеки).
+      _cogAcceptSearchHit: async function (node, idx, total) {
+        var view = this._cogView || { nodes: [] };
+        var inView = false;
+        for (var i = 0; i < view.nodes.length; i += 1) {
+          if (String(view.nodes[i].id) === String(node.id)) {
+            inView = true; break;
+          }
+        }
+        if (!inView) {
+          var blocks = this._cogSearchBlockers(node);
+          if (blocks.length) return this._cogRejectHiddenHit(node, blocks);
+          await this.renderCognitionGraph();
+        }
         var anim = this.reducedMotion
           ? false : { duration: 600, easingFunction: 'easeInOutQuad' };
         // Масштаб фокуса — от обзора (`fitScale`): абсолютные 1.1 на большом
@@ -32761,10 +33608,45 @@
         // выделенным (в Canvas он не «прыгает» и не теряется).
         this._cogPulseSelected('search');
         var title = node.title || node.id;
-        this.graphSearchStatus = 'Найден: ' + title +
-          (hits.length > 1
-            ? ' (' + (this._graphSearchIdx + 1) + '/' + hits.length + ')'
-            : '');
+        this.graphSearchStatus = 'Найден: ' + title
+          + (total > 1 ? ' (' + (idx + 1) + '/' + total + ')' : '');
+        return node.id;
+      },
+      // CMV-NAV-02: пользователь выбрал конкретный результат из списка.
+      pickCogSearchResult: async function (id) {
+        var hits = this._graphSearchMatches || [];
+        var idx = -1;
+        for (var i = 0; i < hits.length; i += 1) {
+          if (String(hits[i].id) === String(id)) { idx = i; break; }
+        }
+        if (idx < 0) return;
+        this.graphSearchConflict = null;
+        this._graphSearchIdx = idx;
+        await this._cogAcceptSearchHit(hits[idx], idx, hits.length);
+      },
+      // CMV-NAV-03: действие «Показать результат» — снимает ТОЛЬКО те
+      // ограничения витрины, которые реально скрывают найденный узел
+      // (остальные фильтры живут), затем фокусирует результат обычным
+      // путём поиска.
+      showCogSearchResult: async function () {
+        var conflict = this.graphSearchConflict;
+        if (!conflict || conflict.id == null) return;
+        var model = this.cognitionGraphData || null;
+        var node = (model && model.byId)
+          ? model.byId[String(conflict.id)] : null;
+        if (!node) { this.graphSearchConflict = null; return; }
+        var blocks = this._cogSearchBlockers(node);   // актуальные блокеры
+        if (blocks.indexOf('type') >= 0) this.graphFilterGroup = '';
+        if (blocks.indexOf('cluster') >= 0) this.cognitionMapCluster = '';
+        this.graphSearchConflict = null;
+        await this.renderCognitionGraph();
+        var hits = this._graphSearchMatches || [];
+        var idx = 0;
+        for (var i = 0; i < hits.length; i += 1) {
+          if (String(hits[i].id) === String(node.id)) { idx = i; break; }
+        }
+        this._graphSearchIdx = idx;
+        await this._cogAcceptSearchHit(node, idx, hits.length || 1);
       },
       clearCognitionGraphSearch: function () {
         this.graphSearchQuery = '';
@@ -32773,6 +33655,10 @@
         this._graphSearchMatchIds = [];
         this._graphSearchIdx = 0;
         this._graphSearchLastQ = '';
+        // CMV-NAV-02/03: список результатов и конфликт живут с запросом.
+        this.graphSearchResults = [];
+        this.graphSearchConflict = null;
+        this._graphSearchListPending = false;
         var sceneClear = this._cogScene;
         if (sceneClear) sceneClear.searchRev = (sceneClear.searchRev || 0) + 1;
         this._cogHighlight = null;
@@ -33003,12 +33889,9 @@
         if (!this.cognitionNetwork || nodeId == null) return;
         var anim = this.reducedMotion
           ? false : { duration: 500, easingFunction: 'easeInOutQuad' };
-        var fit = this._cogFitScale;
-        var target = (fit && fit > 0)
-          ? Math.max(fit * 1.9, Math.min(fit * 3, 1.1)) : 1.1;
         try {
           this.cognitionNetwork.focus(nodeId, {
-            scale: target, animation: anim });
+            scale: this._cogFocusTargetScale(), animation: anim });
           this.cognitionNetwork.selectNodes([nodeId]);
         } catch (e) { /* noop: сеть уничтожена */ }
         this.graphSelectNode(nodeId);
@@ -33020,7 +33903,31 @@
       applyGraphFilter: function () {
         if (typeof this._cogHintDone === 'function') this._cogHintDone();
         this.graphSearchStatus = '';
+        // CMV-NAV-03: пользователь сам изменил фильтры — прошлый конфликт
+        // «результат скрыт фильтром» устарел и не висит поверх новых.
+        this.graphSearchConflict = null;
         this.renderCognitionGraph();
+      },
+      // CMV-NAV-04: членство узла в видимой витрине. Сравнение строкой:
+      // id приходят и числами, и строками из разных источников (vis/model).
+      _cogViewHasId: function (view, id) {
+        var nodes = (view && view.nodes) || [];
+        for (var i = 0; i < nodes.length; i += 1) {
+          if (String(nodes[i].id) === String(id)) return true;
+        }
+        return false;
+      },
+      // CMV-NAV-04: выбор снимается, когда выбранный узел ВЫШЕЛ из
+      // отфильтрованного набора (renderCognitionGraph вызывает на каждой
+      // новой витрине). Узел в наборе — выбор сохраняется (CMV-LODB-04).
+      // Камера, зум и фильтры не трогаются: это не «Сбросить вид».
+      _cogSyncSelectionToView: function (view) {
+        if (this._cogSelectedId != null
+            && !this._cogViewHasId(view, this._cogSelectedId)) {
+          this.clearCogSelection();
+          return true;
+        }
+        return false;
       },
       // «Сбросить вид» — ТОЛЬКО камера: масштаб/сдвиг возвращаются к обзору.
       // Фильтр, запрос поиска, выбранный узел и подсветка — состояние
@@ -33165,6 +34072,44 @@
               catch (e) { /* noop */ }
             }
             scene.onClick = null;
+          }
+          // CMV-PHY-04c: wheel/pinch-слушатели снимаются вместе со сценой
+          // (§1 контракта — 20 переключений режима не копят обработчики).
+          if (scene.onWheel || scene.onPinchStart || scene.onPinchEnd) {
+            var gestEl = scene.el || this._cogEl || null;
+            if (gestEl
+                && typeof gestEl.removeEventListener === 'function') {
+              try {
+                if (scene.onWheel) {
+                  gestEl.removeEventListener('wheel', scene.onWheel, true);
+                }
+              } catch (e) { /* noop */ }
+              try {
+                if (scene.onPinchStart) {
+                  gestEl.removeEventListener('touchstart', scene.onPinchStart,
+                    true);
+                }
+              } catch (e) { /* noop */ }
+              try {
+                if (scene.onPinchMove) {
+                  gestEl.removeEventListener('touchmove', scene.onPinchMove,
+                    true);
+                }
+              } catch (e) { /* noop */ }
+              try {
+                if (scene.onPinchEnd) {
+                  gestEl.removeEventListener('touchend', scene.onPinchEnd,
+                    true);
+                  gestEl.removeEventListener('touchcancel', scene.onPinchEnd,
+                    true);
+                }
+              } catch (e) { /* noop */ }
+            }
+            scene.onWheel = null;
+            scene.onPinchStart = null;
+            scene.onPinchMove = null;
+            scene.onPinchEnd = null;
+            scene.pinch = null;
           }
           // §6 контракта: спрайты и пул буферов сносятся ВМЕСТЕ со сценой
           // (иначе 20 переключений режима оставляли бы кэш на каждый инстанс).

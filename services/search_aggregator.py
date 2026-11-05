@@ -88,6 +88,7 @@ def _most_informative_reason(reasons) -> str:
 # Дешёвые детерминированные эвристики БЕЗ тяжёлого ранжировщика и БЕЗ
 # дополнительных LLM-вызовов. Никаких доменных словарей темы клейма.
 
+_WORD_TOKEN_RE = re.compile(r"[0-9a-zа-яё]+", re.IGNORECASE)
 _RELEVANCE_WORD_RE = re.compile(r"[0-9a-zа-яё]{4,}", re.IGNORECASE)
 _RELEVANCE_STOPWORDS = frozenset({
     "это", "этого", "этому", "того", "том", "тем", "чтобы", "как", "так",
@@ -102,19 +103,56 @@ _RELEVANCE_STOPWORDS = frozenset({
 })
 
 
-def content_terms(text: str, *, limit: int = 10) -> list[str]:
+# FC-SHORT-TOKENS (backlog 05.11.2026): прежний порог «≥4 симв.» выкидывал
+# значимые якоря из поисковых запросов: «RTX», «ЦБ», «РФ», «120», а также
+# отрицание «не» («почему не работает принтер»). Порог снижен до 2 симв.,
+# шум держится закрытым списком служебных слов 1–3 символа (предлоги,
+# союзы, частицы, местоимения; rus+eng). «НЕ» в списке НЕТ и «no»/«not»
+# тоже отсутствуют — отрицание обязано дойти до запроса. Токен с цифрой
+# или латиницей переживает фильтр длины всегда (обозначения: RTX, 4060,
+# K2, GPT, X); «sk-…» сюда не попадает — дефис режет токен у источника.
+_SHORT_TOKEN_STOPWORDS = frozenset({
+    # русские служебные (кроме «не» — смысловое отрицание)
+    "в", "на", "и", "или", "из", "за", "по", "о", "об", "у", "к", "ко",
+    "с", "со", "от", "до", "а", "но", "да", "же", "ли", "бы", "ну", "то",
+    "та", "ту", "те", "при", "уж", "их", "им", "ей", "её", "ее", "он",
+    "оно", "они", "мы", "вы", "нас", "вас", "них", "мне", "там", "тут",
+    "изо", "обо",
+    # английские служебные (кроме no/not — отрицания)
+    "a", "i", "of", "to", "in", "on", "at", "is", "it", "or", "by", "an",
+    "as", "be", "do", "up", "so", "if", "he", "we", "me", "my", "us",
+    "am", "but", "did", "has", "had", "its", "our", "all", "any", "out",
+    "off", "get", "got", "nor", "per", "via", "yet",
+})
+
+
+def content_terms(text: str, *, limit: "int | None" = 10,
+                  stopwords: "frozenset[str] | None" = None) -> list[str]:
     """Содержательные термины запроса/текста (детерминированно, lowercase,
     без стоп-слов, в исходном порядке). Для overlap-эвристики релевантности
-    и смысловых запросов fallback-поиска."""
+    и смысловых запросов fallback-поиска.
+
+    ЕДИНЫЙ токенизатор (FC-SHORT-TOKENS): порог длины 2 симв., токены
+    с цифрой/латиницей — любой длины, служебные слова 1–3 симв. отсекает
+    закрытый список _SHORT_TOKEN_STOPWORDS, поверх — стоп-слова вызывающей
+    стороны (параметр stopwords; по умолчанию _RELEVANCE_STOPWORDS).
+    factcheck_planner._claim_terms передаёт сюда свой набор стоп-слов.
+    limit=None — без обрезки (потребители, которые сами приоритезируют
+    и режут: build_search_query)."""
+    active_stop = _RELEVANCE_STOPWORDS if stopwords is None else stopwords
     seen: list[str] = []
     seen_set: set[str] = set()
-    for match in _RELEVANCE_WORD_RE.finditer(str(text or "").lower()):
+    for match in _WORD_TOKEN_RE.finditer(str(text or "").lower()):
         word = match.group(0)
-        if word in _RELEVANCE_STOPWORDS or word in seen_set:
+        if word in seen_set:
+            continue
+        if word in _SHORT_TOKEN_STOPWORDS or word in active_stop:
+            continue
+        if len(word) < 2 and not re.search(r"[0-9a-z]", word):
             continue
         seen_set.add(word)
         seen.append(word)
-        if len(seen) >= max(1, int(limit)):
+        if limit is not None and len(seen) >= max(1, int(limit)):
             break
     return seen
 
@@ -167,7 +205,26 @@ def _term_keys(text: str) -> set[str]:
     # числа любой длины (цены/версии/сборки) — значимые термины, но их
     # нельзя усекать основой (иначе 2019 == 2024)
     keys.update(n for n in re.findall(r"\d+(?:[.,]\d+)?", low) if n)
+    # FC-SHORT-TOKENS corrective: цифро-латинские обозначения 1–3 симв.
+    # («RTX», «GPT», «AI», «K2») — теперь полноценные термы запроса
+    # (content_terms их пропускает), поэтому haystack обязан их видеть,
+    # иначе терм мёртв: матч невозможен, а пол знаменателя поднимает.
+    # \b-границы не кромсают длинные слова («openai» не даст «ope»/«nai»),
+    # кириллица в класс не входит («не» остаётся невидимым haystack'у).
+    keys.update(re.findall(r"\b[a-z0-9]{1,3}\b", low))
     return keys
+
+
+def _countable_term_word(word: str) -> bool:
+    """FC-SHORT-TOKENS corrective: токен, который сравнение с текстом
+    документа РЕАЛЬНО видит (см. _term_keys): слово ≥4 симв. — через
+    _RELEVANCE_WORD_RE, цифры/латиница любой длины — через числовой и
+    цифро-латинский сборы. Короткие кириллические якоря («не») остаются
+    в термах/запросе, но в знаменателе пола не участвуют: иначе документ
+    «только про принтер» при термах принтер/не/работает терял
+    релевантность (floor рос 1 → 2), а чужой документ с одиночным «не»
+    получал лишнюю ставку в знаменателе."""
+    return len(word) >= 4 or re.search(r"[0-9a-z]", word) is not None
 
 
 def is_relevant_result(text: str, relevance_terms,
@@ -179,7 +236,11 @@ def is_relevant_result(text: str, relevance_terms,
     терминов (по основе) И ≥20% терминов. Это отсекает чужую тему, где
     случайно совпало одно имя («Claude Code» вместо «агентов Telegram»), и
     при этом пропускает пересказ другими словами («заболеваемости» ↔
-    «заболевших»)."""
+    «заболевших»).
+
+    FC-SHORT-TOKENS corrective: пол считают только токены, которые
+    haystack реально видит (_countable_term_word) — короткие
+    кириллические якоря знаменатель не поднимают."""
     terms = [str(t) for t in (relevance_terms or ()) if str(t or "").strip()]
     if not terms:
         return True
@@ -190,6 +251,8 @@ def is_relevant_result(text: str, relevance_terms,
         for word in _RELEVANCE_WORD_RE.findall(term.lower()) or [term.lower()]:
             key = term_key(word)
             if not key or key in seen:
+                continue
+            if not _countable_term_word(word):
                 continue
             seen.add(key)
             if key in haystack_keys:

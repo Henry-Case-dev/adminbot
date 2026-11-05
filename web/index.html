@@ -1179,6 +1179,42 @@
                 </div>
               </div>
 
+              <!-- ═══ UR-F (UR-20.2): «Как бот отвечает» — фактические ═════
+                   режимы со статусом и одним рабочим control каждый. -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_direct'
+                            && workspaceTab === 'overview'"
+                   class="col-span-full card p-4" data-direct-modes>
+                <div class="text-sm font-bold mb-1">Как бот отвечает</div>
+                <div class="text-xs text-gray-400 mb-3">
+                  Фактически действующие режимы для выбранной области.
+                  Значения приходят из эффективной конфигурации
+                  (чат → глобальная → заводская), а не из догадок.
+                </div>
+                <div class="grid gap-2 md:grid-cols-2" data-direct-modes-grid>
+                  <div v-for="mode in directModesView()" :key="mode.title"
+                       class="card p-3" style="min-width:0;"
+                       :data-mode-row="mode.title">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <div class="text-sm font-semibold">{{ mode.title }}</div>
+                      <span class="badge shrink-0"
+                            :class="mode.available ? 'badge-ok' : 'badge-muted'"
+                            :data-mode-badge="mode.title">{{
+                        mode.available ? 'действует' : 'нет данных' }}</span>
+                    </div>
+                    <div class="text-xs mt-1" :data-mode-line="mode.title">{{
+                      mode.line }}</div>
+                    <div class="text-xs text-gray-500 mt-1">{{ mode.hint }}</div>
+                    <button type="button" class="btn-ghost text-xs mt-2"
+                            :data-mode-control="mode.title"
+                            @click="mode.controlTab === 'inspector'
+                              ? openWorkspaceTab('inspector')
+                              : navigateTo(mode.controlRoute)">
+                      {{ mode.controlLabel }} →
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <!-- §85: стадии Саммари — честный placeholder Эпика 2 (без
                    выдуманных этапов/цифр; backend не создаётся).
                    S1 round1026: вкладка «Подготовка сообщений» (prep) теперь
@@ -1283,6 +1319,224 @@
                 <div class="text-xs text-gray-400" data-autonomous-consequence>
                   {{ directAutonomousSemantics().text }}
                 </div>
+              </div>
+
+              <!-- ═══ UR-F (UR-20.3/UR-29.3/R-ADM.5): «Что бот видел» — ════
+                   трасса РОВНО одного хода: L1 → tools → Writer → ops →
+                   delivery + фактическое время хода. Данные — существующие
+                   события turn_trace (trace_id = correlation_id), сырых
+                   текстов нет (digest'ы). Отсутствие стадии — честное
+                   «нет данных», никаких выдуманных успехов. -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_direct'
+                        && workspaceTab === 'inspector'"
+                   class="col-span-full card p-4" data-turn-inspector>
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-sm font-bold">Что бот видел при ответе</div>
+                  <button type="button" class="btn-ghost text-xs shrink-0"
+                          :disabled="turnDiagBusy"
+                          @click="loadTurnDiagnostics(true)"
+                          aria-label="Обновить трассу хода">⟳</button>
+                  <span v-if="turnDiagBusy" class="spinner my-0"></span>
+                </div>
+                <div class="text-xs text-gray-400 mb-2">
+                  Один ход = одна трасса: планирование (L1), инструменты,
+                  сборка ответа (Writer), фактические технические операции
+                  и доставка. Для старых прогонов частей трассы — «нет
+                  данных», без подмены успехом.
+                </div>
+                <div class="flex gap-1 flex-wrap mb-2" data-turn-selector>
+                  <button v-for="n in 4" :key="'turn-' + n" type="button"
+                          class="btn-ghost text-xs"
+                          :class="!turnDiagTraceId
+                                  && turnDiagTurn === n ? 'btn-accent' : ''"
+                          :data-turn-btn="n"
+                          @click="selectTurn(n)">Ход −{{ n - 1 }}</button>
+                </div>
+                <div v-if="turnDiagError" class="text-xs text-red-300 mb-2"
+                     data-turn-error>{{ turnDiagError }}</div>
+                <div v-if="!turnDiag && !turnDiagError"
+                     class="text-xs text-gray-500" data-turn-idle>
+                  Выберите ход — данные появятся после загрузки трассы.
+                </div>
+                <template v-if="turnDiag && turnDiag.available">
+                  <div class="text-xs text-gray-500 mb-2" data-turn-meta>
+                    Ход: <span class="font-mono">{{ turnDiag.trace_id }}</span>
+                    <template v-if="turnDiag.context">
+                      · {{ turnFlowLabel(turnDiag.context.flow) }}
+                      <template v-if="turnDiag.context.trigger">
+                        · триггер: {{ turnDiag.context.trigger }}</template>
+                    </template>
+                  </div>
+                  <div class="grid gap-2 md:grid-cols-2">
+                    <!-- L1 -->
+                    <div class="card p-3" data-turn-stage="l1">
+                      <div class="text-sm font-semibold mb-1">1 · Планирование (L1)</div>
+                      <template v-if="turnDiag.context">
+                        <div class="text-xs" data-turn-l1-action>
+                          Действие: {{ (turnDiag.context.l1
+                            && turnDiag.context.l1.action) || 'нет данных' }}
+                          <template v-if="turnDiag.context.l1
+                                          && turnDiag.context.l1.model">
+                            · модель: {{ turnDiag.context.l1.model }}</template>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1"
+                             data-turn-clock-line>
+                          Время хода: {{ turnClockLine(turnDiag.context) }}
+                        </div>
+                        <div class="text-xs text-gray-400" data-turn-llm-calls>
+                          LLM-вызовы: <span class="font-mono">{{
+                            JSON.stringify(turnDiag.context.llm_calls
+                              || {}) }}</span>
+                        </div>
+                        <div v-if="turnDiag.context.stop_reason"
+                             class="text-xs text-amber-300"
+                             data-turn-stop>Ход остановлен:
+                          {{ turnDiag.context.stop_reason }}</div>
+                      </template>
+                      <div v-else class="text-xs text-gray-500">нет данных</div>
+                    </div>
+                    <!-- Tools -->
+                    <div class="card p-3" data-turn-stage="tools">
+                      <div class="text-sm font-semibold mb-1">2 · Инструменты</div>
+                      <template v-if="turnDiag.context">
+                        <div class="text-xs" data-turn-tools-summary>
+                          Раундов: {{ turnDiag.context.tool_rounds || 0 }}
+                          <template v-if="turnDiag.context.tool_degraded">
+                            · деградация: {{ turnDiag.context.tool_reason
+                              || 'да' }}</template>
+                        </div>
+                        <div v-if="(turnDiag.context.tools || []).length"
+                             class="flex flex-col gap-1 mt-1">
+                          <div v-for="(t, ti) in turnDiag.context.tools"
+                               :key="'tool-' + ti" class="text-xs"
+                               data-turn-tool-row>{{ turnToolLine(t) }}</div>
+                        </div>
+                        <div v-else class="text-xs text-gray-500">
+                          инструменты не вызывались
+                        </div>
+                        <div v-if="turnDiag.context.coverage
+                                   && turnDiag.context.coverage.sources != null"
+                             class="text-xs text-gray-400 mt-1"
+                             data-turn-coverage>
+                          Источников: {{ turnDiag.context.coverage.sources }}
+                          · доставлено: {{ turnDiag.context.coverage.delivered
+                            != null ? turnDiag.context.coverage.delivered
+                            : '—' }}
+                        </div>
+                      </template>
+                      <div v-else class="text-xs text-gray-500">нет данных</div>
+                    </div>
+                    <!-- Writer -->
+                    <div class="card p-3" data-turn-stage="writer">
+                      <div class="text-sm font-semibold mb-1">3 · Writer (ответ)</div>
+                      <template v-if="turnDiag.writer">
+                        <div class="text-xs" data-turn-writer-completion>
+                          Завершение: {{ (turnDiag.writer.completion
+                            && turnDiag.writer.completion.finish_reason)
+                            || 'нет данных' }}
+                          <template v-if="turnDiag.writer.completion
+                                          && turnDiag.writer.completion.fallback_used">
+                            · <span class="text-amber-300">использован
+                              fallback</span></template>
+                          <template v-if="turnDiag.writer.completion
+                                          && turnDiag.writer.completion.attempt
+                                          && turnDiag.writer.completion.attempt > 1">
+                            · попыток: {{ turnDiag.writer.completion.attempt
+                              }}</template>
+                          <template v-if="turnDiag.writer.completion
+                                          && turnDiag.writer.completion.continuation_calls">
+                            · продолжений: {{
+                              turnDiag.writer.completion.continuation_calls
+                              }}</template>
+                        </div>
+                        <div v-if="turnDiag.writer.semantic_rewrite_count"
+                             class="text-xs text-amber-300"
+                             data-turn-rewrite>
+                          Смысловых перезаписей: {{
+                            turnDiag.writer.semantic_rewrite_count }}
+                        </div>
+                        <div v-if="turnDiag.writer.completion
+                                   && turnDiag.writer.completion.refused"
+                             class="text-xs text-red-300" data-turn-refused>
+                          Честный отказ Writer'а: {{
+                            turnDiag.writer.completion.refused_reason
+                            || 'причина не указана' }}
+                        </div>
+                        <div v-if="turnDiag.writer.manifest
+                                   && (turnDiag.writer.manifest.blocks || []).length"
+                             class="text-xs text-gray-400 mt-1"
+                             data-turn-manifest>
+                          Блоков в payload: {{
+                            turnDiag.writer.manifest.blocks.length }}
+                          · рендерилось: {{ turnDiag.writer.manifest.blocks
+                            .filter(function (b) { return b.rendered; }).length }}
+                          <template v-if="turnDiag.writer.manifest.writer">
+                            · writer: {{ turnDiag.writer.manifest.writer
+                              }}</template>
+                        </div>
+                        <div v-if="turnDiag.writer.completion
+                                   && turnDiag.writer.completion.checks"
+                             class="text-xs text-amber-300 mt-1"
+                             data-turn-checks>
+                          Находки проверок: <span class="font-mono">{{
+                            JSON.stringify(turnDiag.writer.completion.checks)
+                          }}</span>
+                        </div>
+                        <div v-if="turnDiag.writer.completion
+                                   && turnDiag.writer.completion.text_source
+                                   && turnDiag.writer.completion.text_source
+                                      !== 'author'"
+                             class="text-xs text-amber-300"
+                             data-turn-text-source>
+                          Текст: {{ turnDiag.writer.completion.text_source
+                            }} (не авторская версия)
+                        </div>
+                      </template>
+                      <div v-else class="text-xs text-gray-500">нет данных</div>
+                    </div>
+                    <!-- Ops + Delivery -->
+                    <div class="card p-3" data-turn-stage="delivery">
+                      <div class="text-sm font-semibold mb-1">4 · Операции и доставка</div>
+                      <template v-if="turnDiag.delivery">
+                        <div class="text-xs" data-turn-delivery-line>
+                          {{ turnDeliveryLabel(turnDiag.delivery,
+                             turnDiag.delivery.outcome) }}
+                        </div>
+                        <div v-if="(turnDiag.delivery.ops || []).length"
+                             class="flex flex-col gap-0.5 mt-1">
+                          <div v-for="(op, oi) in turnDiag.delivery.ops"
+                               :key="'op-' + oi" class="text-xs text-gray-400"
+                               data-turn-op-row>{{ turnOpLine(op) }}</div>
+                        </div>
+                        <div v-else class="text-xs text-gray-500">
+                          технических операций не было
+                        </div>
+                        <div v-if="turnDiag.delivery.digest_match === false"
+                             class="text-xs text-amber-300 mt-1"
+                             data-turn-divergence>
+                          raw_final ≠ delivered — причина: {{
+                            turnDiag.delivery.divergence_reason
+                            || 'не объяснено' }}
+                        </div>
+                        <div v-if="turnDiag.delivery.delivery
+                                   && turnDiag.delivery.delivery.idempotency_key"
+                             class="text-xs text-gray-500 mt-1 font-mono"
+                             data-turn-idempotency>
+                          ключ: {{ turnDiag.delivery.delivery.idempotency_key }}
+                        </div>
+                      </template>
+                      <div v-else class="text-xs text-gray-500">нет данных</div>
+                    </div>
+                  </div>
+                </template>
+                <template v-else-if="turnDiag && !turnDiag.available">
+                  <div class="text-xs text-gray-500" data-turn-unavailable>
+                    Трассы хода нет: {{ turnDiag.reason === 'no_turn_traces'
+                      ? 'для этого чата прогоны с трассой не найдены '
+                        + '(старее ретенции или телеметрия выключена)'
+                      : (turnDiag.reason || 'данные недоступны') }}.
+                  </div>
+                </template>
               </div>
 
               <!-- ── B07: секция «Время и источники» — функция Фактчека на
@@ -6056,6 +6310,13 @@
                     <div class="flex items-center gap-2 min-w-0 mb-1">
                       <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                       <span v-if="itemHiddenDev(item)" class="badge badge-warn">скрыт</span>
+                      <!-- UR-F (UR-22.1/UR-21.24/BGS-06.5): честный статус
+                           применимости из effective-меты бэкенда (no-op/
+                           legacy не прикидываются рабочими). -->
+                      <span v-if="configEffBadge(item)" class="badge"
+                            :class="configEffBadge(item).cls"
+                            :data-eff-badge="item.key">{{
+                        configEffBadge(item).text }}</span>
                       <!-- D07 (§9B.2): global view — avatar stack чатов с override -->
                       <override-stack :item-key="item.key" :item-title="item.title"
                                       :item-type="item.type"></override-stack>
@@ -6268,7 +6529,13 @@
                       <div class="text-sm font-semibold">{{ item.title }}</div>
                       <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                      <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
+                      <div class="flex items-center gap-2">
+                        <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
+                        <!-- UR-F (UR-20.9): единицы значения из effective-меты. -->
+                        <span v-if="configUnitsSuffix(item)"
+                              class="text-xs text-gray-500 shrink-0"
+                              :data-eff-units="item.key">{{ configUnitsSuffix(item) }}</span>
+                      </div>
                     </template>
                   </div>
                   </template>
@@ -7097,6 +7364,88 @@
                   <sticky-save></sticky-save>
                   <button class="btn-ghost text-sm shrink-0" @click="closeModule()">Закрыть</button>
                 </footer>
+              </div>
+            </div>
+          </template>
+          <!-- ═══ UR-F (UR-29.1/29.2/UR-24.2): «Модули → Время» ══════════════
+               ЕДИНСТВЕННАЯ редакторская поверхность пояса чата
+               (limits.chat_timezone из общего каталога выведен):
+               полное поле IANA с поиском, серверные часы (клиент не
+               вычисляет зоны), offset/DST, наследование, Save/Reset. -->
+          <template v-else-if="activeTab === 'mod_time'">
+            <div class="col-span-full card p-4" data-time-editor>
+              <div class="text-sm font-bold mb-1">Часовой пояс</div>
+              <div class="text-xs text-gray-400 mb-3">
+                В этом поясе бот называет текущее время в диалоге. Одно поле
+                на выбранный чат: пустое значение — наследование общей
+                настройки. Часы идёт от сервера (UTC + смещение зоны), а не
+                от устройства.
+              </div>
+              <div class="text-xs text-gray-500 mb-2" data-time-scope-line>
+                {{ timeConfiguredLine() }}
+              </div>
+              <div class="flex items-center gap-2 mb-1">
+                <div class="text-sm font-semibold">Часы чата</div>
+                <span class="badge badge-muted shrink-0"
+                      data-time-tz-badge>{{ timeState ? timeState.iana : '—' }}</span>
+                <span class="text-gray-500 text-xs shrink-0"
+                      data-time-offset>
+                  UTC{{ timeState ? timeState.utc_offset : '+00:00' }}<template
+                    v-if="timeState && timeState.is_dst"> · летнее время (DST)</template>
+                </span>
+              </div>
+              <div class="font-mono text-lg" data-time-clock>
+                <template v-if="timeNow">{{ timeNow.date }} · {{ timeNow.time }}
+                  <span class="text-gray-500 text-sm">{{ timeNow.weekday }}</span>
+                </template>
+                <template v-else-if="timeState">{{ timeState.now_local }}</template>
+                <template v-else>нет данных</template>
+              </div>
+              <div class="text-xs text-gray-500 mt-1" data-time-source-line>
+                Источник: {{ timeState ? timeSourceLabel(timeState.source)
+                  : '—' }}<template
+                  v-if="timeState && timeState.config_version"> · версия
+                  конфига: {{ timeState.config_version }}</template>
+              </div>
+              <div v-if="timeState && timeState.utc_fallback"
+                   class="text-xs text-amber-300 mt-1" data-time-fallback>
+                Зона недоступна на сервере (tzdata) — работает явный
+                UTC-фолбэк, выбранное значение не действует.
+              </div>
+              <div class="mt-3">
+                <label class="text-xs text-gray-400 block mb-1"
+                       for="time-zone-input">IANA-пояс (пусто = наследование)</label>
+                <input id="time-zone-input" type="text"
+                       class="field w-full" v-model="timeDraft"
+                       placeholder="Europe/Moscow"
+                       autocomplete="off" spellcheck="false"
+                       data-time-zone-input
+                       aria-label="IANA часовой пояс (пусто = наследование)">
+                <div v-if="timeZoneMatches.length"
+                     class="mt-1 flex flex-col gap-0.5 max-h-56 overflow-y-auto"
+                     data-time-zone-list>
+                  <button v-for="z in timeZoneMatches" :key="z" type="button"
+                          class="btn-ghost text-xs text-left truncate"
+                          @click="timeDraft = z">{{ z }}</button>
+                </div>
+                <div v-else-if="!timeZonesLoaded" class="text-xs text-gray-500 mt-1">
+                  Полный справочник зон не загружен — вводите IANA ID вручную.
+                </div>
+              </div>
+              <div v-if="timeError" class="text-xs text-red-300 mt-2"
+                   data-time-error>{{ timeError }}</div>
+              <div class="flex gap-2 flex-wrap mt-3" data-time-actions>
+                <button type="button" class="btn-accent text-xs"
+                        :disabled="!timeCanSave() || timeSaving"
+                        @click="saveTimezone()">Сохранить</button>
+                <button v-if="timeState && timeState.chat_id != null"
+                        type="button" class="btn-ghost text-xs"
+                        :disabled="timeSaving"
+                        @click="resetTimezone()">Вернуть общую настройку</button>
+                <span class="text-xs text-gray-500 self-center">
+                  Сохранение применяет пояс серверной валидацией; при ошибке
+                  прежнее значение остаётся.
+                </span>
               </div>
             </div>
           </template>
@@ -13142,7 +13491,7 @@
                   <span v-if="cogTruncated.active && !cogEmpty"
                         class="text-xs cog-truncated" data-cog-truncated
                         :title="cogTruncated.hint"
-                        tabindex="0" role="note">Показана часть графа</span>
+                        tabindex="0" role="note">Отображена часть графа</span>
                   <!-- Честная полнота: «показано X из Y» — НЕЙТРАЛЬНО (серый
                        текст без предупреждений). После правки S1 это нормальное
                        состояние почти любого реального чата (окрестность сидов
@@ -13207,6 +13556,33 @@
                         @click="graphResetView()"
                         :disabled="!cognitionNetwork">Сбросить вид</button>
                 <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
+                <!-- CMV-NAV-02: список различимых результатов (полное имя +
+                     тип + устойчивый ID); автофокус на одноимённом объекте
+                     без выбора пользователя запрещён. -->
+                <ul v-if="graphSearchResults.length" class="cog-search-results"
+                    data-cog-search-list role="listbox"
+                    aria-label="Результаты поиска по карте">
+                  <li v-for="(r, ri) in graphSearchResults" :key="'sre' + ri">
+                    <button type="button" class="cog-search-results__item"
+                            :data-cog-search-item="r.id"
+                            @click="pickCogSearchResult(r.id)">
+                      <span class="cog-search-results__title">{{ r.title }}</span>
+                      <span class="cog-search-results__meta">{{ r.kindLabel }} · {{ r.id }}</span>
+                    </button>
+                  </li>
+                </ul>
+                <!-- CMV-NAV-03: результат скрыт фильтром витрины — честный
+                     конфликт вместо молчаливого сброса; кнопка снимает только
+                     блокирующее ограничение. -->
+                <div v-if="graphSearchConflict" class="cog-search-conflict"
+                     data-cog-search-conflict role="status">
+                  <span>Найден «{{ graphSearchConflict.title }}», но он скрыт
+                    фильтром ({{ graphSearchConflict.blocksLabel }}). Фильтры
+                    не менялись.</span>
+                  <button type="button" class="btn-ghost text-xs"
+                          data-cog-search-show
+                          @click="showCogSearchResult()">Показать результат</button>
+                </div>
               </div>
               <!-- ОДНА видимая строка статуса по «худшему факту» (Architect
                    §9.1): renderer_failed → loading/not_loaded → degraded →
@@ -14669,6 +15045,29 @@
                           @click="graphResetView()"
                           :disabled="!cognitionNetwork">Сбросить вид</button>
                   <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
+                  <!-- CMV-NAV-02/03: те же список результатов и честный
+                       конфликт с фильтром, что во встроенном виджете. -->
+                  <ul v-if="graphSearchResults.length" class="cog-search-results"
+                      data-cog-search-list role="listbox"
+                      aria-label="Результаты поиска по карте">
+                    <li v-for="(r, ri) in graphSearchResults" :key="'sref' + ri">
+                      <button type="button" class="cog-search-results__item"
+                              :data-cog-search-item="r.id"
+                              @click="pickCogSearchResult(r.id)">
+                        <span class="cog-search-results__title">{{ r.title }}</span>
+                        <span class="cog-search-results__meta">{{ r.kindLabel }} · {{ r.id }}</span>
+                      </button>
+                    </li>
+                  </ul>
+                  <div v-if="graphSearchConflict" class="cog-search-conflict"
+                       data-cog-search-conflict role="status">
+                    <span>Найден «{{ graphSearchConflict.title }}», но он скрыт
+                      фильтром ({{ graphSearchConflict.blocksLabel }}). Фильтры
+                      не менялись.</span>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-cog-search-show
+                            @click="showCogSearchResult()">Показать результат</button>
+                  </div>
                 </div>
                 <button class="btn-ghost text-xs cog-fs__close" type="button"
                         data-cog-close @click="closeGraphFull()">✕ Закрыть</button>
@@ -14683,7 +15082,7 @@
                     <span v-if="cogTruncated.active && !cogEmpty"
                           class="text-xs cog-truncated" data-cog-truncated
                           :title="cogTruncated.hint"
-                          tabindex="0" role="note">Показана часть графа</span>
+                          tabindex="0" role="note">Отображена часть графа</span>
                     <span v-if="cogCompleteness.active && !cogEmpty"
                           class="text-xs text-gray-500 cog-completeness"
                           data-cog-completeness>{{ cogCompleteness.text }}</span>
@@ -14828,6 +15227,14 @@
 
                 <div class="cog-card__section" data-cog-card-provenance>
                   <div class="cog-card__label">Происхождение</div>
+                  <!-- CMV-CARD-07: у записи без заголовка сырой ID остаётся
+                       раскрываемым в деталях (секция скрыта в свёрнутом виде
+                       встроенной панели), а не в заголовке карточки. -->
+                  <div v-if="cogCard.titleAbsent" class="cog-card__row"
+                       data-cog-card-id-row>
+                    <span class="cog-card__key">Запись</span>
+                    <span class="cog-card__value">{{ cogCard.id }}</span>
+                  </div>
                   <div v-if="cogCard.provenance.origin" class="cog-card__row"
                        data-cog-origin>
                     <span class="cog-card__key">Откуда</span>

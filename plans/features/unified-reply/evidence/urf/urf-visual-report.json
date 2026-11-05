@@ -1,0 +1,234 @@
+{
+ "time-desktop-1440": {
+  "ok": true,
+  "matches": [
+   "America/Blanc-Sablon",
+   "America/Miquelon",
+   "Arctic/Longyearbyen",
+   "Europe/London"
+  ],
+  "matchCount": 4,
+  "fullListHint": true,
+  "clock": "05.11.2026 · 17:23:37 четверг",
+  "clockLive": true,
+  "sourceLine": "Источник: настройки чата · версия конфига: 2026-11-06T08:00:00+00:00",
+  "tzBadge": "Europe/Moscow",
+  "offsetLine": " UTC+03:00",
+  "scopeLine": "Область: чат · задано явно для этого чата",
+  "hasSave": true,
+  "hasReset": true,
+  "editorRect": {
+   "left": 232,
+   "right": 1424
+  },
+  "vw": 1440,
+  "hScroll": false
+ },
+ "direct-settings-desktop-1440": {
+  "ok": true,
+  "deadFound": [],
+  "groups": 5,
+  "honest": {
+   "speech": false,
+   "temperatureNote": false,
+   "participation": false,
+   "replyHistory": false,
+   "expertCap": false,
+   "serviceGroup": false,
+   "machineFlagsPanel": false
+  },
+  "vw": 1440,
+  "hScroll": false
+ },
+ "direct-limits-desktop-1440": {
+  "ok": true,
+  "deadFound": [],
+  "groups": 5,
+  "honest": {
+   "speech": true,
+   "temperatureNote": true,
+   "participation": true,
+   "replyHistory": true,
+   "expertCap": false,
+   "serviceGroup": false,
+   "machineFlagsPanel": false
+  },
+  "vw": 1440,
+  "hScroll": false
+ },
+ "checkup-limits-desktop-1440": {
+  "ok": true,
+  "deadFound": [],
+  "groups": 2,
+  "honest": {
+   "speech": false,
+   "temperatureNote": false,
+   "participation": false,
+   "replyHistory": false,
+   "expertCap": false,
+   "serviceGroup": true,
+   "machineFlagsPanel": false
+  },
+  "vw": 1440,
+  "hScroll": false
+ },
+ "inspector-desktop-1440": {
+  "ok": true,
+  "stages": {
+   "l1": true,
+   "tools": true,
+   "writer": true,
+   "delivery": true
+  },
+  "l1Action": " Действие: reply  · модель: test-model-8b",
+  "clockLine": " Время хода: Europe/Moscow · 2026-11-06T12:00:00+00:00 · источник: настройки чата",
+  "toolRow": "web_search · success · источников: 3 · символов: 800",
+  "completion": " Завершение: stop ",
+  "opRow": "telegram_chunk ×1 · без изменений · 420 симв.",
+  "deliveryLine": "доставлен как написан (digest совпал)",
+  "turnButtons": 4,
+  "traceId": " Ход: corr-urf-1 · Direct  · триггер: botword",
+  "hasToolWord": true,
+  "hasWriterWord": true,
+  "deliveredAsWritten": true,
+  "vw": 1440,
+  "hScroll": false
+ },
+ "modes-desktop-1440": {
+  "ok": true,
+  "titles": [
+   "Интернет для фактов",
+   "Память",
+   "Подробность",
+   "Речь и характер",
+   "Инициатива"
+  ],
+  "badges": [
+   "действует",
+   "действует",
+   "действует",
+   "действует",
+   "действует"
+  ],
+  "speechNote": true,
+  "vw": 1440,
+  "hScroll": false
+ },
+ "time-mobile-390": {
+  "ok": true,
+  "matches": [
+   "America/Blanc-Sablon",
+   "America/Miquelon",
+   "Arctic/Longyearbyen",
+   "Europe/London"
+  ],
+  "matchCount": 4,
+  "fullListHint": true,
+  "clock": "05.11.2026 · 17:23:42 четверг",
+  "clockLive": true,
+  "sourceLine": "Источник: настройки чата · версия конфига: 2026-11-06T08:00:00+00:00",
+  "tzBadge": "Europe/Moscow",
+  "offsetLine": " UTC+03:00",
+  "scopeLine": "Область: чат · задано явно для этого чата",
+  "hasSave": true,
+  "hasReset": true,
+  "editorRect": {
+   "left": 8,
+   "right": 382
+  },
+  "vw": 390,
+  "hScroll": false
+ },
+ "direct-settings-mobile-390": {
+  "ok": true,
+  "deadFound": [],
+  "groups": 5,
+  "honest": {
+   "speech": false,
+   "temperatureNote": false,
+   "participation": false,
+   "replyHistory": false,
+   "expertCap": false,
+   "serviceGroup": false,
+   "machineFlagsPanel": false
+  },
+  "vw": 390,
+  "hScroll": false
+ },
+ "direct-limits-mobile-390": {
+  "ok": true,
+  "deadFound": [],
+  "groups": 5,
+  "honest": {
+   "speech": true,
+   "temperatureNote": true,
+   "participation": true,
+   "replyHistory": true,
+   "expertCap": false,
+   "serviceGroup": false,
+   "machineFlagsPanel": false
+  },
+  "vw": 390,
+  "hScroll": false
+ },
+ "checkup-limits-mobile-390": {
+  "ok": true,
+  "deadFound": [],
+  "groups": 2,
+  "honest": {
+   "speech": false,
+   "temperatureNote": false,
+   "participation": false,
+   "replyHistory": false,
+   "expertCap": false,
+   "serviceGroup": true,
+   "machineFlagsPanel": false
+  },
+  "vw": 390,
+  "hScroll": false
+ },
+ "inspector-mobile-390": {
+  "ok": true,
+  "stages": {
+   "l1": true,
+   "tools": true,
+   "writer": true,
+   "delivery": true
+  },
+  "l1Action": " Действие: reply  · модель: test-model-8b",
+  "clockLine": " Время хода: Europe/Moscow · 2026-11-06T12:00:00+00:00 · источник: настройки чата",
+  "toolRow": "web_search · success · источников: 3 · символов: 800",
+  "completion": " Завершение: stop ",
+  "opRow": "telegram_chunk ×1 · без изменений · 420 симв.",
+  "deliveryLine": "доставлен как написан (digest совпал)",
+  "turnButtons": 4,
+  "traceId": " Ход: corr-urf-1 · Direct  · триггер: botword",
+  "hasToolWord": true,
+  "hasWriterWord": true,
+  "deliveredAsWritten": true,
+  "vw": 390,
+  "hScroll": false
+ },
+ "modes-mobile-390": {
+  "ok": true,
+  "titles": [
+   "Интернет для фактов",
+   "Память",
+   "Подробность",
+   "Речь и характер",
+   "Инициатива"
+  ],
+  "badges": [
+   "действует",
+   "действует",
+   "действует",
+   "действует",
+   "действует"
+  ],
+  "speechNote": true,
+  "vw": 390,
+  "hScroll": false
+ },
+ "console_errors": [],
+ "console_error_count": 0
+}

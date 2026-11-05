@@ -1,0 +1,1936 @@
+{
+ "generated_at": "2026-11-05T18:29:51",
+ "branch": "cmv/residual-evidence-2",
+ "base_commit": "df00f178",
+ "recheck": {
+  "branch": "cmv/wording-and-no-title",
+  "commit": "4cc230791c6f3f8c74b8c99bb1214db88de75d77",
+  "rows": [
+   "CMV-CARD-03",
+   "CMV-CARD-07",
+   "CMV-LODB-03"
+  ],
+  "note": "CARD-03/CARD-07 refreshed after the wording/no-title fixes; LODB-03 wording probe added (same method as batch 1). Other rows untouched: files and sha256 are the batch-1 ones."
+ },
+ "rows": {
+  "CMV-LBL-03": {
+   "shots": [
+    "canvas-truncated-label-1440.png",
+    "inspector-full-title-1440.png",
+    "canvas-truncated-label-390.png"
+   ],
+   "facts": {
+    "labels": {
+     "allocKeys": [
+      "labels",
+      "hidden",
+      "shown",
+      "lod",
+      "maxLabels",
+      "budget",
+      "cap",
+      "fill",
+      "boxArea",
+      "mandatory",
+      "scale",
+      "forced"
+     ],
+     "labelsShown": 11,
+     "labelForTarget": {
+      "id": "ent:-1001234567890:93",
+      "text": "Узел с исключительно длинным…",
+      "len": 29,
+      "endsEllipsis": true
+     },
+     "forced": [],
+     "dataTitle": "Узел с исключительно длинным названием, которое заведомо не помещается в одну строку подписи на канве и должно сокращаться с многоточием при отрисовке",
+     "dataTitleLen": 150,
+     "labelsSample": [
+      {
+       "id": "ent:-1001234567890:93",
+       "text": "Узел с исключительно длинным…",
+       "len": 29,
+       "endsEllipsis": true
+      },
+      {
+       "id": "ent:-1001234567890:2",
+       "text": "Костя",
+       "len": 5,
+       "endsEllipsis": false
+      },
+      {
+       "id": "paradigm:-1001234567890:31",
+       "text": "Бережёт утро",
+       "len": 12,
+       "endsEllipsis": false
+      },
+      {
+       "id": "belief:-1001234567890:21",
+       "text": "Утро начинается с кофе",
+       "len": 22,
+       "endsEllipsis": false
+      },
+      {
+       "id": "fact:-1001234567890:11",
+       "text": "Аня любит утренний кофе",
+       "len": 23,
+       "endsEllipsis": false
+      },
+      {
+       "id": "fact:-1001234567890:91",
+       "text": "nameless creature",
+       "len": 17,
+       "endsEllipsis": false
+      },
+      {
+       "id": "fact:-1001234567890:12",
+       "text": "Костя играет в шахматы",
+       "len": 22,
+       "endsEllipsis": false
+      },
+      {
+       "id": "ent:-1001234567890:3",
+       "text": "Дача",
+       "len": 4,
+       "endsEllipsis": false
+      }
+     ]
+    },
+    "card_title": {
+     "titleText": "Узел с исключительно длинным названием, которое заведомо не помещается в одну строку подписи на канве и должно сокращаться с многоточием при отрисовке",
+     "titleFullNoClip": true,
+     "dataTitleLen": 150
+    },
+    "labels_390": {
+     "allocKeys": [
+      "labels",
+      "hidden",
+      "shown",
+      "lod",
+      "maxLabels",
+      "budget",
+      "cap",
+      "fill",
+      "boxArea",
+      "mandatory",
+      "scale",
+      "forced"
+     ],
+     "labelsShown": 5,
+     "labelForTarget": {
+      "id": "ent:-1001234567890:93",
+      "text": "Узел с исключительно длинным…",
+      "len": 29,
+      "endsEllipsis": true
+     },
+     "forced": [
+      {
+       "id": "ent:-1001234567890:93",
+       "text": "Узел с исключительно длинным…",
+       "len": 29,
+       "endsEllipsis": true
+      }
+     ],
+     "dataTitle": "Узел с исключительно длинным названием, которое заведомо не помещается в одну строку подписи на канве и должно сокращаться с многоточием при отрисовке",
+     "dataTitleLen": 150,
+     "labelsSample": [
+      {
+       "id": "ent:-1001234567890:2",
+       "text": "Костя",
+       "len": 5,
+       "endsEllipsis": false
+      },
+      {
+       "id": "paradigm:-1001234567890:31",
+       "text": "Бережёт утро",
+       "len": 12,
+       "endsEllipsis": false
+      },
+      {
+       "id": "belief:-1001234567890:21",
+       "text": "Утро начинается с кофе",
+       "len": 22,
+       "endsEllipsis": false
+      },
+      {
+       "id": "fact:-1001234567890:11",
+       "text": "Аня любит утренний кофе",
+       "len": 23,
+       "endsEllipsis": false
+      }
+     ]
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "canvas-truncated-label-1440.png": "76dbfd2fdc682e3a1279a6c7679eddaffc1f8eea1345bd0c6e78cc8f1b96b73b",
+    "canvas-truncated-label-390.png": "73f6da9915a2ff88e58dd1ce7172c25a13f181a882ff3ad9a290e6500f8de79c",
+    "inspector-full-title-1440.png": "f37de1461c5b9b3b8c28360de8b77b7e546d47625f8ccff2cbf4ffef87a53794"
+   }
+  },
+  "CMV-FS-04": {
+   "shots": [
+    "inspector-longtext-top-1440.png",
+    "inspector-longtext-scrolled-1440.png",
+    "negative-shorttext-noscroll-1440.png",
+    "inspector-longtext-sheet-390.png"
+   ],
+   "facts": {
+    "fullscreen": {
+     "fsPresent": true,
+     "fsRect": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "right": 1440,
+      "bottom": 900
+     },
+     "pageScrollHeight": 3173,
+     "pageClientHeight": 900,
+     "pageScrollsAtAll": true,
+     "pageScrollTopBefore": 113,
+     "pageScrollTopAfterCardScroll": 113,
+     "pageMovedByCardScroll": false,
+     "cardScroll": {
+      "scrollHeight": 1467,
+      "clientHeight": 814,
+      "scrollTopBefore": 0,
+      "scrollTopAfter": 653,
+      "overflowY": "auto"
+     },
+     "closeBefore": {
+      "x": 1374.4,
+      "y": 87,
+      "w": 40.6,
+      "h": 44,
+      "right": 1415,
+      "bottom": 131
+     },
+     "closeAfterScroll": {
+      "x": 1374.4,
+      "y": 87,
+      "w": 40.6,
+      "h": 44,
+      "right": 1415,
+      "bottom": 131
+     },
+     "closeStillVisibleAfterScroll": true,
+     "headPosition": "sticky"
+    },
+    "short_text_control": {
+     "cardScroll": {
+      "scrollHeight": 810,
+      "clientHeight": 810,
+      "scrollTopBefore": 0,
+      "scrollTopAfter": 0,
+      "overflowY": "auto"
+     },
+     "pageScrolls": null
+    },
+    "mobile_sheet": {
+     "fsPresent": false,
+     "fsRect": null,
+     "pageScrollHeight": 844,
+     "pageClientHeight": 844,
+     "pageScrollsAtAll": false,
+     "pageScrollTopBefore": 0,
+     "pageScrollTopAfterCardScroll": 0,
+     "pageMovedByCardScroll": false,
+     "cardScroll": {
+      "scrollHeight": 1513,
+      "clientHeight": 336,
+      "scrollTopBefore": 0,
+      "scrollTopAfter": 1177,
+      "overflowY": "auto"
+     },
+     "closeBefore": {
+      "x": 313.4,
+      "y": 703.8,
+      "w": 40.6,
+      "h": 34,
+      "right": 354,
+      "bottom": 737.8
+     },
+     "closeAfterScroll": {
+      "x": 313.4,
+      "y": 703.8,
+      "w": 40.6,
+      "h": 34,
+      "right": 354,
+      "bottom": 737.8
+     },
+     "closeStillVisibleAfterScroll": true,
+     "headPosition": "sticky"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "inspector-longtext-scrolled-1440.png": "633ca75ad66d7ea54681dc9fededa881bebc0bad2910e99e74761d0f2a661401",
+    "inspector-longtext-sheet-390.png": "185bb13c9816cf9bdbb83651d0e71c6e57de21dac8ba50011a5fc6076cb16566",
+    "inspector-longtext-top-1440.png": "0062e2c993049a0a625f9f08c6f28b280953d932a9b736d85e9706e0de7f91b7",
+    "negative-shorttext-noscroll-1440.png": "58cdd5de4f0b55c377a063694d9d037b62031a59ee6fefc33f698d7b786c8e74"
+   }
+  },
+  "CMV-CARD-02": {
+   "shots": [
+    "card-metrics-1440.png",
+    "negative-embed-collapsed-1440.png",
+    "embed-expanded-tech-1440.png"
+   ],
+   "facts": {
+    "card_fullscreen": {
+     "placement": "full",
+     "cardRect": {
+      "x": 1068,
+      "y": 76,
+      "w": 360,
+      "h": 816,
+      "right": 1428,
+      "bottom": 892
+     },
+     "titleText": "nameless creature",
+     "titleFullNoClip": true,
+     "textPresent": true,
+     "textClassAbsent": false,
+     "textSnippet": "Наблюдение зафиксировано в чате: существо без имени появлялось неоднократно, реакции противоречивые, источник сообщения не указан. Наблюдение зафиксировано в ча",
+     "metricsRows": [
+      {
+       "key": "importance",
+       "text": "Важность5 правило извлечения важности"
+      },
+      {
+       "key": "degree",
+       "text": "Связей1 по показанным связям"
+      }
+     ],
+     "idInAttribute": "fact:-1001234567890:91",
+     "idVisibleInCardText": false,
+     "closeBtnRect": {
+      "x": 1374.4,
+      "y": 87,
+      "w": 40.6,
+      "h": 44,
+      "right": 1415,
+      "bottom": 131
+     },
+     "closeVisible": true,
+     "headPosition": "sticky",
+     "cardScroll": {
+      "scrollHeight": 1467,
+      "clientHeight": 814,
+      "overflowY": "auto"
+     },
+     "placementValue": "full"
+    },
+    "card_embed_collapsed": {
+     "placement": "embed",
+     "cardRect": {
+      "x": 249,
+      "y": 909.2,
+      "w": 1158,
+      "h": 360,
+      "right": 1407,
+      "bottom": 1269.2
+     },
+     "titleText": "nameless creature",
+     "titleFullNoClip": true,
+     "textPresent": true,
+     "textClassAbsent": false,
+     "textSnippet": "Наблюдение зафиксировано в чате: существо без имени появлялось неоднократно, реакции противоречивые, источник сообщения не указан. Наблюдение зафиксировано в ча",
+     "metricsRows": [
+      {
+       "key": "importance",
+       "text": "Важность5 правило извлечения важности"
+      },
+      {
+       "key": "degree",
+       "text": "Связей1 по показанным связям"
+      }
+     ],
+     "idInAttribute": "fact:-1001234567890:91",
+     "idVisibleInCardText": false,
+     "closeBtnRect": {
+      "x": 1355.4,
+      "y": 918.2,
+      "w": 40.6,
+      "h": 34,
+      "right": 1396,
+      "bottom": 952.2
+     },
+     "closeVisible": false,
+     "headPosition": "sticky",
+     "cardScroll": {
+      "scrollHeight": 419,
+      "clientHeight": 358,
+      "overflowY": "auto"
+     },
+     "placementValue": "embed"
+    },
+    "card_embed_expanded": {
+     "placement": "embed",
+     "cardRect": {
+      "x": 249,
+      "y": 310.2,
+      "w": 1158,
+      "h": 360,
+      "right": 1407,
+      "bottom": 670.2
+     },
+     "titleText": "nameless creature",
+     "titleFullNoClip": true,
+     "textPresent": true,
+     "textClassAbsent": false,
+     "textSnippet": "Наблюдение зафиксировано в чате: существо без имени появлялось неоднократно, реакции противоречивые, источник сообщения не указан. Наблюдение зафиксировано в ча",
+     "metricsRows": [
+      {
+       "key": "importance",
+       "text": "Важность5 правило извлечения важности"
+      },
+      {
+       "key": "degree",
+       "text": "Связей1 по показанным связям"
+      }
+     ],
+     "idInAttribute": "fact:-1001234567890:91",
+     "idVisibleInCardText": false,
+     "closeBtnRect": {
+      "x": 1355.4,
+      "y": 319.2,
+      "w": 40.6,
+      "h": 34,
+      "right": 1396,
+      "bottom": 353.2
+     },
+     "closeVisible": true,
+     "headPosition": "sticky",
+     "cardScroll": {
+      "scrollHeight": 772,
+      "clientHeight": 358,
+      "overflowY": "auto"
+     },
+     "placementValue": "embed"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "card-metrics-1440.png": "3b8ee13d154bd25f6ba0c82b77dda65e3d443773e9ede0a60e9658d845d95665",
+    "embed-expanded-tech-1440.png": "6e05fd311156b0ff16e35309cb6dff509a165a01fa67406b94655ec49ab9c57c",
+    "negative-embed-collapsed-1440.png": "6d084bed35038547f75dd7051bca18a50076047e508cc98eaed982bbd799f286"
+   }
+  },
+  "CMV-CARD-03": {
+   "shots": [
+    "card-text-present-1440.png",
+    "card-text-absent-negative-1440.png"
+   ],
+   "facts": {
+    "text_present": {
+     "placement": "full",
+     "cardRect": {
+      "x": 1068,
+      "y": 76,
+      "w": 360,
+      "h": 816,
+      "right": 1428,
+      "bottom": 892
+     },
+     "titleText": "nameless creature",
+     "titleFullNoClip": true,
+     "textPresent": true,
+     "textClassAbsent": false,
+     "textSnippet": "Наблюдение зафиксировано в чате: существо без имени появлялось неоднократно, реакции противоречивые, источник сообщения не указан. Наблюдение зафиксировано в ча",
+     "metricsRows": [
+      {
+       "key": "importance",
+       "text": "Важность5 правило извлечения важности"
+      },
+      {
+       "key": "degree",
+       "text": "Связей1 по показанным связям"
+      }
+     ],
+     "idInAttribute": "fact:-1001234567890:91",
+     "idVisibleInCardText": false,
+     "closeBtnRect": {
+      "x": 1374.4,
+      "y": 87,
+      "w": 40.6,
+      "h": 44,
+      "right": 1415,
+      "bottom": 131
+     },
+     "closeVisible": true,
+     "headPosition": "sticky",
+     "cardScroll": {
+      "scrollHeight": 1467,
+      "clientHeight": 814,
+      "overflowY": "auto"
+     },
+     "placementValue": "full",
+     "absentNoteExactOnOtherRow": null
+    },
+    "text_absent": {
+     "placement": "full",
+     "cardRect": {
+      "x": 1068,
+      "y": 80,
+      "w": 360,
+      "h": 812,
+      "right": 1428,
+      "bottom": 892
+     },
+     "titleText": "Без названия",
+     "titleFullNoClip": true,
+     "textPresent": false,
+     "textClassAbsent": true,
+     "textSnippet": "Текст записи отсутствует",
+     "metricsRows": [
+      {
+       "key": "importance",
+       "text": "Важность5 правило извлечения важности"
+      },
+      {
+       "key": "degree",
+       "text": "Связей0 по показанным связям"
+      }
+     ],
+     "idInAttribute": "ent:-1001234567890:92",
+     "idVisibleInCardText": false,
+     "closeBtnRect": {
+      "x": 1374.4,
+      "y": 91,
+      "w": 40.6,
+      "h": 44,
+      "right": 1415,
+      "bottom": 135
+     },
+     "closeVisible": true,
+     "headPosition": "sticky",
+     "cardScroll": {
+      "scrollHeight": 810,
+      "clientHeight": 810,
+      "overflowY": "auto"
+     },
+     "placementValue": "full",
+     "expectedAbsentNote": "Текст записи отсутствует",
+     "absentNoteMatchesRequirement": true
+    },
+    "extra": {
+     "titleText": "Без названия",
+     "idInTitle": false,
+     "idInAttribute": "ent:-1001234567890:92",
+     "idRowPresent": true,
+     "idRowText": "Записьent:-1001234567890:92",
+     "idRowVisible": true,
+     "idRowInsideProvenance": true
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "card-text-absent-negative-1440.png": "f18a0be1ded0f3f2d8942e0143945be294972bd0c1f078408ae46e22dd143f73",
+    "card-text-present-1440.png": "f8875d63cde8ebbf921ab1f80156633be6b4d086cd270ad4f012c4145f0328b8"
+   },
+   "recheck_commit": "4cc230791c6f3f8c74b8c99bb1214db88de75d77",
+   "recheck_branch": "cmv/wording-and-no-title"
+  },
+  "CMV-CARD-07": {
+   "shots": [
+    "card-nameless-creature-1440.png",
+    "card-untitled-negative-1440.png"
+   ],
+   "facts": {
+    "nameless_creature": {
+     "placement": "full",
+     "cardRect": {
+      "x": 1068,
+      "y": 76,
+      "w": 360,
+      "h": 816,
+      "right": 1428,
+      "bottom": 892
+     },
+     "titleText": "nameless creature",
+     "titleFullNoClip": true,
+     "textPresent": true,
+     "textClassAbsent": false,
+     "textSnippet": "Наблюдение зафиксировано в чате: существо без имени появлялось неоднократно, реакции противоречивые, источник сообщения не указан. Наблюдение зафиксировано в ча",
+     "metricsRows": [
+      {
+       "key": "importance",
+       "text": "Важность5 правило извлечения важности"
+      },
+      {
+       "key": "degree",
+       "text": "Связей1 по показанным связям"
+      }
+     ],
+     "idInAttribute": "fact:-1001234567890:91",
+     "idVisibleInCardText": false,
+     "closeBtnRect": {
+      "x": 1374.4,
+      "y": 87,
+      "w": 40.6,
+      "h": 44,
+      "right": 1415,
+      "bottom": 131
+     },
+     "closeVisible": true,
+     "headPosition": "sticky",
+     "cardScroll": {
+      "scrollHeight": 1467,
+      "clientHeight": 814,
+      "overflowY": "auto"
+     },
+     "placementValue": "full"
+    },
+    "untitled_node": {
+     "placement": "full",
+     "cardRect": {
+      "x": 1068,
+      "y": 80,
+      "w": 360,
+      "h": 812,
+      "right": 1428,
+      "bottom": 892
+     },
+     "titleText": "Без названия",
+     "titleFullNoClip": true,
+     "textPresent": false,
+     "textClassAbsent": true,
+     "textSnippet": "Текст записи отсутствует",
+     "metricsRows": [
+      {
+       "key": "importance",
+       "text": "Важность5 правило извлечения важности"
+      },
+      {
+       "key": "degree",
+       "text": "Связей0 по показанным связям"
+      }
+     ],
+     "idInAttribute": "ent:-1001234567890:92",
+     "idVisibleInCardText": false,
+     "closeBtnRect": {
+      "x": 1374.4,
+      "y": 91,
+      "w": 40.6,
+      "h": 44,
+      "right": 1415,
+      "bottom": 135
+     },
+     "closeVisible": true,
+     "headPosition": "sticky",
+     "cardScroll": {
+      "scrollHeight": 810,
+      "clientHeight": 810,
+      "overflowY": "auto"
+     },
+     "placementValue": "full"
+    },
+    "extra": {
+     "titleText": "Без названия",
+     "idInTitle": false,
+     "idInAttribute": "ent:-1001234567890:92",
+     "idRowPresent": true,
+     "idRowText": "Записьent:-1001234567890:92",
+     "idRowVisible": true,
+     "idRowInsideProvenance": true,
+     "expected": {
+      "titleText": "Без названия",
+      "id": "ent:-1001234567890:92",
+      "absentNote": "Текст записи отсутствует"
+     },
+     "headerIsNeutralLabel": true,
+     "headerHasNoRawId": true,
+     "idAvailableInDetails": true
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:92"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "card-nameless-creature-1440.png": "584db5dc131b1b477a880485e3a512d4d02cd8c233897d31ee29d783cdca937b",
+    "card-untitled-negative-1440.png": "ac0cfe55c6debaa0be414b410f212984e49ea3d222d18aa63388a59246e9066e"
+   },
+   "recheck_commit": "4cc230791c6f3f8c74b8c99bb1214db88de75d77",
+   "recheck_branch": "cmv/wording-and-no-title"
+  },
+  "CMV-EMB-01": {
+   "shots": [
+    "status-grid-card-1440.png",
+    "status-grid-card-390.png",
+    "negative-non-admin-no-card-1440.png"
+   ],
+   "facts": {
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": null
+    },
+    "grid": {
+     "present": true,
+     "cardClass": "card p-4 status-graph sg-12",
+     "dataCogState": "ready",
+     "glassAttr": null,
+     "backdropFilter": "blur(8px) saturate(1.3)",
+     "positionInGrid": 2,
+     "siblings": [
+      "DIV.glass-surface",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-4",
+      "sg-8",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-12"
+     ],
+     "cardRect": {
+      "w": 1192,
+      "h": 606.2
+     },
+     "sceneRect": {
+      "x": 249,
+      "y": 718.2,
+      "w": 1158,
+      "h": 420,
+      "bottom": 1138.2
+     },
+     "gapCardBottomSceneBottom": 37.2,
+     "sceneBg": "rgba(21, 27, 42, 0.85)",
+     "sceneBorderTop": "1px solid rgba(255, 255, 255, 0.08)",
+     "sceneRadius": "10px",
+     "scenePosition": "relative"
+    },
+    "note_negative": "negative-non-admin-no-card-1440.png собирается отдельным контекстом",
+    "grid_390": {
+     "present": true,
+     "cardClass": "card p-4 status-graph sg-12",
+     "dataCogState": "ready",
+     "glassAttr": null,
+     "backdropFilter": "blur(8px) saturate(1.3)",
+     "positionInGrid": 2,
+     "siblings": [
+      "DIV.glass-surface",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-4",
+      "sg-8",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-12",
+      "sg-12"
+     ],
+     "cardRect": {
+      "w": 374,
+      "h": 772.4
+     },
+     "sceneRect": {
+      "x": 25,
+      "y": 432.6,
+      "w": 340,
+      "h": 388.2,
+      "bottom": 820.8
+     },
+     "gapCardBottomSceneBottom": 53.4,
+     "sceneBg": "rgba(21, 27, 42, 0.85)",
+     "sceneBorderTop": "1px solid rgba(255, 255, 255, 0.08)",
+     "sceneRadius": "10px",
+     "scenePosition": "relative"
+    },
+    "negative_non_admin": {
+     "cardPresent": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "negative-non-admin-no-card-1440.png": "d80cefb536140cf27bca03abb25ac69fcb96503d7ef65feebf96f8248ae1407b",
+    "status-grid-card-1440.png": "3b997c5c0a826f955d57d3839484d4f626ef06d36cc2fe7dcdd152df287691f0",
+    "status-grid-card-390.png": "c9239ee137ebe9ea822ca0806b40fe6554351babd4bda67e08470d72a2a907ac"
+   }
+  },
+  "CMV-EMB-03": {
+   "shots": [
+    "scene-area-1440.png",
+    "scene-area-390.png"
+   ],
+   "facts": {
+    "scene": {
+     "canvases": [
+      {
+       "index": 0,
+       "cls": "",
+       "pe": "auto",
+       "z": "auto",
+       "rect": {
+        "x": 250,
+        "y": 719.2,
+        "w": 1156,
+        "h": 418
+       }
+      },
+      {
+       "index": 1,
+       "cls": "cog-fx",
+       "pe": "none",
+       "z": "2",
+       "rect": {
+        "x": 250,
+        "y": 719.2,
+        "w": 1156,
+        "h": 418
+       }
+      }
+     ],
+     "fxCounters": {
+      "sprites": 7,
+      "gradients": 7,
+      "paints": 16,
+      "draws": 168,
+      "pooled": 11,
+      "edgeDraws": 0,
+      "activeEdges": 0,
+      "groupDraws": 0,
+      "groupFlows": 0,
+      "groups": 0
+     },
+     "samples": {
+      "canvas0_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     "bodyBg": "rgba(0, 0, 0, 0)",
+     "sceneBg": "rgba(21, 27, 42, 0.85)",
+     "sceneBorder": "1px solid",
+     "sceneRadius": "10px"
+    },
+    "scene_390": {
+     "canvases": [
+      {
+       "index": 0,
+       "cls": "",
+       "pe": "auto",
+       "z": "auto",
+       "rect": {
+        "x": 26,
+        "y": 433.6,
+        "w": 338,
+        "h": 386.2
+       }
+      },
+      {
+       "index": 1,
+       "cls": "cog-fx",
+       "pe": "none",
+       "z": "2",
+       "rect": {
+        "x": 26,
+        "y": 433.6,
+        "w": 338,
+        "h": 386.2
+       }
+      }
+     ],
+     "fxCounters": {
+      "sprites": 7,
+      "gradients": 7,
+      "paints": 10,
+      "draws": 120,
+      "pooled": 11,
+      "edgeDraws": 0,
+      "activeEdges": 0,
+      "groupDraws": 0,
+      "groupFlows": 0,
+      "groups": 0
+     },
+     "samples": {
+      "canvas0_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     "bodyBg": "rgba(0, 0, 0, 0)",
+     "sceneBg": "rgba(21, 27, 42, 0.85)",
+     "sceneBorder": "1px solid",
+     "sceneRadius": "10px"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "scene-area-1440.png": "1e8cc04f114b58e764948c3553b768ed6efdbdbafc4545e1050fa289c1391de6",
+    "scene-area-390.png": "eefd96fae22ee348afccc94e96664cecf20ded4c350be04e5931bfe89a5247e1"
+   }
+  },
+  "CMV-EMB-04": {
+   "shots": [
+    "layers-no-selection-1440.png",
+    "layers-selection-1440.png",
+    "layers-selection-390.png"
+   ],
+   "facts": {
+    "layers_no_selection": {
+     "canvases": [
+      {
+       "index": 0,
+       "cls": "",
+       "pe": "auto",
+       "z": "auto",
+       "rect": {
+        "x": 250,
+        "y": 719.2,
+        "w": 1156,
+        "h": 418
+       }
+      },
+      {
+       "index": 1,
+       "cls": "cog-fx",
+       "pe": "none",
+       "z": "2",
+       "rect": {
+        "x": 250,
+        "y": 719.2,
+        "w": 1156,
+        "h": 418
+       }
+      }
+     ],
+     "fxCounters": {
+      "sprites": 7,
+      "gradients": 7,
+      "paints": 16,
+      "draws": 168,
+      "pooled": 11,
+      "edgeDraws": 0,
+      "activeEdges": 0,
+      "groupDraws": 0,
+      "groupFlows": 0,
+      "groups": 0
+     },
+     "samples": {
+      "canvas0_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     "bodyBg": "rgba(0, 0, 0, 0)",
+     "sceneBg": "rgba(21, 27, 42, 0.85)",
+     "sceneBorder": "1px solid",
+     "sceneRadius": "10px"
+    },
+    "selectedId": "ent:-1001234567890:1",
+    "layers_selection": {
+     "canvases": [
+      {
+       "index": 0,
+       "cls": "",
+       "pe": "auto",
+       "z": "auto",
+       "rect": {
+        "x": 250,
+        "y": 444.2,
+        "w": 1156,
+        "h": 418
+       }
+      },
+      {
+       "index": 1,
+       "cls": "cog-fx",
+       "pe": "none",
+       "z": "2",
+       "rect": {
+        "x": 250,
+        "y": 444.2,
+        "w": 1156,
+        "h": 418
+       }
+      }
+     ],
+     "fxCounters": {
+      "sprites": 10,
+      "gradients": 10,
+      "paints": 59,
+      "draws": 755,
+      "pooled": 11,
+      "edgeDraws": 36,
+      "activeEdges": 1,
+      "groupDraws": 0,
+      "groupFlows": 0,
+      "groups": 0
+     },
+     "samples": {
+      "canvas0_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     "bodyBg": "rgba(0, 0, 0, 0)",
+     "sceneBg": "rgba(21, 27, 42, 0.85)",
+     "sceneBorder": "1px solid",
+     "sceneRadius": "10px"
+    },
+    "layers_no_selection_390": {
+     "canvases": [
+      {
+       "index": 0,
+       "cls": "",
+       "pe": "auto",
+       "z": "auto",
+       "rect": {
+        "x": 26,
+        "y": 433.6,
+        "w": 338,
+        "h": 386.2
+       }
+      },
+      {
+       "index": 1,
+       "cls": "cog-fx",
+       "pe": "none",
+       "z": "2",
+       "rect": {
+        "x": 26,
+        "y": 433.6,
+        "w": 338,
+        "h": 386.2
+       }
+      }
+     ],
+     "fxCounters": {
+      "sprites": 7,
+      "gradients": 7,
+      "paints": 10,
+      "draws": 120,
+      "pooled": 11,
+      "edgeDraws": 0,
+      "activeEdges": 0,
+      "groupDraws": 0,
+      "groupFlows": 0,
+      "groups": 0
+     },
+     "samples": {
+      "canvas0_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     "bodyBg": "rgba(0, 0, 0, 0)",
+     "sceneBg": "rgba(21, 27, 42, 0.85)",
+     "sceneBorder": "1px solid",
+     "sceneRadius": "10px"
+    },
+    "selectedId_390": "ent:-1001234567890:1",
+    "layers_selection_390": {
+     "canvases": [
+      {
+       "index": 0,
+       "cls": "",
+       "pe": "auto",
+       "z": "auto",
+       "rect": {
+        "x": 26,
+        "y": 433.6,
+        "w": 338,
+        "h": 386.2
+       }
+      },
+      {
+       "index": 1,
+       "cls": "cog-fx",
+       "pe": "none",
+       "z": "2",
+       "rect": {
+        "x": 26,
+        "y": 433.6,
+        "w": 338,
+        "h": 386.2
+       }
+      }
+     ],
+     "fxCounters": {
+      "sprites": 10,
+      "gradients": 10,
+      "paints": 50,
+      "draws": 673,
+      "pooled": 11,
+      "edgeDraws": 37,
+      "activeEdges": 1,
+      "groupDraws": 0,
+      "groupFlows": 0,
+      "groups": 0
+     },
+     "samples": {
+      "canvas0_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas0_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerTL": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_center": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "canvas1_cornerBR": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     "bodyBg": "rgba(0, 0, 0, 0)",
+     "sceneBg": "rgba(21, 27, 42, 0.85)",
+     "sceneBorder": "1px solid",
+     "sceneRadius": "10px"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "layers-no-selection-1440.png": "5caaad5e8c9335e1a92fa86f7104d9acf2156bc6bdb87b3b78cd72d43bdb942f",
+    "layers-selection-1440.png": "760ec3852c96d77eb2e913b0c03ff6cd9fa0fd69809b3e306116de7c0d329649",
+    "layers-selection-390.png": "4c847a2f4d89c0d1ce955f32d8167be99465599fe1719a56b62f3bdfebb55bfc"
+   }
+  },
+  "CMV-CARD-08": {
+   "shots": [
+    "negative-no-card-before-select-1440.png",
+    "inspector-under-scene-1440.png",
+    "inspector-sheet-390.png"
+   ],
+   "facts": {
+    "selectedId": "ent:-1001234567890:2",
+    "card": {
+     "placement": "embed",
+     "cardRect": {
+      "x": 249,
+      "y": 657.2,
+      "w": 1158,
+      "h": 360,
+      "right": 1407,
+      "bottom": 1017.2
+     },
+     "titleText": "Костя",
+     "titleFullNoClip": true,
+     "textPresent": true,
+     "textClassAbsent": false,
+     "textSnippet": "Костя",
+     "metricsRows": [
+      {
+       "key": "importance",
+       "text": "Важность5 правило извлечения важности"
+      },
+      {
+       "key": "degree",
+       "text": "Связей1 по показанным связям"
+      }
+     ],
+     "idInAttribute": "ent:-1001234567890:2",
+     "idVisibleInCardText": false,
+     "closeBtnRect": {
+      "x": 1355.4,
+      "y": 666.2,
+      "w": 40.6,
+      "h": 34,
+      "right": 1396,
+      "bottom": 700.2
+     },
+     "closeVisible": true,
+     "headPosition": "sticky",
+     "cardScroll": {
+      "scrollHeight": 555,
+      "clientHeight": 358,
+      "overflowY": "auto"
+     },
+     "placementValue": "embed"
+    },
+    "layout": {
+     "sceneRect": {
+      "x": 249,
+      "y": 229.2,
+      "w": 1158,
+      "h": 420,
+      "bottom": 649.2
+     },
+     "cardRect": {
+      "w": 1192,
+      "h": 954
+     }
+    },
+    "selectedId_390": "ent:-1001234567890:2",
+    "card_390": {
+     "placement": "embed",
+     "cardRect": {
+      "x": 25,
+      "y": 813.8,
+      "w": 340,
+      "h": 337.6,
+      "right": 365,
+      "bottom": 1151.4
+     },
+     "titleText": "Костя",
+     "titleFullNoClip": true,
+     "textPresent": true,
+     "textClassAbsent": false,
+     "textSnippet": "Костя",
+     "metricsRows": [
+      {
+       "key": "importance",
+       "text": "Важность5 правило извлечения важности"
+      },
+      {
+       "key": "degree",
+       "text": "Связей1 по показанным связям"
+      }
+     ],
+     "idInAttribute": "ent:-1001234567890:2",
+     "idVisibleInCardText": false,
+     "closeBtnRect": {
+      "x": 313.4,
+      "y": 827.8,
+      "w": 40.6,
+      "h": 34,
+      "right": 354,
+      "bottom": 861.8
+     },
+     "closeVisible": false,
+     "headPosition": "sticky",
+     "cardScroll": {
+      "scrollHeight": 691,
+      "clientHeight": 336,
+      "overflowY": "auto"
+     },
+     "placementValue": "embed"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "inspector-sheet-390.png": "3a1b8e0177f748d7f9454d00c3d0a0b1cd90af869d240a496b1be3e76be66afb",
+    "inspector-under-scene-1440.png": "4e755e528ab3556b30f9b86eaec6d5973536e333b94979b04d9a27e0f8188e89",
+    "negative-no-card-before-select-1440.png": "725205d62dbec48e9fa0c294681009390e4b4a32d14d2b76221390afe1bef8f7"
+   }
+  },
+  "CMV-RESP-01": {
+   "shots": [
+    "controls-wide-1440.png",
+    "controls-wrapped-768.png"
+   ],
+   "facts": {
+    "header_1440_embed_wide_contrast": {
+     "widgetClass": "card p-4 status-graph sg-12",
+     "cardRect": {
+      "x": 232,
+      "y": 80.2,
+      "w": 1192,
+      "h": 586,
+      "right": 1424,
+      "bottom": 666.2
+     },
+     "innerW": 1440,
+     "titleRect": {
+      "x": 249,
+      "y": 106.2,
+      "w": 111,
+      "h": 16,
+      "right": 360,
+      "bottom": 122.2
+     },
+     "fullBtnRect": {
+      "x": 1283.4,
+      "y": 97.2,
+      "w": 123.6,
+      "h": 34,
+      "right": 1407,
+      "bottom": 131.2
+     },
+     "inputRect": {
+      "x": 249,
+      "y": 189.4,
+      "w": 659.8,
+      "h": 39.6,
+      "right": 908.8,
+      "bottom": 229
+     },
+     "resetText": "Сбросить вид",
+     "controls": [
+      {
+       "tag": "INPUT",
+       "rect": {
+        "x": 249,
+        "y": 189.4,
+        "w": 659.8,
+        "h": 39.6,
+        "right": 908.8,
+        "bottom": 229
+       },
+       "minSide": 39.609375,
+       "text": ""
+      },
+      {
+       "tag": "SELECT",
+       "rect": {
+        "x": 985.1,
+        "y": 189.2,
+        "w": 152,
+        "h": 40,
+        "right": 1137.1,
+        "bottom": 229.2
+       },
+       "minSide": 40,
+       "text": "Все типыСущности (4)Факты (3)Убеждения ("
+      },
+      {
+       "tag": "SELECT",
+       "rect": {
+        "x": 1143.1,
+        "y": 189.2,
+        "w": 152,
+        "h": 40,
+        "right": 1295.1,
+        "bottom": 229.2
+       },
+       "minSide": 40,
+       "text": "Все кластерыПарадигмы: Бережёт утроФакты"
+      },
+      {
+       "tag": "BUTTON",
+       "rect": {
+        "x": 1301.1,
+        "y": 192.2,
+        "w": 105.9,
+        "h": 34,
+        "right": 1407,
+        "bottom": 226.2
+       },
+       "minSide": 34,
+       "text": "Сбросить вид"
+      }
+     ],
+     "overlaps": [],
+     "selectClip": [
+      {
+       "scrollW": 150,
+       "clientW": 150,
+       "truncated": false,
+       "text": "Все типы"
+      },
+      {
+       "scrollW": 150,
+       "clientW": 150,
+       "truncated": false,
+       "text": "Все кластеры"
+      }
+     ],
+     "rows": [
+      [
+       0,
+       1,
+       2
+      ],
+      [
+       3
+      ]
+     ]
+    },
+    "header_768_card_below_900": {
+     "widgetClass": "card p-4 status-graph sg-12",
+     "cardRect": {
+      "x": 16,
+      "y": 629.4,
+      "w": 736,
+      "h": 670.2,
+      "right": 752,
+      "bottom": 1299.5
+     },
+     "innerW": 768,
+     "titleRect": {
+      "x": 33,
+      "y": 655.4,
+      "w": 111,
+      "h": 16,
+      "right": 144,
+      "bottom": 671.4
+     },
+     "fullBtnRect": {
+      "x": 611.4,
+      "y": 646.4,
+      "w": 123.6,
+      "h": 34,
+      "right": 735,
+      "bottom": 680.4
+     },
+     "inputRect": {
+      "x": 33,
+      "y": 762.5,
+      "w": 315.7,
+      "h": 39.6,
+      "right": 348.7,
+      "bottom": 802.2
+     },
+     "resetText": "Сбросить вид",
+     "controls": [
+      {
+       "tag": "INPUT",
+       "rect": {
+        "x": 33,
+        "y": 762.5,
+        "w": 315.7,
+        "h": 39.6,
+        "right": 348.7,
+        "bottom": 802.2
+       },
+       "minSide": 39.609375,
+       "text": ""
+      },
+      {
+       "tag": "SELECT",
+       "rect": {
+        "x": 425,
+        "y": 762.4,
+        "w": 152,
+        "h": 40,
+        "right": 577,
+        "bottom": 802.4
+       },
+       "minSide": 40,
+       "text": "Все типыСущности (4)Факты (3)Убеждения ("
+      },
+      {
+       "tag": "SELECT",
+       "rect": {
+        "x": 583,
+        "y": 762.4,
+        "w": 152,
+        "h": 40,
+        "right": 735,
+        "bottom": 802.4
+       },
+       "minSide": 40,
+       "text": "Все кластерыПарадигмы: Бережёт утроФакты"
+      },
+      {
+       "tag": "BUTTON",
+       "rect": {
+        "x": 33,
+        "y": 808.4,
+        "w": 105.9,
+        "h": 34,
+        "right": 138.9,
+        "bottom": 842.4
+       },
+       "minSide": 34,
+       "text": "Сбросить вид"
+      }
+     ],
+     "overlaps": [],
+     "selectClip": [
+      {
+       "scrollW": 150,
+       "clientW": 150,
+       "truncated": false,
+       "text": "Все типы"
+      },
+      {
+       "scrollW": 150,
+       "clientW": 150,
+       "truncated": false,
+       "text": "Все кластеры"
+      }
+     ],
+     "rows": [
+      [
+       0,
+       1,
+       2
+      ],
+      [
+       3
+      ]
+     ]
+    },
+    "counters_768": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": null
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "controls-wide-1440.png": "be90650a7f2b71e0c441f043f457c7c23e8dfc2007b56236604891f4db19bfda",
+    "controls-wrapped-768.png": "e74df60dbf7073aa9161d0c9eca369764e56e0432aa86c3e4916fed7c0be918f"
+   }
+  },
+  "CMV-VIS-05": {
+   "shots": [
+    "search-filters-702fit-1440.png",
+    "negative-scrolled-away-1440.png"
+   ],
+   "facts": {
+    "fit": {
+     "fitScale": 0.10689170182841068,
+     "scale": 0.10689170182841068
+    },
+    "visible": {
+     "innerW": 1440,
+     "innerH": 900,
+     "inputRect": {
+      "x": 249,
+      "y": 702.4,
+      "w": 659.8,
+      "h": 39.6,
+      "right": 908.8,
+      "bottom": 742
+     },
+     "inputVisible": true,
+     "selectRects": [
+      {
+       "x": 985.1,
+       "y": 702.2,
+       "w": 152,
+       "h": 40,
+       "right": 1137.1,
+       "bottom": 742.2
+      },
+      {
+       "x": 1143.1,
+       "y": 702.2,
+       "w": 152,
+       "h": 40,
+       "right": 1295.1,
+       "bottom": 742.2
+      }
+     ],
+     "selectsVisible": true,
+     "countersText": "в базе 52580 узлов · 97920 связей·из API 702 узлов · 2400 связей·на экране 0 узлов поштучно · 6 районов (702 записей)"
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": null
+    },
+    "negative_scrolled_away": {
+     "inputRect": {
+      "x": 249,
+      "y": -186.6,
+      "w": 659.8,
+      "h": 39.6,
+      "right": 908.8,
+      "bottom": -147
+     },
+     "inputVisible": false,
+     "selectsVisible": false
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "negative-scrolled-away-1440.png": "e6ac67c40a712c8f80badc01872aecd386a9a3cc724e9f9ad0e078167d2ffbb4",
+    "search-filters-702fit-1440.png": "3cf85809d5f64424efa9bd74e571d50567897fd2ede280f573f9de07d490f2fa"
+   }
+  },
+  "CMV-RESP-02": {
+   "shots": [
+    "header-390.png"
+   ],
+   "facts": {
+    "header_390": {
+     "widgetClass": "card p-4 status-graph sg-12",
+     "cardRect": {
+      "x": 8,
+      "y": 950.8,
+      "w": 374,
+      "h": 772.4,
+      "right": 382,
+      "bottom": 1723.2
+     },
+     "innerW": 390,
+     "titleRect": {
+      "x": 25,
+      "y": 981.8,
+      "w": 208.4,
+      "h": 16,
+      "right": 233.4,
+      "bottom": 997.8
+     },
+     "fullBtnRect": {
+      "x": 241.4,
+      "y": 967.8,
+      "w": 123.6,
+      "h": 44,
+      "right": 365,
+      "bottom": 1011.8
+     },
+     "inputRect": {
+      "x": 25,
+      "y": 1137.6,
+      "w": 340,
+      "h": 44,
+      "right": 365,
+      "bottom": 1181.6
+     },
+     "resetText": "Сбросить вид",
+     "controls": [
+      {
+       "tag": "INPUT",
+       "rect": {
+        "x": 25,
+        "y": 1137.6,
+        "w": 340,
+        "h": 44,
+        "right": 365,
+        "bottom": 1181.6
+       },
+       "minSide": 44,
+       "text": ""
+      },
+      {
+       "tag": "SELECT",
+       "rect": {
+        "x": 78.6,
+        "y": 1187.6,
+        "w": 286.4,
+        "h": 44,
+        "right": 365,
+        "bottom": 1231.6
+       },
+       "minSide": 44,
+       "text": "Все типыСущности (4)Факты (3)Убеждения ("
+      },
+      {
+       "tag": "SELECT",
+       "rect": {
+        "x": 25,
+        "y": 1237.6,
+        "w": 247.5,
+        "h": 44,
+        "right": 272.5,
+        "bottom": 1281.6
+       },
+       "minSide": 44,
+       "text": "Все кластерыПарадигмы: Бережёт утроФакты"
+      },
+      {
+       "tag": "BUTTON",
+       "rect": {
+        "x": 278.5,
+        "y": 1237.6,
+        "w": 86.5,
+        "h": 44,
+        "right": 365,
+        "bottom": 1281.6
+       },
+       "minSide": 44,
+       "text": "Сбросить вид"
+      }
+     ],
+     "overlaps": [],
+     "selectClip": [
+      {
+       "scrollW": 284,
+       "clientW": 284,
+       "truncated": false,
+       "text": "Все типы"
+      },
+      {
+       "scrollW": 246,
+       "clientW": 246,
+       "truncated": false,
+       "text": "Все кластеры"
+      }
+     ],
+     "rows": [
+      [
+       0
+      ],
+      [
+       1
+      ],
+      [
+       2,
+       3
+      ]
+     ]
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": null
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "header-390.png": "0d2713799eb6a50166fb78bb54de3ee8fe9c59dd668e972544a69ab33c4a7cca"
+   }
+  },
+  "CMV-LODB-03": {
+   "shots": [
+    "truncated-label-widget-1440.png",
+    "truncated-label-fullscreen-1440.png",
+    "negative-complete-no-label-1440.png"
+   ],
+   "facts": {
+    "widget_label": {
+     "spans": [
+      {
+       "text": "Отображена часть графа",
+       "title": "Показано 11 из 320 узлов · 6 из 40 связей. Остальное сервер не отдал в этом ответе: поиск и переходы идут только по показанной части графа.",
+       "visible": true,
+       "inFullscreen": false,
+       "inWidget": true
+      }
+     ],
+     "active": true,
+     "hint": "Показано 11 из 320 узлов · 6 из 40 связей. Остальное сервер не отдал в этом ответе: поиск и переходы идут только по показанной части графа.",
+     "visNetworks": 1,
+     "labelTextMatchesRequirement": true
+    },
+    "fullscreen_label": {
+     "spans": [
+      {
+       "text": "Отображена часть графа",
+       "title": "Показано 11 из 320 узлов · 6 из 40 связей. Остальное сервер не отдал в этом ответе: поиск и переходы идут только по показанной части графа.",
+       "visible": true,
+       "inFullscreen": true,
+       "inWidget": false
+      }
+     ],
+     "active": true,
+     "hint": "Показано 11 из 320 узлов · 6 из 40 связей. Остальное сервер не отдал в этом ответе: поиск и переходы идут только по показанной части графа.",
+     "visNetworks": 1,
+     "labelTextMatchesRequirement": true
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "canvases": 2,
+     "selectedId": "ent:-1001234567890:92"
+    },
+    "negative_complete_no_label": {
+     "spans": [],
+     "active": false,
+     "hint": "",
+     "visNetworks": 1,
+     "labelAbsent": true
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "negative-complete-no-label-1440.png": "d9ac51f7ab3297c2477a47fc103d9aaf8c8376e2cdd6400ff99c7ba2c17fc344",
+    "truncated-label-fullscreen-1440.png": "d93f3453f94f51f59b5c0ef3bab3a2b037c517c37c580137217da6407828604a",
+    "truncated-label-widget-1440.png": "912745dc6821f66f7f1912e1820f761c452d3db321462e8c31f3ca3e03920c5a"
+   },
+   "recheck_commit": "4cc230791c6f3f8c74b8c99bb1214db88de75d77",
+   "recheck_branch": "cmv/wording-and-no-title"
+  }
+ }
+}

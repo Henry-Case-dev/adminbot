@@ -2,6 +2,11 @@
 
 Ветка: `evol/impl`, HEAD `c8d9866e2d740f7d51fd9cc5a7610e07ee6138ae`
 (merge RLR-04 direct-chat postprocessing removals).
+Обновление 2026-11-05 на HEAD `9ca6bb07`: пересняты только ДВЕ изменившиеся
+зоны — строка 31/Q6 (явная трансформация: RLR-03.3, ветка c39e371d,
+merge `15e8bcc3`) и строка 19/Q3 + покрытие R-08.14 (продолжение
+`finish_reason=length`, ветка 673677a1, merge `8eb6893b`); остальная
+таблица — снимок `c8d9866e` без изменений.
 Основание: `plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md` §8 R-07/R-08,
 R-09; карта `plans/features/remove-legacy-rephrasing/requirements-map.json`
 (`R-07.1`, `R-07.2`, `R-08.1`…`R-08.21`, `R-08.CFG`).
@@ -51,8 +56,9 @@ R-09; карта `plans/features/remove-legacy-rephrasing/requirements-map.json`
 
 Колонка «авторских генераций» = число **независимых финальных авторских**
 текстов, из которых реально формируется доставленный ответ на этом пути
-(L1-планирование и структурные JSON-стадии сюда не входят; continuation/transport
-retry в HEAD отсутствует — см. строку 19).
+(L1-планирование и структурные JSON-стадии сюда не входят; transport retry
+в HEAD отсутствует, а продолжение при `finish_reason=length` остаётся тем же
+автором — см. строку 19).
 
 ## 2. Матрица путей (35 строк)
 
@@ -77,7 +83,7 @@ retry в HEAD отсутствует — см. строку 19).
 | 16 | Fallback-модель провайдера | `llm_client` ноги + `build_l2_fallback_adapter` (`:7585`, `_dx`) — та же стадия, защищённые блоки (вопрос/evidence/system) | **1** | пересборка payload, текст пишет одна модель (фоллбэк-нога); `semantic_rewrite_count` не растёт | single-writer |
 | 17 | Отказ L1-планера | `l1_plan is None` → `_l1.fallback_plan(...)` + дет. capabilities (`:4297`–`:4336`) | **1** (`l2_writer`) | как в (1); planner_fallback_reason в телеметрии | single-writer |
 | 18 | L2 пустой ответ / отказ | `_l2 is None` (`:5254`) или пустой `answer` (`:5340`) → тишина/🗿 либо дет. clarification | **0** | нет текста | no-writer |
-| 19 | Длинный ответ / `finish_reason=length` | longform-план → `max_tokens=longform_max_output_tokens` (`:4466`); `LLMCompletion.is_truncated` (`llm_client:434`) **не имеет потребителей** в Direct/factcheck | **1**, но **продолжения нет**: обрыв может уйти в чат как есть | chunking режет по границам слов, но не восстанавливает оборванный текст | needs-check (Q3) |
+| 19 | Длинный ответ / `finish_reason=length` | longform-план → `max_tokens=longform_max_output_tokens` (`:4466`); фактический `finish_reason` первого авторского вызова читает `_l2_cont.complete_truncated_answer` (`direct_chat_service:7913`, `step="l2_continuation"`; `services/l2_continuation.py`), потребители `is_truncated` есть | **1** (продолжение — ТОТ ЖЕ автор: написанный фрагмент идёт как assistant-реплика с явной границей накопленных токенов, system/user/план/evidence не меняются; не второй вариант с нуля) | склейка без дублей: точное эхо «хвост написанного → голова продолжения» снимается один раз, слово на стыке целое, «.» сразу после цифры — десятичная точка; `MAX_CONTINUATION_CALLS` ограничивает, `stop_reason` отдаётся наружу; невозможность продолжения — честный отказ (`IncompleteContinuation` → `None` вызывающего), обрезок не публикуется | single-writer |
 | 20 | deep_research / отчёт (Rich ↔ HTML ↔ plain) | `response_plan.delivery_hint=="rich"` → `_rich_wanted` (`:5446`) → `_send_direct_answer`: rich (`:7716`) → safe-HTML (`:7739`) → plain (`:7754`) | **1** | три ветки одного текста; `strip_lore_html`/`escape_lore_html` — разметка, не смысл; fail ветки не перегенерируют | single-writer |
 | 21 | Рассказ «Летописца» (`ctx.lore_compiled`) | L2 вызывается (`:5229`), затем `lore_story_override` (`:5287`) подменяет `answer` готовым текстом (`lore_compiler_service:242`, LLM `lore_writer`) | доставлен **1** (`lore_writer`), но в том же ходу сгенерирован и L2-текст | numeric-гард к рассказу не применяется (это авторская речь модели), см. `RLR-04` fix `d69f52da` | needs-check (Q4) |
 | 22 | Factcheck: двухвызовный (Stage-1 JSON → Вербализатор) | `SYSTEM2_FACTCHECK_ENABLED` ON (`factcheck_service:2138`) → `_check_claim_two_call` (`:2177`): аналитик (`:2190`) → `verbalize_validated` (`:2267`) | **1** финальная (`stage2`); Stage-1 — структурный JSON, не речь | `_finalize_text` (`:2279`): `cleanup_llm_text`, `strip_phantom_tags` (детерминированно снимает выдуманные даты), `strip_lore_html`; при неподтверждённых числах — дет. отчёт (`:2289`) | single-writer |
@@ -89,13 +95,14 @@ retry в HEAD отсутствует — см. строку 19).
 | 28 | Плановая текстовая инициатива (nostalgia, `prepared_text`) | `nostalgia_worker` генерирует текст (`nostalgia_worker:1792`) → `handle_initiative(prepared_text=...)` (`:1143`) → L2 не вызывается (`:13624`) | **1** (`nostalgia_worker`) | `_style_initiative_text` + SendRecheck (как в 11) | single-writer |
 | 29 | Плановые медиа-релеи (goodmorning/common/dead_page/olya) | `goodmorning_relay:133`, `common_relay:192`, `dead_page_relay:693`, `olya_relay:72` — отправка файла + caption из источника | **0** | caption берётся из исходного контента, LLM не пишет | no-writer |
 | 30 | Meme-инициатива (картинка) | `meme_initiative.consider_chat` → `_deliver_deferred_row` → `sender(chat_id, content, prompt)` (`:2895`), prompt **не** уходит caption | **0** | учёт/брони/ledger; текст в чат не отправляется | no-writer |
-| 31 | Явная просьба «перепиши/переведи» | обычный ход → L2; `FormContract` в production **не создаётся** (`form_contract=None`, `:7632` — единственная передача) | **1** | `transform_active=False` в любом прод-вызове (`negative_constraints:969`) → узкая проверка protected facts не выполняется | needs-check (Q6) |
+| 31 | Явная просьба «перепиши/переведи» | обычный ход → L2; сигнал — функциональное поле плана L1 `preserve_source_facts` (канон EVR5: `direct_l1:339/679`, секция контракта в `chat_prompts:1478-1497`); при true И реально поданном исходнике `_explicit_transform_contract` (`direct_chat_service:2709`) в шве `handle` строит `FormContract(source_text=<исходник>)` и передаёт её в `_l2_write_answer` (`:5423-5445`) | **1** | узкая проверка protected facts (числа/даты/отрицания — со скриптовой проверкой `_has_cyrillic`, имена ростера) ТОЛЬКО для явной трансформации с поданным исходником; сводка/пересказ и свободная речь — `form_contract=None` и уходят как написаны (один вызов Writer'а); нарушение → возвращается исходник, а не литературная правка | single-writer |
 | 32 | Совпавший текст двух разных событий | `evaluate_duplicate` только наблюдает (`:5360`–`:5382`); duplicate-reroll удалён | **1** на событие | текст доставляется как написан; идемпотентность — по идентичности события, не по тексту | single-writer |
 | 33 | Смерть/перезапуск после отправки | `check_update_seen`/`mark_update_seen` (`:3680`) поверх **durable SQLite** `smart_cache` (24 ч), маркировка ДО обработки (`response_freshness:118-128`); ledger `record_delivered_output` (`:5519`); брони публикаций в initiative/meme | **0** при повторной доставке того же update | повторной отправки того же логического ответа быть не должно; для Direct нет выделенного restart-теста | needs-check (Q7) |
 | 34 | Нет ключа/квота (sandbox) | `NoApiKeyForChat` (`:4288`, `:4885`) → `_sandbox_no_key_reply` (`:6259`) | **0** | фиксированная фраза `content.no_key_reply` | no-writer |
 
-Итог по строкам: **35** путей; **16** `single-writer`, **13** `no-writer`,
-**6** `needs-check` (2b, 19, 21, 27, 31, 33).
+Итог по строкам: **35** путей; **18** `single-writer`, **13** `no-writer`,
+**4** `needs-check` (2b, 21, 27, 33). Строки 19 и 31 пересняты на HEAD
+`9ca6bb07` (Q3 и Q6 решены); остальные — снимок `c8d9866e`.
 
 ## 3. Спец-случай A — factcheck: одиночный вызов и fallback без Stage-1
 
@@ -139,10 +146,10 @@ retry в HEAD отсутствует — см. строку 19).
 |---|---|---|
 | Q1 | 2b, tool-дайджест | Считать ли LLM-сводку инструмента (`summarize_video`, `tool_router:2443`) «промежуточным свободным авторским черновиком» по §8 R-08.2, или это отдельный продуктовый инструмент, чей текст допустим как evidence? Если недопустим — нужен evidence-режим «только выдержки», это меняет контракт tool-слоя (и требует проверки остальных tool-дайджестов) |
 | Q2 | 14, §18D-переоценка | Разрешает ли §8 R-07/DoD §10 вторую генерацию в bounded-переоценке инициативы (первый текст не доставляется), или требуется один генератор с детерминированной перепроверкой условий после генерации? |
-| Q3 | 19, `finish_reason=length` | R-08.14 требует продолжения ответа. В HEAD `is_truncated` никем не читается и continuation нет. Где он должен жить: `llm_client` (транспортная нога, §7 «continuation reason») или L2-стадия (продолжение того же автора)? Нужен ответ до реализации, чтобы не появился второй «вариант с нуля» |
+| Q3 | 19, `finish_reason=length` | **Решено (RLR-08.14, ветка 673677a1, merge `8eb6893b`):** continuation размещён в L2-стадии того же автора — `services/l2_continuation.py`, шаг `step="l2_continuation"`, явная граница накопленных токенов, без второго «варианта с нуля»; исчерпанный лимит/сбой провайдера не публикуют обрезок (честный отказ). R-08.14 VERIFIED: `tests/test_rlr_length_continuation.py` (17 passed на дереве 8eb6893b) |
 | Q4 | 21, рассказ «Летописца» | Должен ли L2 вообще вызываться при `ctx.lore_compiled` (сейчас генерируется текст, который затем подменяется текстом `lore_writer`)? Это лишняя платная генерация и два авторских текста в одном ходу |
 | Q5 | 27, summary L2 review/revision | Bounded reviewer/revision (≤2 ревизии, `SUMMARY_L2_REVIEW_ENABLED`) — это документный контракт саммари (сохранить) или попадает под запрет §10 «нет post-L2 reroll»? Формулировка DoD говорит о Direct/Initiative reply |
-| Q6 | 31, явная трансформация | `FormContract` не строится ни одним прод-вызовом (`form_contract=None`), т.е. проверка protected facts при «перепиши/переведи» в проде не работает. Нужно ли подключить её на Direct-пути от цитируемого источника — или считать, что формальный контракт существует только в специализированном канале? |
+| Q6 | 31, явная трансформация | **Решено (RLR-03.3, ветка c39e371d, merge `15e8bcc3`):** контракт подключён на Direct-пути от поданного исходника по сигналу `preserve_source_facts` (EVR5); сводка/пересказ осознанно БЕЗ контракта (защита честного пересказа от отката в эхо исходника), свободный ход без контракта. Скриптовая проверка отрицаний (`_has_cyrillic`) не ломает честный перевод латиницы. R-03.3 VERIFIED: `tests/test_rlr_explicit_transform.py` (12 passed на дереве 8eb6893b) |
 | Q7 | 33, restart after send | Достаточно ли durable update-маркера (SQLite, 24 ч, маркировка ДО обработки) как доказательства «нет второй отправки», или нужен отдельный тест на уровне процесса (новый процесс + повторная доставка update) для Direct? |
 
 ## 6. Покрытие R-08 на этом HEAD
@@ -162,10 +169,10 @@ retry в HEAD отсутствует — см. строку 19).
 | R-08.8 мат/сарказм/странная речь | да | `tests/test_bgs0304_speech_observation.py::test_natural_phrase_passthrough_byte_identical`; `tests/test_rlr_verbalize_scope.py::test_free_form_text_with_all_diagnostics_is_delivered_as_written` |
 | R-08.9 неподтверждённый факт при недоступном поиске | да | `tests/test_evol_evidence_routing.py::test_scenario7_categorical_nonexistence_is_observed_not_deleted`, `::test_scenario16_guard_hit_makes_no_second_call_and_keeps_joke` |
 | R-08.10 stats/измерения | частично | `tests/test_mca15_chat_statistics_round1028.py::TestNumericGuardSendPaths::test_contract_from_ctx_claims_and_expected` (MetricResult→writer), `tests/test_rlr_dcs_postprocess.py::test_free_form_number_delivered_as_written` — нет теста «все числа в ответе пришли из MetricResult» |
-| R-08.11 явный rewrite/translate | да (unit) | `tests/test_rlr_verbalize_scope.py::test_explicit_rewrite_validates_protected_facts_without_second_author`, `::test_explicit_rewrite_that_keeps_facts_is_delivered_as_written`; прод-вызова нет (Q6) |
+| R-08.11 явный rewrite/translate | да | продовый шов: `tests/test_rlr_explicit_transform.py::test_explicit_rewrite_that_breaks_protected_facts_returns_source` (нарушение → исходник, не литературная правка), `::test_faithful_rewrite_is_delivered_as_written`, `::test_contract_signal_comes_from_the_plan_field_only`, `::test_free_form_reply_has_no_form_contract`; контракт: `tests/test_rlr_verbalize_scope.py::test_explicit_rewrite_validates_protected_facts_without_second_author`, `::test_explicit_rewrite_that_keeps_facts_is_delivered_as_written` |
 | R-08.12 factcheck многосоставного утверждения | да | `tests/test_rlr_factcheck_numeric_stage.py::test_insufficient_evidence_stays_insufficient`, `::test_refuted_verdict_reports_without_softening` |
 | R-08.13 невалидная схема tool-call | да | `tests/test_tool_loop.py::test_crushed_arguments_wrapped_by_loop`; `tests/test_rlr_verbalize_scope.py::test_invalid_machine_json_is_repaired_in_machine_stage_only` |
-| R-08.14 `finish_reason=length` → продолжение | **нет** | реализации нет (`is_truncated` без потребителей) → см. Q3 |
+| R-08.14 `finish_reason=length` → продолжение | да | `tests/test_rlr_length_continuation.py::test_truncated_answer_is_continued_once_with_prefix` (тот же автор, префикс-граница), `::test_repeated_tail_is_removed_exactly_once` (эхо снимается ровно один раз), `::test_join_keeps_word_and_space_boundaries` (стык слова, десятичная точка), `::test_cap_exhausted_does_not_publish_truncated_text` и `::test_provider_error_during_continuation_is_honest` (честный отказ), `::test_continuation_is_not_a_semantic_rewrite` |
 | R-08.15 fallback/отвал провайдера | да | `tests/test_rlr_no_second_author.py::TestNoLegacyFallbackFromL2::test_provider_error_is_honest_not_draft_not_second_author`; `tests/test_llm_completion_metadata_ur18.py::test_generate_string_unchanged_in_fallback`; `tests/test_direct_fallback_recompose_asap32.py` |
 | R-08.16 HTML/Rich/plain один текст | да | `tests/test_rlr_dcs_postprocess.py::test_invalid_html_renders_same_text_plain`; `tests/test_mca23_phase2.py` (rich fail → plain, тот же документ) |
 | R-08.17 длинная реплика / chunking | да | `tests/test_smartmodule_utils.py::test_long_text_chunked_reply_only_on_first`, `::test_chunks_do_not_break_words` |
@@ -176,9 +183,10 @@ retry в HEAD отсутствует — см. строку 19).
 
 ### Рабочий список RLR-07 (сценарии без покрытия)
 
-1. **R-08.14** — продолжение ответа при `finish_reason=length`
-   (сначала решение Q3, затем реализация + тест на отсутствие оборванного
-   слова и отсутствие второго варианта).
+1. ~~**R-08.14**~~ — выполнено (ветка 673677a1, merge `8eb6893b`):
+   `services/l2_continuation.py`, продолжение того же ответа с явной границей
+   накопленных токенов; тесты `tests/test_rlr_length_continuation.py`
+   (17 passed на дереве 8eb6893b).
 2. **R-08.20** — restart-after-send для Direct: новый процесс, durable
    update-маркер, повторная доставка того же update не даёт второй отправки.
 3. **R-08.21** — единый прогон негативных сценариев на реальных гейтах
@@ -188,9 +196,10 @@ retry в HEAD отсутствует — см. строку 19).
    идеального пути.
 4. **R-08.10 (дополнить)** — тест «числа в доставленном ответе совпадают с
    `MetricResult` хода» на реальном пути stats, а не только на контракте.
-5. **R-08.11 (дополнить)** — после ответа Q6 либо подключить `FormContract`
-   на Direct-пути (тогда нужен тест прод-вызова), либо зафиксировать, что
-   контракт существует только в канале специализированной трансформации.
+5. ~~**R-08.11 (дополнить)**~~ — выполнено (RLR-03.3, ветка c39e371d,
+   merge `15e8bcc3`): контракт подключён на Direct-пути от поданного
+   исходника по сигналу `preserve_source_facts` (EVR5); прод-шов покрыт
+   `tests/test_rlr_explicit_transform.py` (12 passed на дереве 8eb6893b).
 
 ## 7. Что подтверждено по R-07
 
@@ -201,13 +210,15 @@ retry в HEAD отсутствует — см. строку 19).
   отсутствие `_synthesize_direct_answer`, резолв флагов в
   `settings.py`/`direct_l1.py`, потребители `media_delivered`,
   `is_truncated`; фактическое число прогонов тестов указано.
-- Открытые вопросы Q1–Q7 — единственное, что мешает закрыть R-07/R-08
+- Открытые вопросы Q1, Q2, Q4, Q5, Q7 (Q3 и Q6 решены — строки 19 и 31
+  пересняты на HEAD `9ca6bb07`) — единственное, что мешает закрыть R-07/R-08
   формально; выдуманных выводов в таблице нет.
 
 ## 8. Воспроизведение
 
 ```
-git rev-parse HEAD                     # c8d9866e2d740f7d51fd9cc5a7610e07ee6138ae
+git rev-parse HEAD                     # c8d9866e2d740f7d51fd9cc5a7610e07ee6138ae (снимок матрицы)
+git rev-parse HEAD                     # 9ca6bb07 — актуальный HEAD зон 19/31 (refresh 2026-11-05)
 python -m pytest tests/test_rlr_no_second_author.py \
   tests/test_rlr_verbalize_scope.py tests/test_rlr_dcs_postprocess.py \
   tests/test_rlr_factcheck_numeric_stage.py -q      # 57 passed

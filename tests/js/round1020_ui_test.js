@@ -92,6 +92,9 @@ const INDEX = fs.readFileSync(
     // в ASAP 8 F10 (pre-existing gap, REV-F7 nb-4).
     'mod_initiative',
     // EVOL-031 (30.10.2026): вкладка «Умный кэш» удалена из витрины.
+    // UR-F (UR-29.1/UR-24.2): +mod_time («Модули → Время») после
+    // mod_initiative — единая поверхность пояса чата.
+    'mod_time',
     'modules', 'memory_rag', 'people_names', 'relations',
     'permsoc', 'access', 'chat_lore', 'status', 'info', 'oversight',
   ];
@@ -110,7 +113,9 @@ const INDEX = fs.readFileSync(
     'F1: IA v2 navbar — 7 пунктов, «Память» отдельно');
   // Состав модулей (12 + «Генерация изображений» + «Инициатива») — F5 (10.24)
   // + ASAP 7 F3; пин переиздан в ASAP 8 F10.
-  assert.strictEqual(data.modules.length, 15, 'T-1903: карточек модулей — 15');
+  // UR-F (UR-29.1): +карточка «Время» (noToggle) → 15→16.
+  assert.strictEqual(data.modules.length, 16,
+    'T-1903: карточек модулей — 16 (+mod_time по UR-F)');
 })();
 
 // ── T-1895a: binding — значение из БД попадает в инпут; секрет → маска ────

@@ -485,9 +485,25 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
 - `plans/features/cfg/evidence/cfg-final/canary/canary_final.py` всё ещё передаёт `ctx=` и читает `dropped_privacy` → теперь упал бы с `TypeError`; в рабочем пути не используется. Решение PM: помечать устаревшим на месте (починка не нужна), правка — отдельным bookkeeping-касанием cfg-evidence. Источник: ревью BGS-01 (`1da5fefa`).
 - Предсуществующие падения тестов (не от BGS-полос): аудит точек записи `217 vs 207` (`database.py`, лишний `prompt_release_policy.py`), `test_verbilizer_response_modes_round1023` (1 failed + 2 errors), мем `SEND_POINTS`, `mca07_answer_cache`, таксономия агрегатора (2), `history_w4` (8), `sent=`/`projection`, 3 падения пинов, 6 JS. Источник: прогоны полос BGS-01/03/04 (05.11.2026).
 - `tools/ui_cmv_d_fullscreen_e2e.py` и `tools/ui_evol_w15_composition_e2e.py` ожидают старый совмещённый контракт «Сбросить вид» (карточка закрыта / полный showcase восстановлен). Источник: ревью разделения контракта «Сбросить вид» (05.11.2026).
+- Предсуществующее падение тест-инфраструктуры DCS: `test_budget_global_toggle_round1024` — 3 теста падают одинаково на базе и кандидате (×3, регрессии среза BGS-05 нет): тестовые двойники переопределяют `_render_thread`/`_build_user_content` без параметра `projection` → TypeError, заглушка отстала от расширенной сигнатуры. Owner: тест-инфра DCS. Источник: прогон полосы BGS-05 (06.11.2026), причина — `plans/features/evol/reports/rc-v5-selfcorrection-review.md:136`.
 
 ## Координация: параллельная перезапись карты BGS (05.11.2026)
 
 - После коммита `731ef3c0` параллельный процесс в том же worktree перезаписал `plans/features/behavior-gates-simplification/requirements-map.json` (mtime 06:39, CRLF/indent 1): строки BGS-00.5, BGS-00.9, BGS-03.4, BGS-03.5, BGS-04.3, BGS-04.10 переведены в VERIFIED с одним и тем же тест-артефактом при сохранённом тексте причины «Не проверено…».
 - Действие: дельта сохранена в `WorkspaceData/runs/c742e4de9e92c489/behavior-gates-simplification-a31ccc56ff86/temp-549fef3b99/concurrent-writer-map.{json,diff}`, карта восстановлена к `731ef3c0` (41 VERIFIED, 6 PENDING с причинами).
 - Правило: одна карта — один писатель; закрытие строки требует доказательства именно её поведения, а не общего тест-файла полосы.
+## UR-E — некритичные наблюдения ревью (06.11.2026)
+
+Карта: `plans/features/unified-reply/requirements-map.json` (срез UR-E привязан к `b2738117`, merge `2ca390c0`); нижеследующее не блокирует уже привязанные строки.
+
+- (UR-F) Мёртвые стабы `_build_mood_block`/`_build_style_anchors` остались в трёх старых тестовых файлах (`tests/test_budget_global_toggle_round1024.py`, `tests/test_history_w4_fixes.py`, `tests/test_mca07_retrieval_context_round1027.py`) + упоминание `<style_anchors>` в docstring `services/database.py:11150` (`last_bot_replies`). Активный код их не читает (производители mood/anchors сняты в UR-E); убрать при ближайшем касании UR-F. Источник: ревью UR-E (`b2738117`).
+- Хаускипинг: у `tools/workflow_housekeeping.py` нет команды `unregister-worktree` — зарегистрированный worktree-путь нельзя снять с учёта до `epic-close` (только интегрированные и чистые); для досрочного снятия остаётся правка реестра. Источник: ревью UR-E (06.11.2026).
+
+## UR-F / BGS-06-ADMIN UI — некритичные наблюдения ревью (06.11.2026)
+
+Кандидат `95e5815d` (merge `1ee6a010`, ветка `evol/impl`); нижеследующее не блокирует привязанные VERIFIED-строки карт unified-reply, behavior-gates-simplification и remove-legacy-rephrasing.
+
+- Универсальный `DELETE /api/config/chat/{key}` может снять per-chat tz override; семантика удаления равна наследованию (пустое значение = inherit), значение не теряется безвозвратно. Не дефект среза UR-F — учитывать осознанно при следующем касании time-API. Источник: ревью UR-F (95e5815d).
+- Текст 422 при невалидной зоне начинается с сырого `pg_key` — машинный код в подсказке человеку. Косметика: при следующем касании time-API заменить на человеческий hint (человеческое название поля). Источник: ревью UR-F (95e5815d).
+- Свёрнутый редактор на mobile — pre-existing паритет, подтверждён на базе (ebe79af6): не регрессия среза UR-F; наблюдение для будущей UI-полосы. Источник: ревью UR-F (95e5815d).
+- Follow-up UR-22.1: expose `feature_gate` и `last_applied_turn` в effective-config (/api/config), когда появится реальный источник данных; сейчас поля честно не отдаются (verified_scope в карте unified-reply, строка UR-22.1 @95e5815d).

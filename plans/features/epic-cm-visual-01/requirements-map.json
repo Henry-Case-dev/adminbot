@@ -1169,10 +1169,17 @@
    "acceptance": "У небольшого набора заметных реальных узлов есть пульсация яркости дальнего ореола с периодом 3–5 s и разнесёнными фазами; изменение радиуса и яркости небольшое, геометрия узла стабильна.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Механизм пульсации подтверждён тестом (пульс с периодом 4 s, малая амплитуда, яркость зависит от времени), но разнесение фаз по узлам и незаметность изменения геометрии в живом кадре/записи не измерялись.",
-   "pending_reason": "не доказано: движение узлов есть (8/8 переходов, 24 пульса), но период 3–5 s и разнесённые фазы не измерены — окно замера 2.5 s этого не позволяет. Что докажет: серия кадров ≥6 s с оценкой периода и фаз по узлам."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-ANI-01, факт-индекс evidence/residual3/manifest.json",
+     "observation": "PASS: план пульса сцены (детерминированный, хеш id) — 24 узла, периоды 3004–4855 мс (все в 3000–5000), разброс фаз 4665 мс — узлы не дышат синхронно. Пиксельные ряды кольца дальнего ореола (8.5 с × 100 мс, fx-канвас, band [1.28r, 2.55r]): у 4 из 5 узлов измеренный период совпал с планом — 3349.7↔3488, 3999.9↔3703, 3199.5↔3259, 3049.8↔3004 (все в 3000–5000); фазы у 3 из 4 совпали с план-фазой в пределах ≤83 мс (Δ82.4 / 51.9 / −10.7 мс). Амплитуда модуляции яркости крошечная — 0.019–0.065 luma среднего кольца (<0.05 %), ядро узла статично, геометрия не дышит. Filmstrip 12 кадров fx через 500 мс (pulse-filmstrip.png, sha c68782d7…) + серия кадров ≥6 с (pulse-frame-00..07-1440.png); mobile 390 — периоды в диапазоне. Честно: узел fact:327 не разложился (соседний дрейф сцены), на mobile значимость ниже (шум плотной сцены).",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-ANI-01/pulse-series.json",
+     "artifact_sha256": "85fcf9d55c980ba31216944febc95910d04330f7a9f43426783aff591a0492c5",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ]
   },
   {
    "source_id": "L00041",
@@ -1544,9 +1551,17 @@
    "acceptance": "Результат сдаётся как работающий интерфейс с независимой проверкой и проверенной версией на production; отдельный исследовательский отчёт вместо исправления не принимается.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "не доказано в репозитории: production-факты (2.58.156, /healthz 2.58.156, sha256 app.js/app.css, откат f4a44167) известны из отчёта DevOps в этой сессии, но коммитнутого артефакта развёртывания в дереве нет. Что докажет: отчёт DevOps с этими фактами, положенный в plans/features/epic-cm-visual-01/."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-INV-10 (DevOps release verification 2.58.159), факт-индекс evidence/residual3/manifest.json",
+     "observation": "Production-наблюдение закрыто релизом: кандидат 5e0cb201 (release/2.58.159: мёрж 71d67d14 эпика df00f178 + bump 2.58.158→2.58.159) задеплоен и проверен DevOps — healthz отдаёт 2.58.159, NRestarts 0, хэши отдаваемых ассетов совпали, deployed SHA = review-кандидат (release-bind note в plans/features/remove-legacy-rephrasing/requirements-map.json). CMV-эпик входит в релиз 2.58.159 (plans/workflow_state.md:10: prod 2.58.159 @ 5e0cb201, journal clean, rollback 40a62248 ready). Результат сдан как работающий интерфейс с независимой проверкой (батчи residual 1–3, ревью cmv-*-review) и проверенной версией на production.",
+     "type": "review",
+     "artifact_path": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+     "artifact_sha256": "5f75f36602aac591985c22462e97fe8a0ffd0ffe8b56d1eadd339ac4811fba44",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ]
   },
   {
    "source_id": "L00057",
@@ -1945,9 +1960,33 @@
    "acceptance": "Мобильный fullscreen занимает доступную высоту Mini App с учётом Telegram safe areas и системных верхних/нижних полос.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "не доказано: высота Mini App с учётом Telegram safe areas не измерялась (стенд воспроизводит вьюпорт, не реальный клиент). Что докажет: замер на устройстве/эмуляции с safe-area inset."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-FSM-01, факт-индекс evidence/residual2/manifest.json",
+     "observation": "PASS: мобильный fullscreen занимает ровно видимую высоту Mini App — rect 390×844 = innerHeight 844 = 100dvh; страница под диалогом не прокручивается (scrollHeight 844 = clientHeight 844); паддинги по формулам env(safe-area-inset-*), в эмуляторе env=0 → 8px (честная оговорка: ненулевые вырезы headless не задаёт); сцена видима (366×548.1), счётчики честные.",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/residual-evidence-batch2.md",
+     "artifact_sha256": "10916e4053d2bbe2ba318bfec401f17879db32076eae7a85939a1f19d60558b9",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-FSM-01, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: мобильный fullscreen 390 занимает ровно видимую высоту, сцена и контролы в кадре.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-FSM-01/fullscreen-390.png",
+     "artifact_sha256": "94b288dc6d655b0996093408647d1ae9e3c6bdeaca72997d8e66b199a66f4f8a",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-FSM-01, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Негатив: до открытия .status-graph-full отсутствует; после Esc закрыт (present: false).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-FSM-01/negative-no-fullscreen-390.png",
+     "artifact_sha256": "d806818f804c2bee3998988c649a480d7c28bd79c4af783f4490f7202aed563a",
+     "candidate_commit": "0ef12db1"
+    }
+   ]
   },
   {
    "source_id": "L00091",
@@ -1961,9 +2000,25 @@
    "acceptance": "Мобильные контролы компактные, но доступные (не меньше 44 px); длинные селекторы открываются в видимой области и не уезжают за экран.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "частично: 44 px тач-цели доказаны (D п.3), но «длинные селекторы открываются в видимой области» — нет: на 360 закрытый селект обрезан (записано как не блокирующее). Что докажет: кадр открытого селектора на 360."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-FSM-02, факт-индекс evidence/residual2/manifest.json",
+     "observation": "PASS: все интерактивные контролы мобильного fullscreen — ровно 44 px по меньшей стороне (поиск 348×44, «Найти» 47.6×44, «Все типы» 97.9×44, «Все кластеры» 97.9×44, «Сбросить вид» 86.5×44, «Закрыть» 89×44; min-height: 44px в computed), внутри вьюпорта (inVp: true), clipped: false по scrollWidth; попап нативного селекта headless не отрисовывает — проверено положение контрола и опций select (честная оговорка). Замечание «Все кластеры» тесная подпись — related-nonblocking, в бэклог визуальной полировки.",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/residual-evidence-batch2.md",
+     "artifact_sha256": "10916e4053d2bbe2ba318bfec401f17879db32076eae7a85939a1f19d60558b9",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-FSM-02, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: контролы мобильного fullscreen 390 с фактическими rect ≥44 px и открытым селектором в видимой области.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-FSM-02/fullscreen-controls-390.png",
+     "artifact_sha256": "4f1afd4e8ef4e5f12262bd00927ac263075edde83af11b935a9ba9e718ad7deb",
+     "candidate_commit": "0ef12db1"
+    }
+   ]
   },
   {
    "source_id": "L00092",
@@ -2842,9 +2897,41 @@
    "acceptance": "Соседние узлы выбранного элемента и линии к ним видны независимо от других LOD-фильтров, и для их подписей при необходимости отводится место.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "не доказано: выбранный/найденный не скрываются (C), но «соседи и линии к ним видны независимо от LOD-фильтров и им отводится место» отдельно не проверено. Что докажет: тест «выбрать узел на L1 с плотным кадром → подписи всех соседей в плане»."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-LOD1-03, факт-индекс evidence/residual2/manifest.json",
+     "observation": "PASS: на LOD0 до выбора соседи ent:2/fact:11 скрыты; после выбора ent:1 сосед fact:11 раскрыт (hiddenAfter: false), посторонний ent:2 остаётся скрыт (негатив-контроль различает состояния), линии к соседям рисуются (fx.edgeDraws 38, activeEdges 1 против 0 до выбора).",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/residual-evidence-batch2.md",
+     "artifact_sha256": "10916e4053d2bbe2ba318bfec401f17879db32076eae7a85939a1f19d60558b9",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-LOD1-03, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: LOD0 без выбора — соседи скрыты, линий к ним нет (edgeDraws 0).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-LOD1-03/lod0-no-selection-1440.png",
+     "artifact_sha256": "46c825c8a396c2ab2cf2bbe040cdb7fab18aa17934b7be3fe26d7c19114ccb93",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-LOD1-03, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: LOD0 с выбором ent:1 — сосед fact:11 раскрыт, линия к нему нарисована, посторонний ent:2 остаётся скрыт.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-LOD1-03/lod0-selected-neighbors-1440.png",
+     "artifact_sha256": "2a10db6047c8de54aea52c9e5955b239ce6927c7a73908ae0b9b217247eba778",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-LOD1-03, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: средний зум (fit×0.45, LOD0) — аллокатор поставил 3 подписи («Группа · 11», сосед, выбранный), hidden: [] — место подписям соседей отведено.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-LOD1-03/label-space-mid-zoom-1440.png",
+     "artifact_sha256": "4c466eb2f6e6371de08df93dff960b6feff2be1d5021a67b6f4f178aee32022f",
+     "candidate_commit": "0ef12db1"
+    }
+   ]
   },
   {
    "source_id": "L00149",
@@ -3034,8 +3121,33 @@
    "acceptance": "При усечённом сервером наборе показывается «Отображена часть графа» с объяснением ограничения; камера не изображает наличие всех 52 тысяч узлов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Виджет: подпись ровно «Отображена часть графа» с реальными числами «Показано 11 из 320 узлов · 6 из 40 связей» и объяснением ограничения.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-LODB-03/truncated-label-widget-1440.png",
+     "artifact_sha256": "912745dc6821f66f7f1912e1820f761c452d3db321462e8c31f3ca3e03920c5a",
+     "candidate_commit": "60333c85"
+    },
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Fullscreen: та же подпись с честными счётчиками; камера не изображает наличие всех узлов.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-LODB-03/truncated-label-fullscreen-1440.png",
+     "artifact_sha256": "d93f3453f94f51f59b5c0ef3bab3a2b037c517c37c580137217da6407828604a",
+     "candidate_commit": "60333c85"
+    },
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Негатив на полном payload: подписи усечения нет (проверка различает состояния); консоль чистая, visNetworks=1.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-LODB-03/negative-complete-no-label-1440.png",
+     "artifact_sha256": "d9ac51f7ab3297c2477a47fc103d9aaf8c8376e2cdd6400ff99c7ba2c17fc344",
+     "candidate_commit": "60333c85"
+    }
+   ],
    "pending_reason": "не доказано в C: подпись «Отображена часть графа» и объяснение проверены в D/E (GATE-11), но связка «камера не изображает наличие всех 52 тысяч» отдельно не сверялась. Что докажет: кадр при truncated + объяснение по клику."
   },
   {
@@ -3050,10 +3162,25 @@
    "acceptance": "При обновлении данных viewport и выбор сохраняются по стабильным ID, если объекты ещё существуют; пользователь не отправляется в центр каждый раз.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Камера при обновлении данных не двигается (тест: moveToCalls не растёт после _cogApplyData) — эта часть PROVEN; сохранение выбора по стабильным ID при refresh не проверялось.",
-   "pending_reason": "не доказано: сохранение камеры при смене данных подтверждено (moveToCalls не растёт), сохранение выбора по стабильным ID при обновлении — нет. Что докажет: тест «выбрать узел → применить новый набор с тем же id → selection и viewport те же»."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-LODB-04, факт-индекс evidence/residual2/manifest.json",
+     "observation": "PASS: выбор ent:1 + ручной кадр (scale 1.15, view −0.5/−125.5), затем реальное обновление данных (новый payload + loadCognitionGraph()): камера совпадает до десятых, выбор сохранён по стабильному ID (_cogSelectedId и net.getSelectedNodes() = ent:1), инстанс тот же (visNetworks: 1), данные обновились (12 узлов / 7 рёбер). Пользователь не отправлен в центр.",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/residual-evidence-batch2.md",
+     "artifact_sha256": "10916e4053d2bbe2ba318bfec401f17879db32076eae7a85939a1f19d60558b9",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-LODB-04, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: после обновления данных viewport и выбор сохранены, новый узел в модели.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-LODB-04/after-data-update-1440.png",
+     "artifact_sha256": "1b5ede4f99e7e99757e28e03258f397c09a4764ffa2f4679b396890db85b4d62",
+     "candidate_commit": "0ef12db1"
+    }
+   ]
   },
   {
    "source_id": "L00162",
@@ -3150,10 +3277,17 @@
    "acceptance": "Drag по пустоте панорамирует, drag по узлу перемещает его, если это уже поддерживается; перемещение не меняет факт или отношение в БД, а стабилизация локальна и не перезапускает весь layout.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Drag по пустоте (панорамирование) и drag по узлу без изменения факта в БД ревьюер не проверял.",
-   "pending_reason": "не доказано: физика стабилизируется и гаснет (B), но drag по пустоте/узлу и отсутствие записи в БД не проверялись. Что докажет: UI-тест drag + снимок БД до/после."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-PHY-03, факт-индекс evidence/residual3/manifest.json",
+     "observation": "PASS: drag по пустоте панорамирует — камера vx −473→−1177.21, vy −139→−514.58 при неизменном scale 0.1704 (кадры pan-before/after-1440.png). Drag узла paradigm:-1001234567890:184 перемещает сам узел на 547.25 px, при этом ВСЕ остальные 701 узел остались на месте (медиана дельты 0.0 px, узлов со сдвигом >10 px — 0), fitScale не изменился — стабилизация локальна, перезапуска layout нет (nodedrag-after-1440.png). API-вызовов за оба жеста 0 — факт/отношение в БД не меняются, модель не изменилась.",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-PHY-03/positions-timeline.json",
+     "artifact_sha256": "9f8c45a839b6e6cdb31d1f516f895c118a1231481d221aeabe24e36fa28aa635",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ]
   },
   {
    "source_id": "L00167",
@@ -3161,16 +3295,29 @@
    "source_text_sha256": "4f41fabbc7ae4b1941bd42c98624066adac9eb6d190260a108f9422238467430",
    "source_excerpt": "4. Wheel/trackpad — зум около курсора; pinch — зум вокруг центра жеста; double-click/tap по узлу — плавная фокусировка. Анимация программного `focus` 350–500 ms с easing; при ручном жесте — немедленный контроль пользователю.",
    "disposition": "required",
-   "reason": "",
+   "reason": "DEFECT residual3 (5c071250): doubleClick не обрабатывался (0 кадров камеры), pinch зумил от центра полотна (мировая точка под центром жеста уходила на ~443 px), колесо во время анимации фокуса не перехватывалось (~180–200 мс без реакции). УСТРАНЁН веткой cmv/ai-phy-fixes @ 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (merge в HEAD 0f0c4878): dblclick-tween на узел, pinch вокруг центра жеста с перехватом на контейнере, немедленное прерывание tween'а ручными жестами (wheel/pinch/dragStart), см. evidence ниже.",
    "req_id": "CMV-PHY-04",
    "slice": "CMV-B-SCENE-PHYSICS",
    "acceptance": "Wheel/trackpad зумит около курсора, pinch — вокруг центра жеста, двойной клик/тап плавно фокусирует узел за 350–500 ms с easing; при ручном жесте контроль немедленно возвращается пользователю.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Wheel/trackpad-зум около курсора, pinch и плавная фокусировка 350–500 ms не измерялись; кадр x2–x3 в артефакте фактически снят на r=1.61.",
-   "pending_reason": "не доказано: wheel/pinch к курсору/центру жеста и двойной клик 350–500 мс с easing не измерены (B честно отметил, что pinch по CDP не доказан). Что докажет: замер камеры после жеста + длительность анимации."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Тесты camera-жестов эволюционной сцены (cmv/ai-phy-fixes), кандидат 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (merge в HEAD 0f0c4878); tests/js/evol_cog_scene_test.js",
+     "observation": "PASS: dblclick — реальное событие doubleClick → один moveTo на узел, CONFIG.motion.dblClickMs=450 (полоса 350–500), easeInOutQuad, reduced-motion мгновенно; pinch — двухпальцевый жест перехватывается на контейнере сцены (vis больше не обрабатывает его дважды), зум вокруг центра жеста, дрейф якоря ≤ 20 px; wheel/pinch — ручной жест немедленно прерывает живой camera-tween (_cogInterruptCameraAnim, wheel — capture-listener на контейнере). Мутации (мгновенное свечение / удалённый dblclick-хэндлер / зум от центра) дают красные тесты, дрейф 473.9 px. Честная пометка: ветка drag-interrupt покрыта юнит-сьюитом — отдельной живой пробы перехвата именно drag'ом нет.",
+     "type": "test",
+     "artifact_path": "tests/js/evol_cog_scene_test.js",
+     "artifact_sha256": "0083604f7ee43ffb617e4d71a705d782588dc4d140634520c92749437c652dc9",
+     "candidate_commit": "69e65607ec5a92c148e4f40bbb641b2e58f8f17d"
+    },
+    {
+     "ref": "Независимая живая проба ревьюера на кандидате 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (реальная страница карты: dblclick, CDP pinch, wheel)",
+     "observation": "PASS: dblclick — tween 450 мс, камера центрируется на узле с точностью 0.06 px; CDP pinch — дрейф якоря ≈2.6 px (допуск ≤ 20 px); wheel/pinch interrupt — живая проба немедленного перехвата; wheel-зум у курсора не менялся (точен у курсора, проба residual3: 1.8 px). Артефакт-файл живой пробы в репозиторий не сохранён — числа зафиксированы дословно из независимого ревью; drag-interrupt живой пробой не покрывался (только юнит-сьюит, запись 1).",
+     "type": "ui",
+     "candidate_commit": "69e65607ec5a92c148e4f40bbb641b2e58f8f17d"
+    }
+   ]
   },
   {
    "source_id": "L00168",
@@ -3178,16 +3325,36 @@
    "source_text_sha256": "6ece665311a935ffa698e7739e5def14e9de7c63179517e4551c295c8d680a04",
    "source_excerpt": "5. Кнопка **«Сбросить вид»** возвращает камеру к fit и снимает временное раскрытие визуальных кластеров; **не сбрасывает фильтры/поисковый запрос** без явной отдельной команды. Выбранный узел можно снять только явно «Снять выбор» либо после",
    "disposition": "required",
-   "reason": "",
+   "reason": "History: FAILED (cmv-d-review: «Сбросить вид» стирал фильтр и поиск) — устранено фикс-веткой cmv/reset-view-fix @ 652b69b9, выкат 2.58.158 (40a62248) 04.11.2026, VERIFIED.",
    "req_id": "CMV-PHY-05",
    "slice": "CMV-B-SCENE-PHYSICS",
    "acceptance": "«Сбросить вид» возвращает камеру к fit и снимает временное раскрытие визуальных кластеров, но не сбрасывает фильтры и поисковый запрос; выбор снимается только явным действием или исчезновением узла из фильтра.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "FAILED",
-   "evidence": [],
-   "evidence_note": "«Сбросить вид» (возврат к fit без сброса фильтров и поиска) ревьюер не проверял.",
-   "failed_reason": "НАРУШЕНО ПО ФАКТУ: требование — «Сбросить вид» возвращает камеру к fit и снимает временное раскрытие, но НЕ сбрасывает фильтры и поиск. cmv-d-review.md (раздел «Не блокирует») фиксирует: «Сбросить вид» по-прежнему чистит фильтр и поиск, это CMV-PHY-05 среза B. Поведение относится к B, дефект не исправлен; нужен Builder-фикс и повторная проверка, а не переклассификация."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Reset-view кейс (case 11 по нумерации ревью) в tests/js/evol_cmv_d_fullscreen_test.js на кандидате 652b69b9e0daa75073195aa037247cd4002cf346 (идентичный контент в cherry-pick 7080fda6 и релизе 40a62248); прогоны EVOL-CMV-D-OK checks=84",
+     "observation": "PASS: graphResetView возвращает камеру к fit (_cogApplyFit, анимированно), не снимает фильтр типа/кластера/derived, сохраняет поисковый запрос, выбранный узел, подсветку и карточку; отдельная кнопка «Сбросить фильтры» по-прежнему снимает фильтр и поиск. Сьюит на релизном кандидате: checks=84, 0 провалов — до выката (deploy REL-258158 §2) и независимым повтором DevOps после выката (§9). Доказательная версия файла на кандидате: sha256 78b87c7102466e7affd018fb2c07abd9261664896b9e6f80532846120319c369.",
+     "type": "test",
+     "artifact_path": "tests/js/evol_cmv_d_fullscreen_test.js",
+     "candidate_commit": "652b69b9e0daa75073195aa037247cd4002cf346",
+     "applicability": "В этом worktree (evol/impl @ 8ea63152) фикс-линия ещё не смержена: локальный файл НЕ содержит reset-view кейс (до-фиксная база + NAV-добавления 92d7c9ab, sha256 b7220743fb14710ce9812f148357931903bdb9365dcff03be35064bbfdc80f2c). Доказательная версия: git show 652b69b9:tests/js/evol_cmv_d_fullscreen_test.js; тот же контент в release/2.58.158 @ 40a62248, выкатан на прод."
+    },
+    {
+     "ref": "Независимое ревью фикс-ветки cmv/reset-view-fix — Approved (кандидат 652b69b9 «reset view restores camera only, filtering state preserved»); durable-след вердикта — запись релиза REL-258158 (deploy.md §1 «Кандидат ревью»), отдельный review-файл в коммитах не сохранён",
+     "observation": "Ревью подтвердило контракт: «Сбросить вид» восстанавливает только камеру (fit + снятие временного раскрытия кластеров), состояние фильтров/поиска/выбора сохраняется; после ревью кандидат допущен к релизу и выкатан без доработок (черрипик 7080fda6 без конфликтов).",
+     "type": "review",
+     "candidate_commit": "652b69b9e0daa75073195aa037247cd4002cf346"
+    },
+    {
+     "ref": "Запись деплоя REL-258158: plans/features/epic-cm-visual-01/release-258158/deploy.md (находится в каноническом рабочем дереве репозитория, в ветки пока не закоммичена; в worktree evol/impl отсутствует)",
+     "observation": "Выкат 04.11.2026 18:33–18:35 UTC на 192.255.209.205: checkout release/2.58.158 @ 40a622484bab8ff14feda232b928271fcf57f76c, tracked-dirty 0, один рестарт unit; /healthz loopback и публично 200, версия 2.58.158; NRestarts=0, Traceback 0; web/app.js локально=диск=HTTP (sha256 932a94f9158593326b57d8f5eadfca818149df887875b26350b842c928d4a9e1); независимая перепроверка DevOps после выката — те же факты; откат не потребовался. Итог записи: VERIFIED.",
+     "type": "production",
+     "candidate_commit": "652b69b9e0daa75073195aa037247cd4002cf346"
+    }
+   ],
+   "evidence_note": "Фикс-линия cmv/reset-view-fix идёт через release/2.58.158 и в evol/impl пока не смержена: reset-view кейс появится в локальной копии теста после merge; прод-доказательство действительно для кандидата 652b69b9 (= выкат 40a62248)."
   },
   {
    "source_id": "L00169",
@@ -3258,10 +3425,17 @@
    "acceptance": "У небольшого набора заметных реальных узлов есть пульсация яркости дальнего ореола с периодом 3–5 s и разнесёнными фазами; изменение радиуса и яркости небольшое, геометрия узла стабильна.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Механизм пульсации подтверждён тестом (пульс с периодом 4 s, малая амплитуда, яркость зависит от времени), но разнесение фаз по узлам и незаметность изменения геометрии в живом кадре/записи не измерялись.",
-   "pending_reason": "не доказано: движение узлов есть (8/8 переходов, 24 пульса), но период 3–5 s и разнесённые фазы не измерены — окно замера 2.5 s этого не позволяет. Что докажет: серия кадров ≥6 s с оценкой периода и фаз по узлам."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-ANI-01, факт-индекс evidence/residual3/manifest.json",
+     "observation": "PASS: план пульса сцены (детерминированный, хеш id) — 24 узла, периоды 3004–4855 мс (все в 3000–5000), разброс фаз 4665 мс — узлы не дышат синхронно. Пиксельные ряды кольца дальнего ореола (8.5 с × 100 мс, fx-канвас, band [1.28r, 2.55r]): у 4 из 5 узлов измеренный период совпал с планом — 3349.7↔3488, 3999.9↔3703, 3199.5↔3259, 3049.8↔3004 (все в 3000–5000); фазы у 3 из 4 совпали с план-фазой в пределах ≤83 мс (Δ82.4 / 51.9 / −10.7 мс). Амплитуда модуляции яркости крошечная — 0.019–0.065 luma среднего кольца (<0.05 %), ядро узла статично, геометрия не дышит. Filmstrip 12 кадров fx через 500 мс (pulse-filmstrip.png, sha c68782d7…) + серия кадров ≥6 с (pulse-frame-00..07-1440.png); mobile 390 — периоды в диапазоне. Честно: узел fact:327 не разложился (соседний дрейф сцены), на mobile значимость ниже (шум плотной сцены).",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-ANI-01/pulse-series.json",
+     "artifact_sha256": "85fcf9d55c980ba31216944febc95910d04330f7a9f43426783aff591a0492c5",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ]
   },
   {
    "source_id": "L00175",
@@ -3345,16 +3519,29 @@
    "source_text_sha256": "681fd8ccfad83aeb28e62eaf8466aa1276161cabe4deedfd2bd3dc7d3604bc6d",
    "source_excerpt": "- Hover: узел за 150–220 ms усиливает свечение, рядом проявляются реальные соседние связи и подписи, курсор меняется; при уходе эффект затухает.",
    "disposition": "required",
-   "reason": "",
+   "reason": "DEFECT residual3 (5c071250): рампы 150–220 ms не было — приращение яркости при наведении не обнаружено; hoverMs:180 объявлен в CONFIG.motion (cog-visual.js:288), но не использовался, scene.hoverAt записывался и не читался. УСТРАНЁН веткой cmv/ai-phy-fixes @ 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (merge в HEAD 0f0c4878): hoverMs реально драйвит ramp в fx-слое, scene.hoverAt проходит через _cogFrameState → frame.hoverAt, см. evidence ниже.",
    "req_id": "CMV-AI-01",
    "slice": "CMV-B-SCENE-PHYSICS",
    "acceptance": "Hover: узел за 150–220 ms усиливает свечение, рядом проявляются реальные соседние связи и подписи, курсор меняется; при уходе эффект затухает.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Hover-реакция за 150–220 ms с проявлением реальных соседних связей и сменой курсора не измерялась.",
-   "pending_reason": "частично: GATE-04 подтверждает различие состояний hover/select, но ramp 150–220 мс и проявление соседних подписей не инструментированы. Что докажет: кадры через 0/80/160/240 мс после наведения."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Ramp-тесты эволюционной сцены (cmv/ai-phy-fixes), кандидат 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (merge в HEAD 0f0c4878); tests/js/evol_cog_scene_test.js, группа C расширена 382→430 проверок",
+     "observation": "PASS: CONFIG.motion.hoverMs=180 (полоса 150–220) реально управляет нарастанием в fx-слое — active glow, selection ring и соседние рёбра плавно 0→1; финальное состояние пиксельно идентично (multiplier насыщается на 1) — на уровне fx и живой отрисовки сцены; legacy-кадры без hoverAt и reduced-motion/static показывают финальное состояние сразу. Мутации (мгновенное свечение вместо ramp) дают красные тесты.",
+     "type": "test",
+     "artifact_path": "tests/js/evol_cog_scene_test.js",
+     "artifact_sha256": "0083604f7ee43ffb617e4d71a705d782588dc4d140634520c92749437c652dc9",
+     "candidate_commit": "69e65607ec5a92c148e4f40bbb641b2e58f8f17d"
+    },
+    {
+     "ref": "Независимая живая пиксельная проба ревьюера на кандидате 69e65607ec5a92c148e4f40bbb641b2e58f8f17d (реальная страница карты, реальный hover)",
+     "observation": "PASS: onset свечения ≈180–210 мс — внутри полосы 150–220 мс; финальное состояние идентично прежнему принятому финалу; reduced-motion — мгновенно. Отдельный артефакт-файл живой пробы в репозиторий не сохранён — числа зафиксированы дословно из независимого ревью; durable-повторяемость контракта — ramp-тесты записи 1.",
+     "type": "ui",
+     "candidate_commit": "69e65607ec5a92c148e4f40bbb641b2e58f8f17d"
+    }
+   ]
   },
   {
    "source_id": "L00180",
@@ -3368,10 +3555,26 @@
    "acceptance": "Click/tap: у выбранного узла один короткий световой импульс, ближайшие реальные соседи подсвечиваются, остальные ослабляются, инспектор показывает сведения.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Одиночный световой импульс при click/tap и показ сведений в инспекторе не проверялись (подсветка соседей и ослабление сети — см. CMV-EDGE-03).",
-   "pending_reason": "частично: выбор, ореол и подсветка соседей доказаны, «один короткий импульс» не измерен отдельно. Что докажет: серия кадров 0–400 мс после клика с разницей яркости."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-AI-02, факт-индекс evidence/residual3/manifest.json",
+     "observation": "PASS: реальный клик выбирает именно целевой узел paradigm:-1001234567890:184 (selectedId/hoverId, курсор pointer), подсвечены ближайшие 12 соседей (activeEdges 13), далёкий узел ослаблен (яркость кольца 27.94→22.18, dimmed=true), инспектор показывает сведения (карточка открыта, detail = целевой узел); scene.pulseHit сработал ровно один раз (click/600 мс).",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-AI-02/click-fresh.json",
+     "artifact_sha256": "8ca00bfaac2ff3de1d43b0b60c3950e367f2514dafe4b324bcf0c9077b582111",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    },
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-AI-02 (замер амплитуды импульса), факт-индекс evidence/residual3/manifest.json",
+     "observation": "Whole-canvas diff импульса: один скачок 13.6 (выбор+подсветка+затемнение), далее 0.05–0.09 плоско в течение всего окна импульса; дампы fx t≈100 мс и t≈1000 мс визуально идентичны — пиксельная амплитуда вспышки в плотной сцене FIX-702 на уровне шума (кадры click-pulse-1440.png, flash-t0/flash-after.png).",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-AI-02/flash-diff.json",
+     "artifact_sha256": "f5f53d9a6fd90f966f51d58ac31a7cf619c21325a9ec924a1607becb062d7f6c",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ],
+   "evidence_note": "Оговорка (документирована, в силе): «один короткий световой импульс» механически срабатывает (pulseHit, продукт-метод — ровно 1 вызов), но видимая пиксельная амплитуда вспышки в плотной сцене FIX-702 на уровне шума; подсветка соседей, ослабление сети и инспектор — PASS (отчёт residual-evidence-batch3.md §CMV-AI-02)."
   },
   {
    "source_id": "L00181",
@@ -3385,10 +3588,26 @@
    "acceptance": "Search: при успешном поиске камера плавно фокусируется, найденный узел делает 1–2 мягких пульса и остаётся явно выделенным.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Search-фокусировка камеры, 1–2 пульса найденного узла и сохранение выделения не проверялись.",
-   "pending_reason": "частично: фокус камеры по поиску работает, число мягких пульсов найденного (1–2) не измерено. Что докажет: серия кадров после успешного поиска."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-AI-03, факт-индекс evidence/residual3/manifest.json",
+     "observation": "PASS: поиск «кофе 184» находит единственный узел; камера едет плавным твином ~580–600 мс (scale 0.06989→0.29953, позиция интерполируется, профиль скорости с максимумом в середине — easing); выделение сохраняется — через 2.5 с selectedId = найденный узел, кольцо/подсветка на месте (desktop 1440 и mobile 390, кадры search-focused-*.png).",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-AI-03/focus-duration.json",
+     "artifact_sha256": "231776fd4bff850bfb830a28224a7a8ecab586ba67116a98cd5d7ed1bd73d3f0",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    },
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-AI-03 (пульсы найденного узла), факт-индекс evidence/residual3/manifest.json",
+     "observation": "Desktop 1440 — 2 мягких пульса найденного узла (пики 1202/1702 мс); mobile 390 — 1 пик выше порога (честно зафиксировано).",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-AI-03/search-pulse-desktop1440.json",
+     "artifact_sha256": "51c4074bb8a9aed57d32ba99ef2370257c71976072e0af595e9734f2214c7404",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ],
+   "evidence_note": "Честно: твин замерен ~580–600 мс; на mobile 390 выше порога 1 пик пульса (не 2). Оба наблюдения в пределах требования «1–2 мягких пульса», движение плавное, без скачка."
   },
   {
    "source_id": "L00182",
@@ -3402,10 +3621,25 @@
    "acceptance": "Обновление данных происходит без мерцания всей сцены и без повторной анимации входа всех узлов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Вне доказанного среза A: плавный refresh без мерцания сцены и повторной анимации входа узлов не проверялся (зона D/E).",
-   "pending_reason": "не доказано: A-ревью подтверждает, что камера и fitScaleRef не двигаются при смене набора, но мерцания/повторной анимации входа никто не измерял. Что докажет: кадры до/после `_cogApplyData` на одном стенде плюс счётчик анимационных входов = 0."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-AI-04, факт-индекс evidence/residual3/manifest.json",
+     "observation": "PASS: реальное обновление данных (loadCognitionGraph, +1 узел): 0 из 702 старых узлов сдвинулись — повторной анимации входа нет; камера не двигается (scale/view идентичны в течение 2 с); fx-канвас изменился на 0.39 % площади (changedShare 0.00386 — только новый узел, вся сцена не мерцает; в отчёте батча доля округлена до 0.33 %); API-вызов 1 (сам запрос данных).",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/manifest.json",
+     "artifact_sha256": "a1ba27b467e2c69965a7cb75d23ec8976a9a91009b62ad195e135639d1b1f85a",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    },
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-AI-04 (кадры), факт-индекс evidence/residual3/manifest.json",
+     "observation": "Кадр после обновления: сцена без мерцания, новый узел присутствует (newNodePresent=true); пара before/after-update-1440.png (before sha 62a1196f…).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-AI-04/after-update-1440.png",
+     "artifact_sha256": "aa270613b79a059df4189d3ec45a2afb02a898d6fc18d0bba8066768f9e6c845",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ]
   },
   {
    "source_id": "L00184",
@@ -3601,8 +3835,25 @@
    "acceptance": "Текст записи показывается, если существует; при отсутствии — «Текст записи отсутствует» без пустого блока и вымышленного описания.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Текст записи показывается полностью (placement full, textPresent=true, titleFullNoClip, без усечения); карточка 360×816, пустых секций нет.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-CARD-03/card-text-present-1440.png",
+     "artifact_sha256": "f8875d63cde8ebbf921ab1f80156633be6b4d086cd270ad4f012c4145f0328b8",
+     "candidate_commit": "60333c85"
+    },
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Негатив: absent-надпись ровно «Текст записи отсутствует» (is-absent); пустого блока и вымышленного описания нет; консоль чистая, visNetworks=1.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-CARD-03/card-text-absent-negative-1440.png",
+     "artifact_sha256": "f18a0be1ded0f3f2d8942e0143945be294972bd0c1f078408ae46e22dd143f73",
+     "candidate_commit": "60333c85"
+    }
+   ],
    "pending_reason": "не доказано: «Текст записи отсутствует» без пустого блока отдельным кадром не зафиксировано. Что докажет: кадр узла без текста записи."
   },
   {
@@ -3710,8 +3961,25 @@
    "acceptance": "Узел с меткой вида nameless creature показывает фактическое имя из данных, а не искусственную биографию; при отсутствии заголовка — нейтральная метка «Без названия» с раскрываемым ID.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "nameless creature: заголовок карточки = фактическое имя из данных, искусственной биографии нет (titleFullNoClip).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-CARD-07/card-nameless-creature-1440.png",
+     "artifact_sha256": "584db5dc131b1b477a880485e3a512d4d02cd8c233897d31ee29d783cdca937b",
+     "candidate_commit": "60333c85"
+    },
+    {
+     "ref": "Recheck batch-1 после фикса формулировок (cmv/wording-and-no-title @ 4cc23079), кандидат 60333c85; исходный прогон — reports/residual-evidence-batch1.md, recheck-метаданные — manifest.json (recheck.rows)",
+     "observation": "Негатив: узел без заголовка → нейтральная метка «Без названия»; сырой ID в заголовке отсутствует (доступен в details «Запись» provenance и data-cog-card-id); консоль чистая, visNetworks=1.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual/CMV-CARD-07/card-untitled-negative-1440.png",
+     "artifact_sha256": "ac0cfe55c6debaa0be414b410f212984e49ea3d222d18aa63388a59246e9066e",
+     "candidate_commit": "60333c85"
+    }
+   ],
    "pending_reason": "не доказано: фактическое имя из данных и нейтральная метка при отсутствии заголовка отдельно не проверены (в кадрах путь не сработал). Что докажет: кадр+JSON узла с пустым заголовком."
   },
   {
@@ -3809,9 +4077,33 @@
    "acceptance": "Поиск использует существующие поля (имя/алиас) и существующий список объектов, а не короткую видимую подпись; backend-логика алиасов не меняется.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "не доказано: использование существующих полей (имя/алиас) и полного списка объектов подтверждено косвенно (D «Перейти», backend не менялся), отдельного теста поиска нет. Что докажет: тест запроса поиска по алиасу."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-NAV-01, факт-индекс evidence/residual2/manifest.json",
+     "observation": "PASS: поиск ищет по СУЩЕСТВУЮЩИМ полям — алиас «Тень» находит «Костя» (search-блоб узла = «костя тень», алиас пришёл из limits.summary_aliases через /api/config, тот же путь, что в проде); слово «заведомо» из середины ПОЛНОГО имени находит узел с усечённой видимой подписью на канве (поиск не по короткой подписи). Поиск локален: API-вызовов во время поиска — 0; негатив «qqqqzzzz» → «Ничего не найдено».",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/residual-evidence-batch2.md",
+     "artifact_sha256": "10916e4053d2bbe2ba318bfec401f17879db32076eae7a85939a1f19d60558b9",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-NAV-01, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: поиск по алиасу «Тень» нашёл «Костя».",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-NAV-01/search-by-alias-1440.png",
+     "artifact_sha256": "9347dcdf1866f1545e4d1cee14f4b502d2f35ecb04ff2e5ce4cd4df27112a945",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-NAV-01, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: слово из полного имени находит узел, чья подпись на канве усечена.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-NAV-01/search-full-name-beyond-label-1440.png",
+     "artifact_sha256": "9386b80917a2629474ca5885aef5c3fd825663722a62cf486fd8650280eb0267",
+     "candidate_commit": "0ef12db1"
+    }
+   ]
   },
   {
    "source_id": "L00208",
@@ -3819,15 +4111,39 @@
    "source_text_sha256": "655a582219d793a06fc83c3077224098c356828a5d62bd2a8a09811c00753330",
    "source_excerpt": "- Если совпадений несколько — показать список различимых результатов (полное имя + тип + устойчивый ID/сведения, если есть). Не фокусироваться на случайном одноимённом объекте без выбора пользователя.",
    "disposition": "required",
-   "reason": "",
+   "reason": "DEFECT residual2 (0ef12db1): списка различимых результатов (полное имя+тип+устойчивый ID) не было — только статус (i/n) и цикл Enter, автофокус на первый одноимённый объект. УСТРАНЁН веткой cmv/nav-fixes @ 92d7c9ab (merge в HEAD 993e3694): первый Enter показывает список без автофокуса, см. evidence ниже.",
    "req_id": "CMV-NAV-02",
    "slice": "CMV-D-FULLSCREEN-INSPECTOR",
    "acceptance": "При нескольких совпадениях показывается список различимых результатов (полное имя, тип, устойчивый ID); фокус не ставится на случайном одноимённом объекте без выбора пользователя.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "не доказано: список различимых совпадений (полное имя, тип, устойчивый ID) при нескольких совпадениях отдельным кадром не зафиксирован. Что докажет: кадр поиска с 2+ совпадениями."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба nav-fixes (cmv/nav-fixes от 13eff0bb), кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092 (входит в HEAD 993e3694 merge); отчёт reports/nav-fixes.md §NAV-02 + §Тесты, факт-индекс evidence/nav-fixes/manifest.json",
+     "observation": "PASS: первый Enter по «Дубль показателя» (3 совпадения) показывает список 3 различимых строк (имя+тип+устойчивый ID: Сущности/Факты/Наблюдения · id), selectedId и netSelected пусты, статус «Найдено: 3 — выберите из списка» — автофокуса и выбора нет. Enter-цикл сохранён: после показа списка повторный Enter продолжает детерминированный цикл (1/3)→(2/3)→(3/3)→(1/3), список остаётся видимым; выбор пользователя из списка фокусирует выбранный узел («Найден: … (2/3)»); единственное совпадение («сарказм») фокусируется сразу без списка (NAV-01 не тронут). Мутация M1 (отключён ранний возврат списка) даёт красные тесты; прогоны: evol_cmv_d_fullscreen OK checks=119, routing_test JS-UNIT-OK.",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/nav-fixes.md",
+     "artifact_sha256": "9028530ced77968614bf34ad488346b91bddbf930eb92edc038cde82a8969d20",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-02.first_enter",
+     "observation": "Кадр: первый Enter — список 3 различимых результатов (имя+тип+ID), ни фокуса, ни выбора, статус «Найдено: 3 — выберите из списка».",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-02/nav02-list-shown-no-focus-1440.png",
+     "artifact_sha256": "f525b67cd314f8c70c9695de145f8299e0d5992f51d194f72971072667d70f65",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-02.pick_from_list + enter_cycle_after_pick",
+     "observation": "Кадр: пользователь выбрал строку «Факты» — фокус fact:…:95, статус «Найден: … (2/3)»; последующий Enter-цикл детерминированный (3/3)→(1/3)→(2/3)→(3/3).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-02/nav02-picked-from-list-1440.png",
+     "artifact_sha256": "13d5b8dac58c03803e5e39e7b605d3ab70fb92f6ae8fc9e5c023a657f251d0ba",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    }
+   ]
   },
   {
    "source_id": "L00209",
@@ -3835,15 +4151,39 @@
    "source_text_sha256": "ee7154456dae965322c6ba7304da54dbbce21e4c75f867f9c683eabd206dd28b",
    "source_excerpt": "- Результат поиска, скрытый LOD/кластером, должен раскрываться и фокусироваться. Если узел исключён пользовательским фильтром — честно показать конфликт и дать явное действие `Показать результат`, которое снимает только нужное ограничение.",
    "disposition": "required",
-   "reason": "",
+   "reason": "DEFECT residual2 (0ef12db1): при поиске узла, исключённого пользовательским фильтром, ВСЕ ограничения снимались молча — честного конфликта и действия «Показать результат» не было. Часть «раскрытие скрытого из LOD» — уже PASS (residual2) и сохранена. УСТРАНЁН веткой cmv/nav-fixes @ 92d7c9ab (merge в HEAD 993e3694): уведомление конфликта + действие «Показать результат», снимающее только блокирующие ограничения.",
    "req_id": "CMV-NAV-03",
    "slice": "CMV-C-LOD-COLLISION",
    "acceptance": "Результат поиска, скрытый LOD или кластером, раскрывается и фокусируется; если узел исключён пользовательским фильтром, показывается честный конфликт и действие «Показать результат», снимающее только нужное ограничение.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "частично: раскрытие и фокус найденного доказаны, честное состояние конфликта «узел исключён пользовательским фильтром» не проверено. Что докажет: поиск при активном фильтре, исключающем узел."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба nav-fixes (cmv/nav-fixes от 13eff0bb), кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092 (входит в HEAD 993e3694 merge); отчёт reports/nav-fixes.md §NAV-03 + §Тесты, факт-индекс evidence/nav-fixes/manifest.json",
+     "observation": "PASS: при фильтре «Факты» поиск entity вне набора («исключительно») даёт уведомление «Найден «Узел с исключительно длинным названием», но он скрыт фильтром (по типу). Фильтры не менялись.» + кнопку «Показать результат»; group=fact НЕ сброшен, фокус не поставлен. Клик по действию снимает ТОЛЬКО тип (group='', cluster и hideDerived целы) и фокусирует результат. Негатив: узел в наборе при том же фильтре — без конфликта, фильтр цел. Молчаливый сброс graphFilterGroup/cognitionMapCluster/cogHideDerived удалён; мутация M2 (восстановлен сброс всех фильтров) даёт красный тест. LOD-раскрытие вне фильтров — прежний PASS (residual2, 0ef12db1) сохранено («_cogAcceptSearchHit»: один повтор рендера).",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/nav-fixes.md",
+     "artifact_sha256": "9028530ced77968614bf34ad488346b91bddbf930eb92edc038cde82a8969d20",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-03.conflict_state",
+     "observation": "Кадр: честный конфликт — уведомление «скрыт фильтром (по типу). Фильтры не менялись.» + действие «Показать результат», group=fact не сброшен.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-03/nav03-conflict-notice-1440.png",
+     "artifact_sha256": "2e84f708a1559eb8916fe013f1ae54af374714914cf8b48172446dd5efa798c4",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-03.show_result_action",
+     "observation": "Кадр: после «Показать результат» — снят только тип (group=''), узел сфокусирован и выбран, конфликт погашен.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-03/nav03-after-show-result-1440.png",
+     "artifact_sha256": "50a046fc1493f8c64f9014b6a1c1a7ae872a79f11815314211472f1481d89e0b",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    }
+   ]
   },
   {
    "source_id": "L00210",
@@ -3851,15 +4191,39 @@
    "source_text_sha256": "4e885f0657161f24d4e0a0d6386fd9fd06c461cb7c3073b7b40cf6ecf5b60fab",
    "source_excerpt": "- Смена фильтра не сбрасывает камеру без необходимости, но снимает выбор, если элемент больше не входит в отфильтрованный набор, с понятным состоянием.",
    "disposition": "required",
-   "reason": "",
+   "reason": "DEFECT residual2 (0ef12db1): выбранный элемент, вышедший из отфильтрованного набора, не терял выбор — _cogSelectedId оставался, инспектор показывал узел вне сцены; несброс камеры при смене фильтра — уже PASS (residual2). УСТРАНЁН веткой cmv/nav-fixes @ 92d7c9ab (merge в HEAD 993e3694): _cogSyncSelectionToView снимает выбор через существующий clearCogSelection, камера и фильтры не трогаются.",
    "req_id": "CMV-NAV-04",
    "slice": "CMV-D-FULLSCREEN-INSPECTOR",
    "acceptance": "Смена фильтра не сбрасывает камеру без необходимости, но снимает выбор, если элемент вышел из отфильтрованного набора, с понятным состоянием.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "не доказано: смена фильтра не сбрасывает камеру, но снимает выбор при выходе элемента из набора — отдельной проверки нет. Что докажет: тест смены фильтра при выбранном узле."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба nav-fixes (cmv/nav-fixes от 13eff0bb), кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092 (входит в HEAD 993e3694 merge); отчёт reports/nav-fixes.md §NAV-04 + §Тесты, факт-индекс evidence/nav-fixes/manifest.json",
+     "observation": "PASS: при выбранном entity «Аня» включение фильтра «Факты» — selectedId/detail/netSelected пусты, карточка закрыта, камера идентична до десятых (scale 0.65858, view 4/−17.5 в обоих кадрах — не сбрасывается). Негатив: факт в наборе при том же фильтре — выбор сохранён. Снятие идёт через существующий clearCogSelection (выбор/подсветка/детали/карточка, CMV-CARD-06 не переписан); узел в наборе не трогается (CMV-LODB-04 PASS не тронут); хук вызывается из renderCognitionGraph (source-проверка). Мутация M3 (if (false && …) в _cogSyncSelectionToView) даёт красный тест «NAV-04: выход выбранного из набора обнаружен».",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/nav-fixes.md",
+     "artifact_sha256": "9028530ced77968614bf34ad488346b91bddbf930eb92edc038cde82a8969d20",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-04.case_b_selection_cleared",
+     "observation": "Кадр: entity «Аня» вышла из набора «Факты» — выбор снят (selectedId/detail/netSelected пусты), камера не двигалась.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-04/nav04-selection-cleared-1440.png",
+     "artifact_sha256": "45f534c756fd5493edca5208199926aa9282c4757701aefd06fc251348f00021",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-04.case_a_selection_kept",
+     "observation": "Кадр (негатив): факт в наборе при смене фильтра — выбор сохранён, камера та же.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-04/nav04-selection-kept-1440.png",
+     "artifact_sha256": "1697a9b05b197a03b7344977eb95cd92bc20611da5da8439859225e4f39eaa08",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    }
+   ]
   },
   {
    "source_id": "L00211",
@@ -3899,9 +4263,50 @@
    "acceptance": "Клавиатура: Enter запускает поиск, Esc закрывает инспектор или полноэкранный диалог по актуальному уровню, Tab проходит контролы, focus-ring видим; после закрытия fullscreen фокус возвращается на кнопку открытия.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "частично: Esc по уровням и focus-ring подтверждены, Enter/Tab-обход отдельно не измерены. Что докажет: клавиатурный прогон Enter/Tab/Esc."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-NAV-06, факт-индекс evidence/residual2/manifest.json",
+     "observation": "PASS: Tab проходит контролы (поле → «Найти» → «Все типы» → «Все кластеры»), фокус-ринг виден на каждом (outline solid 2px rgb(119,168,255)); Enter запускает поиск («Найден: Дача (1/2)», негатив «Ничего не найдено»); Esc закрывает ровно один уровень (fullscreen + открытый инспектор → первый Esc закрывает инспектор, карта удалена из DOM, второй закрывает fullscreen); фокус возвращается на кнопку «Полный экран» (isFullBtn: true); негатив: без открытых слоёв Esc маршрут не меняет.",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/residual-evidence-batch2.md",
+     "artifact_sha256": "10916e4053d2bbe2ba318bfec401f17879db32076eae7a85939a1f19d60558b9",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-NAV-06, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: Tab-обход с видимым фокус-рингом на контроле.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-NAV-06/tab-focus-visible-1440.png",
+     "artifact_sha256": "06b55741e211510b14a46cb1cd50be830ca21c88ea07e2b364fb4153f37ff37f",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-NAV-06, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: Enter запустил поиск с результатом.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-NAV-06/enter-search-result-1440.png",
+     "artifact_sha256": "bf67b8f48564decda77ab91c382d734d441c90c45a7f4ef933cafd0c4480e9e1",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-NAV-06, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: первый Esc при fullscreen + инспектор — инспектор закрыт, fullscreen остался открыт.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-NAV-06/esc1-inspector-closed-fullscreen-open-1440.png",
+     "artifact_sha256": "f0d8d937f0cc34c0f27cd009e10690b466da90ddd2cac113fdfe998cdfb27b13",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-NAV-06, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: после закрытия fullscreen фокус возвращён на кнопку «Полный экран».",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-NAV-06/focus-returned-after-fullscreen-1440.png",
+     "artifact_sha256": "40ac7968a7d27238c78edc8adff1f8f5c1f78d22170b241e91ff6a3d8e78e7d1",
+     "candidate_commit": "0ef12db1"
+    }
+   ],
+   "evidence_note": "PASS-артефакты сняты на 0ef12db1 и показывают старое поведение первого Enter при нескольких совпадениях («Найден: Дача (1/2)»): после NAV-02 (cmv/nav-fixes @ 92d7c9ab) первый Enter показывает список «Найдено: 2 — выберите из списка». Требование NAV-06 не задето — Enter по-прежнему запускает поиск, Esc-маршруты не менялись (подтверждено ревьюером, reports/nav-fixes.md §Замечания); кадр устарел, обновить при следующем пакете доказательств."
   },
   {
    "source_id": "L00213",
@@ -4167,9 +4572,25 @@
    "acceptance": "Нативная кластеризация vis-network применяется только если гарантирует стабильность и раскрытие ID с корректным учётом рёбер; при скачках используется визуальный LOD без семантического объединения записей.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "не доказано: агрегаты собственные (buildAggregates), но решение про нативную кластеризацию vis-network и её безопасность отдельным тестом не закрыто. Что докажет: тест/запись решения «нативный cluster не используется» с проверкой стабильности id."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-INT-07, факт-индекс evidence/residual2/manifest.json",
+     "observation": "PASS: нативная vis-кластеризация не применяется ни в обычном виде, ни на LOD0 — в DataSet 0 id с префиксом cluster:; DataSet держит ВСЕ 11 узлов витрины до и после LOD-свёртки (данные не режутся, hidden — только флаг отображения, byId не меняется); агрегаты (1 район «Группа · 11») — визуальный LOD fx-слоя без семантического объединения записей; негатив: агрегаты > 0 — именно состояние, где кластеры появились бы, будь они.",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/residual-evidence-batch2.md",
+     "artifact_sha256": "10916e4053d2bbe2ba318bfec401f17879db32076eae7a85939a1f19d60558b9",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-INT-07, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: агрегаты как визуальный LOD, без нативной кластеризации DataSet.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-INT-07/aggregates-visual-lod-1440.png",
+     "artifact_sha256": "5775a9e3feedacf1b22c07aaa2f12d18b4c6c5183b56a9b7b2d497b4efedc0be",
+     "candidate_commit": "0ef12db1"
+    }
+   ]
   },
   {
    "source_id": "L00225",
@@ -4318,10 +4739,25 @@
    "acceptance": "Инициализация карты происходит по фактическому открытию виджета без блокировки загрузки главной страницы, тяжёлые эффекты не запускаются на каждом статусном polling-тике, стабилизация графа завершается и CPU в покое не остаётся загруженным физикой.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Стабилизация и покой подтверждены ревью B (settled=true, watchdog 3 s, physics.enabled=false); инициализация строго по открытию виджета и отсутствие тяжёлых эффектов на каждом статусном polling-тике не проверялись.",
-   "pending_reason": "не доказано: ленивая инициализация по открытию виджета и отсутствие тяжёлых эффектов на смене состояния отдельно не измерялись. Что докажет: замер времени загрузки главной страницы без открытия карты и профиль смены состояния."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-PERF-05, факт-индекс evidence/residual3/manifest.json",
+     "observation": "PASS: загрузка главной страницы не заблокирована — load 304.9 мс (desktop) / 278.5 мс (mobile), FCP 72 мс; на момент события load карта НЕ создана (visNetworks 0, сети нет) — инициализация по фактическому открытию виджета. Покой 5 с: 100 fx-красок ≈ 20 кадров/с (потолок idleFps 24 не превышен), физика vis спит (visFrames 0–1 за окно). Polling-тики (реальные таймеры 15 с cognition / 30 с status): окна 17 с / 34 с — 340/679 кадров сцены = ровно 20/с, всплеска на тике нет, long tasks в окнах 0. Ограничения стенда (честно): момент создания сети не перехватывается (vis в бандле); 1 long task ~162 мс при бутстрапе до load.",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/manifest.json",
+     "artifact_sha256": "a1ba27b467e2c69965a7cb75d23ec8976a9a91009b62ad195e135639d1b1f85a",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    },
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-PERF-05 (кадры), факт-индекс evidence/residual3/manifest.json",
+     "observation": "Кадр состояния покоя desktop 1440 после открытия виджета (парный mobile: perf05-mobile390.png, sha af73eb6d…).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-PERF-05/perf05-desktop1440.png",
+     "artifact_sha256": "30dbabea0656d000f0eddf58438202d0f3191b38586fb4b425d3094eb6b74b86",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ]
   },
   {
    "source_id": "L00232",
@@ -4335,10 +4771,25 @@
    "acceptance": "Инициализация карты происходит по фактическому открытию виджета без блокировки загрузки главной страницы, тяжёлые эффекты не запускаются на каждом статусном polling-тике, стабилизация графа завершается и CPU в покое не остаётся загруженным физикой.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Стабилизация и покой подтверждены ревью B (settled=true, watchdog 3 s, physics.enabled=false); инициализация строго по открытию виджета и отсутствие тяжёлых эффектов на каждом статусном polling-тике не проверялись.",
-   "pending_reason": "не доказано: ленивая инициализация по открытию виджета и отсутствие тяжёлых эффектов на смене состояния отдельно не измерялись. Что докажет: замер времени загрузки главной страницы без открытия карты и профиль смены состояния."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-PERF-05, факт-индекс evidence/residual3/manifest.json",
+     "observation": "PASS: загрузка главной страницы не заблокирована — load 304.9 мс (desktop) / 278.5 мс (mobile), FCP 72 мс; на момент события load карта НЕ создана (visNetworks 0, сети нет) — инициализация по фактическому открытию виджета. Покой 5 с: 100 fx-красок ≈ 20 кадров/с (потолок idleFps 24 не превышен), физика vis спит (visFrames 0–1 за окно). Polling-тики (реальные таймеры 15 с cognition / 30 с status): окна 17 с / 34 с — 340/679 кадров сцены = ровно 20/с, всплеска на тике нет, long tasks в окнах 0. Ограничения стенда (честно): момент создания сети не перехватывается (vis в бандле); 1 long task ~162 мс при бутстрапе до load.",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/manifest.json",
+     "artifact_sha256": "a1ba27b467e2c69965a7cb75d23ec8976a9a91009b62ad195e135639d1b1f85a",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    },
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-PERF-05 (кадры), факт-индекс evidence/residual3/manifest.json",
+     "observation": "Кадр состояния покоя desktop 1440 после открытия виджета (парный mobile: perf05-mobile390.png, sha af73eb6d…).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-PERF-05/perf05-desktop1440.png",
+     "artifact_sha256": "30dbabea0656d000f0eddf58438202d0f3191b38586fb4b425d3094eb6b74b86",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ]
   },
   {
    "source_id": "L00233",
@@ -4352,9 +4803,18 @@
    "acceptance": "После 20 циклов embedded/fullscreen инструментально не растёт число обработчиков, активных RAF, Network instances и наблюдателей.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "НЕ ЗАКРЫТО РЕВЬЮЕРОМ: после исправления стенда +665 слушателей оказались артефактом замера, живые ресурсы стабильны (838→838, RO 9→9, vis 1→1, куча 26.6→27.7 МБ), созданные наблюдатели 165→97. При этом буквальная формулировка гейта (не растёт число созданных наблюдателей/Network) остаётся невыполненной: 0→97 и 1→41. cmv-perf-review.md требует формулировочных правок и не выносит PASS по гейту; нужен вердикт Reviewer «принять с записью ограничения» либо переформулировка гейта."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-PERF-06, факт-индекс evidence/residual3/manifest.json",
+     "observation": "PASS численно: исправленный стенд tools/ui_cmv_e_leaks.py @ cmv/perf 57912225 (WeakRef + isConnected), прогон на дереве кандидата batch-3, 20 циклов embedded↔fullscreen — 28/28 проверок, код возврата 0. Живые ресурсы без роста: слушатели живых узлов 838→838, живые ResizeObserver 10→10, IntersectionObserver 1→1, живые vis.Network 1→1, активные RAF 5→5, canvas 4→4; куча после GC +524 КБ (28.28→28.69 МБ, лимит 8 МБ); покой ≤24 fps, скрытая вкладка — 0 кадров, возврат корректный, консоль чистая (снимок cmv-e-leaks-after-cycles-cand3.png, sha 7d84677b…).",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/PERF-06/cmv-e-leaks-cand3.json",
+     "artifact_sha256": "b7478134accf7be8c0fb2581ca723b3aeafc14fa6c25309c967ba3ca72d38ac1",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ],
+   "evidence_note": "Ограничение (ранний явный вердикт Reviewer — принять с ограничением, cmv-perf-review.md: :7 «+665 — артефакт старого стенда, не утечка продукта», :9 «Созданные наблюдатели к 20-му циклу: 165->97»): счётчик СОЗДАННЫХ наблюдателей/сетей не плоский (маршрутный fullscreen пересоздаёт vis.Network, destroy() не отключает его ResizeObserver) — трактуется как диагностика стенда, а не утечка продукта; живые ресурсы и куча не растут (проба 28/28)."
   },
   {
    "source_id": "L00235",
@@ -4410,10 +4870,25 @@
    "acceptance": "Один узел показывает нормальный фокус и карточку без ложных соседей.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Фокус и карточка для одного узла без ложных соседей ревью A не проверяли.",
-   "pending_reason": "не доказано: артефакта «один узел — фокус и карточка без ложных соседей» нет. Фикстура 10 узлов есть, одиночный узел в приёмочных кадрах не снят. Что докажет: кадр и JSON карточки на наборе из одного узла."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-ERR-02, факт-индекс evidence/residual2/manifest.json",
+     "observation": "PASS: ровно один узел в модели (DataSet 1 узел / 0 рёбер): фокус и карточка работают, neighbors: [] — ложных соседей нет, рёбер нет (viewEdges: 0, edgeDraws нет), консоль чистая; негатив-контраст: в многузловых пробах (LOD1-03) neighbors непустой — проверка различает состояния.",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/residual-evidence-batch2.md",
+     "artifact_sha256": "10916e4053d2bbe2ba318bfec401f17879db32076eae7a85939a1f19d60558b9",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-ERR-02, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: одиночный узел — фокус и карточка без ложных соседей.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-ERR-02/single-node-card-1440.png",
+     "artifact_sha256": "5f02d77e0d9991e6b5cfa7614a08d5c17e467a94aabfde7dc257d6c00dd5347e",
+     "candidate_commit": "0ef12db1"
+    }
+   ]
   },
   {
    "source_id": "L00240",
@@ -4427,10 +4902,49 @@
    "acceptance": "Плотная группа 702/2400, несколько одинаковых имён, длинные русские подписи, латиница и эмодзи, недостающие типы и метаданные отрабатывают корректно.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "evidence_note": "Плотная сцена 702/2400 с одинаковыми именами, длинными подписями, эмодзи и недостающими метаданными проверена только частично ревью B (визуально на fit) — как честное состояние ревью A не проверялась.",
-   "pending_reason": "частично: GATE-09 подтверждает одинаковые имена, длинные подписи, пустые значения и ошибки API, но эмодзи и недостающие типы в фикстурах отдельно не проверены. Что докажет: фикстура с эмодзи/латиницей и прогон с ней."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-ERR-03, факт-индекс evidence/residual2/manifest.json",
+     "observation": "PASS: FIX-702 + странности (708 узлов / 2406 рёбер): пара одноимённых «Дубль норм» (entity + fact, id 9201/9202 вне диапазона фикстуры) присутствует и различима по типу; длинная русская подпись и латиница «Quantum Flux Node» в модели без искажений; эмодзи-узел «🚀 Ракета Эмодзи 🎉» — карточка показывает title как есть; узел без типа и метаданных нормализуется честно в kind: other («Прочее»); состояние клиента ready, не degraded; консоль без ошибок; счётчики соответствуют payload.",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/residual-evidence-batch2.md",
+     "artifact_sha256": "10916e4053d2bbe2ba318bfec401f17879db32076eae7a85939a1f19d60558b9",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-ERR-03, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: одноимённая пара различима по типу.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-ERR-03/same-name-pair-1440.png",
+     "artifact_sha256": "0995305a7c08ab8e2ac9321e4ce4f91ae47b8eea1853a359053cf6d03c208e11",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-ERR-03, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: эмодзи-узел — title в карточке как есть.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-ERR-03/emoji-node-card-1440.png",
+     "artifact_sha256": "cb82ca49ca27532cebd954a1086f4a7be843477c8ccf79b2c7cc99a85c4e6714",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-ERR-03, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: узел без типа/метаданных — честная нормализация kind: other («Прочее»).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-ERR-03/no-kind-node-card-1440.png",
+     "artifact_sha256": "a571fdb93deda47b32360aee8b99d3584c052a3c73e8956d8c44e33dd7294f0d",
+     "candidate_commit": "0ef12db1"
+    },
+    {
+     "ref": "Проба residual2 batch 2 (cmv/residual-evidence-2 от df00f178), кандидат 0ef12db1; отчёт reports/residual-evidence-batch2.md §CMV-ERR-03, факт-индекс evidence/residual2/manifest.json",
+     "observation": "Кадр: странные узлы в мобильном fullscreen 390 — счётчики соответствуют payload, ошибок нет.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual2/CMV-ERR-03/weird-nodes-fullscreen-390.png",
+     "artifact_sha256": "b47a312e53cbe0f7bc89989c132310cba8e9b841029d75adbd89baa15ba2489a",
+     "candidate_commit": "0ef12db1"
+    }
+   ]
   },
   {
    "source_id": "L00241",
@@ -4949,9 +5463,25 @@
    "acceptance": "Reviewer приложил реальные, не сгенерированные и не отретушированные снимки старого и нового графа на одних и тех же данных при одинаковых условиях: fit, выбранный узел, zoom, fullscreen desktop, mobile.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "частично: кадры «до/после» на одном наборе и условиях есть (7 пар, один sha, один viewport/DPR), но ревьюер установил, что пары selected/zoom/fullscreen выбрали другой узел (ent:569 вместо paradigm:184) и цитировать их как сравнение одного узла нельзя. Что докажет: пересъёмка трёх пар на одном узле paradigm:…:184."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-VIS-13, факт-индекс evidence/residual3/manifest.json",
+     "observation": "PASS: три забракованные ревьюером пары (selected/zoom/fullscreen) пересняты с ЖЁСТКО зафиксированным узлом paradigm:-1001234567890:184 (топ степени FIX-702, degree 13) на ОБЕИХ сторонах: 9 записей, selected == target во всех; одни данные (payload sha256 5117f18b…, generated_at фиксирован), один viewport 1536×960, DPR 1, камера от fit каждой ревизии (r 1.8 / 2.6 / 1.8 — та же схема, что у принятых пар fit и mobile). «До» selected/zoom — pre-CMV 9e238d06; «до» fullscreen — A+B+C dfba4080; «после» — кандидат df00f178 (web-ассеты идентичны принятому 4ce7cde5 с точностью до CSS-ручки карточки). Устраняет замечание cmv-e-review.md:28 («выбрали не тот узел: ent:569, а не paradigm:184»).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-VIS-13/vis13-records.json",
+     "artifact_sha256": "a04093c3617694534b337b14f9ff2dc17e94647ec4002ada7b7607f7afbebe72",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    },
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-VIS-13 (кадр), факт-индекс evidence/residual3/manifest.json",
+     "observation": "Кадр «после», состояние selected: зафиксированный узел paradigm:184 выбран (selected == target), 1536×960 DPR 1; пары before-*/beforefull-*/after-* — 9 файлов.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/CMV-VIS-13/after-selected-1536.png",
+     "artifact_sha256": "9f63b07106ac8c88900b52c298fb33a3080595bb3f2d9d95b30eb0d900474b8b",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ]
   },
   {
    "source_id": "L00268",
@@ -5442,15 +5972,32 @@
    "source_text_sha256": "bc4744d50b69568ba94929c7fb96fa818df3d1330a15d0b8144aa1dcad7a83fb",
    "source_excerpt": "- [ ] После 20 открытий/закрытий нет накопления обработчиков/RAF и деградации.",
    "disposition": "required",
-   "reason": "",
+   "reason": "Гейт принят с ограничением: накопления ЖИВЫХ обработчиков/RAF/наблюдателей и деградации нет (вербатим-вердикт Reviewer в cmv-perf-review.md + свежая проба batch-3 28/28); не плоский счётчик СОЗДАННЫХ наблюдателей — документированное ограничение (маршрутный fullscreen пересоздаёт сеть, destroy() не отключает его RO); пакет «одна сеть на два режима» — отдельный элемент бэклога.",
    "req_id": "CMV-GATE-17",
    "slice": "CMV-E-TESTS-PRODUCTION",
    "acceptance": "Гейт §13: после 20 открытий и закрытий нет накопления обработчиков/RAF и деградации.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": [],
-   "pending_reason": "то же, что CMV-PERF-06: cmv-e-review.md объявил гейт FAIL буквально (созданные Network/наблюдатели и куча растут, идентично до CMV), исправленный стенд снял продуктовую часть (+665 — артефакт). Нужен явный вердикт Reviewer по гейту, автозакрытие запрещено."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-GATE-17 (вердикт Reviewer), факт-индекс evidence/residual3/manifest.json",
+     "observation": "Ранний явный вердикт Reviewer — принять с ограничением: живые ресурсы стабильны (слушатели 838→838, vis.Network 1→1, куча ~26.6→27.7 МБ), рост числа созданных наблюдателей — не утечка продукта («+665 — артефакт старого стенда, не утечка продукта» :7; «Созданные наблюдатели к 20-му циклу: 165->97» :9); выпуск правок разрешён «с записанным ограничением» (:19). Буквальный FAIL прежнего стенда признан артефактом, «не регрессия CMV» (cmv-e-review.md:18).",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-perf-review.md",
+     "artifact_sha256": "c9b618c41db72cbff7d44197e588b72a0b09ba2d8e1c7836472507f1c536b834",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    },
+    {
+     "ref": "Проба residual3 batch 3 (cmv/residual-evidence-3 от df00f178), кандидат 5c071250da066e83f31d5d3ffee86077377ac90e (мёрж в HEAD 2828ed03; продуктовых файлов в дельте df00f178..5c071250 нет); отчёт reports/residual-evidence-batch3.md §CMV-GATE-17 (свежая проба batch-3), факт-индекс evidence/residual3/manifest.json",
+     "observation": "Свежая проба на кандидате (исправленный стенд @57912225): 20 циклов — 28/28 проверок, живые слушатели 838→838, живые RO 10→10, IO 1→1, живые vis.Network 1→1, RAF 5→5, куча +524 КБ (лимит 8 МБ) — накопления живых объектов нет.",
+     "type": "test",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/residual3/PERF-06/cmv-e-leaks-cand3.json",
+     "artifact_sha256": "b7478134accf7be8c0fb2581ca723b3aeafc14fa6c25309c967ba3ca72d38ac1",
+     "candidate_commit": "5c071250da066e83f31d5d3ffee86077377ac90e"
+    }
+   ],
+   "evidence_note": "Ограничение в силе: счётчик созданных наблюдателей/сетей не плоский — маршрутный fullscreen пересоздаёт vis.Network, destroy() не отключает его ResizeObserver; живые объекты не накапливаются (проба 28/28). Пакет «одна сеть на два режима» остаётся отдельным элементом бэклога, гейт не блокирует."
   },
   {
    "source_id": "L00295",

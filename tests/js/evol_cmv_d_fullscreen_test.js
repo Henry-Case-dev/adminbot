@@ -14,7 +14,8 @@
  *   1) раскладка заглушек не сходится в одну точку («комок» мобильного
  *      `simple`-режима) и детерминирована;
  *   2) счётчики различают БД / API / на экране и не смешивают их;
- *   3) «Показана часть графа» включается по факту усечения и объясняет его;
+ *   3) «Отображена часть графа» включается по факту усечения, объясняет его
+ *      и названа требуемой формулировкой в обоих местах показа;
  *   4) карточка переезжает в слот своего режима (колонка / панель под сценой);
  *   5) «Перейти» к соседу переводит камеру, обновляет выбор и карточку;
  *   6) жесты листа: вверх — раскрыть, вниз — свернуть/закрыть;
@@ -29,6 +30,7 @@
  * Запуск: node tests/js/evol_cmv_d_fullscreen_test.js → EVOL-CMV-D-OK
  */
 const path = require('path');
+const fs = require('fs');
 const assert = require('assert');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -245,6 +247,15 @@ function normalize(p) {
   return CM.normalizePayload(p, { aliases: {} });
 }
 
+// extra-узлы/рёбра ДОБАВЛЯЮТСЯ к базовой витрине (payload(extra) заменяет).
+function merged(extra) {
+  const base = payload();
+  return payload({
+    nodes: base.nodes.concat((extra && extra.nodes) || []),
+    edges: base.edges.concat((extra && extra.edges) || []),
+  });
+}
+
 // ── 1. раскладка заглушек: «комок» не воспроизводится ──────────────────────
 {
   const vm = makeVm();
@@ -353,11 +364,11 @@ function normalize(p) {
   ok(vm.cogHintVisible === false, 'повторный вызов идемпотентен');
 }
 
-// ── 4. «Показана часть графа» ──────────────────────────────────────────────
+// ── 4. «Отображена часть графа» (CMV-LODB-03) ──────────────────────────────
 {
   const vm = makeVm();
   ok(vm.cogTruncated.active === false,
-     'без данных «Показана часть графа» не показывается');
+     'без данных «Отображена часть графа» не показывается');
   vm.cognitionGraphData = normalize(payload());
   ok(vm.cogTruncated.active === true, 'усечённый ответ помечается');
   ok(vm.cogTruncated.hint.indexOf('сервер не отдал') >= 0,
@@ -372,6 +383,23 @@ function normalize(p) {
   vm.cognitionGraphData = normalize(complete);
   ok(vm.cogTruncated.active === false,
      'полный ответ не помечается как усечённый');
+  // CMV-LODB-03: видимая формулировка — ровно из карты требований, в обоих
+  // местах показа (виджет + полный экран); старой формулировки нет.
+  const html = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
+  ok((html.match(/data-cog-truncated/g) || []).length >= 2,
+     'метка усечения есть в обоих местах показа (виджет + полный экран)');
+  ok((html.match(/Отображена часть графа/g) || []).length >= 2,
+     'формулировка метки — «Отображена часть графа» (CMV-LODB-03)');
+  ok(html.indexOf('Показана часть графа') === -1,
+     'старой формулировки «Показана часть графа» в разметке нет');
+  // CMV-CARD-07: шапка карточки рендерит title из адаптера («Без названия»
+  // для узла без заголовка), а сырой ID остаётся раскрытым в деталях.
+  ok(/data-cog-card-title>\{\{ cogCard\.title \}\}</.test(html),
+     'шапка карточки рендерит title из адаптера');
+  ok(/v-if="cogCard\.titleAbsent"[\s\S]{0,160}data-cog-card-id-row/
+       .test(html)
+     && /data-cog-card-id-row[\s\S]{0,200}\{\{ cogCard\.id \}\}/.test(html),
+     'ID записи без заголовка раскрывается строкой в деталях карточки');
 }
 
 // ── 4. место показа карточки (телепорт в слот своего режима) ───────────────
@@ -627,6 +655,200 @@ function normalize(p) {
     await methods.renderCognitionGraph.call(vm);
     eq(destroyed, 1,
        'без модели сцена сносится (граф прошлого чата не остаётся на экране)');
+  }
+
+  // ── 11. CMV-NAV-02: список различимых результатов, БЕЗ автофокуса ─────────
+  {
+    // Три одноимённых узла разных типов (как в пробе batch-2): список
+    // обязателен, автофокус на первом одноимённом объекте запрещён;
+    // детерминированный порядок и цикл Enter сохранены после списка.
+    function extraDup() {
+      return {
+        nodes: [
+          nodeRow('ent:' + CHAT + ':93', 'entity',
+                  'Узел с исключительно длинным названием для поиска'),
+          nodeRow('ent:' + CHAT + ':94', 'entity', 'Дубль показателя'),
+          nodeRow('fact:' + CHAT + ':95', 'fact', 'Дубль показателя'),
+          nodeRow('obs:' + CHAT + ':96', 'observation', 'Дубль показателя'),
+        ],
+        edges: [
+          { id: 'xd1', from: 'ent:' + CHAT + ':1',
+            to: 'ent:' + CHAT + ':94', relation: 'обсуждали',
+            derived: false, chat_id: CHAT, justification_recorded: true,
+            provenance: { fact_id: 1 } },
+        ],
+      };
+    }
+    const vm = makeVm();
+    const model = normalize(merged(extraDup()));
+    vm.cognitionGraphData = model;
+    const calls = { focus: [], select: [] };
+    vm.cognitionNetwork = {
+      focus(id, opts) { calls.focus.push([id, opts]); },
+      selectNodes(ids) { calls.select.push(ids.slice()); },
+    };
+    vm._cogView = { nodes: model.nodes, edges: model.edges };
+    vm.graphSearchQuery = 'Дубль показателя';
+    await methods.searchCognitionGraph.call(vm);
+    eq(calls.focus.length, 0, 'NAV-02: первый поиск без автофокуса');
+    eq(calls.select.length, 0, 'NAV-02: до выбора сеть ничего не выбирает');
+    eq(vm._sel, undefined, 'NAV-02: подсветка выбора не ставилась');
+    eq(vm._graphDetailFor, undefined, 'NAV-02: панель подробностей пуста');
+    eq(vm.graphSearchResults.length, 3, 'NAV-02: все три совпадения в списке');
+    ok(vm.graphSearchResults.every(function (r) {
+      return r.title === 'Дубль показателя' && r.kindLabel && r.id;
+    }), 'NAV-02: каждый результат различим (полное имя + тип + ID)');
+    eq(vm.graphSearchResults.map(function (r) { return r.id; }),
+       ['ent:' + CHAT + ':94', 'fact:' + CHAT + ':95',
+        'obs:' + CHAT + ':96'],
+       'NAV-02: детерминированный порядок в списке (поиск, не случай)');
+    eq(vm.graphSearchStatus, 'Найдено: 3 — выберите из списка',
+       'NAV-02: статус зовёт выбрать из списка, а не «Найден (1/3)»');
+    eq(vm._graphSearchMatchIds.length, 3,
+       'NAV-02: совпадения закреплены в fx независимо от выбора');
+    // Цикл Enter сохранён и детерминирован (после первого списка).
+    await methods.searchCognitionGraph.call(vm);
+    eq(calls.focus[0][0], 'ent:' + CHAT + ':94', 'NAV-02: Enter №2 — первый');
+    ok(String(vm.graphSearchStatus).indexOf('(1/3)') >= 0,
+       'NAV-02: счётчик 1/3 после начала цикла');
+    await methods.searchCognitionGraph.call(vm);
+    eq(calls.focus[1][0], 'fact:' + CHAT + ':95', 'NAV-02: Enter №3 — второй');
+    await methods.searchCognitionGraph.call(vm);
+    eq(calls.focus[2][0], 'obs:' + CHAT + ':96', 'NAV-02: Enter №4 — третий');
+    await methods.searchCognitionGraph.call(vm);
+    eq(calls.focus[3][0], 'ent:' + CHAT + ':94', 'NAV-02: Enter №5 — цикл');
+    // Выбор из списка: конкретный результат, без перебора.
+    calls.focus.length = 0;
+    await methods.pickCogSearchResult.call(vm, 'fact:' + CHAT + ':95');
+    eq(calls.focus.length, 1, 'NAV-02: выбор из списка — один фокус');
+    eq(calls.focus[0][0], 'fact:' + CHAT + ':95',
+       'NAV-02: фокус на выбранном, а не на первом');
+    ok(String(vm.graphSearchStatus).indexOf('(2/3)') >= 0,
+       'NAV-02: статус называет номер выбранного');
+  }
+
+  // ── 12. CMV-NAV-03: результат скрыт фильтром — конфликт, а не сброс ───────
+  {
+    const vm = makeVm();
+    const model = normalize(payload());
+    vm.cognitionGraphData = model;
+    vm.cogHideDerived = false;
+    const calls = { focus: [], select: [] };
+    vm.cognitionNetwork = {
+      focus(id) { calls.focus.push(id); },
+      selectNodes(ids) { calls.select.push(ids.slice()); },
+    };
+    // Негатив: узел В наборе (fact при фильтре «Факты») — без конфликта.
+    vm.graphFilterGroup = 'fact';
+    vm._cogView = CM.applyFilters(model, { kinds: ['fact'] });
+    vm.graphSearchQuery = 'утренний кофе';
+    await methods.searchCognitionGraph.call(vm);
+    eq(vm.graphSearchConflict, null, 'NAV-03: узел в наборе — без конфликта');
+    eq(vm.graphFilterGroup, 'fact', 'NAV-03: узел в наборе — фильтр не тронут');
+    eq(calls.focus.length, 1, 'NAV-03: узел в наборе — обычный фокус');
+    // Конфликт: entity вне набора фактов — фильтры НЕ сбрасываются молча.
+    const entityId = 'ent:' + CHAT + ':93';
+    const modelX = normalize(merged({
+      nodes: [nodeRow(entityId, 'entity',
+             'Узел с исключительно длинным названием для поиска')],
+    }));
+    vm.cognitionGraphData = modelX;
+    vm._cogView = CM.applyFilters(modelX, { kinds: ['fact'] });
+    calls.focus.length = 0;
+    vm.graphSearchQuery = 'исключительно';
+    await methods.searchCognitionGraph.call(vm);
+    eq(calls.focus.length, 0, 'NAV-03: скрытый результат не фокусируется');
+    eq(vm.graphFilterGroup, 'fact',
+       'NAV-03: молчаливого сброса фильтра больше нет');
+    eq(vm.cogHideDerived, false, 'NAV-03: несвязанный переключатель не тронут');
+    ok(vm.graphSearchConflict
+       && String(vm.graphSearchConflict.id) === entityId
+       && vm.graphSearchConflict.blocks.join(',') === 'type',
+       'NAV-03: конфликт называет блокирующее ограничение (тип)');
+    ok(vm.graphSearchConflict
+       && String(vm.graphSearchConflict.blocksLabel).indexOf('по типу') >= 0,
+       'NAV-03: ограничение названо словами для пользователя');
+    ok(String(vm.graphSearchStatus).indexOf('скрыт фильтром') >= 0,
+       'NAV-03: статус сообщает конфликт словами');
+    // Действие «Показать результат»: снимает ТОЛЬКО типовой фильтр.
+    await methods.showCogSearchResult.call(vm);
+    eq(vm.graphFilterGroup, '', 'NAV-03: действие сняло только тип');
+    eq(vm.graphSearchConflict, null, 'NAV-03: конфликт закрыт действием');
+    eq(calls.focus.length, 1, 'NAV-03: после действия — фокус на результате');
+    eq(calls.focus[0], entityId, 'NAV-03: фокус на найденном узле');
+
+    // Кластерный блокер: изолированный узел вне выбранного кластера —
+    // действие снимает только кластер, типовой фильтр не трогает.
+    const islandId = 'ent:' + CHAT + ':98';
+    const modelI = normalize(merged({
+      nodes: [nodeRow(islandId, 'entity', 'Островной узел')],
+    }));
+    const vm2 = makeVm();
+    vm2.cognitionGraphData = modelI;
+    const calls2 = { focus: [] };
+    vm2.cognitionNetwork = { focus(id) { calls2.focus.push(id); },
+      selectNodes() {} };
+    const hubCluster = CM.computeClusters(modelI).filter(function (c) {
+      return c.nodeIds.indexOf('fact:' + CHAT + ':11') >= 0;
+    })[0];
+    vm2.graphFilterGroup = '';
+    vm2.cognitionMapCluster = hubCluster.id;
+    vm2._cogView = CM.applyFilters(modelI, { cluster: hubCluster.id });
+    vm2.graphSearchQuery = 'Островной';
+    await methods.searchCognitionGraph.call(vm2);
+    ok(vm2.graphSearchConflict
+       && vm2.graphSearchConflict.blocks.join(',') === 'cluster',
+       'NAV-03: кластерный фильтр назван блокером');
+    eq(vm2.cognitionMapCluster, hubCluster.id,
+       'NAV-03: кластер не сбрасывается молча');
+    await methods.showCogSearchResult.call(vm2);
+    eq(vm2.cognitionMapCluster, '', 'NAV-03: действие сняло только кластер');
+    eq(vm2.graphFilterGroup, '', 'NAV-03: типовой фильтр не при чём и цел');
+    eq(calls2.focus[0], islandId, 'NAV-03: фокус на островном узле');
+  }
+
+  // ── 13. CMV-NAV-04: выбор снимается, когда узел вышел из витрины ──────────
+  {
+    const vm = makeVm();
+    const model = normalize(payload());
+    vm.cognitionGraphData = model;
+    const selCalls = [];
+    vm.cognitionNetwork = {
+      selectNodes(ids) { selCalls.push(ids.slice()); },
+      // Камера при снятии выбора не двигается (PASS-часть строки).
+      focus() { throw new Error('NAV-04: снятие выбора не двигает камеру'); },
+    };
+    vm.openCogNodeCard('ent:' + CHAT + ':1');       // инспектор показывает «Аню»
+    vm._cogSelectedId = 'ent:' + CHAT + ':1';
+    vm._cogView = CM.applyFilters(model, { kinds: ['fact'] });  // Аня вышла
+    const cleared = methods._cogSyncSelectionToView.call(vm, vm._cogView);
+    eq(cleared, true, 'NAV-04: выход выбранного из набора обнаружен');
+    eq(vm._cogSelectedId, null, 'NAV-04: выбор снят');
+    eq(vm.cogCard, null, 'NAV-04: инспектор «Ани» закрыт');
+    eq(selCalls[selCalls.length - 1], [], 'NAV-04: сеть сняла выделение');
+    eq(vm._cleared, true, 'NAV-04: панель подробностей очищена');
+    // Негатив: узел ОСТАЛСЯ в наборе — выбор сохраняется (CMV-LODB-04).
+    const vm2 = makeVm();
+    vm2.cognitionGraphData = model;
+    vm2.cognitionNetwork = { selectNodes() {} };
+    vm2._cogSelectedId = 'fact:' + CHAT + ':11';
+    vm2._cogView = CM.applyFilters(model, { kinds: ['fact'] });
+    const kept = methods._cogSyncSelectionToView.call(vm2, vm2._cogView);
+    eq(kept, false, 'NAV-04: узел в наборе — ничего не снимается');
+    eq(vm2._cogSelectedId, 'fact:' + CHAT + ':11', 'NAV-04: выбор сохранён');
+    // Хук вызывается рендером на КАЖДОЙ новой витрине (иначе DEFECT жив).
+    const src = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
+    ok(/this\._cogView = view;\s*\n[\s\S]{0,400}?this\._cogSyncSelectionToView\(view\);/
+       .test(src),
+       'NAV-04: renderCognitionGraph синхронизирует выбор с новой витриной');
+    // Разметка обоих мест показа: список результатов и конфликт (NAV-02/03).
+    const html = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
+    ok((html.match(/data-cog-search-list/g) || []).length >= 2,
+       'NAV-02: список результатов есть в обоих местах показа');
+    ok((html.match(/data-cog-search-conflict/g) || []).length >= 2,
+       'NAV-03: конфликт с фильтром есть в обоих местах показа');
+    ok((html.match(/Показать результат/g) || []).length >= 2,
+       'NAV-03: действие «Показать результат» в обоих местах показа');
   }
 
   console.log('EVOL-CMV-D-OK checks=' + checks);
