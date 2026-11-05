@@ -110,6 +110,10 @@ class ConfigUpdateRequest(BaseModel):
     items: list[ConfigItemUpdate]
     # Раунд 10 (F-7 §6): optimistic-метка чата при X-Chat-Id (409-протокол).
     updated_at: str | None = None
+    # PVR-02/PVR-03: идемпотентность повторного POST (double click/сетевой
+    # retry) по operation ID и scope. Аддитивно: клиент может не присылать —
+    # тогда сохранение идёт прежним путём (тот же текст → skipped_same).
+    operation_id: str | None = Field(default=None, max_length=128)
 
 
 class AdminUpsert(BaseModel):
@@ -816,7 +820,8 @@ async def post_config(
         # чата. Обратный порядок запрещён.
         prompt_result = await _write_prompt_items(
             cache, prompt_items, scope="chat", chat_id=chat_id, actor=user.id,
-            pg=cache.pg, reason="owner_edit")
+            pg=cache.pg, reason="owner_edit",
+            operation_id=getattr(payload, "operation_id", None))
     if settings_overrides:
         try:
             # Полный набор overrides читается ПОСЛЕ записи промптов: иначе
@@ -1903,7 +1908,8 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
         # Первый этап: промпты. Сбой журнала → 503, остальное НЕ пишется.
         prompt_result = await _write_prompt_items(
             cache, prompt_items, scope="global", actor=user.id,
-            reason="owner_edit")
+            reason="owner_edit",
+            operation_id=getattr(payload, "operation_id", None))
         for key in prompt_result["applied"] + prompt_result["skipped_same"]:
             if key not in updated:
                 updated.append(key)
@@ -3930,20 +3936,72 @@ def _prompt_block_for_key(key: str):
     return spec
 
 
+#: Идемпотентность повторного POST по operation ID (PVR-02 §3/PVR-03):
+#: результат последнего УСПЕШНОГО журнального сохранения промптов в пределах
+#: процесса. Retry/double-click с тем же operation ID получает ТОТ ЖЕ ответ
+#: без второй записи — ни дубля ревизии, ни дубля события активации. Кэш
+#: ограничен по числу и времени; рестарт его очищает — клиентский retry
+#: после рестарта безопасно проходит обычный путь (тот же текст →
+#: skipped_same, дубля ревизии нет). Ошибки (503/409/422) не кэшируются:
+#: повтор после сбоя повторяет операцию честно.
+_PROMPT_OP_RESULTS: dict = {}
+_PROMPT_OP_TTL = 900.0          # секунд
+_PROMPT_OP_MAX = 512
+
+
+def _prompt_operation_key(operation_id: str, scope: str,
+                          chat_id: int | None) -> tuple:
+    return (str(operation_id), str(scope), chat_id)
+
+
+def _prompt_operation_cached(operation_id: str, scope: str,
+                             chat_id: int | None) -> dict | None:
+    hit = _PROMPT_OP_RESULTS.get(_prompt_operation_key(operation_id, scope,
+                                                       chat_id))
+    if hit is None:
+        return None
+    ts, result = hit
+    if time.monotonic() - ts > _PROMPT_OP_TTL:
+        _PROMPT_OP_RESULTS.pop(_prompt_operation_key(operation_id, scope,
+                                                     chat_id), None)
+        return None
+    return result
+
+
+def _prompt_operation_store(operation_id: str, scope: str,
+                            chat_id: int | None, result: dict) -> None:
+    key = _prompt_operation_key(operation_id, scope, chat_id)
+    _PROMPT_OP_RESULTS[key] = (time.monotonic(), result)
+    while len(_PROMPT_OP_RESULTS) > _PROMPT_OP_MAX:
+        # dict сохраняет порядок вставки: вытесняется самый старый ключ.
+        oldest = next(iter(_PROMPT_OP_RESULTS))
+        _PROMPT_OP_RESULTS.pop(oldest, None)
+
+
 async def _write_prompt_items(cache: ConfigCache, items, *, scope: str,
                               chat_id: int | None = None, actor=None,
                               reason: str = "owner_edit",
-                              kind: str = "manual_edit", pg=None) -> dict:
+                              kind: str = "manual_edit", pg=None,
+                              operation_id: str | None = None) -> dict:
     """Единый слой записи значения промптов + отображение отказов на HTTP.
 
     §3.3: журнал недоступен/лок занят → 503 и значение НЕ записано;
     CAS-конфликт чата → 409 с `current_updated_at`; устаревший global-токен →
     409 `FactoryConflict`; гейты значения → 422.
+    PVR-02: повтор с тем же ``operation_id`` (scope+chat) возвращает тот же
+    успешный результат без второй записи (retry/double-click идемпотентны).
     """
     if not items:
         return {"applied": [], "skipped_same": [], "rejected": [],
                 "prompt_snapshots": [], "chat_updated_at": None,
                 "journal_recorded": True}
+    operation_id = str(operation_id or "").strip() or None
+    if operation_id:
+        cached = _prompt_operation_cached(operation_id, scope, chat_id)
+        if cached is not None:
+            logger.info("[api] prompt save idempotent replay | op=%s… | "
+                        "scope=%s | chat=%s", operation_id[:8], scope, chat_id)
+            return json.loads(json.dumps(cached))   # копия, не алиас
     store = _prompt_journal(cache)
     try:
         result = await prompt_policy.write_prompt_values(
@@ -3989,6 +4047,8 @@ async def _write_prompt_items(cache: ConfigCache, items, *, scope: str,
         if first.get("detail"):
             detail = f"{detail} ({first['detail']})"
         raise HTTPException(status_code=422, detail=detail)
+    if operation_id:
+        _prompt_operation_store(operation_id, scope, chat_id, result)
     return result
 
 
