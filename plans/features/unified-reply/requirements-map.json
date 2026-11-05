@@ -22,7 +22,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза).",
+  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F).",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -932,14 +932,15 @@
       "source_text_sha256": "daa73c36a441e27977aa630ef0d0e828cea22d1a14fd16a3b90f57724feffb17",
       "source_excerpt": "В активной сборке Direct/Initiative перестать добавлять `<style_anchors>` из `last_bot_replies()` с инструкцие",
       "disposition": "required",
-      "reason": "",
+      "reason": "читаемость истории реплик в активной сборке доказана тестами UR-E (test_direct_writer_payload_has_no_anchors_with_history: last_bot_replies читается, история не удалена); «полноценный участник по всем осям выборки» (chat_id/tg_message_id/sent_at/reply-parent/ревизия/correlation_id) — предмет UR-C/UR-23 (ContextSelection в живом ходе), вне write_scope UR-E",
       "req_id": "UR-14.1",
       "slice": "UR-E",
       "acceptance": "Собственные сообщения бота остаются полноценными участниками хронологической истории и доступны по chat_id, tg_message_id, sent_at, reply-parent, ревизии и correlation_id как source=bot_output.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Читаемость истории доказана UR-E; владение строкой — UR-C/UR-23."
     },
     {
       "source_id": "M-00223",
@@ -947,14 +948,15 @@
       "source_text_sha256": "c265c1ab8c8d2c2e028ff70ef0302647d6254949ab3c33a4e0330f05f6e25120",
       "source_excerpt": "Ключи `CHAT_STYLE_ANCHORS_ENABLED`, `CHAT_STYLE_ANCHORS_COUNT`, `CHAT_STYLE_ANCHOR_MAX_CHARS`, `CHAT_BUDGET_AN",
       "disposition": "required",
-      "reason": "",
+      "reason": "catalog/UI-удаление ключей CHAT_STYLE_ANCHORS_* — волна UR-F (вне write_scope UR-E); активный код ключи больше не читает (ur-e-evidence.md, «Честные ограничения»: ключи остались в param_catalog.py как метаданные)",
       "req_id": "UR-14.2",
       "slice": "UR-E",
       "acceptance": "CHAT_STYLE_ANCHORS_ENABLED/COUNT/MAX_CHARS/CHAT_BUDGET_ANCHORS_RATIO выведены из основного UI и нового пути (compat только для перехода); владельческие промпты «Речь и характер», библиотеки примеров и контроль версий не тронуты.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Владение — волна UR-F."
     },
     {
       "source_id": "M-00227",
@@ -968,8 +970,26 @@
       "acceptance": "В prompt composer для L2 одна финальная композиция инструкций с манифестом владельцев Persona/Core, стиля, характера, контекста, инструментов и форматирования; дублирующая автоматическая директива применяется один раз, новые машинные шаблоны регистрируются в контроле версий.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Одна финальная композиция system с манифестом",
+          "observation": "TestCharacterStyleInputsOneWriter::* — единственная композиция system через _compose_speech_system → prompt_composer.compose_speech_system; дублирующей автоматической директивы в payload нет",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "b2738117"
+        },
+        {
+          "ref": "Манифест — существующий prompt_composer",
+          "observation": "services/direct_chat_service.py: манифест владельцев слоёв обеспечивает существующий prompt_composer.compose_speech_system; регистрация машинных шаблонов (prompt_registry) не тронута — TestBanInvariantsIntact",
+          "type": "code",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "1fe9155284fccf2118f6cf31bf546125c72f06c6ce0241f0637e6c226f0829ae",
+          "candidate_commit": "b2738117"
+        }
+      ],
+      "note": "Манифест владельцев слоёв = существующий prompt_composer.compose_speech_system (манифест слоёв); новый композер не вводился, новых машинных шаблонов срез не добавлял."
     },
     {
       "source_id": "M-00229",
@@ -983,11 +1003,29 @@
       "acceptance": "verbalize_validated сохраняет обязательные проверки формата, сохранности чисел/отрицаний и буквальных правил владельца при фактически выполненной трансформации, цитировании или протокольной ошибке, но косметическое клише или метатекст не вызывают полной перегенерации живого ответа; мат, сленг и абсурд по настройкам не стираются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Клише/метатекст не перегенерирует живой ответ",
+          "observation": "Прогон среза 586 passed: semantic_rewrite_count==0 на всех ходах; стилевое нарушение обрабатывается детерминированным style-pass без повторной генерации; Form/Numeric/Format-проверки срабатывают только при фактически выполненной трансформации (издание BGS-04)",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "b2738117"
+        },
+        {
+          "ref": "Проверки трансформаций и протокольных ошибок сохранены",
+          "observation": "ur-e-evidence.md §UR-15 (редакция BGS-04): повторы/переписывания не возвращались, набор RLR/BGS зелёный; мат/сленг/абсурд по настройкам владельца не стираются",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-e-evidence.md",
+          "artifact_sha256": "e9b2a730eeadc3c3f433846129944e5f030bfdcccbc0ee3f8a556b73de372d00",
+          "candidate_commit": "b2738117"
+        }
+      ],
       "bgs_note": "BGS-04 п.2/п.4: проверки сохранности фактов действуют при реальной трансформации; свободный ответ не перегенерируется.",
       "clarified_by": "BGS-04 (owner 2026-11-05)",
-      "prior_acceptance": "verbalize_validated сохраняет обязательные проверки формата, опасной подмены формы, фактического искажения и буквальных правил владельца, но косметическое клише не вызывает полной перегенерации живого ответа; мат, сленг и абсурд по настройкам не стираются."
+      "prior_acceptance": "verbalize_validated сохраняет обязательные проверки формата, опасной подмены формы, фактического искажения и буквальных правил владельца, но косметическое клише не вызывает полной перегенерации живого ответа; мат, сленг и абсурд по настройкам не стираются.",
+      "note": "Границы доказательства (ревью): RLR-набор зелёный + semantic_rewrite_count==0; сохранение дословных владельческих правил (literal words) доказано в объёме детерминированного style-pass (protected spans байт-в-байт), без отдельной LLM-верификации буквальных слов."
     },
     {
       "source_id": "M-00231",
@@ -1001,8 +1039,25 @@
       "acceptance": "Детерминированные речевые правила применяются ровно один раз к завершённому тексту, без перефразирования второй моделью; style-pass не меняет адресата, числа, ссылки и смысл и не стирает ответ.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Один детерминированный проход, без перефразирования",
+          "observation": "TestOwnerRulesExactlyOnce::* (ровно одна ops-запись owner_style_punctuation на ход; повторный проход форм немедленно виден в ops-трассе) + TestSecondPassMutation::test_second_generation_pass_is_caught_by_author_state (второй литературный вызов того же хода → semantic_rewrite_count==1) + test_protected_spans_intact_deterministic_pass (адресат/числа/ссылки/смысл не меняются, repair_used==0)",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "b2738117"
+        },
+        {
+          "ref": "Одно применение правил к завершённому тексту",
+          "observation": "ur-e-evidence.md §Мутация/§UR-15: _style_initiative_text() и direct style-path — ровно один проход, repair=None (0 LLM); перефразирование готового ответа второй моделью отсутствует",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-e-evidence.md",
+          "artifact_sha256": "e9b2a730eeadc3c3f433846129944e5f030bfdcccbc0ee3f8a556b73de372d00",
+          "candidate_commit": "b2738117"
+        }
+      ]
     },
     {
       "source_id": "M-00235",
@@ -1016,8 +1071,17 @@
       "acceptance": "CHAT_MOOD_ENABLED при включении означает право L1 учитывать тон и не создаёт скрытых эмоциональных директив; при выключении специальной коррекции не добавляется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Флаг CHAT_MOOD_ENABLED без скрытых директив (ON и OFF)",
+          "observation": "test_direct_payload_no_mood_label прогоняется при CHAT_MOOD_ENABLED ON и OFF: ни при одном значении в payload нет mood-инструкции; при ON — только право L1 учитывать тон, при OFF специальная эмоциональная коррекция не добавляется",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "b2738117"
+        }
+      ]
     },
     {
       "source_id": "M-00237",
@@ -1025,7 +1089,7 @@
       "source_text_sha256": "254c73363f155a32d626f2ce9278df026d1c939287f199cd179a891d20e292ba",
       "source_excerpt": "Не подменять «более живой бот» постоянным хамством или всегда высокой температурой. Сохранить естественные кор",
       "disposition": "required",
-      "reason": "",
+      "reason": "живость (без постоянного хамства/всегда высокой температуры, факты раньше шутки) — поведение модели; доказывается только preprod/live-прогоном, unit-покрытие UR-E недоступно",
       "req_id": "UR-16.2",
       "slice": "UR-E",
       "acceptance": "Живость не подменяется постоянным хамством или высокой температурой: короткие, длинные, серьёзные и грубые ответы зависят от ситуации, а на прямой фактический вопрос ответ начинается с информации.",
@@ -1040,7 +1104,7 @@
       "source_text_sha256": "21970fb41740a6fbff7ab61c8d213b4c129228c70c98fd425bc5797564cce89a",
       "source_excerpt": "Использовать `диалог.txt` (04.11.2026, 07:50–08:00) как **хронологическую** серию с настоящими reply-edges, а ",
       "disposition": "required",
-      "reason": "",
+      "reason": "fixture «диалог.txt» отсутствует в репозитории — хронологическая серия честно не собирается без исходного файла; далее живой preprod-прогон модели",
       "req_id": "UR-17.1",
       "slice": "UR-E",
       "acceptance": "диалог.txt (04.11.2026, 07:50-08:00) используется как хронологическая серия с настоящими reply-edges; фиксируются адресация, факты, инструменты и отсутствие самоповторов, а не конкретная желаемая шутка.",
@@ -1055,7 +1119,7 @@
       "source_text_sha256": "b998d1fb83bd350fee12f903bf7cc8105e24c146a891a10d916e3c0a8c074bd2",
       "source_excerpt": "Не фиксировать в тесте конкретную желаемую шутку, мат или единственный ответ. Фиксировать корректность адресац",
       "disposition": "required",
-      "reason": "",
+      "reason": "зависит от fixture «диалог.txt» (нет в репо) и живого preprod-прогона модели; до фикстуры проверяемый набор (адресация/факты/инструменты/самоповторы/форма) не собирается",
       "req_id": "UR-17.9",
       "slice": "UR-E",
       "acceptance": "В регрессионном фикстуре не фиксируется конкретная шутка, мат или единственный ответ: проверяются адресация, факты, использование инструментов, отсутствие самоповторов и адекватная форма.",
@@ -1385,14 +1449,15 @@
       "source_text_sha256": "6606df9b511c75ba806e94a872808b038d39f7e61813fdf5e1edb76d197629ac",
       "source_excerpt": "| `CHAT_STYLE_ANCHORS_COUNT/MAX_CHARS` | Самоподражание прежним ответам выключено. | Убрать из рабочего UI. |",
       "disposition": "required",
-      "reason": "",
+      "reason": "вывод CHAT_STYLE_ANCHORS_COUNT/MAX_CHARS из рабочего UI — волна UR-F (вне write_scope UR-E); корень совпадает с UR-14.2, привязывается при закрытии UR-F",
       "req_id": "UR-21.13",
       "slice": "UR-E",
       "acceptance": "CHAT_STYLE_ANCHORS_COUNT/MAX_CHARS убраны из рабочего UI, поскольку самоподражание прежним ответам выключено (UR-14).",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Тот же корень, что UR-14.2 (L00303); привязка — по закрытии UR-F."
     },
     {
       "source_id": "M-00304",
@@ -2606,8 +2671,25 @@
       "acceptance": "В payload L2 нет блока «подражай прошлым ответам»; владельческие инструкции, характер и библиотеки примеров сохранены без изменений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Блока «подражай прошлым ответам» нет; владельческий речевой контур не тронут",
+          "observation": "TestNoAutoImitation::test_direct_writer_payload_has_no_anchors_with_history и test_initiative_writer_payload_has_no_anchors (нет <style_anchors>/«подражай» в payload обоих триггеров) + TestBanInvariantsIntact::test_speech_infrastructure_not_removed (владельческие speech instructions/характер/библиотеки на месте); RED-check на базе 9a996c79 падает ровно на 2 payload-теста",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "b2738117"
+        },
+        {
+          "ref": "Сводка среза UR-E",
+          "observation": "ur-e-evidence.md: секция <style_anchors> удалена из активной сборки; владельческие промпты/библиотеки не менялись (0 текстов промптов в диффе), новых классификаторов нет",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-e-evidence.md",
+          "artifact_sha256": "e9b2a730eeadc3c3f433846129944e5f030bfdcccbc0ee3f8a556b73de372d00",
+          "candidate_commit": "b2738117"
+        }
+      ]
     },
     {
       "source_id": "L00035",
@@ -3835,8 +3917,26 @@
       "acceptance": "Активная сборка Direct/Initiative не добавляет style_anchors из last_bot_replies с директивой подражания прошлым ответам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Автостиля нет в payload обоих триггеров; история реплик бота читается",
+          "observation": "test_direct_writer_payload_has_no_anchors_with_history (Direct с историей last_bot_replies: payload без <style_anchors>/«подражай», история доступна) и test_initiative_writer_payload_has_no_anchors; инварианты дублированы в TestStyleAnchorsAndMoodRemoved (tests/test_direct_chat.py)",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "b2738117"
+        },
+        {
+          "ref": "Мёртвые помощники автостиля сняты; история не тронута",
+          "observation": "ur-e-evidence.md: удалены _build_style_anchors/_detect_sticky/_normalize_first_word и _STYLE_ANCHOR_LOOKBACK/_STICKY_*; bot_replies/mca_bot_outputs читаются как раньше — реплики остаются фрагментами диалога, не инструкцией",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-e-evidence.md",
+          "artifact_sha256": "e9b2a730eeadc3c3f433846129944e5f030bfdcccbc0ee3f8a556b73de372d00",
+          "candidate_commit": "b2738117"
+        }
+      ],
+      "note": "Подстроки: UR-14.1 — «полноценный участник по всем осям выборки» принадлежит UR-C/UR-23; UR-14.2 — catalog/UI-ключи принадлежат волне UR-F."
     },
     {
       "source_id": "L00225",
@@ -3850,8 +3950,33 @@
       "acceptance": "L2 собирается одной финальной композицией инструкций с манифестом владельцев слоёв; дублирующая автоматическая директива применяется один раз. Уточнено BGS-04: обязательные Form/Numeric/Format-проверки действуют при фактически выполненной трансформации и протокольных ошибках, а не как повторная генерация свободного ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Character/style — до единственного Writer-вызова; правила владельца ровно один раз",
+          "observation": "TestCharacterStyleInputsOneWriter::* (character/style в один вызов _l2_write_answer и одну композицию system) + TestOwnerRulesExactlyOnce::* (style-pass ровно 1× на триггер direct/initiative, repair=None, 0 LLM) + test_protected_spans_intact_deterministic_pass (код-fence/URL байт-в-байт, repair_used==0)",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "b2738117"
+        },
+        {
+          "ref": "Единственная композиция; стилевое нарушение не перегенерирует ответ",
+          "observation": "ur-e-evidence.md: _compose_speech_system → prompt_composer.compose_speech_system; нарушение стиля даёт детерминированный style-pass (2 шага LLM без второго автора); набор RLR/BGS в прогоне среза зелёный (586 passed)",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-e-evidence.md",
+          "artifact_sha256": "e9b2a730eeadc3c3f433846129944e5f030bfdcccbc0ee3f8a556b73de372d00",
+          "candidate_commit": "b2738117"
+        },
+        {
+          "ref": "Один writer-путь речи в сервисе",
+          "observation": "services/direct_chat_service.py: character/style-входы идут в единственный вызов Writer (_l2_write_answer) и единственную композицию system (_compose_speech_system); отдельного второго генератора/переписчика в пути нет",
+          "type": "code",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "1fe9155284fccf2118f6cf31bf546125c72f06c6ce0241f0637e6c226f0829ae",
+          "candidate_commit": "b2738117"
+        }
+      ],
       "bgs_note": "BGS-07 §8 (UR-15 «Уточнено»): обязательный Form/Numeric/Format-контроль ограничен реальными трансформациями и протокольными ошибками.",
       "clarified_by": "BGS-04 (owner 2026-11-05)",
       "prior_acceptance": "L2 собирается одной финальной композицией инструкций с манифестом владельцев слоёв; дублирующая автоматическая директива применяется один раз."
@@ -3868,8 +3993,25 @@
       "acceptance": "Лексический mood-ярлык не подмешивается в L2 как самостоятельная инструкция: тон выбирает L1 по контексту, owner style и character приоритетнее.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Лексический mood-ярлык удалён из payload L2",
+          "observation": "TestMoodLabelGone::test_direct_payload_no_mood_label (нет <mood>/«подстрой тон» при флаге ON и OFF) + TestNoAutoImitation::test_initiative_writer_payload_has_no_anchors; mood-инварианты дублированы в TestStyleAnchorsAndMoodRemoved (tests/test_direct_chat.py); RED-check на базе 9a996c79 падает на test_direct_payload_no_mood_label",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "b2738117"
+        },
+        {
+          "ref": "Механика mood-hint снята; тон выбирает L1",
+          "observation": "ur-e-evidence.md §UR-16: _build_mood_block/_parse_mood_words/init-поля сняты; тон выбирает L1 (оси tone/emotional_mirroring плана), owner style и character приоритетнее — без новых текстов",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-e-evidence.md",
+          "artifact_sha256": "e9b2a730eeadc3c3f433846129944e5f030bfdcccbc0ee3f8a556b73de372d00",
+          "candidate_commit": "b2738117"
+        }
+      ]
     },
     {
       "source_id": "L00239",
@@ -3877,7 +4019,7 @@
       "source_text_sha256": "e47832695eb663ac6b9535514146f7b10def61782b55fdd70c8e7f605ef28e02",
       "source_excerpt": "### UR-17. Исторический диалог как regression fixture",
       "disposition": "required",
-      "reason": "",
+      "reason": "fixture «диалог.txt» (04.11.2026 07:50–08:00) в репозитории отсутствует; хронологическая серия с настоящими reply-edges и проверки поведения модели — preprod-валидация (live_when=preprod)",
       "req_id": "UR-17",
       "slice": "UR-E",
       "acceptance": "Исторический диалог 04.11.2026 07:50-08:00 воспроизводится как хронологическая серия с настоящими reply-edges, а не набор prompt-команд.",
@@ -3892,7 +4034,7 @@
       "source_text_sha256": "acbb959024ee522f276808ffa07866fa39a151b7f486a3d45421aca4ed60ab94",
       "source_excerpt": "- На «ты раньше был Рофлославом?» бот различает игру, утверждение пользователя и реально подтверждённую собственную память; не меняет свою биографию под давлением следующего обращения.",
       "disposition": "required",
-      "reason": "",
+      "reason": "различение игры/утверждения/подтверждённой памяти — поведение модели; требует fixture «диалог.txt» (нет в репо) и живой preprod-прогон",
       "req_id": "UR-17.2",
       "slice": "UR-E",
       "acceptance": "На «ты раньше был Рофлославом?» различаются игра, утверждение пользователя и подтверждённая память; биография не меняется под давлением следующего обращения.",
@@ -3907,7 +4049,7 @@
       "source_text_sha256": "37d8eb791b14df724cbc8032b7747e251e71f5bb8eda0947933aad03c6a89123",
       "source_excerpt": "- В вопросах про Евгения/Кучу/третьего участника правильный `speaker_uid` и `target_user_id`; один участник не получает ответ, адресованный другому.",
       "disposition": "required",
-      "reason": "",
+      "reason": "детерминируемая часть (speaker_uid/target_user_id, «чужой ответ не уходит другому») доказана тестами границы доставки UR-D — tests/test_ur_d_writer.py::TestDeliveryBoundary (кандидат 6374eedc, VERIFIED в этой карте); диалог-фикстура «диалог.txt» (нет в репо) и живой прогон остались",
       "req_id": "UR-17.3",
       "slice": "UR-E",
       "acceptance": "Адресация Евгений/Куча/третий участник верна: speaker_uid и target_user_id совпадают с источником, чужой ответ не уходит другому.",
@@ -3922,7 +4064,7 @@
       "source_text_sha256": "6bf7089376fed8da2bfde87bbdec515e7eaaefee1e585c50c80cacdce3893698",
       "source_excerpt": "- После коррекции «диагноз придумывал другой человек» бот перестаёт приписывать исходную фразу неверному участнику.",
       "disposition": "required",
-      "reason": "",
+      "reason": "атрибуция после коррекции «диагноз придумывал другой человек» — поведение модели; требует fixture «диалог.txt» (нет в репо) и живой preprod-прогон",
       "req_id": "UR-17.4",
       "slice": "UR-E",
       "acceptance": "После коррекции «диагноз придумывал другой человек» исходная фраза больше не приписывается неверному участнику.",
@@ -3952,14 +4094,15 @@
       "source_text_sha256": "09e555947fd3bf0e8197b69082415e4680aa40210758e32548d3b1f1bcaca924",
       "source_excerpt": "- Шутка про диагнозы и дата-центр не копируется почти дословно в несколько последовательных реплик; одно и то же смешное наблюдение не выдаётся за новый панчлайн.",
       "disposition": "required",
-      "reason": "",
+      "reason": "enforcing-ветка строки (пост-L2 reroll по совпадению текстов) снята коррективом REMOVE-LEGACY-REPHRASING R-04/R-05.1; остаётся только наблюдение DIRECT_FINAL_REPEATED_TEXT; дословное повторение шутки — поведение модели (fixture «диалог.txt» нет в репо + live)",
       "req_id": "UR-17.6",
       "slice": "UR-E",
       "acceptance": "Одна и та же шутка (диагноз/дата-центр) не воспроизводится почти дословно в нескольких соседних ответах.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "superseded_by": "REMOVE-LEGACY-REPHRASING R-04/R-05.1 (частично: enforcing-ветка)"
     },
     {
       "source_id": "L00248",
@@ -5853,8 +5996,25 @@
       "acceptance": "Архитектура алиасов, prompt versioning, владельческие speech instructions, ограничения доступа к chat data, инструменты безопасности и SendRecheck не удаляются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Речевая инфраструктура не удалена (структурный тест)",
+          "observation": "TestBanInvariantsIntact::test_speech_infrastructure_not_removed — алиасы, prompt_registry.declare_prompt/seal_integrity, resolve_prompt(prompts.direct_chat_verbalizer_…), get_protected_facts/DEFAULT_EXEMPTIONS, SafeFetcher, SendRecheck существуют",
+          "type": "test",
+          "artifact_path": "tests/test_ur_e_speech.py",
+          "artifact_sha256": "668f7bccfc512e57eb23fc859b38ca072c282d887f5bfb6a1732ab3c338c04e1",
+          "candidate_commit": "b2738117"
+        },
+        {
+          "ref": "Запреты среза соблюдены",
+          "observation": "ur-e-evidence.md §UR-BAN-07: 0 текстов промптов в диффе, новые классификаторы не добавлялись, delivery-логика инициативы не тронута",
+          "type": "report",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-e-evidence.md",
+          "artifact_sha256": "e9b2a730eeadc3c3f433846129944e5f030bfdcccbc0ee3f8a556b73de372d00",
+          "candidate_commit": "b2738117"
+        }
+      ]
     },
     {
       "source_id": "L00486",
@@ -6209,10 +6369,11 @@
   "slice_candidates": {
     "UR-B": "da6299e9",
     "UR-C": "9ac64a61",
-    "note": "Все три среза уже в evol/impl: 9ac64a61 (UR-C) — предок da6299e9 (UR-B), 4cc99286 — ветка UR-A, влитая merge dc296207 (файлы среза в HEAD те же байты). Поле candidate_commit — последний принятый кандидат среза, по которому шла проверка.",
+    "note": "Все три среза уже в evol/impl: 9ac64a61 (UR-C) — предок da6299e9 (UR-B), 4cc99286 — ветка UR-A, влитая merge dc296207 (файлы среза в HEAD те же байты). Поле candidate_commit — последний принятый кандидат среза, по которому шла проверка. UR-E: b2738117 влит merge 2ca390c0 (файлы среза в HEAD те же байты, привязка 06.11.2026).",
     "UR-A": "4cc99286",
     "UR-D": "6374eedc",
-    "UR-C-CLOCK": "7632fdb6"
+    "UR-C-CLOCK": "7632fdb6",
+    "UR-E": "b2738117"
   },
   "architecture_note": "Барьер UR-A снят и реализован: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966) имеет статус ARCHITECT_VALIDATED и фиксирует контракт модулей (§2), карту владения файлами (§2.6) и checkpoint-1 «контракты сфризены». По этому контракту срезом UR-A создан ровно один новый файл — services/turn_types.py (фрозен-датаклассы/enums, без логики исполнения); файла services/turn_request.py в проекте никогда не существовало, имя в графе исправлено. Датаклассы §2.2/§2.3 намеренно не дублируются: ContextSelection/ContextFragment — services/direct_context_composer.py (UR-C), ToolEvidence/SourceRecord — services/direct_execution.py (UR-B)."
 }

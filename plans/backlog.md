@@ -492,3 +492,9 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
 - После коммита `731ef3c0` параллельный процесс в том же worktree перезаписал `plans/features/behavior-gates-simplification/requirements-map.json` (mtime 06:39, CRLF/indent 1): строки BGS-00.5, BGS-00.9, BGS-03.4, BGS-03.5, BGS-04.3, BGS-04.10 переведены в VERIFIED с одним и тем же тест-артефактом при сохранённом тексте причины «Не проверено…».
 - Действие: дельта сохранена в `WorkspaceData/runs/c742e4de9e92c489/behavior-gates-simplification-a31ccc56ff86/temp-549fef3b99/concurrent-writer-map.{json,diff}`, карта восстановлена к `731ef3c0` (41 VERIFIED, 6 PENDING с причинами).
 - Правило: одна карта — один писатель; закрытие строки требует доказательства именно её поведения, а не общего тест-файла полосы.
+## UR-E — некритичные наблюдения ревью (06.11.2026)
+
+Карта: `plans/features/unified-reply/requirements-map.json` (срез UR-E привязан к `b2738117`, merge `2ca390c0`); нижеследующее не блокирует уже привязанные строки.
+
+- (UR-F) Мёртвые стабы `_build_mood_block`/`_build_style_anchors` остались в трёх старых тестовых файлах (`tests/test_budget_global_toggle_round1024.py`, `tests/test_history_w4_fixes.py`, `tests/test_mca07_retrieval_context_round1027.py`) + упоминание `<style_anchors>` в docstring `services/database.py:11150` (`last_bot_replies`). Активный код их не читает (производители mood/anchors сняты в UR-E); убрать при ближайшем касании UR-F. Источник: ревью UR-E (`b2738117`).
+- Хаускипинг: у `tools/workflow_housekeeping.py` нет команды `unregister-worktree` — зарегистрированный worktree-путь нельзя снять с учёта до `epic-close` (только интегрированные и чистые); для досрочного снятия остаётся правка реестра. Источник: ревью UR-E (06.11.2026).
