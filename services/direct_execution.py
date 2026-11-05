@@ -2052,7 +2052,7 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
                          reply_text: str = "", private_terms=(),
                          capacity_chars: int | None = None,
                          prepend_sources=(), emit_trace: bool = True,
-                         time_context: str = ""
+                         time_context: str = "", route: str = "direct"
                          ) -> ToolPhaseResult:
     """ЕДИНЫЙ tool-этап Direct и Initiative (UR-03) + Search-first (UR-06).
 
@@ -2099,6 +2099,13 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
         # Участие решено до tool-фазы: ни платного поиска, ни инструментов.
         result.evidence.search_status = SEARCH_STATUS_SKIPPED
         result.evidence.search_skip_reason = SKIP_PARTICIPATION_WITHOUT_TEXT
+        # UR-26.3: payload-событие tool-фазы — честный пропуск с кодом
+        # участия (silent/react не доходят до сети; 0 платных вызовов).
+        _emit_tool_phase_event(
+            route=route, chat_id=chat_id, correlation_id=correlation_id,
+            llm=llm, evidence=result.evidence, mode="none", action=action,
+            outcome="skipped", finish_reason="skipped_participation",
+            time_context=time_context)
         if emit_trace:
             emit_search_trace(result.evidence, chat_id=chat_id,
                               correlation_id=correlation_id)
@@ -2110,6 +2117,12 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
             # required без инструментов — честно «не выполнено», не «ок».
             result.evidence.search_status = SEARCH_STATUS_UNAVAILABLE
             result.evidence.search_skip_reason = SKIP_TOOL_ABSENT
+        # UR-26.3: честный код отсутствия инструментов/роутера.
+        _emit_tool_phase_event(
+            route=route, chat_id=chat_id, correlation_id=correlation_id,
+            llm=llm, evidence=result.evidence, mode="none", action=action,
+            outcome="skipped", finish_reason="skipped_no_tools",
+            time_context=time_context)
         if emit_trace:
             emit_search_trace(result.evidence, chat_id=chat_id,
                               correlation_id=correlation_id)
@@ -2301,10 +2314,57 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
     result.pack = pack
     result.mode = mode
     result.demote_reason = demote_reason
+    # UR-26.3: payload-событие tool/WebSearch-фазы обоих триггеров —
+    # модель/провайдер, режим исполнения, статус поиска, размер/digest
+    # evidence-пакета и наличие ChatClock-блока в orchestrator-payload'е.
+    # R17: только коды/числа/digest (без текстов выдачи).
+    _emit_tool_phase_event(
+        route=route, chat_id=chat_id, correlation_id=correlation_id,
+        llm=llm, evidence=evidence, mode=mode, action=action,
+        outcome="success", finish_reason=str(mode or "none"),
+        pack=pack, demote_reason=demote_reason,
+        time_context=time_context)
     if emit_trace:
         emit_search_trace(evidence, chat_id=chat_id,
                           correlation_id=correlation_id)
     return result
+
+
+def _emit_tool_phase_event(*, route: str, chat_id, correlation_id, llm,
+                           evidence, mode: str, action: str, outcome: str,
+                           finish_reason: str, pack=None,
+                           demote_reason: str = "",
+                           time_context: str = "") -> None:
+    """UR-26.3: событие стадии tool/WebSearch-фазы (fail-open, R17-safe).
+
+    ``route`` различает Direct/Initiative на общем шве; коды решения —
+    существующие статусы ToolEvidence (search_status/skip_reason), без
+    второго словаря кодов."""
+    try:
+        from services import turn_payload_events as _tpe
+        pack_text = str(getattr(pack, "text", "") or "")
+        skip = str(getattr(evidence, "search_skip_reason", "") or "")
+        decision = (
+            f"route={str(route or 'direct')};action={str(action or '')};"
+            f"mode={str(mode or 'none')};"
+            f"search={str(getattr(evidence, 'search_status', '') or '')}"
+            + (f";skip={skip}" if skip else "")
+            + (f";demote={str(demote_reason)}" if demote_reason else ""))
+        _tpe.emit_stage(
+            _tpe.STAGE_TOOL_PHASE, outcome=outcome, chat_id=chat_id,
+            correlation_id=correlation_id, model=_tpe.llm_model(llm),
+            provider=_tpe.llm_provider(llm), finish_reason=finish_reason,
+            chars=len(pack_text) if pack_text else None,
+            text_digest=(_tpe.text_digest(pack_text)
+                         if pack_text else None),
+            # наличие ChatClock-блока в orchestrator-payload (time_context
+            # — тот же отрендеренный блок ChatClock, что уходит в payload).
+            clock=_tpe.clock_meta_text(time_context, chat_id=chat_id),
+            decision=decision,
+            input_count=int(getattr(evidence, "source_count", 0) or 0)
+            or None)
+    except Exception:      # pragma: no cover - наблюдаемость не рвёт фазу
+        pass
 
 
 # ── Evidence pack: per-source fair allocation (§18C.2) ───────────────────────
