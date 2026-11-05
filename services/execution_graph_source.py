@@ -61,6 +61,11 @@ KIND_LABELS = {
 STAGE_FILTER = "filter"
 STAGE_L1 = "l1_clusterizer"
 STAGE_L2 = "l2_writer"
+# R-08.14/§3.2 (UR-19): продолжение того же ответа после `finish_reason=length`
+# — отдельный LLM-вызов той же финальной стадии (тот же автор, тот же план).
+# Отдельный step нужен, чтобы в трассе/учёте было видно «continuation», а не
+# «всё под stage2» (§7), при этом токены остаются в слоте L2.
+STAGE_L2_CONTINUATION = "l2_continuation"
 STAGE_FORMAT = "formatting"
 STAGE_PUBLISH = "publication"     # S6 (D6): после formatting
 
@@ -83,6 +88,7 @@ STAGE_LABELS = {
     STAGE_FILTER: "Алгоритмический фильтр",
     STAGE_L1: "L1 Кластеризатор",
     STAGE_L2: "L2 Писатель",
+    STAGE_L2_CONTINUATION: "L2 Продолжение (length)",
     STAGE_FORMAT: "Форматирование",
     STAGE_PUBLISH: "Публикация",
     # A9/§51.
@@ -116,6 +122,8 @@ STEP_KIND = {
     "single": KIND_LLM, "stage1": KIND_LLM, "stage2": KIND_LLM,
     "image": KIND_LLM,
     STAGE_L1: KIND_LLM, STAGE_L2: KIND_LLM,
+    # R-08.14: продолжение — LLM-вызов того же автора (не новый этап смысла).
+    STAGE_L2_CONTINUATION: KIND_LLM,
     "tool": KIND_TOOL,
     STAGE_FILTER: KIND_ALGORITHM, STAGE_FORMAT: KIND_FORMAT,
     "format": KIND_FORMAT,
@@ -141,6 +149,7 @@ STEP_LABEL = {
     STAGE_FILTER: STAGE_LABELS[STAGE_FILTER],
     STAGE_L1: STAGE_LABELS[STAGE_L1],
     STAGE_L2: STAGE_LABELS[STAGE_L2],
+    STAGE_L2_CONTINUATION: STAGE_LABELS[STAGE_L2_CONTINUATION],
     STAGE_FORMAT: STAGE_LABELS[STAGE_FORMAT],
     STAGE_PUBLISH: KIND_LABELS[KIND_PUBLISH],
     STAGE_DECISION: STAGE_LABELS[STAGE_DECISION],
@@ -165,7 +174,10 @@ PUBLICATION_FAILED = "failed"
 PUBLICATION_SKIPPED = "skipped"
 
 # §112: step → слот токенов/стоимости L1/L2 (единый учёт, как S9).
-_USAGE_STEP_MAP = {STAGE_L1: "l1", STAGE_L2: "l2"}
+# R-08.14: продолжение — тот же логический ответ, значит тот же слот L2
+# (иначе токены продолжения выпали бы из учёта).
+_USAGE_STEP_MAP = {STAGE_L1: "l1", STAGE_L2: "l2",
+                   STAGE_L2_CONTINUATION: "l2"}
 
 
 # ── in-memory реестр снапшотов прогона (D7: Δ DDL=0) ────────────────────────

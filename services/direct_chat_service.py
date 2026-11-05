@@ -206,6 +206,7 @@ from services.token_counter import (
 from services.context_middleware import truncate_keep_header
 from services.reply_postprocess import strip_reasoning_tags
 from services import anticliche_cache
+from services import l2_continuation as _l2_cont
 from services.agentic_events import emit_agentic_event
 from services import usage_events
 from services.negative_constraints import (
@@ -2132,6 +2133,53 @@ def _expression_diag(cls: str, *, chat_id: int, stage: str, detail: str = "",
                                    detail=detail, mode=mode)
     except Exception:      # pragma: no cover — диагностика не рвёт ход
         pass
+
+
+def _log_l2_continuation(chat_id: int, correlation_id: str | None,
+                         result, *, diag_out: dict | None = None) -> None:
+    """UR-19 / R-08.14: факт и причина продолжения финального ответа видны.
+
+    `stop_reason` не маскируется: `cap`/`no_progress` означают НЕЗАВЕРШЁННЫЙ
+    текст (вызывающий не выдаёт его за готовый ответ). Fail-open: диагностика
+    не рвёт ход.
+    """
+    try:
+        if diag_out is not None:
+            diag_out.update({
+                "continuation_calls": int(result.continuation_calls),
+                "continuation_stop_reason": str(result.stop_reason),
+                "continuation_completed": bool(result.completed),
+                "finish_reasons": list(result.finish_reasons),
+            })
+        if not result.continued:
+            return
+        # Незавершённый ответ — WARNING: он не доставляется как готовый,
+        # но причина обязана быть видна в продовых логах (§7).
+        _log = logger.info if result.completed else logger.warning
+        _log(
+            "[direct] l2 continuation | chat=%s | calls=%d | stop=%s | "
+            "finish=%s | chars=%d", chat_id, result.continuation_calls,
+            result.stop_reason, ",".join(result.finish_reasons),
+            len(result.text))
+        try:
+            from services import mca_events as _mca_events
+            _mca_events.emit_mca_event(
+                "llm_continuation",
+                outcome=("success" if result.completed else "skipped"),
+                component="direct_chat", stage="l2_continuation",
+                reason_code=str(result.stop_reason),
+                chat_id=int(chat_id), trace_id=correlation_id,
+                usage_json={
+                    "calls": int(result.continuation_calls),
+                    "completed": bool(result.completed),
+                    "finish_reasons": list(result.finish_reasons),
+                    "chars": len(result.text),
+                })
+        except Exception:      # pragma: no cover — событие не рвёт ход
+            pass
+    except Exception:          # pragma: no cover — диагностика не рвёт ход
+        logger.warning("[direct] l2 continuation log failed | chat=%s",
+                       chat_id)
 
 
 def _expression_record_raw(*, chat_id: int, correlation_id: str | None,
@@ -7675,15 +7723,36 @@ class DirectChatService:
             _l2_fb_adapter = _expression_marker_checked_adapter(
                 _l2_fb_adapter, chat_id=chat_id, mode=_expr_mode)
 
+        # ── UR-18/UR-19: фактический `finish_reason` нужен потребителю.
+        # Реальный клиент (`LLMClient.generate_with_metadata`) его отдаёт;
+        # текст-двойники клиента (только `generate`) сигнала не имеют —
+        # для них ответ считается завершённым (прежнее поведение).
+        # Проверка по КЛАССУ: авто-атрибуты моков не должны включать
+        # «метаданные», которых у реализации нет.
+        _meta_method = getattr(type(self.llm), "generate_with_metadata", None)
+        _call_kwargs = dict(
+            temperature=temperature, chat_id=chat_id, module="direct_chat",
+            correlation_id=correlation_id,
+            fallback_payload_adapter=_l2_fb_adapter,
+            max_output_tokens=max_tokens)
+
+        async def _call_l2(msgs, *, step: str):
+            """Один вызов провайдера финальной стадии (первый или продолжение).
+
+            Оба вызова идут ОДНИМ путём: тот же клиент, тот же провайдер/
+            fallback-адаптер, тот же correlation_id; отличается только step,
+            чтобы в трассе продолжение было видно отдельно (§7).
+            """
+            if callable(_meta_method):
+                return await _meta_method(self.llm, msgs, step=step,
+                                          **_call_kwargs)
+            return _l2_cont.TextCompletion(
+                await self.llm.generate(msgs, step=step, **_call_kwargs))
+
         async def _generate(messages):
             _fallbacks_before = _llm_fallbacks_total()
             try:
-                reply = await self.llm.generate(
-                    messages, temperature=temperature, chat_id=chat_id,
-                    module="direct_chat", step="l2_writer",
-                    correlation_id=correlation_id,
-                    fallback_payload_adapter=_l2_fb_adapter,
-                    max_output_tokens=max_tokens)
+                completion = await _call_l2(messages, step="l2_writer")
             except Exception:
                 # §6 `provider_limitation`: вызов со слоем упал — не
                 # маскируем как «исправлено» (существующие fallback-события
@@ -7695,13 +7764,27 @@ class DirectChatService:
                     if diag_out is not None:
                         diag_out["provider_error"] = True
                 raise
+            # ── UR-19 / R-08.14 / §3.2: фактический `finish_reason` первого
+            # авторского вызова. `length` — НЕЗАКОНЧЕННЫЙ output: тот же
+            # логический ответ продолжается тем же автором (явная граница
+            # накопленных токенов), а не отдаётся чату обрезком и не
+            # переписывается вторым автором. Отказ/невозможность продолжения
+            # → пустой текст → существующий честный исход вызывающего
+            # (`_l2_write_answer` → None), не фиктивный успех.
+            _continuation = await _l2_cont.complete_truncated_answer(
+                completion, messages=messages,
+                call=lambda msgs: _call_l2(msgs, step="l2_continuation"))
+            _log_l2_continuation(chat_id, correlation_id, _continuation,
+                                 diag_out=diag_out)
             if _expr_rendered and _llm_fallbacks_total() > _fallbacks_before:
                 _expression_diag("provider_limitation", chat_id=chat_id,
                                  stage="l2_writer", detail="fallback_model",
                                  mode=_expr_mode)
                 if diag_out is not None:
                     diag_out["provider_error"] = True
-            return reply
+            if not _continuation.completed:
+                return ""
+            return _continuation.text
 
         enabled_rules = (channel_enabled_rules("plain", response_mode)
                          if modes_on else None)
