@@ -5085,7 +5085,20 @@ class DirectChatService:
                             fallback_payload_adapter=(
                                 _fb_factory(time_line) if _fb_factory
                                 else None),
-                            max_output_tokens=longform_max_tokens)
+                            # UR-19.2: семантический ответ этого маршрута не
+                            # ограничивается универсальным longform-4096 —
+                            # ставится вычисленное физически допустимое
+                            # значение (неизвестный ресурс → None → ключа нет).
+                            # Модель/endpoint — только от клиента хода.
+                            max_output_tokens=await _extent.
+                            writer_max_output_tokens(
+                                model=str(getattr(self.llm, "_chat_model", "")
+                                          or ""),
+                                base_url=str(getattr(self.llm, "_base_url", "")
+                                             or ""),
+                                input_tokens=sum(
+                                    count_tokens(str(m.get("content") or ""))
+                                    for m in payload)))
             except NoApiKeyForChat as exc:
                 # Раунд 10 (F-7 §5.2) + D03: sandbox-фраза
                 # content.no_key_reply (LLM НЕ вызывается; тишины нет —
@@ -5480,10 +5493,10 @@ class DirectChatService:
                         speech=_speech_projection,
                         fallback_budget_tokens=(
                             _fallback_meta.get("l2_fallback_budget")),
-                        max_tokens=(longform_max_tokens
-                                    if response_plan is not None
-                                    and response_plan.is_longform()
-                                    else None),
+                        # UR-19.2: longform-4096/16384 больше не подставляются
+                        # как семантическая граница — Writer вычисляет
+                        # физически допустимый output сам (общий код обоих
+                        # режимов); явного override у вызывающего нет.
                         # P0-HA QUALITY (wiring §13): инструкция финальной
                         # сборки — ТОЛЬКО ходу с выборкой истории; без
                         # выборки параметр пуст → байт-паритет прежнего
@@ -7836,6 +7849,22 @@ class DirectChatService:
             {"role": "system", "content": verbalizer_system},
             {"role": "user", "content": user_content},
         ]
+        # ── UR-19/UR-19.1/UR-19.2: Writer вычисляет физически допустимый
+        # output из РЕАЛЬНОГО max_output модели, окна и размера СВОЕГО входа.
+        # Семантические константы (инициативный 700, longform-4096/16384)
+        # активным маршрутом больше не подставляются; неизвестный ресурс →
+        # None → ключ max_tokens не отправляется (дефолт провайдера). Явный
+        # ``max_tokens`` от вызывающего остаётся точечным override.
+        # Модель/endpoint — ТОЛЬКО от инжектированного клиента (как во всей
+        # остальной трассе этой функции): двойник без атрибутов даёт пустые
+        # строки → локальный резолв без сети, никаких живых probe из хода.
+        _writer_max_tokens = max_tokens
+        if _writer_max_tokens is None:
+            _writer_max_tokens = await _extent.writer_max_output_tokens(
+                model=str(getattr(self.llm, "_chat_model", "") or ""),
+                base_url=str(getattr(self.llm, "_base_url", "") or ""),
+                input_tokens=sum(count_tokens(str(m.get("content") or ""))
+                                 for m in base_messages))
         # ── ADD-EXP §6: «политика доехала?» — слой рендерен (манифест),
         # маркер есть в ФИНАЛЬНОМ system (после scrub); нет маркера →
         # честный класс `policy_not_injected`, а не молчание.
@@ -7878,7 +7907,7 @@ class DirectChatService:
             fallback_model=str(
                 getattr(self.llm, "_fallback_model", "")
                 or getattr(settings, "LLM_FALLBACK_MODEL", "") or ""),
-            max_output_tokens=max_tokens,
+            max_output_tokens=_writer_max_tokens,
             writer_name=str(writer or "l2_writer"),
             # Без композера манифеста нет — состав блоков и заводские ревизии
             # owner-промптов берутся из фактических частей payload и реестра.
@@ -7916,7 +7945,7 @@ class DirectChatService:
             temperature=temperature, chat_id=chat_id, module="direct_chat",
             correlation_id=correlation_id,
             fallback_payload_adapter=_l2_fb_adapter,
-            max_output_tokens=max_tokens)
+            max_output_tokens=_writer_max_tokens)
 
         async def _call_l2(msgs, *, step: str):
             """Один вызов провайдера финальной стадии (первый или продолжение).
@@ -13125,9 +13154,12 @@ class DirectChatService:
         rationale = str(row.get("rationale") or "").strip()[:200]
         context_block = (
             "<Initiative_Context>\n"
-            "Ты проявляешь инициативу сам (никто бота не звал). Держись "
-            "в рамках ожидаемой полноты и естественно, как участник чата; "
-            "не устраивай доклад.\n"
+            "Ты проявляешь инициативу сам (никто бота не звал); пиши "
+            "естественно, как участник чата.\n"
+            # UR-04 (UNIFIED-REPLY §3): факты повода остаются, глобальная
+            # директива «не устраивай доклад» и дублирующая «ожидаемая
+            # полнота» удалены — степень подробности определяет L1 план
+            # (extent-блок), скрытых капов подробности здесь нет.
             f"Предложение наблюдателя (kind={kind or 'unknown'}, "
             f"origin={origin or 'unknown'}): {goal or 'цель не указана'}\n"
             + (f"Причина повода: {rationale}\n" if rationale else "")
@@ -13139,17 +13171,63 @@ class DirectChatService:
         # метки прогона («[M3] Имя (U1): … ↳ Reply M2») — id остаются у L1
         # (машинная сторона), а Writer видит, кто кому и на что отвечает.
         _init_speech = SpeechProjection(run_id=str(correlation_id or ""))
-        window_block = _l1.render_window_lines(
-            window, 12, with_ids=True,
+        # ── UR-04/UR-10.3 (UNIFIED-REPLY): диалог для Writer'а отбирает
+        # ОБЩИЙ ContextSelection (коллектор окна + единый аллокатор по слоту
+        # `initiative.l2`, UR-C), а не ручная нарезка окна по числу строк:
+        # свежие соседи — P1, остальное
+        # окно — фон P3, лишнее снимает аллокатор по реальному бюджету
+        # модели. Рендер строк с метками — ТОТ ЖЕ общий рендерер (один
+        # владелец формата, EVOL v5); selection решает, ЧТО видно, окно —
+        # в каком порядке. Сбой общей сборки — fail-open на кандидатный
+        # хвост без ручного потолка (инициативу не роняем).
+        try:
+            # Модель/endpoint — только от инжектированного клиента (без
+            # settings-fallback): двойник без атрибутов → пустые строки →
+            # локальный резолв окна без сети (никаких живых probe из хода).
+            _init_stage_budget = await _auto_budget.resolve_stage_budget(
+                "initiative.l2",
+                base_url=str(getattr(self.llm, "_base_url", "") or ""),
+                model=str(getattr(self.llm, "_chat_model", "") or ""))
+            _init_fresh, _init_background = \
+                _composer.collect_window_fragments(
+                    window,
+                    # Имена в payload резолвит общий рендер строк
+                    # (alias_resolver ниже); collector'у имена не нужны —
+                    # его контракт ожидает .get()-словарь, а не AliasResolver.
+                    aliases=None,
+                    bot_user_id=getattr(self, "bot_id", None),
+                    now_ts=int(time.time()))
+            _selection = _composer.build_context_selection(
+                current_text="", chat_id=chat_id,
+                fresh_neighbours=_init_fresh,
+                background=_init_background,
+                budget_tokens=_init_stage_budget.effective_input_budget)
+            _selected_sources = (
+                {f.source_id for f in _selection.fresh_neighbours}
+                | {f.source_id for f in _selection.background})
+            _init_window_rows: list = []
+            for _row in [r for r in (window or []) if isinstance(r, dict)]:
+                _probe = _composer.row_to_fragment(
+                    _row, role=_composer.ROLE_FRESH_NEIGHBOUR)
+                if _probe.source_id in _selected_sources:
+                    _init_window_rows.append(_row)
+        except Exception:      # pragma: no cover - fail-open сборки
+            logger.warning("[f6] initiative context selection failed — "
+                           "candidate tail | chat=%s", chat_id, exc_info=True)
+            _init_window_rows = [r for r in (window or [])
+                                 if isinstance(r, dict)]
+        window_block = (_l1.render_window_lines(
+            _init_window_rows, max(1, len(_init_window_rows)),
+            with_ids=True,
             # ASAP3-ACCEPT: частично собранный объект (tests/__new__) без DI
             # алиасов не должен ронять инициативу — тот же fail-open, что и в
             # _refresh_turn_aliases.
             alias_resolver=getattr(self, "aliases", None),
             projection=_init_speech)
+            if _init_window_rows else [])
         _init_labels: dict = {}
         _init_names: dict = {}
-        for _row in [r for r in (window or [])
-                     if isinstance(r, dict)][-12:]:
+        for _row in _init_window_rows:
             _item_id = _l1.item_id_of_row(_row)
             _label = (_init_speech.label_of_item(_item_id)
                       if _item_id else None)
@@ -13352,7 +13430,11 @@ class DirectChatService:
                 time_line=_cclock.render_chat_time_context(
                     _init_answer_snap, phase=_cclock.PHASE_ANSWER),
                 evidence=_initiative_evidence,
-                writer="initiative_writer", max_tokens=700,
+                # UR-04/UR-19.1: инициативный фиксированный токен-лимит 700
+                # удалён — Writer вычисляет физически допустимый output из
+                # реального ресурса модели и размера входа (общий путь с
+                # Direct, один код).
+                writer="initiative_writer",
                 speech=_init_speech)
             # BGS-02: то же наблюдение, что в Direct (единый postprocess):
             # без адресного lookup, без повторной генерации и без удаления

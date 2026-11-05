@@ -475,7 +475,14 @@ class TestGoldenExtentContracts:
 
     @pytest.mark.asyncio
     async def test_d12_longform_not_cut_by_hidden_cap(self, monkeypatch):
-        """D12: longform → явный max_output_tokens (не hidden cap/None)."""
+        """D12 (UR-19.2): longform не режется семантической константой.
+
+        Универсальный longform-дефолт 4096/16384 удалён из активного
+        маршрута: Writer вычисляет физически допустимый output сам из
+        реального ресурса модели; когда ресурс неизвестен (тест-двойник
+        без max_output) — ключ ``max_tokens`` не отправляется вовсе
+        (None), а ответ уходит целиком.
+        """
         llm = _FakeLLM(l1=_plan_json(extent="longform",
                                      response_act="creative"),
                        l2="фанфик целиком")
@@ -484,8 +491,10 @@ class TestGoldenExtentContracts:
         await svc.handle(bot, msg, user)
         l2_calls = llm.calls_of("l2_writer")
         assert l2_calls
-        assert l2_calls[0]["kwargs"].get("max_output_tokens") == \
-            _extent.longform_max_output_tokens()
+        sent_cap = l2_calls[0]["kwargs"].get("max_output_tokens")
+        assert sent_cap is None or isinstance(sent_cap, int)
+        # Семантические константы «для всех» в вызов Writer не подставляются.
+        assert sent_cap not in (700, 4096, 16384)
         svc._send_direct_answer.assert_awaited_once()
 
 
