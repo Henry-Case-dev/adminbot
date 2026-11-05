@@ -332,19 +332,14 @@ class RetrievalPlan:
 def _claim_terms(text: str, *, limit: int = 8) -> list[str]:
     """Ключевые термины клейма — ДЕТЕРМИНИРОВАННО по исходному порядку
     (W6: set-итерация давала плавающий порядок запросов между процессам).
-    Токены в lowercase (поисковый запрос), без стоп-слов, дедуп."""
+    Токены в lowercase (поисковый запрос), без стоп-слов, дедуп.
+
+    FC-SHORT-TOKENS: единый токенизатор с search_aggregator.content_terms
+    (порог 2 симв., обозначения RTX/4060 и отрицание «не» выживают),
+    поверх — стоп-слова factcheck_context._STOPWORDS."""
     from services.factcheck_context import _STOPWORDS
-    seen: set[str] = set()
-    terms: list[str] = []
-    for match in re.finditer(r"[0-9a-zа-яё]+", str(text or "").lower()):
-        raw = match.group(0)
-        if len(raw) < 4 or raw in _STOPWORDS or raw in seen:
-            continue
-        seen.add(raw)
-        terms.append(raw)
-        if len(terms) >= limit:
-            break
-    return terms
+    from services.search_aggregator import content_terms
+    return content_terms(text, limit=limit, stopwords=_STOPWORDS)
 
 
 # ── FC-SEMQUERY (owner §3.3): generic синонимы/терминология ─────────────────
