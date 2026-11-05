@@ -272,6 +272,10 @@ function newCtx(extra) {
     _cogPaintFrame: methods._cogPaintFrame,
     _cogDebugCounters: methods._cogDebugCounters,
     _cogApplyHighlight: methods._cogApplyHighlight,
+    // CMV-NAV-04: выбор синхронизируется с новой витриной (часть рендера).
+    _cogViewHasId: methods._cogViewHasId,
+    _cogSyncSelectionToView: methods._cogSyncSelectionToView,
+    clearCogSelection: methods.clearCogSelection,
     _cogFallbackPosition: methods._cogFallbackPosition,
     _cogDrawLabels: methods._cogDrawLabels,
     // CMV-B: слой `fx` и его кадр (в песочнице без DOM он честно выключен).

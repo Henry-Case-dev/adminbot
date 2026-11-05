@@ -1,0 +1,318 @@
+{
+ "generated_at": "2026-11-05T20:14:12",
+ "branch": "cmv/nav-fixes",
+ "rows": {
+  "NAV-02": {
+   "shots": [
+    "nav02-list-shown-no-focus-1440.png",
+    "nav02-picked-from-list-1440.png"
+   ],
+   "facts": {
+    "first_enter": {
+     "search": {
+      "vm": true,
+      "query": "Дубль показателя",
+      "status": "Найдено: 3 — выберите из списка",
+      "selectedId": null,
+      "detail": null,
+      "listPresent": true,
+      "items": [
+       {
+        "id": "ent:-1001234567890:94",
+        "text": "Дубль показателяСущности · ent:-1001234567890:94"
+       },
+       {
+        "id": "fact:-1001234567890:95",
+        "text": "Дубль показателяФакты · fact:-1001234567890:95"
+       },
+       {
+        "id": "obs:-1001234567890:96",
+        "text": "Дубль показателяНаблюдения · obs:-1001234567890:96"
+       }
+      ],
+      "conflictPresent": false,
+      "conflictText": null,
+      "showBtnText": null
+     },
+     "camera": {
+      "net": true,
+      "scale": 0.43429,
+      "vx": 5,
+      "vy": -65.5,
+      "netSelected": []
+     }
+    },
+    "pick_from_list": {
+     "pickId": "fact:-1001234567890:95",
+     "search": {
+      "vm": true,
+      "query": "Дубль показателя",
+      "status": "Найден: Дубль показателя (2/3)",
+      "selectedId": "fact:-1001234567890:95",
+      "detail": {
+       "id": "fact:-1001234567890:95"
+      },
+      "listPresent": true,
+      "items": [
+       {
+        "id": "ent:-1001234567890:94",
+        "text": "Дубль показателяСущности · ent:-1001234567890:94"
+       },
+       {
+        "id": "fact:-1001234567890:95",
+        "text": "Дубль показателяФакты · fact:-1001234567890:95"
+       },
+       {
+        "id": "obs:-1001234567890:96",
+        "text": "Дубль показателяНаблюдения · obs:-1001234567890:96"
+       }
+      ],
+      "conflictPresent": false,
+      "conflictText": null,
+      "showBtnText": null
+     },
+     "camera": {
+      "net": true,
+      "scale": 1.1,
+      "vx": -389,
+      "vy": -491,
+      "netSelected": [
+       "fact:-1001234567890:95"
+      ]
+     }
+    },
+    "enter_cycle_after_pick": [
+     {
+      "step": 1,
+      "status": "Найден: Дубль показателя (3/3)",
+      "selectedId": "obs:-1001234567890:96"
+     },
+     {
+      "step": 2,
+      "status": "Найден: Дубль показателя (1/3)",
+      "selectedId": "ent:-1001234567890:94"
+     },
+     {
+      "step": 3,
+      "status": "Найден: Дубль показателя (2/3)",
+      "selectedId": "fact:-1001234567890:95"
+     },
+     {
+      "step": 4,
+      "status": "Найден: Дубль показателя (3/3)",
+      "selectedId": "obs:-1001234567890:96"
+     }
+    ],
+    "unique_hit_focus_immediately": {
+     "status": "Найден: Любит сарказм",
+     "selectedId": "obs:-1001234567890:41",
+     "listPresent": false
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": "obs:-1001234567890:41"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "nav02-list-shown-no-focus-1440.png": "f525b67cd314f8c70c9695de145f8299e0d5992f51d194f72971072667d70f65",
+    "nav02-picked-from-list-1440.png": "13d5b8dac58c03803e5e39e7b605d3ab70fb92f6ae8fc9e5c023a657f251d0ba"
+   }
+  },
+  "NAV-03": {
+   "shots": [
+    "nav03-conflict-notice-1440.png",
+    "nav03-after-show-result-1440.png"
+   ],
+   "facts": {
+    "negative_node_in_view": {
+     "search": {
+      "vm": true,
+      "query": "утренний кофе",
+      "status": "Найден: Аня любит утренний кофе",
+      "selectedId": "fact:-1001234567890:11",
+      "detail": {
+       "id": "fact:-1001234567890:11"
+      },
+      "listPresent": false,
+      "items": [],
+      "conflictPresent": false,
+      "conflictText": null,
+      "showBtnText": null
+     },
+     "filter": {
+      "vm": true,
+      "group": "fact",
+      "cluster": "",
+      "hideDerived": false,
+      "viewNodes": 4,
+      "selectedId": "fact:-1001234567890:11",
+      "detail": {
+       "id": "fact:-1001234567890:11"
+      },
+      "cardOpen": false
+     }
+    },
+    "conflict_state": {
+     "search": {
+      "vm": true,
+      "query": "исключительно",
+      "status": "Найден: «Узел с исключительно длинным названием» — скрыт фильтром (по типу)",
+      "selectedId": "fact:-1001234567890:11",
+      "detail": {
+       "id": "fact:-1001234567890:11"
+      },
+      "listPresent": false,
+      "items": [],
+      "conflictPresent": true,
+      "conflictText": "Найден «Узел с исключительно длинным названием», но он скрыт фильтром (по типу). Фильтры не менялись.Показать результат",
+      "showBtnText": "Показать результат"
+     },
+     "filter": {
+      "vm": true,
+      "group": "fact",
+      "cluster": "",
+      "hideDerived": false,
+      "viewNodes": 4,
+      "selectedId": "fact:-1001234567890:11",
+      "detail": {
+       "id": "fact:-1001234567890:11"
+      },
+      "cardOpen": false
+     }
+    },
+    "show_result_action": {
+     "search": {
+      "vm": true,
+      "query": "исключительно",
+      "status": "Найден: Узел с исключительно длинным названием",
+      "selectedId": "ent:-1001234567890:93",
+      "detail": {
+       "id": "ent:-1001234567890:93"
+      },
+      "listPresent": false,
+      "items": [],
+      "conflictPresent": false,
+      "conflictText": null,
+      "showBtnText": null
+     },
+     "filter": {
+      "vm": true,
+      "group": "",
+      "cluster": "",
+      "hideDerived": false,
+      "viewNodes": 15,
+      "selectedId": "ent:-1001234567890:93",
+      "detail": {
+       "id": "ent:-1001234567890:93"
+      },
+      "cardOpen": false
+     },
+     "camera": {
+      "net": true,
+      "scale": 1.1,
+      "vx": -213,
+      "vy": -424,
+      "netSelected": [
+       "ent:-1001234567890:93"
+      ]
+     }
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": "ent:-1001234567890:93"
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "nav03-after-show-result-1440.png": "50a046fc1493f8c64f9014b6a1c1a7ae872a79f11815314211472f1481d89e0b",
+    "nav03-conflict-notice-1440.png": "2e84f708a1559eb8916fe013f1ae54af374714914cf8b48172446dd5efa798c4"
+   }
+  },
+  "NAV-04": {
+   "shots": [
+    "nav04-selection-kept-1440.png",
+    "nav04-selection-cleared-1440.png"
+   ],
+   "facts": {
+    "case_a_selection_kept": {
+     "selectedBefore": "fact:-1001234567890:11",
+     "filter": {
+      "vm": true,
+      "group": "fact",
+      "cluster": "",
+      "hideDerived": false,
+      "viewNodes": 3,
+      "selectedId": "fact:-1001234567890:11",
+      "detail": {
+       "id": "fact:-1001234567890:11"
+      },
+      "cardOpen": false
+     },
+     "camBefore": {
+      "net": true,
+      "scale": 0.65858,
+      "vx": 4,
+      "vy": -17.5,
+      "netSelected": [
+       "fact:-1001234567890:11"
+      ]
+     },
+     "camAfter": {
+      "net": true,
+      "scale": 0.65858,
+      "vx": 4,
+      "vy": -17.5,
+      "netSelected": [
+       "fact:-1001234567890:11"
+      ]
+     }
+    },
+    "case_b_selection_cleared": {
+     "selectedBefore": "ent:-1001234567890:1",
+     "filter": {
+      "vm": true,
+      "group": "fact",
+      "cluster": "",
+      "hideDerived": false,
+      "viewNodes": 3,
+      "selectedId": null,
+      "detail": null,
+      "cardOpen": false
+     },
+     "camBefore": {
+      "net": true,
+      "scale": 0.65858,
+      "vx": 4,
+      "vy": -17.5,
+      "netSelected": [
+       "ent:-1001234567890:1"
+      ]
+     },
+     "camAfter": {
+      "net": true,
+      "scale": 0.65858,
+      "vx": 4,
+      "vy": -17.5,
+      "netSelected": []
+     }
+    },
+    "counters": {
+     "visNetworks": 1,
+     "scenes": 1,
+     "selectedId": null
+    }
+   },
+   "console_errors": [],
+   "errors": [],
+   "sha256": {
+    "nav04-selection-cleared-1440.png": "45f534c756fd5493edca5208199926aa9282c4757701aefd06fc251348f00021",
+    "nav04-selection-kept-1440.png": "1697a9b05b197a03b7344977eb95cd92bc20611da5da8439859225e4f39eaa08"
+   }
+  }
+ }
+}

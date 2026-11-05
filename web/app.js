@@ -4019,6 +4019,14 @@
         _graphSearchMatches: [],       // текущий список совпадений (по label)
         _graphSearchIdx: 0,            // индекс перебора (Enter циклически)
         _graphSearchLastQ: '',         // последний запрос (сброс перебора)
+        _graphSearchListPending: false,// CMV-NAV-02: первый Enter — только список
+        // CMV-NAV-02: различимые результаты поиска (полное имя + тип + ID).
+        // Пусто = выбирать не из чего: одно совпадение фокусируется сразу.
+        graphSearchResults: [],
+        // CMV-NAV-03: честный конфликт «результат скрыт фильтром витрины»
+        // {id, title, blocks, blocksLabel} с действием «Показать результат».
+        // Молчаливое снятие фильтров запрещено требованием CMV-NAV-03.
+        graphSearchConflict: null,
         memoryWidgetBusy: false,
         reducedMotion: false,          // prefers-reduced-motion (анимации off)
         // hotfix6 (ADR-1025-12 D1/D4): диагностика tier стекла (R17-safe) +
@@ -30046,6 +30054,9 @@
         // computed/шаблон, публикуется в реактивные поля СРАЗУ (B1): иначе
         // счётчики и сообщение о пустоте расходились с фактической сценой.
         this._cogView = view;
+        // CMV-NAV-04: выбор живёт только внутри видимой витрины («видно ≠
+        // выбрано» недопустимо); камера/зум/фильтры не трогаются.
+        this._cogSyncSelectionToView(view);
         // CMV-B §5.8: новая витрина инвалидирует кэш подписей/рёбер активного
         // узла. Без этого план, посчитанный при создании сети (витрина ещё не
         // присвоена), залипал бы пустым — «карта без имён».
@@ -32528,6 +32539,11 @@
       // F2 (T-1560/1561, spec §5): поиск по имени/алиасу с фокусом. Алиасы
       // уже разложены в модели (`summaryAliasesMap` при загрузке), поэтому
       // поиск — чистый `CognitiveMap.searchNodes` без новых запросов.
+      // CMV-NAV-02: несколько совпадений → список различимых результатов
+      // (полное имя + тип + ID) и ВЫБОР пользователя; автофокус на первом
+      // одноимённом объекте запрещён. Детерминированный порядок и цикл Enter
+      // сохранены — после первого показа списка. Единственное совпадение
+      // фокусируется сразу (CMV-NAV-01: поиск с фокусировкой найденного).
       searchCognitionGraph: async function () {
         var q = String(this.graphSearchQuery || '').trim();
         if (!this.cognitionNetwork) {
@@ -32539,39 +32555,118 @@
         var C = window.CognitiveMap;
         var model = this.cognitionGraphData || null;
         var hits = C ? C.searchNodes(model, q) : [];
+        this.graphSearchConflict = null;  // новый запрос — прошлый конфликт снят
         if (!hits.length) {
           this._graphSearchMatches = [];
+          this._graphSearchMatchIds = [];
+          this.graphSearchResults = [];
           this._graphSearchIdx = 0;
           this.graphSearchStatus = 'Ничего не найдено';
           this.toast('В графе нет узла «' + q + '»', 'warn');
           return;
         }
-        var node = hits[0];
-        // Узел мог быть скрыт витриной (фильтр) — честно снимаем фильтры,
-        // прежде чем фокусировать: пустой фокус вместо узла недопустим.
-        var view = this._cogView || { nodes: [] };
-        var inView = false;
-        for (var i = 0; i < view.nodes.length; i += 1) {
-          if (view.nodes[i].id === node.id) { inView = true; break; }
-        }
-        if (!inView) {
-          this.graphFilterGroup = '';
-          this.cognitionMapCluster = '';
-          this.cogHideDerived = false;
-          await this.renderCognitionGraph();
-        }
-        // циклический перебор при повторном поиске того же запроса
-        var needle = String(q).toLowerCase();
-        if (needle !== this._graphSearchLastQ) { this._graphSearchIdx = -1; }
-        this._graphSearchLastQ = needle;
         this._graphSearchMatches = hits;
         // CMV-C: найденные совпадения — «закреплённые» узлы: они видны и
         // подписаны независимо от LOD/агрегатов (§5.5/§9 спеки).
         this._graphSearchMatchIds = hits.map(function (h) { return h.id; });
+        // CMV-NAV-02: список — когда есть из чего выбирать; один результат
+        // не превращается в лишний шаг выбора.
+        this.graphSearchResults = (hits.length > 1)
+          ? hits.map(function (h) { return this._cogSearchEntry(h); }, this)
+          : [];
         var sceneSearch = this._cogScene;
         if (sceneSearch) sceneSearch.searchRev = (sceneSearch.searchRev || 0) + 1;
+        // циклический перебор при повторном поиске того же запроса
+        var needle = String(q).toLowerCase();
+        if (needle !== this._graphSearchLastQ) {
+          this._graphSearchIdx = -1;
+          this._graphSearchListPending = true;  // первый Enter — только список
+        }
+        this._graphSearchLastQ = needle;
+        if (hits.length > 1 && this._graphSearchListPending) {
+          // CMV-NAV-02: фокус не ставится, пока пользователь не выбрал
+          // результат из списка; порядок в списке детерминированный.
+          this._graphSearchListPending = false;
+          this._graphSearchIdx = -1;
+          this.graphSearchStatus = 'Найдено: ' + hits.length
+            + ' — выберите из списка';
+          return;
+        }
         this._graphSearchIdx = (this._graphSearchIdx + 1) % hits.length;
-        node = hits[this._graphSearchIdx];
+        await this._cogAcceptSearchHit(
+          hits[this._graphSearchIdx], this._graphSearchIdx, hits.length);
+      },
+      // CMV-NAV-02: элемент списка результатов — полное имя, тип, ID.
+      _cogSearchEntry: function (node) {
+        var C = window.CognitiveMap;
+        return {
+          id: node.id,
+          title: node.title || String(node.id),
+          kind: node.kind || 'other',
+          kindLabel: (C && node.kind) ? (C.KIND_LABELS[node.kind] || node.kind)
+            : '',
+        };
+      },
+      // CMV-NAV-03: какие АКТИВНЫЕ ограничения витрины скрывают узел.
+      // `hideDerived` прячет только производные рёбра — узел скрыть не может,
+      // поэтому «нужным ограничением» бывает только тип или кластер.
+      _cogSearchBlockers: function (node) {
+        var blocks = [];
+        if (this.graphFilterGroup && node.kind !== this.graphFilterGroup) {
+          blocks.push('type');
+        }
+        var clusterId = this.cognitionMapCluster;
+        if (clusterId) {
+          var C = window.CognitiveMap;
+          var clusters = (C && this.cognitionGraphData)
+            ? C.computeClusters(this.cognitionGraphData) : [];
+          var inCluster = false;
+          for (var i = 0; i < clusters.length; i += 1) {
+            if (clusters[i].id === clusterId) {
+              inCluster = clusters[i].nodeIds.indexOf(node.id) >= 0;
+              break;
+            }
+          }
+          if (!inCluster) blocks.push('cluster');
+        }
+        return blocks;
+      },
+      // CMV-NAV-03: конфликт вместо молчаливого сброса — фильтры НЕ меняются,
+      // фокус НЕ ставится; действие у пользователя («Показать результат»).
+      _cogRejectHiddenHit: function (node, blocks) {
+        var labels = { type: 'по типу', cluster: 'по кластеру' };
+        var parts = [];
+        for (var i = 0; i < blocks.length; i += 1) {
+          parts.push(labels[blocks[i]] || blocks[i]);
+        }
+        this.graphSearchConflict = {
+          id: node.id,
+          title: node.title || String(node.id),
+          blocks: blocks.slice(),
+          blocksLabel: parts.join(' и '),
+        };
+        this.graphSearchStatus = 'Найден: «'
+          + (node.title || String(node.id)) + '» — скрыт фильтром ('
+          + this.graphSearchConflict.blocksLabel + ')';
+        return null;
+      },
+      // Общий хвост поиска и выбора из списка: узел вне витрины без
+      // блокирующих фильтров — один повтор рендера (витрина не успела);
+      // узел, скрытый фильтром, — честный конфликт (CMV-NAV-03). Затем —
+      // прежний путь: фокус, выбор, панель подробностей, пульс (§7.2 спеки).
+      _cogAcceptSearchHit: async function (node, idx, total) {
+        var view = this._cogView || { nodes: [] };
+        var inView = false;
+        for (var i = 0; i < view.nodes.length; i += 1) {
+          if (String(view.nodes[i].id) === String(node.id)) {
+            inView = true; break;
+          }
+        }
+        if (!inView) {
+          var blocks = this._cogSearchBlockers(node);
+          if (blocks.length) return this._cogRejectHiddenHit(node, blocks);
+          await this.renderCognitionGraph();
+        }
         var anim = this.reducedMotion
           ? false : { duration: 600, easingFunction: 'easeInOutQuad' };
         // Масштаб фокуса — от обзора (`fitScale`): абсолютные 1.1 на большом
@@ -32590,10 +32685,45 @@
         // выделенным (в Canvas он не «прыгает» и не теряется).
         this._cogPulseSelected('search');
         var title = node.title || node.id;
-        this.graphSearchStatus = 'Найден: ' + title +
-          (hits.length > 1
-            ? ' (' + (this._graphSearchIdx + 1) + '/' + hits.length + ')'
-            : '');
+        this.graphSearchStatus = 'Найден: ' + title
+          + (total > 1 ? ' (' + (idx + 1) + '/' + total + ')' : '');
+        return node.id;
+      },
+      // CMV-NAV-02: пользователь выбрал конкретный результат из списка.
+      pickCogSearchResult: async function (id) {
+        var hits = this._graphSearchMatches || [];
+        var idx = -1;
+        for (var i = 0; i < hits.length; i += 1) {
+          if (String(hits[i].id) === String(id)) { idx = i; break; }
+        }
+        if (idx < 0) return;
+        this.graphSearchConflict = null;
+        this._graphSearchIdx = idx;
+        await this._cogAcceptSearchHit(hits[idx], idx, hits.length);
+      },
+      // CMV-NAV-03: действие «Показать результат» — снимает ТОЛЬКО те
+      // ограничения витрины, которые реально скрывают найденный узел
+      // (остальные фильтры живут), затем фокусирует результат обычным
+      // путём поиска.
+      showCogSearchResult: async function () {
+        var conflict = this.graphSearchConflict;
+        if (!conflict || conflict.id == null) return;
+        var model = this.cognitionGraphData || null;
+        var node = (model && model.byId)
+          ? model.byId[String(conflict.id)] : null;
+        if (!node) { this.graphSearchConflict = null; return; }
+        var blocks = this._cogSearchBlockers(node);   // актуальные блокеры
+        if (blocks.indexOf('type') >= 0) this.graphFilterGroup = '';
+        if (blocks.indexOf('cluster') >= 0) this.cognitionMapCluster = '';
+        this.graphSearchConflict = null;
+        await this.renderCognitionGraph();
+        var hits = this._graphSearchMatches || [];
+        var idx = 0;
+        for (var i = 0; i < hits.length; i += 1) {
+          if (String(hits[i].id) === String(node.id)) { idx = i; break; }
+        }
+        this._graphSearchIdx = idx;
+        await this._cogAcceptSearchHit(node, idx, hits.length || 1);
       },
       clearCognitionGraphSearch: function () {
         this.graphSearchQuery = '';
@@ -32602,6 +32732,10 @@
         this._graphSearchMatchIds = [];
         this._graphSearchIdx = 0;
         this._graphSearchLastQ = '';
+        // CMV-NAV-02/03: список результатов и конфликт живут с запросом.
+        this.graphSearchResults = [];
+        this.graphSearchConflict = null;
+        this._graphSearchListPending = false;
         var sceneClear = this._cogScene;
         if (sceneClear) sceneClear.searchRev = (sceneClear.searchRev || 0) + 1;
         this._cogHighlight = null;
@@ -32849,7 +32983,31 @@
       applyGraphFilter: function () {
         if (typeof this._cogHintDone === 'function') this._cogHintDone();
         this.graphSearchStatus = '';
+        // CMV-NAV-03: пользователь сам изменил фильтры — прошлый конфликт
+        // «результат скрыт фильтром» устарел и не висит поверх новых.
+        this.graphSearchConflict = null;
         this.renderCognitionGraph();
+      },
+      // CMV-NAV-04: членство узла в видимой витрине. Сравнение строкой:
+      // id приходят и числами, и строками из разных источников (vis/model).
+      _cogViewHasId: function (view, id) {
+        var nodes = (view && view.nodes) || [];
+        for (var i = 0; i < nodes.length; i += 1) {
+          if (String(nodes[i].id) === String(id)) return true;
+        }
+        return false;
+      },
+      // CMV-NAV-04: выбор снимается, когда выбранный узел ВЫШЕЛ из
+      // отфильтрованного набора (renderCognitionGraph вызывает на каждой
+      // новой витрине). Узел в наборе — выбор сохраняется (CMV-LODB-04).
+      // Камера, зум и фильтры не трогаются: это не «Сбросить вид».
+      _cogSyncSelectionToView: function (view) {
+        if (this._cogSelectedId != null
+            && !this._cogViewHasId(view, this._cogSelectedId)) {
+          this.clearCogSelection();
+          return true;
+        }
+        return false;
       },
       // Сброс вида: фильтры/кластер/поиск/выделение сняты, кадр — общий.
       graphResetView: function () {

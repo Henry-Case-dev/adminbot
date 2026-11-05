@@ -1940,6 +1940,32 @@
       .status-graph .graph-search .btn-ghost,
       .status-graph-full .graph-search .btn-ghost { flex: 0 0 auto; }
     }
+    /* CMV-NAV-02/03: различимые результаты поиска и честный конфликт
+       «результат скрыт фильтром» — каждая своей полной строкой под рядом
+       контролов (flex-wrap), существующие токены, новых цветов нет. */
+    .graph-search .cog-search-results,
+    .graph-search .cog-search-conflict { flex: 1 1 100%; margin: 0; padding: 0; }
+    .cog-search-results { list-style: none; }
+    .cog-search-results__item {
+      display: flex; flex-direction: column; align-items: flex-start;
+      width: 100%; min-height: 44px; padding: 5px 8px; margin: 0;
+      text-align: left; cursor: pointer;
+      background: transparent; border: var(--border-hairline) solid var(--surface-border);
+      border-radius: 8px; color: inherit;
+    }
+    .cog-search-results li + li .cog-search-results__item { margin-top: 4px; }
+    .cog-search-results__item:hover { border-color: rgba(119, 168, 255, .45); }
+    .cog-search-results__title { font-size: 0.8rem; line-height: 1.25; }
+    .cog-search-results__meta {
+      font-size: 0.68rem; color: rgb(156, 163, 175); line-height: 1.3;
+      word-break: break-all;
+    }
+    .cog-search-conflict {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+      padding: 6px 8px; border-radius: 8px;
+      border: var(--border-hairline) solid rgba(255, 184, 77, 0.45);
+      color: #FFB84D;
+    }
     /* F5 (T-1819, ТЗ п.5) + §6.4 v2.1: ОДИН блок оперативного здоровья —
        сверху компактная строка ошибок/предупреждений, ниже три сегмента
        (мобила — столбик, десктоп — рядом) с тонкими внутренними разделителями

@@ -13207,6 +13207,33 @@
                         @click="graphResetView()"
                         :disabled="!cognitionNetwork">Сбросить вид</button>
                 <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
+                <!-- CMV-NAV-02: список различимых результатов (полное имя +
+                     тип + устойчивый ID); автофокус на одноимённом объекте
+                     без выбора пользователя запрещён. -->
+                <ul v-if="graphSearchResults.length" class="cog-search-results"
+                    data-cog-search-list role="listbox"
+                    aria-label="Результаты поиска по карте">
+                  <li v-for="(r, ri) in graphSearchResults" :key="'sre' + ri">
+                    <button type="button" class="cog-search-results__item"
+                            :data-cog-search-item="r.id"
+                            @click="pickCogSearchResult(r.id)">
+                      <span class="cog-search-results__title">{{ r.title }}</span>
+                      <span class="cog-search-results__meta">{{ r.kindLabel }} · {{ r.id }}</span>
+                    </button>
+                  </li>
+                </ul>
+                <!-- CMV-NAV-03: результат скрыт фильтром витрины — честный
+                     конфликт вместо молчаливого сброса; кнопка снимает только
+                     блокирующее ограничение. -->
+                <div v-if="graphSearchConflict" class="cog-search-conflict"
+                     data-cog-search-conflict role="status">
+                  <span>Найден «{{ graphSearchConflict.title }}», но он скрыт
+                    фильтром ({{ graphSearchConflict.blocksLabel }}). Фильтры
+                    не менялись.</span>
+                  <button type="button" class="btn-ghost text-xs"
+                          data-cog-search-show
+                          @click="showCogSearchResult()">Показать результат</button>
+                </div>
               </div>
               <!-- ОДНА видимая строка статуса по «худшему факту» (Architect
                    §9.1): renderer_failed → loading/not_loaded → degraded →
@@ -14669,6 +14696,29 @@
                           @click="graphResetView()"
                           :disabled="!cognitionNetwork">Сбросить вид</button>
                   <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
+                  <!-- CMV-NAV-02/03: те же список результатов и честный
+                       конфликт с фильтром, что во встроенном виджете. -->
+                  <ul v-if="graphSearchResults.length" class="cog-search-results"
+                      data-cog-search-list role="listbox"
+                      aria-label="Результаты поиска по карте">
+                    <li v-for="(r, ri) in graphSearchResults" :key="'sref' + ri">
+                      <button type="button" class="cog-search-results__item"
+                              :data-cog-search-item="r.id"
+                              @click="pickCogSearchResult(r.id)">
+                        <span class="cog-search-results__title">{{ r.title }}</span>
+                        <span class="cog-search-results__meta">{{ r.kindLabel }} · {{ r.id }}</span>
+                      </button>
+                    </li>
+                  </ul>
+                  <div v-if="graphSearchConflict" class="cog-search-conflict"
+                       data-cog-search-conflict role="status">
+                    <span>Найден «{{ graphSearchConflict.title }}», но он скрыт
+                      фильтром ({{ graphSearchConflict.blocksLabel }}). Фильтры
+                      не менялись.</span>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-cog-search-show
+                            @click="showCogSearchResult()">Показать результат</button>
+                  </div>
                 </div>
                 <button class="btn-ghost text-xs cog-fs__close" type="button"
                         data-cog-close @click="closeGraphFull()">✕ Закрыть</button>
