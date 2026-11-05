@@ -29,6 +29,7 @@ import asyncio
 import re
 import time
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -42,8 +43,11 @@ from services.database import DatabaseService
 from services.direct_chat_service import DirectChatService
 from services.direct_l1 import L1Plan
 from services.llm_client import LLMClient, LLMCompletion, LLMError
-from tests.test_asap7_direct_l1 import _FakeLLM, _drive, _plan_json
-from tests.test_direct_chat import CHAT_ID, FakeMemory, _bot, _make_service
+from services.smart_cache import SmartCache
+from tests.test_asap7_direct_l1 import (_FakeLLM, _FakeRouter, _drive,
+                                        _plan_json)
+from tests.test_direct_chat import (CHAT_ID, FakeMemory, _bot, _make_service,
+                                    _message, _user)
 
 CHAT = CHAT_ID
 BOT_ID = 12345
@@ -268,10 +272,13 @@ class TestUnifiedWriterPath:
         assert l2_calls
         payload = "".join(str(m.get("content"))
                           for m in l2_calls[-1]["messages"])
-        visible = [t for t in (f"реплика номер {i}" for i in range(30))
-                   if t in payload]
-        assert len(visible) > 12, \
-            f"ручной потолок 12 строк вернулся: visible={len(visible)}"
+        # Уникальные НОМЕРЫ строк: «реплика номер N» сопоставляется целиком
+        # (word boundary через regex), а не как подстрока — иначе «...номер 2»
+        # засчитывался бы за «...номер 20»…«...номер 29» и 12-строчный кап
+        # проходил бы проверку «>12» (мутация ревьюера).
+        markers = set(re.findall(r"реплика номер (\d+)", payload))
+        assert len(markers) > 12, \
+            f"ручной потолок 12 строк вернулся: markers={sorted(markers)}"
         assert "[M1]" in payload        # проекция меток — общий рендер
 
         # Аллокатор управляет видимым множеством: крошечный бюджет →
@@ -297,9 +304,8 @@ class TestUnifiedWriterPath:
         assert l2_calls2
         payload2 = "".join(str(m.get("content"))
                            for m in l2_calls2[-1]["messages"])
-        visible2 = [t for t in (f"реплика номер {i}" for i in range(30))
-                    if t in payload2]
-        assert 0 < len(visible2) <= 12, visible2
+        markers2 = set(re.findall(r"реплика номер (\d+)", payload2))
+        assert 0 < len(markers2) <= 12, sorted(markers2)
 
     @pytest.mark.asyncio
     async def test_initiative_no_hidden_briefness_directive(
@@ -659,6 +665,141 @@ class TestDeliveryBoundary:
             assert sent == []
         finally:
             await db.close()
+
+
+# ── UR-05.2: freshness/crash-replay — повтор не дублирует, stale не ответ ────
+
+class _QueuedLLM(_FakeLLM):
+    """`_FakeLLM` с очередью РАЗНЫХ l2-ответов: доказывает, что второй ход
+    получил ответ из СВЕЖЕГО вызова, а не сохранённый stale-результат."""
+
+    def __init__(self, *, l1, l2_answers):
+        super().__init__(l1=l1, l2=l2_answers[0])
+        self._l2_queue = list(l2_answers)
+
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       module=None, step=None, correlation_id=None, **kwargs):
+        if step == "l2_writer":
+            self.calls.append({"step": step, "messages": messages,
+                               "kwargs": kwargs,
+                               "correlation_id": correlation_id,
+                               "module": module})
+            return self._l2_queue.pop(0) if self._l2_queue else ""
+        return await super().generate(messages, temperature=temperature,
+                                      chat_id=chat_id, module=module,
+                                      step=step,
+                                      correlation_id=correlation_id, **kwargs)
+
+
+class TestFreshnessCrashReplay:
+    """UR-05.2: повторная доставка хода после crash/рестарта не дублирует
+    отправку и не переоплачивает инструмент — durable update-маркер MCA-22
+    (SQLite `smart_cache`, slug `direct_update`, TTL 24 h, реальный код
+    `handle()`), а повторный ТЕКСТ другим update'ом — СВЕЖАЯ генерация
+    (no-replay MCA-07/EVOL-031: stale-результат не подставляется)."""
+
+    @staticmethod
+    def _wire(monkeypatch, *, cache, llm, router=None):
+        """DirectChatService с РЕАЛЬНЫМ SmartCache на файле SQLite (как в
+        проде); мокаются только I/O-края. Маркер update-дедупа не подменяется."""
+        from config.settings import Settings
+        monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", True)
+        monkeypatch.setattr(Settings, "DIRECT_DECISION_MAKING_ENABLED", True)
+        monkeypatch.setattr(Settings, "PERSONA_ENABLED", False)
+        svc = _make_service(llm=llm, cache=cache, tool_router=router)
+        svc._build_user_content = AsyncMock(return_value=[])
+        svc._image_pre_gate_block = AsyncMock(return_value=None)
+        svc._dig_pre_gate_block = AsyncMock(return_value=None)
+        svc.remember_bot_reply = AsyncMock()
+        monkeypatch.setattr(dcs, "react_moai", AsyncMock())
+        return svc
+
+    @staticmethod
+    def _capture_sends(svc):
+        sends: list = []
+
+        async def _send(bot, chat_id, answer, reply_to=None, **kwargs):
+            sends.append(answer)
+            return 800 + len(sends)
+
+        svc._send_direct_answer = AsyncMock(side_effect=_send)
+        return sends
+
+    @pytest.mark.asyncio
+    async def test_restart_redelivery_no_resend_no_tool_repay(
+            self, monkeypatch, tmp_path):
+        """Повторная доставка ТОГО ЖЕ update после «смерти» процесса:
+        durable-маркер блокирует до tool-фазы/LLM — 0 отправок, 0 LLM-вызовов,
+        0 диспетчей инструмента (инструмент не переоплачивается)."""
+        db_path = tmp_path / "ur_d_crash_marker.db"
+        user = _user()
+        msg = _message(text="найди в интернете курс биткоина",
+                       message_id=2101, user=user)
+        router1 = _FakeRouter(outputs={"execute_web_search": "курс найден"})
+        llm1 = _FakeLLM(l1=_plan_json(tool_policy="auto",
+                                      capabilities_needed=["web_search"]),
+                        l2="ответ первого хода")
+        cache1 = SmartCache(str(db_path))
+        svc1 = self._wire(monkeypatch, cache=cache1, llm=llm1,
+                          router=router1)
+        sends1 = self._capture_sends(svc1)
+        try:
+            await svc1.handle(_bot(), msg, user)
+            assert sends1 == ["ответ первого хода"], sends1
+            # Инструмент реально исполнялся в первом ходе (база для «не
+            # переоплачивает»): один dispatch web_search, LLM писала ответ.
+            assert [d["tool"] for d in router1.dispatched] == \
+                ["execute_web_search"], router1.dispatched
+            assert llm1.calls_of("l2_writer"), llm1.steps()
+        finally:
+            await cache1.close()          # «смерть процесса»: соединение закрыто
+
+        # Рестарт: свежие throttle/LLM/router, ТОТ ЖЕ файл маркера на диске.
+        cache2 = SmartCache(str(db_path))
+        llm2 = _FakeLLM(l1=_plan_json(), l2="ПОВТОРНЫЙ ответ (не должен уйти)")
+        router2 = _FakeRouter(
+            outputs={"execute_web_search": "повторная оплата тула"})
+        svc2 = self._wire(monkeypatch, cache=cache2, llm=llm2,
+                          router=router2)
+        sends2 = self._capture_sends(svc2)
+        bot2 = _bot()
+        try:
+            await svc2.handle(bot2, msg, user)   # тот же update повторно
+            assert sends2 == [], sends2
+            assert llm2.calls == [], f"второй LLM-ход: {llm2.steps()}"
+            assert router2.dispatched == [], \
+                f"инструмент переоплачен при повторе хода: {router2.dispatched}"
+            assert bot2.send_message.await_count == 0
+        finally:
+            await cache2.close()
+
+    @pytest.mark.asyncio
+    async def test_new_update_same_text_gets_fresh_answer_not_stale_replay(
+            self, monkeypatch, tmp_path):
+        """Другой update (новый message_id) с ТЕМ ЖЕ текстом — свежая
+        обработка: доставленный ответ пришёл из НОВОГО l2_writer-вызова,
+        а не сохранённый stale-результат прошлого хода (no-replay)."""
+        db_path = tmp_path / "ur_d_fresh.db"
+        user = _user()
+        cache = SmartCache(str(db_path))
+        llm = _QueuedLLM(l1=_plan_json(), l2_answers=[
+            "старый ответ прошлого хода",
+            "СВЕЖИЙ ответ по текущему контексту"])
+        svc = self._wire(monkeypatch, cache=cache, llm=llm)
+        sends = self._capture_sends(svc)
+        try:
+            await svc.handle(_bot(),
+                             _message(text="как дела?", message_id=2201,
+                                      user=user), user)
+            await svc.handle(_bot(),
+                             _message(text="как дела?", message_id=2202,
+                                      user=user), user)
+            assert sends == ["старый ответ прошлого хода",
+                             "СВЕЖИЙ ответ по текущему контексту"], sends
+            # Оба update — реальная генерация: по одному l2_writer на ход.
+            assert len(llm.calls_of("l2_writer")) == 2, llm.steps()
+        finally:
+            await cache.close()
 
 
 # ── мутация: второй автор ловится счётчиком хода ─────────────────────────────

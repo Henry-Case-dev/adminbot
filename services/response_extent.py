@@ -211,11 +211,6 @@ def longform_max_output_tokens() -> int | None:
 
 
 # ── UR-19/UR-19.1/UR-19.2 (UNIFIED-REPLY §7): динамический output Writer'а ───
-#: Предохранитель от вырожденного ``max_tokens`` (0/1), который платформа
-#: отвергнет. НЕ семантическая граница: меньше физически допустимого значения
-#: предел не ужимается.
-WRITER_MIN_OUTPUT_TOKENS = 1024
-
 
 async def writer_max_output_tokens(*, model: str, base_url: str,
                                    input_tokens: int) -> int | None:
@@ -273,8 +268,10 @@ async def writer_max_output_tokens(*, model: str, base_url: str,
             # вывода — честный None (лимитирование не маскирует переполнение).
             return None
         allowed = min(max_out, fits)
-    return max(WRITER_MIN_OUTPUT_TOKENS, allowed) \
-        if allowed >= WRITER_MIN_OUTPUT_TOKENS else allowed
+    # Исторический «floor 1024» (F3 review) был no-op: выражение
+    # ``max(1024, allowed) if allowed >= 1024 else allowed`` всегда
+    # возвращало ``allowed``. Ниже — честный кламп без мёртвой ветки.
+    return allowed
 
 
 # ── §5: backward-compat алиасы casual/serious/deep_research ─────────────────

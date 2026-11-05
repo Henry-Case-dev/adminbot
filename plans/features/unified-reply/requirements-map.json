@@ -4022,10 +4022,10 @@
         },
         {
           "ref": "Вычисление физически допустимого output",
-          "observation": "response_extent.writer_max_output_tokens(): prov max_output сохранён, window-input кламп, WRITER_MIN_OUTPUT_TOKENS=1024 floor, unknown -> None; модель/endpoint от клиента хода (без settings-fallback).",
+          "observation": "response_extent.writer_max_output_tokens(): prov max_output сохранён, window-input кламп (allowed = min(max_output, окно−вход); вход не помещается → None), unknown → None; floor-константы нет — историческое выражение max(1024, allowed)/… было no-op (F3 review, упрощено до return allowed); модель/endpoint от клиента хода (без settings-fallback).",
           "type": "code",
           "artifact_path": "services/response_extent.py",
-          "artifact_sha256": "dbd365a87f2024e655e2c84ea1c3bc036e5865fe2f95bec9b50a1e30439a3ba2",
+          "artifact_sha256": "51eeffc316379d58bd26a2f60b2687c99acf8234b550fd60d9a0d57120130d91",
           "candidate_commit": "6374eedc"
         }
       ]
