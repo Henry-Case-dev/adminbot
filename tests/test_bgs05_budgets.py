@@ -130,6 +130,26 @@ class TestDynamicWindowResolution:
         assert limits.snippet_chars == 131072 // 32         # 4096 > 400
 
     @pytest.mark.asyncio
+    async def test_resolver_failure_falls_back_without_raise(self, monkeypatch):
+        """Runtime-резолвер упал → sync-путь (без сети) → честный fallback,
+        границы не «молча» захардкожены, а выведены из registry/env-окна."""
+        async def _boom(base_url, model, *, slot=None):
+            raise RuntimeError("provider discovery down")
+
+        monkeypatch.setattr(mc, "resolve_stage_window", _boom)
+        monkeypatch.setattr(mc, "resolve_evidence_window_tokens",
+                            lambda model=None: (16384, "unknown_fallback"))
+        llm = _OrchLLM([], chat_model="big-model",
+                       base_url="http://llm.example")
+        limits = await dx.resolve_orchestrator_budget(llm=llm)
+        assert limits.window_tokens == 16384
+        assert limits.window_source == "unknown_fallback"
+        assert limits.max_steps == 4          # 16384//16384 → пол 4
+        assert limits.max_total_tokens == 6000  # пол 6000
+        assert limits.query_chars == 16384
+        assert limits.snippet_chars == 512      # 16384//32
+
+    @pytest.mark.asyncio
     async def test_chain_uses_window_derived_steps(self, monkeypatch):
         """Цепочка на окне 128k делает 8 шагов (не legacy 4); metered
         потолок поднят отдельно — шаги связывает именно max_steps.
