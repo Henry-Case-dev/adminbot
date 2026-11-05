@@ -87,6 +87,14 @@ def _tail(text, limit: int = 90) -> str:
     return ("…" if len(src) > limit else "") + src[-limit:]
 
 
+def _count_by(values) -> dict:
+    out: dict = {}
+    for value in values:
+        key = str(value)
+        out[key] = out.get(key, 0) + 1
+    return out
+
+
 class RecordingBot:
     """Подмена Telegram-транспорта. Ничего не отправляет — только пишет."""
 
@@ -817,7 +825,10 @@ def _record(observer, snap, events, bot, error, elapsed, drained) -> dict:
         "tools": snap.get("tools"),
         "tool_rounds": snap.get("tool_rounds"),
         "events": [{"event": e.get("event"), "stage": e.get("stage"),
-                    "outcome": e.get("outcome")} for e in events],
+                    "outcome": e.get("outcome"),
+                    "matched_by": e.get("matched_by")} for e in events],
+        "events_by_matched_by": _count_by(
+            (e.get("matched_by") for e in events)),
         "event_payloads": events,
     }
 
