@@ -13190,7 +13190,11 @@ class DirectChatService:
                 model=str(getattr(self.llm, "_chat_model", "") or ""))
             _init_fresh, _init_background = \
                 _composer.collect_window_fragments(
-                    window, aliases=getattr(self, "aliases", None),
+                    window,
+                    # Имена в payload резолвит общий рендер строк
+                    # (alias_resolver ниже); collector'у имена не нужны —
+                    # его контракт ожидает .get()-словарь, а не AliasResolver.
+                    aliases=None,
                     bot_user_id=getattr(self, "bot_id", None),
                     now_ts=int(time.time()))
             _selection = _composer.build_context_selection(
