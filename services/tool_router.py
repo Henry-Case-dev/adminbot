@@ -4975,26 +4975,20 @@ class ToolRouter:
     # ── compile_lore_story (раунд 10.20, БЛОК 1, ADR-1020-4 п.1-4, T-1887) ──
 
     async def _chat_timezone(self, chat_id: int | None) -> str:
-        """S10.20-14: tz чата (per-chat override → hot → код-дефолт) для
-        рендера дат Летописца; пусто → фолбэк `limits.summary_timezone`
-        (существующая tz-инфраструктура, расписания не трогаем). Возвращает
-        ВАЛИДНОЕ имя tz (неизвестное → UTC)."""
+        """S10.20-14 → UR-C-CLOCK: tz чата через ЕДИНСТВЕННЫЙ резолвер
+        ChatClock (каноническая цепочка UR-24.3: per-chat canonical →
+        legacy summary → global → GOODMORNING_TZ(env) → factory). Второй
+        копии цепочки нет (UR-25: без независимых резолверов). Возвращает
+        ВАЛИДНОЕ имя tz (неизвестное → явный UTC-fallback)."""
         from services.canonical_context import resolve_timezone
-        fallback = hot.get("limits.summary_timezone",
-                           getattr(settings, "SUMMARY_TIMEZONE", ""))
-        global_tz = hot.get("limits.chat_timezone",
-                            getattr(settings, "CHAT_TIMEZONE", ""))
-        tz = global_tz
-        if chat_id is not None:
-            try:
-                from services.chat_params import get_chat_param
-                tz = await get_chat_param(chat_id, "limits.chat_timezone",
-                                          global_tz)
-            except Exception:
-                logger.warning("[tools] chat tz resolve failed — global | "
-                               "chat=%s", chat_id)
-                tz = global_tz
-        return resolve_timezone(tz, fallback=str(fallback or "UTC"))
+        try:
+            from services import chat_clock as _cclock
+            tz, _source, _cv = await _cclock.resolve_chat_timezone(chat_id)
+            return resolve_timezone(tz, fallback="UTC")
+        except Exception:
+            logger.warning("[tools] chat tz resolve failed — UTC | chat=%s",
+                           chat_id, exc_info=True)
+            return "UTC"
 
 
     async def _compile_lore_story(self, arguments: dict,

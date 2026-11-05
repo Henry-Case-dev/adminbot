@@ -110,6 +110,10 @@ def _record_provider_call(*, payload: dict, messages, model: str,
     Тексты маскируются каноническим маскером логов ДО записи (R17): журнал
     хранит структуру, хэши и санитизированный текст (owner-debug). Любой сбой
     журнала не влияет на вызов модели (fail-open, только warning).
+
+    UR-C-CLOCK (UR-26.7): на каждом фактическом вызове логируются
+    stage/module/chat_id/timezone/as_of_utc/config_version/clock_included и
+    причина пропуска (без приватных текстов).
     """
     try:
         from services import prompt_composer as _pcomp
@@ -123,6 +127,15 @@ def _record_provider_call(*, payload: dict, messages, model: str,
             chat_id=chat_id, channel=channel, status=status, error=error)
     except Exception:
         logger.warning("LLM provider trace failed — fail-open", exc_info=True)
+    # UR-C-CLOCK (UR-26.7): observability часов на фактическом outbound
+    # payload; R17-safe (только коды/числа). Fail-open.
+    try:
+        from services import chat_clock as _cclock
+        _cclock.log_clock_call(module=str(module or ""), step=str(step or ""),
+                               chat_id=chat_id, messages=(messages or ()),
+                               channel=str(channel or "primary"))
+    except Exception:
+        pass
 
 
 def _safe_exc_text(exc: BaseException, max_chars: int = 200) -> str:
