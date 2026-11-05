@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-pvr-fc-corrective-01.md",
   "source_sha256": "671e6711ca9408501caeb306aa5feb37bb9f7c54d48c15410915567eac8ed078",
-  "candidate_commit": "",
+  "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -19,8 +19,25 @@
       "acceptance": "Эффективное значение берётся тем же resolver'ом, который формирует текущий LLM-payload (per-chat override → global → исходник из кода); UI не угадывает действующую версию по истории, а прямое чтение журнала без сверки с рантаймом не даёт метку «Сейчас действует».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_1_effective_origin_matrix_matches_payload_resolver",
+          "observation": "Эффективное значение вычисляется тем же resolve_effective_state, который формирует текущий LLM-payload (per-chat override → global → исходник из кода); прямое чтение журнала без сверки с рантаймом не даёт метку «Сейчас действует» — UI не угадывает по истории.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "Единый резолвер для payload и API-состояния; отдельного «UI-угадывания» в коде кандидата нет.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "M00072_PVR-01_7",
@@ -34,8 +51,25 @@
       "acceptance": "Для одного промпта и чата одновременно не более одной редакции с меткой «Сейчас действует»; при наследовании явно показано «Действует глобальная версия», а при обнаруженном drift ни одна редакция не помечена активной — показывается отдельный честный статус без автоматической правки данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c31_two_applied_events_of_one_revision_one_active_card, test_api_versions_exposes_full_state_contract",
+          "observation": "Инвариант доказан: на одну пару (промпт, чат) не более одной редакции с «Сейчас действует»; при обнаруженном drift не помечена ни одна — отдельный честный статус без автоматической правки данных. Передача в PVR-UI: метка «Действует глобальная версия» при наследовании и рендер drift-статуса (строки PVR-04.2.2/PVR-04.2.3).",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "Отбор «активной» карточки и drift-детект выполняет effective_drift/resolve_effective_state; UI получает готовое поле состояния, а не считает метку сам.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "M00076_PVR-02_1",
@@ -49,8 +83,17 @@
       "acceptance": "На основном экране истории ровно одна карточка на revision_id, а события активации показаны в деталях выбранной редакции компактной хронологией («Применена 03.11...», «Вернулись к ней 04.11...»), не как вторые редакции со своей кнопкой «Применить».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c31_two_applied_events_of_one_revision_one_active_card, test_api_versions_exposes_full_state_contract",
+          "observation": "Два события применения одной редакции дают одну карточку на revision_id; события активации передаются в деталях выбранной ревизии как компактная хронология применений, а не вторые редакции со своей кнопкой «Применить» (данные бэкенда; отрисовка карточки — PVR-UI).",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "M00078_PVR-02_2",
@@ -64,8 +107,17 @@
       "acceptance": "Если нужен просмотр отдельных событий, он вынесен во вторичный переключатель «История действий», где статус события — «Была применена», а не current active; append-only аудит при этом не изменяется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_api_versions_exposes_full_state_contract, test_c31_two_applied_events_of_one_revision_one_active_card",
+          "observation": "События отдаются со статусом was_applied («Была применена»), никогда current active; append-only аудит не изменён — вторичный переключатель «История действий» получает готовые данные без новых сущностей.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "M00080_PVR-02_3",
@@ -79,8 +131,25 @@
       "acceptance": "Повторное сохранение идентичного текста (skipped_same) не создаёт новую редакцию и не показывает дубликат; переключение на другую историческую редакцию с теми же байтами даёт одно событие переключения без второго сохранения текста; повтор двойного HTTP POST идемпотентен по operation ID и scope.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c32_same_bytes_two_revisions_one_effective_choice, test_c33_retry_and_double_click_create_no_duplicate_revision, test_c33_operation_id_replays_same_response_without_second_write",
+          "observation": "Повторное сохранение идентичного текста (skipped_same) не создаёт новую редакцию и дубликат; переключение на другую историческую редакцию с теми же байтами даёт одно событие переключения без второго сохранения текста; повторный HTTP POST идемпотентен по operation_id и scope — TTL-кэш результата возвращает тот же ответ без второй записи.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "operation_id на ConfigUpdateRequest (chat+global save) — вход идемпотентности; replay не выполняет вторую запись.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00084_PVR-03_1",
@@ -94,8 +163,25 @@
       "acceptance": "Сохранение/применение атомарно по значению, журналу и указателю активации через существующие PG transaction/advisory lock/journal grant; фронтенд обновляет состояние из ответа сервера и не ставит два флага active оптимистически; повторное нажатие блокируется до завершения запроса, а 409/503/422/403 показываются без потери черновика.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c33_retry_and_double_click_create_no_duplicate_revision, test_c33_conflicting_write_does_not_silently_overwrite",
+          "observation": "Запись значения, журнала и указателя активации атомарна через существующие PG transaction/advisory lock/journal grant; повторное нажатие и retry не создают дублей, конкурентная запись не перетирает чужую правку молча. Обновление состояния фронта из ответа сервера без двух флагов active проверяется в PVR-UI/PVR-E2E.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "Save идёт через существующую транзакционную запись с op-id seam; 409/503/422/403 отдаются без потери черновика на бэкенд-стороне.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00086_PVR-03_2",
@@ -109,8 +195,25 @@
       "acceptance": "Конкурирующие записи из двух вкладок разрешаются optimistic concurrency/revision compare без молчаливого перетирания; ошибка кэша после успешного PG-коммита даёт явный sync_pending, повторную инвалидацию и сверку effective value вместо ложного «Сохранено и действует»; после рестарта/релиза сохранение владельческого текста подтверждено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c33_conflicting_write_does_not_silently_overwrite, test_c37_restart_creates_no_versions_and_keeps_pinned_text",
+          "observation": "CAS/revision compare без молчаливого перетирания доказан; после рестарта сохранённый владельческий текст подтверждён; ошибка кэша после успешного PG-коммита отдаёт честный 503 partial_save без ложного «Сохранено и действует». Передача в PVR-UI: рендер 503/sync_pending-метки и повторная сверка effective value на клиенте.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "503 partial_save в web/api/routes.py — явный код честного статуса при неудаче после PG-коммита.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00088_PVR-03_3",
@@ -124,8 +227,25 @@
       "acceptance": "Изменение baseline меняет только указатель и не активирует ревизию; «Восстановить базовую» и «Вернуть исходный из кода» — отдельные подтверждаемые и аудируемые действия с пояснением влияния на выбранный scope, и ни одно из них не меняет текст другого чата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_4_baseline_and_factory_are_separate_pointers",
+          "observation": "Изменение baseline меняет только указатель и не пишет текст и не активирует ревизию; «Восстановить базовую» и «Вернуть исходный из кода» существуют отдельными API-операциями (POST /prompts/{key}/baseline/restore, POST /prompts/{key}/factory/restore) с аудитом в журнале, отдельно от активации; текст другого чата при этом не меняется.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "Активация, назначение baseline, restore и copy-to-global — раздельные эндпоинты; неявных активаций при смене указателей нет.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00092_PVR-04_0",
@@ -229,8 +349,25 @@
       "acceptance": "Сохраняются все версии без потолка с курсорной пагинацией в UI и API, полный текст выдаётся отдельным авторизованным запросом, поиск/фильтр не исключает молча старые ревизии; историческая, несовместимая и снятая версия доступны для чтения и сравнения, но не для активации (с причиной), а чтение промпта другого чата через чужой X-Chat-Id запрещено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c39_scale_cursor_pagination_no_full_body_loads, test_c38_retired_viewable_diffable_but_not_applicable",
+          "observation": "1050+220 редакций проходятся курсорной пагинацией в UI/API без загрузки полных тел; потолка на историю нет; поиск/фильтр не исключает молча старые ревизии; историческая/несовместимая/снятая версия читаема и сравнима, но не активируема с причиной.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "Полный текст — отдельный авторизованный запрос (GET /prompts/revisions/{id}/source) с проверкой scope/разрешений, включая prompt.read_baseline.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00127_PVR-05_2",
@@ -244,8 +381,25 @@
       "acceptance": "Недоступный журнал даёт статус «История временно недоступна» при сохранённом редакторе и черновике и неизменном конфиге; удаление и откат истории запрещены, любые коррективы выполняются дополнительными записями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_a32_history_preserved_and_journal_append_only",
+          "observation": "Бэкенд-часть доказана: недоступный журнал даёт честный 503 без сочинённых данных, редактор и черновик не затронуты, конфиг не меняется; удаление и откат истории запрещены, любые коррективы — дополнительными записями (append-only). Передача в PVR-UI: метка «История временно недоступна» при сохранённом редакторе.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "503 при недоступном PG/журнале — существующие коды ответов роутов, без fallback-подделки данных.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00131_PVR-06_1",
@@ -649,8 +803,25 @@
       "acceptance": "Статус действующей версии подтверждается сопоставлением реального per-chat resolver/PG/runtime, а drift показывается отдельным статусом, а не выводится из журнальной метки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_3_journal_fields_remain_journal_under_drift, test_pvr01_2_unmatched_text_is_honest_not_nearest_revision",
+          "observation": "Статус действующей версии подтверждается сопоставлением реального per-chat resolver/PG/runtime (resolve_effective_state + effective_drift); drift показывается отдельным статусом и никогда не выводится из журнальной метки.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "Сверка выполняется по фактическому рантайм-тексту, а не по журналу; расхождение журнала и рантайма — отдельный drift-статус.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "M00210_C1_2",
@@ -664,8 +835,17 @@
       "acceptance": "Основной список содержит только revisions, события активации вторичны, а прошлые events никогда не помечаются active.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_api_versions_exposes_full_state_contract, test_c31_two_applied_events_of_one_revision_one_active_card",
+          "observation": "События активации отдаются бэкендом только как was_applied и никогда как active, включая прошлые события. Передача в PVR-UI: layout основного списка (только revisions, события вторично в деталях выбранной редакции).",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "M00211_C1_3",
@@ -679,8 +859,17 @@
       "acceptance": "Один Save создаёт ревизию и событие активации как две сущности аудита, но в интерфейсе это одна редакция, а реальные дубли предотвращаются идемпотентностью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c33_retry_and_double_click_create_no_duplicate_revision, test_c33_operation_id_replays_same_response_without_second_write",
+          "observation": "Один Save создаёт ревизию и событие активации как две сущности аудита (в интерфейсе одна редакция); реальные дубли предотвращены идемпотентностью по operation_id — retry и double-click повторяют ответ без второй записи.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "M00212_C1_4",
@@ -694,8 +883,25 @@
       "acceptance": "Baseline, Active и Factory существуют отдельными полями и отдельными операциями, без неявных активаций при изменении указателей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_4_baseline_and_factory_are_separate_pointers",
+          "observation": "Baseline, Active и Factory — отдельные поля и отдельные операции; изменение указателей не влечёт неявных активаций (контрактный тест + раздельные эндпоинты activate/baseline/factory).",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "activate, baseline, baseline/restore, factory/restore — раздельные операции API.",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00213_C1_5",
@@ -709,8 +915,25 @@
       "acceptance": "Правки промптов интегрируются в актуальное состояние UNIFIED-REPLY после его завершения: тексты и их владелец не меняются, общие контракты не форкаются, второй экземпляр логики не появляется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_a32_history_preserved_and_journal_append_only",
+          "observation": "Дифф PVR-BACKEND (services/prompt_release_policy.py, web/api/routes.py, новый тест) не меняет ни одного текста промпта и их владельца; интеграция выполнена в актуальный HEAD UNIFIED-REPLY, общие контракты не форкнуты, второй экземпляр логики не появился.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "resolve_effective_state только читает реестр/журнал для вычисления effective-состояния; тексты не трогает.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "M00214_C1_6",
@@ -814,8 +1037,17 @@
       "acceptance": "Новая заводская редакция записывается при релизе, но закреплённый owner baseline и ручной текст не перетираются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c37_restart_creates_no_versions_and_keeps_pinned_text",
+          "observation": "Рестарт/релиз не создаёт новых версий и не перетирает закреплённый owner baseline и ручной текст владельца; заводская редакция при этом остаётся доступной как происхождение (factory_revision_id).",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "M00221_C1_13",
@@ -829,8 +1061,25 @@
       "acceptance": "Параллельные сохранения разрешаются сериализацией/optimistic concurrency и сверкой после commit, без оптимистически-фальшивого статуса active.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c33_conflicting_write_does_not_silently_overwrite",
+          "observation": "Параллельные сохранения разрешаются optimistic concurrency/revision compare без молчаливого перетирания; статус active не становится оптимистически-фальшивым — сверка по резолверу после commit.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "web/api/routes.py @ d5ee97ef: op-id seam (ConfigUpdateRequest.operation_id), 503 partial_save, /prompts/{key}/baseline | baseline/restore | factory/restore | activate",
+          "observation": "Конфликт отдаётся клиенту честным кодом (409/503 partial_save при ошибке кэша после успешного PG-коммита) вместо ложного «Сохранено и действует».",
+          "artifact_path": "web/api/routes.py",
+          "artifact_sha256": "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1"
+        }
+      ]
     },
     {
       "source_id": "M00222_C1_14",
@@ -1056,8 +1305,17 @@
       "acceptance": "Полный набор исторических версий, активаций, заводских редакций, чатовых значений, owner baseline и истории правок доступен и после эпика; rollback и forward работают; любые корректировки появляются только дополнительными записями, существующие строки журнала не переписаны и не удалены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_a32_history_preserved_and_journal_append_only",
+          "observation": "Все исторические версии, активации, заводские и чатовые значения, owner baseline и история правок сохранены; журнал append-only — существующие строки не переписаны и не удалены, коррективы выполняются только дополнительными записями; rollback и forward работают на указателях.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "L00052",
@@ -1116,8 +1374,25 @@
       "acceptance": "Для любой пары (block_id, scope, chat_id) HTTP-ответ состояния отдаёт один объект с полями effective_origin/effective_content_hash/effective_revision_id/journal_last_activation_id/journal_active_revision_id/baseline_revision_id/factory_revision_id/draft_dirty; ни одно поле не выводится из одного лишь журнала, и подмена одного поля другим обнаруживается контрактным тестом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_state_contract_fields_present, test_api_versions_exposes_full_state_contract",
+          "observation": "HTTP-ответ состояния отдаёт один объект со всеми полями PVR-01: effective_origin/effective_content_hash/effective_revision_id, journal_last_activation_id/journal_active_revision_id, baseline_revision_id/factory_revision_id, draft_dirty; ни одно поле не выводится из одного лишь журнала, контрактный тест падает при подмене одного поля другим.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "Единый источник этих полей — EffectiveState/resolve_effective_state; journal-поля остаются журнальными, effective-поля вычисляются резолвером.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "L00064",
@@ -1131,8 +1406,25 @@
       "acceptance": "effective_origin принимает ровно одно из chat_override|global|code и совпадает с источником, из которого реально взят текст для выбранного чата в LLM-payload этого же кандидата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_1_effective_origin_matrix_matches_payload_resolver",
+          "observation": "Матрица origin (chat_override|global|code) сверена с реальным резолвером LLM-payload того же кандидата: effective_origin ровно одно из трёх значений и совпадает с фактическим источником текста выбранного чата.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "resolve_effective_state — тот же путь, которым формируется LLM-payload (per-chat override → global → исходник из кода).",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "L00065",
@@ -1146,8 +1438,17 @@
       "acceptance": "effective_content_hash равен sha сохранённого действующего текста; если текст действует, но не сопоставлен журналу, отдаётся effective_revision_id=null и статус «Не сопоставлено с историей» с диагностикой вместо визуально ближайшей редакции.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_2_unmatched_text_is_honest_not_nearest_revision",
+          "observation": "Текст, который действует, но не сопоставлен журналу, даёт effective_revision_id=null и честный статус «Не сопоставлено с историей» с безопасной диагностикой; ближайшая по содержанию/хэшу редакция не подставляется; effective_content_hash равен sha действующего текста.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "L00066",
@@ -1161,8 +1462,25 @@
       "acceptance": "journal_last_activation_id и journal_active_revision_id присутствуют отдельными полями и не используются как доказательство применённого текста: при расхождении с рантаймом они остаются журнальными, а не действующими.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_3_journal_fields_remain_journal_under_drift",
+          "observation": "journal_last_activation_id/journal_active_revision_id присутствуют отдельными полями и при расхождении с рантаймом остаются журнальными, а не «действующими»; расхождение детектируется effective_drift и отдаётся отдельным статусом.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        },
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "static",
+          "ref": "services/prompt_release_policy.py @ d5ee97ef: EffectiveState, resolve_effective_state, effective_drift",
+          "observation": "effective_drift — отдельный детектор расхождения журнала и рантайма, его результат не смешивается с effective-полями.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "4c50e1372e02104fb8b719b423f5720dcf00e4e1edfc2d1dfc270d0fe00eb486"
+        }
+      ]
     },
     {
       "source_id": "L00067",
@@ -1176,8 +1494,17 @@
       "acceptance": "baseline_revision_id — отдельный указатель, который может не совпадать с действующим текстом; factory_revision_id отражает происхождение заводского текста и не подменяет baseline; API отдаёт их раздельно в одном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_4_baseline_and_factory_are_separate_pointers",
+          "observation": "baseline_revision_id — отдельный указатель владельца, который может не совпадать с действующим текстом; factory_revision_id отражает происхождение заводского текста; оба отдаются раздельными полями одного ответа и не подменяют друг друга.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "L00068",
@@ -1191,8 +1518,17 @@
       "acceptance": "draft_dirty описывает только несохранённое поле редактора, не участвует в выборе активной редакции и не попадает в состояние, от которого зависит LLM-payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_pvr01_5_draft_dirty_is_editor_field_only",
+          "observation": "draft_dirty описывает только несохранённое поле редактора: не участвует в выборе активной редакции и не попадает в состояние, от которого зависит LLM-payload.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "L00074",
@@ -1206,8 +1542,17 @@
       "acceptance": "Сохранённая редакция и событие активации существуют как две разные сущности: на основном экране истории одна карточка на revision_id, события применения не становятся вторыми редакциями, append-only аудит не переписан ради удаления визуальных дублей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d5ee97ef9eac352894c88042b663db2f5b1cd8b8",
+          "type": "test",
+          "ref": "tests/test_pvr_backend_state.py @ d5ee97ef: test_c31_two_applied_events_of_one_revision_one_active_card, test_a32_history_preserved_and_journal_append_only",
+          "observation": "Сохранённая редакция и событие активации — две разные сущности: основная лента отдаёт одну карточку на revision_id, события применения идут was_applied-записями в деталях ревизии, append-only аудит не переписан ради удаления визуальных дублей.",
+          "artifact_path": "tests/test_pvr_backend_state.py",
+          "artifact_sha256": "b815fad65a4314c0f3148d19a8d790ea2f19236ddd8066904b8b53ff55f3ac73"
+        }
+      ]
     },
     {
       "source_id": "L00082",
