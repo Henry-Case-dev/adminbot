@@ -3989,15 +3989,39 @@
    "source_text_sha256": "655a582219d793a06fc83c3077224098c356828a5d62bd2a8a09811c00753330",
    "source_excerpt": "- Если совпадений несколько — показать список различимых результатов (полное имя + тип + устойчивый ID/сведения, если есть). Не фокусироваться на случайном одноимённом объекте без выбора пользователя.",
    "disposition": "required",
-   "reason": "DEFECT (проба residual2, кандидат 0ef12db1; отчёт residual-evidence-batch2.md в этом коммите): списка различимых результатов (полное имя+тип+устойчивый ID всех совпадений) нет — только строка статуса (i/n) и цикл Enter; фокус ставится на первый одноимённый объект сразу, без выбора пользователя (порядок детерминированный). Фикс в работе на ветке cmv/nav-fixes.",
+   "reason": "DEFECT residual2 (0ef12db1): списка различимых результатов (полное имя+тип+устойчивый ID) не было — только статус (i/n) и цикл Enter, автофокус на первый одноимённый объект. УСТРАНЁН веткой cmv/nav-fixes @ 92d7c9ab (merge в HEAD 993e3694): первый Enter показывает список без автофокуса, см. evidence ниже.",
    "req_id": "CMV-NAV-02",
    "slice": "CMV-D-FULLSCREEN-INSPECTOR",
    "acceptance": "При нескольких совпадениях показывается список различимых результатов (полное имя, тип, устойчивый ID); фокус не ставится на случайном одноимённом объекте без выбора пользователя.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "FAILED",
-   "evidence": [],
-   "pending_reason": "не доказано: список различимых совпадений (полное имя, тип, устойчивый ID) при нескольких совпадениях отдельным кадром не зафиксирован. Что докажет: кадр поиска с 2+ совпадениями."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба nav-fixes (cmv/nav-fixes от 13eff0bb), кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092 (входит в HEAD 993e3694 merge); отчёт reports/nav-fixes.md §NAV-02 + §Тесты, факт-индекс evidence/nav-fixes/manifest.json",
+     "observation": "PASS: первый Enter по «Дубль показателя» (3 совпадения) показывает список 3 различимых строк (имя+тип+устойчивый ID: Сущности/Факты/Наблюдения · id), selectedId и netSelected пусты, статус «Найдено: 3 — выберите из списка» — автофокуса и выбора нет. Enter-цикл сохранён: после показа списка повторный Enter продолжает детерминированный цикл (1/3)→(2/3)→(3/3)→(1/3), список остаётся видимым; выбор пользователя из списка фокусирует выбранный узел («Найден: … (2/3)»); единственное совпадение («сарказм») фокусируется сразу без списка (NAV-01 не тронут). Мутация M1 (отключён ранний возврат списка) даёт красные тесты; прогоны: evol_cmv_d_fullscreen OK checks=119, routing_test JS-UNIT-OK.",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/nav-fixes.md",
+     "artifact_sha256": "9028530ced77968614bf34ad488346b91bddbf930eb92edc038cde82a8969d20",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-02.first_enter",
+     "observation": "Кадр: первый Enter — список 3 различимых результатов (имя+тип+ID), ни фокуса, ни выбора, статус «Найдено: 3 — выберите из списка».",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-02/nav02-list-shown-no-focus-1440.png",
+     "artifact_sha256": "f525b67cd314f8c70c9695de145f8299e0d5992f51d194f72971072667d70f65",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-02.pick_from_list + enter_cycle_after_pick",
+     "observation": "Кадр: пользователь выбрал строку «Факты» — фокус fact:…:95, статус «Найден: … (2/3)»; последующий Enter-цикл детерминированный (3/3)→(1/3)→(2/3)→(3/3).",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-02/nav02-picked-from-list-1440.png",
+     "artifact_sha256": "13d5b8dac58c03803e5e39e7b605d3ab70fb92f6ae8fc9e5c023a657f251d0ba",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    }
+   ]
   },
   {
    "source_id": "L00209",
@@ -4005,15 +4029,39 @@
    "source_text_sha256": "ee7154456dae965322c6ba7304da54dbbce21e4c75f867f9c683eabd206dd28b",
    "source_excerpt": "- Результат поиска, скрытый LOD/кластером, должен раскрываться и фокусироваться. Если узел исключён пользовательским фильтром — честно показать конфликт и дать явное действие `Показать результат`, которое снимает только нужное ограничение.",
    "disposition": "required",
-   "reason": "DEFECT (residual2, 0ef12db1): при поиске узла, исключённого пользовательским фильтром, ВСЕ ограничения снимаются молча (group/cluster/hideDerived → пусто, витрина разворачивается) — честного конфликта и действия «Показать результат» нет; часть «раскрытие скрытого из LOD» — PASS. Фикс в работе на cmv/nav-fixes.",
+   "reason": "DEFECT residual2 (0ef12db1): при поиске узла, исключённого пользовательским фильтром, ВСЕ ограничения снимались молча — честного конфликта и действия «Показать результат» не было. Часть «раскрытие скрытого из LOD» — уже PASS (residual2) и сохранена. УСТРАНЁН веткой cmv/nav-fixes @ 92d7c9ab (merge в HEAD 993e3694): уведомление конфликта + действие «Показать результат», снимающее только блокирующие ограничения.",
    "req_id": "CMV-NAV-03",
    "slice": "CMV-C-LOD-COLLISION",
    "acceptance": "Результат поиска, скрытый LOD или кластером, раскрывается и фокусируется; если узел исключён пользовательским фильтром, показывается честный конфликт и действие «Показать результат», снимающее только нужное ограничение.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "FAILED",
-   "evidence": [],
-   "pending_reason": "частично: раскрытие и фокус найденного доказаны, честное состояние конфликта «узел исключён пользовательским фильтром» не проверено. Что докажет: поиск при активном фильтре, исключающем узел."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба nav-fixes (cmv/nav-fixes от 13eff0bb), кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092 (входит в HEAD 993e3694 merge); отчёт reports/nav-fixes.md §NAV-03 + §Тесты, факт-индекс evidence/nav-fixes/manifest.json",
+     "observation": "PASS: при фильтре «Факты» поиск entity вне набора («исключительно») даёт уведомление «Найден «Узел с исключительно длинным названием», но он скрыт фильтром (по типу). Фильтры не менялись.» + кнопку «Показать результат»; group=fact НЕ сброшен, фокус не поставлен. Клик по действию снимает ТОЛЬКО тип (group='', cluster и hideDerived целы) и фокусирует результат. Негатив: узел в наборе при том же фильтре — без конфликта, фильтр цел. Молчаливый сброс graphFilterGroup/cognitionMapCluster/cogHideDerived удалён; мутация M2 (восстановлен сброс всех фильтров) даёт красный тест. LOD-раскрытие вне фильтров — прежний PASS (residual2, 0ef12db1) сохранено («_cogAcceptSearchHit»: один повтор рендера).",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/nav-fixes.md",
+     "artifact_sha256": "9028530ced77968614bf34ad488346b91bddbf930eb92edc038cde82a8969d20",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-03.conflict_state",
+     "observation": "Кадр: честный конфликт — уведомление «скрыт фильтром (по типу). Фильтры не менялись.» + действие «Показать результат», group=fact не сброшен.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-03/nav03-conflict-notice-1440.png",
+     "artifact_sha256": "2e84f708a1559eb8916fe013f1ae54af374714914cf8b48172446dd5efa798c4",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-03.show_result_action",
+     "observation": "Кадр: после «Показать результат» — снят только тип (group=''), узел сфокусирован и выбран, конфликт погашен.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-03/nav03-after-show-result-1440.png",
+     "artifact_sha256": "50a046fc1493f8c64f9014b6a1c1a7ae872a79f11815314211472f1481d89e0b",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    }
+   ]
   },
   {
    "source_id": "L00210",
@@ -4021,15 +4069,39 @@
    "source_text_sha256": "4e885f0657161f24d4e0a0d6386fd9fd06c461cb7c3073b7b40cf6ecf5b60fab",
    "source_excerpt": "- Смена фильтра не сбрасывает камеру без необходимости, но снимает выбор, если элемент больше не входит в отфильтрованный набор, с понятным состоянием.",
    "disposition": "required",
-   "reason": "DEFECT (residual2, 0ef12db1): выбранный элемент, вышедший из отфильтрованного набора, не теряет выбор — _cogSelectedId остаётся, инспектор показывает узел, которого нет на сцене («видно ≠ выбрано»); несброс камеры при смене фильтра — PASS. Фикс в работе на cmv/nav-fixes.",
+   "reason": "DEFECT residual2 (0ef12db1): выбранный элемент, вышедший из отфильтрованного набора, не терял выбор — _cogSelectedId оставался, инспектор показывал узел вне сцены; несброс камеры при смене фильтра — уже PASS (residual2). УСТРАНЁН веткой cmv/nav-fixes @ 92d7c9ab (merge в HEAD 993e3694): _cogSyncSelectionToView снимает выбор через существующий clearCogSelection, камера и фильтры не трогаются.",
    "req_id": "CMV-NAV-04",
    "slice": "CMV-D-FULLSCREEN-INSPECTOR",
    "acceptance": "Смена фильтра не сбрасывает камеру без необходимости, но снимает выбор, если элемент вышел из отфильтрованного набора, с понятным состоянием.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "FAILED",
-   "evidence": [],
-   "pending_reason": "не доказано: смена фильтра не сбрасывает камеру, но снимает выбор при выходе элемента из набора — отдельной проверки нет. Что докажет: тест смены фильтра при выбранном узле."
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "ref": "Проба nav-fixes (cmv/nav-fixes от 13eff0bb), кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092 (входит в HEAD 993e3694 merge); отчёт reports/nav-fixes.md §NAV-04 + §Тесты, факт-индекс evidence/nav-fixes/manifest.json",
+     "observation": "PASS: при выбранном entity «Аня» включение фильтра «Факты» — selectedId/detail/netSelected пусты, карточка закрыта, камера идентична до десятых (scale 0.65858, view 4/−17.5 в обоих кадрах — не сбрасывается). Негатив: факт в наборе при том же фильтре — выбор сохранён. Снятие идёт через существующий clearCogSelection (выбор/подсветка/детали/карточка, CMV-CARD-06 не переписан); узел в наборе не трогается (CMV-LODB-04 PASS не тронут); хук вызывается из renderCognitionGraph (source-проверка). Мутация M3 (if (false && …) в _cogSyncSelectionToView) даёт красный тест «NAV-04: выход выбранного из набора обнаружен».",
+     "type": "review",
+     "artifact_path": "plans/features/epic-cm-visual-01/reports/nav-fixes.md",
+     "artifact_sha256": "9028530ced77968614bf34ad488346b91bddbf930eb92edc038cde82a8969d20",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-04.case_b_selection_cleared",
+     "observation": "Кадр: entity «Аня» вышла из набора «Факты» — выбор снят (selectedId/detail/netSelected пусты), камера не двигалась.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-04/nav04-selection-cleared-1440.png",
+     "artifact_sha256": "45f534c756fd5493edca5208199926aa9282c4757701aefd06fc251348f00021",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    },
+    {
+     "ref": "Проба nav-fixes, кандидат 92d7c9ab8a0e2f670247b97156dc682b1e314092; evidence/nav-fixes/manifest.json §NAV-04.case_a_selection_kept",
+     "observation": "Кадр (негатив): факт в наборе при смене фильтра — выбор сохранён, камера та же.",
+     "type": "ui",
+     "artifact_path": "plans/features/epic-cm-visual-01/evidence/nav-fixes/NAV-04/nav04-selection-kept-1440.png",
+     "artifact_sha256": "1697a9b05b197a03b7344977eb95cd92bc20611da5da8439859225e4f39eaa08",
+     "candidate_commit": "92d7c9ab8a0e2f670247b97156dc682b1e314092"
+    }
+   ]
   },
   {
    "source_id": "L00211",
@@ -4111,7 +4183,8 @@
      "artifact_sha256": "40ac7968a7d27238c78edc8adff1f8f5c1f78d22170b241e91ff6a3d8e78e7d1",
      "candidate_commit": "0ef12db1"
     }
-   ]
+   ],
+   "evidence_note": "PASS-артефакты сняты на 0ef12db1 и показывают старое поведение первого Enter при нескольких совпадениях («Найден: Дача (1/2)»): после NAV-02 (cmv/nav-fixes @ 92d7c9ab) первый Enter показывает список «Найдено: 2 — выберите из списка». Требование NAV-06 не задето — Enter по-прежнему запускает поиск, Esc-маршруты не менялись (подтверждено ревьюером, reports/nav-fixes.md §Замечания); кадр устарел, обновить при следующем пакете доказательств."
   },
   {
    "source_id": "L00213",
