@@ -1018,6 +1018,28 @@ def _extract_usage(value):
     return _impl(value)
 
 
+def _payload_clock_meta(snap, messages, chat_id):
+    """Честная clock-мета ФАКТИЧЕСКОГО исходящего payload'а (UR-30.4).
+
+    ``snap`` — answer-снапшот стадии; блок прикрепляется к последнему
+    user-сообщению при вызове — мета строится по реконструированному
+    payload'у (тот же attach, идемпотентный), а не по ожиданиям. Без
+    чата/снапшота — явный skip-код. Никогда не бросает."""
+    try:
+        if chat_id is None:
+            return {"clock_included": False, "skip_reason": "no_chat_id"}
+        if snap is None:
+            return {"clock_included": False, "skip_reason": "no_snapshot"}
+        from services import chat_clock as _cc
+        attached = _cc.attach_time_context(messages, snap,
+                                           phase=_cc.PHASE_ANSWER)
+        meta = _cc.outbound_clock_meta(attached)
+        return meta or {"clock_included": False,
+                        "skip_reason": "no_time_block"}
+    except Exception:      # pragma: no cover - best-effort
+        return {"clock_included": False, "skip_reason": "no_time_block"}
+
+
 async def _call_llm(llm, slot: L2Slot, messages, *, correlation_id,
                     llm_call=None, operation: str = "reviewer",
                     time_snap=None) -> tuple[str, dict]:
@@ -1216,8 +1238,8 @@ async def run_l2_with_review(llm, package, *, service=None,
                  semantic_map=semantic_map,
                  evidence_slices=evidence_slices)},
         ]
-        _review_clock = _stage_events_mod.clock_meta(
-            review_messages, chat_id=chat_id)
+        _review_clock = _payload_clock_meta(
+            _rev_time_snap, review_messages, chat_id)
         try:
             raw, _usage = await _call_llm(
                 llm, reviewer, review_messages,
@@ -1443,8 +1465,8 @@ async def run_l2_with_review(llm, package, *, service=None,
                          entries=entries,
                          title=str(current_doc.get("title") or ""))},
                 ]
-                rev_clock = _stage_events_mod.clock_meta(
-                    rev_messages, chat_id=chat_id)
+                rev_clock = _payload_clock_meta(
+                    _rev_time_snap, rev_messages, chat_id)
                 raw_rev, _usage = await _call_llm(
                     llm, reviewer, rev_messages,
                     correlation_id=correlation_id, llm_call=revision_call,
@@ -1490,8 +1512,8 @@ async def run_l2_with_review(llm, package, *, service=None,
                          issue=targeted_issue, source_excerpts=excerpts,
                          title=str(current_doc.get("title") or ""))},
                 ]
-                rev_clock = _stage_events_mod.clock_meta(
-                    rev_messages, chat_id=chat_id)
+                rev_clock = _payload_clock_meta(
+                    _rev_time_snap, rev_messages, chat_id)
                 raw_rev, _usage = await _call_llm(
                     llm, reviewer, rev_messages,
                     correlation_id=correlation_id, llm_call=revision_call,
@@ -1527,8 +1549,8 @@ async def run_l2_with_review(llm, package, *, service=None,
                          source_window_content=source_window_content,
                          semantic_map=semantic_map)},
                 ]
-                rev_clock = _stage_events_mod.clock_meta(
-                    rev_messages, chat_id=chat_id)
+                rev_clock = _payload_clock_meta(
+                    _rev_time_snap, rev_messages, chat_id)
                 raw_rev, _usage = await _call_llm(
                     llm, reviewer, rev_messages,
                     correlation_id=correlation_id, llm_call=revision_call,
