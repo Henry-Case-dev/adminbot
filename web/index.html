@@ -16420,7 +16420,7 @@
     </span>
   </script>
 
-  <!-- ═══ EPIC-PROMPT-VERSIONING-UX-01 (PVR-S4) ═══════════════════════════
+  <!-- ═══ EPIC-PROMPT-VERSIONING-UX-01 (PVR-S4) + PVR-04 redesign ═════════
        ЕДИНЫЙ компонент контроля версий промпта (`prompt-version-card`,
        зарегистрирован в web/app.js; provide/inject: root).
        Одна разметка монтируется во ВСЕХ редакторах промптов:
@@ -16430,10 +16430,18 @@
          4) Speech/Character — редактор блока (data-speech-block-detail);
          + каталог зарегистрированных промптов (variant="history").
        Вторая похожая реализация запрещена (arch §6): правки — только здесь.
-       Карточка не показывает act:/fac:/sha/revision_id — они в раскрываемых
-       «Подробностях». «Применить» существует только при непустом revision_id
-       и actionable; иначе показывается причина (нет прав / code-only /
-       несовместима / retired / журнал недоступен), а не кнопка-пустышка.
+       PVR-04 (Visual Preservation Map: plans/features/pvr-fc-corrective-01/
+       vpm-pvr-04.md): иерархия выстроена заново — шапка (название + область +
+       «⋯»), одна компактная метанстрока состояния/сохранения с вторичным
+       пунктом «История»; панель истории — неподвижная шапка с поиском,
+       ОДИН блок «Сейчас действует», хронология редакций с максимум одним
+       статусом, клик по строке открывает экран деталей (просмотр без
+       изменения, действия в футере/меню «Действия»); mobile — fullscreen
+       sheet с «Назад» и safe-area. Честный контракт (effective-метки,
+       unmatched/drift/503, revisions-only, события вторичны) сохранён
+       дословно. Карточка не показывает act:/fac:/sha/revision_id — они в
+       раскрываемых «Подробностях». «Применить» существует только при
+       непустом revision_id и actionable; иначе показывается причина.
   ═══════════════════════════════════════════════════════════════════════ -->
   <script type="text/x-template" id="prompt-version-card-tpl">
     <div class="pv" :class="'pv--' + variant" :data-pv-key="promptKey"
@@ -16441,9 +16449,23 @@
       <div class="pv-head">
         <span v-if="variant !== 'bar'" class="pv-title">{{ title }}</span>
         <span class="badge badge-muted pv-scope" data-pv-scope>{{ scopeLabel }}</span>
+        <span class="flex-1"></span>
+        <button type="button" class="btn-ghost text-xs pv-more-btn"
+                data-pv-more-toggle aria-haspopup="menu"
+                aria-label="Ещё действия с промптом"
+                :aria-expanded="menu ? 'true' : 'false'"
+                @click="menu = !menu">⋯</button>
+      </div>
+      <!-- PVR-04.0: одна компактная метанстрока — состояние (честный
+           effective-контракт), «Сохранено <дата>» только из реальной строки
+           ревизий, индикатор черновика и вторичный пункт «История» с числом
+           версий (число — только когда список догружен полностью). -->
+      <div class="pv-meta">
         <span class="pv-state" :class="'pv-state--' + state.kind" data-pv-state
               role="status" aria-live="polite">{{ state.text }}<template
               v-if="state.detail"> · {{ state.detail }}</template></span>
+        <span v-if="savedWhen" class="pv-meta__saved"
+              data-pv-saved>Сохранено {{ savedWhen }}</span>
         <span v-if="dirty" class="pv-dirty" data-pv-dirty>черновик не сохранён</span>
         <span class="flex-1"></span>
         <button type="button" class="btn-ghost text-xs pv-history-btn"
@@ -16451,13 +16473,9 @@
                 :aria-expanded="hist.open ? 'true' : 'false'"
                 @click="openHistory()">
           <span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span>
-          История версий
+          История<span v-if="historyCount != null"
+                class="pv-history-count"> {{ historyCount }}</span>
         </button>
-        <button type="button" class="btn-ghost text-xs pv-more-btn"
-                data-pv-more-toggle aria-haspopup="menu"
-                aria-label="Ещё действия с промптом"
-                :aria-expanded="menu ? 'true' : 'false'"
-                @click="menu = !menu">⋯</button>
       </div>
 
       <div v-if="menu" class="pv-menu" role="menu" data-pv-more-menu
@@ -16525,6 +16543,10 @@
         <div v-if="notice" class="pv-notice" data-pv-notice
              :class="noticeOk ? 'text-emerald-300' : 'text-amber-300'"
              role="status" aria-live="polite">{{ notice }}</div>
+        <!-- PVR-04.0: честный read-only статус с причиной, когда промпт
+             задаётся кодом или у роли нет права редактирования. -->
+        <div v-if="!canEdit && readonlyReason" class="pv-readonly"
+             data-pv-readonly role="note">Только чтение: {{ readonlyReason }}</div>
         <div class="pv-foot">
           <button type="button" class="btn-ghost text-xs" data-pv-discard
                   :disabled="busy || !dirty"
@@ -16552,44 +16574,61 @@
         </template>
       </details>
 
-      <!-- ── «История версий»: боковая панель / полноэкранная на мобильном ── -->
+      <!-- ── «История версий» (PVR-04.2.x/04.3.1): боковая панель 420–540 px
+           на desktop (узкий desktop — центральный диалог), fullscreen sheet
+           на мобильном. Неподвижная шапка (eyebrow «История версий», название,
+           область, поиск, справка о наследовании) + ОДИН блок «Сейчас
+           действует»; тело — хронологический список редакций (клик по строке —
+           экран деталей с «Назад» и футером действий). События активации
+           остаются вторичной лентой «История действий». -->
       <teleport to="body">
         <div v-if="hist.open" class="pv-scrim" data-pv-panel-scrim
              @click.self="closeHistory()">
           <aside ref="panel" class="pv-panel" role="dialog" aria-modal="true"
                  tabindex="-1" data-pv-panel
                  :aria-label="'История версий промпта ' + (title || promptKey)"
-                 @keydown.esc="closeHistory()">
+                 @keydown.esc="onPanelEsc()">
             <header class="pv-panel__head">
-              <div class="pv-panel__title">{{ title || promptKey }}</div>
+              <button v-if="detailMode" type="button"
+                      class="btn-ghost text-xs pv-panel__back"
+                      data-pv-panel-back @click="closeDetail()">← Назад</button>
+              <div v-else class="pv-panel__titles">
+                <div class="pv-panel__eyebrow">История версий</div>
+                <div class="pv-panel__title">{{ title || promptKey }}</div>
+              </div>
+              <span v-if="detailMode" class="pv-panel__title pv-panel__title--detail">{{ detailTitle }}</span>
+              <span class="flex-1"></span>
+              <span v-if="!detailMode" class="badge badge-muted pv-panel__scope"
+                    data-pv-panel-scope>{{ panelScopeLabel }}</span>
               <button type="button" class="btn-ghost text-xs" data-pv-panel-close
+                      aria-label="Закрыть историю версий"
                       @click="closeHistory()">Закрыть</button>
             </header>
-            <div class="pv-panel__meta" data-pv-panel-meta>
-              <span class="pv-panel__scope" data-pv-panel-scope>область: {{ scopeLabel }}</span>
-              <!-- «действует» — из effective-контракта резолвера (PVR-01.7),
-                   не из журнального указателя; baseline/factory — разные
-                   указатели, а не синонимы активного (C3.6/C1.4). -->
-              <span data-pv-panel-active>действует: {{ activeLabel }}</span>
-              <span data-pv-panel-factory>исходный из кода: {{ factoryLabel }}</span>
-              <span data-pv-panel-baseline>базовый по выбору владельца: {{ baselineLabel }}</span>
-              <button type="button" class="btn-ghost text-xs" data-pv-events-toggle
-                      :aria-expanded="hist.eventsOpen ? 'true' : 'false'"
-                      @click="toggleEvents()">{{ hist.eventsOpen ? 'Скрыть действия' : 'История действий' }}</button>
+            <div v-if="!detailMode" class="pv-panel__tools">
+              <input type="search" class="field pv-panel__search" data-pv-search
+                     v-model="hist.query" placeholder="Поиск по версиям"
+                     aria-label="Поиск по версиям">
+              <div class="pv-panel__hint" data-pv-panel-hint>
+                Чат без своей версии использует глобальную. «Сейчас действует» —
+                факт из резолвера, не из журнала.
+              </div>
             </div>
-            <div class="pv-panel__legend" data-pv-panel-legend>
-              Список сохранённых версий, новые сверху: дата · источник · кто ·
-              область · статус. «Посмотреть» — дословный текст, «Сравнить» —
-              «было → стало». Отдельные включения — в «Истории действий».
+            <!-- PVR-04.2.2: один блок «Сейчас действует» с происхождением и
+                 датой; «действует» — из effective-контракта резолвера
+                 (PVR-01.7), не из журнального указателя; baseline/factory —
+                 разные указатели, а не синонимы активного (C3.6/C1.4). -->
+            <div v-if="!detailMode" class="pv-now" data-pv-panel-meta>
+              <div class="pv-now__title">Сейчас действует</div>
+              <div class="pv-now__origin" data-pv-panel-active>{{ activeLabel }}</div>
+              <div class="pv-now__pointers">
+                <span data-pv-panel-factory>исходный из кода: {{ factoryLabel }}</span>
+                <span data-pv-panel-baseline>базовый по выбору владельца: {{ baselineLabel }}</span>
+              </div>
             </div>
             <div class="pv-panel__body scroll-thin">
               <!-- PVR-S4 B4: подтверждение последнего действия — ПЕРВЫМ в теле
-                   панели и sticky, а не в конце 50-строчной ленты. Раньше блок
-                   стоял после списка, панель оставалась в scrollTop=0 и
-                   сообщение «Применить» физически не попадало в видимую
-                   область (замер: rect.top=5670 при теле 150..847 на 1536).
-                   Sticky держит его на виду и при прокрутке списка; список при
-                   действии не прокручивается. Закрывается явной кнопкой ×. -->
+                   панели и sticky, а не в конце 50-строчной ленты. Закрывается
+                   явной кнопкой ×. -->
               <div v-if="hist.result" class="pv-result pv-result--sticky"
                    data-prompt-history-result
                    role="status" aria-live="polite"
@@ -16613,146 +16652,206 @@
                 {{ hist.error }}
               </div>
               <template v-else-if="data">
-                <div v-if="!revisionRows.length" class="text-xs text-gray-500"
-                     data-prompt-history-empty>
-                  Сохранённых версий ещё нет — первая появится после заводской
-                  поставки или правки.
-                </div>
-                <div v-else class="pv-rows" data-prompt-history-versions>
-                  <div v-for="rev in revisionRows" :key="'pv-' + rev.revision_id"
-                       class="pv-row" data-pv-row
-                       :data-prompt-history-revision="rev.revision_id || ''"
-                       :data-pv-status="rev.status"
-                       :class="{ 'is-active': isActiveEntry(rev),
-                                 'is-baseline': isBaselineEntry(rev) }">
-                    <div class="pv-row__main">
-                      <span class="pv-row__when">{{ rowWhen(rev) || 'время неизвестно' }}</span>
-                      <span class="badge badge-muted pv-row__source"
-                            data-pv-row-source>{{ sourceLabel(rev) }}</span>
-                      <span v-if="rowActor(rev)" class="pv-row__actor"
-                            data-pv-row-actor>{{ rowActor(rev) }}</span>
-                      <span class="pv-row__scope">{{ rowScope(rev) }}</span>
-                      <span class="badge pv-row__status"
-                            :class="isActiveEntry(rev) ? 'badge-ok'
-                                    : (rev.status === 'retired' || rev.status === 'incompatible'
-                                       ? 'badge-warn' : 'badge-muted')"
-                            data-pv-row-status>{{ rowStatus(rev) }}</span>
-                    </div>
-                    <div class="pv-row__actions">
-                      <button v-if="canViewBody(rev)" type="button"
-                              class="btn-ghost text-xs" data-pv-row-view
-                              @click="view(rev)">
-                        {{ hist.viewId === rev.revision_id ? 'Скрыть текст' : 'Посмотреть' }}
-                      </button>
-                      <button v-if="rev.revision_id" type="button"
-                              class="btn-ghost text-xs" data-pv-row-compare
-                              :disabled="hist.diffLoading" @click="compare(rev)">Сравнить</button>
-                      <button v-if="canActivate(rev)" type="button"
-                              class="btn-ghost text-xs" data-pv-row-activate
-                              :disabled="hist.busyRev !== ''" @click="activate(rev)">
-                        Применить эту версию
-                      </button>
-                      <button v-if="canAssign(rev)" type="button"
-                              class="btn-ghost text-xs" data-pv-row-baseline
-                              :disabled="hist.busyRev !== ''" @click="assignBaseline(rev)">
-                        Назначить базовой
-                      </button>
-                      <button v-if="canViewBody(rev)" type="button"
-                              class="btn-ghost text-xs" data-pv-row-copy
-                              @click="copy(rev)">Скопировать</button>
-                      <button v-if="canCopyToGlobal() && rev.revision_id" type="button"
-                              class="btn-ghost text-xs" data-pv-row-copy-global
-                              :disabled="hist.busyRev !== ''" @click="copyToGlobal(rev)">
-                        Скопировать глобально
-                      </button>
-                    </div>
-                    <div v-if="rev.revision_id && !canActivate(rev) && !isActiveEntry(rev)
-                              && rowReason(rev)"
-                         class="pv-row__reason" data-pv-row-reason>{{ rowReason(rev) }}</div>
-                    <div v-if="rev.revision_id && hist.viewId === rev.revision_id"
-                         class="pv-row__view" data-prompt-history-view>
-                      <div v-if="hist.viewLoading" class="text-xs text-gray-500">
-                        Загрузка текста…
+                <template v-if="!detailMode">
+                  <div v-if="!revisionRows.length" class="text-xs text-gray-500"
+                       data-prompt-history-empty>
+                    Сохранённых версий ещё нет — первая появится после заводской
+                    поставки или правки.
+                  </div>
+                  <div v-else-if="!visibleRevisionRows.length"
+                       class="text-xs text-gray-500" data-pv-search-empty>
+                    Ничего не найдено: по запросу «{{ hist.query }}» сохранённых
+                    версий нет.
+                  </div>
+                  <!-- Хронологический список редакций (PVR-04.2.3): имя
+                       «Версия от …», строка метаданных, максимум ОДИН уместный
+                       статус. Клик по строке — selection (≠ active) и экран
+                       деталей; никаких массивов кнопок под строками. -->
+                  <div v-else class="pv-rows" data-prompt-history-versions>
+                    <div v-for="rev in visibleRevisionRows"
+                         :key="'pv-' + rev.revision_id"
+                         class="pv-row" data-pv-row role="button" tabindex="0"
+                         :data-prompt-history-revision="rev.revision_id || ''"
+                         :data-pv-status="rev.status"
+                         :aria-pressed="hist.selectedId === rev.revision_id ? 'true' : 'false'"
+                         :class="{ 'is-active': isActiveEntry(rev),
+                                   'is-baseline': isBaselineEntry(rev),
+                                   'is-selected': hist.selectedId === rev.revision_id }"
+                         @click="openDetail(rev)"
+                         @keydown.enter.prevent="openDetail(rev)"
+                         @keydown.space.prevent="openDetail(rev)">
+                      <div class="pv-row__main">
+                        <span class="pv-row__name">{{ rowName(rev) }}</span>
+                        <span v-if="rowBadge(rev)" class="badge pv-row__status"
+                              :class="isActiveEntry(rev) ? 'pv-row__status--active'
+                                      : (isBaselineEntry(rev) ? 'pv-row__status--baseline'
+                                         : 'pv-row__status--muted')"
+                              data-pv-row-status>{{ rowBadge(rev) }}</span>
                       </div>
-                      <div v-else-if="hist.viewError" class="pv-warn" data-pv-view-error>
-                        {{ hist.viewError }}
+                      <div class="pv-row__meta">
+                        <span v-if="!rev.created_at" class="pv-row__when">время неизвестно</span>
+                        <span class="pv-row__source" data-pv-row-source>{{ sourceLabel(rev) }}</span>
+                        <span v-if="rowActor(rev)" class="pv-row__actor"
+                              data-pv-row-actor>{{ rowActor(rev) }}</span>
+                        <span class="pv-row__scope">{{ rowScope(rev) }}</span>
                       </div>
-                      <pre v-else class="pv-pre pv-pre--full scroll-thin"
-                           data-pv-view-body>{{ hist.viewBody }}</pre>
                     </div>
                   </div>
-                </div>
-                <div class="pv-more" data-pv-more>
-                  <button v-if="hist.more" type="button" class="btn-ghost text-xs"
-                          data-pv-load-more :disabled="hist.moreLoading"
-                          @click="loadMore()">
-                    {{ hist.moreLoading ? 'Загрузка…' : 'Показать более ранние версии' }}
-                  </button>
-                  <span v-else class="text-[10px] text-gray-500" data-pv-end>
-                    Это вся доступная история — старее записей нет.
-                  </span>
-                  <span v-if="hist.moreError" class="pv-warn">{{ hist.moreError }}</span>
-                </div>
-                <!-- ── Вторичная лента событий активации (PVR-02.2): статус
-                     «была применена», никогда не active; никаких кнопок
-                     «Применить»/«Назначить» — это не редакции. ── -->
-                <div v-if="hist.eventsOpen" class="pv-events" data-pv-events>
-                  <div class="pv-events__title">История действий</div>
-                  <div v-if="!eventRows.length" class="text-xs text-gray-500"
-                       data-pv-events-empty>Событий включения пока нет.</div>
-                  <div v-for="ev in eventRows"
-                       :key="'pve-' + (ev.activation_id != null ? ev.activation_id : ev.created_at)"
-                       class="pv-row pv-row--event" data-pv-event-row
-                       :data-pv-event-status="ev.status">
-                    <div class="pv-row__main">
-                      <span class="pv-row__when">{{ rowWhen(ev) || 'время неизвестно' }}</span>
-                      <span class="badge badge-muted pv-row__source"
-                            data-pv-event-source>{{ sourceLabel(ev) }}</span>
-                      <span v-if="rowActor(ev)" class="pv-row__actor"
-                            data-pv-event-actor>{{ rowActor(ev) }}</span>
-                      <span class="pv-row__scope">{{ rowScope(ev) }}</span>
-                      <span class="badge badge-muted pv-row__status"
-                            data-pv-event-status-label>{{ rowStatus(ev) }}</span>
-                    </div>
-                    <div v-if="ev.body_available && ev.revision_id"
-                         class="pv-row__actions">
-                      <button type="button" class="btn-ghost text-xs"
-                              data-pv-event-view @click="view(ev)">
-                        {{ hist.viewId === ev.revision_id ? 'Скрыть текст' : 'Посмотреть текст' }}
-                      </button>
-                    </div>
-                    <div v-if="ev.revision_id && hist.viewId === ev.revision_id"
-                         class="pv-row__view" data-pv-event-view-body>
-                      <div v-if="hist.viewLoading" class="text-xs text-gray-500">
-                        Загрузка текста…
-                      </div>
-                      <div v-else-if="hist.viewError" class="pv-warn">{{ hist.viewError }}</div>
-                      <pre v-else class="pv-pre pv-pre--full scroll-thin">{{ hist.viewBody }}</pre>
-                    </div>
-                  </div>
-                  <div class="pv-more">
-                    <button v-if="hist.moreEvents" type="button"
-                            class="btn-ghost text-xs" data-pv-load-more-events
-                            :disabled="hist.moreEventsLoading"
-                            @click="loadMoreEvents()">
-                      {{ hist.moreEventsLoading ? 'Загрузка…' : 'Показать более ранние события' }}
+                  <div class="pv-more" data-pv-more>
+                    <button v-if="hist.more" type="button" class="btn-ghost text-xs"
+                            data-pv-load-more :disabled="hist.moreLoading"
+                            @click="loadMore()">
+                      {{ hist.moreLoading ? 'Загрузка…' : 'Показать более ранние версии' }}
                     </button>
-                    <span v-if="hist.moreEventsError" class="pv-warn">{{ hist.moreEventsError }}</span>
+                    <span v-else class="pv-end" data-pv-end>
+                      Это вся доступная история — старее записей нет.
+                    </span>
+                    <span v-if="hist.moreError" class="pv-warn">{{ hist.moreError }}</span>
                   </div>
-                </div>
-              </template>
-              <div v-if="hist.diffTitle" class="pv-diff-title" data-pv-diff-title>
-                {{ hist.diffTitle }}
-              </div>
-              <div v-if="hist.diffError" class="pv-warn" data-pv-diff-error>
-                {{ hist.diffError }}
-              </div>
-              <pre v-if="hist.diff && hist.diff.length" class="pv-diff scroll-thin"
-                   data-prompt-history-diff><span v-for="(ln, i) in hist.diff"
-                   :key="'pd' + i" :class="diffClass(ln)">{{ ln }}
+                  <!-- ── Вторичная лента событий активации (PVR-02.2): статус
+                       «была применена», никогда не active; никаких кнопок
+                       «Применить»/«Назначить» — это не редакции. ── -->
+                  <div class="pv-events-toggle-row">
+                    <button type="button" class="btn-ghost text-xs"
+                            data-pv-events-toggle
+                            :aria-expanded="hist.eventsOpen ? 'true' : 'false'"
+                            @click="toggleEvents()">{{ hist.eventsOpen ? 'Скрыть действия' : 'История действий' }}</button>
+                  </div>
+                  <div v-if="hist.eventsOpen" class="pv-events" data-pv-events>
+                    <div class="pv-events__title">История действий</div>
+                    <div v-if="!eventRows.length" class="text-xs text-gray-500"
+                         data-pv-events-empty>Событий включения пока нет.</div>
+                    <div v-for="ev in eventRows"
+                         :key="'pve-' + (ev.activation_id != null ? ev.activation_id : ev.created_at)"
+                         class="pv-row pv-row--event" data-pv-event-row
+                         :data-pv-event-status="ev.status">
+                      <div class="pv-row__main">
+                        <span class="pv-row__when">{{ rowWhen(ev) || 'время неизвестно' }}</span>
+                        <span class="pv-row__source"
+                              data-pv-event-source>{{ sourceLabel(ev) }}</span>
+                        <span v-if="rowActor(ev)" class="pv-row__actor"
+                              data-pv-event-actor>{{ rowActor(ev) }}</span>
+                        <span class="pv-row__scope">{{ rowScope(ev) }}</span>
+                        <span class="badge badge-muted pv-row__status"
+                              data-pv-event-status-label>{{ rowStatus(ev) }}</span>
+                      </div>
+                      <div v-if="ev.body_available && ev.revision_id"
+                           class="pv-row__actions">
+                        <button type="button" class="btn-ghost text-xs"
+                                data-pv-event-view @click="view(ev)">
+                          {{ hist.viewId === ev.revision_id ? 'Скрыть текст' : 'Посмотреть текст' }}
+                        </button>
+                      </div>
+                      <div v-if="ev.revision_id && hist.viewId === ev.revision_id"
+                           class="pv-row__view" data-pv-event-view-body>
+                        <div v-if="hist.viewLoading" class="text-xs text-gray-500">
+                          Загрузка текста…
+                        </div>
+                        <div v-else-if="hist.viewError" class="pv-warn">{{ hist.viewError }}</div>
+                        <pre v-else class="pv-pre pv-pre--full scroll-thin">{{ hist.viewBody }}</pre>
+                      </div>
+                    </div>
+                    <div class="pv-more">
+                      <button v-if="hist.moreEvents" type="button"
+                              class="btn-ghost text-xs" data-pv-load-more-events
+                              :disabled="hist.moreEventsLoading"
+                              @click="loadMoreEvents()">
+                        {{ hist.moreEventsLoading ? 'Загрузка…' : 'Показать более ранние события' }}
+                      </button>
+                      <span v-if="hist.moreEventsError" class="pv-warn">{{ hist.moreEventsError }}</span>
+                    </div>
+                  </div>
+                </template>
+                <!-- ── Экран деталей версии (PVR-04.2.4): просмотр без
+                     изменения дословного текста, честная причина недоступных
+                     действий, тонкий список событий применения этой версии,
+                     diff «было → стало». Операции — в футере панели. ── -->
+                <template v-else-if="selectedRow">
+                  <div class="pv-detail" data-pv-detail>
+                    <div v-if="hist.viewLoading" class="text-xs text-gray-500"
+                         data-pv-view-loading>Загрузка текста…</div>
+                    <div v-else-if="hist.viewError" class="pv-warn"
+                         data-pv-view-error>{{ hist.viewError }}</div>
+                    <pre v-else class="pv-pre pv-pre--full scroll-thin"
+                         data-pv-view-body>{{ hist.viewBody }}</pre>
+                    <div v-if="!canActivate(selectedRow) && !isActiveEntry(selectedRow)
+                              && rowReason(selectedRow)"
+                         class="pv-row__reason"
+                         data-pv-row-reason>{{ rowReason(selectedRow) }}</div>
+                    <div class="pv-detail__events" data-pv-detail-events>
+                      <div class="pv-detail__events-title">События применения этой версии</div>
+                      <div v-if="!selectedEvents.length"
+                           class="text-xs text-gray-500"
+                           data-pv-detail-events-empty>Применений этой версии в журнале нет.</div>
+                      <div v-for="ev in selectedEvents"
+                           :key="'pvde-' + (ev.activation_id != null ? ev.activation_id : ev.created_at)"
+                           class="pv-row pv-row--flat" data-pv-detail-event-row>
+                        <span class="pv-row__when">{{ rowWhen(ev) || 'время неизвестно' }}</span>
+                        <span class="pv-row__source">{{ sourceLabel(ev) }}</span>
+                        <span v-if="rowActor(ev)" class="pv-row__actor">{{ rowActor(ev) }}</span>
+                        <span class="badge badge-muted pv-row__status">{{ rowStatus(ev) }}</span>
+                      </div>
+                    </div>
+                    <div v-if="hist.diffTitle" class="pv-diff-title"
+                         data-pv-diff-title>{{ hist.diffTitle }}</div>
+                    <div v-if="hist.diffError" class="pv-warn"
+                         data-pv-diff-error>{{ hist.diffError }}</div>
+                    <pre v-if="hist.diff && hist.diff.length"
+                         class="pv-diff scroll-thin"
+                         data-prompt-history-diff><span v-for="(ln, i) in hist.diff"
+                         :key="'pd' + i" :class="diffClass(ln)">{{ ln }}
 </span></pre>
+                  </div>
+                </template>
+              </template>
             </div>
-            <footer class="pv-panel__foot" data-pv-panel-actions>
+            <!-- Футер деталей (PVR-04.2.4): «Сравнить с текущей», «Скопировать»,
+                 primary «Применить» только если версия отличается от действующей,
+                 «Назначить базовой» и «Скопировать в глобальные» — в меню
+                 «Действия». Недоступные действия не рисуются — причина видна в
+                 теле деталей. На мобильном CTA живёт в фиксированном футере. -->
+            <footer v-if="detailMode && selectedRow" class="pv-panel__foot pv-panel__foot--detail"
+                    data-pv-detail-actions>
+              <button type="button" class="btn-ghost text-xs" data-pv-row-compare
+                      :disabled="hist.busyRev !== ''"
+                      @click="compare(selectedRow)">Сравнить с текущей</button>
+              <button v-if="canViewBody(selectedRow)" type="button"
+                      class="btn-ghost text-xs" data-pv-row-copy
+                      :disabled="hist.busyRev !== ''"
+                      @click="copy(selectedRow)">Скопировать</button>
+              <span class="flex-1"></span>
+              <div v-if="canAssign(selectedRow) || canCopyToGlobal()"
+                   class="pv-actions">
+                <button type="button" class="btn-ghost text-xs"
+                        data-pv-actions-toggle aria-haspopup="menu"
+                        aria-label="Действия с версией"
+                        :aria-expanded="hist.actionsMenu ? 'true' : 'false'"
+                        @click="hist.actionsMenu = !hist.actionsMenu">Действия…</button>
+                <div v-if="hist.actionsMenu" class="pv-menu pv-menu--up"
+                     role="menu" data-pv-actions-menu
+                     @keydown.esc="hist.actionsMenu = false">
+                  <button v-if="canAssign(selectedRow)" type="button"
+                          class="more-menu-item" role="menuitem"
+                          data-pv-row-baseline :disabled="hist.busyRev !== ''"
+                          @click="hist.actionsMenu = false; assignBaseline(selectedRow)">
+                    Назначить базовой
+                  </button>
+                  <button v-if="canCopyToGlobal() && selectedRow.revision_id"
+                          type="button" class="more-menu-item" role="menuitem"
+                          data-pv-row-copy-global :disabled="hist.busyRev !== ''"
+                          @click="hist.actionsMenu = false; copyToGlobal(selectedRow)">
+                    Скопировать в глобальные
+                  </button>
+                </div>
+              </div>
+              <button v-if="canActivate(selectedRow)" type="button"
+                      class="btn-accent text-xs" data-pv-row-activate
+                      :disabled="hist.busyRev !== ''"
+                      @click="activate(selectedRow)">
+                {{ hist.busyRev === selectedRow.revision_id ? 'Применение…' : 'Применить' }}
+              </button>
+            </footer>
+            <footer v-else class="pv-panel__foot" data-pv-panel-actions>
               <button type="button" class="btn-ghost text-xs" data-pv-clear-baseline
                       :disabled="!hasBaseline || hist.busyRev !== ''"
                       :title="hasBaseline ? 'Вернуть эталон из кода' : 'Назначение базовой не задано'"

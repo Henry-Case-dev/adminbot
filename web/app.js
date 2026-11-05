@@ -398,6 +398,7 @@
     memory: '\ue322',
     monitoring: '\uf190',
     play_arrow: '\ue037',
+    arrow_back: '\ue5c4',
     play_circle: '\ue038',
     psychology: '\uea4a',
     radar: '\uf04e',
@@ -35448,15 +35449,17 @@
     return m[3] + '.' + m[2] + ' ' + m[4] + ':' + m[5];
   }
 
-  //: Человеческие подписи источника ревизии (§2.2 п.3 ТЗ): ручная /
-  //: импортирована / из релиза / восстановлена. Технические токены API
-  //: (`manual`, `legacy`, `factory`, `restored`) в карточку не попадают.
+  //: Человеческие подписи источника ревизии (§2.2 п.3 ТЗ + PVR-04.2.3):
+  //: «Вручную» / «Импортирована» / «Из релиза» / «Восстановлена» /
+  //: «Историческая». Технические токены API (`manual`, `legacy`, `factory`,
+  //: `restored`) в строку редакции не попадают. Для СОБЫТИЙ журнала серверная
+  //: `source_label` точнее (kind: «назначена базовая») — она приоритетнее.
   var _PV_SOURCE_LABELS = {
-    manual: 'ручная',
-    imported: 'импортирована',
-    from_release: 'из релиза',
-    restored: 'восстановлена',
-    legacy: 'до версионирования',
+    manual: 'Вручную',
+    imported: 'Импортирована',
+    from_release: 'Из релиза',
+    restored: 'Восстановлена',
+    legacy: 'Историческая',
   };
 
   app.component('prompt-version-card', {
@@ -35504,6 +35507,12 @@
           more: false,
           moreLoading: false,
           moreError: '',
+          // PVR-04.2.2: поиск по версиям (фильтр загруженного списка).
+          query: '',
+          // PVR-04.2.3/04.2.4: выбранная строка (selection != active) и
+          // экран деталей версии; меню «Действия» в футере деталей.
+          selectedId: '',
+          actionsMenu: false,
           // Вторичная лента «История действий» (события активации,
           // «была применена»): PVR-02.2/C1.2 — события НЕ в основном списке.
           eventsOpen: false,
@@ -35534,7 +35543,12 @@
       isChatScope: function () { return this.chatIdNum != null; },
       scopeLabel: function () {
         if (!this.isChatScope) return 'Глобально';
-        return this.chatTitle ? ('этот чат · ' + this.chatTitle) : 'этот чат';
+        return this.chatTitle ? ('Этот чат · ' + this.chatTitle) : 'Этот чат';
+      },
+      // PVR-04.2.2: область в шапке панели — «Этот чат» или «Глобально».
+      panelScopeLabel: function () {
+        if (!this.isChatScope) return 'Глобально';
+        return this.chatTitle ? ('Этот чат · ' + this.chatTitle) : 'Этот чат';
       },
       taId: function () {
         return 'pv-text-' + String(this.promptKey || 'prompt')
@@ -35641,6 +35655,67 @@
         var who = String(b.baseline.assigned_by || '').trim();
         var tail = who ? (' · кто: ' + who) : '';
         return when ? ('назначен ' + when + tail) : ('назначен' + tail);
+      },
+      // PVR-04.0: «Сохранено <дата>» — только из реальной строки ревизий,
+      // сопоставленной с действующим текстом; нет строки — нет и даты.
+      savedWhen: function () {
+        var row = this.effectiveRevRow;
+        return (row && row.created_at) ? pvShortWhen(row.created_at) : '';
+      },
+      // PVR-04.0: число версий у пункта «История» — только честно известное:
+      // список ревизий догружен целиком. Пока есть непрочитанные страницы
+      // (`has_more`), числа нет — в API нет total, выдумывать нельзя.
+      historyCount: function () {
+        if (!this.data || this.hist.more) return null;
+        return this.revisionRows.length;
+      },
+      // PVR-04.2.2: поиск по версиям фильтрует ЗАГРУЖЕННЫЙ список (дата,
+      // источник, автор, статус, id). Ничего не выдумывается: не найдено —
+      // честный empty-state, а не подстановка похожих строк.
+      visibleRevisionRows: function () {
+        var self = this;
+        var q = String(this.hist.query || '').trim().toLowerCase();
+        var rows = this.revisionRows;
+        if (!q) return rows;
+        return rows.filter(function (r) {
+          var hay = [r.revision_id, r.created_at, self.sourceLabel(r),
+                     self.rowName(r), self.rowActor(r), self.rowScope(r),
+                     self.rowBadge(r), r.status_label || '']
+            .join(' ').toLowerCase();
+          return hay.indexOf(q) >= 0;
+        });
+      },
+      // PVR-04.2.3/04.2.4: выбранная редакция (selection != active) и её
+      // события применения (тонкий вторичный список в деталях).
+      selectedRow: function () {
+        var id = this.hist.selectedId;
+        if (!id) return null;
+        var rows = this.revisionRows;
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i] && rows[i].revision_id === id) return rows[i];
+        }
+        return null;
+      },
+      selectedEvents: function () {
+        var id = this.hist.selectedId;
+        if (!id) return [];
+        return this.eventRows.filter(function (ev) {
+          return ev && ev.revision_id === id;
+        });
+      },
+      detailMode: function () { return !!this.hist.selectedId; },
+      detailTitle: function () {
+        return this.selectedRow ? this.rowName(this.selectedRow) : '';
+      },
+      // PVR-04.0: честная причина read-only карточки (code-only / нет прав).
+      readonlyReason: function () {
+        if (this.canEdit) return '';
+        var d = this.data;
+        if (d && d.manageable === false) {
+          return 'значение задаётся кодом, а не в базе — историю можно '
+            + 'смотреть, применять нечего';
+        }
+        return 'у вашей роли нет права редактировать этот промпт';
       },
       entries: function () { return this.hist.entries || []; },
       // Основной список панели — ТОЛЬКО сохранённые ревизии (PVR-02.1/C1.2):
@@ -35753,6 +35828,9 @@
         h.more = false;
         h.moreError = '';
         h.error = '';
+        h.query = '';
+        h.selectedId = '';
+        h.actionsMenu = false;
         h.events = [];
         h.nextEventsCursor = '';
         h.moreEvents = false;
@@ -35850,11 +35928,23 @@
           h.more = !!(data && data.page && data.page.has_more);
           _pvStateCache.set(cacheKey, { at: Date.now(), data: h.data });
           if (force) {
-            h.viewId = '';
-            h.viewBody = '';
-            h.viewError = '';
             h.diff = null;
             h.diffError = '';
+            if (h.selectedId) {
+              // PVR-04.2.4: детали выбранной версии переживают перечитывание —
+              // дословный текст перезагружается для той же ревизии; если
+              // строка исчезла из журнала, детали закрываются (не пустышка).
+              var sel = this.selectedRow;
+              if (sel) {
+                await this.loadView(sel);
+              } else {
+                this.closeDetail();
+              }
+            } else {
+              h.viewId = '';
+              h.viewBody = '';
+              h.viewError = '';
+            }
           }
         } catch (err) {
           if (this._cacheKey() !== cacheKey) return;
@@ -35941,10 +36031,19 @@
           h.moreEventsLoading = false;
         }
       },
+      // PVR-04.2.3: каноничная карта источников для строк редакций
+      // («Вручную»/«Из релиза»/«Импортирована»/«Историческая»/«Восстановлена»);
+      // для событий журнала серверная подпись точнее (kind-специфичная,
+      // например «назначена базовая») — она приоритетнее.
       sourceLabel: function (entry) {
         if (!entry) return '';
+        if (entry.activation_id != null && entry.source_label) {
+          return String(entry.source_label);
+        }
+        var mapped = _PV_SOURCE_LABELS[String(entry.source || '').trim()];
+        if (mapped) return mapped;
         if (entry.source_label) return String(entry.source_label);
-        return _PV_SOURCE_LABELS[entry.source] || 'источник неизвестен';
+        return 'источник неизвестен';
       },
       rowWhen: function (entry) {
         return pvShortWhen(entry && entry.created_at);
@@ -35964,6 +36063,25 @@
         if (!entry) return '';
         if (entry.status_label) return String(entry.status_label);
         return entry.status || '';
+      },
+      // PVR-04.2.3: имя строки — «Версия от <дата>» (своих имён у ревизий
+      // нет); без метки времени — просто «Версия», а «время неизвестно»
+      // показывается в метаданных строки.
+      rowName: function (entry) {
+        if (!entry) return '';
+        var when = this.rowWhen(entry);
+        return when ? ('Версия от ' + when) : 'Версия';
+      },
+      // Максимум ОДИН уместный статус строки (PVR-04.2.3): «Действует» —
+      // только effective-matched резолвера; «Базовая» — отдельный указатель;
+      // «Недоступна» — текст не сохранён в журнале. Прочие строки без статуса:
+      // спокойный список, причины живут в деталях.
+      rowBadge: function (entry) {
+        if (!entry) return '';
+        if (this.isActiveEntry(entry)) return 'Действует';
+        if (this.isBaselineEntry(entry)) return 'Базовая';
+        if (entry.body_available === false) return 'Недоступна';
+        return '';
       },
       // Метка «активная» — только ревизия, сопоставленная резолвером с
       // реально действующим текстом (status=matched + effective_revision_id).
@@ -36035,6 +36153,8 @@
         }
         return entry.reason_text || '';
       },
+      // Переключатель просмотра текста (используется строками вторичной
+      // ленты событий); для деталей версии — см. openDetail/loadView.
       view: async function (entry) {
         var h = this.hist;
         if (!entry || !entry.revision_id) return;
@@ -36044,6 +36164,46 @@
           h.viewError = '';
           return;
         }
+        await this.loadView(entry);
+      },
+      // PVR-04.2.3/04.2.4: клик по строке редакции — selection (≠ active) и
+      // экран деталей: дословный текст открывается без изменения и без
+      // пересохранения; повторный клик/«Назад» возвращает список.
+      openDetail: async function (entry) {
+        var h = this.hist;
+        if (!entry || !entry.revision_id) return;
+        h.actionsMenu = false;
+        if (h.selectedId === entry.revision_id) {
+          this.closeDetail();
+          return;
+        }
+        h.selectedId = entry.revision_id;
+        h.diff = null;
+        h.diffTitle = '';
+        h.diffError = '';
+        await this.loadView(entry);
+      },
+      closeDetail: function () {
+        var h = this.hist;
+        h.selectedId = '';
+        h.actionsMenu = false;
+        h.viewId = '';
+        h.viewBody = '';
+        h.viewError = '';
+        h.diff = null;
+        h.diffTitle = '';
+        h.diffError = '';
+      },
+      // Escape: в деталях — назад к списку, иначе закрыть панель (PVR-04.3.1).
+      onPanelEsc: function () {
+        if (this.detailMode) this.closeDetail();
+        else this.closeHistory();
+      },
+      // Загрузка дословного текста версии: GET /source, никаких записей;
+      // пустой текст не подставляется — недоступность называется честно.
+      loadView: async function (entry) {
+        var h = this.hist;
+        if (!entry || !entry.revision_id) return;
         var cacheKey = this._cacheKey();
         h.viewId = entry.revision_id;
         h.viewBody = '';

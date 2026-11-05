@@ -8746,18 +8746,25 @@ body > .sticky-save[data-save-panel] {
 .pv { min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: 6px; }
 .pv--bar { gap: 4px; }
 .pv--bar .pv-head { flex-wrap: wrap; }
-.pv--card { --pv-head-reserve: 56px; }
+.pv--card { --pv-head-reserve: 72px; }
 .pv--card .pv-text {
   width: 100%; min-width: 0;
-  /* Карточка версий добавляет над полем шапку и строку состояния — резерв
-     под них вычитается из уже существующего правила .ctl-editor-area, чтобы
-     при открытой клавиатуре поле не уходило под неё (EVOL-044). */
+  /* Карточка версий добавляет над полем шапку и метанстроку состояния —
+     резерв под них вычитается из уже существующего правила .ctl-editor-area,
+     чтобы при открытой клавиатуре поле не уходило под неё (EVOL-044). */
   max-height: min(60dvh, calc(var(--vv-h, var(--app-usable-height, 100vh))
     - 120px - var(--pv-head-reserve)));
 }
+/* PVR-04.0: шапка = название + область + «⋯»; состояние, «Сохранено»,
+   черновик и «История» — одна компактная метанстрока ниже. */
 .pv-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .pv-title { font-size: var(--ctl-font); font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
 .pv-scope { flex: 0 0 auto; }
+.pv-meta {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
+  min-width: 0; font-size: var(--ctl-font-sm);
+}
+.pv-meta__saved { color: #94A3B8; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
 .pv-state { font-size: var(--ctl-font-sm); color: #CBD5E1; min-width: 0; overflow-wrap: anywhere; }
 .pv-state--inherit, .pv-state--muted { color: #94A3B8; }
 .pv-state--factory { color: #93C5FD; }
@@ -8768,7 +8775,12 @@ body > .sticky-save[data-save-panel] {
   font-size: var(--ctl-font-sm); color: #FCD34D; border: 1px solid rgba(252, 211, 77, .4);
   border-radius: var(--ctl-radius, 999px); padding: 1px 6px; white-space: nowrap;
 }
-.pv-history-btn, .pv-more-btn { min-height: 36px; }
+/* Вторичный текстовый пункт «История»: число версий — tabular-nums, чтобы
+   появление/смена числа не «скачало» разметку (PVR-04.0). */
+.pv-history-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; }
+.pv-history-count { font-variant-numeric: tabular-nums; color: #94A3B8; }
+.pv-more-btn { min-height: 36px; min-width: 36px; }
+.pv-readonly { font-size: var(--ctl-font-sm); color: #94A3B8; min-width: 0; overflow-wrap: anywhere; }
 .pv-menu {
   display: flex; flex-direction: column; align-items: stretch; gap: 2px;
   padding: 4px; border-radius: var(--ctl-radius); max-width: 100%; min-width: 0;
@@ -8819,71 +8831,148 @@ body > .sticky-save[data-save-panel] {
   .pv-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
 }
 .pv-grid > * { min-width: 0; }
-/* ── Панель «История версий» ─────────────────────────────────────────── */
+/* ── Панель «История версий» (PVR-04.2.1/04.2.2) ────────────────────────
+   Спокойная премиальная поверхность: сплошной тёмный фон, волосяные
+   разделители, никаких декоративных blur-стен и магических z-index
+   (--z-panel — единственный токен слоя). Ширина — clamp(420px, 44vw, 520px):
+   PVR-04.2.1 требует 420–540 px в пределах viewport. */
 .pv-scrim {
   position: fixed; inset: 0; z-index: var(--z-panel); display: flex; justify-content: flex-end;
-  background: rgba(2, 6, 23, .55);
-  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  background: rgba(2, 6, 23, .58);
 }
 .pv-panel {
   display: flex; flex-direction: column; height: 100%; min-width: 0;
-  width: min(560px, 46vw); max-width: 100vw;
-  background: rgba(9, 14, 26, .94);
+  width: clamp(420px, 44vw, 520px); max-width: 100vw;
+  background: #0B1220;
   border-left: 1px solid var(--surface-border, rgba(255, 255, 255, .12));
   box-shadow: -24px 0 48px rgba(0, 0, 0, .45);
 }
 .pv-panel__head {
   display: flex; align-items: center; gap: 8px; padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--surface-border, rgba(255, 255, 255, .1));
+  border-bottom: 1px solid var(--surface-border, rgba(255, 255, 255, .08));
+}
+.pv-panel__titles { flex: 1; min-width: 0; }
+.pv-panel__eyebrow {
+  font-size: var(--ctl-font-sm); color: #64748B; letter-spacing: .02em;
 }
 .pv-panel__title {
-  flex: 1; min-width: 0; font-size: var(--ctl-font); font-weight: 700;
+  min-width: 0; font-size: var(--ctl-font); font-weight: 700;
   overflow-wrap: anywhere;
 }
-.pv-panel__meta {
-  display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 8px 12px 2px;
-  font-size: var(--ctl-font-sm); color: #94A3B8;
+.pv-panel__title--detail {
+  flex: 1; min-width: 0; font-size: var(--ctl-font-sm); font-weight: 600;
+  color: #CBD5E1; overflow-wrap: anywhere;
 }
-/* Смысловые части шапки разделены волосяной точкой — иначе строки
-   «слипаются» и метаданные читаются как сплошной текст. */
-.pv-panel__meta > * + *::before {
-  content: "·"; margin-right: 6px; color: #475569;
+.pv-panel__back { flex: 0 0 auto; min-height: 36px; }
+.pv-panel__scope { flex: 0 0 auto; }
+/* Поиск по версиям + короткая справка о наследовании (PVR-04.2.2). */
+.pv-panel__tools {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: var(--space-2) var(--space-3) 0;
 }
-.pv-panel__legend { padding: 0 var(--space-3) var(--space-2); font-size: var(--ctl-font-sm); color: #64748B; }
+.pv-panel__search { width: 100%; min-width: 0; min-height: 36px; font-size: var(--ctl-font-sm); }
+.pv-panel__hint { font-size: var(--ctl-font-sm); color: #64748B; overflow-wrap: anywhere; }
+/* Единственный блок «Сейчас действует» — в неподвижной шапке панели. */
+.pv-now {
+  margin: var(--space-2) var(--space-3) 0; padding: 8px 10px;
+  border: 1px solid var(--surface-border, rgba(255, 255, 255, .08));
+  border-radius: var(--ctl-radius-sm, 8px);
+  background: rgba(148, 163, 184, .06);
+}
+.pv-now__title { font-size: var(--ctl-font-sm); color: #64748B; }
+.pv-now__origin {
+  font-size: var(--ctl-font); color: #E2E8F0; font-weight: 600;
+  min-width: 0; overflow-wrap: anywhere;
+}
+.pv-now__pointers {
+  display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 2px;
+  font-size: var(--ctl-font-sm); color: #64748B;
+}
+.pv-now__pointers span { min-width: 0; overflow-wrap: anywhere; }
 .pv-panel__body {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   padding: 0 var(--space-3) var(--space-3);
 }
+/* ── Строки редакций (PVR-04.2.3): спокойная хронология, волосяные
+   разделители, максимум один статус; selection явно отличается от active. ── */
 .pv-rows { display: flex; flex-direction: column; min-width: 0; }
 .pv-row {
-  min-width: 0; padding: 6px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  min-width: 0; padding: 7px 4px; cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, .05);
 }
-.pv-row.is-active { background: rgba(16, 185, 129, .06); }
-.pv-row.is-baseline { box-shadow: inset 2px 0 0 rgba(196, 181, 253, .7); }
+.pv-row:hover { background: rgba(148, 163, 184, .05); }
+.pv-row:focus-visible { outline: 2px solid #2DD4BF; outline-offset: -2px; }
+/* Selection — нейтральная заливка всей строки; active — один спокойный
+   маркер-ребро. Они независимы: selection != active (PVR-04.2.3). */
+.pv-row.is-selected { background: rgba(148, 163, 184, .12); }
+.pv-row.is-active {
+  box-shadow: inset 2px 0 0 rgba(45, 212, 191, .65);
+  background: rgba(45, 212, 191, .05);
+}
 .pv-row__main {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
-  font-size: var(--ctl-font-sm); color: #CBD5E1; min-width: 0;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px;
+  font-size: var(--ctl-font); color: #E2E8F0; min-width: 0;
 }
-.pv-row__order { font-variant-numeric: tabular-nums; color: #64748B; }
-.pv-row__when { color: #94A3B8; }
+.pv-row__name { min-width: 0; overflow-wrap: anywhere; }
+.pv-row__meta {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  margin-top: 1px; font-size: var(--ctl-font-sm); color: #94A3B8; min-width: 0;
+}
+.pv-row__meta > * { min-width: 0; overflow-wrap: anywhere; }
+.pv-row__when { color: #94A3B8; font-variant-numeric: tabular-nums; }
+.pv-row__source { color: #94A3B8; }
 .pv-row__actor, .pv-row__scope { color: #64748B; }
+/* Единственный статус строки: спокойные чипы, без ярко-зелёного дубля
+   активной подсветки (политика оформления PVR-04). */
+.pv-row__status { flex: 0 0 auto; }
+.pv-row__status--active {
+  background: rgba(45, 212, 191, .12); color: #7DD3C0;
+  border: 1px solid rgba(45, 212, 191, .25);
+}
+.pv-row__status--baseline {
+  background: rgba(167, 139, 250, .10); color: #C4B5FD;
+  border: 1px solid rgba(167, 139, 250, .22);
+}
+.pv-row__status--muted {
+  background: rgba(148, 163, 184, .12); color: #94A3B8;
+}
 .pv-row__actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .pv-row__actions .btn-ghost { min-height: 32px; }
 .pv-row__reason { font-size: var(--ctl-font-sm); color: #FCD34D; margin-top: 2px; overflow-wrap: anywhere; }
 .pv-row__view { margin-top: 4px; min-width: 0; }
 .pv-pre--full { max-height: 40vh; }
 .pv-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0; }
+.pv-end { color: #64748B; font-size: var(--ctl-font-sm); }
+/* ── Экран деталей версии (PVR-04.2.4) ─────────────────────────────────── */
+.pv-detail { min-width: 0; }
+.pv-detail__events {
+  margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+}
+.pv-detail__events-title { font-size: var(--ctl-font-sm); color: #64748B; margin-bottom: 4px; }
+/* Тонкий список событий применения выбранной версии — только чтение. */
+.pv-row--flat {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  padding: 4px; border-bottom: 0; cursor: default;
+}
+.pv-row--flat > * { min-width: 0; overflow-wrap: anywhere; }
+/* Меню «Действия» в футере деталей открывается ВВЕРХ, не перекрывая CTA. */
+.pv-actions { position: relative; display: inline-flex; }
+.pv-menu--up {
+  position: absolute; right: 0; bottom: calc(100% + 6px); top: auto;
+  min-width: 220px; z-index: 2;
+}
+.pv-events-toggle-row { display: flex; padding-top: 6px; }
 /* PVR-02.2: вторичная лента «История действий» — спокойные серые метаданные,
    без активных акцентов: события не редакции и никогда не «active». */
 .pv-events {
-  margin-top: 8px; padding-top: 8px;
+  margin-top: 4px; padding-top: 8px;
   border-top: 1px solid var(--surface-border, rgba(255, 255, 255, .1));
 }
 .pv-events__title {
   font-size: var(--ctl-font-sm); color: #64748B; margin-bottom: 4px;
 }
-.pv-row--event { opacity: .85; }
+.pv-row--event { opacity: .9; cursor: default; }
 .pv-row--event .pv-row__status { background: rgba(148, 163, 184, .12); }
 .pv-diff-title { font-size: var(--ctl-font-sm); color: #93C5FD; margin-top: 8px; }
 .pv-diff {
@@ -8934,18 +9023,47 @@ body > .sticky-save[data-save-panel] {
 .prompt-editor-meta summary { cursor: pointer; min-height: 32px; }
 .prompt-editor-meta > div { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
 .prompt-editor-meta code { overflow-wrap: anywhere; }
+/* ── Узкий desktop 768–959px (PVR-04.2.1): центральный диалог вместо
+   чрезмерного сужения редактора; никаких вложенных панелей с уезжающими
+   кнопками. ── */
+@media (min-width: 768px) and (max-width: 959px) {
+  .pv-scrim { justify-content: center; align-items: center; padding: 16px; }
+  .pv-panel {
+    width: min(520px, 100%); height: 100%; max-height: 100%;
+    border: 1px solid var(--surface-border, rgba(255, 255, 255, .12));
+    border-left: 1px solid var(--surface-border, rgba(255, 255, 255, .12));
+    border-radius: 12px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .5);
+  }
+}
+/* ── Mobile ≤767px (PVR-04.3.1): fullscreen sheet, нативная прокрутка тела,
+   safe-area в футере, тач-цели ≥44px, без горизонтального скролла. ── */
 @media (max-width: 767px) {
   .pv-scrim { justify-content: stretch; }
-  .pv-panel { width: 100vw; max-width: 100vw; border-left: 0; }
+  .pv-panel {
+    width: 100vw; max-width: 100vw; border-left: 0;
+    height: var(--app-usable-height, 100dvh);
+    max-height: var(--app-usable-height, 100dvh);
+  }
   /* B4: на мобильном у тела панели padding-left меньше, чем padding-right —
      компенсируем ровно столько, чтобы sticky-полоса шла от края до края. */
   .pv-result--sticky {
     margin-left: calc(var(--space-2) * -1); margin-right: calc(var(--space-3) * -1);
     padding-left: var(--space-2); padding-right: var(--space-3);
   }
-  .pv-history-btn, .pv-more-btn,
+  .pv-history-btn, .pv-more-btn, .pv-panel__search,
   .pv-foot .btn-accent, .pv-foot .btn-ghost,
-  .pv-row__actions .btn-ghost, .pv-panel__foot .btn-ghost { min-height: 44px; }
-  .pv-panel__head, .pv-panel__meta, .pv-panel__legend, .pv-panel__body,
+  .pv-row__actions .btn-ghost, .pv-panel__back,
+  .pv-panel__foot .btn-ghost, .pv-panel__foot--detail .btn-ghost,
+  .pv-panel__foot--detail .btn-accent { min-height: 44px; }
+  /* Строки редакций — сами тач-цели (клик открывает детали). */
+  .pv-row { min-height: 44px; }
+  .pv-panel__head, .pv-panel__tools, .pv-panel__body,
   .pv-panel__foot { padding-left: var(--space-2); padding-right: var(--space-3); }
+  .pv-now { margin-left: var(--space-2); margin-right: var(--space-3); }
+  /* PVR-04.3.1: CTA в фиксированном футере не мешает тексту и не уходит
+     под системную жестовую зону — safe-area добавляется к паддингу. */
+  .pv-panel__foot {
+    padding-bottom: calc(var(--space-2) + var(--ctl-safe-bottom, 0px));
+  }
 }
