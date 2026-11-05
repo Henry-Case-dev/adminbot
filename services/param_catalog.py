@@ -3991,6 +3991,36 @@ def normalize_value(pg_key: str, value):
         return value
 
 
+#: UR-24.4: pg-ключ со строгой валидацией значения ПОВЕРХ типа каталога.
+#: Канонический пояс чата: непустой мусор блокируется НА СОХРАНЕНИИ, чтобы
+#: невалидная зона не проваливалась молча на следующий слой канонической
+#: цепочки ChatClock ("" — наследование, валидно).
+_TZ_STRICT_PG_KEY = "limits.chat_timezone"
+
+
+def validate_value_rule(pg_key: str, value) -> str | None:
+    """Правило валидации значения сверх типа каталога (путь СОХРАНЕНИЯ).
+
+    Возвращает текст ошибки или None. Для ``limits.chat_timezone``:
+    непустая строка, не резолвящаяся через ``zoneinfo.ZoneInfo`` → отказ
+    (мусорная «Mars/Olympus_Mons» не сохраняется); ``""``/пробелы —
+    наследование, валидно. Остальные ключи — без правил (None)."""
+    if pg_key != _TZ_STRICT_PG_KEY or value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None                     # "" = наследование, не зона
+    try:
+        import zoneinfo
+        zoneinfo.ZoneInfo(text)
+    except Exception:
+        return (f"{_TZ_STRICT_PG_KEY}: неизвестный IANA-часовой пояс "
+                f"{text!r} — укажите корректный идентификатор zoneinfo "
+                f"(например Europe/Berlin) или оставьте пустым для "
+                f"наследования")
+    return None
+
+
 def _cast_to_type(spec: ParamSpec, value):
     """Каст значения к типу каталога (строгий, с защитой от мусора)."""
     if spec.type == "int":

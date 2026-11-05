@@ -747,3 +747,34 @@ class TestPermsocGroupsRedesign:
         assert by_id["flags_permsoc"].title_ru == "Функции PERMsoc: рубильники"
         assert by_id["reactions_permsoc"].title_ru == "Персонаж-реакции PERMsoc"
         assert by_id["reactions_admin"].title_ru == "Админ (ID)"
+
+
+class TestChatTimezoneValueRule:
+    """UR-C-CLOCK (UR-24.4): канонический IANA-пояс чата валидируется НА
+    СОХРАНЕНИИ: непустой не-IANA мусор блокируется (не проваливается молча
+    на следующий слой канонической цепочки ChatClock), "" остаётся
+    наследованием, валидная зона сохраняется."""
+
+    def test_valid_iana_passes(self):
+        assert pc.validate_value_rule("limits.chat_timezone",
+                                      "Europe/Berlin") is None
+        assert pc.validate_value_rule("limits.chat_timezone",
+                                      "Asia/Kathmandu") is None
+
+    def test_empty_is_inheritance_not_zone(self):
+        # "" у ключа означает наследование — НЕ зону (UR-24.3), валидно.
+        assert pc.validate_value_rule("limits.chat_timezone", "") is None
+        assert pc.validate_value_rule("limits.chat_timezone", "   ") is None
+        assert pc.validate_value_rule("limits.chat_timezone", None) is None
+
+    def test_non_iana_rejected(self):
+        error = pc.validate_value_rule("limits.chat_timezone",
+                                       "Mars/Olympus_Mons")
+        assert error is not None
+        assert "limits.chat_timezone" in error
+        assert "IANA" in error
+
+    def test_rule_scoped_to_chat_timezone(self):
+        # Другие ключи правил не имеют (никаких скрытых квот/валидаций).
+        assert pc.validate_value_rule("limits.summary_max_window_messages",
+                                      "Mars/Olympus_Mons") is None

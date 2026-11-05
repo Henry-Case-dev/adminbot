@@ -2411,6 +2411,12 @@ def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
 L2_EVIDENCE_FLOOR_TOKENS = 400
 
 
+#: UR-C-CLOCK: открывающий тег блока часов чата. Такой блок в fallback-репаке
+#: защищён ЦЕЛИКОМ: разрезанный `<Chat_Time_Context>` дал бы запасной модели
+#: повреждённые часы (доверие к «сейчас» сломано хуже, чем его отсутствие).
+_CLOCK_BLOCK_OPEN = "<Chat_Time_Context"
+
+
 def build_l2_fallback_adapter(*, system: str, parts: list[str],
                               evidence: str, query: str,
                               fallback_budget_tokens: int,
@@ -2419,8 +2425,12 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
     раз при переключении на fallback-модель). Пересобирает пакет под
     РЕАЛЬНОЕ окно fallback:
       * защищённые блоки: system (safety/role), текущий запрос/plan
-        (query), обязательный tool evidence (floor);
-      * сжимаемые: time_line/user_blocks/lessons/speech (по порядку);
+        (query), обязательный tool evidence (floor) и блок часов чата
+        ``<Chat_Time_Context>`` (UR-C-CLOCK: целиком, без разреза; не
+        влезает — честная CAPACITY-пометка, блок выкидывается целиком);
+      * сжимаемые: user_blocks/lessons/speech и прочие строки (по порядку);
+        пустая строка наследования времени остаётся обычной сжимаемой
+        строкой (в rest она просто не попадает — как раньше);
       * защищённый минимум не помещается → честная capacity reason
         (callback + явная пометка в пакете), НЕ слепая отправка.
     Никогда не бросает (ошибка → вход без изменений, fail-open паритет)."""
@@ -2439,6 +2449,7 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
             used = sys_tokens + min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS)
             kept: list[str] = []
             capacity_reason = ""
+            clock_dropped = False
             if used + rest_tokens <= budget:
                 kept = rest
             else:
@@ -2451,9 +2462,23 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                     capacity_reason = "fallback_window_exceeded"
                     remaining = max(0, budget // 4)
                 for part in rest:
+                    tokens = _safe_count_tokens(part)
+                    if _CLOCK_BLOCK_OPEN in part:
+                        # UR-C-CLOCK (review 5c96a396): блок часов ЦЕЛИКОМ
+                        # защищён от сжатия. Влез → целиком; не влез (в т.ч.
+                        # после исчерпания бюджета более ранними блоками) →
+                        # выкидывается целиком с CAPACITY-пометкой. Разрез
+                        # (head+tail) для этого блока запрещён: обрезок
+                        # выглядел бы как «авторитетные» часы с неверным
+                        # временем.
+                        if tokens <= remaining:
+                            kept.append(part)
+                            remaining -= tokens
+                        else:
+                            clock_dropped = True
+                        continue
                     if remaining <= 0:
                         break
-                    tokens = _safe_count_tokens(part)
                     if tokens <= remaining:
                         kept.append(part)
                         remaining -= tokens
@@ -2468,7 +2493,9 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                     kept.append(head + ("\n[…обрезано под окно fallback]\n"
                                         if tail else "") + tail)
                     remaining = 0
-                capacity_reason = capacity_reason or "fallback_repacked"
+                capacity_reason = capacity_reason or (
+                    "fallback_clock_dropped" if clock_dropped
+                    else "fallback_repacked")
             user_parts = list(kept)
             if evidence.strip():
                 evidence_out = evidence
@@ -2488,6 +2515,18 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                         on_capacity_reason("fallback_window_exceeded")
                     except Exception:
                         pass
+            if clock_dropped:
+                # Честная ёмкость: часы НЕ едут обрезанными (мутация «резать
+                # блок» ломает регрессию test_fallback_adapter_clock_*).
+                user_parts.append(
+                    "[CAPACITY] Часовой контекст чата (время, дата, пояс) "
+                    "не поместился в окно запасной модели и не отправлён: "
+                    "точное «сейчас» недоступно — не выдумывай время.")
+                if on_capacity_reason is not None:
+                    try:
+                        on_capacity_reason("fallback_clock_dropped")
+                    except Exception:
+                        pass
             adapted = dict(incoming)
             adapted["messages"] = [
                 {"role": "system", "content": system},
@@ -2496,8 +2535,8 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
             ]
             logger.info(
                 "direct: L2 fallback repack | budget=%d | blocks=%d | "
-                "capacity_reason=%s", budget, len(user_parts),
-                capacity_reason or "-")
+                "capacity_reason=%s | clock_dropped=%s", budget,
+                len(user_parts), capacity_reason or "-", clock_dropped)
             return adapted
         except Exception:
             logger.warning(

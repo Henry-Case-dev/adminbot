@@ -526,6 +526,130 @@ class TestSummaryClock:
         assert "Europe/Moscow" in user_content
 
 
+# ── Review 5c96a396: fallback-репак не режет блок часов (UR-25.6) ───────────
+
+
+class TestFallbackAdapterClock:
+    """`build_l2_fallback_adapter` при тесном окне fallback: блок
+    <Chat_Time_Context> либо ЦЕЛИК с тем же as_of_utc, либо честная
+    CAPACITY-пометка и блока нет; обрезок запрещён. Обычные сжимаемые
+    строки (и пустая строка наследования времени) ведут себя как раньше."""
+
+    @staticmethod
+    def _clock_block() -> str:
+        snap = cc.TimeSnapshot(
+            as_of_utc=SUMMER,
+            local_datetime=SUMMER + datetime.timedelta(hours=3),
+            weekday="Среда", timezone="Europe/Moscow", utc_offset="+03:00",
+            timezone_source="chat", config_version="cfg-1")
+        return cc.render_chat_time_context(snap, phase=cc.PHASE_ANSWER)
+
+    def _adapt(self, *, budget: int, parts, evidence: str = ""):
+        from services.direct_execution import (
+            L2_EVIDENCE_FLOOR_TOKENS, _safe_count_tokens,
+            build_l2_fallback_adapter)
+        system = "СИСТЕМНАЯ ИНСТРУКЦИЯ " * 120
+        evidence_text = evidence if evidence else "доказательство " * 400
+        floor = min(_safe_count_tokens(evidence_text),
+                    L2_EVIDENCE_FLOOR_TOKENS)
+        budget = max(200, budget + _safe_count_tokens(system) + floor)
+        reasons: list[str] = []
+        adapter = build_l2_fallback_adapter(
+            system=system, parts=list(parts), evidence=evidence_text,
+            query="вопрос пользователя",
+            fallback_budget_tokens=budget, on_capacity_reason=reasons.append)
+        adapted = adapter({"messages": [
+            {"role": "system", "content": "old"},
+            {"role": "user", "content": "old"}]})
+        content = adapted["messages"][-1]["content"]
+        return content, reasons
+
+    def test_tight_budget_drops_block_whole_with_capacity(self):
+        """Блок не влезает → нет блока вовсе + CAPACITY + reason; обрезка
+        (head+tail внутри тегов) запрещена."""
+        clock = self._clock_block()
+        clock_tokens = __import__("services.direct_execution",
+                                  fromlist=["_safe_count_tokens"]
+                                  )._safe_count_tokens(clock)
+        # remaining после system+evidence = clock_tokens - 3 → блок не влезает.
+        content, reasons = self._adapt(budget=clock_tokens - 3,
+                                       parts=[clock, "обычный текст " * 200])
+        open_count = content.count("<Chat_Time_Context")
+        close_count = content.count("</Chat_Time_Context>")
+        assert open_count == close_count, (
+            "блок часов не должен оставаться разрезанным посередине")
+        if open_count == 0:
+            # Честная ёмкость: блока нет, пометка есть, callback дёрнут.
+            assert "[CAPACITY]" in content
+            assert "fallback_clock_dropped" in reasons
+            # Обрезок тоже не уехал: точного as_of из блока в payload нет.
+            assert "as_of_utc: 2026-07-15T12:00:00+00:00" not in content
+        else:
+            # Целый блок — байт-в-байт исходный, тот же as_of_utc.
+            assert content.count("<Chat_Time_Context") == 1
+            start = content.find("<Chat_Time_Context")
+            end = content.find("</Chat_Time_Context>", start)
+            assert content[start:end + len("</Chat_Time_Context>")] == clock
+        assert "обрезано под окно fallback</Chat_Time_Context" not in content
+
+    def test_generous_budget_keeps_block_intact_same_asof(self):
+        clock = self._clock_block()
+        clock_tokens = __import__("services.direct_execution",
+                                  fromlist=["_safe_count_tokens"]
+                                  )._safe_count_tokens(clock)
+        content, _reasons = self._adapt(budget=clock_tokens + 50,
+                                        parts=[clock, "обычный текст " * 50])
+        assert content.count("<Chat_Time_Context") == 1
+        assert content.count("</Chat_Time_Context>") == 1
+        assert "as_of_utc: 2026-07-15T12:00:00+00:00" in content
+        assert "Europe/Moscow" in content
+        assert "[CAPACITY]" not in content
+
+    def test_plain_strings_still_compressible(self):
+        """Без блока часов поведение прежнее: длинная сжимаемая строка режется
+        head+tail (пустая строка наследования времени — просто не попадает
+        в rest, как раньше)."""
+        from services.direct_execution import _safe_count_tokens
+        long_text = "пользовательский контекст " * 400
+        text_tokens = _safe_count_tokens(long_text)
+        content, _reasons = self._adapt(budget=text_tokens // 2,
+                                        parts=[long_text])
+        assert "обрезано под окно fallback" in content
+        assert "<Chat_Time_Context" not in content
+
+
+# ── Review 5c96a396: валидация IANA на сохранении (UR-24.4) ─────────────────
+
+
+class TestChatTimezoneSaveValidation:
+    """Сохранение через каталог: «Europe/Berlin» — ok; «Mars/Olympus_Mons» —
+    отказ валидации (ValueError → HTTP 422 в обоих write-путях); "" —
+    наследование. Read-слой при этом не менялся (мусор в хранилище →
+    наследование на чтении, без fabricate)."""
+
+    def test_catalog_rule(self):
+        from services import param_catalog as pc
+        assert pc.validate_value_rule("limits.chat_timezone",
+                                      "Europe/Berlin") is None
+        assert pc.validate_value_rule("limits.chat_timezone", "") is None
+        error = pc.validate_value_rule("limits.chat_timezone",
+                                       "Mars/Olympus_Mons")
+        assert error and "IANA" in error and "limits.chat_timezone" in error
+
+    def test_write_seam_rejects_non_iana(self):
+        """Общий шов сохранения `_coerce_value` (global + per-chat paths):"""
+        from services import param_catalog as pc
+        from web.api.routes import _coerce_value
+        spec = pc.get_by_pg_key("limits.chat_timezone")
+        assert spec is not None
+        assert _coerce_value(spec, "Europe/Berlin") == "Europe/Berlin"
+        # "" — наследование, сохраняется как есть.
+        assert _coerce_value(spec, "   ") == "   "
+        with pytest.raises(ValueError) as excinfo:
+            _coerce_value(spec, "Mars/Olympus_Mons")
+        assert "IANA" in str(excinfo.value)
+
+
 # ── UR-26.3: наблюдатель ────────────────────────────────────────────────────
 
 

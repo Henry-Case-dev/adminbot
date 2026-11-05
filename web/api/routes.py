@@ -47,6 +47,7 @@ from services.param_catalog import (
     known_secret_keys,
     known_sections,
     resolve_progressive_level,
+    validate_value_rule,
 )
 from services.permissions import (
     ACTION_IDS,
@@ -203,7 +204,12 @@ class PersonaUpdate(BaseModel):
 # ── helpers ─────────────────────────────────────────────────────────────────
 
 def _coerce_value(spec, raw) -> Any:
-    """Конвертация значения к типу каталога; неудача → ValueError (422)."""
+    """Конвертация значения к типу каталога; неудача → ValueError (422).
+
+    UR-24.4: после типа применяются правила каталога
+    (`param_catalog.validate_value_rule`) — непустой не-IANA
+    ``limits.chat_timezone`` отклоняется на сохранении (оба write-пути,
+    global и per-chat, идут через эту функцию)."""
     if raw is None:
         raise ValueError("value не может быть null")
     if spec.type == "bool":
@@ -243,8 +249,15 @@ def _coerce_value(spec, raw) -> Any:
                 return raw
         return raw
     if isinstance(raw, str):
-        return raw
-    return str(raw)
+        value = raw
+    else:
+        value = str(raw)
+    # UR-24.4: правила каталога поверх типа — невалидный IANA-пояс чата
+    # блокируется на сохранении понятным сообщением (422), "" = наследование.
+    rule_error = validate_value_rule(spec.pg_key, value)
+    if rule_error:
+        raise ValueError(rule_error)
+    return value
 
 
 def _ensure_keyvalue_object(value, *, pg_key: str = "") -> dict:
