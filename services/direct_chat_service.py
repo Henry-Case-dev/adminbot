@@ -5085,7 +5085,22 @@ class DirectChatService:
                             fallback_payload_adapter=(
                                 _fb_factory(time_line) if _fb_factory
                                 else None),
-                            max_output_tokens=longform_max_tokens)
+                            # UR-19.2: семантический ответ этого маршрута не
+                            # ограничивается универсальным longform-4096 —
+                            # ставится вычисленное физически допустимое
+                            # значение (неизвестный ресурс → None → ключа нет).
+                            max_output_tokens=await _extent.
+                            writer_max_output_tokens(
+                                model=str(getattr(self.llm, "_chat_model", "")
+                                          or getattr(settings,
+                                                     "LLM_MODEL_NAME", "")
+                                          or ""),
+                                base_url=str(getattr(self.llm, "_base_url", "")
+                                             or getattr(settings,
+                                                        "LLM_BASE_URL", "")),
+                                input_tokens=sum(
+                                    count_tokens(str(m.get("content") or ""))
+                                    for m in payload)))
             except NoApiKeyForChat as exc:
                 # Раунд 10 (F-7 §5.2) + D03: sandbox-фраза
                 # content.no_key_reply (LLM НЕ вызывается; тишины нет —
@@ -5480,10 +5495,10 @@ class DirectChatService:
                         speech=_speech_projection,
                         fallback_budget_tokens=(
                             _fallback_meta.get("l2_fallback_budget")),
-                        max_tokens=(longform_max_tokens
-                                    if response_plan is not None
-                                    and response_plan.is_longform()
-                                    else None),
+                        # UR-19.2: longform-4096/16384 больше не подставляются
+                        # как семантическая граница — Writer вычисляет
+                        # физически допустимый output сам (общий код обоих
+                        # режимов); явного override у вызывающего нет.
                         # P0-HA QUALITY (wiring §13): инструкция финальной
                         # сборки — ТОЛЬКО ходу с выборкой истории; без
                         # выборки параметр пуст → байт-паритет прежнего
@@ -7836,6 +7851,21 @@ class DirectChatService:
             {"role": "system", "content": verbalizer_system},
             {"role": "user", "content": user_content},
         ]
+        # ── UR-19/UR-19.1/UR-19.2: Writer вычисляет физически допустимый
+        # output из РЕАЛЬНОГО max_output модели, окна и размера СВОЕГО входа.
+        # Семантические константы (инициативный 700, longform-4096/16384)
+        # активным маршрутом больше не подставляются; неизвестный ресурс →
+        # None → ключ max_tokens не отправляется (дефолт провайдера). Явный
+        # ``max_tokens`` от вызывающего остаётся точечным override.
+        _writer_max_tokens = max_tokens
+        if _writer_max_tokens is None:
+            _writer_max_tokens = await _extent.writer_max_output_tokens(
+                model=str(getattr(self.llm, "_chat_model", "")
+                          or getattr(settings, "LLM_MODEL_NAME", "") or ""),
+                base_url=str(getattr(self.llm, "_base_url", "")
+                             or getattr(settings, "LLM_BASE_URL", "")),
+                input_tokens=sum(count_tokens(str(m.get("content") or ""))
+                                 for m in base_messages))
         # ── ADD-EXP §6: «политика доехала?» — слой рендерен (манифест),
         # маркер есть в ФИНАЛЬНОМ system (после scrub); нет маркера →
         # честный класс `policy_not_injected`, а не молчание.
@@ -7878,7 +7908,7 @@ class DirectChatService:
             fallback_model=str(
                 getattr(self.llm, "_fallback_model", "")
                 or getattr(settings, "LLM_FALLBACK_MODEL", "") or ""),
-            max_output_tokens=max_tokens,
+            max_output_tokens=_writer_max_tokens,
             writer_name=str(writer or "l2_writer"),
             # Без композера манифеста нет — состав блоков и заводские ревизии
             # owner-промптов берутся из фактических частей payload и реестра.
@@ -7916,7 +7946,7 @@ class DirectChatService:
             temperature=temperature, chat_id=chat_id, module="direct_chat",
             correlation_id=correlation_id,
             fallback_payload_adapter=_l2_fb_adapter,
-            max_output_tokens=max_tokens)
+            max_output_tokens=_writer_max_tokens)
 
         async def _call_l2(msgs, *, step: str):
             """Один вызов провайдера финальной стадии (первый или продолжение).
@@ -13352,7 +13382,10 @@ class DirectChatService:
                 time_line=_cclock.render_chat_time_context(
                     _init_answer_snap, phase=_cclock.PHASE_ANSWER),
                 evidence=_initiative_evidence,
-                writer="initiative_writer", max_tokens=700,
+                # UR-04/UR-19.1: инициативный max_tokens=700 удалён — Writer
+                # вычисляет физически допустимый output из реального ресурса
+                # модели и размера входа (общий путь с Direct, один код).
+                writer="initiative_writer",
                 speech=_init_speech)
             # BGS-02: то же наблюдение, что в Direct (единый postprocess):
             # без адресного lookup, без повторной генерации и без удаления

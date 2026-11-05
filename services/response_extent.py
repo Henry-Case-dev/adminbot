@@ -210,6 +210,73 @@ def longform_max_output_tokens() -> int | None:
     return min(value, _MAX_OUTPUT_TOKENS_CEILING)
 
 
+# ── UR-19/UR-19.1/UR-19.2 (UNIFIED-REPLY §7): динамический output Writer'а ───
+#: Предохранитель от вырожденного ``max_tokens`` (0/1), который платформа
+#: отвергнет. НЕ семантическая граница: меньше физически допустимого значения
+#: предел не ужимается.
+WRITER_MIN_OUTPUT_TOKENS = 1024
+
+
+async def writer_max_output_tokens(*, model: str, base_url: str,
+                                   input_tokens: int) -> int | None:
+    """Физически допустимый output Writer'а для КОНКРЕТНОГО вызова.
+
+    UR-19/UR-19.1/UR-19.2: ``max_tokens`` (если платформа требует ключ)
+    вычисляется из РЕАЛЬНОГО ``max_output`` модели и реального остатка окна
+    под фактический размер входа; универсальные константы (инициативный
+    ``700``, longform-дефолт ``4096``, ceiling ``16384``) семантическими
+    границами больше не являются — провайдерский ``max_output`` сохраняется
+    как жёсткая граница, а ставится наибольшее физически валидное значение
+    (то есть «с запасом» относительно ожидаемой полноты: короткий extent не
+    создаёт технический обрубок, модель завершает мысль сама, границу
+    незавершённого вывода держит continuation-контур UR-19.3/19.4).
+
+    Ожидаемая полнота (``response_plan.extent``) управляет промптом
+    (extent-блок плана) и резервом вывода в аллокаторе стадий
+    (``auto_budget``), но НЕ ужимает этот предел.
+
+    Ресурс модели неизвестен (резолвер вернул fallback без ``max_output``)
+    → ``None``: ключ ``max_tokens`` не отправляется, дефолт провайдера
+    действует; константа «для всех» вместо факта не подставляется.
+    Никогда не бросает.
+    """
+    try:
+        from services import model_capacity as _mcap
+        capacity = await _mcap.resolve_capacity(base_url=str(base_url or ""),
+                                                model=str(model or ""))
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+    max_out = getattr(capacity, "max_output_tokens", None)
+    try:
+        max_out = int(max_out) if max_out is not None else None
+    except (TypeError, ValueError):
+        max_out = None
+    if max_out is not None and max_out <= 0:
+        max_out = None
+    if max_out is None:
+        # Факт провайдера неизвестен: ключ не ставим (паритет «None → ключа
+        # нет»), фиктивное число не подставляем.
+        return None
+    try:
+        window = int(getattr(capacity, "effective_context_window", 0) or 0)
+    except (TypeError, ValueError):
+        window = 0
+    try:
+        used = max(0, int(input_tokens or 0))
+    except (TypeError, ValueError):
+        used = 0
+    allowed = max_out
+    if window > 0:
+        fits = window - used
+        if fits <= 0:
+            # Вход не помещается в окно: это не лечится уменьшением лимита
+            # вывода — честный None (лимитирование не маскирует переполнение).
+            return None
+        allowed = min(max_out, fits)
+    return max(WRITER_MIN_OUTPUT_TOKENS, allowed) \
+        if allowed >= WRITER_MIN_OUTPUT_TOKENS else allowed
+
+
 # ── §5: backward-compat алиасы casual/serious/deep_research ─────────────────
 
 MODE_ALIAS_PLANS: dict[str, ResponsePlan] = {
