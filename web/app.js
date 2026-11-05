@@ -3782,6 +3782,10 @@
         // F0 (ревью): КЛЮЧИ полей с ошибкой сохранения — подсветка у полей
         // (per-field error map), в отличие от `stickyFailed` (заголовки).
         stickyFailedKeys: [],
+        // PVR-03.2 (sync_pending): ключи, применённые сервером после успешного
+        // PG-коммита без подтверждения кэша (503 partial_save). Держит
+        // saveState='sync_pending' до повторной сверки effective value.
+        stickySyncPending: [],
         // F0 (10.25, ADR-1025-4 D1): типобезопасные id тостов и операций;
         // _opNotified — идемпотентность notify(operationId, …) (один тост на
         // операцию); _toastSeq — стабильный уникальный id тоста.
@@ -5208,12 +5212,16 @@
           : this.speechBlockDraft) !== String(saved);
       },
       // Единственный статус сохранения карточки. Оптимистического
-      // «сохранено» нет: только «сохраняем», конфликт и ошибка.
+      // «сохранено» нет: только «сохраняем», конфликт, sync_pending и ошибка.
       promptEditorNotice: function () {
         if (this.saveState === 'saving') return 'Сохраняем на сервер…';
         if (this.saveState === 'conflict') {
           return 'Версия изменилась в другом окне или релизе: сохранение '
             + 'остановлено, ваш черновик остался в поле.';
+        }
+        if (this.saveState === 'sync_pending') {
+          return 'Частично сохранено: сверьте действующее значение — часть '
+            + 'записана, часть отклонена. Черновик остался в поле.';
         }
         if (this.saveState === 'error') {
           return 'Сохранение не удалось: черновик остался в поле.';
@@ -5221,7 +5229,9 @@
         return '';
       },
       promptEditorNoticeOk: function () {
-        return this.saveState !== 'conflict' && this.saveState !== 'error';
+        return this.saveState !== 'conflict'
+          && this.saveState !== 'sync_pending'
+          && this.saveState !== 'error';
       },
       // §2.1 ТЗ: сырой технический счётчик `{joke}: N` больше не показывается.
       // Три режима шаблона остаются теми же (append / slot / ошибка ≥2).
@@ -9335,13 +9345,17 @@
         return { configured: !!v, last4: (v && v.last4) || '' };
       },
       // F0 (10.25, ADR-1025-2 D1): ЕДИНОЕ вычисляемое состояние формы —
-      // loading | saving | error | conflict | dirty | clean (не набор флагов).
-      // Визуальный слой SaveBar читает его (F0/F9), не дублирует логику.
+      // loading | saving | error | conflict | sync_pending | dirty | clean
+      // (не набор флагов). Визуальный слой SaveBar читает его (F0/F9),
+      // не дублирует логику.
       saveState: function () {
         if (this.configLoading) return 'loading';
         if (this.stickySaving) return 'saving';
         if (this.saving && this.saving.size > 0) return 'saving';
         if (this.stickyConflict && this.stickyConflict.length) return 'conflict';
+        if (this.stickySyncPending && this.stickySyncPending.length) {
+          return 'sync_pending';
+        }
         if (this.stickyFailed && this.stickyFailed.length) return 'error';
         if (this.stickyDirtyCount > 0) return 'dirty';
         return 'clean';
@@ -24273,6 +24287,7 @@
         var saved = [];
         var failed = [];
         var revalidated = false;
+        var syncPending = [];   // PVR-03.2: применённые после PG-коммита, но без подтверждения кэша
         var groups = [];
         if (chatItems.length) groups.push({ items: chatItems, isGlobal: false });
         if (globalItems.length) groups.push({ items: globalItems, isGlobal: true });
@@ -24284,6 +24299,9 @@
               return { key: x.key, value: x.value };
             }),
             updated_at: grp.isGlobal ? null : this.configChatUpdatedAt,
+            // PVR-02/PVR-03 (op-id seam): идемпотентность retry/double-click —
+            // бэкенд повторяет ответ без второй записи журнала.
+            operation_id: operationId,
           };
           try {
             var resp = await this.api('/api/config', {
@@ -24300,16 +24318,34 @@
               saved.push(grp.items[s].key);
             }
           } catch (e) {
-            var isConflict = (e.status === 409 && e.message
-                              && e.message.code === 'conflict');
+            var detail = (e && e.message) || null;
+            var isConflict = (e && e.status === 409 && detail
+                              && detail.code === 'conflict');
             var conflicting = isConflict
-              ? (e.message.conflicting || []) : [];
+              ? (detail.conflicting || []) : [];
+            // PVR-03.2 (sync_pending): 503 partial_save — промпты УЖЕ
+            // закоммичены в журнал, остальные настройки отклонены. Это не
+            // «ошибка всего» и не «сохранено»: применённые ключи уходят в
+            // syncPending с обязательной повторной сверкой effective value.
+            var isPartial = (e && e.status === 503 && detail
+                             && detail.code === 'partial_save');
+            var appliedPartial = isPartial ? (detail.applied || []) : [];
             for (var f = 0; f < grp.items.length; f++) {
-              failed.push({
-                key: grp.items[f].key,
-                reason: isConflict ? 'conflict' : (e.message || 'error'),
-                conflicting: conflicting,
-              });
+              var fk = grp.items[f].key;
+              if (isPartial && appliedPartial.indexOf(fk) >= 0) {
+                saved.push(fk);
+                syncPending.push(fk);
+              } else {
+                failed.push({
+                  key: fk,
+                  reason: isConflict ? 'conflict'
+                    : (isPartial ? 'partial_save'
+                       : (detail && typeof detail === 'object'
+                          ? (detail.code || detail.message || 'error')
+                          : (detail || 'error'))),
+                  conflicting: conflicting,
+                });
+              }
             }
           } finally {
             for (var d = 0; d < grp.items.length; d++) {
@@ -24360,11 +24396,16 @@
         for (var gb2 = 0; gb2 < guardBlocked.length; gb2++) {
           failed.push({ key: guardBlocked[gb2], reason: 'permsoc-global' });
         }
+        // PVR-03.2: sync_pending живёт до явной сверки с сервером; новый
+        // прогон без partial_save снимает метку.
+        this.stickySyncPending = syncPending.slice();
         var state = failed.length ? (saved.length ? 'saved' : 'error')
                                   : 'saved';
+        if (syncPending.length) state = 'sync_pending';
         var result = {
           saved: saved, failed: failed, skipped: skipped,
           revalidated: revalidated, state: state, operationId: operationId,
+          syncPending: syncPending,
         };
         // F0.4 (ревью): per-field карта провалов — подсветка у полей.
         this.stickyFailedKeys = failed.map(function (f) { return f.key; });
@@ -35199,7 +35240,7 @@
         var s = this.saveState;
         return this.active || this.saving
           || (this.failed && this.failed.length > 0)
-          || s === 'error' || s === 'conflict';
+          || s === 'error' || s === 'conflict' || s === 'sync_pending';
       },
       // F0 (ревью, T-2416/T-2437): единое состояние формы из root.saveState,
       // а не набор независимых флагов. Корневой `saveState` — Vue computed
@@ -35219,7 +35260,8 @@
         var map = { clean: '', loading: 'Загрузка…', dirty: 'Есть изменения',
                     saving: 'Сохранение…',
                     error: 'Ошибка сохранения',
-                    conflict: 'Конфликт версии' };
+                    conflict: 'Конфликт версии',
+                    sync_pending: 'Частично сохранено' };
         return map[this.saveState] || '';
       },
       saving: function () {
