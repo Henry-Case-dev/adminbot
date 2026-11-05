@@ -335,12 +335,16 @@ async def send_chunked_reply(
     reply_to_message_id: int,
     chunk_delay: float = settings.SUMMARY_CHUNK_DELAY,
     parse_mode: str | None = None,
+    sent_ids: list | None = None,
 ):
     """Прецедент _send_chunked (summary_generator.py), НО с reply-таргетом:
     reply_to_message_id ТОЛЬКО у первой части; остальные — plain send_message.
     TelegramRetryAfter → sleep + один повтор (прецедент _send_one_chunk).
     parse_mode (Epic 43, 52.2) — опциональный kwarg для всех чанков
     (обратная совместимость: существующие вызовы без kwarg не меняются).
+    sent_ids (RLR-06 §7) — необязательный список-приёмник: в него попадают
+    ФАКТИЧЕСКИЕ message_id всех отправленных частей (наблюдаемость доставки).
+    Без него поведение байт-в-байт прежнее.
     Возвращает message_id ПЕРВОЙ (реплай-)части или None — Epic 50 (58.6):
     DirectChatService хранит id ответа бота (bot_replies) для цепочек reply."""
     # Миграция read-пути: пауза между чанками из админки (не бейкдится в дефолте)
@@ -364,8 +368,14 @@ async def send_chunked_reply(
                            exc.retry_after, chat_id)
             await asyncio.sleep(exc.retry_after)
             sent = await _send_once(bot, chat_id, chunk, reply_id, parse_mode)   # повтор ТОЖЕ через _send_once
-        if index == 0 and sent is not None and getattr(sent, "message_id", None) is not None:
-            sent_id = sent.message_id
+        if sent is not None and getattr(sent, "message_id", None) is not None:
+            if sent_ids is not None:
+                try:
+                    sent_ids.append(int(sent.message_id))
+                except Exception:      # pragma: no cover — наблюдаемость
+                    pass
+            if index == 0:
+                sent_id = sent.message_id
         if index < len(chunks) - 1:
             await asyncio.sleep(chunk_delay)
     return sent_id

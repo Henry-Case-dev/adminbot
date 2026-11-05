@@ -207,6 +207,9 @@ from services.context_middleware import truncate_keep_header
 from services.reply_postprocess import strip_reasoning_tags
 from services import anticliche_cache
 from services import l2_continuation as _l2_cont
+# ── RLR-06-OBSERVABILITY (§7): трасса одного хода по `correlation_id` —
+# digest'ы/метаданные через существующий `mca_events` (без сырых текстов).
+from services import turn_trace as _ttrace
 from services.agentic_events import emit_agentic_event
 from services import usage_events
 from services.negative_constraints import (
@@ -2113,6 +2116,32 @@ def _delivered_payload(payload: str) -> str:
         return str(sanitize_outgoing(str(payload or "")))
     except Exception:      # pragma: no cover - проверка не роняет доставку
         return str(payload or "")
+
+
+async def _send_traced(bot, chat_id: int, text: str, reply_to, *,
+                       correlation_id, op_name: str, channel: str = "plain",
+                       reason: str = ""):
+    """Plain-доставка + трасса (§7): рендер → egress-guard → факт отправки.
+
+    Регистрирует операции с digest'ом после каждой и ИТОГ доставки с реальными
+    Telegram ID (все чанки). Возврат — id первого сообщения (прежняя
+    семантика `send_chunked_reply`, потребители не меняются)."""
+    _ttrace.note_op(correlation_id, op_name, text)
+    _ttrace.note_op(correlation_id, _ttrace.OP_EGRESS_SANITIZE,
+                    _delivered_payload(text))
+    # Без трассы хода (нет correlation_id) вызов доставки остаётся
+    # БАЙТ-в-БАЙТ прежним: лишний kwarg не появляется.
+    sent_ids: list = []
+    extra = {"sent_ids": sent_ids} if correlation_id else {}
+    first = await send_chunked_reply(bot, chat_id, text, reply_to, **extra)
+    _ttrace.note_delivery(
+        correlation_id,
+        outcome=("success" if first is not None else "failed"),
+        tg_message_ids=(sent_ids or ([first] if isinstance(first, int)
+                                     else [])),
+        chunks=(len(sent_ids) or None), channel=channel,
+        reason=(reason or ("" if first is not None else "send_failed")))
+    return first
 
 
 # ── ADD-EXP §6: диагностика слоя «Выражение» на боевом пути ─────────────────
@@ -4036,6 +4065,18 @@ class DirectChatService:
                 force_reply_required=_force_required,
                 reply_to_bot=_reply_bot, is_private=_is_private,
                 addressed=True)
+            # ── RLR-06-OBSERVABILITY (§7): трасса ОДНОГО хода по
+            # `correlation_id`. Источник/чат/триггер фиксируются здесь;
+            # ChatClock, L1, инструменты, Writer и операции доставки —
+            # по мере их фактического выполнения. Никаких сырых текстов:
+            # только id/коды/числа/digest'ы.
+            _ttrace.begin(
+                correlation_id, chat_id=chat_id, trigger=_trigger_type,
+                source_message_id=_trigger_id,
+                source_author_id=(user_id or None),
+                idempotency_key=_ttrace.idempotency_key(
+                    chat_id=chat_id, tg_message_id=_trigger_id,
+                    revision=1, user_id=(user_id or None)))
             # F-5 / §3.3 (строка 0): OFF kill-switch → политика не строится,
             # но причина решения фиксируется как `disabled` (диагностический
             # контракт). Наблюдаемый формат A1-лога сохраняется байт-в-байт.
@@ -4474,6 +4515,17 @@ class DirectChatService:
                     _l1_action = "reply"
                     l1_plan.action = "reply"
                     l1_meta["override"] = "decision_off"
+                # §7: L1-решение этого хода — в трассу (план, не речь).
+                _ttrace.note_l1(
+                    correlation_id, action=str(_l1_action or ""),
+                    response_act=str(getattr(l1_plan, "response_act", "")),
+                    structure=str(getattr(l1_plan, "structure", "")),
+                    plan_source=str(getattr(l1_plan, "source", "")),
+                    execution_mode=str(
+                        getattr(l1_plan, "execution_mode", "")),
+                    override=str(l1_meta.get("override") or ""),
+                    model=str(getattr(self.llm, "_chat_model", "") or ""),
+                    fallback=str(l1_meta.get("fallback") or ""))
                 if _l1_action == "silent":
                     if l1_plan.confidence_bucket == "low":
                         # §1.3: low confidence — SILENT демотируется в дет.
@@ -4504,6 +4556,8 @@ class DirectChatService:
                                            and _dctx.addressed),
                                 reason="l1_silent")
                         # вне allowed → тишина (§1.7, семантика :2684-2731).
+                        _ttrace.note_stop(correlation_id, "silent",
+                                          "l1_silent")
                         return
                 if _l1_action == "react":
                     # §1.7: reaction только из ALLOWED_LLM_REACTIONS;
@@ -4524,6 +4578,8 @@ class DirectChatService:
                             logger.warning(
                                 "[direct] l1 react invalid — silence | "
                                 "chat=%s", chat_id)
+                            _ttrace.note_stop(correlation_id, "silent",
+                                              "l1_react_invalid")
                             return
                     else:
                         _react_source = "l1_planner"
@@ -4548,6 +4604,17 @@ class DirectChatService:
                     return
                 # action == reply → pipeline продолжается (capability resolve
                 # → tools ∅ | подсет → L2 Writer — стадии ниже).
+                # §7: финальное (после всех override/demote) L1-решение хода.
+                _ttrace.note_l1(
+                    correlation_id, action=str(_l1_action or ""),
+                    response_act=str(getattr(l1_plan, "response_act", "")),
+                    structure=str(getattr(l1_plan, "structure", "")),
+                    plan_source=str(getattr(l1_plan, "source", "")),
+                    execution_mode=str(
+                        getattr(l1_plan, "execution_mode", "")),
+                    override=str(l1_meta.get("override") or ""),
+                    model=str(getattr(self.llm, "_chat_model", "") or ""),
+                    fallback=str(l1_meta.get("fallback") or ""))
             # ── MCA-23 (W3): ResponsePlan — детерминированная классификация
             # ДО LLM-стадии (0 LLM-вызовов; §8 fast path не меняется: для
             # очевидного chat/micro тот же один Stage-1 вызов). Extent-блок
@@ -4671,6 +4738,9 @@ class DirectChatService:
                             chat_id, _scrubbed_on)
                 _pcomp.emit_layer_events_once(_composer_manifest)
             time_line = await self._chat_time_line(chat_id)
+            # §7: ChatClock хода — значение и источник (per-chat tz → global).
+            _ttrace.note_clock(correlation_id, line=time_line,
+                               source="limits.chat_timezone")
             # ASAP-VISION-SYNC-01 §4.4: финальная сборка payload перечитывает
             # медиа-состояние БЕЗ ожидания — если анализ завершился после L1,
             # Writer получает актуальную ревизию (старый pending-снимок
@@ -5325,6 +5395,19 @@ class DirectChatService:
                 else:
                     _evidence = ""
                     _evidence_delivered = ""
+                # ── RLR-06-OBSERVABILITY (§7): вызовы инструментов
+                # (имя/статус/ошибка/размер/источники) + coverage
+                # доставленного Writer'у evidence. Текстов и URL нет.
+                _ttrace.note_tools(
+                    correlation_id,
+                    tool_results=(getattr(raw, "tool_results", None)
+                                  if isinstance(raw, ToolLoopResult) else ()),
+                    rounds=(int(getattr(raw, "rounds_used", 0) or 0)
+                            if isinstance(raw, ToolLoopResult) else 0),
+                    degraded=bool(getattr(raw, "degraded", False)),
+                    reason=str(getattr(raw, "reason", "") or ""),
+                    pack=_ev_pack if "_ev_pack" in locals() else None,
+                    decision=_evidence_decision)
                 _media_skip = (isinstance(raw, ToolLoopResult)
                                and not _extent.media_writer_needed(
                                    response_plan, raw))
@@ -5405,6 +5488,8 @@ class DirectChatService:
             # БЛОК 7.2b (T-1921): единая стадия пост-обработки — reasoning-
             # теги-черновики не уходят пользователю (no-op без тегов).
             answer = strip_reasoning_tags(str(raw).strip())
+            # §7: операция доставки видна в трассе (digest после каждой).
+            _ttrace.note_op(correlation_id, _ttrace.OP_REASONING_STRIP, answer)
             # БЛОК 7.2c (T-1922, ADR-1020-7 §2): при ctx.lore_compiled
             # доставляем ГОТОВЫЙ текст истории (детерминизм в коде), а не
             # сжатую диспетчерскую ремарку. Обычный путь не меняется.
@@ -5414,6 +5499,11 @@ class DirectChatService:
             lore_story = lore_story_override(tool_ctx, l1_plan, response_plan)
             if lore_story:
                 answer = strip_reasoning_tags(lore_story)
+                # §7: детерминированная подмена текста историей — названная
+                # операция (иначе расхождение raw_final ↔ delivered было бы
+                # необъяснимым).
+                _ttrace.note_op(correlation_id, _ttrace.OP_LORE_OVERRIDE,
+                                answer)
             # ── RLR-04 (R-04.2; §4 «apply_numeric_guard с заменой/обнулением
             # финала»): постфактум-правка семантики готового текста СНЯТА на
             # ВСЕХ путях доставки. Проверенные числа приходят в Writer ДО
@@ -5456,6 +5546,18 @@ class DirectChatService:
                             _evidence_decision, _evidence_delivered))
                 self._emit_evidence_egress_event(
                     chat_id, correlation_id, _ev_egress)
+                # ── RLR-06 (§7, fold-in): `_answer_delivered` — ЯВНЫЙ инвариант
+                # «доставленный текст = answer». BGS-02 сделал guard
+                # наблюдающим, поэтому расхождение здесь было бы настоящей
+                # смысловой правкой: она обязана быть видна и в логе, и в
+                # трассе (операция с digest), а не молча исчезнуть.
+                if _answer_delivered != answer:
+                    logger.warning(
+                        "[direct] evidence egress changed delivered text | "
+                        "chat=%s | chars=%d->%d", chat_id, len(answer),
+                        len(str(_answer_delivered or "")))
+                _ttrace.note_op(correlation_id, _ttrace.OP_EGRESS_GUARD,
+                                _answer_delivered)
                 if _ev_egress.get("observed"):
                     logger.info(
                         "[direct] evidence egress observed | chat=%s | "
@@ -5557,6 +5659,9 @@ class DirectChatService:
                         len(_style_outcome.conflicts),
                         len(_style_outcome.failed))
                 answer = _style_outcome.text
+                # §7: единственный разрешённый детерминированный проход стиля
+                # владельца — названная операция с digest результата.
+                _ttrace.note_op(correlation_id, _ttrace.OP_STYLE, answer)
             # ── ADD-EXP §6: форма/проход не должен незаметно «съесть» мат —
             # сравнение raw-флагов L2 с текстом после style-pass.
             _expression_postprocess_check(
@@ -5738,6 +5843,11 @@ class DirectChatService:
                 self._breaker.on_failure()
         finally:
             permit.release()   # раунд N (T-840): слот пула возвращён
+            # ── RLR-06-OBSERVABILITY (§7): закрыть трассу хода. Если
+            # текстовая доставка не состоялась (silence/react/картинка/
+            # ошибка), событие доставки всё равно эмитится с исходом
+            # `skipped`/причиной — «нет трассы» не равно «успешный ответ».
+            _ttrace.close(correlation_id)
             # ── P0 MEME-IMAGE-ONLY (owner 02.11.2026), блокер B1 ───────────
             # Картинка РЕАЛЬНО доставлена в этом ходу → пользователь уже
             # получил ответ, значит ход отвечен. Единая точка на ВСЕ выходы из
@@ -6004,6 +6114,8 @@ class DirectChatService:
 
         def _record_llm_call(source_label: str, attempt_messages,
                              current_slot, *, temperature=None):
+            # §7: классификация LLM-вызовов хода — планирующая стадия.
+            _ttrace.note_llm_call(correlation_id, _ttrace.CALL_PLANNING)
             async def _call():
                 if source_label == "l1_slot":
                     assert current_slot is not None and current_slot.dedicated
@@ -7704,6 +7816,27 @@ class DirectChatService:
                              "expression_mode": _expr_mode,
                              "expression_rendered": bool(_expr_rendered),
                              "provider_error": False})
+        # ── RLR-06-OBSERVABILITY (§7): манифест ЗАПРОСА L2 — контекстные
+        # блоки и ревизии owner-промптов, provider/model/fallback. Полный
+        # приватный payload не сохраняется: только состав, версии и id.
+        _ttrace.note_l2_request(
+            correlation_id, manifest=_c_manifest, composer=bool(_c_on),
+            provider=_ttrace.provider_of(
+                getattr(self.llm, "_base_url", "")
+                or getattr(settings, "LLM_BASE_URL", "")),
+            model=str(getattr(self.llm, "_chat_model", "")
+                      or getattr(settings, "LLM_MODEL_NAME", "") or ""),
+            fallback_model=str(
+                getattr(self.llm, "_fallback_model", "")
+                or getattr(settings, "LLM_FALLBACK_MODEL", "") or ""),
+            max_output_tokens=max_tokens,
+            writer_name=str(writer or "l2_writer"),
+            # Без композера манифеста нет — состав блоков и заводские ревизии
+            # owner-промптов берутся из фактических частей payload и реестра.
+            blocks=list(parts) + ([_closing] if _closing else []),
+            prompt_keys=(
+                "prompts.direct_chat_verbalizer_system_prompt",
+                "prompts.direct_l1_planner_system_prompt"))
         # ── v6 D04 (§18C.4): L2 fallback-репак под РЕАЛЬНОЕ окно
         # fallback-модели (plan/memory/lessons/character/evidence;
         # защищённые блоки: current request, mandatory tool evidence,
@@ -7749,6 +7882,11 @@ class DirectChatService:
             return _l2_cont.TextCompletion(
                 await self.llm.generate(msgs, step=step, **_call_kwargs))
 
+        #: §7: что ФАКТИЧЕСКИ вернул автор (raw final) и метаданные завершения.
+        #: Нужно для digest'а raw_final и классификации LLM-вызовов; сырой
+        #: текст живёт только в этом замыкании и в digest не сохраняется.
+        _author_out: dict = {}
+
         async def _generate(messages):
             _fallbacks_before = _llm_fallbacks_total()
             try:
@@ -7764,6 +7902,7 @@ class DirectChatService:
                     if diag_out is not None:
                         diag_out["provider_error"] = True
                 raise
+            _author_out["completion"] = completion
             # ── UR-19 / R-08.14 / §3.2: фактический `finish_reason` первого
             # авторского вызова. `length` — НЕЗАКОНЧЕННЫЙ output: тот же
             # логический ответ продолжается тем же автором (явная граница
@@ -7789,6 +7928,8 @@ class DirectChatService:
                 # успешную переписку. Отказ поднимается до валидатора и
                 # превращается в честный `None` вызывающего.
                 raise _l2_cont.IncompleteContinuation(_continuation)
+            _author_out["continuation"] = _continuation
+            _author_out["text"] = _continuation.text
             return _continuation.text
 
         enabled_rules = (channel_enabled_rules("plain", response_mode)
@@ -7800,7 +7941,11 @@ class DirectChatService:
                 dynamic_rules=anticliche_cache.get_rules() or None,
                 form_contract=form_contract,
                 fallback_text=form_fallback_text,
-                numeric_contract=numeric_contract)
+                numeric_contract=numeric_contract,
+                # §7: `semantic_rewrite_count` — измерение ХОДА, а не литерал:
+                # счётчик литературных вызовов живёт в трассе этого
+                # `correlation_id`, поэтому второй автор в том же ходе виден.
+                author_state=_ttrace.author_state(correlation_id))
         except _l2_cont.IncompleteContinuation as exc:
             # UR-19 / R-FAIL.2 / §3.2: ответ остался незавершённым. Честный
             # отказ вызывающего (None → существующий error/silence/clarify
@@ -7814,6 +7959,14 @@ class DirectChatService:
                 len(exc.result.text), form_contract is not None)
             if diag_out is not None:
                 diag_out["unfinished_answer"] = True
+            # §7 «Критично»: незавершённый ответ НЕ выглядит обычным успехом.
+            _ttrace.note_l2_refusal(
+                correlation_id, "unfinished_answer",
+                stop_reason=str(exc.result.stop_reason),
+                continuation_calls=int(exc.result.continuation_calls),
+                text=exc.result.text,
+                finish_reason=str(getattr(_author_out.get("completion"),
+                                          "finish_reason", "") or ""))
             return None
         logger.info(
             "[direct] l2 writer | chat=%s | mode=%s | attempts=%d | "
@@ -7832,7 +7985,18 @@ class DirectChatService:
                 bool(stats.get("form_fallback")),
                 bool(stats.get("needs_clarification")))
         if not text.strip():
+            # §7 «Критично»: пустой финал — честный отказ, не «успех».
+            _ttrace.note_l2_refusal(correlation_id, "empty_final")
             return None
+        # ── RLR-06-OBSERVABILITY (§7): завершение L2 — `finish_reason`,
+        # завершённость, usage, digest raw final и первая стадия
+        # детерминированной очистки (`reasoning_marker_strip`/
+        # `machine_marker_strip`). Сырого текста в событии нет.
+        _ttrace.note_l2_completion(
+            correlation_id,
+            raw_text=str(_author_out.get("text") or ""),
+            final_text=text, completion=_author_out.get("completion"),
+            stats=stats, continuation=_author_out.get("continuation"))
         # ── EVOL v5 §12.4 (DIRECT-SELF-CORRECTION-01): какой ход ФАКТИЧЕСКИ
         # дал итоговый ответ (сборка с рамкой возражения → writer/fallback).
         # Отдельного семантического вердикта («признал / не признал») нет:
@@ -7913,10 +8077,15 @@ class DirectChatService:
                 _verify_style_payload(_rich_payload, style_outcome, chat_id,
                                       stage="direct_rich",
                                       correlation_id=correlation_id)
+                _ttrace.note_op(correlation_id, _ttrace.OP_RICH,
+                                _rich_payload)
                 sent = await _tg_send.send_rich_message(bot, chat_id,
                                                         _rich_payload)
                 sent_id = getattr(sent, "message_id", None)
                 if sent_id is not None:
+                    _ttrace.note_delivery(
+                        correlation_id, outcome="success",
+                        tg_message_ids=[sent_id], channel="rich")
                     return sent_id
                 logger.warning(
                     "[direct] rich send: no message_id — legacy path | "
@@ -7929,28 +8098,53 @@ class DirectChatService:
             _verify_style_payload(text, style_outcome, chat_id,
                                   stage="direct_plain",
                                   correlation_id=correlation_id)
-            return await send_chunked_reply(bot, chat_id, text, reply_to)
+            return await _send_traced(
+                bot, chat_id, text, reply_to, correlation_id=correlation_id,
+                op_name=_ttrace.OP_PLAIN, channel="plain")
         escaped = escape_lore_html(text)
         if len(escaped) <= _LORE_HTML_MAX_SINGLE_CHARS:
             try:
                 _verify_style_payload(escaped, style_outcome, chat_id,
                                       stage="direct_safe_html",
                                       correlation_id=correlation_id)
-                return await send_chunked_reply(
-                    bot, chat_id, escaped, reply_to, parse_mode="HTML")
+                _ttrace.note_op(correlation_id, _ttrace.OP_HTML, escaped)
+                _ttrace.note_op(correlation_id, _ttrace.OP_EGRESS_SANITIZE,
+                                _delivered_payload(escaped))
+                _html_ids: list = []
+                # Без correlation_id — прежний вызов байт-в-байт (kwargs те же).
+                _html_extra = ({"sent_ids": _html_ids} if correlation_id
+                               else {})
+                sent = await send_chunked_reply(
+                    bot, chat_id, escaped, reply_to, parse_mode="HTML",
+                    **_html_extra)
+                _ttrace.note_delivery(
+                    correlation_id,
+                    outcome=("success" if sent is not None else "failed"),
+                    tg_message_ids=(_html_ids
+                                    or ([sent] if isinstance(sent, int)
+                                        else [])),
+                    chunks=(len(_html_ids) or None), channel="html",
+                    reason=("" if sent is not None else "send_failed"))
+                return sent
             except TelegramBadRequest as exc:
                 logger.warning(
                     "[direct] safe-HTML send failed — plain fallback | "
                     "chat=%s | error=%s", chat_id, _exc_brief(exc))
-                return await send_chunked_reply(bot, chat_id, text, reply_to)
+                # Тот же смысловой payload уходит plain — это НЕ регенерация.
+                return await _send_traced(
+                    bot, chat_id, text, reply_to,
+                    correlation_id=correlation_id, op_name=_ttrace.OP_PLAIN,
+                    channel="plain", reason="html_fallback")
         logger.info("[direct] text too long for safe HTML — plain | "
                     "chat=%s | chars=%d", chat_id, len(escaped))
         _plain_payload = strip_lore_html(text)
         _verify_style_payload(_plain_payload, style_outcome, chat_id,
                               stage="direct_plain_long",
                               correlation_id=correlation_id)
-        return await send_chunked_reply(bot, chat_id, _plain_payload,
-                                        reply_to)
+        return await _send_traced(
+            bot, chat_id, _plain_payload, reply_to,
+            correlation_id=correlation_id, op_name=_ttrace.OP_PLAIN,
+            channel="plain", reason="too_long_for_html")
 
     async def _chat_time_line(self, chat_id: int) -> str:
         """10.20 (БЛОК 5.1, О2/О4 FINAL, ADR-1020-3): строка Time Injection
