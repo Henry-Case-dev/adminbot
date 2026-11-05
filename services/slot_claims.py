@@ -65,7 +65,7 @@ SLOT_CLAIMS_DDL_SQLITE = (
     "claimed_at INTEGER NOT NULL, "
     "fired INTEGER NOT NULL DEFAULT 1, "   # 1 = запуск; 0 = честный skip
     "reason_code TEXT NOT NULL DEFAULT '', "
-    "PRIMARY KEY (kind, chat_id, local_date, local_slot)",
+    "PRIMARY KEY (kind, chat_id, local_date, local_slot))",
 )
 _SLOT_CLAIMS_INDEX_DDL = (
     f"CREATE INDEX IF NOT EXISTS idx_slot_claims_chat "
@@ -414,7 +414,7 @@ async def claim_slot_if_due(*, kind: str, db, chat_id, now_utc,
                     _log_decision(kind, chat_id, slot, iana, tz_source, cv,
                                   "fire", degraded=True)
                     return SlotVerdict(ACTION_FIRE, slot, iana, tz_source,
-                                       cv, granted=True)
+                                       cv, claim_granted=True)
                 return SlotVerdict(ACTION_SKIP_BUSY, slot, iana, tz_source, cv)
             return SlotVerdict(ACTION_SKIP_DEGRADED, slot, iana, tz_source, cv)
         now_ts = int(now.timestamp())
@@ -436,12 +436,12 @@ async def claim_slot_if_due(*, kind: str, db, chat_id, now_utc,
                     _log_decision(kind, chat_id, slot, iana, tz_source, cv,
                                   "fire", degraded=True)
                     return SlotVerdict(ACTION_FIRE, slot, iana, tz_source,
-                                       cv, granted=True)
+                                       cv, claim_granted=True)
                 return SlotVerdict(ACTION_SKIP_BUSY, slot, iana, tz_source, cv)
             if granted:
                 _log_decision(kind, chat_id, slot, iana, tz_source, cv, "fire")
                 return SlotVerdict(ACTION_FIRE, slot, iana, tz_source, cv,
-                                   granted=True)
+                                   claim_granted=True)
             return SlotVerdict(ACTION_SKIP_BUSY, slot, iana, tz_source, cv)
         # Окно прошло: честный skip ровно один раз (fired=0).
         try:

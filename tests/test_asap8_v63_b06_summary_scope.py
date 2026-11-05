@@ -233,6 +233,23 @@ class TestMatrixRealGeneration:
 # ── B06.1: cron/scheduler следует резолверу ─────────────────────────────────
 
 class TestSchedulerFollowsResolver:
+    @pytest.fixture(autouse=True)
+    def _isolated_slot_claims(self):
+        """UR-C-SCHED: in-process дедуп деградации не протекает между
+        тестами (CHAT_A/CHAT_B повторяются)."""
+        from services import slot_claims
+        slot_claims.reset_in_memory_claims()
+        yield
+        slot_claims.reset_in_memory_claims()
+
+    @staticmethod
+    def _due_utc():
+        """18:00 локального Asia/Yekaterinburg (+5) = 13:00 UTC; +30 c —
+        внутри due-окна слота (UR-C-SCHED)."""
+        import datetime
+        return datetime.datetime(2026, 1, 15, 13, 0, 30,
+                                 tzinfo=datetime.timezone.utc)
+
     @pytest.mark.asyncio
     async def test_tick_skips_chat_off_runs_chat_inherit(self, monkeypatch,
                                                          chat_params,
@@ -246,7 +263,7 @@ class TestSchedulerFollowsResolver:
 
         gen = AsyncMock()
         service = sched.SummarySchedulerService(gen, _Db())
-        await service._tick()
+        await service._tick(now_utc=self._due_utc())
         called = [c.args[0] for c in gen.generate_and_send.await_args_list]
         assert called == [CHAT_B], "cron пропускает chat OFF, гоняет inherit"
 
@@ -263,7 +280,7 @@ class TestSchedulerFollowsResolver:
 
         gen = AsyncMock()
         service = sched.SummarySchedulerService(gen, _Db())
-        await service._tick()
+        await service._tick(now_utc=self._due_utc())
         called = [c.args[0] for c in gen.generate_and_send.await_args_list]
         assert called == [CHAT_A]
 

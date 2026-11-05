@@ -3,17 +3,22 @@
 Покрытие: пул капций (6 шт., каноны дословно, выбор из пула),
 GoodmorningRelay (детект типов, gif-маркер с регистром .MP4, audio/voice
 skip, пустая папка, plain-send БЕЗ reply), GoodmorningSchedulerService
-(_parse_hhmm, пустые targets → False, cron-триггер, _tick, shutdown).
+(_parse_hhmm, пустые targets → False, тикер, _tick, shutdown;
+UR-C-SCHED: GOODMORNING_TIME — час рассылки, пояс чата — ChatClock).
 """
+import datetime
 import logging
 import random
+import zoneinfo
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from apscheduler.jobstores.memory import MemoryJobStore
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
+from config.settings import settings
+from services import slot_claims
 from services.goodmorning_captions import GOODMORNING_CAPTIONS, pick_caption
 from services.goodmorning_relay import (
     MEDIA_ANIMATION,
@@ -27,6 +32,25 @@ from services.goodmorning_scheduler import (
     GoodmorningSchedulerService,
     _parse_hhmm,
 )
+
+#: 07:30 локального времени Asia/Yekaterinburg (+5) = 02:30 UTC; +30 c —
+#: внутри due-окна слота (120 c).
+GM_DUE_UTC = datetime.datetime(2026, 1, 15, 2, 30, 30,
+                               tzinfo=datetime.timezone.utc)
+
+
+@pytest.fixture(autouse=True)
+def _gm_isolated_env(monkeypatch):
+    """Изоляция: in-memory дедуп claim'ов и слои пояса (frozen settings +
+    env) — детерминированный Asia/Yekaterinburg для тестов сервиса."""
+    slot_claims.reset_in_memory_claims()
+    monkeypatch.delenv("GOODMORNING_TZ", raising=False)
+    monkeypatch.delenv("SUMMARY_TIMEZONE", raising=False)
+    monkeypatch.delenv("CHAT_TIMEZONE", raising=False)
+    object.__setattr__(settings, "SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
+    object.__setattr__(settings, "CHAT_TIMEZONE", "")
+    yield
+    slot_claims.reset_in_memory_claims()
 
 
 # ── Captions ──
@@ -247,7 +271,6 @@ class TestGoodmorningSchedulerService:
         service = GoodmorningSchedulerService(
             relay=relay,
             time_str="07:30",
-            tz="Asia/Yekaterinburg",
             target_chat_ids=targets,
         )
         return service, relay
@@ -259,20 +282,25 @@ class TestGoodmorningSchedulerService:
         assert service._scheduler.running is False
         assert "TARGET_CHAT_IDS пуст" in caplog.text
 
+    def test_goodmorning_time_semantics_preserved(self):
+        """UR-28.5: GOODMORNING_TIME остаётся часом рассылки (парс
+        HH:MM не изменился; пояс чата берёт ChatClock)."""
+        service, _ = self.make_service()
+        assert service.send_time == (7, 30)
+
     @pytest.mark.asyncio
-    async def test_start_with_targets_adds_cron_job(self):
+    async def test_start_with_targets_adds_ticker_job(self):
+        """UR-C-SCHED: один тикер вместо CronTrigger по глобальному поясу."""
         service, _ = self.make_service()
         assert service.start() is True
         try:
             assert service._scheduler.running is True
             job = service._scheduler.get_job(GoodmorningSchedulerService.JOB_ID)
-            assert isinstance(job.trigger, CronTrigger)
-            fields = {f.name: f for f in job.trigger.fields}
-            assert [str(e) for e in fields["hour"].expressions] == ["7"]
-            assert [str(e) for e in fields["minute"].expressions] == ["30"]
-            assert str(job.trigger.timezone) == "Asia/Yekaterinburg"
+            assert isinstance(job.trigger, IntervalTrigger)
+            assert job.trigger.interval == datetime.timedelta(seconds=60)
             assert job.max_instances == 1
             assert job.coalesce is True
+            assert service.send_time == (7, 30)
         finally:
             await service.shutdown()
 
@@ -287,20 +315,9 @@ class TestGoodmorningSchedulerService:
             await service.shutdown()
 
     @pytest.mark.asyncio
-    async def test_invalid_tz_falls_back(self, caplog):
-        relay = MagicMock()
-        relay.send_goodmorning = AsyncMock()
-        with caplog.at_level(logging.WARNING):
-            service = GoodmorningSchedulerService(
-                relay=relay, time_str="07:00", tz="Mars/Olympus", target_chat_ids=(1,)
-            )
-        assert service._tz == "Asia/Yekaterinburg"
-        assert "invalid GOODMORNING_TZ" in caplog.text
-
-    @pytest.mark.asyncio
     async def test_tick_sends_to_all_targets(self):
         service, relay = self.make_service(targets=(1, 2, 3))
-        await service._tick()
+        await service._tick(now_utc=GM_DUE_UTC)
         assert relay.send_goodmorning.await_count == 3
         relay.send_goodmorning.assert_any_await(1)
         relay.send_goodmorning.assert_any_await(2)
@@ -316,12 +333,25 @@ class TestGoodmorningSchedulerService:
 
         relay.send_goodmorning = AsyncMock(side_effect=flaky)
         service = GoodmorningSchedulerService(
-            relay=relay, time_str="07:00", tz="Asia/Yekaterinburg",
+            relay=relay, time_str="07:00",
             target_chat_ids=(1, 2, 3),
         )
         with caplog.at_level(logging.WARNING):
-            await service._tick()
+            await service._tick(now_utc=GM_DUE_UTC)
         assert relay.send_goodmorning.await_count == 3
+
+    @pytest.mark.asyncio
+    async def test_tick_outside_due_window_no_send(self):
+        """UR-28.3: вне due-окна GOODMORNING_TIME слот не запускается
+        (просроченное утро — честный skip, ночной «догоняator» невозможен)."""
+        relay = MagicMock()
+        relay.send_goodmorning = AsyncMock(return_value=True)
+        service = GoodmorningSchedulerService(
+            relay=relay, time_str="07:30", target_chat_ids=(1,))
+        late = datetime.datetime(2026, 1, 15, 3, 30, 0,
+                                 tzinfo=datetime.timezone.utc)
+        await service._tick(now_utc=late)
+        relay.send_goodmorning.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_shutdown_without_start_does_not_raise(self):

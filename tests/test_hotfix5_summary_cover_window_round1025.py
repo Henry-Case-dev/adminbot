@@ -426,6 +426,23 @@ class TestImageBudgetIsolation:
 # ── C. Планировщик: int chat_id (d) ──────────────────────────────────────
 
 class TestSchedulerChatIdType:
+    @pytest.fixture(autouse=True)
+    def _isolated_slot_claims(self):
+        """UR-C-SCHED: in-process дедуп деградации не протекает между
+        тестами (chat -100 повторяется в нескольких кейсах)."""
+        from services import slot_claims
+        slot_claims.reset_in_memory_claims()
+        yield
+        slot_claims.reset_in_memory_claims()
+
+    @staticmethod
+    def _due_utc():
+        """18:00 локального Asia/Yekaterinburg (+5) = 13:00 UTC; +30 c —
+        внутри due-окна слота (UR-C-SCHED)."""
+        import datetime
+        return datetime.datetime(2026, 1, 15, 13, 0, 30,
+                                 tzinfo=datetime.timezone.utc)
+
     @pytest.mark.asyncio
     async def test_string_chat_id_cast_to_int(self):
         generator = MagicMock()
@@ -435,7 +452,7 @@ class TestSchedulerChatIdType:
         service = SummarySchedulerService(generator, db)
         mod = replace(settings, SUMMARY_TARGET_CHAT_IDS=None)
         with patch("services.summary_scheduler.settings", mod):
-            await service._tick()
+            await service._tick(now_utc=self._due_utc())
         calls = [c.args[0] for c in generator.generate_and_send.await_args_list]
         assert calls == [-100, -200]
         assert all(isinstance(c, int) for c in calls)
@@ -450,7 +467,7 @@ class TestSchedulerChatIdType:
         service = SummarySchedulerService(generator, db)
         mod = replace(settings, SUMMARY_TARGET_CHAT_IDS=None)
         with patch("services.summary_scheduler.settings", mod):
-            await service._tick()
+            await service._tick(now_utc=self._due_utc())
         generator.generate_and_send.assert_awaited_once_with(-100)
 
     @pytest.mark.asyncio
@@ -476,7 +493,7 @@ class TestSchedulerChatIdType:
         service = SummarySchedulerService(generator, db)
         mod = replace(settings, SUMMARY_TARGET_CHAT_IDS=None)
         with patch("services.summary_scheduler.settings", mod):
-            await service._tick()
+            await service._tick(now_utc=self._due_utc())
 
         assert isinstance(resolved["chat_id"], int)
         assert resolved["chat_id"] == -100
