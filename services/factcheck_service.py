@@ -26,6 +26,8 @@ import time
 
 from config.settings import settings
 from services import hot_config as hot
+# UR-C-CLOCK: единственный источник времени чата (оценка фактчека).
+from services import chat_clock as _cclock
 from services.factcheck_prompts import (
     FACTCHECK_ANALYST_SYSTEM_PROMPT,
     FACTCHECK_SYSTEM_PROMPT,
@@ -2135,10 +2137,26 @@ class FactCheckService:
                                        results, chat_context=chat_context)
         if rag:
             user = f"{rag}\n\n{user}"
+        # UR-C-CLOCK (UR-26.4): время ОЦЕНКИ из ChatClock чата — единый
+        # снапшот на проверку (single/stage1/stage2); дата публикации
+        # источника остаётся отдельным полем в СВОЁМ поясе (UR-27 не
+        # подменяется). chat_id None (unit-вызовы) → блок не выдаётся,
+        # причина честно логируется.
+        _fc_snap = None
+        if chat_id is not None:
+            try:
+                _fc_snap = await _cclock.snapshot(chat_id)
+                user = _cclock.append_time_block(
+                    user, _fc_snap, phase=_cclock.PHASE_ANSWER,
+                    source_label=None)
+            except Exception:      # pragma: no cover - fail-open honest
+                logger.warning("[factcheck] chat clock unavailable — no "
+                               "time block | chat=%s", chat_id, exc_info=True)
+                _fc_snap = None
         if getattr(settings, "SYSTEM2_FACTCHECK_ENABLED", True):
             two_call = await self._check_claim_two_call(
                 target_text, user, rag, results, chat_id, max_symbols,
-                correlation_id)
+                correlation_id, time_snap=_fc_snap)
             if two_call is not None:
                 return two_call
             logger.info(
@@ -2177,9 +2195,12 @@ class FactCheckService:
     async def _check_claim_two_call(
         self, target_text: str, user: str, rag: str, results: str,
         chat_id: int | None, max_symbols: int,
-        correlation_id: str | None = None,
+        correlation_id: str | None = None, *, time_snap=None,
     ) -> str | None:
-        """System 2 фактчека. ``None`` → вызывающий уходит на 10.21."""
+        """System 2 фактчека. ``None`` → вызывающий уходит на 10.21.
+
+        UR-C-CLOCK: Stage-1 получает блок времени в общем ``user``; Stage-2
+        (Writer) — тот же снапшот оценки (один на проверку)."""
         analyst_messages = [
             {"role": "system", "content": resolve_prompt(
                 "prompts.factcheck_analyst_system_prompt",
@@ -2243,6 +2264,17 @@ class FactCheckService:
             writer_payload=json.dumps(stage2_data, ensure_ascii=False),
             metric_results=getattr(raw_analyst, "metric_results", None) or ())
         stage2_data["numbers"] = numeric_contract_payload(numeric_bindings)
+        if time_snap is not None:
+            # UR-C-CLOCK: Stage-2 получает тот же ChatClock-снапшот оценки.
+            stage2_data["server_time"] = {
+                "local": "%s %s, %s" % (
+                    time_snap.local_datetime.strftime("%d.%m.%Y"),
+                    time_snap.local_datetime.strftime("%H:%M"),
+                    time_snap.weekday),
+                "tz": time_snap.timezone,
+                "as_of_utc": time_snap.as_of_utc.strftime(
+                    "%Y-%m-%dT%H:%M:%S+00:00"),
+            }
         base_messages = [
             {"role": "system", "content": verbalizer_system},
             {"role": "user",
@@ -2622,6 +2654,19 @@ class FactCheckService:
                                                    chat_context,
                                                    analysis_context,
                                                    coverage=claim_coverage)
+        # UR-C-CLOCK (UR-26.4): время ОЦЕНКИ (ChatClock чата) — отдельный
+        # авторитетный блок; даты публикации источника остаются в
+        # <temporal_context>/<evidence> в СВОЁМ поясе (UR-27), ChatClock их
+        # не подменяет.
+        _temporal_snap = None
+        try:
+            if env.chat_id is not None:
+                _temporal_snap = await _cclock.snapshot(env.chat_id)
+                user_payload = _cclock.append_time_block(
+                    user_payload, _temporal_snap,
+                    phase=_cclock.PHASE_ANSWER)
+        except Exception:      # pragma: no cover - fail-open honest
+            _temporal_snap = None
         allowed_refs = ({str(r.get("evidence_id")) for r in evidence
                          if r.get("evidence_id")}
                         if evidence else set())
@@ -2666,9 +2711,15 @@ class FactCheckService:
         # исход фиксируется дополнительной записью "verdict" в трассе.
         validator_outcome = None
         if evidence and raw_payload:
+            _validator_content = self._temporal_validator_payload(
+                env, verdict, evidence)
+            if _temporal_snap is not None:
+                _validator_content = _cclock.append_time_block(
+                    _validator_content, _temporal_snap,
+                    phase=_cclock.PHASE_ANSWER)
             v_payload = await self._temporal_verdict_json(
                 tf.TEMPORAL_VALIDATOR_SYSTEM,
-                self._temporal_validator_payload(env, verdict, evidence),
+                _validator_content,
                 env, correlation_id, step="temporal_validator")
             if v_payload is not None:
                 verdict, corrected = tf.apply_validator(verdict, v_payload,
@@ -2748,7 +2799,7 @@ class FactCheckService:
         verdict_text = await self._temporal_verbalize(
             env, verdict, fallback_used, correlation_id,
             retrieval_state=retrieval_state, coverage=claim_coverage,
-            evidence=evidence)
+            evidence=evidence, time_snap=_temporal_snap)
         trace.add("verbalize", "success" if verdict_text else "skipped",
                   reason=None if verdict_text else "temporal_fallback_mode")
 
@@ -2878,6 +2929,7 @@ class FactCheckService:
         self, env: tf.TemporalClaimEnvelope, verdict: tf.TemporalVerdict,
         fallback_used: bool, correlation_id: str | None,
         *, retrieval_state: str | None = None, coverage=(), evidence=(),
+        time_snap=None,
     ) -> str:
         """Вербализатор (REUSE существующего контракта фактчека): verdict →
         текст с СОХРАНЕНИЕМ существенных дат/оговорок (SC-R3c). Любой сбой
@@ -2944,6 +2996,18 @@ class FactCheckService:
         if claim_rows:
             payload["claims"] = claim_rows
         payload["claim"] = env.claim_text
+        # UR-C-CLOCK (UR-26.4): вербализатор видит время ОЦЕНКИ из ChatClock
+        # (человекочитаемо); даты публикации остаются в своём блоке/полях.
+        if time_snap is not None:
+            payload["server_time"] = {
+                "local": "%s %s, %s" % (
+                    time_snap.local_datetime.strftime("%d.%m.%Y"),
+                    time_snap.local_datetime.strftime("%H:%M"),
+                    time_snap.weekday),
+                "tz": time_snap.timezone,
+                "as_of_utc": time_snap.as_of_utc.strftime(
+                    "%Y-%m-%dT%H:%M:%S+00:00"),
+            }
         # RLR R-03.4/R-06/§3.4: проверенный набор чисел — из структурного
         # payload'а, evidence этого прогона и дат envelope; уходит Writer'у
         # ЯВНО до генерации. Post-L2 numeric-правки здесь нет.
