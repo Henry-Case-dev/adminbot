@@ -58,7 +58,7 @@ class TestMenuCommand:
             kwargs = msg.reply.call_args.kwargs
             assert "reply_markup" not in kwargs      # клавиатуры НЕТ
             text = msg.reply.call_args.args[0]
-            assert "личке" in text
+            assert "личк" in text
             assert "@PERMsoc_bot" in text            # из bot.me(), не хардкод
 
     @pytest.mark.asyncio
@@ -72,7 +72,7 @@ class TestMenuCommand:
             id=42, is_bot=True, first_name="PERM", username="PERMsoc_bot"))
         await menu_command(msg)
         assert "reply_markup" not in msg.reply.call_args.kwargs
-        assert "личке" in msg.reply.call_args.args[0]
+        assert "личк" in msg.reply.call_args.args[0]
 
     @pytest.mark.asyncio
     async def test_menu_group_hint_without_bot_username(self):
@@ -82,7 +82,7 @@ class TestMenuCommand:
         msg.bot = None                      # в тестах bot может отсутствовать
         await menu_command(msg)
         assert "reply_markup" not in msg.reply.call_args.kwargs
-        assert "личке" in msg.reply.call_args.args[0]
+        assert "личк" in msg.reply.call_args.args[0]
 
     @pytest.mark.asyncio
     async def test_menu_group_confirmed_main_deep_link(self):
@@ -136,7 +136,7 @@ class TestMenuCommand:
         with patch.object(menu_mod, "settings", configured):
             await menu_command(msg)
         assert "reply_markup" not in msg.reply.call_args.kwargs
-        assert "личку" in msg.reply.call_args.args[0]
+        assert "личк" in msg.reply.call_args.args[0]
 
     @pytest.mark.asyncio
     async def test_menu_group_malformed_username_falls_back(self):
