@@ -274,6 +274,12 @@ def test_kill_switch_registry_73_and_defaults():
     # детерминированной ошибки кода embeddings).
     # ASAP-EVIDENCE-ROUTING-01 v3 §1.4: 311→314 (+3 санкционированных кода:
     # evidence_skipped, evidence_reused, evidence_unverified_claim_removed).
+    # BGS-02 (2629636c, 2.58.161): 314→315 (+1 evidence_unverified_claim_observed —
+    # честная причина наблюдения egress-guard, drop/reroll сняты).
+    # FC-OBSERVABILITY-01 (d8feb2a0, влит 10486bc7/ba8d2b72): 315→320
+    # (+5 кодов допуска фактчека: ambiguous_needs_clarification,
+    # no_claim_after_context, unsafe_or_unavailable_target, unified_retrieval,
+    # speech_guard_flagged).
     assert len(mca_events.REASON_CODES) == 320
     assert {"evidence_skipped", "evidence_reused",
             "evidence_unverified_claim_removed"} <= mca_events.REASON_CODES

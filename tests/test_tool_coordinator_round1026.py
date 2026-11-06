@@ -840,11 +840,11 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.161"
+        assert APP_VERSION == "2.58.162"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         # ASAP5 §22 (27.10.2026): +5 «Типы медиа» → 587/466/562/121/119.
         assert len(pc.REGISTRY) == 597
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 471  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
         # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
         # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы

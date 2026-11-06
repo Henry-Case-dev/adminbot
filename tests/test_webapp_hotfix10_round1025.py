@@ -250,7 +250,7 @@ class TestAuroraResize:
 class TestVersionAndInvariants:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.161", m and m.group(1)
+        assert m and m.group(1) == "2.58.162", m and m.group(1)
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
@@ -258,7 +258,7 @@ class TestVersionAndInvariants:
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 471  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_csp_no_external(self):
         assert not re.search(r'src="https?://', INDEX)

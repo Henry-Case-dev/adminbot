@@ -100,13 +100,49 @@ class TestCompleteness:
         "VIDEO_INTENT_WINDOW_MESSAGES",
         "VIDEO_INTENT_WINDOW_MAX_AGE_SECONDS"})
 
+    # MENU-01 (f8f11a01, «guarded Telegram group deep links»): три env-only
+    # поля Mini App — deployment-идентичность бота/приложения, а не
+    # per-chat ось: MINI_APP_DEEP_LINK_MODE (режим deep-link),
+    # MINI_APP_REGISTRATION_CONFIRMED (подтверждённая регистрация Main Mini
+    # App) и MINI_APP_SHORT_NAME (короткое имя). Реестр их не описывает
+    # (UI-оси нет), читает их handlers/menu.py. Осознанное исключение из
+    # покрытия (прецедент _CLASSVAR_CATALOGUED / _EVOL031_RETIRED_NOOP /
+    # _ENV_ONLY_SHARED_CONFIG) — НЕ ослабление полноты: набор закрыт пином
+    # test_menu01_env_only_pinned.
+    _MENU01_ENV_ONLY = frozenset({
+        "MINI_APP_DEEP_LINK_MODE",
+        "MINI_APP_REGISTRATION_CONFIRMED",
+        "MINI_APP_SHORT_NAME"})
+
     def test_every_settings_field_covered(self):
         missing, extra = pc.settings_field_coverage()
         missing = missing - self._EVOL031_RETIRED_NOOP \
-            - self._ENV_ONLY_SHARED_CONFIG
+            - self._ENV_ONLY_SHARED_CONFIG - self._MENU01_ENV_ONLY
         assert missing == set(), f"не покрыты: {sorted(missing)}"
         extra = extra - self._CLASSVAR_CATALOGUED
         assert extra == set(), f"лишние записи: {sorted(extra)}"
+
+    def test_menu01_env_only_pinned(self):
+        """MENU-01: env-only поля Mini App — ровно три (f8f11a01).
+
+        Пин держит состав набора и его смысл: каждое поле существует в
+        Settings, отсутствует в каталоге (иначе это уже per-chat параметр)
+        и читается модулем-владельцем (handlers/menu.py).
+        """
+        names = self._MENU01_ENV_ONLY
+        assert names == {"MINI_APP_DEEP_LINK_MODE",
+                         "MINI_APP_REGISTRATION_CONFIRMED",
+                         "MINI_APP_SHORT_NAME"}
+        fields = {f.name for f in dataclasses.fields(Settings)}
+        assert names <= fields, f"нет в Settings: {sorted(names - fields)}"
+        catalogued = {s.settings_field for s in REGISTRY.values()
+                      if s.settings_field}
+        assert not (names & catalogued), \
+            f"уже в каталоге: {sorted(names & catalogued)}"
+        owner = (ROOT / "handlers" / "menu.py").read_text(encoding="utf-8")
+        for name in names:
+            # модуль читает их из общего Settings-объекта (env-only слой)
+            assert f'getattr(settings_obj, "{name}"' in owner, name
 
     def test_env_only_shared_config_pinned(self):
         """EVOL-032 §4.3: env-only общая конфигурация — ровно три поля.
@@ -221,14 +257,16 @@ class TestCompleteness:
         #   VIDEO_INTENT_* (TTL pending-намерения, размер окна соседства, макс.
         #   возраст соседнего медиа) → 468. Каталога не касаются — см.
         #   _ENV_ONLY_SHARED_CONFIG выше (env-уровень, не per-chat ось).
-        assert len(fields) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов; EVOL-032 §4.3: +3 VIDEO_INTENT_*
+        assert len(fields) == 471  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов; EVOL-032 §4.3: +3 VIDEO_INTENT_* ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         # EVOL-031: 5 no-op полей снятого кеша — сознательно вне каталога.
         # EVOL-032 §4.3: 3 env-only поля общей конфигурации VideoIntent — тоже
         # сознательно вне каталога (per-chat оси нет).
+        # MENU-01 (f8f11a01): 3 env-only поля Mini App — там же.
         assert covered - TestCompleteness._CLASSVAR_CATALOGUED == \
             fields - TestCompleteness._EVOL031_RETIRED_NOOP \
-            - TestCompleteness._ENV_ONLY_SHARED_CONFIG
+            - TestCompleteness._ENV_ONLY_SHARED_CONFIG \
+            - TestCompleteness._MENU01_ENV_ONLY
 
     def test_categories_canonical(self):
         for spec in REGISTRY.values():

@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md",
   "source_sha256": "a5fcc4194578458c97584cbed091b156c448ab927df105b3d360d5a428429084",
-  "candidate_commit": "d8feb2a0",
+  "candidate_commit": "428259e2",
   "deployed_commit": "",
   "strict_evidence": false,
   "slice_graph_path": "",
@@ -19,13 +19,14 @@
       "acceptance": "Production-кейс воспроизведён по реальным Telegram ID (chat, trigger, target, parent Shorts, bot reply) с read-only трассой; при отсутствии артефакта статус остаётся PENDING_EXTERNAL, а не VERIFIED.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
+          "type": "live",
           "kind": "production_trace",
-          "candidate_commit": "a563ee31d216ed3fd526fdc75b6253f806bb12a2",
+          "candidate_commit": "428259e2",
           "ref": "plans/features/evol-reply-context-integrity/evidence/case-trace.md",
-          "observation": "Reconstructed from production data, chat -1002661910336, 2026-11-06: photo 'зацените хуйню построил', then video + youtube.com/shorts/Jl-KVNhnMjo (verified via YouTube oEmbed as a Minecraft builder short), WorldEdit discussion, target tg:1201663 'возможно... ФЕЙК', trigger tg:1201664 'фактчек'. Events factcheck_admission pipeline_path=v2_gate:ambiguous reason_code=multiple_dispute_candidates, deliver skipped. Of 12 factcheck triggers since 29.10 this is the only one with no mca_factcheck_runs row."
+          "observation": "Real production trace reconstructed from the project database: chat -1002661910336, 2026-11-06, target tg:1201663, trigger tg:1201664, admission v2_gate:ambiguous with multiple_dispute_candidates, no run row. Read-only, no messages sent."
         }
       ]
     },
@@ -41,19 +42,27 @@
       "acceptance": "Проверены восстановление Reply, семантического контекста, исходной YouTube-публикации и передача в FactCheck/Direct; зафиксирована точная стадия потери смысла со ссылкой на код.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "kind": "production_trace",
-          "candidate_commit": "a563ee31d216ed3fd526fdc75b6253f806bb12a2",
-          "ref": "plans/features/evol-reply-context-integrity/evidence/case-trace.md",
-          "observation": "Reconstructed from production data, chat -1002661910336, 2026-11-06: photo 'зацените хуйню построил', then video + youtube.com/shorts/Jl-KVNhnMjo (verified via YouTube oEmbed as a Minecraft builder short), WorldEdit discussion, target tg:1201663 'возможно... ФЕЙК', trigger tg:1201664 'фактчек'. Events factcheck_admission pipeline_path=v2_gate:ambiguous reason_code=multiple_dispute_candidates, deliver skipped. Of 12 factcheck triggers since 29.10 this is the only one with no mca_factcheck_runs row."
+          "kind": "code",
+          "candidate_commit": "428259e2",
+          "ref": "services/factcheck_orchestrator.py",
+          "artifact_sha256": "53375295A34BDBC9B8482F83F113B64B29A269AEF955F619A3C92E820430EE93",
+          "observation": "Ambiguous branch builds a deterministic candidate summary from claim_items or up to three significant context messages with author/date attribution, keeps a single short_reply call, keeps the owner speech block last, and strips raw context dumps from the model reply; it never selects a topic itself."
         },
         {
-          "kind": "code",
-          "candidate_commit": "a563ee31d216ed3fd526fdc75b6253f806bb12a2",
-          "ref": "services/factcheck_orchestrator.py",
-          "observation": "Loss stage: the ambiguous branch discards the already-built ConversationContext, render_feed and decision.claim_items; the single short_reply call receives only the bare target text."
+          "kind": "test",
+          "candidate_commit": "428259e2",
+          "ref": "tests/test_factcheck_orchestrator_cfg06.py",
+          "artifact_sha256": "60E3EC41D4604B91CA13056375EBA349307078734D0877DC46A571544B3BB8FB",
+          "observation": "22 tests in file; reverting the fix makes 4 of the 6 new tests fail (verified independently on this line), including the earlier-topic propagation case and the clean-publication negative case."
+        },
+        {
+          "kind": "production_trace",
+          "candidate_commit": "428259e2",
+          "ref": "plans/features/evol-reply-context-integrity/evidence/case-trace.md",
+          "observation": "Chat -1002661910336, 2026-11-06: photo, then video + youtube.com/shorts/Jl-KVNhnMjo (Minecraft builder, confirmed via oEmbed), WorldEdit discussion, target tg:1201663 'возможно... ФЕЙК', trigger tg:1201664 'фактчек'. Admission pipeline_path=v2_gate:ambiguous, reason_code=multiple_dispute_candidates, deliver skipped, no mca_factcheck_runs row. The topic was present; the orchestrator dropped it before the single short-reply call, so Analyst and Verbalizer never ran."
         }
       ]
     },
@@ -69,13 +78,27 @@
       "acceptance": "В существующую карту требований добавлен регрессионный сценарий «Reply на короткую фразу при наличии тематического контекста», без создания отдельного контекстного движка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
+          "kind": "code",
+          "candidate_commit": "428259e2",
+          "ref": "services/factcheck_orchestrator.py",
+          "artifact_sha256": "53375295A34BDBC9B8482F83F113B64B29A269AEF955F619A3C92E820430EE93",
+          "observation": "Ambiguous branch builds a deterministic candidate summary from claim_items or up to three significant context messages with author/date attribution, keeps a single short_reply call, keeps the owner speech block last, and strips raw context dumps from the model reply; it never selects a topic itself."
+        },
+        {
           "kind": "test",
-          "candidate_commit": "1703ff46",
+          "candidate_commit": "428259e2",
           "ref": "tests/test_factcheck_orchestrator_cfg06.py",
-          "observation": "Regression scenario 'Reply to a short phrase while the topic exists above' added to the existing suite: earlier YouTube/Minecraft topic reaches the short-reply input, no topic auto-selected."
+          "artifact_sha256": "60E3EC41D4604B91CA13056375EBA349307078734D0877DC46A571544B3BB8FB",
+          "observation": "22 tests in file; reverting the fix makes 4 of the 6 new tests fail (verified independently on this line), including the earlier-topic propagation case and the clean-publication negative case."
+        },
+        {
+          "kind": "production_trace",
+          "candidate_commit": "428259e2",
+          "ref": "plans/features/evol-reply-context-integrity/evidence/case-trace.md",
+          "observation": "Chat -1002661910336, 2026-11-06: photo, then video + youtube.com/shorts/Jl-KVNhnMjo (Minecraft builder, confirmed via oEmbed), WorldEdit discussion, target tg:1201663 'возможно... ФЕЙК', trigger tg:1201664 'фактчек'. Admission pipeline_path=v2_gate:ambiguous, reason_code=multiple_dispute_candidates, deliver skipped, no mca_factcheck_runs row. The topic was present; the orchestrator dropped it before the single short-reply call, so Analyst and Verbalizer never ran."
         }
       ]
     },
@@ -91,13 +114,27 @@
       "acceptance": "Причина исправлена минимально: ambiguity-ветка получает детерминированный контекст кандидатов, не выбирая тему программно и не добавляя LLM-вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "kind": "implementation",
+          "kind": "code",
           "candidate_commit": "428259e2",
           "ref": "services/factcheck_orchestrator.py",
-          "observation": "Deterministic candidate summary from claim_items or up to 3 significant ctx messages with author/date attribution; one short_reply call; speech_owner_block stays last; raw context dumps stripped from the model reply. 22 tests in file, 581 in the wide run."
+          "artifact_sha256": "53375295A34BDBC9B8482F83F113B64B29A269AEF955F619A3C92E820430EE93",
+          "observation": "Ambiguous branch builds a deterministic candidate summary from claim_items or up to three significant context messages with author/date attribution, keeps a single short_reply call, keeps the owner speech block last, and strips raw context dumps from the model reply; it never selects a topic itself."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "428259e2",
+          "ref": "tests/test_factcheck_orchestrator_cfg06.py",
+          "artifact_sha256": "60E3EC41D4604B91CA13056375EBA349307078734D0877DC46A571544B3BB8FB",
+          "observation": "22 tests in file; reverting the fix makes 4 of the 6 new tests fail (verified independently on this line), including the earlier-topic propagation case and the clean-publication negative case."
+        },
+        {
+          "kind": "production_trace",
+          "candidate_commit": "428259e2",
+          "ref": "plans/features/evol-reply-context-integrity/evidence/case-trace.md",
+          "observation": "Chat -1002661910336, 2026-11-06: photo, then video + youtube.com/shorts/Jl-KVNhnMjo (Minecraft builder, confirmed via oEmbed), WorldEdit discussion, target tg:1201663 'возможно... ФЕЙК', trigger tg:1201664 'фактчек'. Admission pipeline_path=v2_gate:ambiguous, reason_code=multiple_dispute_candidates, deliver skipped, no mca_factcheck_runs row. The topic was present; the orchestrator dropped it before the single short-reply call, so Analyst and Verbalizer never ran."
         }
       ]
     },
@@ -113,8 +150,29 @@
       "acceptance": "Независимый Reviewer проверил исправление на точном кандидате; приёмка не основана только на зелёных unit-тестах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "428259e2",
+          "ref": "services/factcheck_orchestrator.py",
+          "artifact_sha256": "53375295A34BDBC9B8482F83F113B64B29A269AEF955F619A3C92E820430EE93",
+          "observation": "Ambiguous branch builds a deterministic candidate summary from claim_items or up to three significant context messages with author/date attribution, keeps a single short_reply call, keeps the owner speech block last, and strips raw context dumps from the model reply; it never selects a topic itself."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "428259e2",
+          "ref": "tests/test_factcheck_orchestrator_cfg06.py",
+          "artifact_sha256": "60E3EC41D4604B91CA13056375EBA349307078734D0877DC46A571544B3BB8FB",
+          "observation": "22 tests in file; reverting the fix makes 4 of the 6 new tests fail (verified independently on this line), including the earlier-topic propagation case and the clean-publication negative case."
+        },
+        {
+          "kind": "production_trace",
+          "candidate_commit": "428259e2",
+          "ref": "plans/features/evol-reply-context-integrity/evidence/case-trace.md",
+          "observation": "Chat -1002661910336, 2026-11-06: photo, then video + youtube.com/shorts/Jl-KVNhnMjo (Minecraft builder, confirmed via oEmbed), WorldEdit discussion, target tg:1201663 'возможно... ФЕЙК', trigger tg:1201664 'фактчек'. Admission pipeline_path=v2_gate:ambiguous, reason_code=multiple_dispute_candidates, deliver skipped, no mca_factcheck_runs row. The topic was present; the orchestrator dropped it before the single short-reply call, so Analyst and Verbalizer never ran."
+        }
+      ]
     },
     {
       "source_id": "M-RCI-06",
@@ -132,21 +190,21 @@
       "evidence": [
         {
           "kind": "code",
-          "candidate_commit": "d8feb2a0",
+          "candidate_commit": "428259e2",
           "ref": "services/mca_events.py",
           "artifact_sha256": "E0A420499E8521939ED8DA67ACB28ECFC290C0CA52CF32B65E341D355039FBF4",
           "observation": "Whitelist covers every literal reason_code emitted on the factcheck stage_event path; an unknown code is persisted as a stable unmapped:<sha8> marker with a WARN that carries only the marker and length, and never raises into the request path."
         },
         {
           "kind": "code",
-          "candidate_commit": "d8feb2a0",
+          "candidate_commit": "428259e2",
           "ref": "services/bot_output_ledger.py",
           "artifact_sha256": "9AF0543CE4B0C1A266EBD1ABCAE8014D4276446A9B0366510F47D4FB9430319B",
           "observation": "The short clarify reply is written to mca_bot_outputs only when delivery returned a message id: direct_reply + source_feature='factcheck', real tg id, parent ref, correlation id, no HTML or technical fields; a misbehaving send (None id or exception) leaves zero rows."
         },
         {
           "kind": "review",
-          "candidate_commit": "d8feb2a0",
+          "candidate_commit": "428259e2",
           "ref": "plans/features/evol-reply-context-integrity/requirements-map.json",
           "observation": "Independent Reviewer: own probes for unconfirmed delivery and for an unknown code with free text (raw text absent from DB and logs), mutations M1/M2 red, 117 targeted tests green, 253 in the wider event-contract batch with 3 pre-existing reds reproduced on base."
         }
@@ -335,5 +393,5 @@
       "evidence": []
     }
   ],
-  "binding_note": "Production trace evidence (chat -1002661910336) references commits on the release line; on this line they become valid ancestors only after the release merge. Until then RCI-01..03 stay PENDING with evidence retained; RCI-04 is REVIEW against the ported fix 428259e2; RCI-06 (honest ambiguity reason code) is PENDING."
+  "binding_note": "Bound on release/2.58.162, where the production commit a563ee31 is an ancestor, so the reconstructed production trace is valid evidence. RCI-01..03 = production case and loss stage; RCI-04/05 = the ported fix 428259e2 and its independent review; RCI-06 = observability candidate d8feb2a0."
 }

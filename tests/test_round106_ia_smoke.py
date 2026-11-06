@@ -54,7 +54,7 @@ class TestCatalogInvariant106:
         assert len(pc.TAB_RULES) == 22
         # Settings-поля: EVOL-031 все 5 smart/dedup-ключей СОХРАЕНЫ (no-op) —
         # дрейф 466→465 внешний (закоммиченный EVOL-016/012), не этой задачи.
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 468
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 471  # MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_five_master_flags_default_true(self):
         s = Settings()
@@ -140,7 +140,9 @@ class TestModulesAndAi:
         mods = JS[start:JS.index("];", start)]
         # F21 (10.24, ADR-1024-22 D7): +1 toggleKey (mod_budgets) → 12.
         # F5 (10.24, ADR-1024-9 D1): +1 toggleKey (mod_images) → 13.
-        assert mods.count("toggleKey:") == 15  # ASAP 7 F3: +mod_initiative
+        # 16: UR-F «Модули → Время» added mod_time (candidate 95e5815d, shipped 2.58.160);
+        # measured on the unified line: 16 toggleKey / 16 unique module ids.
+        assert mods.count("toggleKey:") == 16
         for title in ("Саммаризация", "Прямые ответы", "Фактчек", "Поиск",
                       "Транскрипт голосовых и видео", "Выжимка видео",
                       "Скачивание медиа", "Веб-страницы", "Диагностика",

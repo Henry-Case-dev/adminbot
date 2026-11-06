@@ -113,7 +113,9 @@ def test_config_item_notice_unchanged():
 def test_runtime_gate_metadata_complete():
     modules = _block("var MODULES = [", "  ];")
     assert modules.count("runtimeGate:") == 15, modules.count("runtimeGate:")
-    assert modules.count("keywords:") == 15, modules.count("keywords:")
+    # 16: mod_time (UR-F, shipped 2.58.160) has noToggle and no runtimeGate,
+    # so keywords grow to 16 while runtimeGate stays 15 — measured on the unified line.
+    assert modules.count("keywords:") == 16, modules.count("keywords:")
     # 10 модулей глобальные, 5 — по-чатово (аудит ADR §D3;
     # ASAP 7 F3: Initiative — global, effective = env AND product §3.3).
     # v6.3 B06.1: Summary — per_chat (единый резолвер
@@ -186,7 +188,7 @@ def test_catalog_delta_zero():
     assert len(pc.GROUPS) == 121
     assert len(pc._TAB_BY_GROUP) == 119
     assert len(pc.TAB_RULES) == 22
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 471  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
 
 def test_no_new_state_libraries():
