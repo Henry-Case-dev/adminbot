@@ -69,6 +69,7 @@ import logging
 import time
 
 from config.settings import settings
+from services import summary_stage_events as _stage_events_mod
 from services.summary_l2_writer import (
     L2Result,
     L2Slot,
@@ -953,8 +954,16 @@ def _stage_event(stage, *, attempt, status, reason_code=None,
                  finding_codes=None, blocking_count=None, paragraph_ids=None,
                  revision_target=None, revision_result=None,
                  revision_failure_reason=None,
-                 deterministic_validation_codes=None) -> dict:
-    """Append-only stage event (§50.54; R17-safe: числа/коды/id)."""
+                 deterministic_validation_codes=None,
+                 finish_reason=None, usage=None, chars=None,
+                 text_digest=None, clock=None, decision=None) -> dict:
+    """Append-only stage event (§50.54; R17-safe: числа/коды/id).
+
+    UR-26.5/UR-30.4 (payload-наблюдаемость): аддитивные поля ``finish_reason``
+    (код завершения), ``usage`` ({input_tokens, output_tokens}), ``chars``,
+    ``text_digest`` (digest сырого ответа стадии, blake2s 16 hex — без текста),
+    ``clock`` (наличие ChatClock-блока в исходящем payload'е, честный код
+    пропуска) и ``decision`` (явный код решения/результата)."""
     return {
         "stage": stage,
         "attempt": int(attempt),
@@ -966,6 +975,12 @@ def _stage_event(stage, *, attempt, status, reason_code=None,
         "output_count": output_count,
         "provider": provider,
         "model": model,
+        "finish_reason": finish_reason,
+        "usage": usage,
+        "chars": chars,
+        "text_digest": text_digest,
+        "clock": clock,
+        "decision": decision,
         "fallback_target": fallback_target,
         "repair_target": repair_target,
         # T-4877: диагноза rejection без raw text/prompt (коды/id/числа).
@@ -1001,6 +1016,28 @@ def _record(ctx, event: dict) -> None:
 def _extract_usage(value):
     from services.summary_l2_writer import _extract_usage as _impl
     return _impl(value)
+
+
+def _payload_clock_meta(snap, messages, chat_id):
+    """Честная clock-мета ФАКТИЧЕСКОГО исходящего payload'а (UR-30.4).
+
+    ``snap`` — answer-снапшот стадии; блок прикрепляется к последнему
+    user-сообщению при вызове — мета строится по реконструированному
+    payload'у (тот же attach, идемпотентный), а не по ожиданиям. Без
+    чата/снапшота — явный skip-код. Никогда не бросает."""
+    try:
+        if chat_id is None:
+            return {"clock_included": False, "skip_reason": "no_chat_id"}
+        if snap is None:
+            return {"clock_included": False, "skip_reason": "no_snapshot"}
+        from services import chat_clock as _cc
+        attached = _cc.attach_time_context(messages, snap,
+                                           phase=_cc.PHASE_ANSWER)
+        meta = _cc.outbound_clock_meta(attached)
+        return meta or {"clock_included": False,
+                        "skip_reason": "no_time_block"}
+    except Exception:      # pragma: no cover - best-effort
+        return {"clock_included": False, "skip_reason": "no_time_block"}
 
 
 async def _call_llm(llm, slot: L2Slot, messages, *, correlation_id,
@@ -1093,7 +1130,7 @@ async def run_l2_with_review(llm, package, *, service=None,
                                slot=slot, llm_call=llm_call,
                                source_input=writer_source_input,
                                length=writer_length,
-                               anchor_map=anchor_map)
+                               anchor_map=anchor_map, ctx=ctx)
     if not draft.usable:
         return draft
     if not l2_review_enabled():
@@ -1189,19 +1226,25 @@ async def run_l2_with_review(llm, package, *, service=None,
             current_doc_metrics)
         deterministic_codes = [f["code"] for f in deterministic_findings]
         review_started = time.time()
+        # UR-26.5/UR-30.4: payload стадии собирается явно — messages вынесены
+        # для честной фиксации наличия ChatClock-блока в исходящем payload'е.
+        review_messages = [
+            {"role": "system",
+             "content": source_review_system},
+            {"role": "user",
+             "content": build_review_content(
+                 package, current_doc, roster, deterministic_findings,
+                 source_window_content=source_window_content,
+                 semantic_map=semantic_map,
+                 evidence_slices=evidence_slices)},
+        ]
+        _review_clock = _payload_clock_meta(
+            _rev_time_snap, review_messages, chat_id)
         try:
             raw, _usage = await _call_llm(
-                llm, reviewer,
-                [{"role": "system",
-                  "content": source_review_system},
-                 {"role": "user",
-                  "content": build_review_content(
-                      package, current_doc, roster, deterministic_findings,
-                      source_window_content=source_window_content,
-                      semantic_map=semantic_map,
-                      evidence_slices=evidence_slices)}],
-                 correlation_id=correlation_id, llm_call=reviewer_call,
-                 operation="reviewer", time_snap=_rev_time_snap)
+                llm, reviewer, review_messages,
+                correlation_id=correlation_id, llm_call=reviewer_call,
+                operation="reviewer", time_snap=_rev_time_snap)
         except Exception as exc:  # noqa: BLE001 - outage-путь §50.29
             _record(ctx, _stage_event(
                 "l2_reviewer", attempt=metrics["l2_review_calls"] + 1,
@@ -1260,7 +1303,16 @@ async def run_l2_with_review(llm, package, *, service=None,
             paragraph_ids=sorted({
                 f.paragraph_index for f in verdict.findings
                 if f.paragraph_index is not None}),
-            deterministic_validation_codes=deterministic_codes))
+            deterministic_validation_codes=deterministic_codes,
+            finish_reason=str(verdict.raw_status or verdict.status),
+            usage=(_usage if isinstance(_usage, dict) else None),
+            chars=len(str(raw or "")),
+            text_digest=_stage_events_mod.text_digest(raw),
+            clock=_review_clock,
+            model=str(getattr(reviewer, "model", "") or "") or None,
+            provider=_stage_events_mod.provider_host(
+                getattr(reviewer, "base_url", "")),
+            decision=f"verdict={verdict.status}"))
         last_verdict = verdict
         if verdict.status == VERDICT_APPROVED:
             break
@@ -1375,6 +1427,10 @@ async def run_l2_with_review(llm, package, *, service=None,
         # заведомо сломанный режим (потолок ≤2 ревизий не меняется).
         findings_majority = bool(paragraphs_now) and \
             len(findings_paragraphs) * 2 > len(paragraphs_now)
+        # UR-26.5/UR-30.4: payload revision-стадии — messages/clock/usage
+        # собираются в ветках ниже; финальное событие несёт digest/clock.
+        rev_messages = None
+        rev_clock = None
         use_full_doc = (
             (not revision_patch_enabled())
             or patch_failures >= 1
@@ -1400,15 +1456,19 @@ async def run_l2_with_review(llm, package, *, service=None,
                         review_payload_items),
                 })
             try:
+                rev_messages = [
+                    {"role": "system",
+                     "content": SUMMARY_L2_REVISER_SYSTEM_PROMPT + "\n\n"
+                     + SUMMARY_L2_TARGETED_REVISION_ANCHORS_BLOCK},
+                    {"role": "user",
+                     "content": build_targeted_revision_batch_content(
+                         entries=entries,
+                         title=str(current_doc.get("title") or ""))},
+                ]
+                rev_clock = _payload_clock_meta(
+                    _rev_time_snap, rev_messages, chat_id)
                 raw_rev, _usage = await _call_llm(
-                    llm, reviewer,
-                    [{"role": "system",
-                      "content": SUMMARY_L2_REVISER_SYSTEM_PROMPT + "\n\n"
-                      + SUMMARY_L2_TARGETED_REVISION_ANCHORS_BLOCK},
-                     {"role": "user",
-                      "content": build_targeted_revision_batch_content(
-                          entries=entries,
-                          title=str(current_doc.get("title") or ""))}],
+                    llm, reviewer, rev_messages,
                     correlation_id=correlation_id, llm_call=revision_call,
                     operation="revision", time_snap=_rev_time_snap)
             except Exception as exc:  # noqa: BLE001 - revision outage
@@ -1442,16 +1502,20 @@ async def run_l2_with_review(llm, package, *, service=None,
             excerpts = _anchor_source_excerpts(
                 targeted_issue, anchor_map, review_payload_items)
             try:
+                rev_messages = [
+                    {"role": "system",
+                     "content": SUMMARY_L2_REVISER_SYSTEM_PROMPT + "\n\n"
+                     + SUMMARY_L2_TARGETED_REVISION_ANCHORS_BLOCK},
+                    {"role": "user",
+                     "content": build_targeted_revision_content(
+                         paragraph=para, paragraph_id=para_id,
+                         issue=targeted_issue, source_excerpts=excerpts,
+                         title=str(current_doc.get("title") or ""))},
+                ]
+                rev_clock = _payload_clock_meta(
+                    _rev_time_snap, rev_messages, chat_id)
                 raw_rev, _usage = await _call_llm(
-                    llm, reviewer,
-                    [{"role": "system",
-                      "content": SUMMARY_L2_REVISER_SYSTEM_PROMPT + "\n\n"
-                      + SUMMARY_L2_TARGETED_REVISION_ANCHORS_BLOCK},
-                     {"role": "user",
-                      "content": build_targeted_revision_content(
-                          paragraph=para, paragraph_id=para_id,
-                          issue=targeted_issue, source_excerpts=excerpts,
-                          title=str(current_doc.get("title") or ""))}],
+                    llm, reviewer, rev_messages,
                     correlation_id=correlation_id, llm_call=revision_call,
                     operation="revision", time_snap=_rev_time_snap)
             except Exception as exc:  # noqa: BLE001 - revision outage
@@ -1475,16 +1539,20 @@ async def run_l2_with_review(llm, package, *, service=None,
             repair_target = "targeted"
         else:
             try:
+                rev_messages = [
+                    {"role": "system",
+                     "content": SUMMARY_L2_REVISER_SYSTEM_PROMPT},
+                    {"role": "user",
+                     "content": build_revision_content(
+                         package, current_doc, verdict.findings,
+                         full_doc=use_full_doc,
+                         source_window_content=source_window_content,
+                         semantic_map=semantic_map)},
+                ]
+                rev_clock = _payload_clock_meta(
+                    _rev_time_snap, rev_messages, chat_id)
                 raw_rev, _usage = await _call_llm(
-                    llm, reviewer,
-                    [{"role": "system",
-                      "content": SUMMARY_L2_REVISER_SYSTEM_PROMPT},
-                     {"role": "user",
-                      "content": build_revision_content(
-                          package, current_doc, verdict.findings,
-                          full_doc=use_full_doc,
-                          source_window_content=source_window_content,
-                          semantic_map=semantic_map)}],
+                    llm, reviewer, rev_messages,
                     correlation_id=correlation_id, llm_call=revision_call,
                     operation="revision", time_snap=_rev_time_snap)
             except Exception as exc:  # noqa: BLE001 - revision outage
@@ -1520,7 +1588,18 @@ async def run_l2_with_review(llm, package, *, service=None,
             repair_target=repair_target, revision_target=repair_target,
             revision_result="ok" if revised is not None else "invalid",
             revision_failure_reason=(None if revised is not None
-                                     else str(reason or "revision_invalid"))))
+                                     else str(reason or "revision_invalid")),
+            finish_reason=("revision_applied" if revised is not None
+                           else "revision_invalid"),
+            usage=(_usage if isinstance(_usage, dict) else None),
+            chars=len(str(raw_rev or "")),
+            text_digest=_stage_events_mod.text_digest(raw_rev),
+            clock=rev_clock,
+            model=str(getattr(reviewer, "model", "") or "") or None,
+            provider=_stage_events_mod.provider_host(
+                getattr(reviewer, "base_url", "")),
+            decision=("revision_applied" if revised is not None
+                      else f"revision_invalid:{str(reason or 'invalid')}")))
         # T-4624 (spec §7.3; §42 ТЗ): SUMMARY_REVISION_RESULT — каждый
         # шаг bounded revision виден в mca_events (attempt/patch-target,
         # R17-числа). Fail-open; gated реальным transport'ом.
@@ -1596,13 +1675,13 @@ async def run_l2_with_review(llm, package, *, service=None,
 
 async def _writer_call(llm, package, *, service, correlation_id, chat_id,
                        slot, llm_call, source_input=None, length=None,
-                       anchor_map=None) -> L2Result:
+                       anchor_map=None, ctx=None) -> L2Result:
     from services.summary_l2_writer import run_l2
     return await run_l2(llm, package, service=service,
                         correlation_id=correlation_id, chat_id=chat_id,
                         slot=slot, llm_call=llm_call,
                         source_input=source_input, length=length,
-                        anchor_map=anchor_map)
+                        anchor_map=anchor_map, ctx=ctx)
 
 
 def _quote_unverified_is_live(metrics: dict) -> bool:

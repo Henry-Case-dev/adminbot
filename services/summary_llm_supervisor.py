@@ -744,11 +744,28 @@ async def execute_supervised(llm, *, messages, operation: str,
                          else getattr(llm, "_chat_model", "")),
                "messages": messages}
     _RECENT_STATES.append(state)
+    # UR-26.5/UR-30.4: supervised-вызов обслуживает payload стадии — фиксируем
+    # наличие ChatClock-блока в событии активности (R17: только коды/числа).
+    _clock = {}
+    try:
+        from services.summary_stage_events import clock_meta as _clock_of
+        _clock = _clock_of(messages, chat_id=chat_id) or {}
+    except Exception:      # pragma: no cover - best-effort
+        _clock = {}
+    _clock_counts = {"clock_included": bool(_clock.get("clock_included"))}
+    if _clock.get("timezone"):
+        _clock_counts["clock_timezone"] = str(_clock["timezone"])[:64]
+    if _clock.get("phase"):
+        _clock_counts["clock_phase"] = str(_clock["phase"])[:16]
+    if not _clock.get("clock_included"):
+        _clock_counts["clock_skip_reason"] = str(
+            _clock.get("skip_reason") or "no_time_block")[:32]
     _emit_activity(state, correlation_id, chat_id=chat_id, outcome="start",
                    level="INFO", counts={"mode": mode, "op": operation,
                                          "bucket": state.token_bucket,
                                          "deadline_source": deadline_source,
                                          "deadline_s": round(deadline, 1),
+                                         **_clock_counts,
                                          **caps.as_counts()})
     fuse = hard_deadline_seconds()
     inactivity = inactivity_threshold_seconds()

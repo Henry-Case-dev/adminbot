@@ -1139,8 +1139,16 @@ class TestRunState:
             revision_call=revision, ctx=ctx)
         assert result.status == "ok"
         stages = [e["stage"] for e in ctx.stage_events]
-        assert stages == ["l2_reviewer", "revision", "l2_reviewer"]
-        assert ctx.stage_events[1]["repair_target"] == "patch"
+        # UR-26.5: writer/repair события стадии теперь тоже append-only в
+        # общем журнале (l2_writer перед review, repair после writer);
+        # порядок review-цикла сохраняется подпоследовательностью.
+        review_stages = [s for s in stages
+                         if s in ("l2_reviewer", "revision")]
+        assert review_stages == ["l2_reviewer", "revision", "l2_reviewer"]
+        assert stages.index("l2_writer") < stages.index("l2_reviewer")
+        revision_event = next(e for e in ctx.stage_events
+                              if e["stage"] == "revision")
+        assert revision_event["repair_target"] == "patch"
 
     def test_health_set_on_legacy_path(self):
         """Q36: генератор выставляет health=degraded ДО Legacy и не стирает

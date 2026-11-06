@@ -50,6 +50,7 @@ from services.llm_client import LLMBadResponseError, LLMError
 from services.prompt_style_blocks import resolve_prompt, resolve_prompt_with_source
 # UR-C-CLOCK: единственный источник времени чата (UR-26.5).
 from services import chat_clock as _cclock
+from services import summary_stage_events as _stage_events_mod
 # ── ASAP 8 F1 (§1.4 architecture): гранулярная детекция + deterministic
 # repair §99-документов. Чистый модуль (без LLM/IO) — writer остаётся
 # владельцем валидации; repair сам импортирует helpers этого модуля ЛЕНИВО
@@ -1575,7 +1576,7 @@ async def _hybrid_length_for_chat(chat_id) -> dict:
 async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
                  slot=None, chat_id=None,
                  system_prompt=None, llm_call=None, source_input=None,
-                 length=None, anchor_map=None) -> L2Result:
+                 length=None, anchor_map=None, ctx=None) -> L2Result:
     """Один прогон L2: контент пакета §96 → **1 LLM-вызов** → §99-документ.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
@@ -1707,16 +1708,35 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
                    base_url=base_url, reason=reason, error_type=type(exc).__name__,
                    duration_ms=_elapsed(),
                    http_status=http_status_of(exc), attempts=attempts_of(exc))
+        # UR-26.5/UR-30.4: ошибка стадии — явное событие (transport-код,
+        # наличие clock-блока в исходящем payload'е — блок уже добавлен).
+        _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+            _stage_events_mod.STAGE_L2_WRITER, attempt=1, status="error",
+            reason_code=reason, started=started, model=model,
+            provider=_stage_events_mod.provider_host(base_url),
+            finish_reason=f"llm_{type(exc).__name__}",
+            clock=_stage_events_mod.clock_meta(messages, chat_id=chat_id),
+            decision="writer_transport_error"))
         return error_result(reason, duration_ms=_elapsed())
     except Exception as exc:
         _log_error(correlation_id=correlation_id, chat_id=chat_id, model=model,
                    base_url=base_url, reason=REASON_LLM_ERROR,
                    error_type=type(exc).__name__, duration_ms=_elapsed(),
                    http_status=http_status_of(exc), attempts=attempts_of(exc))
+        _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+            _stage_events_mod.STAGE_L2_WRITER, attempt=1, status="error",
+            reason_code=REASON_LLM_ERROR, started=started, model=model,
+            provider=_stage_events_mod.provider_host(base_url),
+            finish_reason=f"llm_{type(exc).__name__}",
+            clock=_stage_events_mod.clock_meta(messages, chat_id=chat_id),
+            decision="writer_transport_error"))
         return error_result(REASON_LLM_ERROR, duration_ms=_elapsed())
 
     usage = {"input_tokens": tokens_in, "output_tokens": tokens_out}
     data, parse_reason = parse_l2_document(raw)
+    # UR-26.5/UR-30.4: текст/payload последней попытки стадии (для digest/clock).
+    produced_raw = raw
+    payload_messages = messages
 
     def _validate_attempt(parsed):
         """Валидация одного разбранного ответа (anchor/v1 по режиму)."""
@@ -1769,6 +1789,15 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
                        model=model, base_url=base_url, reason=reason,
                        error_type=type(exc).__name__, duration_ms=_elapsed(),
                        http_status=http_status_of(exc), attempts=attempts_of(exc))
+            # UR-26.5/UR-30.4: correction-попытка — явный код решения.
+            _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+                _stage_events_mod.STAGE_L2_WRITER, attempt=2, status="error",
+                reason_code=str(reason or REASON_LLM_ERROR), started=started,
+                model=model, provider=_stage_events_mod.provider_host(base_url),
+                finish_reason=f"correction_{type(exc).__name__}",
+                clock=_stage_events_mod.clock_meta(
+                    correction_messages, chat_id=chat_id),
+                decision=f"correction_retry:defect={str(reason or 'invalid')}"))
             result = invalid_result(
                 reason or REASON_LLM_ERROR, duration_ms=_elapsed(),
                 usage=usage, metrics=_with_call_metrics(metrics))
@@ -1780,6 +1809,14 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
             _log_error(correlation_id=correlation_id, chat_id=chat_id,
                        model=model, base_url=base_url, reason=reason,
                        error_type=type(exc).__name__, duration_ms=_elapsed())
+            _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+                _stage_events_mod.STAGE_L2_WRITER, attempt=2, status="error",
+                reason_code=str(reason or REASON_LLM_ERROR), started=started,
+                model=model, provider=_stage_events_mod.provider_host(base_url),
+                finish_reason=f"correction_{type(exc).__name__}",
+                clock=_stage_events_mod.clock_meta(
+                    correction_messages, chat_id=chat_id),
+                decision=f"correction_retry:defect={str(reason or 'invalid')}"))
             result = invalid_result(
                 reason or REASON_LLM_ERROR, duration_ms=_elapsed(),
                 usage=usage, metrics=_with_call_metrics(metrics))
@@ -1790,6 +1827,8 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
         usage = {"input_tokens": (tokens_in or 0) + (tokens_in2 or 0),
                  "output_tokens": (tokens_out or 0) + (tokens_out2 or 0)}
         tokens_in, tokens_out = usage["input_tokens"], usage["output_tokens"]
+        produced_raw = raw2
+        payload_messages = correction_messages
         data2, parse_reason2 = parse_l2_document(raw2)
         if data2 is None:
             reason = parse_reason2 if parse_reason2 != REASON_OK \
@@ -1826,6 +1865,54 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
                               usage=usage,
                               metrics=_with_call_metrics(metrics),
                               duration_ms=_elapsed())
+
+    # ── UR-26.5/UR-30.4: payload-наблюдаемость stage2 (writer) и repair ──
+    # Явные события: модель/провайдер, finish/usage/chars, digest сырого
+    # ответа, digest канонического plain-рендера документа (полный текст,
+    # как в леджере — UR-23.4), наличие ChatClock-блока, коды решений
+    # correction/repair. Без сырых текстов (R17).
+    _w_clock = _stage_events_mod.clock_meta(payload_messages, chat_id=chat_id)
+    _w_provider = _stage_events_mod.provider_host(base_url)
+    _w_decision = (f"correction_retry:defect={str(reason or 'invalid')}"
+                   if correction_used else "writer_ok" if document is not None
+                   else "writer_invalid")
+    _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+        _stage_events_mod.STAGE_L2_WRITER, attempt=int(l2_calls or 1),
+        status="ok" if document is not None else str(result.status or "invalid"),
+        reason_code=(None if document is not None
+                     else str(reason or result.invalid_reason or "invalid")),
+        started=started, model=model, provider=_w_provider,
+        finish_reason=("validated" if document is not None
+                       else str(reason or result.invalid_reason or "invalid")),
+        usage=usage, chars=len(str(produced_raw or "")),
+        text_digest=_stage_events_mod.text_digest(produced_raw),
+        document_digest=_stage_events_mod.document_plain_digest(document),
+        clock=_w_clock, decision=_w_decision,
+        output_count=len(((document or {}).get("paragraphs")) or [])))
+    if document is not None:
+        _repairs = int(metrics.get("repairs_applied") or 0)
+        _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+            _stage_events_mod.STAGE_REPAIR, attempt=1,
+            status="ok",
+            reason_code=(str(metrics.get("reason_code"))
+                         if metrics.get("reason_code") else None),
+            started=started, model=None, provider=None,
+            finish_reason="deterministic",
+            chars=int(metrics.get("chars")) if metrics.get("chars")
+            else None,
+            document_digest=_stage_events_mod.document_plain_digest(document),
+            decision=(f"repair_applied:{_repairs}" if _repairs
+                      else "repair_not_needed"),
+            output_count=len(((document or {}).get("paragraphs")) or [])))
+    else:
+        _had_repair = bool(metrics.get("repair_actions"))
+        _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+            _stage_events_mod.STAGE_REPAIR, attempt=1, status="invalid",
+            reason_code=str(reason or result.invalid_reason or "invalid"),
+            started=started, model=None, provider=None,
+            finish_reason="deterministic",
+            decision=("repair_failed" if _had_repair
+                      else "repair_not_applicable")))
 
     _log_complete(correlation_id=correlation_id, chat_id=chat_id,
                   result=result, model=model, base_url=base_url,
