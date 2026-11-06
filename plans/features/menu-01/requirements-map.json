@@ -146,18 +146,30 @@
       "req_id": "MENU-01.4",
       "slice": "MENU-01",
       "acceptance": "Регистрация подтверждается объективным признаком, а не наличием env; при неподтверждённой регистрации статус остаётся «не проверено», реальный переход проверяется клиентом Telegram.",
-      "live_required": true,
-      "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
       "evidence": [
         {
           "kind": "external",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "owner-side Telegram/BotFather evidence",
           "observation": "BotFather registration / Main Mini App or named Direct Link confirmation requires the owner account. Code part is reviewed; only this live observation is outstanding."
+        },
+        {
+          "kind": "owner_decision",
+          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "ref": "owner message 2026-11-07 (BotFather state)",
+          "observation": "Owner verified BotFather: Menu Button and Main App are Enabled and both point to the existing Mini App https://admin-bot.duckdns.org/web/ ; Main App is configured as Fullscreen. Registration of the Main Mini App is therefore already done, so no new app and no Direct Link setup is required."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "ref": "handlers/menu.py",
+          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "observation": "Code emits the official main form t.me/<bot_username>?startapp with the username taken dynamically from bot.me(); the mode is selected from configuration, not guessed."
         }
-      ],
-      "blocked_reason": "PENDING_EXTERNAL"
+      ]
     },
     {
       "source_id": "M-MENU-01.5",
@@ -217,13 +229,13 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "kind": "external",
+          "kind": "live_plan",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
-          "ref": "owner-side Telegram/BotFather evidence",
-          "observation": "Live group allowlist/ACL behaviour requires real admin and non-admin group members. Code part is reviewed; only this live observation is outstanding."
+          "ref": "server-side launch evidence",
+          "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
         }
       ],
-      "blocked_reason": "PENDING_EXTERNAL"
+      "blocked_reason": "LIVE_OBSERVATION_PENDING"
     },
     {
       "source_id": "M-MENU-01.7",
@@ -326,13 +338,13 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "kind": "external",
+          "kind": "live_plan",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
-          "ref": "owner-side Telegram/BotFather evidence",
-          "observation": "Android/Telegram Desktop matrix, fresh/expired/forged initData and cross-chat opening require real clients. Code part is reviewed; only this live observation is outstanding."
+          "ref": "server-side launch evidence",
+          "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
         }
       ],
-      "blocked_reason": "PENDING_EXTERNAL"
+      "blocked_reason": "LIVE_OBSERVATION_PENDING"
     },
     {
       "source_id": "M-MENU-01.10",
@@ -349,13 +361,13 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "kind": "external",
+          "kind": "live_plan",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
-          "ref": "owner-side Telegram/BotFather evidence",
-          "observation": "DONE needs an actual Mini App launch in the Telegram client with valid initData. Code part is reviewed; only this live observation is outstanding."
+          "ref": "server-side launch evidence",
+          "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
         }
       ],
-      "blocked_reason": "PENDING_EXTERNAL"
+      "blocked_reason": "LIVE_OBSERVATION_PENDING"
     }
   ],
   "items": [
@@ -405,5 +417,5 @@
       "evidence": []
     }
   ],
-  "binding_note": "Candidate 14400b73 (commits 5a8e1d14+b2cc6d5c+14400b73) on base 8bb2800fc906ecb37319bb32f14084839643a17b; independent Reviewer Approved the code part. Rows MENU-01.4/6/9/10 stay PENDING_EXTERNAL and must never be bound VERIFIED without real Telegram evidence."
+  "binding_note": "Candidate 14400b73 on base 8bb2800f; code part independently Approved. Main Mini App registration is owner-confirmed (Enabled, Fullscreen, existing /web/ app), so MENU-01.4 is no longer externally blocked. Remaining live proof is the real startapp launch, initData validation and ACL behaviour on real clients."
 }
