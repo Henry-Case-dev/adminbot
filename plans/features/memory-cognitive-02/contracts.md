@@ -346,12 +346,23 @@ RelationView = {
 |---|---|
 | `quote_forward` | `smart_messages`: `is_forward=1` **или** `COALESCE(forward_source,'')<>''`; `graph_facts`: `COALESCE(forward_from,'')<>''` **или** `perspective='quoted'` |
 | `reported_third_party` | `perspective='third_party'` **или** `attribution_method='third_party'` |
-| `explicit_direct` | `perspective='self'` **и** `attribution_method IN ('self_report','direct_evidence')` |
+| `explicit_direct` | **подтверждённое авторство** (§2.2.0): `perspective='self'` **или** (`perspective IS NULL` **и** сохранённое авторское сообщение факта не переслано, а его автор совпадает с субъектом/говорящим) **и при этом** `attribution_method IN ('self_report','direct_evidence')` |
 | `derived_with_lineage` | `provenance_channel IN ('dream','dossier_layer_a','dossier_layer_b')` **или** evidence-link `derived_from` (обязателен `basis`/`method` с правилом вывода) |
 | `cooccurrence` | только `mca_associations` (в `edges` не пишется вовсе) |
 | `legacy_unknown` | `edges.fact_id IS NULL` и нет ни одной evidence-связи, либо сигналов нет |
 
 **Колонки не путать:** `smart_messages.forward_source` — display-строка пересылки, `smart_messages.forward_from` **не существует**; `graph_facts.forward_from` — строка provenance факта, `graph_facts.forward_source` **не существует**. Перекрёстное чтение даёт молчаливый `''`/ошибку, поэтому условие всегда пишется per-table, как в таблице выше.
+
+#### 2.2.1. `explicit_direct` = подтверждённое авторство, а не заявленный метод
+
+`attribution_method` пишет сам вызывающий код (`provenance.classify_attribution_method`, `summary_memory._attach_fact_provenance`, `direct_chat_service._apply_fact_attribution`, `lore_worker._write_person_facts`). Поле описывает **чьё это утверждение по мнению писателя**, а не подтверждает, что утверждение действительно произнесено субъектом. Поэтому `explicit_direct` требует **второго реального сигнала авторства**, независимого от `attribution_method`:
+
+1. **`graph_facts.perspective='self'`** — автор явно помечен субъектом типизированной записи (`mca_self_model.store_typed_memory` → `database.save_typed_fact` — единственный INSERT, вообще заполняющий `perspective`); **или**
+2. **`graph_facts.perspective IS NULL` и у факта есть сохранённое авторское сообщение**: `graph_facts.tg_message_id` резолвится в строку `smart_messages` того же `chat_id`, где `is_forward=0` и `COALESCE(forward_source,'')=''`, и `smart_messages.user_id` совпадает с идентичностью субъекта/говорящего факта — `graph_facts.subject_ref_id` → `mca_source_refs(entity_type='user', entity_id=<uid>)`, либо `graph_facts.speaker_author_id`, либо `target_user`, резолвленный ровно в один `user_id` (`provenance.resolve_subject_ref`; при ≥2 одноимённых — **не** совпадение).
+
+`attribution_method IN ('self_report','direct_evidence')` остаётся **необходимым, но недостаточным** условием. Во всех остальных случаях класс не `explicit_direct`: `perspective='third_party'`/`attribution_method='third_party'` → `reported_third_party`, иначе `legacy_unknown` (тогда нет `supports`-связи, `independent_support` не растёт, `status` не может стать `confirmed`). «Мягкий» вариант `(perspective IS NULL OR perspective='self')` запрещён: он превращает в подтверждённое ребро факт, у которого модальность одновременно `unknown` — карточка заявляла бы «прямое утверждение автора» и «модальность неизвестна» разом.
+
+**Фактическая доступность сигналов (код линии, проверено):** `perspective` заполняет только `save_typed_fact`, а его единственный вызывающий `store_typed_memory` **не имеет продовых вызовов** (только тесты) — значит ветвь 1 сегодня практически не срабатывает. Ветвь 2 реализуема для `bot_direct_reply`-фактов direct-чата (`tg_message_id` + `speaker_author_id` пишутся), но не для массового `chat_history`: `summary_generator` вызывает `memorize_facts` **без** `tg_message_id`, `lore_worker` пишет `save_message_link=False` и без `tg_message_id`, `remember_user_fact` (`user_memory`) не принимает `tg_message_id` вовсе. Следствие принимается честно: `confirmed` по `explicit_direct` будет **редким**, пока писатель реально не начнёт фиксировать авторство. Редкий `confirmed` — корректный результат, а не повод ослабить правило.
 
 ### 2.3. Класс → `link_type` и что считается подтверждением
 
@@ -359,7 +370,7 @@ RelationView = {
 
 | Класс | `link_type` | `counts_as_independent` | Примечание |
 |---|---|---|---|
-| `explicit_direct` | `supports` (`method='direct_reference'` \| `reply_context` \| `thread_context`, `basis` обязателен) | да | прямое утверждение автора — это и есть основание связи |
+| `explicit_direct` | `supports` (`method='direct_reference'` \| `reply_context` \| `thread_context`, `basis` обязателен) | да | прямое утверждение автора при **подтверждённом авторстве** (§2.2.1) — это и есть основание связи |
 | `reported_third_party` | `supports` только если корень ≠ автор пересказа; иначе `derived_from` | да (независимый корень) | пересказ автора не создаёт новый корень |
 | `quote_forward` | `derived_from` (`basis='quote'`/`'forward'`) | да, но корень — первоисточник | репост не приписывается переславшему (R-9) |
 | `derived_with_lineage` | `derived_from` + `basis` + `method` | да (уникальные корни) | без lineage не пишется |
@@ -447,6 +458,8 @@ mca_evidence_links(source_ref_id = SourceRef сообщения / факта / �
 
 Ребро с 3 независимыми источниками показывает все 3 и `independent_support=3`; тот же источник дважды → 1; self-output не подтверждает; репост не подтверждает; legacy-ребро (`fact_id NULL`) — «происхождение не установлено» + вес ≤0.55; ребро с одним `verified supports` и двумя legacy — `confirmed`, `legacy_sources_count=2`, статус не понижен (мутация: вернуть `weakest` → тест падает); `mentions`-only ребро не `confirmed` и `independent_support=0`; `A–B`,`B–C` не дают `A–C` (негатив); cooccurrence не появляется в `edges`; противоречивое ребро показывает обе стороны; карточка ребра открывается по агрегатному `edge_id` и содержит кликабельные исходники всех членов группы; повторная привязка того же источника после `upsert_edge`-инкремента веса не создаёт второй SourceRef и не меняет `independent_support` (идемпотентность §2.4.1); повторный прогон извлечения не меняет вес.
 
+**`explicit_direct` (§2.2.1) — обязательные случаи:** (а) `perspective='self'` + `attribution_method='self_report'` → `explicit_direct`, `assertion_mode='asserted'`; (б) `perspective IS NULL`, `attribution_method='self_report'`, `tg_message_id` резолвится в непрессланное `smart_messages` сообщение того же автора, что субъект/говорящий → `explicit_direct`; (в) **негатив**: `attribution_method='self_report'` без `perspective` и без сохранённого авторского сообщения → `legacy_unknown`, `assertion_mode='unknown'`, нет `supports`, `status != 'confirmed'`; (г) **негатив**: авторское сообщение найдено, но `is_forward=1`/`forward_source<>''` → `quote_forward`, не `explicit_direct`; (д) **негатив**: `smart_messages.user_id` не совпадает с субъектом (пересказ) → `reported_third_party`/`legacy_unknown`; (е) **негатив**: одноимённые ≥2 `user_id` → авторство не подтверждено. Мутации: вернуть мягкое `(perspective IS NULL OR perspective='self')` → падает (в); доверять `attribution_method` без второго сигнала → падает (в); игнорировать `is_forward` → падает (г); заполнять `explicit_direct` при `assertion_mode='unknown'` → падает (в).
+
 ---
 
 ## 3. C-3. Время, эволюция и политика обслуживания
@@ -477,11 +490,13 @@ mca_evidence_links(source_ref_id = SourceRef сообщения / факта / �
 | `perspective='third_party'` или `attribution_method='third_party'` | `reported` |
 | `provenance_channel IN ('dream','dossier_layer_a','dossier_layer_b')`, `origin='derived_belief'` | `inferred` |
 | функция `claim_envelope.is_deny_phrase(text)` возвращает true для текста утверждения (это **функция над текстом**, не поле-флаг) | `denied` |
-| `perspective='self'` **и** `attribution_method='self_report'` | `asserted` |
+| **подтверждённое авторство** (§2.2.1: `perspective='self'` **или** `perspective IS NULL` + сохранённое непрессланное авторское сообщение, автор = субъект/говорящий) **и** `attribution_method IN ('self_report','direct_evidence')` | `asserted` |
 | явный флаг `hypothetical` / `joking` в `claim_envelope`/`checks_json` | `hypothetical` / `joking` |
 | нет сигнала | **`unknown`** |
 
 Запрещено выводить `joking`/`hypothetical` по смайлику, кавычкам, восклицательному знаку или длине сообщения; отсутствующее значение остаётся `unknown` (MEM-03.1, MEM-06.4). `assertion_kind` берётся только из существующего `ASSERTION_KINDS`, иначе `unknown`.
+
+Класс происхождения и модальность используют **одно и то же** условие авторства (§2.2.1). Это не косметика: при расхождении карточка одновременно утверждала бы «прямое утверждение автора» (`origin_class='explicit_direct'`) и «модальность неизвестна» (`assertion_mode='unknown'`). Факт с `attribution_method='self_report'`, но без `perspective='self'` и без сохранённого авторского сообщения остаётся `unknown` (и `legacy_unknown` по §2.2).
 
 ### 3.4. Единая политика решений
 
@@ -554,7 +569,7 @@ mca_evidence_links(source_ref_id = SourceRef сообщения / факта / �
 
 ### 3.7. Обязательные тесты
 
-`valid_from` ставится только при поддержке источником; отсутствующая дата ≠ T_assertion ≠ now; «вчера» через границу DST и после смены пояса чата; историческое сообщение, переработанное позже, сохраняет своё разрешение; поправка сохраняет старую строку и её источники; ENRICH не перезаписывает non-NULL; NOOP не повышает вес; CONFIRM только при независимом корне; cosine-полоса не инвалидирует (мутация: вернуть старый `supersede` → тест падает); противоречие доступно с обеих сторон; `assertion_mode` без сигнала = `unknown` (мутация: подставить `asserted` → тест падает); квота не удаляет (§3.4.1); слияние/дедуп обслуживания не удаляют источники, агрегат связан `derived_from` с каждым источником и обратными `supersedes`, cosine-кластер не помечает источники `superseded` (§3.4.1.1).
+`valid_from` ставится только при поддержке источником; отсутствующая дата ≠ T_assertion ≠ now; «вчера» через границу DST и после смены пояса чата; историческое сообщение, переработанное позже, сохраняет своё разрешение; поправка сохраняет старую строку и её источники; ENRICH не перезаписывает non-NULL; NOOP не повышает вес; CONFIRM только при независимом корне; cosine-полоса не инвалидирует (мутация: вернуть старый `supersede` → тест падает); противоречие доступно с обеих сторон; `assertion_mode` без сигнала = `unknown` (мутация: подставить `asserted` → тест падает); `assertion_mode='asserted'` только при **подтверждённом авторстве** по §2.2.1 — `self_report` без `perspective='self'` и без сохранённого непрессланного авторского сообщения даёт `unknown` (мутация: трактовать любой `self_report` как `asserted` → тест падает); класс `explicit_direct` и `assertion_mode='asserted'` не расходятся (мутация: мягкое `(perspective IS NULL OR perspective='self')` → тест падает на паре «`explicit_direct` + `unknown`»); квота не удаляет (§3.4.1); слияние/дедуп обслуживания не удаляют источники, агрегат связан `derived_from` с каждым источником и обратными `supersedes`, cosine-кластер не помечает источники `superseded` (§3.4.1.1).
 
 ---
 
