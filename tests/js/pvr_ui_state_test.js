@@ -130,6 +130,9 @@ function matchedState(patch) {
                   created_at: '2026-11-03T23:42:00+00:00' }],
     activations: [], entries: [],
     active: null, baseline: { baseline: null },
+    // Полнота основного списка: сервер сообщает её всегда; тесты без неё
+    // проверяют, что число версий не выдумывается.
+    revisions_page: { next_cursor: '', has_more: false, returned: 1 },
   }, patch || {});
 }
 
@@ -242,9 +245,11 @@ function matchedState(patch) {
 {
   const data = matchedState({
     revisions: [
-      { revision_id: 'rev-1', status: 'active', source: 'manual',
+      { revision_id: 'rev-1', status: 'active', status_label: 'активная',
+        source: 'manual',
         created_at: '2026-11-03T23:42:00+00:00', body_available: true },
-      { revision_id: 'rev-2', status: 'inactive', source: 'manual',
+      { revision_id: 'rev-2', status: 'inactive', status_label: 'неактивная',
+        source: 'manual',
         created_at: '2026-11-02T10:00:00+00:00', body_available: true },
     ],
     activations: [
@@ -254,17 +259,25 @@ function matchedState(patch) {
       { activation_id: 2, revision_id: 'rev-1', status: 'was_applied',
         status_label: 'была применена', source: 'manual',
         created_at: '2026-11-01T09:00:00+00:00', body_available: true },
+      // Событие, чей revision_id НЕ совпадает ни с одной сохранённой строкой:
+      // если основной список начнёт подмешивать события, эта строка всплывёт.
+      { activation_id: 3, revision_id: 'rev-event-only',
+        status: 'was_applied', status_label: 'была применена',
+        source: 'restored', created_at: '2026-10-30T09:00:00+00:00',
+        body_available: false },
     ],
   });
   const s = stateOf({ hist: { error: '', entries: [], events: [], data } });
   const rows = s.revisionRows;
   assert.deepStrictEqual(rows.map(function (r) { return r.revision_id; }),
     ['rev-1', 'rev-2'],
-    'основной список — ровно сохранённые ревизии, без событий и дублей');
+    'МУТАЦИЯ: основной список — ровно сохранённые ревизии, без событий и '
+    + 'дублей (подмешивание activations обязано красить тест)');
   assert.ok(rows.every(function (r) {
     return r.activation_id == null && r.entry_type == null;
   }), 'в основном списке нет событий активации');
-  assert.strictEqual(s.eventRows.length, 2, 'события живут во вторичном списке');
+  assert.strictEqual(s.eventRows.length, 3,
+    'события живут во вторичном списке (включая событие без своей ревизии)');
   assert.ok(s.eventRows.every(function (ev) {
     return ev.status !== 'active' && ev.status === 'was_applied';
   }), 'МУТАЦИЯ: событие со статусом active/was_applied в основном списке — '
@@ -273,7 +286,10 @@ function matchedState(patch) {
   // нет кнопок «Применить»/«Назначить базовой».
   const evHead = INDEX.indexOf('class="pv-events"');
   assert.ok(evHead >= 0, 'вторичный блок «История действий» обязан быть');
-  const evBlock = INDEX.slice(evHead, INDEX.indexOf('</template>', evHead));
+  // Конец блока событий — начало экрана деталей (в блоке событий теперь есть
+  // вложенные <template> для честных empty-state, поэтому резать по первому
+  // </template> нельзя).
+  const evBlock = INDEX.slice(evHead, INDEX.indexOf('data-pv-detail', evHead));
   assert.strictEqual(evBlock.indexOf('data-pv-row-activate'), -1,
     'у событий нет своей кнопки «Применить» (PVR-02.1)');
   assert.strictEqual(evBlock.indexOf('data-pv-row-baseline'), -1,
@@ -537,9 +553,11 @@ async function conflictTest() {
 {
   const data = matchedState({
     revisions: [
-      { revision_id: 'rev-1', source: 'manual',
+      { revision_id: 'rev-1', status: 'active', status_label: 'активная',
+        source: 'manual',
         created_at: '2026-11-03T23:42:00+00:00', body_available: true },
-      { revision_id: 'rev-2', source: 'from_release',
+      { revision_id: 'rev-2', status: 'inactive', status_label: 'неактивная',
+        source: 'from_release',
         created_at: '2026-11-02T10:00:00+00:00', body_available: true },
     ],
   });
@@ -616,7 +634,122 @@ async function conflictTest() {
     'полностью загруженный список показывает точное число версий');
 }
 
-Promise.all([saveHonestyTest(), conflictTest()]).then(function () {
+// ── 12. PVR-04 (правки ревью): выбор ≠ экран деталей, честный поиск и
+//        честное число версий из ДАННЫХ, а не из локального флага ─────────
+async function selectionAndHonestyTest() {
+  const data = matchedState({
+    revisions: [
+      { revision_id: 'rev-1', source: 'manual', chat_id: 42, scope: 'chat',
+        created_at: '2026-11-03T23:42:00+00:00', body_available: true },
+      { revision_id: 'rev-2', source: 'manual', chat_id: 42, scope: 'chat',
+        created_at: '2026-11-02T10:00:00+00:00', body_available: true },
+    ],
+  });
+  // (1) Выбор строки и открытый экран деталей — РАЗНЫЕ состояния.
+  const s = stateOf({ hist: { query: '', error: '', entries: [], events: [],
+                              data: data, selectedId: '', detailOpen: false } });
+  assert.strictEqual(s.detailMode, false, 'список: экран деталей закрыт');
+  await s.openDetail(data.revisions[0]);
+  assert.strictEqual(s.hist.selectedId, 'rev-1', 'клик по строке выбирает её');
+  assert.strictEqual(s.detailMode, true, 'клик открывает экран деталей');
+  s.closeDetail();
+  assert.strictEqual(s.detailMode, false, '«Назад» закрывает экран деталей');
+  assert.strictEqual(s.hist.selectedId, 'rev-1',
+    'МУТАЦИЯ: «Назад» не имеет права снимать выбор строки — иначе в списке '
+    + 'не остаётся видимого selection');
+  // Повторный клик по выбранной строке заново открывает детали (не снимает
+  // выбор молча).
+  await s.openDetail(data.revisions[0]);
+  assert.strictEqual(s.detailMode, true, 'повторный клик снова открывает детали');
+  s.closeDetail();
+  s.closeHistory();
+  assert.strictEqual(s.hist.selectedId, '',
+    'закрытие панели снимает выбор строки');
+  assert.strictEqual(s.hist.detailOpen, false, 'закрытие панели закрывает экран');
+  assert.strictEqual(s.detailMode, false);
+  // (4) Число версий — из данных о полноте, а не из локального hist.more:
+  // повторное монтирование восстанавливает только `data`.
+  const firstPage = matchedState({
+    revisions: new Array(50).fill(0).map(function (_, i) {
+      return { revision_id: 'rev-' + i, body_available: true };
+    }),
+    revisions_page: { next_cursor: '50', has_more: true, returned: 50 },
+  });
+  const remounted = stateOf({ hist: { query: '', error: '', entries: [],
+                                      events: [], data: firstPage,
+                                      more: false } });
+  assert.strictEqual(remounted.historyCount, null,
+    'МУТАЦИЯ: «История 50» при has_more=true — загрузка выдана за итог');
+  const all = matchedState({
+    revisions: new Array(100).fill(0).map(function (_, i) {
+      return { revision_id: 'rev-' + i, body_available: true };
+    }),
+    revisions_page: { next_cursor: '', has_more: false, returned: 100 },
+  });
+  const complete = stateOf({ hist: { query: '', error: '', entries: [],
+                                     events: [], data: all, more: false } });
+  assert.strictEqual(complete.historyCount, 100,
+    'полностью загруженная история показывает точное число');
+  const stale = stateOf({ hist: { query: '', error: '', entries: [], events: [],
+                                  data: firstPage, more: true } });
+  assert.strictEqual(stale.historyCount, null,
+    'локальный флаг незавершённости тоже запрещает число');
+  // (3) Поиск: пустой результат при непрочитанных страницах не выдаётся за
+  // «версий не существует», а догрузка остаётся доступной.
+  stale.hist.query = 'rev-099';
+  assert.strictEqual(stale.visibleRevisionRows.length, 0,
+    'поиск фильтрует только загруженные строки');
+  assert.strictEqual(stale.revisionsComplete, false,
+    'неполный список честно помечен как неполный');
+  const tplHead = INDEX.indexOf('id="prompt-version-card-tpl"');
+  const TPL = INDEX.slice(tplHead, INDEX.indexOf('</script>', tplHead));
+  assert.ok(TPL.indexOf('data-pv-search-scope') >= 0,
+    'область поиска (сколько строк просмотрено) обязана быть в панели');
+  assert.ok(/загруженных/.test(TPL),
+    'пустой результат поиска называет загруженную часть истории');
+  const emptyBlock = TPL.slice(TPL.indexOf('data-pv-search-empty'),
+                               TPL.indexOf('data-prompt-history-versions'));
+  const negStart = emptyBlock.indexOf('v-if="!revisionsComplete"');
+  assert.ok(negStart >= 0,
+    'empty-state поиска условен: при непрочитанных страницах он говорит '
+    + 'о загруженной части, а не об отсутствии версий');
+  const negBranch = emptyBlock.slice(negStart,
+                                     emptyBlock.indexOf('</template>', negStart));
+  assert.ok(negBranch.indexOf('загруженных') >= 0
+            && negBranch.indexOf('сохранённых версий нет') === -1,
+    'ветка «страницы не загружены» не утверждает отсутствие версий: '
+    + JSON.stringify(negBranch.slice(0, 200)));
+  assert.ok(TPL.indexOf('data-pv-load-more') > TPL.indexOf('data-pv-search-empty'),
+    'догрузка остаётся доступной при активном фильтре');
+  // (не блокирующее) Сырой id чата не попадает в строки редакций.
+  assert.strictEqual(s.rowScope({ scope: 'chat', chat_id: 42 }), 'этот чат · Чат A',
+    'область строки — словами, с названием чата');
+  const otherScope = s.rowScope({ scope: 'chat', chat_id: -100500 });
+  assert.strictEqual(otherScope, 'другой чат');
+  assert.strictEqual(otherScope.indexOf('-100500'), -1,
+    'сырой Telegram-id чата не показывается в строке');
+  // (не блокирующее) Честность тонкого списка событий при непрочитанных
+  // страницах: «применений нет» только когда страниц больше нет.
+  assert.ok(TPL.indexOf('data-pv-detail-load-more-events') >= 0,
+    'у тонкого списка событий есть догрузка');
+  const devBlock = TPL.slice(TPL.indexOf('data-pv-detail-events'),
+                             TPL.indexOf('data-pv-diff-title'));
+  assert.ok(devBlock.indexOf('v-if="hist.moreEvents"') >= 0,
+    '«применений нет» / «ещё не загружены» различаются по has_more');
+  // (не блокирующее) Списочный футер не всплывает под экраном деталей.
+  assert.ok(TPL.indexOf('v-else-if="!detailMode"') >= 0,
+    'списочный футер рисуется только в режиме списка');
+  const detailModeWithError = stateOf({
+    hist: { query: '', error: 'История временно недоступна: x', entries: [],
+            events: [], data: null, selectedId: 'rev-2', detailOpen: true } });
+  assert.strictEqual(detailModeWithError.detailMode, true,
+    'при 503 экран деталей не превращается в список');
+  assert.strictEqual(detailModeWithError.selectedRow, null,
+    'строки нет (данные не прочитаны) — детальный футер не рисуется');
+}
+
+Promise.all([saveHonestyTest(), conflictTest(),
+             selectionAndHonestyTest()]).then(function () {
   console.log('PVR-UI-STATE-OK');
 }).catch(function (e) {
   console.error(e && e.stack ? e.stack : e);

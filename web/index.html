@@ -16474,7 +16474,8 @@
                 @click="openHistory()">
           <span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span>
           История<span v-if="historyCount != null"
-                class="pv-history-count"> {{ historyCount }}</span>
+                class="pv-history-count"
+                data-pv-history-count>{{ historyCount }}</span>
         </button>
       </div>
 
@@ -16653,6 +16654,16 @@
               </div>
               <template v-else-if="data">
                 <template v-if="!detailMode">
+                  <!-- PVR-04.2.2: поиск идёт по ЗАГРУЖЕННОЙ части истории.
+                       Пока есть непрочитанные страницы, это говорится прямо —
+                       «не найдено» никогда не выдаётся за «версий нет». -->
+                  <div v-if="searchActive" class="pv-search-scope"
+                       data-pv-search-scope>
+                    Найдено {{ visibleRevisionRows.length }} из
+                    {{ revisionRows.length }} загруженных версий<template
+                      v-if="!revisionsComplete"> · история загружена не полностью —
+                      более ранние версии ниже, после догрузки поиск охватит и их</template>
+                  </div>
                   <div v-if="!revisionRows.length" class="text-xs text-gray-500"
                        data-prompt-history-empty>
                     Сохранённых версий ещё нет — первая появится после заводской
@@ -16660,8 +16671,16 @@
                   </div>
                   <div v-else-if="!visibleRevisionRows.length"
                        class="text-xs text-gray-500" data-pv-search-empty>
-                    Ничего не найдено: по запросу «{{ hist.query }}» сохранённых
-                    версий нет.
+                    <template v-if="!revisionsComplete">
+                      Среди загруженных {{ revisionRows.length }} версий совпадений
+                      нет. Это не вся история: более ранние версии ещё не
+                      загружены — нажмите «Показать более ранние версии» ниже и
+                      повторите поиск.
+                    </template>
+                    <template v-else>
+                      Ничего не найдено: по запросу «{{ hist.query }}» совпадений
+                      среди сохранённых версий нет.
+                    </template>
                   </div>
                   <!-- Хронологический список редакций (PVR-04.2.3): имя
                        «Версия от …», строка метаданных, максимум ОДИН уместный
@@ -16720,7 +16739,13 @@
                   <div v-if="hist.eventsOpen" class="pv-events" data-pv-events>
                     <div class="pv-events__title">История действий</div>
                     <div v-if="!eventRows.length" class="text-xs text-gray-500"
-                         data-pv-events-empty>Событий включения пока нет.</div>
+                         data-pv-events-empty>
+                      <template v-if="hist.moreEvents">
+                        Загруженная страница событий пуста; более ранние события
+                        ещё не загружены — их можно подгрузить ниже.
+                      </template>
+                      <template v-else>Событий включения пока нет.</template>
+                    </div>
                     <div v-for="ev in eventRows"
                          :key="'pve-' + (ev.activation_id != null ? ev.activation_id : ev.created_at)"
                          class="pv-row pv-row--event" data-pv-event-row
@@ -16782,7 +16807,16 @@
                       <div class="pv-detail__events-title">События применения этой версии</div>
                       <div v-if="!selectedEvents.length"
                            class="text-xs text-gray-500"
-                           data-pv-detail-events-empty>Применений этой версии в журнале нет.</div>
+                           data-pv-detail-events-empty>
+                        <template v-if="hist.moreEvents">
+                          Среди загруженных событий применения этой версии нет.
+                          Журнал содержит более ранние события — они ещё не
+                          загружены.
+                        </template>
+                        <template v-else>
+                          Применений этой версии в журнале нет.
+                        </template>
+                      </div>
                       <div v-for="ev in selectedEvents"
                            :key="'pvde-' + (ev.activation_id != null ? ev.activation_id : ev.created_at)"
                            class="pv-row pv-row--flat" data-pv-detail-event-row>
@@ -16790,6 +16824,17 @@
                         <span class="pv-row__source">{{ sourceLabel(ev) }}</span>
                         <span v-if="rowActor(ev)" class="pv-row__actor">{{ rowActor(ev) }}</span>
                         <span class="badge badge-muted pv-row__status">{{ rowStatus(ev) }}</span>
+                      </div>
+                      <!-- События применения листаются отдельным курсором:
+                           непрочитанные страницы не выдаются за «нет событий». -->
+                      <div class="pv-more" v-if="hist.moreEvents">
+                        <button type="button" class="btn-ghost text-xs"
+                                data-pv-detail-load-more-events
+                                :disabled="hist.moreEventsLoading"
+                                @click="loadMoreEvents()">
+                          {{ hist.moreEventsLoading ? 'Загрузка…' : 'Показать более ранние события' }}
+                        </button>
+                        <span v-if="hist.moreEventsError" class="pv-warn">{{ hist.moreEventsError }}</span>
                       </div>
                     </div>
                     <div v-if="hist.diffTitle" class="pv-diff-title"
@@ -16851,7 +16896,11 @@
                 {{ hist.busyRev === selectedRow.revision_id ? 'Применение…' : 'Применить' }}
               </button>
             </footer>
-            <footer v-else class="pv-panel__foot" data-pv-panel-actions>
+            <!-- Списочный футер рисуется ТОЛЬКО в режиме списка: если экран
+                 деталей открыт, но данные перечитать не удалось (503), старые
+                 списочные действия («Вернуть исходную из кода») не всплывают
+                 под экраном деталей — видна честная ошибка и «Назад». -->
+            <footer v-else-if="!detailMode" class="pv-panel__foot" data-pv-panel-actions>
               <button type="button" class="btn-ghost text-xs" data-pv-clear-baseline
                       :disabled="!hasBaseline || hist.busyRev !== ''"
                       :title="hasBaseline ? 'Вернуть эталон из кода' : 'Назначение базовой не задано'"

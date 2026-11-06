@@ -31,7 +31,16 @@ PVR-FC-CORRECTIVE-01 PVR-UI):
   * черновик защищён подтверждением при смене чата;
   * два промпта мемов рядом на широком экране и столбиком на мобильном;
     подсказка `{joke}` человеческая в трёх режимах (0/1/2), без «{joke}: N»;
-  * нет горизонтального скролла страницы: 1536/1366/768/390/360.
+  * нет горизонтального скролла страницы: 1440/1366/768/390/320.
+  * «История N» показывает число только когда список догружен целиком (полнота
+    берётся из `revisions_page.has_more`, а не из локального флага — после
+    повторного монтирования карточка не выдаёт первую страницу за итог);
+  * поиск честно называет свою область: при непрочитанных страницах пустой
+    результат — «среди загруженных N совпадений нет», а не «версий не
+    существует», и догрузка остаётся доступной из отфильтрованного списка;
+  * selection (выбранная строка) переживает «Назад» и не совпадает с active;
+  * после «Применить» экран деталей закрывается и возвращается список с
+    прилипшим подтверждением сервера.
 
 Запуск:
   py -3 tests/ui_prompt_version_card_e2e.py
@@ -80,6 +89,10 @@ STATE = {
     "entries_page_size": 50,
     "journal_down": False,
     "code_only": False,
+    # Вторичная лента событий: сервер сообщает, что есть ещё страницы
+    # (`activations_page.has_more`), хотя загружено только 3 события. Нужно,
+    # чтобы проверить честность «нет применений» при непрочитанных страницах.
+    "activations_more": False,
     "posts": [],             # все POST/DELETE с путём и телом
     "gets": [],
     "active": "rev-002",     # сопоставленная действующая ревизия
@@ -213,7 +226,7 @@ def _versions_payload(url, key=""):
     acts = STATE["activations"]
     act_page = acts[act_start:act_start + size]
     act_nxt = act_start + size
-    act_more = act_nxt < len(acts)
+    act_more = act_nxt < len(acts) or bool(STATE.get("activations_more"))
     baseline = None
     if STATE["baseline"]:
         baseline = {
@@ -995,15 +1008,92 @@ def run_editor(label, page, shots, width):
     check("03.11 12:02" in head["active"], label,
           "в «Сейчас действует» нет даты сопоставленной ревизии: %r"
           % (head["active"],))
+    def set_search(q):
+        page.evaluate(
+            "(q) => { const el = document.querySelector('[data-pv-search]');"
+            " el.value = q; el.dispatchEvent(new Event('input')); }", q)
+        page.wait_for_timeout(250)
+
     meta = page.evaluate(
         "() => ({rows: document.querySelectorAll('[data-pv-row]').length,"
         " end: !!document.querySelector('[data-pv-end]'),"
-        " more: !!document.querySelector('[data-pv-load-more]')})")
+        " more: !!document.querySelector('[data-pv-load-more]'),"
+        " count: (function () { const c = document.querySelector"
+        "   ('[data-pv-history-count]');"
+        "   return c ? (c.textContent || '').trim() : null; })()})")
     check(meta["rows"] == 50, label,
           "первая страница не 50 записей: %d" % meta["rows"])
+    # PVR-04.0: «История N» — только честно известное число. Пока сервер
+    # сообщает `has_more`, числа быть не должно (иначе загрузка выдаётся
+    # за итог).
+    check(meta["count"] is None, label,
+          "при непрочитанных страницах у «История» есть число: %r"
+          % (meta["count"],))
     revs = [r["rev"] for r in panel_rows(page)]
     check(revs[0] == "rev-001", label,
           "основной список ревизий не начинается с rev-001: %r" % (revs[:3],))
+    # PVR-04.2.2: поиск охватывает ЗАГРУЖЕННУЮ часть истории и говорит об
+    # этом честно. rev-099 существует, но лежит на непрочитанной странице —
+    # «сохранённых версий нет» здесь было бы ложью, а догрузка обязана
+    # оставаться доступной прямо из отфильтрованного состояния.
+    set_search("rev-099")
+    scope = page.evaluate(
+        "() => { const empty = document.querySelector('[data-pv-search-empty]');"
+        " const sc = document.querySelector('[data-pv-search-scope]');"
+        " const more = document.querySelector('[data-pv-load-more]');"
+        " return {rows: document.querySelectorAll('[data-pv-row]').length,"
+        " text: (empty ? empty.textContent : '').replace(/\\s+/g, ' ').trim(),"
+        " scope: (sc ? sc.textContent : '').replace(/\\s+/g, ' ').trim(),"
+        " more: !!more, moreEnabled: !!(more && !more.disabled)}; }")
+    check(scope["rows"] == 0, label,
+          "поиск rev-099 нашёл строку среди загруженных 50: %r" % (scope,))
+    check(scope["text"] != "", label,
+          "нет честного empty-state поиска при непрочитанных страницах: %r"
+          % (scope,))
+    check("загруженных" in scope["text"] and "нет" in scope["text"], label,
+          "пустой результат поиска не называет загруженную часть: %r"
+          % (scope["text"],))
+    check("сохранённых версий нет" not in scope["text"], label,
+          "поиск утверждает, что версий не существует, хотя страницы не "
+          "загружены: %r" % (scope["text"],))
+    check("не вся история" in scope["text"] or "ещё не\n" in scope["text"]
+          or "ещё не загружены" in scope["text"], label,
+          "пустой результат не говорит, что история загружена не полностью: %r"
+          % (scope["text"],))
+    check("загруженных" in scope["scope"] and "50" in scope["scope"], label,
+          "строка области поиска не называет загруженное число: %r"
+          % (scope["scope"],))
+    check(scope["more"] and scope["moreEnabled"], label,
+          "догрузка недоступна при активном фильтре — поиск не сможет дойти "
+          "до более ранних версий: %r" % (scope,))
+    set_search("")
+    # PVR-04.0 (повторное монтирование): карточка восстанавливает состояние
+    # из короткого кэша, поэтому число версий не имеет права появиться из
+    # первой страницы («История 50», хотя сервер отдаёт has_more=true).
+    gets_before = len(STATE["gets"])
+    page.click("[data-pv-panel-close]")
+    page.wait_for_timeout(250)
+    route = (target or {}).get("route")
+    check(bool(route), label, "не сохранён маршрут редактора для перемонтирования")
+    if route:
+        page.evaluate("() => window.__adminbotVm.navigateTo('#/')")
+        page.wait_for_timeout(400)
+        page.evaluate(
+            "(route) => window.__adminbotVm.navigateTo(route)", route)
+        page.wait_for_selector("[data-prompt-history-toggle]", state="visible")
+        page.wait_for_timeout(600)
+    remount_hist = page.evaluate(
+        "() => { const c = document.querySelector('[data-pv-history-count]');"
+        " return c ? (c.textContent || '').trim() : null; }")
+    check(remount_hist is None, label,
+          "после повторного монтирования у «История» есть число при "
+          "непрочитанных страницах: %r" % (remount_hist,))
+    check(len(STATE["gets"]) == gets_before, label,
+          "повторное монтирование не использовало кэш состояния (GET "
+          "повторился), проверка числа недостоверна: %d новых запросов"
+          % (len(STATE["gets"]) - gets_before))
+    open_panel(page)
+    page.wait_for_selector("[data-prompt-history-versions]", state="visible")
     # PVR-04.2.1: панель 420–540 px на desktop, редактор остаётся читаемым,
     # тело панели прокручивается внутри себя.
     geo = panel_geometry(page)
@@ -1033,21 +1123,50 @@ def run_editor(label, page, shots, width):
     revs2 = [r["rev"] for r in rows2]
     check(revs2[-1] == "rev-100", label,
           "после догрузки ревизии непрерывны: %r" % (revs2[-3:],))
+    # Блокер 3, вторая половина: как только rev-099 действительно загружен,
+    # тот же фильтр его НАХОДИТ — версии не «теряются» молча.
+    set_search("rev-099")
+    found099 = [r["rev"] for r in panel_rows(page)]
+    check(found099 == ["rev-099"], label,
+          "поиск rev-099 не нашёл уже загруженную версию: %r" % (found099[:5],))
+    set_search("")
+    # PVR-04.0: число у «История» появляется только когда список догружен
+    # ЦЕЛИКОМ. Проверяем оба края: промежуточная страница — числа нет,
+    # последняя — точное число и честный признак конца истории.
+    hist_mid = page.evaluate(
+        "() => { const c = document.querySelector('[data-pv-history-count]');"
+        " return c ? (c.textContent || '').trim() : null; }")
+    check(hist_mid is None, label,
+          "после второй страницы (остались непрочитанные) у «История» есть "
+          "число: %r" % (hist_mid,))
+    page.click("[data-pv-load-more]")
+    page.wait_for_timeout(500)
+    rows3 = panel_rows(page)
+    check(len(rows3) == TOTAL_ENTRIES, label,
+          "полная догрузка истории не сошлась: %d из %d"
+          % (len(rows3), TOTAL_ENTRIES))
+    tail = page.evaluate(
+        "() => ({end: !!document.querySelector('[data-pv-end]'),"
+        " more: !!document.querySelector('[data-pv-load-more]'),"
+        " count: (function () { const c = document.querySelector"
+        "   ('[data-pv-history-count]');"
+        "   return c ? (c.textContent || '').trim() : null; })()})")
+    check(tail["end"] and not tail["more"], label,
+          "после последней страницы нет честного признака конца истории: %r"
+          % (tail,))
+    check(tail["count"] == str(TOTAL_ENTRIES), label,
+          "полностью загруженная история не показывает точное число версий: %r"
+          % (tail["count"],))
 
     # 2b) PVR-04.2.2: поиск по версиям фильтрует загруженный список; пустой
     #     результат — честный empty-state, без подстановок.
-    def set_search(q):
-        page.evaluate(
-            "(q) => { const el = document.querySelector('[data-pv-search]');"
-            " el.value = q; el.dispatchEvent(new Event('input')); }", q)
-        page.wait_for_timeout(250)
     set_search("rev-010")
     filtered = [r["rev"] for r in panel_rows(page)]
     check(filtered == ["rev-010"], label,
           "поиск «rev-010» не фильтрует список: %r" % (filtered[:5],))
     set_search("Вручную")
     manual_only = panel_rows(page)
-    check(len(manual_only) == len(rows2), label,
+    check(len(manual_only) == len(rows3), label,
           "поиск «Вручную» потерял ревизии: %d" % len(manual_only))
     set_search("запрос-без-совпадений")
     check(page.evaluate(
@@ -1072,6 +1191,16 @@ def run_editor(label, page, shots, width):
     check("Вручную" in source_seen, label,
           "в строке редакции нет каноничного источника «Вручную»: %r"
           % (source_seen,))
+    # Сырой Telegram-id чата (-100500…) — техническая деталь: в строках его
+    # нет, область называется словами.
+    row_texts = page.evaluate(
+        "() => Array.from(document.querySelectorAll('[data-pv-row]')).slice(0, 5)"
+        ".map((el) => (el.textContent || '').replace(/\\s+/g, ' ').trim())")
+    check(not any(re.search(r"-?\d{6,}", t) for t in row_texts), label,
+          "в строках редакций остался сырой id чата: %r" % (row_texts[:2],))
+    check(all("этот чат" in t for t in row_texts), label,
+          "область строки не названа человеческими словами: %r"
+          % (row_texts[:2],))
     check(page.evaluate(
         "() => document.querySelectorAll('[data-pv-row] .pv-row__status')"
         ".length") >= 1, label,
@@ -1227,6 +1356,41 @@ def run_editor(label, page, shots, width):
     page.click("[data-pv-events-toggle]")
     page.wait_for_timeout(200)
 
+    # 5b) Честность тонкого списка событий применения (PVR-02.2): пока сервер
+    # сообщает `activations_page.has_more`, «Применений этой версии в журнале
+    # нет» было бы ложью — более ранние события просто не загружены.
+    STATE["activations_more"] = True
+    page.click("[data-pv-panel-close]")
+    page.wait_for_timeout(250)
+    open_panel(page)
+    page.wait_for_selector("[data-prompt-history-versions]", state="visible")
+    open_row_detail(page, 2)
+    page.wait_for_selector("[data-pv-detail-events]", state="visible")
+    ev_empty = page.evaluate(
+        "() => { const box = document.querySelector('[data-pv-detail-events]');"
+        " const empty = box && box.querySelector('[data-pv-detail-events-empty]');"
+        " const more = box && box.querySelector"
+        "   ('[data-pv-detail-load-more-events]');"
+        " return {text: (empty ? empty.textContent : '')"
+        "   .replace(/\\s+/g, ' ').trim(),"
+        " more: !!more,"
+        " rows: box ? box.querySelectorAll"
+        "   ('[data-pv-detail-event-row]').length : -1}; }")
+    check(ev_empty["rows"] == 0, label,
+          "у rev-003 неожиданно есть события применения: %r" % (ev_empty,))
+    check("Применений этой версии в журнале нет" not in ev_empty["text"], label,
+          "при непрочитанных страницах событий утверждается, что применений "
+          "нет: %r" % (ev_empty["text"],))
+    check("более ранние события" in ev_empty["text"]
+          and "ещё не" in ev_empty["text"], label,
+          "тонкий список событий не говорит, что загружены не все: %r"
+          % (ev_empty["text"],))
+    check(ev_empty["more"], label,
+          "при непрочитанных событиях нет кнопки догрузки: %r" % (ev_empty,))
+    page.click("[data-pv-panel-back]")
+    page.wait_for_selector("[data-prompt-history-versions]", state="visible")
+    STATE["activations_more"] = False
+
     # 6) «Применить» из деталей (PVR-04.2.4): server-confirmed, не оптимистично
     target_rev = row_rev(page, 4)
     open_row_detail(page, 4)
@@ -1258,13 +1422,26 @@ def run_editor(label, page, shots, width):
     check("Сервер подтвердил" in result_after_refresh, label,
           "подтверждение «Применить» стёрто перечитыванием: %r"
           % (result_after_refresh,))
-    # B4: подтверждение должно быть ВИДНО (геометрия), не просто присутствовать
-    # текстом — детали остаются открытыми, блок прилип к верху тела.
+    # B4: подтверждение должно быть ВИДНО (геометрией), не просто текстом.
+    # PVR-04.2.4: после «Применить» экран деталей закрывается — пользователь
+    # возвращается к списку, где виден новый активный маркер, а подтверждение
+    # сервера остаётся прилипшим к верху тела панели.
     assert_result_visible(page, label, "библиотека/применить")
     shot_view(page, shots, "result_library_%s" % label)
+    dclosed = page.evaluate(
+        "() => ({detail: !!document.querySelector('[data-pv-detail]'),"
+        " list: !!document.querySelector('[data-prompt-history-versions]'),"
+        " back: !!document.querySelector('[data-pv-panel-back]'),"
+        " result: ((document.querySelector('[data-prompt-history-result]') || {})"
+        "   .textContent || '').replace(/\\s+/g, ' ').trim()})")
+    check(not dclosed["detail"] and dclosed["list"] and not dclosed["back"],
+          label,
+          "после «Применить» экран деталей не закрылся / не вернулся список: %r"
+          % (dclosed,))
+    check("Сервер подтвердил" in dclosed["result"], label,
+          "подтверждение «Применить» не видно в вернувшемся списке: %r"
+          % (dclosed["result"],))
     # Активная версия перечитана с сервера — проверяем в списке (PVR-04.2.3).
-    page.click("[data-pv-panel-back]")
-    page.wait_for_selector("[data-prompt-history-versions]", state="visible")
     after = page.evaluate(
         "() => Array.from(document.querySelectorAll('[data-pv-row]'))"
         ".filter((el) => el.getAttribute('data-pv-status') === 'active')"
@@ -1402,6 +1579,39 @@ def run_editor(label, page, shots, width):
           "после отмены подтверждения черновик потерян: %r" % (value,))
 
     # 12) журнал недоступен: честный 503-текст (PVR-05.2), черновик остаётся
+    # 12a) перечитывание из ОТКРЫТОГО экрана деталей: списочные действия
+    # («Вернуть исходную из кода») не всплывают под экраном деталей.
+    open_panel(page)
+    page.wait_for_selector("[data-prompt-history-versions]", state="visible")
+    open_row_detail(page, 1)
+    page.wait_for_selector("[data-pv-detail]", state="visible")
+    STATE["journal_down"] = True
+    page.evaluate(
+        "() => { const b = document.querySelector('[data-prompt-history-toggle]');"
+        " if (b) b.click(); }")
+    page.wait_for_selector("[data-pv-panel-error]", state="visible")
+    refetch = page.evaluate(
+        "() => ({error: ((document.querySelector('[data-pv-panel-error]') || {})"
+        "   .textContent || '').replace(/\\s+/g, ' ').trim(),"
+        " back: !!document.querySelector('[data-pv-panel-back]'),"
+        " listFoot: !!document.querySelector('[data-pv-panel-actions]'),"
+        " factory: !!document.querySelector('[data-pv-factory-restore]'),"
+        " activate: document.querySelectorAll('[data-pv-row-activate]').length})")
+    check("История временно недоступна" in refetch["error"], label,
+          "503 при перечитывании из деталей не назван честно: %r" % (refetch,))
+    check(refetch["back"], label,
+          "из экрана деталей при 503 нельзя вернуться («Назад» пропал): %r"
+          % (refetch,))
+    check(not refetch["factory"] and not refetch["listFoot"], label,
+          "при 503 списочный футер («Вернуть исходную из кода») всплыл под "
+          "экраном деталей: %r" % (refetch,))
+    check(refetch["activate"] == 0, label,
+          "при недоступном журнале рисуются кнопки действий")
+    page.click("[data-pv-panel-back]")
+    page.wait_for_timeout(250)
+    page.click("[data-pv-panel-close]")
+    STATE["journal_down"] = False
+    # 12b) тот же 503, но из списочного состояния (каноничная метка).
     STATE["journal_down"] = True
     page.click("[data-prompt-history-toggle]")
     page.wait_for_selector("[data-pv-panel-error]", state="visible")
@@ -1584,11 +1794,19 @@ def run_speech_core(label, page, shots, width):
           "подтверждение «Применить» в «Характере» не видно после "
           "перечитывания: %r" % (res,))
     # B4: то же самое, но геометрией — блок обязан быть в видимой области
-    # тела панели при scrollTop=0 (детали открыты, блок прилип к верху).
+    # тела панели при scrollTop=0. PVR-04.2.4: после «Применить» экран
+    # деталей закрывается, панель возвращается к списку с подтверждением.
     assert_result_visible(page, label, "характер/применить")
     shot_view(page, shots, "result_speech_%s" % label)
-    page.click("[data-pv-panel-back]")
-    page.wait_for_selector("[data-prompt-history-versions]", state="visible")
+    sclosed = page.evaluate(
+        "() => ({detail: !!document.querySelector('[data-pv-detail]'),"
+        " list: !!document.querySelector('[data-prompt-history-versions]'),"
+        " result: ((document.querySelector('[data-prompt-history-result]') || {})"
+        "   .textContent || '').replace(/\\s+/g, ' ').trim()})")
+    check(not sclosed["detail"] and sclosed["list"]
+          and "Сервер подтвердил" in sclosed["result"], label,
+          "после «Применить» в «Характере» экран деталей не закрылся или "
+          "подтверждение потерялось: %r" % (sclosed,))
     assert_result_sticky(page, label, "характер/применить")
     value = page.evaluate(
         "() => (document.querySelector('.speech-section textarea.speech-editor')"
@@ -1609,6 +1827,9 @@ def main():
     ap.add_argument("--json", default="")
     ap.add_argument("--webroot", default=os.path.join(REPO, "web"))
     ap.add_argument("--port", type=int, default=0)
+    # Кандидат, на котором реально прогнан сьют: отчёт обязан называть SHA,
+    # иначе доказательство нельзя привязать к проверенному дереву.
+    ap.add_argument("--candidate", default="")
     args, _ = ap.parse_known_args()
 
     global PORT, BASE
@@ -1624,9 +1845,9 @@ def main():
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        matrix = [(1536, 900, "1536"), (390, 844, "390"),
-                  (1366, 768, "1366"), (768, 1024, "768"),
-                  (360, 780, "360")]
+        matrix = [(1440, 900, "1440"), (1366, 768, "1366"),
+                  (768, 1024, "768"), (390, 844, "390"),
+                  (320, 780, "320")]
         for width, height, label in matrix:
             DIALOGS.clear()
             STATE["posts"] = []
@@ -1639,6 +1860,7 @@ def main():
             STATE["baseline"] = None
             STATE["factory_restored"] = False
             STATE["journal_down"] = False
+            STATE["activations_more"] = False
             STATE["core_text"] = {
                 "full": "ПОЛНЫЙ ХАРАКТЕР: спокойный, точный, без пафоса.",
                 "compact": "КОМПАКТНЫЙ ХАРАКТЕР: спокойный и точный.",
@@ -1666,8 +1888,20 @@ def main():
         print("  - %s" % f)
     if args.json:
         os.makedirs(os.path.dirname(args.json) or ".", exist_ok=True)
+        # Путь к снимкам — относительно корня репозитория, чтобы отчёт
+        # оставался читаемым вне конкретной машины.
+        shots_ref = ""
+        if args.shots:
+            try:
+                shots_ref = os.path.relpath(os.path.abspath(args.shots),
+                                            REPO).replace("\\", "/")
+            except ValueError:  # другой диск/корень
+                shots_ref = os.path.abspath(args.shots)
         with open(args.json, "w", encoding="utf-8") as fh:
-            json.dump({"failures": failures, "notes": notes}, fh,
+            json.dump({"candidate": args.candidate,
+                       "widths": [m[2] for m in matrix],
+                       "shots_dir": shots_ref,
+                       "failures": failures, "notes": notes}, fh,
                       ensure_ascii=False, indent=2)
     if failures:
         sys.exit(1)

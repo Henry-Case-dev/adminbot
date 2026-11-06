@@ -8778,7 +8778,7 @@ body > .sticky-save[data-save-panel] {
 /* Вторичный текстовый пункт «История»: число версий — tabular-nums, чтобы
    появление/смена числа не «скачало» разметку (PVR-04.0). */
 .pv-history-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; }
-.pv-history-count { font-variant-numeric: tabular-nums; color: #94A3B8; }
+.pv-history-count { font-variant-numeric: tabular-nums; color: #94A3B8; margin-left: .4em; }
 .pv-more-btn { min-height: 36px; min-width: 36px; }
 .pv-readonly { font-size: var(--ctl-font-sm); color: #94A3B8; min-width: 0; overflow-wrap: anywhere; }
 .pv-menu {
@@ -8872,6 +8872,13 @@ body > .sticky-save[data-save-panel] {
 }
 .pv-panel__search { width: 100%; min-width: 0; min-height: 36px; font-size: var(--ctl-font-sm); }
 .pv-panel__hint { font-size: var(--ctl-font-sm); color: #64748B; overflow-wrap: anywhere; }
+/* Честная область поиска (PVR-04.2.2): сколько строк просмотрено и что
+   история загружена не полностью — без этого «не найдено» читалось бы как
+   «таких версий не существует». */
+.pv-search-scope {
+  font-size: var(--ctl-font-sm); color: #94A3B8;
+  padding: 6px 0 2px; overflow-wrap: anywhere;
+}
 /* Единственный блок «Сейчас действует» — в неподвижной шапке панели. */
 .pv-now {
   margin: var(--space-2) var(--space-3) 0; padding: 8px 10px;
@@ -9058,6 +9065,12 @@ body > .sticky-save[data-save-panel] {
   .pv-panel__foot--detail .btn-accent { min-height: 44px; }
   /* Строки редакций — сами тач-цели (клик открывает детали). */
   .pv-row { min-height: 44px; }
+  /* Шапка на узком экране: заголовок и eyebrow получают свою строку, иначе
+     «История версий»/название промпта ломаются на 2–3 строки в узкой колонке
+     рядом с бейджем области и «Закрыть». */
+  .pv-panel__head { flex-wrap: wrap; row-gap: 4px; }
+  .pv-panel__titles { flex: 1 1 100%; }
+  .pv-panel__head .pv-panel__scope { margin-left: auto; }
   .pv-panel__head, .pv-panel__tools, .pv-panel__body,
   .pv-panel__foot { padding-left: var(--space-2); padding-right: var(--space-3); }
   .pv-now { margin-left: var(--space-2); margin-right: var(--space-3); }

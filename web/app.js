@@ -35511,7 +35511,11 @@
           query: '',
           // PVR-04.2.3/04.2.4: выбранная строка (selection != active) и
           // экран деталей версии; меню «Действия» в футере деталей.
+          // `selectedId` — ВЫБОР строки (живёт и после «Назад»), `detailOpen`
+          // — открыт ли экран деталей. Это разные состояния: «Назад»
+          // закрывает экран и возвращает список с сохранённым выбором.
           selectedId: '',
+          detailOpen: false,
           actionsMenu: false,
           // Вторичная лента «История действий» (события активации,
           // «была применена»): PVR-02.2/C1.2 — события НЕ в основном списке.
@@ -35663,15 +35667,41 @@
         return (row && row.created_at) ? pvShortWhen(row.created_at) : '';
       },
       // PVR-04.0: число версий у пункта «История» — только честно известное:
-      // список ревизий догружен целиком. Пока есть непрочитанные страницы
-      // (`has_more`), числа нет — в API нет total, выдумывать нельзя.
+      // список ревизий догружен целиком. Пока есть непрочитанные страницы,
+      // числа нет — в API нет total, выдумывать нельзя.
+      // Полнота берётся из ДАННЫХ (`revisions_page.has_more`), а не из
+      // локального флага `hist.more`: после повторного монтирования из кэша
+      // флаг не восстанавливается, и «История 50» показывала бы загрузку
+      // как итог, хотя страниц больше.
       historyCount: function () {
-        if (!this.data || this.hist.more) return null;
+        if (!this.revisionsComplete) return null;
         return this.revisionRows.length;
+      },
+      // Сведения о полноте основного списка. Сервер отдаёт `revisions_page`;
+      // `page` — совместимость (merged-лента прежних ответов).
+      revisionsPage: function () {
+        var d = this.data;
+        if (!d) return null;
+        return d.revisions_page || d.page || null;
+      },
+      revisionsComplete: function () {
+        if (!this.data || this.hist.more) return false;
+        var p = this.revisionsPage;
+        if (!p || typeof p.has_more === 'undefined') return false;
+        return p.has_more === false;
+      },
+      // Активен ли фильтр поиска — от этого зависит честность пустого
+      // состояния: при непрочитанных страницах «не найдено» НЕ означает
+      // «сохранённых версий нет» (PVR-04.2.2).
+      searchActive: function () {
+        return !!String(this.hist.query || '').trim();
       },
       // PVR-04.2.2: поиск по версиям фильтрует ЗАГРУЖЕННЫЙ список (дата,
       // источник, автор, статус, id). Ничего не выдумывается: не найдено —
-      // честный empty-state, а не подстановка похожих строк.
+      // честный empty-state, а не подстановка похожих строк. Область поиска
+      // честно называется в интерфейсе (`searchActive`/`revisionsComplete`):
+      // пока загружены не все страницы, «не найдено» — это «нет совпадений
+      // СРЕДИ ЗАГРУЖЕННЫХ», а не «версий не существует».
       visibleRevisionRows: function () {
         var self = this;
         var q = String(this.hist.query || '').trim().toLowerCase();
@@ -35703,7 +35733,11 @@
           return ev && ev.revision_id === id;
         });
       },
-      detailMode: function () { return !!this.hist.selectedId; },
+      detailMode: function () {
+        // Экран деталей — ОТДЕЛЬНОЕ состояние от выбора строки: «Назад»
+        // закрывает экран, но не снимает выбор (selection ≠ active).
+        return !!(this.hist.detailOpen && this.hist.selectedId);
+      },
       detailTitle: function () {
         return this.selectedRow ? this.rowName(this.selectedRow) : '';
       },
@@ -35820,7 +35854,7 @@
         if (status === 0) return 'Нет связи с сервером.';
         return msg;
       },
-      resetPanel: function () {
+      resetPanel: function (keepSelection) {
         var h = this.hist;
         h.data = null;
         h.entries = [];
@@ -35829,7 +35863,13 @@
         h.moreError = '';
         h.error = '';
         h.query = '';
-        h.selectedId = '';
+        // Сброс панели (смена промпта/чата, закрытие) снимает выбор и экран
+        // деталей. Явный `keepSelection` нужен только если выбор обязан
+        // пережить перечитывание того же промпта.
+        if (!keepSelection) {
+          h.selectedId = '';
+          h.detailOpen = false;
+        }
         h.actionsMenu = false;
         h.events = [];
         h.nextEventsCursor = '';
@@ -35863,16 +35903,34 @@
         return String(this.promptKey || '') + '|'
           + (this.chatIdNum == null ? 'global' : ('chat:' + this.chatIdNum));
       },
+      // Применить снимок `/versions` к состоянию панели: списки, курсоры и
+      // ФАКТ полноты приходят из данных. Один и тот же путь используется и
+      // после сети, и при восстановлении из кэша (иначе кэш терял `has_more`
+      // и показывал загрузку как итог).
+      _applyData: function (data) {
+        var h = this.hist;
+        h.data = data || null;
+        h.entries = (data && data.entries) || [];
+        // Основной список = ревизии (revisions_cursor), вторичный «История
+        // действий» = события активации (activations_cursor) — PVR-02.1.
+        h.events = (data && data.activations) || [];
+        h.nextEventsCursor = (data && data.activations_page
+          && data.activations_page.next_cursor) || '';
+        h.moreEvents = !!(data && data.activations_page
+          && data.activations_page.has_more);
+        var revPage = (data && (data.revisions_page || data.page)) || null;
+        h.nextCursor = (revPage && revPage.next_cursor) || '';
+        h.more = !!(revPage && revPage.has_more);
+      },
       // Состояние карточки (активная/базовая/права). Кэш — только для
       // первичного показа: действия всегда перечитывают сервер.
       primeState: function () {
-        var self = this;
         var key = this.promptKey;
         if (!key) return;
         var cacheKey = this._cacheKey();
         var hit = _pvStateCache.get(cacheKey);
         if (hit && (Date.now() - hit.at) < _PV_STATE_TTL_MS) {
-          this.hist.data = hit.data;
+          this._applyData(hit.data);
           return;
         }
         this.loadHistory(true);
@@ -35896,7 +35954,12 @@
         }
       },
       closeHistory: function () {
+        // Закрытие панели — единственное место (вместе со сменой промпта),
+        // где выбор строки снимается явно.
         this.hist.open = false;
+        this.hist.selectedId = '';
+        this.hist.detailOpen = false;
+        this.hist.actionsMenu = false;
         this.hist.result = null;
       },
       loadHistory: async function (force) {
@@ -35915,32 +35978,23 @@
             { global: !this.isChatScope, chatId: this.chatIdNum,
               silent403: true });
           if (this._cacheKey() !== cacheKey) return;
-          h.data = data || null;
-          h.entries = (data && data.entries) || [];
-          // Основной список = ревизии (revisions_cursor), вторичный «История
-          // действий» = события активации (activations_cursor) — PVR-02.1.
-          h.events = (data && data.activations) || [];
-          h.nextEventsCursor = (data && data.activations_page
-            && data.activations_page.next_cursor) || '';
-          h.moreEvents = !!(data && data.activations_page
-            && data.activations_page.has_more);
-          h.nextCursor = (data && data.page && data.page.next_cursor) || '';
-          h.more = !!(data && data.page && data.page.has_more);
+          this._applyData(data);
           _pvStateCache.set(cacheKey, { at: Date.now(), data: h.data });
           if (force) {
             h.diff = null;
             h.diffError = '';
-            if (h.selectedId) {
-              // PVR-04.2.4: детали выбранной версии переживают перечитывание —
+            if (h.detailOpen && h.selectedId) {
+              // PVR-04.2.4: открытый экран деталей переживает перечитывание —
               // дословный текст перезагружается для той же ревизии; если
-              // строка исчезла из журнала, детали закрываются (не пустышка).
+              // строка исчезла из журнала, экран закрывается (не пустышка).
               var sel = this.selectedRow;
               if (sel) {
                 await this.loadView(sel);
               } else {
                 this.closeDetail();
+                h.selectedId = '';
               }
-            } else {
+            } else if (!h.selectedId) {
               h.viewId = '';
               h.viewBody = '';
               h.viewError = '';
@@ -35952,6 +36006,7 @@
           h.data = null;
           h.entries = [];
           h.more = false;
+          h.moreEvents = false;
         } finally {
           h.loading = false;
         }
@@ -35984,6 +36039,11 @@
           h.nextCursor = (data && data.revisions_page
             && data.revisions_page.next_cursor) || '';
           h.more = !!(data && data.revisions_page && data.revisions_page.has_more);
+          // Снимок (и кэш) обязан отражать фактическую полноту: иначе
+          // повторное монтирование покажет старую страницу как всё.
+          target.revisions_page = (data && data.revisions_page) || {
+            next_cursor: '', has_more: h.more,
+          };
         } catch (err) {
           if (this._cacheKey() !== cacheKey) return;
           h.moreError = this.errText(err);
@@ -36024,6 +36084,14 @@
             && data.activations_page.next_cursor) || '';
           h.moreEvents = !!(data && data.activations_page
             && data.activations_page.has_more);
+          // Снимок/кэш держит загруженные события и фактическую полноту:
+          // «более ранние события» не должны появляться как «нет событий».
+          if (h.data) {
+            h.data.activations = h.events.slice();
+            h.data.activations_page = (data && data.activations_page) || {
+              next_cursor: '', has_more: h.moreEvents,
+            };
+          }
         } catch (err) {
           if (this._cacheKey() !== cacheKey) return;
           h.moreEventsError = this.errText(err);
@@ -36053,11 +36121,17 @@
         if (!actor) return '';                 // неизвестен — не выдумываем
         return 'кто: ' + actor;
       },
+      // Область строки — человеческими словами: сырой Telegram-id чата
+      // (-100500…) в списке не показываем, он живёт только в технических
+      // подробностях.
       rowScope: function (entry) {
         if (!entry) return '';
-        return entry.scope === 'chat'
-          ? ('чат' + (entry.chat_id != null ? ' ' + entry.chat_id : ''))
-          : 'глобально';
+        if (entry.scope !== 'chat') return 'глобально';
+        if (this.chatIdNum != null && entry.chat_id != null
+            && Number(entry.chat_id) === this.chatIdNum) {
+          return this.chatTitle ? ('этот чат · ' + this.chatTitle) : 'этот чат';
+        }
+        return 'другой чат';
       },
       rowStatus: function (entry) {
         if (!entry) return '';
@@ -36168,24 +36242,28 @@
       },
       // PVR-04.2.3/04.2.4: клик по строке редакции — selection (≠ active) и
       // экран деталей: дословный текст открывается без изменения и без
-      // пересохранения; повторный клик/«Назад» возвращает список.
+      // пересохранения; повторный клик/«Назад» возвращает список, СОХРАНЯЯ
+      // выбор строки (selection — отдельное состояние от открытого экрана).
       openDetail: async function (entry) {
         var h = this.hist;
         if (!entry || !entry.revision_id) return;
         h.actionsMenu = false;
-        if (h.selectedId === entry.revision_id) {
+        if (h.detailOpen && h.selectedId === entry.revision_id) {
           this.closeDetail();
           return;
         }
         h.selectedId = entry.revision_id;
+        h.detailOpen = true;
         h.diff = null;
         h.diffTitle = '';
         h.diffError = '';
         await this.loadView(entry);
       },
+      // «Назад»/Esc: закрыть экран деталей и вернуться к списку. Выбор строки
+      // НЕ снимается — строка остаётся `.is-selected` (и это не active).
       closeDetail: function () {
         var h = this.hist;
-        h.selectedId = '';
+        h.detailOpen = false;
         h.actionsMenu = false;
         h.viewId = '';
         h.viewBody = '';
@@ -36379,6 +36457,10 @@
           h.result = { ok: true,
                        text: 'Сервер подтвердил: действует выбранная версия («'
                          + this.sourceLabel(entry) + '»).' };
+          // PVR-04.2.4/B4: после «Применить» экран деталей закрывается —
+          // пользователь возвращается к списку, где видно новый активный
+          // маркер, а подтверждение сервера остаётся первым в теле панели.
+          this.closeDetail();
           this.$emit('refresh');
         } catch (err) {
           h.result = { ok: false,

@@ -468,7 +468,9 @@ async function pagingTest() {
     'догрузка ревизий идёт по стабильному revisions_cursor: ' + calls[0]);
   assert.strictEqual(c.hist.nextCursor, 'C2');
   // События активации в основной список не попадают (PVR-02.1/C1.2).
-  c.hist.data.activations = [{ activation_id: 7, revision_id: 'r1',
+  // revision_id события намеренно НЕ совпадает ни с одной ревизией: иначе
+  // дедупликация строк скрыла бы подмешивание событий в основной список.
+  c.hist.data.activations = [{ activation_id: 7, revision_id: 'rev-event-only',
                                status: 'was_applied' }];
   assert.strictEqual(c.revisionRows.length, 3,
     'событие активации не превратилось в строку основного списка');
