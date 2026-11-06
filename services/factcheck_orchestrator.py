@@ -40,6 +40,7 @@ import dataclasses
 import logging
 import random
 import re
+import time
 
 from services.canonical_context import emit_speech_projection_event
 from services.smartmodule_utils import (
@@ -324,6 +325,192 @@ _SHORT_REPLY_INSTRUCTION = (
     "markdown, без списков.")
 
 
+# ── Ambiguity-ветка: детерминированный контекст кандидатов ───────────────────
+# EVOL-REPLY-CONTEXT-INTEGRITY-01 (RCI-02..04): ветка ambiguous строила
+# `situation` только из ``req.target_text`` и теряла уже посчитанные данные
+# (`decision.claim_items`, широкий `ConversationContext`, якоря) — короткая
+# реплика спрашивала «что проверить?» в пустоту, хотя тема спора была в том же
+# окне контекста. Здесь сводка кандидатов собирается ДЕТЕРМИНИРОВАННО из уже
+# имеющихся данных: (1) claim_items гейта, иначе (2) ограниченный список
+# значимых сообщений окна. Тема НЕ выбирается и ambiguity не превращается в
+# проверяемый тезис: перечень вариантов — материал для уточняющего вопроса,
+# решение остаётся за человеком. Платный поиск и временные стадии сюда не
+# добавляются.
+
+_AMBIG_MAX_CANDIDATES = 3        # «несколько тем», а не простыня
+_AMBIG_CANDIDATE_CHARS = 140     # одна строка кандидата
+_AMBIG_MIN_TOKENS = 3            # односложные реакции («это бред») — не тезисы
+_AMBIG_SUBSTANTIAL_TOKENS = 6    # развёрнутое сообщение = тема, а не реакция
+
+# Сырой контекст/диагностика, которые не должны попасть в публичный текст,
+# даже если модель вернула их в ответе (RCI-04/чистая публикация).
+_RAW_CONTEXT_BLOCK_RE = re.compile(
+    r"<(chat_context|system|context|facts|evidence|ocr|draft)\b[^>]*>.*?"
+    r"</\1\s*>", re.IGNORECASE | re.DOTALL)
+_RAW_CONTEXT_TAG_RE = re.compile(r"</?[a-zA-Z_][\w:.-]*[^<>]*>")
+_RAW_CONTEXT_MARKER_RE = re.compile(
+    r"\b(chat_context|ocr|vision|transcript|reason_code|gate_version|"
+    r"trace_id|plan_version|temporal_status|as_of)\b\s*[:=]?\s*[\w.,:-]*",
+    re.IGNORECASE)
+
+
+def _strip_raw_context(text: str) -> str:
+    """Срезать сырой контекст/диагностику из ответа модели (fail-open).
+
+    Публичный текст короткой реплики не должен содержать XML-обёрток
+    контекста, дампов OCR/транскрипций, reason-кодов, версий гейта и trace
+    id. Чистый текст проходит байт-в-байт."""
+    out = str(text or "")
+    if not out:
+        return ""
+    had_dump = bool(_RAW_CONTEXT_BLOCK_RE.search(out)
+                    or re.search(r"</?[a-zA-Z_][\w:.-]*[^<>]*>", out)
+                    or _RAW_CONTEXT_MARKER_RE.search(out))
+    if not had_dump:
+        return out
+    out = _RAW_CONTEXT_BLOCK_RE.sub(" ", out)
+    out = _RAW_CONTEXT_TAG_RE.sub(" ", out)
+    out = _RAW_CONTEXT_MARKER_RE.sub(" ", out)
+    out = re.sub(r"\s{2,}", " ", out).strip()
+    logger.warning("[factcheck_v2] short_reply: raw context stripped")
+    return out
+
+
+def _compact_candidate_text(text: str,
+                            *,
+                            limit: int = _AMBIG_CANDIDATE_CHARS) -> str:
+    """Один кандидат — одна строка без XML-мусора (детерминированно)."""
+    out = re.sub(r"[<>]", " ", str(text or ""))
+    out = re.sub(r"\s+", " ", out).strip()
+    if len(out) > limit:
+        out = out[:limit].rstrip(" ,;:—-") + "…"
+    return out
+
+
+def _candidate_stamp(ts) -> str:
+    """Стабильная дата кандидата (UTC, день-месяц): якорь, без «сейчас»."""
+    try:
+        value = int(ts)
+    except (TypeError, ValueError):
+        return ""
+    if value <= 0:
+        return ""
+    try:
+        return time.strftime("%d.%m", time.gmtime(value))
+    except (OSError, OverflowError, ValueError):      # pragma: no cover
+        return ""
+
+
+def _candidate_line(author, ts, text) -> str:
+    """Строка кандидата: «автор, дата: текст» — стабильная атрибуция."""
+    body = _compact_candidate_text(text)
+    if not body:
+        return ""
+    who = ", ".join(part for part in (str(author or "").strip(),
+                                      _candidate_stamp(ts)) if part)
+    return f"— {who or 'участник'}: «{body}»"
+
+
+def _ambiguous_window_messages(ctx) -> list:
+    """Значимые сообщения окна (без цели) в детерминированном порядке.
+
+    Приоритет: (а) сообщение, на которое отвечали (корень ветки спора),
+    (б) прямой родитель цели (явная ссылка reply), (в) развёрнутый текст.
+    Тай-брейк — свежесть; выдача — хронологически. Односложные реакции
+    («это бред») кандидатами не становятся."""
+    try:
+        from services.factcheck_context import tokenize_for_relevance
+    except Exception:      # pragma: no cover — токенайзер не рвёт ветку
+        def tokenize_for_relevance(text):
+            return str(text or "").split()
+    target_tg = getattr(ctx, "target_tg_message_id", None)
+    parent_tg = None
+    replies: dict = {}
+    for msg in ctx.messages:
+        if msg.tg_message_id == target_tg:
+            parent_tg = msg.reply_to_tg_id
+        if msg.reply_to_tg_id not in (None, "", 0):
+            replies[msg.reply_to_tg_id] = replies.get(msg.reply_to_tg_id,
+                                                      0) + 1
+    scored: list[tuple[float, int, object]] = []
+    for idx, msg in enumerate(ctx.messages):
+        if msg.tg_message_id == target_tg or not str(msg.text or "").strip():
+            continue
+        try:
+            tokens = tokenize_for_relevance(msg.text)
+        except Exception:      # pragma: no cover
+            tokens = str(msg.text or "").split()
+        if len(tokens) < _AMBIG_MIN_TOKENS:
+            continue
+        score = replies.get(msg.tg_message_id, 0) * 2.0
+        if parent_tg not in (None, "", 0) and msg.tg_message_id == parent_tg:
+            score += 3.0
+        if len(tokens) >= _AMBIG_SUBSTANTIAL_TOKENS:
+            score += 1.0
+        scored.append((score, idx, msg))
+    if not scored:
+        return []
+    scored.sort(key=lambda row: (-row[0], -row[1]))
+    # Значимые (корни веток / родитель цели / развёрнутый текст) — вперёд;
+    # в разреженном окне без опор добираем свежие содержательные сообщения,
+    # чтобы реплика всё равно имела материал.
+    primary = [row for row in scored if row[0] > 0.0]
+    pool = primary if len(primary) >= 2 else scored
+    chosen = sorted(pool[:_AMBIG_MAX_CANDIDATES], key=lambda row: row[1])
+    return [row[2] for row in chosen]
+
+
+def _ambiguous_candidates(decision, ctx) -> list[str]:
+    """Строки-кандидаты для уточняющего вопроса (RCI-04), максимум 3."""
+    items = tuple(getattr(decision, "claim_items", ()) or ())
+    ts_by_tg: dict = {}
+    if ctx is not None:
+        for msg in ctx.messages:
+            if msg.tg_message_id not in (None, "", 0):
+                ts_by_tg[msg.tg_message_id] = msg.timestamp
+    lines: list[str] = []
+    seen: set[str] = set()
+
+    def _add(author, ts, text) -> None:
+        line = _candidate_line(author, ts, text)
+        if not line or line in seen or len(lines) >= _AMBIG_MAX_CANDIDATES:
+            return
+        seen.add(line)
+        lines.append(line)
+
+    # (1) Гейт уже сопоставил анцеденты с provenance — используем их как есть.
+    for item in items:
+        _add(getattr(item, "author", None),
+             ts_by_tg.get(getattr(item, "anchor_tg_message_id", None)),
+             getattr(item, "text", ""))
+    if lines or ctx is None:
+        return lines
+    # (2) claim_items пусты (типичный ambiguous) — значимые сообщения окна.
+    for msg in _ambiguous_window_messages(ctx):
+        _add(msg.author, msg.timestamp, msg.text)
+    return lines
+
+
+def _ambiguous_situation(req, decision, ctx) -> str:
+    """Ситуация единственного ``persona_short_reply`` (RCI-04).
+
+    Тезис пользователя + уже посчитанные кандидаты: «непонятно, к какой теме
+    относится просьба». Ничего не выбирает программно; без кандидатов —
+    прежняя нейтральная формулировка (паритет)."""
+    head = f"Сообщение участника: «{req.target_text}». "
+    try:
+        lines = _ambiguous_candidates(decision, ctx)
+    except Exception:      # сводка не рвёт ветку: честный прежний текст
+        logger.warning("[factcheck_v2] ambiguous candidate summary failed",
+                       exc_info=True)
+        lines = []
+    if not lines:
+        return head + "В контексте чата несколько тем спора — уточни тезис."
+    return (head + "В чате обсуждали несколько тем, и непонятно, к какой "
+            "относится просьба проверить:\n" + "\n".join(lines) +
+            "\nТему сам не выбирай: спроси, какой именно тезис проверить.")
+
+
 async def persona_short_reply(service, chat_id: int, *, instruction: str,
                               situation: str,
                               fallback_phrases: tuple[str, ...]) -> str:
@@ -374,6 +561,10 @@ async def persona_short_reply(service, chat_id: int, *, instruction: str,
         raw = await service.llm.generate(messages, module="factcheck",
                                          step="short_reply")
         text = cleanup_llm_text(strip_reasoning_tags(str(raw))).strip()
+        if text:
+            # RCI-04: сырой контекст/диагностика не должны выйти в Telegram,
+            # даже если модель вернула их в ответе.
+            text = _strip_raw_context(text)
         if text:
             text = _guard_outbound(text, where="short_reply")
         if text:
@@ -1087,8 +1278,10 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                        chat_id=req.chat_id)
         return _finish(OUTCOME_NO_CLAIM, "v2_gate:no_claim")
     if decision is not None and decision.decision == fsg.DECISION_AMBIGUOUS:
-        situation = (f"Сообщение участника: «{req.target_text}». "
-                     "В контексте чата несколько тем спора — уточни тезис.")
+        # RCI-04: короткая реплика получает уже посчитанный контекст
+        # кандидатов (claim_items / значимые сообщения окна) — без выбора
+        # темы, без поиска и без дополнительных LLM-вызовов.
+        situation = _ambiguous_situation(req, decision, ctx)
         text = await persona_short_reply(
             service, req.chat_id, instruction=_SHORT_REPLY_INSTRUCTION,
             situation=situation, fallback_phrases=FACTCHECK_CLARIFY_PHRASES)

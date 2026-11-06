@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-05",
+  "updated": "2026-11-07T11:20:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -12,7 +12,7 @@
         "plans/features/soul-1/requirements-map-amendment.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: 4 READY_FOR_LIVE разобраны; SOUL-05.6/SOUL-08.12 — owner_optional (инженерные SOUL-05.2/05.5, SOUL-08.10/08.11 VERIFIED), SOUL-14.2 — агентская read-only телеметрия, SOUL-AMD.8.11 — WAITING_EXTERNAL (видео-провайдер). VERIFIED не выдумывались. | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней). | [2026-10-30 status-fix per plans/features/evol/stale-rows-reconciliation.md: map required rows VERIFIED; R4L rows are natural post-deploy observations, non-blocking per PET_PROJECT] | status corrected 01.11.2026: own requirement map still has READY_FOR_LIVE/PENDING rows (soul-1: 4 live rows; asap8-v6.3: 7 live + 1 pending), so engineering implementation is done but live acceptance is open",
+      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: 4 READY_FOR_LIVE разобраны; SOUL-05.6/SOUL-08.12 — owner_optional (инженерные SOUL-05.2/05.5, SOUL-08.10/08.11 VERIFIED), SOUL-14.2 — агентская read-only телеметрия, SOUL-AMD.8.11 — WAITING_EXTERNAL (видео-провайдер). VERIFIED не выдумывались. | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней). | [2026-10-30 status-fix per plans/features/evol/stale-rows-reconciliation.md: map required rows VERIFIED; R4L rows are natural post-deploy observations, non-blocking per PET_PROJECT] | status corrected 01.11.2026: own requirement map still has READY_FOR_LIVE/PENDING rows (soul-1: 4 live rows; asap8-v6.3: 7 live + 1 pending), so engineering implementation is done but live acceptance is open | 2026-11-07 accounting repair: the original snapshot is absent and unrecoverable; 2026-11-01-current_task-snapshot-MISSING.md is an agent provenance record, not owner text. Acceptance proof lives in this task's own requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md, sha256 совпадает с исходной регистрацией), поэтому провенанс master-записи про утрату здесь не применяется.",
       "updated": "2026-10-30"
     },
     {
@@ -24,7 +24,7 @@
         "plans/features/asap8-v6-3-live-correction/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: U07-SYM-DESKTOP/REQ-U07-3/U07.3c (+ уже optional U07.3b) — owner_optional, инженерные REQ-U07-HARD/U07.3a/U07-PLATFORMS/U07.2e VERIFIED; REQ-B09-BODY/B10-R06/B10-R10/B10-R11/REQ-B11-E2E — агентские read-only проверки (не owner). | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней). | [2026-10-30 status-fix per plans/features/evol/stale-rows-reconciliation.md: map required rows VERIFIED; R4L rows are natural post-deploy observations, non-blocking per PET_PROJECT] | status corrected 01.11.2026: own requirement map still has READY_FOR_LIVE/PENDING rows (soul-1: 4 live rows; asap8-v6.3: 7 live + 1 pending), so engineering implementation is done but live acceptance is open",
+      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: U07-SYM-DESKTOP/REQ-U07-3/U07.3c (+ уже optional U07.3b) — owner_optional, инженерные REQ-U07-HARD/U07.3a/U07-PLATFORMS/U07.2e VERIFIED; REQ-B09-BODY/B10-R06/B10-R10/B10-R11/REQ-B11-E2E — агентские read-only проверки (не owner). | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней). | [2026-10-30 status-fix per plans/features/evol/stale-rows-reconciliation.md: map required rows VERIFIED; R4L rows are natural post-deploy observations, non-blocking per PET_PROJECT] | status corrected 01.11.2026: own requirement map still has READY_FOR_LIVE/PENDING rows (soul-1: 4 live rows; asap8-v6.3: 7 live + 1 pending), so engineering implementation is done but live acceptance is open | 2026-11-07 accounting repair: the original snapshot is absent and unrecoverable; 2026-11-01-current_task-snapshot-MISSING.md is an agent provenance record, not owner text. Acceptance proof lives in this task's own requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md, sha256 совпадает с исходной регистрацией), поэтому провенанс master-записи про утрату здесь не применяется.",
       "updated": "2026-10-30"
     },
     {
@@ -92,7 +92,7 @@
         "plans/features/add-tr/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 22.10: инженерия закрыта полностью — tails binding (+13) + harness R1 (постген ready, сценарии, EDGE) + FIX-VISION-FENCE (strip-fence) + deploy 2.58.108 (12/12 postdeploy-позитивов); map 58 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя; M-ADTR-VERIFY-REPORT доставлен | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней)."
+      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 22.10: инженерия закрыта полностью — tails binding (+13) + harness R1 (постген ready, сценарии, EDGE) + FIX-VISION-FENCE (strip-fence) + deploy 2.58.108 (12/12 postdeploy-позитивов); map 58 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя; M-ADTR-VERIFY-REPORT доставлен | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней). | 2026-11-07 accounting repair: the original snapshot is absent and unrecoverable; 2026-11-01-current_task-snapshot-MISSING.md is an agent provenance record, not owner text. Acceptance proof lives in this task's own requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md, sha256 совпадает с исходной регистрацией), поэтому провенанс master-записи про утрату здесь не применяется."
     },
     {
       "id": "add-exp-2026-10-19",
@@ -103,7 +103,7 @@
         "plans/features/add-exp/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней)."
+      "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней). | 2026-11-07 accounting repair: the original snapshot is absent and unrecoverable; 2026-11-01-current_task-snapshot-MISSING.md is an agent provenance record, not owner text. Acceptance proof lives in this task's own requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md, sha256 совпадает с исходной регистрацией), поэтому провенанс master-записи про утрату здесь не применяется."
     },
     {
       "id": "samples-ux",
@@ -486,6 +486,50 @@
       "blocked_by": [],
       "updated": "2026-11-05",
       "source_note": "REMOVE-LEGACY-REPHRASING v2.0: 162 обязательные строки (112 строк экстрактора + 77 manual, 27 context), 8 срезов, план-гейт 0 ошибок. Сериализация: RLR-01-ROUTE -> RLR-02-LEGACY -> RLR-03-FORMCONTRACT -> RLR-04-REROLL -> RLR-06-OBSERVABILITY, затем RLR-07-PROOF и RLR-08-DOD; независима только backend-часть RLR-05-ADMIN (UI после UR-F/PVR). Преемственность: UR-15 (post-L2 retry), свободные retry BGS-04 и детектор BGS-04.10 сужены до явных трансформаций; BGS-01/02/03 подтверждены без изменений."
+    },
+    {
+      "id": "epic-memory-cognitive-02",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
+      "source_sha256": "316893A95392D7FBA23EF7D96EAA603384A587B7AB82BD29A6350453D9CA0ED1",
+      "maps": [
+        "plans/features/memory-cognitive-02/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Полный эпик MEMORY-00..09 + MEM-08-S1..S5 + INV/EVAL/SC. Карта plans/features/memory-cognitive-02/requirements-map.json: 145 обязательных строк, plan-gate errors=0. MEMORY-00 аудит выполнен (read-only, HEAD 8bb2800f): все разделы PARTIAL/MISSING, требуется заморозка identity/provenance/temporal/retrieval контрактов до реализации. MENU-01 ведётся отдельной картой. Ни одна строка не VERIFIED."
+    },
+    {
+      "id": "menu-01",
+      "status": "REVIEW",
+      "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
+      "source_sha256": "316893A95392D7FBA23EF7D96EAA603384A587B7AB82BD29A6350453D9CA0ED1",
+      "maps": [
+        "plans/features/menu-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Независимая группа /menu deep-link. Карта plans/features/menu-01/requirements-map.json: 7 строк VERIFIED (включая MENU-01.4 — Main Mini App зарегистрирован и включён, Fullscreen, существующее приложение https://admin-bot.duckdns.org/web/), 10 строк всего, review-gate errors=0. Кандидат 14400b73 независимо одобрен по кодовой части. Осталось runtime-доказательство реального startapp-запуска, валидации initData и ACL — это собирают агенты из логов и серверных проверок, а не владелец. Повторная регистрация и Direct Links не требуются."
+    },
+    {
+      "id": "reply-context-integrity-rci",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md",
+      "source_sha256": "A5FCC4194578458C97584CBED091B156C448AB927DF105B3D360D5A428429084",
+      "maps": [
+        "plans/features/evol-reply-context-integrity/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "ПОРТ master 571a5737 (id в master был `evol-reply-context-integrity-01`). Здесь id занят 285-строчным эпиком EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (plans/features/evol-reply-context-integrity-01/), поэтому срез RCI-01..05 зарегистрирован отдельным id. Привязку итогового id и учёт строк решает Orchestrator/PM. | Production Reply→FactCheck context-loss. Карта plans/features/evol-reply-context-integrity/requirements-map.json (5 строк, plan-gate errors=0). Кодовая потеря в ambiguity-ветке независимо подтверждена на HEAD 8bb2800f; реальные Telegram ID/трасса продакшена остаются PENDING_EXTERNAL. | Renamed from a near-collision with the pre-existing epic task `evol-reply-context-integrity-01` (285 rows, different deliverable)."
+    },
+    {
+      "id": "factcheck-clean-publication",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md",
+      "source_sha256": "A5FCC4194578458C97584CBED091B156C448AB927DF105B3D360D5A428429084",
+      "maps": [
+        "plans/features/factcheck-clean-publication/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Чистая смысловая публикация FactCheck. Карта plans/features/factcheck-clean-publication/requirements-map.json (7 строк, plan-gate errors=0); маршрут L1 Analyst→L2 Verbalizer→Renderer сохраняется, без нового редактора/LLM-вызова/лимита длины."
     }
   ],
   "owner_inputs": [
@@ -822,7 +866,7 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "Watchdog + hang protection for media jobs: unified lifecycle watchdog on existing durable jobs (lease/heartbeat/fencing/generation), bounded recovery with backoff/Retry-After, two limits (sync wait vs operation lifetime), async non-blocking wait, durable resume, delivery dedup, 5 new scenarios 21-25; no second watchdog/pipeline."
+      "note": "Watchdog + hang protection for media jobs: unified lifecycle watchdog on existing durable jobs (lease/heartbeat/fencing/generation), bounded recovery with backoff/Retry-After, two limits (sync wait vs operation lifetime), async non-blocking wait, durable resume, delivery dedup, 5 new scenarios 21-25; no second watchdog/pipeline. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
     },
     {
       "id": "OI-2026-10-31-ASAP-FC-EVIDENCE-STYLE",
@@ -855,7 +899,7 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "ASAP-UI-02 unified design contract: matrix DONE_AND_VERIFIED/PARTIAL/MISSING/CONFLICTS/NOT_APPLICABLE vs HEAD; no bottom navbar/logo/tall header; topbar contract; ellipsis; tokens/system; cards/modals/overlay/forms; section order incl. cognitive map + 4 ribbons; health tint warning semantics; ribbons smooth; COG gestures/labels; global search; motion; keyboard/safe-area; 17 scenarios; strict Reviewer. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence."
+      "note": "ASAP-UI-02 unified design contract: matrix DONE_AND_VERIFIED/PARTIAL/MISSING/CONFLICTS/NOT_APPLICABLE vs HEAD; no bottom navbar/logo/tall header; topbar contract; ellipsis; tokens/system; cards/modals/overlay/forms; section order incl. cognitive map + 4 ribbons; health tint warning semantics; ribbons smooth; COG gestures/labels; global search; motion; keyboard/safe-area; 17 scenarios; strict Reviewer. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
     },
     {
       "id": "OI-2026-11-01-ASAP-EVIDENCE-ROUTING",
@@ -866,7 +910,7 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "v3 only (replaces v1/v2): mandatory external-factual evidence for Direct/Initiative own claims (regardless of L1 confidence/tool_policy), no web in Summary/Sleep/Memory/Dossier/GraphRAG, qualified claim-bound source reuse, dynamic evidence window via model_capacity, full limit audit A-E, prompt conflict audit, 46 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence."
+      "note": "v3 only (replaces v1/v2): mandatory external-factual evidence for Direct/Initiative own claims (regardless of L1 confidence/tool_policy), no web in Summary/Sleep/Memory/Dossier/GraphRAG, qualified claim-bound source reuse, dynamic evidence window via model_capacity, full limit audit A-E, prompt conflict audit, 46 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
     },
     {
       "id": "OI-2026-11-01-SUMMARY-COVER-INTEGRITY",
@@ -877,7 +921,7 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "v2.1 only (replaces v1/v2): P0 prompt history 500+versions, Cover Style prompt_limit(800)/bad_json/refs/timer, L2 Summary diagnostics; P1 Speech 5 tabs, ONE module toggle scoped by top selector (overrides EVOL-027/ASAP-UI-02 conflicting parts), mobile fullscreen instead of .../drawer safe areas, Status unified health block; P2 remove Favorites; 40 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence."
+      "note": "v2.1 only (replaces v1/v2): P0 prompt history 500+versions, Cover Style prompt_limit(800)/bad_json/refs/timer, L2 Summary diagnostics; P1 Speech 5 tabs, ONE module toggle scoped by top selector (overrides EVOL-027/ASAP-UI-02 conflicting parts), mobile fullscreen instead of .../drawer safe areas, Status unified health block; P2 remove Favorites; 40 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
     },
     {
       "id": "OI-2026-11-02-LIMITS-DECISION",
@@ -1108,6 +1152,52 @@
       "origin": "root chat message 2026-11-05; text is plans/current_task.md lines 6702-EOF (owner-owned, read-only)",
       "received": "2026-11-05",
       "note": "Убрать автоматическое перефразирование готовых ответов и зависимые механизмы повторной генерации/смыслового редактирования/скрытого отката; единый финальный Writer; обязательная админка/миграционный manifest/реальное доказательство LLM-вызовов."
+    },
+    {
+      "id": "OI-2026-11-07-MEMORY-COGNITIVE-02",
+      "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
+      "source_sha256": "316893A95392D7FBA23EF7D96EAA603384A587B7AB82BD29A6350453D9CA0ED1",
+      "kind": "new_task",
+      "target_task_ids": [
+        "epic-memory-cognitive-02",
+        "menu-01"
+      ],
+      "reconciled": true,
+      "note": "Full MEMORY-01..09 plus independent MENU-01; obligations decomposed into the memory epic map (145 rows) and the MENU-01 map (10 rows); plan gates errors=0. MEMORY-00 audit recorded; contracts freeze required before implementation. MENU-01 registration is owner-confirmed present, so its remaining gap is runtime launch evidence, not an external owner action."
+    },
+    {
+      "id": "OI-2026-11-07-CONTEXT-INTEGRITY-FACTCHECK",
+      "source_path": "plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md",
+      "source_sha256": "A5FCC4194578458C97584CBED091B156C448AB927DF105B3D360D5A428429084",
+      "kind": "new_task",
+      "target_task_ids": [
+        "evol-reply-context-integrity-01",
+        "factcheck-clean-publication"
+      ],
+      "reconciled": true,
+      "note": "Production Reply context-loss plus clean FactCheck publication. Obligations decomposed into plans/features/evol-reply-context-integrity/requirements-map.json (5 rows) and plans/features/factcheck-clean-publication/requirements-map.json (7 rows), both plan gates errors=0. Code-level loss in the FactCheck ambiguous branch independently verified at 8bb2800f. Real production Telegram IDs/trace remain PENDING_EXTERNAL; no row is VERIFIED yet."
+    },
+    {
+      "id": "OI-2026-11-02-PERF-PARITY",
+      "source_path": "plans/owner_inputs/2026-11-02-performance-parity-clarification.md",
+      "source_sha256": "CB1336C3F4EAF122BE2F77FD0715DFBD7F15013E895ABBFC5CDD9C6CAE549A24",
+      "kind": "amendment",
+      "target_task_ids": [
+        "evol"
+      ],
+      "reconciled": true,
+      "note": "Track P clarification: optimisation may change only internals (loading, rendering, requests, caching, architecture); any functionality/UI/animation/glass regression is a release blocker even if metrics improve. Recorded in docs/track-p-performance-parity.md and evol map rows. | Порт: sha256 пересчитан по файлу этой линии (байты отличаются от master-регистрации).",
+      "recorded_in": "docs/track-p-performance-parity.md"
+    },
+    {
+      "id": "OI-2026-11-01-CURRENT-TASK-SNAPSHOT-MISSING",
+      "kind": "decision",
+      "note": "Документ провенанса master о том, что снапшот current_task от 2026-11-01 утрачен и восстановлению не подлежит. На линии evol/impl файл plans/owner_inputs/2026-11-01-current_task-snapshot.md фактически существует (sha256 B69802BF...C72F62 совпадает с исходной регистрацией), поэтому запись остаётся только документацией линии master и не является заданием.",
+      "reconciled": true,
+      "recorded_in": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
+      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
+      "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
+      "target_task_ids": []
     }
   ]
 }

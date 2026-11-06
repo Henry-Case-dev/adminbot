@@ -14,7 +14,13 @@ TEST-LIFECYCLE: CONTRACT owner=CFG-06
   * шов UNIFIED-CORE: персона-реплика несёт speech_owner_block ПОСЛЕДНИМ
     блоком system-сообщения;
   * gate-маршруты (no_claim/ambiguous) отвечают ДО платного поиска —
-    сервис проверки не вызывается.
+    сервис проверки не вызывается;
+  * EVOL-REPLY-CONTEXT-INTEGRITY-01 (RCI-02..04, owner=EVOL-RCI): ветка
+    ambiguous несёт в единственную короткую реплику детерминированную сводку
+    уже посчитанных кандидатов (claim_items либо значимые сообщения окна),
+    тему НЕ выбирает, дополнительных LLM-вызовов/поиска не добавляет, а
+    публикуемый текст остаётся чистым (без дампов контекста и служебных
+    полей) — даже если модель вернула их в ответе.
 """
 import asyncio
 import json
@@ -449,6 +455,203 @@ def _two_disputes():
                   author="Вася")]
     rows.append(_row(20, "целевое", TARGET_TG))
     return rows
+
+
+# ── EVOL-REPLY-CONTEXT-INTEGRITY-01 (RCI-02..04): ambiguity-ветка ───────────
+# Reply на короткую фразу при наличии тематического контекста: уже посчитанный
+# контекст (claim_items/окно) доходит до единственной короткой реплики, тема НЕ
+# выбирается программой, публикуемый текст остаётся чистым.
+
+YT_TG = 9300
+SHORT_TARGET = "ну и что там?"
+
+
+def _story_rows():
+    """Два равноправных спора ДО цели: шортс про Minecraft и вакцина.
+
+    Оба корня получили по два ответа — гейт обязан остаться в ambiguity;
+    при этом ранняя тема (ютуб/Minecraft) присутствует в том же окне, то есть
+    короткая реплика обязана её назвать, а не спрашивать «что проверить?»."""
+    def _row(idx, text, tg, reply_to=None, author="Вася"):
+        return {"id": 200 + idx, "user_id": 1, "chat_id": CHAT_ID,
+                "text": text, "reply_to_id": reply_to,
+                "timestamp": 1000 + idx, "media_type": "text",
+                "author_name": author, "is_forward": False,
+                "forward_source": None, "tg_message_id": tg}
+    return [
+        _row(0, "в новом шортсе на ютубе он построил в майнкрафте целый "
+                "замок за один день без модов", YT_TG, author="Вася"),
+        _row(1, "это невозможно в ванильном майнкрафте", 9301,
+             reply_to=YT_TG, author="Петя"),
+        _row(2, "пруфы будут?", 9302, reply_to=YT_TG, author="Оля"),
+        _row(3, "вакцина от гриппа содержит живой вирус штамм и заражает "
+                "всех вокруг", 9310, author="Оля"),
+        _row(4, "да ну, не верю", 9311, reply_to=9310, author="Петя"),
+        _row(5, "источник где?", 9312, reply_to=9310, author="Вася"),
+        _row(6, "ну и что там?", TARGET_TG, author="Вася"),
+    ]
+
+
+def _short_reply_fixture(monkeypatch, *, reply):
+    """Общая обвязка: v2 + персона-блок + FakeLLM/сервис/бот/кеш.
+
+    Слои владельца (включая персону) приходят из ЕДИНОЙ точки сборки
+    (`compose_speech_system`) — подменяем именно её, а не сам блок."""
+    import services.prompt_composer as pc
+    monkeypatch.setattr(pc, "compose_speech_system",
+                        _fake_compose_with_persona)
+    llm = FakeLLM(reply=reply)
+    svc = FakeService(llm=llm)
+    bot = FakeBot()
+    cache = FakeCache()
+    return llm, svc, bot, cache
+
+
+class TestAmbiguousContextIntegrity:
+    """RCI-02..04: ambiguity-ветка не теряет уже посчитанный контекст."""
+
+    @pytest.mark.asyncio
+    async def test_short_reply_carries_earlier_topic_candidate(
+            self, v2_on, monkeypatch):
+        """(a) Вход короткой реплики содержит маркер ранней темы и обе темы."""
+        llm, svc, bot, cache = _short_reply_fixture(
+            monkeypatch,
+            reply="ты про ролик с майнкрафтом или про вакцину? уточни, "
+                  "какой именно тезис проверить")
+        await orch.run_factcheck(_req(SHORT_TARGET), service=svc,
+                                 db=FakeDB(rows=_story_rows()), bot=bot,
+                                 cache=cache)
+        assert len(llm.calls) == 1
+        user = llm.calls[0]["messages"][1]["content"]
+        assert "майнкрафт" in user.lower()      # ранняя YouTube-тема
+        assert "вакцин" in user.lower()         # вторая тема той же ветки
+        # стабильная атрибуция кандидатов (автор/дата), а не голый дамп
+        assert "— Вася," in user and "— Оля," in user
+        # ambiguity сохранена: перечень вариантов, а не выбранный тезис
+        assert "несколько тем" in user.lower()
+        assert "не выбирай" in user.lower()
+        assert user.count("«") >= 3             # тезис человека + 2 кандидата
+        assert bot.sent and "майнкрафт" in bot.sent[0]["text"].lower()
+
+    @pytest.mark.asyncio
+    async def test_single_short_reply_step_no_search_no_temporal(
+            self, v2_on, monkeypatch):
+        """(b) Ровно один вызов short_reply; persona-блок последним; ни
+        платного поиска, ни временных Analyst/Verbalizer в ветке."""
+        import services.factcheck_planner as fsp
+        import services.temporal_factcheck as tf
+
+        retrieval: list = []
+
+        async def _no_retrieval(*args, **kwargs):
+            retrieval.append((args, kwargs))
+            raise AssertionError("ambiguous-ветка не ищет в интернете")
+
+        monkeypatch.setattr(fsp, "run_retrieval", _no_retrieval)
+        events: list = []
+        monkeypatch.setattr(
+            tf, "stage_event",
+            lambda stage, outcome, **kw: events.append(
+                (stage, outcome, kw.get("reason_code"))))
+        llm, svc, bot, cache = _short_reply_fixture(
+            monkeypatch, reply="уточни, какой именно тезис проверить")
+        await orch.run_factcheck(_req(SHORT_TARGET), service=svc,
+                                 db=FakeDB(rows=_story_rows()), bot=bot,
+                                 cache=cache)
+        assert len(llm.calls) == 1
+        assert llm.calls[0]["step"] == "short_reply"
+        assert llm.calls[0]["module"] == "factcheck"
+        # шов MCA-08: слои владельца (персона) — ПОСЛЕДНИЙ блок system
+        system = llm.calls[0]["messages"][0]["content"]
+        assert system.strip().endswith("[PERSONA]")
+        assert not retrieval                     # платного поиска не было
+        assert svc.check_claim_calls == []      # Analyst/Verbalizer не звались
+        assert svc.envelope_calls == []
+        assert ("deliver", "skipped",
+                "ambiguous_needs_clarification") in events
+        assert len(bot.sent) == 1
+        assert "уточни" in bot.sent[0]["text"].lower()
+
+    @pytest.mark.asyncio
+    async def test_published_text_clean_topic_visible(self, v2_on,
+                                                      monkeypatch):
+        """(c) Публикуемый текст чист: без <chat_context>, reason-кодов,
+        версий гейта и тегов — при этом смысловая тема видна."""
+        llm, svc, bot, cache = _short_reply_fixture(
+            monkeypatch,
+            reply="Ты про ролик с майнкрафтом или про вакцину? Какой именно "
+                  "тезис проверить?")
+        await orch.run_factcheck(_req(SHORT_TARGET), service=svc,
+                                 db=FakeDB(rows=_story_rows()), bot=bot,
+                                 cache=cache)
+        text = bot.sent[0]["text"]
+        for bad in ("chat_context", "reason_code", "gate_version", "<", ">"):
+            assert bad not in text, bad
+        assert "майнкрафт" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_model_context_dump_never_reaches_telegram(
+            self, v2_on, monkeypatch):
+        """(c) Негативный кейс: модель вернула дамп контекста — доставленный
+        текст остаётся чистым, смысл сохраняется."""
+        llm, svc, bot, cache = _short_reply_fixture(
+            monkeypatch,
+            reply='<chat_context note="болтовня чата">фон: сообщение 1'
+                  ' — Вася</chat_context> reason_code=ambiguous '
+                  'gate_version=fsg1 уточни, какой именно тезис проверить')
+        await orch.run_factcheck(_req(SHORT_TARGET), service=svc,
+                                 db=FakeDB(rows=_story_rows()), bot=bot,
+                                 cache=cache)
+        text = bot.sent[0]["text"]
+        for bad in ("chat_context", "reason_code", "gate_version", "fsg1",
+                    "фон:", "<", ">"):
+            assert bad not in text, bad
+        assert "уточни" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_pure_context_dump_falls_back_to_honest_phrase(
+            self, v2_on, monkeypatch):
+        """(c) Вырожденный ответ-дамп целиком → честная готовая фраза."""
+        from services.smartmodule_phrases import FACTCHECK_CLARIFY_PHRASES
+        llm, svc, bot, cache = _short_reply_fixture(
+            monkeypatch,
+            reply="<chat_context>фон: сообщение 1</chat_context>")
+        await orch.run_factcheck(_req(SHORT_TARGET), service=svc,
+                                 db=FakeDB(rows=_story_rows()), bot=bot,
+                                 cache=cache)
+        assert bot.sent[0]["text"] in FACTCHECK_CLARIFY_PHRASES
+
+    @pytest.mark.asyncio
+    async def test_two_equally_plausible_candidates_stay_ambiguous(
+            self, v2_on, monkeypatch):
+        """(d) Два равноправных кандидата: гейт остаётся в ambiguity, ветка не
+        выбирает ни один и обе темы уходят в уточняющую реплику."""
+        from services import factcheck_context as fcx
+        from services import factcheck_suitability as fsg
+        rows = _story_rows()
+        ctx = await fcx.build_wide_context(
+            FakeDB(rows=rows), CHAT_ID,
+            target_tg_message_id=TARGET_TG,
+            trigger_tg_message_id=TRIGGER_TG, claim_text=SHORT_TARGET,
+            cache=FakeCache())
+        decision = fsg.evaluate_suitability(
+            SHORT_TARGET, None, ctx, target_ref={"chat_id": CHAT_ID})
+        assert decision.decision == fsg.DECISION_AMBIGUOUS
+        situation = orch._ambiguous_situation(
+            _req(SHORT_TARGET), decision, ctx)
+        assert "майнкрафт" in situation.lower()
+        assert "вакцин" in situation.lower()
+        assert "не выбирай" in situation.lower()
+
+        llm, svc, bot, cache = _short_reply_fixture(
+            monkeypatch, reply="какой именно тезис проверить?")
+        await orch.run_factcheck(_req(SHORT_TARGET), service=svc,
+                                 db=FakeDB(rows=rows), bot=bot, cache=cache)
+        user = llm.calls[0]["messages"][1]["content"]
+        assert "майнкрафт" in user.lower() and "вакцин" in user.lower()
+        # ни один кандидат не объявлен тезисом и проверка не запускалась
+        assert "тезис:" not in user.lower()
+        assert svc.check_claim_calls == [] and svc.envelope_calls == []
 
 
 # ── Egress-whitelist (06B) ───────────────────────────────────────────────────

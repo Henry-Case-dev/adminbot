@@ -14,6 +14,7 @@ import importlib.util
 import json
 import os
 import sys
+import time
 from http.server import ThreadingHTTPServer
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -239,7 +240,48 @@ MEMORY_STUBS = {
     "/api/memory/health": {},
     "/api/memory/lessons": {"items": []},
     "/api/oversight/experience/funnel": {"available": False},
+    # CMV-PERF: живая проверка «Когнитивной карты» в обычном браузере (Browser
+    # Use) требует HTTP-стаба того же payload, что Playwright-стенды берут из
+    # фикстур (`tests/fixtures/cmv`). Без него карта в браузере пустая.
+    "/api/memory/cognitive-map": None,
 }
+
+
+def _cog_payload():
+    """payload `cog-map/1` из общей фикстуры (702 узла / 2400 рёбер)."""
+    path = os.path.join(REPO, "tests", "fixtures", "cmv", "cog_map_702.json")
+    with open(path, "r", encoding="utf-8") as fh:
+        payload = json.load(fh)
+    payload["generated_at"] = int(time.time())
+    return payload
+
+
+#: Заглушка Telegram Mini App: без initData приложение не грузит данные.
+TMA_STUB_TAG = """<script>
+(function () {
+  var d = 'user=%7B%22id%22%3A5885953495%7D&hash=audit';
+  try { sessionStorage.setItem('adminbot.initData', d); } catch (e) {}
+  window.Telegram = { WebApp: {
+    initData: d,
+    initDataUnsafe: { user: { id: 5885953495, first_name: 'Audit',
+                              username: 'audit' } },
+    ready: function () {}, expand: function () {}, onEvent: function () {},
+    offEvent: function () {}, isExpanded: true, colorScheme: 'dark',
+    themeParams: {}, viewportHeight: 900, viewportStableHeight: 900,
+    HapticFeedback: { impactOccurred: function () {},
+      notificationOccurred: function () {}, selectionChanged: function () {} },
+    MainButton: { hide: function () {}, show: function () {},
+      setText: function () {}, onClick: function () {}, offClick: function () {},
+      enable: function () {} },
+    BackButton: { hide: function () {}, show: function () {},
+      onClick: function () {}, offClick: function () {} },
+    disableVerticalSwipes: function () {}, setHeaderColor: function (v) {},
+    setBackgroundColor: function (v) {}, openLink: function () {},
+    close: function () {}, sendData: function () {},
+    setBottomBarColor: function (v) {}
+  } };
+})();
+</script>"""
 
 
 class _Handler(M._Handler):
@@ -253,9 +295,13 @@ class _Handler(M._Handler):
 
     def _api_payload(self, url: str):
         """Стабы API (матрица отдаёт их через Playwright route — здесь HTTP)."""
+        if url.endswith("/api/memory/cognitive-map"):
+            return _cog_payload()
         table = dict(M.API_STUBS)
         table.update(MEMORY_STUBS)
         for marker, payload in table.items():
+            if payload is None:
+                continue
             if url.endswith(marker):
                 return payload
         return None
@@ -268,6 +314,22 @@ class _Handler(M._Handler):
         payload = self._api_payload(url)
         if payload is not None:
             self._json(payload)
+            return
+        if url.endswith("/web/index.html") or url.endswith("/web/"):
+            # CMV-PERF: обычный браузер (Browser Use) не имеет Telegram
+            # Mini App, а приложение до данных доходит только с initData.
+            # Playwright-стенды подставляют заглушку через add_init_script —
+            # здесь тот же самый stub вшивается в отдаваемый index.html.
+            path = os.path.join(REPO, "web", "index.html")
+            with open(path, "r", encoding="utf-8") as fh:
+                html = fh.read()
+            html = html.replace("<head>", "<head>\n" + TMA_STUB_TAG, 1)
+            data = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
             return
         M._Handler.do_GET(self)
 

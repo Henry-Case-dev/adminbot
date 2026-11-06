@@ -1,20 +1,18 @@
-﻿# Workflow state
+﻿# Workflow State
 
-Task: UNIFIED-REPLY (UR-A..G merged; UR-G 31/40 bound, 9 rows blocked on UR-C-SCHED/UR-23.4/UR-26.x/preprod/postdeploy — UR-C-SCHED and UR-23.4 since shipped 2.58.161) + REMOVE-LEGACY-REPHRASING-01 (2.58.159, DoD lines await prod observation) + BEHAVIOR-GATES-SIMPLIFICATION-01 (BGS-01..05 shipped/bound, 06 UI shipped/bound, 07/08 open) + EPIC-CM-VISUAL-01 (map ~145+/226 bound; residual batches merged) + PVR-FC-CORRECTIVE-01 (PVR-BACKEND+UI merged/bound 27+6 rows; FC-BACKEND merged, bound 27 rows; PVR-04 redesign/PVR-06/C3.11 open) + search short-tokens (shipped)
-Task source: plans/owner_inputs/2026-11-05-unified-reply.md, 2026-11-05-remove-legacy-rephrasing-v2.md, 2026-11-05-behavior-gates-simplification.md, 2026-11-05-pvr-fc-corrective-01.md
+Task: EVOL queue plus EPIC-MEMORY-COGNITIVE-02, MENU-01, RCI (Reply→FactCheck context) and FactCheck clean publication
+Task source: plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md, plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md
 Status: in_progress
-Primary phase: implementation
-Active feature: PVR-FC-CORRECTIVE-01 / UR-C-CLOCK closure after 2.58.161
-Active lanes: ses_e4e59d95bffezB0hzwLRZnUp77 (UR-C-CLOCK PM reconciliation); ses_e4e540fddffekr5Nk3xqH4PWW2 (PVR-06 read-only preparation); ses_e4e4de537ffeHJ0G6jIK4xF25E (PVR-04 Reviewer on 350cb228)
-Join barriers: UR-C-CLOCK reconciliation; PVR-04 independent review; PVR-06 preparation; no release action until exact reviewed candidates exist
-Next unlocks: (1) reconcile UR-C-CLOCK rows and bind only proven evidence; (2) receive PVR-04 review and bind only approved rows; (3) use PVR-06 read-only map to dispatch the smallest implementation slice
-
-Last verified: prod 2.58.161 @ a563ee31 (healthz 2.58.161; app.js served sha256 705a28cd27292e64931e3f47a4936a7fdbf1250edddce69c73b8d4061fe491f9 == local; timezones 401 unauth; migration v42 applied; slot_claims exists; deploy outside due-window — honest skip_expired, no catch-up; rollback 2.58.160 @ 309f69c2 pin by SHA); FC-BACKEND approved+bound 27 rows (pins re-approved a9e91310); PVR-UI approved+bound 6 rows; UR-23.4 bound VERIFIED (factcheck ledger + summary full-text)
-Next unlocks: (1) PVR-04 redesign + PVR-06 per-block + C3.11 (PVR-FC open wave); (2) UR-26.3/4/5 summary payload matrix (closes UR-30.4/E4); (3) BGS-07/08; (4) PVR-E2E/EPIC-CLOSE waves; (5) CMV residual tail
+Primary phase: pre-release integration and review
+Active feature: unified line integ/unify-release (release 2.58.161 + ported MENU-01 + FactCheck fix + ACL tests)
+Active lanes: ses_e4d5bb3f7ffeLhdTcQ7xYu5yQ0 (PVR-04 blocker fixes); ses_e4d5606baffeOhzac6ZlhlBzFG (pre-existing pin/CSS test fixes); ses_e4d4f998dffee2Ye2NnL2xagux (observability Reviewer d8feb2a0); ses_e4d4e4f7effepw9AODyuhaS3bi (contracts revision 3)
+Line policy: ONE line. `integ/unify-release` (d806ba1f) contains release a563ee31 as ancestor plus ported MENU-01 (5a503cb4), FactCheck fix (428259e2) and ACL tests (670addc3). New work merges here; nothing ships from master or from a bare release branch.
+Verified in this line: 168 tests green across menu, factcheck orchestrator, webapp deps, UR-26 payloads, scheduler, PVR backend, FC corrective; tree clean
+Checked facts: MENU-01 code approved (reviewer's 8 counterexamples); 8077 successful initData validations, 3 identities, 17 non-admin, 15 missing-initData rejections; production case chat -1002661910336 reconstructed with real IDs; Main Mini App registered (has_main_web_app=true, menu button web_app, t.me?startapp resolves to Open App)
+Next unlocks: (1) approvals for PVR-04 fix, observability d8feb2a0, pin fixes -> merge into unified line; (2) contracts revision 3 -> A0 re-audit of summary_memory/database/mca_retrieval_context on this line -> MEMORY-01; (3) release 2.58.162 with MENU-01 + FactCheck fix + ACL tests + env MINI_APP_REGISTRATION_CONFIRMED=1, MINI_APP_DEEP_LINK_MODE=main; (4) postdeploy: real group /menu renders the deep-link button, observe a real startapp launch, non-admin 403 in logs
 Next execution: awaiting_children
-Review: approved (UR-C-SCHED 164 passed, FC-BACKEND, PVR-BACKEND, PVR-UI, UR-E/UR-D/UR-F, BGS-05); pending (none critical)
-Deployment: verified (2.58.161 @ a563ee31; rollback 2.58.160 @ 309f69c2 PIN BY SHA — origin/release/2.58.160 moved to 3e7fc51d deploy-doc commit, own session's doc push)
+Review: MENU-01 code Approved; ACL slice Approved; port Approved (code) after doc fixes; PVR-04 Needs Fixes in progress; observability in review
+Deployment: prod 2.58.161 @ a563ee31 (unchanged, healthy); planned 2.58.162 from this unified line after approvals
 Human gate: none
-Progress scope: plans/progress_scope.json | fresh (3675+/5173 = 71%)
-Platform note: Reviewer-agent model was exhausted earlier — reviews ran via general agent in adversarial mode, disclosed; owner switched models, regular Reviewer agent re-tested working on latest dispatches
-Updated: 2026-11-06T07:50:00+12:00
+Progress scope: plans/progress_scope.json | fresh 2026-11-07 08:58 on dev line (13/44 tasks, 289/448 stages, 3749/5340 = 70%); recount after release binding
+Updated: 2026-11-07T12:20:00+12:00

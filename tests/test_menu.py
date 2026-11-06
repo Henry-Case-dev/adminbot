@@ -58,7 +58,7 @@ class TestMenuCommand:
             kwargs = msg.reply.call_args.kwargs
             assert "reply_markup" not in kwargs      # клавиатуры НЕТ
             text = msg.reply.call_args.args[0]
-            assert "личке" in text
+            assert "личк" in text
             assert "@PERMsoc_bot" in text            # из bot.me(), не хардкод
 
     @pytest.mark.asyncio
@@ -72,7 +72,7 @@ class TestMenuCommand:
             id=42, is_bot=True, first_name="PERM", username="PERMsoc_bot"))
         await menu_command(msg)
         assert "reply_markup" not in msg.reply.call_args.kwargs
-        assert "личке" in msg.reply.call_args.args[0]
+        assert "личк" in msg.reply.call_args.args[0]
 
     @pytest.mark.asyncio
     async def test_menu_group_hint_without_bot_username(self):
@@ -82,7 +82,76 @@ class TestMenuCommand:
         msg.bot = None                      # в тестах bot может отсутствовать
         await menu_command(msg)
         assert "reply_markup" not in msg.reply.call_args.kwargs
-        assert "личке" in msg.reply.call_args.args[0]
+        assert "личк" in msg.reply.call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_menu_group_confirmed_main_deep_link(self):
+        import handlers.menu as menu_mod
+        from aiogram.types import User
+        msg = _make_msg(chat_type="group")
+        msg.bot = MagicMock()
+        msg.bot.me = AsyncMock(return_value=User(
+            id=42, is_bot=True, first_name="Bot", username="Example_bot"))
+        configured = replace(menu_mod.settings,
+                             MINI_APP_REGISTRATION_CONFIRMED=True,
+                             MINI_APP_DEEP_LINK_MODE="main")
+        with patch.object(menu_mod, "settings", configured):
+            await menu_command(msg)
+        button = msg.reply.call_args.kwargs["reply_markup"].inline_keyboard[0][0]
+        assert button.text == "Открыть мини-приложение"
+        assert button.url == "https://t.me/Example_bot?startapp"
+        assert button.web_app is None
+
+    @pytest.mark.asyncio
+    async def test_menu_supergroup_confirmed_named_deep_link(self):
+        import handlers.menu as menu_mod
+        from aiogram.types import User
+        msg = _make_msg(chat_type="supergroup")
+        msg.bot = MagicMock()
+        msg.bot.me = AsyncMock(return_value=User(
+            id=42, is_bot=True, first_name="Bot", username="Example_bot"))
+        configured = replace(menu_mod.settings,
+                             MINI_APP_REGISTRATION_CONFIRMED=True,
+                             MINI_APP_DEEP_LINK_MODE="named",
+                             MINI_APP_SHORT_NAME="memory_map")
+        with patch.object(menu_mod, "settings", configured):
+            await menu_command(msg)
+        button = msg.reply.call_args.kwargs["reply_markup"].inline_keyboard[0][0]
+        assert button.url == "https://t.me/Example_bot/memory_map"
+        assert "admin-bot.duckdns.org" not in button.url
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mode,short_name", [("", "memory_map"), ("named", "bad name"), ("named", "")])
+    async def test_menu_group_invalid_registration_falls_back(self, mode, short_name):
+        import handlers.menu as menu_mod
+        from aiogram.types import User
+        msg = _make_msg(chat_type="group")
+        msg.bot = MagicMock()
+        msg.bot.me = AsyncMock(return_value=User(
+            id=42, is_bot=True, first_name="Bot", username="Example_bot"))
+        configured = replace(menu_mod.settings,
+                             MINI_APP_REGISTRATION_CONFIRMED=True,
+                             MINI_APP_DEEP_LINK_MODE=mode,
+                             MINI_APP_SHORT_NAME=short_name)
+        with patch.object(menu_mod, "settings", configured):
+            await menu_command(msg)
+        assert "reply_markup" not in msg.reply.call_args.kwargs
+        assert "личк" in msg.reply.call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_menu_group_malformed_username_falls_back(self):
+        import handlers.menu as menu_mod
+        from aiogram.types import User
+        msg = _make_msg(chat_type="supergroup")
+        msg.bot = MagicMock()
+        msg.bot.me = AsyncMock(return_value=User(
+            id=42, is_bot=True, first_name="Bot", username="bad username"))
+        configured = replace(menu_mod.settings,
+                             MINI_APP_REGISTRATION_CONFIRMED=True,
+                             MINI_APP_DEEP_LINK_MODE="main")
+        with patch.object(menu_mod, "settings", configured):
+            await menu_command(msg)
+        assert "reply_markup" not in msg.reply.call_args.kwargs
 
     @pytest.mark.asyncio
     async def test_menu_url_from_settings(self):

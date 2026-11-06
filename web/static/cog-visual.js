@@ -49,7 +49,7 @@
     : (typeof self !== 'undefined' ? self : this)), function (root) {
   'use strict';
 
-  var VERSION = 'cog-visual/3';
+  var VERSION = 'cog-visual/4';
 
   /* ── ЕДИНЫЙ конфигурационный слой визуала (INV-05) ─────────────────────
    * Геометрия, палитра, полупрозрачность, длительности и пороги — параметры, а
@@ -221,6 +221,21 @@
       // бюджета от ОТНОСИТЕЛЬНОГО масштаба, а не от абсолютного vis-значения.
       t1: 0.952,
       t2: 2.016,
+      /* CMV-PERF: план подписей — дорогой шаг (сортировка всех узлов витрины +
+       * разбор коллизий). Раньше он пересобирался НА КАЖДОМ кадре панорамирования
+       * (камера входила в ключ с точностью 0.5 px). При панорамировании подписи
+       * сдвигаются ЖЁСТКО вместе с кадром, взаимные расстояния не меняются —
+       * поэтому готовый план переиспользуется со сдвигом, а пересборка идёт по
+       * порогам: panLimit — насколько камера ушла по экрану с момента плана
+       * (чтобы новые узлы получили имена), zoomOutTolerance — при каком
+       * уменьшении масштаба (там подписи могут начать сближаться) план
+       * считается недействительным. При зуме ВВЕРХ сближения не бывает:
+       * центры расходятся, а бокс подписи остаётся пиксельным. */
+      panLimit: 40,
+      zoomOutTolerance: 0.02,
+      /* Ширина символа меряется ОДИН раз на сцену/кегль: `measureText` на каждом
+       * кадре — лишняя работа и сброс кэша шрифта в браузере (CMV-PERF). */
+      measureKey: 'system-ui',
     },
     /* CMV-C: единственный конфиг-слой LOD (§4.2 контракта + §5.2 спеки).
      * Пороги — ОТНОСИТЕЛЬНО обзора (r = getScale()/fitScaleRef), не абсолютный
@@ -503,9 +518,6 @@
     };
   }
 
-  /* relativeScale(scale, fitScale) — `r` контракта §4.2 для слоя подписей:
-   * бюджет подписей считается от ОТНОСИТЕЛЬНОГО масштаба, а не от абсолютного
-   * vis-значения (иначе на большом графе LOD «залипал» бы в overview). */
   function relativeScale(scale, fitScale) {
     var s = finite(scale);
     var f = finite(fitScale);
@@ -1117,10 +1129,27 @@
       return s;
     }
 
+    function spriteBucketIndex(screenRadius) {
+      var cfg = CONFIG.glow;
+      var r = finite(screenRadius);
+      if (r === null || r <= 0) r = cfg.minScreenRadius;
+      r = clamp(Math.round(r / cfg.bucketPx) * cfg.bucketPx,
+        cfg.minScreenRadius, cfg.maxScreenRadius);
+      return Math.max(0, Math.round(r / cfg.bucketPx));
+    }
+
+    /* CMV-PERF: спрайт ищется по ЦЕЛОЧИСЛЕННОМУ индексу вложенных карт, а не по
+     * строковому ключу. Замер 702/2400: на кадр приходилось ~820 вызовов
+     * `spriteSpec` (по два ореола на узел), каждый строил объект и склеивал
+     * строку ключа — мусор в GC и работа без изменения результата. */
     function sprite(kind, layer, screenRadius) {
-      var spec = spriteSpec(kind, layer, screenRadius, dpr);
-      var cached = sprites[spec.key];
+      var kit = kitKey(kind);
+      var bucket = spriteBucketIndex(screenRadius);
+      var byLayer = sprites[kit] || (sprites[kit] = Object.create(null));
+      var byBucket = byLayer[layer] || (byLayer[layer] = []);
+      var cached = byBucket[bucket];
       if (cached) return cached;
+      var spec = spriteSpec(kind, layer, screenRadius, dpr);
       var px = Math.max(2, Math.round(spec.size * dpr));
       var canvas = makeCanvas(px, px);
       if (!canvas || typeof canvas.getContext !== 'function') return null;
@@ -1140,7 +1169,7 @@
         key: spec.key, canvas: canvas, cssSize: spec.size,
         ratio: spec.ratio, color: spec.color,
       };
-      sprites[spec.key] = spriteRec;
+      byBucket[bucket] = spriteRec;
       spriteCount += 1;
       return spriteRec;
     }
@@ -1148,7 +1177,11 @@
     function composite(ctx, kind, layer, screenRadius, alpha) {
       var rec = sprite(kind, layer, screenRadius);
       if (!rec || !(alpha > 0.002)) return null;
-      ctx.globalAlpha = alpha > 1 ? 1 : alpha;
+      var a = alpha > 1 ? 1 : alpha;
+      // CMV-PERF: `globalAlpha` ставится только при СМЕНЕ значения. В кадре
+      // ореолы 400+ узлов идут с одной и той же альфой, а каждое присваивание —
+      // отдельная операция состояния рисования. Значение — то же самое.
+      if (ctx.globalAlpha !== a) ctx.globalAlpha = a;
       return rec;
     }
 
@@ -1156,45 +1189,131 @@
       var rec = composite(ctx, kind, layer, screenRadius, alpha);
       if (!rec) return;
       var d = rec.cssSize;
-      ctx.drawImage(rec.canvas, sx - d / 2, sy - d / 2, d, d);
+      // Позиция спрайта — ЦЕЛЫЕ CSS-px: при дробном смещении холст включает
+      // билинейную фильтрацию каждого ореола (400+ спрайтов на кадр). Сдвиг
+      // мягкого ореола меньше 1 px не наблюдаем, а выборка становится 1:1.
+      var dx = Math.round(sx - d / 2);
+      var dy = Math.round(sy - d / 2);
+      ctx.drawImage(rec.canvas, dx, dy, d, d);
       draws += 1;
     }
 
-    /* Декор активного/видимого узла: внутреннее кольцо убеждения, грань
-     * парадигмы, угловой блик изменения, светлое ядро сущности (§4.1 спеки). */
-    function drawDecor(ctx, kind, sx, sy, r, alpha) {
+    /* ── декор пачкой (CMV-PERF) ────────────────────────────────────────────
+     * Замер 702/2400 при рабочем зуме на телефоне: декор стоил ~5 мс кадра —
+     * ~450 отдельных `beginPath + arc + stroke/fill` (по вызову на узел).
+     * Здесь те же дуги собираются в ОДИН путь на корзину стиля (тип декора +
+     * цвет + толщина + альфа) и замыкаются ОДНИМ `stroke`/`fill`. Геометрия и
+     * вид не меняются: корзина — это ровно тот же стиль, что был у одиночного
+     * вызова; `moveTo` перед каждой дугой запрещает «сшивание» соседних фигур
+     * линиями (иначе общий путь соединил бы их хордами).
+     * Толщина квантуется на 0.25 px, альфа — на 0.05: это ниже порога
+     * различимости, но убирает дробление корзин по дробным радиусам. */
+    function decorBucketFor(kind, r, alpha) {
       var decor = decorOf(kind);
-      if (!decor || !(r > 1.2)) return;
-      var color = colorOf(kind);
-      ctx.globalAlpha = alpha;
-      if (decor === 'ring') {
-        ctx.beginPath();
-        ctx.lineWidth = Math.max(0.7, r * 0.16);
-        ctx.strokeStyle = rgba(lighten(color, 0.55), 0.85);
-        ctx.arc(sx, sy, r * 0.55, 0, Math.PI * 2);
-        ctx.stroke();
-      } else if (decor === 'facet') {
-        ctx.beginPath();
-        ctx.lineWidth = Math.max(0.6, r * 0.12);
-        ctx.strokeStyle = rgba(lighten(color, 0.5), 0.7);
-        var inner = r * 0.52;
-        ctx.moveTo(sx, sy - inner);
-        ctx.lineTo(sx + inner * 0.86, sy + inner * 0.5);
-        ctx.lineTo(sx - inner * 0.86, sy + inner * 0.5);
-        ctx.closePath();
-        ctx.stroke();
-      } else if (decor === 'glint') {
-        ctx.beginPath();
-        ctx.lineWidth = Math.max(0.7, r * 0.18);
-        ctx.strokeStyle = rgba('#FFF3D6', 0.85);
-        ctx.arc(sx, sy, r * 0.68, -Math.PI * 0.75, -Math.PI * 0.25);
-        ctx.stroke();
-      } else if (decor === 'core') {
-        ctx.beginPath();
-        ctx.fillStyle = rgba(lighten(color, 0.75), 0.85);
-        ctx.arc(sx, sy, Math.max(0.8, r * 0.34), 0, Math.PI * 2);
-        ctx.fill();
+      if (!decor || !(r > 1.2)) return null;
+      var lw = 0;
+      if (decor === 'ring') lw = Math.max(0.7, r * 0.16);
+      else if (decor === 'facet') lw = Math.max(0.6, r * 0.12);
+      else if (decor === 'glint') lw = Math.max(0.7, r * 0.18);
+      return {
+        decor: decor, color: colorOf(kind), lw: Math.round(lw * 4) / 4,
+        alpha: Math.round(alpha * 20) / 20,
+      };
+    }
+
+    var decorFrame = {
+      buckets: Object.create(null), order: [], draws: 0,
+    };
+
+    function resetDecor() {
+      var order = decorFrame.order;
+      for (var i = 0; i < order.length; i += 1) {
+        var b = decorFrame.buckets[order[i]];
+        b.n = 0;
       }
+      order.length = 0;
+      decorFrame.buckets = Object.create(null);
+      decorFrame.draws = 0;
+    }
+
+    function queueDecor(kind, sx, sy, r, alpha) {
+      var spec = decorBucketFor(kind, r, alpha);
+      if (!spec) return;
+      var key = spec.decor + '|' + spec.color + '|' + spec.lw + '|' + spec.alpha;
+      var bucket = decorFrame.buckets[key];
+      if (!bucket) {
+        bucket = {
+          decor: spec.decor, color: spec.color, lw: spec.lw,
+          alpha: spec.alpha, n: 0, xs: [], ys: [], rs: [],
+        };
+        decorFrame.buckets[key] = bucket;
+        decorFrame.order.push(key);
+      }
+      bucket.xs[bucket.n] = sx;
+      bucket.ys[bucket.n] = sy;
+      bucket.rs[bucket.n] = r;
+      bucket.n += 1;
+    }
+
+    function flushDecor(ctx) {
+      var order = decorFrame.order;
+      var draws = 0;
+      for (var b = 0; b < order.length; b += 1) {
+        var bucket = decorFrame.buckets[order[b]];
+        var n = bucket.n;
+        if (!n) continue;
+        var i;
+        var xs = bucket.xs;
+        var ys = bucket.ys;
+        var rs = bucket.rs;
+        ctx.globalAlpha = bucket.alpha;
+        ctx.beginPath();
+        if (bucket.decor === 'ring') {
+          ctx.lineWidth = bucket.lw;
+          ctx.strokeStyle = rgba(lighten(bucket.color, 0.55), 0.85);
+          for (i = 0; i < n; i += 1) {
+            var rr = rs[i] * 0.55;
+            ctx.moveTo(xs[i] + rr, ys[i]);
+            ctx.arc(xs[i], ys[i], rr, 0, Math.PI * 2);
+          }
+          ctx.stroke();
+          draws += 1;
+        } else if (bucket.decor === 'facet') {
+          ctx.lineWidth = bucket.lw;
+          ctx.strokeStyle = rgba(lighten(bucket.color, 0.5), 0.7);
+          for (i = 0; i < n; i += 1) {
+            var inner = rs[i] * 0.52;
+            ctx.moveTo(xs[i], ys[i] - inner);
+            ctx.lineTo(xs[i] + inner * 0.86, ys[i] + inner * 0.5);
+            ctx.lineTo(xs[i] - inner * 0.86, ys[i] + inner * 0.5);
+            ctx.closePath();
+          }
+          ctx.stroke();
+          draws += 1;
+        } else if (bucket.decor === 'glint') {
+          ctx.lineWidth = bucket.lw;
+          ctx.strokeStyle = rgba('#FFF3D6', 0.85);
+          var a0 = -Math.PI * 0.75;
+          for (i = 0; i < n; i += 1) {
+            var gr = rs[i] * 0.68;
+            ctx.moveTo(xs[i] + gr * Math.cos(a0), ys[i] + gr * Math.sin(a0));
+            ctx.arc(xs[i], ys[i], gr, a0, -Math.PI * 0.25);
+          }
+          ctx.stroke();
+          draws += 1;
+        } else if (bucket.decor === 'core') {
+          ctx.fillStyle = rgba(lighten(bucket.color, 0.75), 0.85);
+          for (i = 0; i < n; i += 1) {
+            var cr = Math.max(0.8, rs[i] * 0.34);
+            ctx.moveTo(xs[i] + cr, ys[i]);
+            ctx.arc(xs[i], ys[i], cr, 0, Math.PI * 2);
+          }
+          ctx.fill();
+          draws += 1;
+        }
+      }
+      decorFrame.draws = draws;
+      return draws;
     }
 
     /* Кольцо активного узла + мягкий световой импульс (select/hover).
@@ -1431,6 +1550,11 @@
         var node;
         var p;
         var hiddenMap = frame.hidden || null;
+        // CMV-PERF: радиус в сетевых единицах считается ОДИН раз на смену
+        // `fitScaleRef`/набора (`CogVisual.nodeRadius` = log + клампы) и
+        // приходит в кадре готовым (`frame.radii`). В кадре панорамирования
+        // 702 вызова Math.log были чистой работой без изменения результата.
+        var radii = frame.radii || null;
         // 1) проекция + отбор видимых (за кадром — не считаем вовсе).
         for (i = 0; i < nodes.length; i += 1) {
           node = nodes[i];
@@ -1443,9 +1567,11 @@
           if (sx < -margin || sy < -margin || sx > W + margin || sy > H + margin) {
             continue;
           }
-          var radiusNet = nodeRadius(node.kind,
-            (typeof node.degree === 'number') ? node.degree : 0,
-            frame.fitScale);
+          var radiusNet = (radii && radii[node.id] !== undefined)
+            ? radii[node.id]
+            : nodeRadius(node.kind,
+              (typeof node.degree === 'number') ? node.degree : 0,
+              frame.fitScale);
           var r = radiusNet * scale;
           if (!(r > 0)) continue;
           var slotRef = slot(visible);
@@ -1554,15 +1680,18 @@
           lastGroups = 0;
         }
         // 6) декор форм: у активного всегда, у остальных — когда его видно.
+        //    Рисуется ПАЧКОЙ: один путь на корзину стиля (CMV-PERF).
+        resetDecor();
         if (active) {
-          drawDecor(ctx, active.kind, active.sx, active.sy, active.r, 0.95);
+          queueDecor(active.kind, active.sx, active.sy, active.r, 0.95);
         }
         for (i = 0; i < visible; i += 1) {
           var sd = pool[i];
           if (active && String(sd.id) === String(active.id)) continue;
           if (sd.r < 3.2) continue;              // мелкое не различить
-          drawDecor(ctx, sd.kind, sd.sx, sd.sy, sd.r, 0.7);
+          queueDecor(sd.kind, sd.sx, sd.sy, sd.r, 0.7);
         }
+        flushDecor(ctx);
         // 7) подписи — ПОСЛЕ свечения, но ДО кольца выделения (§2.1 спеки):
         //    вызывающий передаёт готовый планер в `frame.drawLabels`.
         if (typeof frame.drawLabels === 'function') frame.drawLabels(ctx);
@@ -1578,6 +1707,9 @@
           sprites: spriteCount, gradients: gradients, paints: paints,
           draws: draws, pooled: pool.length,
           edgeDraws: edgeDraws, activeEdges: lastActiveEdges,
+          // CMV-PERF: декор рисуется пачкой — счётчик путей на кадр (приёмка:
+          // «дéкор не 450 вызовов, а единицы корзин»).
+          decorDraws: decorFrame.draws,
           // CMV-C: агрегаты L0 действительно рисовались (приёмка §12.1).
           groupDraws: groupDraws, groupFlows: groupFlows, groups: lastGroups,
         };
