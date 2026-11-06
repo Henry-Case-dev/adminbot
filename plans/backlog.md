@@ -26,6 +26,14 @@
 
 Правило: новые находки добавляются сюда как ссылки на feature-карту, а не как текст в этом файле.
 
+## Payload-observability UR-26/C-CLOCK — неначатые долги ревью (06.11.2026, строки не блокируют)
+
+Источник: `plans/features/unified-reply/requirements-map.json` — строки UR-26.5, UR-30.4, UR-ACC-E4 привязаны VERIFIED; слайсы 4dca6439 (merge db46fba2) и 57349e6d (merge 6d7c30b9), HEAD evol/impl 6d7c30b9, 22 теста зелёные.
+
+1. **R17 vacuum-assert**: `tests/test_ur26_summary_payloads.py::TestNormalRunStagePayloads::test_stage_events_carry_no_chat_text` проверяет только отсутствие строк в JSON-блобе событий; при пустом списке `stage_events` тест проходил бы вакуумно. Добавить guard `assert events`.
+2. **Repair-event clock uniformity**: repair — детерминированная стадия без LLM-вызова (finish_reason=deterministic); привести clock-мета события к единому формату честного отсутствия `clock_included: false, skip_reason: no_llm_stage` (по образцу TestHonestAbsenceCodes в том же тест-файле: no_llm_call/no_time_block/no_chat_id).
+3. **Evidence wording (base state)**: уточнить формулировку evidence в привязанных строках карты unified-reply о базовом состоянии (что именно проверено на базовом состоянии до payload-слайсов) — косметическая правка текста карты, поведение не меняется.
+
 ## Статус программ (сводка)
 
 - **MCA программа (раунды 10.27–10.48, MCA-01…22)** — ЗАКРЫТА: RELEASED + VERIFIED **2.58.67** (07.10.2026, mca-release; 2.58.31→2.58.67, SQLite v12→v33, каталог 473→523). Историческая шапка 10.27 «IN PROGRESS» в слепке устарела — программа закрыта раундом 10.48.

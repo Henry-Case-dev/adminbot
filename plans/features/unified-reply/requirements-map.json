@@ -22,7 +22,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23; +2 approved-unmerged 57349e6d — UR-26.3/26.4, итого 15/27 собственно среза, 16/27 с учётом UR-24.2 из UR-F), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись. UR-G: кандидат 7edcb2b4 (merge 9e3af353 в evol/impl) — привязано 31/40 VERIFIED (28 proven-existing + 3 proven-new; evidence plans/features/unified-reply/evidence/ur-g-acceptance.md + tests/test_ur_g_acceptance.py + цитированные existing-тесты; сьют 709 passed / 0 failed). 9 строк PENDING с точными зависимостями: UR-30.2 (UR-23.4 — factcheck-доставка не пишет ledger), UR-30.4 (payload-матрица UR-26.3/26.4/26.5), UR-30.5 (UR-C-SCHED per-chat scheduler), UR-ACC-B2 (preprod-прогон размеченного набора), UR-ACC-D6 (fixture диалог.txt + live-модель), UR-ACC-E4 (UR-26.5 summary repair/supervisor payload), UR-ACC-E5/UR-ACC-E6 (UR-C-SCHED: UR-28.5), UR-ACC-E9 (postdeploy live-наблюдение после деплоя). Эпические строки UR-G в additional_requirements (UR-30.7, UR-SAVETY, UR-DONE-CRITERION, UR-EXEC-RULE, UR-BAN-10, UR-EXEC-WORKFLOW, UR-ACC-TRACE) не менялись. Биндинг UR-23.4 (2026-11-06, один писатель, карта): кандидаты 38f60f2d (factcheck-доставка пишет ledger; tests/test_ur234_factcheck_ledger.py — 7 passed) и d4116ed7 (summary пишет полный доставленный текст; tests/test_summary_ledger_full_text.py — 3 passed; ревью Approved: пункт «без молчаливого preview по [:20000]» закрыт полностью — publication-gate барьер соответствует сохранённому полному тексту), merge 42900fce в evol/impl — строка VERIFIED. UR-30.2: зависимость от UR-23.4 снята, остаётся PENDING только на композитный acceptance-прогон Direct→Initiative→Factcheck→Summary (тест не написан/не запущен). Итого по карте 142/261 required VERIFIED. Биндинг UR-26.3/UR-26.4 (approved unmerged slice 57349e6d, ветка ur/26-init-fc-payloads, прецедент PVR-UI; approved unmerged slice, кандидат содержит tests/test_ur26_init_fc_payloads.py и services/turn_payload_events.py, которых ещё нет в рабочем дереве evol/impl до merge): +2 строки VERIFIED — payload-observability стадий инициативы (initiative_l1_decision/tool_phase/initiative_recheck/nostalgia_text) и фактчека (factcheck_stage1/stage2/short_reply, temporal_verdict/validator/verbalize); оговорки ревьюера сохранены: REACT покрывается тем же SILENT-тестом ветки, зеркало usage_json в durable-колонке срезано до 2000 символов (mca_events.py:597). Итого по карте 151/261 required VERIFIED.",
+  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23; +2 слайс 57349e6d — UR-26.3/26.4, merge 6d7c30b9; +1 слайс 4dca6439 — UR-26.5, merge db46fba2; итого 16/27 собственно среза, 17/27 с учётом UR-24.2 из UR-F), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись. UR-G: кандидат 7edcb2b4 (merge 9e3af353 в evol/impl) — привязано 33/40 VERIFIED (28 proven-existing + 3 proven-new; evidence plans/features/unified-reply/evidence/ur-g-acceptance.md + tests/test_ur_g_acceptance.py + цитированные existing-тесты; сьют 709 passed / 0 failed). 7 строк PENDING с точными зависимостями: UR-30.2 (UR-23.4 — factcheck-доставка не пишет ledger), UR-30.5 (UR-C-SCHED per-chat scheduler), UR-ACC-B2 (preprod-прогон размеченного набора), UR-ACC-D6 (fixture диалог.txt + live-модель), UR-ACC-E5/UR-ACC-E6 (UR-C-SCHED: UR-28.5), UR-ACC-E9 (postdeploy live-наблюдение после деплоя). Эпические строки UR-G в additional_requirements (UR-30.7, UR-SAVETY, UR-DONE-CRITERION, UR-EXEC-RULE, UR-BAN-10, UR-EXEC-WORKFLOW, UR-ACC-TRACE) не менялись. Биндинг UR-23.4 (2026-11-06, один писатель, карта): кандидаты 38f60f2d (factcheck-доставка пишет ledger; tests/test_ur234_factcheck_ledger.py — 7 passed) и d4116ed7 (summary пишет полный доставленный текст; tests/test_summary_ledger_full_text.py — 3 passed; ревью Approved: пункт «без молчаливого preview по [:20000]» закрыт полностью — publication-gate барьер соответствует сохранённому полному тексту), merge 42900fce в evol/impl — строка VERIFIED. UR-30.2: зависимость от UR-23.4 снята, остаётся PENDING только на композитный acceptance-прогон Direct→Initiative→Factcheck→Summary (тест не написан/не запущен). Итого по карте 142/261 required VERIFIED. Биндинг UR-26.3/UR-26.4 (approved unmerged slice 57349e6d, ветка ur/26-init-fc-payloads, прецедент PVR-UI; approved unmerged slice, кандидат содержит tests/test_ur26_init_fc_payloads.py и services/turn_payload_events.py, которых ещё нет в рабочем дереве evol/impl до merge): +2 строки VERIFIED — payload-observability стадий инициативы (initiative_l1_decision/tool_phase/initiative_recheck/nostalgia_text) и фактчека (factcheck_stage1/stage2/short_reply, temporal_verdict/validator/verbalize); оговорки ревьюера сохранены: REACT покрывается тем же SILENT-тестом ветки, зеркало usage_json в durable-колонке срезано до 2000 символов (mca_events.py:597). Итого по карте 151/261 required VERIFIED. Биндинг payload-observability (2026-11-06, один писатель, карта): оба слайса слиты в evol/impl — db46fba2 (4dca6439: summary-стадии, tests/test_ur26_summary_payloads.py + services/summary_stage_events.py) и 6d7c30b9 (57349e6d: initiative/factcheck; суммарно 22 теста зелёные); +3 строки VERIFIED — UR-26.5 (verified_scope = матрица stage1/stage2/reviewer/revision/repair/supervisor, дайджест-only, decision-коды; честные подсаб-итемы в pending_reason: deferred-generator answer_as_of_utc/summary_window_end_utc — кода и теста нет, и chunked-L1 overflow без события l1_plan), UR-30.4 и UR-ACC-E4 (UR-G, обе ноги payload-тестов слиты). Итого по карте 154/261 required VERIFIED.",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -5328,14 +5328,33 @@
       "source_text_sha256": "018ad91e22803ff789be71cf40ca3309ba2052dff94ef3ea865c3ecd47ffa9d1",
       "source_excerpt": "4. **Summary**: L1 clusterizer, L2 writer, reviewer/repair, legacy/hybrid, ручной `/summary`, cron, тестовый прогон и re-run, включая fallback/provider-switch. Один snapshot на логическую стадию/версию прогона; при длительной публикации за ",
       "disposition": "required",
-      "reason": "Reviewer UR-C-CLOCK (7632fdb6): не одобрена — проверены шов генератора и L1 clusterizer; открыты reviewer/repair, cron, ручной /summary, тестовый прогон, fallback, answer_as_of_utc при отложенном генераторе, summary_window_end_utc.",
+      "verified_scope": "Payload-матрица наблюдаемости summary-стадий: stage1 (l1_plan), stage2 (writer), reviewer, revision, repair, supervisor — события с model/provider/finish/usage/chars/дайджестами/clock-мета и явными decision-кодами (revision/repair_applied:N/repair_not_needed/supervisor-stop/empty_payload); payload дайджест-only — тексты чата и статьи в события не попадают; честные skip-коды clock (no_llm_call/no_time_block/no_chat_id).",
+      "pending_reason": "Два открытых подсаб-итема (не блокируют payload-матрицу): (a) deferred-generator case — явная выдача answer_as_of_utc при отложенном генераторе с сохранением summary_window_end_utc; кода и теста нет; (b) chunked-L1 overflow-путь не эмитит событие l1_plan (задекларированный overflow-only разрыв).",
+      "reason": "",
       "req_id": "UR-26.5",
       "slice": "UR-C-CLOCK",
       "acceptance": "Summary: L1 clusterizer, L2 writer, reviewer/repair, legacy/hybrid, ручной /summary, cron, тестовый прогон и fallback используют один snapshot на стадию; при отложенном генераторе answer_as_of_utc выдаётся явно, а summary_window_end_utc сохраняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Payload-матрица summary-стадий (stage1/stage2/reviewer/revision/repair/supervisor): события с model/provider/finish/usage/chars/дайджестами/clock/decision-кодами; дайджест-only; прежний вердикт ревьюера 7632fdb6 («открыты reviewer/repair…») закрыт слайсом 4dca6439, мёрж db46fba2 в evol/impl",
+          "observation": "tests/test_ur26_summary_payloads.py (12 тестов): TestNormalRunStagePayloads — stage1 l1_plan и stage2 writer события с полями payload и clock-мета, review-прогон даёт writer+reviewer события; TestRevisionDecisionCode — решение revision видно кодом (silent-мутация красная); TestRepairDecisionCode — детерминированный repair виден кодом repair_applied:N (finish_reason=deterministic), чистый документ даёт явный repair_not_needed; TestSupervisorStopCode — stall-stop виден кодом; TestDigestMatchesDeliveredText — digest покрывает полный доставленный текст статьи и полный вывод стадии; TestHonestAbsenceCodes — пустой L1 даёт l1_plan со статусом empty и честным clock {clock_included:false, skip_reason:no_llm_call}, clock_meta честен (no_time_block/no_chat_id); test_stage_events_carry_no_chat_text — в payload событий нет ни текстов чата, ни текстов статьи (R17).",
+          "type": "test",
+          "artifact_path": "tests/test_ur26_summary_payloads.py",
+          "artifact_sha256": "e05bf7b9f8c848f46c8d3c9bc6874ada2507850ddbb9cd449b332cf41e3221bb",
+          "candidate_commit": "4dca6439"
+        },
+        {
+          "ref": "Эмиссия append-only stage-событий summary-стадий: services/summary_stage_events.py (build_event совместим с summary_l2_review._stage_event; record — append-only в RunContext.stage_events; text_digest/document_plain_digest; clock_meta; provider_host)",
+          "observation": "Точки эмиссии: services/summary_l1_clusterizer.py (l1_plan) и services/summary_l2_writer.py (writer/reviewer/revision/repair/supervisor-события); decision-коды стадий repair/supervisor обязательны; открытые подсаб-итемы строки (deferred-generator, chunked-L1 overflow без l1_plan) зафиксированы в pending_reason, не блокируют матрицу.",
+          "type": "test",
+          "artifact_path": "services/summary_stage_events.py",
+          "artifact_sha256": "48b226eba771d1734098068bce43e18b74b0070f580fdfc017bd6aac6c89ec15",
+          "candidate_commit": "4dca6439"
+        }
+      ]
     },
     {
       "source_id": "L00366",
@@ -5637,13 +5656,13 @@
       "source_text_sha256": "db8e688e13bd30a6f17e21ff808b6cf84dc1f6f1c50900ce389b974687ced173",
       "source_excerpt": "- модельные входы: Direct L1/L2, Initiative L1/tool/L2, Factcheck single/temporal/stage1/2, Summary legacy/hybrid L1/L2/reviewer/repair/supervisor/fallback — **все** получают один соответствующий TimeContext, который не обрезан бюджетом; ни",
       "disposition": "required",
-      "reason": "blocked: payload-тесты stage1/stage2 фактчека и summary reviewer/repair/supervisor отсутствуют; зависит от UR-26.3/UR-26.4/UR-26.5 (PENDING, slice UR-C-CLOCK)",
+      "reason": "",
       "req_id": "UR-30.4",
       "slice": "UR-G",
       "acceptance": "Тест модельных входов подтверждает, что Direct L1/L2, Initiative L1/tool/L2, Factcheck single/temporal/stage1/stage2 и Summary legacy/hybrid L1/L2/reviewer/repair/supervisor/fallback получают один соответствующий TimeContext, не обрезанный бюджетом, и нет стадии с clock_included=false без документированного невидимого пользователю режима.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-30.4",
@@ -5668,6 +5687,22 @@
           "artifact_path": "tests/test_ur_g_acceptance.py",
           "artifact_sha256": "8fb18fc5cb6af9d2e373567cd3fd7ab0a033a67b95fc24710c53d97a8382b1d8",
           "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Summary leg (слайс UR-26.5, кандидат 4dca6439, мёрж db46fba2): payload-матрица стадий summary с clock-мета — закрывает остаток stage1/stage2/reviewer/revision/repair/supervisor",
+          "observation": "tests/test_ur26_summary_payloads.py: события стадий summary несут clock-мета с поясом чата (test_stage1_plan_event_payload_fields / test_stage2_writer_event_payload_fields / test_review_run_emits_writer_and_reviewer_events); честные skip-коды при отсутствии блока/LLM-вызова (TestHonestAbsenceCodes: no_llm_call/no_time_block/no_chat_id); ни одна стадия не имеет clock_included=false без документированного невидимого пользователю режима.",
+          "type": "test",
+          "artifact_path": "tests/test_ur26_summary_payloads.py",
+          "artifact_sha256": "e05bf7b9f8c848f46c8d3c9bc6874ada2507850ddbb9cd449b332cf41e3221bb",
+          "candidate_commit": "4dca6439"
+        },
+        {
+          "ref": "Factcheck/initiative leg (слайс UR-26.3/26.4, кандидат 57349e6d, мёрж 6d7c30b9): события стадий фактчека и инициативы с clock-мета; эмиссия в services/turn_payload_events.py",
+          "observation": "tests/test_ur26_init_fc_payloads.py + services/turn_payload_events.py: factcheck_stage1/stage2 (clock_included=true с поясом чата), factcheck_short_reply, temporal_verdict/validator/verbalize, initiative_l1_decision/tool_phase/recheck; обе ноги слиты в evol/impl на 6d7c30b9 (22 теста payload-observability зелёные).",
+          "type": "test",
+          "artifact_path": "tests/test_ur26_init_fc_payloads.py",
+          "artifact_sha256": "635c7788d540bec942406b2a146646d64344c7bc211e56f5c21d44bf394a6177",
+          "candidate_commit": "57349e6d"
         }
       ]
     },
@@ -7061,13 +7096,13 @@
       "source_text_sha256": "f16fb00ab67be7ae8ee1082ec2583e78841ebe12c271753561482961751153e7",
       "source_excerpt": "- [ ] При захвате **всех** модельных payload (Direct/Initiative/Factcheck/Summary/repair/fallback) Chat_Time_Context присутствует, привязан к правильному `chat_id` и не теряется при fallback; временные факты источника остаются отдельными.",
       "disposition": "required",
-      "reason": "blocked: полный захват всех payload не закрыт — services/summary_l2_repair.py не содержит attach Chat_Time_Context; зависит от UR-26.5 (PENDING, slice UR-C-CLOCK)",
+      "reason": "",
       "req_id": "UR-ACC-E4",
       "slice": "UR-G",
       "acceptance": "При захвате всех модельных payload (Direct/Initiative/Factcheck/Summary/repair/fallback) Chat_Time_Context присутствует, привязан к правильному chat_id и не теряется при fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "UR-G acceptance-сборка (ur-g-acceptance.md): вердикт строки UR-ACC-E4",
@@ -7092,6 +7127,22 @@
           "artifact_path": "tests/test_ur_g_acceptance.py",
           "artifact_sha256": "8fb18fc5cb6af9d2e373567cd3fd7ab0a033a67b95fc24710c53d97a8382b1d8",
           "candidate_commit": "7edcb2b4"
+        },
+        {
+          "ref": "Summary leg: захват payload стадий summary (stage1/stage2/reviewer/revision/repair/supervisor) с привязкой chat_id — слайс UR-26.5, кандидат 4dca6439, мёрж db46fba2",
+          "observation": "tests/test_ur26_summary_payloads.py: события стадий summary несут clock-мета с chat_id; repair — детерминированная стадия без LLM-вызова (finish_reason=deterministic, decision repair_applied:N/repair_not_needed) — payload-блок отсутствует честно; reviewer-attach подтверждён ранее (summary_l2_review.py:1022/1166) и теперь наблюдаем событием; равномерный skip-код clock для repair (clock_included:false, skip_reason:no_llm_stage) — незаблокирующий backlog.",
+          "type": "test",
+          "artifact_path": "tests/test_ur26_summary_payloads.py",
+          "artifact_sha256": "e05bf7b9f8c848f46c8d3c9bc6874ada2507850ddbb9cd449b332cf41e3221bb",
+          "candidate_commit": "4dca6439"
+        },
+        {
+          "ref": "Factcheck/initiative leg: события стадий фактчека/инициативы с clock-мета и chat_id — слайс UR-26.3/26.4, кандидат 57349e6d, мёрж 6d7c30b9 (эмиссия services/turn_payload_events.py); fallback не теряет блок — TestFallbackAdapterClock в существующей записи",
+          "observation": "tests/test_ur26_init_fc_payloads.py: factcheck_stage1/stage2/short_reply/temporal_verdict/validator/verbalize и initiative_l1_decision/tool_phase/recheck несут clock с поясом чата; временные факты источника остаются отдельными (маркеры date_source/pub_date).",
+          "type": "test",
+          "artifact_path": "tests/test_ur26_init_fc_payloads.py",
+          "artifact_sha256": "635c7788d540bec942406b2a146646d64344c7bc211e56f5c21d44bf394a6177",
+          "candidate_commit": "57349e6d"
         }
       ]
     },
