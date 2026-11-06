@@ -141,8 +141,8 @@ class TestModulesAndAi:
         # F21 (10.24, ADR-1024-22 D7): +1 toggleKey (mod_budgets) → 12.
         # F5 (10.24, ADR-1024-9 D1): +1 toggleKey (mod_images) → 13.
         # 16: UR-F «Модули → Время» added mod_time (candidate 95e5815d, shipped 2.58.160);
-# measured on the unified line: 16 toggleKey / 16 unique module ids.
-assert mods.count("toggleKey:") == 16
+        # measured on the unified line: 16 toggleKey / 16 unique module ids.
+        assert mods.count("toggleKey:") == 16
         for title in ("Саммаризация", "Прямые ответы", "Фактчек", "Поиск",
                       "Транскрипт голосовых и видео", "Выжимка видео",
                       "Скачивание медиа", "Веб-страницы", "Диагностика",
