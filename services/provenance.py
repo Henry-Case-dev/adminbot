@@ -42,6 +42,10 @@ STORES = frozenset({"sqlite", "postgres", "telegram", "external", "legacy"})
 ENTITY_TYPES = frozenset({
     "message", "graph_fact", "belief", "paradigm", "episode", "story",
     "dossier", "user", "media_asset", "lesson", "intent", "unknown",
+    # MEMORY-03 (C-2 §2.5): ребро и узел графа адресуемы как предмет
+    # ("subject") evidence-связи — на существующих `mca_source_refs`/
+    # `mca_evidence_links`. Новых таблиц/колонок/миграции нет.
+    "graph_edge", "entity",
 })
 LINK_TYPES = frozenset({
     "derived_from", "supports", "contradicts", "mentions", "supersedes",
@@ -185,6 +189,31 @@ def graph_fact_source_ref(chat_id: int, fact_id, *,
         store="sqlite", entity_type="graph_fact", entity_id=str(fact_id),
         chat_id=chat_id if chat_id is not None else None,
         resolution=resolution)
+
+
+# MEMORY-03 (C-2 §2.4.1/R-13): ревизия ребра/узла — КОНСТАНТА. Ревизия —
+# свойство источника, а не ребра; вывод её из изменяемого состояния графа
+# (вес/подтверждение/`last_updated`) создавал бы новый SourceRef на каждое
+# изменение, ломал дедуп `mca_evidence_links` и завышал независимую поддержку.
+SUBJECT_REVISION = "stable"
+
+
+def graph_edge_source_ref(chat_id: int, edge_id, *,
+                          resolution: str = "resolved") -> SourceRef:
+    """SourceRef ребра графа (`edges.id`) — предмет edge-evidence (§2.5)."""
+    return SourceRef(
+        store="sqlite", entity_type="graph_edge", entity_id=str(edge_id),
+        chat_id=chat_id if chat_id is not None else None,
+        revision=SUBJECT_REVISION, resolution=resolution)
+
+
+def node_source_ref(chat_id: int, node_id, *,
+                    resolution: str = "resolved") -> SourceRef:
+    """SourceRef узла графа (`nodes.id`) — предмет evidence (§2.5)."""
+    return SourceRef(
+        store="sqlite", entity_type="entity", entity_id=str(node_id),
+        chat_id=chat_id if chat_id is not None else None,
+        revision=SUBJECT_REVISION, resolution=resolution)
 
 
 def message_source_ref(*, chat_id, entity_id: str, tg_message_id=None,
@@ -488,6 +517,23 @@ async def record_fact_provenance(
     await set_provenance_status(
         db, obj_ref, origin_status=origin_status,
         extractor_version=extractor_version, now=ts)
+
+    # MEMORY-03 (C-2 §2.5): то же основание, что у факта, регистрируется и для
+    # ребра — ребро адресуется SourceRef'ом `graph_edge` (revision='stable'),
+    # связи идут в те же `mca_evidence_links`. Fail-open: отсутствие ребра или
+    # сбой не ломают запись факта.
+    if source_ref_id is not None:
+        try:
+            from services import relation_evidence
+            await relation_evidence.attach_fact_edge_evidence(
+                db, chat_id=chat_id, fact_id=fact_id,
+                source_ref_id=source_ref_id, origin=origin,
+                established_at=ts, extractor_version=extractor_version)
+        except Exception:
+            logger.warning(
+                "[provenance] edge evidence attach failed — fail-open | "
+                "fact_id=%s", fact_id, exc_info=True)
+
     result["origin_status"] = origin_status
     return result
 

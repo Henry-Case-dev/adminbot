@@ -16,6 +16,18 @@
   * FIX п.1 (target=asker→субъект), п.3 (Layer B person_facts), п.5-контракт
     (row-bound валидатор + локальные evidence→SourceRef) (A86/A88);
   * kill-switch OFF = паритет baseline; события MCA-13 + reason_code.
+
+MEMORY-03 (C-2) — доказательства ребра (edge-evidence) на существующем
+механизме `mca_source_refs`/`mca_evidence_links`:
+  * `graph_edge`/`entity` адресуемы как предмет SourceRef, ревизия — константа
+    `'stable'` (один SourceRef на ребро, R-13);
+  * факт-write path регистрирует то же основание и для созданного ребра;
+  * `mentions`/`cooccurrence`/`legacy_unknown` не подтверждают ребро (R-11) и
+    не понижают ребро с проверенным корнем (R-12);
+  * собственный вывод бота не подтверждает ребро (R-3), счётчик независимых
+    корней — один на проект (данные и контракт не расходятся);
+  * повторная обработка/инкремент веса не создают второй SourceRef;
+  * транзитивность не выводится (R-5).
 """
 import asyncio
 import json
@@ -25,6 +37,8 @@ import pytest
 from config.settings import Settings
 from services import mca_events
 from services import provenance as prov
+from services import graphrag_provenance as grp
+from services import relation_evidence as rel
 from services.database import DatabaseService
 from services.direct_chat_service import DirectChatService
 from services.dossier_prompts import filter_layer_a_candidates
@@ -856,3 +870,411 @@ async def test_basis_r17_safe(tmp_path):
         assert json.loads(links[0]["checks_json"])["negation"] == "failed"
     finally:
         await d.close()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MEMORY-03 (C-2) — ребро, подтверждённое независимыми источниками
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def _pair(d, *, chat=CHAT, subject="вася", target="петя",
+                relation="спорил с", fact_text="вася спорил с петей",
+                origin="chat_history", tg=None, with_fact=True):
+    """nodes + факт + ребро (как fact-write path: сначала факт, затем ребро)."""
+    sid = await d.upsert_node(chat, subject, "fact", origin=origin)
+    oid = await d.upsert_node(chat, target, "fact", origin=origin)
+    fid = None
+    if with_fact:
+        fid = await d.insert_graph_fact(chat, fact_text, origin, None,
+                                        tg_message_id=tg)
+    await d.upsert_edge(sid, oid, relation, origin=origin, fact_id=fid)
+    cursor = await d.db.execute(
+        "SELECT id FROM edges WHERE chat_id = ? AND source_id = ? "
+        "AND target_id = ? AND relation_type = ?", (chat, sid, oid, relation))
+    eid = int((await cursor.fetchone())["id"])
+    return sid, oid, fid, eid
+
+
+async def _msg_ref(d, entity_id, *, chat=CHAT, tg=None):
+    return await prov.resolve_source_ref(
+        d, prov.message_source_ref(chat_id=chat, entity_id=str(entity_id),
+                                   tg_message_id=tg))
+
+
+async def _bump_edge_weight(d, eid):
+    cursor = await d.db.execute(
+        "SELECT source_id, target_id, relation_type, fact_id FROM edges "
+        "WHERE id = ?", (int(eid),))
+    row = await cursor.fetchone()
+    await d.upsert_edge(row["source_id"], row["target_id"],
+                        row["relation_type"], weight_increment=1,
+                        fact_id=row["fact_id"])
+
+
+async def _count_edge_refs(d, chat=CHAT, edge_id=None):
+    sql = ("SELECT COUNT(*) FROM mca_source_refs WHERE store='sqlite' "
+           "AND entity_type='graph_edge'")
+    params: list = []
+    if edge_id is not None:
+        sql += " AND entity_id = ?"
+        params.append(str(int(edge_id)))
+    if chat is not None:
+        sql += " AND COALESCE(chat_id, -1) = ?"
+        params.append(int(chat))
+    cursor = await d.db.execute(sql, params)
+    return int((await cursor.fetchone())[0])
+
+
+class TestEdgeEvidenceAddressing:
+    @pytest.mark.asyncio
+    async def test_graph_edge_and_entity_are_addressable_subjects(self, tmp_path):
+        """§2.5: ребро/узел — предмет SourceRef; ревизия константна (R-13)."""
+        assert {"graph_edge", "entity"} <= prov.ENTITY_TYPES
+        edge_ref = prov.graph_edge_source_ref(CHAT, 7)
+        node_ref = prov.node_source_ref(CHAT, 3)
+        edge_ref.validate()
+        node_ref.validate()
+        assert edge_ref.entity_type == "graph_edge"
+        assert node_ref.entity_type == "entity"
+        assert edge_ref.revision == "stable" == node_ref.revision
+        # повтор того же адреса — тот же dedup-key (никакой «новой ревизии»)
+        assert (prov.graph_edge_source_ref(CHAT, 7).dedup_key
+                == edge_ref.dedup_key)
+        # другой чат — другой адрес: scope ребра не склеивается
+        assert prov.graph_edge_source_ref(-5, 7).dedup_key != edge_ref.dedup_key
+
+        d = await _fresh(tmp_path, "mem03_addr.db")
+        try:
+            first = await rel.resolve_edge_ref(d, CHAT, 7)
+            second = await rel.resolve_edge_ref(d, CHAT, 7)
+            assert first is not None and first == second
+            assert await _count_edge_refs(d, edge_id=7) == 1
+        finally:
+            await d.close()
+
+
+class TestEdgeEvidenceFromFactWrite:
+    @pytest.mark.asyncio
+    async def test_fact_write_path_attaches_edge_evidence(self, tmp_path):
+        """MEM-03.2: у ребра то же основание, что у факта (без новых таблиц)."""
+        d = await _fresh(tmp_path, "mem03_write.db")
+        try:
+            _sid, _oid, fid, eid = await _pair(d, tg=101)
+            await prov.record_fact_provenance(
+                d, fact_id=fid, chat_id=CHAT, origin="chat_history",
+                tg_message_id=101)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert evidence["independent_support"] == 1
+            assert (evidence["contract_independent_support"]
+                    == evidence["independent_support"])
+            assert evidence["status"] == "confirmed"
+            assert len(evidence["sources"]) == 1
+            source = evidence["sources"][0]
+            assert source["origin_class"] == "explicit_direct"
+            assert source["counts_as_independent"] is True
+            assert source["link_type"] in ("derived_from", "supports")
+            # ребро остаётся одной строкой edges с совместимым fact_id
+            cursor = await d.db.execute(
+                "SELECT fact_id FROM edges WHERE id = ?", (eid,))
+            assert (await cursor.fetchone())["fact_id"] == fid
+            links = await rel.edge_links(d, CHAT, eid)
+            assert len(links) == 1 and links[0]["verification"] == "verified"
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_three_independent_sources_visible_on_edge_card(self, tmp_path):
+        """§2.8: 3 независимых источника видны все, support=3."""
+        d = await _fresh(tmp_path, "mem03_three.db")
+        try:
+            _sid, _oid, _fid, eid = await _pair(d)
+            refs = [await _msg_ref(d, n, tg=n) for n in (201, 202, 203)]
+            for ref in refs:
+                await rel.attach_edge_evidence(
+                    d, chat_id=CHAT, edge_id=eid, source_ref_id=ref,
+                    link_type="supports", method="direct_reference",
+                    verification="verified", independence="independent",
+                    basis="direct reference", established_at=1000)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            shown = {s["source_ref_id"] for s in evidence["sources"]}
+            assert shown == set(refs)
+            assert evidence["independent_support"] == 3
+            assert evidence["contract_independent_support"] == 3
+            assert evidence["status"] == "confirmed"
+            assert evidence["legacy_sources_count"] == 0
+            # один SourceRef на ребро, N связей
+            assert await _count_edge_refs(d, edge_id=eid) == 1
+            view = await rel.build_relation_view(d, chat_id=CHAT, edge_id=eid)
+            assert view.independent_support == 3
+            assert len(view.sources) == 3
+            assert view.status.value == "confirmed"
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_mentions_only_never_confirmed(self, tmp_path):
+        """R-11: `mentions` не подтверждает ни по весу, ни по частоте."""
+        d = await _fresh(tmp_path, "mem03_mentions.db")
+        try:
+            _sid, _oid, _fid, eid = await _pair(d)
+            for n in (301, 302):
+                ref = await _msg_ref(d, n, tg=n)
+                await rel.attach_edge_evidence(
+                    d, chat_id=CHAT, edge_id=eid, source_ref_id=ref,
+                    link_type="mentions", method="direct_reference",
+                    verification="verified", independence="independent",
+                    established_at=1000)
+            # вес/частота не делают ребро подтверждённым (R-2/R-11)
+            await _bump_edge_weight(d, eid)
+            await _bump_edge_weight(d, eid)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert evidence["independent_support"] == 0
+            assert evidence["mentions_only"] is True
+            assert evidence["status"] == "unverified"
+            assert evidence["has_unsupported_sources"] is True
+            view = await rel.build_relation_view(d, chat_id=CHAT, edge_id=eid)
+            assert view.independent_support == 0
+            assert view.status.value != "confirmed"
+            assert view.frequency > 1        # частота выросла, статус — нет
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_one_verified_root_with_two_legacy_stays_confirmed(
+            self, tmp_path):
+        """R-12/§2.8: legacy-основания считаются отдельно и НЕ понижают статус."""
+        d = await _fresh(tmp_path, "mem03_legacy.db")
+        try:
+            _sid, _oid, _fid, eid = await _pair(d)
+            verified = await _msg_ref(d, 401, tg=401)
+            await rel.attach_edge_evidence(
+                d, chat_id=CHAT, edge_id=eid, source_ref_id=verified,
+                link_type="supports", method="direct_reference",
+                verification="verified", independence="independent",
+                basis="direct reference", established_at=1000)
+            for n in (402, 403):
+                ref = await _msg_ref(d, n, tg=n)
+                await rel.attach_edge_evidence(
+                    d, chat_id=CHAT, edge_id=eid, source_ref_id=ref,
+                    link_type="derived_from", method="unknown",
+                    verification="unknown", independence="unknown",
+                    established_at=900)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert evidence["independent_support"] == 1
+            assert evidence["legacy_sources_count"] == 2
+            assert evidence["status"] == "confirmed"      # НЕ понижен
+            assert len(evidence["sources"]) == 3          # все основания видны
+            assert evidence["has_unsupported_sources"] is True
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_bot_self_output_never_corroborates_edge(self, tmp_path):
+        """R-3: собственный вывод бота не подтверждает ребро."""
+        d = await _fresh(tmp_path, "mem03_self.db")
+        try:
+            _sid, _oid, fid, eid = await _pair(d, tg=501)
+            await prov.record_fact_provenance(
+                d, fact_id=fid, chat_id=CHAT, origin="bot_self_reply",
+                tg_message_id=501)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert len(evidence["sources"]) == 1     # связь сохранена (аудит)
+            source = evidence["sources"][0]
+            assert source["independence"] == "self_referential"
+            assert source["counts_as_independent"] is False
+            assert evidence["independent_support"] == 0
+            assert evidence["contract_independent_support"] == 0
+            assert evidence["status"] != "confirmed"
+            view = await rel.build_relation_view(d, chat_id=CHAT, edge_id=eid)
+            assert view.status.value != "confirmed"
+            # «наивный» писатель, передавший independence='independent',
+            # не поднимает поддержку: origin решает (R-3)
+            other = await _msg_ref(d, 502, tg=502)
+            await rel.attach_fact_edge_evidence(
+                d, chat_id=CHAT, fact_id=fid, source_ref_id=other,
+                origin="bot_direct_reply", independence="independent",
+                established_at=1000)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert evidence["independent_support"] == 0
+            assert evidence["status"] != "confirmed"
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_repeat_processing_keeps_single_ref_and_links(self, tmp_path):
+        """R-13/§2.4.1: повтор и инкремент веса не создают второй SourceRef."""
+        d = await _fresh(tmp_path, "mem03_idem.db")
+        try:
+            _sid, _oid, fid, eid = await _pair(d, tg=601)
+            for _ in range(2):
+                await prov.record_fact_provenance(
+                    d, fact_id=fid, chat_id=CHAT, origin="chat_history",
+                    tg_message_id=601)
+            await _bump_edge_weight(d, eid)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert await _count_edge_refs(d, edge_id=eid) == 1
+            assert len(await rel.edge_links(d, CHAT, eid)) == 1
+            assert evidence["independent_support"] == 1
+            assert len(evidence["sources"]) == 1
+            cursor = await d.db.execute(
+                "SELECT weight FROM edges WHERE id = ?", (eid,))
+            assert int((await cursor.fetchone())["weight"]) == 2
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_no_transitive_edge_is_inferred(self, tmp_path):
+        """R-5/MEM-03.7: A–B и B–C не дают A–C и не смешивают основания."""
+        d = await _fresh(tmp_path, "mem03_trans.db")
+        try:
+            sid, _mid, fid_ab, eid_ab = await _pair(
+                d, subject="вася", target="петя", relation="спорил с",
+                fact_text="вася спорил с петей", tg=701)
+            _mid2, tid, fid_bc, eid_bc = await _pair(
+                d, subject="петя", target="коля", relation="дружил с",
+                fact_text="петя дружил с колей", tg=702)
+            await prov.record_fact_provenance(
+                d, fact_id=fid_ab, chat_id=CHAT, origin="chat_history",
+                tg_message_id=701)
+            await prov.record_fact_provenance(
+                d, fact_id=fid_bc, chat_id=CHAT, origin="chat_history",
+                tg_message_id=702)
+            cursor = await d.db.execute(
+                "SELECT id FROM edges WHERE source_id = ? AND target_id = ?",
+                (sid, tid))
+            assert await cursor.fetchall() == []          # A–C не выведено
+            ab = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid_ab)
+            bc = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid_bc)
+            assert len(ab["sources"]) == 1
+            assert len(bc["sources"]) == 1
+            assert ({s["source_ref_id"] for s in ab["sources"]}
+                    != {s["source_ref_id"] for s in bc["sources"]})
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_verified_source_with_generic_method_stays_visible(
+            self, tmp_path):
+        """Считаемый корень обязан быть виден в карточке (данные == контракт)."""
+        d = await _fresh(tmp_path, "mem03_method.db")
+        try:
+            _sid, _oid, _fid, eid = await _pair(d)
+            ref = await _msg_ref(d, 451, tg=451)
+            await rel.attach_edge_evidence(
+                d, chat_id=CHAT, edge_id=eid, source_ref_id=ref,
+                link_type="supports", method="exact_search",
+                verification="verified", independence="independent",
+                established_at=1000)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert evidence["unmapped_sources"] == []
+            assert len(evidence["sources"]) == 1
+            assert evidence["independent_support"] == 1
+            assert (evidence["contract_independent_support"]
+                    == evidence["independent_support"])
+            view = await rel.build_relation_view(d, chat_id=CHAT, edge_id=eid)
+            assert view.independent_support == 1
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_gate_off_writes_no_edge_evidence(self, tmp_path, monkeypatch):
+        """§2.7: `MCA_PROVENANCE_ENABLED=OFF` — пишем/читаем как раньше."""
+        monkeypatch.setattr(Settings, "MCA_PROVENANCE_ENABLED", False)
+        d = await _fresh(tmp_path, "mem03_off.db")
+        try:
+            _sid, _oid, fid, eid = await _pair(d, tg=801)
+            await prov.record_fact_provenance(
+                d, fact_id=fid, chat_id=CHAT, origin="chat_history",
+                tg_message_id=801)
+            assert await _count_edge_refs(d, chat=None) == 0
+            assert await rel.edge_links(d, CHAT, eid) == []
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert evidence["sources"] == []
+            assert evidence["independent_support"] == 0
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_bare_edge_reports_unestablished_origin(self, tmp_path):
+        """R-7: ребро без основания — «Происхождение не установлено»."""
+        d = await _fresh(tmp_path, "mem03_bare.db")
+        try:
+            _sid, _oid, _fid, eid = await _pair(d, with_fact=False)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert evidence["sources"] == []
+            assert evidence["bare_legacy"] is True
+            assert evidence["independent_support"] == 0
+            assert evidence["status"] == "unverified"
+            view = await rel.build_relation_view(d, chat_id=CHAT, edge_id=eid)
+            assert view.status.value == "unverified"
+            assert view.explanation == "Происхождение не установлено"
+            assert view.independent_support == 0
+        finally:
+            await d.close()
+
+
+class TestOriginClassDerivation:
+    """§2.2: класс происхождения выводится только из существующих сигналов."""
+
+    def test_quote_forward_message(self):
+        assert grp.classify_origin_class(
+            entity_type="message",
+            source_row={"is_forward": 1, "forward_source": "канал"},
+            link_type="derived_from", method="direct_reference",
+            verification="verified") == "quote_forward"
+
+    def test_quote_forward_fact_uses_forward_from(self):
+        assert grp.classify_origin_class(
+            entity_type="graph_fact",
+            source_row={"forward_from": "канал", "perspective": None},
+            link_type="supports", method="direct_reference",
+            verification="verified") == "quote_forward"
+
+    def test_third_party_reported(self):
+        assert grp.classify_origin_class(
+            entity_type="graph_fact",
+            source_row={"perspective": "third_party"},
+            link_type="supports", method="direct_reference",
+            verification="verified") == "reported_third_party"
+
+    def test_self_report_is_explicit_direct(self):
+        assert grp.classify_origin_class(
+            entity_type="graph_fact",
+            source_row={"perspective": "self",
+                        "attribution_method": "self_report"},
+            link_type="supports", method="direct_reference",
+            verification="verified") == "explicit_direct"
+
+    def test_lineage_channel(self):
+        assert grp.classify_origin_class(
+            entity_type="graph_fact",
+            source_row={"provenance_channel": "dream"},
+            link_type="derived_from", method="direct_reference",
+            verification="verified") == "derived_with_lineage"
+
+    def test_mentions_is_cooccurrence(self):
+        assert grp.classify_origin_class(
+            entity_type="message", source_row={}, link_type="mentions",
+            method="direct_reference",
+            verification="verified") == "cooccurrence"
+
+    def test_no_signal_is_legacy_unknown(self):
+        assert grp.classify_origin_class(
+            entity_type="message", source_row={}, link_type="derived_from",
+            method="unknown", verification="unknown") == "legacy_unknown"
+        assert grp.classify_origin_class(
+            entity_type=None, source_row=None, link_type="supports",
+            method="unknown", verification="tentative") == "legacy_unknown"
+
+    def test_verified_support_never_degrades_to_legacy(self):
+        """Считаемый независимым корень не может «исчезнуть» как legacy."""
+        for method in ("exact_search", "metadata", "semantic_search"):
+            assert grp.classify_origin_class(
+                entity_type="message", source_row={}, link_type="supports",
+                method=method, verification="verified") == "explicit_direct"
+
+    def test_class_values_match_contract_enum(self):
+        from services.memory_contracts import OriginClass
+        values = {c.value for c in OriginClass}
+        assert {grp.ORIGIN_EXPLICIT_DIRECT, grp.ORIGIN_REPORTED_THIRD_PARTY,
+                grp.ORIGIN_QUOTE_FORWARD, grp.ORIGIN_DERIVED_WITH_LINEAGE,
+                grp.ORIGIN_COOCCURRENCE, grp.ORIGIN_LEGACY_UNKNOWN} == values

@@ -136,6 +136,79 @@ def independent_roots_count(links: list[dict]) -> int:
         return 0
 
 
+# ── MEMORY-03 (C-2): класс происхождения основания ребра (§2.2/§2.3) ───────
+
+# Значения = `memory_contracts.OriginClass` (единый словарь, без дубля).
+ORIGIN_EXPLICIT_DIRECT = "explicit_direct"
+ORIGIN_REPORTED_THIRD_PARTY = "reported_third_party"
+ORIGIN_QUOTE_FORWARD = "quote_forward"
+ORIGIN_DERIVED_WITH_LINEAGE = "derived_with_lineage"
+ORIGIN_COOCCURRENCE = "cooccurrence"
+ORIGIN_LEGACY_UNKNOWN = "legacy_unknown"
+
+# Методы прямой ссылки (§2.3: `supports` с basis) — это `explicit_direct`.
+_DIRECT_REFERENCE_METHODS = frozenset({
+    "direct_reference", "reply_context", "thread_context",
+})
+# Каналы с явной цепочкой (§2.2): `derived_with_lineage`, не догадка.
+_LINEAGE_CHANNELS = frozenset({"dream", "dossier_layer_a", "dossier_layer_b"})
+_SUPPORTING_LINK_TYPES = frozenset({"derived_from", "supports"})
+
+
+def classify_origin_class(*, entity_type: str | None, source_row,
+                          link_type: str, method: str = "unknown",
+                          verification: str = "unknown") -> str:
+    """Класс происхождения по §2.2 (сигналы строки) и §2.3 (семантика связи).
+
+    Только выводимое из существующих полей; нет сигнала → `legacy_unknown`
+    («Происхождение не установлено»), без догадок по тексту/эмодзи/длине.
+
+    Колонки per-table (§2.2): `smart_messages.forward_source` — display-строка,
+    `graph_facts.forward_from` — provenance факта. Перекрёстного чтения нет.
+    """
+    row = source_row if isinstance(source_row, dict) else {}
+
+    # (1) quote/forward — репост не приписывается переславшему (R-9).
+    if entity_type == "message":
+        if bool(row.get("is_forward")) or str(row.get("forward_source") or "").strip():
+            return ORIGIN_QUOTE_FORWARD
+    elif entity_type == "graph_fact":
+        if (str(row.get("forward_from") or "").strip()
+                or str(row.get("perspective") or "") == "quoted"):
+            return ORIGIN_QUOTE_FORWARD
+    # (2) пересказ третьего лица.
+    if (str(row.get("perspective") or "") == "third_party"
+            or str(row.get("attribution_method") or "") == "third_party"):
+        return ORIGIN_REPORTED_THIRD_PARTY
+    # (3) прямое утверждение автора.
+    if (str(row.get("perspective") or "") == "self"
+            and str(row.get("attribution_method") or "")
+            in ("self_report", "direct_evidence")):
+        return ORIGIN_EXPLICIT_DIRECT
+    # (4) вывод с явной цепочкой.
+    if str(row.get("provenance_channel") or "") in _LINEAGE_CHANNELS \
+            or str(row.get("origin") or "") == "derived_belief":
+        return ORIGIN_DERIVED_WITH_LINEAGE
+    # (5) соседство в реплике ≠ утверждение (§2.3, R-11).
+    if link_type == "mentions":
+        return ORIGIN_COOCCURRENCE
+    # (6) прямая ссылка на сохранённое сообщение (verified + basis).
+    if (link_type in _SUPPORTING_LINK_TYPES
+            and str(method or "") in _DIRECT_REFERENCE_METHODS
+            and verification == "verified"):
+        return ORIGIN_EXPLICIT_DIRECT
+    # (6b) проверенное подтверждение без противоречащих сигналов строки —
+    # утверждение источника (иначе источник, который УЖЕ считается независимым
+    # корнем, получил бы `legacy_unknown` и «исчез» бы из карточки, разойдясь
+    # со счётчиком). `legacy_unknown` по §2.2 — ребро без evidence-связи.
+    if link_type in _SUPPORTING_LINK_TYPES and verification == "verified":
+        return ORIGIN_EXPLICIT_DIRECT
+    # (7) `derived_from` с явными method/basis (lineage обязателен).
+    if link_type == "derived_from" and str(method or "") not in ("", "unknown"):
+        return ORIGIN_DERIVED_WITH_LINEAGE
+    return ORIGIN_LEGACY_UNKNOWN
+
+
 # ── C8: correction/revalidation ─────────────────────────────────────────────
 
 @dataclasses.dataclass(frozen=True)
