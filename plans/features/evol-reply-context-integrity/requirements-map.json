@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md",
   "source_sha256": "a5fcc4194578458c97584cbed091b156c448ab927df105b3d360d5a428429084",
-  "candidate_commit": "",
+  "candidate_commit": "d8feb2a0",
   "deployed_commit": "",
   "strict_evidence": false,
   "slice_graph_path": "",
@@ -128,13 +128,27 @@
       "acceptance": "Ветка неоднозначности оставляет проверяемый след: причина усечения/уточнения пишется в событие доставки честным кодом, а не null; маршрут восстановим без догадок по соседним событиям.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "kind": "defect_found",
-          "candidate_commit": "a563ee31d216ed3fd526fdc75b6253f806bb12a2",
+          "kind": "code",
+          "candidate_commit": "d8feb2a0",
           "ref": "services/mca_events.py",
-          "observation": "REASON_CODES whitelist silently nulls 'ambiguous_needs_clarification', so the deliver event is written with reason_code=null and the branch is only findable through neighbouring entity_ids. Short-branch replies are also absent from mca_bot_outputs/bot_replies, so the published text cannot be audited after the fact."
+          "artifact_sha256": "E0A420499E8521939ED8DA67ACB28ECFC290C0CA52CF32B65E341D355039FBF4",
+          "observation": "Whitelist covers every literal reason_code emitted on the factcheck stage_event path; an unknown code is persisted as a stable unmapped:<sha8> marker with a WARN that carries only the marker and length, and never raises into the request path."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "d8feb2a0",
+          "ref": "services/bot_output_ledger.py",
+          "artifact_sha256": "9AF0543CE4B0C1A266EBD1ABCAE8014D4276446A9B0366510F47D4FB9430319B",
+          "observation": "The short clarify reply is written to mca_bot_outputs only when delivery returned a message id: direct_reply + source_feature='factcheck', real tg id, parent ref, correlation id, no HTML or technical fields; a misbehaving send (None id or exception) leaves zero rows."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "d8feb2a0",
+          "ref": "plans/features/evol-reply-context-integrity/requirements-map.json",
+          "observation": "Independent Reviewer: own probes for unconfirmed delivery and for an unknown code with free text (raw text absent from DB and logs), mutations M1/M2 red, 117 targeted tests green, 253 in the wider event-contract batch with 3 pre-existing reds reproduced on base."
         }
       ]
     }

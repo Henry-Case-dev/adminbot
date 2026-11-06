@@ -21,6 +21,10 @@ TEST-LIFECYCLE: CONTRACT owner=CFG-06
     тему НЕ выбирает, дополнительных LLM-вызовов/поиска не добавляет, а
     публикуемый текст остаётся чистым (без дампов контекста и служебных
     полей) — даже если модель вернула их в ответе.
+  * FC-OBSERVABILITY-01: причина короткой gate-реплики (ветка ambiguous)
+    остаётся в событии `deliver` реальным кодом словаря (не `null`), при
+    неизвестном коде — видимым маркером `unmapped:<sha>` без срыва доставки, а
+    сам доставленный текст лежит в durable-ledger `mca_bot_outputs`.
 """
 import asyncio
 import json
@@ -690,3 +694,148 @@ class TestEgressWhitelist:
         with pytest.raises(Exception):
             orch.build_presentation(
                 orch.CheckedVerdict(verdict_text="   ", route="legacy_single"))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# FC-OBSERVABILITY-01: наблюдаемость короткой gate-реплики (прод-трасса:
+# `deliver` сохранялся с `reason_code=null`, а доставленный текст уточнения не
+# попадал ни в `mca_bot_outputs`, ни в `bot_replies`).
+# ════════════════════════════════════════════════════════════════════════════
+
+SHORT_TARGET = "ну и что там?"
+
+
+class _LedgerDB(FakeDB):
+    """Context-чтения — фейк (как в остальных тестах файла), ledger-запись —
+    РЕАЛЬНАЯ схема `mca_bot_outputs` (реальный DatabaseService)."""
+
+    def __init__(self, rows=None, real_db=None):
+        super().__init__(rows=rows)
+        self.real_db = real_db
+
+    async def record_bot_output(self, **kwargs):
+        return await self.real_db.record_bot_output(**kwargs)
+
+
+def _capture_events(monkeypatch) -> list:
+    """Спай emit-точки mca_events: копит ФАКТИЧЕСКИ собранные события."""
+    from services import mca_events as me
+    seen: list = []
+
+    def spy(event_name, *, outcome, **fields):
+        built = me.build_event(event_name, outcome=outcome, **fields)
+        seen.append({"event_name": event_name, "outcome": outcome,
+                     "fields": fields, "event": built})
+        return built
+
+    monkeypatch.setattr(me, "emit_mca_event", spy)
+    return seen
+
+
+async def _run_ambiguous(monkeypatch, db, bot, *,
+                         reply="какой именно тезис проверить?"):
+    import services.prompt_composer as pc
+    monkeypatch.setattr(pc, "compose_speech_system",
+                        _fake_compose_with_persona)
+    llm = FakeLLM(reply=reply)
+    await orch.run_factcheck(
+        orch.FactcheckRequest(chat_id=CHAT_ID,
+                              trigger_tg_message_id=TRIGGER_TG,
+                              target_tg_message_id=TARGET_TG,
+                              target_text=SHORT_TARGET),
+        service=FakeService(llm=llm), db=db, bot=bot, cache=FakeCache())
+    return llm
+
+
+def _deliver_events(seen):
+    return [item for item in seen
+            if item["event_name"] == "factcheck_temporal"
+            and (item["fields"] or {}).get("stage") == "deliver"]
+
+
+class TestAmbiguousBranchObservability:
+    @pytest.mark.asyncio
+    async def test_deliver_event_keeps_real_reason_code(self, v2_on,
+                                                        monkeypatch):
+        """(a) Ветка ambiguous: событие `deliver` несёт РЕАЛЬНЫЙ код словаря.
+
+        Мутация: убрать код из `REASON_CODES` → событие отдаёт `unmapped:*` и
+        тест краснеет (проверка чувствительности к whitelist)."""
+        seen = _capture_events(monkeypatch)
+        bot = FakeBot()
+        await _run_ambiguous(monkeypatch, FakeDB(rows=_two_disputes()), bot)
+        assert bot.sent                        # реплика доставлена
+        deliver = _deliver_events(seen)
+        assert len(deliver) == 1
+        event = deliver[0]["event"]
+        assert event is not None               # событие не потеряно build_event
+        assert event.get("reason_code") == "ambiguous_needs_clarification"
+        assert event["outcome"] == "skipped"
+        # причина — код словаря (а не fallback-маркер): ветка не «придумывает»
+        # собственную метку в обход `mca_events`
+        from services import mca_events as me
+        assert event["reason_code"] in me.REASON_CODES
+        assert not event["reason_code"].startswith(me.UNMAPPED_REASON_PREFIX)
+
+    @pytest.mark.asyncio
+    async def test_unmapped_reason_code_surfaces_without_breaking_delivery(
+            self, v2_on, monkeypatch):
+        """(b) Код вне словаря → видимый стабильный маркер, доставка жива."""
+        from services import mca_events as me
+        monkeypatch.setattr(
+            me, "REASON_CODES",
+            frozenset(c for c in me.REASON_CODES
+                      if c != "ambiguous_needs_clarification"))
+        seen = _capture_events(monkeypatch)
+        bot = FakeBot()
+        await _run_ambiguous(monkeypatch, FakeDB(rows=_two_disputes()), bot)
+        # доставка не сорвана исключением из-за неизвестного кода
+        assert len(bot.sent) == 1
+        deliver = _deliver_events(seen)
+        assert len(deliver) == 1
+        event = deliver[0]["event"]
+        assert event is not None
+        marker = event.get("reason_code")
+        assert isinstance(marker, str)
+        assert marker.startswith(me.UNMAPPED_REASON_PREFIX)
+        assert "ambiguous_needs_clarification" not in marker     # без текста кода
+        # стабильность: тот же неизвестный код → тот же маркер
+        again = me.build_event("X", outcome="skipped",
+                               reason_code="ambiguous_needs_clarification")
+        assert again["reason_code"] == marker
+
+    @pytest.mark.asyncio
+    async def test_short_clarify_reply_recorded_in_ledger(self, v2_on,
+                                                          monkeypatch,
+                                                          tmp_path):
+        """(c) Доставленный текст уточнения достаётся из ledger как есть."""
+        from services import bot_output_ledger as bol
+        from services.database import DatabaseService
+        real_db = DatabaseService(str(tmp_path / "fc_obs.db"))
+        await real_db.initialize()
+        db = _LedgerDB(rows=_two_disputes(), real_db=real_db)
+        bot = FakeBot()
+        await _run_ambiguous(monkeypatch, db, bot)
+        assert len(bot.sent) == 1
+        delivered = bot.sent[0]["text"]
+        cursor = await real_db.db.execute(
+            "SELECT * FROM mca_bot_outputs WHERE chat_id = ?", (CHAT_ID,))
+        rows = [dict(r) for r in await cursor.fetchall()]
+        assert len(rows) == 1
+        row = rows[0]
+        # текст — ровно то, что ушло в чат (не HTML/служебные поля)
+        assert row["content_text"] == delivered
+        assert row["content_hash"] == bol.content_hash(delivered)
+        for bad in ("<", ">", "reason_code", "chat_context", "gate_version"):
+            assert bad not in row["content_text"], bad
+        # честные источник/вид/связь
+        assert row["source_feature"] == "factcheck"
+        assert row["output_kind"] == "direct_reply"
+        assert row["delivery_status"] == "delivered"
+        assert row["tg_message_id"] == 555          # id отправленной части
+        assert row["parent_message_ref"] == f"tg:{TARGET_TG}"
+        assert row["correlation_id"]            # прогон коррелируем
+        # реплика видна общему read-path истории собственных сообщений
+        history = await bol.list_bot_output_history(real_db, CHAT_ID)
+        assert [item["text"] for item in history] == [delivered]
+
