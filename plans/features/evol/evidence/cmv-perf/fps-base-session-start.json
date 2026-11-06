@@ -1,0 +1,369 @@
+{
+ "label": "base",
+ "revision": null,
+ "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\cmv-perf-2c5e1c77472b-3391b92c",
+ "ms": 2000,
+ "fixtures": [
+  702
+ ],
+ "fixture_sha256": {
+  "702": "6f796fca78c8f987d981458ac3789535ae3d7ef8eebd53d021f136ded1590f95"
+ },
+ "states": [
+  {
+   "name": "overview",
+   "ratio": 1.0
+  },
+  {
+   "name": "working",
+   "ratio": 1.6
+  },
+  {
+   "name": "detail",
+   "ratio": 2.6
+  }
+ ],
+ "modes": [
+  "embedded"
+ ],
+ "host": {
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.12.0"
+ },
+ "render_mode": "headless-gpu",
+ "launch_args": [
+  "--enable-gpu",
+  "--enable-gpu-rasterization",
+  "--ignore-gpu-blocklist",
+  "--use-angle=d3d11"
+ ],
+ "started_at": "2026-11-05T03:11:07",
+ "cases": [
+  {
+   "fixture": 702,
+   "mode": "embedded",
+   "state": "overview",
+   "ratio_want": 1.0,
+   "ratio_got": 1.0,
+   "fit": 0.12451,
+   "canvas": [
+    1252,
+    418
+   ],
+   "el": [
+    1252,
+    418
+   ],
+   "rows": 702,
+   "edges": 2400,
+   "trimmed": false,
+   "hidden": 696,
+   "lod": 0,
+   "labels": 6,
+   "stats": {
+    "frames": 121,
+    "median": 59.9,
+    "p95": 54.9,
+    "p99": 54.1,
+    "worst": 52.6,
+    "p50ms": 16.7,
+    "p95ms": 18.2,
+    "p99ms": 18.5,
+    "jank": 0,
+    "paintedFps": 59.8,
+    "moves": 121,
+    "drift": 319.9
+   },
+   "runs": [
+    {
+     "frames": 121,
+     "median": 59.9,
+     "p95": 54.9,
+     "p99": 54.1,
+     "worst": 52.6,
+     "p50ms": 16.7,
+     "p95ms": 18.2,
+     "p99ms": 18.5,
+     "jank": 0,
+     "paintedFps": 59.8,
+     "moves": 121,
+     "drift": 319.9
+    },
+    {
+     "frames": 121,
+     "median": 59.9,
+     "p95": 55.9,
+     "p99": 54.3,
+     "worst": 52.9,
+     "p50ms": 16.7,
+     "p95ms": 17.9,
+     "p99ms": 18.4,
+     "jank": 0,
+     "paintedFps": 60.1,
+     "moves": 121,
+     "drift": 322.6
+    }
+   ]
+  },
+  {
+   "fixture": 702,
+   "mode": "embedded",
+   "state": "working",
+   "ratio_want": 1.6,
+   "ratio_got": 1.6,
+   "fit": 0.12451,
+   "canvas": [
+    1252,
+    418
+   ],
+   "el": [
+    1252,
+    418
+   ],
+   "rows": 702,
+   "edges": 2400,
+   "trimmed": false,
+   "hidden": 0,
+   "lod": 1,
+   "labels": 16,
+   "stats": {
+    "frames": 115,
+    "median": 59.5,
+    "p95": 49.3,
+    "p99": 24.7,
+    "worst": 16.4,
+    "p50ms": 16.8,
+    "p95ms": 20.3,
+    "p99ms": 40.5,
+    "jank": 2,
+    "paintedFps": 56.9,
+    "moves": 115,
+    "drift": 318.7
+   },
+   "runs": [
+    {
+     "frames": 115,
+     "median": 59.5,
+     "p95": 49.3,
+     "p99": 24.7,
+     "worst": 16.4,
+     "p50ms": 16.8,
+     "p95ms": 20.3,
+     "p99ms": 40.5,
+     "jank": 2,
+     "paintedFps": 56.9,
+     "moves": 115,
+     "drift": 318.7
+    },
+    {
+     "frames": 120,
+     "median": 59.5,
+     "p95": 52.4,
+     "p99": 48.1,
+     "worst": 48.1,
+     "p50ms": 16.8,
+     "p95ms": 19.1,
+     "p99ms": 20.8,
+     "jank": 0,
+     "paintedFps": 59.9,
+     "moves": 120,
+     "drift": 318.3
+    }
+   ]
+  },
+  {
+   "fixture": 702,
+   "mode": "embedded",
+   "state": "working",
+   "variant": "no-fx",
+   "stats": {
+    "frames": 121,
+    "median": 60.2,
+    "p95": 53.8,
+    "p99": 51.3,
+    "worst": 46.7,
+    "p50ms": 16.6,
+    "p95ms": 18.6,
+    "p99ms": 19.5,
+    "jank": 0,
+    "paintedFps": 59.6
+   },
+   "canvas": [
+    1252,
+    418
+   ],
+   "hidden": 0,
+   "lod": 1,
+   "runs": [
+    {
+     "frames": 121,
+     "median": 60.2,
+     "p95": 53.8,
+     "p99": 51.3,
+     "worst": 46.7,
+     "p50ms": 16.6,
+     "p95ms": 18.6,
+     "p99ms": 19.5,
+     "jank": 0,
+     "paintedFps": 59.6
+    }
+   ]
+  },
+  {
+   "fixture": 702,
+   "mode": "embedded",
+   "state": "detail",
+   "ratio_want": 2.6,
+   "ratio_got": 2.6,
+   "fit": 0.12451,
+   "canvas": [
+    1252,
+    418
+   ],
+   "el": [
+    1252,
+    418
+   ],
+   "rows": 702,
+   "edges": 2400,
+   "trimmed": false,
+   "hidden": 0,
+   "lod": 2,
+   "labels": 26,
+   "stats": {
+    "frames": 121,
+    "median": 59.9,
+    "p95": 52.1,
+    "p99": 45.9,
+    "worst": 43.1,
+    "p50ms": 16.7,
+    "p95ms": 19.2,
+    "p99ms": 21.8,
+    "jank": 0,
+    "paintedFps": 60.1,
+    "moves": 121,
+    "drift": 323.2
+   },
+   "runs": [
+    {
+     "frames": 116,
+     "median": 59.2,
+     "p95": 48.8,
+     "p99": 25.3,
+     "worst": 22.7,
+     "p50ms": 16.9,
+     "p95ms": 20.5,
+     "p99ms": 39.6,
+     "jank": 2,
+     "paintedFps": 58.0,
+     "moves": 116,
+     "drift": 317.1
+    },
+    {
+     "frames": 121,
+     "median": 59.9,
+     "p95": 52.1,
+     "p99": 45.9,
+     "worst": 43.1,
+     "p50ms": 16.7,
+     "p95ms": 19.2,
+     "p99ms": 21.8,
+     "jank": 0,
+     "paintedFps": 60.1,
+     "moves": 121,
+     "drift": 323.2
+    }
+   ]
+  },
+  {
+   "fixture": 702,
+   "mode": "android",
+   "state": "overview",
+   "ratio_got": 1.0,
+   "canvas": [
+    338,
+    386
+   ],
+   "hidden": 698,
+   "edges": 2400,
+   "trimmed": false,
+   "lod": 0,
+   "cpu_throttle": 4,
+   "stats": {
+    "frames": 121,
+    "median": 60.2,
+    "p95": 54.1,
+    "p99": 47.6,
+    "worst": 46.7,
+    "p50ms": 16.6,
+    "p95ms": 18.5,
+    "p99ms": 21,
+    "jank": 0,
+    "paintedFps": 59.8
+   }
+  },
+  {
+   "fixture": 702,
+   "mode": "android",
+   "state": "working",
+   "ratio_got": 1.6,
+   "canvas": [
+    338,
+    386
+   ],
+   "hidden": 0,
+   "edges": 2400,
+   "trimmed": false,
+   "lod": 1,
+   "cpu_throttle": 4,
+   "stats": {
+    "frames": 54,
+    "median": 28.1,
+    "p95": 20.9,
+    "p99": 19.8,
+    "worst": 14.9,
+    "p50ms": 35.55,
+    "p95ms": 47.9,
+    "p99ms": 50.6,
+    "jank": 44,
+    "paintedFps": 26.3
+   }
+  },
+  {
+   "fixture": 702,
+   "mode": "android",
+   "state": "detail",
+   "ratio_got": 2.6,
+   "canvas": [
+    338,
+    386
+   ],
+   "hidden": 0,
+   "edges": 2400,
+   "trimmed": false,
+   "lod": 2,
+   "cpu_throttle": 4,
+   "stats": {
+    "frames": 84,
+    "median": 45.0,
+    "p95": 28.5,
+    "p99": 27.6,
+    "worst": 25.4,
+    "p50ms": 22.2,
+    "p95ms": 35.1,
+    "p99ms": 36.2,
+    "jank": 10,
+    "paintedFps": 41.1
+   }
+  }
+ ],
+ "env": {
+  "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+  "renderer": "ANGLE (Intel, Intel(R) Graphics (0x00007D67) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "cores": 24,
+  "memory": 32,
+  "dpr": 1,
+  "vw": 1536,
+  "vh": 960
+ }
+}

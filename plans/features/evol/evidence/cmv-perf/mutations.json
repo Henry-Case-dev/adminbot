@@ -1,0 +1,39 @@
+{
+ "mutations": [
+  {
+   "id": "M1-listener-balance",
+   "code": 1,
+   "status": "caught",
+   "expect": "сбалансированы",
+   "detail": "Node.js v24.16.0"
+  },
+  {
+   "id": "M2-label-plan-cache",
+   "code": 1,
+   "status": "caught",
+   "expect": "неизменный кадр НЕ пересобирает план",
+   "detail": "Node.js v24.16.0"
+  },
+  {
+   "id": "M3-label-plan-not-mutated",
+   "code": 1,
+   "status": "caught",
+   "expect": "не подменяет массив плана",
+   "detail": "Node.js v24.16.0"
+  },
+  {
+   "id": "M4-decor-batching",
+   "code": 1,
+   "status": "caught",
+   "expect": "декор пачкой",
+   "detail": "Node.js v24.16.0"
+  },
+  {
+   "id": "M5-alpha-dedupe",
+   "code": 1,
+   "status": "caught",
+   "expect": "не выставляется на каждый ореол",
+   "detail": "Node.js v24.16.0"
+  }
+ ]
+}

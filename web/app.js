@@ -30945,6 +30945,15 @@
         this._graphZoomMode = 'medium';
         var cfg = V.CONFIG;
         var options = {
+          /* CMV-PERF: `autoResize` выключен НАМЕРЕННО. В vis 9.1.9
+           * `Canvas.setOptions` создаёт на КАЖДЫЙ вызов новый ResizeObserver
+           * (только `unobserve`, без `disconnect`) плюс слушатель
+           * `window.resize`; при 20 переключениях embedded↔fullscreen это
+           * десятки «полуживых» наблюдателей, каждый из которых держит ссылку на
+           * уничтоженную сцену. Собственный наблюдатель контейнера у нас уже
+           * есть (`_cogAttachSceneObservers` → `_cogOnSceneResize` →
+           * `setSize`), поэтому автоподстройка vis — дубль с побочным эффектом. */
+          autoResize: false,
           // Подписи vis выключены полностью: их рисует собственный
           // screen-space слой (`fx`), иначе «стена текста» (RCA GR1).
           nodes: { shape: 'dot', size: 12, font: { size: 0 },
@@ -31014,13 +31023,17 @@
           // CMV-B: пределы экранного диаметра по плотности (§5.1 спеки) и
           // нормализация раскладки к кадру (один раз на раскладку).
           caps: null, frameFit: null,
+          // CMV-PERF: кэш радиуса в сетевых единицах (пересчёт — на смену
+          // `fitScaleRef`/набора, не на кадр) и отсечение невидимых рёбер.
+          radii: null, radiiRev: 0,
+          // План подписей: якорь камеры, при котором он посчитан.
+          labelAnchor: null, labelCharWidth: 0, labelCharFont: 0,
         };
         var scene = this._cogScene;
-        if (hasLayout) {
-          try {
-            net.setOptions({ physics: { enabled: false } });
-          } catch (e) { /* noop */ }
-        }        // F11 (§16/D4): mobile-упрощение — физика сразу выключена.
+        // `hasLayout` уже пришёл с `options.physics = false` — повторный
+        // `setOptions` ничего не менял, но в vis 9.1.9 каждый его вызов заводит
+        // новый ResizeObserver (CMV-PERF), поэтому лишний вызов убран.
+        // F11 (§16/D4): mobile-упрощение — физика сразу выключена.
         if (simple) {
           try {
             net.setOptions({ physics: { enabled: false } });
@@ -31721,15 +31734,25 @@
           scene.caps = V.densityCaps(view.nodes, scene.pos || {}, fitScale);
         }
         var rows = [];
+        var radii = {};
         for (var i = 0; i < view.nodes.length; i += 1) {
           var node = view.nodes[i];
           var row = this._cogNodeRow(node, null);
           if (!row) continue;
           rows.push({ id: row.id, size: row.size });
+          // CMV-PERF: тот же радиус в сетевых единицах нужен слою `fx` на
+          // КАЖДОМ кадре. Считаем его здесь (один раз на смену `fitScaleRef`,
+          // плотности и набора) — кадр панорамирования больше не вызывает
+          // `Math.log`/клампы 702 раза.
+          radii[node.id] = row.size;
         }
         try {
           if (rows.length) ds.update(rows);
         } catch (e) { /* сеть уничтожена */ }
+        if (scene) {
+          scene.radii = radii;
+          scene.radiiRev = (scene.radiiRev || 0) + 1;
+        }
         return rows.length;
       },
       /* Раскладка vis изотропна ⇒ bbox почти квадратный, а кадр встроенной
@@ -32483,6 +32506,8 @@
           // (`scene.hoverAt` ставится в `_cogSetHover`).
           hoverAt: scene.hoverAt || 0,
           fitScale: this._cogFitScale || 0,
+          // CMV-PERF: готовый радиус в сетевых единицах (кэш `_cogApplyNodeSizes`).
+          radii: scene.radii || null,
           lod: lod,
           keyIds: keyIds,
           groups: groups,
@@ -32511,14 +32536,15 @@
         var r = V.relativeScale(cam.scale, this._cogFitScale);
         var margin = V.CONFIG.glow.margin;
         var alloc = scene.labelPlan;
-        // Ширина символа для бокса подписи: адаптер считает её долей fontSize
-        // (по умолчанию 0.55). Реальный жирный кириллический текст шире, и
-        // боксы «сходились», пока текст на экране налезал (§4.4 спеки запрещает
-        // наложение читаемых подписей). Меряем фактическую ширину ОДИН раз на
-        // пересчёт плана — не на кадр и не на узел.
+        // CMV-PERF: ширина символа меряется ОДИН раз на сцену и кегль.
+        // Раньше `ctx.font = …` + `measureText` выполнялись на КАЖДОМ кадре
+        // (план при этом мог не пересобираться) — сброс кэша шрифта браузера и
+        // работа, которую кадр панорамирования не окупает.
         var sampleLabel = 'Доверие строится постепенно 0000';
         var charWidth = 0.55;
-        if (ctx && typeof ctx.measureText === 'function') {
+        if (scene.labelCharFont === fontPx && scene.labelCharWidth > 0) {
+          charWidth = scene.labelCharWidth;
+        } else if (ctx && typeof ctx.measureText === 'function') {
           try {
             ctx.font = '600 ' + fontPx
               + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
@@ -32529,10 +32555,20 @@
               charWidth = mw / (sampleLabel.length * fontPx);
             }
           } catch (e) { charWidth = 0.55; }
+          if (charWidth > 0) {
+            scene.labelCharFont = fontPx;
+            scene.labelCharWidth = charWidth;
+          }
         }
-        var labelKey = [
-          Math.round(cam.x * 2) / 2, Math.round(cam.y * 2) / 2,
-          Math.round(cam.scale * 1000) / 1000, scene.lod || 0,
+        /* CMV-PERF: ключ плана БЕЗ положения камеры. Панорамирование сдвигает
+         * подписи ЖЁСТКО (взаимные расстояния не меняются), поэтому готовый
+         * план переиспользуется со сдвигом. Пересборка — по структуре кадра
+         * (LOD/выбор/витрина/поиск/позиции/размер/кегль) и по порогам
+         * `panLimit`/`zoomOutTolerance`. Раньше камера входила в ключ с
+         * точностью 0.5 px — на панорамировании план 702 узлов пересобирался
+         * КАЖДЫЙ кадр (сортировка + разбор коллизий + 702 объекта). */
+        var planKey = [
+          scene.lod || 0,
           scene.selectionRev || 0, scene.viewRev || 0,
           // CMV-C: смена найденных поиском и числа районов меняет ПРИОРИТЕТЫ,
           // а значит и план подписей. Hover в ключ НЕ входит: подпись наведения
@@ -32545,10 +32581,25 @@
           (view.nodes || []).length,
           scene.posRev || 0,
           Math.round(cssW), Math.round(cssH),
-          Math.round(charWidth * 100),
+          Math.round(charWidth * 100), fontPx,
         ].join(':');
-        if (alloc && scene.labelKey === labelKey) {
-          // §5.8 контракта: при неизменном ключе кадра подписи переиспользуются
+        var anchor = scene.labelAnchor || null;
+        var zoomK = (anchor && anchor.scale > 0) ? (cam.scale / anchor.scale) : 1;
+        // Насколько камера ушла ПО ЭКРАНУ с момента плана (CSS-px).
+        var panPx = anchor
+          ? Math.max(Math.abs(cam.x - anchor.x), Math.abs(cam.y - anchor.y))
+            * cam.scale
+          : Infinity;
+        var panLimit = (typeof cfg.panLimit === 'number') ? cfg.panLimit : 40;
+        var zoomTol = (typeof cfg.zoomOutTolerance === 'number')
+          ? cfg.zoomOutTolerance : 0.02;
+        // Зум ВВЕРХ безопасен: центры узлов расходятся, бокс подписи остаётся
+        // пиксельным ⇒ новые наложения невозможны. Зум ВНИЗ сближает центры —
+        // план пересобирается.
+        var reuse = !!alloc && scene.labelKey === planKey && !!anchor
+          && zoomK >= 1 - zoomTol && panPx <= panLimit;
+        if (reuse) {
+          // §5.8 контракта: при неизменном кадре подписи переиспользуются
           // (аллокатор — самый дорогой шаг слоя: sort 702 + O(n·placed)).
         } else {
           var items = scene.labelItems || (scene.labelItems = []);
@@ -32659,8 +32710,11 @@
             maxLabelChars: cfg.maxChars,
             charWidth: charWidth,
           });
-          scene.labelKey = labelKey;
+          scene.labelKey = planKey;
           scene.labelPlan = alloc;
+          // Якорь: при каком положении камеры посчитаны координаты в плане.
+          // Дальнейшие кадры пересчитывают их сдвигом (см. ниже).
+          scene.labelAnchor = { x: cam.x, y: cam.y, scale: cam.scale };
         }
         // Диагностика приёмки: сколько подписей реально нарисовано и какой LOD.
         this._cogLabels = alloc;
@@ -32723,19 +32777,52 @@
             id: mustId, x: bx, y: by, text: text,
             width: wBox, height: hBox, selected: true,
           });
-          // Конфликтующие подписи снимаются (§5.5): они не должны перекрывать
-          // подпись выбранного узла.
-          var kept = [];
-          for (var r2 = 0; r2 < alloc.labels.length; r2 += 1) {
-            var cand = alloc.labels[r2];
-            var clash = Math.abs(cand.x - bx) * 2 < (cand.width + wBox)
-              && Math.abs(cand.y - by) * 2 < (cand.height + hBox);
-            if (!clash) kept.push(cand);
-          }
-          alloc.labels = kept;
         }
-        if (!alloc.labels.length && !forced.length) return 0;
         alloc.forced = forced;
+        /* CMV-PERF: план НЕ портится кадром. Раньше конфликтующие подписи
+         * удалялись прямо из `alloc.labels` — то есть из кэша плана: одно
+         * нажатие «выбрать узел» навсегда вычёркивало подписи из плана, и они
+         * не возвращались до полной пересборки. Теперь список к рисованию
+         * собирается в переиспользуемый буфер (`scene.labelDraw`), а план
+         * остаётся неизменным. */
+        var kZoom = (anchor && anchor.scale > 0) ? cam.scale / anchor.scale : 1;
+        // Сдвиг якорной системы координат в текущий кадр (жёсткое
+        // преобразование «сдвиг + масштаб», без пересбора коллизий).
+        var shiftX = anchor ? (anchor.x - cam.x) * cam.scale : 0;
+        var shiftY = anchor ? (anchor.y - cam.y) * cam.scale : 0;
+        var halfW = cssW / 2;
+        var halfH = cssH / 2;
+        var offset = cfg.offset;
+        var drawBuf = scene.labelDraw || (scene.labelDraw = []);
+        var drawn = 0;
+        var i2;
+        for (i2 = 0; i2 < alloc.labels.length; i2 += 1) {
+          var planned = alloc.labels[i2];
+          var lx = (planned.x - halfW) * kZoom + shiftX + halfW;
+          var ly = ((planned.y - offset) - halfH) * kZoom + shiftY + halfH
+            + offset;
+          // За кадром подпись не рисуется (после сдвига якоря она могла уехать)
+          // и в разбор конфликтов с принудительными не попадает.
+          if (lx < -margin || ly < -margin || lx > cssW + margin
+              || ly > cssH + margin) continue;
+          // §5.5 спеки: подпись выбранного не перекрывается ничем.
+          var blocked = false;
+          for (var fi = 0; fi < forced.length; fi += 1) {
+            var fBox = forced[fi];
+            if (Math.abs(fBox.x - lx) * 2 < (fBox.width + planned.width)
+                && Math.abs(fBox.y - ly) * 2 < (fBox.height + planned.height)) {
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) continue;
+          var rec = drawBuf[drawn] || (drawBuf[drawn] = { l: null, x: 0, y: 0 });
+          rec.l = planned;
+          rec.x = lx;
+          rec.y = ly;
+          drawn += 1;
+        }
+        if (!drawn && !forced.length) return 0;
         var hasSelection = this._cogSelectedId != null;
         ctx.save();
         ctx.textAlign = 'center';
@@ -32744,37 +32831,122 @@
           + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
         var selectedFont = '600 ' + fontPx
           + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
-        for (var k = 0; k < alloc.labels.length; k += 1) {
-          var label = alloc.labels[k];
+        for (var k = 0; k < drawn; k += 1) {
+          var item = drawBuf[k];
+          var label = item.l;
           var selected = !!(this._cogHighlight && this._cogHighlight[label.id]);
           var dimmed = hasSelection && !selected;
-          ctx.font = selected ? selectedFont : font;
+          var labelFont = selected ? selectedFont : font;
           ctx.globalAlpha = dimmed ? cfg.dimAlpha : 1;
-          // Контур вместо плашки (§4.4 спеки): «лёгкий тёмный подложенный
-          // контур», а не прямоугольник под КАЖДОЙ подписью.
-          ctx.lineWidth = cfg.strokeWidth;
-          ctx.strokeStyle = cfg.stroke;
-          ctx.lineJoin = 'round';
-          ctx.strokeText(label.text, label.x, label.y);
-          ctx.fillStyle = selected ? cfg.selectedColor : cfg.color;
-          ctx.fillText(label.text, label.x, label.y);
+          if (!this._cogBlitLabel(ctx, scene, label.text, labelFont, fontPx,
+            cfg.strokeWidth, selected, item.x, item.y)) {
+            // Фолбэк без offscreen-канваса (песочница/нет DOM): текст рисуется
+            // прямо в кадр, контур вместо плашки (§4.4 спеки).
+            ctx.font = labelFont;
+            ctx.lineWidth = cfg.strokeWidth;
+            ctx.strokeStyle = cfg.stroke;
+            ctx.lineJoin = 'round';
+            ctx.strokeText(label.text, item.x, item.y);
+            ctx.fillStyle = selected ? cfg.selectedColor : cfg.color;
+            ctx.fillText(label.text, item.x, item.y);
+          }
         }
         // Принудительно показанные подписи (выбранный/hover) — поверх остальных.
         for (var f = 0; f < forced.length; f += 1) {
           var fl = forced[f];
-          ctx.font = selectedFont;
           ctx.globalAlpha = 1;
-          ctx.lineWidth = cfg.strokeWidth + 0.6;
-          ctx.strokeStyle = cfg.stroke;
-          ctx.lineJoin = 'round';
-          ctx.strokeText(fl.text, fl.x, fl.y);
-          ctx.fillStyle = cfg.selectedColor;
-          ctx.fillText(fl.text, fl.x, fl.y);
+          if (!this._cogBlitLabel(ctx, scene, fl.text, selectedFont, fontPx,
+            cfg.strokeWidth + 0.6, true, fl.x, fl.y)) {
+            ctx.font = selectedFont;
+            ctx.lineWidth = cfg.strokeWidth + 0.6;
+            ctx.strokeStyle = cfg.stroke;
+            ctx.lineJoin = 'round';
+            ctx.strokeText(fl.text, fl.x, fl.y);
+            ctx.fillStyle = cfg.selectedColor;
+            ctx.fillText(fl.text, fl.x, fl.y);
+          }
         }
         ctx.globalAlpha = 1;
         ctx.restore();
-        alloc.shown = alloc.labels.length + forced.length;
+        scene.labelDrawCount = drawn;
+        alloc.shown = drawn + forced.length;
         return alloc.shown;
+      },
+      /* ── подпись как спрайт (CMV-PERF) ─────────────────────────────────────
+       * Замер 702/2400 на телефоне (CPU ×4): `strokeText`+`fillText` на 3–6
+       * подписях стоили ~4.8 мс кадра — почти столько же, сколько весь слой
+       * свечения. Текст при панорамировании НЕ меняется, меняется только его
+       * положение, поэтому «текст+контур» растеризуется ОДИН раз в offscreen
+       * канвас (в DPR слоя), а кадр делает `drawImage`. Кегль/контур/цвет —
+       * часть ключа: смена выделения даёт другой спрайт, а не перерисовку
+       * текста на месте. Позиция при этом остаётся дробной (слой не «дрожит»). */
+      _cogBlitLabel: function (ctx, scene, text, font, fontPx, strokeWidth,
+                               selected, x, y) {
+        var rec = this._cogLabelSprite(scene, text, font, fontPx,
+          strokeWidth, selected);
+        if (!rec) return false;
+        // Целые CSS-px: спрайт уже в разрешении слоя (DPR), поэтому выборка
+        // становится 1:1 и текст остаётся резким. Дробное смещение включало бы
+        // билинейную фильтрацию маленького растра — «мыло» на кегле 11–12 px.
+        ctx.drawImage(rec.canvas, Math.round(x - rec.width / 2),
+          Math.round(y - rec.height / 2), rec.width, rec.height);
+        return true;
+      },
+      _cogLabelSprite: function (scene, text, font, fontPx, strokeWidth,
+                                 selected) {
+        var V = cogVis();
+        var cfg = (V && V.CONFIG && V.CONFIG.label) || null;
+        if (!scene || !cfg || !text || !fontPx) return null;
+        if (typeof document === 'undefined'
+            || typeof document.createElement !== 'function') return null;
+        var key = font + '|' + strokeWidth + '|' + (selected ? '1' : '0')
+          + '|' + text;
+        var cache = scene.labelSprites || (scene.labelSprites = {});
+        var cached = cache[key];
+        if (cached) return cached;
+        if (scene.labelSpriteKeys === undefined) scene.labelSpriteKeys = 0;
+        // Потолок кеша: набор подписей меняется вместе с витриной, но не должен
+        // расти бесконечно при поиске/фильтрах.
+        if (scene.labelSpriteKeys > 96) {
+          scene.labelSprites = {};
+          cache = scene.labelSprites;
+          scene.labelSpriteKeys = 0;
+        }
+        var ctx0 = scene.fxCtx;
+        if (!ctx0 || typeof ctx0.measureText !== 'function') return null;
+        var mw = 0;
+        try {
+          ctx0.font = font;
+          var m = ctx0.measureText(text);
+          mw = (m && typeof m.width === 'number') ? m.width : 0;
+        } catch (e) { mw = 0; }
+        if (!(mw > 0)) mw = text.length * fontPx * 0.6;
+        var pad = Math.max(2, Math.ceil(strokeWidth) + 1);
+        var w = Math.ceil(mw + pad * 2);
+        var h = Math.ceil(fontPx * 1.5 + pad * 2);
+        var dpr = scene.fxDpr || 1;
+        var cv = null;
+        try { cv = document.createElement('canvas'); } catch (e) { cv = null; }
+        if (!cv || typeof cv.getContext !== 'function') return null;
+        cv.width = Math.max(1, Math.ceil(w * dpr));
+        cv.height = Math.max(1, Math.ceil(h * dpr));
+        var c2 = null;
+        try { c2 = cv.getContext('2d'); } catch (e) { c2 = null; }
+        if (!c2 || typeof c2.strokeText !== 'function') return null;
+        if (typeof c2.scale === 'function') c2.scale(dpr, dpr);
+        c2.font = font;
+        c2.textAlign = 'center';
+        c2.textBaseline = 'middle';
+        c2.lineWidth = strokeWidth;
+        c2.strokeStyle = cfg.stroke;
+        c2.lineJoin = 'round';
+        c2.strokeText(text, w / 2, h / 2);
+        c2.fillStyle = selected ? cfg.selectedColor : cfg.color;
+        c2.fillText(text, w / 2, h / 2);
+        var rec = { canvas: cv, width: w, height: h };
+        cache[key] = rec;
+        scene.labelSpriteKeys += 1;
+        return rec;
       },
       // Совместимость по имени (D15/T-265, живые пробы и старые тесты):
       // подписи теперь рисуются в слое `fx`, поэтому внешний ctx — no-op.
@@ -33798,25 +33970,36 @@
         }
         return false;
       },
-      // Сброс вида: фильтры/кластер/поиск/выделение сняты, кадр — общий.
+      // «Сбросить вид» — ТОЛЬКО камера: масштаб/сдвиг возвращаются к обзору.
+      // Фильтр, запрос поиска, выбранный узел и подсветка — состояние
+      // пользователя; сброс кадра их не разрушает (у фильтров своя кнопка).
       graphResetView: function () {
+        var self = this;
+        this._cogCamera = null;
+        this.$nextTick(function () {
+          self.renderCognitionGraph().then(function () {
+            // §6.5 спеки: «Сбросить вид» возвращает камеру к обзору и не
+            // пересоздаёт сеть ради кадра.
+            self._cogApplyFit(true);
+          });
+        });
+      },
+      // «Сбросить фильтры» — отдельное действие: снимает витринные фильтры
+      // (тип/кластер/производные рёбра), поиск и выделение; кадр — общий.
+      graphResetFilters: function () {
         var self = this;
         this.graphFilterGroup = '';
         this.cognitionMapCluster = '';
         this.cogHideDerived = false;
         this.graphClearDetail();
-        // CMV-D (§9 спеки, CMV-NAV-04): сброс вида снимает выделение — значит
-        // и карточку: иначе открытый инспектор показывал бы запись, которая
-        // больше не выбрана (расхождение «видно ≠ выбрано»). Карточка — слой
-        // этого экрана, отдельного подтверждения не требует.
+        // CMV-D (§9 спеки, CMV-NAV-04): снятие выделения значит и карточку:
+        // иначе открытый инспектор показывал бы запись, которая больше не
+        // выбрана (расхождение «видно ≠ выбрано»).
         this.closeCogCard();
         this.clearCognitionGraphSearch();
         this._cogCamera = null;
         this.$nextTick(function () {
           self.renderCognitionGraph().then(function () {
-            // §6.5 спеки: «Сбросить вид» возвращает камеру к обзору, но НЕ
-            // сбрасывает фильтры/поиск (они уже сняты только явными полями
-            // выше) и не пересоздаёт сеть ради кадра.
             self._cogApplyFit(true);
           });
         });

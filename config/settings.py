@@ -3527,7 +3527,7 @@ settings = Settings()
 # S4 (10.26, ADR-1026-6 D1–D6): bump 2.58.22 → 2.58.23 — новый рантайм-модуль
 # `services/summary_fact_package.py` (детерминированный «пакет фактов §96»,
 # 0 LLM-вызовов; Δ каталога=0, Δ DDL=0; в живой путь НЕ врезан — GATED S5/S6).
-APP_VERSION = "2.58.155"   # prompt-versioning (04.11.2026): единый журнальный слой записи текста промптов (значение + ревизия + событие активации одной транзакцией), эталон владельца как указатель на неизменяемую ревизию, полная история версий страницами, одна карточка версий во всех редакторах, стража обхода журнала. Δ DDL = 0, каталог = 0, фабричный набор промптов байт-в-байт прежний. Откат: cold git revert до 2.58.154. Prior 2.58.154 (RC v5 «целостность контекста ответа»).
+APP_VERSION = "2.58.161"   # (06.11.2026): UR-C-SCHED per-chat расписания (summary 00/06/12/18 и goodmorning по поясу каждого чата через ChatClock: IANA/DST, spring-gap/fold — один запуск на слот, атомарная бронь slot_claims, честный skip просроченного окна — пачки просроченных нет), FC-BACKEND corrective factcheck (семантическая стратегия сравнения, вердикт-модель с provenance, topical-гейт агрегатора, temporal mixed/causality — метки *-fc04-corrective, FACTORY_SET 30a072887fdd), PVR честное состояние промпт-реестра в UI (effective-state: unmatched/drift/503 не маскируются). SQLite DDL: +1 аддитивная таблица slot_claims (v42, IF NOT EXISTS, старый код не читает — на откате инертна, claims пере-выводятся), PG no-op. Откат: cold git revert до 2.58.160 (v42-таблица безвредна). Prior 2.58.160 (UNIFIED-REPLY волна).
 
 
 def get_ytdlp_pot_provider() -> str:
