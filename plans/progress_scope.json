@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-07T09:30:00+12:00",
+  "updated": "2026-11-07T11:20:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -510,7 +510,7 @@
       "source_note": "Независимая группа /menu deep-link. Карта plans/features/menu-01/requirements-map.json: 7 строк VERIFIED (включая MENU-01.4 — Main Mini App зарегистрирован и включён, Fullscreen, существующее приложение https://admin-bot.duckdns.org/web/), 10 строк всего, review-gate errors=0. Кандидат 14400b73 независимо одобрен по кодовой части. Осталось runtime-доказательство реального startapp-запуска, валидации initData и ACL — это собирают агенты из логов и серверных проверок, а не владелец. Повторная регистрация и Direct Links не требуются."
     },
     {
-      "id": "evol-reply-context-integrity-rci",
+      "id": "reply-context-integrity-rci",
       "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md",
       "source_sha256": "A5FCC4194578458C97584CBED091B156C448AB927DF105B3D360D5A428429084",
@@ -518,7 +518,7 @@
         "plans/features/evol-reply-context-integrity/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "ПОРТ master 571a5737 (id в master был `evol-reply-context-integrity-01`). Здесь id занят 285-строчным эпиком EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (plans/features/evol-reply-context-integrity-01/), поэтому срез RCI-01..05 зарегистрирован отдельным id. Привязку итогового id и учёт строк решает Orchestrator/PM. | Production Reply→FactCheck context-loss. Карта plans/features/evol-reply-context-integrity/requirements-map.json (5 строк, plan-gate errors=0). Кодовая потеря в ambiguity-ветке независимо подтверждена на HEAD 8bb2800f; реальные Telegram ID/трасса продакшена остаются PENDING_EXTERNAL."
+      "source_note": "ПОРТ master 571a5737 (id в master был `evol-reply-context-integrity-01`). Здесь id занят 285-строчным эпиком EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (plans/features/evol-reply-context-integrity-01/), поэтому срез RCI-01..05 зарегистрирован отдельным id. Привязку итогового id и учёт строк решает Orchestrator/PM. | Production Reply→FactCheck context-loss. Карта plans/features/evol-reply-context-integrity/requirements-map.json (5 строк, plan-gate errors=0). Кодовая потеря в ambiguity-ветке независимо подтверждена на HEAD 8bb2800f; реальные Telegram ID/трасса продакшена остаются PENDING_EXTERNAL. | Renamed from a near-collision with the pre-existing epic task `evol-reply-context-integrity-01` (285 rows, different deliverable)."
     },
     {
       "id": "factcheck-clean-publication",
