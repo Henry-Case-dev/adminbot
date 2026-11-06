@@ -54,7 +54,7 @@ class TestCatalogInvariant106:
         assert len(pc.TAB_RULES) == 22
         # Settings-поля: EVOL-031 все 5 smart/dedup-ключей СОХРАЕНЫ (no-op) —
         # дрейф 466→465 внешний (закоммиченный EVOL-016/012), не этой задачи.
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 468
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 471  # MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_five_master_flags_default_true(self):
         s = Settings()

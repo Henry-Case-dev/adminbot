@@ -91,7 +91,11 @@ def test_no_ddl_catalog_ks_tools_delta():
         # (chat_publish_claim_v41) — бронь публикации (аддитивная таблица,
         # PG no-op). Санкционированный хвост = 41; Δ каталога/KS/тулов
         # по-прежнему нулевой.
-        assert int(row[0]) == 41
+        # UNIFIED-REPLY UR-C-SCHED (06.11.2026, 1ca13926, уже в 2.58.161):
+        # v42 (slot_claims_v42) — бронь слотов расписания (аддитивная таблица
+        # services/slot_claims.py, PG no-op). Санкционированный хвост = 42;
+        # Δ каталога/KS/тулов по-прежнему нулевой.
+        assert int(row[0]) == 42
     finally:
         loop.run_until_complete(d.close())
         loop.close()

@@ -825,6 +825,28 @@ class TestBoundsA3:
                                               "web/api/cognitive_map.py",
                                               "web/static/cognitive-map.js",
                                               "web/api/mechanism_diagnostics.py",
+                                              # PINS-258161 (07.11.2026 — allowlist
+                                              # отставал от уже ВЫПУЩЕННОГО кода;
+                                              # все три пути — предки
+                                              # release/2.58.161):
+                                              # * web/api/anticliche.py — NEW
+                                              #   файл-зона раунда 10.23 F4
+                                              #   (766f8a53, динамический
+                                              #   анти-клише кэш; свой роутер,
+                                              #   routes.py не тронут);
+                                              # * web/api/initiative_publications.py —
+                                              #   NEW роутер «Модули → Инициатива»
+                                              #   в пяти вкладках (1c7f030f,
+                                              #   owner P1; регистрация — web/app.py);
+                                              # * web/static/cog-visual.js —
+                                              #   NEW визуальный слой графа
+                                              #   (8867a2ad, CMV-A; сведён в
+                                              #   релиз мержем aa8afdde).
+                                              # §104/A3-контракт не затронут:
+                                              # правки — в отдельных файлах-зонах.
+                                              "web/api/anticliche.py",
+                                              "web/api/initiative_publications.py",
+                                              "web/static/cog-visual.js",
                                               ))
                        for ln in self._diff_names())
 

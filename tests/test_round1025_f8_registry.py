@@ -320,8 +320,26 @@ PG_DB_SHA256_B07 = (
 # фикстуры — tools/_vision_sync_w2_reissue_f8.py; routes.py не менялся.
 # Хэш переутверждён осознанно (L-F11S-1): правка ТОЛЬКО каталога
 # (Settings/pg_db/routes не тронуты).
+# RLR/UR волны 05–06.11.2026 (все шесть коммитов — в release/2.58.161):
+#   * ae7f5a65 + 5c96a396 (UR-C-CLOCK, UR-24.2/24.3): legacy timezone-ключи
+#     SUMMARY_TIMEZONE/GOODMORNING_TZ выведены из рабочего UI (hidden,
+#     read-only совместимость); канонический limits.chat_timezone остаётся
+#     единственной поверхностью «Модули → Время»;
+#   * 7632fdb6 (UR-C-CLOCK review corrections): IANA-валидация
+#     limits.chat_timezone на записи (не-IANA → 422);
+#   * 23313135 (RLR-04) и d49b10ac (RLR-05-ADMIN): снятый rephrasing-путь —
+#     миграционная разметка каталога, deprecated/removed ключи скрыты;
+#   * a5ee0864 (URF backend honesty wave, UR-14.2/21.13/21.17/21.21):
+#     ключи без рантайм-читателя выведены из UI/params-meta (hidden),
+#     честные формулировки «снято/не работает».
+# Каталог при этом не расширялся и не сжимался: REGISTRY 597 / GROUPS 121 /
+# _TAB_BY_GROUP 119 / TAB_RULES 22, delta 191 — те же числа, что и в
+# переизданных артефактах (TSV/screen-map/meta переэмитированы
+# tools/gen_param_registry_round1025.py, --check OK 597).
+# Хэш ниже — фактический sha256 services/param_catalog.py линии
+# integ/unify-release на 640da3eb (осознанное переутверждение, L-F11S-1).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "82d6dbc8f44f16f43a62cd9b428aba36e9ff2ef74bbb48cee7ca4b3ed10b1b19")
+    "6e197a1a37f855ebeb9d4199e03984a639fe6b32aae4ed50a8392991f35b8720")
 
 
 def _sha256(path: Path) -> str:
@@ -541,10 +559,33 @@ class TestRegistry:
         # ASAP-3.2 (ТЗ §102/§124): +1 hidden — `prompts.summary_cover_
         # style_id` (ID/выбор стиля, НЕ текстовый промпт; один user-facing
         # источник правды — Summary → Стили обложки / POST /api/cover/select).
-        assert len(hidden) == 2
+        # Раунд 10.23 (ADR-1023-2): +1 — limits.factcheck_context_messages
+        # (legacy окно фактчека, источник миграции).
+        # RLR-05-ADMIN (d49b10ac, REMOVE-LEGACY-REPHRASING §6.2) и UR-F
+        # (a5ee0864, UR-14.2/16/21.13/21.17/21.21/24.2): +13 — ключи без
+        # активного рантайм-читателя выведены из UI/params-meta, запись в
+        # реестре/правах сохранена (значение читаемо, DML/миграций нет).
+        # Артефакт F8 переэмитирован той же волной (TSV/screen-map), поэтому
+        # счётчик ниже — фактическое состояние каталога, а не дрейф.
+        assert len(hidden) == 15
         hidden_keys = {r["internal_key"] for r in hidden}
-        assert hidden_keys == {"limits.factcheck_context_messages",
-                               "prompts.summary_cover_style_id"}
+        assert hidden_keys == {
+            "flags.chat_mood_enabled",
+            "flags.chat_style_anchors_enabled",
+            "limits.chat_budget_anchors_ratio",
+            "limits.chat_budget_response_ratio",
+            "limits.chat_lock_max_entries",
+            "limits.chat_style_anchor_max_chars",
+            "limits.chat_style_anchors_count",
+            "limits.chat_timezone",
+            "limits.factcheck_context_messages",
+            "limits.summary_timezone",
+            "prompts.direct_chat_synthesizer_system_prompt",
+            "prompts.summary_cover_style_id",
+            "reactions.chat_mood_negative_words",
+            "reactions.chat_mood_positive_words",
+            "reactions.goodmorning_tz",
+        }
         # hidden сохранён в реестре/правах, но вне UI.
         for r in hidden:
             assert r["ui_visibility"] == "hidden"
