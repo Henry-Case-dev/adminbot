@@ -373,6 +373,44 @@ def attach_time_context(messages, snap: TimeSnapshot, *, phase: str,
         return list(messages or [])
 
 
+def refresh_time_context(messages, snap: TimeSnapshot, *, phase: str,
+                         source_label: str | None = None) -> list:
+    """Заменить ChatClock-блок свежим снапшотом (UR-26.5 deferred generator).
+
+    Новая попытка генератора после дефер-паузы получает явное новое
+    ``answer_as_of_utc`` (правило минуты решает вызывающий через
+    ``ensure_answer_snapshot``), при этом payload за пределами блока —
+    включая окно источников (``summary_window_end_utc``) — остаётся
+    байт-в-байт прежним (не пересобирается задним числом). Блок ищется в
+    ТОМ ЖЕ последнем user-сообщении, куда ставит ``attach_time_context``.
+    Идемпотентно, никогда не бросает."""
+    try:
+        out: list = [dict(m) if isinstance(m, dict) else m
+                     for m in (messages or [])]
+        last_user = None
+        for idx in range(len(out) - 1, -1, -1):
+            msg = out[idx]
+            if isinstance(msg, dict) and msg.get("role") == "user":
+                last_user = idx
+                break
+        if last_user is None:
+            return out
+        text = str(out[last_user].get("content") or "")
+        start = text.find(BLOCK_OPEN)
+        if start >= 0:
+            close = text.find("</Chat_Time_Context>", start)
+            end = (close + len("</Chat_Time_Context>")) if close != -1 \
+                else len(text)
+            head = text[:start].rstrip()
+            tail = text[end:].strip()
+            text = f"{head}\n\n{tail}".strip() if tail else head
+        out[last_user]["content"] = text
+        return attach_time_context(out, snap, phase=phase,
+                                   source_label=source_label)
+    except Exception:      # pragma: no cover - защитная ветка
+        return list(messages or [])
+
+
 def outbound_clock_meta(messages) -> dict | None:
     """Машиночитаемые поля блока из финального outbound payload (UR-26.7).
 
@@ -447,5 +485,6 @@ __all__ = [
     "PHASE_PLAN", "PHASE_ANSWER",
     "resolve_chat_timezone", "snapshot", "ensure_answer_snapshot",
     "render_chat_time_context", "append_time_block", "attach_time_context",
+    "refresh_time_context",
     "outbound_clock_meta", "log_clock_call", "BLOCK_OPEN",
 ]
