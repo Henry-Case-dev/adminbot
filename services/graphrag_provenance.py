@@ -153,10 +153,12 @@ _DIRECT_REFERENCE_METHODS = frozenset({
 # Каналы с явной цепочкой (§2.2): `derived_with_lineage`, не догадка.
 _LINEAGE_CHANNELS = frozenset({"dream", "dossier_layer_a", "dossier_layer_b"})
 _SUPPORTING_LINK_TYPES = frozenset({"derived_from", "supports"})
+# Собственные выводы бота (§2.2/R-3): производное, не подтверждение.
+_BOT_ORIGINS = frozenset({"bot_self_reply", "bot_direct_reply"})
 
 
 def classify_origin_class(*, entity_type: str | None, source_row,
-                          link_type: str, method: str = "unknown",
+                          link_type: str = "", method: str = "unknown",
                           verification: str = "unknown") -> str:
     """Класс происхождения по §2.2 (сигналы строки) и §2.3 (семантика связи).
 
@@ -165,30 +167,49 @@ def classify_origin_class(*, entity_type: str | None, source_row,
 
     Колонки per-table (§2.2): `smart_messages.forward_source` — display-строка,
     `graph_facts.forward_from` — provenance факта. Перекрёстного чтения нет.
+
+    **`graph_fact` классифицируется ТОЛЬКО по своей строке.** Семантика
+    evidence-связи (`link_type`/`method`/`verification`) не может «выдать»
+    факту класс `explicit_direct`: атрибуция факта живёт в его колонках, и
+    правило «verified support ⇒ подтверждение» относится к источнику-сообщению,
+    а не к факту (иначе факт без атрибуции или пересказ становились бы
+    независимым корнем — F1).
     """
     row = source_row if isinstance(source_row, dict) else {}
+    is_fact = entity_type == "graph_fact"
 
     # (1) quote/forward — репост не приписывается переславшему (R-9).
     if entity_type == "message":
         if bool(row.get("is_forward")) or str(row.get("forward_source") or "").strip():
             return ORIGIN_QUOTE_FORWARD
-    elif entity_type == "graph_fact":
+    elif is_fact:
         if (str(row.get("forward_from") or "").strip()
                 or str(row.get("perspective") or "") == "quoted"):
             return ORIGIN_QUOTE_FORWARD
-    # (2) пересказ третьего лица.
-    if (str(row.get("perspective") or "") == "third_party"
+    # (2) пересказ третьего лица. `perspective='other'` — утверждение о другом
+    # человеке, а не речь автора (§2.2, F1).
+    if (str(row.get("perspective") or "") in ("other", "third_party")
             or str(row.get("attribution_method") or "") == "third_party"):
         return ORIGIN_REPORTED_THIRD_PARTY
-    # (3) прямое утверждение автора.
-    if (str(row.get("perspective") or "") == "self"
+    # (3) прямое утверждение автора: сигнал авторства обязателен (§2.2/F1).
+    # `perspective` пишут не все писатели, поэтому допускается NULL, но метод
+    # атрибуции должен быть явно авторским.
+    if (str(row.get("perspective") or "") in ("", "self")
             and str(row.get("attribution_method") or "")
             in ("self_report", "direct_evidence")):
         return ORIGIN_EXPLICIT_DIRECT
-    # (4) вывод с явной цепочкой.
-    if str(row.get("provenance_channel") or "") in _LINEAGE_CHANNELS \
-            or str(row.get("origin") or "") == "derived_belief":
+    # (4) производное с явной цепочкой: собственный вывод бота (R-3),
+    # world_knowledge (утверждение о мире, не о человеке — не подтверждение
+    # авторства), каналы dream/dossier.
+    if (str(row.get("origin") or "") in _BOT_ORIGINS
+            or str(row.get("attribution_method") or "") == "world_knowledge"
+            or str(row.get("provenance_channel") or "") in _LINEAGE_CHANNELS
+            or str(row.get("origin") or "") == "derived_belief"):
         return ORIGIN_DERIVED_WITH_LINEAGE
+    if is_fact:
+        # Атрибуции нет — честный `legacy_unknown`; link-семантика факту класс
+        # не назначает (F1).
+        return ORIGIN_LEGACY_UNKNOWN
     # (5) соседство в реплике ≠ утверждение (§2.3, R-11).
     if link_type == "mentions":
         return ORIGIN_COOCCURRENCE

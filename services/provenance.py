@@ -520,20 +520,21 @@ async def record_fact_provenance(
 
     # MEMORY-03 (C-2 §2.5): основание ребра выводится из АТРИБУЦИИ ФАКТА
     # (perspective/attribution_method/forward_from живут в `graph_facts`), а не
-    # из сообщения: пересказ третьего лица и репост не становятся независимым
-    # корнем (MEM-03.4/§2.3), собственный ответ бота не выдаётся за слова
-    # человека (R-3). Fail-open: сбой не ломает запись факта.
-    if source_ref_id is not None or self_ref:
-        try:
-            from services import relation_evidence
-            await relation_evidence.attach_fact_edge_evidence(
-                db, chat_id=chat_id, fact_id=fact_id,
-                source_ref_id=source_ref_id, origin=origin,
-                established_at=ts, extractor_version=extractor_version)
-        except Exception:
-            logger.warning(
-                "[provenance] edge evidence attach failed — fail-open | "
-                "fact_id=%s", fact_id, exc_info=True)
+    # из сообщения: пересказ третьего лица, world_knowledge и репост не
+    # становятся независимым корнем (MEM-03.3/03.4/§2.3), собственный ответ
+    # бота не выдаётся за слова человека (R-3). Вызывается всегда: факт без
+    # сохранённого сообщения тоже пишет честное «происхождение не установлено».
+    # Fail-open: сбой не ломает запись факта.
+    try:
+        from services import relation_evidence
+        await relation_evidence.attach_fact_edge_evidence(
+            db, chat_id=chat_id, fact_id=fact_id,
+            source_ref_id=source_ref_id, origin=origin,
+            established_at=ts, extractor_version=extractor_version)
+    except Exception:
+        logger.warning(
+            "[provenance] edge evidence attach failed — fail-open | "
+            "fact_id=%s", fact_id, exc_info=True)
 
     result["origin_status"] = origin_status
     return result

@@ -2978,13 +2978,16 @@ class TestMemorizeEdgeEvidence:
         from services import relation_evidence
 
         now = 1_800_000_000
-        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        monkeypatch.setattr("services.summary_memory.time.time", lambda now=now: now)
         llm = FactsLLM(response=json.dumps(
             [_fact(subject="вася", predicate="спорил с", obj="петя")],
             ensure_ascii=False))
         memory = MemoryManager(db, llm)
+        # Субъект — сам говорящий (`target_user`), т.е. реальный self_report:
+        # только такой факт даёт независимый корень (F1/§2.3).
         await memory.memorize_facts(-100, "вася спорил с петей",
-                                    "chat_history", tg_message_id=4242)
+                                    "chat_history", target_user="вася",
+                                    tg_message_id=4242)
 
         cursor = await db.db.execute("SELECT id FROM edges")
         edge_ids = [int(r["id"]) for r in await cursor.fetchall()]
@@ -3002,6 +3005,29 @@ class TestMemorizeEdgeEvidence:
             "SELECT COUNT(*) FROM mca_source_refs WHERE "
             "entity_type = 'graph_edge'")
         assert int((await cursor.fetchone())[0]) == 1
+
+    @pytest.mark.asyncio
+    async def test_memorize_without_proven_authorship_is_not_confirmed(
+            self, db):
+        """F1: без доказанного авторства (участник неизвестен → world_knowledge)
+        ребро НЕ получает независимый корень и не становится подтверждённым."""
+        from services import relation_evidence
+
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="вася", predicate="спорил с", obj="петя")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "вася спорил с петей",
+                                    "chat_history", tg_message_id=4444)
+        cursor = await db.db.execute("SELECT id FROM edges")
+        edge_ids = [int(r["id"]) for r in await cursor.fetchall()]
+        assert edge_ids
+        evidence = await relation_evidence.edge_evidence(
+            db, chat_id=-100, edge_id=edge_ids[0])
+        assert evidence["independent_support"] == 0
+        assert evidence["status"] != "confirmed"
+        assert evidence["sources"][0]["counts_as_independent"] is False
+        assert evidence["sources"][0]["origin_class"] != "explicit_direct"
 
     @pytest.mark.asyncio
     async def test_memorize_bot_direct_reply_does_not_corroborate(self, db):

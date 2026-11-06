@@ -138,6 +138,18 @@ _BOT_SELF_PLAN = {
     "basis": "собственный вывод бота — не подтверждение человека",
 }
 
+# `world_knowledge`: автор говорит о мире, не о человеке. Это НЕ подтверждение
+# авторства личной связи (§2.3/MEM-03.3). Класс `derived_with_lineage`:
+# lineage — сообщение автора; запись `tentative`/`unknown`, независимым
+# корнем не становится. Нет адреса сообщения — lineage не разрешён, и тогда
+# честно `legacy_unknown` (`_EVIDENCE_PLANS[ORIGIN_LEGACY_UNKNOWN]`).
+_WORLD_KNOWLEDGE_PLAN = {
+    "root": "message", "link_type": "derived_from",
+    "verification": "tentative", "independence": "unknown",
+    "method": "metadata",
+    "basis": "общие знания (world_knowledge) — не подтверждение о человеке",
+}
+
 # Класс без адресуемого сообщения автора: независимость не заявляется.
 _NO_ADDRESS_PLAN = {
     "root": "fact", "link_type": "supports",
@@ -213,6 +225,17 @@ async def _load_fact_row(db, chat_id: int, fact_id) -> dict:
     return dict(row) if row is not None else {}
 
 
+def _fact_origin_class(row: dict) -> str:
+    """Класс по РЕАЛЬНЫМ сигналам строки факта (без подставленных link-полей).
+
+    Классификатор ни разу не получает выдуманных `verification='verified'` /
+    `method='direct_reference'`: у факта нет и не может быть «link-семантики» —
+    только собственная атрибуция (F1).
+    """
+    return graphrag_provenance.classify_origin_class(
+        entity_type="graph_fact", source_row=row or {})
+
+
 def _evidence_plan(*, row: dict, origin: str | None,
                    source_ref_id: int | None) -> tuple[str, dict]:
     """Класс происхождения факта → план записи основания ребра (§2.2/§2.3).
@@ -220,16 +243,22 @@ def _evidence_plan(*, row: dict, origin: str | None,
     Атрибуция берётся из САМОГО ФАКТА, а не из сообщения: `perspective`,
     `attribution_method` и `forward_from` пишутся в `graph_facts`, поэтому
     пересказ/репост нельзя классифицировать как прямое утверждение автора.
+    План полностью выводится из класса — обратного влияния нет.
     """
     row = row or {}
-    row_origin = origin or row.get("origin")
-    if (provenance.is_self_referential_origin(row_origin)
-            or provenance.is_self_referential_origin(row.get("origin"))):
+    if provenance.is_self_referential_origin(origin) \
+            or provenance.is_self_referential_origin(row.get("origin")):
         return ORIGIN_DERIVED_WITH_LINEAGE, dict(_BOT_SELF_PLAN)
-    origin_class = graphrag_provenance.classify_origin_class(
-        entity_type="graph_fact", source_row=row,
-        link_type="supports", method="direct_reference",
-        verification="verified")
+
+    origin_class = _fact_origin_class(row)
+    if str(row.get("attribution_method") or "") == "world_knowledge":
+        if source_ref_id is not None:
+            return ORIGIN_DERIVED_WITH_LINEAGE, dict(_WORLD_KNOWLEDGE_PLAN)
+        # Цепочка (сообщение автора) не разрешена → запись без подтверждения
+        # и без класса-обещания: `unknown`/`unknown` на строке факта.
+        return (ORIGIN_DERIVED_WITH_LINEAGE,
+                dict(_EVIDENCE_PLANS[ORIGIN_LEGACY_UNKNOWN]))
+
     plan = dict(_EVIDENCE_PLANS.get(origin_class,
                                     _EVIDENCE_PLANS[ORIGIN_LEGACY_UNKNOWN]))
     if plan["root"] == "message" and source_ref_id is None:
@@ -257,6 +286,10 @@ async def attach_fact_edge_evidence(
     """
     if not relation_evidence_enabled():
         return []
+    targets = ([int(v) for v in edge_ids] if edge_ids
+               else await edge_ids_for_fact(db, chat_id, fact_id))
+    if not targets:
+        return []          # нет ребра из этого факта — ни ref, ни link не создаём
     row = await _load_fact_row(db, chat_id, fact_id)
     _origin_class, plan = _evidence_plan(
         row=row, origin=origin, source_ref_id=source_ref_id)
@@ -269,8 +302,6 @@ async def attach_fact_edge_evidence(
     if root_ref_id is None:
         return []
 
-    targets = ([int(v) for v in edge_ids] if edge_ids
-               else await edge_ids_for_fact(db, chat_id, fact_id))
     attached: list[int] = []
     for edge_id in targets:
         edge_ref = await attach_edge_evidence(
@@ -475,7 +506,11 @@ def _opt_int(value) -> int | None:
 def _status_from_sources(sources: list[RelationSourceView]) -> RelationStatus:
     if any(s.counts_as_independent for s in sources):
         return RelationStatus.CONFIRMED
-    if any(s.link_type in SUPPORTING_LINK_TYPES for s in sources):
+    # `legacy_unknown` — не «основание без подтверждения», а отсутствие
+    # происхождения (R-7): статус `unverified`, не `tentative`.
+    if any(s.link_type in SUPPORTING_LINK_TYPES
+           and s.origin_class is not OriginClass.LEGACY_UNKNOWN
+           for s in sources):
         return RelationStatus.TENTATIVE
     return RelationStatus.UNVERIFIED
 
@@ -529,6 +564,8 @@ async def edge_evidence(db, *, chat_id: int, edge_id) -> dict:
     mentions_only = bool(sources) and all(s.link_type == "mentions"
                                           for s in sources)
     bare_legacy = not sources and not unmapped
+    legacy_only = (bool(sources) and independent == 0
+                   and legacy_count == len(sources))
     return {
         "edge_id": int(edge_id),
         "chat_id": int(chat_id),
@@ -542,7 +579,8 @@ async def edge_evidence(db, *, chat_id: int, edge_id) -> dict:
         "has_unsupported_sources": (independent == 0 or legacy_count > 0
                                     or mentions_only),
         "status": status.value,
-        "explanation": _explanation_for(status, sources, bare=bare_legacy),
+        "explanation": _explanation_for(status, sources,
+                                        bare=bare_legacy or legacy_only),
     }
 
 
