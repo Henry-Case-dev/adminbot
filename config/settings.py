@@ -215,6 +215,12 @@ class Settings:
     WEBAPP_URL: str = os.getenv("WEBAPP_URL",
                                 "https://admin-bot.duckdns.org/web/")
 
+    MINI_APP_DEEP_LINK_MODE: str = os.getenv("MINI_APP_DEEP_LINK_MODE", "")
+    MINI_APP_REGISTRATION_CONFIRMED: bool = _env_bool(
+        "MINI_APP_REGISTRATION_CONFIRMED", False
+    )
+    MINI_APP_SHORT_NAME: str = os.getenv("MINI_APP_SHORT_NAME", "")
+
     # User IDs (now configurable via env)
     SLAVIK_USER_ID: int = _env_int("SLAVIK_USER_ID", 479167456)
     KOSTIK_USER_ID: int = _env_int("KOSTIK_USER_ID", 350803143)

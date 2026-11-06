@@ -12,6 +12,7 @@
 core.telegram.org/bots/buttons, webapps). URL настраивается env WEBAPP_URL.
 """
 import logging
+import re
 from urllib.parse import urlsplit
 
 from aiogram import Router, types
@@ -25,8 +26,12 @@ logger = logging.getLogger(__name__)
 menu_router = Router(name="menu")
 
 _WEBAPP_BUTTON_TEXT = "🛠 Меню бота"
+_GROUP_BUTTON_TEXT = "Открыть мини-приложение"
 
 _PRIVATE_CHAT_TYPES = ("private",)
+_GROUP_CHAT_TYPES = ("group", "supergroup")
+_TELEGRAM_USERNAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{4,31}$")
+_MINI_APP_SHORT_NAME_RE = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 
 
 async def _bot_username(message: types.Message) -> str:
@@ -43,7 +48,22 @@ async def _bot_username(message: types.Message) -> str:
     if me is None:
         return ""
     username = getattr(me, "username", None)
-    return username.lstrip("@") if isinstance(username, str) else ""
+    username = username.lstrip("@") if isinstance(username, str) else ""
+    return username if _TELEGRAM_USERNAME_RE.fullmatch(username) else ""
+
+
+def _group_deep_link(username: str, settings_obj) -> str:
+    """Build a Telegram link only after external registration confirmation."""
+    if not username or not getattr(settings_obj, "MINI_APP_REGISTRATION_CONFIRMED", False):
+        return ""
+    mode = (getattr(settings_obj, "MINI_APP_DEEP_LINK_MODE", "") or "").strip().lower()
+    if mode == "main":
+        return f"https://t.me/{username}?startapp"
+    if mode == "named":
+        short_name = (getattr(settings_obj, "MINI_APP_SHORT_NAME", "") or "").strip()
+        if _MINI_APP_SHORT_NAME_RE.fullmatch(short_name):
+            return f"https://t.me/{username}/{short_name}"
+    return ""
 
 
 @menu_router.message(Command("menu"))
@@ -70,17 +90,23 @@ async def menu_command(message: types.Message) -> None:
                     chat.id, chat_type, urlsplit(url).hostname or "-")
         return
 
-    # Группа/супергруппа и пр.: Telegram НЕ поддерживает web_app-инлайн-кнопки
-    # в группах (BUTTON_TYPE_INVALID — бот админ, апдейты доходят). URL-кнопку
-    # НЕ добавляем: миниапп без Telegram-контекста (initData) покажет
-    # authLocked-заглушку. Только текст-подсказка (решение зафиксировано).
     user = await _bot_username(message)
+    deep_link = _group_deep_link(user, settings) if chat_type in _GROUP_CHAT_TYPES else ""
+    if deep_link:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text=_GROUP_BUTTON_TEXT, url=deep_link),
+        ]])
+        await message.reply("Открыть мини-апп:", reply_markup=keyboard)
+        logger.info("[menu] sent (telegram deep link) | chat=%s | type=%s",
+                    chat.id, chat_type)
+        return
+
     if user:
-        hint = ("🛠 Меню бота доступно в личке — напишите боту @%s /menu "
-                "(или нажмите кнопку меню слева)." % user)
+        hint = ("🛠 Прямой запуск мини-аппа из этого чата пока недоступен. "
+                "Напишите боту в личке @%s и отправьте /menu." % user)
     else:
-        hint = ("🛠 Меню бота доступно в личке — напишите боту /menu "
-                "(или нажмите кнопку меню слева).")
+        hint = ("🛠 Прямой запуск мини-аппа из этого чата пока недоступен. "
+                "Напишите боту в личке и отправьте /menu.")
     await message.reply(hint)
     logger.info("[menu] sent (group hint) | chat=%s | type=%s", chat.id,
                 chat_type)
