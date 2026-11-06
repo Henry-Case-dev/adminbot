@@ -432,8 +432,12 @@ def _guard_outbound(text: str, *, where: str,
                    res.repaired, chat_id)
     try:
         from services import temporal_factcheck as tf
+        # FC-OBSERVABILITY-01: в `reason_code` едет СТАБИЛЬНЫЙ код класса
+        # события, а не склейка находок (та никогда не была в словаре
+        # `REASON_CODES` → причина молча терялась). Конкретные находки —
+        # в WARN-строке выше и в `speech_observation` (BGS-03).
         tf.stage_event("egress_guard", "failed",
-                       reason_code=",".join(res.findings)[:120],
+                       reason_code="speech_guard_flagged",
                        chat_id=chat_id)
     except Exception:      # события не рвут доставку
         pass
@@ -1098,9 +1102,24 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
             notice = publication.notice()
             if notice:
                 text = f"{text}\n\n{notice}"
+        delivered_id = None
         if text:
-            await send_chunked_reply(bot, req.chat_id, text,
-                                     delivery_reply_to)
+            delivered_id = await send_chunked_reply(bot, req.chat_id, text,
+                                                    delivery_reply_to)
+        # FC-OBSERVABILITY-01: короткая уточняющая реплика — такой же
+        # доставленный слова бота, как вердикт: без записи в durable-ledger
+        # опубликованный текст нельзя было проверить после прогона (в
+        # `bot_replies` короткие gate-ответы не попадают). Пишется ТОЛЬКО
+        # после подтверждённой отправки; fail-open — запись не рвёт доставку.
+        if delivered_id is not None:
+            from services import bot_output_ledger as _bol
+            await _bol.record_factcheck_reply(
+                db, chat_id=req.chat_id, tg_message_id=delivered_id,
+                text=text, bot_user_id=getattr(bot, "id", None),
+                parent_message_ref=(f"tg:{delivery_reply_to}"
+                                    if delivery_reply_to is not None
+                                    else None),
+                correlation_id=pipeline_run_id)
         tf.stage_event("deliver", "skipped",
                        reason_code="ambiguous_needs_clarification",
                        chat_id=req.chat_id)

@@ -184,7 +184,7 @@ def test_reason_codes_269():
     # детерминированной ошибки кода embeddings).
     # ASAP-EVIDENCE-ROUTING-01 v3 (01.11.2026): 311 → 314 (+3, санкция §1.4:
     # evidence_skipped / evidence_reused / evidence_unverified_claim_removed).
-    assert len(mca_events.REASON_CODES) == 314       # 309 → 311 → 314
+    assert len(mca_events.REASON_CODES) == 320       # 309 → 311 → 314 → 320
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды
