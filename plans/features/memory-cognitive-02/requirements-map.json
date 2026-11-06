@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
   "source_sha256": "316893a95392d7fba23ef7d96eaa603384a587b7ab82bd29a6350453d9ca0ed1",
-  "candidate_commit": "",
+  "candidate_commit": "5666c0a4",
   "deployed_commit": "",
   "strict_evidence": false,
   "slice_graph_path": "",
@@ -304,8 +304,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «## 2. Целевая логическая модель памяти (MEMORY-01)» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "5666c0a4",
+          "ref": "services/memory_contracts.py",
+          "artifact_sha256": "FCBE934BCA698F2D8B8B19A90225B5520533349E0F2198B1ACD138F059CB4786",
+          "observation": "Pure types: confirmed relation impossible without a resolvable verified independent source; mentions/cooccurrence/legacy never count as independent support; strongest verified root decides status while legacy sources stay reported separately; ambiguity cannot become a merge; absent signal is unknown; assertion/event/observed times are separate and never defaulted; search outcomes are a mutually exclusive matrix with cursor, revision echo and partial scope, and no-rights cannot be expressed as no-matches."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "5666c0a4",
+          "ref": "tests/test_memory_contracts.py",
+          "artifact_sha256": "8574BB3125A00C7C42E479E273A26F0A1AFC972A39BB5ED5B63B84B54F1E6B38",
+          "observation": "64 contract tests pass; reviewer mutations (mentions counted as support; valid_from defaulted) go red; reviewer's own probes confirmed bot_output+independent is still representable, so rule R-3 remains an obligation of MEMORY-03, not of this slice."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "5666c0a4",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer: Approved. Existing files untouched, no SQL/DDL/network, module import does not pull in database; constants resolved from their real homes (provenance, graphrag_provenance, mca_retrieval_context). Dependent slices MEMORY-02/03/04/06 stay blocked."
+        }
+      ]
     },
     {
       "source_id": "M-MEMORY-02",
@@ -4480,5 +4501,5 @@
       "evidence": []
     }
   ],
-  "binding_note": "MENU-01 is tracked by its own map plans/features/menu-01/requirements-map.json (single owner per map); this map references it only."
+  "binding_note": "MEMORY-01 bound to 5666c0a4. A0 gate: MEMORY-03 needs the one-line provenance.ENTITY_TYPES addition and must close rule R-3 (self-output never corroborates) with a durable test; MEMORY-04 must rewrite the destructive episode-merge/dedupe behaviour per contracts rev4 §3.4.1.1; MEM-08-S3 stays blocked until the client-side corrections are implemented. Memory epic completion is not implied."
 }
