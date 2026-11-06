@@ -103,10 +103,10 @@ async def menu_command(message: types.Message) -> None:
 
     if user:
         hint = ("🛠 Прямой запуск мини-аппа из этого чата пока недоступен. "
-                "Напишите боту в личке @%s и отправьте /menu." % user)
+                "Напишите боту в личку @%s и отправьте /menu." % user)
     else:
         hint = ("🛠 Прямой запуск мини-аппа из этого чата пока недоступен. "
-                "Напишите боту в личке и отправьте /menu.")
+                "Напишите боту в личку и отправьте /menu.")
     await message.reply(hint)
     logger.info("[menu] sent (group hint) | chat=%s | type=%s", chat.id,
                 chat_type)
