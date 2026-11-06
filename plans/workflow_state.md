@@ -1,17 +1,20 @@
 ﻿# Workflow State
 
-Task: final-vps-decommission — COMPLETE (VERIFIED, Reviewer ACCEPT)
-Task source: root prompt 2026-10-29 x3 (sha A2B977B9; sha CCC20476; sha 6BABC1F3)
+Task: evol — EVOL-001..045 + addendum 31.10 (social/video/factcheck/glass) + queued EVOL-SRC/COG
+Task source: plans/owner_inputs/2026-10-29-evol-epic-launch.md, 2026-10-31-evol-addendum.md, 2026-10-31-evol-src-cog.md
 Status: in_progress
-Primary phase: done — awaiting ordinary queue resume
-Active feature: none active (p0-history-analysis VERIFIED; release-then-migrate READY_FOR_LIVE; final-vps-decommission VERIFIED)
-Active lanes: none
-Join barriers: none
-Last verified: NEW VPS 192.255.209.205 sole production (2.58.141 @ 5346ee76, TLS to 27.01.2027, healthz/admin/MiniApp 200, single poller, data growing 2 050 911+); independent backup on owner machine verified (8 files ~1.7GB, hashes+integrity); OLD VPS 198.46.175.136 DECOMMISSIONED (Reviewer ACCEPT): ~8.7GB freed, only bot-specific objects removed, xray//opt/headroom/shared logs/nik left untouched, zero bot remnants, zero old-IP dependencies on new side; AGENTS.md + deploy_commands.txt updated (old = no installation, rollback only from owner-machine backup)
-Next unlocks: ordinary queue resumes (embed-defect family _LAST_EMBED NameError in backlog — Builder, pre-existing, non-blocking); 3 READY_FOR_LIVE migration rows close by natural events; stale worker_lost incident records dismissable by owner in admin UI
-Next execution: none
-Review: ACCEPT (decommission); approved (all prior)
-Deployment: NEW production verified; OLD decommissioned
+Primary phase: intake and bounded preparation
+Active feature: new memory/cognitive epic intake; existing EVOL queue remains authoritative
+Active lanes: ses_e4def2025ffeuxdOAL54y0Hs5H (MEMORY-00 Architect audit); ses_e4def2020ffej1XfBoWKvVLBiQ (Reply context read-only diagnosis); ses_e4de8993ffe0jIx9HlqTPpUFn (MENU-01 Builder); existing EVOL lanes remain in their prior queue
+Join barriers: owner inputs registered but not reconciled; MEMORY-00 precedes memory implementation; MENU-01 independent; Reply diagnosis precedes targeted repair; no new epic may displace existing P0/EVOL work
+Last verified: RELEASE 2.58.143 VERIFIED on production @ 273be95c (health 200, NRestarts 0, apply_release 109 blocks/121 changed, schema 37->40, PG journals 138/133, media 7 files, rollback not needed); all W1-W5 + ASAP-FC + Vision-sync + FC-EVIDENCE-STYLE + UI 023-030 + ASAP-UI-02 §2 PASS; map 301/439 VERIFIED, plan gate EXIT 0; wave2 (4 ribbons + warning tint) implemented, pending review.
+Next unlocks: UI re-review verdict → remaining UI waves (033, 034-041, 043-045) → release (bump APP_VERSION from 2.58.141, push, VPS git pull, systemctl restart, media 65 files present check, read-only health) → SRC/COG last. Branch: 58 commits after base, tree clean at 1e0ad895.
+Next execution: awaiting_children
+Review: approved (most slices); pending (restored lanes)
+Deployment: VERIFIED - 2.58.144 @ ebec502b (wave2: 4-ribbon intel card, warning tint, 44px; health 200, NRestarts 0, schema v40); rollback 273be95c
 Human gate: none
-Progress scope: plans/progress_scope.json | current (all inputs reconciled; final-vps-decommission VERIFIED via report artifacts, no map per directive §22)
-Updated: 2026-10-29T20:10+12:00
+Progress scope: plans/progress_scope.json | stale until new owner inputs are reconciled (30 tasks, 33 owner inputs; new inputs reconciled=false)
+Updated: 2026-11-07T06:20:00+12:00
+
+
+
