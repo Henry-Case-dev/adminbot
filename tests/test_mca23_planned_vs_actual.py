@@ -83,7 +83,10 @@ ROUTES_SHA256_F11 = (
     # EPIC-PROMPT-VERSIONING-UX-01 (2.58.155): переутверждён вместе с
     # каноном tests/test_round1025_f8_registry.py (L-F11S-1) —
     # +4 аддитивных маршрута карточки версий/базовой ревизии промпта.
-    "dc8a3a6318ab5578bb8e573d8e979b2fd7af525f2a9ddba5d8a3c64166b23a89")
+    # URF backend honesty wave (06.11.2026, a5ee0864): +3 пути
+    # (/config/timezones, /config/time, /direct/turn-diagnostics) —
+    # переутверждён синхронно с каноном (L-F11S-1).
+    "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1")
 
 
 @pytest.fixture(autouse=True)

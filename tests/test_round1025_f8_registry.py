@@ -192,7 +192,21 @@ ROUTES_SHA256_F11 = (
     # Δ routes = +4 — список f8_baseline переиздан в этом же коммите.
     # RBAC/маскировка/DDL не менялись. Хэш ниже — фактический sha256
     # web/api/routes.py сборки 2.58.155 (осознанное переутверждение).
-    "dc8a3a6318ab5578bb8e573d8e979b2fd7af525f2a9ddba5d8a3c64166b23a89")
+    # URF backend honesty wave (06.11.2026, commit a5ee0864, L-F11S-1
+    # conscious requalification): Δ routes = +5 декораторов / +3 пути в
+    # СУЩЕСТВУЮЩИХ разделах — GET /config/timezones, GET+POST+DELETE
+    # /config/time (ось «время» настроек чата, UR-24.2/29.1/29.2) и
+    # GET /direct/turn-diagnostics (диагностика одного ответа, R-ADM.5).
+    # RBAC/маскировка/DDL не менялись. Список путей f8_baseline переиздан
+    # тем же коммитом (+3 пути, 59→62).
+    # Два соседних контентных переутверждения без Δ routes: 7632fdb6
+    # (ur-c-clock review corrections — 422 на не-IANA limits.chat_timezone
+    # в СУЩЕСТВУЮЩЕМ POST /api/config) и bd7575f5 (pvr-backend idempotent
+    # save — operation_id/кеш повторов в СУЩЕСТВУЮЩЕМ POST /api/config;
+    # новых @router-маршрутов нет).
+    # Хэш ниже — фактический sha256 web/api/routes.py линии evol/impl на
+    # 2c1af33e (осознанное переутверждение, L-F11S-1).
+    "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

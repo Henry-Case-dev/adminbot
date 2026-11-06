@@ -6,14 +6,20 @@ relations-резолв (resolveRelationName/avatarUrl/avatarInitial), поле
 """
 
 
+import re
+
+
 def _js() -> str:
     return open("web/app.js", encoding="utf-8").read()
 
 
-def _html() -> str:
+def _css() -> str:
     # F4 10.16: CSS-канон вынесен в app.css — маркеры «фронта» = разметка+стили.
-    return (open("web/index.html", encoding="utf-8").read()
-            + open("web/static/app.css", encoding="utf-8").read())
+    return open("web/static/app.css", encoding="utf-8").read()
+
+
+def _html() -> str:
+    return open("web/index.html", encoding="utf-8").read() + _css()
 
 
 class TestHeaderAndLogs:
@@ -30,7 +36,18 @@ class TestHeaderAndLogs:
         assert '<div class="log-head">' in html
         assert "ui-monospace" in html          # шрифт-маркер в CSS
         assert "pre-wrap" in html
-        assert "break-all" not in html
+        # 10.8 (§3.2): контракт — у САМОГО блока логов нет `break-all` (слова
+        # не рвутся посередине). `break-all` у чужих компонентов
+        # (.cog-search-results__meta, .rec-val--mono) легитимен и предметом
+        # этого теста не является, поэтому проверяются только правила
+        # лог-блока — регресс внутри него по-прежнему ловится.
+        log_rules = []
+        for selector in (".log-code", ".log-row", ".log-head", ".log-msg"):
+            log_rules += re.findall(
+                re.escape(selector) + r"\s*\{([^}]*)\}", _css())
+        assert log_rules, "правила лог-блока не найдены — тест потерял предмет"
+        for rule in log_rules:
+            assert "break-all" not in rule, rule
         assert "max-height: 320px" in html
 
     def test_log_row_click_copies(self):
