@@ -112,11 +112,48 @@ def test_reason_dictionary_has_minimum():
         assert code in me.REASON_CODES
 
 
-def test_unknown_reason_code_dropped_not_skip():
-    """SC-06: неизвестный код не подменяется `skip`."""
+def test_unknown_reason_code_marked_not_dropped():
+    """FC-OBSERVABILITY-01: неизвестный код НЕ подменяется `skip` и больше не
+    пропадает молча — остаётся видимый стабильный маркер `unmapped:<sha>`.
+
+    Отсутствие причины в событии делало прогон недиагностируемым по причине
+    (прод-трасса фактчека: `deliver` с `reason_code=null`)."""
     ev = me.build_event("X", outcome=me.OUTCOME_SKIPPED,
                         reason_code="totally_unknown_code")
-    assert "reason_code" not in ev
+    marker = ev.get("reason_code")
+    assert marker and marker.startswith(me.UNMAPPED_REASON_PREFIX)
+    assert marker != "totally_unknown_code"          # сырой код не публикуется
+    assert "totally_unknown_code" not in str(ev)
+    # стабильность маркера: тот же код → тот же маркер, другой → другой
+    again = me.build_event("X", outcome=me.OUTCOME_SKIPPED,
+                           reason_code="totally_unknown_code")
+    other = me.build_event("X", outcome=me.OUTCOME_SKIPPED,
+                           reason_code="another_unknown_code")
+    assert again["reason_code"] == marker
+    assert other["reason_code"] != marker
+
+
+def test_unmapped_reason_code_is_logged_visibly(caplog):
+    """FC-OBSERVABILITY-01: whitelist-miss виден в WARN — без самого кода."""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="services.mca_events"):
+        me.build_event("X", outcome=me.OUTCOME_FAILED,
+                       reason_code="secret_like_free_text_42")
+    messages = [r.getMessage() for r in caplog.records]
+    unmapped = [m for m in messages if "unmapped reason_code" in m]
+    assert unmapped, messages
+    assert me.UNMAPPED_REASON_PREFIX in unmapped[0]
+    assert "secret_like_free_text_42" not in unmapped[0]   # R17: без текста
+
+
+def test_factcheck_gate_reason_codes_registered():
+    """FC-OBSERVABILITY-01: коды, которые эмитит ветка допуска фактчека,
+    присутствуют в едином словаре (иначе причина терялась бы снова)."""
+    for code in ("ambiguous_needs_clarification", "no_claim_after_context",
+                 "unsafe_or_unavailable_target", "unified_retrieval",
+                 "speech_guard_flagged"):
+        assert code in me.REASON_CODES
 
 
 # ── T-3768/T-3775: эмиссия + kill-switch ───────────────────────────────────

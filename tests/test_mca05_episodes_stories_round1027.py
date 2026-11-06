@@ -1043,12 +1043,15 @@ class TestStorefrontEvents:
             reason_code="episode_extracted")
         assert event is not None
         assert "sk-ab12cd34ef56gh78" not in (event.get("entity_ids") or "")
-        # неизвестный reason_code не проходит в событие (словарь §17.2)
+        # неизвестный reason_code не проходит как есть, но и не исчезает:
+        # видимый стабильный маркер (FC-OBSERVABILITY-01), а не `null`.
         event2 = mca_events.build_event(
             "story_discovered", outcome="success", chat_id=CHAT,
             reason_code="выдуманный_код")
         assert event2 is not None
-        assert "reason_code" not in event2
+        assert event2["reason_code"].startswith(
+            mca_events.UNMAPPED_REASON_PREFIX)
+        assert "выдуманный_код" not in str(event2)
 
     @pytest.mark.asyncio
     async def test_storefront_event_payload_dates(self, tmp_path):

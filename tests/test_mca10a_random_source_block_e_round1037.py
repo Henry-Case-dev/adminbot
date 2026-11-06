@@ -150,7 +150,10 @@ def test_r17_event_payload_has_no_key(monkeypatch):
     assert event["reason_code"] == "quantum_activated"
     assert "key" not in event and "api_key" not in event
     assert "must-not-leak" not in str(event)
-    # Неизвестный reason_code тоже не проходит единый словарь.
+    # Неизвестный reason_code не проходит как есть, но и НЕ пропадает молча
+    # (FC-OBSERVABILITY-01): остаётся видимый стабильный маркер словаря.
     built = mca_events.build_event("random_activation", outcome="success",
                                    reason_code="invented_code")
-    assert built is not None and "reason_code" not in built
+    assert built is not None
+    assert built["reason_code"].startswith(mca_events.UNMAPPED_REASON_PREFIX)
+    assert "invented_code" not in str(built)

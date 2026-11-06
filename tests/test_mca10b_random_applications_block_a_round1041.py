@@ -274,7 +274,7 @@ def test_kill_switch_registry_73_and_defaults():
     # детерминированной ошибки кода embeddings).
     # ASAP-EVIDENCE-ROUTING-01 v3 §1.4: 311→314 (+3 санкционированных кода:
     # evidence_skipped, evidence_reused, evidence_unverified_claim_removed).
-    assert len(mca_events.REASON_CODES) == 314
+    assert len(mca_events.REASON_CODES) == 320
     assert {"evidence_skipped", "evidence_reused",
             "evidence_unverified_claim_removed"} <= mca_events.REASON_CODES
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES

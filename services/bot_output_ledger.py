@@ -165,6 +165,32 @@ async def record_factcheck_output(
         source_feature="factcheck")
 
 
+async def record_factcheck_reply(
+        db, *, chat_id: int, tg_message_id: int | None, text: str | None,
+        bot_user_id: int | None = None, parent_message_ref: str | None = None,
+        correlation_id: str | None = None) -> int | None:
+    """FC-OBSERVABILITY-01: доставленная КОРОТКАЯ реплика фактчека —
+    в тот же durable ledger (`mca_bot_outputs`), что вердикт и прямые ответы.
+
+    Повод (прод-трасса): уточняющий ответ ветки `ambiguous` приходил в чат без
+    ledger-строки — опубликованный текст нельзя было проверить после прогона
+    (в TTL-кеше `bot_replies` его тоже нет), а сам прогон искали по соседним
+    событиям.
+
+    Таксономия: `output_kind='direct_reply'` — это обычный короткий текстовый
+    ответ в чате, а не вердикт с секциями/ссылками (`rich_message`, как в
+    `record_factcheck_output`). Новый kind НЕ вводится: закрытый
+    `BOT_OUTPUT_KINDS` и зависящие от него потребители (self-model, антифлуд,
+    cooldown) не расширяются. Маркер ветки — `source_feature='factcheck'`
+    (реплику произвёл прогон фактчека). Вызывается ТОЛЬКО после подтверждённой
+    отправки; fail-open как базовая запись."""
+    return await record_delivered_output(
+        db, chat_id=chat_id, tg_message_id=tg_message_id, text=text,
+        bot_user_id=bot_user_id, output_kind="direct_reply",
+        parent_message_ref=parent_message_ref, correlation_id=correlation_id,
+        source_feature="factcheck")
+
+
 async def resolve_bot_output_by_tg(db, chat_id: int,
                                    tg_message_id: int) -> dict | None:
     """Ledger-строка по `(chat_id, tg_message_id)` (quote-priority 5, §5).

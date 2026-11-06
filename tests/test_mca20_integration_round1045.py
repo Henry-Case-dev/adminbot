@@ -328,7 +328,7 @@ class TestObservabilityContract:
         # детерминированной ошибки кода embeddings вместо fake transport).
         # ASAP-EVIDENCE-ROUTING-01 v3 (01.11.2026): 311 → 314 (+3, §1.4:
         # evidence_skipped/evidence_reused/evidence_unverified_claim_removed).
-        assert len(mca_events.REASON_CODES) == 314
+        assert len(mca_events.REASON_CODES) == 320
         assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
         # дата-ошибка ≠ дата-отсутствие (D15, `:1805`)
         assert {"temporal_date_extract_failed", "temporal_date_unknown"} \

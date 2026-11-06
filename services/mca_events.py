@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import collections
+import hashlib
 import json
 import logging
 import os
@@ -379,7 +380,36 @@ REASON_CODES = frozenset({
     "evidence_skipped", "evidence_reused",
     "evidence_unverified_claim_observed",
     "evidence_unverified_claim_removed",
+    # FC-OBSERVABILITY-01 (07.11.2026): коды, которые ветка допуска фактчека
+    # РЕАЛЬНО эмитит в `reason_code` (`tf.stage_event`/deliver-швы), но которых
+    # не было в словаре — `build_event` молча выбрасывал причину, и прогон был
+    # восстановим только по соседним `factcheck_admission`/entity_ids.
+    # Перечень снят с фактических мест эмиссии:
+    # `factcheck_orchestrator` (deliver: ambiguous/no_claim/unavailable),
+    # `factcheck_service` (temporal_search: единый retrieval),
+    # `_guard_outbound` (находки speech-guard — класс события, а не их текст).
+    "ambiguous_needs_clarification", "no_claim_after_context",
+    "unsafe_or_unavailable_target", "unified_retrieval",
+    "speech_guard_flagged",
 })
+
+# FC-OBSERVABILITY-01: whitelist-miss больше НЕ теряет причину. Неизвестный код
+# остаётся в событии стабильным маркером `unmapped:<sha256[:8]>`; сам код в
+# события/логи не попадает (поле причины в общем случае приходит из свободного
+# поля — текст чата/секреты логировать запрещено, R17).
+UNMAPPED_REASON_PREFIX = "unmapped:"
+
+
+def unmapped_reason_marker(value) -> str:
+    """Стабильный fallback-маркер для кода вне словаря (без утечки текста).
+
+    Один и тот же неизвестный код → один и тот же маркер (корреляция событий
+    сохраняется), а сырое значение восстановимо только у владельца кода.
+    """
+    text = str(value)
+    digest = hashlib.sha256(text.encode("utf-8", "replace")).hexdigest()[:8]
+    return f"{UNMAPPED_REASON_PREFIX}{digest}"
+
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────
 # R17-safe типы (id/числа/enum/короткие строки) — реиспользуем валидатор
@@ -607,9 +637,18 @@ def build_event(event_name: str, *, outcome: str, level: str = LEVEL_INFO,
                 continue
             if key in _CODE_FIELDS:
                 if key == "reason_code":
-                    event[key] = str(value) if value in REASON_CODES else None
-                    if event[key] is None:
-                        event.pop(key, None)
+                    # FC-OBSERVABILITY-01: код вне словаря не пропадает молча
+                    # (`None`/pop раньше делал прогон невидимым): остаётся
+                    # стабильный маркер + WARN без сырого значения.
+                    code = "" if value is None else str(value)
+                    if code in REASON_CODES:
+                        event[key] = code
+                    elif code:
+                        marker = unmapped_reason_marker(code)
+                        event[key] = marker
+                        logger.warning(
+                            "mca_event unmapped reason_code | event=%s | "
+                            "marker=%s | chars=%d", name, marker, len(code))
                     continue
                 clean = _safe_value(key, value)
                 if clean is not None:

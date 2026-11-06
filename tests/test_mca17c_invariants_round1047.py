@@ -39,7 +39,13 @@ def test_reason_280_single_delta():
     # детерминированной ошибки кода embeddings).
     # ASAP-EVIDENCE-ROUTING-01 v3 §1.4: 311→314 (+3 санкционированных кода
     # evidence-политики).
-    assert len(mca_events.REASON_CODES) == 314
+    # FC-OBSERVABILITY-01 (07.11.2026): 314 → 320. Промежуточный +1
+    # (`evidence_unverified_claim_observed`, BGS-02) прошёл мимо переписи —
+    # на базе `2c1af33e` этот assert уже был красным (315); перепись выровнена
+    # по фактическому набору. +5 сверх 315 — коды ветки допуска фактчека:
+    # ambiguous_needs_clarification, no_claim_after_context,
+    # unsafe_or_unavailable_target, unified_retrieval, speech_guard_flagged.
+    assert len(mca_events.REASON_CODES) == 320
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     assert "oversight_job_action" in mca_events.REASON_CODES
     # другие контрольные коды в словаре отсутствуют (grep-факт T-5179)
