@@ -1,4 +1,13 @@
 {
+  "candidate": "b3420f7417ab8d28fbce13d6619379d4797230a9",
+  "widths": [
+    "1440",
+    "1366",
+    "768",
+    "390",
+    "320"
+  ],
+  "shots_dir": "plans/features/pvr-fc-corrective-01/evidence/pvr-04/shots",
   "failures": [],
   "notes": []
 }
