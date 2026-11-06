@@ -530,6 +530,8 @@ async def record_fact_provenance(
         await relation_evidence.attach_fact_edge_evidence(
             db, chat_id=chat_id, fact_id=fact_id,
             source_ref_id=source_ref_id, origin=origin,
+            subject=subject, target_user=target_user,
+            speaker_author_id=speaker_author_id,
             established_at=ts, extractor_version=extractor_version)
     except Exception:
         logger.warning(

@@ -2983,6 +2983,13 @@ class TestMemorizeEdgeEvidence:
             [_fact(subject="вася", predicate="спорил с", obj="петя")],
             ensure_ascii=False))
         memory = MemoryManager(db, llm)
+        # Автор сообщения сохранён в чате (как в проде): только это вместе с
+        # `self_report` подтверждает авторство (F2).
+        await db.db.execute(
+            "INSERT INTO smart_messages (user_id, chat_id, text, timestamp, "
+            "media_type, author_name, tg_message_id) VALUES (?,?,?,?,?,?,?)",
+            (77, -100, "вася спорил с петей", 1000, "text", "вася", 4242))
+        await db.db.commit()
         # Субъект — сам говорящий (`target_user`), т.е. реальный self_report:
         # только такой факт даёт независимый корень (F1/§2.3).
         await memory.memorize_facts(-100, "вася спорил с петей",

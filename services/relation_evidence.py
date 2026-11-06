@@ -180,12 +180,16 @@ async def resolve_edge_ref(db, chat_id: int, edge_id) -> int | None:
 
 async def attach_edge_evidence(
         db, *, chat_id: int, edge_id, source_ref_id: int,
-        link_type: str = "derived_from", method: str = "direct_reference",
-        verification: str = "verified", independence: str = "independent",
+        link_type: str = "derived_from", method: str = "unknown",
+        verification: str = "unknown", independence: str = "unknown",
         claim_key: str | None = None, basis: str | None = None,
         established_at: int = 0,
         extractor_version: str | None = None) -> int | None:
     """Привязать источник к ребру (идемпотентно по UNIQUE-индексу links).
+
+    Дефолты — БЕЗОПАСНЫЕ: `derived_from` + `unknown`/`unknown`, ни подтверждения,
+    ни независимости по умолчанию не заявляется (F2). Все осмысленные значения
+    приходят от политики (`attach_fact_edge_evidence`) или явного вызывающего.
 
     Возвращает `subject_ref_id` ребра либо `None` (гейт OFF / нет ребра-предмета).
     """
@@ -215,66 +219,165 @@ async def _load_fact_row(db, chat_id: int, fact_id) -> dict:
     """Строка факта: в ней живёт атрибуция (perspective/attribution/forward)."""
     try:
         cursor = await db.db.execute(
-            "SELECT id, origin, perspective, attribution_method, "
+            "SELECT id, chat_id, origin, perspective, attribution_method, "
             "provenance_channel, forward_from, subject_ref_id, tg_message_id, "
-            "assertion_kind FROM graph_facts WHERE id = ? AND chat_id = ?",
+            "subject_entity_id, target_user, speaker_author_id, assertion_kind "
+            "FROM graph_facts WHERE id = ? AND chat_id = ?",
             (int(fact_id), int(chat_id)))
+        row = await cursor.fetchone()
+    except Exception:
+        logger.warning("[relation_evidence] fact row read failed | fact_id=%s",
+                       fact_id, exc_info=True)
+        return {}
+    return dict(row) if row is not None else {}
+
+
+async def _load_author_message(db, chat_id, tg_message_id) -> dict:
+    """Сохранённое сообщение по `(chat, tg_message_id)` — только чтение.
+
+    Это второй реальный сигнал авторства: если сообщения нет, подтверждать
+    авторство нечем (fail-open → `legacy_unknown`).
+    """
+    if chat_id is None or tg_message_id is None:
+        return {}
+    try:
+        cursor = await db.db.execute(
+            "SELECT id, user_id, author_name, is_forward, forward_source "
+            "FROM smart_messages WHERE chat_id = ? AND tg_message_id = ? "
+            "ORDER BY id DESC LIMIT 1",
+            (int(chat_id), int(tg_message_id)))
         row = await cursor.fetchone()
     except Exception:                                     # pragma: no cover
         return {}
     return dict(row) if row is not None else {}
 
 
-def _fact_origin_class(row: dict) -> str:
+def _same_identity(left, right) -> bool:
+    """Совпадение идентичности без догадок: нормализованное равенство."""
+    a = " ".join(str(left or "").split()).casefold()
+    b = " ".join(str(right or "").split()).casefold()
+    return bool(a) and bool(b) and a == b
+
+
+async def _authorship_corroborated(db, row: dict, *, subject=None,
+                                   target_user=None,
+                                   speaker_author_id=None) -> bool:
+    """Подтверждено ли авторство факта сохранённым сообщением (§2.2/§2.3).
+
+    Условия (все обязательны):
+      * сообщение реально есть в этом чате по `tg_message_id`;
+      * известна идентичность субъекта утверждения (иначе подтверждать нечего);
+      * автор сообщения совпадает с субъектом (по `user_id`, когда он известен,
+        иначе по нормализованному имени);
+      * если записан `speaker_author_id`, он совпадает с `user_id` автора;
+      * сообщение не является репостом/цитатой (это `quote_forward`).
+    """
+    msg = await _load_author_message(
+        db, row.get("chat_id"), row.get("tg_message_id"))
+    if not msg:
+        return False
+    if bool(msg.get("is_forward")) \
+            or str(msg.get("forward_source") or "").strip():
+        return False
+    speaker_id = speaker_author_id or row.get("speaker_author_id")
+    author_id = msg.get("user_id")
+    if speaker_id is not None and author_id is not None \
+            and int(speaker_id) != int(author_id):
+        return False
+    subject_name = subject or target_user or row.get("target_user")
+    if not subject_name:
+        # Последний реальный след субъекта — SourceRef субъекта (canon-имя или
+        # устойчивый uid), уже записанный атрибуцией факта.
+        subject_name = await _subject_identity(db, row)
+    author_name = msg.get("author_name")
+    return _same_identity(subject_name, author_name)
+
+
+async def _subject_identity(db, row: dict) -> str:
+    """Идентичность субъекта из `subject_ref_id` (имя канона либо uid)."""
+    ref_id = row.get("subject_ref_id")
+    if ref_id is None:
+        return ""
+    ref = await provenance.get_source_ref(db, int(ref_id))
+    if not ref:
+        return ""
+    return str(ref.get("entity_id") or "")
+
+
+async def _fact_origin_class(db, row: dict, *, subject=None,
+                             target_user=None,
+                             speaker_author_id=None) -> str:
     """Класс по РЕАЛЬНЫМ сигналам строки факта (без подставленных link-полей).
 
     Классификатор ни разу не получает выдуманных `verification='verified'` /
     `method='direct_reference'`: у факта нет и не может быть «link-семантики» —
     только собственная атрибуция (F1).
+
+    `self_report`/`direct_evidence` при `perspective IS NULL` даёт
+    `explicit_direct` ТОЛЬКО если авторство подтверждено сохранённым сообщением
+    того же автора (F2). Иначе — `legacy_unknown` (нет второго сигнала).
     """
-    return graphrag_provenance.classify_origin_class(
-        entity_type="graph_fact", source_row=row or {})
+    row = row or {}
+    origin_class = graphrag_provenance.classify_origin_class(
+        entity_type="graph_fact", source_row=row)
+    if origin_class == ORIGIN_EXPLICIT_DIRECT:
+        return origin_class
+    if str(row.get("perspective") or "").strip():
+        return origin_class          # явный сигнал есть — сверка не требуется
+    if str(row.get("attribution_method") or "") \
+            not in ("self_report", "direct_evidence"):
+        return origin_class
+    if str(row.get("forward_from") or "").strip():
+        return origin_class          # репост/цитата — не авторство
+    corroborated = await _authorship_corroborated(
+        db, row, subject=subject, target_user=target_user,
+        speaker_author_id=speaker_author_id)
+    if corroborated:
+        return ORIGIN_EXPLICIT_DIRECT
+    return ORIGIN_LEGACY_UNKNOWN
 
 
-def _evidence_plan(*, row: dict, origin: str | None,
-                   source_ref_id: int | None) -> tuple[str, dict]:
-    """Класс происхождения факта → план записи основания ребра (§2.2/§2.3).
+def _evidence_plan(*, origin_class: str, row: dict, origin: str | None,
+                   source_ref_id: int | None) -> dict:
+    """План записи основания ребра, выведенный из класса (§2.2/§2.3).
 
     Атрибуция берётся из САМОГО ФАКТА, а не из сообщения: `perspective`,
     `attribution_method` и `forward_from` пишутся в `graph_facts`, поэтому
     пересказ/репост нельзя классифицировать как прямое утверждение автора.
-    План полностью выводится из класса — обратного влияния нет.
+    Обратного влияния «план → класс» нет.
     """
     row = row or {}
     if provenance.is_self_referential_origin(origin) \
             or provenance.is_self_referential_origin(row.get("origin")):
-        return ORIGIN_DERIVED_WITH_LINEAGE, dict(_BOT_SELF_PLAN)
+        return dict(_BOT_SELF_PLAN)
 
-    origin_class = _fact_origin_class(row)
     if str(row.get("attribution_method") or "") == "world_knowledge":
         if source_ref_id is not None:
-            return ORIGIN_DERIVED_WITH_LINEAGE, dict(_WORLD_KNOWLEDGE_PLAN)
+            return dict(_WORLD_KNOWLEDGE_PLAN)
         # Цепочка (сообщение автора) не разрешена → запись без подтверждения
         # и без класса-обещания: `unknown`/`unknown` на строке факта.
-        return (ORIGIN_DERIVED_WITH_LINEAGE,
-                dict(_EVIDENCE_PLANS[ORIGIN_LEGACY_UNKNOWN]))
+        return dict(_EVIDENCE_PLANS[ORIGIN_LEGACY_UNKNOWN])
 
     plan = dict(_EVIDENCE_PLANS.get(origin_class,
                                     _EVIDENCE_PLANS[ORIGIN_LEGACY_UNKNOWN]))
     if plan["root"] == "message" and source_ref_id is None:
         # Адреса сообщения нет — независимость не заявляем (§2.3/R-1).
         plan = dict(_NO_ADDRESS_PLAN)
-    return origin_class, plan
+    return plan
 
 
 async def attach_fact_edge_evidence(
         db, *, chat_id: int, fact_id, source_ref_id: int | None = None,
         origin: str | None = None, edge_ids: list[int] | None = None,
+        subject: str | None = None, target_user: str | None = None,
+        speaker_author_id: int | None = None,
         established_at: int = 0,
         extractor_version: str | None = None) -> list[int]:
     """Основание ребра выводится из атрибуции факта (§2.2/§2.3, MEM-03.4).
 
-    * прямое утверждение автора → сообщение автора, `supports/verified/independent`;
+    * прямое утверждение автора (perspective='self' ИЛИ подтверждённое
+      сохранённым сообщением того же автора) → сообщение автора,
+      `supports/verified/independent`;
     * пересказ третьего лица → `reported_third_party`, не независимый корень;
     * репост/цитата → `quote_forward`, не отдельное подтверждение;
     * производное/legacy → не подтверждение;
@@ -291,8 +394,12 @@ async def attach_fact_edge_evidence(
     if not targets:
         return []          # нет ребра из этого факта — ни ref, ни link не создаём
     row = await _load_fact_row(db, chat_id, fact_id)
-    _origin_class, plan = _evidence_plan(
-        row=row, origin=origin, source_ref_id=source_ref_id)
+    origin_class = await _fact_origin_class(
+        db, row, subject=subject, target_user=target_user,
+        speaker_author_id=speaker_author_id)
+    plan = _evidence_plan(
+        origin_class=origin_class, row=row, origin=origin,
+        source_ref_id=source_ref_id)
 
     if plan["root"] == "message" and source_ref_id is not None:
         root_ref_id: int | None = int(source_ref_id)

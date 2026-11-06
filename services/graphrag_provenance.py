@@ -191,10 +191,13 @@ def classify_origin_class(*, entity_type: str | None, source_row,
     if (str(row.get("perspective") or "") in ("other", "third_party")
             or str(row.get("attribution_method") or "") == "third_party"):
         return ORIGIN_REPORTED_THIRD_PARTY
-    # (3) прямое утверждение автора: сигнал авторства обязателен (§2.2/F1).
-    # `perspective` пишут не все писатели, поэтому допускается NULL, но метод
-    # атрибуции должен быть явно авторским.
-    if (str(row.get("perspective") or "") in ("", "self")
+    # (3) прямое утверждение автора: `perspective='self'` — единственный
+    # строковый сигнал, которого достаточно без внешней сверки. Случай
+    # `perspective IS NULL` требует подтверждения авторства сохранённым
+    # сообщением и решается вызывающим, у которого есть БД
+    # (`relation_evidence._fact_origin_class`); сам классификатор без БД
+    # консервативен и не выдаёт `explicit_direct` по одному `attribution_method`.
+    if (str(row.get("perspective") or "") == "self"
             and str(row.get("attribution_method") or "")
             in ("self_report", "direct_evidence")):
         return ORIGIN_EXPLICIT_DIRECT
