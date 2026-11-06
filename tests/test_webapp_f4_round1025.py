@@ -113,7 +113,9 @@ def test_config_item_notice_unchanged():
 def test_runtime_gate_metadata_complete():
     modules = _block("var MODULES = [", "  ];")
     assert modules.count("runtimeGate:") == 15, modules.count("runtimeGate:")
-    assert modules.count("keywords:") == 15, modules.count("keywords:")
+    # 16: mod_time (UR-F, shipped 2.58.160) has noToggle and no runtimeGate,
+    # so keywords grow to 16 while runtimeGate stays 15 — measured on the unified line.
+    assert modules.count("keywords:") == 16, modules.count("keywords:")
     # 10 модулей глобальные, 5 — по-чатово (аудит ADR §D3;
     # ASAP 7 F3: Initiative — global, effective = env AND product §3.3).
     # v6.3 B06.1: Summary — per_chat (единый резолвер
