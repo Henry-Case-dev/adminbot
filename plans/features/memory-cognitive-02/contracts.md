@@ -1,6 +1,6 @@
 # EPIC-MEMORY-COGNITIVE-02 — замороженные контракты (MEMORY-01…09, backend MEMORY-08)
 
-**Статус:** решение Архитектора (редакция 3: адресные исправления по ревью — уникальность стабильной идентичности, актуальная база `relationships`, диапазон casefold по codepoint, обусловленный пурж и границы роста), вход для Builder. Один документ, без второго ADR.
+**Статус:** решение Архитектора (редакция 4: адресные исправления по gate A0 — точные места символов на объединённой линии, разрушающие пути `memory_maintenance`, семантика `subject_entity_ids`, отсутствие верхнего капа `top_k`, единственный гейт `ENTITY_TYPES`, доказанный план SQLite по индексу). Вход для Builder. Один документ, без второго ADR.
 **Источник:** `plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md` (sha256 `316893a9…0ed1`), карта `requirements-map.json` — read-only.
 **Заменяет:** только раздел «поисковая панель» в `plans/features/evol/arch/cog-map-contract.md` (санкция §0/§9.4 ТЗ). Остальные части cog-map-contract (типы узлов, окно 800/2400, честные состояния, «нет второго хранилища») остаются в силе.
 
@@ -50,7 +50,7 @@
 | `services/chat_clock.py`: `snapshot(chat_id, at_utc=…)`, `TimeSnapshot`, цепочка IANA-пояса | release (после G0 — в `integ/unify-release`) | C-3, C-7.2 |
 | `chat_params.get_chat_param(chat_id, 'flags.x.y')`, `get_chat_param_sourced`, `param_catalog` `ParamSpec(pg_id="flags.…")` | `services/chat_params.py`, `services/param_catalog.py` | C-5 (global/chat inheritance без новых механизмов) |
 | `task_jobs` (durable очередь, checkpoint) | v14 | C-5 (resume бэкфилла без новой таблицы) |
-| `web/api/cognitive_map.py` + `web/static/cognitive-map.js` (`/api/memory/cognitive-map`, `PAYLOAD_VERSION`, `KINDS`, `computeClusters`, `GROUP_NEUTRAL_LABEL`) | release/`evol/impl` | C-4 (владелец map-API и UI-адаптера) |
+| `web/api/cognitive_map.py` + `web/static/cognitive-map.js` (`/api/memory/cognitive-map`, `PAYLOAD_VERSION`, `KINDS`, `computeClusters` — компоненты по рёбрам, `buildAggregates` — экранные LOD-тайлы, `GROUP_NEUTRAL_LABEL`) + `web/app.js` (`_graphSignature`, вызов `buildAggregates`) | release/`evol/impl` | C-4 (владелец map-API и UI-адаптера) |
 | `mca_associations` (`analogy/motif/contrast/continuation`, `status='candidate'`) | v30 | C-2 (cooccurrence-гипотезы живут здесь, не в `edges`) |
 | `get_user_context` = `ToolRouter::_get_user_context` (`_MEMORY_LOOKUP_PURPOSE_DEFAULTS`: identity 5, appearance 10, speech_style 5, biography 10, **relationships 10**, general 8; `_MEMORY_LOOKUP_PURPOSES` — те же 6 ключей) | `services/tool_router.py` | C-7.5 (ветка `relationships` уже существует и читает `db.get_persona_card.links`) |
 
@@ -58,7 +58,7 @@
 
 Аудит MEMORY-00 выполнен на `8bb2800f` (линия `master`). Между `master` и production-линией различаются (измерено `git diff --stat master release/2.58.161`): `services/summary_memory.py` **+1090/−?**, `services/database.py` **+961**, `services/mca_retrieval_context.py` **+100**, `services/summary_aliases.py` **+23**, новые `services/chat_clock.py` (+451) и `web/api/cognitive_map.py` (+916). Поэтому выводы аудита по этим файлам **не переносятся** — они переустанавливаются на объединённой линии.
 
-Статусы: `verified@evol-impl` — совпадает на `evol/impl@2c1af33e` и `release/2.58.161`; `verified@integ` — проверено прямо на union-ветке `integ/unify-release`; `pending@unified` — требует подтверждения после G0 (в т.ч. после прихода релизного corrective).
+Статусы: `verified@evol-impl` — совпадает на `evol/impl@2c1af33e` и `release/2.58.161`; `verified@integ` — проверено прямо на union-ветке `integ/unify-release`; `pending@unified` — требует подтверждения после G0 (в т.ч. после прихода релизного corrective). После gate A0 (07.11.2026) строк со статусом `pending@unified` в таблице не осталось.
 
 | # | Утверждение о текущем состоянии | Статус | Где |
 |---|---|---|---|
@@ -70,16 +70,16 @@
 | 6 | `purge_expired_graph_facts` удаляет истёкшие факты (protect: weight ≥ 0.8, свежее подтверждение 3 дня, `protected_facts`) | `verified@evol-impl` | `database.py::purge_expired_graph_facts` |
 | 7 | Caps 800/2400/150 ограничивают кадр карты; константы **определены в `web/api/memory_agi.py`** (не в `database.py`) и импортируются в `cognitive_map.py` | `verified@evol-impl` | `web/api/memory_agi.py`, `web/api/cognitive_map.py` |
 | 8 | Toolbar `[input][Найти][Все типы][Все кластеры][Сбросить вид]` есть **и** inline, **и** в fullscreen | `verified@evol-impl` | `web/index.html` (два блока), `cognitive-map.js` |
-| 9 | «Группа · N» = клиентский LOD (`computeClusters`, `GROUP_NEUTRAL_LABEL='Группа'`), не сообщество | `verified@evol-impl` | `web/static/cognitive-map.js` |
-| 10 | `_graphSignature` — клиентский ключ кэша раскладки/данных, **не** ревизия графа | `verified@evol-impl` | `cognitive-map.js`, комментарий `graph_snapshot` |
+| 9 | Видимая подпись «Группа · N» — экранный LOD-тайл `buildAggregates`: `label = baseLabel + ' · ' + grp.count`, а `GROUP_NEUTRAL_LABEL='Группа'` берётся, когда нет доминирующего типа. Рядом живёт **другая** функция `computeClusters` — union-find по реальным `model.edges` (компоненты связности для фильтра `Все кластеры`). Это две разные вещи; ни одна не является семантическим сообществом | `verified@integ` | `web/static/cognitive-map.js` (`buildAggregates` ≈717, подпись ≈968; `computeClusters` ≈577; вызов из `web/app.js` ≈31966) |
+| 10 | `_graphSignature` — клиентский ключ «данные сцены не изменились» для 15-секундного поллинга (пропуск перерисовки), **не** ревизия графа; живёт в `web/app.js` (≈30529), в `cognitive-map.js` его нет | `verified@integ` | `web/app.js` |
 | 11 | `mca_source_refs` дедуп: `(store, entity_type, entity_id, COALESCE(chat_id,-1), COALESCE(revision,''))` | `verified@evol-impl` | DDL v17 |
 | 12 | `evidence_independent_count` считает только `derived_from`/`supports` + `verification='verified'` + `independence='independent'`; `mentions` не считается | `verified@evol-impl` | `provenance.py` |
 | 13 | `smart_messages.forward_source`; `forward_from` — колонка `graph_facts` | `verified@evol-impl` | `database.py` DDL v11/v12 |
-| 14 | `mca_retrieval_context.retrieve()` — один `chat_id`, `top_k`-кап, каналы exact/lexical/vector/reply_graph/episode; курсора и entity/community-канала нет | `verified@evol-impl` | `mca_retrieval_context.py::retrieve` |
+| 14 | `mca_retrieval_context.retrieve()` — один `chat_id`, `top_k` режется **только снизу** (`max(1, request.top_k)`; верхнего капа нет), каналы exact/lexical/vector/reply_graph/episode; курсора, entity- и community-канала нет | `verified@integ` | `mca_retrieval_context.py::retrieve` |
 | 15 | `mca_entity_canonical` в коде отсутствует полностью (0 вхождений вне `plans/`) → правило 1 C-1 сегодня не может сработать | `verified@evol-impl` | `git grep` |
 | 16 | `chat_params.get_chat_param(None, key)`: chat-слой пуст → `hot.get` → factory; исключения нет | `verified@evol-impl`, тест обязателен (§5.2.1) | `chat_params.py` |
 | 17 | `get_user_context` purposes: **6** (включая `relationships`); `_memory_lookup_relationships` читает `db.get_persona_card(...).links`; per-purpose `max_items` = 5/10/5/10/10/8 — кап **выдачи инструмента**, не квота retrieval | `verified@evol-impl` | `tool_router.py` |
-| 18 | Релизный corrective factcheck/summary_l2_writer/turn_payload_events/summary_stage_events и `chat_clock.py` на `evol/impl` пока отсутствует | `pending@unified` | diff `evol/impl↔release` |
+| 18 | Релизный corrective **присутствует** на объединённой линии: `factcheck_service.py`, `summary_l2_writer.py`, `summary_generator.py`, `summary_l1_clusterizer.py`, `summary_l2_review.py`, `turn_payload_events.py`, `summary_stage_events.py`, `chat_clock.py`, `web/static/cog-visual.js` | `verified@integ` | файлы на `integ/unify-release` |
 | 19 | Обе линии на `_SCHEMA_VERSION_SLOT_CLAIMS = 42`; шаг v43 свободен | `verified@evol-impl` | `database.py` |
 | 20 | Union-ветка `integ/unify-release` @ `640da3eb` содержит и `release/2.58.161`, и `evol/impl` как предков; схема там тоже 42 | `verified@integ` | git (`merge-base --is-ancestor` = 0 для обеих) |
 
@@ -87,10 +87,18 @@
 
 Пункт MEM-00 варианта `master` **не закрыт**. До первой строки кода MEMORY-01 на объединённой линии обязателен переаудит ровно этих мест, с отметкой `PRESENT_AND_VERIFIED / PARTIAL / MISSING / CONFLICT` и ссылкой на символ + живой тест:
 
-1. `summary_memory.py`: `_dedup_decide`, `_enforce_user_quota`/`get_quota_victim` (разрушающая квота), `_write_graph_triplets`, прямой путь записи факта (`insert_graph_fact` + `upsert_node`×2 + `upsert_edge(fact_id=…)`), `_attach_fact_provenance`, кризис слияния кластера (`_merge_cluster`).
-2. `database.py`: вся цепочка `_migrate_*` до v42, `upsert_node`/`upsert_edge`, `insert_graph_fact`, self-fact путь (`INSERT … graph_facts` для собственных слов бота), `delete_graph_fact`, `purge_expired_graph_facts`, FTS/vec-таблицы, DDL `nodes`/`edges`/`graph_facts`.
-3. `mca_retrieval_context.py`: состав каналов, `retrieve`, `apply_identity_prior`, `top_k`-поведение, `build_memory_request`, формат `EvidenceBundle`.
-4. Пришедшие после G0 релизные модули, которых аудит не видел: `factcheck_service.py`, `summary_l2_writer.py`, `turn_payload_events.py`, `summary_stage_events.py`, `chat_clock.py` — в объёме, нужном C-3/C-7/C-8 (время, evidence summary к Writer, разделение factcheck/память).
+1. `summary_memory.py`: `_dedup_decide`, `_enforce_user_quota`/`get_quota_victim` (разрушающая квота), `_write_graph_triplets`, прямой путь записи факта (`insert_graph_fact` + `upsert_node`×2 + `upsert_edge(fact_id=…)`), `_attach_fact_provenance`.
+2. **`memory_maintenance.py` (отдельный модуль, не `summary_memory.py`):** `merge_episodes`/`_merge_chat`/`_cluster_facts`/`_cluster_exact`/`_merge_cluster` (≈763: `insert_graph_fact` агрегата + `delete_graph_fact` каждого источника), `review` (≈827: удаление дублей + `purge_expired_graph_facts`/`purge_unconfirmed_graph_facts`), `_glue_vec_dups` (≈856: удаление по cosine ≥ 0.95). Разрушающие пути — §3.4.1.
+3. `database.py`: вся цепочка `_migrate_*` до v42, `upsert_node`/`upsert_edge`, `insert_graph_fact`, self-fact путь (`INSERT … graph_facts` для собственных слов бота), `delete_graph_fact`, `purge_expired_graph_facts`, `purge_unconfirmed_graph_facts`, FTS/vec-таблицы, DDL `nodes`/`edges`/`graph_facts`.
+4. `mca_retrieval_context.py`: состав каналов, `retrieve`, `apply_identity_prior`, `top_k`/`limit`-поведение, `build_memory_request`, формат `EvidenceBundle`.
+5. Пришедшие после G0 релизные модули, которых аудит не видел: `factcheck_service.py`, `summary_l2_writer.py`, `turn_payload_events.py`, `summary_stage_events.py`, `chat_clock.py` — в объёме, нужном C-3/C-7/C-8 (время, evidence summary к Writer, разделение factcheck/память).
+
+##### Итог gate A0 (07.11.2026, `integ/unify-release`)
+
+- **MEMORY-01 — GO.** Минимальный набор касаний: новый `services/memory_contracts.py` + новый `tests/test_memory_contracts.py` (только эти два файла, ничего существующего не правится).
+- **MEMORY-03 — GO** после однострочного изменения: добавить `"graph_edge"` и `"entity"` в `services/provenance.py::ENTITY_TYPES` (единственный гейт типа, см. §2.5).
+- **MEMORY-04 — NO-GO** до этой редакции: разрушающие пути `memory_maintenance` (§3.4.1) противоречили R-8/R-10/MEM-02.6.
+- **MEM-08-S3 — NO-GO** до исправлений 1–2 этой редакции: неверная атрибуция «Группа · N» и `_graphSignature` увела бы Builder к неверной структуре клиентского кода.
 
 **Правило:** расхождение с этим документом на объединённой линии → не «додумать», а `ARCHITECT_ADJUSTMENT_REQUIRED` от Builder; документ обновляется один раз, без второго ADR.
 
@@ -101,10 +109,10 @@
 3. **`summary_memory::_dedup_decide`**: cosine ≥ 0.95 → `noop`, `[0.85, 0.95)` → **`supersede`** (инвалидация старого факта по сходству векторов), ниже → `add`. Прямое нарушение MEM-02.5/MEM-04.4/INV-06: сходство вектора не доказательство, а `noop` не даёт независимому повтору стать подтверждением.
 4. **Caps 800/2400/150** — ограничения кадра; поиск по ним невозможен (`_graphSignature` + client-side `searchNodes` ищут только в загруженной сцене).
 5. **Видимый toolbar**: в `web/index.html` inline и fullscreen содержат `[input][Найти][Все типы][Все кластеры][Сбросить вид]`; клиентские фильтры `{kinds, scopes, chats, statuses, search, cluster}` живут в `cognitive-map.js`. Поиск — подстрока по `search`-блобу 800 узлов.
-6. **«Группа · N»** (`GROUP_NEUTRAL_LABEL`, `computeClusters`) — пространственный кластер, не семантическое сообщество.
-7. **Квота уничтожает память.** `summary_memory::_enforce_user_quota` → `database::get_quota_victim` → `database::delete_graph_fact` физически удаляет строку `graph_facts` + FTS + vec; включено по умолчанию (`GRAPH_USER_QUOTA_ENABLED=True`, `GRAPH_FACTS_PER_USER_QUOTA=50`). Это нарушает MEM-04.6/INV-01/INV-08 и в прежней редакции документа не было перечислено как конфликт. Решение — §3.4.1.
+6. **«Группа · N»** — подпись **экранного LOD-тайла** в `web/static/cognitive-map.js::buildAggregates` (`label = baseLabel + ' · ' + count`; `GROUP_NEUTRAL_LABEL='Группа'` при отсутствии доминирующего типа), рендерится из `web/app.js` (≈31977). Рядом существует **другая** клиентская функция `computeClusters` — union-find по реальным `model.edges`, то есть компоненты связности для фильтра `Все кластеры`. Ни тайл, ни компонент не являются семантическим сообществом, и путать их нельзя: «Группа · N» — про раскладку на экране, `computeClusters` — про рёбра данных.
+7. **Квота и обслуживание уничтожают память.** (а) `summary_memory::_enforce_user_quota` → `database::get_quota_victim` → `database::delete_graph_fact` физически удаляет строку `graph_facts` + FTS + vec; включено по умолчанию (`GRAPH_USER_QUOTA_ENABLED=True`, `GRAPH_FACTS_PER_USER_QUOTA=50`). (б) `memory_maintenance::merge_episodes`/`_merge_cluster` (≈763) вставляет агрегированный факт, затем вызывает `delete_graph_fact` **для каждого** исходного факта кластера; `memory_maintenance::review` (≈827) удаляет дубли exact-групп, а `memory_maintenance::_glue_vec_dups` (≈856) удаляет пары по cosine ≥ 0.95; всё это включено по умолчанию (`GRAPH_EPISODE_MERGE_ENABLED=True`, интервал 7 дней, батч 20, до 5 фактов в кластере). Это нарушает MEM-04.6/INV-01/INV-08, а для слияния — ещё и R-8/R-10/MEM-02.6 (доказательства источника исчезают вместе с фактом). Решение — §3.4.1 (квота) и §3.4.1.1 (обслуживание).
 8. **Один слот имени на чат.** `UNIQUE(chat_id, entity_name)` без `entity_type`: два узла с **одинаковым написанием** и разными типами (человек и головной убор, тема и человек) технически невозможны, а `upsert_node` во втором случае молча оставляет первый тип. Решение — §1.2.3.
-9. **Ревизий графа не существует.** `graph_revision`/`alias_revision` — не колонки и не переменные; `_graphSignature` — клиентский ключ кэша раскладки. При этом дедуп `mca_source_refs` включает `revision`: «свежая ревизия на каждое изменение» порождает дубли SourceRef и прячет связи. Решение — §2.4.
+9. **Ревизий графа не существует.** `graph_revision`/`alias_revision` — не колонки и не переменные (0 вхождений в коде); `_graphSignature` (в `web/app.js`, ≈30529) — клиентский ключ «данные сцены не изменились» для 15-секундного поллинга, к ревизии графа отношения не имеет. При этом дедуп `mca_source_refs` включает `revision`: «свежая ревизия на каждое изменение» порождает дубли SourceRef и прячет связи. Решение — §2.4.
 10. **`mentions` не подтверждает.** `evidence_independent_count` учитывает только `derived_from`/`supports`; персональное ребро, поддержанное явными сообщениями через `mentions`, имеет `independent_support=0`, а правило «`origin_class = weakest`» ещё и понижает ребро с несколькими проверенными источниками. Решение — §2.3.
 
 ### 0.5. Запрещено создавать (проверяется ревью)
@@ -190,11 +198,11 @@ async def resolve_entity(
 
 Правило 4 не может быть `SELECT * FROM nodes WHERE chat_id=? AND entity_type=?` — это полный скан на каждый запрос и нарушение §4.8 (p95 ≤ 500 мс).
 
-- Диапазонный поиск по индексу `UNIQUE(chat_id, entity_name)`: для первого графемного кластера mention берутся варианты (`upper`, `lower`, `casefold`); для **каждого** варианта `C` интервал — **ровно `[C, C + 1 codepoint)`**, то есть `entity_name >= C AND entity_name < chr(ord(C)+1)`, `LIMIT 33` (32 + 1 для детекта переполнения). Это семантика «начинается с `C`» в BINARY-сравнении SQLite: `['П','Р')` находит `ПАПАХА`, `Папаха` и `папаха`, а интервал «от самого написания» (`['Папаха','Папахб')`) теряет верхний регистр. `LIKE` не используется: SQLite `NOCASE` не сворачивает кириллицу.
+- Диапазонный поиск по индексу `UNIQUE(chat_id, entity_name)`: для первого графемного кластера mention берутся варианты (`upper`, `lower`, `casefold`); для **каждого** варианта `C` интервал — **ровно `[C, C + 1 codepoint)`**, то есть `entity_name >= C AND entity_name < chr(ord(C)+1)`, `LIMIT 33` (32 + 1 для детекта переполнения). Это семантика «начинается с `C`» в BINARY-сравнении SQLite. Проверено на живой SQLite (07.11.2026, gate A0) при сохранённых `ПАПАХА`, `Папаха`, `папаха`, `Бабаха`: интервал `['П','Р')` возвращает `ПАПАХА`, `Папаха`; интервал `['п','р')` возвращает `папаха`; `Бабаха` не возвращается ни одним из них, а интервал «от самого написания» (`['Папаха','Папахб')`) теряет верхний регистр и потому запрещён. `EXPLAIN QUERY PLAN` для запроса правила 4 даёт `SEARCH nodes USING COVERING INDEX sqlite_autoindex_nodes_1 (chat_id=? AND entity_name>? AND entity_name<?)` — то есть индексный поиск, не `SCAN nodes`. `LIKE` не используется: SQLite `NOCASE` не сворачивает кириллицу.
 - Сравнение — в Python: `casefold(trim(NFC(name))) == casefold(trim(NFC(mention)))`.
 - Переполнение (>32 строк в префиксе) → `ambiguous`, `reason_code='casefold_prefix_overflow'`, до 8 вариантов с различающим признаком, `degraded=['casefold_prefix_overflow']`, событие с `counts.prefix_rows`. «Дочитать всё» запрещено.
 - Константы централизуются: `ENTITY_CASEFOLD_MAX_ROWS = 32`, `ENTITY_CASEFOLD_MIN_PREFIX = 1` (в `services/memory_contracts.py`). `ENTITY_CASEFOLD_MIN_PREFIX=1` на реальном объёме (**≈53 тыс. узлов**) даёт широкие интервалы, поэтому значение фиксируется как константа **только после замера на реальной БД** (селективность и p95 §4.8); до замера это параметр, а не «доказанный оптимум». Транслитерация/лемматизация/падежи **не** участвуют (ID-4).
-- Тест обязан проверять `EXPLAIN QUERY PLAN` (ожидается `SEARCH nodes USING INDEX …`, не `SCAN nodes`) и сценарий переполнения; мутация «убрать LIMIT» валит тест. Отдельный обязательный тест диапазона: при сохранённых `ПАПАХА`, `Папаха`, `папаха` **все три** находятся, а узел с другой первой буквой (например `Бабаха`) — **нет**.
+- Тест обязан проверять `EXPLAIN QUERY PLAN` (ожидается `SEARCH nodes USING COVERING INDEX sqlite_autoindex_nodes_1`, не `SCAN nodes`) и сценарий переполнения; мутация «убрать LIMIT» валит тест. Отдельный обязательный тест диапазона: при сохранённых `ПАПАХА`, `Папаха`, `папаха` **все три** находятся (верхний вариант даёт `ПАПАХА`/`Папаха`, строчный — `папаха`), а узел с другой первой буквой (например `Бабаха`) — **нет**.
 
 #### 1.2.3. Один слот имени и разные типы (ограничение схемы, честное поведение)
 
@@ -288,8 +296,8 @@ async def resolve_entity(
 | T12 | Засев при >1 узлах-кандидатах | self-строки нет, `identity_seed_ambiguous`, `resolve_entity(stable_identity=…)` → `ambiguous` |
 | T12b | Узел-кандидат уже закреплён за другим uid, засев для второго uid | вставки нет, событие `identity_seed_node_conflict`, оба uid `ambiguous`; правило 3 при `stable_identity` и чужой активной self-строке не отдаёт `resolved` |
 | T13 | 33 узла с одним префиксом | `ambiguous`/`casefold_prefix_overflow`, нет «дочитывания всего» |
-| T14 | `EXPLAIN QUERY PLAN` правила 4 | `SEARCH nodes USING INDEX`, никогда `SCAN nodes` |
-| T14b | Сохранены `ПАПАХА`, `Папаха`, `папаха` (BINARY-коллация) | все три находятся интервалами `[C, C+1 codepoint)`; `Бабаха` (другая первая буква) — не найдена; `ENTITY_CASEFOLD_MIN_PREFIX=1` даёт ожидаемый интервал, а не «от написания» |
+| T14 | `EXPLAIN QUERY PLAN` правила 4 | `SEARCH nodes USING COVERING INDEX sqlite_autoindex_nodes_1`, никогда `SCAN nodes` |
+| T14b | Сохранены `ПАПАХА`, `Папаха`, `папаха` (BINARY-коллация) | `['П','Р')` → `ПАПАХА`, `Папаха`; `['п','р')` → `папаха`; `Бабаха` (другая первая буква) — не найдена; интервал «от написания» запрещён |
 | M1 | Мутация: убрать проверку уникальности casefold-кандидатов | T2/T3/T13 обязаны упасть |
 | M2 | Мутация: убрать `LIMIT`/фильтр типа | T7/T14 обязаны упасть |
 | M3 | Мутация: заменить проверку закрепления узла на `INSERT OR REPLACE` | T3b/T12b обязаны упасть (появляется ложное слияние uid) |
@@ -380,7 +388,7 @@ RelationView = {
 
 #### 2.4.3. Откуда берутся `graph_revision` / `alias_revision`
 
-Колонок и переменных с такими именами в коде нет; `_graphSignature` — клиентский ключ кэша раскладки, к ревизии графа отношения не имеет. Поэтому:
+Колонок и переменных с такими именами в коде нет (0 вхождений `graph_revision`/`alias_revision` вне `plans/`); `_graphSignature` в `web/app.js` (≈30529) — клиентская подпись состава сцены для 15-секундного поллинга, к ревизии графа отношения не имеет. Поэтому:
 
 - `graph_revision(chat_id)` — **вычисляемый** дешёвый дайджест по индексам: `sha1(f"{nodes_count}:{max_node_id}:{edges_count}:{max_edge_id}:{max_edges_last_updated}")` для чата; нигде не хранится.
 - `alias_revision(chat_id)` — `chat_params` профиль `updated_at` (уже отдаётся `get_chat_params_full`) + версия global hot-слоя того же ключа.
@@ -400,7 +408,7 @@ mca_evidence_links(source_ref_id = SourceRef сообщения / факта / �
                    claim_key, method, basis, checks_json, established_at)
 ```
 
-Требуемое изменение кода (без схемы): расширить `services/provenance.py::ENTITY_TYPES` значениями `"graph_edge"` и `"entity"` и добавить конструкторы `graph_edge_source_ref(chat_id, edge_id)` / `node_source_ref(chat_id, node_id)`, всегда ставящие `revision='stable'`.
+Требуемое изменение кода (без схемы и без новых колонок): `services/provenance.py::ENTITY_TYPES` — **единственный** гейт типа источника. `SourceRef.validate()` бросает `ValueError` при `entity_type` вне этого множества; никаких других проверок типа/ревизии в модели нет, `SourceRef.revision` — свободное `str | None`, участвующее только в `dedup_key`. Поэтому достаточно добавить `"graph_edge"` и `"entity"` в `ENTITY_TYPES` и конструкторы `graph_edge_source_ref(chat_id, edge_id)` / `node_source_ref(chat_id, node_id)`, всегда ставящие `revision='stable'`. Полей `graph_revision`/`alias_revision` в `SourceRef` не существует и вводить их не нужно. Существующий `graph_fact_source_ref(chat_id, fact_id)` **уже стабилен**: он не передаёт `revision` (`None` → `COALESCE(revision,'')` в дедуп-индексе), поэтому один SourceRef на факт уже обеспечен и менять его не требуется.
 
 **`edges.fact_id` сохраняется как совместимое поле** (одиночное основание для скоринга `COALESCE(importance, weight)` в `graph_snapshot`); новые писатели продолжают его заполнять, дополнительные основания идут в `mca_evidence_links`.
 
@@ -422,7 +430,7 @@ mca_evidence_links(source_ref_id = SourceRef сообщения / факта / �
 - **R-5.** Ложная транзитивность запрещена: `A–B` и `B–C` **никогда** не дают `A–C`. `derived_with_lineage` — только с явной семантикой предиката и цепочкой ссылок.
 - **R-6.** Cooccurrence/соседство на экране/сходство эмбеддингов не создают типизированное ребро.
 - **R-7.** Legacy bare-edge не удаляется и не скрывается, показывается как «Происхождение не установлено», не попадает в confident-контекст, вес ограничен 0.55 (`validate_person_edge_write`).
-- **R-8.** Противоречие/устаревание — только аддитивно (evidence-link + `mca_provenance_status`); физического удаления и `DELETE` нет.
+- **R-8.** Противоречие/устаревание/сжатие — только аддитивно (evidence-link + `mca_provenance_status`); в нормальном цикле памяти физического удаления и `DELETE` нет. Единственные разрешённые исключения перечислены в §3.4.1 (явный пользовательский `delete`/`forget`, security retention).
 - **R-9.** Направление и авторство сохраняются: содержание пересылки приписывается первоисточнику, не переславшему (`quote_forward`).
 - **R-10.** Merge узлов переносит **наборы доказательств** без потери ни одного `fact_id`, веса, периода, авторства, оспоренного статуса (MEM-02.6).
 - **R-11.** `mentions`-only ребро не становится `confirmed` ни по весу, ни по частоте, ни по анимации.
@@ -500,15 +508,41 @@ mca_evidence_links(source_ref_id = SourceRef сообщения / факта / �
 Факт: `summary_memory::_enforce_user_quota` → `database::get_quota_victim` → `database::delete_graph_fact` физически удаляет строку `graph_facts`, её FTS-строку и vec-строку, а `log_fact_compression(reason='quota')` оставляет лишь текст в журнале. Включено по умолчанию (`GRAPH_USER_QUOTA_ENABLED=True`, `GRAPH_FACTS_PER_USER_QUOTA=50`). Это прямое нарушение MEM-04.6 («старое, редкое, забытое **не стирать** ради квот»), INV-01 и INV-08.
 
 **Решение (неразрушающее):**
-- **Удаление из квоты убирается из кода полностью**, а не прячется за флаг. `delete_graph_fact` остаётся только для действующих пользовательских `delete`/`forget` и security retention (`/forget`, retention-политики) — это разрешённые исключения MEM-04.6.
+- **Удаление из квоты убирается из кода полностью**, а не прячется за флаг. `delete_graph_fact` больше не вызывается ни из квоты, ни из слияния/дедупа (§3.4.1.1). Разрешённые вызовы `delete_graph_fact` — **ровно два**: явный пользовательский `delete`/`forget` (`/forget` и родственные команды) и security retention. Ретеншн-пурж (`purge_expired_graph_facts`, `purge_unconfirmed_graph_facts`) реализован собственным SQL, а не `delete_graph_fact`, и подчиняется условиям ниже.
 - `_enforce_user_quota` перестаёт быть вытеснением и становится **наблюдением границы**: считает живые факты пользователя (`expires_at IS NULL OR expires_at > now`), сравнивает с квотой и пишет `graph_fact_quota_exceeded` (числа) + метрику для админки. Никаких `UPDATE` веса и никаких `expires_at` — ставить `expires_at=now` **запрещено**: `purge_expired_graph_facts` физически удалит такую строку на следующем проходе (проверено: предикат `fact_candidate` + protect weight 0.8 / 3 дня), то есть «архивация через TTL» была бы удалением с задержкой.
 - Семантика флага: `GRAPH_USER_QUOTA_ENABLED` (и `flags.graph_user_quota_enabled`) сохраняет имя для совместимости конфигурации, но означает «включено наблюдение квоты live-пула». `OFF` → наблюдение не считается, ограничения нет; **удаления нет ни в одном состоянии**. `GRAPH_FACTS_PER_USER_QUOTA=50` остаётся порогом отчёта.
 - Совместимость/миграция: схемных изменений нет; уже удалённые ранее строки восстановлению не подлежат — `graph_fact_compressions` с `reason='quota'` остаются как честный след прошлых удалений, «восстановление» не инсценируется. Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED=ON` добавляет в отчёт `memory_maintenance::review` строку «людей сверх квоты: K» и не удаляет ничего.
 - `purge_expired_graph_facts` (TTL/retention) остаётся действующей retention-политикой и **не** переиспользуется как квота: квота не выставляет `expires_at` и не вызывает purge. **Пурж условен:** строка с `expires_at <= now` удаляется только когда `memory.infinite_retention=OFF` (глобально **и** для её чата) **и** строка не защищена — вес < 0.8 (`limits.graph_purge_protect_weight`), `last_confirmed_at` старше 3 дней (`limits.graph_purge_protect_days`), текст не входит в `protected_facts`. При `memory.infinite_retention=ON` `purge_expired_graph_facts` возвращает 0 без SQL (существующее поведение `_infinite_retention_on`), контракт это сохраняет.
 - **Что увидит владелец в админ-панели:** «Живых фактов у человека: N / порог 50», «Людей сверх порога: K», «Вытеснено/удалено квотой: 0 (механизм отключён)», «Рост: +X фактов за неделю». Объём: каждая запись остаётся строкой `graph_facts` + FTS + vec (`dim × 4` байта) ≈ `text_bytes + fts_bytes + dim*4 + ~120 B`; рост линеен числу новых фактов на человека и **не** ограничен сверху порогом 50 — это осознанная цена INV-01, оценивается замером на реальной БД до релиза (не «примерно»).
-- **Рост не попадает в горячий путь (bounded-retrieval):** все читающие каналы ограничены — `top_k`-кап для ответа, `LIMIT` FTS, `LIMIT` vec, keyset-пагинация поиска; личный пул пользователя **никогда не сканируется целиком**. Поэтому рост числа строк от отказа от квоты не меняет p95 по построению, а не «по обещанию»; подтверждение — A/B-замер на реальной БД до релиза.
+- **Рост не попадает в горячий путь (bounded-retrieval):** все читающие каналы ограничены — отсечение по `top_k` для ответа, `LIMIT` FTS, `LIMIT` vec, keyset-пагинация поиска; личный пул пользователя **никогда не сканируется целиком**. Поэтому рост числа строк от отказа от квоты не меняет p95 по построению, а не «по обещанию»; подтверждение — A/B-замер на реальной БД до релиза.
 - **Заранее принятое действие при регрессии:** если замер всё же покажет рост p95 сверх бюджета §4.8, снижается **ранг и вероятность вызова** старых/редких фактов в retrieval (частотный приоритет, hot-context), но факты **не удаляются**; возврат к удалению квотой запрещён в любом состоянии.
 - **Тест:** 51-й личный факт при квоте 50 → `graph_facts` = 51, `graph_facts_fts` = 51, vec-строка жива, удалённый-бы-факт находится FTS-поиском и историческим retrieval, `expires_at` не изменён, `graph_fact_quota_exceeded` эмитнут, счётчик «вытеснено» = 0. Мутация: вернуть `delete_graph_fact` в путь квоты → тест падает (51 vs 50). Отдельный тест пуржа: при `memory.infinite_retention=ON` факт с истёкшим `expires_at` жив; при OFF защищённый (вес ≥ 0.8 / подтверждение <3 дней / `protected_facts`) — тоже жив.
+
+#### 3.4.1.1. Обслуживание (`memory_maintenance`) — тоже разрушающий путь
+
+Второй источник потери памяти, найденный gate A0 и не покрытый прежней редакцией:
+
+| Путь | Что делает сегодня | Факт (проверено на линии) |
+|---|---|---|
+| `memory_maintenance::merge_episodes` → `_merge_chat` → `_cluster_facts` → `_merge_cluster` (≈763) | LLM-слияние кластера (`COMPRESS_PROMPT` + проверка покрытия `_MERGE_COVERAGE_MIN`) → `insert_graph_fact` агрегата → `delete_graph_fact` **каждого** источника + `log_fact_compression(reason='episode_merge')` | Кластеризация — KNN по vec при cosine ≥ `_MERGE_CLUSTER_SIM=0.85`, иначе `_cluster_exact` по subject+predicate. Включено по умолчанию: `GRAPH_EPISODE_MERGE_ENABLED=True`, `GRAPH_EPISODE_MERGE_INTERVAL_DAYS=7`, `GRAPH_EPISODE_MERGE_BATCH=20`, `GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER=5` |
+| `memory_maintenance::review` (≈827) | exact-дубли: оставляет самый тяжёлый, остальные `delete_graph_fact` (журнал `review_glue`); затем `purge_expired_graph_facts` и `purge_unconfirmed_graph_facts` | Дедуп по точному тексту, факты исчезают из `graph_facts`/FTS/vec |
+| `memory_maintenance::_glue_vec_dups` (≈856) | пары с cosine ≥ `_REVIEW_GLUE_SIM` (0.95) → `delete_graph_fact` проигравшего (журнал `review_glue`) | Сходство вектора снова выступает доказательством «это тот же факт» |
+
+Это нарушает R-8 (только аддитивно), R-10/MEM-02.6 (merge обязан переносить **наборы доказательств** без потери ни одного `fact_id`) и MEM-04.6. `tests/test_memory_maintenance.py` **сейчас кодирует именно удаление**: `TestEpisodeMerge::test_cluster_merged_sources_deleted_logged` утверждает, что исходных фактов в таблице больше нет (`len(facts) == 2`), `TestReview::test_exact_dups_glued_keep_heaviest` — что осталась ровно одна строка (`len(rows) == 1`).
+
+**Требование — lineage-preserving merge, источники не удаляются:**
+
+1. Слияние и дедуп **никогда** не вызывают `delete_graph_fact`, не выставляют `expires_at` и не удаляют FTS/vec-строки — ни при каком значении гейта. Разрушающая ветка удаляется из кода, как и квотная в §3.4.1, а не прячется за флагом.
+2. Агрегат — **новый** факт (`insert_graph_fact`, origin/период/`target_user` по существующим правилам), а каждый источник остаётся строкой `graph_facts` со своим текстом, FTS- и vec-строкой и продолжает находиться поиском и историей.
+3. Lineage обязателен и двусторонний, без новых колонок:
+   - вперёд: `mca_evidence_links(subject_ref_id = graph_fact_source_ref(агрегат), source_ref_id = graph_fact_source_ref(источник), link_type='derived_from', method='compression', basis='episode_merge', verification='verified', independence='independent')` — по строке на каждый источник (дедуп держит существующий UNIQUE-индекс);
+   - обратно: `mca_evidence_links(subject_ref_id = graph_fact_source_ref(источник), source_ref_id = graph_fact_source_ref(агрегат), link_type='supersedes', method='compression')` + `mca_provenance_status.freshness_status='superseded'` для источника. Источник читается как «замещён агрегатом #N» и остаётся доступным.
+4. `log_fact_compression(reason='episode_merge'|'review_glue')` остаётся журналом (аудит), но больше не сопровождает удаление строк.
+5. Сходство не даёт права замещать: кластер, собранный **только** по cosine (vec-ветка `_cluster_facts`), даёт агрегат `status='unconfirmed'`/`verification='tentative'` и **не** помечает источники `superseded`; помечать замещение может только кластер по точному subject+predicate (`_cluster_exact`) — тот же принцип, что в §3.4.
+6. `_glue_vec_dups` не удаляет: cosine ≥ 0.95 → событие `dedupe_candidate` (id пары, §9) и ноль записей. Дедуп exact-групп в `review` переводится на схему п. 3 (supersede с указателями, обе строки живы).
+7. Ретеншн — единственное разрешённое удаление и он не расширяется: `purge_expired_graph_facts` только при `memory.infinite_retention=OFF` и вне защиты; `purge_unconfirmed_graph_facts` остаётся под тем же гейтом и попадает в отчёт `memory_maintenance::review` числом. Ни один из них не используется как квота и не выдаётся за «архивацию».
+8. **Существующие тесты переписываются** под новый контракт (на новой реализации обязаны упасть в старом виде): `test_cluster_merged_sources_deleted_logged` → «агрегат создан, все исходные факты живы (число источников не изменилось), FTS/vec живы, `derived_from` на каждый источник, обратные `supersedes`»; `TestReview::test_exact_dups_glued_keep_heaviest` → «обе строки на месте, у проигравшего `freshness_status='superseded'` и указатель на победителя, ни одна строка не удалена». Мутации: вернуть `delete_graph_fact` в `_merge_cluster`, в `review` или в `_glue_vec_dups` → соответствующий тест падает.
+9. Откат: схемных изменений нет; при выключенном `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` новые агрегаты/связи не пишутся, но удаления нет ни в одном состоянии. Ранее удалённые строки не восстанавливаются и «восстановление» не инсценируется.
 
 ### 3.5. Консолидация (сон/саммари/опыт/досье)
 
@@ -516,11 +550,11 @@ mca_evidence_links(source_ref_id = SourceRef сообщения / факта / �
 
 ### 3.6. Dual-read / rollback / идемпотентность
 
-Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` + `flags.memory_maintenance_policy_enabled`. OFF → `_dedup_decide` как сегодня (включая cosine-полосы), квотное наблюдение — как в §3.4.1 (удаления нет в любом состоянии). Откат: гейт OFF. Идемпотентность: NOOP-правило + уникальные индексы evidence-links + проверка «этот корень уже связан».
+Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` + `flags.memory_maintenance_policy_enabled`. OFF → `_dedup_decide` как сегодня (включая cosine-полосы), квотное наблюдение — как в §3.4.1, слияние/дедуп обслуживания — как в §3.4.1.1. Удаления нет ни в одном состоянии в обоих случаях. Откат: гейт OFF. Идемпотентность: NOOP-правило + уникальные индексы evidence-links + проверка «этот корень уже связан».
 
 ### 3.7. Обязательные тесты
 
-`valid_from` ставится только при поддержке источником; отсутствующая дата ≠ T_assertion ≠ now; «вчера» через границу DST и после смены пояса чата; историческое сообщение, переработанное позже, сохраняет своё разрешение; поправка сохраняет старую строку и её источники; ENRICH не перезаписывает non-NULL; NOOP не повышает вес; CONFIRM только при независимом корне; cosine-полоса не инвалидирует (мутация: вернуть старый `supersede` → тест падает); противоречие доступно с обеих сторон; `assertion_mode` без сигнала = `unknown` (мутация: подставить `asserted` → тест падает); квота не удаляет (§3.4.1).
+`valid_from` ставится только при поддержке источником; отсутствующая дата ≠ T_assertion ≠ now; «вчера» через границу DST и после смены пояса чата; историческое сообщение, переработанное позже, сохраняет своё разрешение; поправка сохраняет старую строку и её источники; ENRICH не перезаписывает non-NULL; NOOP не повышает вес; CONFIRM только при независимом корне; cosine-полоса не инвалидирует (мутация: вернуть старый `supersede` → тест падает); противоречие доступно с обеих сторон; `assertion_mode` без сигнала = `unknown` (мутация: подставить `asserted` → тест падает); квота не удаляет (§3.4.1); слияние/дедуп обслуживания не удаляют источники, агрегат связан `derived_from` с каждым источником и обратными `supersedes`, cosine-кластер не помечает источники `superseded` (§3.4.1.1).
 
 ---
 
@@ -588,7 +622,9 @@ SearchResponse = {
 
 ### 4.4. Ранжирование — внутри существующего `retrieve()`, не рядом с ним
 
-Поиск обязан вызывать **ту же** функцию, что и ответ бота: `services/mca_retrieval_context.py::retrieve(db, memory, request)`. Сейчас она принимает один `chat_id`, режет по `top_k` и не имеет курсора/entity/community-каналов, поэтому **контракт требует её расширить** (не создать параллельный сборщик пула — это был бы второй поисковый движок, запрещённый §0.5/S-1):
+Поиск обязан вызывать **ту же** функцию, что и ответ бота: `services/mca_retrieval_context.py::retrieve(db, memory, request)`. Сейчас она принимает один `chat_id`, режет выдачу по `top_k` **только снизу** (`max(1, request.top_k)`; верхнего капа в `retrieve` нет) и не имеет курсора/entity/community-каналов, поэтому **контракт требует её расширить** (не создать параллельный сборщик пула — это был бы второй поисковый движок, запрещённый §0.5/S-1):
+
+**Верхняя граница `limit ≤ 20` вводится этим эпиком явно (MEMORY-06), а не существует сегодня:** параметр `limit` появляется только в новой ветке `purpose='ui_search'`, и там он валидируется на входе (`1 ≤ limit ≤ 20`, иначе `400`); `top_k` для reply/initiative остаётся как есть, без нового потолка.
 
 ```python
 RetrievalRequest += {
@@ -597,6 +633,7 @@ RetrievalRequest += {
   "purpose": "reply"|"initiative"|"factcheck_context"|"ui_search"|"dossier",
   "cursor": str | None, "limit": int | None,   # только для purpose='ui_search'
   "offset_bucket": str | None,
+  "subject_node_ids": tuple[int, ...] | None,  # nodes.id после C-1; НЕ uid (§7.1)
 }
 ```
 Контракт расширения:
@@ -604,6 +641,7 @@ RetrievalRequest += {
 - `cursor`/`limit` активны только при `purpose='ui_search'`; для reply/initiative сохраняется текущее `top_k`-поведение;
 - `purpose='ui_search'` запрещает LLM: `apply_retrieval_rerank` не вызывается (§4.6);
 - новый канал `entity` (взвешенный вес 90, между exact и lexical) добавляется в существующую детерминированную агрегацию `_CHANNEL_WEIGHTS` + `apply_identity_prior`; `community` читается из `mca_community_members` активной сборки;
+- `subject_node_ids` (`nodes.id` после C-1) питает новый `entity`-канал, а существующий `subject_entity_ids` остаётся кортежем **uid** для identity-prior; смешивать их запрещено (§7.1);
 - каналы остаются bounded SQL (keyset/LIMIT), без полного скана; `EXPLAIN QUERY PLAN` проверяется тестом.
 
 **Тест связи endpoint↔функция обязателен:** `test_search_endpoint_calls_shared_retrieve` подменяет `mca_retrieval_context.retrieve` счётчиком и утверждает, что `/api/memory/search` вызвал именно её (0 собственных SQL-поисков в `web/api/cognitive_map.py` — проверяется AST/`EXPLAIN`-инвентарём запросов в модуле).
@@ -614,7 +652,7 @@ RetrievalRequest += {
 
 ### 4.6. Сообщества vs LOD-тайлы (жёсткое разделение)
 
-`community` — backend-сборка по реальным узлам/рёбрам в chat scope (см. C-6), стабильный `build_id`, `member_count`, `label_basis`; API отдаёт `ref_kind='community'`. Пространственные LOD-тайлы (`computeClusters`, «Группа · N») остаются **клиентской** техникой рендера, никогда не приходят из API как «сообщество» и не дают поисковых результатов. `entity_id` никогда не меняется из-за раскладки. **Typed reranker (`apply_retrieval_rerank`) в UI-поиске не вызывается** (может быть LLM-backed): поиск обязан быть без LLM. Диагностика `why_ranked` — вклад каналов, без текста переписки.
+`community` — backend-сборка по реальным узлам/рёбрам в chat scope (см. C-6), стабильный `build_id`, `member_count`, `label_basis`; API отдаёт `ref_kind='community'`. Пространственные LOD-тайлы (`buildAggregates`, подпись «Группа · N») остаются **клиентской** техникой рендера, никогда не приходят из API как «сообщество» и не дают поисковых результатов. Клиентские компоненты связности (`computeClusters`, union-find по реальным рёбрам) — фильтр `Все кластеры`, а не сообщество и не поиск. `entity_id` никогда не меняется из-за раскладки. **Typed reranker (`apply_retrieval_rerank`) в UI-поиске не вызывается** (может быть LLM-backed): поиск обязан быть без LLM. Диагностика `why_ranked` — вклад каналов, без текста переписки.
 
 ### 4.7. Инварианты
 
@@ -695,6 +733,8 @@ PRIMARY KEY (chat_id, build_id, community_id, node_id)
 
 Ничего больше: **никаких** новых колонок в `nodes`/`edges`/`graph_facts`, никакой таблицы доказательств, никакой таблицы чекпоинтов (см. 5.3), никакого кэша поиска в БД. Все три таблицы — `CREATE … IF NOT EXISTS` под self-guard, `ALTER` не нужен, старый код их не читает, `PG` — no-op (memory-контур SQLite-only, как v28/v30). `graph_revision` в `mca_community_builds` — **строковый снимок** вычисленной ревизии (§2.4.3) на момент сборки, а не ссылка на несуществующую колонку.
 
+**`graph_facts.revision` уже существует** — добавлена миграцией **v31** (`_SELF_MODEL_FACT_COLUMNS`, `revision INTEGER NOT NULL DEFAULT 1`) вместе с `subject_entity_id`/`perspective`/`memory_kind`/`valid_from`/`valid_to`/`confidence_basis`. Шаг `v43` её **не добавляет и не меняет**; контракт использует её как существующее поле. Не путать две одноимённые колонки: `graph_facts.revision INTEGER` (v31) и `mca_source_refs.revision TEXT` (v17, только для ключа дедупа).
+
 ### 5.2. Гейты (существующий реестр, global/chat inheritance)
 
 | Гейт (env-аварийный) | Каталог (product) | Что включает |
@@ -766,7 +806,14 @@ Baseline ДО миграции: `VACUUM INTO`-бэкап, `PRAGMA integrity_chec
 
 ### 7.1. Запрос retrieval для ответа: схема и три режима
 
-Запрос — расширение `RetrievalRequest` (§4.4), не новый тип. Поля (MEM-06.2): `query`, `chat_id`/`chat_ids`, `trigger_ref` (реальный `tg_message_id`/SourceRef), `intent ∈ fact|who|what-happened|history|relationship|current|follow-up|broad-theme`, `subject_entity_ids`/`ambiguous_subjects` (из C-1), `time_from/time_to`, `purpose`, `access` (ACL scope).
+Запрос — расширение `RetrievalRequest` (§4.4), не новый тип. Поля (MEM-06.2): `query`, `chat_id`/`chat_ids`, `trigger_ref` (реальный `tg_message_id`/SourceRef), `intent ∈ fact|who|what-happened|history|relationship|current|follow-up|broad-theme`, `subject_ids` (см. ниже), `ambiguous_subjects` (из C-1), `time_from/time_to`, `purpose`, `access` (ACL scope).
+
+**Семантика существующего `subject_entity_ids` — это Telegram `user id`, а не `nodes.id`.** Факт (проверено на линии): `build_memory_request` кладёт туда `int(addressee_uid)`/`int(reply_parent_uid)`, а `apply_identity_prior` сравнивает их с `RetrievalCandidate.subject_entity_id`, который выводится из `graph_facts.target_user` (`int(row["target_user"])`). Поэтому:
+
+- **`subject_entity_ids` не перегружается** — остаётся кортежем uid и обслуживает только identity-prior;
+- для канонических узлов из C-1 вводится **отдельное поле** `subject_node_ids: tuple[int, ...]` (`nodes.id` после redirect-схлопывания). Ветка `entity`-канала (§4.4) и карточки читают его; смешивать uid и node id в одном кортеже **запрещено** (это уже приводило бы к ложному exact-subject prior, когда uid случайно совпадает с `nodes.id`);
+- если у канонического узла есть активная self-строка `mca_entity_canonical` с `stable_kind='tg_user'`, оба поля заполняются согласованно (uid + node id); если uid неизвестен — заполняется только `subject_node_ids`;
+- ключи кэша/ревью (§2.4.3) включают оба поля, чтобы запрос с uid и запрос с node id не считались одним и тем же при разных смыслах.
 
 Три режима (MEM-06.6) отображаются на существующие `mode`/`scope`, без нового маршрутизатора и без LLM:
 
@@ -866,7 +913,7 @@ Baseline ДО миграции: `VACUUM INTO`-бэкап, `PRAGMA integrity_chec
 
 `entity_resolution`, `identity_seed_missing`, `identity_seed_ambiguous`, `identity_seed_node_conflict`, `entity_type_conflict`, `redirect_cycle_detected`, `merge_decision`, `assertion_recorded`, `edge_evidence_attached`, `edge_legacy`, `conflict_detected`, `dedupe_candidate`, `graph_fact_quota_exceeded`, `memory_retrieved`, `memory_rejected`, `context_selected`, `community_refresh`, `map_search`, `map_neighbors`, `cursor_revision_mismatch`, `backfill_checkpoint`.
 
-Метрики с знаменателем: доля рёбер с источником; доля `legacy/unverified`; `mentions_only_edges`; merge candidates/confirmed/false merges; ambiguities; `identity_not_seeded_chats`; search `query_to_first_local`, `query_to_first_server`, `p50/p95`, `top1/Recall@5/MRR`, `wrong_entity_rate`, `ambiguity_coverage`, `stale_result_suppression`, `cursor_stale_rate` (отдельно от `no_matches`), `offscene_hit_rate`, `search_unauthorized_leaks` (обязан быть 0), DB query plan, фоновые LLM-вызовы (обязаны быть 0 на поиск/сообщение), живые факты сверх квоты (числа, §3.4.1). Нет данных → «Не измерялось», не 0/OK.
+Метрики с знаменателем: доля рёбер с источником; доля `legacy/unverified`; `mentions_only_edges`; merge candidates/confirmed/false merges; ambiguities; `identity_not_seeded_chats`; search `query_to_first_local`, `query_to_first_server`, `p50/p95`, `top1/Recall@5/MRR`, `wrong_entity_rate`, `ambiguity_coverage`, `stale_result_suppression`, `cursor_stale_rate` (отдельно от `no_matches`), `offscene_hit_rate`, `search_unauthorized_leaks` (обязан быть 0), DB query plan, фоновые LLM-вызовы (обязаны быть 0 на поиск/сообщение), живые факты сверх квоты (числа, §3.4.1), **`deleted_by_merge_or_dedupe` (обязан быть 0: слияние и дедуп обслуживания только аддитивны, §3.4.1.1)**. Нет данных → «Не измерялось», не 0/OK.
 
 Трасса одного ответа (для админа): запрос → разрешённая личность → кандидаты → почему выбраны/исключены → подтверждающие SourceRef → что ушло в L2 (`context_partial`) → что доставлено. Внутренние ID в текст бота не попадают.
 
@@ -880,7 +927,7 @@ Baseline ДО миграции: `VACUUM INTO`-бэкап, `PRAGMA integrity_chec
 |---|---|---|---|---|---|
 | Inline-карта в «Статусе» (`status-graph`), строка поиска | `[input «Поиск по имени или алиасу…»][Найти][Все типы][Все кластеры][Сбросить вид][статус]` | **REDESIGN** (санкция §9.4) | рамка карточки, glass, строка счётчиков, кнопка `Полный экран`, сам canvas | один input `Найти в памяти` / плейсхолдер `Человек, событие, факт или вопрос…`, иконка+`×`+индикатор внутри поля, панель до 6–8 результатов; `Сбросить вид` → иконка/контекст сцены; типы/кластеры → контекстные действия инспектора | владелец требует ровно одно поле, без обязательной кнопки |
 | Fullscreen-панель (`graphFullPanel`) | тот же toolbar целиком | **REFINE** | полноэкранный режим, back-stack, safe-area, один state с inline | тот же компонент/состояние, без второго `input` и без дублирующих контролов | SC-21/SC-28 |
-| Сцена/физика/LOD (`cognitive-map.js`, `lodFor`, гистерезис, `reducedMotion`, mobile simple) | витрина 800/2400, кластеры «Группа · N» | **KEEP** | пороги, гистерезис, физика после стабилизации, mobile-упрощение, dispose RAF/listeners | только подсветка выбранного/пути; никакой смены семантики | INV-15, MEM-08.7/08.8 |
+| Сцена/физика/LOD (`cognitive-map.js`, `lodFor`, гистерезис, `reducedMotion`, mobile simple; тайлы `buildAggregates` с подписью «Группа · N», фильтр `computeClusters` по рёбрам) | витрина 800/2400, тайлы «Группа · N» | **KEEP** | пороги, гистерезис, физика после стабилизации, mobile-упрощение, dispose RAF/listeners, смысл тайлов как раскладки | только подсветка выбранного/пути; никакой смены семантики; тайлы остаются раскладкой и **не** становятся сообществами | INV-15, MEM-08.7/08.8 |
 | Инспектор узла/ребра | name/type/group/degree, соседи | **REFINE** | существующие бейджи, кнопки, карточка источника | + алиасы, статус идентификации, эпизоды, «Источник/Происхождение не установлено», для ребра — sources/validity/independent_support/`legacy_ids`/`has_unsupported_sources` | MEM-08.9, C-2 |
 | Счётчики | «N узлов · M рёбер · показаны не все» | **REFINE** | вторичный тон, компактность, честное `truncated` | `В памяти: N сущностей и M связей` / `Показано: n и m` / `Область` / `Сообщества` / `Данные обновлены`; неизвестное = «Неизвестно» | MEM-08.5 |
 | Легенда типов | `groups` vis-network | **KEEP** | категории, доступность в карточках | сворачиваемая/контекстная | MEM-08.24 |
@@ -894,7 +941,7 @@ Baseline ДО миграции: `VACUUM INTO`-бэкап, `PRAGMA integrity_chec
 
 ## 11. Параллелизация и write-scopes
 
-**Порядок барьеров:** G0 (подтвердить union-ветку `integ/unify-release` @ `640da3eb`) → A0 (переаудит §0.3.1) → код. До G0 — только чтение и этот документ.
+**Порядок барьеров:** G0 (подтвердить union-ветку `integ/unify-release` @ `640da3eb`) → A0 (переаудит §0.3.1) → код. До G0 — только чтение и этот документ. **A0 выполнен 07.11.2026** (итог — §0.3.1): MEMORY-01 и MEMORY-03 разблокированы, MEMORY-04 — этой редакцией, MEM-08-S3 — исправлениями 1–2.
 
 | Срез | Можно начинать | Зависит | Файлы (write scope) | Класс |
 |---|---|---|---|---|
@@ -904,7 +951,7 @@ Baseline ДО миграции: `VACUUM INTO`-бэкап, `PRAGMA integrity_chec
 | MEMORY-01 (типы/контракт в коде: `EntityRef`, `RelationView`, `SearchItem`, константы §1.2.2/§2.3) | после A0 | A0 | `services/memory_contracts.py` (новый) | `PARALLEL_SAFE` |
 | MEMORY-02 (identity, resolver, засев, слияния, единая точка создания) | после 01 | C-1, A0 | `services/entity_resolver.py` (новый), `services/summary_aliases.py` (read-extension) | `BLOCKED_BY:schema_v43_part_A` |
 | MEMORY-03 (edge-evidence) | после 01 | C-2 | `services/provenance.py`, `services/graphrag_provenance.py`, `services/relation_evidence.py` (новый) | `PARALLEL_SAFE` |
-| MEMORY-04 (temporal/политика/квота) | после 01 | C-3, C-1 | `services/summary_memory.py`, `services/graphrag_provenance.py` | `SERIALIZE` (`summary_memory.py`) |
+| MEMORY-04 (temporal/политика/квота/lineage-merge обслуживания) | после 01 | C-3, C-1 | `services/summary_memory.py`, `services/graphrag_provenance.py`, `services/memory_maintenance.py` | `SERIALIZE` (`summary_memory.py` + `memory_maintenance.py`; **сериализовано с MEMORY-07**) |
 | MEMORY-05 (C-8: соц/эпизод/мультимодал) | после 03+04 | C-2/C-3/C-8 | `services/summary_memory.py`, `services/mca_episodes.py`, `services/mca_vision.py`, `services/tool_router.py` (`_get_user_context`) | `SERIALIZE` (`summary_memory.py`) |
 | MEMORY-06 (C-7: единый retrieval + evidence summary) | после 02+03+04 | C-4/C-7 | `services/mca_retrieval_context.py`, `services/direct_context_composer.py`, `services/summary_l2_writer.py`, `services/turn_payload_events.py` | `SERIALIZE` (`mca_retrieval_context.py`) |
 | MEMORY-07 (сообщества) | после 02+03 | C-6 | `services/memory_communities.py` (новый), `services/memory_maintenance.py` (регистрация job) | `BLOCKED_BY:schema_v43_part_B` |
@@ -916,7 +963,7 @@ Baseline ДО миграции: `VACUUM INTO`-бэкап, `PRAGMA integrity_chec
 | MENU-01 | уже идёт независимо | — | `handlers/menu.py` | `READ_ONLY_PARALLEL` к памяти; **не** писать `web/index.html` одновременно с UI-лейном |
 
 **Сериализуемые точки (ровно по одному владельцу в момент времени):**
-`services/database.py` (вся схема v43 + `upsert_edge(touch_recency)` + `resolve_or_create_node`-хук), `services/summary_memory.py`, `services/summary_aliases.py`, `services/mca_retrieval_context.py`, `services/summary_l2_writer.py`, `services/turn_payload_events.py`, `web/api/memory_agi.py`, `web/api/cognitive_map.py`, `web/app.js`, `web/index.html`, `web/static/cognitive-map.js`.
+`services/database.py` (вся схема v43 + `upsert_edge(touch_recency)` + `resolve_or_create_node`-хук), `services/summary_memory.py`, `services/memory_maintenance.py` (MEMORY-04 меняет `merge_episodes`/`_merge_cluster`/`review`/`_glue_vec_dups`, MEMORY-07 добавляет только регистрацию job — оба пишут один файл, поэтому строго последовательно), `services/summary_aliases.py`, `services/mca_retrieval_context.py`, `services/summary_l2_writer.py`, `services/turn_payload_events.py`, `web/api/memory_agi.py`, `web/api/cognitive_map.py`, `web/app.js`, `web/index.html`, `web/static/cognitive-map.js`.
 
 **Порядок слияния:** `database.py` (v43 part A/B) → identity/засев/evidence (02/03) → retrieval+evidence summary (06) → API поиск (S2) → UI (S3/S4) → сообщества/EVAL (S5). Максимум 3 одновременных писателя, у каждого — непересекающийся scope. `services/summary_l2_writer.py`/`turn_payload_events.py` приходят из релизного corrective на G0 — их правки только в MEMORY-06, не параллельно.
 
@@ -926,7 +973,7 @@ Baseline ДО миграции: `VACUUM INTO`-бэкап, `PRAGMA integrity_chec
 
 Нулевая терпимость (release blocker, EVAL-04): одно подтверждённое ложное автослияние двух Telegram user ID в gold; утечка памяти чужого чата; «подтверждённая» связь без источника (`mentions`-only в т.ч.); потеря исходного SourceRef/legacy-id; выдуманная связь в UI; полная перестройка embeddings без смены модели; изменение сохранённых промптов; скрытое удаление фактов квотой; новый обязательный LLM-вызов на ход; вторая поисковая форма/строка; второе определение поиска (не общий `retrieve`).
 
-Обязательные доказательства: gold-set ≥200 размеченных проверок (EVAL-01/02), отдельный search-gold ≥60 (EVAL-07), A/B baseline vs кандидат с зафиксированными SHA/настройками/индексами, реальные p50/p95 и скриншоты/запись desktop+Android, мутационные тесты по каждому контракту, независимая проверка Reviewer на реальных SQL/данных, а не на заглушках. Плюс специфические доказательства этой редакции: `EXPLAIN QUERY PLAN` для правила 4 и всех каналов; тест диапазона `ПАПАХА`/`Папаха`/`папаха` + негатив другой буквы (T14b); тест отсутствия ложного слияния двух uid (T3b/T12b, `identity_seed_node_conflict`); тест идемпотентности SourceRef ребра (§2.4.1); тест «квота не удаляет» (§3.4.1); тест условного пуржа при `memory.infinite_retention` (§3.4.1); тест недеградации `purpose='relationships'` (§7.5); тест связи endpoint↔`retrieve` (§4.4); тесты `chat_id=None`/`scope_all` (§5.2.1); тест `cursor_stale` (§4.9); тесты C-7/C-8 (§7.6/§8.7).
+Обязательные доказательства: gold-set ≥200 размеченных проверок (EVAL-01/02), отдельный search-gold ≥60 (EVAL-07), A/B baseline vs кандидат с зафиксированными SHA/настройками/индексами, реальные p50/p95 и скриншоты/запись desktop+Android, мутационные тесты по каждому контракту, независимая проверка Reviewer на реальных SQL/данных, а не на заглушках. Плюс специфические доказательства этой редакции: `EXPLAIN QUERY PLAN` для правила 4 и всех каналов; тест диапазона `ПАПАХА`/`Папаха`/`папаха` + негатив другой буквы (T14b); тест отсутствия ложного слияния двух uid (T3b/T12b, `identity_seed_node_conflict`); тест идемпотентности SourceRef ребра (§2.4.1); тест «квота не удаляет» (§3.4.1); **тест lineage-merge обслуживания: источники живы, FTS/vec живы, `derived_from`+обратные `supersedes` на каждый источник, `deleted_by_merge_or_dedupe=0`, переписанные тесты `tests/test_memory_maintenance.py` (§3.4.1.1)**; тест условного пуржа при `memory.infinite_retention` (§3.4.1); тест недеградации `purpose='relationships'` (§7.5); тест связи endpoint↔`retrieve` (§4.4); тесты `chat_id=None`/`scope_all` (§5.2.1); тест `cursor_stale` (§4.9); тесты C-7/C-8 (§7.6/§8.7).
 
 ---
 
