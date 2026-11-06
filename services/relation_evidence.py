@@ -48,6 +48,7 @@ from services import graphrag_provenance, provenance
 from services.memory_contracts import (
     LEGACY_EXPLANATION,
     SUPPORTING_LINK_TYPES,
+    AssertionMode,
     OriginClass,
     RelationSourceView,
     RelationStatus,
@@ -104,10 +105,10 @@ _EVIDENCE_PLANS: dict[str, dict] = {
         "basis": "пересказ третьего лица — первоисточник не установлен",
     },
     ORIGIN_QUOTE_FORWARD: {
-        "root": "fact", "link_type": "derived_from",
+        "root": "message", "link_type": "derived_from",
         "verification": "tentative", "independence": "unknown",
         "method": "metadata",
-        "basis": "репост/цитата — первоисточник не установлен",
+        "basis": "forward",
     },
     ORIGIN_DERIVED_WITH_LINEAGE: {
         "root": "fact", "link_type": "derived_from",
@@ -252,76 +253,124 @@ async def _load_author_message(db, chat_id, tg_message_id) -> dict:
     return dict(row) if row is not None else {}
 
 
-def _same_identity(left, right) -> bool:
-    """Совпадение идентичности без догадок: нормализованное равенство."""
-    a = " ".join(str(left or "").split()).casefold()
-    b = " ".join(str(right or "").split()).casefold()
-    return bool(a) and bool(b) and a == b
+def _message_forwarded(msg: dict) -> bool:
+    """Сохранённое сообщение — репост/цитата (§2.2.1(г))."""
+    return bool(msg) and (
+        bool(msg.get("is_forward"))
+        or bool(str(msg.get("forward_source") or "").strip()))
+
+
+def _uid_from_ref(ref: dict | None) -> int | None:
+    """`user`-SourceRef → устойчивый uid; неразрешённый адрес — не uid."""
+    if not ref:
+        return None
+    if str(ref.get("entity_type") or "") != "user":
+        return None
+    if str(ref.get("resolution") or "") != "resolved":
+        return None
+    try:
+        return int(str(ref.get("entity_id")))
+    except (TypeError, ValueError):
+        return None
+
+
+async def _subject_uids(db, row: dict, *, subject=None,
+                        target_user=None,
+                        speaker_author_id=None) -> set[int]:
+    """Устойчивые uid субъекта/говорящего факта (§2.2.1, пункт 2).
+
+    Только идентичности, разрешённые однозначно:
+      * `speaker_author_id` — говорящий (достаточен сам по себе);
+      * `subject_ref_id` → `user`-SourceRef с `resolution='resolved'`;
+      * `target_user`/`subject`, разрешённые ровно в один uid
+        (`provenance.resolve_subject_ref`; при 0 или ≥2 одноимённых —
+        **не** совпадение, §2.2.1(е)).
+    Сравнения по отображаемому имени нет вовсе.
+    """
+    uids: set[int] = set()
+    speaker_id = speaker_author_id or row.get("speaker_author_id")
+    if speaker_id is not None:
+        try:
+            uids.add(int(speaker_id))
+        except (TypeError, ValueError):
+            pass
+    ref_id = row.get("subject_ref_id")
+    if ref_id is not None:
+        uid = _uid_from_ref(await provenance.get_source_ref(db, int(ref_id)))
+        if uid is not None:
+            uids.add(uid)
+    chat_id = row.get("chat_id")
+    for name in (target_user, row.get("target_user"), subject):
+        cleaned = str(name or "").strip()
+        if not cleaned or chat_id is None:
+            continue
+        try:
+            ref = await provenance.resolve_subject_ref(db, chat_id, cleaned)
+        except Exception:                                 # pragma: no cover
+            continue
+        if ref.resolution != "resolved":
+            continue          # 0 или ≥2 одноимённых → не совпадение (п. «е»)
+        uid = _uid_from_ref(ref.as_dict())
+        if uid is not None:
+            uids.add(uid)
+    return uids
 
 
 async def _authorship_corroborated(db, row: dict, *, subject=None,
                                    target_user=None,
                                    speaker_author_id=None) -> bool:
-    """Подтверждено ли авторство факта сохранённым сообщением (§2.2/§2.3).
+    """Подтверждено ли авторство факта сохранённым сообщением (§2.2.1).
 
     Условия (все обязательны):
       * сообщение реально есть в этом чате по `tg_message_id`;
-      * известна идентичность субъекта утверждения (иначе подтверждать нечего);
-      * автор сообщения совпадает с субъектом (по `user_id`, когда он известен,
-        иначе по нормализованному имени);
-      * если записан `speaker_author_id`, он совпадает с `user_id` автора;
-      * сообщение не является репостом/цитатой (это `quote_forward`).
+      * сообщение не является репостом/цитатой (это `quote_forward`, п. «г»);
+      * `smart_messages.user_id` совпадает с устойчивым uid субъекта/говорящего
+        факта. Одноимённость (≥2 uid) совпадением НЕ считается (п. «е»).
     """
     msg = await _load_author_message(
         db, row.get("chat_id"), row.get("tg_message_id"))
-    if not msg:
+    if not msg or _message_forwarded(msg):
         return False
-    if bool(msg.get("is_forward")) \
-            or str(msg.get("forward_source") or "").strip():
-        return False
-    speaker_id = speaker_author_id or row.get("speaker_author_id")
     author_id = msg.get("user_id")
-    if speaker_id is not None and author_id is not None \
-            and int(speaker_id) != int(author_id):
+    if author_id is None:
+        return False                # автора без uid отождествить нечем
+    try:
+        author_uid = int(author_id)
+    except (TypeError, ValueError):
         return False
-    subject_name = subject or target_user or row.get("target_user")
-    if not subject_name:
-        # Последний реальный след субъекта — SourceRef субъекта (canon-имя или
-        # устойчивый uid), уже записанный атрибуцией факта.
-        subject_name = await _subject_identity(db, row)
-    author_name = msg.get("author_name")
-    return _same_identity(subject_name, author_name)
-
-
-async def _subject_identity(db, row: dict) -> str:
-    """Идентичность субъекта из `subject_ref_id` (имя канона либо uid)."""
-    ref_id = row.get("subject_ref_id")
-    if ref_id is None:
-        return ""
-    ref = await provenance.get_source_ref(db, int(ref_id))
-    if not ref:
-        return ""
-    return str(ref.get("entity_id") or "")
+    uids = await _subject_uids(
+        db, row, subject=subject, target_user=target_user,
+        speaker_author_id=speaker_author_id)
+    return author_uid in uids
 
 
 async def _fact_origin_class(db, row: dict, *, subject=None,
                              target_user=None,
                              speaker_author_id=None) -> str:
-    """Класс по РЕАЛЬНЫМ сигналам строки факта (без подставленных link-полей).
+    """Класс по РЕАЛЬНЫМ сигналам строки факта и сохранённого сообщения.
 
     Классификатор ни разу не получает выдуманных `verification='verified'` /
     `method='direct_reference'`: у факта нет и не может быть «link-семантики» —
-    только собственная атрибуция (F1).
+    только собственная атрибуция (F1) и сохранённое авторское сообщение.
 
-    `self_report`/`direct_evidence` при `perspective IS NULL` даёт
-    `explicit_direct` ТОЛЬКО если авторство подтверждено сохранённым сообщением
-    того же автора (F2). Иначе — `legacy_unknown` (нет второго сигнала).
+    * `perspective='self'` — достаточный сигнал авторства (§2.2.1, ветвь 1);
+    * `perspective IS NULL` + `self_report`/`direct_evidence` → `explicit_direct`
+      только при совпадении uid автора сообщения с субъектом (§2.2.1, ветвь 2);
+    * сохранённое сообщение-репост → `quote_forward` (§2.2.1(г)), не авторство;
+    * иначе — `legacy_unknown` (нет второго сигнала, `confirmed` невозможен).
     """
     row = row or {}
     origin_class = graphrag_provenance.classify_origin_class(
         entity_type="graph_fact", source_row=row)
-    if origin_class == ORIGIN_EXPLICIT_DIRECT:
+    if origin_class == ORIGIN_QUOTE_FORWARD:
         return origin_class
+    msg = await _load_author_message(
+        db, row.get("chat_id"), row.get("tg_message_id"))
+    if _message_forwarded(msg) and origin_class in (
+            ORIGIN_EXPLICIT_DIRECT, ORIGIN_LEGACY_UNKNOWN):
+        return ORIGIN_QUOTE_FORWARD
+    if origin_class == ORIGIN_EXPLICIT_DIRECT:
+        return origin_class          # perspective='self' — достаточно
     if str(row.get("perspective") or "").strip():
         return origin_class          # явный сигнал есть — сверка не требуется
     if str(row.get("attribution_method") or "") \
@@ -564,25 +613,45 @@ def _origin_class(entity_type: str | None, row: dict,
         entity_type=entity_type, source_row=row,
         link_type=str(link.get("link_type") or ""),
         method=str(link.get("method") or "unknown"),
-        verification=str(link.get("verification") or "unknown"))
+        verification=str(link.get("verification") or "unknown"),
+        basis=link.get("basis"))
     try:
         return OriginClass(value)
     except ValueError:                                    # pragma: no cover
         return OriginClass.LEGACY_UNKNOWN
 
 
+def _assertion_mode(origin_class: OriginClass, entity_type: str | None,
+                    row: dict):
+    """Модальность основания (§3.3.1) с учётом подтверждённого авторства.
+
+    `explicit_direct` означает «прямое утверждение подтверждённого автора»
+    (§2.2.1), поэтому пара `explicit_direct` + `assertion_mode='unknown'`
+    запрещена контрактом (§3.3.1). Авторство уже доказано вторым реальным
+    сигналом на записи, поэтому модальность — `asserted`. Замороженный
+    `memory_contracts.resolve_assertion_mode` не меняется: он описывает
+    сигналы строки, а не подтверждённость авторства.
+    """
+    mode = _assertion_mode_for(entity_type, row)
+    if origin_class is OriginClass.EXPLICIT_DIRECT \
+            and mode is AssertionMode.UNKNOWN:
+        return AssertionMode.ASSERTED
+    return mode
+
+
 def _source_view(link: dict, ref: dict, row: dict) -> RelationSourceView:
     entity_type = str(ref.get("entity_type") or "")
     settled_at = int(link.get("established_at") or 0) or int(time.time())
+    origin_class = _origin_class(entity_type, row, link)
     return RelationSourceView(
         link_type=str(link.get("link_type") or ""),
-        origin_class=_origin_class(entity_type, row, link),
+        origin_class=origin_class,
         verification=str(link.get("verification") or "unknown"),
         independence=str(link.get("independence") or "unknown"),
         established_at=max(1, settled_at),
         method=str(link.get("method") or "unknown"),
         kind=_source_kind(ref),
-        assertion_mode=_assertion_mode_for(entity_type, row),
+        assertion_mode=_assertion_mode(origin_class, entity_type, row),
         source_ref_id=int(link["source_ref_id"]),
         fact_id=_event_fact_id(ref, row),
         speaker=row.get("author_name") if entity_type == "message" else None,

@@ -159,7 +159,8 @@ _BOT_ORIGINS = frozenset({"bot_self_reply", "bot_direct_reply"})
 
 def classify_origin_class(*, entity_type: str | None, source_row,
                           link_type: str = "", method: str = "unknown",
-                          verification: str = "unknown") -> str:
+                          verification: str = "unknown",
+                          basis: str | None = None) -> str:
     """Класс происхождения по §2.2 (сигналы строки) и §2.3 (семантика связи).
 
     Только выводимое из существующих полей; нет сигнала → `legacy_unknown`
@@ -216,6 +217,9 @@ def classify_origin_class(*, entity_type: str | None, source_row,
     # (5) соседство в реплике ≠ утверждение (§2.3, R-11).
     if link_type == "mentions":
         return ORIGIN_COOCCURRENCE
+    # (5b) явная семантика репоста/цитаты в самой связи (§2.3 basis).
+    if link_type == "derived_from" and str(basis or "") in ("forward", "quote"):
+        return ORIGIN_QUOTE_FORWARD
     # (6) прямая ссылка на сохранённое сообщение (verified + basis).
     if (link_type in _SUPPORTING_LINK_TYPES
             and str(method or "") in _DIRECT_REFERENCE_METHODS
