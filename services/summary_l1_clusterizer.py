@@ -784,6 +784,63 @@ def _emit_coverage_degraded(source_total: int, processed: int,
         reason)
 
 
+def _emit_chunked_stage_event(*, ctx, llm, slot, ctx_started: float,
+                              status: str, reason_code: str | None,
+                              finish_reason: str, decision: str,
+                              merged_payload: dict | None, merged,
+                              source_total: int) -> None:
+    """UR-26.5 (b): итоговое ``l1_plan``-событие chunked-прогона (§120/§125).
+
+    Те же поля payload-матрицы, что у single-pass (model/provider,
+    finish/usage/chars/text_digest/clock/decision), с честной пометкой
+    сборки из чанков (``finish_reason="chunked_merge"`` / variant). usage —
+    сумма по l1_plan-событиям сегментов (best-effort); clock — метка
+    последнего сегментного payload'а (фресший chunk); digest/chars — по
+    merged-плану (артефакт стадии, уходящий в L2). Только числа/коды/
+    digest (R17); ошибка события не рвёт прогон."""
+    try:
+        model = _effective_model(llm, slot) if llm is not None else slot.model
+        usage_in = usage_out = 0
+        has_usage = False
+        last_clock = None
+        for ev in (getattr(ctx, "stage_events", None) or []):
+            if not isinstance(ev, dict) \
+                    or ev.get("stage") != _stage_events_mod.STAGE_L1_PLAN:
+                continue
+            usage = ev.get("usage")
+            if isinstance(usage, dict):
+                has_usage = True
+                usage_in += int(usage.get("input_tokens") or 0)
+                usage_out += int(usage.get("output_tokens") or 0)
+            clock = ev.get("clock")
+            if isinstance(clock, dict) and clock.get("clock_included"):
+                last_clock = clock
+        raw = None
+        if isinstance(merged_payload, dict):
+            try:
+                raw = json.dumps(merged_payload, ensure_ascii=False)
+            except Exception:      # pragma: no cover - digest не рвёт
+                raw = None
+        output_count = None
+        if merged is not None:
+            output_count = int(getattr(merged, "threads_count", 0) or 0) or None
+        _stage_events_mod.record(ctx, _stage_events_mod.build_event(
+            _stage_events_mod.STAGE_L1_PLAN, attempt=1, status=str(status),
+            reason_code=(str(reason_code)[:200] if reason_code else None),
+            started=ctx_started, model=model,
+            provider=_stage_events_mod.provider_host(slot.base_url),
+            finish_reason=finish_reason,
+            usage=({"input_tokens": usage_in, "output_tokens": usage_out}
+                   if has_usage else None),
+            chars=(len(raw) if raw is not None else None),
+            text_digest=(_stage_events_mod.text_digest(raw)
+                         if raw is not None else None),
+            clock=last_clock, decision=decision,
+            input_count=int(source_total), output_count=output_count))
+    except Exception:      # pragma: no cover - наблюдаемость не рвёт прогон
+        pass
+
+
 def merge_l1_payloads(payloads: list[dict]) -> dict:
     """Детерминированный merge §95-v2 payload'ов нескольких chunk-прогонов
     (§124/§126, без дополнительного LLM-вызова):
@@ -903,7 +960,8 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
                            ledger: CoverageLedger | None = None,
                            segment_restore: bool = False,
                            _budget_label: str | None = None,
-                           _map_mode: bool = False) -> L1Result:
+                           _map_mode: bool = False,
+                           ctx=None) -> L1Result:
     """Overflow-путь §120/§125: полный source set → lossless partition →
     L1 по каждому фрагменту → детерминированный merge → L2 (вызывает
     вызывающий контур). Каждый source ID ≥1 primary chunk (§121);
@@ -946,7 +1004,7 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
                             budget=(kind, limit),
                             system_prompt=system_prompt, llm_call=llm_call,
                             focus_block=focus_block, _allow_chunking=False,
-                            _map_mode=_map_mode)
+                            _map_mode=_map_mode, ctx=ctx)
     results: list = []
     processed_ids: set = set()
     minimal_maps_used = 0
@@ -960,7 +1018,7 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
             correlation_id=correlation_id, budget=(kind, limit),
             system_prompt=system_prompt, llm_call=llm_call,
             focus_block=focus_block, _allow_chunking=False,
-            _map_mode=_map_mode)
+            _map_mode=_map_mode, ctx=ctx)
         if segment_restore and not result.usable:
             # A.3: восстановление сегмента — re-run ТОЛЬКО проблемного,
             # ровно одна restore-попытка (последовательный сегментный
@@ -975,7 +1033,7 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
                 correlation_id=correlation_id, budget=(kind, limit),
                 system_prompt=system_prompt, llm_call=llm_call,
                 focus_block=focus_block, _allow_chunking=False,
-                _map_mode=_map_mode)
+                _map_mode=_map_mode, ctx=ctx)
             if retried.usable:
                 result = retried
         seg_failed = not result.usable
@@ -1066,6 +1124,14 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
         first = results[0] if results else None
         reason = (first.invalid_reason if first is not None else None) \
             or REASON_LLM_ERROR
+        # UR-26.5 (b): честный итог chunked-стадии при тотальном провале
+        # сегментов — явное событие, не молчаливый fallback.
+        _emit_chunked_stage_event(ctx=ctx, llm=llm, slot=slot, ctx_started=started,
+                                  status="error", reason_code=reason,
+                                  finish_reason="chunked_all_failed",
+                                  decision="l1_error_chunked",
+                                  merged_payload=None, merged=None,
+                                  source_total=source_total)
         return error_result(reason, duration_ms=duration)
     map_degraded_any = any(bool(getattr(r, "map_degraded", False))
                            for r in usable_results)
@@ -1160,6 +1226,14 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
                 correlation_id or "none", chat_id, status["processed"],
                 status["fallback"], status["missing"],
                 status["assignment_lossless"])
+            # UR-26.5 (b): merge собран, но ledger-проверка не сошлась —
+            # честный error-итог chunked-стадии в событии.
+            _emit_chunked_stage_event(
+                ctx=ctx, llm=llm, slot=slot, ctx_started=started,
+                status="error", reason_code="chunk_run_failed",
+                finish_reason="chunked_merge",
+                decision="l1_error_chunked", merged_payload=merged_payload,
+                merged=merged, source_total=source_total)
             return error_result("chunk_run_failed", duration_ms=duration)
     logger.info(
         "SUMMARY_L1_CHUNKED | run_id=%s | chat_id=%s | source_messages=%d | "
@@ -1167,6 +1241,17 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
         "budget_mode=%s",
         correlation_id or "none", chat_id, source_total,
         len(processed_ids), chunks_total, coverage, budget_mode)
+    # UR-26.5 (b): l1_plan-наблюдаемость chunked-пути — то же событие, что
+    # у single-pass (model/provider/finish/usage/chars/digest/clock), с
+    # честной пометкой, что план собран из чанков (finish_reason=
+    # chunked_merge, decision=l1_ok_chunked). Мутация «не эмитить на
+    # overflow» красная (тест TestChunkedL1OverflowPlanEvent).
+    _emit_chunked_stage_event(
+        ctx=ctx, llm=llm, slot=slot, ctx_started=started,
+        status=str(getattr(merged, "status", "") or "ok"), reason_code=None,
+        finish_reason="chunked_merge", decision="l1_ok_chunked",
+        merged_payload=merged_payload, merged=merged,
+        source_total=source_total)
     return merged
 
 
@@ -1517,7 +1602,7 @@ def _map_result_to_l1(map_res, base_kwargs: dict) -> L1Result:
 async def run_l1_capacity_first(*, llm, rows: list, chat_id,
                                 correlation_id, system_prompt=None,
                                 llm_call=None, focus_block=None,
-                                source_window=None) -> L1Result:
+                                source_window=None, ctx=None) -> L1Result:
     """Whole-window-first ветка spec §1 A.2/A.3 (kill-switch master ON).
 
     Решение режима входа — по ФАКТИЧЕСКОМУ serialized prompt всего окна:
@@ -1563,7 +1648,7 @@ async def run_l1_capacity_first(*, llm, rows: list, chat_id,
             correlation_id=correlation_id, budget=None,
             system_prompt=system_prompt, llm_call=llm_call,
             focus_block=focus_block, _allow_chunking=True,
-            _legacy_fallback=True)
+            _legacy_fallback=True, ctx=ctx)
     if kind != "tokens":
         # chars-аварийный путь (§77) — прежняя однопроходная семантика
         # (разделение Hybrid/Legacy не переопределяется волной 2);
@@ -1573,7 +1658,7 @@ async def run_l1_capacity_first(*, llm, rows: list, chat_id,
             correlation_id=correlation_id, budget=None,
             system_prompt=system_prompt, llm_call=llm_call,
             focus_block=focus_block, _allow_chunking=True,
-            _legacy_fallback=True)
+            _legacy_fallback=True, ctx=ctx)
     # ── Фактический serialized payload ПОЛНОГО окна (§6 ТЗ) ────────────────
     items = build_l1_payload(source_rows, chat_id)
     window_tokens = sum(_serialized_len(item, "tokens") for item in items)
@@ -1653,7 +1738,7 @@ async def run_l1_capacity_first(*, llm, rows: list, chat_id,
             system_prompt=system_prompt, llm_call=llm_call,
             focus_block=focus_block, _allow_chunking=False,
             _budget_label=budget_mode, _map_mode=semantic_map_enabled(),
-            source_window=source_window)
+            source_window=source_window, ctx=ctx)
     # CAPACITY_OVERFLOW (§A.3): единственный легитимный chunking-режим.
     _map_mode = semantic_map_enabled()
     if not capacity_overflow_ledger_enabled():
@@ -1664,7 +1749,7 @@ async def run_l1_capacity_first(*, llm, rows: list, chat_id,
             system_prompt=system, llm_call=llm_call, focus_block=focus_block,
             budget_mode=budget_mode, started=started, slot=slot,
             partitions=_partitions_preview, overlap_count=_overlap,
-            _budget_label=budget_mode, _map_mode=_map_mode)
+            _budget_label=budget_mode, _map_mode=_map_mode, ctx=ctx)
     ledger = CoverageLedger(source_message_ids=tuple(
         stable_id for stable_id in
         (stable_message_id(row) for row in source_rows)
@@ -1684,7 +1769,7 @@ async def run_l1_capacity_first(*, llm, rows: list, chat_id,
         budget_mode=budget_mode, started=started, slot=slot,
         partitions=_partitions_preview, overlap_count=_overlap,
         ledger=ledger, segment_restore=True, _budget_label=budget_mode,
-        _map_mode=_map_mode)
+        _map_mode=_map_mode, ctx=ctx)
 
 
 # ── Ядро запуска L1 (без врезки в живой путь) ──────────────────────────────
@@ -1746,7 +1831,7 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
             llm=llm, rows=rows, chat_id=chat_id,
             correlation_id=correlation_id, system_prompt=system_prompt,
             llm_call=llm_call, focus_block=focus_block,
-            source_window=source_window)
+            source_window=source_window, ctx=ctx)
     slot = resolve_l1_slot()
     source_rows = list(rows or [])
     chunk_count = 0
@@ -1829,7 +1914,7 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                     system_prompt=system, llm_call=llm_call,
                     focus_block=focus_block, budget_mode=budget_mode,
                     started=started, slot=slot, partitions=partitions,
-                    overlap_count=overlap)
+                    overlap_count=overlap, ctx=ctx)
         # ── ASAP-3.1 §120/§128: переполнение → lossless chunking, НЕ drop.
         # Semantics «skipped=N из-за budget» как normal behavior не
         # существует: место «L1 truncated input» занимает chunked-статус.
@@ -1843,7 +1928,7 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                 correlation_id=correlation_id, kind=kind, limit=limit,
                 system_prompt=system, llm_call=llm_call,
                 focus_block=focus_block, budget_mode=budget_mode,
-                started=started, slot=slot)
+                started=started, slot=slot, ctx=ctx)
         # ASAP-2.1 (T-3986, раздел 4 spec): L1_CONTEXT_PACK после pack_l1_input
         # (замещает FILTER_*; R17 — только числа/id; текстов нет).
         # ASAP-3.1: +budget_mode (auto/manual_cap/legacy_static, §78).

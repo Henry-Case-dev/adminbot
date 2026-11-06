@@ -11,7 +11,12 @@
   * supervisor — остановка (stall/бюджет попыток) видна кодом события;
   * digest стадии соответствует ПОЛНОМУ доставленному тексту (связка с
     фиксом full-text ledger UR-23.4 — никаких молчаливых [:20000]);
-  * в payload событий нет текстов чата (R17).
+  * в payload событий нет текстов чата (R17);
+  * подсаб-итем (a): отложенный генератор (retry-once после дефер-паузы)
+    несёт свежее answer_as_of_utc по правилу минуты ChatClock, окно
+    источников (summary_window_end_utc) не пересобирается;
+  * подсаб-итем (b): chunked-L1 overflow-путь эмитит l1_plan с теми же
+    полями и честной пометкой сборки из чанков.
 
 Все LLM-каналы инжектируются — 0 сетевых/платных вызовов.
 
@@ -590,3 +595,209 @@ class TestHonestAbsenceCodes:
         # chat_id нет → no_chat_id.
         assert clock_meta(None, chat_id=None) == {
             "clock_included": False, "skip_reason": "no_chat_id"}
+
+
+# ── (f) подсаб-итем (a): deferred generator → свежий answer_as_of_utc ───────
+
+
+def _strip_clock_block(content: str) -> str:
+    start = content.find("<Chat_Time_Context")
+    end = content.find("</Chat_Time_Context>", start)
+    return (content[:start]
+            + content[end + len("</Chat_Time_Context>"):]).strip()
+
+
+class TestDeferredGeneratorFreshAnswerClock:
+    @pytest.mark.asyncio
+    async def test_retry_after_deferral_refreshes_answer_as_of(
+            self, tz_chat, monkeypatch):
+        """Отложенная генерация (retry-once после LLMError + дефер-пауза):
+        новая попытка несёт ЯВНО свежее answer_as_of_utc (перевод минуты
+        эмулируется честным ChatClock-правилом ensure_answer_snapshot),
+        окно источников (summary_window_end_utc) в payload не меняется.
+        Мутация «заморозить блок часов через дефер» — красная."""
+        import datetime
+
+        import config.settings as _cs
+        from config.settings import Settings
+        from services import chat_clock as cc
+        from services.llm_client import LLMError
+        from services.summary_generator import SummaryGenerator
+
+        t0 = datetime.datetime(2026, 7, 15, 12, 0, 0,
+                               tzinfo=datetime.timezone.utc)
+        t1 = t0 + datetime.timedelta(seconds=61)
+
+        def _snap(at):
+            return cc.TimeSnapshot(
+                as_of_utc=at,
+                local_datetime=at + datetime.timedelta(hours=3),
+                weekday="Среда", timezone="Europe/Moscow",
+                utc_offset="+03:00", timezone_source="chat",
+                config_version="cfg-ur26")
+
+        produced = [_snap(t0), _snap(t1)]
+
+        async def _fake_snapshot(chat_id, **kwargs):
+            return produced.pop(0)
+
+        monkeypatch.setattr(cc, "snapshot", _fake_snapshot)
+        for cls in (Settings, type(_cs.settings)):
+            monkeypatch.setattr(cls, "SUMMARY_RETRY_ONCE_PAUSE", 0.0,
+                                raising=False)
+
+        captured: list[list] = []
+
+        class _DeferredLLM:
+            _chat_model = "gen-model"
+            _base_url = "http://gen"
+
+            async def generate(self, messages, **kwargs):
+                captured.append([dict(m) for m in messages])
+                if len(captured) == 1:
+                    raise LLMError("deferred: provider 503")
+                return "саммари готово"
+
+        sg = SummaryGenerator.__new__(SummaryGenerator)
+        sg.llm = _DeferredLLM()
+        sg.bot = __import__("unittest.mock",
+                            fromlist=["AsyncMock"]).AsyncMock()
+        window = ("Окно источников (период до 2026-11-05T10:00:00+00:00, "
+                  "WINDOW_END_UTC_MARKER):\nсообщение про погоду и планы")
+        out = await sg._llm_generate(
+            [{"role": "system", "content": "S"},
+             {"role": "user", "content": window}],
+            CHAT_A, correlation_id="ur26-defer", step="single")
+        assert out == "саммари готово"
+        assert len(captured) == 2, "ровно одна повторная попытка (retry-once)"
+        c1 = captured[0][-1]["content"]
+        c2 = captured[1][-1]["content"]
+        assert "as_of_utc: 2026-07-15T12:00:00+00:00" in c1
+        assert "as_of_utc: 2026-07-15T12:01:01+00:00" in c2, (
+            "отложенная повторная попытка обязана нести свежее "
+            "answer_as_of_utc (мутация: блок заморожен через дефер → red)")
+        assert _strip_clock_block(c1) == _strip_clock_block(c2) == window, (
+            "окно источников (summary_window_end_utc) не пересобирается "
+            "задним числом — payload вне блока часов байт-в-байт прежний")
+
+    @pytest.mark.asyncio
+    async def test_same_minute_deferral_keeps_plan_snapshot(self, tz_chat,
+                                                            monkeypatch):
+        """Дефер в пределах той же минуты: reuse снапшота по правилу минуты
+        ChatClock (ас_of не «дрожит» между попытками без перевода минуты)."""
+        import datetime
+
+        import config.settings as _cs
+        from config.settings import Settings
+        from services import chat_clock as cc
+        from services.llm_client import LLMError
+        from services.summary_generator import SummaryGenerator
+
+        t0 = datetime.datetime(2026, 7, 15, 12, 0, 0,
+                               tzinfo=datetime.timezone.utc)
+        produced = [cc.TimeSnapshot(
+            as_of_utc=t0, local_datetime=t0 + datetime.timedelta(hours=3),
+            weekday="Среда", timezone="Europe/Moscow", utc_offset="+03:00",
+            timezone_source="chat", config_version="cfg-ur26")]
+
+        async def _fake_snapshot(chat_id, **kwargs):
+            return produced.pop(0)
+
+        monkeypatch.setattr(cc, "snapshot", _fake_snapshot)
+        for cls in (Settings, type(_cs.settings)):
+            monkeypatch.setattr(cls, "SUMMARY_RETRY_ONCE_PAUSE", 0.0,
+                                raising=False)
+
+        captured: list[list] = []
+
+        class _DeferredLLM:
+            _chat_model = "gen-model"
+            _base_url = "http://gen"
+
+            async def generate(self, messages, **kwargs):
+                captured.append([dict(m) for m in messages])
+                if len(captured) == 1:
+                    raise LLMError("deferred same-minute")
+                return "саммари"
+
+        sg = SummaryGenerator.__new__(SummaryGenerator)
+        sg.llm = _DeferredLLM()
+        sg.bot = __import__("unittest.mock",
+                            fromlist=["AsyncMock"]).AsyncMock()
+        await sg._llm_generate(
+            [{"role": "system", "content": "S"},
+             {"role": "user", "content": "окно источников"}],
+            CHAT_A, correlation_id="ur26-defer0", step="single")
+        assert len(captured) == 2
+        assert captured[0][-1]["content"] == captured[1][-1]["content"], (
+            "та же минута → один снапшот на ход (правило минуты ChatClock)")
+
+
+# ── (g) подсаб-итем (b): chunked-L1 overflow эмитит l1_plan ─────────────────
+
+
+class TestChunkedL1OverflowPlanEvent:
+    @pytest.mark.asap41
+    @pytest.mark.asyncio
+    async def test_chunked_overflow_emits_l1_plan_events(self, tz_chat):
+        """L1 переполнение → lossless chunking: события l1_plan эмитятся и
+        здесь (те же поля payload-матрицы), финальное событие честно
+        помечает план, собранный из чанков. Мутация «не эмитить на
+        chunked overflow» (и «не прокидывать ctx в chunked-путь») — красная."""
+        rows = [
+            {"id": 101 + i, "tg_message_id": 101 + i, "user_id": 10 + i,
+             "author_name": f"Автор{i}",
+             "text": f"сообщение {i} про погоду и планы на выходные " * 30,
+             "timestamp": 1_700_000_000 + i * 60, "media_type": "text",
+             "reply_to_id": None, "is_forward": 0, "forward_source": None}
+            for i in range(4)
+        ]
+        calls: list[int] = []
+
+        async def _llm_call(messages):
+            content = str(messages[-1]["content"])
+            ids = sorted({int(m)
+                          for m in re.findall(r'"message_id":(\d+)', content)})
+            assert ids, "сегмент обязан содержать §92-элементы с message_id"
+            calls.append(len(ids))
+            plan = {
+                "schema_version": 2,
+                "threads": [{
+                    "thread_id": "t1", "topic": "погода",
+                    "message_ids": ids,
+                    "facts": [{"text": "обсуждали погоду",
+                               "evidence_message_ids": ids[:1]}],
+                }],
+                "unassigned_message_ids": [],
+            }
+            return json.dumps(plan, ensure_ascii=False), {
+                "prompt_tokens": 10, "completion_tokens": 5}
+
+        ctx = RunContextStub()
+        result = await run_l1(rows=rows, chat_id=CHAT_ID, llm_call=_llm_call,
+                              budget=("chars", 700),
+                              correlation_id="ur26-chunk", ctx=ctx)
+        assert result.usable, result.invalid_reason
+        assert result.status == "ok"
+        assert len(calls) >= 2, "chunked-прогон обязан дать ≥2 сегмента"
+        events = _event(ctx, "l1_plan")
+        assert len(events) >= 2, (
+            "сегменты chunked-прогона обязаны эмитить l1_plan (мутация: "
+            "ctx не прокинут в chunked-путь → 0 событий → red)")
+        final = events[-1]
+        assert final["finish_reason"] == "chunked_merge", (
+            "итог chunked-стадии обязан честно помечать сборку из чанков "
+            "(мутация: событие вообще не эмитится → red)")
+        assert final["decision"] == "l1_ok_chunked"
+        assert final["status"] == "ok"
+        assert final["model"] and final["provider"]
+        assert _DIGEST_RE.match(final["text_digest"] or "")
+        assert final["usage"]["input_tokens"] > 0
+        assert final["usage"]["output_tokens"] > 0
+        assert final["clock"]["clock_included"] is True
+        assert final["output_count"] >= 1
+        assert final["input_count"] == len(rows)
+        # Честные фрагменты: text_digest финала — digest merged-плана,
+        # НЕ digest последнего сырого сегмента.
+        merged_json = json.dumps(result.payload, ensure_ascii=False)
+        assert final["text_digest"] == text_digest(merged_json)

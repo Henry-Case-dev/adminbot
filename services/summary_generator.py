@@ -4126,6 +4126,7 @@ class SummaryGenerator:
         UR-C-CLOCK (UR-26.5): answer-снапшот ChatClock чата прикрепляется
         к payload ДО supervised-транспорта (переживает provider-switch);
         идемпотентно — ровно один блок на payload."""
+        _sg_snap = None
         try:
             if chat_id is not None:
                 _sg_snap = await _cclock.snapshot(chat_id)
@@ -4153,6 +4154,22 @@ class SummaryGenerator:
             logger.warning("summary: LLM failed — retry-once | chat_id=%s", chat_id)
             await asyncio.sleep(hot.get("limits.summary_retry_once_pause",
                                         settings.SUMMARY_RETRY_ONCE_PAUSE))
+            # UR-26.5 (deferred generator): новая попытка после дефер-паузы
+            # получает явное свежее answer_as_of_utc (правило минуты ChatClock:
+            # та же минута → reuse, пересечение минуты/даты → новый снапшот);
+            # окно источников (summary_window_end_utc) не пересобирается —
+            # payload вне блока часов байт-в-байт прежний.
+            try:
+                if _sg_snap is not None and chat_id is not None:
+                    _fresh_snap, _refreshed = await _cclock.ensure_answer_snapshot(
+                        _sg_snap, chat_id)
+                    if _refreshed:
+                        payload = _cclock.refresh_time_context(
+                            payload, _fresh_snap, phase=_cclock.PHASE_ANSWER)
+            except Exception:      # fail-open: повтор на прежнем снапшоте
+                logger.warning("[chat_clock] summary answer refresh skipped | "
+                               "chat_id=%s | step=%s", chat_id, step,
+                               exc_info=True)
             try:
                 started = time.monotonic()   # latency_ms — только повторная попытка
                 async with typing_active(self.bot, chat_id):
