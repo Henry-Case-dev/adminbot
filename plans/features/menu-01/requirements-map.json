@@ -25,14 +25,14 @@
           "kind": "test",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
@@ -68,14 +68,14 @@
           "kind": "test",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
@@ -111,14 +111,14 @@
           "kind": "test",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
@@ -166,7 +166,7 @@
           "kind": "code",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Code emits the official main form t.me/<bot_username>?startapp with the username taken dynamically from bot.me(); the mode is selected from configuration, not guessed."
         }
       ]
@@ -189,14 +189,14 @@
           "kind": "test",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
@@ -255,14 +255,14 @@
           "kind": "test",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
@@ -298,14 +298,14 @@
           "kind": "test",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
@@ -342,6 +342,12 @@
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "server-side launch evidence",
           "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
+        },
+        {
+          "kind": "runtime",
+          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "ref": "plans/features/menu-01/evidence/runtime-launch.md",
+          "observation": "Production read-only logs: 8077 successful initData validations across 3 Telegram identities (2026-10-30..2026-11-06), all from the X-Telegram-Init-Data header, HMAC and auth_date valid, none older than 1h; roles admin/wildcard 8040, moderator/actions 20, user/none 17 (a non-admin really uses the app); 15 rejections, all 'missing init data', zero bad signatures or expiries. Group /menu still logs 'group hint' because the candidate is not deployed yet."
         }
       ],
       "blocked_reason": "LIVE_OBSERVATION_PENDING"
