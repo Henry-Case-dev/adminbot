@@ -217,7 +217,7 @@ class TestAreaD_FlagsAcceptance:
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 471  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_matrix_five_modes_and_probes(self):
         for mode in ("desktop_normal", "desktop_fullscreen", "tablet",

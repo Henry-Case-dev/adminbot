@@ -60,12 +60,32 @@ DEAD_KNOBS = {
         "runtime-читателя нет (движок использует URL/логин-пароль прокси)",
     "limits.youtube_transcript_proxy_retries":
         "runtime-читателя нет (каскадные ретраи _MAX_CASCADE_RETRIES)",
+    # URF backend honesty wave (06.11.2026, a5ee0864, уже в 2.58.161):
+    # +6 мёртвых ручек — рантайм-читатели сняты вместе с самими механизмами
+    # (UR-14 style_anchors, UR-16 лексический mood-ярлык, UR-21.13/21.17),
+    # поэтому ключи честно помечены no-op и выведены из рабочего UI. Список
+    # по-прежнему ТОЧНЫЙ: новая мёртвая ручка или возвращённый потребитель =
+    # падение.
+    "flags.chat_style_anchors_enabled":
+        "UR-14: секция <style_anchors> удалена из сборки ответа",
+    "limits.chat_style_anchors_count":
+        "UR-21.13: счётчик снятой секции якорей не читается",
+    "limits.chat_style_anchor_max_chars":
+        "UR-21.13: обрезка снятой секции якорей не читается",
+    "flags.chat_mood_enabled":
+        "UR-16: тон выбирает L1-планировщик, mood-ярлык не подмешивается",
+    "reactions.chat_mood_positive_words":
+        "UR-16: словари mood-ярлыка не читаются",
+    "reactions.chat_mood_negative_words":
+        "UR-16: словари mood-ярлыка не читаются",
 }
 
 # Маркеры честной витрины (CFG-03.6) — хотя бы один в описании.
+# UR-21.17 (no-op) и UR-21.21 (неиспользуемый параметр) сформулированы как
+# «рантайм его не читает»/«подтверждённый no-op» — те же по смыслу маркеры.
 HONESTY_MARKERS = ("не действует", "не влияет", "игнорируется",
                    "не используется", "не читается", "не потребляется",
-                   "информационное")
+                   "информационное", "не читает", "no-op")
 
 # env-only без Python-читателя: потребитель — docker-compose (вне рантайма).
 DOCKER_ENV = {
@@ -382,9 +402,28 @@ class TestCatalogConsistency:
         # RLR-05-ADMIN (REMOVE-LEGACY-REPHRASING §6.2): синтезатор прямого
         # чата — deprecated_compat, путь снят; карточка скрыта, но значение
         # и история версий остаются читаемыми (get_by_pg_key).
-        assert hidden == {"limits.factcheck_context_messages",
-                          "prompts.summary_cover_style_id",
-                          "prompts.direct_chat_synthesizer_system_prompt"}
+        # UR-F (a5ee0864, UR-14.2/16/21.13/21.17/21.21/24.2) + UR-C-CLOCK
+        # (ae7f5a65/5c96a396, UR-24.2/24.3): +12 — ключи без активного
+        # рантайм-читателя и legacy timezone-поля выведены из UI/params-meta;
+        # запись в реестре/правах сохранена, значение читаемо. Все коммиты
+        # уже в release/2.58.161.
+        assert hidden == {
+            "flags.chat_mood_enabled",
+            "flags.chat_style_anchors_enabled",
+            "limits.chat_budget_anchors_ratio",
+            "limits.chat_budget_response_ratio",
+            "limits.chat_lock_max_entries",
+            "limits.chat_style_anchor_max_chars",
+            "limits.chat_style_anchors_count",
+            "limits.chat_timezone",
+            "limits.factcheck_context_messages",
+            "limits.summary_timezone",
+            "prompts.direct_chat_synthesizer_system_prompt",
+            "prompts.summary_cover_style_id",
+            "reactions.chat_mood_negative_words",
+            "reactions.chat_mood_positive_words",
+            "reactions.goodmorning_tz",
+        }
         api_only = {s.pg_key for s in pc.REGISTRY.values()
                     if s.category is None}
         assert len(api_only) == 25

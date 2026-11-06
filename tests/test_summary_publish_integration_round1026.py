@@ -1314,7 +1314,7 @@ class TestBoundaries:
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ → 484,
         # categorized 458→459 (ключ в категории models).
         assert len(pc.REGISTRY) == 597
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 471  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
         # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
         # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы

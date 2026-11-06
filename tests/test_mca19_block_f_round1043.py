@@ -184,6 +184,10 @@ def test_reason_codes_269():
     # детерминированной ошибки кода embeddings).
     # ASAP-EVIDENCE-ROUTING-01 v3 (01.11.2026): 311 → 314 (+3, санкция §1.4:
     # evidence_skipped / evidence_reused / evidence_unverified_claim_removed).
+    # BGS-02 (2629636c, 2.58.161): 314 → 315 (+1 evidence_unverified_claim_observed);
+    # FC-OBSERVABILITY-01 (d8feb2a0, влит 10486bc7/ba8d2b72): 315 → 320
+    # (+5: ambiguous_needs_clarification / no_claim_after_context /
+    # unsafe_or_unavailable_target / unified_retrieval / speech_guard_flagged).
     assert len(mca_events.REASON_CODES) == 320       # 309 → 311 → 314 → 320
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES

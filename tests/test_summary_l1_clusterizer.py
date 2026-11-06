@@ -977,7 +977,7 @@ class TestCanon:
         # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → 581/465/556/119/117/22
         # (Settings-поля сохранены no-op; дрейф 466→465 — внешний, EVOL-016/012).
         assert len(pc.REGISTRY) == 597
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 468
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 471  # MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
         # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
         # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
