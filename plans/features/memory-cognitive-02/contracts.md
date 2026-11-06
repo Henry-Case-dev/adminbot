@@ -346,7 +346,7 @@ RelationView = {
 |---|---|
 | `quote_forward` | `smart_messages`: `is_forward=1` **или** `COALESCE(forward_source,'')<>''`; `graph_facts`: `COALESCE(forward_from,'')<>''` **или** `perspective='quoted'` |
 | `reported_third_party` | `perspective='third_party'` **или** `attribution_method='third_party'` |
-| `explicit_direct` | **подтверждённое авторство** (§2.2.0): `perspective='self'` **или** (`perspective IS NULL` **и** сохранённое авторское сообщение факта не переслано, а его автор совпадает с субъектом/говорящим) **и при этом** `attribution_method IN ('self_report','direct_evidence')` |
+| `explicit_direct` | **подтверждённое авторство** (§2.2.1): `perspective='self'` **или** (`perspective IS NULL` **и** сохранённое авторское сообщение факта не переслано, а его автор совпадает с субъектом/говорящим) **и при этом** `attribution_method IN ('self_report','direct_evidence')` |
 | `derived_with_lineage` | `provenance_channel IN ('dream','dossier_layer_a','dossier_layer_b')` **или** evidence-link `derived_from` (обязателен `basis`/`method` с правилом вывода) |
 | `cooccurrence` | только `mca_associations` (в `edges` не пишется вовсе) |
 | `legacy_unknown` | `edges.fact_id IS NULL` и нет ни одной evidence-связи, либо сигналов нет |
