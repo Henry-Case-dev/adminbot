@@ -357,6 +357,19 @@ async def persona_short_reply(service, chat_id: int, *, instruction: str,
         {"role": "system", "content": system},
         {"role": "user", "content": str(situation or "").strip()},
     ]
+    # UR-C-CLOCK (UR-26.4): короткий ответ — та же оценка временем чата,
+    # что single/tool-loop/Stage-1/2/temporal: ChatClock-блок в последнем
+    # user-сообщении фактического payload'а (chat_id None → блока нет,
+    # честный код пропуска в событии ниже).
+    try:
+        if chat_id is not None:
+            from services import chat_clock as _cclock
+            _snap = await _cclock.snapshot(chat_id)
+            messages = _cclock.attach_time_context(
+                messages, _snap, phase=_cclock.PHASE_ANSWER)
+    except Exception:      # pragma: no cover - fail-open honest
+        logger.warning("[factcheck_v2] short reply clock unavailable — no "
+                       "time block | chat=%s", chat_id, exc_info=True)
     try:
         raw = await service.llm.generate(messages, module="factcheck",
                                          step="short_reply")
@@ -364,10 +377,31 @@ async def persona_short_reply(service, chat_id: int, *, instruction: str,
         if text:
             text = _guard_outbound(text, where="short_reply")
         if text:
+            # UR-26.4: payload-событие короткого ответа (в образе) —
+            # модель/провайдер, размер/digest, наличие ChatClock-блока.
+            from services import turn_payload_events as _tpe
+            _tpe.emit_stage(
+                _tpe.STAGE_FC_SHORT_REPLY, outcome="success",
+                chat_id=chat_id,
+                model=_tpe.llm_model(getattr(service, "llm", None)),
+                provider=_tpe.llm_provider(getattr(service, "llm", None)),
+                finish_reason="generated", chars=len(text),
+                text_digest=_tpe.text_digest(text),
+                clock=_tpe.clock_meta_messages(messages, chat_id=chat_id),
+                decision="short_reply:generated")
             return _egress_clean(text)
     except Exception:
         logger.info("[factcheck_v2] persona short reply failed — canned "
                     "fallback", exc_info=True)
+    # UR-26.4: canned-fallback — явный код решения (не молчаливая подмена).
+    from services import turn_payload_events as _tpe
+    _tpe.emit_stage(
+        _tpe.STAGE_FC_SHORT_REPLY, outcome="error", chat_id=chat_id,
+        model=_tpe.llm_model(getattr(service, "llm", None)),
+        provider=_tpe.llm_provider(getattr(service, "llm", None)),
+        finish_reason="canned_fallback",
+        clock=_tpe.clock_meta_messages(messages, chat_id=chat_id),
+        decision="short_reply:canned_fallback")
     if fallback_phrases:
         return random.choice(tuple(fallback_phrases))
     return ""

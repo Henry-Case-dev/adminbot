@@ -72,6 +72,8 @@ from services.system2_handoff import (
 from services.tool_loop import chat_with_tools
 from services.tool_router import ToolContext, resolve_lore_compiler_flag
 from services.tool_schemas import factcheck_tools
+# UR-26.4: payload-наблюдаемость стадий фактчека (stage1/stage2/temporal).
+from services import turn_payload_events as _tpe
 
 logger = logging.getLogger(__name__)
 
@@ -2228,6 +2230,20 @@ class FactCheckService:
         raw, used_tools = await self._invoke_llm(
             messages, target_text, chat_id, correlation_id=correlation_id,
             step="single")
+        # UR-26.4: payload-событие одиночного пути 10.21 (kill-switch или
+        # fallback после двухвызовного) — та же стадия stage1 с честным
+        # кодом маршрута; наличие ChatClock-блока берётся из фактического
+        # payload'а вызова.
+        _tpe.emit_stage(
+            _tpe.STAGE_FC_STAGE1, outcome="success", chat_id=chat_id,
+            correlation_id=correlation_id, model=_tpe.llm_model(self.llm),
+            provider=_tpe.llm_provider(self.llm),
+            finish_reason="generated",
+            chars=len(str(raw or "")),
+            text_digest=_tpe.text_digest(str(raw or "")),
+            clock=_tpe.clock_meta_messages(messages, chat_id=chat_id),
+            decision=("single_path:tool_loop" if used_tools
+                      else "single_path:plain"))
         return self._finalize(raw, used_tools, rag, results)
 
     async def _check_claim_two_call(
@@ -2253,6 +2269,17 @@ class FactCheckService:
             logger.info(
                 "factcheck system2: stage1 failed — fallback | chat=%s | "
                 "error=%s", chat_id, type(exc).__name__)
+            # UR-26.4: транспортный сбой Stage-1 — явное событие с кодом
+            # fallback-решения (пользователь получает ответ по 10.21 ниже).
+            _tpe.emit_stage(
+                _tpe.STAGE_FC_STAGE1, outcome="error", chat_id=chat_id,
+                correlation_id=correlation_id,
+                model=_tpe.llm_model(self.llm),
+                provider=_tpe.llm_provider(self.llm),
+                finish_reason=f"llm_{type(exc).__name__}",
+                clock=_tpe.clock_meta_messages(
+                    analyst_messages, chat_id=chat_id),
+                decision="stage1_error:fallback_single")
             return None
         tool_context = str(getattr(raw_analyst, "tool_context", "") or "")
         anchors = collect_allowed_anchors(
@@ -2260,6 +2287,24 @@ class FactCheckService:
         analyst_text = strip_reasoning_tags(str(raw_analyst))
         analyst_text, _gstats = strip_phantom_tags(analyst_text, anchors)
         data = parse_factcheck_analysis(analyst_text)
+        # UR-26.4: payload-событие Stage-1 (аналитик JSON) — модель/
+        # провайдер, маршрут tool-loop/plain, размер/digest ответа
+        # аналитика, наличие ChatClock-блока в фактическом payload'е.
+        # R17: только числа/коды/digest (без текста анализа).
+        _tpe.emit_stage(
+            _tpe.STAGE_FC_STAGE1,
+            outcome="success" if data is not None else "error",
+            chat_id=chat_id, correlation_id=correlation_id,
+            model=_tpe.llm_model(self.llm),
+            provider=_tpe.llm_provider(self.llm),
+            finish_reason="parsed_json" if data is not None
+            else "parse_invalid",
+            chars=len(str(analyst_text or "")),
+            text_digest=_tpe.text_digest(str(analyst_text or "")),
+            clock=_tpe.clock_meta_messages(
+                analyst_messages, chat_id=chat_id),
+            decision=("tool_loop" if used_tools else "plain")
+            + ("" if data is not None else ":parse_invalid_fallback"))
         if data is None:
             logger.info(
                 "factcheck system2: невалидный JSON аналитика — fallback | "
@@ -2344,6 +2389,28 @@ class FactCheckService:
             "| retries=%d | hits=%d | fallback=%s", chat_id, response_mode,
             stats.get("attempts", 0), stats.get("retries", 0),
             len(stats.get("hits") or []), bool(stats.get("fallback")))
+        # UR-26.4: payload-событие Stage-2 (вербализатор) — режим ответа
+        # (response_mode, в т.ч. короткие формы), попытки/ретраи, размер/
+        # digest текста, наличие ChatClock-блока в payload'е (Stage-2
+        # получает время оценки полем server_time из того же снапшота —
+        # честный код отсутствия блока в messages при наличии снапшота).
+        _tpe.emit_stage(
+            _tpe.STAGE_FC_STAGE2,
+            outcome="error" if stats.get("fallback") else "success",
+            chat_id=chat_id, correlation_id=correlation_id,
+            model=_tpe.llm_model(self.llm),
+            provider=_tpe.llm_provider(self.llm),
+            finish_reason=("fallback" if stats.get("fallback")
+                           else "generated"),
+            chars=len(str(text or "")),
+            text_digest=_tpe.text_digest(str(text or "")),
+            clock=_tpe.clock_meta_messages(base_messages, chat_id=chat_id),
+            decision=("mode=%s;attempts=%d;retries=%d;server_time=%s"
+                      % (str(response_mode or "unset"),
+                         int(stats.get("attempts", 0) or 0),
+                         int(stats.get("retries", 0) or 0),
+                         "snapshot" if time_snap is not None else "absent")),
+            attempt=max(1, int(stats.get("attempts", 1) or 1)))
         if stats.get("fallback"):
             return None
         final_text = self._finalize_text(text, used_tools, tool_context,
@@ -2731,13 +2798,46 @@ class FactCheckService:
         # §2.4: положительный вердикт без внешних доказательств и без
         # помеченного основания самостоятельной проверки → честная
         # неопределённость (существующий enum, части сохраняются).
+        _pre_downgrade = str(verdict.factual_verdict or "")
         verdict = _downgrade_unbacked_positive(verdict, evidence)
+        _downgraded = (str(verdict.factual_verdict or "") != _pre_downgrade)
         # §7.3: содержательный вывод без поиска не помечается техническим
         # заголовком «проверка не завершена» — реальное состояние поиска
         # остаётся оговоркой в uncertainty (ниже).
         if not evidence and verdict.reason in _TECHNICAL_RETRIEVAL_REASONS \
                 and _verdict_is_substantive(verdict):
             verdict = dataclasses.replace(verdict, reason=None)
+        # UR-26.4: payload-событие temporal_verdict — код вердикта
+        # (decision) + РАЗДЕЛЬНЫЕ маркеры времени ОЦЕНКИ (ChatClock-блок
+        # payload'а, as_of_utc в clock) и дат ПУБЛИКАЦИИ источника
+        # (date_source/наличие original_published_at в reason_code —
+        # остаются в СВОЁМ поясе, UR-27). downgrade — явный код, не
+        # молчаливая подмена. R17: digest JSON вердикта, без текстов.
+        _verdict_payload_json = json.dumps(raw_payload or {},
+                                           ensure_ascii=False, default=str)
+        _tpe.emit_stage(
+            _tpe.STAGE_FC_TEMPORAL_VERDICT,
+            outcome="success" if raw_payload else "error",
+            chat_id=getattr(env, "chat_id", None),
+            correlation_id=correlation_id,
+            model=_tpe.llm_model(self.llm),
+            provider=_tpe.llm_provider(self.llm),
+            finish_reason=("parsed_json" if raw_payload else "degraded")
+            + ("+fallback" if fallback_used else ""),
+            chars=len(_verdict_payload_json),
+            text_digest=_tpe.text_digest(_verdict_payload_json),
+            clock=_tpe.clock_meta_text(user_payload,
+                                       chat_id=getattr(env, "chat_id",
+                                                       None)),
+            decision="v=%s;dg=%s;fb=%s"
+            % (str(verdict.factual_verdict or "unknown")[:24],
+               "unbacked_positive" if _downgraded else "none",
+               "yes" if fallback_used else "no"),
+            reason_code="temporal=%s;date_source=%s;pub_date=%s"
+            % (str(verdict.temporal_status or "unknown")[:24],
+               str(getattr(env, "date_source", "") or "unknown")[:32],
+               "present" if getattr(env, "original_published_at", None)
+               else "absent"))
 
         # validator (spec D11/TH-2, CoVe REUSE): bounded data-only
         # перепроверка evidence↔claim — ровно ОДИН вызов, только при
@@ -2763,8 +2863,42 @@ class FactCheckService:
                 verdict, corrected = tf.apply_validator(verdict, v_payload,
                                                         env)
                 validator_outcome = "corrected" if corrected else "validated"
+                # UR-26.4: исход CoVe-валидатора — явный код (согласие/
+                # понижение вердикта валидатором не бывает молчаливым).
+                _validator_json = json.dumps(v_payload, ensure_ascii=False,
+                                             default=str)
+                _tpe.emit_stage(
+                    _tpe.STAGE_FC_TEMPORAL_VALIDATOR, outcome="success",
+                    chat_id=getattr(env, "chat_id", None),
+                    correlation_id=correlation_id,
+                    model=_tpe.llm_model(self.llm),
+                    provider=_tpe.llm_provider(self.llm),
+                    finish_reason="corrected" if corrected
+                    else "validated",
+                    chars=len(_validator_json),
+                    text_digest=_tpe.text_digest(_validator_json),
+                    clock=_tpe.clock_meta_text(
+                        _validator_content,
+                        chat_id=getattr(env, "chat_id", None)),
+                    decision=("validator=%s;corrected=%s"
+                              % (validator_outcome, bool(corrected))),
+                    attempt=1)
             else:
                 validator_outcome = "failed"
+                # UR-26.4: отказ/невалидный JSON валидатора — явный код
+                # fallback-решения (строгий повтор аналитика ниже).
+                _tpe.emit_stage(
+                    _tpe.STAGE_FC_TEMPORAL_VALIDATOR, outcome="error",
+                    chat_id=getattr(env, "chat_id", None),
+                    correlation_id=correlation_id,
+                    model=_tpe.llm_model(self.llm),
+                    provider=_tpe.llm_provider(self.llm),
+                    finish_reason="validator_failed",
+                    clock=_tpe.clock_meta_text(
+                        _validator_content,
+                        chat_id=getattr(env, "chat_id", None)),
+                    decision="validator=failed:fallback_retry",
+                    attempt=1)
                 if not fallback_used:
                     # Существующий fallback-путь (общий слот ≤1 попытки):
                     # валидация не удалась → строгий повтор аналитика;
@@ -3109,10 +3243,32 @@ class FactCheckService:
                 dynamic_rules=anticliche_cache.get_rules() or None,
                 metatext_reason=_metatext_retry_reason())
         except Exception:
+            _tpe.emit_stage(
+                _tpe.STAGE_FC_TEMPORAL_VERBALIZE, outcome="error",
+                chat_id=getattr(env, "chat_id", None),
+                correlation_id=correlation_id,
+                model=_tpe.llm_model(self.llm),
+                provider=_tpe.llm_provider(self.llm),
+                finish_reason="verbalize_failed",
+                clock=_tpe.clock_meta_messages(messages, chat_id=_chat),
+                decision=("verbalize=failed;server_time=%s"
+                          % ("snapshot" if time_snap is not None
+                             else "absent")))
             return ""
         try:
             out = cleanup_llm_text(strip_reasoning_tags(str(text)))
         except Exception:
+            _tpe.emit_stage(
+                _tpe.STAGE_FC_TEMPORAL_VERBALIZE, outcome="error",
+                chat_id=getattr(env, "chat_id", None),
+                correlation_id=correlation_id,
+                model=_tpe.llm_model(self.llm),
+                provider=_tpe.llm_provider(self.llm),
+                finish_reason="cleanup_failed",
+                clock=_tpe.clock_meta_messages(messages, chat_id=_chat),
+                decision=("verbalize=failed;server_time=%s"
+                          % ("snapshot" if time_snap is not None
+                             else "absent")))
             return ""
         out = out.strip()
         # RLR §3.4/§8: неподтверждённое число не публикуется и НЕ правится в
@@ -3124,8 +3280,41 @@ class FactCheckService:
                 "factcheck numeric | chat=%s | code=%s | unverified=%d | "
                 "action=structural_report", getattr(env, "chat_id", None),
                 NUMBER_UNVALIDATED, len(unverified))
+            # UR-26.4: структурный отчёт вместо вербализации — явный код
+            # решения (неподтверждённое число не правится молча).
+            _tpe.emit_stage(
+                _tpe.STAGE_FC_TEMPORAL_VERBALIZE, outcome="success",
+                chat_id=getattr(env, "chat_id", None),
+                correlation_id=correlation_id,
+                model=_tpe.llm_model(self.llm),
+                provider=_tpe.llm_provider(self.llm),
+                finish_reason="structural_report",
+                chars=len(out),
+                text_digest=_tpe.text_digest(out),
+                clock=_tpe.clock_meta_messages(messages, chat_id=_chat),
+                decision=("verbalize=structural_report:unverified_numbers=%d"
+                          ";server_time=%s"
+                          % (len(unverified),
+                             "snapshot" if time_snap is not None
+                             else "absent")))
             return deterministic_temporal_report(
                 env, verdict, evidence=evidence, reason_code=retrieval_state)
+        # UR-26.4: payload-событие вербализации — размер/digest текста,
+        # маркер снапшота времени оценки (server_time из ChatClock), коды
+        # ретраев. Даты публикации остаются отдельными полями вердикта.
+        _tpe.emit_stage(
+            _tpe.STAGE_FC_TEMPORAL_VERBALIZE, outcome="success",
+            chat_id=getattr(env, "chat_id", None),
+            correlation_id=correlation_id,
+            model=_tpe.llm_model(self.llm),
+            provider=_tpe.llm_provider(self.llm),
+            finish_reason="generated",
+            chars=len(out),
+            text_digest=_tpe.text_digest(out),
+            clock=_tpe.clock_meta_messages(messages, chat_id=_chat),
+            decision=("verbalize=generated;retries=%d;server_time=%s"
+                      % (int((_stats or {}).get("retries", 0) or 0),
+                         "snapshot" if time_snap is not None else "absent")))
         return out
 
     @staticmethod

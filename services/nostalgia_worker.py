@@ -122,6 +122,7 @@ from zoneinfo import ZoneInfo
 
 from config.settings import settings
 from services import hot_config as hot
+from services import turn_payload_events as _tpe
 from services.database import row_get
 from services.mca_episodes import (
     SEGMENT_GAP_SECONDS,
@@ -1876,7 +1877,30 @@ class NostalgiaWorker:
         except Exception as exc:
             logger.warning(
                 "[nostalgia] LLM call failed — error | error=%s", exc)
+            # UR-26.3: транспортный сбой стадии nostalgia-Writer виден
+            # кодом события (не молчаливый skip).
+            _tpe.emit_stage(
+                _tpe.STAGE_NOSTALGIA_TEXT, outcome="error", chat_id=chat_id,
+                model=_tpe.llm_model(self.llm),
+                provider=_tpe.llm_provider(self.llm),
+                finish_reason="llm_error", decision="nostalgia_llm_error",
+                clock={"clock_included": False,
+                       "skip_reason": "nostalgia_by_design_no_clock"})
             return None
+        # UR-26.3: payload-событие nostalgia-Writer. Подготовленный текст НЕ
+        # получает вымышленного времени: ChatClock-блок в payload стадии
+        # отсутствует BY DESIGN (исторические даты эпизодов идут в своём
+        # поясе из данных, UR-27), и событие честно фиксирует это
+        # отсутствие + digest произведённого текста (R17: без текста).
+        _tpe.emit_stage(
+            _tpe.STAGE_NOSTALGIA_TEXT, outcome="success", chat_id=chat_id,
+            model=_tpe.llm_model(self.llm),
+            provider=_tpe.llm_provider(self.llm),
+            finish_reason="generated", chars=len(str(raw or "")),
+            text_digest=_tpe.text_digest(str(raw or "")),
+            decision="nostalgia_generated",
+            clock={"clock_included": False,
+                   "skip_reason": "nostalgia_by_design_no_clock"})
         return str(raw or "")
 
     async def _log(self, chat_id: int, ts: int, kind: str,

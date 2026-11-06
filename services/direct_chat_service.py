@@ -143,6 +143,8 @@ from services.llm_circuit_breaker import STATE_HALF_OPEN, LLMCircuitBreaker
 from services.budget_limits import context_state
 # UR-C-CLOCK (contract §3): ЕДИНСТВЕННЫЙ источник времени чата.
 from services import chat_clock as _cclock
+# UR-26.3: payload-наблюдаемость стадий инициативы (L1-решение/recheck).
+from services import turn_payload_events as _tpe
 from services.canonical_context import (
     RELATION_REPLY,
     SPEECH_LABEL_RE,
@@ -7012,7 +7014,8 @@ class DirectChatService:
                              correlation_id, l1_plan, response_plan,
                              fallback_meta: dict, time_line: str,
                              tool_schemas, longform_max_tokens=None,
-                             required_caps=(), explicit_request: bool = False):
+                             required_caps=(), explicit_request: bool = False,
+                             route: str = "direct"):
         """ЕДИНЫЙ живой tool-этап Direct и Initiative (UR-03/UR-06, BGS-01).
 
         Это единственная точка входа tool-фазы обоих путей: тело — вызов
@@ -7050,7 +7053,9 @@ class DirectChatService:
             explicit_request=bool(explicit_request),
             # UR-C-CLOCK (UR-26.2/26.3): блок времени чата (phase="plan")
             # доезжает до orchestrator-payload tool-фазы обоих триггеров.
-            time_context=str(time_line or ""))
+            time_context=str(time_line or ""),
+            # UR-26.3: маршрут хода в payload-событии tool-фазы.
+            route=str(route or "direct"))
         return result.raw
 
     # ── P0-HA SEGMENTS (архконтракт §2): сегментное накопление выборки ──────
@@ -13032,6 +13037,26 @@ class DirectChatService:
             _turn_req, slot=slot, l1_messages=messages,
             l1_input_chars=len(context_text), message_id=None, meta=meta,
             started_monotonic=time.monotonic())
+        # ── UR-26.3: payload-событие решения L1 инициативы — модель/
+        #    провайдер, finish/usage, chars/digest плана, наличие
+        #    ChatClock-блока в отправленном payload и ЯВНЫЙ код решения
+        #    (reply/react/silent). R17: только коды/числа/digest.
+        _init_plan_json = _plan_digest_source(plan)
+        _tpe.emit_stage(
+            _tpe.STAGE_INITIATIVE_L1,
+            outcome="success" if plan is not None else "skipped",
+            chat_id=chat_id, correlation_id=correlation_id,
+            model=str(getattr(slot, "model", "") or "") or None,
+            provider=_tpe.llm_provider(self.llm),
+            finish_reason=("parsed" if plan is not None
+                           else "l1_unavailable"),
+            usage=_plan_usage(_plan_meta),
+            chars=len(context_text),
+            text_digest=(_tpe.text_digest(_init_plan_json)
+                         if _init_plan_json else None),
+            clock=_tpe.clock_meta_messages(messages, chat_id=chat_id),
+            decision=(str(getattr(plan, "action", "") or "unavailable")
+                      if plan is not None else "unavailable"))
         if plan is None:
             # Инициатива вторична: outage/невалидный JSON после общего
             # repair-маршрута → честное молчание (SILENT), не падение.
@@ -13305,7 +13330,9 @@ class DirectChatService:
                         # У инициативы нет просьбы человека (решение
                         # Architect «г», §5.2): `user_forced` не рождается,
                         # поиск решает ось плана + runtime-политика.
-                        explicit_request=False)
+                        explicit_request=False,
+                        # UR-26.3: инициативный маршрут в событии tool-фазы.
+                        route="initiative")
                     if _init_raw is not None:
                         _initiative_pack = _dx.build_evidence_pack(
                             _init_raw, response_plan,
@@ -13391,6 +13418,37 @@ class DirectChatService:
 # сообщения). Тот же CoordinatorDecision, тот же слой A7 (silent-семантика),
 # ЕДИНСТВЕННЫЙ транспорт services/telegram_send.py; второго send-path нет.
 # ═════════════════════════════════════════════════════════════════════════════
+
+
+def _plan_digest_source(plan) -> str:
+    """R17-safe источник digest'а L1-плана (UR-26.3): машинные поля решения
+    (action/форма/extent/capabilities) без текстов контекста."""
+    try:
+        import dataclasses as _dc
+        if plan is None:
+            return ""
+        if _dc.is_dataclass(plan) and not isinstance(plan, type):
+            payload = _dc.asdict(plan)
+        else:
+            payload = {"action": str(getattr(plan, "action", "") or "")}
+        return json.dumps(payload, ensure_ascii=False, default=str,
+                          sort_keys=True)
+    except Exception:      # pragma: no cover - наблюдаемость не рвёт ход
+        return ""
+
+
+def _plan_usage(meta) -> dict | None:
+    """Usage-словарь L1-попытки из plan_meta (нет данных → None честно)."""
+    try:
+        usage = (meta or {}).get("usage")
+        if isinstance(usage, dict):
+            return {"input_tokens": usage.get("input_tokens"),
+                    "output_tokens": usage.get("output_tokens")}
+    except Exception:      # pragma: no cover
+        pass
+    return None
+
+
 
 # ── ASAP 8 (F6, §13.1): детерминированные producers ──────────────────────────
 # Никакого LLM-письма в DB и никаких intent на каждое сообщение: intent создаёт
@@ -14178,6 +14236,17 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             # переоценка: повторное решение + генерация на свежем контексте.
             recheck_attempts += 1
             evaluated_version = context.context_version
+            # UR-26.3: вердикт recheck — «контекст сменился» виден кодом
+            # (повторное L1-решение ниже имеет собственное payload-событие
+            # initiative_l1_decision с наличием часов в его payload'е).
+            _tpe.emit_stage(
+                _tpe.STAGE_INITIATIVE_RECHECK, outcome="skipped",
+                chat_id=chat_id, correlation_id=correlation_id,
+                finish_reason="context_changed",
+                chars=len(str(prepared_text or "")),
+                text_digest=(_tpe.text_digest(prepared_text)
+                             if str(prepared_text or "").strip() else None),
+                decision="recheck_again", attempt=recheck_attempts)
             if decision.intent_id and db is not None:
                 try:
                     await _mca_intents.get_service(db).store.update_fields(
@@ -14198,6 +14267,20 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     correlation_id=correlation_id)
             if l1_plan is None or getattr(l1_plan, "action", "") != "reply":
                 await _f6_plan_next_check(db, decision)
+                # UR-26.3: recheck понизил участие до молчания — код решения
+                # виден в payload-событии (не молчаливый demote).
+                _tpe.emit_stage(
+                    _tpe.STAGE_INITIATIVE_RECHECK, outcome="skipped",
+                    chat_id=chat_id, correlation_id=correlation_id,
+                    finish_reason="recheck_demoted",
+                    chars=len(str(prepared_text or "")),
+                    text_digest=(_tpe.text_digest(prepared_text)
+                                 if str(prepared_text or "").strip()
+                                 else None),
+                    decision=("recheck_demoted:"
+                              + str(getattr(l1_plan, "action", "")
+                                    or "l1_unavailable")),
+                    attempt=recheck_attempts + 1)
                 _mca_intents.note_decision(
                     decision, chat_id=chat_id, outcome="silent",
                     reason_code="recheck_demoted", action="silent",
@@ -14253,6 +14336,16 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         if decision.intent_id:
             _mca_intents.note_recheck_passed(chat_id=chat_id,
                                              intent_id=decision.intent_id)
+        # UR-26.3: recheck пройден — вердикт виден кодом payload-события
+        # (fresh-условия §18D; deterministic-стадия без собственного LLM).
+        _tpe.emit_stage(
+            _tpe.STAGE_INITIATIVE_RECHECK, outcome="success",
+            chat_id=chat_id, correlation_id=correlation_id,
+            finish_reason="recheck_passed",
+            chars=len(str(prepared_text or "")),
+            text_digest=(_tpe.text_digest(prepared_text)
+                         if str(prepared_text or "").strip() else None),
+            decision="recheck_passed", attempt=recheck_attempts + 1)
         # ── INIT-COORD §3.5: бронь публикации `claimed → sending` РОВНО перед
         # отправкой (после recheck, до первого сетевого вызова). Отказ =
         # отмена реплики: durable intent остаётся жив и будет перепроверен
