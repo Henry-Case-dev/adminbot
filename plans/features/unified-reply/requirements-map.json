@@ -5329,7 +5329,7 @@
       "source_excerpt": "4. **Summary**: L1 clusterizer, L2 writer, reviewer/repair, legacy/hybrid, ручной `/summary`, cron, тестовый прогон и re-run, включая fallback/provider-switch. Один snapshot на логическую стадию/версию прогона; при длительной публикации за ",
       "disposition": "required",
       "verified_scope": "Payload-матрица наблюдаемости summary-стадий: stage1 (l1_plan), stage2 (writer), reviewer, revision, repair, supervisor — события с model/provider/finish/usage/chars/дайджестами/clock-мета и явными decision-кодами (revision/repair_applied:N/repair_not_needed/supervisor-stop/empty_payload); payload дайджест-only — тексты чата и статьи в события не попадают; честные skip-коды clock (no_llm_call/no_time_block/no_chat_id).",
-      "pending_reason": "Два открытых подсаб-итема (не блокируют payload-матрицу): (a) deferred-generator case — явная выдача answer_as_of_utc при отложенном генераторе с сохранением summary_window_end_utc; кода и теста нет; (b) chunked-L1 overflow-путь не эмитит событие l1_plan (задекларированный overflow-only разрыв).",
+      "pending_reason": "Подсаб-итемы закрыты слайсом ur/26-5-deferred (кандидат 574a11c4): (a) deferred generator — retry-once после дефер-паузы несёт свежее answer_as_of_utc (правило минуты ChatClock через ensure_answer_snapshot + новый chat_clock.refresh_time_context; payload вне блока часов байт-в-байт прежний — summary_window_end_utc не пересобирается), окно источников не меняется; (b) chunked-L1 overflow — _run_l1_lossless эмитит финальное l1_plan с теми же полями и честной пометкой сборки из чанков (finish_reason=chunked_merge, decision=l1_ok_chunked/l1_error_chunked); ctx прокинут через capacity-first → lossless → сегменты (устранён разрыв прод-wiring, где ctx терялся и события stage1 не эмитились вовсе).",
       "reason": "",
       "req_id": "UR-26.5",
       "slice": "UR-C-CLOCK",
@@ -5353,6 +5353,14 @@
           "artifact_path": "services/summary_stage_events.py",
           "artifact_sha256": "48b226eba771d1734098068bce43e18b74b0070f580fdfc017bd6aac6c89ec15",
           "candidate_commit": "4dca6439"
+        },
+        {
+          "ref": "Закрытие двух подсаб-итом строки (слайс ur/26-5-deferred, кандидат 574a11c4): (a) deferred generator — retry-once после дефер-паузы несёт свежее answer_as_of_utc (chat_clock.refresh_time_context + ensure_answer_snapshot, правило минуты), summary_window_end_utc не меняется; (b) chunked-L1 overflow — финальное l1_plan (finish_reason=chunked_merge, decision=l1_ok_chunked) + сегментные события через прокинутый ctx (run_l1 → capacity_first → _run_l1_lossless → сегменты)",
+          "observation": "tests/test_ur26_summary_payloads.py (15 тестов): TestDeferredGeneratorFreshAnswerClock — перевод минуты при дефер-ретрае даёт новый as_of_utc в payload повторной попытки, окно источников вне блока часов байт-в-байт прежнее (мутация «заморозить блок через дефер» красная); та же минута → reuse снапшота по правилу ChatClock. TestChunkedL1OverflowPlanEvent (маркер asap41) — chunked-прогон эмитит ≥2 l1_plan (сегменты) + финал chunked_merge/l1_ok_chunked с model/provider/usage/digest(merged-плана)/clock; мутации «не эмитить на overflow» и «не прокидывать ctx» красные.",
+          "type": "test",
+          "artifact_path": "tests/test_ur26_summary_payloads.py",
+          "artifact_sha256": "66617680b50cdd1f1ea3dd7973734a0956d6e09d062ca68b2efadfb1f0763069",
+          "candidate_commit": "574a11c4"
         }
       ]
     },

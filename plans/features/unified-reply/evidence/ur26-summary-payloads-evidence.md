@@ -118,3 +118,37 @@ test_review_loop_records_stage_events` — append-only журнал стадий
   отдельные швы: chunked-путь не эмитит l1_plan-событие (стандартный
   single-pass эмитит); legacy прикрыт существующим
   `TestSummaryClock.test_generator_llm_generate_attaches_answer_block`.
+
+## 6. Дозакрытие подсаб-итом (слайс ur/26-5-deferred, кандидат 574a11c4)
+
+Оба «честных открытых подсаб-итема» строки UR-26.5 закрыты; матрица выше
+остаётся в силе (тот же кандидат 4dca6439, файл событий не менялся).
+
+* **(a) Deferred generator.** `summary_generator._llm_generate`: retry-once
+  после дефер-паузы (`SUMMARY_RETRY_ONCE_PAUSE`) обновляет answer-блок —
+  `chat_clock.ensure_answer_snapshot` (правило минуты: та же минута → reuse,
+  пересечение минуты/даты → новый снапшот) + новый helper
+  `chat_clock.refresh_time_context` (замена блока в том же последнем
+  user-сообщении; payload вне блока байт-в-байт прежний —
+  `summary_window_end_utc` не пересобирается задним числом).
+  Тесты: `TestDeferredGeneratorFreshAnswerClock` (перевод минуты → свежий
+  as_of_utc на повторной попытке; окно неизменно; мутация «заморозить блок
+  через дефер» → red; та же минута → reuse → идентичные payload).
+* **(b) Chunked-L1 overflow.** `_run_l1_lossless` эмитит финальное
+  `l1_plan`-событие (те же поля: model/provider/finish/usage/chars/
+  text_digest/clock) с честной пометкой сборки из чанков:
+  `finish_reason="chunked_merge"`, `decision="l1_ok_chunked"` (провалы:
+  `l1_error_chunked`, `chunked_all_failed`/`chunk_run_failed`); usage —
+  сумма по сегментным событиям, clock — от фресшего сегмента, digest/chars —
+  по merged-плану. Дополнительно устранён разрыв прод-wiring: `ctx` теперь
+  прокидывается `run_l1 → run_l1_capacity_first → _run_l1_lossless →
+  сегментные run_l1` (раньше прод-путь whole-window/capacity-first терял ctx
+  и stage1-события не эмитились вовсе; evidence 4dca6439 собирался прямыми
+  вызовами run_l1 с ctx). Тест: `TestChunkedL1OverflowPlanEvent`
+  (маркер asap41): ≥2 сегментных l1_plan + финал chunked_merge; мутации
+  «не эмитить на overflow» и «не прокидывать ctx» → red.
+* **Прогон среза:** `pytest tests/test_ur26_summary_payloads.py
+  tests/test_summary_generator.py -q` → 78 passed, 2 failed — оба Epic60
+  pre-existing (§4; воспроизведены на базе c5a97f6e без изменений слайса).
+  Затронутые швы: `tests/test_ur_c_clock.py` + L1 chunked/capacity/semantic/
+  wave + asap8/asap44/ur_d_writer → 280 passed, 0 failed.
