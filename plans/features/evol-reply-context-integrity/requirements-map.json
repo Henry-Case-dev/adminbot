@@ -18,9 +18,16 @@
       "slice": "RCI",
       "acceptance": "Production-кейс воспроизведён по реальным Telegram ID (chat, trigger, target, parent Shorts, bot reply) с read-only трассой; при отсутствии артефакта статус остаётся PENDING_EXTERNAL, а не VERIFIED.",
       "live_required": true,
-      "live_when": "postdeploy",
+      "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "production_trace",
+          "candidate_commit": "a563ee31d216ed3fd526fdc75b6253f806bb12a2",
+          "ref": "plans/features/evol-reply-context-integrity/evidence/case-trace.md",
+          "observation": "Reconstructed from production data, chat -1002661910336, 2026-11-06: photo 'зацените хуйню построил', then video + youtube.com/shorts/Jl-KVNhnMjo (verified via YouTube oEmbed as a Minecraft builder short), WorldEdit discussion, target tg:1201663 'возможно... ФЕЙК', trigger tg:1201664 'фактчек'. Events factcheck_admission pipeline_path=v2_gate:ambiguous reason_code=multiple_dispute_candidates, deliver skipped. Of 12 factcheck triggers since 29.10 this is the only one with no mca_factcheck_runs row."
+        }
+      ]
     },
     {
       "source_id": "M-RCI-02",
@@ -35,7 +42,20 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "production_trace",
+          "candidate_commit": "a563ee31d216ed3fd526fdc75b6253f806bb12a2",
+          "ref": "plans/features/evol-reply-context-integrity/evidence/case-trace.md",
+          "observation": "Reconstructed from production data, chat -1002661910336, 2026-11-06: photo 'зацените хуйню построил', then video + youtube.com/shorts/Jl-KVNhnMjo (verified via YouTube oEmbed as a Minecraft builder short), WorldEdit discussion, target tg:1201663 'возможно... ФЕЙК', trigger tg:1201664 'фактчек'. Events factcheck_admission pipeline_path=v2_gate:ambiguous reason_code=multiple_dispute_candidates, deliver skipped. Of 12 factcheck triggers since 29.10 this is the only one with no mca_factcheck_runs row."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "a563ee31d216ed3fd526fdc75b6253f806bb12a2",
+          "ref": "services/factcheck_orchestrator.py",
+          "observation": "Loss stage: the ambiguous branch discards the already-built ConversationContext, render_feed and decision.claim_items; the single short_reply call receives only the bare target text."
+        }
+      ]
     },
     {
       "source_id": "M-RCI-03",
@@ -50,7 +70,14 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "1703ff46",
+          "ref": "tests/test_factcheck_orchestrator_cfg06.py",
+          "observation": "Regression scenario 'Reply to a short phrase while the topic exists above' added to the existing suite: earlier YouTube/Minecraft topic reaches the short-reply input, no topic auto-selected."
+        }
+      ]
     },
     {
       "source_id": "M-RCI-04",
@@ -64,8 +91,15 @@
       "acceptance": "Причина исправлена минимально: ambiguity-ветка получает детерминированный контекст кандидатов, не выбирая тему программно и не добавляя LLM-вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "kind": "implementation",
+          "candidate_commit": "428259e2",
+          "ref": "services/factcheck_orchestrator.py",
+          "observation": "Deterministic candidate summary from claim_items or up to 3 significant ctx messages with author/date attribution; one short_reply call; speech_owner_block stays last; raw context dumps stripped from the model reply. 22 tests in file, 581 in the wide run."
+        }
+      ]
     },
     {
       "source_id": "M-RCI-05",
@@ -81,6 +115,28 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": []
+    },
+    {
+      "source_id": "M-RCI-06",
+      "source_line": 8,
+      "source_text_sha256": "f113108c54c77cbd046e9c99db2ed295b1fcff97422f78c39d7404c92c967901",
+      "source_excerpt": "Воспроизведи цепочку по реальным Telegram ID, проверь восстановление Reply, семантического контекста, исходной YouTube-публикации и передачу данных в FactCheck/Direct. Определи точную стадию потери смысла. Добавь регрессионный сценарий в су",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "RCI-06",
+      "slice": "RCI",
+      "acceptance": "Ветка неоднозначности оставляет проверяемый след: причина усечения/уточнения пишется в событие доставки честным кодом, а не null; маршрут восстановим без догадок по соседним событиям.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [
+        {
+          "kind": "defect_found",
+          "candidate_commit": "a563ee31d216ed3fd526fdc75b6253f806bb12a2",
+          "ref": "services/mca_events.py",
+          "observation": "REASON_CODES whitelist silently nulls 'ambiguous_needs_clarification', so the deliver event is written with reason_code=null and the branch is only findable through neighbouring entity_ids. Short-branch replies are also absent from mca_bot_outputs/bot_replies, so the published text cannot be audited after the fact."
+        }
+      ]
     }
   ],
   "items": [
@@ -265,5 +321,5 @@
       "evidence": []
     }
   ],
-  "binding_note": "Production Reply→FactCheck context-loss case. Code-level ambiguity-branch loss is proven at HEAD 8bb2800f; production reproduction by real Telegram IDs remains PENDING_EXTERNAL."
+  "binding_note": "Production trace evidence (chat -1002661910336) references commits on the release line; on this line they become valid ancestors only after the release merge. Until then RCI-01..03 stay PENDING with evidence retained; RCI-04 is REVIEW against the ported fix 428259e2; RCI-06 (honest ambiguity reason code) is PENDING."
 }

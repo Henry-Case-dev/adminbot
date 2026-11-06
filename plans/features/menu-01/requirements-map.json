@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/menu-01/source-menu-01.md",
   "source_sha256": "f653aa10a8b91b112e9294994845c324787e161c70419396302f7d5ccc0797cc",
-  "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+  "candidate_commit": "5a503cb4",
   "deployed_commit": "",
   "strict_evidence": false,
   "slice_graph_path": "",
@@ -23,27 +23,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
           "kind": "review",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "plans/features/menu-01/requirements-map.json",
           "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
         },
         {
           "kind": "acceptance",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "Private keeps web_app + WEBAPP_URL; group/supergroup emits a URL button labelled «Открыть мини-приложение» with no app domain."
         }
@@ -66,27 +66,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
           "kind": "review",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "plans/features/menu-01/requirements-map.json",
           "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
         },
         {
           "kind": "acceptance",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "Only the registered mode's official form is produced: main -> t.me/<bot>?startapp, named -> t.me/<bot>/<short_name>; the other form cannot be emitted. Named form without payload is sanctioned by the owner source and Telegram docs."
         }
@@ -109,27 +109,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
           "kind": "review",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "plans/features/menu-01/requirements-map.json",
           "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
         },
         {
           "kind": "acceptance",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "bot_username comes from bot.me()/config and short_name is syntax-validated; no hardcoded bot/app/chat identifiers; the deep link is never derived from WEBAPP_URL."
         }
@@ -152,7 +152,7 @@
       "evidence": [
         {
           "kind": "external",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "owner-side Telegram/BotFather evidence",
           "observation": "BotFather registration / Main Mini App or named Direct Link confirmation requires the owner account. Code part is reviewed; only this live observation is outstanding."
         },
@@ -164,9 +164,9 @@
         },
         {
           "kind": "code",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Code emits the official main form t.me/<bot_username>?startapp with the username taken dynamically from bot.me(); the mode is selected from configuration, not guessed."
         }
       ]
@@ -187,27 +187,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
           "kind": "review",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "plans/features/menu-01/requirements-map.json",
           "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
         },
         {
           "kind": "acceptance",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "initData/payload/chat_instance grant no rights; existing backend initData validation (HMAC + auth_date) untouched."
         }
@@ -230,7 +230,7 @@
       "evidence": [
         {
           "kind": "live_plan",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "server-side launch evidence",
           "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
         }
@@ -253,27 +253,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
           "kind": "review",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "plans/features/menu-01/requirements-map.json",
           "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
         },
         {
           "kind": "acceptance",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "Unconfirmed/invalid registration produces an honest private /menu fallback and no broken or profile-directing button."
         }
@@ -296,27 +296,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "tests/test_menu.py",
-          "artifact_sha256": "396F3714CBEF49628E413DAEB9781AD0028C4FAEDDA60EF3939A639B6B0607AC",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
           "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
         },
         {
           "kind": "code",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "handlers/menu.py",
-          "artifact_sha256": "DB6B2AF1345F647A158DCCE749DC6BFFB64F6930503E7626518368EFFF31C455",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
         },
         {
           "kind": "review",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "plans/features/menu-01/requirements-map.json",
           "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
         },
         {
           "kind": "acceptance",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "Command(\"menu\") registration, private keyboard, other commands, config, prompts and auth principle unchanged (command suites green)."
         }
@@ -339,9 +339,15 @@
       "evidence": [
         {
           "kind": "live_plan",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "server-side launch evidence",
           "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
+        },
+        {
+          "kind": "runtime",
+          "candidate_commit": "5a503cb4",
+          "ref": "plans/features/menu-01/evidence/runtime-launch.md",
+          "observation": "Production read-only logs: 8077 successful initData validations across 3 Telegram identities (2026-10-30..2026-11-06), all from the X-Telegram-Init-Data header, HMAC and auth_date valid, none older than 1h; roles admin/wildcard 8040, moderator/actions 20, user/none 17 (a non-admin really uses the app); 15 rejections, all 'missing init data', zero bad signatures or expiries. Group /menu still logs 'group hint' because the candidate is not deployed yet."
         }
       ],
       "blocked_reason": "LIVE_OBSERVATION_PENDING"
@@ -362,7 +368,7 @@
       "evidence": [
         {
           "kind": "live_plan",
-          "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "candidate_commit": "5a503cb4",
           "ref": "server-side launch evidence",
           "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
         }
@@ -417,5 +423,5 @@
       "evidence": []
     }
   ],
-  "binding_note": "Candidate 14400b73 on base 8bb2800f; code part independently Approved. Main Mini App registration is owner-confirmed (Enabled, Fullscreen, existing /web/ app), so MENU-01.4 is no longer externally blocked. Remaining live proof is the real startapp launch, initData validation and ACL behaviour on real clients."
+  "binding_note": "Candidate 14400b73 on base 8bb2800f; code part independently Approved. Main Mini App registration is owner-confirmed (Enabled, Fullscreen, existing /web/ app), so MENU-01.4 is no longer externally blocked. Remaining live proof is the real startapp launch, initData validation and ACL behaviour on real clients. | Ported to the production line: candidate_commit is 5a503cb4 (menus identical to the approved 14400b73, blob hashes recomputed from this commit)."
 }
