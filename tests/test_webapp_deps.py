@@ -610,3 +610,336 @@ class TestOfficialHmacVector:
             safe_parse_webapp_init_data(
                 token=self.VECTOR_TOKEN,
                 init_data=self._init_data(hash_value="0" * 64))
+
+
+# ═══ ACL-контекст запуска Mini App (группа / диплинк) ═══════════════════════
+#
+# КОНТРАКТ (проверенные факты диагностики, не пересматриваются): авторизация
+# TMA — ТОЛЬКО подписанный `user.id` (HMAC + свежесть auth_date + обязательный
+# user); `chat_type`, `chat_instance`, `start_param` и payload запуска —
+# ДАННЫЕ запуска, а не права. Чат-скоуп берётся из `chat_admins` по
+# (user.id, chat_id); `initDataUnsafe` не участвует.
+#
+# Эти тесты закрывают конкретную дыру: групповой запуск или диплинк на чужой
+# чат не должны расширять доступ. Мутации, от которых они обязаны краснеть:
+#   * «данные запуска → chat_id/права» (launch chat попадает в скоуп);
+#   * снятый role-check на привилегированной записи (admins/param_permissions);
+#   * снятый chat-скоуп guard на реальном чтении чужого чата.
+
+GROUP_CHAT_ID = -1001234567890      # группа, из которой «запущен» Mini App
+FOREIGN_CHAT_ID = -1007777777777    # чат, куда ведёт диплинк (чужой)
+NON_ADMIN_ID = 555444333            # авторизован, но без грантов
+CHAT_ADMIN_ID = 700001              # local_admin ТОЛЬКО в GROUP_CHAT_ID
+
+
+def make_launch_init_data(token: str, user_id: int, *,
+                          chat_id: int | None = None,
+                          chat_type: str | None = None,
+                          chat_instance: str | None = None,
+                          start_param: str | None = None,
+                          auth_date: int | None = None,
+                          hash_ok: bool = True,
+                          tamper: dict | None = None) -> str:
+    """Подписанный initData С данными запуска (группа/диплинк/чат).
+
+    `tamper` — поля, подменяемые ПОСЛЕ подписи (подпись перестаёт сходиться),
+    что и проверяет негатив-кейс «подпись важнее payload».
+    """
+    fields = {
+        "auth_date": str(auth_date if auth_date is not None else int(time.time())),
+        "query_id": "AAHkFg",
+        "user": json.dumps({"id": user_id, "first_name": "A", "username": "u"},
+                           separators=(",", ":")),
+    }
+    if chat_type is not None:
+        fields["chat_type"] = chat_type
+    if chat_instance is not None:
+        fields["chat_instance"] = chat_instance
+    if start_param is not None:
+        fields["start_param"] = start_param
+    if chat_id is not None:
+        fields["chat"] = json.dumps(
+            {"id": chat_id, "type": chat_type or "group", "title": "G"},
+            separators=(",", ":"))
+    data_check = "\n".join(f"{k}={v}" for k, v in sorted(fields.items()))
+    secret = hmac.new(b"WebAppData", token.encode(), hashlib.sha256).digest()
+    calc_hash = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
+    if not hash_ok:
+        calc_hash = "0" * 64
+    if tamper:
+        fields.update(tamper)
+    return urllib.parse.urlencode(sorted(fields.items())) + f"&hash={calc_hash}"
+
+
+class _LaunchConn:
+    """Мини-подделка asyncpg-коннекта: chat_admins / chat_profiles / журнал."""
+
+    def __init__(self, chat_admins: dict, profiles):
+        self.chat_admins = dict(chat_admins)     # {(chat_id, tg): role_name}
+        self.profiles = set(profiles)
+        self.executed: list[tuple] = []
+
+    async def fetchrow(self, sql, *args):
+        if "FROM chat_admins" in sql:
+            role = self.chat_admins.get((args[0], args[1]))
+            return {"role_name": role} if role is not None else None
+        if "FROM chat_profiles" in sql:
+            return {"exists": 1} if args[0] in self.profiles else None
+        raise AssertionError(f"неожиданный fetchrow: {sql}")
+
+    async def fetch(self, sql, *args):
+        assert "FROM chat_profiles p" in sql
+        user_id = args[0]
+        return [{"chat_id": cid, "is_active": True,
+                 "chat_role": self.chat_admins.get((cid, user_id))}
+                for cid in sorted(self.profiles)]
+
+    async def execute(self, sql, *args):
+        self.executed.append((sql.split("(")[0][:48], args))
+        return "OK"
+
+    def transaction(self):
+        class _Tx:
+            async def __aenter__(self_):
+                return self_
+
+            async def __aexit__(self_, *exc):
+                return False
+
+        return _Tx()
+
+
+class _LaunchPool:
+    def __init__(self, conn):
+        self._conn = conn
+
+    def acquire(self):
+        conn = self._conn
+
+        class _CM:
+            async def __aenter__(self_):
+                return conn
+
+            async def __aexit__(self_, *exc):
+                return False
+
+        return _CM()
+
+
+class _LaunchPg:
+    def __init__(self, conn):
+        self.pool = _LaunchPool(conn)
+
+
+class _LaunchCache:
+    """ConfigCache-стаб: роли 84.6 + pg-заглушка для chat_admins/chat_profiles."""
+
+    def __init__(self, admins: dict, chat_admins: dict | None = None,
+                 profiles=()):
+        self._roles = {
+            "admin": {"permissions": {"wildcard": True},
+                      "role_type": "global_admin"},
+            "local_admin": {"permissions": {"sections": ["limits"]},
+                            "role_type": "local_admin"},
+            "user": {"permissions": {}, "role_type": "user"},
+        }
+        self._admins = dict(admins)
+        self.conn = _LaunchConn(chat_admins or {}, profiles)
+        self.pg = _LaunchPg(self.conn)
+
+    def get_role(self, telegram_id):
+        return self._admins.get(telegram_id)
+
+    def get_permissions_by_telegram_id(self, telegram_id):
+        role = self.get_role(telegram_id)
+        if role is None or role not in self._roles:
+            return None
+        return Permissions.from_dict(self._roles[role].get("permissions", {}))
+
+    def get_permissions(self, role_name):
+        role = self._roles.get(role_name)
+        if role is None:
+            return None
+        return Permissions.from_dict(role.get("permissions", {}))
+
+    def roles(self):
+        return dict(self._roles)
+
+
+@pytest.fixture
+def launch_cache():
+    """NON_ADMIN — без грантов; CHAT_ADMIN — local_admin в GROUP_CHAT_ID."""
+    return _LaunchCache(
+        {NON_ADMIN_ID: "user", CHAT_ADMIN_ID: "user"},
+        chat_admins={(GROUP_CHAT_ID, CHAT_ADMIN_ID): "local_admin"},
+        profiles={GROUP_CHAT_ID, FOREIGN_CHAT_ID},
+    )
+
+
+def _launch_app(cache, monkeypatch):
+    """Реальные роутеры /api/access/* + реальный chat-scope guard (без бота)."""
+    from web.api import access as access_mod
+    from web.api.access import access_router
+    from web.api.mechanism_diagnostics import mechanism_diagnostics_router
+
+    async def _display_info(chat_id):
+        return {}
+
+    monkeypatch.setattr(access_mod, "chat_display_info", _display_info)
+    app = _app(cache)
+    # префиксы — как в web/app.py (реальные пути /api/access/* и /api/*)
+    app.include_router(access_router, prefix="/api/access")
+    app.include_router(mechanism_diagnostics_router, prefix="/api")
+    return app
+
+
+class TestGroupOriginLaunchContext:
+    """Групповой/диплинковый запуск Mini App не расширяет доступ."""
+
+    def test_signed_launch_payload_has_no_chat_scope_on_user(self):
+        """Подписанный group-запуск парсится, но единственный источник прав —
+        `user` — не несёт chat-полей: chat_type/chat_instance/start_param/chat
+        остаются данными запуска."""
+        from aiogram.utils.web_app import safe_parse_webapp_init_data
+        raw = make_launch_init_data(
+            TEST_TOKEN, NON_ADMIN_ID, chat_id=GROUP_CHAT_ID,
+            chat_type="group", chat_instance="ci-opaque-abc",
+            start_param=str(FOREIGN_CHAT_ID))
+        parsed = safe_parse_webapp_init_data(token=TEST_TOKEN, init_data=raw)
+        assert parsed.chat_type == "group"
+        assert parsed.chat_instance == "ci-opaque-abc"
+        assert parsed.start_param == str(FOREIGN_CHAT_ID)
+        assert parsed.chat.id == GROUP_CHAT_ID
+        assert parsed.user.id == NON_ADMIN_ID
+        for attr in ("chat_id", "chat", "chat_type", "chat_instance",
+                     "start_param"):
+            assert not hasattr(parsed.user, attr)
+
+    def test_group_origin_me_matches_private_launch(self, launch_cache,
+                                                    monkeypatch):
+        """/api/access/me с групповым запуском == приватный запуск: тот же
+        ответ, никакого лишнего чата/роли."""
+        client = TestClient(_launch_app(launch_cache, monkeypatch))
+        private = client.get("/api/access/me", headers={
+            "X-Telegram-Init-Data":
+                make_init_data(TEST_TOKEN, user_id=NON_ADMIN_ID)})
+        group = client.get("/api/access/me", headers={
+            "X-Telegram-Init-Data": make_launch_init_data(
+                TEST_TOKEN, NON_ADMIN_ID, chat_id=GROUP_CHAT_ID,
+                chat_type="group", chat_instance="ci-1",
+                start_param=str(GROUP_CHAT_ID))})
+        assert private.status_code == 200 and group.status_code == 200
+        assert private.json() == group.json()
+        body = group.json()
+        assert body["role_chat"] is None
+        assert body["is_local_admin"] is False
+        assert body["is_global_admin"] is False
+        assert body["rank"] == 1
+        # единственный чат — свой ЛС; «запущенной» группы в скоупе НЕТ
+        assert body["chats"] == [{"chat_id": NON_ADMIN_ID, "role": "dm"}]
+
+    def test_group_origin_chats_list_has_no_launch_chat(self, launch_cache,
+                                                        monkeypatch):
+        """Селектор чатов: группа запуска и чужие чаты не появляются; активный
+        X-Chat-Id не даёт роли без строки chat_admins."""
+        client = TestClient(_launch_app(launch_cache, monkeypatch))
+        hdr = {"X-Telegram-Init-Data": make_launch_init_data(
+            TEST_TOKEN, NON_ADMIN_ID, chat_id=GROUP_CHAT_ID,
+            chat_type="group", chat_instance="ci-2")}
+        resp = client.get("/api/access/chats", headers=hdr)
+        assert resp.status_code == 200
+        assert [c["chat_id"] for c in resp.json()] == [NON_ADMIN_ID]
+        me = client.get("/api/access/me",
+                        headers={**hdr, "X-Chat-Id": str(GROUP_CHAT_ID)})
+        assert me.status_code == 200
+        assert me.json()["role_chat"] is None
+        assert me.json()["is_local_admin"] is False
+
+    def test_start_param_does_not_widen_chat_read(self, launch_cache,
+                                                  monkeypatch):
+        """Диплинк (start_param) на чужой чат: реальный chat-scope guard
+        отдаёт 403, админский слой — тоже 403."""
+        client = TestClient(_launch_app(launch_cache, monkeypatch))
+        hdr = {"X-Telegram-Init-Data": make_launch_init_data(
+            TEST_TOKEN, NON_ADMIN_ID, chat_id=GROUP_CHAT_ID,
+            chat_type="group", chat_instance="ci-3",
+            start_param=str(FOREIGN_CHAT_ID))}
+        diag = client.get("/api/initiative/mechanism-diagnostics",
+                          headers={**hdr, "X-Chat-Id": str(FOREIGN_CHAT_ID)})
+        assert diag.status_code == 403
+        own = client.get("/api/initiative/mechanism-diagnostics",
+                         headers={**hdr, "X-Chat-Id": str(GROUP_CHAT_ID)})
+        assert own.status_code == 403
+        assert client.get("/api/access/param_permissions",
+                          headers=hdr).status_code == 403
+
+    def test_non_admin_privileged_write_403_group_and_private(
+            self, launch_cache, monkeypatch):
+        """Привилегированная запись (грант chat_admins) — 403 и с групповым,
+        и с приватным запуском; журнал пуст (ничего не записано)."""
+        client = TestClient(_launch_app(launch_cache, monkeypatch))
+        body = {"telegram_id": NON_ADMIN_ID, "role_name": "local_admin"}
+        group = client.post(
+            f"/api/access/chats/{GROUP_CHAT_ID}/admins", json=body,
+            headers={"X-Telegram-Init-Data": make_launch_init_data(
+                TEST_TOKEN, NON_ADMIN_ID, chat_id=GROUP_CHAT_ID,
+                chat_type="group", chat_instance="ci-4")})
+        private = client.post(
+            f"/api/access/chats/{GROUP_CHAT_ID}/admins", json=body,
+            headers={"X-Telegram-Init-Data":
+                     make_init_data(TEST_TOKEN, user_id=NON_ADMIN_ID)})
+        assert group.status_code == 403 and private.status_code == 403
+        assert launch_cache.conn.executed == []
+
+    def test_chat_grant_rights_equal_for_group_and_private_launch(
+            self, launch_cache, monkeypatch):
+        """Носитель гранта chat_admins получает одинаковые права при групповом
+        и приватном запуске; на чат без гранта — 403."""
+        client = TestClient(_launch_app(launch_cache, monkeypatch))
+        private_hdr = {
+            "X-Telegram-Init-Data":
+                make_init_data(TEST_TOKEN, user_id=CHAT_ADMIN_ID),
+            "X-Chat-Id": str(GROUP_CHAT_ID)}
+        group_hdr = {
+            "X-Telegram-Init-Data": make_launch_init_data(
+                TEST_TOKEN, CHAT_ADMIN_ID, chat_id=GROUP_CHAT_ID,
+                chat_type="group", chat_instance="ci-5"),
+            "X-Chat-Id": str(GROUP_CHAT_ID)}
+        private = client.get("/api/access/me", headers=private_hdr)
+        group = client.get("/api/access/me", headers=group_hdr)
+        assert private.status_code == 200 and group.status_code == 200
+        assert private.json() == group.json()
+        assert group.json()["role_chat"] == "local_admin"
+        assert group.json()["is_local_admin"] is True
+        assert group.json()["rank"] == 3
+        foreign = client.get(
+            "/api/initiative/mechanism-diagnostics",
+            headers={**group_hdr, "X-Chat-Id": str(FOREIGN_CHAT_ID)})
+        assert foreign.status_code == 403
+
+    def test_group_origin_auth_failures_stay_401(self, launch_cache,
+                                                 monkeypatch):
+        """Негатив для group-origin payload: просроченный auth_date, битая
+        подпись и подмена поля после подписи — 401 (и на записи тоже)."""
+        monkeypatch.delenv("TMA_AUTH_MAX_AGE", raising=False)
+        client = TestClient(_launch_app(launch_cache, monkeypatch))
+        stale = make_launch_init_data(
+            TEST_TOKEN, NON_ADMIN_ID, chat_id=GROUP_CHAT_ID,
+            chat_type="group", chat_instance="ci-6",
+            auth_date=int(time.time()) - 90000)
+        bad_hash = make_launch_init_data(
+            TEST_TOKEN, NON_ADMIN_ID, chat_id=GROUP_CHAT_ID,
+            chat_type="group", chat_instance="ci-6", hash_ok=False)
+        tampered = make_launch_init_data(
+            TEST_TOKEN, NON_ADMIN_ID, chat_id=GROUP_CHAT_ID,
+            chat_type="group", chat_instance="ci-6", start_param="own",
+            tamper={"start_param": str(FOREIGN_CHAT_ID)})
+        for raw in (stale, bad_hash, tampered):
+            resp = client.get("/api/access/me",
+                              headers={"X-Telegram-Init-Data": raw})
+            assert resp.status_code == 401, raw[:80]
+        denied = client.post(
+            f"/api/access/chats/{GROUP_CHAT_ID}/admins",
+            json={"telegram_id": NON_ADMIN_ID, "role_name": "local_admin"},
+            headers={"X-Telegram-Init-Data": tampered})
+        assert denied.status_code == 401
