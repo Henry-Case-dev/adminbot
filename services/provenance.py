@@ -518,11 +518,12 @@ async def record_fact_provenance(
         db, obj_ref, origin_status=origin_status,
         extractor_version=extractor_version, now=ts)
 
-    # MEMORY-03 (C-2 §2.5): то же основание, что у факта, регистрируется и для
-    # ребра — ребро адресуется SourceRef'ом `graph_edge` (revision='stable'),
-    # связи идут в те же `mca_evidence_links`. Fail-open: отсутствие ребра или
-    # сбой не ломают запись факта.
-    if source_ref_id is not None:
+    # MEMORY-03 (C-2 §2.5): основание ребра выводится из АТРИБУЦИИ ФАКТА
+    # (perspective/attribution_method/forward_from живут в `graph_facts`), а не
+    # из сообщения: пересказ третьего лица и репост не становятся независимым
+    # корнем (MEM-03.4/§2.3), собственный ответ бота не выдаётся за слова
+    # человека (R-3). Fail-open: сбой не ломает запись факта.
+    if source_ref_id is not None or self_ref:
         try:
             from services import relation_evidence
             await relation_evidence.attach_fact_edge_evidence(

@@ -10,10 +10,16 @@
   * `mentions`/`cooccurrence`/`legacy_unknown` никогда не подтверждают ребро
     (R-11) и не понижают ребро с проверенным корнем (R-12) — слабые основания
     видны отдельно (`legacy_sources_count`, `has_unsupported_sources`);
+  * класс происхождения основания выводится по атрибуции САМОГО ФАКТА
+    (`perspective`/`attribution_method`/`forward_from` живут в `graph_facts`):
+    пересказ третьего лица — `reported_third_party`, репост/цитата —
+    `quote_forward`; ни то, ни другое не создаёт независимый корень
+    (MEM-03.4, §2.2/§2.3, R-4/§2.8). `method='direct_reference'` ставится
+    только прямому утверждению автора;
   * собственный вывод бота (`origin='bot_self_reply'|'bot_direct_reply'`,
-    `provenance.is_self_referential_origin`) пишется с
-    `independence='self_referential'` и в независимую поддержку не входит
-    (R-3): «бот уже так говорил» ≠ «это правда»;
+    `provenance.is_self_referential_origin`) опирается на собственную строку
+    факта с `independence='self_referential'` и в независимую поддержку не
+    входит (R-3); сообщение человека источником реплики бота не объявляется;
   * транзитивность не выводится (R-5): `A–B` и `B–C` не дают `A–C`;
   * ревизия SourceRef ребра — константа (`'stable'`): повторная обработка того
     же сообщения/ребра не создаёт второй SourceRef и не раздувает
@@ -23,6 +29,10 @@
   * счётчик независимых корней — один на проект
     (`provenance.evidence_independent_count`), поэтому слой данных и контракт
     (`RelationView.independent_support`) не могут разойтись.
+
+Когда корень нельзя установить честно (нет адреса первоисточника, нет
+сохранённого сообщения автора), основание пишется как `tentative`/`unknown` и
+НЕ считается подтверждением: лучше меньше независимости, чем выдуманная.
 
 Гейт: master `MCA_PROVENANCE_ENABLED` (`relation_evidence_enabled`). OFF →
 никаких записей edge-evidence и пустое чтение (паритет baseline).
@@ -44,6 +54,14 @@ from services.memory_contracts import (
     RelationView,
     resolve_assertion_mode,
 )
+from services.graphrag_provenance import (
+    ORIGIN_COOCCURRENCE,
+    ORIGIN_DERIVED_WITH_LINEAGE,
+    ORIGIN_EXPLICIT_DIRECT,
+    ORIGIN_LEGACY_UNKNOWN,
+    ORIGIN_QUOTE_FORWARD,
+    ORIGIN_REPORTED_THIRD_PARTY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +80,71 @@ EXPLANATION_CONFIRMED = "Связь подтверждена независим�
 EXPLANATION_TENTATIVE = "Основания есть, но независимого подтверждения нет"
 EXPLANATION_MENTIONS = "Только упоминание, не утверждение"
 EXPLANATION_UNVERIFIED = "Связь записана без установленного происхождения"
+
+# ── §2.3: что класс происхождения позволяет утверждать о ребре ──────────────
+# План записи основания. `root` — от чего адресуется основание:
+#   * `message` — сохранённое сообщение автора (только прямое утверждение);
+#   * `fact`    — строка `graph_facts`, из которой выведено ребро.
+# Атрибуция (perspective/attribution_method/forward_from) живёт в `graph_facts`,
+# поэтому по ней и решается класс: пересказ, репост и производное НЕ становятся
+# независимым корнем (MEM-03.4, §2.2/§2.3, §2.8). Метод `direct_reference`
+# ставится только прямому утверждению автора — приписывать его пересказу
+# запрещено.
+_EVIDENCE_PLANS: dict[str, dict] = {
+    ORIGIN_EXPLICIT_DIRECT: {
+        "root": "message", "link_type": "supports",
+        "verification": "verified", "independence": "independent",
+        "method": "direct_reference",
+        "basis": "прямое утверждение автора в сохранённом сообщении",
+    },
+    ORIGIN_REPORTED_THIRD_PARTY: {
+        "root": "fact", "link_type": "derived_from",
+        "verification": "tentative", "independence": "unknown",
+        "method": "metadata",
+        "basis": "пересказ третьего лица — первоисточник не установлен",
+    },
+    ORIGIN_QUOTE_FORWARD: {
+        "root": "fact", "link_type": "derived_from",
+        "verification": "tentative", "independence": "unknown",
+        "method": "metadata",
+        "basis": "репост/цитата — первоисточник не установлен",
+    },
+    ORIGIN_DERIVED_WITH_LINEAGE: {
+        "root": "fact", "link_type": "derived_from",
+        "verification": "tentative", "independence": "unknown",
+        "method": "metadata",
+        "basis": "производное с цепочкой, не прямое утверждение",
+    },
+    ORIGIN_COOCCURRENCE: {
+        "root": "fact", "link_type": "mentions",
+        "verification": "unknown", "independence": "unknown",
+        "method": "metadata",
+        "basis": "только упоминание, не утверждение",
+    },
+    ORIGIN_LEGACY_UNKNOWN: {
+        "root": "fact", "link_type": "derived_from",
+        "verification": "unknown", "independence": "unknown",
+        "method": "unknown",
+        "basis": "происхождение не установлено",
+    },
+}
+
+# R-3: собственный вывод бота. Основание — его же записанный факт, никогда
+# сообщение человека (иначе реплика бота выдаётся за слова спрашивающего).
+_BOT_SELF_PLAN = {
+    "root": "fact", "link_type": "derived_from",
+    "verification": "tentative", "independence": "self_referential",
+    "method": "metadata",
+    "basis": "собственный вывод бота — не подтверждение человека",
+}
+
+# Класс без адресуемого сообщения автора: независимость не заявляется.
+_NO_ADDRESS_PLAN = {
+    "root": "fact", "link_type": "supports",
+    "verification": "tentative", "independence": "unknown",
+    "method": "metadata",
+    "basis": "утверждение без сохранённого адреса источника",
+}
 
 
 def relation_evidence_enabled() -> bool:
@@ -116,44 +199,91 @@ async def edge_ids_for_fact(db, chat_id: int, fact_id) -> list[int]:
     return [int(row["id"]) for row in await cursor.fetchall()]
 
 
+async def _load_fact_row(db, chat_id: int, fact_id) -> dict:
+    """Строка факта: в ней живёт атрибуция (perspective/attribution/forward)."""
+    try:
+        cursor = await db.db.execute(
+            "SELECT id, origin, perspective, attribution_method, "
+            "provenance_channel, forward_from, subject_ref_id, tg_message_id, "
+            "assertion_kind FROM graph_facts WHERE id = ? AND chat_id = ?",
+            (int(fact_id), int(chat_id)))
+        row = await cursor.fetchone()
+    except Exception:                                     # pragma: no cover
+        return {}
+    return dict(row) if row is not None else {}
+
+
+def _evidence_plan(*, row: dict, origin: str | None,
+                   source_ref_id: int | None) -> tuple[str, dict]:
+    """Класс происхождения факта → план записи основания ребра (§2.2/§2.3).
+
+    Атрибуция берётся из САМОГО ФАКТА, а не из сообщения: `perspective`,
+    `attribution_method` и `forward_from` пишутся в `graph_facts`, поэтому
+    пересказ/репост нельзя классифицировать как прямое утверждение автора.
+    """
+    row = row or {}
+    row_origin = origin or row.get("origin")
+    if (provenance.is_self_referential_origin(row_origin)
+            or provenance.is_self_referential_origin(row.get("origin"))):
+        return ORIGIN_DERIVED_WITH_LINEAGE, dict(_BOT_SELF_PLAN)
+    origin_class = graphrag_provenance.classify_origin_class(
+        entity_type="graph_fact", source_row=row,
+        link_type="supports", method="direct_reference",
+        verification="verified")
+    plan = dict(_EVIDENCE_PLANS.get(origin_class,
+                                    _EVIDENCE_PLANS[ORIGIN_LEGACY_UNKNOWN]))
+    if plan["root"] == "message" and source_ref_id is None:
+        # Адреса сообщения нет — независимость не заявляем (§2.3/R-1).
+        plan = dict(_NO_ADDRESS_PLAN)
+    return origin_class, plan
+
+
 async def attach_fact_edge_evidence(
-        db, *, chat_id: int, fact_id, source_ref_id: int,
-        origin: str | None = None, link_type: str = "derived_from",
-        method: str = "direct_reference", verification: str = "verified",
-        independence: str | None = None, claim_key: str | None = None,
-        basis: str | None = "saved direct tg_message_id",
+        db, *, chat_id: int, fact_id, source_ref_id: int | None = None,
+        origin: str | None = None, edge_ids: list[int] | None = None,
         established_at: int = 0,
         extractor_version: str | None = None) -> list[int]:
-    """То же основание, что у факта, привязать к созданному из него ребру.
+    """Основание ребра выводится из атрибуции факта (§2.2/§2.3, MEM-03.4).
 
-    R-3: origin ответа бота → `independence='self_referential'` всегда, даже
-    если вызывающий передал `independent`: собственный вывод не corroborates
-    сам себя. Возвращает id привязанных рёбер.
+    * прямое утверждение автора → сообщение автора, `supports/verified/independent`;
+    * пересказ третьего лица → `reported_third_party`, не независимый корень;
+    * репост/цитата → `quote_forward`, не отдельное подтверждение;
+    * производное/legacy → не подтверждение;
+    * собственный вывод бота → строка факта бота, `self_referential` (R-3),
+      сообщение человека источником реплики бота НЕ становится.
+
+    `edge_ids` позволяет привязать основание к конкретному ребру (агрегат/
+    повторная обработка); иначе берутся рёбра этого факта.
     """
     if not relation_evidence_enabled():
         return []
-    self_referential = provenance.is_self_referential_origin(origin)
-    if self_referential:
-        # R-3: собственный вывод бота не corroborates сам себя. Связь
-        # сохраняется (аудит «бот это говорил»), но независимой не является,
-        # поэтому в `evidence_independent_count` не входит.
-        effective_independence = "self_referential"
-    else:
-        effective_independence = independence or "independent"
+    row = await _load_fact_row(db, chat_id, fact_id)
+    _origin_class, plan = _evidence_plan(
+        row=row, origin=origin, source_ref_id=source_ref_id)
 
-    edge_ids = await edge_ids_for_fact(db, chat_id, fact_id)
+    if plan["root"] == "message" and source_ref_id is not None:
+        root_ref_id: int | None = int(source_ref_id)
+    else:
+        root_ref_id = await provenance.resolve_source_ref(
+            db, provenance.graph_fact_source_ref(chat_id, fact_id))
+    if root_ref_id is None:
+        return []
+
+    targets = ([int(v) for v in edge_ids] if edge_ids
+               else await edge_ids_for_fact(db, chat_id, fact_id))
     attached: list[int] = []
-    for edge_id in edge_ids:
+    for edge_id in targets:
         edge_ref = await attach_edge_evidence(
-            db, chat_id=chat_id, edge_id=edge_id, source_ref_id=source_ref_id,
-            link_type=link_type, method=method,
-            verification=verification, independence=effective_independence,
-            claim_key=claim_key, basis=basis, established_at=established_at,
+            db, chat_id=chat_id, edge_id=edge_id, source_ref_id=root_ref_id,
+            link_type=plan["link_type"], method=plan["method"],
+            verification=plan["verification"],
+            independence=plan["independence"], basis=plan["basis"],
+            established_at=established_at,
             extractor_version=extractor_version)
         if edge_ref is not None:
             attached.append(int(edge_id))
     if attached:
-        _emit_edge_evidence(chat_id, attached, effective_independence)
+        _emit_edge_evidence(chat_id, attached, plan["independence"])
     return attached
 
 

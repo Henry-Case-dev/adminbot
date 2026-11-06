@@ -878,14 +878,17 @@ async def test_basis_r17_safe(tmp_path):
 
 async def _pair(d, *, chat=CHAT, subject="вася", target="петя",
                 relation="спорил с", fact_text="вася спорил с петей",
-                origin="chat_history", tg=None, with_fact=True):
+                origin="chat_history", tg=None, with_fact=True,
+                attribution_method=None, forward_from=""):
     """nodes + факт + ребро (как fact-write path: сначала факт, затем ребро)."""
     sid = await d.upsert_node(chat, subject, "fact", origin=origin)
     oid = await d.upsert_node(chat, target, "fact", origin=origin)
     fid = None
     if with_fact:
-        fid = await d.insert_graph_fact(chat, fact_text, origin, None,
-                                        tg_message_id=tg)
+        fid = await d.insert_graph_fact(
+            chat, fact_text, origin, None, tg_message_id=tg,
+            forward_from=forward_from,
+            attribution_method=attribution_method)
     await d.upsert_edge(sid, oid, relation, origin=origin, fact_id=fid)
     cursor = await d.db.execute(
         "SELECT id FROM edges WHERE chat_id = ? AND source_id = ? "
@@ -1086,16 +1089,20 @@ class TestEdgeEvidenceFromFactWrite:
             assert evidence["status"] != "confirmed"
             view = await rel.build_relation_view(d, chat_id=CHAT, edge_id=eid)
             assert view.status.value != "confirmed"
-            # «наивный» писатель, передавший independence='independent',
-            # не поднимает поддержку: origin решает (R-3)
-            other = await _msg_ref(d, 502, tg=502)
+            # Повторный/«наивный» вызов того же писателя с сообщением человека
+            # не поднимает поддержку: origin решает (R-3), а сообщение человека
+            # источником реплики бота не становится.
+            other_msg_row = await _insert_smart(d, text="а что коля?",
+                                                tg=502)
+            other = await _msg_ref(d, other_msg_row, tg=502)
             await rel.attach_fact_edge_evidence(
                 d, chat_id=CHAT, fact_id=fid, source_ref_id=other,
-                origin="bot_direct_reply", independence="independent",
-                established_at=1000)
+                origin="bot_direct_reply", established_at=1000)
             evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
             assert evidence["independent_support"] == 0
             assert evidence["status"] != "confirmed"
+            assert other not in {s["source_ref_id"]
+                                 for s in evidence["sources"]}
         finally:
             await d.close()
 
@@ -1190,6 +1197,106 @@ class TestEdgeEvidenceFromFactWrite:
             evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
             assert evidence["sources"] == []
             assert evidence["independent_support"] == 0
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_third_party_retelling_is_not_independent_root(self, tmp_path):
+        """§2.2/§2.3/MEM-03.4: пересказ третьего лица не создаёт новый корень."""
+        d = await _fresh(tmp_path, "mem03_reported.db")
+        try:
+            _sid, _oid, fid, eid = await _pair(
+                d, fact_text="сергей говорил, что вася спорил с петей",
+                attribution_method="third_party", tg=901)
+            await prov.record_fact_provenance(
+                d, fact_id=fid, chat_id=CHAT, origin="chat_history",
+                attribution_method="third_party", tg_message_id=901)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert evidence["status"] != "confirmed"
+            assert evidence["independent_support"] == 0
+            source = evidence["sources"][0]
+            assert source["origin_class"] == "reported_third_party"
+            assert source["counts_as_independent"] is False
+            assert source["verification"] != "verified"
+            assert source["independence"] != "independent"
+            links = await rel.edge_links(d, CHAT, eid)
+            assert links[0]["method"] != "direct_reference"
+            view = await rel.build_relation_view(d, chat_id=CHAT, edge_id=eid)
+            assert view.status.value != "confirmed"
+            assert view.independent_support == 0
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_two_reposts_of_one_post_do_not_double_count(self, tmp_path):
+        """§2.8/R-4: два репоста одного первоисточника не дают двух корней."""
+        d = await _fresh(tmp_path, "mem03_repost.db")
+        try:
+            _sid, _oid, fid1, eid = await _pair(
+                d, fact_text="вася спорил с петей", tg=911,
+                forward_from="канал X")
+            fid2 = await d.insert_graph_fact(
+                CHAT, "вася спорил с петей", "chat_history", None,
+                tg_message_id=912, forward_from="канал X")
+            await prov.record_fact_provenance(
+                d, fact_id=fid1, chat_id=CHAT, origin="chat_history",
+                tg_message_id=911)
+            # второй репост того же первоисточника — основание ТОГО ЖЕ ребра
+            await rel.attach_fact_edge_evidence(
+                d, chat_id=CHAT, fact_id=fid2, edge_ids=[eid],
+                established_at=1000)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert evidence["independent_support"] <= 1
+            assert evidence["independent_support"] == 0
+            assert evidence["status"] != "confirmed"
+            classes = {s["origin_class"] for s in evidence["sources"]}
+            assert classes == {"quote_forward"}
+            assert all(not s["counts_as_independent"]
+                       for s in evidence["sources"])
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_single_forward_does_not_confirm(self, tmp_path):
+        """§2.8: репост сам по себе не подтверждает связь (счётчик + статус)."""
+        d = await _fresh(tmp_path, "mem03_forward.db")
+        try:
+            _sid, _oid, fid, eid = await _pair(
+                d, tg=921, forward_from="канал X")
+            await prov.record_fact_provenance(
+                d, fact_id=fid, chat_id=CHAT, origin="chat_history",
+                tg_message_id=921)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            assert evidence["independent_support"] == 0
+            assert evidence["status"] != "confirmed"
+            assert evidence["sources"][0]["origin_class"] == "quote_forward"
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_bot_origin_never_uses_human_message_as_source(self, tmp_path):
+        """R-3/честная атрибуция: ответ бота не выдаётся за слова человека."""
+        d = await _fresh(tmp_path, "mem03_bot_src.db")
+        try:
+            human_row = await _insert_smart(d, text="что нового про васю?",
+                                            tg=931)
+            human_ref = await _msg_ref(d, human_row, tg=931)
+            _sid, _oid, fid, eid = await _pair(
+                d, origin="bot_direct_reply",
+                fact_text="вася спорил с петей", tg=931)
+            await prov.record_fact_provenance(
+                d, fact_id=fid, chat_id=CHAT, origin="bot_direct_reply",
+                tg_message_id=931)
+            evidence = await rel.edge_evidence(d, chat_id=CHAT, edge_id=eid)
+            shown = {s["source_ref_id"] for s in evidence["sources"]}
+            assert human_ref not in shown          # человек не источник реплики бота
+            assert evidence["independent_support"] == 0
+            assert evidence["status"] != "confirmed"
+            source = evidence["sources"][0]
+            assert source["independence"] == "self_referential"
+            assert source["kind"] == "graph_fact"
+            links = await rel.edge_links(d, CHAT, eid)
+            assert "бот" in (links[0]["basis"] or "").lower()
         finally:
             await d.close()
 
