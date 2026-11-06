@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-07T08:45:00+12:00",
+  "updated": "2026-11-07T09:30:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -500,14 +500,14 @@
     },
     {
       "id": "menu-01",
-      "status": "BUILDING",
+      "status": "REVIEW",
       "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
       "source_sha256": "316893A95392D7FBA23EF7D96EAA603384A587B7AB82BD29A6350453D9CA0ED1",
       "maps": [
         "plans/features/menu-01/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "Независимая группа /menu deep-link. Карта plans/features/menu-01/requirements-map.json (10 обязательных строк, plan-gate errors=0). Кандидат 14400b73 на независимом ревью; BotFather/Telegram live-регистрация, Android/Desktop переход и live ACL остаются PENDING_EXTERNAL."
+      "source_note": "Независимая группа /menu deep-link. Карта plans/features/menu-01/requirements-map.json: 7 строк VERIFIED (включая MENU-01.4 — Main Mini App зарегистрирован и включён, Fullscreen, существующее приложение https://admin-bot.duckdns.org/web/), 10 строк всего, review-gate errors=0. Кандидат 14400b73 независимо одобрен по кодовой части. Осталось runtime-доказательство реального startapp-запуска, валидации initData и ACL — это собирают агенты из логов и серверных проверок, а не владелец. Повторная регистрация и Direct Links не требуются."
     },
     {
       "id": "evol-reply-context-integrity-rci",
@@ -1163,7 +1163,7 @@
         "menu-01"
       ],
       "reconciled": true,
-      "note": "Full MEMORY-01..09 plus independent MENU-01; obligations decomposed into plans/features/memory-cognitive-02/requirements-map.json (145 rows) and plans/features/menu-01/requirements-map.json (10 rows); plan gates errors=0; MEMORY-00 audit recorded, contracts freeze required before implementation."
+      "note": "Full MEMORY-01..09 plus independent MENU-01; obligations decomposed into the memory epic map (145 rows) and the MENU-01 map (10 rows); plan gates errors=0. MEMORY-00 audit recorded; contracts freeze required before implementation. MENU-01 registration is owner-confirmed present, so its remaining gap is runtime launch evidence, not an external owner action."
     },
     {
       "id": "OI-2026-11-07-CONTEXT-INTEGRITY-FACTCHECK",
