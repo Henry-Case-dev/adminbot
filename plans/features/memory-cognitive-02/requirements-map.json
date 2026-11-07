@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
   "source_sha256": "316893a95392d7fba23ef7d96eaa603384a587b7ab82bd29a6350453d9ca0ed1",
-  "candidate_commit": "73512d85",
+  "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
   "deployed_commit": "",
   "strict_evidence": false,
   "slice_graph_path": "",
@@ -359,26 +359,26 @@
       "evidence": [
         {
           "kind": "code",
-          "candidate_commit": "73512d85",
-          "ref": "services/entity_resolver.py",
-          "artifact_sha256": "6B4395226ACA52B6E611764046EF7F706E151B10B88E9526354821A3E3C71C4D",
-          "observation": "PART A ONLY: resolve_entity implements the C-1 order (uid -> alias cascade -> exact name -> bounded casefold scan -> redirect -> new), performs no writes, refuses to merge by name, returns rejected for a foreign type and ambiguous for a pinned node. Seeding creates at most one active self row, refuses to hijack a node, and never uses INSERT OR REPLACE. The resolver is not yet wired into W1-W6 writers, so these rows stay PENDING."
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
         },
         {
-          "kind": "migration",
-          "candidate_commit": "73512d85",
-          "ref": "services/database.py",
-          "artifact_sha256": "9CCECD32EB5F270712AB9752FE8353B713BE09C71F031640603B02BF820666F4",
-          "observation": "Migration v43 adds only mca_entity_canonical plus a partial unique index and one lookup index; no ALTER on nodes/edges/graph_facts; idempotent; a real v42->v43 upgrade on a file database keeps row counts and the DDL of the pre-existing tables identical and creates a pre-migration backup; the OFF path works even without the table."
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
         },
         {
           "kind": "review",
-          "candidate_commit": "73512d85",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
           "ref": "plans/features/memory-cognitive-02/requirements-map.json",
-          "observation": "Independent Reviewer Approved part A with own probes (file-database upgrade, index enforcement, bounded scan plan, silent-alias false-merge probe, OFF-without-table) and a reproduced pin-guard mutation. Explicitly: MEM-02.6 (dry-run backfill of existing duplicates) gets no evidence, and the parent MEMORY-02 is not done until part B wires the writers and merge/alias operations."
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
         }
       ],
-      "pending_reason": "Part A delivered (schema v43 + read resolver + seed guard, Approved). Remaining for VERIFIED: wire the six existing write paths through resolve_or_create_node, duplicate dry-run/merge application (MEM-02.6) and the reply/quote/bot-self negative cases."
+      "pending_reason": "resolve_entity exists and is Approved (part A), but extraction, retrieval and the UI do not call it yet; the row requires availability from those consumers."
     },
     {
       "source_id": "M-MEM-02.2",
@@ -396,26 +396,26 @@
       "evidence": [
         {
           "kind": "code",
-          "candidate_commit": "73512d85",
-          "ref": "services/entity_resolver.py",
-          "artifact_sha256": "6B4395226ACA52B6E611764046EF7F706E151B10B88E9526354821A3E3C71C4D",
-          "observation": "PART A ONLY: resolve_entity implements the C-1 order (uid -> alias cascade -> exact name -> bounded casefold scan -> redirect -> new), performs no writes, refuses to merge by name, returns rejected for a foreign type and ambiguous for a pinned node. Seeding creates at most one active self row, refuses to hijack a node, and never uses INSERT OR REPLACE. The resolver is not yet wired into W1-W6 writers, so these rows stay PENDING."
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
         },
         {
-          "kind": "migration",
-          "candidate_commit": "73512d85",
-          "ref": "services/database.py",
-          "artifact_sha256": "9CCECD32EB5F270712AB9752FE8353B713BE09C71F031640603B02BF820666F4",
-          "observation": "Migration v43 adds only mca_entity_canonical plus a partial unique index and one lookup index; no ALTER on nodes/edges/graph_facts; idempotent; a real v42->v43 upgrade on a file database keeps row counts and the DDL of the pre-existing tables identical and creates a pre-migration backup; the OFF path works even without the table."
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
         },
         {
           "kind": "review",
-          "candidate_commit": "73512d85",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
           "ref": "plans/features/memory-cognitive-02/requirements-map.json",
-          "observation": "Independent Reviewer Approved part A with own probes (file-database upgrade, index enforcement, bounded scan plan, silent-alias false-merge probe, OFF-without-table) and a reproduced pin-guard mutation. Explicitly: MEM-02.6 (dry-run backfill of existing duplicates) gets no evidence, and the parent MEMORY-02 is not done until part B wires the writers and merge/alias operations."
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
         }
       ],
-      "pending_reason": "Part A delivered (schema v43 + read resolver + seed guard, Approved). Remaining for VERIFIED: wire the six existing write paths through resolve_or_create_node, duplicate dry-run/merge application (MEM-02.6) and the reply/quote/bot-self negative cases."
+      "pending_reason": "The resolver applies the uid-first key with chat scope and alias fallback; the row also requires extraction to supply stable identity end-to-end, which is a later slice."
     },
     {
       "source_id": "M-MEM-02.3",
@@ -433,26 +433,26 @@
       "evidence": [
         {
           "kind": "code",
-          "candidate_commit": "73512d85",
-          "ref": "services/entity_resolver.py",
-          "artifact_sha256": "6B4395226ACA52B6E611764046EF7F706E151B10B88E9526354821A3E3C71C4D",
-          "observation": "PART A ONLY: resolve_entity implements the C-1 order (uid -> alias cascade -> exact name -> bounded casefold scan -> redirect -> new), performs no writes, refuses to merge by name, returns rejected for a foreign type and ambiguous for a pinned node. Seeding creates at most one active self row, refuses to hijack a node, and never uses INSERT OR REPLACE. The resolver is not yet wired into W1-W6 writers, so these rows stay PENDING."
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
         },
         {
-          "kind": "migration",
-          "candidate_commit": "73512d85",
-          "ref": "services/database.py",
-          "artifact_sha256": "9CCECD32EB5F270712AB9752FE8353B713BE09C71F031640603B02BF820666F4",
-          "observation": "Migration v43 adds only mca_entity_canonical plus a partial unique index and one lookup index; no ALTER on nodes/edges/graph_facts; idempotent; a real v42->v43 upgrade on a file database keeps row counts and the DDL of the pre-existing tables identical and creates a pre-migration backup; the OFF path works even without the table."
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
         },
         {
           "kind": "review",
-          "candidate_commit": "73512d85",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
           "ref": "plans/features/memory-cognitive-02/requirements-map.json",
-          "observation": "Independent Reviewer Approved part A with own probes (file-database upgrade, index enforcement, bounded scan plan, silent-alias false-merge probe, OFF-without-table) and a reproduced pin-guard mutation. Explicitly: MEM-02.6 (dry-run backfill of existing duplicates) gets no evidence, and the parent MEMORY-02 is not done until part B wires the writers and merge/alias operations."
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
         }
       ],
-      "pending_reason": "Part A delivered (schema v43 + read resolver + seed guard, Approved). Remaining for VERIFIED: wire the six existing write paths through resolve_or_create_node, duplicate dry-run/merge application (MEM-02.6) and the reply/quote/bot-self negative cases."
+      "pending_reason": "Casefold only proposes candidates and never merges (tested with ПАПАХА/Папаха/папаха and the Бабаха negative); the row also requires the same guarantee on every existing write path, which part B wires only for W1/W2."
     },
     {
       "source_id": "M-MEM-02.4",
@@ -466,30 +466,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-02.4.** Пример `папаха` vs `Папаха`: если в одном чате по доказательствам это один и тот же человек/понятие — один канонический узел, » — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "kind": "code",
-          "candidate_commit": "73512d85",
-          "ref": "services/entity_resolver.py",
-          "artifact_sha256": "6B4395226ACA52B6E611764046EF7F706E151B10B88E9526354821A3E3C71C4D",
-          "observation": "PART A ONLY: resolve_entity implements the C-1 order (uid -> alias cascade -> exact name -> bounded casefold scan -> redirect -> new), performs no writes, refuses to merge by name, returns rejected for a foreign type and ambiguous for a pinned node. Seeding creates at most one active self row, refuses to hijack a node, and never uses INSERT OR REPLACE. The resolver is not yet wired into W1-W6 writers, so these rows stay PENDING."
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
         },
         {
-          "kind": "migration",
-          "candidate_commit": "73512d85",
-          "ref": "services/database.py",
-          "artifact_sha256": "9CCECD32EB5F270712AB9752FE8353B713BE09C71F031640603B02BF820666F4",
-          "observation": "Migration v43 adds only mca_entity_canonical plus a partial unique index and one lookup index; no ALTER on nodes/edges/graph_facts; idempotent; a real v42->v43 upgrade on a file database keeps row counts and the DDL of the pre-existing tables identical and creates a pre-migration backup; the OFF path works even without the table."
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
         },
         {
           "kind": "review",
-          "candidate_commit": "73512d85",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
           "ref": "plans/features/memory-cognitive-02/requirements-map.json",
-          "observation": "Independent Reviewer Approved part A with own probes (file-database upgrade, index enforcement, bounded scan plan, silent-alias false-merge probe, OFF-without-table) and a reproduced pin-guard mutation. Explicitly: MEM-02.6 (dry-run backfill of existing duplicates) gets no evidence, and the parent MEMORY-02 is not done until part B wires the writers and merge/alias operations."
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
         }
-      ],
-      "pending_reason": "Part A delivered (schema v43 + read resolver + seed guard, Approved). Remaining for VERIFIED: wire the six existing write paths through resolve_or_create_node, duplicate dry-run/merge application (MEM-02.6) and the reply/quote/bot-self negative cases."
+      ]
     },
     {
       "source_id": "M-MEM-02.5",
@@ -503,30 +502,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-02.5.** Операции `MERGE / ALIAS / KEEP_SEPARATE / AMBIGUOUS` имеют отдельные причины и набор источников. Высокое сходство векторов ник» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "kind": "code",
-          "candidate_commit": "73512d85",
-          "ref": "services/entity_resolver.py",
-          "artifact_sha256": "6B4395226ACA52B6E611764046EF7F706E151B10B88E9526354821A3E3C71C4D",
-          "observation": "PART A ONLY: resolve_entity implements the C-1 order (uid -> alias cascade -> exact name -> bounded casefold scan -> redirect -> new), performs no writes, refuses to merge by name, returns rejected for a foreign type and ambiguous for a pinned node. Seeding creates at most one active self row, refuses to hijack a node, and never uses INSERT OR REPLACE. The resolver is not yet wired into W1-W6 writers, so these rows stay PENDING."
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
         },
         {
-          "kind": "migration",
-          "candidate_commit": "73512d85",
-          "ref": "services/database.py",
-          "artifact_sha256": "9CCECD32EB5F270712AB9752FE8353B713BE09C71F031640603B02BF820666F4",
-          "observation": "Migration v43 adds only mca_entity_canonical plus a partial unique index and one lookup index; no ALTER on nodes/edges/graph_facts; idempotent; a real v42->v43 upgrade on a file database keeps row counts and the DDL of the pre-existing tables identical and creates a pre-migration backup; the OFF path works even without the table."
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
         },
         {
           "kind": "review",
-          "candidate_commit": "73512d85",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
           "ref": "plans/features/memory-cognitive-02/requirements-map.json",
-          "observation": "Independent Reviewer Approved part A with own probes (file-database upgrade, index enforcement, bounded scan plan, silent-alias false-merge probe, OFF-without-table) and a reproduced pin-guard mutation. Explicitly: MEM-02.6 (dry-run backfill of existing duplicates) gets no evidence, and the parent MEMORY-02 is not done until part B wires the writers and merge/alias operations."
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
         }
-      ],
-      "pending_reason": "Part A delivered (schema v43 + read resolver + seed guard, Approved). Remaining for VERIFIED: wire the six existing write paths through resolve_or_create_node, duplicate dry-run/merge application (MEM-02.6) and the reply/quote/bot-self negative cases."
+      ]
     },
     {
       "source_id": "M-MEM-02.6",
@@ -540,8 +538,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-02.6.** Для уже существующих дублей построить **dry-run** кандидатов по chat/type, алиасам и источникам; выгрузить число кандидатов, п» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-02.7",
@@ -555,30 +574,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-02.7.** Предотвращать повторное появление дублей **на входе каждого существующего write-path**: real-time, summary/crons, Graph extrac» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "kind": "code",
-          "candidate_commit": "73512d85",
-          "ref": "services/entity_resolver.py",
-          "artifact_sha256": "6B4395226ACA52B6E611764046EF7F706E151B10B88E9526354821A3E3C71C4D",
-          "observation": "PART A ONLY: resolve_entity implements the C-1 order (uid -> alias cascade -> exact name -> bounded casefold scan -> redirect -> new), performs no writes, refuses to merge by name, returns rejected for a foreign type and ambiguous for a pinned node. Seeding creates at most one active self row, refuses to hijack a node, and never uses INSERT OR REPLACE. The resolver is not yet wired into W1-W6 writers, so these rows stay PENDING."
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
         },
         {
-          "kind": "migration",
-          "candidate_commit": "73512d85",
-          "ref": "services/database.py",
-          "artifact_sha256": "9CCECD32EB5F270712AB9752FE8353B713BE09C71F031640603B02BF820666F4",
-          "observation": "Migration v43 adds only mca_entity_canonical plus a partial unique index and one lookup index; no ALTER on nodes/edges/graph_facts; idempotent; a real v42->v43 upgrade on a file database keeps row counts and the DDL of the pre-existing tables identical and creates a pre-migration backup; the OFF path works even without the table."
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
         },
         {
           "kind": "review",
-          "candidate_commit": "73512d85",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
           "ref": "plans/features/memory-cognitive-02/requirements-map.json",
-          "observation": "Independent Reviewer Approved part A with own probes (file-database upgrade, index enforcement, bounded scan plan, silent-alias false-merge probe, OFF-without-table) and a reproduced pin-guard mutation. Explicitly: MEM-02.6 (dry-run backfill of existing duplicates) gets no evidence, and the parent MEMORY-02 is not done until part B wires the writers and merge/alias operations."
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
         }
-      ],
-      "pending_reason": "Part A delivered (schema v43 + read resolver + seed guard, Approved). Remaining for VERIFIED: wire the six existing write paths through resolve_or_create_node, duplicate dry-run/merge application (MEM-02.6) and the reply/quote/bot-self negative cases."
+      ]
     },
     {
       "source_id": "M-MEM-02.8",
@@ -592,30 +610,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-02.8.** Контрольные отрицательные случаи: одинаковые алиасы в двух чатах; имя «Саша» у двух людей; смена ника; фраза про другого через» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "kind": "code",
-          "candidate_commit": "73512d85",
-          "ref": "services/entity_resolver.py",
-          "artifact_sha256": "6B4395226ACA52B6E611764046EF7F706E151B10B88E9526354821A3E3C71C4D",
-          "observation": "PART A ONLY: resolve_entity implements the C-1 order (uid -> alias cascade -> exact name -> bounded casefold scan -> redirect -> new), performs no writes, refuses to merge by name, returns rejected for a foreign type and ambiguous for a pinned node. Seeding creates at most one active self row, refuses to hijack a node, and never uses INSERT OR REPLACE. The resolver is not yet wired into W1-W6 writers, so these rows stay PENDING."
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
         },
         {
-          "kind": "migration",
-          "candidate_commit": "73512d85",
-          "ref": "services/database.py",
-          "artifact_sha256": "9CCECD32EB5F270712AB9752FE8353B713BE09C71F031640603B02BF820666F4",
-          "observation": "Migration v43 adds only mca_entity_canonical plus a partial unique index and one lookup index; no ALTER on nodes/edges/graph_facts; idempotent; a real v42->v43 upgrade on a file database keeps row counts and the DDL of the pre-existing tables identical and creates a pre-migration backup; the OFF path works even without the table."
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
         },
         {
           "kind": "review",
-          "candidate_commit": "73512d85",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
           "ref": "plans/features/memory-cognitive-02/requirements-map.json",
-          "observation": "Independent Reviewer Approved part A with own probes (file-database upgrade, index enforcement, bounded scan plan, silent-alias false-merge probe, OFF-without-table) and a reproduced pin-guard mutation. Explicitly: MEM-02.6 (dry-run backfill of existing duplicates) gets no evidence, and the parent MEMORY-02 is not done until part B wires the writers and merge/alias operations."
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
         }
-      ],
-      "pending_reason": "Part A delivered (schema v43 + read resolver + seed guard, Approved). Remaining for VERIFIED: wire the six existing write paths through resolve_or_create_node, duplicate dry-run/merge application (MEM-02.6) and the reply/quote/bot-self negative cases."
+      ]
     },
     {
       "source_id": "M-MEMORY-03",
