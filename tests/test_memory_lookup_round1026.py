@@ -67,6 +67,11 @@ class FakeDb:
         self.recent = list(recent or [])
         self.fact_calls = []
         self.card_calls = 0
+        # MEMORY-06 (§7.5): каналы единого retrieval — purpose-чтения идут
+        # через `mca_retrieval_context.retrieve`, поэтому двойник обязан их
+        # предоставлять так же, как реальная БД.
+        self.fts_calls = []
+        self.fact_reads = []
 
     async def get_user_context_facts(self, chat_id, target_user, limit, now_ts):
         self.fact_calls.append((chat_id, target_user, limit))
@@ -81,6 +86,20 @@ class FakeDb:
 
     async def get_recent_messages(self, chat_id, limit):
         return self.recent[-limit:]
+
+    async def search_messages_fts(self, chat_id, match, limit):
+        return []
+
+    async def search_graph_facts_fts(self, chat_id, match, limit, now_ts,
+                                     include_direct_reply=False,
+                                     include_archived=False, **_kw):
+        self.fts_calls.append((chat_id, match, limit))
+        return self.facts[:limit]
+
+    async def get_graph_fact_records(self, fact_ids, status=None):
+        wanted = {int(i) for i in fact_ids}
+        self.fact_reads.append(tuple(sorted(wanted)))
+        return [dict(f) for f in self.facts if int(f["id"]) in wanted]
 
 
 class SpyMemory:
@@ -332,7 +351,8 @@ class TestPurposeRouting:
         assert out["facts"][0]["source_id"] == "tg:456"
         assert out["confidence"]["label"] == "confirmed"
         assert "dossier" in out and out["dossier"]
-        assert db.fact_calls and db.fact_calls[0][1] == "Лёха"
+        # MEMORY-06 (§7.5): факты отобраны единым retrieval по canon-имени.
+        assert db.fts_calls and "лёха" in db.fts_calls[0][1].casefold()
 
     @pytest.mark.asyncio
     async def test_appearance_filters_and_honest_no_data(self):
@@ -451,14 +471,33 @@ class TestLazyRag:
         assert "search_long_term" in memory.calls
 
     @pytest.mark.asyncio
-    async def test_rag_on_for_speech_style_when_slice_thin(self):
+    async def test_speech_style_slice_thin_uses_unified_recent_channel(
+            self, monkeypatch):
+        """MEMORY-06 (§7.5): срез собственной речи читается каналом `recent`
+        единого retrieval (`scope='participants'`); отдельного lazy-RAG
+        второго поиска больше нет — тонкий срез даёт честный no_data."""
+        from services import mca_retrieval_context as rc
+
+        seen: list = []
+        real = rc.retrieve
+
+        async def _spy(db, memory, request):
+            seen.append((request.channels, request.scope,
+                         tuple(request.participants),
+                         bool(request.include_archived)))
+            return await real(db, memory, request)
+
         memory = SpyMemory(rows=[{"id": 1, "text": "характерное",
                                   "timestamp": 5, "user_id": 5,
                                   "tg_message_id": 1}])
-        await call(make_router(db=FakeDb(recent=[]), memory=memory,
-                               aliases=FakeAliases({"5": "Лёха"})),
-                   {"person": "Лёха", "purpose": "speech_style"})
-        assert "search_long_term" in memory.calls
+        monkeypatch.setattr(rc, "retrieve", _spy)
+        out = payload(await call(
+            make_router(db=FakeDb(recent=[]), memory=memory,
+                        aliases=FakeAliases({"5": "Лёха"})),
+            {"person": "Лёха", "purpose": "speech_style"}))
+        assert out["no_data"] is True
+        assert memory.calls == []            # второго поиска в обход retrieve нет
+        assert seen == [(("recent",), "participants", (5,), False)]
 
 
 # ── T-3615/T-3618: капы ──────────────────────────────────────────────────
@@ -565,9 +604,10 @@ class TestEnvelopeAndHonesty:
         db = FakeDb(facts=[fact_row("факт Лёхи", target="Лёха")])
         out = payload(await call(make_router(db=db, aliases=FakeAliases({"5": "Лёха"})),
                                  {"person": "Лёха", "purpose": "biography"}))
-        # Запрошен только один человек — чтение строго по его canon-имени.
-        assert db.fact_calls[0][1] == "Лёха"
-        assert len(db.fact_calls) == 1
+        # Запрошен только один человек — выборка строго по его canon-имени
+        # (единственный вход единого retrieval, второго чтения нет).
+        assert db.fts_calls[0][1].casefold().count("лёха") == 1
+        assert len(db.fts_calls) == 1
 
 
 # ── T-3612: kill-switch OFF (прямой вызов) ───────────────────────────────

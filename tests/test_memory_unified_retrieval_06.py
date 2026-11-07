@@ -27,7 +27,6 @@ import hashlib
 import inspect
 import json
 import re
-import textwrap
 import time
 
 import pytest
@@ -153,41 +152,90 @@ async def test_quota_archived_fact_invisible_until_historical_request(tmp_path):
         await db.close()
 
 
-def _archived_true_calls(source: str) -> list[int]:
-    """Строки реальных вызовов с ЛИТЕРАЛОМ `include_archived=True` (AST).
-
-    Комментарии/докстринги не учитываются — проверяется код, а не текст."""
-    hits: list[int] = []
-    for node in ast.walk(ast.parse(textwrap.dedent(source))):
-        if not isinstance(node, ast.Call):
-            continue
-        for keyword in node.keywords:
-            value = keyword.value
-            if (keyword.arg == "include_archived"
-                    and isinstance(value, ast.Constant)
-                    and value.value is True):
-                hits.append(node.lineno)
-    return hits
-
-
 @pytest.mark.asyncio
-async def test_reply_and_context_paths_never_request_archives():
-    """Обычные пути (reply/initiative/context/dossier) не запрашивают архив:
-    литерал `include_archived=True` есть только у явного копания
-    `dig_into_lore`; остальные пути передают переменную (обычно False)."""
+async def test_reply_and_context_paths_never_request_archives(monkeypatch):
+    """Изоляция архива (структурная гвардия, фикс ревью): обычные пути —
+    reply, шесть context-purpose, инициатива и статистика — вызывают
+    `retrieve` с `include_archived=False`; явный исторический путь
+    (`dig_into_lore`) передаёт True в канал graph_facts. Гвардия падает, если
+    True «протечёт» в обычный путь через переменную, а не литерал — читается
+    фактическое значение запроса/канала, а не текст исходника."""
     import services.direct_chat_service as dcs
-    import services.factcheck_service as fcs
-    import services.summary_memory as sm
-    from services import tool_router as tr
+    from services import chat_statistics
+    from services import mca_exploration as exploration
 
-    assert _archived_true_calls(inspect.getsource(dcs)) == []
-    assert _archived_true_calls(inspect.getsource(sm)) == []
-    assert _archived_true_calls(inspect.getsource(fcs)) == []
-    # единственный явный исторический путь — существующий dig_into_lore
-    assert _archived_true_calls(
-        inspect.getsource(ToolRouter._dig_into_lore))
-    # Дефолт контракта — архив невидим (обычное чтение).
-    assert rc.RetrievalRequest(chat_id=-100, query="q").include_archived is False
+    requests: list = []
+    real = rc.retrieve
+
+    async def _spy(db, memory, request):
+        requests.append(request)
+        return await real(db, memory, request)
+
+    monkeypatch.setattr(rc, "retrieve", _spy)
+
+    def _assert_ordinary(label: str):
+        assert requests, f"{label}: retrieval не вызван"
+        assert all(r.include_archived is False for r in requests), (
+            f"{label}: архив попал в обычный путь → "
+            f"{[r.include_archived for r in requests]}")
+
+    # (1) reply (direct-RAG)
+    monkeypatch.setattr(dcs, "hot", _Hot())
+    monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
+    svc = _reply_service(_ReplyDB(_reply_rows()),
+                         _ReplyMemory(_reply_rows()))
+    block, _hint = await svc._build_rag_block(-100, _Msg("про дроны"), "")
+    assert "любит дроны" in block
+    _assert_ordinary("reply")
+
+    # (2) шесть context-purpose
+    router = _router(db=_LookupDB())
+    for purpose in ("general", "identity", "appearance", "speech_style",
+                    "biography", "relationships"):
+        requests.clear()
+        await router.dispatch(MEMORY_LOOKUP_TOOL_NAME,
+                              {"person": "Лёха", "purpose": purpose},
+                              ToolContext(-100, "q", user_id=5))
+        _assert_ordinary(f"context:{purpose}")
+
+    # (3) инициатива / (4) статистика: обычный поиск, без архива
+    requests.clear()
+    await exploration.select_memory_recall_candidates(
+        _ReplyDB([]), None, chat_id=-100, query="дроны", top_k=4)
+    _assert_ordinary("initiative")
+    requests.clear()
+    await chat_statistics.collect_candidates(
+        _ReplyDB([]), None, chat_id=-100, query="дроны", top_k=4)
+    _assert_ordinary("chat_statistics")
+
+    # (5) явный исторический путь: dig_into_lore передаёт True в канал
+    archived_calls: list = []
+
+    class _DigDB(_ReplyDB):
+        async def search_graph_facts_fts(self, chat_id, match, limit, now_ts,
+                                         include_direct_reply=False,
+                                         include_archived=False,
+                                         include_self=False, **_kw):
+            archived_calls.append(bool(include_archived))
+            return []
+
+    class _DigMemory:
+        db = _DigDB([])
+
+        async def search_long_term(self, chat_id, terms, limit):
+            return []
+
+    dig_router = ToolRouter(ToolDeps(search=None, memory=_DigMemory(),
+                                     aliases=_Aliases({"5": "Лёха"}),
+                                     db=_DigDB([])))
+    raw = await dig_router._dig_into_lore(
+        {"query": "дроны", "mode": "facts"},
+        ToolContext(-100, "дроны", user_id=5))
+    assert raw                                       # путь исполнен
+    assert archived_calls and all(archived_calls)    # исторический = True
+    # негативный контроль: гвардия видит РЕАЛЬНОЕ значение поля запроса
+    assert rc.RetrievalRequest(chat_id=-100, query="q",
+                               include_archived=True).include_archived is True
 
 
 @pytest.mark.asyncio
@@ -538,6 +586,7 @@ class _LookupDB:
 
     def __init__(self):
         self.card_calls = 0
+        self.fts_calls = []
 
     async def get_user_context_facts(self, chat_id, target_user, limit, now_ts):
         return [{"id": 1, "fact": "Лёха носит бороду", "origin": "chat_history",
@@ -571,13 +620,31 @@ class _LookupDB:
     async def search_graph_facts_fts(self, chat_id, match, limit, now_ts,
                                      include_direct_reply=False,
                                      include_archived=False, **_kw):
-        return []
+        self.fts_calls.append((chat_id, match, include_archived))
+        return [_fact_row(1, "Лёха носит бороду и любит дронов")][:limit]
+
+    async def get_graph_fact_records(self, fact_ids, status=None):
+        wanted = {int(i) for i in fact_ids}
+        return [row for row in [_fact_row(1, "Лёха носит бороду и любит дронов")]
+                if row["id"] in wanted]
 
     async def list_lore_stories(self, chat_id, limit=200):
         return []
 
     async def get_active_embedding_generation(self, index_name):
         return None
+
+
+def _fact_row(fid: int, fact: str) -> dict:
+    """Строка graph_facts в форме `get_graph_fact_records`."""
+    return {"id": fid, "fact": fact, "origin": "chat_history",
+            "created_at": 1700000000, "target_user": "Лёха",
+            "weight": 0.8, "status": "confirmed",
+            "last_confirmed_at": 1700000000, "message_timestamp": 1700000000,
+            "tg_message_id": None, "forward_from": "", "expires_at": None,
+            "chat_id": -100, "subject_ref_id": 9,
+            "speaker_author_id": None, "assertion_kind": None,
+            "attribution_method": None, "provenance_channel": None}
 
 
 class _LookupMemory:
@@ -746,3 +813,332 @@ async def test_chat_ids_acl_scope_is_respected():
     # None = ровно chat_id (прежнее поведение)
     assert rc.effective_chat_ids(rc.RetrievalRequest(
         chat_id=-300, query="q")) == (-300,)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Фикс ревью: reply-путь direct-RAG идёт через ЕДИНЫЙ `retrieve` (§7.5)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _reply_rows():
+    """Строки graph_facts в форме `get_rag_facts(with_meta=True)`."""
+    now = 1700000000
+    return [
+        {"id": 1, "origin": "chat_history", "fact": "любит дроны",
+         "rag_ts": now, "created_at": now, "message_timestamp": now,
+         "target_user": "Лёха", "tg_message_id": None, "forward_from": "",
+         "item_id": "fact:1", "score": 2.0, "expired": False,
+         "expires_at": None, "chat_id": -100, "status": "confirmed",
+         "subject_ref_id": 1, "speaker_author_id": 1},
+        {"id": 2, "origin": "chat_history", "fact": "собирает квадрокоптеры",
+         "rag_ts": now + 10, "created_at": now + 10,
+         "message_timestamp": now + 10, "target_user": "Лёха",
+         "tg_message_id": None, "forward_from": "", "item_id": "fact:2",
+         "score": 1.0, "expired": False, "expires_at": None, "chat_id": -100,
+         "status": "confirmed", "subject_ref_id": 1,
+         "speaker_author_id": 1},
+    ]
+
+
+class _ReplyDB:
+    """Двойник БД direct-пути: каналы единого retrieval (без второго поиска)."""
+
+    def __init__(self, rows, messages=()):
+        self.rows = [dict(r) for r in rows]
+        self.messages = list(messages)
+        self.fts_calls = []
+
+    async def search_messages_fts(self, chat_id, match, limit):
+        return list(self.messages)
+
+    async def search_graph_facts_fts(self, chat_id, match, limit, now_ts,
+                                     include_direct_reply=False,
+                                     include_archived=False,
+                                     include_self=False, **_kw):
+        self.fts_calls.append((chat_id, match, bool(include_archived)))
+        return [dict(r) for r in self.rows][:limit]
+
+    async def get_active_embedding_generation(self, index_name):
+        return None
+
+
+class _ReplyMemory:
+    """Двойник MemoryManager: единый канал кандидатов + прежнее чтение."""
+
+    def __init__(self, rows):
+        self.rows = [dict(r) for r in rows]
+        self.legacy_calls = 0
+        self.unified_calls = 0
+
+    async def retrieve_fact_candidates(self, chat_id, query, *, limit=None,
+                                       include_direct_reply=False,
+                                       include_self=False,
+                                       include_archived=False):
+        self.unified_calls += 1
+        rows = [dict(r) for r in self.rows]
+        return rows[:limit] if limit else rows
+
+    async def get_rag_facts(self, chat_id, query, *, with_meta=False, **_kw):
+        self.legacy_calls += 1
+        return [dict(r) for r in self.rows]
+
+    async def fetch_golden_facts(self, *a, **kw):
+        return []
+
+
+class _Hot:
+    """hot-флаги direct-пути: RAG включён, реранк/ностальгия выключены."""
+
+    _VALUES = {
+        "flags.graph_rag_enabled": True,
+        "flags.chat_rag_rerank_enabled": False,
+        "memory.nostalgia_layer_a_enabled": False,
+    }
+
+    def get(self, key, default=None):
+        return self._VALUES.get(key, default)
+
+
+async def _no_chat_param(chat_id, key, default=None):
+    return default
+
+
+def _reply_service(db, memory):
+    import services.direct_chat_service as dcs
+
+    svc = dcs.DirectChatService.__new__(dcs.DirectChatService)
+    svc.db = db
+    svc.memory = memory
+    svc.bot_id = 1
+    return svc
+
+
+class _Msg:
+    def __init__(self, text, message_id=100):
+        self.text = text
+        self.message_id = message_id
+
+
+def _rag_inner(block: str) -> str:
+    return block[len("<RAG_Memory>\n"):-len("\n</RAG_Memory>")]
+
+
+@pytest.mark.asyncio
+async def test_reply_rag_uses_one_unified_retrieve(monkeypatch):
+    """BLOCKER 2 (фикс ревью): direct-путь RAG читает факты ОДНИМ `retrieve`
+    (purpose=reply), а не собственным поиском; прежнее чтение не вызывается."""
+    import services.direct_chat_service as dcs
+
+    monkeypatch.setattr(dcs, "hot", _Hot())
+    monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
+    calls: list = []
+    real = rc.retrieve
+
+    async def _spy(db, memory, request):
+        calls.append(request)
+        return await real(db, memory, request)
+
+    monkeypatch.setattr(rc, "retrieve", _spy)
+    memory = _ReplyMemory(_reply_rows())
+    svc = _reply_service(_ReplyDB(_reply_rows()), memory)
+    block, hint = await svc._build_rag_block(-100, _Msg("про дроны"), "")
+    assert block.startswith("<RAG_Memory>\n")
+    assert "любит дроны" in block and "собирает квадрокоптеры" in block
+    assert hint == ""
+    assert len(calls) == 1, "ровно один вход единого retrieval"
+    request = calls[0]
+    assert request.purpose == "reply"
+    assert request.channels == ("exact", "lexical", "vector")
+    assert request.include_self is True
+    assert request.include_direct_reply is True
+    assert request.include_archived is False
+    assert memory.legacy_calls == 0        # второго чтения RAG-фактов нет
+    assert memory.unified_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_reply_rag_legacy_and_unified_selection_parity(monkeypatch):
+    """Паритет отбора: на одном и том же наборе фактов unified-путь и прежнее
+    чтение дают ОДИН И ТОТ ЖЕ блок (состав и порядок), т.е. принятая выдача
+    direct-RAG не меняется — меняется только источник отбора."""
+    import services.direct_chat_service as dcs
+
+    monkeypatch.setattr(dcs, "hot", _Hot())
+    monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
+    rows = _reply_rows()
+
+    unified_memory = _ReplyMemory(rows)
+    unified, _ = await _reply_service(
+        _ReplyDB(rows), unified_memory)._build_rag_block(
+            -100, _Msg("про дроны"), "")
+
+    class _NoChannelsDB:
+        """Двойник без каналов единого retrieval → прежнее чтение."""
+
+    class _LegacyOnlyMemory:
+        """Реализация памяти без канала единого retrieval (compat-двойник)."""
+
+        def __init__(self, rows):
+            self.rows = [dict(r) for r in rows]
+            self.legacy_calls = 0
+
+        async def get_rag_facts(self, chat_id, query, *, with_meta=False,
+                                **_kw):
+            self.legacy_calls += 1
+            return [dict(r) for r in self.rows]
+
+        async def fetch_golden_facts(self, *a, **kw):
+            return []
+
+    legacy_memory = _LegacyOnlyMemory(rows)
+    legacy, _ = await _reply_service(
+        _NoChannelsDB(), legacy_memory)._build_rag_block(
+            -100, _Msg("про дроны"), "")
+
+    assert unified == legacy
+    lines = _rag_inner(unified).split("\n")
+    assert len(lines) == 2
+    assert lines[0].startswith("[чат] [") and "любит дроны" in lines[0]
+    assert lines[1].startswith("[чат] [") and "собирает квадрокоптеры" in lines[1]
+    assert "fact:1" in lines[0] and "fact:2" in lines[1]      # ASC-хронология
+    assert unified_memory.legacy_calls == 0
+    assert legacy_memory.legacy_calls == 1
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Фикс ревью: ВСЕ шесть purpose — через один и тот же `retrieve` (§7.5)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("purpose,channels,participants,relations", [
+    ("general", None, (), False),
+    ("identity", ("exact", "lexical"), (), False),
+    ("appearance", ("exact", "lexical"), (), False),
+    ("biography", ("exact", "lexical"), (), False),
+    ("speech_style", ("recent",), (5,), False),
+    ("relationships", (), (), True),
+])
+async def test_each_purpose_calls_shared_retrieve_once(
+        purpose, channels, participants, relations, monkeypatch):
+    """MEM-06.10: каждое назначение входит в ЕДИНЫЙ `retrieve` ровно один раз
+    и передаёт свою документированную политику каналов (§4.4), а не идёт в
+    БД/память напрямую."""
+    calls: list = []
+    real = rc.retrieve
+
+    async def _spy(db, memory, request):
+        calls.append(request)
+        return await real(db, memory, request)
+
+    monkeypatch.setattr(rc, "retrieve", _spy)
+    router = _router(db=_LookupDB())
+    out = _payload(await router.dispatch(
+        MEMORY_LOOKUP_TOOL_NAME, {"person": "Лёха", "purpose": purpose},
+        ToolContext(-100, "q", user_id=5)))
+    assert out["status"] == "ok", out
+    assert out["purpose"] == purpose
+    assert out["facts"], f"purpose={purpose} вернул пусто"
+    assert len(calls) == 1, f"purpose={purpose}: входов {len(calls)}"
+    request = calls[0]
+    assert request.purpose == "dossier"          # назначение lookup-ветки
+    assert request.channels == channels
+    assert request.participants == participants
+    assert request.include_relations is relations
+    assert request.include_archived is False
+
+
+@pytest.mark.asyncio
+async def test_relationships_projection_keeps_basis_through_retrieve(
+        monkeypatch):
+    """Санкционированная проекция связей: рёбра приходят из `retrieve`
+    (`include_relations`), envelope сохраняет facts/sources/legacy_ids/
+    has_unsupported_sources — и собственного SQL у ветки нет."""
+    calls: list = []
+    real = rc.retrieve
+
+    async def _spy(db, memory, request):
+        calls.append(request)
+        return await real(db, memory, request)
+
+    monkeypatch.setattr(rc, "retrieve", _spy)
+    db = _LookupDB()
+    out = _payload(await _router(db=db).dispatch(
+        MEMORY_LOOKUP_TOOL_NAME,
+        {"person": "Лёха", "purpose": "relationships"},
+        ToolContext(-100, "q", user_id=5)))
+    assert len(calls) == 1 and calls[0].include_relations is True
+    assert db.card_calls == 1
+    assert [f["text"] for f in out["facts"]] == ["Лёха (друг) Петя",
+                                                 "Лёха (коллега) Аня"]
+    assert out["facts"][0]["has_unsupported_sources"] is True
+    assert out["facts"][1]["has_unsupported_sources"] is False
+    assert out["facts"][1]["legacy_ids"] == ["12", "77"]
+    assert [s["kind"] for s in out["sources"]] == ["edge", "edge"]
+
+
+def test_relation_projection_is_bounded_and_marks_basis():
+    """Проекция связей (§7.5): порядок сохраняется, размер ограничен, ребро
+    без основания честно помечено."""
+    links = [{"source_name": "A", "relation_type": "r", "target_name": "B",
+              "edge_id": 1, "fact_id": None, "origin": "legacy_unknown"}]
+    links += [{"source_name": f"N{i}", "relation_type": "r",
+               "target_name": f"M{i}", "edge_id": 10 + i, "fact_id": 100 + i,
+               "origin": "chat_history"} for i in range(30)]
+    projected = rc.project_relations(links, 5)
+    assert len(projected) == 5
+    assert projected[0]["has_unsupported_sources"] is True
+    assert projected[1]["legacy_ids"] == ["10", "100"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Фикс ревью: bounded batch-чтение ссылок evidence summary (§7.2)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_evidence_summary_read_is_bounded_to_ref_cap(monkeypatch):
+    """Batch-чтение фактов ограничивается ДО обращения к БД: даже при 30
+    `fact:`-ссылках в блоке читается не больше `_BUNDLE_BLOCK_MAX_REFS`."""
+    import services.direct_chat_service as dcs
+
+    class _FactDB:
+        db = _FakeFacadeShell([])
+
+        def __init__(self):
+            self.reads = []
+
+        async def get_smart_message_by_tg_id(self, chat_id, tg_id):
+            return None
+
+        async def get_graph_fact_records(self, fact_ids, status=None):
+            self.reads.append(tuple(fact_ids))
+            return [{"id": fid, "fact": f"факт {fid}", "target_user": "Лёха",
+                     "created_at": 1700000000, "message_timestamp": None,
+                     "forward_from": "", "status": "confirmed",
+                     "subject_ref_id": 5} for fid in fact_ids]
+
+    db = _FactDB()
+    svc = dcs.DirectChatService.__new__(dcs.DirectChatService)
+    svc.db = db
+    svc.bot_id = 1
+
+    async def _summary_revision(chat_id):
+        return ""
+
+    svc._summary_revision = _summary_revision
+
+    async def _tz(_chat_id):
+        return "Europe/Moscow"
+
+    monkeypatch.setattr(rc, "chat_timezone_name", _tz)
+    refs = " ".join(f"fact:{i}" for i in range(1, 31))
+    blocks = [("rag", f"<RAG_Memory>\n{refs}\n</RAG_Memory>"),
+              ("current",
+               "<Current_Question>что с дронами?</Current_Question>")]
+    bundle = await svc._build_evidence_bundle(
+        -100, _Msg("что с дронами?"), "что с дронами?", "Лёха", 5, blocks)
+    assert bundle is not None
+    assert db.reads, "batch-чтение фактов не выполнено"
+    assert max(len(ids) for ids in db.reads) <= dcs._BUNDLE_BLOCK_MAX_REFS
+    assert len(bundle.summary_text) <= 20

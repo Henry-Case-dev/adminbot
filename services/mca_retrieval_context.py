@@ -410,10 +410,18 @@ _CHANNEL_WEIGHTS = {
     # появляются в MEMORY-07; до неё канал честно пуст (не выдумывается).
     "community": 30.0,
     "episode": 20.0,
+    # §7.5 MEMORY-06: bounded-срез последних сообщений ЯВНО
+    # запрошенных участников (`get_recent_messages`) — существующее
+    # чтение для профиля речи; включается только `scope='participants'`
+    # + явный канал, второй поиск не создаётся.
+    "recent": 70.0,
 }
-_CHANNEL_ORDER = ("exact", "entity", "lexical", "vector", "reply_graph",
-                  "community", "episode")
+_CHANNEL_ORDER = ("exact", "entity", "lexical", "recent", "vector",
+                  "reply_graph", "community", "episode")
 _PREVIEW_MAX_CHARS = 400
+#: §7.5: во сколько раз срез `get_recent_messages` шире запрошенного top_k
+#: (bounded: окно чтения конечно и не зависит от корпуса).
+_RECENT_SCAN_FACTOR = 6
 
 # ── MEMORY-06 (§4.4/§7.1): расширение ЕДИНОГО retrieval-контракта ───────────
 # Purpose/mode/scope — REUSE закрытых наборов MEMORY-01 (`memory_contracts`);
@@ -502,6 +510,17 @@ class RetrievalRequest:
     #: путь). Обычные reply/initiative/context пути НИКОГДА не ставят True:
     #: `archived_fact` (вытеснено квотой) остаётся невидимым.
     include_archived: bool = False
+    # ── MEMORY-06 (§7.5/MEM-06.10): каналы, которым нужен прямой путь ───────
+    #: Passive direct-путь: свои прошлые слова участвуют в пуле (прежняя
+    #: семантика `get_rag_facts(include_self=True)`); self-выводы всё равно
+    #: отфильтровываются существующим predicate потребителя.
+    include_self: bool = False
+    #: Passive direct-путь: факты прямых ответов бота в пуле (прежняя
+    #: семантика `get_rag_facts(include_direct_reply=True)`).
+    include_direct_reply: bool = False
+    #: Санкционированная проекция связей субъекта (`get_persona_card.links`)
+    #: в `RetrievalResult.relations` — без собственного SQL у потребителя.
+    include_relations: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -615,6 +634,14 @@ class RetrievalResult:
     ambiguity: tuple[dict, ...] = ()
     #: Решение «память уместна/не уместна» и почему (MEM-06.7).
     relevance: RelevanceDecision | None = None
+    #: MEMORY-06 (§7.5): санкционированная проекция связей субъекта (рёбра
+    #: `get_persona_card.links` c основанием `legacy_ids`/
+    #: `has_unsupported_sources`). Пусто = не запрашивалось/нет рёбер.
+    relations: tuple[dict, ...] = ()
+    #: MEMORY-06 (§7.5): полные строки graph_facts отобранных кандидатов (текст,
+    #: вес, статус, v17-provenance) — канал их уже прочитал, поэтому потребителю
+    #: не нужно второе чтение по id. Порядок = порядок кандидатов.
+    fact_rows: tuple[dict, ...] = ()
 
 
 def is_history_query(query: str) -> bool:
@@ -678,7 +705,8 @@ def resolve_channels(request: RetrievalRequest, mode: str) -> tuple[str, ...]:
     (эпизоды только по reply-связи), `episodic` — последовательность,
     `thematic` — широкий обзор (+ членство активной сборки, если она есть).
     Неизвестное имя канала игнорируется (не превращается в полный скан)."""
-    selected = list(request.channels or _DEFAULT_CHANNELS)
+    selected = list(_DEFAULT_CHANNELS if request.channels is None
+                    else request.channels)
     if mode == "specific" and request.channels is None:
         if request.trigger_ref is None:
             selected = [c for c in selected if c != "episode"]
@@ -752,6 +780,61 @@ def typed_rank_score(candidate: RetrievalCandidate, request: RetrievalRequest,
         if candidate.entity_type in ("community", "entity"):
             score += 4.0
     return score
+
+
+def project_relations(links, limit: int = 20) -> tuple[dict, ...]:
+    """MEMORY-06 (§7.5): санкционированная проекция связей субъекта.
+
+    Вход — УЖЕ прочитанные рёбра (`get_persona_card.links`): своего поиска,
+    индекса или второго хранилища здесь нет. Проекция сохраняет основание
+    ребра (`legacy_ids` — edge/fact id, `has_unsupported_sources` — «источник
+    не указан»), чтобы потребитель не выдавал ребро без основания за
+    подтверждённое знание. Порядок входа сохраняется, размер ограничен.
+    """
+    out: list[dict] = []
+    for link in links or ():
+        if len(out) >= max(1, int(limit or 1)):
+            break
+        if not isinstance(link, dict):
+            continue
+        source_name = str(link.get("source_name") or "").strip()
+        target_name = str(link.get("target_name") or "").strip()
+        relation = str(link.get("relation_type") or "").strip()
+        if not source_name and not target_name:
+            continue
+        edge_id = link.get("edge_id", link.get("id"))
+        fact_id = link.get("fact_id")
+        origin = str(link.get("origin") or "").strip()
+        legacy_ids = [str(v) for v in (edge_id, fact_id) if v not in (None, "")]
+        supported = (fact_id not in (None, "") or
+                     (bool(origin) and origin != "legacy_unknown"))
+        out.append({
+            "text": f"{source_name} ({relation}) {target_name}".strip(),
+            "edge_id": edge_id,
+            "fact_id": fact_id,
+            "origin": origin,
+            "weight": link.get("weight"),
+            "legacy_ids": legacy_ids,
+            "has_unsupported_sources": not supported,
+            "source_basis": "" if supported else "источник не указан",
+        })
+    return tuple(out)
+
+
+async def _relations_projection(db, request: RetrievalRequest, limit: int
+                                ) -> tuple[dict, ...]:
+    """Связи субъекта через существующее чтение `get_persona_card`."""
+    getter = getattr(db, "get_persona_card", None)
+    name = str(request.query or "").strip()
+    if not callable(getter) or not name:
+        return ()
+    try:
+        card = await getter(int(request.chat_id), name, max(1, int(limit)),
+                            int(time.time()))
+    except Exception:
+        logger.warning("[mca07] relations projection failed", exc_info=True)
+        return ()
+    return project_relations((card or {}).get("links") or (), limit)
 
 
 def _subject_sets(request: RetrievalRequest) -> tuple[set, set]:
@@ -1109,6 +1192,10 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     fetch_k = max(1, limit)
     channels: list[str] = []
     raw: list[RetrievalCandidate] = []
+    #: §7.5 MEMORY-06: полные строки graph_facts по кандидату — канал их уже
+    #: прочитал, поэтому потребитель (direct-RAG/context) не делает второе
+    #: чтение ради текста/веса/provenance.
+    fact_rows: dict[str, dict] = {}
     exact_used = False      # L-MCA07-3: reason_code `exact_match_used`
 
     def _allow(name: str) -> bool:
@@ -1127,6 +1214,40 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                     channels.append("episode")
             except Exception:
                 logger.warning("[mca07] episode channel failed", exc_info=True)
+
+    # ── recent (§7.5 MEMORY-06): bounded-срез последних сообщений явно
+    #     запрошенных участников. Включается ТОЛЬКО при `scope='participants'`
+    #     и явном канале `recent` — существующее чтение
+    #     `get_recent_messages` (+ фильтр участников), без второго поиска.
+    #     Нужен тем purpose, где источник — собственная речь человека
+    #     (профиль речи), а не совпадение по ключевым словам.
+    _participants = {int(p) for p in request.participants or ()
+                     if p is not None}
+    if _allow("recent") and request.scope == "participants" \
+            and _participants:
+        for chat_id in chat_ids:
+            try:
+                rows = await db.get_recent_messages(
+                    chat_id, max(1, int(fetch_k) * _RECENT_SCAN_FACTOR))
+                picked = []
+                eligible = []
+                for pos, row in enumerate(rows or ()):
+                    author = _row_get(row, "user_id")
+                    if author is None or int(author) not in _participants:
+                        continue
+                    if not str(_row_get(row, "text") or "").strip():
+                        continue
+                    eligible.append((pos, row))
+                # Последние (самые свежие в окне) сообщения участника —
+                # прежняя семантика среза собственной речи.
+                for pos, row in eligible[-max(1, int(fetch_k)):]:
+                    picked.append(_message_candidate(
+                        row, "recent", pos, resolve_item_id))
+                if picked:
+                    raw.extend(picked)
+                    channels.append("recent")
+            except Exception:
+                logger.warning("[mca07] recent channel failed", exc_info=True)
 
     # ── exact (quoted-фраза всегда доступна) ────────────────────────────────
     phrases = re.findall(r'"([^"]{2,})"', request.query)
@@ -1178,10 +1299,14 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
             try:
                 rows = await db.search_graph_facts_fts(
                     chat_id, match, max(1, fetch_k * 2), now,
-                    include_archived=bool(request.include_archived))
+                    include_direct_reply=bool(request.include_direct_reply),
+                    include_archived=bool(request.include_archived),
+                    include_self=bool(request.include_self))
                 for pos, row in enumerate(rows or []):
-                    raw.append(_fact_candidate(row, "lexical", pos,
-                                               resolve_item_id))
+                    cand = _fact_candidate(row, "lexical", pos,
+                                           resolve_item_id)
+                    raw.append(cand)
+                    fact_rows[cand.id] = dict(row)
                 if rows:
                     channels.append("lexical")
             except TypeError:
@@ -1191,8 +1316,10 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                     rows = await db.search_graph_facts_fts(
                         chat_id, match, max(1, fetch_k * 2), now)
                     for pos, row in enumerate(rows or []):
-                        raw.append(_fact_candidate(row, "lexical", pos,
-                                                   resolve_item_id))
+                        cand = _fact_candidate(row, "lexical", pos,
+                                               resolve_item_id)
+                        raw.append(cand)
+                        fact_rows[cand.id] = dict(row)
                     if rows:
                         channels.append("lexical")
                 except Exception:
@@ -1209,13 +1336,19 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 try:
                     facts = await memory.retrieve_fact_candidates(
                         chat_id, request.query, limit=fetch_k,
-                        include_archived=bool(request.include_archived))
+                        include_archived=bool(request.include_archived),
+                        include_self=bool(request.include_self),
+                        include_direct_reply=bool(
+                            request.include_direct_reply))
                 except TypeError:
                     # Двойники без archival-параметра: обычная (live) выдача.
                     facts = await memory.retrieve_fact_candidates(
                         chat_id, request.query, limit=fetch_k)
                 for pos, row in enumerate(facts or []):
-                    raw.append(_fact_meta_candidate(row, pos, resolve_item_id))
+                    cand = _fact_meta_candidate(row, pos, resolve_item_id)
+                    raw.append(cand)
+                    if isinstance(row, dict):
+                        fact_rows[cand.id] = dict(row)
                 if facts:
                     channels.append("vector")
             except Exception:
@@ -1313,6 +1446,11 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     relevance = assess_relevance(ordered, request, dropped=subject_dropped,
                                  mode=mode)
     ambiguity = ambiguity_variants(request)
+    # §7.5 MEMORY-06: санкционированная проекция связей субъекта — только по
+    # явному запросу (`include_relations`), из существующего чтения; поиск не
+    # дублируется и в ранжирование кандидатов не вмешивается.
+    relations = (await _relations_projection(db, request, limit)
+                 if request.include_relations else ())
     status = RETRIEVAL_OK if ordered else _EMPTY
     reason = None if ordered else "retrieval_empty"
     if mode in ("history", "episodic") and ordered and any(
@@ -1336,7 +1474,10 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         generation_fingerprint=generation_fingerprint, reason_code=reason,
         supplementary=tuple(_dedup(supplementary)),
         mode=mode, purpose=str(request.purpose or "reply"),
-        chat_ids=chat_ids, ambiguity=ambiguity, relevance=relevance)
+        chat_ids=chat_ids, ambiguity=ambiguity, relevance=relevance,
+        relations=relations,
+        fact_rows=tuple(fact_rows[cand.id] for cand in ordered
+                        if cand.id in fact_rows))
 
 
 def _message_candidate(row, channel: str, position: int, resolve_item_id):
@@ -1608,7 +1749,7 @@ __all__ = [
     "UI_SEARCH_MAX_LIMIT", "RelevanceDecision",
     "RetrievalRequest", "RetrievalCandidate", "RetrievalResult",
     "is_history_query", "retrieve", "apply_retrieval_rerank",
-    "bind_quantitative_range",
+    "bind_quantitative_range", "project_relations",
     "MEMORY_QUERY_MAX_CHARS", "MEMORY_QUERY_PARENT_CHARS",
     "build_memory_query", "build_memory_request",
     "tokenize_query",

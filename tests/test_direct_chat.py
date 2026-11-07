@@ -181,6 +181,7 @@ class FakeMemory:
         self.rag_facts = rag_facts               # None → производное от rag
         self.memorize_error = memorize_error
         self.rag_facts_calls = []
+        self.unified_calls = []
         self.rerank_calls = []
         self.memorized = []
         self.self_memorized = []
@@ -202,6 +203,39 @@ class FakeMemory:
         if self.rag_facts is not None:
             return list(self.rag_facts)
         return [("chat_history", self.rag, None)] if self.rag else []
+
+    async def retrieve_fact_candidates(self, chat_id, query, *, limit=None,
+                                       include_direct_reply=False,
+                                       include_self=False,
+                                       include_archived=False):
+        """MEMORY-06 (§7.5): двойник ЕДИНОГО канала фактов-кандидатов.
+
+        Те же факты, что отдаёт `get_rag_facts`, но в форме единого
+        retrieval-контракта (`id`/`rag_ts` + v17-поля, чтобы
+        `read_policy_rank` работал как на реальном MemoryManager)."""
+        self.unified_calls.append(
+            (chat_id, query, include_direct_reply, include_self,
+             include_archived))
+        if self.rag_facts is not None:
+            source = list(self.rag_facts)
+        else:
+            source = ([("chat_history", self.rag, None)] if self.rag else [])
+        rows = []
+        for idx, item in enumerate(source, start=1):
+            if isinstance(item, dict):
+                row = dict(item)
+            elif isinstance(item, (tuple, list)) and len(item) >= 2:
+                row = {"origin": item[0], "fact": item[1],
+                       "rag_ts": item[2] if len(item) > 2 else None}
+            else:
+                continue
+            row.setdefault("id", idx)
+            row.setdefault("item_id", f"fact:{row['id']}")
+            row.setdefault("status", "confirmed")
+            row.setdefault("subject_ref_id", 1)
+            row.setdefault("speaker_author_id", 1)
+            rows.append(row)
+        return rows[:limit] if limit else rows
 
     async def rerank_rag_facts(self, query, facts):
         self.rerank_calls.append((query, len(facts)))
@@ -522,11 +556,13 @@ class TestContextPartitioning:
         # Раунд 8 (F1/T-807): RAG-факты direct — rel-порядок memory
         # (sort_by_timestamp на direct-пути больше не передаётся);
         # include_direct_reply=True — только DirectChat.
-        assert memory.rag_facts_calls == [
-            (CHAT_ID, "расскажи про дроны", True, True)]
+        # MEMORY-06 (§7.5): чтение идёт ЕДИНЫМ каналом кандидатов.
+        assert memory.unified_calls == [
+            (CHAT_ID, "расскажи про дроны", True, True, False)]
         assert memory.rerank_calls == []           # флаг реранка off (default)
-        # F3/T-809: direct-рендер с origin-меткой («[чат] …»)
-        assert blocks[1] == "<RAG_Memory>\n[чат] фон из памяти\n</RAG_Memory>"
+        # F3/T-809: direct-рендер с origin-меткой («[чат] …»); MEMORY-06 (§7.5):
+        # канонический item_id из единого retrieval (как у with_meta прод-пути).
+        assert blocks[1] == "<RAG_Memory>\n[чат] [fact:1]: фон из памяти\n</RAG_Memory>"
         # C1/T-792 + 10.20 (БЛОК 0, точка 2): канонические строки Global_Context
         # («[ts | имя [uid] | ID]: текст»)
         assert "01.01.1970 00:01 | вася [10]]: привет" in blocks[2]
@@ -2151,7 +2187,10 @@ class TestRagDirectPipeline:
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         rag_block = next(b for b in blocks if b.startswith("<RAG_Memory>"))
         assert "купил новый айфон" not in rag_block    # дубль хвоста выпал
-        assert "[поиск] про дроны вчера обсуждали" in rag_block
+        # MEMORY-06 (§7.5): канонический item_id приходит из единого retrieval
+        # (как и у `with_meta`-выдачи прод-пути) — префикс «[fact:N]:» часть
+        # существующего канонического рендера строки.
+        assert "[поиск] [fact:2]: про дроны вчера обсуждали" in rag_block
 
     @pytest.mark.asyncio
     async def test_close_rag_fact_survives_dedup(self, fake_time):

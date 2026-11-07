@@ -480,10 +480,14 @@ class TestRagBlockBanner:
         assert bound is not None
         memory = MagicMock()
 
-        async def fake_facts(*a, **k):
-            return [("user_memory", "старый факт вне диапазона", 123)]
+        async def fake_candidates(*a, **k):
+            # MEMORY-06 (§7.5): факты приходят ЕДИНЫМ retrieval-контрактом.
+            return [{"id": 1, "item_id": "fact:1", "origin": "user_memory",
+                     "fact": "старый факт вне диапазона", "rag_ts": 123,
+                     "status": "confirmed", "subject_ref_id": 1,
+                     "speaker_author_id": 1}]
 
-        memory.get_rag_facts = fake_facts
+        memory.retrieve_fact_candidates = fake_candidates
 
         async def no_rerank(*a, **k):
             raise RuntimeError("rerank off")
@@ -504,10 +508,14 @@ class TestRagBlockBanner:
         db = await _make_db(10)
         memory = MagicMock()
 
-        async def fake_facts(*a, **k):
-            return [("user_memory", "обычный факт", 123)]
+        async def fake_candidates(*a, **k):
+            # MEMORY-06 (§7.5): единый канал кандидатов-фактов direct-пути.
+            return [{"id": 1, "item_id": "fact:1", "origin": "user_memory",
+                     "fact": "обычный факт", "rag_ts": 123,
+                     "status": "confirmed", "subject_ref_id": 1,
+                     "speaker_author_id": 1}]
 
-        memory.get_rag_facts = fake_facts
+        memory.retrieve_fact_candidates = fake_candidates
 
         async def no_rerank(*a, **k):
             raise RuntimeError("rerank off")

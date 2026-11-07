@@ -81,6 +81,17 @@ class MetaFakeMemory(FakeMemory):
         self.meta_calls.append((chat_id, query))
         return list(self.meta_rows)
 
+    async def retrieve_fact_candidates(self, chat_id, query, *, limit=None,
+                                       include_direct_reply=False,
+                                       include_self=False,
+                                       include_archived=False):
+        """MEMORY-06 (§7.5): единый канал кандидатов direct-RAG (двойник)."""
+        self.unified_calls.append(
+            (chat_id, query, include_direct_reply, include_self,
+             include_archived))
+        rows = [dict(r) for r in self.meta_rows]
+        return rows[:limit] if limit else rows
+
 
 class AnchorsDB(SummaryDB):
     """SummaryDB + последние ответы бота (style anchors)."""

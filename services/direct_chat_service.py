@@ -2444,6 +2444,20 @@ _RAG_UNCONFIRMED_MARK = "(не подтверждено) "
 _RAG_TENTATIVE_MARK = "(предположение) "
 
 
+def _rag_row_get(row, key: str, default=None):
+    """Поле строки graph_facts (dict или sqlite3.Row) без исключений.
+
+    MEMORY-06 (§7.5): полные строки отобранных фактов приходят из единого
+    retrieval (`RetrievalResult.fact_rows`); двойники/альтернативные
+    реализации могут не иметь части ключей."""
+    try:
+        if isinstance(row, dict):
+            return row.get(key, default)
+        return row[key]
+    except Exception:
+        return default
+
+
 def _rag_rows_with_ranks(rows: list) -> tuple[list, dict]:
     """Нормализация кандидатов RAG → (факты-кортежи, {item_id: rank}).
 
@@ -9778,6 +9792,9 @@ class DirectChatService:
             summary_text: tuple[str, ...] = ()
             try:
                 summary_rows: list = []
+                # §7.2 (фикс ревью): ссылка на блок ограничена капом
+                # `_BUNDLE_BLOCK_MAX_REFS`, поэтому batch-чтение фактов
+                # ограничивается ДО обращения к БД (а не только на рендере).
                 fact_ids: list[int] = []
                 for ref in evidence_refs:
                     if not ref.startswith("fact:"):
@@ -9786,6 +9803,7 @@ class DirectChatService:
                         fact_ids.append(int(ref.split(":", 1)[1]))
                     except (TypeError, ValueError):
                         continue
+                fact_ids = fact_ids[:_BUNDLE_BLOCK_MAX_REFS]
                 reader = getattr(self.db, "get_graph_fact_records", None)
                 if fact_ids and callable(reader):
                     for row in await reader(fact_ids) or ():
@@ -11995,6 +12013,107 @@ class DirectChatService:
     #    F4/T-810 — факты по релевантности, дедуп ↔ фон, origin-метки,
     #    опциональный LLM-реранк) ─────────────────────────────────
 
+    # ── MEMORY-06 (§7.5, MEM-06.10): единый retrieval в direct-RAG ─────────
+    #: Каналы отбора фактов direct-ответа: те же, что и прежде (точная фраза,
+    #: FTS сообщений/фактов, векторный KNN MemoryManager). Reply-граф/эпизоды
+    #: в блоке фактов не участвуют — это отдельный принятый сегмент контекста.
+    _RAG_FACT_CHANNELS = ("exact", "lexical", "vector")
+
+    async def _rag_unified_rows(self, chat_id: int, query: str, message):
+        """MEMORY-06 (§7.5): отбор фактов direct-RAG через ЕДИНЫЙ `retrieve`.
+
+        Возвращает кандидатов в прежней форме `get_rag_facts(with_meta=True)`
+        (origin/fact/rag_ts/target_user/item_id/forward_from/expired + v17
+        provenance — вход существующего `read_policy_rank`), либо ``None``,
+        если единый retrieval недоступен (двойник без каналов) — тогда
+        остаётся прежнее чтение того же слоя.
+
+        Второго поиска нет: отбор делает `retrieve` теми же каналами, что и
+        раньше (exact/lexical/vector), и он же возвращает полные строки
+        отобранных фактов (`RetrievalResult.fact_rows`) — отдельного чтения
+        по id здесь нет. Вся принятая приёмка direct-RAG
+        (self-origin-фильтр, дедуп против фона, реранк, graph-активация,
+        «золотые», ASC-хронология, капы) остаётся в `_build_rag_block`."""
+        try:
+            memory = getattr(self, "memory", None)
+            db = getattr(self, "db", None)
+            if memory is None:
+                return None
+            if not (callable(getattr(db, "search_messages_fts", None))
+                    or callable(getattr(db, "search_graph_facts_fts", None))
+                    or callable(getattr(memory, "retrieve_fact_candidates",
+                                        None))):
+                return None
+            limit = int(hot.get("limits.graph_rag_facts_limit",
+                                 settings.GRAPH_RAG_FACTS_LIMIT) or 0)
+            if limit <= 0:
+                return None
+            request = _mca_rc.RetrievalRequest(
+                chat_id=int(chat_id), query=str(query or ""),
+                mode="specific", purpose="reply", top_k=limit,
+                # Граф ответов и эпизоды — другие сегменты контекста; здесь
+                # нужен только фактический набор.
+                trigger_ref=None, reply_depth=0, scope="auto",
+                channels=self._RAG_FACT_CHANNELS,
+                include_self=True, include_direct_reply=True)
+            result = await _mca_rc.retrieve(db, memory, request)
+            rows = []
+            for position, row in enumerate(
+                    getattr(result, "fact_rows", ()) or ()):
+                fact_id = _rag_row_get(row, "id")
+                try:
+                    fact_id = int(fact_id)
+                except (TypeError, ValueError):
+                    continue
+                rows.append(self._rag_meta_from_record(row, fact_id,
+                                                       position, limit))
+            return rows
+        except Exception:
+            logger.warning(
+                "direct: unified rag retrieval failed — legacy read | chat=%s",
+                chat_id, exc_info=True)
+            return None
+
+    @staticmethod
+    def _rag_meta_from_record(row, fact_id: int, position: int,
+                              limit: int) -> dict:
+        """Строка graph_facts → кандидат формы `get_rag_facts(with_meta=True)`.
+
+        Форма совпадает с прежней выдачей MemoryManager: те же ключи, тот же
+        смысл `rag_ts` (COALESCE(message_timestamp, created_at)), score —
+        позиция отбора (порядок релевантности единого retrieval)."""
+        now = int(time.time())
+        tg_id = _rag_row_get(row, "tg_message_id")
+        created_at = _rag_row_get(row, "created_at")
+        message_ts = _rag_row_get(row, "message_timestamp")
+        expires_at = _rag_row_get(row, "expires_at")
+        try:
+            expired = expires_at is not None and int(expires_at) <= now
+        except (TypeError, ValueError):
+            expired = False
+        return {
+            "id": int(_rag_row_get(row, "id") or fact_id),
+            "origin": _rag_row_get(row, "origin"),
+            "fact": _rag_row_get(row, "fact"),
+            "rag_ts": message_ts or created_at,
+            "message_timestamp": message_ts,
+            "created_at": created_at,
+            "target_user": _rag_row_get(row, "target_user"),
+            "tg_message_id": tg_id,
+            "forward_from": _rag_row_get(row, "forward_from") or "",
+            "item_id": resolve_item_id(tg_message_id=tg_id, fact_id=fact_id),
+            "score": float(max(1, int(limit)) - position),
+            "expired": expired,
+            "expires_at": expires_at,
+            "chat_id": _rag_row_get(row, "chat_id"),
+            "status": _rag_row_get(row, "status"),
+            "subject_ref_id": _rag_row_get(row, "subject_ref_id"),
+            "speaker_author_id": _rag_row_get(row, "speaker_author_id"),
+            "assertion_kind": _rag_row_get(row, "assertion_kind"),
+            "attribution_method": _rag_row_get(row, "attribution_method"),
+            "provenance_channel": _rag_row_get(row, "provenance_channel"),
+        }
+
     async def _build_rag_block(self, chat_id: int, message,
                                global_ctx: str,
                                history_sample: dict | None = None,
@@ -12037,22 +12156,27 @@ class DirectChatService:
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return "", ""
         query = getattr(message, "text", None) or ""
-        try:
+        # MEMORY-06 (§7.5): сначала ЕДИНЫЙ retrieval-контракт (отбор фактов);
+        # двойник без каналов (None) → прежнее чтение того же слоя.
+        rows = await self._rag_unified_rows(chat_id, query, message)
+        if rows is None:
             try:
-                rows = await self.memory.get_rag_facts(
-                    chat_id, query, include_direct_reply=True,
-                    include_self=True, with_meta=True)
-            except TypeError:
-                # Совместимость: реализации без provenance-меты (двойники/
-                # альтернативные memory) — прежний tuple-контракт, ранг
-                # неизвестен (без пометок, состав фактов тот же).
-                rows = await self.memory.get_rag_facts(
-                    chat_id, query, include_direct_reply=True,
-                    include_self=True)
-        except Exception:
-            logger.warning("direct: rag facts failed — no rag block | chat=%s",
-                           chat_id, exc_info=True)
-            return "", ""
+                try:
+                    rows = await self.memory.get_rag_facts(
+                        chat_id, query, include_direct_reply=True,
+                        include_self=True, with_meta=True)
+                except TypeError:
+                    # Совместимость: реализации без provenance-меты (двойники/
+                    # альтернативные memory) — прежний tuple-контракт, ранг
+                    # неизвестен (без пометок, состав фактов тот же).
+                    rows = await self.memory.get_rag_facts(
+                        chat_id, query, include_direct_reply=True,
+                        include_self=True)
+            except Exception:
+                logger.warning(
+                    "direct: rag facts failed — no rag block | chat=%s",
+                    chat_id, exc_info=True)
+                return "", ""
         facts, ranks = _rag_rows_with_ranks(rows)
         # §23 read policy: бот-выводы — не факты мира (единый существующий
         # предикат; новых классификаторов нет).

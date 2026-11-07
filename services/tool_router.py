@@ -176,7 +176,9 @@ _MEMORY_LOOKUP_RESULT_MAX_CHARS = 4000      # общий бюджет резул
 _MEMORY_LOOKUP_CONFIRMED_WEIGHT = 0.5       # graph_facts.weight → confirmed/likely
 _MEMORY_LOOKUP_APPEARANCE_SCAN = 200        # bounded-пул под лексиконный фильтр
 _MEMORY_LOOKUP_STYLE_SCAN = 120             # bounded-пул recent-сообщений
-_MEMORY_LOOKUP_STYLE_MIN_MESSAGES = 2       # ниже минимума — включаем RAG (D3)
+#: Минимум характерных сообщений (D3). Теперь это лишь порог «тонкого»
+#: среза: сам срез читает канал `recent` единого retrieval (§7.5).
+_MEMORY_LOOKUP_STYLE_MIN_MESSAGES = 2
 _MEMORY_LOOKUP_PORTRAIT_MAX_CHARS = 600     # портрет/профиль (производные)
 _MEMORY_LOOKUP_RAG_FACT_CHARS = 240         # фрагмент RAG-факта
 # Per-purpose дефолты max_items (D5, spec §3.5).
@@ -189,6 +191,12 @@ _MEMORY_LOOKUP_PURPOSE_DEFAULTS = {
     "general": 8,
 }
 _MEMORY_LOOKUP_PURPOSES = tuple(_MEMORY_LOOKUP_PURPOSE_DEFAULTS)
+# MEMORY-06 (§7.5): каналы единого retrieval для purpose, которым нужны
+# ФАКТЫ о субъекте (exact — точная фраза/имя, lexical — FTS сообщений и
+# graph_facts). «Ленивый» vector-канал остаётся только у general (прежняя
+# семантика D3), поэтому память-вектор здесь не читается; срез собственной
+# речи читает канал `recent` (scope=participants).
+_MEMORY_LOOKUP_FACT_CHANNELS = ("exact", "lexical")
 # Лексикон внешности — generic-фильтр поверх graph_facts (A6). Извлечение/
 # классификация внешности (в т.ч. из изображений) — граница A4 (U1).
 _APPEARANCE_LEXICON = (
@@ -3565,16 +3573,16 @@ class ToolRouter:
         return await handler(ctx, person, max_items)
 
     async def _memory_lookup_identity(self, ctx, person, max_items) -> dict:
-        """identity: AliasResolver (name/aliases/id) + existing persona facts."""
-        facts, sources = [], []
-        db = getattr(self.deps, "db", None)
-        reader = getattr(db, "get_user_context_facts", None)
-        if callable(reader) and person.get("name"):
-            rows = await reader(ctx.chat_id, person["name"], max_items,
-                                int(time.time()))
-            for row in rows or []:
-                facts.append(self._memory_lookup_fact_item(row))
-                sources.append(self._memory_lookup_source_item(row))
+        """identity: AliasResolver (name/aliases/id) + факты субъекта.
+
+        MEMORY-06 (§7.5/MEM-06.10): сами факты читаются ЕДИНЫМ retrieval
+        (`retrieve`, каналы exact/lexical — без «ленивого» vector-канала),
+        envelope прежний (status/facts/sources/confidence/time/no_data)."""
+        result = await self._memory_lookup_unified(
+            ctx, person, purpose="identity", max_items=max_items,
+            channels=_MEMORY_LOOKUP_FACT_CHANNELS)
+        facts, sources = await self._memory_lookup_unified_items(
+            ctx, result, max_items, entity_types=("graph_fact",))
         if not facts:
             return self._memory_lookup_payload(
                 "ok", "identity", person, [], [], no_data=True,
@@ -3587,21 +3595,22 @@ class ToolRouter:
         """appearance: generic-фильтр поверх graph_facts + honest no_data.
 
         Извлечение/классификация внешности (в т.ч. из изображений) — A4 (U1);
-        здесь только лексиконный отбор существующих подтверждённых фактов."""
-        db = getattr(self.deps, "db", None)
-        reader = getattr(db, "get_user_context_facts", None)
-        if not callable(reader) or not person.get("name"):
-            return self._memory_lookup_payload(
-                "ok", "appearance", person, [], [], no_data=True,
-                empty_reason="no_storage_for_purpose")
-        rows = await reader(ctx.chat_id, person["name"],
-                            _MEMORY_LOOKUP_APPEARANCE_SCAN, int(time.time()))
+        здесь только лексиконный отбор существующих подтверждённых фактов,
+        отобранных единым retrieval (§7.5)."""
+        result = await self._memory_lookup_unified(
+            ctx, person, purpose="appearance",
+            max_items=_MEMORY_LOOKUP_APPEARANCE_SCAN,
+            channels=_MEMORY_LOOKUP_FACT_CHANNELS)
+        rows, row_sources = await self._memory_lookup_unified_items(
+            ctx, result, _MEMORY_LOOKUP_APPEARANCE_SCAN,
+            entity_types=("graph_fact",))
         facts, sources = [], []
-        for row in rows or []:
-            if not self._memory_lookup_is_appearance(str(row.get("fact") or "")):
+        for fact, source in zip(rows, row_sources):
+            if not self._memory_lookup_is_appearance(
+                    str(fact.get("text") or "")):
                 continue
-            facts.append(self._memory_lookup_fact_item(row))
-            sources.append(self._memory_lookup_source_item(row))
+            facts.append(fact)
+            sources.append(source)
             if len(facts) >= max_items:
                 break
         if not facts:
@@ -3612,16 +3621,13 @@ class ToolRouter:
             "ok", "appearance", person, facts, sources)
 
     async def _memory_lookup_biography(self, ctx, person, max_items) -> dict:
-        """biography: graph_facts (weight DESC) + generated слоя Б (portrait)."""
-        facts, sources = [], []
+        """biography: факты субъекта (единый retrieval) + generated слой Б."""
+        result = await self._memory_lookup_unified(
+            ctx, person, purpose="biography", max_items=max_items,
+            channels=_MEMORY_LOOKUP_FACT_CHANNELS)
+        facts, sources = await self._memory_lookup_unified_items(
+            ctx, result, max_items, entity_types=("graph_fact",))
         db = getattr(self.deps, "db", None)
-        reader = getattr(db, "get_user_context_facts", None)
-        if callable(reader) and person.get("name"):
-            rows = await reader(ctx.chat_id, person["name"], max_items,
-                                int(time.time()))
-            for row in rows or []:
-                facts.append(self._memory_lookup_fact_item(row))
-                sources.append(self._memory_lookup_source_item(row))
         dossier = await self._memory_lookup_generated_dossier(db, ctx, person)
         if dossier:
             facts.append(self._memory_lookup_portrait_item(dossier))
@@ -3639,48 +3645,36 @@ class ToolRouter:
 
     async def _memory_lookup_relationships(self, ctx, person,
                                            max_items) -> dict:
-        """relationships: edges из `db.get_persona_card.links` (D3).
+        """relationships: рёбра субъекта — санкционированная проекция единого
+        retrieval (`include_relations`).
 
         MEMORY-06 (§7.5, MEM-06.10): ветка не создаётся и не переименовывается
         — она уже диспатчится. Основание ребра (`legacy_ids`,
-        `has_unsupported_sources`) берётся из того же чтения C-2/common
-        retrieval (`get_persona_card` → id/fact_id/origin ребра), собственного
+        `has_unsupported_sources`) приходит из `RetrievalResult.relations`
+        (проекция существующего чтения C-2/common retrieval), собственного
         SQL-поиска здесь нет. Ребро без основания честно помечается «источник
         не указан», но остаётся в выдаче (не деградирует до `general`)."""
+        result = await self._memory_lookup_unified(
+            ctx, person, purpose="relationships", max_items=max_items,
+            channels=(), include_relations=True)
         facts, sources = [], []
-        db = getattr(self.deps, "db", None)
-        getter = getattr(db, "get_persona_card", None)
-        if callable(getter) and person.get("name"):
-            card = await getter(ctx.chat_id, person["name"], max_items,
-                                int(time.time()))
-            for link in (card or {}).get("links") or []:
-                source_name = str(link.get("source_name") or "").strip()
-                target_name = str(link.get("target_name") or "").strip()
-                relation = str(link.get("relation_type") or "").strip()
-                if not source_name and not target_name:
-                    continue
-                edge_id = link.get("edge_id", link.get("id"))
-                fact_id = link.get("fact_id")
-                origin = str(link.get("origin") or "").strip()
-                legacy_ids = [str(v) for v in (edge_id, fact_id)
-                              if v not in (None, "")]
-                supported = (fact_id not in (None, "")
-                             or bool(origin) and origin != "legacy_unknown")
-                facts.append({
-                    "text": f"{source_name} ({relation}) {target_name}".strip(),
-                    "confidence": "unknown", "weight": link.get("weight"),
-                    "time": None, "source_id": str(fact_id or ""),
-                    "legacy_ids": legacy_ids,
-                    "has_unsupported_sources": not supported,
-                    "source_basis": ("" if supported
-                                     else "источник не указан")})
-                sources.append({"kind": "edge",
-                                "ref": str(edge_id or ""),
-                                "origin": origin or "graph_edge", "ts": None,
-                                "legacy_ids": legacy_ids,
-                                "has_unsupported_sources": not supported})
-                if len(facts) >= max_items:
-                    break
+        for rel in getattr(result, "relations", ()) or ():
+            if len(facts) >= max_items:
+                break
+            legacy_ids = [str(v) for v in (rel.get("legacy_ids") or [])]
+            unsupported = bool(rel.get("has_unsupported_sources"))
+            facts.append({
+                "text": str(rel.get("text") or ""),
+                "confidence": "unknown", "weight": rel.get("weight"),
+                "time": None, "source_id": str(rel.get("fact_id") or ""),
+                "legacy_ids": legacy_ids,
+                "has_unsupported_sources": unsupported,
+                "source_basis": str(rel.get("source_basis") or "")})
+            sources.append({"kind": "edge",
+                            "ref": str(rel.get("edge_id") or ""),
+                            "origin": str(rel.get("origin") or "graph_edge"),
+                            "ts": None, "legacy_ids": legacy_ids,
+                            "has_unsupported_sources": unsupported})
         if not facts:
             return self._memory_lookup_payload(
                 "ok", "relationships", person, [], [], no_data=True,
@@ -3690,17 +3684,24 @@ class ToolRouter:
 
     async def _memory_lookup_unified(self, ctx, person: dict, *,
                                      purpose: str, max_items: int,
-                                     mode: str = "specific"):
-        """MEMORY-06 (§4.4/§7.5): чтение через ЕДИНЫЙ retrieval-контракт.
+                                     mode: str = "specific",
+                                     channels=None,
+                                     participants=(),
+                                     include_relations: bool = False):
+        """MEMORY-06 (§4.4/§7.5): ЕДИНСТВЕННОЕ чтение памяти lookup-ветки.
 
-        Второго поиска/резолвера нет: `mca_retrieval_context.retrieve` с
-        `subject_entity_ids` (Telegram uid субъекта) и `purpose='dossier'`.
-        Двойники без поисковых каналов → ``None`` (вызывающий остаётся на
-        прежнем чтении — санкционированный путь, без второго движка).
+        Все шесть purpose (`identity`/`appearance`/`speech_style`/
+        `biography`/`relationships`/`general`) идут через ОДНУ существующую
+        точку `mca_retrieval_context.retrieve`; различаются только
+        документированные поля запроса — каналы, scope, участники,
+        проекция связей — а не второй поиск/резолвер. Двойники без поисковых
+        каналов → ``None`` (честная деградация, второй движок не создаётся).
         Ноль LLM-вызовов. Никогда не бросает."""
         db = getattr(self.deps, "db", None)
         memory = getattr(self.deps, "memory", None)
         capable = (callable(getattr(db, "search_messages_fts", None))
+                   or callable(getattr(db, "search_graph_facts_fts", None))
+                   or callable(getattr(db, "get_persona_card", None))
                    or callable(getattr(memory, "retrieve_fact_candidates",
                                        None)))
         if not capable:
@@ -3712,12 +3713,22 @@ class ToolRouter:
                 subjects = (int(uid),) if uid is not None else ()
             except (TypeError, ValueError):
                 subjects = ()
+            uids: tuple[int, ...] = ()
+            for raw in participants or ():
+                try:
+                    uids += (int(raw),)
+                except (TypeError, ValueError):
+                    continue
             request = _rc.RetrievalRequest(
                 chat_id=int(ctx.chat_id),
                 query=str(person.get("name") or ""),
                 mode=mode, top_k=max(1, int(max_items)),
                 purpose="dossier", intent="who",
-                subject_entity_ids=subjects)
+                subject_entity_ids=subjects,
+                channels=channels,
+                scope=("participants" if uids else "auto"),
+                participants=uids,
+                include_relations=bool(include_relations))
             return await _rc.retrieve(db, memory, request)
         except Exception:
             logger.warning("[tools] unified memory retrieval failed | "
@@ -3725,34 +3736,86 @@ class ToolRouter:
                            getattr(ctx, "chat_id", None))
             return None
 
-    def _memory_lookup_unified_payload(self, purpose: str, person: dict,
-                                       result, max_items: int):
-        """Кандидаты единого retrieval → прежний envelope фактов/источников."""
-        facts, sources = [], []
+    @staticmethod
+    def _memory_lookup_row_get(row, key: str, default=None):
+        """Поле строки graph_facts (dict или sqlite3.Row) без исключений."""
+        try:
+            if isinstance(row, dict):
+                return row.get(key, default)
+            return row[key]
+        except Exception:
+            return default
+
+    async def _memory_lookup_unified_items(self, ctx, result, max_items: int,
+                                           *, entity_types=("graph_fact",),
+                                           text_cap: int | None = None
+                                           ) -> tuple[list, list]:
+        """Кандидаты единого retrieval → прежний envelope фактов/источников.
+
+        Отбор/ранжирование — в `retrieve`; здесь только сборка envelope и
+        bounded batch-чтение полных строк уже отобранных фактов
+        (`get_graph_fact_records`, не поиск) — поэтому weight/status/source
+        остаются прежними. Порядок отбора сохраняется."""
+        facts: list = []
+        sources: list = []
+        if result is None:
+            return facts, sources
+        types = tuple(entity_types or ())
+        limit = max(1, int(max_items))
+        # Отобранные строки graph_facts приходят вместе с результатом
+        # (`fact_rows` — канал их уже прочитал); второго чтения нет.
+        by_id: dict = {}
+        if "graph_fact" in types:
+            for row in getattr(result, "fact_rows", ()) or ():
+                try:
+                    by_id[int(self._memory_lookup_row_get(row, "id"))] = row
+                except (TypeError, ValueError):
+                    continue
         for cand in getattr(result, "candidates", ()) or ():
-            if len(facts) >= max_items:
+            if len(facts) >= limit:
                 break
-            text = str(getattr(cand, "preview", "") or "").strip()
-            if not text:
+            entity_type = getattr(cand, "entity_type", "")
+            if entity_type not in types:
                 continue
-            backed = bool(getattr(cand, "provenance_backed", False))
-            facts.append({
-                "text": _truncate(text, _MEMORY_LOOKUP_RAG_FACT_CHARS),
-                "confidence": self._memory_lookup_conf_label(
-                    "confirmed" if backed else "", 1.0 if backed else None),
-                "weight": None,
-                "time": int(getattr(cand, "sent_at", 0) or 0) or None,
-                "source_id": str(getattr(cand, "id", "") or ""),
-            })
-            sources.append({
-                "kind": str(getattr(cand, "entity_type", "") or "memory"),
-                "ref": str(getattr(cand, "id", "") or ""),
-                "origin": str(getattr(cand, "origin_type", "")
-                              or getattr(cand, "channel", "") or ""),
-                "ts": int(getattr(cand, "sent_at", 0) or 0) or None,
-            })
-        if not facts:
+            if entity_type == "graph_fact":
+                try:
+                    row = by_id.get(int(str(getattr(cand, "entity_id", ""))))
+                except (TypeError, ValueError):
+                    row = None
+                if row is None:
+                    continue
+                try:
+                    data = dict(row)
+                except (TypeError, ValueError):
+                    continue
+                fact = self._memory_lookup_fact_item(data)
+                if text_cap:
+                    fact["text"] = _truncate(fact["text"], text_cap)
+                facts.append(fact)
+                sources.append(self._memory_lookup_source_item(data))
+            else:
+                built = self._memory_lookup_candidate_message_item(cand)
+                if built is None:
+                    continue
+                facts.append(built["fact"])
+                sources.append(built["source"])
+        return facts, sources
+
+    @staticmethod
+    def _memory_lookup_candidate_message_item(cand):
+        """Кандидат-сообщение единого retrieval → короткий факт + источник."""
+        text = str(getattr(cand, "preview", "") or "").strip()
+        if not text:
             return None
+        ref = str(getattr(cand, "id", "") or "")
+        ts = int(getattr(cand, "sent_at", 0) or 0) or None
+        fact = {"text": _truncate(text, _MEMORY_LOOKUP_SLICE_MAX_CHARS),
+                "confidence": "unknown", "weight": None, "time": ts,
+                "source_id": ref}
+        source = {"kind": "message", "ref": ref, "origin": "chat_history",
+                  "ts": ts}
+        return {"fact": fact, "source": source}
+
         return self._memory_lookup_payload("ok", purpose, person, facts,
                                            sources)
 
@@ -3764,11 +3827,14 @@ class ToolRouter:
         (двойник без каналов) — прежний путь без изменений."""
         unified = await self._memory_lookup_unified(
             ctx, person, purpose="general", max_items=max_items)
-        if unified is not None and getattr(unified, "candidates", ()):
-            payload = self._memory_lookup_unified_payload(
-                "general", person, unified, max_items)
-            if payload is not None:
-                return payload
+        if unified is not None:
+            facts, sources = await self._memory_lookup_unified_items(
+                ctx, unified, max_items,
+                entity_types=("graph_fact", "message"),
+                text_cap=_MEMORY_LOOKUP_RAG_FACT_CHARS)
+            if facts:
+                return self._memory_lookup_payload(
+                    "ok", "general", person, facts, sources)
         memory = getattr(self.deps, "memory", None)
         name = person.get("name") or ""
         message_cap = min(max_items, _MEMORY_LOOKUP_MESSAGE_SLICE_MAX,
@@ -3826,53 +3892,31 @@ class ToolRouter:
     async def _memory_lookup_speech_style(self, ctx, person,
                                           max_items) -> dict:
         """speech_style: bounded per-user slice + patterns досье → compact
-        профиль. Lazy RAG — только если срез не дал минимума характерных
-        сообщений (D3). Системная личность бота НЕ меняется (стилизация —
-        дело caller'а, §34)."""
+        профиль. Системная личность бота НЕ меняется (стилизация — дело
+        caller'а, §34).
+
+        MEMORY-06 (§7.5): срез собственной речи человека читается ТЕМ ЖЕ
+        единым retrieval (канал `recent` + `scope='participants'` с uid
+        субъекта — существующее bounded-чтение `get_recent_messages`), а не
+        прямым обращением к БД из ветки. Прежний lazy-RAG фолбэк не нужен:
+        `recent` уже является каналом единого контракта."""
         db = getattr(self.deps, "db", None)
-        memory = getattr(self.deps, "memory", None)
-        name = person.get("name") or ""
         uid = person.get("user_id")
         slice_cap = min(max_items, _MEMORY_LOOKUP_MESSAGE_SLICE_MAX,
                         _MEMORY_LOOKUP_MESSAGE_SLICE_HARD)
-        facts, sources = [], []
-        if db is not None and uid is not None \
-                and hasattr(db, "get_recent_messages"):
-            rows = await db.get_recent_messages(ctx.chat_id,
-                                                _MEMORY_LOOKUP_STYLE_SCAN)
-            user_msgs = []
-            for row in rows or []:
-                item = dict(row)
-                if int(item.get("user_id") or 0) != int(uid):
-                    continue
-                if not str(item.get("text") or "").strip():
-                    continue
-                user_msgs.append(item)
-            for item in user_msgs[-slice_cap:]:
-                built = self._memory_lookup_message_item(item)
-                if built is not None:
-                    facts.append(built["fact"])
-                    sources.append(built["source"])
-        if len(facts) < _MEMORY_LOOKUP_STYLE_MIN_MESSAGES \
-                and memory is not None \
-                and hasattr(memory, "search_long_term"):
+        participants = ()
+        if uid is not None:
             try:
-                rows = await memory.search_long_term(
-                    ctx.chat_id, keywords(name), limit=slice_cap)
-            except Exception:
-                rows = []
-            for row in rows or []:
-                if uid is not None:
-                    item = dict(row)
-                    if int(item.get("user_id") or 0) != int(uid):
-                        continue
-                    row = item
-                built = self._memory_lookup_message_item(row)
-                if built is not None:
-                    facts.append(built["fact"])
-                    sources.append(built["source"])
-                    if len(facts) >= slice_cap:
-                        break
+                participants = (int(uid),)
+            except (TypeError, ValueError):
+                participants = ()
+        result = await self._memory_lookup_unified(
+            ctx, person, purpose="speech_style",
+            max_items=max(slice_cap, _MEMORY_LOOKUP_STYLE_MIN_MESSAGES),
+            channels=("recent",), participants=participants)
+        facts, sources = await self._memory_lookup_unified_items(
+            ctx, result, slice_cap, entity_types=("message",))
+        facts, sources = list(facts[:slice_cap]), list(sources[:slice_cap])
         dossier = await self._memory_lookup_generated_dossier(db, ctx, person)
         if dossier:
             patterns = [str(x).strip() for x in (dossier.get("patterns") or [])
