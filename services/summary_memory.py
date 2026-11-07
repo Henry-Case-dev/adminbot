@@ -41,6 +41,7 @@ import struct
 import time
 
 from config.settings import settings
+from services import entity_resolver as node_resolver
 from services import hot_config as hot
 from services import mca_gates
 from services import mca_retrieval_context as _mca_rc
@@ -4304,10 +4305,19 @@ class MemoryManager:
                         logger.warning(
                             "graphrag quota: eviction failed — insert proceeds "
                             "| chat_id=%s", chat_id, exc_info=True)
-                sid = await self.db.upsert_node(
-                    chat_id, subject, "fact", origin=source_type, expires_at=fact_expiry)
-                oid = await self.db.upsert_node(
-                    chat_id, obj, "fact", origin=source_type, expires_at=fact_expiry)
+                # MEMORY-02B (§1.4.1 W1): узлы создаются ЕДИНСТВЕННОЙ точкой
+                # создания (`resolve_or_create_node`). OFF-гейт → байт-в-байт
+                # прежний `upsert_node` (тот же id/тип), ON → канонический id
+                # (redirect после слияния) и честный `type_conflict_single_slot`
+                # вместо тихой подмены типа (§1.2.3: факт сохраняется без ребра).
+                subject_node = await node_resolver.resolve_or_create_node(
+                    self.db, chat_id, subject, "fact", origin=source_type,
+                    expires_at=fact_expiry)
+                object_node = await node_resolver.resolve_or_create_node(
+                    self.db, chat_id, obj, "fact", origin=source_type,
+                    expires_at=fact_expiry)
+                sid = subject_node.node_id
+                oid = object_node.node_id
                 # F3 (T-1774, ADR-1018-3 D1): СНАЧАЛА факт, ЗАТЕМ ребро — чтобы
                 # у ребра появился fact_id (provenance для скоринга Σ importance).
                 # Порядок важен: upsert_edge получает id только что созданного факта.
@@ -4335,10 +4345,14 @@ class MemoryManager:
                                 attribution_method=declared_method,
                                 assertion_kind=declared_kind,
                                 commit=False)
-                            await self.db.upsert_edge(
-                                sid, oid, fact["predicate"],
-                                origin=source_type, expires_at=fact_expiry,
-                                fact_id=fid, commit=False)
+                            # MEMORY-02B (§1.4.1 W1/§1.2.3): узел не получен
+                            # (конфликт типа) → ребро не пишется; факт остаётся
+                            # доступным через FTS/историю (честная деградация).
+                            if sid is not None and oid is not None:
+                                await self.db.upsert_edge(
+                                    sid, oid, fact["predicate"],
+                                    origin=source_type, expires_at=fact_expiry,
+                                    fact_id=fid, commit=False)
                             await self.db.db.commit()
                             return fid
                         except Exception:
@@ -6329,12 +6343,22 @@ class MemoryManager:
                         subject = self._canon_fact_name(subject)
                     if triplet["object_type"] == "user":
                         obj = self._canon_fact_name(obj)
-                    sid = await self.db.upsert_node(
-                        chat_id, subject, triplet["subject_type"], commit=False
-                    )
-                    oid = await self.db.upsert_node(
-                        chat_id, obj, triplet["object_type"], commit=False
-                    )
+                    # MEMORY-02B (§1.4.1 W2): узлы — через единственную точку
+                    # создания, в ТОЙ ЖЕ транзакции (`commit=False`). OFF-гейт →
+                    # байт-в-байт прежний `upsert_node`; ON → канонический id.
+                    subject_node = await node_resolver.resolve_or_create_node(
+                        self.db, chat_id, subject, triplet["subject_type"],
+                        commit=False)
+                    object_node = await node_resolver.resolve_or_create_node(
+                        self.db, chat_id, obj, triplet["object_type"],
+                        commit=False)
+                    if subject_node.node_id is None \
+                            or object_node.node_id is None:
+                        # §1.2.3: конфликт типа (один слот имени) — ребро не
+                        # пишется вовсе, а не в чужой тип.
+                        continue
+                    sid = subject_node.node_id
+                    oid = object_node.node_id
                     # F3 (T-1774, ADR-1018-3 D1): cron-путь graph_facts НЕ создаёт →
                     # fact_id ребра остаётся NULL ОСОЗНАННО (без provenance); скоринг
                     # деградирует к COALESCE(importance, weight).
