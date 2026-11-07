@@ -236,6 +236,57 @@ class TestExpiredRetrievalEligibility:
         assert row["expires_at"] is not None and row["expires_at"] <= now
 
 
+# ── P0-квота: неразрушающее вытеснение и archival-режим KNN ─────────────────
+
+
+class TestQuotaArchivedFacts:
+    """P0: вытесненный квотой факт (status='archived_fact') остаётся в
+    graph_facts/FTS/vec и находится только archival-режимом (include_archived),
+    не возвращаясь в обычную выдачу (KNN/context).
+
+    TEST-LIFECYCLE: CONTRACT owner=P0-quota-nondestructive-eviction
+    """
+
+    @pytest.mark.asyncio
+    async def test_archived_fact_hidden_from_knn_unless_archival(
+            self, db, monkeypatch):
+        memory = await _init_memory(db, VecLLM(), monkeypatch)
+        victim = await _seed_graph_fact(
+            db, memory, CHAT_A, "квота рецепт борща старый", _unit(0))
+        live = await _seed_graph_fact(
+            db, memory, CHAT_A, "квота рецепт борща новый", _unit(0))
+        assert await db.archive_graph_fact_for_quota(victim, CHAT_A, None)
+        # физические строки целы: graph_facts / FTS / vec
+        cursor = await db.db.execute(
+            "SELECT status FROM graph_facts WHERE id = ?", (victim,))
+        assert (await cursor.fetchone())["status"] == "archived_fact"
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts_fts WHERE rowid = ?",
+            (victim,))
+        assert (await cursor.fetchone())["c"] == 1
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts_vec WHERE rowid = ?",
+            (victim,))
+        assert (await cursor.fetchone())["c"] == 1
+        # обычный retrieval: архивного нет, живой есть
+        rows = await memory._knn_graph_facts(
+            CHAT_A, _unit(0), 5, with_meta=True)
+        ids = {r["id"] for r in rows}
+        assert live in ids and victim not in ids
+        # archival-режим: архивный найден (provenance/текст/ id целы)
+        rows = await memory._knn_graph_facts(
+            CHAT_A, _unit(0), 5, with_meta=True, include_archived=True)
+        by_id = {r["id"]: r for r in rows}
+        assert victim in by_id and live in by_id
+        assert by_id[victim]["fact"] == "квота рецепт борща старый"
+        # обычная (не archival) выдача через единый retrieval-контракт
+        cands = await memory.retrieve_fact_candidates(
+            CHAT_A, "квота рецепт борща", limit=5)
+        cand_ids = {c["id"] for c in cands}
+        assert live in cand_ids                # канал не пуст (не вакуум)
+        assert victim not in cand_ids
+
+
 # ── B03.2: fresh-first + expired top-up + supersede ─────────────────────────
 
 

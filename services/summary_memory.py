@@ -913,6 +913,23 @@ def _row_importance(row) -> int:
 # бота»), НЕ список тем/имён; память не удаляется и не обнуляется.
 _BOT_GENERATED_ORIGINS = frozenset({"bot_self_reply", "bot_direct_reply"})
 
+# ── P0-квота (неразрушающее вытеснение) ────────────────────────────────────
+# Квота НЕ удаляет историю: жертва переводится в status='archived_fact'
+# (`DatabaseService.archive_graph_fact_for_quota`). Живые пути чтения (KNN,
+# dedup/merge/review/контекст) видят только live-статусы — обычная выдача
+# архивный факт не возвращает; историческое копание (include_archived=True)
+# видит его с сохранённым provenance.
+_LIVE_FACT_STATUSES = ("confirmed", "archived_belief")
+_ARCHIVAL_FACT_STATUSES = ("confirmed", "archived_belief", "archived_fact")
+
+
+def _fact_statuses(include_archived: bool) -> tuple:
+    """Статусы graph_facts, допустимые в выдаче: обычная — live-набор,
+    archival=True (историческое копание) — + неразрушающе вытесненные
+    квотой факты ('archived_fact')."""
+    return _ARCHIVAL_FACT_STATUSES if include_archived else _LIVE_FACT_STATUSES
+
+
 # §11 «Повторяемость уже использованного воспоминания»: bounded-штраф
 # релевантности факту, недавно ПОДАВАВШЕМУСЯ в контекст ответов. Не удаление
 # и не обнуление: потолок штрафа сопоставим с существующими expired/belief-
@@ -4786,21 +4803,27 @@ class MemoryManager:
         return mapping
 
     async def _enforce_user_quota(self, chat_id: int, target_user: str) -> None:
-        """66.4 (T-482): live-фактов юзера >= квоты → удалить факт с
-        минимальным score weight/(age_days+1) (жертвуем самым лёгким и старым);
-        журнал — graph_fact_compressions (reason='quota'). Защищённые факты не
-        кандидаты (65.10); если кандидатов нет (все защищены) — вытеснения
-        нет, квота мягко превышается один раз."""
+        """66.4 (T-482): live-фактов юзера >= квоты → вытеснить факт с
+        минимальным score weight/(age_days+1) (жертвуем самым лёгким и старым).
+        Защищённые факты не кандидаты (65.10); если кандидатов нет (все
+        защищены) — вытеснения нет, квота мягко превышается один раз.
+
+        P0-квота (неразрушающее вытеснение): жертва НЕ удаляется физически —
+        `archive_graph_fact_for_quota` атомарно переводит её в
+        status='archived_fact' и пишет журнал (reason='quota'); история,
+        FTS/vec-строки и provenance остаются. Журнал/лог — только при реальном
+        переходе (True), без текста факта (R17)."""
         quota = (hot.get("limits.graph_facts_per_user_quota", settings.GRAPH_FACTS_PER_USER_QUOTA) or 0)
         now = int(time.time())
         victim = await self.db.get_quota_victim(chat_id, target_user, quota, now)
         if victim is None:
             return
-        await self.db.delete_graph_fact(victim["id"])
-        await self.db.log_fact_compression(
-            chat_id, victim["id"], victim["fact"], None, "quota")
+        archived = await self.db.archive_graph_fact_for_quota(
+            victim["id"], chat_id, target_user)
+        if not archived:
+            return
         logger.info(
-            "graphrag quota: evicted fact_id=%s | chat_id=%s | user=%s | quota=%d",
+            "graphrag quota: archived fact_id=%s | chat_id=%s | user=%s | quota=%d",
             victim["id"], chat_id, target_user, quota)
 
     async def _dedup_decide(self, chat_id: int, fact: dict, sentence: str,
@@ -5774,7 +5797,8 @@ class MemoryManager:
     async def _search_graph_facts(self, chat_id, query, limit,
                                   include_direct_reply=False,
                                   include_self=False,
-                                  with_meta: bool = False) -> list:
+                                  with_meta: bool = False,
+                                  include_archived: bool = False) -> list:
         """[(origin, fact, rag_ts, target_user), ...]. Vec-путь: _ensure_vec_retry
         (55.8) → KNN (66.6: int8-coarse → float-реранк; 66.8: MMR); фейл
         embed/vec → FTS-фолбек. Epic 50 (58.8, D206): default — фильтр origin=
@@ -5782,7 +5806,11 @@ class MemoryManager:
         rank → пересортировка по w_eff DESC → touch (продление жизни).
         F1/T-1418: rag_ts = COALESCE(message_timestamp, created_at),
         target_user — автор факта (4-й элемент). Раунд 10.14 (F1, ADR-1014-2
-        D7): include_self=True (direct-путь) пропускает origin='bot_self_reply'."""
+        D7): include_self=True (direct-путь) пропускает origin='bot_self_reply'.
+        P0-квота: include_archived=True — архивно-историческое чтение: KNN и
+        FTS-фолбек видят и неразрушающе вытесненные квотой 'archived_fact'
+        (тот же include_archived-контракт, что у search_graph_facts_fts).
+        Default False — обычная выдача архивных фактов не возвращает."""
         now = int(time.time())
         # MCA-07 D4/A06: несовпадающее поколение → FTS-only (не смешиваем).
         if await self._ensure_vec_retry() and \
@@ -5794,7 +5822,8 @@ class MemoryManager:
                     rows = await self._knn_graph_facts(
                         chat_id, vectors[0], limit,
                         include_direct_reply=include_direct_reply,
-                        include_self=include_self, with_meta=with_meta)
+                        include_self=include_self, with_meta=with_meta,
+                        include_archived=include_archived)
                     if rows:
                         return rows
             except Exception as exc:
@@ -5822,7 +5851,7 @@ class MemoryManager:
         rows = await self.db.search_graph_facts_fts(
             chat_id, match_query, limit * 2, now,
             include_direct_reply=include_direct_reply,
-            include_self=include_self)
+            include_self=include_self, include_archived=include_archived)
         # 66.3 (T-481): время-взвешивание в Python (SQL-ранг не меняем);
         # стабильная сортировка — равные w_eff сохраняют FTS-порядок.
         # B4-1 (F5, ADR-1018-5 D7): × ограниченный множитель importance, чтобы
@@ -5859,6 +5888,10 @@ class MemoryManager:
                                       now)
                     * _importance_factor(_row_importance(r)))
             if r["id"] in expired_row_ids:
+                base -= expired_penalty
+            # P0-квота: в archival-режиме (include_archived) вытесненный
+            # квотой факт показывается ниже живых — история, не текущее знание.
+            if str(r["status"] or "") == "archived_fact":
                 base -= expired_penalty
             return base
 
@@ -5960,14 +5993,20 @@ class MemoryManager:
     async def _knn_graph_facts(self, chat_id, vector, limit,
                                include_direct_reply=False,
                                include_self=False,
-                               with_meta: bool = False) -> list:
+                               with_meta: bool = False,
+                               include_archived: bool = False) -> list:
         """KNN-путь GraphRAG (55.6) + Epic 60:
         - 66.6 (T-484): int8-coarse (k = fetch_k×4) → реранк точной cosine по
           float-колонке → top-fetch_k; float-only — точный MATCH (как раньше);
         - 66.8 (T-486): greedy MMR (λ, fetch_k) — диверсификация по float;
         - 66.1/66.3 (T-479/T-481): rel = cosine × w_eff (вес + time-decay);
         - 66.5 (T-483): touch — RAG-hit продлевает expires_at (батчем);
-        - 10.14 (F1, ADR-1014-2 D7): include_self=True пропускает self-факты."""
+        - 10.14 (F1, ADR-1014-2 D7): include_self=True пропускает self-факты.
+        P0-квота: статус-фильтр выдачи — live-набор (`confirmed` +
+        `archived_belief`); `include_archived=True` (историческое/архивное
+        чтение) дополнительно допускает неразрушающе вытесненные квотой
+        `archived_fact` (с тем же архивным пенальти). Default False —
+        обычный RAG архивных фактов не видит."""
         now = int(time.time())
         fetch_k = (max(limit, (hot.get("limits.graph_mmr_fetch_k", settings.GRAPH_MMR_FETCH_K) or 0))
                    if hot.get("flags.graph_mmr_enabled", settings.GRAPH_MMR_ENABLED) else limit * 2)
@@ -5978,11 +6017,14 @@ class MemoryManager:
         # F2/T-1427 (spec §4.2): архив НЕ исключаем из векторного поиска —
         # берём confirmed + archived_belief (unconfirmed/legacy отбрасываем),
         # архивным даём пенальти к score и воскрешаем при пробитии порога.
+        # P0-квота: 'archived_fact' в live-набор НЕ входит (обычная выдача его
+        # не возвращает); только явный archival-режим (include_archived=True).
+        statuses = _fact_statuses(include_archived)
         records = await self.db.get_graph_fact_records(
             [fid for fid, _, _ in ranked]) if ranked else []
         # dict (не sqlite3.Row): ниже помечаем воскрешённые статусы локально.
         by_id = {r["id"]: dict(r) for r in records
-                 if str(r["status"] or "") in ("confirmed", "archived_belief")}
+                 if str(r["status"] or "") in statuses}
         # B03.2 (v6.3): fresh-first исчерпан → по необходимости дополняем
         # архивными (истёкшими) со снижением trust: отдельная expired-only
         # стадия KNN (chat-scope сохранён), пенальти к score, пометка
@@ -6011,8 +6053,7 @@ class MemoryManager:
                 # не по aux-копии vec (её обновляет только invalidate) —
                 # свежий belief случайно не попадает в архивную стадию.
                 for r in exp_records:
-                    if str(r["status"] or "") in ("confirmed",
-                                                  "archived_belief") \
+                    if str(r["status"] or "") in statuses \
                             and r["expires_at"] is not None \
                             and r["expires_at"] <= now:
                         expired_by_id[r["id"]] = (dict(r), next(
@@ -6038,7 +6079,10 @@ class MemoryManager:
             # B4-1 (F5, ADR-1018-5 D7): × ограниченный множитель importance
             # (meta imp=1 не доминирует в KNN-выборке при прочих равных).
             score = cosine * w_eff * _importance_factor(_row_importance(row))
-            if str(row["status"] or "") == "archived_belief":
+            if str(row["status"] or "") in ("archived_belief",
+                                            "archived_fact"):
+                # P0-квота: вытесненный квотой факт в archival-режиме —
+                # ниже живых (история, не текущее знание).
                 score -= penalty
             # P0-HA RELEVANCE (§11, правка ревью #2): bounded-штраф повторных
             # подач НЕ входит в selection-score — состав выдачи определяет
@@ -6056,7 +6100,8 @@ class MemoryManager:
             score = (cosine * w_eff
                      * _importance_factor(_row_importance(row))
                      - expired_penalty)
-            if str(row["status"] or "") == "archived_belief":
+            if str(row["status"] or "") in ("archived_belief",
+                                            "archived_fact"):
                 score -= penalty
             # P0-HA RELEVANCE (§11, правка ревью #2): тот же перенос штрафа
             # подач из selection-score в пост-селекционный порядок (симметрично

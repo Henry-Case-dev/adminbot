@@ -8919,10 +8919,13 @@ class DatabaseService:
 
     async def count_overdue_facts(self, chat_id: int | None = None) -> int:
         """F7/D4: «просроченные» факты (expires_at < now, статус не
-        терминальный). R17: только число."""
+        терминальный). R17: только число.
+        P0-квота: 'archived_fact' (вытеснено квотой без удаления) — тоже
+        терминальный для счётчика: не live-знание, действий не требует."""
         sql = ("SELECT COUNT(*) AS c FROM graph_facts "
                "WHERE expires_at IS NOT NULL AND expires_at < ? "
-               "AND status NOT IN ('expired', 'archived_belief')")
+               "AND status NOT IN ('expired', 'archived_belief', "
+               "'archived_fact')")
         params: list = [int(time.time())]
         if chat_id is not None:
             sql += " AND chat_id = ?"
@@ -10653,8 +10656,11 @@ class DatabaseService:
         Epic 60 (66.3, T-481): + weight/last_confirmed_at — время-взвешивание
         (пересортировка по w_eff) происходит в Python (SQL не меняем).
         F2/T-1426 (spec §2): include_archived=True (dig_into_lore — прямое
-        копание) → status ∈ ('confirmed','archived_belief'); обычный RAG
-        (False) архив не видит.
+        копание) → status ∈ ('confirmed','archived_belief','archived_fact');
+        обычный RAG (False) архив не видит.
+        P0-квота: 'archived_fact' — факты, вытесненные квотой без удаления
+        (`archive_graph_fact_for_quota`); видны ТОЛЬКО при include_archived
+        (историческое копание), из живой выдачи исключены.
         Раунд 10.14 (F1, ADR-1014-2 D7): include_self=False (default) →
         origin='bot_self_reply' невидим (Сон/золотые/чужие пайплайны);
         direct-путь передаёт include_self=True (свои прошлые слова с меткой).
@@ -10670,8 +10676,12 @@ class DatabaseService:
         expired участвуют всегда. SELECT аддитивно несёт ``f.expires_at`` —
         вызывающий отличает archive-hit (``expires_at <= now_ts``) от свежих
         и помечает trust/as-of на своей стороне."""
-        statuses = ("('confirmed', 'archived_belief')" if include_archived
-                    else "('confirmed')")
+        # P0-квота: include_archived=True — историческое/архивное копание
+        # (dig_into_lore) видит и архивные beliefs, и неразрушающе вытесненные
+        # квотой факты ('archived_fact', см. archive_graph_fact_for_quota);
+        # обычный RAG (False) архив не видит вовсе.
+        statuses = ("('confirmed', 'archived_belief', 'archived_fact')"
+                    if include_archived else "('confirmed')")
         expired_visible = (include_archived if include_expired is None
                            else bool(include_expired))
         ttl_clause = ("" if expired_visible
@@ -11800,7 +11810,10 @@ class DatabaseService:
         (weight >= limits.graph_purge_protect_weight) и недавно подтверждённые
         (last_confirmed_at свежее limits.graph_purge_protect_days) тоже не
         выбираются жертвой (гейт purge/eviction spec §3.E3.2). None — квота
-        не превышена / все кандидаты защищены."""
+        не превышена / все кандидаты защищены.
+        P0-квота: и счётчик, и выборка — ТОЛЬКО live ``status='confirmed'``:
+        уже вытесненные (``archived_fact``) и архивные beliefs не занимают
+        квоту и не выбираются повторно (иначе квота «съедала» бы архив)."""
         protect_weight = float(hot.get(
             "limits.graph_purge_protect_weight",
             settings.GRAPH_PURGE_PROTECT_WEIGHT) or 0.8)
@@ -11810,14 +11823,14 @@ class DatabaseService:
         protect_cutoff = now_ts - protect_days * 86400
         cursor = await self.db.execute(
             "SELECT COUNT(*) AS c FROM graph_facts "
-            "WHERE chat_id = ? AND target_user = ? "
+            "WHERE chat_id = ? AND target_user = ? AND status = 'confirmed' "
             "AND (expires_at IS NULL OR expires_at > ?)",
             (chat_id, target_user, now_ts))
         if (await cursor.fetchone())["c"] < quota:
             return None
         cursor = await self.db.execute(
             "SELECT id, fact FROM graph_facts "
-            "WHERE chat_id = ? AND target_user = ? "
+            "WHERE chat_id = ? AND target_user = ? AND status = 'confirmed' "
             "AND (expires_at IS NULL OR expires_at > ?) "
             "AND NOT EXISTS (SELECT 1 FROM protected_facts p "
             "WHERE p.chat_id = graph_facts.chat_id "
@@ -11830,6 +11843,54 @@ class DatabaseService:
             (chat_id, target_user, now_ts, protect_weight, protect_cutoff,
              now_ts))
         return await cursor.fetchone()
+
+    async def archive_graph_fact_for_quota(self, fact_id: int, chat_id: int,
+                                           target_user: str) -> bool:
+        """P0-квота: НЕразрушающее вытеснение — ``confirmed`` →
+        ``archived_fact`` вместо физического удаления.
+
+        Единая атомарная операция через существующий ``write_transaction``
+        (тот же single-writer/retry, новой блокировки/connection нет):
+        условный UPDATE строки, совпадающей одновременно по
+        ``id + chat_id + target_user`` (NULL-safe ``IS``: вызов с пустым
+        target_user не может задеть чужие строки) и только из
+        ``status='confirmed'``, и
+        ровно одна запись журнала ``graph_fact_compressions``
+        (``reason='quota'``, ``fact_before`` = текущий текст факта,
+        ``fact_after=NULL``) коммитятся вместе либо не коммитятся вовсе
+        (ошибка → rollback, частичного состояния нет).
+
+        Ничего не удаляется физически: ни строка ``graph_facts``, ни FTS-,
+        ни vec-строка, ни provenance/refs/edges — факт остаётся адресуемым и
+        находится историческим копанием (``include_archived=True``), но не
+        попадает в обычную выдачу (live-запросы ``confirmed``-only).
+
+        True — строка реально перешла в архив (и журнал записан). False —
+        строка уже архивная/отсутствует/чужая область (id+chat+user), БЕЗ
+        второго журнала. Не общий заменитель ``delete_graph_fact``: явное
+        забывание/приватность/retention остаются разрушающими."""
+        async def _body(conn):
+            cursor = await conn.execute(
+                "UPDATE graph_facts SET status = 'archived_fact' "
+                "WHERE id = ? AND chat_id = ? AND target_user IS ? "
+                "AND status = 'confirmed'",
+                (fact_id, chat_id, target_user))
+            if cursor.rowcount != 1:
+                return False
+            cursor = await conn.execute(
+                "SELECT fact FROM graph_facts WHERE id = ?", (fact_id,))
+            row = await cursor.fetchone()
+            await conn.execute(
+                "INSERT INTO graph_fact_compressions "
+                "(chat_id, fact_id, fact_before, fact_after, reason, "
+                "created_at) VALUES (?, ?, ?, NULL, 'quota', ?)",
+                (chat_id, fact_id,
+                 (str(row["fact"]) if row is not None else ""), time.time()))
+            return True
+
+        return await self.write_transaction(
+            _body, op_name="archive_graph_fact_for_quota", chat_id=chat_id,
+            commit_if=lambda archived: bool(archived))
 
     async def get_live_graph_facts(self, chat_id: int, now_ts: int) -> list:
         """66.2/66.11: живые (не протухшие) confirmed-факты чата для слияния/

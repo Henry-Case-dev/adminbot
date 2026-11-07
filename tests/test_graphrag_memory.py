@@ -1979,8 +1979,9 @@ class TestEpic60PhaseD:
 
     @pytest.mark.asyncio
     async def test_quota_evicts_lightest_oldest(self, db, monkeypatch):
-        """66.4: сверх квоты вытесняется самый лёгкий и старый
-        (score = weight/(age_days+1)), журнал reason='quota'."""
+        """66.4 + P0-квота: сверх квоты вытесняется самый лёгкий и старый
+        (score = weight/(age_days+1)); вытеснение неразрушающее —
+        status='archived_fact' + журнал reason='quota' (fact_after NULL)."""
         now = 1_800_000_000
         monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
         f_keep = await db.insert_graph_fact(
@@ -2004,15 +2005,27 @@ class TestEpic60PhaseD:
             await memory.memorize_facts(-100, "текст", "bot_direct_reply",
                                         target_user="вася")
         cursor = await db.db.execute(
-            "SELECT id FROM graph_facts WHERE target_user = 'вася'")
-        ids = {row["id"] for row in await cursor.fetchall()}
-        assert ids == {f_keep} | set(ids - {f_victim}) and f_victim not in ids
-        assert len(ids) == 2                       # вытеснение сохранило квоту
+            "SELECT id, status, fact FROM graph_facts "
+            "WHERE target_user = 'вася'")
+        rows = {row["id"]: row for row in await cursor.fetchall()}
+        # P0-квота: жертва НЕ удалена — только статус сменился на архивный,
+        # текст/provenance сохранены; live-фактов — ровно по квоте.
+        assert rows[f_victim]["status"] == "archived_fact"
+        assert rows[f_victim]["fact"] == "квота вася имел привычку"
+        assert rows[f_keep]["status"] == "confirmed"
+        live = [fid for fid, row in rows.items() if row["status"] == "confirmed"]
+        assert len(live) == 2
         cursor = await db.db.execute(
-            "SELECT fact_id, reason FROM graph_fact_compressions "
+            "SELECT COUNT(*) AS c FROM graph_facts_fts WHERE rowid = ?",
+            (f_victim,))
+        assert (await cursor.fetchone())["c"] == 1     # FTS-строка цела
+        cursor = await db.db.execute(
+            "SELECT fact_id, fact_after, reason FROM graph_fact_compressions "
             "WHERE reason = 'quota'")
-        log = await cursor.fetchone()
-        assert log is not None and log["fact_id"] == f_victim
+        logs = await cursor.fetchall()
+        assert len(logs) == 1
+        assert logs[0]["fact_id"] == f_victim
+        assert logs[0]["fact_after"] is None
 
     @pytest.mark.asyncio
     async def test_quota_protected_never_evicted(self, db, monkeypatch):

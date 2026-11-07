@@ -1,5 +1,6 @@
 """Tests for the GraphRAG nodes/edges DB layer (Epic 26, T-200/T26.1, Section 35.2/35.5)."""
 import asyncio
+import time
 
 import pytest
 
@@ -656,3 +657,150 @@ class TestGraphFacts:
         cursor = await db.db.execute("PRAGMA busy_timeout")
         row = await cursor.fetchone()
         assert row[0] == 5000
+
+
+class TestQuotaArchive:
+    """P0-квота: вытеснение НЕ удаляет историю — status='archived_fact'.
+
+    Замороженный контракт: атомарный UPDATE + ровно один журнал
+    (reason='quota') в одной транзакции; False без второго журнала при
+    повторе/чужой области; строка/FTS/vec и provenance остаются; архив виден
+    только include_archived; явное забывание остаётся физически разрушающим.
+    TEST-LIFECYCLE: CONTRACT owner=P0-quota-nondestructive-eviction
+    """
+
+    async def _seed(self, db, text: str, weight: float = 0.3,
+                    target_user: str | None = "вася") -> int:
+        return await db.insert_graph_fact(
+            -100, text, "bot_direct_reply", None, target_user=target_user,
+            weight=weight)
+
+    @pytest.mark.asyncio
+    async def test_archive_keeps_rows_and_writes_single_journal(self, db):
+        fid = await self._seed(db, "квота вася старый факт")
+        ok = await db.archive_graph_fact_for_quota(fid, -100, "вася")
+        assert ok is True
+        cursor = await db.db.execute(
+            "SELECT status, fact FROM graph_facts WHERE id = ?", (fid,))
+        row = await cursor.fetchone()
+        assert row["status"] == "archived_fact"          # строка НЕ удалена
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts_fts WHERE rowid = ?", (fid,))
+        assert (await cursor.fetchone())["c"] == 1       # FTS-строка цела
+        cursor = await db.db.execute(
+            "SELECT fact_id, fact_before, fact_after, reason "
+            "FROM graph_fact_compressions WHERE fact_id = ?", (fid,))
+        logs = await cursor.fetchall()
+        assert len(logs) == 1
+        assert logs[0]["reason"] == "quota"
+        assert logs[0]["fact_before"] == row["fact"]
+        assert logs[0]["fact_after"] is None
+
+    @pytest.mark.asyncio
+    async def test_second_archive_is_false_without_second_journal(self, db):
+        fid = await self._seed(db, "квота вася идемпотентность")
+        assert await db.archive_graph_fact_for_quota(fid, -100, "вася") is True
+        assert await db.archive_graph_fact_for_quota(fid, -100, "вася") is False
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_fact_compressions "
+            "WHERE fact_id = ? AND reason = 'quota'", (fid,))
+        assert (await cursor.fetchone())["c"] == 1
+
+    @pytest.mark.asyncio
+    async def test_scope_mismatch_changes_nothing(self, db):
+        fid = await self._seed(db, "квота вася чужой скоуп")
+        assert await db.archive_graph_fact_for_quota(fid, -100, "петя") is False
+        assert await db.archive_graph_fact_for_quota(fid, -200, "вася") is False
+        cursor = await db.db.execute(
+            "SELECT status FROM graph_facts WHERE id = ?", (fid,))
+        assert (await cursor.fetchone())["status"] == "confirmed"
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_fact_compressions "
+            "WHERE fact_id = ?", (fid,))
+        assert (await cursor.fetchone())["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_missing_fact_is_false_without_journal(self, db):
+        assert await db.archive_graph_fact_for_quota(999_999, -100,
+                                                     "вася") is False
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_fact_compressions")
+        assert (await cursor.fetchone())["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_journal_failure_rolls_back_status(self, db):
+        """Транзакция: сбой журнала → ни статуса, ни строки журнала."""
+        fid = await self._seed(db, "квота вася атомарность")
+        await db.db.execute(
+            "CREATE TRIGGER _p0_fail_journal "
+            "BEFORE INSERT ON graph_fact_compressions "
+            "BEGIN SELECT RAISE(ABORT, 'journal boom'); END")
+        await db.db.commit()
+        with pytest.raises(Exception, match="journal boom"):
+            await db.archive_graph_fact_for_quota(fid, -100, "вася")
+        cursor = await db.db.execute(
+            "SELECT status FROM graph_facts WHERE id = ?", (fid,))
+        assert (await cursor.fetchone())["status"] == "confirmed"
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_fact_compressions "
+            "WHERE fact_id = ?", (fid,))
+        assert (await cursor.fetchone())["c"] == 0
+        await db.db.execute("DROP TRIGGER _p0_fail_journal")
+        await db.db.commit()
+
+    @pytest.mark.asyncio
+    async def test_quota_victim_counts_only_live_confirmed(self, db):
+        now = 1_800_000_000
+        kept = await self._seed(db, "квота вася живой", weight=0.3)
+        other = await self._seed(db, "квота вася живой два", weight=0.3)
+        victim = await self._seed(db, "квота вася архив", weight=0.3)
+        for fid in (kept, other, victim):
+            await db.db.execute(
+                "UPDATE graph_facts SET created_at = ?, last_confirmed_at = ? "
+                "WHERE id = ?", (now - 200 * 86400, now - 200 * 86400, fid))
+        await db.db.commit()
+        assert await db.archive_graph_fact_for_quota(victim, -100,
+                                                     "вася") is True
+        # 2 живых < квоты 3 → вытеснять нечего (архив квоту не занимает)
+        assert await db.get_quota_victim(-100, "вася", 3, now) is None
+        # квота 2: превышена, но вытесняется только live-строка
+        chosen = await db.get_quota_victim(-100, "вася", 2, now)
+        assert chosen is not None and chosen["id"] != victim
+
+    @pytest.mark.asyncio
+    async def test_archived_fact_invisible_to_ordinary_fts(self, db):
+        now = 1_800_000_000
+        archived_id = await db.insert_graph_fact(
+            -100, "маяк архивный факт квота", "chat_history", None)
+        live_id = await db.insert_graph_fact(
+            -100, "маяк живой факт квота", "chat_history", None)
+        assert await db.archive_graph_fact_for_quota(archived_id, -100,
+                                                     None) is True
+        rows = await db.search_graph_facts_fts(-100, '"маяк"*', 10, now)
+        ids = {r["id"] for r in rows}
+        assert live_id in ids and archived_id not in ids
+        hist = await db.search_graph_facts_fts(
+            -100, '"маяк"*', 10, now, include_archived=True)
+        hist_ids = {r["id"] for r in hist}
+        assert archived_id in hist_ids and live_id in hist_ids
+        row = next(r for r in hist if r["id"] == archived_id)
+        assert row["status"] == "archived_fact"
+        assert row["fact"] == "маяк архивный факт квота"   # provenance цел
+
+    @pytest.mark.asyncio
+    async def test_explicit_forget_still_physically_deletes(self, db):
+        """Приватность: явное «забудь» остаётся разрушающим (не архивирует)."""
+        now = int(time.time())
+        fid = await db.insert_graph_fact(
+            -100, "забудь пароль от почты", "user_memory", None,
+            target_user="вася")
+        removed = await db.forget_memory_facts(
+            -100, ["пароль"], target_user="вася", now_ts=now)
+        assert removed == 1
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts WHERE id = ?", (fid,))
+        assert (await cursor.fetchone())["c"] == 0
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts_fts WHERE rowid = ?", (fid,))
+        assert (await cursor.fetchone())["c"] == 0
+

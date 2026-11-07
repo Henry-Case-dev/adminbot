@@ -2275,6 +2275,11 @@ class ToolRouter:
                             if str(row.get("status") or "") \
                                     == "archived_belief":
                                 line = f"{line} (архивное убеждение)"
+                            elif str(row.get("status") or "") \
+                                    == "archived_fact":
+                                # P0-квота: вытеснено квотой без удаления —
+                                # в историческом копании помечаем как архив.
+                                line = f"{line} (архивный факт)"
                             fact_lines.append(
                                 f"{self._fact_origin_label(row)} {line}")
                             if len(fact_lines) >= max_facts:
