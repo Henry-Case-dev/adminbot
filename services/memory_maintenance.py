@@ -15,13 +15,21 @@ coalesce — анти-рейс, прецедент summary_scheduler):
    удаления), глобальный выброс истёкших, выброс unconfirmed старше
    GRAPH_UNCONFIRMED_RETENTION_DAYS, усечение лога сжатий.
 
-MEMORY-04 (C-3 §3.4/§3.5, MEM-04.3/04.5/04.6, audit A0 §5): ни слияние, ни
-пересмотр не удаляют исходные факты. Сходство (cosine) — не доказательство и не
-решение: оно может только предложить кандидата на дедуп. Каждое решение
-пишется явным кодом из `MEMORY_DECISIONS` (`summary_memory`): слияние — ADD
-производного факта + lineage (`derived_from` forward, `source_ids`, журнал
-`episode_merge` backward), склейка/vec-дубль — NOOP-наблюдение
-(`memory_dedupe_candidate`). `delete_graph_fact` в этом модуле не вызывается.
+MEMORY-04 (C-3 §3.4/§3.5, MEM-04.3/04.5/04.6, audit A0 §5): при ВКЛЮЧЁННОМ
+гейте `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` ни слияние, ни пересмотр не
+удаляют исходные факты. Сходство (cosine) — не доказательство и не решение:
+оно может только предложить кандидата на дедуп. Каждое решение пишется явным
+кодом из `MEMORY_DECISIONS` (`summary_memory`): слияние — ADD производного
+факта + lineage в обе стороны (`source_ids`/`derived_from` forward,
+`supersedes` + `freshness_status='superseded'` backward), склейка/vec-дубль —
+NOOP-наблюдение (`memory_dedupe_candidate`).
+
+Гейт спрашивается в `merge_episodes`, `_merge_cluster`, `review` и
+`_glue_vec_dups` (per-chat, `mca_gates.memory_maintenance_policy_enabled`,
+default **OFF до приёмки**). OFF → точный паритет base-коммита: legacy-слияние
+с удалением источников и legacy-склейка дублей; никакого lineage/`source_ids`
+не пишется. ON → путь выше. `delete_graph_fact` вызывается ТОЛЬКО в
+OFF-ветках (legacy-паритет), не в новом пути.
 """
 import asyncio
 import datetime
@@ -104,6 +112,18 @@ def _source_id_list(raw) -> list:
         except (TypeError, ValueError):
             continue
     return out
+
+
+async def _policy_enabled(chat_id: int | None = None) -> bool:
+    """Effective гейт MEMORY-04 (единственный резолвер — `mca_gates`).
+
+    OFF/ошибка резолва → False (fail-closed в паритет baseline, скрытого
+    включения нет)."""
+    try:
+        from services import mca_gates
+        return bool(await mca_gates.memory_maintenance_policy_enabled(chat_id))
+    except Exception:                                  # pragma: no cover
+        return False
 
 
 def _emit_dedupe_candidate(chat_id: int, kind: str, fact_ids,
@@ -727,20 +747,27 @@ class MemoryMaintenanceService:
 
     async def merge_episodes(self) -> int:
         """Слияние по всем чатам; потолок GRAPH_EPISODE_MERGE_BATCH кластеров
-        за прогон. Возвращает число слитых кластеров."""
+        за прогон. Возвращает число слитых кластеров.
+
+        Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` спрашивается на КАЖДЫЙ
+        чат (per-chat override, §5.2.1): OFF → прежний путь base-коммита
+        (слияние с удалением источников), ON → неразрушающее слияние с lineage.
+        """
         budget = hot.get("limits.graph_episode_merge_batch", settings.GRAPH_EPISODE_MERGE_BATCH)
         merged_total = 0
         for chat_id in await self.db.get_graph_chat_ids():
             if budget <= 0:
                 break
-            merged = await self._merge_chat(chat_id, budget)
+            policy_on = await _policy_enabled(chat_id)
+            merged = await self._merge_chat(chat_id, budget, policy_on)
             budget -= merged
             merged_total += merged
         if merged_total:
             logger.info("episode merge: merged=%d clusters", merged_total)
         return merged_total
 
-    async def _merge_chat(self, chat_id: int, budget: int) -> int:
+    async def _merge_chat(self, chat_id: int, budget: int,
+                          policy_on: bool) -> int:
         now = int(time.time())
         rows = await self.db.get_live_graph_facts(chat_id, now)
         rows = [
@@ -754,13 +781,14 @@ class MemoryMaintenanceService:
             return 0
         clusters = await self._cluster_facts(chat_id, rows, now)
         merged = 0
-        for cluster in clusters:
+        for cluster, method in clusters:
             if merged >= budget:
                 break
             cluster = cluster[:hot.get("limits.graph_episode_merge_max_facts_per_cluster", settings.GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER)]
             if len(cluster) < 2:
                 continue
-            if await self._merge_cluster(chat_id, cluster, now):
+            if await self._merge_cluster(chat_id, cluster, now,
+                                         method=method, policy_on=policy_on):
                 merged += 1
         return merged
 
@@ -808,15 +836,17 @@ class MemoryMaintenanceService:
             return {}
 
     async def _link_lineage(self, chat_id: int, derived_id: int,
-                            source_ids: list, now: int) -> int:
-        """Lineage производного факта (C-3 §3.5, MEM-04.5).
+                            source_ids: list, now: int, *,
+                            verification: str = "verified") -> int:
+        """Lineage производного факта FORWARD (C-3 §3.5, MEM-04.5).
 
-        forward: `graph_facts.source_ids` (пишется при INSERT) + EvidenceLink
-        `derived_from` на КАЖДЫЙ источник; backward-индекс обеспечивает
-        существующий `provenance.links_derived_from_source()` (по source-ref
-        источника находятся все производные). Идемпотентно (dedup link в
-        `mca_evidence_links`); provenance OFF → 0 (остаётся `source_ids`).
-        Fail-open: отсутствие lineage не должно превращаться в потерю данных.
+        `graph_facts.source_ids` (пишется при INSERT) + EvidenceLink
+        `derived_from` на КАЖДЫЙ источник; обратный индекс —
+        `provenance.links_derived_from_source()`. `verification` — от метода
+        кластеризации: `verified` только для точного кластера, `tentative`
+        для собранного сходством (INV-06). Идемпотентно (dedup link);
+        provenance OFF → 0 (остаётся `source_ids`). Fail-open: отсутствие
+        lineage не должно превращаться в потерю данных.
         `independence='unknown'` — независимость источников НЕ выдумывается."""
         made = 0
         try:
@@ -838,13 +868,68 @@ class MemoryMaintenanceService:
                     self.db, provenance.EvidenceLink(
                         subject_ref_id=obj, source_ref_id=ref,
                         link_type="derived_from", method="direct_reference",
-                        verification="verified", independence="unknown",
+                        verification=verification, independence="unknown",
                         basis="episode_merge", established_at=now))
                 made += 1
         except Exception:
             logger.warning(
                 "episode merge: lineage link failed — fail-open | chat_id=%s "
                 "| fact_id=%s", chat_id, derived_id, exc_info=True)
+        return made
+
+    async def _link_backward_supersede(self, chat_id: int, winner_id: int,
+                                       source_ids: list, now: int, *,
+                                       verification: str = "verified") -> int:
+        """Lineage производного факта BACKWARD (C-3 §3.3/§3.5, MEM-04.3/04.5).
+
+        Для каждой поглощённой строки: EvidenceLink `supersedes`
+        (победитель ← источник), `freshness_status='superseded'` в
+        `mca_provenance_status` (строка НЕ удаляется и не перезаписывается) и
+        указатель `graph_facts.supersedes` победителя (однослотовая колонка:
+        первый поглощённый). Идемпотентно; provenance OFF → 0. Fail-open."""
+        made = 0
+        absorbed = [int(sid) for sid in source_ids if int(sid) != int(winner_id)]
+        if not absorbed:
+            return 0
+        try:
+            await self.db.db.execute(
+                "UPDATE graph_facts SET supersedes = COALESCE(supersedes, ?) "
+                "WHERE id = ?", (absorbed[0], int(winner_id)))
+            await self.db.db.commit()
+        except Exception:
+            logger.warning(
+                "episode merge: supersedes pointer write failed — fail-open | "
+                "fact_id=%s", winner_id, exc_info=True)
+        try:
+            from services import provenance
+            if not provenance.provenance_enabled():
+                return made
+            obj = await provenance.resolve_source_ref(
+                self.db, provenance.graph_fact_source_ref(chat_id, winner_id))
+            if obj is None:
+                return made
+            for sid in absorbed:
+                ref = await provenance.resolve_source_ref(
+                    self.db, provenance.graph_fact_source_ref(chat_id, sid))
+                if ref is None:
+                    continue
+                await provenance.add_evidence_link(
+                    self.db, provenance.EvidenceLink(
+                        subject_ref_id=obj, source_ref_id=ref,
+                        link_type="supersedes", method="direct_reference",
+                        verification=verification, independence="unknown",
+                        basis="consolidation", established_at=now))
+                existing = await provenance.get_provenance_status(
+                    self.db, ref) or {}
+                await provenance.set_provenance_status(
+                    self.db, ref,
+                    origin_status=(existing.get("origin_status") or "unknown"),
+                    freshness_status="superseded")
+                made += 1
+        except Exception:
+            logger.warning(
+                "episode merge: backward supersede failed — fail-open | "
+                "chat_id=%s | fact_id=%s", chat_id, winner_id, exc_info=True)
         return made
 
     async def _apply_aggregate_validity(self, chat_id: int, fact_id: int,
@@ -876,9 +961,16 @@ class MemoryMaintenanceService:
                 "| fact_id=%s", fact_id, exc_info=True)
 
     async def _cluster_facts(self, chat_id: int, rows: list, now: int) -> list:
-        """Кластеры ≥2 похожих фактов: KNN-сходство (vec, cosine ≥
-        _MERGE_CLUSTER_SIM) или точный subject+predicate (FTS-фолбек — первые
-        два слова факта). Union-find; размер кластера ограничен
+        """Кластеры ≥2 похожих фактов + МЕТОД кластеризации (MEM-04.5).
+
+        Возврат: список `(cluster, method)`, где method ∈ {`vector`,`exact`}:
+        * `vector` — KNN-сходство (cosine ≥ _MERGE_CLUSTER_SIM). Сходство —
+          лишь предложение, поэтому производный факт от такого кластера
+          рождается `unconfirmed` с lineage `tentative` (INV-06);
+        * `exact` — точный subject+predicate (FTS-фолбек — первые два слова):
+          это не сходство, а совпадение утверждения.
+
+        Union-find; размер кластера ограничен
         GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER."""
         cap = hot.get("limits.graph_episode_merge_max_facts_per_cluster", settings.GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER)
         if self.memory._vec_available:
@@ -888,7 +980,8 @@ class MemoryMaintenanceService:
             except Exception:
                 logger.warning(
                     "episode merge: embed failed — exact subject+predicate fallback")
-                return self._cluster_exact(rows, cap)
+                return [(grp, "exact")
+                        for grp in self._cluster_exact(rows, cap)]
             by_id = {row["id"]: row for row in rows}
             for i, row in enumerate(rows):
                 near = await self.memory._dedup_knn(chat_id, vectors[i])
@@ -899,8 +992,9 @@ class MemoryMaintenanceService:
                     cosine = 1.0 - item["distance"]
                     if cosine >= _MERGE_CLUSTER_SIM:
                         pairs.append((row["id"], other["id"]))
-            return self._union_clusters(rows, pairs, cap)
-        return self._cluster_exact(rows, cap)
+            return [(grp, "vector")
+                    for grp in self._union_clusters(rows, pairs, cap)]
+        return [(grp, "exact") for grp in self._cluster_exact(rows, cap)]
 
     @staticmethod
     def _cluster_exact(rows: list, cap: int) -> list:
@@ -937,15 +1031,26 @@ class MemoryMaintenanceService:
             clusters.setdefault(find(row["id"]), []).append(row)
         return [grp for grp in clusters.values() if len(grp) >= 2]
 
-    async def _merge_cluster(self, chat_id: int, cluster: list, now: int):
+    async def _merge_cluster(self, chat_id: int, cluster: list, now: int, *,
+                             method: str = "exact",
+                             policy_on: bool = False):
         """LLM-слияние (COMPRESS_PROMPT) + проверка покрытия токенов → INSERT
-        (или reuse идентичной живой строки) ПРОИЗВОДНОГО факта с lineage.
+        (или reuse идентичной живой строки) ПРОИЗВОДНОГО факта.
 
-        MEMORY-04 (C-3 §3.4.1/§3.5, MEM-04.3/04.5): решение — ADD, ни одна
-        исходная строка не удаляется; `graph_fact_compressions` остаётся
-        журналом «что во что» (reason='episode_merge'), lineage — в
-        `source_ids` + `derived_from`-ссылках. Покрытие не прошло → пропуск
-        кластера (WARNING), исходные живут."""
+        Гейт `policy_on` (спрашивается в `merge_episodes`/`_merge_chat`):
+        * OFF — ТОЧНЫЙ паритет base-коммита: агрегат без `source_ids`, затем
+          физическое удаление каждого источника + журнал `episode_merge`
+          (разрушающий legacy-путь; доступен только пока гейт выключен);
+        * ON (MEMORY-04, C-3 §3.4.1/§3.5, MEM-04.3/04.5, INV-06) — решение
+          ADD, ни одна исходная строка не удаляется, lineage пишется в ОБЕ
+          стороны: forward `source_ids` + `derived_from`, backward
+          `supersedes` + `freshness_status='superseded'` (для точных
+          кластеров — это замена дублей, а не сходство).
+
+        `method='vector'` — кластер собран ТОЛЬКО сходством: производный факт
+        рождается `unconfirmed`, lineage `tentative` (сходство не
+        доказательство). `method='exact'` — `confirmed`/`verified`.
+        Покрытие не прошло → пропуск кластера (WARNING), исходные живут."""
         texts = [str(row["fact"]) for row in cluster]
         source_tokens = {token for text in texts
                          for token in _TOKEN_RE.findall(text.lower())}
@@ -990,6 +1095,25 @@ class MemoryMaintenanceService:
             else None)
         targets = {row["target_user"] for row in cluster if row["target_user"]}
         target_user = targets.pop() if len(targets) == 1 else None
+        if not policy_on:
+            # ── OFF: legacy base-коммит (разрушающий путь, паритет) ──
+            fact_id = await self.db.insert_graph_fact(
+                chat_id, merged_text, origin, expiry, target_user=target_user,
+                weight=weight, importance=importance)
+            if self.memory._vec_available:
+                await self.memory._save_graph_fact_embedding(
+                    fact_id, chat_id, merged_text, origin, expiry)
+            for row in cluster:
+                await self.db.delete_graph_fact(row["id"])
+                await self.db.log_fact_compression(
+                    chat_id, fact_id, row["fact"], merged_text, "episode_merge")
+            logger.info(
+                "episode merge: gate=off legacy | merged %d facts → fact_id=%d "
+                "| chat_id=%s", len(cluster), fact_id, chat_id)
+            return fact_id
+        candidate_status = ("unconfirmed" if method == "vector"
+                            else "confirmed")
+        verification = ("tentative" if method == "vector" else "verified")
         # Идемпотентность: производный факт с тем же текстом уже записан (тик
         # повторился после сбоя между INSERT и журналом) → переиспользуем его, а
         # не плодим дубли. Переиспользуется ТОЛЬКО производная строка
@@ -1010,43 +1134,87 @@ class MemoryMaintenanceService:
             fact_id = await self.db.insert_graph_fact(
                 chat_id, merged_text, origin, expiry, target_user=target_user,
                 weight=weight, importance=importance,
+                status=candidate_status,
                 source_ids=json.dumps(source_ids))
             if self.memory._vec_available:
                 await self.memory._save_graph_fact_embedding(
                     fact_id, chat_id, merged_text, origin, expiry)
         await self._apply_aggregate_validity(chat_id, fact_id, source_ids, now)
-        links = await self._link_lineage(chat_id, fact_id, source_ids, now)
+        links = await self._link_lineage(
+            chat_id, fact_id, source_ids, now, verification=verification)
+        backward = 0
+        if method == "exact":
+            backward = await self._link_backward_supersede(
+                chat_id, fact_id, source_ids, now,
+                verification=verification)
         for row in cluster:
             await self.db.log_fact_compression(
                 chat_id, fact_id, row["fact"], merged_text, "episode_merge")
         logger.info(
-            "episode merge: decision=%s%s | sources=%d kept=%d lineage=%d "
-            "| chat_id=%s | fact_id=%d",
-            DECISION_ADD, " (reuse)" if reused else "", len(cluster),
-            len(cluster), links, chat_id, fact_id)
+            "episode merge: decision=%s%s | method=%s | status=%s | sources=%d "
+            "kept=%d lineage=%d backward=%d | chat_id=%s | fact_id=%d",
+            DECISION_ADD, " (reuse)" if reused else "", method,
+            candidate_status, len(cluster), len(cluster), links, backward,
+            chat_id, fact_id)
         return fact_id
 
     # ── 66.11 (T-489): периодический пересмотр ──────────────────
 
     async def review(self) -> None:
         """(1) точные дубли и vec-кластеры ≥0.95 → КАНДИДАТ на дедуп (событие
-        `memory_dedupe_candidate`, решение NOOP: ни записи, ни удаления);
+        `memory_dedupe_candidate`, решение NOOP: ни записи, ни удаления),
+        у точной группы — ещё и backward-указатель победителю;
         (2) выброс истёкших — глобальный проход (retention, §3.4.1);
         (3) выброс unconfirmed старше retention; (4) усечение лога сжатий.
 
-        MEMORY-04 (C-3 §3.4): сходство само по себе не является ни
-        подтверждением, ни основанием инвалидации — поэтому склейка больше не
-        уничтожает «более лёгкую» строку."""
+        Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` спрашивается на каждый
+        чат: ON — сходство не является ни подтверждением, ни основанием
+        инвалидации, склейка ничего не уничтожает; OFF — прежний путь
+        base-коммита (точные дубли и vec-пары склеиваются с удалением).
+        Событие-кандидат эмитится не более одного раза на пару за прогон."""
         now = int(time.time())
         candidates = 0
+        emitted: set[tuple] = set()
         for chat_id in await self.db.get_graph_chat_ids():
+            policy_on = await _policy_enabled(chat_id)
             groups = await self.db.find_exact_dup_groups(chat_id, now)
             for group in groups:
-                _emit_dedupe_candidate(
-                    chat_id, "exact_duplicate", [row["id"] for row in group])
-                candidates += 1
+                ids = sorted({int(row["id"]) for row in group})
+                if not policy_on:
+                    keep = max(group, key=lambda r: (r["weight"], r["id"]))
+                    for row in group:
+                        if row["id"] == keep["id"]:
+                            continue
+                        if await self.db.is_fact_protected(chat_id, row["fact"]):
+                            continue
+                        await self.db.delete_graph_fact(row["id"])
+                        await self.db.log_fact_compression(
+                            chat_id, keep["id"], row["fact"], keep["fact"],
+                            "review_glue")
+                    continue
+                # ON: обе строки живы; проигравший помечается superseded и
+                # получает указатель победителя (C-3 §3.3/§3.4.1.1 п.3/п.6).
+                keep = max(group, key=lambda r: (r["weight"], r["id"]))
+                losers = [int(row["id"]) for row in group
+                          if row["id"] != keep["id"]
+                          and not await self.db.is_fact_protected(
+                              chat_id, row["fact"])]
+                if losers:
+                    await self._link_backward_supersede(
+                        chat_id, int(keep["id"]), [int(keep["id"]), *losers],
+                        now, verification="verified")
+                for a_idx in range(len(ids)):
+                    for b_idx in range(a_idx + 1, len(ids)):
+                        pair = (ids[a_idx], ids[b_idx])
+                        if pair in emitted:
+                            continue
+                        emitted.add(pair)
+                        _emit_dedupe_candidate(
+                            chat_id, "exact_duplicate", list(pair))
+                        candidates += 1
             if self.memory._vec_available:
-                candidates += await self._glue_vec_dups(chat_id, now)
+                candidates += await self._glue_vec_dups(
+                    chat_id, now, policy_on=policy_on, emitted=emitted)
         expired = await self.db.purge_expired_graph_facts()
         unconfirmed = await self.db.purge_unconfirmed_graph_facts(
             now, hot.get("limits.graph_unconfirmed_retention_days", settings.GRAPH_UNCONFIRMED_RETENTION_DAYS))
@@ -1057,11 +1225,17 @@ class MemoryMaintenanceService:
             "unconfirmed=%d log_trimmed=%d",
             DECISION_NOOP, candidates, expired, unconfirmed, trimmed)
 
-    async def _glue_vec_dups(self, chat_id: int, now: int) -> int:
-        """66.11 → MEM-04.4: vec-кластеры cosine ≥0.95 — только КАНДИДАТ на
-        дедуп (событие с id пары), без склейки и без удаления: сходство
-        вектора не доказательство. Потолок _REVIEW_VEC_BATCH фактов чата;
-        защищённые не рассматриваются. Возврат — число пар-кандидатов."""
+    async def _glue_vec_dups(self, chat_id: int, now: int, *,
+                             policy_on: bool = False,
+                             emitted: set | None = None) -> int:
+        """66.11 → MEM-04.4: vec-кластеры cosine ≥0.95.
+
+        ON — только КАНДИДАТ на дедуп (событие с id пары, не более одного раза
+        на пару за прогон через `emitted`), без склейки и без удаления:
+        сходство вектора не доказательство. OFF — прежний путь base-коммита
+        (склейка с удалением «более лёгкой» строки). Потолок
+        _REVIEW_VEC_BATCH фактов чата; защищённые не рассматриваются.
+        Возврат — число пар-кандидатов (ON) либо склеек (OFF)."""
         rows = await self.db.get_live_graph_facts(chat_id, now)
         rows = [
             row for row in rows[: _REVIEW_VEC_BATCH]
@@ -1086,10 +1260,33 @@ class MemoryMaintenanceService:
                 if cosine >= _REVIEW_GLUE_SIM:
                     key = tuple(sorted((row["id"], other["id"])))
                     pairs[key] = max(pairs.get(key, 0.0), cosine)
+        if not policy_on:
+            glued = 0
+            for a_id, b_id in sorted(pairs.items()):
+                a, b = by_id.get(a_id[0]), by_id.get(b_id[0])
+                if a is None or b is None:
+                    continue
+                keep = max((a, b), key=lambda r: (r["weight"], r["id"]))
+                drop = b if keep is a else a
+                if await self.db.is_fact_protected(chat_id, drop["fact"]):
+                    continue
+                await self.db.delete_graph_fact(drop["id"])
+                await self.db.log_fact_compression(
+                    chat_id, keep["id"], drop["fact"], keep["fact"],
+                    "review_glue")
+                glued += 1
+            return glued
+        seen = emitted if emitted is not None else set()
+        count = 0
         for (a_id, b_id), cosine in sorted(pairs.items()):
+            pair = tuple(sorted((int(a_id), int(b_id))))
+            if pair in seen:
+                continue
+            seen.add(pair)
             _emit_dedupe_candidate(
-                chat_id, "vector_similar", [a_id, b_id], similarity=cosine)
-        return len(pairs)
+                chat_id, "vector_similar", list(pair), similarity=cosine)
+            count += 1
+        return count
 
     async def shutdown(self) -> None:
         global _active_service

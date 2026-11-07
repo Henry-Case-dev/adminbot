@@ -592,11 +592,21 @@ MEMORY_GATES: dict[str, tuple[bool, str]] = {
         "имени, `mca_entity_canonical` не читается и не пишется, "
         "redirect/засев не выполняются (паритет baseline)",
     ),
+    "MCA_MEMORY_MAINTENANCE_POLICY_ENABLED": (
+        False,
+        "OFF → обслуживание памяти как сегодня: слияние эпизодов и review "
+        "склеивают/удаляют строки прежним путём, `_dedup_decide` считает "
+        "cosine-полосы (паритет baseline). ON → решения ADD/ENRICH/CONFIRM/"
+        "SUPERSEDE/CONTRADICT/NOOP по смыслу утверждения, источник не "
+        "удаляется, lineage в source_ids/derived_from/supersedes",
+    ),
 }
 
 #: Env-имя реестра → ключ каталогового тумблера (per-chat наследование).
 MEMORY_GATE_CATALOG_KEYS: dict[str, str] = {
     "MCA_MEMORY_IDENTITY_ENABLED": "flags.memory_identity_enabled",
+    "MCA_MEMORY_MAINTENANCE_POLICY_ENABLED":
+        "flags.memory_maintenance_policy_enabled",
 }
 
 
@@ -604,6 +614,39 @@ def memory_identity_env_enabled() -> bool:
     """Env-половина `MCA_MEMORY_IDENTITY_ENABLED` (аварийный OFF, default OFF)."""
     return _env_flag("MCA_MEMORY_IDENTITY_ENABLED",
                      MEMORY_GATES["MCA_MEMORY_IDENTITY_ENABLED"][0])
+
+
+def memory_maintenance_policy_env_enabled() -> bool:
+    """Env-половина `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` (default OFF)."""
+    return _env_flag(
+        "MCA_MEMORY_MAINTENANCE_POLICY_ENABLED",
+        MEMORY_GATES["MCA_MEMORY_MAINTENANCE_POLICY_ENABLED"][0])
+
+
+async def memory_maintenance_policy_enabled(chat_id: int | None = None) -> bool:
+    """Effective гейт MEMORY-04 (C-3 §3.4/§3.6): `env AND flags.…`.
+
+    * env-emergency OFF важнее каталога (аварийное отключение без рестарта);
+    * `chat_id=None` (§5.2.1) → только `hot.get`, chat-override не применяется;
+    * иначе — `chat_params.get_chat_param` (chat override → global hot →
+      default), второго механизма нет;
+    * default **OFF до приёмки** (скрытого «включено по умолчанию» нет:
+      OFF = точный паритет baseline). Никогда не бросает.
+    """
+    if not memory_maintenance_policy_env_enabled():
+        return False
+    key = MEMORY_GATE_CATALOG_KEYS["MCA_MEMORY_MAINTENANCE_POLICY_ENABLED"]
+    if chat_id is None:
+        try:
+            from services import hot_config as hot
+            return bool(hot.get(key, False))
+        except Exception:      # pragma: no cover — защитная ветка
+            return False
+    try:
+        from services import chat_params
+        return bool(await chat_params.get_chat_param(int(chat_id), key, False))
+    except Exception:          # pragma: no cover — защитная ветка
+        return False
 
 
 async def memory_identity_enabled(chat_id: int | None = None) -> bool:

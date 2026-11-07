@@ -27,6 +27,31 @@ def db():
     loop.close()
 
 
+def _patch_policy(monkeypatch, *, on: bool) -> None:
+    """Каталоговый слой гейта MEMORY-04: резолв идёт через реальный
+    `mca_gates.memory_maintenance_policy_enabled` (env AND flags.…), поэтому
+    патчится только источник значения (`hot.get`), а не приватная функция."""
+    import services.hot_config as hot
+
+    real_get = hot.get
+
+    def fake_get(key, default=None):
+        if key == "flags.memory_maintenance_policy_enabled":
+            return on
+        return real_get(key, default)
+
+    monkeypatch.setattr(hot, "get", fake_get)
+
+
+@pytest.fixture(autouse=True)
+def _policy_on_for_policy_tests(monkeypatch):
+    """Тесты этого модуля проверяют НОВЫЙ путь памяти (гейт ON); OFF-паритет
+    проверяется отдельным тестом, который перекрывает env+hot явно."""
+    monkeypatch.setenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", "on")
+    _patch_policy(monkeypatch, on=True)
+    return True
+
+
 class MergeLLM:
     """generate: канон-ответ для слияния (COMPRESS_PROMPT); embed не нужен
     (FTS-фолбек кластеризации — vec выключен)."""
@@ -105,7 +130,30 @@ class TestEpisodeMerge:
         source_ref = await provenance.resolve_source_ref(
             db, provenance.graph_fact_source_ref(-100, first))
         back = await provenance.links_derived_from_source(db, source_ref)
-        assert [link["subject_ref_id"] for link in back] == [derived_ref]
+        assert [link["subject_ref_id"] for link in back
+                if link["link_type"] == "derived_from"] == [derived_ref]
+        # backward-ПОДТВЕРЖДЕНИЕ (C-3 §3.3/§3.4.1.1 п.3/п.6): ссылка
+        # `supersedes` победителя на каждый поглощённый + статус источника
+        cursor = await db.db.execute(
+            "SELECT subject_ref_id, source_ref_id FROM mca_evidence_links "
+            "WHERE link_type = 'supersedes'")
+        supersedes = await cursor.fetchall()
+        assert len(supersedes) == 2
+        assert {link["subject_ref_id"] for link in supersedes} == {derived_ref}
+        for source_id in (first, second):
+            ref = await provenance.resolve_source_ref(
+                db, provenance.graph_fact_source_ref(-100, source_id))
+            status = await provenance.get_provenance_status(db, ref)
+            assert status is not None
+            assert status["freshness_status"] == "superseded"
+        # однослотовый указатель строки: `graph_facts.supersedes` = первый источник
+        cursor = await db.db.execute(
+            "SELECT supersedes, status FROM graph_facts WHERE id = ?",
+            (derived["id"],))
+        derived_row = await cursor.fetchone()
+        assert derived_row["supersedes"] == first
+        # точный кластер — не сходство: факт подтверждён
+        assert derived_row["status"] == "confirmed"
         # журнал «что во что» прежний (обратимость), но БЕЗ удаления
         cursor = await db.db.execute(
             "SELECT fact_id, fact_before, reason FROM graph_fact_compressions")
@@ -117,6 +165,82 @@ class TestEpisodeMerge:
         assert all(row["fact_id"] == derived["id"] for row in logs)
         # решение записано явным кодом (MEM-04.4)
         assert any("decision=add" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_vector_cluster_is_tentative_not_confirmed(self, db, caplog):
+        """MEM-04.5/INV-06 (F2): кластер, собранный ТОЛЬКО сходством (cosine),
+        даёт производный факт `unconfirmed` с lineage `tentative`; точный
+        кластер — `confirmed`/`verified` (сравнение с тестом выше). Вектор-
+        сервис подменён (не предмет проверки), решение и запись — реальные."""
+        import logging
+        from unittest.mock import AsyncMock
+
+        from services import provenance
+
+        first = await db.insert_graph_fact(
+            -100, "дроны летали низко над полем", "web_content", None)
+        second = await db.insert_graph_fact(
+            -100, "дроны летали низко над лесом", "web_content", None)
+        llm = MergeLLM(response="дроны летали низко над полем и лесом")
+        svc, memory = _service(db, llm)
+        memory._vec_available = True
+        memory._embed = AsyncMock(return_value=[[0.0, 1.0], [0.0, 1.0]])
+        memory._dedup_knn = AsyncMock(
+            return_value=[{"fact_id": first, "distance": 0.02}])   # cosine 0.98
+        with caplog.at_level(logging.INFO):
+            merged = await svc.merge_episodes()
+        assert merged == 1
+        cursor = await db.db.execute(
+            "SELECT id, status, source_ids FROM graph_facts ORDER BY id DESC LIMIT 1")
+        derived = await cursor.fetchone()
+        assert derived["status"] == "unconfirmed"        # сходство ≠ доказательство
+        assert json.loads(derived["source_ids"]) == [first, second]
+        derived_ref = await provenance.resolve_source_ref(
+            db, provenance.graph_fact_source_ref(-100, derived["id"]))
+        cursor = await db.db.execute(
+            "SELECT link_type, verification, independence "
+            "FROM mca_evidence_links WHERE subject_ref_id = ? "
+            "ORDER BY link_type", (derived_ref,))
+        links = await cursor.fetchall()
+        assert len(links) == 2                    # по одной ссылке на каждый источник
+        assert {(r["link_type"], r["verification"], r["independence"])
+                for r in links} == {("derived_from", "tentative", "unknown")}
+        # сходство НЕ даёт backward-supersedes: источники не объявлены устаревшими
+        for source_id in (first, second):
+            ref = await provenance.resolve_source_ref(
+                db, provenance.graph_fact_source_ref(-100, source_id))
+            status = await provenance.get_provenance_status(db, ref)
+            assert status is None or status["freshness_status"] != "superseded"
+        assert any("method=vector" in r.message and "decision=add" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_gate_off_legacy_path_no_lineage_aggregate(self, db, monkeypatch):
+        """F1 (C-3 §3.6): гейт OFF (реальный резолвер `mca_gates`, default OFF)
+        → ТОЧНЫЙ паритет base-коммита: legacy-слияние с удалением источников,
+        НИКАКОГО нового артефакта (агрегат без `source_ids`, без evidence-links).
+        Проверяется через env + каталоговый слой, без патча приватной функции."""
+        monkeypatch.delenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", raising=False)
+        _patch_policy(monkeypatch, on=False)
+        from services import mca_gates
+        assert mca_gates.memory_maintenance_policy_env_enabled() is False
+        assert await mca_gates.memory_maintenance_policy_enabled(-100) is False
+        await db.insert_graph_fact(-100, "вася спорил с петей", "chat_history", None)
+        await db.insert_graph_fact(-100, "вася спорил с колей", "chat_history", None)
+        llm = MergeLLM(response="вася спорил с петей и колей")
+        svc, _ = _service(db, llm)
+        assert await svc.merge_episodes() == 1
+        cursor = await db.db.execute(
+            "SELECT fact, source_ids, supersedes FROM graph_facts ORDER BY id")
+        rows = await cursor.fetchall()
+        # base-паритет: осталась только слитая строка (источники удалены)
+        assert [row["fact"] for row in rows] == ["вася спорил с петей и колей"]
+        # нового артефакта нет: ни source_ids, ни указателя supersedes
+        assert rows[0]["source_ids"] is None
+        assert rows[0]["supersedes"] is None
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM mca_evidence_links")
+        assert (await cursor.fetchone())["c"] == 0
 
     @pytest.mark.asyncio
     async def test_absorbed_sources_are_not_merged_again(self, db):
@@ -261,14 +385,15 @@ class TestEpisodeMerge:
 class TestReview:
     @pytest.mark.asyncio
     async def test_exact_dups_emit_candidate_keep_all_rows(self, db):
-        """MEM-04.4 (C-3 §3.4, тест c): точные дубли — только КАНДИДАТ на
-        дедуп (событие + решение NOOP): обе строки живы, вес не меняется,
-        журнала склейки нет.
+        """MEM-04.4 (C-3 §3.4/§3.4.1.1 п.3/п.6, тест c): точные дубли — обе
+        строки живы, у проигравшего `freshness_status='superseded'`, у
+        победителя указатель `supersedes` и одноимённая ссылка; вес не
+        меняется, журнала склейки нет, событие-кандидат — одно.
 
         Прежний `test_exact_dups_glued_keep_heaviest` удалял «более лёгкую»
         строку — физическое удаление памяти по сходству текста, прямо
         запрещённое MEM-04.3/04.6 и INV-01, поэтому тест переписан."""
-        from services import mca_events
+        from services import mca_events, provenance
 
         keep_id = await db.insert_graph_fact(
             -100, "дроны летали низко", "web_content", None, weight=0.9)
@@ -284,6 +409,23 @@ class TestReview:
         cursor = await db.db.execute(
             "SELECT COUNT(*) AS c FROM graph_fact_compressions")
         assert (await cursor.fetchone())["c"] == 0                # склейки нет
+        # статус проигравшего + указатель победителя (F3)
+        loser_ref = await provenance.resolve_source_ref(
+            db, provenance.graph_fact_source_ref(-100, dup_id))
+        status = await provenance.get_provenance_status(db, loser_ref)
+        assert status is not None
+        assert status["freshness_status"] == "superseded"
+        winner_ref = await provenance.resolve_source_ref(
+            db, provenance.graph_fact_source_ref(-100, keep_id))
+        cursor = await db.db.execute(
+            "SELECT subject_ref_id FROM mca_evidence_links "
+            "WHERE link_type = 'supersedes' AND source_ref_id = ?",
+            (loser_ref,))
+        link = await cursor.fetchone()
+        assert link is not None and link["subject_ref_id"] == winner_ref
+        cursor = await db.db.execute(
+            "SELECT supersedes FROM graph_facts WHERE id = ?", (keep_id,))
+        assert (await cursor.fetchone())["supersedes"] == dup_id
         await mca_events.flush_events(db)
         cursor = await db.db.execute(
             "SELECT stage, entity_ids FROM mca_events "
@@ -329,6 +471,17 @@ class TestReview:
         assert len(events) == 1
         assert events[0]["stage"] == "dedupe_candidate:vector_similar"
         assert sorted(json.loads(events[0]["entity_ids"])) == [first, second]
+        # сходство НЕ даёт backward-статусов: ни supersedes, ни freshness
+        from services import provenance
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM mca_evidence_links "
+            "WHERE link_type = 'supersedes'")
+        assert (await cursor.fetchone())["c"] == 0
+        for fact_id in (first, second):
+            ref = await provenance.resolve_source_ref(
+                db, provenance.graph_fact_source_ref(-100, fact_id))
+            status = await provenance.get_provenance_status(db, ref)
+            assert status is None or status["freshness_status"] != "superseded"
 
     @pytest.mark.asyncio
     async def test_expired_purged_globally(self, db):

@@ -464,19 +464,16 @@ _ENRICHABLE_COLUMNS = ("valid_from", "valid_to", "scope", "confidence_basis",
                        "memory_kind")
 
 
-def _memory_policy_enabled() -> bool:
-    """Резолв `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` / 
-    `flags.memory_maintenance_policy_enabled` (C-3 §3.4/§3.6; default ON).
+async def _memory_policy_enabled(chat_id: int | None = None) -> bool:
+    """Effective гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` (C-3 §3.4/§3.6).
 
-    ON → решения по смыслу утверждения (identity/значение/отрицание/корень);
+    Единственный резолвер — `mca_gates.memory_maintenance_policy_enabled`
+    (env AND `flags.memory_maintenance_policy_enabled`, chat override →
+    global hot → default **OFF**). ON → решения по смыслу утверждения;
     OFF → точный прежний расчёт `_dedup_decide` (включая cosine-полосы).
-    Никогда не бросает."""
-    try:
-        return bool(hot.get(
-            "flags.memory_maintenance_policy_enabled",
-            getattr(settings, "MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", True)))
-    except Exception:                                  # pragma: no cover
-        return True
+    Никогда не бросает (решение принимает гейт, здесь только вызов)."""
+    from services import mca_gates
+    return await mca_gates.memory_maintenance_policy_enabled(chat_id)
 
 
 def _dedup_result(action: str, *, old=None, reason: str = "",
@@ -4394,7 +4391,7 @@ class MemoryManager:
                 decision = await self._dedup_decide(
                     chat_id, dedup_fact, sentence, vector,
                     tg_message_id=tg_message_id)
-                policy_on = _memory_policy_enabled()
+                policy_on = await _memory_policy_enabled(chat_id)
                 if decision["action"] == DECISION_NOOP:
                     # MEMORY-04 (C-3 §3.4): NOOP — тот же корень уже записан:
                     # НОЛЬ записей (ни веса, ни last_updated,
@@ -4746,14 +4743,19 @@ class MemoryManager:
         """MEMORY-04 (C-3 §3.4): единая политика решений на СУЩЕСТВУЮЩЕМ
         пути записи — ADD / ENRICH / CONFIRM / SUPERSEDE / CONTRADICT / NOOP.
 
-        Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` OFF → прежний расчёт 64.1
+        Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` (реестр `mca_gates`,
+        default **OFF до приёмки**) OFF → прежний расчёт 64.1
         (`_dedup_decide_legacy`: exact→noop, cosine ≥0.95→noop, [0.85,0.95)→
         supersede, ниже→add) — паритет.
         ON (MEM-04.4/INV-06):
         * NOOP — тот же корень (`tg_message_id` сообщения-источника) уже
           записан: ноль записей, вес не растёт;
         * ENRICH — то же утверждение, но новые ПУСТЫЕ метаданные
-          (period/scope/confidence): заполняются только NULL-поля;
+          (period/scope/confidence): заполняются только NULL-поля. ЧЕСТНО:
+          сегодня ни один вызывающий не передаёт `meta` (экстрактор не отдаёт
+          период/область), поэтому ветка на этом пути недостижима и
+          покрывается только пробой политики; появится вызывающий — появится
+          и ENRICH без изменения решения;
         * CONFIRM — то же утверждение с другим корнем: подтверждение (вес
           ребра/`last_confirmed_at`) + evidence-link независимого корня;
         * SUPERSEDE — тот же субъект+предикат, ДРУГОЕ значение: новый факт
@@ -4769,7 +4771,7 @@ class MemoryManager:
         "targets", "candidate_id", "similarity"}. НЕ бросает: любая ошибка →
         WARNING → ADD (64.1.5). Защищённый факт не трогается ни
         подтверждением, ни инвалидацией (65.10/66.10)."""
-        if not _memory_policy_enabled():
+        if not await _memory_policy_enabled(chat_id):
             return await self._dedup_decide_legacy(chat_id, fact, sentence, vector)
         try:
             if not hot.get("flags.graph_dedup_enabled", settings.GRAPH_DEDUP_ENABLED):

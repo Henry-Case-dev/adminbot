@@ -314,6 +314,17 @@ class TestDedupKnnIsolation:
         ADD: сходство больше не доказательство (MEM-04.4/C-3 §3.4)."""
         memory = await _init_memory(db, VecLLM(), monkeypatch, int8=False)
         memory._vec_available = True
+        # MEMORY-04 F1: политика ON через реальный резолвер (env + hot-слой)
+        import services.hot_config as hot
+        real_get = hot.get
+
+        def fake_get(key, default=None):
+            if key == "flags.memory_maintenance_policy_enabled":
+                return True
+            return real_get(key, default)
+
+        monkeypatch.setenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", "on")
+        monkeypatch.setattr(hot, "get", fake_get)
         now = int(time.time())
         a_id = await db.insert_graph_fact(
             CHAT_A, "озон поставляет быстрее чем wildberries", "search_fact",

@@ -1444,12 +1444,29 @@ class TestEpic50MemorizeDirectReply:
 
 class TestEpic60Dedup:
     """Epic 60 (64.1/64.2, T-462/T-463) → MEMORY-04 (C-3 §3.4): дедуп фактов
-    при записи. Гейт политики ON: решение по identity/значению/отрицанию/корню
-    (ADD/ENRICH/CONFIRM/SUPERSEDE/CONTRADICT/NOOP), сходство вектора — только
-    диагностика. OFF — прежний расчёт 64.1 (проверяется отдельно)."""
+    при записи. Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` (реестр
+    `mca_gates`, default OFF до приёмки) ON: решение по identity/значению/
+    отрицанию/корню (ADD/ENRICH/CONFIRM/SUPERSEDE/CONTRADICT/NOOP), сходство
+    вектора — только диагностика. OFF — прежний расчёт 64.1 (отдельные тесты)."""
+
+    @staticmethod
+    def _enable_policy(monkeypatch) -> None:
+        """Гейт ON через реальный резолвер: env + каталоговый слой (`hot.get`),
+        без патча приватной функции."""
+        import services.hot_config as hot
+        real_get = hot.get
+
+        def fake_get(key, default=None):
+            if key == "flags.memory_maintenance_policy_enabled":
+                return True
+            return real_get(key, default)
+
+        monkeypatch.setenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", "on")
+        monkeypatch.setattr(hot, "get", fake_get)
 
     @pytest.mark.asyncio
     async def test_exact_dup_confirm_bumps_weight_and_ts(self, db, monkeypatch):
+        self._enable_policy(monkeypatch)
         """C-3 §3.4 CONFIRM: memorize 2× одно утверждение с РАЗНЫХ корней →
         1 строка + подтверждение: weight +0.1 (cap 1.0), last_confirmed_at
         обновлён, status confirmed. (NOOP — только повтор того же
@@ -1489,6 +1506,7 @@ class TestEpic60Dedup:
 
     @pytest.mark.asyncio
     async def test_noop_same_root_does_not_bump_weight(self, db, monkeypatch):
+        self._enable_policy(monkeypatch)
         """MEM-04.4 (C-3 §3.4, тест d): NOOP — повтор ТОГО ЖЕ корня
         (сообщение-источник то же): ноль записей — ни веса, ни
         `last_confirmed_at`. Независимый повтор того же утверждения — CONFIRM
@@ -1525,6 +1543,7 @@ class TestEpic60Dedup:
 
     @pytest.mark.asyncio
     async def test_similarity_is_not_evidence(self, db, monkeypatch):
+        self._enable_policy(monkeypatch)
         """MEM-04.4 (C-3 §3.4, тест c): cosine-полосы больше не дают
         noop/supersede — сходство только предлагает КАНДИДАТА
         (`memory_dedupe_candidate`), решение остаётся ADD.
@@ -1585,6 +1604,7 @@ class TestEpic60Dedup:
 
     @pytest.mark.asyncio
     async def test_enrich_fills_only_empty_metadata(self, db, monkeypatch):
+        self._enable_policy(monkeypatch)
         """C-3 §3.4/§3.7 ENRICH: то же утверждение с НОВЫМИ метаданными
         заполняет только пустые (NULL) поля; non-NULL не перезаписывается."""
         now = 1_800_000_000
@@ -1616,6 +1636,7 @@ class TestEpic60Dedup:
 
     @pytest.mark.asyncio
     async def test_correction_supersedes_with_assertion_time(self, db, monkeypatch):
+        self._enable_policy(monkeypatch)
         """MEM-04.3 (C-3 §3.3, тест b): поправка (тот же субъект+предикат,
         другое значение со своим источником) → новый факт `supersedes=old`;
         старая строка ЖИВА и закрыта по T_assertion поправки (timestamp её
@@ -1658,9 +1679,26 @@ class TestEpic60Dedup:
 
     @pytest.mark.asyncio
     async def test_policy_off_keeps_legacy_cosine_bands(self, db, monkeypatch):
-        """C-3 §3.6 (откат): гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED=OFF`
-        → прежний расчёт 64.1 (cosine ≥0.95 → noop) — паритет, ничего не
-        меняется в данных."""
+        """C-3 §3.6 (откат): гейт OFF → прежний расчёт 64.1 (cosine ≥0.95 →
+        noop с подтверждением) — паритет, данные не меняются.
+
+        OFF проверяется через РЕАЛЬНЫЙ резолвер `mca_gates`
+        (`env AND flags.memory_maintenance_policy_enabled`, default OFF):
+        патчится только источник значения, не приватная функция."""
+        import services.hot_config as hot
+        from services import mca_gates
+
+        real_get = hot.get
+
+        def fake_get(key, default=None):
+            if key == "flags.memory_maintenance_policy_enabled":
+                return False
+            return real_get(key, default)
+
+        monkeypatch.delenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED",
+                           raising=False)
+        monkeypatch.setattr(hot, "get", fake_get)
+        assert await mca_gates.memory_maintenance_policy_enabled(-100) is False
         now = 1_800_000_000
         monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
         base_id = await db.insert_graph_fact(
@@ -1673,17 +1711,40 @@ class TestEpic60Dedup:
         memory._vec_available = True
         memory._dedup_knn = AsyncMock(
             return_value=[{"fact_id": base_id, "distance": 0.03}])   # 0.97
-        # Гейт политики OFF: поле в settings регистрирует слайс гейтов §5.2,
-        # здесь проверяется именно поведение переключателя (паритет 64.1).
-        with patch("services.summary_memory._memory_policy_enabled",
-                   return_value=False):
-            await memory.memorize_facts(-100, "текст", "search_fact")
+        await memory.memorize_facts(-100, "текст", "search_fact")
         cursor = await db.db.execute(
             "SELECT COUNT(*) AS c, weight FROM graph_facts")
         row = await cursor.fetchone()
         assert row["c"] == 1                        # прежний noop по сходству
         assert row["weight"] == (settings.GRAPH_FACT_WEIGHT_ARCHIVE
                                  + settings.GRAPH_DEDUP_WEIGHT_BONUS)
+
+    @pytest.mark.asyncio
+    async def test_gate_is_registered_and_off_by_default(self, monkeypatch):
+        """F1: гейт зарегистрирован как остальные гейты памяти — env-имя,
+        каталожный ключ (chat override), default OFF до приёмки."""
+        from services import mca_gates
+
+        assert mca_gates.MEMORY_GATES[
+            "MCA_MEMORY_MAINTENANCE_POLICY_ENABLED"][0] is False
+        assert mca_gates.MEMORY_GATE_CATALOG_KEYS[
+            "MCA_MEMORY_MAINTENANCE_POLICY_ENABLED"] == \
+            "flags.memory_maintenance_policy_enabled"
+        import services.hot_config as hot
+        real_get = hot.get
+
+        def fake_get(key, default=None):
+            if key == "flags.memory_maintenance_policy_enabled":
+                return True
+            return real_get(key, default)
+
+        monkeypatch.delenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED",
+                           raising=False)
+        monkeypatch.setattr(hot, "get", fake_get)
+        # env не выставлен → эффективный гейт OFF даже при «включённом» флаге
+        assert await mca_gates.memory_maintenance_policy_enabled(-100) is False
+        monkeypatch.setenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", "on")
+        assert await mca_gates.memory_maintenance_policy_enabled(-100) is True
 
     @pytest.mark.asyncio
     async def test_vec_off_exact_only(self, db):
@@ -1736,6 +1797,7 @@ class TestEpic60Dedup:
 
     @pytest.mark.asyncio
     async def test_unconfirmed_excluded_and_confirmed_on_repeat(self, db, monkeypatch):
+        self._enable_policy(monkeypatch)
         """64.9 #4 (MEMORY-04-адаптация): unconfirmed в RAG не попадает (и
         FTS-путь, и vec-выборка текстов); повтор того же утверждения из
         другого корня → CONFIRM (status=confirmed, вес ребра) → снова в RAG.
