@@ -73,8 +73,9 @@ class FakeDb:
         self.fts_calls = []
         self.fact_reads = []
 
-    async def get_user_context_facts(self, chat_id, target_user, limit, now_ts):
-        self.fact_calls.append((chat_id, target_user, limit))
+    async def get_user_context_facts(self, chat_id, target_user, limit, now_ts,
+                                     user_id=None):
+        self.fact_calls.append((chat_id, target_user, limit, user_id))
         return self.facts[:limit]
 
     async def get_persona_card(self, chat_id, name, limit, now_ts):
@@ -351,8 +352,12 @@ class TestPurposeRouting:
         assert out["facts"][0]["source_id"] == "tg:456"
         assert out["confidence"]["label"] == "confirmed"
         assert "dossier" in out and out["dossier"]
-        # MEMORY-06 (§7.5): факты отобраны единым retrieval по canon-имени.
-        assert db.fts_calls and "лёха" in db.fts_calls[0][1].casefold()
+        # MEMORY-06 (§7.5, фикс регрессии): факты отобраны единым retrieval
+        # ПО СУБЪЕКТУ (subject_ref_id по uid / legacy target_user), а не по
+        # совпадению текста с canon-именем.
+        assert db.fact_calls and db.fact_calls[0][1] == "Лёха"
+        assert db.fact_calls[0][3] == 5
+        assert db.fts_calls == []
 
     @pytest.mark.asyncio
     async def test_appearance_filters_and_honest_no_data(self):
@@ -604,10 +609,11 @@ class TestEnvelopeAndHonesty:
         db = FakeDb(facts=[fact_row("факт Лёхи", target="Лёха")])
         out = payload(await call(make_router(db=db, aliases=FakeAliases({"5": "Лёха"})),
                                  {"person": "Лёха", "purpose": "biography"}))
-        # Запрошен только один человек — выборка строго по его canon-имени
+        # Запрошен только один человек — выборка строго по его субъекту
         # (единственный вход единого retrieval, второго чтения нет).
-        assert db.fts_calls[0][1].casefold().count("лёха") == 1
-        assert len(db.fts_calls) == 1
+        assert db.fact_calls[0][1] == "Лёха"
+        assert db.fact_calls[0][3] == 5
+        assert db.fts_calls == []          # текстовый поиск не подменяет субъект
 
 
 # ── T-3612: kill-switch OFF (прямой вызов) ───────────────────────────────

@@ -399,6 +399,12 @@ RETRIEVAL_ERROR = "error"
 # Веса каналов (детерминированная агрегация, не «движок»).
 _CHANNEL_WEIGHTS = {
     "exact": 100.0,
+    # §7.5 MEMORY-06 (фикс регрессии): канал `subject` — ФАКТЫ О СУБЪЕКТЕ,
+    # отобранные по существующим колонкам субъекта (`subject_ref_id`/
+    # `target_user`), а НЕ по совпадению текста с запросом. Факт «любит дронов»
+    # не содержит имени человека и FTS его не находит, но он о нём. Вес сразу
+    # под exact: это самое точное знание о конкретном человеке.
+    "subject": 95.0,
     # §4.4 MEMORY-06: новый канал `entity` (канонический узел C-1 по
     # `subject_node_ids`) — вес между exact и lexical. Это bounded чтение
     # `nodes` ПО ID, а не второй поиск.
@@ -416,7 +422,7 @@ _CHANNEL_WEIGHTS = {
     # + явный канал, второй поиск не создаётся.
     "recent": 70.0,
 }
-_CHANNEL_ORDER = ("exact", "entity", "lexical", "recent", "vector",
+_CHANNEL_ORDER = ("exact", "subject", "entity", "lexical", "recent", "vector",
                   "reply_graph", "community", "episode")
 _PREVIEW_MAX_CHARS = 400
 #: §7.5: во сколько раз срез `get_recent_messages` шире запрошенного top_k
@@ -521,6 +527,19 @@ class RetrievalRequest:
     #: Санкционированная проекция связей субъекта (`get_persona_card.links`)
     #: в `RetrievalResult.relations` — без собственного SQL у потребителя.
     include_relations: bool = False
+    # ── MEMORY-06 (§7.5/MEM-06.10, фикс регрессии ре-ревью): субъект-канал ──
+    #: Имена/алиасы субъекта для канала `subject`. Канал отбирает ФАКТЫ О
+    #: СУБЪЕКТЕ по существующим колонкам `subject_ref_id`/`target_user`
+    #: (устойчивый ref разрешается по `subject_entity_ids`), поэтому факт без
+    #: имени в тексте («любит дронов») не теряется. Это НЕ текстовый поиск:
+    #: FTS по имени человека не может служить отбором фактов о нём.
+    subject_names: tuple[str, ...] = ()
+    #: Порядок выдачи = собственный порядок канала (в порядке политики
+    #: каналов), без типизированного переупорядочивания. Для путей, чей
+    #: принятый контракт — порядок САМОГО канала: KNN/MMR direct-RAG
+    #: (`MemoryManager`), `weight DESC` профиля субъекта, срез `recent`.
+    #: По умолчанию False — прежний типизированный ранг (§7.1).
+    preserve_channel_order: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -707,6 +726,14 @@ def resolve_channels(request: RetrievalRequest, mode: str) -> tuple[str, ...]:
     Неизвестное имя канала игнорируется (не превращается в полный скан)."""
     selected = list(_DEFAULT_CHANNELS if request.channels is None
                     else request.channels)
+    # §7.5 (фикс регрессии): запрос, объявивший субъекта по имени, получает
+    # канал `subject` в политике ПО УМОЛЧАНИЮ. Профильные назначения читают
+    # именно факты о человеке; отбор по тексту запроса терял факты без имени
+    # в тексте. Явный набор каналов (`channels is not None`) действует
+    # буквально — канал не добавляется.
+    if request.channels is None and _subject_names(request) \
+            and "subject" not in selected:
+        selected.append("subject")
     if mode == "specific" and request.channels is None:
         if request.trigger_ref is None:
             selected = [c for c in selected if c != "episode"]
@@ -852,6 +879,102 @@ def _subject_sets(request: RetrievalRequest) -> tuple[set, set]:
         except (TypeError, ValueError):
             continue
     return uids, nodes
+
+
+def _subject_names(request: RetrievalRequest) -> tuple[str, ...]:
+    """Имена/алиасы субъекта для канала `subject` (порядок, без дублей).
+
+    Это НЕ поисковый запрос: имена нужны только для legacy-строк
+    (`subject_ref_id IS NULL`), которые привязаны к человеку по
+    `target_user`. Устойчивый `subject_ref_id` разрешается по uid
+    (`subject_entity_ids`) — имя для него не требуется."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in request.subject_names or ():
+        name = " ".join(str(value or "").split())
+        if not name:
+            continue
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(name)
+    return tuple(out)
+
+
+async def _subject_fact_rows(db, request: RetrievalRequest, limit: int) -> list:
+    """Факты О СУБЪЕКТЕ по существующим колонкам (`subject_ref_id`/`target_user`).
+
+    REUSE `DatabaseService.get_user_context_facts` — ровно то чтение, которым
+    пользовался прежний `get_user_context` (только `confirmed`, живой TTL,
+    исключены `world_knowledge`/`bot_self_reply`, порядок `weight DESC,
+    created_at DESC`). Поэтому архивные (`archived_fact`) строки сюда не
+    попадают, а новых индексов/поиска/хранилищ не появляется: отбор идёт по
+    субъекту, а не по совпадению текста с запросом (факт «любит дронов» о
+    человеке не содержит его имени и FTS его не находит).
+
+    Устойчивый ref разрешается по uid (`user_id=`), legacy-строки — по имени.
+    Двойник без `user_id`-параметра → чтение по имени (совместимость).
+    """
+    reader = getattr(db, "get_user_context_facts", None)
+    if not callable(reader):
+        return []
+    names = _subject_names(request)
+    if not names:
+        return []
+    uids, _nodes = _subject_sets(request)
+    uid_list = sorted(uids)[:2]
+    pairs: list[tuple[int | None, str]] = []
+    for name in names[:4]:
+        if uid_list:
+            pairs.extend((uid, name) for uid in uid_list)
+        else:
+            pairs.append((None, name))
+    rows: list = []
+    seen: set = set()
+    for uid, name in pairs[:4]:
+        now = int(time.time())
+        try:
+            if uid is None:
+                batch = await reader(int(request.chat_id), name,
+                                     int(limit), now)
+            else:
+                batch = await reader(int(request.chat_id), name,
+                                     int(limit), now, user_id=int(uid))
+        except TypeError:
+            try:
+                batch = await reader(int(request.chat_id), name,
+                                     int(limit), now)
+            except Exception:
+                logger.warning("[mca07] subject channel read failed",
+                               exc_info=True)
+                continue
+        except Exception:
+            logger.warning("[mca07] subject channel read failed",
+                           exc_info=True)
+            continue
+        for row in batch or ():
+            key = _row_get(row, "id")
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(dict(row))
+    if len(pairs) > 1:
+        # Несколько субъект-scope-чтений: та же колонковая упорядоченность,
+        # что у самого чтения (weight DESC, created_at DESC).
+        def _order_key(row):
+            try:
+                weight = float(_row_get(row, "weight") or 0.0)
+            except (TypeError, ValueError):
+                weight = 0.0
+            try:
+                created = int(_row_get(row, "created_at") or 0)
+            except (TypeError, ValueError):
+                created = 0
+            return (weight, created)
+
+        rows.sort(key=_order_key, reverse=True)
+    return rows[:int(limit)]
 
 
 def apply_subject_gate(candidates: list, request: RetrievalRequest
@@ -1118,6 +1241,23 @@ def _channel_rank(channel: str, position: int) -> float:
     return _CHANNEL_WEIGHTS.get(channel, 0.0) - float(position)
 
 
+def _channel_native_order(candidates: list, channels: tuple[str, ...]) -> list:
+    """Порядок = собственный порядок канала (последовательность политики).
+
+    Для путей, чей принятый контракт — порядок САМОГО канала (KNN/MMR
+    direct-RAG, `weight DESC` профиля субъекта, `recent`-срез): каналы идут в
+    порядке политики запроса, а внутри канала сохраняется его собственная
+    упорядоченность. `candidate.score` канального конструктора = вес канала −
+    позиция в канале, поэтому сортировка по убыванию score воспроизводит
+    порядок канала без типизированных бонусов (доверие/свежесть/режим),
+    которые могли бы переставить местами уже отобранный топ."""
+    priority = {name: index for index, name in enumerate(channels)}
+    fallback = len(priority)
+    return sorted(candidates,
+                  key=lambda cand: (priority.get(cand.channel, fallback),
+                                    -float(cand.score)))
+
+
 def _dedup(candidates: list) -> list:
     """Дедуп по стабильному id — сохраняется лучший (макс score) канал."""
     best: dict[str, RetrievalCandidate] = {}
@@ -1148,7 +1288,9 @@ def _apply_filters(candidates: list, request: RetrievalRequest) -> list:
 async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     """Единая точка retrieval-запроса, ОБОРАЧИВАЮЩАЯ существующие каналы.
 
-    Комбинация: exact (quoted-FTS) + lexical/FTS (сообщения + граф-факты) +
+    Комбинация: exact (quoted-FTS) + subject (ФАКТЫ О СУБЪЕКТЕ по его
+    колонкам `subject_ref_id`/`target_user` — не текстовый поиск) +
+    lexical/FTS (сообщения + граф-факты) +
     vector (`MemoryManager.retrieve_fact_candidates`) + reply-граф
     (`thread_chain`) + эпизоды (`lore_stories`) + entity (`nodes` по
     `subject_node_ids` C-1, bounded по id) + community (членство активной
@@ -1268,6 +1410,34 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 except Exception:
                     logger.warning("[mca07] exact channel failed",
                                    exc_info=True)
+
+    # ── subject (§7.5, фикс регрессии): ФАКТЫ О СУБЪЕКТЕ ────────────────────
+    #     Отбор по существующим колонкам субъекта (`subject_ref_id` по uid /
+    #     legacy `target_user`), а НЕ по совпадению текста с запросом: факт
+    #     «работает программистом» о человеке имени не содержит, поэтому FTS
+    #     его не находит, хотя он именно о нём.
+    if _allow("subject") and _subject_names(request):
+        scope_uids = sorted(_subject_sets(request)[0])
+        for chat_id in chat_ids:
+            try:
+                rows = await _subject_fact_rows(
+                    db, dataclasses.replace(request, chat_id=chat_id), fetch_k)
+                for pos, row in enumerate(rows or ()):
+                    cand = _fact_candidate(row, "subject", pos, resolve_item_id)
+                    if cand.subject_entity_id is None and len(scope_uids) == 1:
+                        # Строка отобрана В scope объявленного субъекта
+                        # (`subject_ref_id` по uid либо legacy
+                        # `target_user` = имя), т.е. факт — о нём. Честная
+                        # атрибуция нужна гейтам/уместности и identity-prior,
+                        # а не новому ранжированию.
+                        cand = dataclasses.replace(
+                            cand, subject_entity_id=scope_uids[0])
+                    raw.append(cand)
+                    fact_rows[cand.id] = dict(row)
+                if rows:
+                    channels.append("subject")
+            except Exception:
+                logger.warning("[mca07] subject channel failed", exc_info=True)
 
     # ── entity (§4.4): канонический узел C-1 по `nodes.id`, bounded ─────────
     if _allow("entity") and request.subject_node_ids:
@@ -1406,15 +1576,23 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                               and cand.channel == "episode"
                               and not range_active) else 0)
         return (history_bias, typed_rank_score(cand, request, mode, now=now))
-    ordered = sorted(deduped, key=_sort_key, reverse=True)
+    if request.preserve_channel_order:
+        # §7.5/§4.4: путь, чей принятый контракт — порядок самого канала
+        # (KNN/MMR direct-RAG, weight DESC профиля, recent-срез), получает
+        # канальный порядок без типизированных бонусов: иначе свежесть/доверие
+        # переставляли бы уже отобранный топ и меняли состав при малом top_k.
+        ordered = _channel_native_order(deduped, allowed_channels)
+    else:
+        ordered = sorted(deduped, key=_sort_key, reverse=True)
     # MCA-22 (C5, D7): identity-prior — exact subject match про нужного
     # человека сильнее приблизительного vector hit про другого (§10/§21).
     # Гейт canonical OFF → prior не применяется (паритет baseline).
+    # При `preserve_channel_order` порядок канала неприкосновенен.
     uids, nodes = _subject_sets(request)
     prior_uids = tuple(sorted(uids))
     prior_nodes = tuple(sorted(nodes))
-    if _canonical_enabled() and (prior_uids or prior_nodes
-                                 or request.participants):
+    if not request.preserve_channel_order and _canonical_enabled() and (
+            prior_uids or prior_nodes or request.participants):
         non_eps = [c for c in ordered if c.channel != "episode"]
         eps = [c for c in ordered if c.channel == "episode"]
         non_eps = apply_identity_prior(
@@ -1428,7 +1606,8 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 subject_node_ids=prior_nodes)
     # Ограничение выдачи (эпизоды-первыми не вытесняются при истории).
     if len(ordered) > limit:
-        if mode in ("history", "episodic"):
+        if not request.preserve_channel_order and mode in ("history",
+                                                           "episodic"):
             eps = [c for c in ordered if c.channel == "episode"]
             rest = [c for c in ordered if c.channel != "episode"]
             ordered = (eps + rest)[:limit]

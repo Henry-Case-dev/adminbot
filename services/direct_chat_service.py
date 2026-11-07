@@ -12014,10 +12014,16 @@ class DirectChatService:
     #    опциональный LLM-реранк) ─────────────────────────────────
 
     # ── MEMORY-06 (§7.5, MEM-06.10): единый retrieval в direct-RAG ─────────
-    #: Каналы отбора фактов direct-ответа: те же, что и прежде (точная фраза,
-    #: FTS сообщений/фактов, векторный KNN MemoryManager). Reply-граф/эпизоды
-    #: в блоке фактов не участвуют — это отдельный принятый сегмент контекста.
-    _RAG_FACT_CHANNELS = ("exact", "lexical", "vector")
+    #: Канал отбора фактов direct-ответа — ТОЛЬКО `vector`: это ровно то
+    #: чтение, которым пользовался прежний `get_rag_facts` (KNN rel = cosine ×
+    #: w_eff + MMR, FTS-фолбэк по w_eff при недоступных эмбеддингах — внутри
+    #: самого чтения). Добавлять сюда exact/lexical нельзя: их вес канала
+    #: (100/80) выше vector (60), поэтому FTS-совпадение вытесняло бы
+    #: релевантный KNN-топ и меняло СОСТАВ блока при малом top_k — принятая
+    #: выдача direct-RAG (F1/T-807) была бы нарушена. Порядок канала
+    #: сохраняется (`preserve_channel_order`), т.к. принятый контракт — именно
+    #: KNN/MMR-порядок, а не типизированный ранг.
+    _RAG_FACT_CHANNELS = ("vector",)
 
     async def _rag_unified_rows(self, chat_id: int, query: str, message):
         """MEMORY-06 (§7.5): отбор фактов direct-RAG через ЕДИНЫЙ `retrieve`.
@@ -12028,10 +12034,11 @@ class DirectChatService:
         если единый retrieval недоступен (двойник без каналов) — тогда
         остаётся прежнее чтение того же слоя.
 
-        Второго поиска нет: отбор делает `retrieve` теми же каналами, что и
-        раньше (exact/lexical/vector), и он же возвращает полные строки
-        отобранных фактов (`RetrievalResult.fact_rows`) — отдельного чтения
-        по id здесь нет. Вся принятая приёмка direct-RAG
+        Второго поиска нет: отбор делает `retrieve` тем же чтением, что и
+        раньше (канал `vector` = `MemoryManager.retrieve_fact_candidates`,
+        т.е. прежний KNN/MMR с FTS-фолбэком внутри), и он же возвращает полные
+        строки отобранных фактов (`RetrievalResult.fact_rows`) — отдельного
+        чтения по id здесь нет. Вся принятая приёмка direct-RAG
         (self-origin-фильтр, дедуп против фона, реранк, graph-активация,
         «золотые», ASC-хронология, капы) остаётся в `_build_rag_block`."""
         try:
@@ -12055,6 +12062,7 @@ class DirectChatService:
                 # нужен только фактический набор.
                 trigger_ref=None, reply_depth=0, scope="auto",
                 channels=self._RAG_FACT_CHANNELS,
+                preserve_channel_order=True,
                 include_self=True, include_direct_reply=True)
             result = await _mca_rc.retrieve(db, memory, request)
             rows = []

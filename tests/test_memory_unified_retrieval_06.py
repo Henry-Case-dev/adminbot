@@ -587,8 +587,13 @@ class _LookupDB:
     def __init__(self):
         self.card_calls = 0
         self.fts_calls = []
+        self.subject_calls = []
 
-    async def get_user_context_facts(self, chat_id, target_user, limit, now_ts):
+    async def get_user_context_facts(self, chat_id, target_user, limit, now_ts,
+                                     user_id=None):
+        # §7.5: субъект-канал единого retrieval — то же чтение, что у прежнего
+        # `get_user_context` (устойчивый ref по uid, legacy по имени).
+        self.subject_calls.append((chat_id, target_user, user_id))
         return [{"id": 1, "fact": "Лёха носит бороду", "origin": "chat_history",
                  "created_at": 1700000000, "target_user": target_user,
                  "weight": 0.8, "status": "confirmed",
@@ -948,7 +953,10 @@ async def test_reply_rag_uses_one_unified_retrieve(monkeypatch):
     assert len(calls) == 1, "ровно один вход единого retrieval"
     request = calls[0]
     assert request.purpose == "reply"
-    assert request.channels == ("exact", "lexical", "vector")
+    # Только канал `vector`: прежняя выдача direct-RAG — KNN/MMR того же
+    # чтения; exact/lexical (вес выше) меняли бы состав top-k.
+    assert request.channels == ("vector",)
+    assert request.preserve_channel_order is True
     assert request.include_self is True
     assert request.include_direct_reply is True
     assert request.include_archived is False
@@ -1011,16 +1019,17 @@ async def test_reply_rag_legacy_and_unified_selection_parity(monkeypatch):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("purpose,channels,participants,relations", [
-    ("general", None, (), False),
-    ("identity", ("exact", "lexical"), (), False),
-    ("appearance", ("exact", "lexical"), (), False),
-    ("biography", ("exact", "lexical"), (), False),
-    ("speech_style", ("recent",), (5,), False),
-    ("relationships", (), (), True),
+@pytest.mark.parametrize("purpose,channels,participants,relations,order", [
+    ("general", None, (), False, False),
+    # профиль субъекта — канал `subject` (отбор по субъекту, не по тексту)
+    ("identity", ("subject",), (), False, True),
+    ("appearance", ("subject",), (), False, True),
+    ("biography", ("subject",), (), False, True),
+    ("speech_style", ("recent",), (5,), False, True),
+    ("relationships", (), (), True, True),
 ])
 async def test_each_purpose_calls_shared_retrieve_once(
-        purpose, channels, participants, relations, monkeypatch):
+        purpose, channels, participants, relations, order, monkeypatch):
     """MEM-06.10: каждое назначение входит в ЕДИНЫЙ `retrieve` ровно один раз
     и передаёт свою документированную политику каналов (§4.4), а не идёт в
     БД/память напрямую."""
@@ -1045,7 +1054,12 @@ async def test_each_purpose_calls_shared_retrieve_once(
     assert request.channels == channels
     assert request.participants == participants
     assert request.include_relations is relations
+    assert request.preserve_channel_order is order
     assert request.include_archived is False
+    # §7.5: субъект объявлен именем+uid — отбор фактов о человеке не зависит
+    # от совпадения текста факта с именем.
+    assert request.subject_names == ("Лёха",)
+    assert request.subject_entity_ids == (5,)
 
 
 @pytest.mark.asyncio
@@ -1142,3 +1156,227 @@ async def test_evidence_summary_read_is_bounded_to_ref_cap(monkeypatch):
     assert db.reads, "batch-чтение фактов не выполнено"
     assert max(len(ids) for ids in db.reads) <= dcs._BUNDLE_BLOCK_MAX_REFS
     assert len(bundle.summary_text) <= 20
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Регрессия ре-ревью 40ae401a: профиль субъекта отбирается ПО СУБЪЕКТУ
+# (`subject_ref_id`/`target_user`), а не по совпадению текста с запросом.
+# Факты о человеке не обязаны содержать его имя в тексте.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: 4 факта о человеке; имя встречается ТОЛЬКО в первом тексте.
+_PERSON_FACTS = ("Лёха носит бороду", "любит дронов",
+                 "работает программистом", "живёт в Москве")
+
+
+class _NoMemory:
+    """Память без RAG: профиль читается subject-каналом единого retrieval."""
+
+    def __init__(self):
+        self.calls = []
+
+    async def retrieve_fact_candidates(self, chat_id, query, **kw):
+        self.calls.append("retrieve_fact_candidates")
+        return []
+
+    async def get_rag_facts(self, *a, **kw):
+        self.calls.append("get_rag_facts")
+        return []
+
+    async def search_long_term(self, *a, **kw):
+        self.calls.append("search_long_term")
+        return []
+
+    async def get_rag_context(self, *a, **kw):
+        self.calls.append("get_rag_context")
+        return ""
+
+
+async def _seed_person(db, texts=_PERSON_FACTS, *, name="Лёха",
+                       chat_id=-100) -> dict:
+    """Реальная запись фактов субъекта (без подмешивания имени в текст)."""
+    ids = {}
+    for text in texts:
+        ids[text] = await db.insert_graph_fact(
+            chat_id, text, "chat_history", None, target_user=name)
+    return ids
+
+
+async def _purpose_payload(router, purpose, *, max_items=None) -> dict:
+    args = {"person": "Лёха", "purpose": purpose}
+    if max_items is not None:
+        args["max_items"] = max_items
+    return _payload(await router.dispatch(
+        MEMORY_LOOKUP_TOOL_NAME, args, ToolContext(-100, "q", user_id=5)))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("purpose", ["identity", "biography"])
+async def test_profile_purpose_returns_all_subject_facts(tmp_path, purpose):
+    """Приёмочный тест регрессии: 4 факта о человеке, имя только в одном
+    тексте → identity и biography обязаны вернуть ВСЕ 4 (отбор по субъекту,
+    а не по FTS-совпадению с запросом). Двойник с именем в тексте этот
+    дефект скрывал."""
+    db = DatabaseService(str(tmp_path / f"subj_{purpose}.db"))
+    await db.initialize()
+    try:
+        ids = await _seed_person(db)
+        router = _router(db=db, memory=_NoMemory())
+        out = await _purpose_payload(router, purpose, max_items=10)
+        texts = [f["text"] for f in out["facts"]]
+        missing = [text for text in _PERSON_FACTS if text not in texts]
+        assert not missing, (
+            f"{purpose}: потеряны факты субъекта без имени в тексте {missing} "
+            f"(вернулось {texts})")
+        assert len(ids) == len(_PERSON_FACTS)
+        # envelope прежний: факты/источники/confidence на месте
+        assert len(out["sources"]) >= len(_PERSON_FACTS)
+        assert out["confidence"]["label"] == "confirmed"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_appearance_selects_subject_facts_without_name_in_text(
+        tmp_path):
+    """appearance: лексиконный фильтр поверх ФАКТОВ СУБЪЕКТА — факт внешности
+    без имени в тексте не теряется."""
+    db = DatabaseService(str(tmp_path / "subj_appearance.db"))
+    await db.initialize()
+    try:
+        await _seed_person(db, ("Лёха носит бороду", "высокий рост",
+                                "любит дронов", "живёт в Москве"))
+        router = _router(db=db, memory=_NoMemory())
+        out = await _purpose_payload(router, "appearance", max_items=10)
+        texts = [f["text"] for f in out["facts"]]
+        assert "высокий рост" in texts           # без имени в тексте
+        assert "Лёха носит бороду" in texts
+        assert "любит дронов" not in texts       # не внешность
+        assert out["no_data"] is False
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_general_returns_all_subject_facts(tmp_path):
+    """general: субъект-факты входят в выдачу независимо от имени в тексте."""
+    db = DatabaseService(str(tmp_path / "subj_general.db"))
+    await db.initialize()
+    try:
+        await _seed_person(db)
+        router = _router(db=db, memory=_NoMemory())
+        out = await _purpose_payload(router, "general", max_items=10)
+        texts = [f["text"] for f in out["facts"]]
+        missing = [text for text in _PERSON_FACTS if text not in texts]
+        assert not missing, f"general: потеряны факты субъекта {missing}"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_archived_subject_fact_does_not_leak_into_profile(tmp_path):
+    """Архивный (`archived_fact`, вытеснено квотой) факт субъекта остаётся
+    невидимым обычному профилю — субъект-канал не открывает архив."""
+    db = DatabaseService(str(tmp_path / "subj_arch.db"))
+    await db.initialize()
+    try:
+        ids = await _seed_person(db, ("Лёха носит бороду", "любит дронов",
+                                      "работает программистом"))
+        assert await db.archive_graph_fact_for_quota(
+            ids["любит дронов"], -100, "Лёха") is True
+        router = _router(db=db, memory=_NoMemory())
+        out = await _purpose_payload(router, "identity", max_items=10)
+        texts = [f["text"] for f in out["facts"]]
+        assert "Лёха носит бороду" in texts
+        assert "работает программистом" in texts
+        assert "любит дронов" not in texts
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_retrieve_subject_channel_contract(tmp_path):
+    """Контракт субъект-канала единого retrieval: отбор по субъекту, порядок
+    `weight DESC` (порядок самого чтения), честная атрибуция субъекта и
+    `fact_rows` — без второго чтения у потребителя."""
+    db = DatabaseService(str(tmp_path / "subj_channel.db"))
+    await db.initialize()
+    try:
+        ids = {}
+        for text, weight in (("любит дронов", 0.4),
+                             ("работает программистом", 0.9),
+                             ("живёт в Москве", 0.6),
+                             ("Лёха носит бороду", 0.2)):
+            ids[text] = await db.insert_graph_fact(
+                -100, text, "chat_history", None, target_user="Лёха",
+                weight=weight)
+        result = await rc.retrieve(db, None, rc.RetrievalRequest(
+            chat_id=-100, query="Лёха", purpose="dossier", top_k=10,
+            channels=("subject",), subject_names=("Лёха",),
+            subject_entity_ids=(5,), preserve_channel_order=True))
+        assert result.channels_used == ("subject",)
+        assert {c.entity_id for c in result.candidates} == {
+            str(fid) for fid in ids.values()}
+        # порядок — собственный порядок чтения: weight DESC
+        assert [c.entity_id for c in result.candidates] == [
+            str(ids["работает программистом"]), str(ids["живёт в Москве"]),
+            str(ids["любит дронов"]), str(ids["Лёха носит бороду"])]
+        assert len(result.fact_rows) == 4
+        assert result.relevance is not None
+        assert result.relevance.matched_subject is True
+    finally:
+        await db.close()
+
+
+# ── Паритет direct-RAG: порядок/состав канала, а не типизированный ранг ────
+
+
+def _meta_row(fid: int, fact: str, ts: int) -> dict:
+    """Строка в форме `retrieve_fact_candidates` (KNN/MMR-порядок памяти)."""
+    return {"id": fid, "item_id": f"fact:{fid}", "origin": "chat_history",
+            "fact": fact, "rag_ts": ts, "message_timestamp": ts,
+            "created_at": ts, "target_user": "Лёха", "tg_message_id": None,
+            "forward_from": "", "score": 1.0, "expired": False,
+            "expires_at": None, "chat_id": -100, "status": "confirmed",
+            "subject_ref_id": 1, "speaker_author_id": 1}
+
+
+class _HotLimit(_Hot):
+    """hot-флаги direct-пути с явным лимитом фактов RAG."""
+
+    def __init__(self, limit: int):
+        self._limit = int(limit)
+
+    def get(self, key, default=None):
+        if key == "limits.graph_rag_facts_limit":
+            return self._limit
+        return _Hot.get(self, key, default)
+
+
+@pytest.mark.asyncio
+async def test_reply_rag_keeps_channel_order_and_composition(monkeypatch):
+    """Паритет состава/порядка direct-RAG: принятая выдача — это KNN/MMR-
+    порядок памяти. Набор, где FTS-канал нашёл бы третий факт, а типизированный
+    ранг поставил бы самый свежий факт первым, НЕ должен менять ни состав
+    (top-limit по релевантности), ни порядок отбора."""
+    import services.direct_chat_service as dcs
+
+    now = int(time.time())
+    rows = [_meta_row(1, "любит дроны", now - 500000),
+            _meta_row(2, "собирает квадрокоптеры", now - 10),
+            _meta_row(3, "дроны повсюду", now - 300000)]
+    monkeypatch.setattr(dcs, "hot", _HotLimit(2))
+    monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
+    memory = _ReplyMemory(rows)
+    svc = _reply_service(_ReplyDB([rows[2]]), memory)
+
+    selected = await svc._rag_unified_rows(-100, "про дроны", _Msg("про дроны"))
+    assert [row["id"] for row in selected] == [1, 2], (
+        "порядок KNN/MMR канала должен сохраняться, а FTS-совпадение — "
+        f"не вытеснять релевантный топ: {[r['id'] for r in selected]}")
+
+    block, _hint = await svc._build_rag_block(-100, _Msg("про дроны"), "")
+    lines = _rag_inner(block).split("\n")
+    assert len(lines) == 2, block
+    assert "fact:3" not in block, "FTS-факт вне top-limit не должен попадать"
+    assert "любит дроны" in block and "собирает квадрокоптеры" in block

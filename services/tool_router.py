@@ -191,12 +191,15 @@ _MEMORY_LOOKUP_PURPOSE_DEFAULTS = {
     "general": 8,
 }
 _MEMORY_LOOKUP_PURPOSES = tuple(_MEMORY_LOOKUP_PURPOSE_DEFAULTS)
-# MEMORY-06 (§7.5): каналы единого retrieval для purpose, которым нужны
-# ФАКТЫ о субъекте (exact — точная фраза/имя, lexical — FTS сообщений и
-# graph_facts). «Ленивый» vector-канал остаётся только у general (прежняя
-# семантика D3), поэтому память-вектор здесь не читается; срез собственной
-# речи читает канал `recent` (scope=participants).
-_MEMORY_LOOKUP_FACT_CHANNELS = ("exact", "lexical")
+# MEMORY-06 (§7.5, фикс регрессии ре-ревью): профильные назначения читают
+# ФАКТЫ О СУБЪЕКТЕ — канал `subject` единого retrieval отбирает их по
+# существующим колонкам субъекта (`subject_ref_id` по uid / legacy
+# `target_user`), а не по совпадению текста с запросом. FTS-каналы
+# (exact/lexical) для этого не годятся: факт «любит дронов» о человеке не
+# содержит его имени, а `exact` требует кавычек в запросе, поэтому не
+# компенсировал потерю. «Ленивый» vector-канал здесь не читается (прежняя
+# семантика D3); срез собственной речи — канал `recent` (scope=participants).
+_MEMORY_LOOKUP_SUBJECT_CHANNELS = ("subject",)
 # Лексикон внешности — generic-фильтр поверх graph_facts (A6). Извлечение/
 # классификация внешности (в т.ч. из изображений) — граница A4 (U1).
 _APPEARANCE_LEXICON = (
@@ -3576,11 +3579,11 @@ class ToolRouter:
         """identity: AliasResolver (name/aliases/id) + факты субъекта.
 
         MEMORY-06 (§7.5/MEM-06.10): сами факты читаются ЕДИНЫМ retrieval
-        (`retrieve`, каналы exact/lexical — без «ленивого» vector-канала),
+        (`retrieve`, канал `subject` — факты О субъекте, не поиск по тексту),
         envelope прежний (status/facts/sources/confidence/time/no_data)."""
         result = await self._memory_lookup_unified(
             ctx, person, purpose="identity", max_items=max_items,
-            channels=_MEMORY_LOOKUP_FACT_CHANNELS)
+            channels=_MEMORY_LOOKUP_SUBJECT_CHANNELS)
         facts, sources = await self._memory_lookup_unified_items(
             ctx, result, max_items, entity_types=("graph_fact",))
         if not facts:
@@ -3596,11 +3599,11 @@ class ToolRouter:
 
         Извлечение/классификация внешности (в т.ч. из изображений) — A4 (U1);
         здесь только лексиконный отбор существующих подтверждённых фактов,
-        отобранных единым retrieval (§7.5)."""
+        отобранных единым retrieval (§7.5) ПО СУБЪЕКТУ."""
         result = await self._memory_lookup_unified(
             ctx, person, purpose="appearance",
             max_items=_MEMORY_LOOKUP_APPEARANCE_SCAN,
-            channels=_MEMORY_LOOKUP_FACT_CHANNELS)
+            channels=_MEMORY_LOOKUP_SUBJECT_CHANNELS)
         rows, row_sources = await self._memory_lookup_unified_items(
             ctx, result, _MEMORY_LOOKUP_APPEARANCE_SCAN,
             entity_types=("graph_fact",))
@@ -3624,7 +3627,7 @@ class ToolRouter:
         """biography: факты субъекта (единый retrieval) + generated слой Б."""
         result = await self._memory_lookup_unified(
             ctx, person, purpose="biography", max_items=max_items,
-            channels=_MEMORY_LOOKUP_FACT_CHANNELS)
+            channels=_MEMORY_LOOKUP_SUBJECT_CHANNELS)
         facts, sources = await self._memory_lookup_unified_items(
             ctx, result, max_items, entity_types=("graph_fact",))
         db = getattr(self.deps, "db", None)
@@ -3687,20 +3690,29 @@ class ToolRouter:
                                      mode: str = "specific",
                                      channels=None,
                                      participants=(),
-                                     include_relations: bool = False):
+                                     include_relations: bool = False,
+                                     preserve_channel_order: bool = True):
         """MEMORY-06 (§4.4/§7.5): ЕДИНСТВЕННОЕ чтение памяти lookup-ветки.
 
         Все шесть purpose (`identity`/`appearance`/`speech_style`/
         `biography`/`relationships`/`general`) идут через ОДНУ существующую
         точку `mca_retrieval_context.retrieve`; различаются только
-        документированные поля запроса — каналы, scope, участники,
-        проекция связей — а не второй поиск/резолвер. Двойники без поисковых
-        каналов → ``None`` (честная деградация, второй движок не создаётся).
-        Ноль LLM-вызовов. Никогда не бросает."""
+        документированные поля запроса — каналы, scope, участники, имена
+        субъекта, проекция связей — а не второй поиск/резолвер. Двойники без
+        поисковых каналов → ``None`` (честная деградация, второй движок не
+        создаётся). Ноль LLM-вызовов. Никогда не бросает.
+
+        §7.5 (фикс регрессии): `subject_names` — имена/алиасы субъекта для
+        канала `subject`: факты о человеке отбираются по колонкам субъекта
+        (`subject_ref_id`/`target_user`), а не по совпадению текста с запросом
+        (иначе терялись факты без имени в тексте). `preserve_channel_order`
+        оставляет порядок самого канала (`weight DESC` профиля / `recent`-
+        срез) — это принятый контракт выдачи этих purpose."""
         db = getattr(self.deps, "db", None)
         memory = getattr(self.deps, "memory", None)
         capable = (callable(getattr(db, "search_messages_fts", None))
                    or callable(getattr(db, "search_graph_facts_fts", None))
+                   or callable(getattr(db, "get_user_context_facts", None))
                    or callable(getattr(db, "get_persona_card", None))
                    or callable(getattr(memory, "retrieve_fact_candidates",
                                        None)))
@@ -3719,15 +3731,23 @@ class ToolRouter:
                     uids += (int(raw),)
                 except (TypeError, ValueError):
                     continue
+            names: list[str] = []
+            for value in [person.get("name")] + list(
+                    person.get("aliases") or ()):
+                name = " ".join(str(value or "").split())
+                if name and name not in names:
+                    names.append(name)
             request = _rc.RetrievalRequest(
                 chat_id=int(ctx.chat_id),
                 query=str(person.get("name") or ""),
                 mode=mode, top_k=max(1, int(max_items)),
                 purpose="dossier", intent="who",
                 subject_entity_ids=subjects,
+                subject_names=tuple(names),
                 channels=channels,
                 scope=("participants" if uids else "auto"),
                 participants=uids,
+                preserve_channel_order=bool(preserve_channel_order),
                 include_relations=bool(include_relations))
             return await _rc.retrieve(db, memory, request)
         except Exception:
@@ -3816,17 +3836,18 @@ class ToolRouter:
                   "ts": ts}
         return {"fact": fact, "source": source}
 
-        return self._memory_lookup_payload("ok", purpose, person, facts,
-                                           sources)
-
     async def _memory_lookup_general(self, ctx, person, max_items) -> dict:
         """general: lazy RAG — graph-факты + релевантные сообщения (D3).
 
         MEMORY-06 (§4.4/§7.5): сначала ЕДИНЫЙ retrieval (exact/FTS/vector/
-        reply/episode через один `retrieve`); если зависимостей для него нет
-        (двойник без каналов) — прежний путь без изменений."""
+        reply/episode через один `retrieve`, плюс канал `subject` — факты о
+        человеке, отобранные по субъекту, а не по тексту); если зависимостей
+        для него нет (двойник без каналов) — прежний путь без изменений.
+        Порядок здесь — типизированный ранг: general смешивает факты о
+        субъекте с релевантными сообщениями (прежняя семантика D3)."""
         unified = await self._memory_lookup_unified(
-            ctx, person, purpose="general", max_items=max_items)
+            ctx, person, purpose="general", max_items=max_items,
+            preserve_channel_order=False)
         if unified is not None:
             facts, sources = await self._memory_lookup_unified_items(
                 ctx, unified, max_items,
