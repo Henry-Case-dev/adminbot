@@ -215,31 +215,39 @@ class TestEpisodeMerge:
                    for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_gate_off_legacy_path_no_lineage_aggregate(self, db, monkeypatch):
-        """F1 (C-3 §3.6): гейт OFF (реальный резолвер `mca_gates`, default OFF)
-        → ТОЧНЫЙ паритет base-коммита: legacy-слияние с удалением источников,
-        НИКАКОГО нового артефакта (агрегат без `source_ids`, без evidence-links).
-        Проверяется через env + каталоговый слой, без патча приватной функции."""
+    async def test_gate_off_is_inert_for_consolidation(self, db, monkeypatch):
+        """F5 (C-3 §3.4.1.1 п.1/п.9, §3.6): гейт OFF (реальный резолвер
+        `mca_gates`, default OFF) → консолидация ИНЕРТНА: ни слияния, ни
+        агрегата, ни lineage, и — главное — НИ ОДНОГО удаления. Разрушающей
+        legacy-ветки в коде нет ни при каком значении гейта («rollback = OFF»
+        больше не уничтожает память)."""
         monkeypatch.delenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", raising=False)
         _patch_policy(monkeypatch, on=False)
         from services import mca_gates
         assert mca_gates.memory_maintenance_policy_env_enabled() is False
         assert await mca_gates.memory_maintenance_policy_enabled(-100) is False
-        await db.insert_graph_fact(-100, "вася спорил с петей", "chat_history", None)
-        await db.insert_graph_fact(-100, "вася спорил с колей", "chat_history", None)
+        first = await db.insert_graph_fact(
+            -100, "вася спорил с петей", "chat_history", None)
+        second = await db.insert_graph_fact(
+            -100, "вася спорил с колей", "chat_history", None)
         llm = MergeLLM(response="вася спорил с петей и колей")
         svc, _ = _service(db, llm)
-        assert await svc.merge_episodes() == 1
+        assert await svc.merge_episodes() == 0
+        assert llm.calls == []                       # LLM не звали вовсе
         cursor = await db.db.execute(
-            "SELECT fact, source_ids, supersedes FROM graph_facts ORDER BY id")
+            "SELECT id, fact, source_ids, supersedes FROM graph_facts ORDER BY id")
         rows = await cursor.fetchall()
-        # base-паритет: осталась только слитая строка (источники удалены)
-        assert [row["fact"] for row in rows] == ["вася спорил с петей и колей"]
-        # нового артефакта нет: ни source_ids, ни указателя supersedes
-        assert rows[0]["source_ids"] is None
-        assert rows[0]["supersedes"] is None
+        # обе исходные строки живы, нового агрегата нет
+        assert [(row["id"], row["fact"]) for row in rows] == [
+            (first, "вася спорил с петей"),
+            (second, "вася спорил с колей")]
+        assert all(row["source_ids"] is None and row["supersedes"] is None
+                   for row in rows)
         cursor = await db.db.execute(
             "SELECT COUNT(*) AS c FROM mca_evidence_links")
+        assert (await cursor.fetchone())["c"] == 0
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_fact_compressions")
         assert (await cursor.fetchone())["c"] == 0
 
     @pytest.mark.asyncio
@@ -482,6 +490,62 @@ class TestReview:
                 db, provenance.graph_fact_source_ref(-100, fact_id))
             status = await provenance.get_provenance_status(db, ref)
             assert status is None or status["freshness_status"] != "superseded"
+
+    @pytest.mark.asyncio
+    async def test_gate_off_vec_pair_no_crash_no_glue_purge_runs(self, db,
+                                                                monkeypatch):
+        """F6 (регрессия F4/F5): гейт OFF + vec-пара cosine ≥0.95.
+
+        Контракт: `review()` НЕ бросает (раньше кривой разбор пары
+        `for a_id, b_id in sorted(pairs.items())` давал TypeError и ронял
+        review ДО purge/trim), обе строки живы, ни одной записи `review_glue`
+        (удалений нет), а retention-фазы (purge истёкших + усечение лога)
+        по-прежнему выполняются."""
+        from unittest.mock import AsyncMock
+
+        monkeypatch.delenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED",
+                           raising=False)
+        _patch_policy(monkeypatch, on=False)
+        now = int(time.time())
+        first = await db.insert_graph_fact(
+            -100, "дроны летали низко над полем", "web_content", None, weight=0.9)
+        second = await db.insert_graph_fact(
+            -100, "дроны летали низко над лесом", "web_content", None, weight=0.3)
+        # retention-маркеры: истёкший факт (должен быть выброшен) и старый лог
+        expired_id = await db.insert_graph_fact(
+            -100, "мёртвый факт", "search_fact", now - 100)
+        await db.db.execute(
+            "UPDATE graph_facts SET last_confirmed_at = ? WHERE id = ?",
+            (now - 10 * 86400, expired_id))
+        await db.log_fact_compression(-100, 1, "старая запись", None, "supersede")
+        await db.db.execute(
+            "UPDATE graph_fact_compressions SET created_at = ? "
+            "WHERE reason = 'supersede'",
+            (time.time() - (settings.GRAPH_COMPRESSION_LOG_RETENTION_DAYS + 1)
+             * 86400,))
+        await db.db.commit()
+        svc, memory = _service(db, MergeLLM())
+        memory._vec_available = True
+        memory._embed = AsyncMock(return_value=[[0.0, 1.0], [0.0, 1.0]])
+        memory._dedup_knn = AsyncMock(
+            return_value=[{"fact_id": first, "distance": 0.02}])   # cosine 0.98
+        await svc.review()                      # не бросает
+        cursor = await db.db.execute(
+            "SELECT id, weight FROM graph_facts ORDER BY id")
+        rows = await cursor.fetchall()
+        assert [row["id"] for row in rows] == [first, second]   # обе живы
+        assert [row["weight"] for row in rows] == [0.9, 0.3]     # вес не тронут
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_fact_compressions "
+            "WHERE reason = 'review_glue'")
+        assert (await cursor.fetchone())["c"] == 0               # склейки нет
+        # retention-фазы работают: истёкший выброшен, старый лог усечён
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts WHERE id = ?", (expired_id,))
+        assert (await cursor.fetchone())["c"] == 0
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_fact_compressions")
+        assert (await cursor.fetchone())["c"] == 0
 
     @pytest.mark.asyncio
     async def test_expired_purged_globally(self, db):

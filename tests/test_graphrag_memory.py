@@ -1678,6 +1678,59 @@ class TestEpic60Dedup:
         assert status["freshness_status"] == "superseded"
 
     @pytest.mark.asyncio
+    async def test_contradiction_links_without_switching_truth(self, db, monkeypatch):
+        """F7 (C-3 §3.4 CONTRADICT): утверждение с триггером устаревания
+        («это старая информация») по тому же субъекту+предикату → link
+        `contradicts` + `tentative` + `conflict_status='conflicting'`;
+        старая строка жива и НЕ инвалидирована, истинность до разрешения не
+        переключается (`supersedes` не ставится).
+
+        Решение видит НОРМАЛИЗОВАННЫЙ текст утверждения, поэтому триггер
+        должен быть внутри извлечённого триплета (см. docstring `_dedup_decide`)."""
+        self._enable_policy(monkeypatch)
+        from services import provenance
+
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        base_id = await db.insert_graph_fact(
+            -100, "вася работает в москве", "chat_history", None)
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="вася", predicate="работает",
+                   obj="в москве это старая информация")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(
+            -100, "вася работает в москве это старая информация",
+            "chat_history")
+        cursor = await db.db.execute(
+            "SELECT id, fact, expires_at, supersedes, valid_to "
+            "FROM graph_facts ORDER BY id")
+        rows = await cursor.fetchall()
+        assert len(rows) == 2                     # обе версии хранятся
+        old, new = rows[0], rows[1]
+        assert old["id"] == base_id
+        assert old["fact"] == "вася работает в москве"
+        assert old["expires_at"] is None          # НЕ инвалидирована
+        assert old["valid_to"] is None
+        assert new["supersedes"] is None          # истинность не переключена
+        new_ref = await provenance.resolve_source_ref(
+            db, provenance.graph_fact_source_ref(-100, new["id"]))
+        old_ref = await provenance.resolve_source_ref(
+            db, provenance.graph_fact_source_ref(-100, base_id))
+        cursor = await db.db.execute(
+            "SELECT link_type, verification FROM mca_evidence_links "
+            "WHERE subject_ref_id = ? AND source_ref_id = ?",
+            (new_ref, old_ref))
+        link = await cursor.fetchone()
+        assert link is not None
+        assert (link["link_type"], link["verification"]) == (
+            "contradicts", "tentative")
+        status = await provenance.get_provenance_status(db, old_ref)
+        assert status is not None
+        assert status["conflict_status"] == "conflicting"
+        assert status["freshness_status"] != "superseded"
+
+    @pytest.mark.asyncio
     async def test_policy_off_keeps_legacy_cosine_bands(self, db, monkeypatch):
         """C-3 §3.6 (откат): гейт OFF → прежний расчёт 64.1 (cosine ≥0.95 →
         noop с подтверждением) — паритет, данные не меняются.
