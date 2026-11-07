@@ -527,3 +527,28 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
 - (MEMORY-04 review) The merged aggregate does not inherit `memory_kind`, so two `belief` facts become one confirmed row with NULL kind; close before enabling mca-18 typed facts (blocks MEM-04.5). Addressee: Builder.
 - (MEMORY-04 review) `flags.memory_maintenance_policy_enabled` is absent from `param_catalog`, and the resolver is env AND flag, so the policy gate cannot be enabled until the catalog key is registered (C-5 §5.2 step). Addressee: Builder, catalog registration slice.
 - (MEMORY-05 review) Mention detection is bounded by the 24h/150 roster: if a person's only stored messages fall outside that window, the addressee stays unknown even though C-1 knows the uid. Direction is safe (no invented recipient); inherited from the base and consistent with §8.2. Addressee: Architect if broader scope is required.
+## 2.58.164 — неблокирующие наблюдения после выкладки (08.11.2026)
+
+Подробности, классификация и адресаты: `plans/features/hotfix-meme-publication-initiative-ui/reports/not-verified-2.58.164.md`.
+Ни один пункт не является human gate и не держит релиз 2.58.164; родительский эпик
+`hotfix-meme-publication-initiative-ui` остаётся открытым (release-гейт красный: строки P1-UI и два
+доказательства P0/P0.5 на выложенном артефакте).
+
+- (2.58.164) Живая клавиатура в реальном Telegram-клиенте владельца не наблюдалась — `owner_optional`
+  по стоячему правилу PET_PROJECT; агентская геометрия редактора доказана e2e (768x1024: 628 <= 640,
+  390x844: 491 <= 504). Адресат: владелец, если захочет; блокером не считается.
+- (2.58.164) Журнал проверен только в окне с рестарта (175 строк, 0 Traceback / 0 ERROR / 1 предсуществующий
+  WARNING); поведение публикаций по журналу на длинном горизонте не наблюдалось. Сверить при первом реальном
+  мем-цикле после выкладки. Адресат: Builder/дежурный агент.
+- (2.58.164) Публичный HTTPS по «голому» IP 192.255.209.205 без SNI не отдаёт TLS — не дефект релиза,
+  проверка по имени admin-bot.duckdns.org проходит. Адресат: DevOps, только при желании владельца.
+- (2.58.164, учёт) P1-перекомпоновка «Инициативы» в отдаваемом ассете присутствует (ключи вкладок
+  overview/text/memes/publications/diagnostics), но независимой приёмки на выложенном артефакте нет:
+  единственный вердикт — Needs Fixes по кандидату `7c267442`, которого нет в истории `8aada85e`;
+  на релизную линию попал вариант `1c7f030f` (влит в 2.58.153), ревью по нему не проводилось.
+  Нужна приёмка P1 на 8aada85e (отрисованный DOM, снимки, ширины). Адресат: Reviewer, затем Builder.
+- (2.58.164, учёт) `HMF-LEN-05` (`READY_FOR_LIVE`): форма потолка в отрисованном приложении не наблюдалась —
+  нужен Playwright с initData. Адресат: Builder/Reviewer.
+- (2.58.164, учёт) `HMF-ACC-09`: принятые снимки и e2e относятся к кандидату 97390ee4; после него web/app.js
+  менялся существенно (PVR-04, перекомпоновка «Инициативы»), поэтому нужны e2e/снимки заново на 8aada85e.
+  Адресат: Builder/Reviewer.

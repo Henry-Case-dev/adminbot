@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md",
   "source_sha256": "0d54087fa77555b33cc37283666549264e751c8cd97fabc13b0467fa8a875268",
-  "candidate_commit": "ab662a75",
-  "deployed_commit": "ab662a75",
+  "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+  "deployed_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "OI-2026-11-03-MEME-PUBLICATION-HOTFIX",
@@ -49,6 +49,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Цепочка событий разделяет генерацию и отправку: test_events_chain_separates_generation_from_delivery, test_send_failure_is_delivery_unknown_not_a_cancel — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ],
       "source_note": "прозаический перечень событий §1.3 (строка не попадает в авто-инвентарь)"
@@ -67,7 +75,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "прозаическое описание верхней панели страницы §2.2"
+      "source_note": "прозаическое описание верхней панели страницы §2.2",
+      "missing_proof": "В отдаваемом ассете есть ключи вкладок overview/text/memes/publications/diagnostics, но DOM страницы «Инициатива» на 8aada85e не наблюдался, и приёмки P1 нет (вердикт Needs Fixes относится к 7c267442, которого нет в истории 8aada85e). Нужны: рендер с initData; одна верхняя панель (область действия + итоговое состояние + ссылка в каталог); ровно пять вкладок; отсутствие второго блока «Мемы» внутри «Текстовой инициативы» и отдельной вкладки «Лимиты»."
     },
     {
       "source_id": "M00080",
@@ -83,7 +92,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "прозаические запреты §2.2: второй блок «Мемы», отдельная вкладка «Лимиты», дубли тумблеров"
+      "source_note": "прозаические запреты §2.2: второй блок «Мемы», отдельная вкладка «Лимиты», дубли тумблеров",
+      "missing_proof": "В отдаваемом ассете есть ключи вкладок overview/text/memes/publications/diagnostics, но DOM страницы «Инициатива» на 8aada85e не наблюдался, и приёмки P1 нет (вердикт Needs Fixes относится к 7c267442, которого нет в истории 8aada85e). Нужны: рендер с initData; одна верхняя панель (область действия + итоговое состояние + ссылка в каталог); ровно пять вкладок; отсутствие второго блока «Мемы» внутри «Текстовой инициативы» и отдельной вкладки «Лимиты»."
     },
     {
       "source_id": "M00084",
@@ -99,7 +109,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "заголовок содержимого вкладки «Обзор» (проза)"
+      "source_note": "заголовок содержимого вкладки «Обзор» (проза)",
+      "missing_proof": "Нужен отрисованный DOM «Обзора» на 8aada85e: две равнозначные карточки (effective ON/OFF, право, проверки, публикация, кулдаун, квота, причина ожидания), полоса «Координация отправки» только из API, 3–5 значимых событий, отсутствие пустой области на всю ширину."
     },
     {
       "source_id": "M00090",
@@ -115,7 +126,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "заголовок содержимого вкладки «Текстовая инициатива» (проза)"
+      "source_note": "заголовок содержимого вкладки «Текстовая инициатива» (проза)",
+      "missing_proof": "Нужен DOM «Текстовой инициативы» на 8aada85e: три секции с единицами измерения, объяснимая причина последнего решения (вероятность + источник случайности), отсутствие мем-настроек, поля с заголовками и помощью."
     },
     {
       "source_id": "M00093",
@@ -131,7 +143,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "заголовок содержимого вкладки «Мемы» (проза)"
+      "source_note": "заголовок содержимого вкладки «Мемы» (проза)",
+      "missing_proof": "Нужен DOM «Мемов» на 8aada85e: верхняя строка (ON/OFF + effective source, статус, квота, последний результат, причина пропуска), две смысловые колонки, pipeline из четырёх шагов, два промпта рядом на десктопе с источником inherited/global/chat, отмена/возврат наследования и общий save."
     },
     {
       "source_id": "M00101",
@@ -147,7 +160,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "заголовок содержимого вкладки «Публикации» (проза)"
+      "source_note": "заголовок содержимого вкладки «Публикации» (проза)",
+      "missing_proof": "Нужен DOM «Публикаций» на 8aada85e: фильтры (период/чат/тип/режим/outcome/reason), одна строка на логическую попытку, детали с цепочкой событий, пагинация/виртуализация, отсутствие пустых строк."
     },
     {
       "source_id": "M00105",
@@ -163,7 +177,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "source_note": "заголовок содержимого вкладки «Диагностика» (проза)"
+      "source_note": "заголовок содержимого вкладки «Диагностика» (проза)",
+      "missing_proof": "Нужен DOM «Диагностики» на 8aada85e: семь групп инспектора, ревизия и статус инъекции Core/Prompt, безопасный manifest по раскрытию, отсутствие дублей секций, индикаторы по фактически отправленному payload."
     }
   ],
   "items": [
@@ -428,6 +443,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Ручной путь при 1/10/50 новых сообщениях и смене темы: test_manual_new_messages_do_not_cancel_ready_meme[1|10|50] и test_manual_delivers_after_chat_topic_changed — зелёные на выложенном дереве. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -467,6 +490,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Авто-путь: test_automatic_new_messages_do_not_cancel_ready_meme[1|10|50], test_automatic_reports_real_conflict_before_generation, test_automatic_collision_after_generation_keeps_facts_and_does_not_send, test_manual_preempts_foreign_claimed_slot_and_publishes, test_two_different_job_ids_are_rate_limited_not_deduped — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -506,6 +537,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Ручной путь при 1/10/50 новых сообщениях и смене темы: test_manual_new_messages_do_not_cancel_ready_meme[1|10|50] и test_manual_delivers_after_chat_topic_changed — зелёные на выложенном дереве. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -545,6 +584,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Авто-путь: test_automatic_new_messages_do_not_cancel_ready_meme[1|10|50], test_automatic_reports_real_conflict_before_generation, test_automatic_collision_after_generation_keeps_facts_and_does_not_send, test_manual_preempts_foreign_claimed_slot_and_publishes, test_two_different_job_ids_are_rate_limited_not_deduped — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -584,6 +631,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Авто-путь: test_automatic_new_messages_do_not_cancel_ready_meme[1|10|50], test_automatic_reports_real_conflict_before_generation, test_automatic_collision_after_generation_keeps_facts_and_does_not_send, test_manual_preempts_foreign_claimed_slot_and_publishes, test_two_different_job_ids_are_rate_limited_not_deduped — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -623,6 +678,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Идемпотентность и рестарт: test_restart_same_job_does_not_duplicate_or_regenerate, test_two_workers_in_one_chat_publish_exactly_once, test_b1_restart_sees_queue_and_delivers, test_b1_two_parallel_deliveries_send_once, test_b1_interrupted_row_is_finalised_not_resent — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -662,6 +725,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Раздельные reason codes: test_reason_codes_are_distinct_and_stale_is_not_emitted, test_module_disabled_during_generation_is_a_real_content_reason, test_b1_rights_revoked_cancels_with_own_code, test_b1_module_off_cancels_with_disabled_code, test_b2_real_roster_rights_are_checked, test_b2_rights_revoked_during_generation_blocks_direct_publication — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -701,6 +772,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Только изображение и честный отказ: test_successful_meme_sends_only_the_image_via_bound_sender, test_publication_stale_is_kept_only_as_historical_code — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -770,6 +849,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Три состояния потолка: test_empty_ceiling_is_auto_end_to_end, test_invalid_ceiling_input_is_a_precise_field_error, test_global_and_chat_ceiling_do_not_mix — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -809,6 +896,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "auto без выдуманного предела: test_auto_ceiling_generates_without_invented_limit, test_joke_instruction_without_limit_has_no_fake_number — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -848,6 +943,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Фиксированный потолок считается по фактическому payload: test_fixed_ceiling_uses_real_rendered_prompt_and_blocks_before_llm, test_image_prompt_fit_helper_is_exact — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -887,6 +990,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Положительный лимит этапу прикола и проверка payload: test_auto_ceiling_generates_without_invented_limit, test_fixed_ceiling_uses_real_rendered_prompt_and_blocks_before_llm, test_overfull_template_stops_before_summary_and_provider — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -912,7 +1023,8 @@
           "candidate_commit": "97390ee4",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         }
-      ]
+      ],
+      "release_binding_gap": "Нужен рендер формы потолка в отрисованном приложении на 8aada85e (Playwright с initData): публичная загрузка упирается в честный гейт Telegram-контекста, строка остаётся READY_FOR_LIVE."
     },
     {
       "source_id": "L00059",
@@ -950,6 +1062,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Ошибка потолка не превращается в stale: test_overfull_template_stops_before_summary_and_provider, test_publication_stale_is_kept_only_as_historical_code — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -1071,7 +1191,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен отрисованный DOM «Обзора» на 8aada85e: две равнозначные карточки (effective ON/OFF, право, проверки, публикация, кулдаун, квота, причина ожидания), полоса «Координация отправки» только из API, 3–5 значимых событий, отсутствие пустой области на всю ширину."
     },
     {
       "source_id": "L00075",
@@ -1086,7 +1207,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Текстовой инициативы» на 8aada85e: три секции с единицами измерения, объяснимая причина последнего решения (вероятность + источник случайности), отсутствие мем-настроек, поля с заголовками и помощью."
     },
     {
       "source_id": "L00076",
@@ -1101,7 +1223,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Мемов» на 8aada85e: верхняя строка (ON/OFF + effective source, статус, квота, последний результат, причина пропуска), две смысловые колонки, pipeline из четырёх шагов, два промпта рядом на десктопе с источником inherited/global/chat, отмена/возврат наследования и общий save."
     },
     {
       "source_id": "L00077",
@@ -1116,7 +1239,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Публикаций» на 8aada85e: фильтры (период/чат/тип/режим/outcome/reason), одна строка на логическую попытку, детали с цепочкой событий, пагинация/виртуализация, отсутствие пустых строк."
     },
     {
       "source_id": "L00078",
@@ -1131,7 +1255,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Диагностики» на 8aada85e: семь групп инспектора, ревизия и статус инъекции Core/Prompt, безопасный manifest по раскрытию, отсутствие дублей секций, индикаторы по фактически отправленному payload."
     },
     {
       "source_id": "L00082",
@@ -1161,7 +1286,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен отрисованный DOM «Обзора» на 8aada85e: две равнозначные карточки (effective ON/OFF, право, проверки, публикация, кулдаун, квота, причина ожидания), полоса «Координация отправки» только из API, 3–5 значимых событий, отсутствие пустой области на всю ширину."
     },
     {
       "source_id": "L00086",
@@ -1176,7 +1302,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен отрисованный DOM «Обзора» на 8aada85e: две равнозначные карточки (effective ON/OFF, право, проверки, публикация, кулдаун, квота, причина ожидания), полоса «Координация отправки» только из API, 3–5 значимых событий, отсутствие пустой области на всю ширину."
     },
     {
       "source_id": "L00087",
@@ -1191,7 +1318,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен отрисованный DOM «Обзора» на 8aada85e: две равнозначные карточки (effective ON/OFF, право, проверки, публикация, кулдаун, квота, причина ожидания), полоса «Координация отправки» только из API, 3–5 значимых событий, отсутствие пустой области на всю ширину."
     },
     {
       "source_id": "L00088",
@@ -1206,7 +1334,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен отрисованный DOM «Обзора» на 8aada85e: две равнозначные карточки (effective ON/OFF, право, проверки, публикация, кулдаун, квота, причина ожидания), полоса «Координация отправки» только из API, 3–5 значимых событий, отсутствие пустой области на всю ширину."
     },
     {
       "source_id": "L00091",
@@ -1221,7 +1350,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Текстовой инициативы» на 8aada85e: три секции с единицами измерения, объяснимая причина последнего решения (вероятность + источник случайности), отсутствие мем-настроек, поля с заголовками и помощью."
     },
     {
       "source_id": "L00092",
@@ -1236,7 +1366,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Текстовой инициативы» на 8aada85e: три секции с единицами измерения, объяснимая причина последнего решения (вероятность + источник случайности), отсутствие мем-настроек, поля с заголовками и помощью."
     },
     {
       "source_id": "L00095",
@@ -1251,7 +1382,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Мемов» на 8aada85e: верхняя строка (ON/OFF + effective source, статус, квота, последний результат, причина пропуска), две смысловые колонки, pipeline из четырёх шагов, два промпта рядом на десктопе с источником inherited/global/chat, отмена/возврат наследования и общий save."
     },
     {
       "source_id": "L00096",
@@ -1266,7 +1398,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Мемов» на 8aada85e: верхняя строка (ON/OFF + effective source, статус, квота, последний результат, причина пропуска), две смысловые колонки, pipeline из четырёх шагов, два промпта рядом на десктопе с источником inherited/global/chat, отмена/возврат наследования и общий save."
     },
     {
       "source_id": "L00097",
@@ -1281,7 +1414,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Мемов» на 8aada85e: верхняя строка (ON/OFF + effective source, статус, квота, последний результат, причина пропуска), две смысловые колонки, pipeline из четырёх шагов, два промпта рядом на десктопе с источником inherited/global/chat, отмена/возврат наследования и общий save."
     },
     {
       "source_id": "L00098",
@@ -1296,7 +1430,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM панели бюджета и «Последней попытки» на 8aada85e (потолок/шаблон/доступно/фактическая длина, источник настроек, четыре статуса этапов, reason code с русским объяснением, ссылка в «Диагностику») и метка админского /meme. В ассете есть только строки — рендер не наблюдался."
     },
     {
       "source_id": "L00099",
@@ -1311,7 +1446,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM панели бюджета и «Последней попытки» на 8aada85e (потолок/шаблон/доступно/фактическая длина, источник настроек, четыре статуса этапов, reason code с русским объяснением, ссылка в «Диагностику») и метка админского /meme. В ассете есть только строки — рендер не наблюдался."
     },
     {
       "source_id": "L00100",
@@ -1326,7 +1462,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM панели бюджета и «Последней попытки» на 8aada85e (потолок/шаблон/доступно/фактическая длина, источник настроек, четыре статуса этапов, reason code с русским объяснением, ссылка в «Диагностику») и метка админского /meme. В ассете есть только строки — рендер не наблюдался."
     },
     {
       "source_id": "L00103",
@@ -1341,7 +1478,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Публикаций» на 8aada85e: фильтры (период/чат/тип/режим/outcome/reason), одна строка на логическую попытку, детали с цепочкой событий, пагинация/виртуализация, отсутствие пустых строк."
     },
     {
       "source_id": "L00104",
@@ -1356,7 +1494,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Публикаций» на 8aada85e: фильтры (период/чат/тип/режим/outcome/reason), одна строка на логическую попытку, детали с цепочкой событий, пагинация/виртуализация, отсутствие пустых строк."
     },
     {
       "source_id": "L00107",
@@ -1371,7 +1510,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Диагностики» на 8aada85e: семь групп инспектора, ревизия и статус инъекции Core/Prompt, безопасный manifest по раскрытию, отсутствие дублей секций, индикаторы по фактически отправленному payload."
     },
     {
       "source_id": "L00108",
@@ -1386,7 +1526,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Диагностики» на 8aada85e: семь групп инспектора, ревизия и статус инъекции Core/Prompt, безопасный manifest по раскрытию, отсутствие дублей секций, индикаторы по фактически отправленному payload."
     },
     {
       "source_id": "L00109",
@@ -1401,7 +1542,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужен DOM «Диагностики» на 8aada85e: семь групп инспектора, ревизия и статус инъекции Core/Prompt, безопасный manifest по раскрытию, отсутствие дублей секций, индикаторы по фактически отправленному payload."
     },
     {
       "source_id": "L00111",
@@ -1431,7 +1573,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужна матрица ширин на 8aada85e: ≥1200 читаемая ширина и две колонки, 768–1199 одна колонка, ≤767 вкладки с горизонтальной прокруткой без прокрутки страницы, sticky save не перекрыт клавиатурой. Смоук 1280×900 видел только гейт."
     },
     {
       "source_id": "L00114",
@@ -1446,7 +1589,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужна матрица ширин на 8aada85e: ≥1200 читаемая ширина и две колонки, 768–1199 одна колонка, ≤767 вкладки с горизонтальной прокруткой без прокрутки страницы, sticky save не перекрыт клавиатурой. Смоук 1280×900 видел только гейт."
     },
     {
       "source_id": "L00115",
@@ -1461,7 +1605,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужна матрица ширин на 8aada85e: ≥1200 читаемая ширина и две колонки, 768–1199 одна колонка, ≤767 вкладки с горизонтальной прокруткой без прокрутки страницы, sticky save не перекрыт клавиатурой. Смоук 1280×900 видел только гейт."
     },
     {
       "source_id": "L00116",
@@ -1476,7 +1621,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужны контраст, hit areas, клавиатурный фокус и стабильность навигации на 8aada85e, плюс подтверждение, что все прежние параметры и диагностика сохранены и доступны, а стеклянный дизайн, цвета и анимации не изменены."
     },
     {
       "source_id": "L00117",
@@ -1491,7 +1637,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужны контраст, hit areas, клавиатурный фокус и стабильность навигации на 8aada85e, плюс подтверждение, что все прежние параметры и диагностика сохранены и доступны, а стеклянный дизайн, цвета и анимации не изменены."
     },
     {
       "source_id": "L00118",
@@ -1506,7 +1653,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "missing_proof": "Нужно подтверждение на 8aada85e, что «Обзор» не грузит тяжёлые трассы и журналы при первом открытии: данные по вкладкам и требованию, без дублирующего polling."
     },
     {
       "source_id": "L00120",
@@ -1559,6 +1707,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Ручной путь при 1/10/50 новых сообщениях и смене темы: test_manual_new_messages_do_not_cancel_ready_meme[1|10|50] и test_manual_delivers_after_chat_topic_changed — зелёные на выложенном дереве. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -1598,6 +1754,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Авто-путь: test_automatic_new_messages_do_not_cancel_ready_meme[1|10|50], test_automatic_reports_real_conflict_before_generation, test_automatic_collision_after_generation_keeps_facts_and_does_not_send, test_manual_preempts_foreign_claimed_slot_and_publishes, test_two_different_job_ids_are_rate_limited_not_deduped — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -1637,6 +1801,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Раздельные reason codes: test_reason_codes_are_distinct_and_stale_is_not_emitted, test_module_disabled_during_generation_is_a_real_content_reason, test_b1_rights_revoked_cancels_with_own_code, test_b1_module_off_cancels_with_disabled_code, test_b2_real_roster_rights_are_checked, test_b2_rights_revoked_during_generation_blocks_direct_publication — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -1676,6 +1848,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Идемпотентность и рестарт: test_restart_same_job_does_not_duplicate_or_regenerate, test_two_workers_in_one_chat_publish_exactly_once, test_b1_restart_sees_queue_and_delivers, test_b1_two_parallel_deliveries_send_once, test_b1_interrupted_row_is_finalised_not_resent — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -1715,6 +1895,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Только изображение и честный отказ: test_successful_meme_sends_only_the_image_via_bound_sender, test_publication_stale_is_kept_only_as_historical_code — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -1731,7 +1919,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "release_binding_gap": "Нужен отрисованный DOM «Модулей → Инициативы» на 8aada85e: каждый прежний параметр имеет новое место и работает, оба промпта редактируются/наследуются/сохраняются, глобальный и чатовый контексты не смешиваются."
     },
     {
       "source_id": "L00128",
@@ -1746,7 +1935,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "release_binding_gap": "Нужна матрица ширин на 8aada85e: desktop 1536×960, mobile 390×844 и 360×740, Telegram WebView и браузер — без переполнения, сохранение не перекрыто клавиатурой, навигация стабильна."
     },
     {
       "source_id": "L00129",
@@ -1784,6 +1974,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Цепочка событий разделяет генерацию и отправку: test_events_chain_separates_generation_from_delivery, test_send_failure_is_delivery_unknown_not_a_cancel — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -1824,7 +2022,8 @@
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
         }
-      ]
+      ],
+      "release_binding_gap": "Принятые снимки и e2e описывают UI кандидата 97390ee4; после него web/app.js менялся существенно (PVR-04, перекомпоновка «Инициативы»). Нужны e2e/снимки заново на 8aada85e — перенос прежних доказательств на выложенный артефакт недопустим."
     },
     {
       "source_id": "L00131",
@@ -1862,6 +2061,14 @@
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
           "candidate_commit": "ab662a75"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+          "ref": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py (байт-в-байт как на 97390ee4) прогнан на релизном дереве 2.58.164; интерпретация результата — за Reviewer",
+          "observation": "Сквозной auto-потолок: test_empty_ceiling_is_auto_end_to_end, test_invalid_ceiling_input_is_a_precise_field_error, test_global_and_chat_ceiling_do_not_mix — зелёные. Итог прогона: 49 passed, 0 failed.",
+          "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+          "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65"
         }
       ]
     },
@@ -1949,7 +2156,13 @@
     "merged_content_check": "git diff 97390ee4 HEAD -- services/meme_initiative.py -> exit 0, без изменений",
     "previous_reviewed_candidate": "97390ee4",
     "release_candidate": "ab662a7529891c7f97f6c81d46e86b635b029dbb",
-    "release_note": "Релизная линия 2.58.152 собрана от прода bd0f38ed (1d4f3c98 -> 9aeeb8d4 -> 2ed088ce -> c8b30ef4 -> ab662a75), поэтому SHA релиза не равен SHA эпик-ветки; тождество содержимого продукта проверено деревьями, а не равенством коммитов"
+    "release_note": "Релизная линия 2.58.152 собрана от прода bd0f38ed (1d4f3c98 -> 9aeeb8d4 -> 2ed088ce -> c8b30ef4 -> ab662a75), поэтому SHA релиза не равен SHA эпик-ветки; тождество содержимого продукта проверено деревьями, а не равенством коммитов",
+    "deployed_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+    "deployed_branch": "release/2.58.164",
+    "deployed_product_candidate": "19c3194d",
+    "deployed_previous_production": "e4b97ce5 (2.58.163)",
+    "deployed_content_identity": "Отдаваемый web/app.js 2 062 901 байт sha256 495d4882…c3050c6 байт-в-байт совпадает с кандидатом 19c3194d (запись DevOps); тождество содержимого с одобренным P0-кандидатом 97390ee4 НЕ сохранилось: git diff --stat ab662a75 8aada85e -- services/meme_initiative.py = 35+/4- (речевая проекция EVOL v5 под своим рубильником). Поэтому мостом служит повторный прогон принятого набора тестов, а не ссылка на прежнее равенство деревьев.",
+    "release_line_note": "Релизная линия 2.58.152 (ab662a75) → 2.58.163 (e4b97ce5) → 4c943384 → 19c3194d → 8aada85e; ab662a75 — предок 8aada85e (git merge-base --is-ancestor, exit 0)."
   },
   "review_binding": {
     "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
@@ -1966,23 +2179,52 @@
       "artifact_path": "plans/features/p0-meme-publication-hotfix/ui-review.md",
       "artifact_sha256": "bb23f768f6ba032414eba75c33bc4021d985acb80e70e0d8a174ee09d7079e24",
       "verdict": "Needs Fixes по кандидату 7c267442 (P1-UI не принят): F1 публикации теряют реальный исход, F2 неизвестные имена событий координации, F3 несохранённые правки промптов, F4 фиктивный e2e смены чата"
-    }
+    },
+    "release_revalidation": {
+      "artifact_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/rebind-8aada85e-p0-suite.txt",
+      "artifact_sha256": "88e783e3fca2d576d30cadd002ef70e4af12a1e0c119c87d8ca6451d2f61ae65",
+      "scope": "P0-PUBLICATION + P0.5-CEILING-AUTO",
+      "summary": "Принятый Reviewer'ом набор tests/test_p0_meme_publication_hotfix.py байт-в-байт совпадает с версией на одобренном кандидате 97390ee4 (git diff пуст) и прогнан на релизном дереве 2.58.164: 49 passed. Это пере-привязка уже принятых утверждений к выложенному артефакту, а не новое ревью.",
+      "reviewer_followup": "Независимая интерпретация результата и дельты speech-projection в services/meme_initiative.py — за Reviewer при следующем ревью среза; PM статусы не повышал."
+    },
+    "ui_review_status": "Единственный вердикт по P1 (ui-review.md) — Needs Fixes по кандидату 7c267442, которого НЕТ в истории 8aada85e. На релизную линию попал вариант 1c7f030f (ребёнок ab662a75, влит в 2.58.153), ревью по нему не проводилось. Присутствие кода вкладок в отдаваемом ассете не заменяет приёмку: HMF-UI-01..10 остаются PENDING."
   },
   "deployment_binding": {
-    "version": "2.58.152",
-    "branch": "release/2.58.152",
-    "deployed_commit": "ab662a7529891c7f97f6c81d46e86b635b029dbb",
-    "reviewed_candidate_content": "97390ee4",
-    "content_identity": "деревья services/handlers/web (и все блоб-записи) совпадают у ab662a75 и 97390ee4; локально git diff 97390ee4 ab662a75 по services/handlers/web/api/app.js/index.html/static пуст",
-    "health": "200 local + 200 public",
-    "restarts": "NRestarts=0, один процесс",
-    "schema": "user_version=41, миграций нет",
-    "media": "media 7 без изменений",
-    "pending_dir": "var/meme_pending отсутствует (естественных мемов не было)",
-    "journal": "0 Traceback / 0 ERROR / 0 publication_stale",
-    "rollback": "bd0f38ed (2.58.151)",
-    "live_api": "GET /api/initiative/meme-settings: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; delivery.event_names содержит новые события публикации; 401 без initData",
-    "provenance": "Факты сервера переданы DevOps 03.11.2026 и записаны здесь как машинно-читаемая привязка; в репозиторном артефакте review.md зафиксированы тождество содержимого и вердикт CLEARED",
-    "open": "HMF-LEN-05 READY_FOR_LIVE: отрисовка формы потолка в браузере после реальной генерации не наблюдалась (естественного мем-цикла не было, тестовые сообщения в чаты не отправлялись)"
+    "version": "2.58.164",
+    "branch": "release/2.58.164",
+    "deployed_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+    "deploy_record_path": "plans/features/hotfix-meme-publication-initiative-ui/reports/deploy-2.58.164.md",
+    "deploy_record_sha256": "d9cbdd9d97144b9cdafa2e183700f78e2635e4556fbd0a1a988560e9ce906e22",
+    "deployed_product_candidate": "19c3194d (parent 4c943384, parent e4b97ce5)",
+    "previous_production": "2.58.163 @ e4b97ce5",
+    "content_identity": "Отдаваемый web/app.js 2 062 901 байт sha256 495d4882…c3050c6 байт-в-байт совпадает с кандидатом 19c3194d (запись DevOps); тождество содержимого с одобренным P0-кандидатом 97390ee4 НЕ сохранилось: git diff --stat ab662a75 8aada85e -- services/meme_initiative.py = 35+/4- (речевая проекция EVOL v5 под своим рубильником). Поэтому мостом служит повторный прогон принятого набора тестов, а не ссылка на прежнее равенство деревьев.",
+    "health": "healthz 2.58.164 локально и публично (200); /web/ 200, /api/health 200",
+    "restarts": "active/running, NRestarts=0, один процесс бота",
+    "schema": "user_version 43 до и после, schema_migrations 32 → 32, quick_check ok, миграций нет",
+    "journal": "175 строк с рестарта: Traceback 0, ERROR 0, WARNING 1 (предсуществующий embedding/smart_archive/superseded)",
+    "memory": "sqlite-vec dim=3072 (int8), graphrag rebuild resume ticker period_s=900",
+    "ui": "публичная /web/ (Playwright, 1280×900): 200, 0 ошибок консоли, версия 2.58.164 в DOM; страница «Инициатива» НЕ отрисована — честный гейт «миниапп открыт без Telegram-контекста»",
+    "rollback": "e4b97ce5 (2.58.163) или назначенные 8af1b10a (2.58.162) + бэкап данных; схема не менялась — откат кодовый",
+    "provenance": "Факты выложены DevOps 08.11.2026 в reports/deploy-2.58.164.md (коммит 3ce01d21) и перепроверены PM по git-объектам локального релизного дерева; см. reports/rebind-8aada85e.md.",
+    "open": "HMF-UI-01..10 PENDING (приёмки P1 на выложенном артефакте нет; отрисованный DOM не наблюдался); HMF-LEN-05 READY_FOR_LIVE (форма потолка в DOM не наблюдалась); HMF-ACC-09 требует e2e/снимков на 8aada85e. Неблокирующие NV-164-01..03 — reports/not-verified-2.58.164.md.",
+    "history": [
+      {
+        "version": "2.58.152",
+        "branch": "release/2.58.152",
+        "deployed_commit": "ab662a7529891c7f97f6c81d46e86b635b029dbb",
+        "reviewed_candidate_content": "97390ee4",
+        "content_identity": "деревья services/handlers/web (и все блоб-записи) совпадают у ab662a75 и 97390ee4; локально git diff 97390ee4 ab662a75 по services/handlers/web/api/app.js/index.html/static пуст",
+        "health": "200 local + 200 public",
+        "restarts": "NRestarts=0, один процесс",
+        "schema": "user_version=41, миграций нет",
+        "media": "media 7 без изменений",
+        "pending_dir": "var/meme_pending отсутствует (естественных мемов не было)",
+        "journal": "0 Traceback / 0 ERROR / 0 publication_stale",
+        "rollback": "bd0f38ed (2.58.151)",
+        "live_api": "GET /api/initiative/meme-settings: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; delivery.event_names содержит новые события публикации; 401 без initData",
+        "provenance": "Факты сервера переданы DevOps 03.11.2026 и записаны здесь как машинно-читаемая привязка; в репозиторном артефакте review.md зафиксированы тождество содержимого и вердикт CLEARED",
+        "open": "HMF-LEN-05 READY_FOR_LIVE: отрисовка формы потолка в браузере после реальной генерации не наблюдалась (естественного мем-цикла не было, тестовые сообщения в чаты не отправлялись)"
+      }
+    ]
   }
 }
