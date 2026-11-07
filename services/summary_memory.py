@@ -4691,7 +4691,15 @@ class MemoryManager:
             speaker_author_id = attribution.content_author_user_id
             if attribution.attributed_author:
                 speaker = attribution.attributed_author
-        if declared_method:
+        if origin in provenance.BOT_ORIGINS:
+            # C-8 §8.4/R-3: собственный вывод бота — это его собственная речь
+            # и никогда чужое утверждение. Проверка стоит ДО субъект-атрибуции,
+            # чтобы будущее расширение whitelist источников не могло записать
+            # `third_party`/`self_report` за ботом. Сегодня путь для bot-origin
+            # сюда не доходит (вызывающий их отфильтровывает), поэтому baseline
+            # не меняется.
+            method = "bot_self_reply"
+        elif declared_method:
             method = declared_method
         elif origin == "user_memory":
             method = "self_report"

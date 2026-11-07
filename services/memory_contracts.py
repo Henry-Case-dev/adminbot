@@ -1760,6 +1760,11 @@ class AddresseeResolution:
             if basis is AddresseeBasis.NONE:
                 raise ValueError(
                     "resolved addressee requires a real signal basis (§8.2)")
+            if len(candidates) > 1:
+                raise ValueError(
+                    "resolved addressee cannot carry several candidates: "
+                    "several possible addressees are ambiguous, not resolved "
+                    "(§8.2/MEM-05.2)")
         elif status is AddresseeStatus.AMBIGUOUS:
             if addressee is not None:
                 raise ValueError(
@@ -1886,6 +1891,11 @@ class StatementAttribution:
                 raise ValueError(
                     "resolved addressee requires addressee and a real signal "
                     "basis (§8.2)")
+            if len(candidates) > 1:
+                raise ValueError(
+                    "resolved addressee cannot carry several candidates: "
+                    "several possible addressees are ambiguous, not resolved "
+                    "(§8.2/MEM-05.2)")
         elif status is AddresseeStatus.AMBIGUOUS:
             if self.addressee is not None or len(candidates) < 2:
                 raise ValueError(

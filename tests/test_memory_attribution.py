@@ -115,6 +115,38 @@ def test_unresolved_addressee_is_ambiguous_without_invented_recipient():
     with pytest.raises(ValueError):
         mc.AddresseeResolution(status=mc.AddresseeStatus.AMBIGUOUS,
                                addressee="Аня", candidates=("Аня", "Борис"))
+    # «Резолв» с двумя кандидатами — запрещённое состояние (MEM-05.2).
+    with pytest.raises(ValueError):
+        mc.AddresseeResolution(
+            status=mc.AddresseeStatus.RESOLVED, addressee="Аня",
+            basis=mc.AddresseeBasis.CHAT_IDENTITY,
+            candidates=("Аня", "Борис"))
+    with pytest.raises(ValueError):
+        mc.StatementAttribution(
+            chat_id=CHAT, speaker="Маша", addressee="Аня",
+            addressee_status=mc.AddresseeStatus.RESOLVED,
+            addressee_basis=mc.AddresseeBasis.CHAT_IDENTITY,
+            addressee_candidates=("Аня", "Борис"))
+
+
+def test_factories_never_resolve_with_several_candidates():
+    """Фабрики не могут выдать `resolved` при нескольких кандидатах (§8.2)."""
+    cases = (
+        {"chat_candidates": ("Аня", "Борис")},
+        {"semantic_candidates": ("Аня", "Борис")},
+        {"reply_target": "user:7", "chat_candidates": ("Аня", "Борис")},
+        {"thread_target": "user:9", "semantic_candidates": ("Аня", "Петя")},
+        {"chat_candidates": ("Аня", "Аня")},          # один человек — не двое
+    )
+    for kwargs in cases:
+        resolution = ma.resolve_addressee(**kwargs)
+        if resolution.status is mc.AddresseeStatus.RESOLVED:
+            assert len(resolution.candidates) <= 1, kwargs
+    statement = ma.attribute_statement(
+        chat_id=CHAT, speaker="Маша",
+        chat_candidates=("Аня", "Борис"))
+    assert statement.addressee_status is mc.AddresseeStatus.AMBIGUOUS
+    assert statement.addressee is None
 
 
 def test_no_signal_keeps_addressee_unknown():
@@ -643,5 +675,49 @@ async def test_forward_fact_provenance_credits_original_author(tmp_path,
         assert row["speaker_author_id"] == 777          # первоисточник
         assert row["speaker_author_id"] != 5            # не переславший
         assert row["attribution_method"] == "third_party"
+    finally:
+        await d.close()
+
+
+@pytest.mark.asyncio
+async def test_bot_origin_fact_records_bot_self_reply(tmp_path, monkeypatch):
+    """§8.4/R-3: origin бота фиксируется как `bot_self_reply` ДО субъект-атрибуции.
+
+    Субъект-атрибуция не может записать за ботом `self_report`/`third_party`
+    даже если вызывающий однажды расширит whitelist источников; поэтому
+    `attribution_method` для bot-origin не зависит ни от автора сообщения,
+    ни от заявленного извлечением метода."""
+    monkeypatch.setenv("MCA_PROVENANCE_ENABLED", "on")
+    _enable_attribution(monkeypatch)
+    d = await _fresh(tmp_path, "write_bot.db")
+    try:
+        await _msg(d, user_id=5, author_name="Петя", text="Маша любит кофе",
+                   tg=950)
+        memory = summary_memory.MemoryManager(d, _NullLLM())
+        for index, declared in enumerate((None, "self_report", "third_party")):
+            fact_id = await d.insert_graph_fact(
+                CHAT, f"Маша любит кофе вариант {index}", "bot_direct_reply",
+                None, target_user="Маша", subject="Маша", object="кофе",
+                tg_message_id=950)
+            await memory._attach_fact_provenance(
+                CHAT, fact_id, "bot_self_reply", "Маша", "Маша", 950, {},
+                declared_method=declared)
+            cursor = await d.db.execute(
+                "SELECT attribution_method FROM graph_facts WHERE id = ?",
+                (fact_id,))
+            row = dict(await cursor.fetchone())
+            assert row["attribution_method"] == "bot_self_reply", declared
+        # origin вне BOT_ORIGINS не затронут: обычная субъект-атрибуция работает
+        fact_id = await d.insert_graph_fact(
+            CHAT, "Маша любит кофе вариант human", "chat_history", None,
+            target_user="Маша", subject="Маша", object="кофе",
+            tg_message_id=950)
+        await memory._attach_fact_provenance(
+            CHAT, fact_id, "chat_history", "Маша", "Маша", 950, {})
+        cursor = await d.db.execute(
+            "SELECT attribution_method FROM graph_facts WHERE id = ?",
+            (fact_id,))
+        assert dict(await cursor.fetchone())["attribution_method"] == \
+            "third_party"
     finally:
         await d.close()
