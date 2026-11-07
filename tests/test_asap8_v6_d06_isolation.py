@@ -309,8 +309,9 @@ class TestDedupKnnIsolation:
             self, db, monkeypatch):
         """Интеграция _dedup_decide + реальный _dedup_knn: чужая толпа ближе
         реального дубликата своего чата. Старый код: near=3 чужих → пара
-        сущностей не совпала → add (дубликат ПРОПУЩЕН). Теперь: свой дубликат
-        найден → noop (cosine 0.96 ≥ HIGH 0.95)."""
+        сущностей не совпала → add (дубликат ПРОПУЩЕН). Теперь свой кандидат
+        находится (chat-scope ДО top-K) и называется в решении, но решение —
+        ADD: сходство больше не доказательство (MEM-04.4/C-3 §3.4)."""
         memory = await _init_memory(db, VecLLM(), monkeypatch, int8=False)
         memory._vec_available = True
         now = int(time.time())
@@ -334,5 +335,6 @@ class TestDedupKnnIsolation:
              "object": "wildberries"},
             "озон поставляет быстрее чем wildberries — контекст",
             _unit(0))
-        assert decision == {"action": "noop", "old_id": a_id,
-                            "old_text": "озон поставляет быстрее чем wildberries"}
+        assert decision["action"] == "add"
+        assert decision["candidate_id"] == a_id
+        assert decision["old_id"] is None

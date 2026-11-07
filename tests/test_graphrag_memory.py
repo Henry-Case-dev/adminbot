@@ -1443,14 +1443,17 @@ class TestEpic50MemorizeDirectReply:
 
 
 class TestEpic60Dedup:
-    """Epic 60 (64.1/64.2, T-462/T-463): дедуп фактов при записи
-    (exact-noop, KNN-пороги ≥0.95/0.85–0.95/<0.85) + антиотравление
-    (supersede-инвалидация, журнал, unconfirmed в RAG не выдаётся)."""
+    """Epic 60 (64.1/64.2, T-462/T-463) → MEMORY-04 (C-3 §3.4): дедуп фактов
+    при записи. Гейт политики ON: решение по identity/значению/отрицанию/корню
+    (ADD/ENRICH/CONFIRM/SUPERSEDE/CONTRADICT/NOOP), сходство вектора — только
+    диагностика. OFF — прежний расчёт 64.1 (проверяется отдельно)."""
 
     @pytest.mark.asyncio
-    async def test_exact_dup_noop_confirms_weight_and_ts(self, db, monkeypatch):
-        """64.9 #1: memorize 2× одинаковый текст → 1 строка (noop),
-        weight +0.1 (cap 1.0), last_confirmed_at обновлён, status confirmed.
+    async def test_exact_dup_confirm_bumps_weight_and_ts(self, db, monkeypatch):
+        """C-3 §3.4 CONFIRM: memorize 2× одно утверждение с РАЗНЫХ корней →
+        1 строка + подтверждение: weight +0.1 (cap 1.0), last_confirmed_at
+        обновлён, status confirmed. (NOOP — только повтор того же
+        сообщения-корня, см. `test_noop_same_root_does_not_bump_weight`.)
         Epic 60 (66.1): стартовый вес search_fact = GRAPH_FACT_WEIGHT_ARCHIVE
         (0.4); факт рождается подтверждённым (last_confirmed_at = created_at)."""
         now = 1_800_000_000
@@ -1477,7 +1480,7 @@ class TestEpic60Dedup:
         assert row["last_confirmed_at"] == later
         assert row["status"] == "confirmed"
 
-        # cap 1.0: вес вплотную к потолку → noop не превышает
+        # cap 1.0: вес вплотную к потолку → подтверждение не превышает
         await db.db.execute("UPDATE graph_facts SET weight = 0.97")
         await db.db.commit()
         await memory.memorize_facts(-100, "текст", "search_fact")
@@ -1485,10 +1488,53 @@ class TestEpic60Dedup:
         assert (await cursor.fetchone())["weight"] == 1.0
 
     @pytest.mark.asyncio
-    async def test_knn_thresholds_canon(self, db, monkeypatch):
-        """64.9 #2: мок-KNN — cosine ≥0.95 → noop (+вес); 0.85–0.95 →
-        supersede (старый expires_at=now, новый INSERT со supersedes,
-        2 строки, журнал); <0.85 → add."""
+    async def test_noop_same_root_does_not_bump_weight(self, db, monkeypatch):
+        """MEM-04.4 (C-3 §3.4, тест d): NOOP — повтор ТОГО ЖЕ корня
+        (сообщение-источник то же): ноль записей — ни веса, ни
+        `last_confirmed_at`. Независимый повтор того же утверждения — CONFIRM
+        (вес растёт), поэтому NOOP не «съедает» настоящее подтверждение."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        llm = FactsLLM(response=json.dumps([_fact()], ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "текст", "chat_history",
+                                    tg_message_id=777)
+        cursor = await db.db.execute(
+            "SELECT weight, last_confirmed_at FROM graph_facts")
+        born = await cursor.fetchone()
+
+        later = now + 600
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: later)
+        await memory.memorize_facts(-100, "текст", "chat_history",
+                                    tg_message_id=777)
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c, weight, last_confirmed_at FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 1
+        assert row["weight"] == born["weight"]                   # веса не прибавил
+        assert row["last_confirmed_at"] == born["last_confirmed_at"]
+
+        # другой корень → CONFIRM: подтверждение реально работает
+        await memory.memorize_facts(-100, "текст", "chat_history",
+                                    tg_message_id=888)
+        cursor = await db.db.execute(
+            "SELECT weight, last_confirmed_at FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["weight"] > born["weight"]
+        assert row["last_confirmed_at"] == later
+
+    @pytest.mark.asyncio
+    async def test_similarity_is_not_evidence(self, db, monkeypatch):
+        """MEM-04.4 (C-3 §3.4, тест c): cosine-полосы больше не дают
+        noop/supersede — сходство только предлагает КАНДИДАТА
+        (`memory_dedupe_candidate`), решение остаётся ADD.
+
+        Прежний `test_knn_thresholds_canon` закреплял noop при 0.97 и
+        supersede при 0.90 — прямое нарушение MEM-02.5/MEM-04.4/INV-06
+        («не уничтожать/не инвалидировать по сходству»), поэтому переписан.
+        Прежняя третья часть (cosine 0.70 → add) сохранена как контроль."""
+        from services import mca_events
+
         now = 1_800_000_000
         monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
         base_id = await db.insert_graph_fact(
@@ -1498,42 +1544,34 @@ class TestEpic60Dedup:
         memory = MemoryManager(db, llm)
         memory._vec_available = True
         memory._dedup_knn = AsyncMock(
-            return_value=[{"fact_id": base_id, "distance": 0.0}])
+            return_value=[{"fact_id": base_id, "distance": 0.0}])   # cosine 1.0
 
-        # cosine 0.97 ≥ 0.95 → noop + подтверждение базового
         llm.response = json.dumps([_fact(subject="озон", predicate="дешевле чем",
                                           obj="wildberries")],
                                   ensure_ascii=False)
         await memory.memorize_facts(-100, "текст", "search_fact")
-        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
-        assert (await cursor.fetchone())["c"] == 1
         cursor = await db.db.execute(
-            "SELECT weight FROM graph_facts WHERE id = ?", (base_id,))
-        assert (await cursor.fetchone())["weight"] == \
-            settings.GRAPH_FACT_WEIGHT_ARCHIVE + settings.GRAPH_DEDUP_WEIGHT_BONUS
-
-        # cosine 0.90 ∈ [0.85, 0.95) → supersede
-        memory._dedup_knn.return_value = [{"fact_id": base_id, "distance": 0.10}]
-        await memory.memorize_facts(-100, "текст", "search_fact")
-        cursor = await db.db.execute(
-            "SELECT id, fact, status, supersedes, expires_at "
+            "SELECT id, status, supersedes, expires_at, weight "
             "FROM graph_facts ORDER BY id")
         rows = await cursor.fetchall()
-        assert len(rows) == 2                                      # обе версии хранятся
+        assert len(rows) == 2                        # обе версии хранятся
         old, new = rows[0], rows[1]
         assert old["id"] == base_id
-        assert old["expires_at"] == now                            # инвалидирован, НЕ удалён
-        assert new["status"] == "unconfirmed"
-        assert new["supersedes"] == base_id
-        assert new["fact"] == "озон дешевле чем wildberries"
+        assert old["expires_at"] == now + 1000       # НЕ инвалидирован
+        assert old["weight"] == settings.GRAPH_FACT_WEIGHT_ARCHIVE
+        assert new["status"] == "confirmed"
+        assert new["supersedes"] is None             # замены по сходству нет
+        # сходство оставило ТОЛЬКО диагностический кандидат
+        await mca_events.flush_events(db)
         cursor = await db.db.execute(
-            "SELECT fact_before, fact_after, reason FROM graph_fact_compressions")
-        log = await cursor.fetchone()
-        assert log["reason"] == "supersede"
-        assert log["fact_before"] == "озон доставляет быстрее чем wildberries"
-        assert log["fact_after"] == "озон дешевле чем wildberries"
+            "SELECT stage, entity_ids FROM mca_events "
+            "WHERE event_name = 'memory_dedupe_candidate'")
+        events = await cursor.fetchall()
+        assert len(events) == 1
+        assert events[0]["stage"] == "write:dedupe_candidate"
+        assert json.loads(events[0]["entity_ids"]) == [base_id]
 
-        # cosine 0.70 < 0.85 → add (обычная вставка, confirmed)
+        # контроль: ещё одно новое утверждение о той же паре → снова ADD
         memory._dedup_knn.return_value = [{"fact_id": base_id, "distance": 0.30}]
         llm.response = json.dumps([_fact(subject="озон", predicate="тише чем",
                                           obj="wildberries")],
@@ -1544,6 +1582,108 @@ class TestEpic60Dedup:
         cursor = await db.db.execute(
             "SELECT status FROM graph_facts ORDER BY id DESC LIMIT 1")
         assert (await cursor.fetchone())["status"] == "confirmed"
+
+    @pytest.mark.asyncio
+    async def test_enrich_fills_only_empty_metadata(self, db, monkeypatch):
+        """C-3 §3.4/§3.7 ENRICH: то же утверждение с НОВЫМИ метаданными
+        заполняет только пустые (NULL) поля; non-NULL не перезаписывается."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        fid = await db.insert_graph_fact(
+            -100, "озон доставляет быстрее чем wildberries", "search_fact",
+            now + 1000)
+        await db.db.execute(
+            "UPDATE graph_facts SET valid_from = 100, scope = 'chat' "
+            "WHERE id = ?", (fid,))
+        await db.db.commit()
+        memory = MemoryManager(db, FactsLLM())
+        decision = await memory._dedup_decide(
+            -100,
+            {"subject": "озон", "predicate": "доставляет быстрее чем",
+             "object": "wildberries"},
+            "озон доставляет быстрее чем wildberries", None,
+            meta={"valid_from": 999, "valid_to": 5000, "scope": "global"})
+        assert decision["action"] == "enrich"
+        assert decision["enrich"] == {"valid_to": 5000}    # только пустое поле
+        await memory._apply_enrich(decision["old_id"], decision["enrich"])
+        cursor = await db.db.execute(
+            "SELECT valid_from, valid_to, scope FROM graph_facts WHERE id = ?",
+            (fid,))
+        row = await cursor.fetchone()
+        assert row["valid_from"] == 100        # non-NULL не перезаписан
+        assert row["scope"] == "chat"          # non-NULL не перезаписан
+        assert row["valid_to"] == 5000         # пустое заполнено
+
+    @pytest.mark.asyncio
+    async def test_correction_supersedes_with_assertion_time(self, db, monkeypatch):
+        """MEM-04.3 (C-3 §3.3, тест b): поправка (тот же субъект+предикат,
+        другое значение со своим источником) → новый факт `supersedes=old`;
+        старая строка ЖИВА и закрыта по T_assertion поправки (timestamp её
+        сообщения), а НЕ по «сейчас»."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        base_id = await db.insert_graph_fact(
+            -100, "вася живёт в москве", "chat_history", None)
+        correction_ts = now - 86400          # сообщение сутки назад
+        await db.db.execute(
+            "INSERT INTO smart_messages (user_id, chat_id, text, timestamp, "
+            "tg_message_id) VALUES (1, -100, 'вася живёт в казани', ?, 555)",
+            (correction_ts,))
+        await db.db.commit()
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="вася", predicate="живёт в", obj="казани")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "вася живёт в казани",
+                                    "chat_history", tg_message_id=555)
+        cursor = await db.db.execute(
+            "SELECT id, fact, valid_to, expires_at, supersedes "
+            "FROM graph_facts ORDER BY id")
+        rows = await cursor.fetchall()
+        assert len(rows) == 2                        # история сохранена целиком
+        old, new = rows[0], rows[1]
+        assert old["id"] == base_id
+        assert old["fact"] == "вася живёт в москве"
+        assert old["valid_to"] == correction_ts      # T_assertion, не `now`
+        assert old["expires_at"] == correction_ts    # живой пул закрыт тем же T
+        assert new["supersedes"] == base_id
+        assert new["valid_to"] is None
+        # provenance: старая строка помечена superseded (не удалена)
+        from services import provenance
+        ref = await provenance.resolve_source_ref(
+            db, provenance.graph_fact_source_ref(-100, base_id))
+        status = await provenance.get_provenance_status(db, ref)
+        assert status is not None
+        assert status["freshness_status"] == "superseded"
+
+    @pytest.mark.asyncio
+    async def test_policy_off_keeps_legacy_cosine_bands(self, db, monkeypatch):
+        """C-3 §3.6 (откат): гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED=OFF`
+        → прежний расчёт 64.1 (cosine ≥0.95 → noop) — паритет, ничего не
+        меняется в данных."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        base_id = await db.insert_graph_fact(
+            -100, "озон доставляет быстрее чем wildberries", "search_fact",
+            now + 1000, weight=settings.GRAPH_FACT_WEIGHT_ARCHIVE)
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="озон", predicate="дешевле чем", obj="wildberries")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        memory._vec_available = True
+        memory._dedup_knn = AsyncMock(
+            return_value=[{"fact_id": base_id, "distance": 0.03}])   # 0.97
+        # Гейт политики OFF: поле в settings регистрирует слайс гейтов §5.2,
+        # здесь проверяется именно поведение переключателя (паритет 64.1).
+        with patch("services.summary_memory._memory_policy_enabled",
+                   return_value=False):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c, weight FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 1                        # прежний noop по сходству
+        assert row["weight"] == (settings.GRAPH_FACT_WEIGHT_ARCHIVE
+                                 + settings.GRAPH_DEDUP_WEIGHT_BONUS)
 
     @pytest.mark.asyncio
     async def test_vec_off_exact_only(self, db):
@@ -1596,29 +1736,23 @@ class TestEpic60Dedup:
 
     @pytest.mark.asyncio
     async def test_unconfirmed_excluded_and_confirmed_on_repeat(self, db, monkeypatch):
-        """64.9 #4: unconfirmed в RAG не попадает (и FTS-путь, и vec-выборка
-        текстов); повторное появление → exact-noop → confirmed."""
+        """64.9 #4 (MEMORY-04-адаптация): unconfirmed в RAG не попадает (и
+        FTS-путь, и vec-выборка текстов); повтор того же утверждения из
+        другого корня → CONFIRM (status=confirmed, вес ребра) → снова в RAG.
+
+        Раньше `status='unconfirmed'` рождался из cosine-полосы supersede;
+        теперь сходство не инвалидирует (MEM-04.4/INV-06), поэтому строка
+        создаётся unconfirmed явно — проверяется именно статус-механика."""
         now = 1_800_000_000
         monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
-        base_id = await db.insert_graph_fact(
-            -100, "озон доставляет быстрее чем wildberries", "search_fact",
-            now + 1000)
-        llm = FactsLLM()
+        new_id = await db.insert_graph_fact(
+            -100, "озон закрыл магазины чем wildberries", "search_fact",
+            now + 1000, weight=settings.GRAPH_FACT_WEIGHT_ARCHIVE,
+            status="unconfirmed")
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="озон", predicate="закрыл магазины чем",
+                   obj="wildberries")], ensure_ascii=False))
         memory = MemoryManager(db, llm)
-        memory._vec_available = True
-        memory._dedup_knn = AsyncMock(
-            return_value=[{"fact_id": base_id, "distance": 0.10}])
-        llm.response = json.dumps([_fact(subject="озон",
-                                          predicate="закрыл магазины чем",
-                                          obj="wildberries")],
-                                  ensure_ascii=False)
-        await memory.memorize_facts(-100, "текст", "search_fact")
-
-        cursor = await db.db.execute(
-            "SELECT id, status FROM graph_facts ORDER BY id")
-        rows = await cursor.fetchall()
-        new_id = rows[-1]["id"]
-        assert rows[-1]["status"] == "unconfirmed"
 
         # FTS-путь: unconfirmed не выдаётся
         ctx = await memory.get_rag_context(-100, "закрыл")
@@ -1626,7 +1760,7 @@ class TestEpic60Dedup:
         # vec-путь: статус-фильтр при выборке текстов по KNN-id
         assert await db.get_graph_fact_texts([new_id], status="confirmed") == []
 
-        # повторное появление → exact-noop → confirmed → снова в RAG
+        # повторение того же утверждения (другой корень) → CONFIRM → в RAG
         await memory.memorize_facts(-100, "текст", "search_fact")
         cursor = await db.db.execute(
             "SELECT status FROM graph_facts WHERE id = ?", (new_id,))

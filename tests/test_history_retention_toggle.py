@@ -458,8 +458,9 @@ class TestReviewToggle:
 
     @pytest.mark.asyncio
     async def test_on_merge_works_purge_skipped(self, db, hot_cache):
-        """ON: review — purge-фазы (G3-G5) скипаются, но merge-фазы работают
-        (склейка точных дублей — слияние, не удаление по TTL)."""
+        """ON: review — purge-фазы (G3-G5) скипаются, но рабочая фаза review
+        выполняется и НЕ удаляет память (MEMORY-04: точные дубли дают только
+        кандидата на дедуп — событие `memory_dedupe_candidate`)."""
         hot_cache.set({RETENTION_KEY: True})
         now = int(time.time())
         # истёкший + unconfirmed-старьё + лог — должны ПЕРЕЖИТЬ review
@@ -467,7 +468,7 @@ class TestReviewToggle:
         await db.insert_graph_fact(-100, "неподтверждённый", "chat_history",
                                    None, status="unconfirmed")
         await db.log_fact_compression(-100, 1, "было", "стало", "test")
-        # точный дубль живых фактов (merge-фаза review)
+        # точный дубль живых фактов (наблюдение review, без склейки)
         a = await db.insert_graph_fact(-100, "петя купил машину",
                                        "chat_history", None, weight=0.4)
         b = await db.insert_graph_fact(-100, "петя купил машину",
@@ -484,11 +485,17 @@ class TestReviewToggle:
         assert (await cursor.fetchone())["c"] == 1
         cursor = await db.db.execute(
             "SELECT COUNT(*) AS c FROM graph_fact_compressions")
-        assert (await cursor.fetchone())["c"] >= 2   # лог не усечён (+merge)
-        # merge-фаза: дубль склеен — остался самый тяжёлый
+        assert (await cursor.fetchone())["c"] == 1   # лог не усечён, склейки нет
+        # MEMORY-04 (C-3 §3.4): дубли НЕ склеиваются — обе строки живы,
+        # review оставляет кандидата (`memory_dedupe_candidate`).
         cursor = await db.db.execute(
             "SELECT id, weight FROM graph_facts WHERE fact = 'петя купил машину'")
         rows = await cursor.fetchall()
-        assert len(rows) == 1
-        assert rows[0]["weight"] == 0.9
-        assert a != b
+        assert [row["id"] for row in rows] == [a, b]
+        assert [row["weight"] for row in rows] == [0.4, 0.9]
+        from services import mca_events
+        await mca_events.flush_events(db)
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM mca_events "
+            "WHERE event_name = 'memory_dedupe_candidate'")
+        assert (await cursor.fetchone())["c"] == 1

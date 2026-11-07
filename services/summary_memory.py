@@ -441,6 +441,114 @@ def _emit_mca(event_name: str, outcome: str, *, level: str = "INFO",
         pass
 
 
+# ── MEMORY-04 (C-3 §3.4): единая политика решений памяти ────────────────────
+# ADD / ENRICH / CONFIRM / SUPERSEDE / CONTRADICT / NOOP — семантика решений
+# СУЩЕСТВУЮЩЕГО пути записи (`_dedup_decide`), а не второй API: сходство
+# вектора перестаёт быть доказательством и может только предложить кандидата
+# на дедуп. Гейт OFF → прежний расчёт 64.1 (паритет).
+DECISION_ADD = "add"
+DECISION_ENRICH = "enrich"
+DECISION_CONFIRM = "confirm"
+DECISION_SUPERSEDE = "supersede"
+DECISION_CONTRADICT = "contradict"
+DECISION_NOOP = "noop"
+#: Закрытый набор решений (MEM-04.4). Других кодов быть не может.
+MEMORY_DECISIONS = frozenset({
+    DECISION_ADD, DECISION_ENRICH, DECISION_CONFIRM, DECISION_SUPERSEDE,
+    DECISION_CONTRADICT, DECISION_NOOP,
+})
+#: Событие-наблюдение «похожие факты» (не решение): id ближайшего кандидата.
+DEDUPE_CANDIDATE_EVENT = "memory_dedupe_candidate"
+#: Колонки `graph_facts`, которые ENRICH вправе заполнить, ТОЛЬКО если пусты.
+_ENRICHABLE_COLUMNS = ("valid_from", "valid_to", "scope", "confidence_basis",
+                       "memory_kind")
+
+
+def _memory_policy_enabled() -> bool:
+    """Резолв `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` / 
+    `flags.memory_maintenance_policy_enabled` (C-3 §3.4/§3.6; default ON).
+
+    ON → решения по смыслу утверждения (identity/значение/отрицание/корень);
+    OFF → точный прежний расчёт `_dedup_decide` (включая cosine-полосы).
+    Никогда не бросает."""
+    try:
+        return bool(hot.get(
+            "flags.memory_maintenance_policy_enabled",
+            getattr(settings, "MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", True)))
+    except Exception:                                  # pragma: no cover
+        return True
+
+
+def _dedup_result(action: str, *, old=None, reason: str = "",
+                  enrich: dict | None = None, targets=(),
+                  candidate_id: int | None = None,
+                  similarity: float | None = None) -> dict:
+    """Единый формат решения политики (код — только из `MEMORY_DECISIONS`)."""
+    if action not in MEMORY_DECISIONS:                 # pragma: no cover
+        action = DECISION_ADD
+    return {
+        "action": action,
+        "old_id": (old["id"] if old is not None else None),
+        "old_text": (old["fact"] if old is not None else None),
+        "reason": reason,
+        "enrich": dict(enrich or {}),
+        "targets": tuple(int(t) for t in targets),
+        "candidate_id": candidate_id,
+        "similarity": similarity,
+    }
+
+
+def _enrich_payload(row, meta) -> dict:
+    """ENRICH-нагрузка: только метаданные, которых у кандидата НЕТ (NULL).
+
+    Нет кандидата/метаданных → {} — ENRICH не применяется (ADD/CONFIRM)."""
+    if row is None or not meta:
+        return {}
+    out: dict = {}
+    for column in _ENRICHABLE_COLUMNS:
+        value = meta.get(column) if isinstance(meta, dict) else None
+        if value is None:
+            continue
+        if row.get(column) is None:
+            out[column] = value
+    return out
+
+
+def _correction_plan(text, target_ids):
+    """План поправки (REUSE `graphrag_provenance.plan_correction`): явное
+    отрицание/исправление над текстом утверждения. None — гейт/функция
+    недоступны (fail-open к обычному решению)."""
+    try:
+        from services.graphrag_provenance import plan_correction
+        return plan_correction(message_text=text,
+                               target_fact_ids=tuple(target_ids))
+    except Exception:
+        return None
+
+
+def _value_changed(new_object, candidate_text, subject, predicate) -> bool:
+    """«Другое значение» для SUPERSEDE (C-3 §3.4).
+
+    Кандидат хранит только текст факта, поэтому его значение восстанавливается
+    как остаток после `subject predicate `. Уточнение (одно значение содержит
+    другое: «чай» → «чай с молоком») НЕ считается сменой значения — иначе
+    уточнение молча закрывало бы верную запись."""
+    text = str(candidate_text or "").strip()
+    prefix = f"{subject} {predicate}"
+    if not text.casefold().startswith(prefix.casefold()):
+        return False
+    rest = text[len(prefix):].strip()
+    new_value = str(new_object or "").strip()
+    if not rest or not new_value:
+        return False
+    rest_key, new_key = rest.casefold(), new_value.casefold()
+    if rest_key == new_key:
+        return False
+    if rest_key in new_key or new_key in rest_key:
+        return False
+    return True
+
+
 def _embed_fail_reason(exc: BaseException) -> str | None:
     """Класс исключения embed → код из словаря `mca_events.REASON_CODES`
     (неизвестное → None — честный unknown, не подмена)."""
@@ -4283,16 +4391,67 @@ class MemoryManager:
                                     "skipped | fact #%d", i)
                 dedup_fact = {"subject": subject, "predicate": fact["predicate"],
                               "object": obj}
-                decision = await self._dedup_decide(chat_id, dedup_fact, sentence, vector)
-                if decision["action"] == "noop":
+                decision = await self._dedup_decide(
+                    chat_id, dedup_fact, sentence, vector,
+                    tg_message_id=tg_message_id)
+                policy_on = _memory_policy_enabled()
+                if decision["action"] == DECISION_NOOP:
+                    # MEMORY-04 (C-3 §3.4): NOOP — тот же корень уже записан:
+                    # НОЛЬ записей (ни веса, ни last_updated,
+                    # ни last_confirmed_at). Гейт OFF — паритет 64.1: прежний
+                    # noop подтверждал факт прибавкой веса.
+                    if not policy_on:
+                        await self.db.confirm_graph_fact(
+                            decision["old_id"], int(time.time()),
+                            (hot.get("limits.graph_dedup_weight_bonus", settings.GRAPH_DEDUP_WEIGHT_BONUS) or 0))
+                    deduped += 1
+                    logger.info(
+                        "graphrag dedup: noop (%s) | chat_id=%s | fact_id=%s",
+                        decision.get("reason") or "-", chat_id,
+                        decision["old_id"])
+                    continue
+                if decision["action"] == DECISION_CONFIRM:
+                    # CONFIRM: то же утверждение, другой корень — вес ребра
+                    # (cap) + last_confirmed_at + evidence-link корня.
                     await self.db.confirm_graph_fact(
                         decision["old_id"], int(time.time()),
                         (hot.get("limits.graph_dedup_weight_bonus", settings.GRAPH_DEDUP_WEIGHT_BONUS) or 0))
+                    await self._record_confirm_root(
+                        chat_id, decision["old_id"], tg_message_id)
                     deduped += 1
-                    logger.info("graphrag dedup: noop | chat_id=%s | fact_id=%s",
-                                chat_id, decision["old_id"])
+                    logger.info(
+                        "graphrag dedup: confirm (%s) | chat_id=%s | fact_id=%s",
+                        decision.get("reason") or "-", chat_id,
+                        decision["old_id"])
                     continue
-                status = ("unconfirmed" if decision["action"] == "supersede"
+                if decision["action"] == DECISION_ENRICH:
+                    # ENRICH: только ПУСТЫЕ метаданные (non-NULL не трогаем).
+                    filled = await self._apply_enrich(
+                        decision["old_id"], decision.get("enrich") or {})
+                    await self._record_confirm_root(
+                        chat_id, decision["old_id"], tg_message_id)
+                    deduped += 1
+                    logger.info(
+                        "graphrag dedup: enrich (%s) | chat_id=%s | fact_id=%s "
+                        "| fields=%d", decision.get("reason") or "-", chat_id,
+                        decision["old_id"], filled)
+                    continue
+                if decision["action"] == DECISION_ADD and \
+                        decision.get("candidate_id") is not None:
+                    # Сходство — только диагностика: решение остаётся ADD
+                    # (MEM-04.4/INV-06), строка не заменяется и не удаляется.
+                    _emit_mca(
+                        DEDUPE_CANDIDATE_EVENT, "skipped",
+                        chat_id=int(chat_id), stage="write:dedupe_candidate",
+                        reason_code="insufficient_evidence",
+                        entity_ids=[int(decision["candidate_id"])],
+                        usage_json={
+                            "kind": str(decision.get("reason") or "similar_only"),
+                            **({"similarity": round(
+                                float(decision["similarity"]), 3)}
+                               if decision.get("similarity") is not None else {})})
+                status = ("unconfirmed"
+                          if decision["action"] == "supersede" and not policy_on
                           else "confirmed")
                 # Epic 60 (66.4, T-482): квота прямых фактов на человека —
                 # сверх лимита вытесняется самый лёгкий и старый. EVOL-006:
@@ -4367,14 +4526,30 @@ class MemoryManager:
                         "chat_id=%s", i, chat_id)
                     fact_id = await _write_fact_pair()
                 if decision["action"] == "supersede":
-                    # свежий побеждает = инвалидация (НЕ перезапись); журнал
-                    # «что во что» — обратимость антиотравления (64.2)
+                    # MEMORY-04 (C-3 §3.3): поправка закрывает старую строку по
+                    # T_assertion новой поправки (timestamp её сообщения), НЕ по
+                    # «сейчас»; старая строка сохраняется целиком (delete нет).
+                    # `invalidate_graph_fact` — штатное закрытие живого пула:
+                    # его epoch — T_observed (когда перестали считать текущим),
+                    # а не выданная за событие дата.
+                    ts_assert = (await self._assertion_ts(chat_id, tg_message_id)
+                                 if policy_on else None)
                     await self.db.invalidate_graph_fact(
-                        decision["old_id"], int(time.time()))
+                        decision["old_id"],
+                        int(ts_assert) if ts_assert is not None
+                        else int(time.time()))
+                    if ts_assert is not None:
+                        await self._close_event_validity(
+                            chat_id, decision["old_id"], int(ts_assert))
                     await self.db.log_fact_compression(
                         chat_id, fact_id, decision["old_text"], sentence,
                         "supersede")
                     superseded += 1
+                elif decision["action"] == DECISION_CONTRADICT:
+                    # CONTRADICT: противоречащее доказательство, истинность до
+                    # разрешения не переключается (нет инвалидации/удаления).
+                    await self._record_contradiction(
+                        chat_id, fact_id, decision.get("targets") or ())
                 if self._vec_available:
                     await self._save_graph_fact_embedding(
                         fact_id, chat_id, sentence, source_type, fact_expiry,
@@ -4566,14 +4741,98 @@ class MemoryManager:
             victim["id"], chat_id, target_user, quota)
 
     async def _dedup_decide(self, chat_id: int, fact: dict, sentence: str,
-                            vector) -> dict:
-        """64.1 (T-462): exact-дубль ('s p o' / 's p o (ctx)') → noop; KNN k=3
-        (та же пара сущностей): cosine = 1 − distance; ≥ HIGH (0.95) → noop;
-        [LOW (0.85), HIGH) → supersede; < LOW → add. Вектора нет → только
-        exact (честная деградация R3-стиля). НЕ бросает: любая ошибка →
-        WARNING → add (64.1.5). Epic 60 (65.10/66.10, T-488): защищённый
-        факт дедуп НЕ трогает (ни noop-подтверждение, ни supersede-
-        инвалидация) — кандидат пропускается."""
+                            vector, *, tg_message_id: int | None = None,
+                            meta: dict | None = None) -> dict:
+        """MEMORY-04 (C-3 §3.4): единая политика решений на СУЩЕСТВУЮЩЕМ
+        пути записи — ADD / ENRICH / CONFIRM / SUPERSEDE / CONTRADICT / NOOP.
+
+        Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` OFF → прежний расчёт 64.1
+        (`_dedup_decide_legacy`: exact→noop, cosine ≥0.95→noop, [0.85,0.95)→
+        supersede, ниже→add) — паритет.
+        ON (MEM-04.4/INV-06):
+        * NOOP — тот же корень (`tg_message_id` сообщения-источника) уже
+          записан: ноль записей, вес не растёт;
+        * ENRICH — то же утверждение, но новые ПУСТЫЕ метаданные
+          (period/scope/confidence): заполняются только NULL-поля;
+        * CONFIRM — то же утверждение с другим корнем: подтверждение (вес
+          ребра/`last_confirmed_at`) + evidence-link независимого корня;
+        * SUPERSEDE — тот же субъект+предикат, ДРУГОЕ значение: новый факт
+          (`supersedes=old`), старая строка сохраняется и закрывается по
+          T_assertion поправки (не «сейчас»);
+        * CONTRADICT — явное отрицание/поправка (`claim_envelope` над текстом →
+          `graphrag_provenance.plan_correction`): `contradicts` + tentative +
+          conflicting, истинность до разрешения не переключается;
+        * ADD — новое утверждение; сходство даёт только событие
+          `memory_dedupe_candidate` с id ближайшего кандидата.
+
+        Возврат: {"action", "old_id", "old_text", "reason", "enrich",
+        "targets", "candidate_id", "similarity"}. НЕ бросает: любая ошибка →
+        WARNING → ADD (64.1.5). Защищённый факт не трогается ни
+        подтверждением, ни инвалидацией (65.10/66.10)."""
+        if not _memory_policy_enabled():
+            return await self._dedup_decide_legacy(chat_id, fact, sentence, vector)
+        try:
+            if not hot.get("flags.graph_dedup_enabled", settings.GRAPH_DEDUP_ENABLED):
+                return _dedup_result(DECISION_ADD, reason="dedup_disabled")
+            now = int(time.time())
+            key = f"{fact['subject']} {fact['predicate']} {fact['object']}"
+            exact = await self.db.find_graph_fact_exact(chat_id, key, now)
+            if exact is not None and \
+                    not await self.db.is_fact_protected(chat_id, exact["fact"]):
+                row = await self._dedup_candidate_row(chat_id, exact["id"])
+                if tg_message_id is not None and row is not None \
+                        and row.get("tg_message_id") is not None \
+                        and int(row["tg_message_id"]) == int(tg_message_id):
+                    return _dedup_result(DECISION_NOOP, old=exact,
+                                         reason="same_root")
+                enrich = _enrich_payload(row, meta)
+                if enrich:
+                    return _dedup_result(DECISION_ENRICH, old=exact,
+                                         reason="metadata_gap", enrich=enrich)
+                return _dedup_result(DECISION_CONFIRM, old=exact,
+                                     reason="independent_root")
+            same_predicate = await self._same_predicate_rows(
+                chat_id, fact, now, sentence)
+            if same_predicate:
+                plan = _correction_plan(sentence,
+                                        tuple(r["id"] for r in same_predicate))
+                if plan is not None and plan.triggered:
+                    return _dedup_result(
+                        DECISION_CONTRADICT,
+                        old={"id": plan.target_fact_ids[0],
+                             "fact": same_predicate[0]["fact"]},
+                        reason=plan.reason_code or "correction_phrase",
+                        targets=plan.target_fact_ids)
+                changed = _value_changed(fact["object"],
+                                         same_predicate[0]["fact"],
+                                         fact["subject"], fact["predicate"])
+                if changed:
+                    return _dedup_result(
+                        DECISION_SUPERSEDE,
+                        old={"id": same_predicate[0]["id"],
+                             "fact": same_predicate[0]["fact"]},
+                        reason="value_changed")
+            candidate = await self._similar_candidate(chat_id, fact, vector)
+            if candidate is not None:
+                return _dedup_result(
+                    DECISION_ADD, reason="similar_only",
+                    candidate_id=int(candidate["id"]),
+                    similarity=candidate["similarity"])
+            return _dedup_result(DECISION_ADD, reason="new_assertion")
+        except Exception:
+            logger.warning(
+                "graphrag dedup: check failed — fact added as before (64.1.5)",
+                exc_info=True)
+            return _dedup_result(DECISION_ADD, reason="policy_error")
+
+    async def _dedup_decide_legacy(self, chat_id: int, fact: dict,
+                                   sentence: str, vector) -> dict:
+        """64.1 (T-462), паритет при гейте политики OFF: exact-дубль
+        ('s p o' / 's p o (ctx)') → noop; KNN k=3 (та же пара сущностей):
+        cosine = 1 − distance; ≥ HIGH (0.95) → noop; [LOW (0.85), HIGH) →
+        supersede; < LOW → add. Вектора нет → только exact. НЕ бросает:
+        любая ошибка → WARNING → add (64.1.5). Защищённый факт дедуп НЕ
+        трогает (65.10)."""
         try:
             if not hot.get("flags.graph_dedup_enabled", settings.GRAPH_DEDUP_ENABLED):
                 return {"action": "add", "old_id": None, "old_text": None}
@@ -4616,6 +4875,213 @@ class MemoryManager:
                 exc_info=True,
             )
             return {"action": "add", "old_id": None, "old_text": None}
+
+    async def _dedup_candidate_row(self, chat_id: int, fact_id: int) -> dict | None:
+        """Строка-кандидат с колонками политики (root/T_event/метаданные):
+        `find_graph_fact_exact` отдаёт только id/fact/weight/status."""
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT id, fact, tg_message_id, valid_from, valid_to, scope, "
+                "confidence_basis, memory_kind FROM graph_facts "
+                "WHERE chat_id = ? AND id = ?", (int(chat_id), int(fact_id)))
+            row = await cursor.fetchone()
+        except Exception:
+            return None
+        return dict(row) if row is not None else None
+
+    async def _same_predicate_rows(self, chat_id: int, fact: dict, now: int,
+                                   sentence: str) -> list:
+        """Живые строки с тем же субъектом+предикатом (префикс текста) — база
+        для SUPERSEDE/CONTRADICT. Bounded LIMIT 5, без полного скана выдачи."""
+        prefix = f"{fact['subject']} {fact['predicate']}"
+        try:
+            pattern = self.db._like_escape(prefix) + " %"
+            cursor = await self.db.db.execute(
+                "SELECT id, fact FROM graph_facts "
+                "WHERE chat_id = ? AND status = 'confirmed' "
+                "AND origin != 'bot_self_reply' "
+                "AND (expires_at IS NULL OR expires_at > ?) "
+                "AND fact LIKE ? ESCAPE '!' "
+                "ORDER BY created_at DESC, id DESC LIMIT 5",
+                (int(chat_id), int(now), pattern))
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.warning("graphrag dedup: same-predicate lookup failed",
+                           exc_info=True)
+            return []
+        return [dict(r) for r in rows
+                if str(r["fact"]).strip().casefold() != str(sentence).strip().casefold()]
+
+    async def _similar_candidate(self, chat_id: int, fact: dict, vector):
+        """Ближайший похожий кандидат — ТОЛЬКО для диагностики (событие).
+        Сходство не участвует в решении (C-3 §3.4). None — кандидата нет."""
+        if vector is None or not self._vec_available:
+            return None
+        try:
+            near = await self._dedup_knn(chat_id, vector)
+            rows = await self.db.get_graph_fact_rows(
+                [row["fact_id"] for row in near])
+            by_id = {row["id"]: row for row in rows}
+            low = (hot.get("limits.graph_dedup_similarity_low",
+                           settings.GRAPH_DEDUP_SIMILARITY_LOW) or 0)
+            best = None
+            for item in near:
+                candidate = by_id.get(item["fact_id"])
+                if candidate is None or candidate["fact"] is None:
+                    continue
+                text = str(candidate["fact"])
+                if fact["subject"] not in text or fact["object"] not in text:
+                    continue
+                cosine = 1.0 - item["distance"]
+                if cosine < low:
+                    continue
+                if best is None or cosine > best["similarity"]:
+                    best = {"id": candidate["id"], "similarity": cosine}
+            return best
+        except Exception:
+            return None
+
+    async def _assertion_ts(self, chat_id: int,
+                            tg_message_id: int | None) -> int | None:
+        """T_assertion сообщения-источника (`smart_messages.timestamp`).
+        Нет id/строки → None: отсутствующая дата ≠ `time.time()` (C-3 §3.1)."""
+        if tg_message_id is None:
+            return None
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT timestamp FROM smart_messages WHERE chat_id = ? "
+                "AND tg_message_id = ? ORDER BY id DESC LIMIT 1",
+                (int(chat_id), int(tg_message_id)))
+            row = await cursor.fetchone()
+        except Exception:
+            return None
+        if row is None or row["timestamp"] is None:
+            return None
+        return int(row["timestamp"])
+
+    async def _apply_enrich(self, fact_id: int, values: dict) -> int:
+        """ENRICH (C-3 §3.4/§3.7): заполняются ТОЛЬКО пустые (NULL)
+        метаданные; non-NULL не перезаписывается. Возврат — число полей."""
+        cols = [c for c in _ENRICHABLE_COLUMNS if values.get(c) is not None]
+        if not cols:
+            return 0
+        sets = ", ".join(f"{c} = COALESCE({c}, ?)" for c in cols)
+        try:
+            cursor = await self.db.db.execute(
+                f"UPDATE graph_facts SET {sets} WHERE id = ?",
+                (*[values[c] for c in cols], int(fact_id)))
+            await self.db.db.commit()
+        except Exception:
+            logger.warning("graphrag dedup: enrich failed — fail-open | "
+                           "fact_id=%s", fact_id, exc_info=True)
+            return 0
+        return len(cols) if cursor.rowcount else 0
+
+    async def _record_confirm_root(self, chat_id: int, fact_id: int,
+                                   tg_message_id: int | None) -> None:
+        """CONFIRM (C-3 §3.4): evidence-link независимого корня
+        (`verification='verified'`, `independence='independent'`). Нет
+        адресуемого корня → ссылка не создаётся (не выдумываем). Fail-open."""
+        if tg_message_id is None:
+            return
+        try:
+            from services import provenance
+            if not provenance.provenance_enabled():
+                return
+            obj = await provenance.resolve_source_ref(
+                self.db, provenance.graph_fact_source_ref(chat_id, fact_id))
+            if obj is None:
+                return
+            entity_id = await provenance._message_entity_id(
+                self.db, chat_id, tg_message_id)
+            if not entity_id:
+                return
+            ref = await provenance.resolve_source_ref(
+                self.db, provenance.message_source_ref(
+                    chat_id=chat_id, entity_id=entity_id,
+                    tg_message_id=int(tg_message_id)))
+            if ref is None or ref == obj:
+                return
+            await provenance.add_evidence_link(self.db, provenance.EvidenceLink(
+                subject_ref_id=obj, source_ref_id=ref, link_type="supports",
+                method="direct_reference", verification="verified",
+                independence="independent", basis="independent_root"))
+        except Exception:
+            logger.warning(
+                "graphrag provenance: confirm link failed — fail-open | "
+                "fact_id=%s", fact_id, exc_info=True)
+
+    async def _record_contradiction(self, chat_id: int, new_fact_id: int,
+                                    target_ids) -> None:
+        """CONTRADICT (C-3 §3.4): `contradicts` + `tentative` + `conflicting`
+        на каждую цель; истинность до разрешения НЕ переключается (нет
+        инвалидации, нет удаления). Fail-open."""
+        if not target_ids:
+            return
+        try:
+            from services import provenance
+            if not provenance.provenance_enabled():
+                return
+            obj = await provenance.resolve_source_ref(
+                self.db, provenance.graph_fact_source_ref(chat_id, new_fact_id))
+            if obj is None:
+                return
+            for tid in target_ids:
+                ref = await provenance.resolve_source_ref(
+                    self.db, provenance.graph_fact_source_ref(chat_id, tid))
+                if ref is None:
+                    continue
+                await provenance.add_evidence_link(
+                    self.db, provenance.EvidenceLink(
+                        subject_ref_id=obj, source_ref_id=ref,
+                        link_type="contradicts", method="direct_reference",
+                        verification="tentative", independence="unknown",
+                        basis="correction_phrase"))
+                existing = await provenance.get_provenance_status(
+                    self.db, ref) or {}
+                await provenance.set_provenance_status(
+                    self.db, ref,
+                    origin_status=(existing.get("origin_status") or "unknown"),
+                    conflict_status="conflicting")
+        except Exception:
+            logger.warning(
+                "graphrag provenance: contradiction link failed — fail-open | "
+                "fact_id=%s", new_fact_id, exc_info=True)
+
+    async def _close_event_validity(self, chat_id: int, fact_id: int,
+                                    assertion_ts: int) -> None:
+        """T_event закрытия поправки (C-3 §3.3): `valid_to` = T_assertion
+        новой поправки, НЕ «сейчас»; существующее значение не перезаписывается.
+        Дополнительно — `freshness_status='superseded'` в provenance.
+        Строка не удаляется. Fail-open."""
+        try:
+            await self.db.db.execute(
+                "UPDATE graph_facts SET valid_to = ? "
+                "WHERE id = ? AND valid_to IS NULL",
+                (int(assertion_ts), int(fact_id)))
+            await self.db.db.commit()
+        except Exception:
+            logger.warning(
+                "graphrag dedup: valid_to write failed — fail-open | "
+                "fact_id=%s", fact_id, exc_info=True)
+        try:
+            from services import provenance
+            if not provenance.provenance_enabled():
+                return
+            ref = await provenance.resolve_source_ref(
+                self.db, provenance.graph_fact_source_ref(chat_id, fact_id))
+            if ref is None:
+                return
+            existing = await provenance.get_provenance_status(
+                self.db, ref) or {}
+            await provenance.set_provenance_status(
+                self.db, ref,
+                origin_status=(existing.get("origin_status") or "unknown"),
+                freshness_status="superseded")
+        except Exception:
+            logger.warning(
+                "graphrag provenance: superseded status failed — fail-open | "
+                "fact_id=%s", fact_id, exc_info=True)
 
     async def _dedup_knn(self, chat_id: int, vector: list[float]) -> list:
         """64.1 + v6 D06 (§9A.3/§18F.4): KNN-дедуп по graph_facts_vec —
