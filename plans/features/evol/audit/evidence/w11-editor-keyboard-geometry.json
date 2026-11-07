@@ -1,0 +1,487 @@
+{
+ "artefact": "W11/EVOL-044: prompt editor vs on-screen keyboard, before/after",
+ "date": "2026-11-08",
+ "candidate_base": "4c943384806702a9eb732dc4b2d0562db7eaf9de",
+ "failing_check_before": "tests/test_webapp_evol_w11_controls.py::TestAuditAndLive::test_live_render_w11_e2e -> '768: editor must stay above the keyboard (bottom=664)'",
+ "root_cause": {
+  "js": "web/app.js _ctlApplyKeyboardMetrics only revealed/capped the FOCUSED field and returned early when no editable element was focused (the W11 check emulates the keyboard without focus)",
+  "css": "web/static/app.css:8755 '.pv--card .pv-text' max-height: min(60dvh, calc(var(--vv-h) - 120px - var(--pv-head-reserve))) — a constant reserve that does not know how deep the field lies on the page",
+  "measured_at_768": "field top=396, natural height=269, visible area 640 -> bottom 664 (24px under the keyboard); the CSS cap 448px was never reached because the content height 269 < 448"
+ },
+ "fix": "web/app.js: _ctlFitEditorsToVisibleArea(visibleH, offsetTop) caps every .ctl-editor-area by the real remainder (visibleH + offsetTop - 12 - rect.top) on each keyboard sync and removes the cap when the keyboard closes",
+ "notes": [
+  "mode 'kb-focus' is the real user path (keyboard opens on focus); 'kb-nofocus' only exists in the synthetic harness",
+  "before/after runs used the same fixture, server stubs and shim (visualViewport heights: 320->384, 360->468, 390->504, 430->559, 667->225, 768->640)"
+ ],
+ "before": [
+  {
+   "vp": "320x640",
+   "mode": "closed",
+   "visibleH": 640,
+   "top": 503,
+   "bottom": 772,
+   "maxH": "384px",
+   "fits": false
+  },
+  {
+   "vp": "320x640",
+   "mode": "kb-nofocus",
+   "visibleH": 384,
+   "top": 503,
+   "bottom": 695,
+   "maxH": "192px",
+   "inline": "",
+   "fits": false
+  },
+  {
+   "vp": "320x640",
+   "mode": "closed",
+   "visibleH": 640,
+   "top": 503,
+   "bottom": 772,
+   "maxH": "384px",
+   "fits": false
+  },
+  {
+   "vp": "360x780",
+   "mode": "closed",
+   "visibleH": 780,
+   "top": 405,
+   "bottom": 674,
+   "maxH": "468px",
+   "fits": true
+  },
+  {
+   "vp": "360x780",
+   "mode": "kb-nofocus",
+   "visibleH": 468,
+   "top": 405,
+   "bottom": 674,
+   "maxH": "276px",
+   "inline": "",
+   "fits": false
+  },
+  {
+   "vp": "390x844",
+   "mode": "closed",
+   "visibleH": 844,
+   "top": 405,
+   "bottom": 674,
+   "maxH": "506.4px",
+   "fits": true
+  },
+  {
+   "vp": "390x844",
+   "mode": "kb-nofocus",
+   "visibleH": 504,
+   "top": 405,
+   "bottom": 674,
+   "maxH": "312px",
+   "inline": "",
+   "fits": false
+  },
+  {
+   "vp": "390x844",
+   "mode": "closed",
+   "visibleH": 844,
+   "top": 405,
+   "bottom": 674,
+   "maxH": "506.4px",
+   "fits": true
+  },
+  {
+   "vp": "430x932",
+   "mode": "closed",
+   "visibleH": 932,
+   "top": 433,
+   "bottom": 702,
+   "maxH": "559.2px",
+   "fits": true
+  },
+  {
+   "vp": "430x932",
+   "mode": "kb-nofocus",
+   "visibleH": 559,
+   "top": 433,
+   "bottom": 702,
+   "maxH": "367px",
+   "inline": "",
+   "fits": false
+  },
+  {
+   "vp": "667x375",
+   "mode": "closed",
+   "visibleH": 375,
+   "top": 333,
+   "bottom": 516,
+   "maxH": "183px",
+   "fits": false
+  },
+  {
+   "vp": "667x375",
+   "mode": "kb-nofocus",
+   "visibleH": 225,
+   "top": 333,
+   "bottom": 429,
+   "maxH": "33px",
+   "inline": "",
+   "fits": false
+  },
+  {
+   "vp": "768x1024",
+   "mode": "closed",
+   "visibleH": 1024,
+   "top": 396,
+   "bottom": 664,
+   "maxH": "614.4px",
+   "fits": true
+  },
+  {
+   "vp": "768x1024",
+   "mode": "kb-nofocus",
+   "visibleH": 640,
+   "top": 396,
+   "bottom": 664,
+   "maxH": "448px",
+   "inline": "",
+   "fits": false
+  },
+  {
+   "vp": "768x1024",
+   "mode": "closed",
+   "visibleH": 1024,
+   "top": 396,
+   "bottom": 664,
+   "maxH": "614.4px",
+   "fits": true
+  },
+  {
+   "vp": "1280x800",
+   "mode": "closed",
+   "visibleH": 800,
+   "top": 350,
+   "bottom": 619,
+   "maxH": "480px",
+   "fits": true
+  },
+  {
+   "vp": "1440x900",
+   "mode": "closed",
+   "visibleH": 900,
+   "top": 327,
+   "bottom": 596,
+   "maxH": "540px",
+   "fits": true
+  }
+ ],
+ "after": [
+  {
+   "vp": "320x640",
+   "mode": "closed",
+   "visibleH": 640,
+   "top": 503,
+   "bottom": 772,
+   "maxH": "384px",
+   "inline": "",
+   "fits": false,
+   "hScroll": false
+  },
+  {
+   "vp": "320x640",
+   "mode": "kb-nofocus",
+   "visibleH": 384,
+   "top": 503,
+   "bottom": 695,
+   "maxH": "192px",
+   "inline": "",
+   "fits": false,
+   "hScroll": false
+  },
+  {
+   "vp": "320x640",
+   "mode": "kb-focus",
+   "visibleH": 384,
+   "top": 180,
+   "bottom": 371,
+   "maxH": "191px",
+   "inline": "191px",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "360x780",
+   "mode": "closed",
+   "visibleH": 780,
+   "top": 405,
+   "bottom": 674,
+   "maxH": "468px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "360x780",
+   "mode": "kb-nofocus",
+   "visibleH": 468,
+   "top": 405,
+   "bottom": 674,
+   "maxH": "276px",
+   "inline": "",
+   "fits": false,
+   "hScroll": false
+  },
+  {
+   "vp": "360x780",
+   "mode": "kb-focus",
+   "visibleH": 468,
+   "top": 187,
+   "bottom": 455,
+   "maxH": "268px",
+   "inline": "268px",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "390x844",
+   "mode": "closed",
+   "visibleH": 844,
+   "top": 405,
+   "bottom": 674,
+   "maxH": "506.4px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "390x844",
+   "mode": "kb-nofocus",
+   "visibleH": 504,
+   "top": 405,
+   "bottom": 674,
+   "maxH": "312px",
+   "inline": "",
+   "fits": false,
+   "hScroll": false
+  },
+  {
+   "vp": "390x844",
+   "mode": "kb-focus",
+   "visibleH": 504,
+   "top": 223,
+   "bottom": 491,
+   "maxH": "268px",
+   "inline": "268px",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "430x932",
+   "mode": "closed",
+   "visibleH": 932,
+   "top": 433,
+   "bottom": 702,
+   "maxH": "559.2px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "430x932",
+   "mode": "kb-nofocus",
+   "visibleH": 559,
+   "top": 433,
+   "bottom": 546,
+   "maxH": "113px",
+   "inline": "113px",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "430x932",
+   "mode": "kb-focus",
+   "visibleH": 559,
+   "top": 433,
+   "bottom": 546,
+   "maxH": "113px",
+   "inline": "113px",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "667x375",
+   "mode": "closed",
+   "visibleH": 375,
+   "top": 333,
+   "bottom": 516,
+   "maxH": "183px",
+   "inline": "",
+   "fits": false,
+   "hScroll": false
+  },
+  {
+   "vp": "667x375",
+   "mode": "kb-nofocus",
+   "visibleH": 225,
+   "top": 333,
+   "bottom": 429,
+   "maxH": "33px",
+   "inline": "",
+   "fits": false,
+   "hScroll": false
+  },
+  {
+   "vp": "667x375",
+   "mode": "kb-focus",
+   "visibleH": 225,
+   "top": 117,
+   "bottom": 213,
+   "maxH": "33px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "768x1024",
+   "mode": "closed",
+   "visibleH": 1024,
+   "top": 396,
+   "bottom": 664,
+   "maxH": "614.4px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "768x1024",
+   "mode": "kb-nofocus",
+   "visibleH": 640,
+   "top": 396,
+   "bottom": 628,
+   "maxH": "232px",
+   "inline": "232px",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "768x1024",
+   "mode": "kb-focus",
+   "visibleH": 640,
+   "top": 396,
+   "bottom": 628,
+   "maxH": "232px",
+   "inline": "232px",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "1280x800",
+   "mode": "closed",
+   "visibleH": 800,
+   "top": 350,
+   "bottom": 619,
+   "maxH": "480px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "1280x800",
+   "mode": "kb-nofocus",
+   "visibleH": 800,
+   "top": 350,
+   "bottom": 619,
+   "maxH": "480px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "1280x800",
+   "mode": "kb-focus",
+   "visibleH": 800,
+   "top": 350,
+   "bottom": 619,
+   "maxH": "480px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "1440x900",
+   "mode": "closed",
+   "visibleH": 900,
+   "top": 327,
+   "bottom": 596,
+   "maxH": "540px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "1440x900",
+   "mode": "kb-nofocus",
+   "visibleH": 900,
+   "top": 327,
+   "bottom": 596,
+   "maxH": "540px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "1440x900",
+   "mode": "kb-focus",
+   "visibleH": 900,
+   "top": 327,
+   "bottom": 596,
+   "maxH": "540px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "390x844",
+   "mode": "fullscreen-closed",
+   "visibleH": 844,
+   "top": 269,
+   "bottom": 793,
+   "maxH": "506.4px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "390x844",
+   "mode": "fullscreen-kb",
+   "visibleH": 504,
+   "top": 269,
+   "bottom": 553,
+   "maxH": "312px",
+   "inline": "",
+   "fits": false,
+   "hScroll": false
+  },
+  {
+   "vp": "768x1024",
+   "mode": "fullscreen-closed",
+   "visibleH": 1024,
+   "top": 191,
+   "bottom": 826,
+   "maxH": "614.4px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  },
+  {
+   "vp": "768x1024",
+   "mode": "fullscreen-kb",
+   "visibleH": 640,
+   "top": 191,
+   "bottom": 611,
+   "maxH": "448px",
+   "inline": "",
+   "fits": true,
+   "hScroll": false
+  }
+ ]
+}

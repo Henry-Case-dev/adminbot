@@ -2729,6 +2729,44 @@
     return Math.abs(scroller.scrollTop - before) > 0;
   }
 
+  // EVOL-044 (W11): поле длинного редактора целиком остаётся в видимой
+  // области и БЕЗ фокуса в поле. Прокрутка (`_ctlRevealFocusedField`) помогает
+  // только когда поле в фокусе, а высота поля задаётся CSS-резервом на шапку
+  // (`--pv-head-reserve`) — этот резерв не знает, насколько глубоко поле лежит
+  // на странице. Поэтому здесь ограничение считается по ФАКТУ: сколько места
+  // реально осталось от верхней кромки поля до низа видимой области. Когда
+  // клавиатура закрыта (`visibleH` = 0), ограничение снимается — работает
+  // обычное правило CSS.
+  function _ctlFitEditorsToVisibleArea(visibleH, offsetTop) {
+    if (typeof document === 'undefined'
+        || typeof document.querySelectorAll !== 'function') return;
+    var nodes = document.querySelectorAll('.ctl-editor-area');
+    var pad = 12;
+    var bottom = (visibleH > 0) ? (visibleH + (offsetTop || 0)) : 0;
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (!el || !el.style || typeof el.getBoundingClientRect !== 'function') continue;
+      // Прошлый замер не должен влиять на новый (и снимается при закрытой
+      // клавиатуре).
+      el.style.removeProperty('max-height');
+      if (!bottom) continue;
+      var rect;
+      try { rect = el.getBoundingClientRect(); } catch (e) { continue; }
+      if (!rect || !isFinite(rect.top) || !isFinite(rect.height)) continue;
+      var avail = Math.floor(bottom - pad - rect.top);
+      if (avail >= rect.height) continue;  // поле уже помещается целиком
+      var minH = 0;
+      try {
+        var cs = getComputedStyle(el);
+        minH = parseFloat(cs && cs.minHeight) || 0;
+      } catch (e2) { minH = 0; }
+      // Места меньше минимальной высоты поля нет — схлопывать в ноль нельзя:
+      // такое поле поднимает прокрутка (см. `_ctlRevealFocusedField`).
+      if (avail < minH) continue;
+      el.style.maxHeight = avail + 'px';
+    }
+  }
+
   // Применение уже полученных метрик видимой области к DOM/CSS и полю в
   // фокусе. Модульная функция (а не метод): путь не зависит от `this`, поэтому
   // одинаково работает из обработчика visualViewport, из шаблона и на стенде.
@@ -2757,7 +2795,14 @@
         root.classList.remove('kb-tight');
       }
     }
-    if (!offset || typeof document === 'undefined') return;
+    if (!offset || typeof document === 'undefined') {
+      // Клавиатуры нет — позиционное ограничение высоты полей снимается.
+      _ctlFitEditorsToVisibleArea(0, 0);
+      return;
+    }
+    // Ограничение высоты редактора считается по фактической позиции поля и
+    // нужно независимо от того, куда попал фокус (фокус мог уйти на кнопку).
+    _ctlFitEditorsToVisibleArea(metrics.visibleH, metrics.offsetTop);
     var el = document.activeElement;
     if (!el || typeof el.closest !== 'function') return;
     var tag = (el.tagName || '').toLowerCase();
@@ -2771,6 +2816,9 @@
     if (!revealed && typeof el.scrollIntoView === 'function') {
       try { el.scrollIntoView({ block: 'nearest' }); } catch (e) { /* no-op */ }
     }
+    // Позиция поля после прокрутки изменилась — ограничение пересчитывается,
+    // чтобы поле не оказалось под клавиатурой уже в новом положении.
+    _ctlFitEditorsToVisibleArea(metrics.visibleH, metrics.offsetTop);
   }
 
   // round 10.26 (ADR-1026-3 D1/D4): исходный Dark Aurora Flow сохранён модулем
