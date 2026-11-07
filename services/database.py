@@ -1781,6 +1781,23 @@ _SCHEMA_VERSION_SLOT_CLAIMS = 42
 
 _SCHEMA_VERSION_PUBLISH_CLAIM = 41
 
+# ── EPIC-MEMORY-COGNITIVE-02 / MEMORY-02 (contracts §5.1; 07.11.2026): v43 ──
+# Ровно один аддитивный шаг эпика — таблица канонической идентичности
+# `mca_entity_canonical` (PK chat_id+entity_type+member_node_id) + 2 индекса,
+# включая частичный UNIQUE (chat_id, entity_type, stable_kind, stable_value)
+# WHERE status='active' AND stable_kind IS NOT NULL (ID-11: один узел ↔ не
+# более одной активной устойчивой идентичности и один stable_value ↔ один узел).
+# DDL — дословно в модуле-владельце (`services.entity_resolver`
+# `ENTITY_CANONICAL_DDL_SQLITE`/`ENTITY_CANONICAL_INDEX_DDL`, IF NOT EXISTS);
+# шаг только применяет его, второй копии выражений здесь нет. Существующие
+# `nodes`/`edges`/`graph_facts` НЕ меняются (ни ALTER, ни DROP), ни одного
+# UPDATE/DELETE существующих строк, backfill в шаге не выполняется (засев
+# `B2-0` — отдельный идемпотентный шаг §5.3), повтор — no-op. PG — no-op
+# (memory-контур SQLite-only, как v28/v30). Обратимость поведенческая: старый
+# код таблицу не читает, все чтения/записи стоят за гейтом
+# `MCA_MEMORY_IDENTITY_ENABLED` (default OFF) — cold git revert безопасен.
+_SCHEMA_VERSION_ENTITY_CANONICAL = 43
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -2820,6 +2837,7 @@ class DatabaseService:
         v14 (`task_jobs`, `mca-01`) и v15 (`mca_events`, `mca-13`)
         добавляются своими фичами отдельными строками."""
         from services import slot_claims  # v42: имя шага у владельца DDL
+        from services import entity_resolver  # v43: DDL идентичности у владельца
         return [
             MigrationStep(1, "graphrag_v2",
                           lambda svc: svc._migrate_graphrag_v2()),
@@ -3032,6 +3050,16 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_SLOT_CLAIMS,
                           slot_claims.SLOT_CLAIMS_MIGRATION_STEP_NAME,
                           lambda svc: svc._migrate_slot_claims_v42()),
+            # EPIC-MEMORY-COGNITIVE-02 / MEMORY-02 (contracts §5.1): v43 —
+            # аддитивная таблица канонической идентичности
+            # `mca_entity_canonical` (PK chat_id+entity_type+member_node_id) +
+            # частичный UNIQUE инварианта ID-11 + индекс canonical_node_id.
+            # DDL — в модуле-владельце (`services.entity_resolver`), шаг его
+            # только применяет. Идемпотентно, повтор — no-op, PG — no-op,
+            # существующие таблицы не меняются, старый код v43 не читает.
+            MigrationStep(_SCHEMA_VERSION_ENTITY_CANONICAL,
+                          entity_resolver.ENTITY_CANONICAL_MIGRATION_STEP_NAME,
+                          lambda svc: svc._migrate_entity_canonical_v43()),
         ]
 
     @staticmethod
@@ -3460,6 +3488,36 @@ class DatabaseService:
                     slot_claims.SLOT_CLAIMS_TABLE)
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_SLOT_CLAIMS}")
+        await self.db.commit()
+
+    async def _migrate_entity_canonical_v43(self) -> None:
+        """v43 (EPIC-MEMORY-COGNITIVE-02 / MEMORY-02, contracts §5.1):
+        таблица канонической идентичности `mca_entity_canonical`.
+
+        Аддитивно: одна новая таблица (PK chat_id+entity_type+member_node_id) +
+        частичный UNIQUE инварианта ID-11 (один узел ↔ не более одной активной
+        устойчивой идентичности, один `stable_value` ↔ один узел) + индекс
+        `(chat_id, canonical_node_id)`. DDL — дословно в модуле-владельце
+        (`services.entity_resolver.ENTITY_CANONICAL_DDL_SQLITE` /
+        `ENTITY_CANONICAL_INDEX_DDL`); шаг применяет именно его, второй копии
+        выражений здесь нет. Существующие `nodes`/`edges`/`graph_facts` не
+        меняются, backfill не выполняется (засев `B2-0` — отдельный
+        идемпотентный шаг §5.3), повтор — no-op.
+
+        PG — no-op: контур памяти SQLite-only (как v28/v30). Обратимость
+        поведенческая: старый код таблицу не читает, все обращения стоят за
+        гейтом `MCA_MEMORY_IDENTITY_ENABLED` (default OFF), поэтому cold git
+        revert безопасен и `DROP` не требуется."""
+        from services import entity_resolver
+        for statement in entity_resolver.ENTITY_CANONICAL_DDL_SQLITE:
+            await self.db.execute(statement)
+        for statement in entity_resolver.ENTITY_CANONICAL_INDEX_DDL:
+            await self.db.execute(statement)
+        await self.db.commit()
+        logger.info("[database] migration v43: %s",
+                    entity_resolver.ENTITY_CANONICAL_TABLE)
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_ENTITY_CANONICAL}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:
