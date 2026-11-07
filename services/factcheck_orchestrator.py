@@ -348,9 +348,16 @@ _RAW_CONTEXT_BLOCK_RE = re.compile(
     r"<(chat_context|system|context|facts|evidence|ocr|draft)\b[^>]*>.*?"
     r"</\1\s*>", re.IGNORECASE | re.DOTALL)
 _RAW_CONTEXT_TAG_RE = re.compile(r"</?[a-zA-Z_][\w:.-]*[^<>]*>")
-_RAW_CONTEXT_MARKER_RE = re.compile(
-    r"\b(chat_context|ocr|vision|transcript|reason_code|gate_version|"
-    r"trace_id|plan_version|temporal_status|as_of)\b\s*[:=]?\s*[\w.,:-]*",
+# Диагностика распознаётся ТОЛЬКО в форме `key=value` / `key: value`
+# (`reason_code=…`, `gate_version: …`, `trace_id=…`, `as_of_utc=…`) — в том
+# числе в JSON-подобной записи `"key": "value"`. Голое словарное слово внутри
+# обычной фразы диагностикой не является: «По OCR текст не читается» и «Моя
+# vision этого вопроса неясна» обязаны остаться нетронутыми (иначе предыдущая
+# жадная версия резала маркер вместе со следующим словом).
+_RAW_CONTEXT_KEYVAL_RE = re.compile(
+    r"[\"']?\b(chat_context|ocr|vision|transcript|reason_code|gate_version|"
+    r"trace_id|plan_version|temporal_status|as_of)[\w-]*[\"']?\s*[:=]\s*"
+    r"(?:\"[^\"\n]*\"|'[^'\n]*'|[^\s,;<>]+)?\s*[,;]?",
     re.IGNORECASE)
 
 
@@ -358,19 +365,21 @@ def _strip_raw_context(text: str) -> str:
     """Срезать сырой контекст/диагностику из ответа модели (fail-open).
 
     Публичный текст короткой реплики не должен содержать XML-обёрток
-    контекста, дампов OCR/транскрипций, reason-кодов, версий гейта и trace
-    id. Чистый текст проходит байт-в-байт."""
+    контекста и диагностических записей `key=value` (дамп OCR/транскрипции,
+    reason-код, версия гейта, trace id, `as_of`). Обычная фраза со словарным
+    словом (`OCR`, `vision`, `as_of`) не диагностика и не режется; чистый
+    текст проходит байт-в-байт."""
     out = str(text or "")
     if not out:
         return ""
     had_dump = bool(_RAW_CONTEXT_BLOCK_RE.search(out)
-                    or re.search(r"</?[a-zA-Z_][\w:.-]*[^<>]*>", out)
-                    or _RAW_CONTEXT_MARKER_RE.search(out))
+                    or _RAW_CONTEXT_TAG_RE.search(out)
+                    or _RAW_CONTEXT_KEYVAL_RE.search(out))
     if not had_dump:
         return out
     out = _RAW_CONTEXT_BLOCK_RE.sub(" ", out)
     out = _RAW_CONTEXT_TAG_RE.sub(" ", out)
-    out = _RAW_CONTEXT_MARKER_RE.sub(" ", out)
+    out = _RAW_CONTEXT_KEYVAL_RE.sub(" ", out)
     out = re.sub(r"\s{2,}", " ", out).strip()
     logger.warning("[factcheck_v2] short_reply: raw context stripped")
     return out
