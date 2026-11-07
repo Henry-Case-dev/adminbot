@@ -338,7 +338,12 @@ def test_editor_page_contains_history_area():
     js = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
     # Мёртвый обработчик второго UI истории удалён вместе с блоком.
     assert "rollbackSpeechBlock" not in js
-    assert "импортирована" in js
+    # re-pin (PVR-04, e2c67f35): канонические подписи источника получили
+    # заглавную букву по VPM (`Вручную`/`Импортирована`/`Из релиза`/...),
+    # дословно как в owner-input 05.11.2026. Пин держится за ЗАПИСЬ карты
+    # подписей (`imported: 'Импортирована'`), а не за любое вхождение слова:
+    # иначе совпадение в комментариях делало бы проверку нечувствительной.
+    assert "imported: 'Импортирована'" in js
     assert "Применить эту версию" in js
     assert "window.confirm" in js
     assert "Активная версия не изменилась" in js

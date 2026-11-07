@@ -125,8 +125,12 @@ class TestReturnGlobal:
         # (loadOverrideMap и др., свой api-трафик), поэтому границей тела
         # метода служит СЛЕДУЮЩИЙ метод, а не applyRoute. Инвариант прежний:
         # ровно одна мутация — DELETE override.
+        # re-pin (UR-F, UR-29.1/29.2): между resetChatOverride и
+        # loadOverrideMap встали методы поверхности «Модули → Время»
+        # (свой api-трафик: GET/POST/DELETE /api/config/time), поэтому
+        # граница тела — ближайший следующий метод `timeScopeChatId`.
         body = _block(JS, "resetChatOverride: async function",
-                      "loadOverrideMap: async function")
+                      "timeScopeChatId: function ()")
         assert "this.api('/api/config/chat/' + encodeURIComponent(item.key)" in body
         assert "method: 'DELETE'" in body
         # Ровно одна мутация — снятие переопределения (не POST значения/

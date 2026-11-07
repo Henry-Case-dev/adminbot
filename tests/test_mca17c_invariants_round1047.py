@@ -95,7 +95,16 @@ def test_no_ddl_catalog_ks_tools_delta():
         # v42 (slot_claims_v42) — бронь слотов расписания (аддитивная таблица
         # services/slot_claims.py, PG no-op). Санкционированный хвост = 42;
         # Δ каталога/KS/тулов по-прежнему нулевой.
-        assert int(row[0]) == 42
+        # EPIC-MEMORY-COGNITIVE-02 / MEMORY-02 (contracts §5.1, 07.11.2026):
+        # v43 (entity_canonical_v43) — аддитивная таблица канонической
+        # идентичности `mca_entity_canonical` (DDL у владельца
+        # services/entity_resolver.py, PG no-op). Санкционированный хвост = 43;
+        # Δ каталога/KS/тулов по-прежнему нулевой.
+        # Точное равенство сохранено; второй assert ловит расхождение
+        # реестра шагов и фактического `user_version` свежей БД.
+        assert int(row[0]) == 43
+        assert int(row[0]) == max(
+            s.version for s in DatabaseService.migration_steps())
     finally:
         loop.run_until_complete(d.close())
         loop.close()

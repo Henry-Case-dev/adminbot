@@ -722,6 +722,31 @@ class TestBounds:
                                              # Иных web/-путей в diff нет.
                                              "web/api/cognitive_map.py",
                                              "web/static/cognitive-map.js",
+                                             # NOTE (PINS-258164, 08.11.2026 — тот же
+                                             # NOTE-санкционный прецедент: allowlist
+                                             # отставал от уже ВЫПУЩЕННОГО кода, не от
+                                             # новой несанкционированной правки):
+                                             # + `web/api/anticliche.py` — round1023 F4
+                                             # `dynamic-anticliche-cache` (ADR-1023-4:
+                                             # свой роутер `/api/anticliche`, global
+                                             # admin; baseline `pre-round1026-a1`
+                                             # старше самого файла);
+                                             # + `web/api/initiative_publications.py` —
+                                             # p0-meme-publication-hotfix (read-only
+                                             # публикационные строки инициативы, RBAC
+                                             # по чату; прецедент
+                                             # mechanism_diagnostics.py — routes.py не
+                                             # тронут);
+                                             # + `web/static/cog-visual.js` —
+                                             # epic-cm-visual-01 (CMV, вошёл в
+                                             # release/2.58.160).
+                                             # Все три файла уже выпущены и отревьюены;
+                                             # иных несанкционированных web/-путей нет
+                                             # (на 2.58.164: ровно 33 web/-пути в diff
+                                             # = 30 прежних + эти 3).
+                                             "web/api/anticliche.py",
+                                             "web/api/initiative_publications.py",
+                                             "web/static/cog-visual.js",
                                              "web/api/mechanism_diagnostics.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
@@ -836,6 +861,18 @@ class TestBounds:
                                     # (живой per-turn resolver + merged diag); изменение
                                     # принадлежит ASAP-3, а не round1026-koordinator'u.
                                     "services/summary_aliases.py",
+                                    # NOTE (PINS-258164, 08.11.2026 — тот же
+                                    # NOTE-санкционный прецедент): UR-26
+                                    # (`4e05aca5`, эпик unified-reply, уже
+                                    # выпущено в 2.58.16x) — новый чистый
+                                    # модуль per-stage наблюдаемости сводок
+                                    # (`summary_stage_events`): события
+                                    # стадий с model/provider/finish/usage/
+                                    # digests/clock/decision-кодами; Δ DDL = 0,
+                                    # Δ каталога = 0. Allowlist отставал от
+                                    # ВЫПУЩЕННОГО кода; иных несанкционированных
+                                    # `services/summary_*` в diff нет.
+                                    "services/summary_stage_events.py",
                                     "services/summary_generator.py"}, \
             summary_changed
 
