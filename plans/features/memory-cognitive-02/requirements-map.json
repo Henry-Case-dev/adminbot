@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
   "source_sha256": "316893a95392d7fba23ef7d96eaa603384a587b7ab82bd29a6350453d9ca0ed1",
-  "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+  "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
   "deployed_commit": "",
   "strict_evidence": false,
   "slice_graph_path": "",
@@ -861,7 +861,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Not covered by this slice: 04.1 needs both times on the general write path, 04.2 needs relative-time resolution in extraction, 04.6 needs the quota path to stop deleting."
     },
     {
       "source_id": "M-MEM-04.2",
@@ -876,7 +877,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Not covered by this slice: 04.1 needs both times on the general write path, 04.2 needs relative-time resolution in extraction, 04.6 needs the quota path to stop deleting."
     },
     {
       "source_id": "M-MEM-04.3",
@@ -890,8 +892,36 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-04.3.** Свежая поправка **не уничтожает** старый факт: записать `supersedes`, relation revision, источник, дату, статус старого, новую» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "services/memory_maintenance.py",
+          "artifact_sha256": "6367DA71E2D439723D6E4409F6109CFDDE703C4B114CC59279EC4CAF13221B62",
+          "observation": "Consolidation always runs and never deletes: the aggregate is inserted with source_ids, sources keep their rows/FTS/vec, forward derived_from plus backward supersedes and freshness_status='superseded' are written for exact clusters, and the module contains no delete_graph_fact call. Vector-only clusters are written unconfirmed/tentative; exact clusters confirmed/verified. Reviewer measured zero delete calls across merge and two review runs, versus the base commit where sources were destroyed."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "services/summary_memory.py",
+          "artifact_sha256": "7672A5DB85F5AB1294AF16E2ED638AB488DAFAAF0859D72D57A827406E918433",
+          "observation": "The write-path policy is a single decision point with six explicit codes; a correction closes the old fact's validity at the correction's assertion time (never 'now'), keeps the old row, sets supersedes and provenance superseded. Similarity alone only emits a dedupe-candidate event and never supersedes or deletes. With the gate OFF the legacy cosine bands are byte-identical to the base."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "tests/test_memory_maintenance.py",
+          "artifact_sha256": "E0C984EDB6D012D26082D13F6112E12A0518BF8986BC21C974561D7470385F5E",
+          "observation": "20 tests including: lineage kept on merge, consolidation still runs with the gate off and stays non-destructive, vector cluster tentative vs exact confirmed, exact duplicates keep both rows with a pointer to the winner, and the OFF vector pair completes review without raising while purge still runs."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds. Its own scenario with an instrumented delete counter recorded zero deletions; four self-made mutations (skip consolidation at OFF, reinstate deletion, vector cluster confirmed, restore the tuple-unpack crash) all returned red. Caveats: MEM-04.3 is bound on supersedes+provenance evidence rather than a separate relation-revision mechanism; MEM-04.4 is live only when the policy gate is enabled; aggregate memory_kind is not inherited, which blocks MEM-04.5."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-04.4",
@@ -905,8 +935,36 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-04.4.** Единая политика `ADD / ENRICH / CONFIRM / SUPERSEDE / CONTRADICT / NOOP` как *семантика решений*, применяемая существующей mem» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "services/memory_maintenance.py",
+          "artifact_sha256": "6367DA71E2D439723D6E4409F6109CFDDE703C4B114CC59279EC4CAF13221B62",
+          "observation": "Consolidation always runs and never deletes: the aggregate is inserted with source_ids, sources keep their rows/FTS/vec, forward derived_from plus backward supersedes and freshness_status='superseded' are written for exact clusters, and the module contains no delete_graph_fact call. Vector-only clusters are written unconfirmed/tentative; exact clusters confirmed/verified. Reviewer measured zero delete calls across merge and two review runs, versus the base commit where sources were destroyed."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "services/summary_memory.py",
+          "artifact_sha256": "7672A5DB85F5AB1294AF16E2ED638AB488DAFAAF0859D72D57A827406E918433",
+          "observation": "The write-path policy is a single decision point with six explicit codes; a correction closes the old fact's validity at the correction's assertion time (never 'now'), keeps the old row, sets supersedes and provenance superseded. Similarity alone only emits a dedupe-candidate event and never supersedes or deletes. With the gate OFF the legacy cosine bands are byte-identical to the base."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "tests/test_memory_maintenance.py",
+          "artifact_sha256": "E0C984EDB6D012D26082D13F6112E12A0518BF8986BC21C974561D7470385F5E",
+          "observation": "20 tests including: lineage kept on merge, consolidation still runs with the gate off and stays non-destructive, vector cluster tentative vs exact confirmed, exact duplicates keep both rows with a pointer to the winner, and the OFF vector pair completes review without raising while purge still runs."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds. Its own scenario with an instrumented delete counter recorded zero deletions; four self-made mutations (skip consolidation at OFF, reinstate deletion, vector cluster confirmed, restore the tuple-unpack crash) all returned red. Caveats: MEM-04.3 is bound on supersedes+provenance evidence rather than a separate relation-revision mechanism; MEM-04.4 is live only when the policy gate is enabled; aggregate memory_kind is not inherited, which blocks MEM-04.5."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-04.5",
@@ -921,7 +979,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Lineage is proven, but the aggregate does not inherit memory_kind, so bot_belief/observation/stable_trait distinction is not guaranteed yet; close before enabling mca-18 typed facts."
     },
     {
       "source_id": "M-MEM-04.6",
@@ -936,7 +995,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Not covered by this slice: 04.1 needs both times on the general write path, 04.2 needs relative-time resolution in extraction, 04.6 needs the quota path to stop deleting."
     },
     {
       "source_id": "M-MEMORY-05",
