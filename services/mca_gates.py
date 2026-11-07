@@ -594,11 +594,12 @@ MEMORY_GATES: dict[str, tuple[bool, str]] = {
     ),
     "MCA_MEMORY_MAINTENANCE_POLICY_ENABLED": (
         False,
-        "OFF → обслуживание памяти как сегодня: слияние эпизодов и review "
-        "склеивают/удаляют строки прежним путём, `_dedup_decide` считает "
-        "cosine-полосы (паритет baseline). ON → решения ADD/ENRICH/CONFIRM/"
-        "SUPERSEDE/CONTRADICT/NOOP по смыслу утверждения, источник не "
-        "удаляется, lineage в source_ids/derived_from/supersedes",
+        "Только политика РЕШЕНИЙ пути записи (`_dedup_decide`). OFF → "
+        "legacy-расчёт: exact-дубль → noop, cosine ≥0.95 → noop, "
+        "[0.85,0.95) → supersede (паритет baseline). ON → ADD/ENRICH/CONFIRM/"
+        "SUPERSEDE/CONTRADICT/NOOP по смыслу утверждения, сходство — только "
+        "диагностика. Обслуживание памяти (слияние эпизодов, lineage, review, "
+        "диагностика дублей) от гейта НЕ зависит и никогда не удаляет строки",
     ),
 }
 

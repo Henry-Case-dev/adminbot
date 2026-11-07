@@ -457,10 +457,10 @@ class TestReviewToggle:
         return svc
 
     @pytest.mark.asyncio
-    async def test_on_merge_works_purge_skipped(self, db, hot_cache, monkeypatch):
+    async def test_on_merge_works_purge_skipped(self, db, hot_cache):
         """ON: review — purge-фазы (G3-G5) скипаются, но рабочая фаза review
-        выполняется и НЕ удаляет память (MEMORY-04: точные дубли дают только
-        кандидата на дедуп — событие `memory_dedupe_candidate`)."""
+        выполняется и НЕ удаляет память (MEMORY-04: дедуп всегда неразрушающ
+        и не зависит от гейта политики решений)."""
         hot_cache.set({RETENTION_KEY: True})
         now = int(time.time())
         # истёкший + unconfirmed-старьё + лог — должны ПЕРЕЖИТЬ review
@@ -473,17 +473,6 @@ class TestReviewToggle:
                                        "chat_history", None, weight=0.4)
         b = await db.insert_graph_fact(-100, "петя купил машину",
                                        "chat_history", None, weight=0.9)
-        # MEMORY-04 F1: гейт ON через реальный резолвер (env + каталоговый слой)
-        import services.hot_config as hot
-        real_get = hot.get
-
-        def fake_get(key, default=None):
-            if key == "flags.memory_maintenance_policy_enabled":
-                return True
-            return real_get(key, default)
-
-        monkeypatch.setenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", "on")
-        monkeypatch.setattr(hot, "get", fake_get)
         svc = self._service(db)
         await svc.review()
         # purge-фазы не сработали

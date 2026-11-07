@@ -44,12 +44,12 @@ def _patch_policy(monkeypatch, *, on: bool) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _policy_on_for_policy_tests(monkeypatch):
-    """Тесты этого модуля проверяют НОВЫЙ путь памяти (гейт ON); OFF-паритет
-    проверяется отдельным тестом, который перекрывает env+hot явно."""
-    monkeypatch.setenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", "on")
-    _patch_policy(monkeypatch, on=True)
-    return True
+def _policy_env_scoped(monkeypatch):
+    """Обслуживание памяти от гейта не зависит: состояние env сбрасывается,
+    чтобы тесты не зависели от окружения прогона. Гейт проверяется только в
+    тестах пути записи (`test_graphrag_memory`) и в явных OFF-сценариях ниже."""
+    monkeypatch.delenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", raising=False)
+    return False
 
 
 class MergeLLM:
@@ -215,15 +215,16 @@ class TestEpisodeMerge:
                    for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_gate_off_is_inert_for_consolidation(self, db, monkeypatch):
-        """F5 (C-3 §3.4.1.1 п.1/п.9, §3.6): гейт OFF (реальный резолвер
-        `mca_gates`, default OFF) → консолидация ИНЕРТНА: ни слияния, ни
-        агрегата, ни lineage, и — главное — НИ ОДНОГО удаления. Разрушающей
-        legacy-ветки в коде нет ни при каком значении гейта («rollback = OFF»
-        больше не уничтожает память)."""
+    async def test_gate_off_still_consolidates_non_destructively(self, db,
+                                                                monkeypatch):
+        """Решение владельца (C-3 §3.4.1.1 п.1/п.9, §3.6): гейт управляет
+        ТОЛЬКО политикой решений пути записи. При гейте OFF (реальный резолвер
+        `mca_gates`, default OFF) консолидация всё равно выполняется — и
+        неразрушающе: агрегат создан, обе исходные строки живы, lineage в обе
+        стороны, ни одного удаления."""
         monkeypatch.delenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", raising=False)
         _patch_policy(monkeypatch, on=False)
-        from services import mca_gates
+        from services import mca_gates, provenance
         assert mca_gates.memory_maintenance_policy_env_enabled() is False
         assert await mca_gates.memory_maintenance_policy_enabled(-100) is False
         first = await db.insert_graph_fact(
@@ -232,23 +233,33 @@ class TestEpisodeMerge:
             -100, "вася спорил с колей", "chat_history", None)
         llm = MergeLLM(response="вася спорил с петей и колей")
         svc, _ = _service(db, llm)
-        assert await svc.merge_episodes() == 0
-        assert llm.calls == []                       # LLM не звали вовсе
+        assert await svc.merge_episodes() == 1        # консолидация РАБОТАЕТ
         cursor = await db.db.execute(
-            "SELECT id, fact, source_ids, supersedes FROM graph_facts ORDER BY id")
+            "SELECT id, fact, source_ids, supersedes, status "
+            "FROM graph_facts ORDER BY id")
         rows = await cursor.fetchall()
-        # обе исходные строки живы, нового агрегата нет
-        assert [(row["id"], row["fact"]) for row in rows] == [
-            (first, "вася спорил с петей"),
-            (second, "вася спорил с колей")]
-        assert all(row["source_ids"] is None and row["supersedes"] is None
-                   for row in rows)
+        facts = [row["fact"] for row in rows]
+        assert facts == ["вася спорил с петей", "вася спорил с колей",
+                         "вася спорил с петей и колей"]      # источники живы
+        derived = rows[-1]
+        assert json.loads(derived["source_ids"]) == [first, second]
+        assert derived["supersedes"] == first                  # backward-указатель
+        assert derived["status"] == "confirmed"                # точный кластер
+        derived_ref = await provenance.resolve_source_ref(
+            db, provenance.graph_fact_source_ref(-100, derived["id"]))
         cursor = await db.db.execute(
-            "SELECT COUNT(*) AS c FROM mca_evidence_links")
-        assert (await cursor.fetchone())["c"] == 0
-        cursor = await db.db.execute(
-            "SELECT COUNT(*) AS c FROM graph_fact_compressions")
-        assert (await cursor.fetchone())["c"] == 0
+            "SELECT link_type, verification FROM mca_evidence_links "
+            "WHERE subject_ref_id = ? ORDER BY link_type", (derived_ref,))
+        links = await cursor.fetchall()
+        assert [(r["link_type"], r["verification"]) for r in links] == [
+            ("derived_from", "verified"), ("derived_from", "verified"),
+            ("supersedes", "verified"), ("supersedes", "verified")]
+        for source_id in (first, second):
+            ref = await provenance.resolve_source_ref(
+                db, provenance.graph_fact_source_ref(-100, source_id))
+            status = await provenance.get_provenance_status(db, ref)
+            assert status is not None
+            assert status["freshness_status"] == "superseded"
 
     @pytest.mark.asyncio
     async def test_absorbed_sources_are_not_merged_again(self, db):
@@ -492,16 +503,18 @@ class TestReview:
             assert status is None or status["freshness_status"] != "superseded"
 
     @pytest.mark.asyncio
-    async def test_gate_off_vec_pair_no_crash_no_glue_purge_runs(self, db,
-                                                                monkeypatch):
-        """F6 (регрессия F4/F5): гейт OFF + vec-пара cosine ≥0.95.
+    async def test_gate_off_vec_pair_runs_non_destructively(self, db,
+                                                            monkeypatch):
+        """F6 (регрессия F4): дефолтный гейт (OFF) + vec-пара cosine ≥0.95.
 
         Контракт: `review()` НЕ бросает (раньше кривой разбор пары
         `for a_id, b_id in sorted(pairs.items())` давал TypeError и ронял
-        review ДО purge/trim), обе строки живы, ни одной записи `review_glue`
-        (удалений нет), а retention-фазы (purge истёкших + усечение лога)
-        по-прежнему выполняются."""
+        review ДО purge/trim) и решение принимается — но НЕразрушающе: строки
+        живы, точный дубль получает указатель/статус вместо удаления,
+        vec-пара даёт кандидата, а retention-фазы по-прежнему выполняются."""
         from unittest.mock import AsyncMock
+
+        from services import mca_events, provenance
 
         monkeypatch.delenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED",
                            raising=False)
@@ -511,7 +524,7 @@ class TestReview:
             -100, "дроны летали низко над полем", "web_content", None, weight=0.9)
         second = await db.insert_graph_fact(
             -100, "дроны летали низко над лесом", "web_content", None, weight=0.3)
-        # + точный дубль: OFF-ветка review тоже обязана быть инертной
+        # + точный дубль: дедуп работает и при дефолтном гейте, но без удаления
         exact_a = await db.insert_graph_fact(
             -100, "петя купил машину", "chat_history", None, weight=0.9)
         exact_b = await db.insert_graph_fact(
@@ -542,17 +555,32 @@ class TestReview:
         rows = await cursor.fetchall()
         assert [row["id"] for row in rows] == [first, second]   # обе живы
         assert [row["weight"] for row in rows] == [0.9, 0.3]     # вес не тронут
-        # точный дубль тоже инертен: обе строки живы, склейки нет
+        # точный дубль: обе строки живы, проигравший помечен, есть указатель
         cursor = await db.db.execute(
             "SELECT id, weight FROM graph_facts "
             "WHERE fact = 'петя купил машину' ORDER BY id")
         dup_rows = await cursor.fetchall()
         assert [row["id"] for row in dup_rows] == [exact_a, exact_b]
         assert [row["weight"] for row in dup_rows] == [0.9, 0.4]
+        loser_ref = await provenance.resolve_source_ref(
+            db, provenance.graph_fact_source_ref(-100, exact_b))
+        loser_status = await provenance.get_provenance_status(db, loser_ref)
+        assert loser_status is not None
+        assert loser_status["freshness_status"] == "superseded"
+        cursor = await db.db.execute(
+            "SELECT supersedes FROM graph_facts WHERE id = ?", (exact_a,))
+        assert (await cursor.fetchone())["supersedes"] == exact_b
         cursor = await db.db.execute(
             "SELECT COUNT(*) AS c FROM graph_fact_compressions "
             "WHERE reason = 'review_glue'")
         assert (await cursor.fetchone())["c"] == 0               # склейки нет
+        # кандидат по vec-паре всё равно эмитится (решение диагностируется)
+        await mca_events.flush_events(db)
+        cursor = await db.db.execute(
+            "SELECT stage FROM mca_events "
+            "WHERE event_name = 'memory_dedupe_candidate' ORDER BY stage")
+        stages = [row["stage"] for row in await cursor.fetchall()]
+        assert "dedupe_candidate:vector_similar" in stages
         # retention-фазы работают: истёкший выброшен, старый лог усечён
         cursor = await db.db.execute(
             "SELECT COUNT(*) AS c FROM graph_facts WHERE id = ?", (expired_id,))

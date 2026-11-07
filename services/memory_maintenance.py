@@ -15,25 +15,27 @@ coalesce — анти-рейс, прецедент summary_scheduler):
    удаления), глобальный выброс истёкших, выброс unconfirmed старше
    GRAPH_UNCONFIRMED_RETENTION_DAYS, усечение лога сжатий.
 
-MEMORY-04 (C-3 §3.4/§3.5, MEM-04.3/04.5/04.6, audit A0 §5): ни слияние, ни
-пересмотр НЕ удаляют исходные факты — ни при каком значении гейта
-(§3.4.1.1 п.1/п.9, §3.6: разрушающая ветка удалена из кода, а не спрятана за
-флагом). `delete_graph_fact` в этом модуле не вызывается вообще; физическое
-удаление остаётся только у явного пользовательского delete/forget и у
-retention-политик (`purge_expired_graph_facts`/`purge_unconfirmed_graph_facts`
-в `database`). Сходство (cosine) — не доказательство и не решение: оно может
-только предложить кандидата на дедуп. Каждое решение пишется явным кодом из
-`MEMORY_DECISIONS` (`summary_memory`): слияние — ADD производного факта +
-lineage в обе стороны (`source_ids`/`derived_from` forward, `supersedes` +
+MEMORY-04 (C-3 §3.4/§3.5, MEM-04.3/04.5/04.6, audit A0 §5): консолидация
+выполняется ВСЕГДА и всегда неразрушающе. Ни слияние, ни пересмотр не удаляют
+исходные факты — ни при каком значении гейта (§3.4.1.1 п.1/п.9, §3.6:
+разрушающая ветка удалена из кода, а не спрятана за флагом).
+`delete_graph_fact` в этом модуле не вызывается вообще; физическое удаление
+остаётся только у явного пользовательского delete/forget и у retention-политик
+(`purge_expired_graph_facts`/`purge_unconfirmed_graph_facts` в `database`).
+Сходство (cosine) — не доказательство и не решение: оно может только предложить
+кандидата на дедуп. Каждое решение пишется явным кодом из `MEMORY_DECISIONS`
+(`summary_memory`): слияние — ADD производного факта + lineage в обе стороны
+(`source_ids`/`derived_from` forward, `supersedes` +
 `freshness_status='superseded'` backward), склейка/vec-дубль — NOOP-наблюдение
 (`memory_dedupe_candidate`).
 
-Гейт спрашивается в `merge_episodes`, `_merge_chat`, `review` и
-`_glue_vec_dups` (per-chat, `mca_gates.memory_maintenance_policy_enabled`,
-default **OFF до приёмки**). OFF → консолидация ИНЕРТНА: ни слияний, ни
-склеек, ни lineage, ни удалений — только honest skip-код в логе; retention-
-фазы review (истёкшие/unconfirmed/усечение лога) работают как раньше. ON →
-путь выше (неразрушающее слияние с lineage + кандидаты на дедуп).
+РАЗДЕЛЕНИЕ ГЕЙТА: `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` управляет ТОЛЬКО
+политикой решений на пути записи (`summary_memory::_dedup_decide`: ADD /
+ENRICH / CONFIRM / SUPERSEDE / CONTRADICT / NOOP против legacy cosine-полос,
+default **OFF до приёмки**). Обслуживание памяти (`merge_episodes`,
+`_merge_cluster`, `review`, `_glue_vec_dups`) от гейта НЕ зависит: слияние,
+lineage, диагностика дублей и retention-фазы работают всегда, а удаления нет
+ни в одном состоянии.
 """
 import asyncio
 import datetime
@@ -116,18 +118,6 @@ def _source_id_list(raw) -> list:
         except (TypeError, ValueError):
             continue
     return out
-
-
-async def _policy_enabled(chat_id: int | None = None) -> bool:
-    """Effective гейт MEMORY-04 (единственный резолвер — `mca_gates`).
-
-    OFF/ошибка резолва → False (fail-closed в паритет baseline, скрытого
-    включения нет)."""
-    try:
-        from services import mca_gates
-        return bool(await mca_gates.memory_maintenance_policy_enabled(chat_id))
-    except Exception:                                  # pragma: no cover
-        return False
 
 
 def _emit_dedupe_candidate(chat_id: int, kind: str, fact_ids,
@@ -753,28 +743,21 @@ class MemoryMaintenanceService:
         """Слияние по всем чатам; потолок GRAPH_EPISODE_MERGE_BATCH кластеров
         за прогон. Возвращает число слитых кластеров.
 
-        Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` спрашивается на КАЖДЫЙ
-        чат (per-chat override, §5.2.1): OFF → консолидация ИНЕРТНА (ни записи,
-        ни удаления; один honest skip-код в логе), ON → неразрушающее слияние
-        с lineage. Разрушающего legacy-пути в коде нет ни при каком значении
-        гейта (§3.4.1.1 п.1/п.9, §3.6).
+        Консолидация выполняется ВСЕГДА и всегда неразрушающе (C-3 §3.4.1.1
+        п.1/п.9, §3.5, §3.6): гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED`
+        управляет ТОЛЬКО политикой решений на пути записи (`summary_memory::
+        _dedup_decide`), а не обслуживанием памяти. Ни одна исходная строка не
+        удаляется ни при каком значении гейта: слияние пишет производный факт
+        с lineage в обе стороны. Разрушающего legacy-пути в коде нет.
         """
         budget = hot.get("limits.graph_episode_merge_batch", settings.GRAPH_EPISODE_MERGE_BATCH)
         merged_total = 0
-        skipped_chats = 0
         for chat_id in await self.db.get_graph_chat_ids():
             if budget <= 0:
                 break
-            if not await _policy_enabled(chat_id):
-                skipped_chats += 1
-                continue
             merged = await self._merge_chat(chat_id, budget)
             budget -= merged
             merged_total += merged
-        if skipped_chats:
-            logger.info(
-                "episode merge: skipped=%d chats | reason=gate_off "
-                "(no writes, no deletions)", skipped_chats)
         if merged_total:
             logger.info("episode merge: merged=%d clusters", merged_total)
         return merged_total
@@ -1050,8 +1033,8 @@ class MemoryMaintenanceService:
         MEMORY-04 (C-3 §3.4.1/§3.5, MEM-04.3/04.5, INV-06) — решение ADD:
         ни одна исходная строка не удаляется НИ ПРИ КАКОМ значении гейта
         (§3.4.1.1 п.1/п.9: разрушающая ветка удалена из кода, а не спрятана
-        за флагом). Гейт OFF сюда не доходит: `merge_episodes` пропускает
-        консолидацию целиком. Lineage пишется в ОБЕ стороны: forward
+        за флагом). Гейт политики сюда не применяется: консолидация
+        выполняется всегда. Lineage пишется в ОБЕ стороны: forward
         `source_ids` + `derived_from`, backward `supersedes` +
         `freshness_status='superseded'` (для точных кластеров — это замена
         дублей, а не сходство).
@@ -1160,55 +1143,43 @@ class MemoryMaintenanceService:
         (2) выброс истёкших — глобальный проход (retention, §3.4.1);
         (3) выброс unconfirmed старше retention; (4) усечение лога сжатий.
 
-        Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` спрашивается на каждый
-        чат: ON — сходство не является ни подтверждением, ни основанием
-        инвалидации, склейка ничего не уничтожает; OFF — дедуп-ветка
-        ИНЕРТНА (ни записи, ни удаления; один honest skip-код), а retention-
-        фазы (2)-(4) продолжают работать: это разные политики.
-        Событие-кандидат эмитится не более одного раза на пару за прогон."""
+        Дедуп-ветка выполняется ВСЕГДА и ничего не уничтожает (C-3 §3.4.1.1
+        п.1/п.9, §3.6): сходство не является ни подтверждением, ни основанием
+        инвалидации. Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` относится
+        ТОЛЬКО к политике решений пути записи (`_dedup_decide`) и на review не
+        влияет. Событие-кандидат эмитится не более одного раза на пару за
+        прогон."""
         now = int(time.time())
         candidates = 0
-        skipped_dedupe = 0
         emitted: set[tuple] = set()
         for chat_id in await self.db.get_graph_chat_ids():
-            policy_on = await _policy_enabled(chat_id)
             groups = await self.db.find_exact_dup_groups(chat_id, now)
-            if policy_on:
-                for group in groups:
-                    ids = sorted({int(row["id"]) for row in group})
-                    # Обе строки живы; проигравший помечается superseded и
-                    # получает указатель победителя (C-3 §3.3/§3.4.1.1 п.3/п.6).
-                    keep = max(group, key=lambda r: (r["weight"], r["id"]))
-                    losers = [int(row["id"]) for row in group
-                              if row["id"] != keep["id"]
-                              and not await self.db.is_fact_protected(
-                                  chat_id, row["fact"])]
-                    if losers:
-                        await self._link_backward_supersede(
-                            chat_id, int(keep["id"]),
-                            [int(keep["id"]), *losers], now,
-                            verification="verified")
-                    for a_idx in range(len(ids)):
-                        for b_idx in range(a_idx + 1, len(ids)):
-                            pair = (ids[a_idx], ids[b_idx])
-                            if pair in emitted:
-                                continue
-                            emitted.add(pair)
-                            _emit_dedupe_candidate(
-                                chat_id, "exact_duplicate", list(pair))
-                            candidates += 1
-            else:
-                skipped_dedupe += len(groups)
+            for group in groups:
+                ids = sorted({int(row["id"]) for row in group})
+                # Обе строки живы; проигравший помечается superseded и
+                # получает указатель победителя (C-3 §3.3/§3.4.1.1 п.3/п.6).
+                keep = max(group, key=lambda r: (r["weight"], r["id"]))
+                losers = [int(row["id"]) for row in group
+                          if row["id"] != keep["id"]
+                          and not await self.db.is_fact_protected(
+                              chat_id, row["fact"])]
+                if losers:
+                    await self._link_backward_supersede(
+                        chat_id, int(keep["id"]),
+                        [int(keep["id"]), *losers], now,
+                        verification="verified")
+                for a_idx in range(len(ids)):
+                    for b_idx in range(a_idx + 1, len(ids)):
+                        pair = (ids[a_idx], ids[b_idx])
+                        if pair in emitted:
+                            continue
+                        emitted.add(pair)
+                        _emit_dedupe_candidate(
+                            chat_id, "exact_duplicate", list(pair))
+                        candidates += 1
             if self.memory._vec_available:
-                # OFF: тот же проход считает пары и пишет honest skip — без
-                # записей и удалений (F4: разбор пары обязан быть корректным
-                # при любом значении гейта).
                 candidates += await self._glue_vec_dups(
-                    chat_id, now, policy_on=policy_on, emitted=emitted)
-        if skipped_dedupe:
-            logger.info(
-                "graph review: dedupe skipped | reason=gate_off "
-                "(no writes, no deletions) | exact_groups=%d", skipped_dedupe)
+                    chat_id, now, emitted=emitted)
         expired = await self.db.purge_expired_graph_facts()
         unconfirmed = await self.db.purge_unconfirmed_graph_facts(
             now, hot.get("limits.graph_unconfirmed_retention_days", settings.GRAPH_UNCONFIRMED_RETENTION_DAYS))
@@ -1220,16 +1191,13 @@ class MemoryMaintenanceService:
             DECISION_NOOP, candidates, expired, unconfirmed, trimmed)
 
     async def _glue_vec_dups(self, chat_id: int, now: int, *,
-                             policy_on: bool = False,
                              emitted: set | None = None) -> int:
-        """66.11 → MEM-04.4: vec-кластеры cosine ≥0.95.
-
-        ON — только КАНДИДАТ на дедуп (событие с id пары, не более одного раза
-        на пару за прогон через `emitted`), без склейки и без удаления:
-        сходство вектора не доказательство. OFF — ИНЕРТНО: пары считаются
-        (диагностика), но ни записи, ни удаления, ни события (один honest
-        skip-код). Потолок _REVIEW_VEC_BATCH фактов чата; защищённые не
-        рассматриваются. Возврат — число пар-кандидатов (ON) либо 0 (OFF)."""
+        """66.11 → MEM-04.4: vec-кластеры cosine ≥0.95 — только КАНДИДАТ на
+        дедуп (событие с id пары, не более одного раза на пару за прогон через
+        `emitted`), без склейки и без удаления: сходство вектора не
+        доказательство. Выполняется при любом значении гейта политики.
+        Потолок _REVIEW_VEC_BATCH фактов чата; защищённые не рассматриваются.
+        Возврат — число пар-кандидатов."""
         rows = await self.db.get_live_graph_facts(chat_id, now)
         rows = [
             row for row in rows[: _REVIEW_VEC_BATCH]
@@ -1256,14 +1224,7 @@ class MemoryMaintenanceService:
                     pairs[key] = max(pairs.get(key, 0.0), cosine)
         seen = emitted if emitted is not None else set()
         count = 0
-        skipped_ids: set[int] = set()
         for (a_id, b_id), cosine in sorted(pairs.items()):
-            if not policy_on:
-                # Инертно: id пары читаются (F4 — форма данных проверяется
-                # при любом значении гейта), но ни записи, ни удаления, ни
-                # события не создаются.
-                skipped_ids.update((int(a_id), int(b_id)))
-                continue
             pair = tuple(sorted((int(a_id), int(b_id))))
             if pair in seen:
                 continue
@@ -1271,11 +1232,6 @@ class MemoryMaintenanceService:
             _emit_dedupe_candidate(
                 chat_id, "vector_similar", list(pair), similarity=cosine)
             count += 1
-        if not policy_on and skipped_ids:
-            logger.info(
-                "graph review: vec dedupe skipped | reason=gate_off "
-                "(no writes, no deletions) | chat_id=%s | ids=%d",
-                chat_id, len(skipped_ids))
         return count
 
     async def shutdown(self) -> None:

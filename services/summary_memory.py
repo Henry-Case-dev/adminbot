@@ -469,8 +469,11 @@ async def _memory_policy_enabled(chat_id: int | None = None) -> bool:
 
     Единственный резолвер — `mca_gates.memory_maintenance_policy_enabled`
     (env AND `flags.memory_maintenance_policy_enabled`, chat override →
-    global hot → default **OFF**). ON → решения по смыслу утверждения;
-    OFF → точный прежний расчёт `_dedup_decide` (включая cosine-полосы).
+    global hot → default **OFF**). Гейт относится ТОЛЬКО к политике решений
+    этого пути записи: ON → решения по смыслу утверждения; OFF → точный
+    прежний расчёт `_dedup_decide` (включая cosine-полосы). Обслуживание
+    памяти (`memory_maintenance`: слияние, lineage, review, диагностика
+    дублей) от гейта не зависит и никогда не удаляет строки.
     Никогда не бросает (решение принимает гейт, здесь только вызов)."""
     from services import mca_gates
     return await mca_gates.memory_maintenance_policy_enabled(chat_id)
