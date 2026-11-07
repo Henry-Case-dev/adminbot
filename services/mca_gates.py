@@ -578,6 +578,62 @@ INCIDENT_GATES: dict[str, tuple[bool, str]] = {
     ),
 }
 
+# ── EPIC-MEMORY-COGNITIVE-02 (C-1 / C-5 §5.2) — оси памяти ──────────────────
+# Тот же закон, что у KILL_SWITCHES: env-only аварийный рубильник + каталоговая
+# product-ось, резолв per-call, никогда не бросает. В `KILL_SWITCHES` намеренно
+# НЕ добавляются: тот словарь 1:1 связан с `module_registry.MODULE_ENV_GATES`
+# тестами M2, а регистрация `ParamSpec(pg_id="flags.…")` — отдельная ступень
+# релиза (C-5 §5.2). Дефолт — **OFF до приёмки** (скрытого «включено по
+# умолчанию» нет): OFF = точный паритет baseline, новые таблицы инертны.
+MEMORY_GATES: dict[str, tuple[bool, str]] = {
+    "MCA_MEMORY_IDENTITY_ENABLED": (
+        False,
+        "OFF → идентичность как сегодня: разрешение идёт точным путём по "
+        "имени, `mca_entity_canonical` не читается и не пишется, "
+        "redirect/засев не выполняются (паритет baseline)",
+    ),
+}
+
+#: Env-имя реестра → ключ каталогового тумблера (per-chat наследование).
+MEMORY_GATE_CATALOG_KEYS: dict[str, str] = {
+    "MCA_MEMORY_IDENTITY_ENABLED": "flags.memory_identity_enabled",
+}
+
+
+def memory_identity_env_enabled() -> bool:
+    """Env-половина `MCA_MEMORY_IDENTITY_ENABLED` (аварийный OFF, default OFF)."""
+    return _env_flag("MCA_MEMORY_IDENTITY_ENABLED",
+                     MEMORY_GATES["MCA_MEMORY_IDENTITY_ENABLED"][0])
+
+
+async def memory_identity_enabled(chat_id: int | None = None) -> bool:
+    """Effective гейт C-1 (`env AND flags.memory_identity_enabled`).
+
+    * env-emergency OFF важнее каталога (аварийное отключение без рестарта);
+    * `chat_id=None` (владельческий/глобальный вызов, §5.2.1): читается только
+      `hot.get` (chat-override не применяется), исключения нет;
+    * иначе — существующий `chat_params.get_chat_param`
+      (chat override → global hot → default), никакого второго механизма.
+
+    OFF `MCA_MEMORY_IDENTITY_ENABLED`/`flags.memory_identity_enabled` →
+    `False` (никаких скрытых включений). Никогда не бросает.
+    """
+    if not memory_identity_env_enabled():
+        return False
+    key = MEMORY_GATE_CATALOG_KEYS["MCA_MEMORY_IDENTITY_ENABLED"]
+    if chat_id is None:
+        try:
+            from services import hot_config as hot
+            return bool(hot.get(key, False))
+        except Exception:      # pragma: no cover — защитная ветка
+            return False
+    try:
+        from services import chat_params
+        return bool(await chat_params.get_chat_param(int(chat_id), key, False))
+    except Exception:          # pragma: no cover — защитная ветка
+        return False
+
+
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 
