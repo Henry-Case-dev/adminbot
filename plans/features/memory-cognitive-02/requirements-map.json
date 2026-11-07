@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
   "source_sha256": "316893a95392d7fba23ef7d96eaa603384a587b7ab82bd29a6350453d9ca0ed1",
-  "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+  "candidate_commit": "2141b020",
   "deployed_commit": "",
   "strict_evidence": false,
   "slice_graph_path": "",
@@ -1025,8 +1025,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-05.1.** Совместить, но не слить воедино: (а) оперативный локальный контекст последнего общения, (б) точные эпизоды и последовательност» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-05.2",
@@ -1040,8 +1061,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-05.2.** Разрешать реальные связи «кто кому отвечает», reply/quote/mention/forward и временные последовательности. Для определения адре» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-05.3",
@@ -1056,7 +1098,29 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ],
+      "pending_reason": "Tone/irony/argument vs meme is not derived from the message sequence yet; only the modality rule is proven."
     },
     {
       "source_id": "M-MEM-05.4",
@@ -1071,7 +1135,29 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ],
+      "pending_reason": "The bot's own speech is proven at type level, but the mca_bot_outputs channel is not wired into answers yet."
     },
     {
       "source_id": "M-MEM-05.5",
@@ -1085,8 +1171,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-05.5.** Из фото, GIF, sticker, video, voice, альбомов и превью переносить в память **фактически выполненную** выжимку с идентификаторо» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-05.6",
@@ -1101,7 +1208,29 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ],
+      "pending_reason": "The repost + 'look at this video' linkage is not implemented; only the absence of duplicate ingest/vision is proven."
     },
     {
       "source_id": "M-MEM-05.7",
@@ -1115,8 +1244,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-05.7.** Полезность опыта: использовать действующие `mca_experience`, lesson/retrieval и доказанные feedback outcomes; не создавать веч» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ]
     },
     {
       "source_id": "M-MEMORY-06",
