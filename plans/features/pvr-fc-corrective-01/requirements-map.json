@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-pvr-fc-corrective-01.md",
   "source_sha256": "671e6711ca9408501caeb306aa5feb37bb9f7c54d48c15410915567eac8ed078",
-  "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+  "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -275,8 +275,33 @@
       "acceptance": "Иерархия выстроена заново, а не подправлена отступами: спокойный премиальный SaaS-стиль плотности и типографики уровня профессиональных IDE/Linear, без пестроты, случайных пилюль, пяти одинаковых кнопок и нагромождения технических статусов; перед UI-работой зафиксирована Visual Preservation Map (что сохраняется, что уточняется, что переносится, что перерисовывается).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        }
+      ]
     },
     {
       "source_id": "M00104_PVR-04_2_1",
@@ -290,8 +315,33 @@
       "acceptance": "Панель истории занимает 420-540 px внутри viewport, прокручивается целиком внутри себя, имеет неподвижную понятную шапку и аккуратные разделители; основной редактор остаётся читаемым, на узком desktop допускается центральный диалог, а вложенных панелей с уезжающими кнопками нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        }
+      ]
     },
     {
       "source_id": "M00106_PVR-04_2_2",
@@ -305,8 +355,33 @@
       "acceptance": "Шапка панели содержит «История версий», название промпта, область («Этот чат»/«Глобально»), поиск по версиям и короткую справку о наследовании; ниже один блок «Сейчас действует» с происхождением и датой, затем хронологический список редакций, а не перемешанный лог.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        }
+      ]
     },
     {
       "source_id": "M00108_PVR-04_2_3",
@@ -320,8 +395,33 @@
       "acceptance": "Строка редакции показывает дату/время в TZ чата, источник («Вручную»/«Из релиза»/«Импортирована»/«Историческая»), автора когда известен, краткое имя и максимум один уместный статус («Действует»/«Базовая»/«Недоступна»); дублирующих массивов одинаковых кнопок нет, а selection явно отличается от active.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        }
+      ]
     },
     {
       "source_id": "M00110_PVR-04_2_4",
@@ -335,8 +435,33 @@
       "acceptance": "Клик по строке открывает просмотр без изменения дословного текста и операции в деталях: «Сравнить с текущей», «Скопировать», primary «Применить» только если версия отличается от действующей, далее «Назначить базовой» и «Скопировать в глобальные» в меню «Действия»; рядом тонкий список событий применения, недоступные действия показывают причину.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        }
+      ]
     },
     {
       "source_id": "M00114_PVR-04_3_1",
@@ -350,8 +475,33 @@
       "acceptance": "Мобильная история — fullscreen sheet с собственной шапкой, «Назад», нативной прокруткой и корректным safe area, без двухколоночных таблиц и горизонтального скролла; версия открывается в detail-screen внутри sheet, кнопки не перекрываются клавиатурой, CTA в фиксированном футере не мешает тексту, ширины 360/390/768/1366/1536 проверены визуально, а не только DOM-тестами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        }
+      ]
     },
     {
       "source_id": "M00125_PVR-05_1",
@@ -1536,8 +1686,33 @@
       "acceptance": "Время в истории показывается в поясе чата через ChatClock из UNIFIED-REPLY, без нового механизма часов и без второго источника времени.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        }
+      ]
     },
     {
       "source_id": "M00232_CTX",
@@ -2028,23 +2203,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2064,23 +2243,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2100,23 +2283,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2136,23 +2323,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2172,23 +2363,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2204,9 +2399,33 @@
       "acceptance": "Для промпта, приходящего из кода, интерфейс показывает честный read-only статус и причину недоступности редактирования вместо активного поля ввода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "Read-only status exists only in markup; no suite exercises it yet; fix in progress."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        }
+      ]
     },
     {
       "source_id": "L00100",
@@ -2220,8 +2439,33 @@
       "acceptance": "Просмотр и открытие истории не меняют байты текста: отсутствуют auto-format, trim и любая нормализация при отображении и копировании.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        }
+      ]
     },
     {
       "source_id": "L00102",
@@ -2239,23 +2483,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2275,23 +2523,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2311,23 +2563,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2347,23 +2603,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2383,23 +2643,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2415,9 +2679,33 @@
       "acceptance": "Используются design tokens приложения, состояния hover/focus, навигация с клавиатуры, реальные aria-label, touch-target не меньше 44px и учтён reduced motion.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "Mobile panel buttons are 34px instead of the required 44px; fix in progress."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        }
+      ]
     },
     {
       "source_id": "L00121",
@@ -2435,23 +2723,27 @@
       "evidence": [
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
-          "observation": "Node suite green (PVR-UI-STATE-OK): selection survives «Назад» (selectedId separate from detailMode), historyCount is not a false total when has_more is set, cache remount does not fabricate a count, empty search state is honest about partial scope."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
           "kind": "test",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
-          "ref": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "84A550404C3401DB3C94CC7B52BD1CFA2E7DC397C58BC6B362C7FB51E839AF02",
-          "observation": "e2e failures=0 across 5 widths with 50 screenshots; the report embeds the candidate SHA. Reviewer reproduced the whole set (50/50) and independently measured 360/1536: no horizontal scroll, panel 520px, CTA in viewport, rows >=44px, honest drift/unmatched/503 states intact."
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
         },
         {
           "kind": "review",
-          "candidate_commit": "7b5ca47e962c78574a637635297d7cddc9c00cc7",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
           "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
-          "observation": "Independent Reviewer confirmed all four earlier blockers are genuinely fixed with its own probes and mutations (selection, evidence reproducibility, honest partial search, honest history count). Three narrow items remain open in this slice: chat-timezone timestamps, 44px mobile panel buttons, and a test for the read-only status."
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2785,12 +3077,28 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
-          "type": "test",
-          "ref": "tests/ui_prompt_version_card_e2e.py @ 9889d6e0: блок 11 «черновик: индикатор, подтверждение при смене чата, сохранение» (data-pv-dirty, scope-панель, диалог подтверждения); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: черновик переживает смену чата",
-          "observation": "e2e #11: ввод «ДОПИСАНО» даёт индикатор несохранённого черновика; смена чата спрашивает подтверждение (никакого автосохранения); после отмены подтверждения введённый текст остаётся в редакторе — черновик не потерян.",
-          "artifact_path": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "5408e7664e2c55b27142ddd3622df68f63191dbd230430ee6ac1ae9b032606a9"
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
@@ -2809,20 +3117,28 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
-          "type": "test",
-          "ref": "tests/ui_prompt_version_card_e2e.py @ 9889d6e0: блок 5 «доступность действий: причины вместо кнопок» + блок 7 «Назначить базовой не меняет действующий текст» с B3-мутацией (assign дополнительно активирует — обязана падать); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: назначение не активирует",
-          "observation": "e2e #5: retired/несовместимые ревизии показывают «Недоступна» с причиной вместо кнопки (activate=false); e2e #7: «Назначить базовой» выводит «Базовая версия изменена, действующий текст пока прежний», уходит ровно один POST /baseline без POST /activate (мутация B3 падает), активная ревизия и текст редактора не изменились.",
-          "artifact_path": "tests/ui_prompt_version_card_e2e.py",
-          "artifact_sha256": "5408e7664e2c55b27142ddd3622df68f63191dbd230430ee6ac1ae9b032606a9"
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/ui_prompt_version_card_e2e.py",
+          "artifact_sha256": "9A634D63B7FF88C8DDC4BC90D758DFD0AC3293067C1A6FFE14EC59A6178C0651",
+          "observation": "e2e failures=0, checks=1220, seven widths, 72 shots; reviewer reproduced counts and filename set; covers chat-tz times, 44px targets, read-only banner, honest states.",
+          "artifact_path": "tests/ui_prompt_version_card_e2e.py"
         },
         {
-          "candidate_commit": "9889d6e06aff0910afd3b340323d3182998d4244",
-          "type": "test",
-          "ref": "tests/js/pvr_ui_state_test.js @ 9889d6e0: § 1 origin-метки из effective-контракта (без смешивания «Активная»/«Действует глобальная версия»/«Из кода») + § 7 retired/incompatible читаемы, но не активируемы (unit #7); review pvr/ui @ 9889d6e0 Approved — live-проба ревьюера: labels not mixed",
-          "observation": "Метки статуса берутся из effective_* контракта и не смешиваются: chat_override → «Действует в этом чате», global → «Действует глобальная версия», code → «Из кода»; retired/incompatible ревизии показываются как читаемые, но без активирующих действий.",
-          "artifact_path": "tests/js/pvr_ui_state_test.js",
-          "artifact_sha256": "ef32160757c33b8e7124ea84a4b70e9cfe8f0c01d978bf3de34eae8409d81b45"
+          "kind": "test",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "tests/js/pvr_ui_state_test.js",
+          "artifact_sha256": "AE573377D716820856CF66A5A5213E596F99F37F0366A873D9163BCA55661048",
+          "observation": "Node suite green: selection survives back, history count never a false total, cache remount honest, partial search scope stated.",
+          "artifact_path": "tests/js/pvr_ui_state_test.js"
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+          "ref": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "observation": "Reviewer Approved after three rounds; own probes (503 tz degradation, actions menu measurement) and three mutations red; PVR-06/06.1/C3.11 remain open.",
+          "artifact_sha256": "03AAD762555B33FA2A8709E75B14BAB36FCEC24BF5ED7DE122E5972CEEEF6D2E",
+          "artifact_path": "plans/features/pvr-fc-corrective-01/requirements-map.json"
         }
       ]
     },
