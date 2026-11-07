@@ -658,6 +658,73 @@ class TestAmbiguousContextIntegrity:
         assert svc.check_claim_calls == [] and svc.envelope_calls == []
 
 
+class TestRawContextStrippedOnlyAsDiagnostic:
+    """RCI-04/fix: срезается только НАСТОЯЩАЯ диагностика.
+
+    Регрессия whole-release review: прежняя жадная регулярка съедала маркер
+    вместе со следующим словом — «По OCR текст не читается, уточни тезис» →
+    «По не читается, уточни тезис», «Моя vision этого вопроса неясна» →
+    «Моя вопроса неясна». Диагностикой считается ТОЛЬКО маркированный блок
+    (`<chat_context>…</chat_context>` и подобные) и запись `key=value` /
+    `key: value`; голое словарное слово внутри обычной фразы остаётся как есть.
+    """
+
+    @pytest.mark.parametrize("sentence", [
+        "По OCR текст не читается, уточни тезис",
+        "Моя vision этого вопроса неясна",
+        "as_of и score здесь обычные слова, уточни тезис",
+    ])
+    def test_ordinary_sentence_comes_back_unchanged(self, sentence):
+        """(a) Обычная фраза со словарным словом — байт-в-байт без изменений."""
+        assert orch._strip_raw_context(sentence) == sentence
+
+    def test_genuine_marked_dump_is_removed(self):
+        """(b) Маркированный блок + key=value снимаются, живой текст остаётся."""
+        dump = ('<chat_context note="болтовня чата">фон: сообщение 1 — Вася'
+                '</chat_context> reason_code=multiple_dispute_candidates '
+                'gate_version=v2 уточни тезис')
+        out = orch._strip_raw_context(dump)
+        for bad in ("chat_context", "фон:", "reason_code",
+                    "multiple_dispute_candidates", "gate_version", "v2",
+                    "<", ">"):
+            assert bad not in out, bad
+        assert out == "уточни тезис"
+
+    def test_key_value_and_key_colon_forms_are_removed(self):
+        """(b) `key=value` и `key: value` (включая `as_of_utc`, `trace_id`)."""
+        for dump in ("reason_code=multiple_dispute_candidates, уточни тезис",
+                     "gate_version: v2, уточни тезис",
+                     "trace_id=abc123, уточни тезис",
+                     "as_of_utc=2026-11-07T10:00:00Z, уточни тезис"):
+            out = orch._strip_raw_context(dump)
+            assert out == "уточни тезис", (dump, out)
+
+    @pytest.mark.asyncio
+    async def test_clean_reply_passes_byte_for_byte(self, v2_on, monkeypatch):
+        """(c) Чистая реплика доходит до Telegram без единого изменения."""
+        clean = ("Ты про ролик с майнкрафтом или про вакцину? Какой именно "
+                 "тезис проверить?")
+        llm, svc, bot, cache = _short_reply_fixture(monkeypatch, reply=clean)
+        await orch.run_factcheck(_req(SHORT_TARGET), service=svc,
+                                 db=FakeDB(rows=_story_rows()), bot=bot,
+                                 cache=cache)
+        assert bot.sent[0]["text"] == clean
+
+    @pytest.mark.asyncio
+    async def test_pure_keyval_dump_falls_back_to_honest_phrase(
+            self, v2_on, monkeypatch):
+        """(c) Ответ-дамп целиком (только `key=value`) → честная готовая
+        фраза, а не пустая публикация."""
+        from services.smartmodule_phrases import FACTCHECK_CLARIFY_PHRASES
+        llm, svc, bot, cache = _short_reply_fixture(
+            monkeypatch,
+            reply="reason_code=multiple_dispute_candidates gate_version=v2")
+        await orch.run_factcheck(_req(SHORT_TARGET), service=svc,
+                                 db=FakeDB(rows=_story_rows()), bot=bot,
+                                 cache=cache)
+        assert bot.sent[0]["text"] in FACTCHECK_CLARIFY_PHRASES
+
+
 # ── Egress-whitelist (06B) ───────────────────────────────────────────────────
 
 class TestEgressWhitelist:

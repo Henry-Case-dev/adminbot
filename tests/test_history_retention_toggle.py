@@ -174,6 +174,10 @@ class TestCatalogSeed:
         missing -= {"SMART_CACHE_ENABLED", "SMART_CACHE_TTL_SECONDS",
                     "SMART_CACHE_MAX_ROWS", "CHAT_DEDUP_ENABLED",
                     "CHAT_DEDUP_TTL_SECONDS"}
+        # MENU-01 (f8f11a01): three env-only Mini App settings read by
+        # handlers/menu.py; deliberately absent from the chat-scoped REGISTRY.
+        missing -= {"MINI_APP_DEEP_LINK_MODE", "MINI_APP_REGISTRATION_CONFIRMED",
+                    "MINI_APP_SHORT_NAME"}
         # EVOL-032 §4.3 (9dc6fba9): VIDEO_INTENT_* — env-only общая
         # конфигурация VideoIntent (Settings + hot-хук limits.video_intent_*),
         # не per-chat параметр каталога.
