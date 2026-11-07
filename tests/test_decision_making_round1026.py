@@ -925,7 +925,7 @@ class TestBounds:
         assert len(pc.TAB_RULES) == 22
 
     def test_version_unchanged(self):
-        assert APP_VERSION == "2.58.162"
+        assert APP_VERSION == "2.58.163"
 
     def test_canon_twelve_tools(self):
         assert len(TOOL_CALLING_TOOLS) == 16
