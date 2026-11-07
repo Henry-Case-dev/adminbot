@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 /* HOTFIX10 round 10.25 (ADR-1025-18) — регресс:
  *   A — откат стекла: `[data-glass-surface]` — единственная цель; `dispose`
  *       удаляет ВСЕ `.ps-glass*`/`data-lg-*` (идемпотентно), функциональные
@@ -272,7 +272,7 @@ function token(name) {
 
 // ═══ G. Флаги / версия ═════════════════════════════════════════════════════
 {
-  assert.ok(/APP_VERSION = "2\.58\.161"/.test(SETTINGS), 'G: APP_VERSION 2.58.34');
+  assert.ok(/APP_VERSION = "2\.58\.162"/.test(SETTINGS), 'G: APP_VERSION 2.58.34');
   assert.ok(/UI_LIQUID_GLASS_LIB: ClassVar\[bool\] = _env_bool\(\s*"UI_LIQUID_GLASS_LIB", False\)/
     .test(SETTINGS), 'G: флаг default OFF');
   assert.ok(ROUTES.indexOf('UI_LIQUID_GLASS_LIB') >= 0, 'G: флаг доставлен');
