@@ -4678,6 +4678,7 @@ class MemoryManager:
         speaker = target_user if target_user else None
         speaker_author_id = None
         attribution = None
+        method_ref = None
         if declared_method is None and origin != "user_memory" \
                 and tg_message_id is not None:
             try:
@@ -4695,7 +4696,7 @@ class MemoryManager:
         elif origin == "user_memory":
             method = "self_report"
         elif attribution is not None and speaker_author_id is not None:
-            method = await self._attribution_method_by_uid(
+            method, method_ref = await self._attribution_by_author_uid(
                 chat_id, subject, speaker_author_id, origin, speaker, canons)
         else:
             method = provenance.classify_attribution_method(
@@ -4706,7 +4707,7 @@ class MemoryManager:
         subject_ref_id = None
         if method in ("self_report", "third_party") \
                 and kind != "world_knowledge":
-            ref = await provenance.resolve_subject_ref(
+            ref = method_ref or await provenance.resolve_subject_ref(
                 self.db, chat_id, subject, canon=self._canon_fact_name)
             subject_ref_id = await provenance.resolve_source_ref(self.db, ref)
         channel = "import" if origin == "history_import" else "live"
@@ -4720,10 +4721,12 @@ class MemoryManager:
             await provenance.update_fact_provenance_columns(
                 self.db, fact_id=fact_id, subject_ref_id=subject_ref_id)
 
-    async def _attribution_method_by_uid(self, chat_id, subject, author_uid,
-                                         origin, speaker, canons) -> str:
+    async def _attribution_by_author_uid(self, chat_id, subject, author_uid,
+                                         origin, speaker, canons):
         """Способ субъект-атрибуции по устойчивому uid говорящего (§2.2.1).
 
+        Возвращает `(method, subject_ref)` — резолв субъекта нужен и для
+        решения, и для `subject_ref_id`, поэтому выполняется один раз.
         Автор сообщения совпал с субъектом → `self_report`; субъект — другой
         участник чата → `third_party` (пересказ чужого мнения); субъект не
         участник (новость/этимология) → прежняя классификация
@@ -4735,13 +4738,13 @@ class MemoryManager:
         if ref.resolution == "resolved":
             try:
                 if int(ref.entity_id) == int(author_uid):
-                    return "self_report"
+                    return "self_report", ref
             except (TypeError, ValueError):              # pragma: no cover
                 pass
-            return "third_party"
+            return "third_party", ref
         return provenance.classify_attribution_method(
             origin=origin, subject=subject, speaker=speaker,
-            canon=self._canon_fact_name, participants=canons)
+            canon=self._canon_fact_name, participants=canons), ref
 
     async def _participant_display_canons(self, chat_id: int) -> dict[str, str]:
         """C4/T-795 (spec §3.C4.1-2): «карта дисплеев» чата для привязки
