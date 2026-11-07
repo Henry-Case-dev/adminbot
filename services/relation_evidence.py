@@ -574,7 +574,8 @@ async def _load_entity_rows(db, refs: dict[int, dict]) -> dict[tuple, dict]:
         cursor = await db.db.execute(
             "SELECT id, chat_id, user_id, is_forward, forward_source, "
             "forward_author_id, reply_to_id, reply_to_author_id, "
-            "quote_author_id, quote_text, timestamp, author_name "
+            "quote_author_id, quote_text, timestamp, author_name, "
+            "text, caption "
             f"FROM smart_messages WHERE id IN ({placeholders})", message_ids)
         for row in await cursor.fetchall():
             data = dict(row)
@@ -649,7 +650,8 @@ def _assertion_mode(origin_class: OriginClass, entity_type: str | None,
 
 
 def _source_view(link: dict, ref: dict, row: dict, *,
-                 attribution_on: bool = False) -> RelationSourceView:
+                 attribution_on: bool = False,
+                 addressee_resolution: "Any" = None) -> RelationSourceView:
     entity_type = str(ref.get("entity_type") or "")
     settled_at = int(link.get("established_at") or 0) or int(time.time())
     origin_class = _origin_class(entity_type, row, link)
@@ -664,9 +666,11 @@ def _source_view(link: dict, ref: dict, row: dict, *,
     if attribution_on and entity_type == "message" and row:
         # MEMORY-05 (C-8 §8.2/§8.4): «кто сказал / кому» из реальных ролей
         # сообщения. Содержание пересылки принадлежит первоисточнику —
-        # переславший автором не становится (R-9); адресат не выдумывается.
+        # переславший автором не становится (R-9); адресат не выдумывается,
+        # неоднозначность видна в карточке.
         attribution = memory_attribution.attribute_message_row(
-            row, chat_id=row.get("chat_id"))
+            row, chat_id=row.get("chat_id"),
+            addressee=addressee_resolution)
         if attribution is not None:
             sender = speaker
             speaker = attribution.attributed_author
@@ -763,9 +767,19 @@ async def edge_evidence(db, *, chat_id: int, edge_id) -> dict:
             continue
         row = rows.get((str(ref.get("entity_type")),
                         str(ref.get("entity_id"))))
+        addressee = None
+        if attribution_on and str(ref.get("entity_type")) == "message" and row:
+            # Полная цепочка §8.2 (reply → thread → alias chat scope) для
+            # карточки: неоднозначность показывается, получатель не выдуман.
+            try:
+                addressee = await memory_attribution.addressee_for_message(
+                    db, chat_id=chat_id, row=row)
+            except Exception:                             # pragma: no cover
+                addressee = None
         try:
             sources.append(_source_view(link, ref, row or {},
-                                        attribution_on=attribution_on))
+                                        attribution_on=attribution_on,
+                                        addressee_resolution=addressee))
         except ValueError:
             logger.debug("[relation_evidence] source view rejected | link=%s",
                          link.get("link_id"), exc_info=True)

@@ -205,6 +205,7 @@ def attribute_statement(
         attribution_method: str | None = None,
         provenance_channel: str | None = None,
         origin: str | None = None,
+        addressee: mc.AddresseeResolution | None = None,
 ) -> mc.StatementAttribution:
     """Единая атрибуция запомненного утверждения (§8.2…§8.4).
 
@@ -215,6 +216,9 @@ def attribute_statement(
     `is_forward`/`forward_source` включают режим пересылки: `content_author`
     заполняется ТОЛЬКО первоисточником; без него — `None` (unknown), никогда
     переславшим.
+
+    `addressee` можно передать готовым (`addressee_for_message` для полной
+    цепочки reply/thread/alias); иначе он выводится из переданных сигналов.
     """
     forwarded = bool(is_forward) or bool(str(forward_source or "").strip())
     speaker_text = _identity_label(speaker) if speaker is not None else None
@@ -233,7 +237,7 @@ def attribute_statement(
         content_author = speaker_text
         content_author_user_id = (int(speaker_user_id)
                                   if speaker_user_id is not None else None)
-    addressee = resolve_addressee(
+    addressee = addressee or resolve_addressee(
         reply_target=reply_target, thread_target=thread_target,
         chat_candidates=chat_candidates,
         semantic_candidates=semantic_candidates)
@@ -302,6 +306,7 @@ def attribute_message_row(
         joking: bool = False,
         attribution_method: str | None = None,
         provenance_channel: str | None = None,
+        addressee: mc.AddresseeResolution | None = None,
 ) -> mc.StatementAttribution | None:
     """Атрибуция из строки `smart_messages` (роли/time — существующие колонки).
 
@@ -322,13 +327,10 @@ def attribute_message_row(
     quote_author = _row_get(row, "quote_author_id")
     quoted = (quote_author is not None
               or bool(str(_row_get(row, "quote_text") or "").strip()))
-    reply_id = _row_get(row, "reply_to_id")
     reply_author = _row_get(row, "reply_to_author_id")
-    if reply_author is None and reply_id is not None:
+    if reply_author is None:
         # Автор цели reply дочитывается вызывающим (см. `addressee_for_message`).
         reply_author = reply_target
-    else:
-        reply_author = reply_author if reply_author is not None else reply_target
     return attribute_statement(
         chat_id=int(owner),
         speaker=str(_row_get(row, "author_name") or "").strip() or None,
@@ -352,7 +354,8 @@ def attribute_message_row(
         joking=joking,
         origin=origin,
         attribution_method=attribution_method,
-        provenance_channel=provenance_channel)
+        provenance_channel=provenance_channel,
+        addressee=addressee)
 
 
 async def message_attribution(

@@ -277,6 +277,57 @@ async def test_forward_row_and_edge_card_use_original_author(tmp_path,
         await d.close()
 
 
+async def _seed_edge(d):
+    """Узлы + ребро чата (без оснований) — общая заготовка карточки."""
+    sid = await d.upsert_node(CHAT, "Петя", "fact", origin="chat_history")
+    oid = await d.upsert_node(CHAT, "Маша", "fact", origin="chat_history")
+    await d.upsert_edge(sid, oid, "знает", origin="chat_history")
+    cursor = await d.db.execute(
+        "SELECT id FROM edges WHERE chat_id = ? AND source_id = ? "
+        "AND target_id = ?", (CHAT, sid, oid))
+    return int((await cursor.fetchone())["id"])
+
+
+async def _attach_message_source(d, edge_id: int, tg: int) -> None:
+    """Привязать сохранённое сообщение как проверенное основание ребра."""
+    from services import relation_evidence
+    cursor = await d.db.execute(
+        "SELECT id FROM smart_messages WHERE chat_id = ? AND tg_message_id = ?",
+        (CHAT, tg))
+    row_id = int((await cursor.fetchone())["id"])
+    ref = await provenance.resolve_source_ref(
+        d, provenance.message_source_ref(chat_id=CHAT, entity_id=str(row_id),
+                                         tg_message_id=tg))
+    await relation_evidence.attach_edge_evidence(
+        d, chat_id=CHAT, edge_id=edge_id, source_ref_id=ref,
+        link_type="supports", method="direct_reference",
+        verification="verified", independence="independent",
+        basis="direct reference", established_at=1000)
+
+
+@pytest.mark.asyncio
+async def test_edge_card_surfaces_ambiguous_addressee(tmp_path, monkeypatch):
+    """§8.2: неоднозначный адресат виден В КАРТОЧКЕ и не заменяется выбором."""
+    _enable_attribution(monkeypatch)
+    d = await _fresh(tmp_path, "card_ambig.db")
+    try:
+        await _msg(d, user_id=7, author_name="Аня", text="привет", tg=250)
+        await _msg(d, user_id=9, author_name="Борис", text="привет", tg=251)
+        await _msg(d, user_id=5, author_name="Маша",
+                   text="Аня и Борис, вы где?", tg=252)
+        edge_id = await _seed_edge(d)
+        await _attach_message_source(d, edge_id, 252)
+        from services import relation_evidence
+        evidence = await relation_evidence.edge_evidence(
+            d, chat_id=CHAT, edge_id=edge_id)
+        source = evidence["sources"][0]
+        assert source["addressee_status"] == "ambiguous"
+        assert source["addressee"] is None
+        assert set(source["addressee_candidates"]) == {"Аня", "Борис"}
+    finally:
+        await d.close()
+
+
 # ── MEM-05.4: собственные сообщения бота ───────────────────────────────────
 
 def test_bot_self_statement_never_corroborates():
@@ -411,6 +462,10 @@ async def test_media_memory_does_not_rerun_vision(tmp_path, monkeypatch):
 
     monkeypatch.setattr(mca_vision, "analyze_image_bytes", _boom)
     monkeypatch.setattr(mca_vision, "analyze_adaptive", _boom)
+    # MEM-05.6: чтение памяти не дублирует ingest/action медиа.
+    import services.media_readiness as media_readiness
+    monkeypatch.setattr(media_readiness, "ensure_asset_analysis", _boom)
+    monkeypatch.setattr(media_readiness, "prepare_images_ready", _boom)
     try:
         await _msg(d, user_id=7, author_name="Аня", text="", tg=600,
                    media_type="photo")
