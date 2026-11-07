@@ -369,9 +369,11 @@ async def message_attribution(
 ) -> mc.StatementAttribution | None:
     """Атрибуция сохранённого сообщения по `(chat_id, tg_message_id)`.
 
-    Один `SELECT` (`get_smart_message_by_tg_id`) + (только при наличии
-    reply-цели без автора) один добор автора цели. Гейт OFF → `None` (прежние
-    пути не меняются). Ошибки чтения → `None` (fail-open, без догадок).
+    Один `SELECT` (`get_smart_message_by_tg_id`); адресат считается той же
+    цепочкой, что в карточке (`addressee_for_message`): reply target → thread
+    → alias/uid chat scope. Ростер читается только если reply-цели нет —
+    один и тот же вопрос «кому» не имеет двух разных ответов.
+    Гейт OFF → `None` (прежние пути не меняются). Ошибки чтения → `None`.
     """
     if not await gate_enabled(chat_id):
         return None
@@ -386,15 +388,16 @@ async def message_attribution(
         return None
     if row is None:
         return None
-    reply_target = None
-    reply_id = _row_get(row, "reply_to_id")
-    if _row_get(row, "reply_to_author_id") is None and reply_id is not None:
-        reply_target = await _reply_target_label(db, int(chat_id), reply_id)
+    # Один и тот же ответ на вопрос «кому» для записи и для карточки: полная
+    # цепочка §8.2 (reply → thread → alias chat scope), а не только reply.
+    addressee = await addressee_for_message(
+        db, chat_id=int(chat_id), row=row, thread_target=thread_target,
+        semantic_candidates=semantic_candidates)
     return attribute_message_row(
         row, chat_id=int(chat_id), subject=subject,
-        reply_target=reply_target, thread_target=thread_target,
+        thread_target=thread_target,
         semantic_candidates=semantic_candidates, speaker_kind=speaker_kind,
-        origin=origin, denied=denied)
+        origin=origin, denied=denied, addressee=addressee)
 
 
 async def _reply_target_label(db, chat_id: int, reply_to_id: Any) -> str | None:
@@ -423,6 +426,12 @@ async def chat_identity_candidates(db, *, chat_id: int, text: str | None,
     «вежливых» слов: совпадение — по имени участника отдельным токеном.
     Собственное имя говорящего адресатом не считается. Без ростера → пусто
     (не выдумываем адресата).
+
+    Одноимённые люди не сливаются: если имя в ростере принадлежит ≥2 разным
+    `user_id`, кандидатами становятся различимые личности (`user:<uid>` для
+    каждой), а не одно имя. Иначе дедупликация по имени выдала бы «одного
+    адресата» там, где людей двое (MEM-05.2: несколько адресатов →
+    неоднозначность).
     """
     body = str(text or "").strip()
     if db is None or not chat_id or not body:
@@ -430,16 +439,34 @@ async def chat_identity_candidates(db, *, chat_id: int, text: str | None,
     roster = await _participant_roster(db, int(chat_id))
     if not roster:
         return ()
-    found: list[str] = []
+    # casefold-имя → (видимое имя, [uid...]) в порядке первого упоминания ростера
+    mentioned: dict[str, tuple[str, list[int]]] = {}
+    order: list[str] = []
     for uid, name in roster:
-        if exclude_user_id is not None and uid == int(exclude_user_id):
+        if exclude_user_id is not None and uid is not None \
+                and uid == int(exclude_user_id):
             continue
         cleaned = str(name or "").strip()
         if len(cleaned) < 2:
             continue
         pattern = _NAME_BOUNDARY.format(re.escape(cleaned))
-        if re.search(pattern, body, flags=re.IGNORECASE):
-            found.append(cleaned)
+        if not re.search(pattern, body, flags=re.IGNORECASE):
+            continue
+        key = cleaned.casefold()
+        if key not in mentioned:
+            mentioned[key] = (cleaned, [])
+            order.append(key)
+        uids = mentioned[key][1]
+        if uid is not None and uid not in uids:
+            uids.append(uid)
+    found: list[str] = []
+    for key in order:
+        display, uids = mentioned[key]
+        if len(uids) > 1:
+            # Одноимённые: адресат не выбирается — кандидаты различают людей.
+            found.extend(_identity_label(uid) for uid in uids)
+        else:
+            found.append(display)
     return _clean_candidates(found)
 
 
@@ -530,19 +557,24 @@ async def _resolve_candidates(db, chat_id: int,
     Имя, которое в чате принадлежит нескольким `user_id`, НЕ превращается в
     адресата: возвращается исходное имя (тогда уровень chat-identity даёт
     `ambiguous`), а не произвольно выбранный человек (§2.2.1(е)).
+    Уже различимая личность (`user:<uid>` от одноимённых) резолву не подлежит.
     """
     resolved: list[str] = []
     for name in names:
+        label = str(name or "")
+        if label.startswith("user:") and label[5:].isdigit():
+            resolved.append(label)                # личность уже различена
+            continue
         try:
             ref = await provenance.resolve_subject_ref(db, int(chat_id), name)
         except Exception:                                 # pragma: no cover
             ref = None
         if ref is not None and getattr(ref, "resolution", None) == "resolved":
-            label = _identity_label(getattr(ref, "entity_id", None))
-            if label:
-                resolved.append(label)
+            identity = _identity_label(getattr(ref, "entity_id", None))
+            if identity:
+                resolved.append(identity)
                 continue
-        resolved.append(name)
+        resolved.append(label)
     return _clean_candidates(resolved)
 
 

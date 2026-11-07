@@ -210,6 +210,58 @@ async def test_two_mentioned_participants_stay_ambiguous(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_same_name_duo_is_not_a_resolved_addressee(tmp_path, monkeypatch):
+    """MEM-05.2: два человека с одним именем — «адресат» не выбирается.
+
+    Ростер ревьюера: 7:"Аня", 8:"Аня", 5:"Петя", 9:"Борис"; Петя пишет
+    «Аня, посмотри видео». Дедупликация по имени выдала бы одного адресата,
+    поэтому кандидаты различаются личностями (`user:7`/`user:8`) и сигнал
+    остаётся `ambiguous` без получателя. Одиночное имя по-прежнему резолвится,
+    а точный reply target остаётся выше этого пути."""
+    _enable_attribution(monkeypatch)
+    d = await _fresh(tmp_path, "same_name.db")
+    try:
+        await _msg(d, user_id=7, author_name="Аня", text="привет", tg=1000)
+        await _msg(d, user_id=8, author_name="Аня", text="привет", tg=1001)
+        await _msg(d, user_id=9, author_name="Борис", text="привет", tg=1002)
+        await _msg(d, user_id=5, author_name="Петя",
+                   text="Аня, посмотри видео", tg=1003)
+        duo = await ma.addressee_for_message(d, chat_id=CHAT, tg_message_id=1003)
+        assert duo.status is mc.AddresseeStatus.AMBIGUOUS
+        assert duo.addressee is None
+        assert set(duo.candidates) == {"user:7", "user:8"}
+        assert len(set(duo.candidates)) == 2
+
+        # кандидаты видны и в плоской атрибуции утверждения
+        attribution = await ma.message_attribution(d, CHAT, 1003)
+        assert attribution is not None
+        assert attribution.addressee_status is mc.AddresseeStatus.AMBIGUOUS
+        assert attribution.addressee is None
+        assert set(attribution.addressee_candidates) == {"user:7", "user:8"}
+
+        # одиночное имя остаётся резолвом в личность
+        await _msg(d, user_id=5, author_name="Петя", text="Борис, глянь",
+                   tg=1004)
+        single = await ma.addressee_for_message(d, chat_id=CHAT,
+                                               tg_message_id=1004)
+        assert single.status is mc.AddresseeStatus.RESOLVED
+        assert single.addressee == "user:9"
+        assert single.basis is mc.AddresseeBasis.CHAT_IDENTITY
+
+        # точный reply target по-прежнему главнее chat-scope
+        await _msg(d, user_id=5, author_name="Петя",
+                   text="Аня, посмотри видео", tg=1005, reply_to=1001,
+                   reply_author=8)
+        reply = await ma.addressee_for_message(d, chat_id=CHAT,
+                                              tg_message_id=1005)
+        assert reply.status is mc.AddresseeStatus.RESOLVED
+        assert reply.addressee == "user:8"
+        assert reply.basis is mc.AddresseeBasis.REPLY_TARGET
+    finally:
+        await d.close()
+
+
+@pytest.mark.asyncio
 async def test_single_mention_resolves_via_chat_identity(tmp_path, monkeypatch):
     """§8.2: один упомянутый участник → адресат по достоверному alias/uid."""
     _enable_attribution(monkeypatch)
