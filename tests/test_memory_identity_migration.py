@@ -556,8 +556,122 @@ def test_redirect_depth_one_and_cycle_are_refused(env, gate_on):
     assert run(loop, _count(db, er.ENTITY_CANONICAL_TABLE)) == 1
 
 
-# ═══ 5. Чекпоинт / resume / идемпотентность (§5.3 B2) ══════════════════════
+def test_seeded_canonical_absorbs_duplicate_spelling(env, gate_on):
+    """Реальный сценарий: засеянная self-строка + второе написание того же uid.
 
+    `seed_self_identity` закрепляет uid за узлом `Папаха`; позже извлечение
+    создаёт узел `папаха`. Self-строка НЕ является redirect'ом, поэтому слияние
+    обязано проходить (§1.4.2: глубина 1 — про редиректы, не про засев), uid не
+    дублируется (частичный UNIQUE цел), обе формы сходятся в один узел, откат
+    возвращает member к самому себе. Регрессия F1 ревью MEMORY-02B.
+    """
+    db, loop = env
+    canonical = run(loop, db.upsert_node(CHAT, "Папаха", "user"))
+    run(loop, _author_messages(db, [(UID_A, "Папаха"), (UID_A, "папаха")]))
+    seeded = run(loop, er.seed_self_identity(db, CHAT, UID_A))
+    assert seeded.status == er.SEED_SEEDED and seeded.node_id == canonical
+
+    member = run(loop, db.upsert_node(CHAT, "папаха", "user"))
+    report = run(loop, em.find_duplicate_candidates(db, CHAT, "user"))
+    assert report.totals["candidate_pairs"] == 1
+    pair = report.safe_pairs()[0]
+    assert (pair.member_node_id, pair.canonical_node_id) == (member, canonical)
+    assert pair.reason_code == em.REASON_STABLE_IDENTITY
+
+    result = run(loop, em.apply_merge(
+        db, CHAT, "user", pair.member_node_id, pair.canonical_node_id,
+        stable_identity=pair.stable_identity))
+    assert result.status == em.REASON_MERGED, result.as_dict()
+
+    # Обе формы сходятся в канонический узел.
+    for spelling in ("Папаха", "папаха"):
+        resolved = run(loop, er.resolve_entity(
+            db, scope={"chat_id": CHAT, "entity_type": "user"},
+            mention=spelling))
+        assert resolved.canonical.node_id == canonical, spelling
+
+    # Частичный UNIQUE цел: ровно одна АКТИВНАЯ строка с этим uid.
+    active_uid_rows = run(loop, _rows(
+        db, "SELECT member_node_id, canonical_node_id, resolution, status "
+            "FROM mca_entity_canonical WHERE status = 'active' "
+            "AND stable_kind = 'tg_user' AND stable_value = ?",
+        (str(UID_A),)))
+    assert len(active_uid_rows) == 1
+    assert active_uid_rows[0][1] == canonical
+    merged_row = run(loop, _rows(
+        db, "SELECT stable_kind, stable_value FROM mca_entity_canonical "
+            "WHERE member_node_id = ?", (member,)))
+    assert merged_row == [[None, None]]
+
+    # Откат: member снова сам себе, канонический узел не тронут.
+    assert run(loop, em.revoke_merge(db, CHAT, "user", member)) is True
+    reverted = run(loop, er.resolve_entity(
+        db, scope={"chat_id": CHAT, "entity_type": "user"},
+        mention="папаха"))
+    assert reverted.canonical.node_id == member
+    still = run(loop, er.resolve_entity(
+        db, scope={"chat_id": CHAT, "entity_type": "user"},
+        mention="Папаха"))
+    assert still.canonical.node_id == canonical
+
+
+def test_self_row_is_not_a_redirect_but_foreign_uid_still_refused(env, gate_on):
+    """Self-строка не «цепочка», но чужой uid по-прежнему блокирует слияние."""
+    db, loop = env
+    first = run(loop, db.upsert_node(CHAT, "Ира", "user"))
+    second = run(loop, db.upsert_node(CHAT, "ира", "user"))
+    # Данные-дефект: узел закреплён за uid A, а наблюдается только у uid B.
+    run(loop, db.db.execute(
+        "INSERT INTO mca_entity_canonical (chat_id, entity_type, "
+        "member_node_id, canonical_node_id, resolution, stable_kind, "
+        "stable_value, method, confidence, status, created_at, updated_at) "
+        "VALUES (?, 'user', ?, ?, 'self', 'tg_user', ?, 'alias_map', "
+        "'confirmed', 'active', 1, 1)",
+        (CHAT, first, first, str(UID_A))))
+    run(loop, _author_messages(db, [(UID_B, "Ира"), (UID_B, "ира")]))
+
+    reason, detail = run(loop, em.validate_merge(
+        db, CHAT, "user", second, first,
+        stable_identity={"kind": "tg_user", "value": UID_B}))
+    assert reason == em.REASON_IDENTITY_PINNED_ELSEWHERE, detail
+
+    refused = run(loop, em.apply_merge(
+        db, CHAT, "user", second, first,
+        stable_identity={"kind": "tg_user", "value": UID_B}))
+    assert refused.status == em.PAIR_REFUSED
+    assert run(loop, _count(db, er.ENTITY_CANONICAL_TABLE)) == 1
+
+
+def test_backfill_merges_seeded_person_with_second_spelling(env, gate_on):
+    """Бэкфилл B2 больше не «тихий no-op» для засеянного человека (F1 ревью)."""
+    db, loop = env
+    canonical = run(loop, db.upsert_node(CHAT, "Папаха", "user"))
+    run(loop, _author_messages(db, [(UID_A, "Папаха"), (UID_A, "папаха")]))
+    assert run(loop, er.seed_self_identity(
+        db, CHAT, UID_A)).status == er.SEED_SEEDED
+    member = run(loop, db.upsert_node(CHAT, "папаха", "user"))
+
+    summary = run(loop, em.run_merge_backfill(
+        db, chat_id=CHAT, dry_run=False, checkpoint=em.InMemoryCheckpoint()))
+    assert summary["candidate_pairs"] == 1
+    assert summary["safe_pairs"] == 1
+    assert summary["attempted_pairs"] == 1
+    assert summary["applied"] == 1 and summary["errors"] == 0
+
+    for spelling in ("Папаха", "папаха"):
+        resolved = run(loop, er.resolve_entity(
+            db, scope={"chat_id": CHAT, "entity_type": "user"},
+            mention=spelling))
+        assert resolved.canonical.node_id == canonical
+    rows = run(loop, _rows(
+        db, "SELECT member_node_id, canonical_node_id, status "
+            "FROM mca_entity_canonical WHERE status = 'active' "
+            "AND stable_value = ?", (str(UID_A),)))
+    assert rows == [[canonical, canonical, er.STATUS_ACTIVE]]
+    assert run(loop, _count(db, er.ENTITY_CANONICAL_TABLE)) == 2
+
+
+# ═══ 5. Чекпоинт / resume / идемпотентность (§5.3 B2) ══════════════════════
 async def _two_safe_pairs(db) -> None:
     await _seed_same_person(db)
     await _author_messages(db, [(UID_B, "Ира"), (UID_B, "ира")])

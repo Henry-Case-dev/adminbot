@@ -703,9 +703,18 @@ async def validate_merge(db, chat_id: int, entity_type: str,
                 "node_type": str(_col(row, "entity_type", 3))}
 
     # §1.4.2: глубина 1 терминальна, автоматического «выпрямления» нет.
+    # В `by_member` попадают ТОЛЬКО настоящие redirect-строки
+    # (`member != canonical`): self-строка засева (§1.2.1) — не редирект, иначе
+    # засеянный канонический узел ошибочно считался бы «уже сведённым» и
+    # слияние второго написания молча отказывало. Закрепление uid проверяется
+    # отдельно (claims ниже) — precise refusal не ослаблен.
     active = await _active_merge_rows(db, chat_id, entity_type)
-    by_member = {int(_col(row, "member_node_id", 0)):
-                 int(_col(row, "canonical_node_id", 1)) for row in active}
+    by_member = {
+        int(_col(row, "member_node_id", 0)): int(_col(row, "canonical_node_id", 1))
+        for row in active
+        if int(_col(row, "member_node_id", 0))
+        != int(_col(row, "canonical_node_id", 1))
+    }
     if canonical_id in by_member:
         target = by_member[canonical_id]
         return (REASON_REDIRECT_CYCLE if target == member_id
@@ -736,6 +745,52 @@ async def validate_merge(db, chat_id: int, entity_type: str,
         if set(evidence.claims(node_id)) - {wanted}:
             return REASON_IDENTITY_PINNED_ELSEWHERE, {"node_id": node_id}
     return "", {}
+
+
+async def _uid_claim_rows(db, chat_id: int, entity_type: str, uid: str) -> list[Any]:
+    """Активные строки, закрепляющие `uid` за узлом (member или canonical).
+
+    Нужны, чтобы слияние не дублировало уже действующую идентичность: частичный
+    `UNIQUE (chat_id, entity_type, stable_kind, stable_value) WHERE status='active'`
+    (§5.1, ID-11) остаётся ровно как в схеме — второй активной строки с тем же
+    uid не создаётся.
+    """
+    try:
+        return await _fetchall(
+            db,
+            f"SELECT member_node_id, canonical_node_id FROM {MERGE_TABLE} "
+            "WHERE chat_id = ? AND entity_type = ? AND stable_kind = ? "
+            "AND stable_value = ? AND status = ?",
+            (int(chat_id), str(entity_type), er.STABLE_KIND_TG_USER,
+             str(uid), er.STATUS_ACTIVE),
+        )
+    except sqlite3.OperationalError:      # pragma: no cover — БД до v43
+        return []
+
+
+async def _merge_uid_columns(db, chat_id: int, entity_type: str,
+                             member_node_id: int, canonical_node_id: int,
+                             uid: str) -> tuple[str | None, str | None, str]:
+    """Какие `stable_kind/stable_value` писать строке слияния.
+
+    `(kind, value, refusal)`. Слияние — про НАПИСАНИЯ узлов, а не про новое
+    закрепление uid: если идентичность уже активна (self-строка засева на
+    каноническом узле — штатный случай), в строке `resolution='merged'`
+    остаются `NULL`, иначе частичный `UNIQUE` дал бы конфликт. Если uid
+    закреплён за ТРЕТЬИМ узлом, слияние отказывает — молча терять claim нельзя.
+    """
+    member_id, canonical_id = int(member_node_id), int(canonical_node_id)
+    claims = await _uid_claim_rows(db, chat_id, entity_type, uid)
+    if not claims:
+        return er.STABLE_KIND_TG_USER, str(uid), ""
+    row_members = {int(_col(row, "member_node_id", 0)) for row in claims}
+    row_canonicals = {int(_col(row, "canonical_node_id", 1)) for row in claims}
+    if canonical_id in row_canonicals or canonical_id in row_members:
+        return None, None, ""
+    if member_id in row_members:
+        # Строка самого member уже держит uid — переиспользуется (тот же PK).
+        return er.STABLE_KIND_TG_USER, str(uid), ""
+    return None, None, REASON_IDENTITY_PINNED_ELSEWHERE
 
 
 async def apply_merge(db, chat_id: int, entity_type: str,
@@ -771,6 +826,15 @@ async def apply_merge(db, chat_id: int, entity_type: str,
                         canonical_node_id, detail)
 
     stamp = int(now if now is not None else time.time())
+    uid = er.parse_stable_identity(stable_identity)
+    stable_kind, stable_value, claim_refusal = await _merge_uid_columns(
+        db, chat_id, entity_type, member_node_id, canonical_node_id, uid)
+    if claim_refusal:
+        _emit("memory.identity_merge_refused", outcome="refused",
+              chat_id=int(chat_id), status=claim_refusal,
+              entity_ids=[int(member_node_id), int(canonical_node_id)])
+        return _refusal(claim_refusal, chat_id, entity_type, member_node_id,
+                        canonical_node_id, {"uid": str(uid)})
 
     existing = await _fetchone(
         db,
@@ -790,7 +854,7 @@ async def apply_merge(db, chat_id: int, entity_type: str,
                 "updated_at = ? WHERE chat_id = ? AND entity_type = ? "
                 "AND member_node_id = ?",
                 (int(canonical_node_id), er.RESOLUTION_MERGED,
-                 er.STABLE_KIND_TG_USER, str(stable_identity.get("value")),
+                 stable_kind, stable_value,
                  str(method), evidence_ref_id, str(confidence),
                  er.STATUS_ACTIVE, stamp, int(chat_id), str(entity_type),
                  int(member_node_id)),
@@ -821,8 +885,7 @@ async def apply_merge(db, chat_id: int, entity_type: str,
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (int(chat_id), str(entity_type), int(member_node_id),
              int(canonical_node_id), er.RESOLUTION_MERGED,
-             er.STABLE_KIND_TG_USER,
-             str(stable_identity.get("value")), str(method),
+             stable_kind, stable_value, str(method),
              evidence_ref_id, str(confidence), er.STATUS_ACTIVE,
              stamp, stamp),
         )
