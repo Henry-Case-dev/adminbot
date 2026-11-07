@@ -4660,19 +4660,47 @@ class MemoryManager:
         извлечением (например `world_knowledge` для новости/цитаты). Явное
         решение извлечения приоритетнее эвристики по тексту: иначе новость,
         принесённая участником, снова стала бы его личным фактом. None →
-        ровно прежняя эвристика (поведение старых путей не меняется)."""
-        from services import provenance
+        ровно прежняя эвристика (поведение старых путей не меняется).
+
+        MEMORY-05 (C-8 §8.2/§8.4, гейт `MCA_MEMORY_ATTRIBUTION_ENABLED`):
+        ON → говорящий берётся из **сохранённого сообщения-источника**, а не
+        из субъекта факта; для пересылки/цитаты — первоисточник, поэтому
+        переславший автором не становится (R-9), а пересказ чужого мнения не
+        выдаётся за `self_report` (§2.2.1(д)). OFF → прежний расчёт
+        (паритет baseline). Новых записей/колонок не появляется:
+        `speaker_author_id` — существующая колонка `graph_facts`."""
+        from services import memory_attribution, provenance
         if not provenance.provenance_enabled():
             return
         canons = {v for v in (display_canons or {}).values() if v}
         if target_user:
             canons.add(str(target_user))
         speaker = target_user if target_user else None
-        method = declared_method or (
-            "self_report" if origin == "user_memory"
-            else provenance.classify_attribution_method(
+        speaker_author_id = None
+        attribution = None
+        if declared_method is None and origin != "user_memory" \
+                and tg_message_id is not None:
+            try:
+                attribution = await memory_attribution.message_attribution(
+                    self.db, chat_id=chat_id, tg_message_id=tg_message_id,
+                    subject=subject)
+            except Exception:
+                attribution = None
+        if attribution is not None:
+            speaker_author_id = attribution.content_author_user_id
+            if attribution.attributed_author:
+                speaker = attribution.attributed_author
+        if declared_method:
+            method = declared_method
+        elif origin == "user_memory":
+            method = "self_report"
+        elif attribution is not None and speaker_author_id is not None:
+            method = await self._attribution_method_by_uid(
+                chat_id, subject, speaker_author_id, origin, speaker, canons)
+        else:
+            method = provenance.classify_attribution_method(
                 origin=origin, subject=subject, speaker=speaker,
-                canon=self._canon_fact_name, participants=canons))
+                canon=self._canon_fact_name, participants=canons)
         kind = declared_kind or provenance.classify_assertion_kind(
             subject, None, canon=self._canon_fact_name, participants=canons)
         subject_ref_id = None
@@ -4686,10 +4714,34 @@ class MemoryManager:
             self.db, fact_id=fact_id, chat_id=chat_id, origin=origin,
             target_user=target_user, subject=subject, assertion_kind=kind,
             attribution_method=method, provenance_channel=channel,
+            speaker_author_id=speaker_author_id,
             tg_message_id=tg_message_id)
         if subject_ref_id is not None:
             await provenance.update_fact_provenance_columns(
                 self.db, fact_id=fact_id, subject_ref_id=subject_ref_id)
+
+    async def _attribution_method_by_uid(self, chat_id, subject, author_uid,
+                                         origin, speaker, canons) -> str:
+        """Способ субъект-атрибуции по устойчивому uid говорящего (§2.2.1).
+
+        Автор сообщения совпал с субъектом → `self_report`; субъект — другой
+        участник чата → `third_party` (пересказ чужого мнения); субъект не
+        участник (новость/этимология) → прежняя классификация
+        (`world_knowledge`), чтобы общие знания не стали личным фактом.
+        Сравнение — по устойчивому ID, а не по отображаемому имени."""
+        from services import provenance
+        ref = await provenance.resolve_subject_ref(
+            self.db, chat_id, subject, canon=self._canon_fact_name)
+        if ref.resolution == "resolved":
+            try:
+                if int(ref.entity_id) == int(author_uid):
+                    return "self_report"
+            except (TypeError, ValueError):              # pragma: no cover
+                pass
+            return "third_party"
+        return provenance.classify_attribution_method(
+            origin=origin, subject=subject, speaker=speaker,
+            canon=self._canon_fact_name, participants=canons)
 
     async def _participant_display_canons(self, chat_id: int) -> dict[str, str]:
         """C4/T-795 (spec §3.C4.1-2): «карта дисплеев» чата для привязки

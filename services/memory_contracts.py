@@ -27,7 +27,12 @@
 * времена утверждения (T_assertion), действительности (T_event) и наблюдения
   (T_observed) раздельны и никогда не подставляются «сейчас»;
 * исходы поиска (`SearchResponse.status`/`query_state`) — взаимоисключающие
-  значения: «пусто» не подменяет «нет прав», «ошибку» и «устаревший курсор».
+  значения: «пусто» не подменяет «нет прав», «ошибку» и «устаревший курсор»;
+* C-8 (§8): адресат либо доказан реальным сигналом, либо `ambiguous`/`unknown`
+  без выдуманного получателя; содержание пересылки принадлежит первоисточнику
+  (не переславшему); собственный вывод бота не подтверждает внешний факт;
+  описание медиа невозможно без `vision_status='processed'`; `STABLE`-вывод
+  опыта невозможен без ≥ требуемого числа независимых исходов.
 
 REUSE (§0.2, INV-03): `LINK_TYPES`/`VERIFICATIONS`/`INDEPENDENCES`/
 `ASSERTION_KINDS` берутся из `services.provenance`. `PREVIEW_MAX_CHARS`,
@@ -65,6 +70,11 @@ __all__ = [
     "SearchScope", "SearchIntent", "SearchRevision", "SearchFocus",
     "SearchVariant", "SearchAmbiguity", "SearchItem", "SearchResponse",
     "MemoryViewRef", "MemoryView",
+    # C-8: атрибуция (MEM-05.1…05.7)
+    "AddresseeStatus", "AddresseeBasis", "SpeakerKind", "MediaVisionStatus",
+    "ExperienceStability", "AddresseeResolution", "StatementAttribution",
+    "MediaMemoryAttribution", "ExperienceVerdict", "MEDIA_MEMORY_REASONS",
+    "EXPERIENCE_BASES",
     # функции
     "resolve_assertion_mode",
 ]
@@ -311,6 +321,79 @@ class EvidenceStatus(_StrEnum):
     LEGACY = "legacy"
     CONTRADICTED = "contradicted"
     UNKNOWN = "unknown"
+
+
+# ── C-8 §8: закрытые наборы атрибуции (MEM-05.1…05.7) ──────────────────────
+# Объявлены до DTO, потому что `RelationSourceView` (§2.1) несёт адресата
+# отдельным слотом и использует их как значения по умолчанию.
+
+class AddresseeStatus(_StrEnum):
+    """Исход определения адресата (§8.2, MEM-05.2).
+
+    `RESOLVED` — адресат доказан одним из документированных сигналов;
+    `AMBIGUOUS` — подходят ≥2 адресата, выбор за человека не делается;
+    `UNKNOWN` — сигнала нет: в бессвязном чате новый адресат не выдумывается.
+    """
+
+    RESOLVED = "resolved"
+    AMBIGUOUS = "ambiguous"
+    UNKNOWN = "unknown"
+
+
+class AddresseeBasis(_StrEnum):
+    """Сигнал, давший адресата. Порядок значений — приоритет §8.2.
+
+    Точный `reply_to_id` → `thread_chain` target → достоверный alias/uid в
+    chat scope (C-1) → ближайший семантический контекст.
+    """
+
+    REPLY_TARGET = "reply_target"
+    THREAD_TARGET = "thread_target"
+    CHAT_IDENTITY = "chat_identity"
+    SEMANTIC_CONTEXT = "semantic_context"
+    NONE = "none"
+
+
+class SpeakerKind(_StrEnum):
+    """Кто говорит: участник, сам бот или неизвестно (§8.4, MEM-05.4)."""
+
+    PARTICIPANT = "participant"
+    BOT = "bot"
+    UNKNOWN = "unknown"
+
+
+class MediaVisionStatus(_StrEnum):
+    """Честный статус выжимки медиа (§8.5, MEM-05.5).
+
+    `PROCESSED` — понимание ФАКТИЧЕСКИ выполнено; `NOT_PROCESSED` — не
+    выполнялось (в т.ч. ещё идёт); `UNAVAILABLE` — выполнить не удалось.
+    Последние два никогда не выдаются за понимание содержимого.
+    """
+
+    PROCESSED = "processed"
+    NOT_PROCESSED = "not_processed"
+    UNAVAILABLE = "unavailable"
+
+
+class ExperienceStability(_StrEnum):
+    """Вывод опыта: экспериментальный или стабильное правило (§8.6)."""
+
+    EXPERIMENTAL = "experimental"
+    STABLE = "stable"
+
+
+#: Закрытый набор причин медиа-памяти (R17: только коды, без текста).
+MEDIA_MEMORY_REASONS = frozenset({
+    "analysis_ready", "analysis_no_text", "analysis_missing",
+    "analysis_pending", "analysis_failed", "analysis_unreadable",
+    "analysis_unsupported", "vision_unavailable", "transcription_not_recorded",
+    "media_absent", "unknown",
+})
+
+#: Закрытый набор оснований стабильности вывода опыта (§8.6).
+EXPERIENCE_BASES = frozenset({
+    "explicit_instruction", "verified_technical_fix", "independent_outcomes",
+})
 
 
 _INTENT_KINDS = frozenset({
@@ -668,6 +751,12 @@ class RelationSourceView:
     asserted_ts: int | None = None
     event_ts: int | None = None
     observed_ts: int | None = None
+    # C-8 (§8.2/§8.4): роли пересылки/адресата отдельными слотами.
+    sender: str | None = None
+    addressee: str | None = None
+    addressee_status: AddresseeStatus = AddresseeStatus.UNKNOWN
+    addressee_basis: AddresseeBasis = AddresseeBasis.NONE
+    addressee_candidates: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.link_type not in LINK_TYPES:
@@ -697,7 +786,7 @@ class RelationSourceView:
             value = getattr(self, name)
             if value is not None:
                 _int(value, f"RelationSourceView.{name}", minimum=1)
-        for name in ("speaker", "subject"):
+        for name in ("speaker", "subject", "sender"):
             value = getattr(self, name)
             if value is not None:
                 _text(value, f"RelationSourceView.{name}",
@@ -705,6 +794,9 @@ class RelationSourceView:
         _opt_ts(self.asserted_ts, "RelationSourceView.asserted_ts")
         _opt_ts(self.event_ts, "RelationSourceView.event_ts")
         _opt_ts(self.observed_ts, "RelationSourceView.observed_ts")
+        addressee = AddresseeResolution(
+            status=self.addressee_status, addressee=self.addressee,
+            basis=self.addressee_basis, candidates=self.addressee_candidates)
 
         supporting = (
             self.link_type in SUPPORTING_LINK_TYPES
@@ -724,6 +816,10 @@ class RelationSourceView:
                 "cooccurrence origin must use link_type='mentions' (§2.3)")
         _normalized(self, "origin_class", origin)
         _normalized(self, "assertion_mode", mode)
+        _normalized(self, "addressee", addressee.addressee)
+        _normalized(self, "addressee_status", addressee.status)
+        _normalized(self, "addressee_basis", addressee.basis)
+        _normalized(self, "addressee_candidates", addressee.candidates)
 
     @property
     def counts_as_independent(self) -> bool:
@@ -761,6 +857,11 @@ class RelationSourceView:
             "independence": self.independence,
             "method": self.method,
             "established_at": self.established_at,
+            "sender": self.sender,
+            "addressee": self.addressee,
+            "addressee_status": self.addressee_status.value,
+            "addressee_basis": self.addressee_basis.value,
+            "addressee_candidates": list(self.addressee_candidates),
         }
 
     @classmethod
@@ -781,6 +882,12 @@ class RelationSourceView:
             asserted_ts=data.get("asserted_ts"),
             event_ts=data.get("event_ts"),
             observed_ts=data.get("observed_ts"),
+            sender=data.get("sender"),
+            addressee=data.get("addressee"),
+            addressee_status=data.get("addressee_status",
+                                       AddresseeStatus.UNKNOWN),
+            addressee_basis=data.get("addressee_basis", AddresseeBasis.NONE),
+            addressee_candidates=tuple(data.get("addressee_candidates") or ()),
         )
 
 
@@ -1606,3 +1713,413 @@ class MemoryView:
                    refs=tuple(MemoryViewRef.from_dict(r)
                               for r in data.get("refs") or ()),
                    partial=bool(data.get("partial", False)))
+
+
+# ── C-8 §8: атрибуция «кто сказал / о ком / кому», медиа и опыт ─────────────
+
+
+@dataclass(frozen=True)
+class AddresseeResolution:
+    """Результат определения адресата (§8.2). Нечестные состояния запрещены.
+
+    * `RESOLVED` требует самого адресата и НЕНУЛЕВОГО сигнала;
+    * `AMBIGUOUS` не несёт адресата вовсе, но несёт ≥2 кандидата;
+    * `UNKNOWN` не несёт ни адресата, ни сигнала.
+
+    Поэтому «неоднозначность, превращённая в резолв» и «выдуманный адресат»
+    невозможны конструктором, а не соглашением.
+    """
+
+    status: AddresseeStatus
+    addressee: str | None = None
+    basis: AddresseeBasis = AddresseeBasis.NONE
+    candidates: tuple[str, ...] = ()
+    reason_code: str = ""
+
+    def __post_init__(self) -> None:
+        status = _enum(AddresseeStatus, self.status,
+                       "AddresseeResolution.status")
+        basis = _enum(AddresseeBasis, self.basis, "AddresseeResolution.basis")
+        addressee = None
+        if self.addressee is not None:
+            addressee = _text(self.addressee, "AddresseeResolution.addressee",
+                              maximum=ENTITY_MENTION_MAX_CHARS)
+        candidates: list[str] = []
+        for value in _tuple_of(self.candidates,
+                               "AddresseeResolution.candidates"):
+            cleaned = _text(value, "AddresseeResolution.candidates[]",
+                            maximum=ENTITY_MENTION_MAX_CHARS)
+            if cleaned not in candidates:
+                candidates.append(cleaned)
+        reason = _text(self.reason_code, "AddresseeResolution.reason_code",
+                       maximum=64, allow_empty=True)
+        if status is AddresseeStatus.RESOLVED:
+            if addressee is None:
+                raise ValueError(
+                    "resolved addressee requires addressee (§8.2)")
+            if basis is AddresseeBasis.NONE:
+                raise ValueError(
+                    "resolved addressee requires a real signal basis (§8.2)")
+        elif status is AddresseeStatus.AMBIGUOUS:
+            if addressee is not None:
+                raise ValueError(
+                    "ambiguous addressee must not pick a recipient (§8.2)")
+            if len(candidates) < 2:
+                raise ValueError(
+                    "ambiguous addressee requires >=2 candidates (§8.2)")
+        else:                                     # UNKNOWN
+            if addressee is not None:
+                raise ValueError(
+                    "unknown addressee must not invent a recipient (§8.2)")
+            if basis is not AddresseeBasis.NONE:
+                raise ValueError(
+                    "unknown addressee must not claim a signal basis (§8.2)")
+        _normalized(self, "status", status)
+        _normalized(self, "basis", basis)
+        _normalized(self, "addressee", addressee)
+        _normalized(self, "candidates", tuple(candidates))
+        _normalized(self, "reason_code", reason)
+
+    def as_dict(self) -> dict:
+        return {"status": self.status.value,
+                "addressee": self.addressee,
+                "basis": self.basis.value,
+                "candidates": list(self.candidates),
+                "reason_code": self.reason_code}
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "AddresseeResolution":
+        return cls(status=data["status"],
+                   addressee=data.get("addressee"),
+                   basis=data.get("basis", AddresseeBasis.NONE),
+                   candidates=tuple(data.get("candidates") or ()),
+                   reason_code=data.get("reason_code") or "")
+
+
+@dataclass(frozen=True)
+class StatementAttribution:
+    """Атрибуция запомненного утверждения (§8.2…§8.4, MEM-05.1/05.2/05.4).
+
+    Раздельные слоты, которые нельзя склеить:
+
+    * `speaker`/`speaker_user_id` — кто произнёс (отправитель);
+    * `content_author` — чьи это слова: для пересылки это ПЕРВОИСТОЧНИК
+      (R-9), а не переславший; неизвестен — `None`, а не переславший;
+    * `subject` — о ком/о чём утверждение;
+    * адресат (`addressee*`) — состояние `AddresseeResolution` в плоском виде;
+    * `modality` — модальность из реальных сигналов (§3.3.1);
+    * `source_message_id`/`source_ref` — событие-источник.
+
+    Собственный вывод бота (`speaker_kind=BOT`) не подтверждает внешний факт:
+    `corroborates=True` для него невозможно.
+    """
+
+    chat_id: int
+    speaker_kind: SpeakerKind = SpeakerKind.UNKNOWN
+    modality: AssertionMode = AssertionMode.UNKNOWN
+    speaker: str | None = None
+    speaker_user_id: int | None = None
+    subject: str | None = None
+    addressee: str | None = None
+    addressee_status: AddresseeStatus = AddresseeStatus.UNKNOWN
+    addressee_basis: AddresseeBasis = AddresseeBasis.NONE
+    addressee_candidates: tuple[str, ...] = ()
+    forwarded: bool = False
+    content_author: str | None = None
+    content_author_user_id: int | None = None
+    quoted_author: str | None = None
+    source_message_id: int | None = None
+    source_ref: str | None = None
+    corroborates: bool = True
+    reason_code: str = ""
+
+    def __post_init__(self) -> None:
+        _chat_id(self.chat_id, "StatementAttribution.chat_id")
+        kind = _enum(SpeakerKind, self.speaker_kind,
+                     "StatementAttribution.speaker_kind")
+        modality = _enum(AssertionMode, self.modality,
+                         "StatementAttribution.modality")
+        status = _enum(AddresseeStatus, self.addressee_status,
+                       "StatementAttribution.addressee_status")
+        basis = _enum(AddresseeBasis, self.addressee_basis,
+                      "StatementAttribution.addressee_basis")
+        for name in ("speaker", "subject", "content_author", "quoted_author",
+                     "addressee"):
+            value = getattr(self, name)
+            if value is not None:
+                _text(value, f"StatementAttribution.{name}",
+                      maximum=ENTITY_MENTION_MAX_CHARS)
+        if self.speaker_user_id is not None:
+            _int(self.speaker_user_id, "StatementAttribution.speaker_user_id",
+                 minimum=1)
+        if self.content_author_user_id is not None:
+            _int(self.content_author_user_id,
+                 "StatementAttribution.content_author_user_id", minimum=1)
+        candidates: list[str] = []
+        for value in _tuple_of(self.addressee_candidates,
+                               "StatementAttribution.addressee_candidates"):
+            cleaned = _text(value,
+                            "StatementAttribution.addressee_candidates[]",
+                            maximum=ENTITY_MENTION_MAX_CHARS)
+            if cleaned not in candidates:
+                candidates.append(cleaned)
+        if self.source_message_id is not None:
+            _int(self.source_message_id,
+                 "StatementAttribution.source_message_id", minimum=1)
+        if self.source_ref is not None:
+            _text(self.source_ref, "StatementAttribution.source_ref",
+                  maximum=128)
+        if not isinstance(self.forwarded, bool):
+            raise ValueError("StatementAttribution.forwarded must be bool")
+        if not isinstance(self.corroborates, bool):
+            raise ValueError("StatementAttribution.corroborates must be bool")
+        reason = _text(self.reason_code, "StatementAttribution.reason_code",
+                       maximum=64, allow_empty=True)
+        # §8.4/R-3: self-output не подтверждает внешний факт.
+        if kind is SpeakerKind.BOT and self.corroborates:
+            raise ValueError(
+                "bot self-statement must not corroborate an external fact "
+                "(§8.4/R-3)")
+        # §8.2: адресат описывается тем же закрытым контрактом.
+        if status is AddresseeStatus.RESOLVED:
+            if self.addressee is None or basis is AddresseeBasis.NONE:
+                raise ValueError(
+                    "resolved addressee requires addressee and a real signal "
+                    "basis (§8.2)")
+        elif status is AddresseeStatus.AMBIGUOUS:
+            if self.addressee is not None or len(candidates) < 2:
+                raise ValueError(
+                    "ambiguous addressee must not pick a recipient and "
+                    "requires >=2 candidates (§8.2)")
+        else:                                     # UNKNOWN
+            if self.addressee is not None or basis is not AddresseeBasis.NONE:
+                raise ValueError(
+                    "unknown addressee must not invent a recipient or a "
+                    "signal basis (§8.2)")
+        # §8.2/R-9: без пересылки «слова» принадлежат говорящему; для
+        # пересылки content_author — только первоисточник (или unknown).
+        if not self.forwarded and self.content_author is not None \
+                and self.content_author != self.speaker:
+            raise ValueError(
+                "content_author of a non-forwarded statement must equal the "
+                "speaker (§8.2/R-9)")
+        if not self.forwarded and self.content_author_user_id is not None \
+                and self.content_author_user_id != self.speaker_user_id:
+            raise ValueError(
+                "content_author_user_id of a non-forwarded statement must "
+                "equal the speaker (§8.2/R-9)")
+        _normalized(self, "speaker_kind", kind)
+        _normalized(self, "modality", modality)
+        _normalized(self, "addressee_status", status)
+        _normalized(self, "addressee_basis", basis)
+        _normalized(self, "addressee_candidates", tuple(candidates))
+        _normalized(self, "reason_code", reason)
+
+    @property
+    def attributed_author(self) -> str | None:
+        """Чьи это слова: первоисточник пересылки либо говорящий.
+
+        Для пересылки без известного первоисточника — `None` (unknown):
+        переславший автором не становится (R-9)."""
+        if self.forwarded:
+            return self.content_author
+        return self.speaker or self.content_author
+
+    @property
+    def addressee_resolution(self) -> AddresseeResolution:
+        return AddresseeResolution(
+            status=self.addressee_status, addressee=self.addressee,
+            basis=self.addressee_basis, candidates=self.addressee_candidates)
+
+    def as_dict(self) -> dict:
+        return {"chat_id": self.chat_id,
+                "speaker": self.speaker,
+                "speaker_user_id": self.speaker_user_id,
+                "speaker_kind": self.speaker_kind.value,
+                "subject": self.subject,
+                "modality": self.modality.value,
+                "addressee": self.addressee,
+                "addressee_status": self.addressee_status.value,
+                "addressee_basis": self.addressee_basis.value,
+                "addressee_candidates": list(self.addressee_candidates),
+                "forwarded": self.forwarded,
+                "content_author": self.content_author,
+                "content_author_user_id": self.content_author_user_id,
+                "quoted_author": self.quoted_author,
+                "source_message_id": self.source_message_id,
+                "source_ref": self.source_ref,
+                "corroborates": self.corroborates,
+                "reason_code": self.reason_code}
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "StatementAttribution":
+        return cls(
+            chat_id=data["chat_id"],
+            speaker_kind=data.get("speaker_kind", SpeakerKind.UNKNOWN),
+            modality=data.get("modality", AssertionMode.UNKNOWN),
+            speaker=data.get("speaker"),
+            speaker_user_id=data.get("speaker_user_id"),
+            subject=data.get("subject"),
+            addressee=data.get("addressee"),
+            addressee_status=data.get("addressee_status",
+                                       AddresseeStatus.UNKNOWN),
+            addressee_basis=data.get("addressee_basis", AddresseeBasis.NONE),
+            addressee_candidates=tuple(data.get("addressee_candidates") or ()),
+            forwarded=bool(data.get("forwarded", False)),
+            content_author=data.get("content_author"),
+            content_author_user_id=data.get("content_author_user_id"),
+            quoted_author=data.get("quoted_author"),
+            source_message_id=data.get("source_message_id"),
+            source_ref=data.get("source_ref"),
+            corroborates=bool(data.get("corroborates", True)),
+            reason_code=data.get("reason_code") or "")
+
+
+@dataclass(frozen=True)
+class MediaMemoryAttribution:
+    """Запомненная выжимка медиа (§8.5, MEM-05.5/05.6).
+
+    Переносится только ФАКТИЧЕСКИ выполненное понимание с идентификатором
+    исходного медиа, временем, статусом распознавания и областью видимости.
+    `description` при `NOT_PROCESSED`/`UNAVAILABLE` невозможен конструктором:
+    «не обработано» не может читаться как понимание.
+    """
+
+    chat_id: int
+    media_asset_id: str
+    vision_status: MediaVisionStatus = MediaVisionStatus.NOT_PROCESSED
+    timestamp: int | None = None
+    transcription_status: MediaVisionStatus = MediaVisionStatus.NOT_PROCESSED
+    description: str | None = None
+    media_type: str | None = None
+    tg_message_id: int | None = None
+    access_scope: str | None = None
+    analysis_revision: int | None = None
+    reason_code: str = "unknown"
+
+    def __post_init__(self) -> None:
+        _chat_id(self.chat_id, "MediaMemoryAttribution.chat_id")
+        _text(self.media_asset_id, "MediaMemoryAttribution.media_asset_id",
+              maximum=128)
+        vision = _enum(MediaVisionStatus, self.vision_status,
+                       "MediaMemoryAttribution.vision_status")
+        transcription = _enum(
+            MediaVisionStatus, self.transcription_status,
+            "MediaMemoryAttribution.transcription_status")
+        _opt_ts(self.timestamp, "MediaMemoryAttribution.timestamp")
+        description = None
+        if self.description is not None:
+            description = _text(self.description,
+                                "MediaMemoryAttribution.description",
+                                maximum=2000)
+        if description is not None and vision is not MediaVisionStatus.PROCESSED:
+            raise ValueError(
+                "media description requires vision_status='processed' (§8.5)")
+        if self.media_type is not None:
+            _text(self.media_type, "MediaMemoryAttribution.media_type",
+                  maximum=32)
+        if self.tg_message_id is not None:
+            _int(self.tg_message_id, "MediaMemoryAttribution.tg_message_id",
+                 minimum=1)
+        if self.access_scope is not None:
+            _text(self.access_scope, "MediaMemoryAttribution.access_scope",
+                  maximum=64)
+        if self.analysis_revision is not None:
+            _int(self.analysis_revision,
+                 "MediaMemoryAttribution.analysis_revision", minimum=1)
+        reason = _text(self.reason_code, "MediaMemoryAttribution.reason_code",
+                       maximum=64)
+        if reason not in MEDIA_MEMORY_REASONS:
+            raise ValueError(
+                f"MediaMemoryAttribution.reason_code invalid: {reason!r}; "
+                f"allowed: {sorted(MEDIA_MEMORY_REASONS)}")
+        _normalized(self, "vision_status", vision)
+        _normalized(self, "transcription_status", transcription)
+        _normalized(self, "description", description)
+        _normalized(self, "reason_code", reason)
+
+    @property
+    def understood(self) -> bool:
+        """Понимание содержимого ДОКАЗАНО только статусом `processed`."""
+        return self.vision_status is MediaVisionStatus.PROCESSED
+
+    @property
+    def has_content(self) -> bool:
+        return bool(self.description)
+
+    def as_evidence(self) -> dict | None:
+        """Свидетельство для памяти: `None`, если понимания не было."""
+        if not self.understood:
+            return None
+        return {"media_asset_id": self.media_asset_id,
+                "timestamp": self.timestamp,
+                "vision_status": self.vision_status.value,
+                "description": self.description,
+                "media_type": self.media_type,
+                "tg_message_id": self.tg_message_id,
+                "access_scope": self.access_scope}
+
+    def as_dict(self) -> dict:
+        return {"chat_id": self.chat_id,
+                "media_asset_id": self.media_asset_id,
+                "vision_status": self.vision_status.value,
+                "timestamp": self.timestamp,
+                "transcription_status": self.transcription_status.value,
+                "description": self.description,
+                "media_type": self.media_type,
+                "tg_message_id": self.tg_message_id,
+                "access_scope": self.access_scope,
+                "analysis_revision": self.analysis_revision,
+                "reason_code": self.reason_code}
+
+
+@dataclass(frozen=True)
+class ExperienceVerdict:
+    """Стабильность вывода опыта (§8.6, MEM-05.7).
+
+    `STABLE` требует доказанной базы: `required_outcomes >= 1` и либо прямого
+    указания/проверенного фикса (`basis`), либо ≥ требуемого числа независимых
+    исходов. Одна неудача постоянным правилом не становится — это свойство
+    конструктора, а не соглашение.
+    """
+
+    stability: ExperienceStability
+    reason_code: str
+    basis: str = "independent_outcomes"
+    independent_outcomes: int = 0
+    required_outcomes: int = 0
+
+    def __post_init__(self) -> None:
+        stability = _enum(ExperienceStability, self.stability,
+                          "ExperienceVerdict.stability")
+        reason = _text(self.reason_code, "ExperienceVerdict.reason_code",
+                       maximum=64)
+        if not isinstance(self.basis, str) \
+                or self.basis not in EXPERIENCE_BASES:
+            raise ValueError(
+                f"ExperienceVerdict.basis invalid: {self.basis!r}; "
+                f"allowed: {sorted(EXPERIENCE_BASES)}")
+        _int(self.independent_outcomes, "ExperienceVerdict.independent_outcomes")
+        _int(self.required_outcomes, "ExperienceVerdict.required_outcomes")
+        if stability is ExperienceStability.STABLE:
+            if self.required_outcomes < 1:
+                raise ValueError(
+                    "stable verdict requires required_outcomes >= 1 (§8.6)")
+            if self.basis == "independent_outcomes" \
+                    and self.independent_outcomes < self.required_outcomes:
+                raise ValueError(
+                    "stable verdict requires independent_outcomes >= "
+                    "required_outcomes (§8.6)")
+        _normalized(self, "stability", stability)
+        _normalized(self, "reason_code", reason)
+
+    @property
+    def is_stable(self) -> bool:
+        return self.stability is ExperienceStability.STABLE
+
+    def as_dict(self) -> dict:
+        return {"stability": self.stability.value,
+                "reason_code": self.reason_code,
+                "basis": self.basis,
+                "independent_outcomes": self.independent_outcomes,
+                "required_outcomes": self.required_outcomes}

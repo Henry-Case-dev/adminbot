@@ -601,6 +601,17 @@ MEMORY_GATES: dict[str, tuple[bool, str]] = {
         "диагностика. Обслуживание памяти (слияние эпизодов, lineage, review, "
         "диагностика дублей) от гейта НЕ зависит и никогда не удаляет строки",
     ),
+    "MCA_MEMORY_ATTRIBUTION_ENABLED": (
+        False,
+        "C-8: социальная/эпизодическая/мультимодальная атрибуция. OFF → "
+        "прежние пути без изменений (паритет baseline): роли сообщения не "
+        "пересчитываются, адресат не выводится, медиа-выжимки не помечаются "
+        "статусом понимания. ON → «кто сказал / о ком / кому» выводится из "
+        "существующих сигналов (reply/quote/forward, alias в chat scope), "
+        "содержание пересылки принадлежит первоисточнику, self-output бота не "
+        "подтверждает, медиа без выполненного распознавания не читается как "
+        "понимание. Новых хранилищ/LLM-вызовов/промптов гейт не включает",
+    ),
 }
 
 #: Env-имя реестра → ключ каталогового тумблера (per-chat наследование).
@@ -608,6 +619,7 @@ MEMORY_GATE_CATALOG_KEYS: dict[str, str] = {
     "MCA_MEMORY_IDENTITY_ENABLED": "flags.memory_identity_enabled",
     "MCA_MEMORY_MAINTENANCE_POLICY_ENABLED":
         "flags.memory_maintenance_policy_enabled",
+    "MCA_MEMORY_ATTRIBUTION_ENABLED": "flags.memory_attribution_enabled",
 }
 
 
@@ -615,6 +627,38 @@ def memory_identity_env_enabled() -> bool:
     """Env-половина `MCA_MEMORY_IDENTITY_ENABLED` (аварийный OFF, default OFF)."""
     return _env_flag("MCA_MEMORY_IDENTITY_ENABLED",
                      MEMORY_GATES["MCA_MEMORY_IDENTITY_ENABLED"][0])
+
+
+def memory_attribution_env_enabled() -> bool:
+    """Env-половина `MCA_MEMORY_ATTRIBUTION_ENABLED` (аварийный OFF, OFF)."""
+    return _env_flag("MCA_MEMORY_ATTRIBUTION_ENABLED",
+                     MEMORY_GATES["MCA_MEMORY_ATTRIBUTION_ENABLED"][0])
+
+
+async def memory_attribution_enabled(chat_id: int | None = None) -> bool:
+    """Effective гейт C-8 (§5.2): `env AND flags.memory_attribution_enabled`.
+
+    * env-emergency OFF важнее каталога;
+    * `chat_id=None` (§5.2.1) → только `hot.get`, chat-override не читается;
+    * иначе — существующий `chat_params.get_chat_param` (chat override →
+      global hot → default), второго механизма нет;
+    * default **OFF до приёмки** (скрытого «включено по умолчанию» нет: OFF —
+      точный паритет baseline). Никогда не бросает.
+    """
+    if not memory_attribution_env_enabled():
+        return False
+    key = MEMORY_GATE_CATALOG_KEYS["MCA_MEMORY_ATTRIBUTION_ENABLED"]
+    if chat_id is None:
+        try:
+            from services import hot_config as hot
+            return bool(hot.get(key, False))
+        except Exception:      # pragma: no cover — защитная ветка
+            return False
+    try:
+        from services import chat_params
+        return bool(await chat_params.get_chat_param(int(chat_id), key, False))
+    except Exception:          # pragma: no cover — защитная ветка
+        return False
 
 
 def memory_maintenance_policy_env_enabled() -> bool:

@@ -1142,6 +1142,41 @@ class LessonService:
                   chat_id=lesson.get("scope_chat_id"))
         return updated
 
+    async def stability(self, lesson_id: str, version: int | None = None, *,
+                        evidence: "ValidationEvidence | None" = None
+                        ) -> "Any | None":
+        """MEMORY-05 (§8.6, MEM-05.7): `experimental` или `stable` вывод.
+
+        Разделяет ОПЫТ и постоянное правило: `candidate`/`suspended`/
+        `superseded` — не правило; обобщение/паттерн получает `stable` только
+        при ≥ `MCA_LESSON_MIN_INDEPENDENT_EPISODES` независимых исходах;
+        прямое указание участника — инструкция (не статистика), проверенный
+        технический фикс — воспроизведённая ошибка + успешный контроль.
+        Одна неудача вечным правилом поведения не становится.
+
+        Ничего не пишет и не меняет статус урока: это честная метка для
+        выдачи/диагностики (повышение в personality core запрещено, INV-09).
+        """
+        lesson = await self._store.get_lesson(lesson_id, version)
+        if lesson is None:
+            return None
+        from services import memory_attribution
+        outcomes: int | None = None
+        kind: str | None = None
+        granted = reproduced = control = False
+        if evidence is not None:
+            independent = {str(x) for x in
+                           (evidence.independent_episode_ids or ()) if str(x)}
+            outcomes = len(independent)
+            kind = str(evidence.kind or "") or None
+            granted = bool(evidence.permission_granted)
+            reproduced = bool(evidence.error_reproduced)
+            control = bool(evidence.control_example_succeeded)
+        return memory_attribution.lesson_stability(
+            lesson, independent_outcomes=outcomes, validation_kind=kind,
+            permission_granted=granted, error_reproduced=reproduced,
+            control_example_succeeded=control)
+
     async def activate(self, lesson_id: str, version: int | None = None
                        ) -> bool:
         """validated → active: compat текущая + нет противоречий + anonymity.
