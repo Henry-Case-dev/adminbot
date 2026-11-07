@@ -5545,13 +5545,19 @@ class MemoryManager:
 
     async def retrieve_fact_candidates(self, chat_id, query, *,
                                        limit=None, include_direct_reply=False,
-                                       include_self=False) -> list:
+                                       include_self=False,
+                                       include_archived=False) -> list:
         """MCA-07 (T-3844): кандидаты-факты со стабильным `id` и источником
         (единый retrieval-контракт). REUSE `_search_graph_facts(with_meta=True)`
         — второго retrieval НЕ создаётся. Возвращает список dict:
         ``{id, item_id, origin, fact, rag_ts, target_user, tg_message_id,
         forward_from, score}`` в порядке релевантности. Никогда не бросает:
-        выключенный RAG/ошибка → [] (WARNING)."""
+        выключенный RAG/ошибка → [] (WARNING).
+
+        MEMORY-06 (§4.4/§7.1): `include_archived` — ТОЛЬКО явный исторический
+        путь (обычные reply/initiative/context читают live-набор). Default
+        False: неразрушающе вытесненные квотой факты (`archived_fact`) в
+        обычную выдачу не попадают."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return []
         try:
@@ -5561,7 +5567,8 @@ class MemoryManager:
             return await self._search_graph_facts(
                 chat_id, str(query or ""), limit,
                 include_direct_reply=include_direct_reply,
-                include_self=include_self, with_meta=True)
+                include_self=include_self, with_meta=True,
+                include_archived=bool(include_archived))
         except Exception:
             logger.warning(
                 "graphrag retrieval: fact candidates failed — empty | "

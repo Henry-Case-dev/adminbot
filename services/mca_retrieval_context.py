@@ -20,12 +20,14 @@ R17: наружу — только id/коды/длины; сырой конте
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import hashlib
 import logging
 import re
 import time
 
 from services import mca_gates
+from services import memory_contracts as _mc
 
 logger = logging.getLogger(__name__)
 
@@ -237,6 +239,106 @@ class EvidenceBundle:
     # Наполняет LessonService (scope/active → compat → relevance → utility);
     # suspended/disabled/stale не включаются. Поля M-MCA07-2 не трогаются.
     lessons: tuple[LessonRef, ...] = ()
+    # ── MEMORY-06 (§7.2, MEM-06.8): ЧЕЛОВЕЧЕСКИЙ evidence summary для Writer
+    # (дата/автор/источник, без внутренних id и метрик). Дополнение к bundle,
+    # а не изменение активных промптов: в Telegram не выводится, в логи — без
+    # текста (R17). Пусто → байт-паритет прежнего bundle.
+    summary_text: tuple[str, ...] = ()
+
+
+# ── MEMORY-06 (§7.2, MEM-06.8): человеческий evidence summary ──────────────
+# Writer получает дату/автора/источник и «предположение/пересылку» обычным
+# текстом; внутренние id, cosine, channel= и raw-тройки в него не попадают.
+_SUMMARY_INTERNAL_RE = re.compile(
+    r"\b(?:tg|msg|fact|ent|edge|comm|episode):\S*"
+    r"|\b(?:node_id|edge_id|source_ref_id|chat_id|cosine)\b"
+    r"|\bchannel=\S*", re.IGNORECASE)
+
+
+def humanize_summary_text(value) -> str:
+    """Убрать внутренние id/метрики из человеческой строки (§7.2/S-7/R17)."""
+    text = " ".join(str(value or "").split())
+    if not text:
+        return ""
+    text = _SUMMARY_INTERNAL_RE.sub("", text)
+    return " ".join(text.replace("()", "").split()).strip(" -—:;,")
+
+
+def summary_date(ts, tz_name: str = "") -> str:
+    """Дата события в поясе ЧАТА (§7.2: `chat_clock`, не UTC-число)."""
+    try:
+        seconds = int(ts)
+    except (TypeError, ValueError):
+        return ""
+    if not seconds:
+        return ""
+    try:
+        moment = datetime.datetime.fromtimestamp(
+            seconds, datetime.timezone.utc)
+    except (ValueError, OSError, OverflowError):
+        return ""
+    if tz_name:
+        try:
+            import zoneinfo
+            moment = moment.astimezone(zoneinfo.ZoneInfo(str(tz_name)))
+        except Exception:
+            pass                     # неизвестный пояс → UTC (честно)
+    return moment.strftime("%d.%m.%Y")
+
+
+async def chat_timezone_name(chat_id) -> str:
+    """IANA-пояс чата через существующий `chat_clock.snapshot` (fail-open)."""
+    try:
+        from services import chat_clock
+        snap = await chat_clock.snapshot(chat_id)
+        return str(getattr(snap, "timezone", "") or "")
+    except Exception:
+        return ""
+
+
+_SUMMARY_CERTAINTY_PREFIX = {
+    "assumption": "предположение / гипотеза: ",
+    "unconfirmed": "не подтверждено: ",
+    "archive": "архивный факт: ",
+}
+
+
+def render_evidence_summary(rows, *, tz_name: str = "") -> tuple[str, ...]:
+    """Собрать человеческие строки evidence summary (§7.2).
+
+    ``rows`` — словари: ``kind`` (fact|message|episode), ``text``, ``author``,
+    ``ts``, ``forward_from``, ``certainty`` (assumption|unconfirmed|archive),
+    ``episode_bounds``. Никаких id/score в выходе; пустой текст не выводится.
+    """
+    lines: list[str] = []
+    for row in rows or ():
+        if not isinstance(row, dict):
+            continue
+        text = humanize_summary_text(row.get("text"))
+        if not text:
+            continue
+        kind = str(row.get("kind") or "fact").strip().lower()
+        author = humanize_summary_text(row.get("author"))
+        date = summary_date(row.get("ts"), tz_name)
+        certainty = str(row.get("certainty") or "").strip().lower()
+        prefix = _SUMMARY_CERTAINTY_PREFIX.get(certainty, "")
+        if kind == "episode":
+            bounds = humanize_summary_text(row.get("episode_bounds"))
+            line = (f"эпизод ({bounds}): {text}" if bounds
+                    else f"эпизод: {text}")
+        elif author and date:
+            line = f"{author} сказал(а) {date}: {text}"
+        elif author:
+            line = f"{author} сказал(а): {text}"
+        elif date:
+            line = f"Записано {date}: {text}"
+        else:
+            line = f"Записано: {text}"
+        forward = humanize_summary_text(row.get("forward_from"))
+        if forward:
+            line += f" — пересланное сообщение, первоисточник: {forward}"
+        lines.append(prefix + line)
+    return tuple(lines)
 
 
 def compute_context_version(*, current_revision=None, selected_refs=(),
@@ -297,13 +399,50 @@ RETRIEVAL_ERROR = "error"
 # Веса каналов (детерминированная агрегация, не «движок»).
 _CHANNEL_WEIGHTS = {
     "exact": 100.0,
+    # §4.4 MEMORY-06: новый канал `entity` (канонический узел C-1 по
+    # `subject_node_ids`) — вес между exact и lexical. Это bounded чтение
+    # `nodes` ПО ID, а не второй поиск.
+    "entity": 90.0,
     "lexical": 80.0,
     "vector": 60.0,
     "reply_graph": 40.0,
+    # §4.4/§6: членство в активной сборке сообществ (C-6). Таблицы сборки
+    # появляются в MEMORY-07; до неё канал честно пуст (не выдумывается).
+    "community": 30.0,
     "episode": 20.0,
 }
-_CHANNEL_ORDER = ("exact", "lexical", "vector", "reply_graph", "episode")
+_CHANNEL_ORDER = ("exact", "entity", "lexical", "vector", "reply_graph",
+                  "community", "episode")
 _PREVIEW_MAX_CHARS = 400
+
+# ── MEMORY-06 (§4.4/§7.1): расширение ЕДИНОГО retrieval-контракта ───────────
+# Purpose/mode/scope — REUSE закрытых наборов MEMORY-01 (`memory_contracts`);
+# второй закрытый набор значений не создаётся (§0.2/INV-03).
+RETRIEVAL_PURPOSES = tuple(p.value for p in _mc.MemoryPurpose)
+RETRIEVAL_MODES = tuple(m.value for m in _mc.IntentMode)
+RETRIEVAL_INTENTS = ("fact", "who", "what-happened", "history",
+                     "relationship", "current", "follow-up", "broad-theme",
+                     "auto")
+#: §4.1: верхняя граница выдачи UI-поиска (только `purpose='ui_search'`).
+UI_SEARCH_MAX_LIMIT = _mc.SEARCH_LIMIT_MAX
+#: Политика каналов по умолчанию (порядок — приоритет стабильности выдачи).
+_DEFAULT_CHANNELS = ("exact", "entity", "lexical", "vector", "reply_graph",
+                     "episode")
+#: `mode` в трёх режимах MEM-06.6 → существующие ветки retrieval (§7.1).
+_INTENT_TO_MODE = {
+    "fact": "specific", "who": "specific", "relationship": "specific",
+    "current": "specific",
+    "what-happened": "episodic", "history": "episodic",
+    "broad-theme": "thematic",
+    # `follow-up`/`auto` — без принудительного режима: существующая
+    # эвристика `_HISTORY_MARKERS`, иначе обычная смешанная выдача.
+}
+#: Максимальный «бонус свежести» в единицах типизированного ранга. Строго
+#: меньше разрыва между соседними каналами (20), поэтому близкая по времени
+#: запись не перебивает более сильный канал (§7.1/MEM-06.4).
+_TYPED_RECENCY_BONUS = 12.0
+_TYPED_TRUST_BONUS = 8.0
+_TYPED_LEGACY_PENALTY = 8.0
 # Маркеры исторического запроса (эвристика mode=auto; явный mode имеет приоритет).
 _HISTORY_MARKERS = (
     "истори", "расскажи", "что было", "что происходило", "раньше", "когда-то",
@@ -313,12 +452,17 @@ _HISTORY_MARKERS = (
 
 @dataclasses.dataclass(frozen=True)
 class RetrievalRequest:
-    """Вход единого retrieval-контракта (§4.1)."""
+    """Вход единого retrieval-контракта (§4.1 + §4.4/§7.1 MEMORY-06).
+
+    Новые поля MEMORY-06 аддитивны и по умолчанию сохраняют прежнее
+    поведение: `chat_ids=None` → ровно `(chat_id,)`; `channels=None` →
+    политика по умолчанию; `purpose='reply'`; `limit/cursor` не заданы.
+    """
     chat_id: int
     query: str
     trigger_ref: int | None = None
     scope: str = "auto"       # auto|time_range|participants|parent|branch
-    mode: str = "auto"        # auto|history|exact
+    mode: str = "auto"        # auto|history|exact|specific|episodic|thematic
     top_k: int = 12
     policy_version: str = RETRIEVAL_POLICY_VERSION
     time_from: int | None = None
@@ -328,10 +472,36 @@ class RetrievalRequest:
     # ── MCA-22 (C5, §21 ТЗ): query planning — структурированные identity ──
     # current speaker/subject candidates переносятся в identity-prior;
     # episodes-first не нарушается (эпизоды не штрафуются prior'ом).
-    subject_entity_ids: tuple[int, ...] = ()   # subject candidates запроса
+    # ВАЖНО (§7.1): это Telegram `user id` (uid), НЕ `nodes.id`.
+    subject_entity_ids: tuple[int, ...] = ()   # subject candidates запроса (uid)
     speaker_entity_id: int | None = None       # current speaker
     reply_target_entity_id: int | None = None  # reply-адресат триггера
     quote_source_ref: str | None = None        # резолвнутый источник цитаты
+    # ── MEMORY-06 (§4.4/§7.1): аддитивное расширение контракта ─────────────
+    #: Разрешённый ACL-набор чатов (`None` = ровно `chat_id`). Набор приходит
+    #: только от владельца прав; `retrieve` ничего не угадывает.
+    chat_ids: tuple[int, ...] | None = None
+    #: Ограничение каналов (`None` = политика по умолчанию).
+    channels: tuple[str, ...] | None = None
+    #: Назначение выборки (§4.4): reply|initiative|factcheck_context|
+    #: ui_search|dossier.
+    purpose: str = "reply"
+    #: `cursor`/`limit` активны ТОЛЬКО при `purpose='ui_search'` (§4.4).
+    cursor: str | None = None
+    limit: int | None = None
+    offset_bucket: str | None = None
+    #: Канонические узлы C-1 (`nodes.id` ПОСЛЕ redirect-схлопывания). Это НЕ
+    #: uid: смешивать `subject_entity_ids` (uid) и `subject_node_ids` запрещено
+    #: (§7.1) — иначе uid случайно совпал бы с `nodes.id`.
+    subject_node_ids: tuple[int, ...] = ()
+    #: Детерминированная подсказка ранжированию (§7.1): intent — не фильтр.
+    intent: str = "auto"
+    #: Неразрешённые варианты субъекта из C-1 (для честной неоднозначности).
+    ambiguous_subjects: tuple[str, ...] = ()
+    #: Явный исторический/архивный запрос (только `dig_into_lore`-подобный
+    #: путь). Обычные reply/initiative/context пути НИКОГДА не ставят True:
+    #: `archived_fact` (вытеснено квотой) остаётся невидимым.
+    include_archived: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -344,7 +514,7 @@ class RetrievalCandidate:
     где источник их знает. Exact subject match сильнее vector hit про
     другого человека (`apply_identity_prior`)."""
     id: str
-    entity_type: str          # message|graph_fact|episode
+    entity_type: str          # message|graph_fact|episode|entity|community
     entity_id: str
     chat_id: int | None = None
     source_ref_id: int | None = None
@@ -363,10 +533,13 @@ class RetrievalCandidate:
     origin_type: str | None = None         # origin / provenance_channel
     contradiction_status: str | None = None   # mca_provenance_status
     provenance_backed: bool = False        # False = legacy/unverified (§9)
+    # ── MEMORY-06 (§4.4): канонический узел C-1 (`nodes.id`), НЕ uid ────────
+    subject_node_id: int | None = None
 
 
 def apply_identity_prior(candidates: list, *, subject_entity_ids: tuple = (),
-                         participant_ids: tuple = ()) -> list:
+                         participant_ids: tuple = (),
+                         subject_node_ids: tuple = ()) -> list:
     """Identity-aware prior поверх канальных рангов (C5, §10/§21; D7).
 
     Детерминированный буст (не «второй движок»): exact subject match
@@ -374,19 +547,29 @@ def apply_identity_prior(candidates: list, *, subject_entity_ids: tuple = (),
     текущего контекста получают мягкий буст; `provenance_backed=False`
     (legacy/unverified) — мягкий штраф. SourceRef/reply-match про нужного
     subject не вытесняется similarity сам по себе (truth-set K).
+
+    MEMORY-06 (§7.1): `subject_node_ids` — канонические `nodes.id` из C-1,
+    отдельный вход от uid (`subject_entity_ids`), поэтому uid, случайно
+    совпавший с `nodes.id`, не даёт ложный exact-subject prior.
     Возвращает НОВЫЙ список (sorted by скор), без мутаций входа."""
     subjects = {int(s) for s in subject_entity_ids or () if s is not None}
+    nodes = {int(n) for n in subject_node_ids or () if n is not None}
     participants = {int(p) for p in participant_ids or () if p is not None}
-    if not subjects and not participants:
+    if not subjects and not nodes and not participants:
         return sorted(candidates, key=lambda c: c.score, reverse=True)
 
     def _adjusted(cand: RetrievalCandidate) -> float:
         score = float(cand.score)
-        if subjects and cand.subject_entity_id is not None and \
-                int(cand.subject_entity_id) in subjects:
+        node_match = (nodes and cand.subject_node_id is not None
+                      and int(cand.subject_node_id) in nodes)
+        uid_match = (subjects and cand.subject_entity_id is not None
+                     and int(cand.subject_entity_id) in subjects)
+        if node_match or uid_match:
             score += 150.0                  # exact subject — доминирующий prior
         elif subjects and cand.subject_entity_id is not None:
             score -= 80.0                   # факт про другого человека — вниз
+        elif nodes and cand.subject_node_id is not None:
+            score -= 80.0                   # узел другого субъекта — вниз
         if participants and cand.speaker_entity_id is not None and \
                 int(cand.speaker_entity_id) in participants:
             score += 15.0                   # source role: участник контекста
@@ -398,8 +581,21 @@ def apply_identity_prior(candidates: list, *, subject_entity_ids: tuple = (),
 
 
 @dataclasses.dataclass(frozen=True)
+class RelevanceDecision:
+    """Решение «использовать ли память» (MEM-06.7, §7.1).
+
+    Ответ не обязан включать всё найденное: `use_memory=False` — допустимый
+    исход («не подходящий субъект», «неоднозначно», «нет кандидатов»).
+    """
+    use_memory: bool
+    reason_code: str = ""
+    matched_subject: bool = False
+    dropped: tuple[str, ...] = ()
+
+
+@dataclasses.dataclass(frozen=True)
 class RetrievalResult:
-    """Выход единого retrieval-контракта (§4.1)."""
+    """Выход единого retrieval-контракта (§4.1 + §4.4/§7.1)."""
     status: str
     candidates: tuple[RetrievalCandidate, ...] = ()
     channels_used: tuple[str, ...] = ()
@@ -411,12 +607,242 @@ class RetrievalResult:
     # как явно помеченное дополнение (не как факты диапазона). Для прочих
     # запросов всегда пусто.
     supplementary: tuple[RetrievalCandidate, ...] = ()
+    # ── MEMORY-06: эхо режима/назначения и честные гейты ───────────────────
+    mode: str = ""
+    purpose: str = "reply"
+    chat_ids: tuple[int, ...] = ()
+    #: Явная неоднозначность субъекта: варианты, без автовыбора «популярного».
+    ambiguity: tuple[dict, ...] = ()
+    #: Решение «память уместна/не уместна» и почему (MEM-06.7).
+    relevance: RelevanceDecision | None = None
 
 
 def is_history_query(query: str) -> bool:
     """Эвристика «запрос об истории» (D2): сначала эпизоды."""
     text = str(query or "").casefold()
     return any(marker in text for marker in _HISTORY_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MEMORY-06 (§4.4/§7.1): расширение ЕДИНОГО retrieval-контракта, не второй
+# поиск (S-1). Здесь только детерминированные политики: валидация запроса,
+# выбор режима/каналов, типизированный ранг, гейты уместности. Ноль LLM.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def request_reason_code(request: RetrievalRequest) -> str | None:
+    """Валидация расширенного запроса. ``None`` = запрос валиден.
+
+    §4.4: `limit`/`cursor` активны ТОЛЬКО при `purpose='ui_search'`, там же
+    `1 ≤ limit ≤ 20` (иначе честный отказ, а не «подрезанная» выдача)."""
+    purpose = str(request.purpose or "")
+    if purpose not in RETRIEVAL_PURPOSES:
+        return "invalid_purpose"
+    if purpose == _mc.MemoryPurpose.UI_SEARCH.value:
+        if request.limit is None:
+            return None
+        limit = request.limit
+        if isinstance(limit, bool) or not isinstance(limit, int):
+            return "invalid_limit"
+        if not 1 <= int(limit) <= UI_SEARCH_MAX_LIMIT:
+            return "invalid_limit"
+        return None
+    if request.limit is not None or request.cursor:
+        return "limit_not_allowed"
+    return None
+
+
+def resolve_intent_mode(request: RetrievalRequest, *,
+                        range_active: bool = False) -> str:
+    """Детерминированный режим retrieval (§7.1/MEM-06.6), без LLM.
+
+    Приоритет: явный `request.mode` → intent-подсказка → существующая
+    эвристика `_HISTORY_MARKERS` → `auto` (смешанная выдача). Неизвестный
+    intent не «угадывается»: остаётся `auto`."""
+    mode = str(request.mode or "auto")
+    if mode not in ("auto",) + tuple(RETRIEVAL_MODES) + ("history", "exact"):
+        mode = "auto"
+    if mode != "auto":
+        return mode
+    mapped = _INTENT_TO_MODE.get(str(request.intent or ""))
+    if mapped:
+        return mapped
+    if range_active:
+        return "auto"           # P0-HA: диапазон не разворачивается в историю
+    return "episodic" if is_history_query(request.query) else "auto"
+
+
+def resolve_channels(request: RetrievalRequest, mode: str) -> tuple[str, ...]:
+    """Активные каналы (§4.4): `None` = политика по умолчанию.
+
+    Режимы используют существующие ветки: `specific` — точный субъект/факт
+    (эпизоды только по reply-связи), `episodic` — последовательность,
+    `thematic` — широкий обзор (+ членство активной сборки, если она есть).
+    Неизвестное имя канала игнорируется (не превращается в полный скан)."""
+    selected = list(request.channels or _DEFAULT_CHANNELS)
+    if mode == "specific" and request.channels is None:
+        if request.trigger_ref is None:
+            selected = [c for c in selected if c != "episode"]
+    if mode == "thematic" and "community" not in selected:
+        selected.append("community")
+    return tuple(c for c in _CHANNEL_ORDER if c in set(selected))
+
+
+def effective_chat_ids(request: RetrievalRequest) -> tuple[int, ...]:
+    """ACL-набор чатов запроса: `None` → ровно `chat_id` (§4.4).
+
+    Сам `retrieve` ничего не угадывает: набор передаёт владелец прав."""
+    if request.chat_ids is None:
+        out = [int(request.chat_id)]
+    else:
+        out = []
+        for value in request.chat_ids:
+            try:
+                chat_id = int(value)
+            except (TypeError, ValueError):
+                continue
+            if chat_id not in out:
+                out.append(chat_id)
+        if not out:
+            out = [int(request.chat_id)]
+    return tuple(out)
+
+
+def request_limit(request: RetrievalRequest) -> int:
+    """Сколько кандидатов вернуть: `limit` (ui_search) либо прежний `top_k`."""
+    if request.purpose == _mc.MemoryPurpose.UI_SEARCH.value \
+            and request.limit is not None:
+        return max(1, min(int(request.limit), UI_SEARCH_MAX_LIMIT))
+    return max(1, int(request.top_k or 1))
+
+
+def typed_rank_score(candidate: RetrievalCandidate, request: RetrievalRequest,
+                     mode: str, *, now: int | None = None) -> float:
+    """Типизированный ранг (MEM-06.4): канал + доверие источника +
+    актуальность времени + режим. Никогда не заменяет канальный вес.
+
+    Бонусы ограничены так, чтобы канал оставался доминирующим: старый
+    «сомнительный» vector-hit не выигрывает у свежего точного assertion
+    только за счёт similarity, но и не перебивает более сильный канал."""
+    score = float(candidate.score)
+    if candidate.provenance_backed:
+        score += _TYPED_TRUST_BONUS
+    elif candidate.entity_type == "graph_fact":
+        score -= _TYPED_LEGACY_PENALTY      # legacy/unverified — weak hint
+    if candidate.sent_at:
+        age_days = max(0.0, (int(now if now is not None else time.time())
+                             - int(candidate.sent_at)) / 86400.0)
+        if age_days < 365.0:
+            score += _TYPED_RECENCY_BONUS * (1.0 - age_days / 365.0)
+    if (request.time_from is not None and request.time_to is not None
+            and candidate.sent_at
+            and int(request.time_from) <= int(candidate.sent_at)
+            <= int(request.time_to)):
+        score += _TYPED_RECENCY_BONUS       # внутри запрошенного окна
+    if mode == "specific":
+        if candidate.entity_type in ("graph_fact", "entity"):
+            score += 4.0
+        elif candidate.entity_type == "episode":
+            score -= 6.0
+    elif mode == "episodic":
+        if candidate.entity_type == "episode":
+            score += 6.0
+        elif candidate.entity_type == "message":
+            score += 2.0
+    elif mode == "thematic":
+        if candidate.entity_type in ("community", "entity"):
+            score += 4.0
+    return score
+
+
+def _subject_sets(request: RetrievalRequest) -> tuple[set, set]:
+    """(uid-субъекты, node-субъекты) — раздельно, смешивать запрещено (§7.1)."""
+    uids = set()
+    for value in request.subject_entity_ids or ():
+        try:
+            uids.add(int(value))
+        except (TypeError, ValueError):
+            continue
+    nodes = set()
+    for value in request.subject_node_ids or ():
+        try:
+            nodes.add(int(value))
+        except (TypeError, ValueError):
+            continue
+    return uids, nodes
+
+
+def apply_subject_gate(candidates: list, request: RetrievalRequest
+                       ) -> tuple[list, tuple[str, ...]]:
+    """Гейт «не перепутан человек» (MEM-06.7).
+
+    Если запрос явно называет субъекта, кандидат, объявивший ДРУГОГО
+    субъекта, остаётся только при реальном совпадении с текстом запроса;
+    иначе отбрасывается (`dropped` виден в диагностике). Кандидаты без
+    объявленного субъекта не трогаются — «неизвестно» ≠ «другой человек»."""
+    uids, nodes = _subject_sets(request)
+    if not uids and not nodes:
+        return list(candidates), ()
+    tokens = set(_tokenize(request.query))
+    kept: list = []
+    dropped: list[str] = []
+    for cand in candidates:
+        subject_uid = cand.subject_entity_id
+        subject_node = cand.subject_node_id
+        mismatch = False
+        if subject_uid is not None and uids and int(subject_uid) not in uids:
+            mismatch = True
+        if subject_node is not None and nodes \
+                and int(subject_node) not in nodes:
+            mismatch = True
+        if not mismatch:
+            kept.append(cand)
+            continue
+        overlap = bool(tokens) and bool(
+            tokens & set(_tokenize(cand.preview or "")))
+        if overlap:
+            kept.append(cand)       # текстовое совпадение — не выкидываем
+        else:
+            dropped.append(cand.id)
+    return kept, tuple(dropped)
+
+
+def ambiguity_variants(request: RetrievalRequest) -> tuple[dict, ...]:
+    """Явные варианты субъекта (§4.2/S-5): популярный не выбирается."""
+    variants = []
+    for raw in request.ambiguous_subjects or ():
+        value = str(raw or "").strip()
+        if value:
+            variants.append({"variant": value, "discriminator": value})
+    return tuple(variants)
+
+
+def assess_relevance(candidates: list, request: RetrievalRequest, *,
+                     dropped: tuple[str, ...] = (),
+                     mode: str = "") -> RelevanceDecision:
+    """Уместна ли память для этого хода (MEM-06.7). Детерминированно."""
+    if not candidates:
+        return RelevanceDecision(False, "no_candidates", False, tuple(dropped))
+    uids, nodes = _subject_sets(request)
+    if (uids or nodes) and not any(_candidate_matches_subject(c, uids, nodes)
+                                   for c in candidates):
+        return RelevanceDecision(False, "subject_mismatch", False,
+                                 tuple(dropped))
+    if request.ambiguous_subjects and not (uids or nodes):
+        return RelevanceDecision(False, "ambiguous_subject", False,
+                                 tuple(dropped))
+    return RelevanceDecision(True, "relevant", bool(uids or nodes),
+                             tuple(dropped))
+
+
+def _candidate_matches_subject(candidate: RetrievalCandidate, uids: set,
+                               nodes: set) -> bool:
+    if uids and candidate.subject_entity_id is not None \
+            and int(candidate.subject_entity_id) in uids:
+        return True
+    if nodes and candidate.subject_node_id is not None \
+            and int(candidate.subject_node_id) in nodes:
+        return True
+    return False
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -641,15 +1067,34 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
 
     Комбинация: exact (quoted-FTS) + lexical/FTS (сообщения + граф-факты) +
     vector (`MemoryManager.retrieve_fact_candidates`) + reply-граф
-    (`thread_chain`) + эпизоды (`lore_stories`). Для `mode=history` —
-    эпизоды ПЕРВЫМИ, затем сообщения. Кандидаты несут SourceRef-ссылку/время.
+    (`thread_chain`) + эпизоды (`lore_stories`) + entity (`nodes` по
+    `subject_node_ids` C-1, bounded по id) + community (членство активной
+    сборки C-6, если она есть). Для исторических/эпизодических запросов —
+    эпизоды ПЕРВЫМИ. Кандидаты несут SourceRef-ссылку/время.
     Никогда не бросает: ошибка канала → честная деградация (пропуск канала);
-    ошибка всех → ``status='empty'``/``reason_code='retrieval_empty'``."""
+    ошибка всех → ``status='empty'``/``reason_code='retrieval_empty'``.
+
+    MEMORY-06 (§4.4/§7.1): `chat_ids` — ACL-набор от владельца прав;
+    `purpose='ui_search'` получает `limit` (1…20) и НЕ предполагает reranker
+    (LLM на поиск запрещён); `subject_entity_ids` (uid) и `subject_node_ids`
+    (`nodes.id`) раздельны; `include_archived=True` — только явный
+    исторический путь (`dig_into_lore`), обычные пути архив не видят."""
     from services.mca_retrieval_context import (  # self (lazy — циклы)
         RETRIEVAL_EMPTY as _EMPTY,
     )
     from services.summary_memory import build_fts_query
     from services.canonical_context import resolve_item_id
+
+    chat_ids = effective_chat_ids(request)
+    invalid = request_reason_code(request)
+    if invalid:
+        emit_stage_event("retrieval", "invalid", reason_code=invalid,
+                         chat_id=request.chat_id)
+        return RetrievalResult(status=RETRIEVAL_ERROR, reason_code=invalid,
+                               purpose=str(request.purpose or ""),
+                               mode=str(request.mode or "auto"),
+                               chat_ids=chat_ids)
+
     keywords = _tokenize(request.query)
     match = build_fts_query(keywords) if keywords else ""
     now = int(time.time())
@@ -658,76 +1103,142 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     # — корпусный FTS/эпизоды не разворачиваются поверх диапазона. Запрос без
     # количественной границы эти ветки не касается (H24).
     range_active = _range_bound(request)
-    mode = request.mode
-    if mode == "auto" and not range_active:
-        mode = "history" if is_history_query(request.query) else "auto"
+    mode = resolve_intent_mode(request, range_active=range_active)
+    allowed_channels = resolve_channels(request, mode)
+    limit = request_limit(request)
+    fetch_k = max(1, limit)
     channels: list[str] = []
     raw: list[RetrievalCandidate] = []
     exact_used = False      # L-MCA07-3: reason_code `exact_match_used`
 
-    # ── эпизоды (для истории — ПЕРВЫМИ) ─────────────────────────────────────
-    if mode == "history":
-        try:
-            episodes = await _episode_candidates(db, request, keywords)
-            if episodes:
-                raw.extend(episodes)
-                channels.append("episode")
-        except Exception:
-            logger.warning("[mca07] episode channel failed", exc_info=True)
+    def _allow(name: str) -> bool:
+        return name in allowed_channels
+
+    # ── эпизоды (для истории/эпизодики — ПЕРВЫМИ) ───────────────────────────
+    if _allow("episode") and (mode in ("history", "episodic")
+                              or request.channels is not None):
+        for chat_id in chat_ids:
+            try:
+                episodes = await _episode_candidates(
+                    db, dataclasses.replace(request, chat_id=chat_id,
+                                            top_k=fetch_k), keywords)
+                if episodes:
+                    raw.extend(episodes)
+                    channels.append("episode")
+            except Exception:
+                logger.warning("[mca07] episode channel failed", exc_info=True)
 
     # ── exact (quoted-фраза всегда доступна) ────────────────────────────────
     phrases = re.findall(r'"([^"]{2,})"', request.query)
-    for phrase in phrases[:4]:
-        try:
-            exact_match = '"' + phrase.replace('"', "").replace("*", "") + '"'
-            rows = await db.search_messages_fts(
-                request.chat_id, exact_match, max(1, request.top_k))
-            for pos, row in enumerate(rows or []):
-                raw.append(_message_candidate(row, "exact", pos, resolve_item_id))
-            if rows:
-                channels.append("exact")
-                exact_used = True
-        except Exception:
-            logger.warning("[mca07] exact channel failed", exc_info=True)
+    if _allow("exact"):
+        for chat_id in chat_ids:
+            for phrase in phrases[:4]:
+                try:
+                    exact_match = ('"' + phrase.replace('"', "")
+                                   .replace("*", "") + '"')
+                    rows = await db.search_messages_fts(
+                        chat_id, exact_match, fetch_k)
+                    for pos, row in enumerate(rows or []):
+                        raw.append(_message_candidate(
+                            row, "exact", pos, resolve_item_id))
+                    if rows:
+                        channels.append("exact")
+                        exact_used = True
+                except Exception:
+                    logger.warning("[mca07] exact channel failed",
+                                   exc_info=True)
+
+    # ── entity (§4.4): канонический узел C-1 по `nodes.id`, bounded ─────────
+    if _allow("entity") and request.subject_node_ids:
+        for chat_id in chat_ids:
+            try:
+                rows = await _entity_rows(db, chat_id,
+                                          request.subject_node_ids)
+                for pos, row in enumerate(rows or []):
+                    raw.append(_entity_candidate(row, chat_id, pos))
+                if rows:
+                    channels.append("entity")
+            except Exception:
+                logger.warning("[mca07] entity channel failed", exc_info=True)
 
     # ── lexical/FTS: сообщения + граф-факты ─────────────────────────────────
-    if match:
-        try:
-            rows = await db.search_messages_fts(
-                request.chat_id, match, max(1, request.top_k * 2))
-            for pos, row in enumerate(rows or []):
-                raw.append(_message_candidate(row, "lexical", pos, resolve_item_id))
-            if rows:
-                channels.append("lexical")
-        except Exception:
-            logger.warning("[mca07] lexical messages channel failed",
-                           exc_info=True)
-        try:
-            rows = await db.search_graph_facts_fts(
-                request.chat_id, match, max(1, request.top_k * 2), now)
-            for pos, row in enumerate(rows or []):
-                raw.append(_fact_candidate(row, "lexical", pos, resolve_item_id))
-            if rows:
-                channels.append("lexical")
-        except Exception:
-            logger.warning("[mca07] lexical facts channel failed",
-                           exc_info=True)
+    if _allow("lexical") and match:
+        for chat_id in chat_ids:
+            try:
+                rows = await db.search_messages_fts(
+                    chat_id, match, max(1, fetch_k * 2))
+                for pos, row in enumerate(rows or []):
+                    raw.append(_message_candidate(row, "lexical", pos,
+                                                  resolve_item_id))
+                if rows:
+                    channels.append("lexical")
+            except Exception:
+                logger.warning("[mca07] lexical messages channel failed",
+                               exc_info=True)
+            try:
+                rows = await db.search_graph_facts_fts(
+                    chat_id, match, max(1, fetch_k * 2), now,
+                    include_archived=bool(request.include_archived))
+                for pos, row in enumerate(rows or []):
+                    raw.append(_fact_candidate(row, "lexical", pos,
+                                               resolve_item_id))
+                if rows:
+                    channels.append("lexical")
+            except TypeError:
+                # Совместимость с двойниками без include_archived: обычный
+                # (не архивный) вызов — архив в них и так не виден.
+                try:
+                    rows = await db.search_graph_facts_fts(
+                        chat_id, match, max(1, fetch_k * 2), now)
+                    for pos, row in enumerate(rows or []):
+                        raw.append(_fact_candidate(row, "lexical", pos,
+                                                   resolve_item_id))
+                    if rows:
+                        channels.append("lexical")
+                except Exception:
+                    logger.warning("[mca07] lexical facts channel failed",
+                                   exc_info=True)
+            except Exception:
+                logger.warning("[mca07] lexical facts channel failed",
+                               exc_info=True)
 
     # ── vector (REUSE MemoryManager; единый retrieval-контракт) ─────────────
-    if memory is not None:
-        try:
-            facts = await memory.retrieve_fact_candidates(
-                request.chat_id, request.query, limit=max(1, request.top_k))
-            for pos, row in enumerate(facts or []):
-                raw.append(_fact_meta_candidate(row, pos, resolve_item_id))
-            if facts:
-                channels.append("vector")
-        except Exception:
-            logger.warning("[mca07] vector channel failed", exc_info=True)
+    if _allow("vector") and memory is not None:
+        for chat_id in chat_ids:
+            try:
+                try:
+                    facts = await memory.retrieve_fact_candidates(
+                        chat_id, request.query, limit=fetch_k,
+                        include_archived=bool(request.include_archived))
+                except TypeError:
+                    # Двойники без archival-параметра: обычная (live) выдача.
+                    facts = await memory.retrieve_fact_candidates(
+                        chat_id, request.query, limit=fetch_k)
+                for pos, row in enumerate(facts or []):
+                    raw.append(_fact_meta_candidate(row, pos, resolve_item_id))
+                if facts:
+                    channels.append("vector")
+            except Exception:
+                logger.warning("[mca07] vector channel failed", exc_info=True)
+
+    # ── community (§4.4/C-6): членство активной сборки, если она есть ───────
+    if _allow("community") and mode == "thematic":
+        for chat_id in chat_ids:
+            try:
+                rows = await _community_candidates(db, chat_id, keywords,
+                                                   fetch_k)
+                for pos, row in enumerate(rows or []):
+                    raw.append(_community_candidate(row, chat_id, pos))
+                if rows:
+                    channels.append("community")
+            except Exception:
+                logger.warning("[mca07] community channel failed",
+                               exc_info=True)
 
     # ── reply-граф (REUSE thread_chain; scope parent/branch/auto-trigger) ────
-    if request.trigger_ref is not None and request.scope in (
-            "auto", "parent", "branch") and request.reply_depth > 0:
+    if _allow("reply_graph") and request.trigger_ref is not None \
+            and request.scope in ("auto", "parent", "branch") \
+            and request.reply_depth > 0:
         try:
             from services.thread_chain import collect_thread_chain
             chain = await collect_thread_chain(
@@ -749,37 +1260,47 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         raw, supplementary = _split_range(raw, request)
     else:
         raw = _apply_filters(raw, request)
-    # Порядок: история — эпизоды первыми, далее по весу канала/позиции.
+    # MEMORY-06 (§7.1): «не перепутан человек» — кандидат про другого
+    # объявленного субъекта выпадает, если не совпал и по тексту запроса.
+    deduped = _dedup(raw)
+    deduped, subject_dropped = apply_subject_gate(deduped, request)
+    # Порядок: история/эпизодика — эпизоды первыми, далее типизированный ранг
+    # (канал + доверие + актуальность + режим), а не одна similarity.
     # P0-HA ISOLATION: при активной связке history_bias не применяется
     # (эпизоды не ставятся первыми поверх корпуса).
     def _sort_key(cand: RetrievalCandidate):
-        history_bias = (1 if (mode == "history" and cand.channel == "episode"
-                              and not range_active)
-                        else 0)
-        return (history_bias, cand.score)
-    ordered = sorted(_dedup(raw), key=_sort_key, reverse=True)
+        history_bias = (1 if (mode in ("history", "episodic")
+                              and cand.channel == "episode"
+                              and not range_active) else 0)
+        return (history_bias, typed_rank_score(cand, request, mode, now=now))
+    ordered = sorted(deduped, key=_sort_key, reverse=True)
     # MCA-22 (C5, D7): identity-prior — exact subject match про нужного
     # человека сильнее приблизительного vector hit про другого (§10/§21).
     # Гейт canonical OFF → prior не применяется (паритет baseline).
-    if _canonical_enabled() and (request.subject_entity_ids
+    uids, nodes = _subject_sets(request)
+    prior_uids = tuple(sorted(uids))
+    prior_nodes = tuple(sorted(nodes))
+    if _canonical_enabled() and (prior_uids or prior_nodes
                                  or request.participants):
         non_eps = [c for c in ordered if c.channel != "episode"]
         eps = [c for c in ordered if c.channel == "episode"]
         non_eps = apply_identity_prior(
-            non_eps, subject_entity_ids=request.subject_entity_ids,
-            participant_ids=request.participants)
-        ordered = (eps + non_eps) if mode == "history" else \
+            non_eps, subject_entity_ids=prior_uids,
+            participant_ids=request.participants,
+            subject_node_ids=prior_nodes)
+        ordered = (eps + non_eps) if mode in ("history", "episodic") else \
             apply_identity_prior(
-                ordered, subject_entity_ids=request.subject_entity_ids,
-                participant_ids=request.participants)
-    # Ограничение top_k (эпизоды-первыми не вытесняются при истории).
-    if len(ordered) > max(1, request.top_k):
-        if mode == "history":
+                ordered, subject_entity_ids=prior_uids,
+                participant_ids=request.participants,
+                subject_node_ids=prior_nodes)
+    # Ограничение выдачи (эпизоды-первыми не вытесняются при истории).
+    if len(ordered) > limit:
+        if mode in ("history", "episodic"):
             eps = [c for c in ordered if c.channel == "episode"]
             rest = [c for c in ordered if c.channel != "episode"]
-            ordered = (eps + rest)[:max(1, request.top_k)]
+            ordered = (eps + rest)[:limit]
         else:
-            ordered = ordered[:max(1, request.top_k)]
+            ordered = ordered[:limit]
 
     generation_fingerprint = None
     try:
@@ -789,11 +1310,16 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     except Exception:
         generation_fingerprint = None
 
+    relevance = assess_relevance(ordered, request, dropped=subject_dropped,
+                                 mode=mode)
+    ambiguity = ambiguity_variants(request)
     status = RETRIEVAL_OK if ordered else _EMPTY
     reason = None if ordered else "retrieval_empty"
-    if mode == "history" and ordered and any(
+    if mode in ("history", "episodic") and ordered and any(
             c.channel == "episode" for c in ordered):
         reason = "episodes_used"
+    if ordered and not relevance.use_memory and relevance.reason_code:
+        reason = relevance.reason_code      # «память не уместна» — честно
     if exact_used:
         # L-MCA07-3: точная фраза/имя/дата всегда доступна — отдельный код.
         emit_stage_event("retrieval", "success",
@@ -808,7 +1334,9 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         status=status, candidates=tuple(ordered),
         channels_used=tuple(sorted(set(channels), key=_CHANNEL_ORDER.index)),
         generation_fingerprint=generation_fingerprint, reason_code=reason,
-        supplementary=tuple(_dedup(supplementary)))
+        supplementary=tuple(_dedup(supplementary)),
+        mode=mode, purpose=str(request.purpose or "reply"),
+        chat_ids=chat_ids, ambiguity=ambiguity, relevance=relevance)
 
 
 def _message_candidate(row, channel: str, position: int, resolve_item_id):
@@ -909,6 +1437,87 @@ def _chain_candidate(item, position: int):
         preview=_truncate_preview(getattr(item, "text", "")))
 
 
+# ── MEMORY-06 (§4.4): entity/community каналы — bounded чтение по ID/членству,
+#    НЕ второй поиск: никаких новых индексов, embedding-моделей и ранжирования.
+async def _entity_rows(db, chat_id: int, node_ids) -> list:
+    """Узлы канонического субъекта C-1 по id (`nodes.id`), bounded.
+
+    REUSE существующего чтения БД (`DatabaseService.get_nodes_by_ids`):
+    диапазон `id IN (...)` + активный redirect `member → canonical`.
+    Двойник без такого метода → честно пусто (канал пропускается)."""
+    reader = getattr(db, "get_nodes_by_ids", None)
+    if not callable(reader):
+        return []
+    ids: list[int] = []
+    for value in node_ids or ():
+        try:
+            node = int(value)
+        except (TypeError, ValueError):
+            continue
+        if node and node not in ids:
+            ids.append(node)
+    if not ids:
+        return []
+    return list(await reader(chat_id, ids) or [])
+
+
+def _entity_candidate(row, chat_id: int, position: int) -> RetrievalCandidate:
+    """Кандидат-сущность (`ent:<chat>:<node>` — канонический id §4.3)."""
+    canonical = _row_get(row, "canonical_node_id") or _row_get(row, "id")
+    try:
+        node_id = int(canonical)
+    except (TypeError, ValueError):
+        node_id = 0
+    return RetrievalCandidate(
+        id=f"ent:{chat_id}:{node_id}",
+        entity_type="entity", entity_id=str(node_id), chat_id=chat_id,
+        score=_channel_rank("entity", position), channel="entity",
+        preview=_truncate_preview(_row_get(row, "entity_name")),
+        subject_node_id=(node_id or None),
+        provenance_backed=True)
+
+
+async def _community_candidates(db, chat_id: int, keywords: list[str],
+                                limit: int) -> list:
+    """Членство активной сборки сообществ (C-6). До появления таблиц
+    MEMORY-07 честно пусто: сообщество не выдумывается из раскладки."""
+    raw_db = getattr(db, "db", None)
+    execute = getattr(raw_db, "execute", None)
+    if not callable(execute):
+        return []
+    cursor = await execute(
+        "SELECT name FROM sqlite_master WHERE type='table' "
+        "AND name='mca_community_members'")
+    if await cursor.fetchone() is None:
+        return []
+    tokens = set(keywords)
+    cursor = await execute(
+        "SELECT m.community_id, m.node_id, n.entity_name "
+        "FROM mca_community_members m "
+        "JOIN nodes n ON n.id = m.node_id "
+        "WHERE m.chat_id = ? LIMIT ?",
+        (chat_id, max(1, int(limit) * 4)))
+    rows = [dict(row) for row in await cursor.fetchall()]
+    if not tokens:
+        return rows[:limit]
+    matched = [row for row in rows
+               if any(tok in str(row.get("entity_name") or "").casefold()
+                      for tok in tokens)]
+    return (matched or [])[:limit]
+
+
+def _community_candidate(row, chat_id: int, position: int
+                         ) -> RetrievalCandidate:
+    community_id = _row_get(row, "community_id")
+    return RetrievalCandidate(
+        id=f"comm:{community_id}:{_row_get(row, 'node_id')}",
+        entity_type="community", entity_id=str(community_id),
+        chat_id=chat_id, score=_channel_rank("community", position),
+        channel="community",
+        preview=_truncate_preview(_row_get(row, "entity_name")),
+        provenance_backed=True)
+
+
 async def _episode_candidates(db, request: RetrievalRequest,
                               keywords: list[str]) -> list:
     """Эпизоды-фасад (mca-05 AMEND, ADR-1027-12 D11): при включённом
@@ -995,11 +1604,20 @@ __all__ = [
     "EvidenceBundle",
     "compute_context_version", "emit_stage_event",
     "RETRIEVAL_OK", "RETRIEVAL_EMPTY", "RETRIEVAL_ERROR",
+    "RETRIEVAL_PURPOSES", "RETRIEVAL_MODES", "RETRIEVAL_INTENTS",
+    "UI_SEARCH_MAX_LIMIT", "RelevanceDecision",
     "RetrievalRequest", "RetrievalCandidate", "RetrievalResult",
     "is_history_query", "retrieve", "apply_retrieval_rerank",
     "bind_quantitative_range",
     "MEMORY_QUERY_MAX_CHARS", "MEMORY_QUERY_PARENT_CHARS",
     "build_memory_query", "build_memory_request",
     "tokenize_query",
+    # MEMORY-06 (§4.4/§7.1/§7.2)
+    "request_reason_code", "resolve_intent_mode", "resolve_channels",
+    "effective_chat_ids", "request_limit", "typed_rank_score",
+    "apply_identity_prior", "apply_subject_gate", "ambiguity_variants",
+    "assess_relevance",
+    "humanize_summary_text", "summary_date", "chat_timezone_name",
+    "render_evidence_summary",
 ]
 

@@ -9478,6 +9478,49 @@ class DatabaseService:
 
     # ── GraphRAG: nodes/edges (Epic 26, Section 35.2) ───────
 
+    async def get_nodes_by_ids(self, chat_id: int, node_ids) -> list:
+        """MEMORY-06 (§4.4): bounded чтение узлов ПО ID для entity-канала.
+
+        Возвращает ``[{id, entity_name, entity_type, canonical_node_id}]``:
+        `canonical_node_id` — активный redirect C-1 (`mca_entity_canonical`)
+        либо ``None`` (узел как есть). Только `id IN (...)` в chat scope плюс
+        один bounded SELECT по канонической таблице: полного скана `nodes`
+        нет, второго поиска не создаётся, ничего не пишется."""
+        ids: list[int] = []
+        for value in node_ids or ():
+            try:
+                node = int(value)
+            except (TypeError, ValueError):
+                continue
+            if node and node not in ids:
+                ids.append(node)
+        if not ids:
+            return []
+        placeholders = ",".join("?" for _ in ids)
+        cursor = await self.db.execute(
+            f"SELECT id, entity_name, entity_type FROM nodes "
+            f"WHERE chat_id = ? AND id IN ({placeholders})",
+            [chat_id, *ids])
+        rows = [dict(row) for row in await cursor.fetchall()]
+        if not rows:
+            return []
+        canonical: dict[int, int] = {}
+        try:
+            cursor = await self.db.execute(
+                "SELECT member_node_id, canonical_node_id "
+                "FROM mca_entity_canonical "
+                f"WHERE chat_id = ? AND status = 'active' "
+                f"AND member_node_id IN ({placeholders})",
+                [chat_id, *ids])
+            canonical = {int(row["member_node_id"]):
+                         int(row["canonical_node_id"])
+                         for row in await cursor.fetchall()}
+        except Exception:
+            canonical = {}      # таблица/миграция недоступна → узел как есть
+        for row in rows:
+            row["canonical_node_id"] = canonical.get(int(row["id"]))
+        return rows
+
     async def upsert_node(self, chat_id: int, entity_name: str, entity_type: str,
                           origin: str = "chat_history", expires_at=None,
                           commit: bool = True) -> int:
@@ -12018,6 +12061,7 @@ class DatabaseService:
         facts = [row["fact"] for row in await cursor.fetchall()]
         cursor = await self.db.execute(
             "SELECT e.relation_type, "
+            "e.id AS edge_id, e.fact_id, e.origin, e.weight, "
             "s.entity_name AS source_name, t.entity_name AS target_name "
             "FROM edges e "
             "JOIN nodes s ON s.id = e.source_id "

@@ -391,6 +391,12 @@ REASON_CODES = frozenset({
     "ambiguous_needs_clarification", "no_claim_after_context",
     "unsafe_or_unavailable_target", "unified_retrieval",
     "speech_guard_flagged",
+    # расширение MEMORY-06 (§4.4/§7.1, единый retrieval): честные исходы
+    # расширенного запроса и гейтов уместности — `ambiguous_subject` /
+    # `subject_mismatch` (память не уместна), `invalid_purpose` /
+    # `invalid_limit` / `limit_not_allowed` (невалидный ui_search-запрос).
+    "ambiguous_subject", "subject_mismatch", "invalid_purpose",
+    "invalid_limit", "limit_not_allowed",
 })
 
 # FC-OBSERVABILITY-01: whitelist-miss больше НЕ теряет причину. Неизвестный код
