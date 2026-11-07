@@ -511,6 +511,11 @@ class TestReview:
             -100, "дроны летали низко над полем", "web_content", None, weight=0.9)
         second = await db.insert_graph_fact(
             -100, "дроны летали низко над лесом", "web_content", None, weight=0.3)
+        # + точный дубль: OFF-ветка review тоже обязана быть инертной
+        exact_a = await db.insert_graph_fact(
+            -100, "петя купил машину", "chat_history", None, weight=0.9)
+        exact_b = await db.insert_graph_fact(
+            -100, "петя купил машину", "chat_history", None, weight=0.4)
         # retention-маркеры: истёкший факт (должен быть выброшен) и старый лог
         expired_id = await db.insert_graph_fact(
             -100, "мёртвый факт", "search_fact", now - 100)
@@ -526,15 +531,24 @@ class TestReview:
         await db.db.commit()
         svc, memory = _service(db, MergeLLM())
         memory._vec_available = True
-        memory._embed = AsyncMock(return_value=[[0.0, 1.0], [0.0, 1.0]])
+        memory._embed = AsyncMock(
+            side_effect=lambda texts: [[0.0, 1.0] for _ in texts])
         memory._dedup_knn = AsyncMock(
             return_value=[{"fact_id": first, "distance": 0.02}])   # cosine 0.98
         await svc.review()                      # не бросает
         cursor = await db.db.execute(
-            "SELECT id, weight FROM graph_facts ORDER BY id")
+            "SELECT id, weight FROM graph_facts "
+            "WHERE fact LIKE 'дроны%' ORDER BY id")
         rows = await cursor.fetchall()
         assert [row["id"] for row in rows] == [first, second]   # обе живы
         assert [row["weight"] for row in rows] == [0.9, 0.3]     # вес не тронут
+        # точный дубль тоже инертен: обе строки живы, склейки нет
+        cursor = await db.db.execute(
+            "SELECT id, weight FROM graph_facts "
+            "WHERE fact = 'петя купил машину' ORDER BY id")
+        dup_rows = await cursor.fetchall()
+        assert [row["id"] for row in dup_rows] == [exact_a, exact_b]
+        assert [row["weight"] for row in dup_rows] == [0.9, 0.4]
         cursor = await db.db.execute(
             "SELECT COUNT(*) AS c FROM graph_fact_compressions "
             "WHERE reason = 'review_glue'")
