@@ -662,6 +662,24 @@ async def _lookup_user_ids_by_names(db, chat_id, names) -> set[int]:
     return found
 
 
+async def lookup_identity_user_ids(db, chat_id, names) -> set[int]:
+    """C-1: все различные `user_id`, чьё сохранённое имя совпадает с `names`.
+
+    Единственный авторитет идентичности для потребителей (атрибуция §8.2):
+    это ровно тот bounded-скан, на котором `resolve_subject_ref` строит свой
+    вердикт, поэтому множество согласовано с ним по построению —
+    `len(ids) == 1` ⇔ `resolution == 'resolved'`, `len(ids) >= 2` ⇔
+    `resolution == 'unresolved'` (одноимённые, слияние запрещено), `0` ⇔
+    имя не подтверждается сохранёнными сообщениями.
+
+    Потребитель обязан использовать этот вердикт, а не собственные догадки
+    (окно ростера, дедупликация по имени): иначе слой атрибуции объявлял бы
+    «одного адресата» там, где канонический резолвер отказывается сливать
+    личности. Возвращает пустое множество при отсутствии совпадений.
+    """
+    return await _lookup_user_ids_by_names(db, chat_id, names)
+
+
 def guess_subject(fact_text, participants, canon=None):
     """Эвристика субъекта предложения факта (`subject predicate object`).
 

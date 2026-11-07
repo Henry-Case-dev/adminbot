@@ -3612,6 +3612,86 @@ async def latest_asset_analysis(db, asset_id: str,
         return None
 
 
+async def memory_media_attributions(
+        db, *, chat_id: int, tg_message_id: int,
+        timestamp: int | None = None, media_type: str | None = None,
+) -> list:
+    """MEMORY-05 (§8.5/C-8): запомненная выжимка медиа сообщения.
+
+    Возвращает `memory_contracts.MediaMemoryAttribution` по ФАКТИЧЕСКИ
+    сохранённым строкам активов/анализов: идентификатор исходного медиа,
+    время, честный статус зрения (`processed`/`not_processed`/`unavailable`),
+    описание только при выполненном анализе и область видимости.
+
+    Тяжёлый vision здесь НЕ запускается (только SELECT через
+    `get_media_assets_for_message`/`latest_asset_analysis`): поиск и просмотр
+    графа не оплачивают повторное распознавание (§8.5). Транскрипция
+    аудио/видео durable-строки не имеет — она честно `not_processed`
+    (`transcription_not_recorded`), а не «понято». Ошибка чтения → пустой
+    список (не выдумываем понимание).
+    """
+    from services import memory_attribution, memory_contracts as mc
+
+    if db is None or not chat_id or tg_message_id is None:
+        return []
+    if not await memory_attribution.gate_enabled(int(chat_id)):
+        return []
+    getter = getattr(db, "get_media_assets_for_message", None)
+    if not callable(getter):
+        return []
+    try:
+        assets = await getter(int(chat_id), int(tg_message_id))
+    except Exception:
+        logger.debug("[vision] media assets read failed", exc_info=True)
+        return []
+    if not assets:
+        return []
+    scope = access_scope_for(int(chat_id))
+    out: list = []
+    for asset in assets:
+        asset_id = str((asset or {}).get("asset_id") or "")
+        if not asset_id:
+            continue
+        row = await latest_asset_analysis(db, asset_id, scope)
+        status, reason = memory_attribution.media_vision_status(
+            (row or {}).get("status"))
+        description = None
+        revision = None
+        if status is mc.MediaVisionStatus.PROCESSED and row:
+            analysis = analysis_from_row(row)
+            parts: list[str] = []
+            for block in getattr(analysis, "ocr_blocks", ()) or ():
+                text = str((block or {}).get("text") or "").strip()
+                if text:
+                    parts.append(f"текст на изображении: {text}")
+            visual = str(getattr(analysis, "visual_description", "") or "")
+            if visual.strip():
+                parts.append(f"визуальное описание: {visual.strip()}")
+            description = " ".join(parts) or None
+            if row.get("revision") is not None:
+                try:
+                    revision = max(1, int(row["revision"]))
+                except (TypeError, ValueError):           # pragma: no cover
+                    revision = None
+            if description is None and reason == "analysis_ready":
+                reason = "analysis_no_text"
+        out.append(mc.MediaMemoryAttribution(
+            chat_id=int(chat_id),
+            media_asset_id=asset_id,
+            vision_status=status,
+            timestamp=(int(timestamp) if timestamp else None),
+            transcription_status=mc.MediaVisionStatus.NOT_PROCESSED,
+            description=description,
+            media_type=(str(media_type or "").strip() or None),
+            tg_message_id=int(tg_message_id),
+            access_scope=scope,
+            analysis_revision=revision,
+            reason_code=(reason
+                         if reason in mc.MEDIA_MEMORY_REASONS
+                         else "unknown")))
+    return out
+
+
 async def asset_active_job(db, asset_id: str) -> dict | None:
     """Активная (queued/running) durable-джоба гранулы (read-only).
     None — связанной живой задачи нет. Никогда не бросает."""
