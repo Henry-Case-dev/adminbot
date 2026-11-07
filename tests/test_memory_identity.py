@@ -203,6 +203,130 @@ def test_migration_v43_is_additive_and_idempotent(env):
     assert node_id >= 1
 
 
+def _schema_snapshot(loop, db) -> tuple[dict, dict]:
+    """(SQL объектов, счётчики строк) для предсуществующих таблиц."""
+    cursor = loop.run_until_complete(db.db.execute(
+        "SELECT name, sql FROM sqlite_master WHERE type='table' AND name IN "
+        "('nodes','edges','graph_facts','smart_messages') ORDER BY name"))
+    ddl = {row["name"]: row["sql"] for row in loop.run_until_complete(
+        cursor.fetchall())}
+    counts: dict[str, int] = {}
+    for table in ("nodes", "edges", "graph_facts", "smart_messages",
+                  "schema_migrations"):
+        cursor = loop.run_until_complete(db.db.execute(
+            f"SELECT COUNT(*) AS n FROM {table}"))
+        counts[table] = int(loop.run_until_complete(cursor.fetchone())["n"])
+    return ddl, counts
+
+
+def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
+    """§5.1: апгрейд существующей БД v42 → v43 на файловой копии.
+
+    Baseline фиксируется ДО миграции: счётчики строк и DDL
+    `nodes`/`edges`/`graph_facts`. После стартовой миграции — те же данные,
+    `user_version=43`, `integrity_check=ok`, добавлены только новые объекты,
+    повторный запуск — no-op.
+    """
+    path = tmp_path / "v42.db"
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    db = DatabaseService(str(path))
+    loop.run_until_complete(db.initialize())
+    try:
+        papa = loop.run_until_complete(db.upsert_node(CHAT, "Папаха", "user"))
+        alex = loop.run_until_complete(
+            db.upsert_node(CHAT, "Александр", "user"))
+        loop.run_until_complete(
+            db.upsert_edge(papa, alex, "знает", fact_id=None))
+        loop.run_until_complete(db.db.execute(
+            "INSERT INTO graph_facts (chat_id, fact, origin, created_at) "
+            "VALUES (?, ?, ?, ?)", (CHAT, "базовый факт", "chat_history", 1)))
+        loop.run_until_complete(db.save_smart_message(
+            UID_A, CHAT, "привет", None, 1700000000, "text", "Папаха"))
+        loop.run_until_complete(db.db.commit())
+
+        baseline_ddl, baseline_counts = _schema_snapshot(loop, db)
+        assert baseline_counts["nodes"] == 2
+        assert baseline_counts["edges"] == 1
+        assert baseline_counts["graph_facts"] == 1
+        assert baseline_counts["smart_messages"] == 1
+        cursor = loop.run_until_complete(db.db.execute(
+            "SELECT name FROM sqlite_master WHERE name = ?",
+            (er.ENTITY_CANONICAL_TABLE,)))
+        assert loop.run_until_complete(cursor.fetchall()) != []
+
+        # Откат в состояние v42: таблицы идентичности нет, маркер и книга
+        # согласованы (как на БД до этого слайса).
+        loop.run_until_complete(db.db.execute(
+            f"DROP TABLE {er.ENTITY_CANONICAL_TABLE}"))
+        loop.run_until_complete(db.db.execute(
+            "DELETE FROM schema_migrations WHERE version = 43"))
+        loop.run_until_complete(db.db.execute("PRAGMA user_version = 42"))
+        loop.run_until_complete(db.db.commit())
+        cursor = loop.run_until_complete(db.db.execute("PRAGMA user_version"))
+        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 42
+        _, v42_counts = _schema_snapshot(loop, db)
+        assert v42_counts["schema_migrations"] == \
+            baseline_counts["schema_migrations"] - 1
+    finally:
+        loop.run_until_complete(db.close())
+
+    # Стартовая миграция v42 → v43 (с backup-guard, как в проде).
+    upgraded = DatabaseService(str(path))
+    loop.run_until_complete(upgraded.initialize())
+    try:
+        cursor = loop.run_until_complete(upgraded.db.execute(
+            "PRAGMA user_version"))
+        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 43
+        cursor = loop.run_until_complete(upgraded.db.execute(
+            "PRAGMA integrity_check"))
+        assert loop.run_until_complete(cursor.fetchone())[0] == "ok"
+
+        ddl_after, counts_after = _schema_snapshot(loop, upgraded)
+        for table in ("nodes", "edges", "graph_facts", "smart_messages"):
+            assert counts_after[table] == baseline_counts[table], table
+        assert counts_after["schema_migrations"] == \
+            v42_counts["schema_migrations"] + 1
+        for table in ("nodes", "edges", "graph_facts", "smart_messages"):
+            assert ddl_after[table] == baseline_ddl[table], table
+
+        cursor = loop.run_until_complete(upgraded.db.execute(
+            "SELECT name, type FROM sqlite_master WHERE "
+            "tbl_name = ? ORDER BY type, name", (er.ENTITY_CANONICAL_TABLE,)))
+        objects = {row["name"]: row["type"]
+                   for row in loop.run_until_complete(cursor.fetchall())}
+        assert objects.get(er.ENTITY_CANONICAL_TABLE) == "table"
+        assert objects.get("uq_mca_entity_canonical_stable") == "index"
+        assert objects.get("idx_mca_entity_canonical_canonical") == "index"
+
+        cursor = loop.run_until_complete(upgraded.db.execute(
+            "SELECT name FROM schema_migrations WHERE version = 43"))
+        assert [row["name"] for row in loop.run_until_complete(
+            cursor.fetchall())] == [er.ENTITY_CANONICAL_MIGRATION_STEP_NAME]
+        assert list(tmp_path.glob("pre_migration_*.db")), \
+            "backup-guard до миграции не сработал"
+        book_after = counts_after["schema_migrations"]
+    finally:
+        loop.run_until_complete(upgraded.close())
+
+    # Повторный старт: шаг не применяется, книга не растёт.
+    reopened = DatabaseService(str(path))
+    loop.run_until_complete(reopened.initialize())
+    try:
+        cursor = loop.run_until_complete(reopened.db.execute(
+            "PRAGMA user_version"))
+        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 43
+        cursor = loop.run_until_complete(reopened.db.execute(
+            "SELECT COUNT(*) AS n FROM schema_migrations"))
+        assert int(loop.run_until_complete(cursor.fetchone())["n"]) == book_after
+        cursor = loop.run_until_complete(reopened.db.execute(
+            "SELECT COUNT(*) AS n FROM nodes"))
+        assert int(loop.run_until_complete(cursor.fetchone())["n"]) == 2
+    finally:
+        loop.run_until_complete(reopened.close())
+        loop.close()
+
+
 # ── гейт ───────────────────────────────────────────────────────────────────
 
 def test_gate_is_registered_and_off_by_default(env, monkeypatch):
@@ -250,6 +374,31 @@ def test_off_gate_parity_ignores_identity_table(env, gate_off):
         db, scope=_scope(), mention="Папаха", stable_identity={
             "kind": "tg_user", "value": UID_A}))
     assert off_rows.reason_code == er.REASON_EXACT_NAME  # rule 1 не включается
+
+
+def test_off_gate_works_without_v43_table(env, gate_off):
+    """§1.7/F4: OFF не читает `mca_entity_canonical` — работает до миграции."""
+    db, loop = env
+    node = run(loop, _node(db, "Папаха"))
+    run(loop, db.db.execute(f"DROP TABLE {er.ENTITY_CANONICAL_TABLE}"))
+    run(loop, db.db.commit())
+    cursor = run(loop, db.db.execute(
+        "SELECT name FROM sqlite_master WHERE name = ?",
+        (er.ENTITY_CANONICAL_TABLE,)))
+    assert run(loop, cursor.fetchall()) == []
+
+    resolved = run(loop, er.resolve_entity(
+        db, scope=_scope(), mention="Папаха"))
+    assert resolved.status is mc.EntityResolutionStatus.RESOLVED
+    assert resolved.canonical.node_id == node
+    assert resolved.canonical.legacy_ids == ()
+    assert resolved.canonical.aliases == ()
+
+    created = run(loop, er.resolve_or_create_node(db, CHAT, "Новый", "user"))
+    assert created.created is True and created.node_id
+    again = run(loop, er.resolve_or_create_node(db, CHAT, "Новый", "user"))
+    assert again.created is False and again.node_id == created.node_id
+    assert run(loop, _node_count(db)) == 2
 
 
 # ── §1.2: матрица разрешения ───────────────────────────────────────────────
@@ -412,6 +561,32 @@ def test_rejected_mentions(env, gate_on):
     assert long.reason_code == er.REASON_MENTION_TOO_LONG
 
 
+@pytest.mark.parametrize("bad_type", ["person", "USER", "User", "лицо"])
+def test_unsupported_entity_type_is_rejected(env, gate_on, bad_type):
+    """§1.2 п.7: тип вне четырёх — `rejected`, не исключение и не `new`."""
+    db, loop = env
+    scope = {"chat_id": CHAT, "entity_type": bad_type}
+
+    res = run(loop, er.resolve_entity(db, scope=scope, mention="Папаха"))
+    assert res.status is mc.EntityResolutionStatus.REJECTED
+    assert res.reason_code == er.REASON_INVALID_ENTITY_TYPE
+    assert res.canonical is None
+    assert res.scope.entity_type == bad_type
+    assert res.scope.chat_id == CHAT
+
+    # Типизированная модель MEMORY-01 цела: конструктор по-прежнему строг.
+    with pytest.raises(ValueError):
+        mc.EntityScope(chat_id=CHAT, entity_type=bad_type)
+
+    # Фасад записи тоже не падает и ничего не создаёт.
+    before = run(loop, _node_count(db))
+    written = run(loop, er.resolve_or_create_node(db, CHAT, "Папаха", bad_type))
+    assert written.node_id is None and written.created is False
+    assert written.status == mc.EntityResolutionStatus.REJECTED.value
+    assert written.reason_code == er.REASON_INVALID_ENTITY_TYPE
+    assert run(loop, _node_count(db)) == before
+
+
 def test_resolver_is_read_only(env, gate_on):
     db, loop = env
     run(loop, _node(db, "Папаха"))
@@ -550,6 +725,65 @@ def test_two_uids_with_same_display_name_never_merge(env, gate_on, monkeypatch):
                              resolution=er.RESOLUTION_SELF,
                              stable_kind=er.STABLE_KIND_TG_USER,
                              stable_value=str(UID_A)))
+
+
+class _SilentAliasResolver:
+    """Alias-карта молчит: проверяется именно правило 3 (точное имя)."""
+
+    aliases: dict = {}
+
+    def resolve(self, user_id, nickname=None, username=None,
+                memory_name=None):
+        return str(user_id)
+
+    def canon_name(self, name, user_id=None):
+        return str(name)
+
+
+def _patch_silent_aliases(monkeypatch):
+    import services.summary_aliases as summary_aliases
+
+    async def fake_build(chat_id):
+        return _SilentAliasResolver()
+
+    monkeypatch.setattr(summary_aliases, "build_alias_resolver", fake_build)
+
+
+def test_rule3_pin_guard_blocks_foreign_identity(env, gate_on, monkeypatch):
+    """§1.2 п.3 / ID-11: чужой активный self-claim — `ambiguous`, не `resolved`.
+
+    Воспроизведение ревью: uid A засеян на узле «Саша», alias-карта на mention
+    НЕ отвечает (иначе сработало бы правило 2 и проверялся бы не тот код).
+    `resolve_entity(uid B, "Саша")` обязан вернуть `ambiguous`/
+    `identity_node_conflict` с обоими uid и без `canonical`.
+    """
+    db, loop = env
+    _patch_silent_aliases(monkeypatch)
+    node = run(loop, _node(db, "Саша"))
+    run(loop, _canonical(db, node, node, resolution=er.RESOLUTION_SELF,
+                         stable_kind=er.STABLE_KIND_TG_USER,
+                         stable_value=str(UID_A),
+                         method=er.METHOD_ALIAS_MAP))
+    assert run(loop, er._alias_nodes_for_mention(db, CHAT, "Саша")) == []
+
+    res = run(loop, er.resolve_entity(
+        db, scope=_scope(), mention="Саша",
+        stable_identity={"kind": "tg_user", "value": UID_B}))
+    assert res.status is mc.EntityResolutionStatus.AMBIGUOUS
+    assert res.reason_code == er.REASON_IDENTITY_NODE_CONFLICT
+    assert res.canonical is None
+    discriminators = {c.discriminator for c in res.candidates}
+    assert f"uid: {UID_A}" in discriminators
+    assert f"uid: {UID_B}" in discriminators
+    assert all(c.ref.node_id == node for c in res.candidates)
+
+    # Владелец узла свою идентичность не потерял, записей не появилось.
+    owner = run(loop, er.resolve_entity(
+        db, scope=_scope(), mention="Саша",
+        stable_identity={"kind": "tg_user", "value": UID_A}))
+    assert owner.status is mc.EntityResolutionStatus.RESOLVED
+    assert owner.canonical.node_id == node
+    assert len(run(loop, _canonical_rows(db))) == 1
 
 
 def test_reseed_after_nick_change_keeps_stable_value(env, gate_on, monkeypatch):

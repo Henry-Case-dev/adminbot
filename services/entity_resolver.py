@@ -123,6 +123,7 @@ REASON_TYPE_CONFLICT = "type_conflict_single_slot"
 REASON_IDENTITY_NODE_CONFLICT = "identity_node_conflict"
 REASON_EMPTY_MENTION = "empty_mention"
 REASON_MENTION_TOO_LONG = "mention_too_long"
+REASON_INVALID_ENTITY_TYPE = "invalid_entity_type"
 REASON_NO_MATCH = "no_match"
 REASON_CREATED = "created"
 
@@ -353,6 +354,18 @@ async def _ref_for_node(db, chat_id: int, entity_type: str, node: _NodeRow,
     )
 
 
+def _plain_ref(chat_id: int, entity_type: str, node: _NodeRow) -> mc.EntityRef:
+    """`EntityRef` без чтения таблицы идентичности (OFF-паритет §1.7).
+
+    OFF-ветка обязана быть байт-в-байт прежним поведением и работать на БД,
+    где `mca_entity_canonical` ещё не создана: свёрнутых member-узлов и
+    alias-карты тут нет по определению (`legacy_ids`/`aliases` пусты).
+    """
+    return mc.EntityRef(
+        chat_id=chat_id, node_id=node.node_id, entity_type=entity_type,
+        display_name=node.entity_name, legacy_ids=(), aliases=())
+
+
 async def _redirect_target(db, chat_id: int, entity_type: str,
                            node: _NodeRow) -> tuple[_NodeRow, str, tuple[str, ...]]:
     """Схлопывание member→canonical на чтении (глубина 1, §1.4.2).
@@ -526,14 +539,35 @@ async def _alias_nodes_for_mention(db, chat_id: int,
 
 # ── конструкторы результатов ───────────────────────────────────────────────
 
-def _scope_of(scope: Any) -> mc.EntityScope:
+def _raw_scope(chat_id: int, entity_type: str) -> mc.EntityScope:
+    """`EntityScope` без валидации типа — только для честного `rejected` (§1.2 п.7).
+
+    Типизированная модель MEMORY-01 не меняется: её конструктор по-прежнему
+    отвергает недопустимый тип (внутренние инварианты целы), а фасад чтения
+    обязан ответить `rejected`, а не бросать исключение (и уж точно не
+    выбирать чужой тип). Такой экземпляр используется только в отчёте.
+    """
+    scope = object.__new__(mc.EntityScope)
+    object.__setattr__(scope, "chat_id", chat_id)
+    object.__setattr__(scope, "entity_type", entity_type)
+    return scope
+
+
+def _coerce_scope(scope: Any) -> tuple[mc.EntityScope, bool]:
+    """`(scope, type_is_unsupported)`; тип вне четырёх — `rejected`, не raise."""
     if isinstance(scope, mc.EntityScope):
-        return scope
-    if isinstance(scope, Mapping):
-        return mc.EntityScope(chat_id=scope["chat_id"],
-                              entity_type=scope["entity_type"])
-    raise ValueError("scope must be EntityScope or mapping with chat_id/"
-                     "entity_type")
+        return scope, False
+    if not isinstance(scope, Mapping):
+        raise ValueError("scope must be EntityScope or mapping with chat_id/"
+                         "entity_type")
+    entity_type = scope.get("entity_type")
+    if entity_type not in mc.ENTITY_TYPES_ALLOWED:
+        chat_id = scope.get("chat_id")
+        if isinstance(chat_id, bool) or not isinstance(chat_id, int):
+            chat_id = 0
+        return _raw_scope(chat_id, str(entity_type)), True
+    return mc.EntityScope(chat_id=scope["chat_id"],
+                          entity_type=entity_type), False
 
 
 def _mention_text(mention: Any) -> str:
@@ -622,8 +656,12 @@ async def _finish_node(scope: mc.EntityScope, db, node: _NodeRow, *,
 
 async def _type_conflict(scope: mc.EntityScope, db, node: _NodeRow,
                          mention: Any) -> mc.EntityResolution:
-    """Один слот имени на чат (§1.2.3): тип чужой — `rejected`, не `resolved`."""
-    ref = await _ref_for_node(db, scope.chat_id, node.entity_type, node)
+    """Один слот имени на чат (§1.2.3): тип чужой — `rejected`, не `resolved`.
+
+    Ref собирается без чтения `mca_entity_canonical`: конфликт типа обязан
+    работать и в OFF-режиме, и на БД до миграции `v43` (F4).
+    """
+    ref = _plain_ref(scope.chat_id, node.entity_type, node)
     _emit("memory.entity_type_conflict", outcome="conflict",
           chat_id=scope.chat_id, status=REASON_TYPE_CONFLICT,
           entity_ids=[node.node_id])
@@ -642,9 +680,10 @@ async def resolve_entity(
     """Разрешение идентичности по §1.2 (первое решающее правило выигрывает).
 
     Порядок: `tg_user` → подтверждённый alias → точное имя в типе → ограниченный
-    casefold-скан → redirect глубины 1 → `new`. `rejected` — пустой/пробельный
-    или слишком длинный mention, а также конфликт типа на точном имени
-    (`type_conflict_single_slot`, §1.2.3). `ambiguous` — реальная
+    casefold-скан → redirect глубины 1 → `new`. `rejected` — неподдерживаемый
+    `entity_type` (§1.2 п.7, никогда не `new` и никогда не чужой тип), пустой/
+    пробельный или слишком длинный mention, а также конфликт типа на точном
+    имени (`type_conflict_single_slot`, §1.2.3). `ambiguous` — реальная
     неоднозначность (два uid на один узел, несколько кандидатов, переполнение
     префикса): автовыбор запрещён (ID-8).
 
@@ -660,9 +699,12 @@ async def resolve_entity(
     """
     if db is None:
         raise RuntimeError("resolve_entity requires a DatabaseService (db)")
-    entity_scope = _scope_of(scope)
+    entity_scope, unsupported_type = _coerce_scope(scope)
     chat_id = entity_scope.chat_id
     entity_type = entity_scope.entity_type
+    if unsupported_type:
+        # §1.2 п.7: неподдерживаемый тип — `rejected`, не `new` и не `resolved`.
+        return _rejected(entity_scope, mention, REASON_INVALID_ENTITY_TYPE)
 
     text = _mention_text(mention)
     if not isinstance(mention, str) or not text:
@@ -671,14 +713,15 @@ async def resolve_entity(
         return _rejected(entity_scope, mention, REASON_MENTION_TOO_LONG)
 
     if not await memory_identity_enabled(chat_id):
-        # OFF-паритет §1.7: сегодняшний точный путь; таблица идентичности не
-        # читается. Тип возвращённого узла — тот, который занимает слот имени.
+        # OFF-паритет §1.7: сегодняшний точный путь. Таблица идентичности не
+        # читается ВООБЩЕ (её может не быть до миграции `v43`): ref строится
+        # без свёрнутых member-узлов/alias-карты, как прежний `upsert_node`.
         legacy = await _node_by_exact_name(db, chat_id, mention)
         if legacy is None:
             return _new(entity_scope, mention, REASON_NO_MATCH)
         if legacy.entity_type != entity_type:
             return await _type_conflict(entity_scope, db, legacy, mention)
-        ref = await _ref_for_node(db, chat_id, entity_type, legacy)
+        ref = _plain_ref(chat_id, entity_type, legacy)
         return _resolved(entity_scope, ref, REASON_EXACT_NAME, mention=mention)
 
     degraded: list[str] = []
@@ -977,10 +1020,10 @@ async def resolve_or_create_node(
                                        origin=origin, expires_at=expires_at)
         stored = await _node_by_id(db, int(node_id))
         actual_type = stored.entity_type if stored is not None else entity_type
-        legacy_scope = mc.EntityScope(chat_id=chat_id,
-                                      entity_type=actual_type)
+        legacy_scope = _coerce_scope({"chat_id": chat_id,
+                                      "entity_type": actual_type})[0]
         if stored is not None:
-            ref = await _ref_for_node(db, chat_id, actual_type, stored)
+            ref = _plain_ref(chat_id, actual_type, stored)
             resolution = _resolved(legacy_scope, ref, REASON_EXACT_NAME,
                                    mention=name)
         else:
@@ -992,7 +1035,14 @@ async def resolve_or_create_node(
                          else REASON_CREATED),
             resolution=resolution)
 
-    scope = mc.EntityScope(chat_id=chat_id, entity_type=entity_type)
+    scope, unsupported_type = _coerce_scope(
+        {"chat_id": chat_id, "entity_type": entity_type})
+    if unsupported_type:
+        rejected = _rejected(scope, name, REASON_INVALID_ENTITY_TYPE)
+        return ResolvedNode(
+            node_id=None, canonical_id=None, created=False,
+            status=rejected.status.value,
+            reason_code=REASON_INVALID_ENTITY_TYPE, resolution=rejected)
     resolution = await resolve_entity(
         db, scope=scope, mention=name, stable_identity=stable_identity,
         evidence=evidence, allow_create=allow_create)
@@ -1063,7 +1113,7 @@ __all__ = [
     "REASON_CASEFOLD_OVERFLOW", "REASON_TYPE_CONFLICT",
     "REASON_IDENTITY_NODE_CONFLICT", "REASON_IDENTITY_NOT_SEEDED",
     "REASON_REDIRECT_FLATTENED", "REASON_EMPTY_MENTION",
-    "REASON_MENTION_TOO_LONG", "REASON_NO_MATCH",
+    "REASON_MENTION_TOO_LONG", "REASON_INVALID_ENTITY_TYPE", "REASON_NO_MATCH",
     "SEED_SEEDED", "SEED_ALREADY_PINNED", "SEED_MISSING", "SEED_AMBIGUOUS",
     "SEED_NODE_CONFLICT", "SEED_REVOKED",
     "SeedResult", "seed_self_identity",
