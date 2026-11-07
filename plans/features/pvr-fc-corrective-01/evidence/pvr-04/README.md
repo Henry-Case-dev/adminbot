@@ -2,10 +2,10 @@
 
 Срез: PVR-FC-CORRECTIVE-01 / PVR-UI / PVR-04.0–04.3.1.
 Ветка: `pvr/04-redesign` (база `evol/impl` @ `df02ab0c`).
-Проверенный кандидат кода: `06e13a57fa5b7809eedc89f69fd5a337c260cd48`
-(коммит «fix(pvr-04): re-review blockers…»; следующий коммит добавляет ТОЛЬКО
-этот каталог `evidence/pvr-04/` и правку VPM — сам код не меняется; SHA
-записан внутрь `e2e_report.json` полем `candidate`).
+Проверенный кандидат кода: `ce6b27f983b13c3917cba9109c73c19ef22cb6b3`
+(коммит «test(pvr-04): count executed e2e assertions…»; следующий коммит
+добавляет ТОЛЬКО этот каталог `evidence/pvr-04/` и правку VPM — сам код не
+меняется; SHA записан внутрь `e2e_report.json` полем `candidate`).
 VPM: `plans/features/pvr-fc-corrective-01/vpm-pvr-04.md` (раздел про штампы
 времени обновлён по факту реализации).
 
@@ -15,7 +15,7 @@ VPM: `plans/features/pvr-fc-corrective-01/vpm-pvr-04.md` (раздел про ш
 |---|---|---|
 | UI state (JS) | `node tests/js/pvr_ui_state_test.js` | PVR-UI-STATE-OK (exit 0) |
 | Version card (JS) | `node tests/js/prompt_version_card_test.js` | PVR-S4-CARD-OK (exit 0) |
-| E2E (Playwright, реальные UI-потоки) | `py tests/ui_prompt_version_card_e2e.py --shots plans/features/pvr-fc-corrective-01/evidence/pvr-04/shots --json plans/features/pvr-fc-corrective-01/evidence/pvr-04/e2e_report.json --candidate 06e13a57…` | `failures=[]`, PVR-S4-OK; ширины **1536/1440/1366/768/390/360/320**; консоль и pageerror автоматически проверены; горизонтальный скролл 0 px на всех ширинах |
+| E2E (Playwright, реальные UI-потоки) | `py tests/ui_prompt_version_card_e2e.py --shots plans/features/pvr-fc-corrective-01/evidence/pvr-04/shots --json plans/features/pvr-fc-corrective-01/evidence/pvr-04/e2e_report.json --candidate ce6b27f9…` | `failures=[]`, `checks=1220`, PVR-S4-OK; ширины **1536/1440/1366/768/390/360/320**; консоль и pageerror автоматически проверены; горизонтальный скролл 0 px на всех ширинах |
 
 ## Три блокера повторного ревью — что исправлено
 
@@ -112,6 +112,11 @@ VPM: `plans/features/pvr-fc-corrective-01/vpm-pvr-04.md` (раздел про ш
 | **M-F1 (e2e)**: тот же откат на raw ISO | — | E2E RED на всех 7 ширинах: «PVR-04.2.3: UTC-цифры выданы за время чата» |
 | **M-F2**: снято правило 44 px для панели | — | E2E RED на 390/360/320: «Закрыть»/«Показать более ранние версии»/«История действий» = 34 px |
 
+Мутации M1–M3 и M-F1/M-F2 прогонялись на том же `web/app.js`, что входит в
+кандидат `ce6b27f9` (от `06e13a57` он отличается только счётчиком assertions
+в e2e-файле), после каждой — откат (`git checkout -- web/app.js`), дерево
+чистое, оба сьюта снова зелёные.
+
 ## Замеры по ширинам (из `e2e_report.json`, поле `measure`)
 
 | Ширина | hscroll | touch min_h (список/события/детали) | запросов `/api/config/time` |
@@ -138,8 +143,9 @@ tests/test_prompt_history_pagination.py -q` → **37 passed** на этом же
   история «Характера», result-speech, result-baseline) + `catalog_readonly_1440`
   и `tz_unavailable_390`.
 - `e2e_report.json` — финальный прогон: `candidate`, `widths`, `shots_dir`
-  (путь относительно корня репозитория), `failures: []`, `measure`
-  (hscroll и высоты тач-целей по ширинам).
+  (путь относительно корня репозитория), `checks` (реально исполненные
+  assertions), `failures: []`, `measure` (hscroll и высоты тач-целей по
+  ширинам).
 
 ## Честный контракт — подтверждение сохранности (формулировки не менялись)
 

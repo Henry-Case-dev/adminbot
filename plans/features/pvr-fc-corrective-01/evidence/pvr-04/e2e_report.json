@@ -1,5 +1,5 @@
 {
-  "candidate": "06e13a57fa5b7809eedc89f69fd5a337c260cd48",
+  "candidate": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
   "widths": [
     "1536",
     "1440",
@@ -10,6 +10,7 @@
     "320"
   ],
   "shots_dir": "plans/features/pvr-fc-corrective-01/evidence/pvr-04/shots",
+  "checks": 1220,
   "failures": [],
   "notes": [],
   "measure": {
