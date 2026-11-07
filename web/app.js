@@ -398,7 +398,6 @@
     memory: '\ue322',
     monitoring: '\uf190',
     play_arrow: '\ue037',
-    arrow_back: '\ue5c4',
     play_circle: '\ue038',
     psychology: '\uea4a',
     radar: '\uf04e',

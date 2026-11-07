@@ -52,8 +52,9 @@ async def test_fresh_db_migrates_0_to_39(tmp_path):
         # Свежая БД доезжает до ПОСЛЕДНЕЙ версии схемы: v39 (эта полоса) +
         # v40 (EVOL-014, журнал квоты мемов) + v41 (INIT-COORD, бронь
         # публикации) + v42 (UNIFIED-REPLY UR-C-SCHED, 1ca13926, бронь
-        # слотов расписания) — соседние аддитивные шаги, v39 они не отменяют.
-        assert (await cur.fetchone())[0] == 42
+        # слотов расписания) + v43 (MEMORY-02, mca_entity_canonical) —
+        # соседние аддитивные шаги, v39 они не отменяют.
+        assert (await cur.fetchone())[0] == 43
         book = await svc.db.execute(
             "SELECT name, checksum FROM schema_migrations WHERE version = 39")
         row = await book.fetchone()
@@ -91,7 +92,8 @@ async def test_v39_restart_is_true_noop(tmp_path, caplog):
     try:
         cur = await svc2.db.execute("PRAGMA user_version")
         # v42 (UR-C-SCHED, 1ca13926): рестарт поднимает до того же хвоста.
-        assert (await cur.fetchone())[0] == 42
+        # v43 (MEMORY-02, mca_entity_canonical): хвост схемы не изменился.
+        assert (await cur.fetchone())[0] == 43
         cur = await svc2.db.execute(
             "SELECT COUNT(*) AS c FROM schema_migrations WHERE version = 39")
         assert (await cur.fetchone())["c"] == 1
@@ -136,7 +138,8 @@ async def test_v38_db_upgrades_to_v39_without_data_loss(tmp_path):
     try:
         cur = await svc.db.execute("PRAGMA user_version")
         # v42 (UR-C-SCHED, 1ca13926): апгрейд v38 -> хвост 42.
-        assert (await cur.fetchone())[0] == 42
+        # v43 (MEMORY-02, mca_entity_canonical): хвост -> 43.
+        assert (await cur.fetchone())[0] == 43
         book = await svc.db.execute(
             "SELECT name FROM schema_migrations WHERE version = 39")
         row = await book.fetchone()

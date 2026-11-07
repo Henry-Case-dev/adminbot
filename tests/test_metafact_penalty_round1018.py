@@ -320,11 +320,13 @@ class TestRagImportanceRanking:
             {"id": 1, "fact": "вася отправил видеосообщение", "origin":
              "chat_history", "weight": 0.5, "last_confirmed_at": None,
              "importance": 1, "rag_ts": 0, "target_user": None,
-             "tg_message_id": None, "forward_from": ""},
+             "tg_message_id": None, "forward_from": "",
+             "status": "confirmed"},
             {"id": 2, "fact": "вася спас проект", "origin": "chat_history",
              "weight": 0.5, "last_confirmed_at": None, "importance": 8,
              "rag_ts": 0, "target_user": None,
-             "tg_message_id": None, "forward_from": ""},
+             "tg_message_id": None, "forward_from": "",
+             "status": "confirmed"},
         ]
 
         class _RagDB:
