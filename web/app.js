@@ -398,6 +398,7 @@
     memory: '\ue322',
     monitoring: '\uf190',
     play_arrow: '\ue037',
+    arrow_back: '\ue5c4',
     play_circle: '\ue038',
     psychology: '\uea4a',
     radar: '\uf04e',
@@ -35622,24 +35623,48 @@
   var _pvStateCache = new Map();
   var _PV_STATE_TTL_MS = 20000;
 
-  //: «03.11 23:42» из ISO журнала. Не выдумывает время: нет метки — пусто.
-  function pvShortWhen(iso) {
-    if (!iso) return '';
-    var s = String(iso);
-    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-    if (!m) return s.slice(0, 16).replace('T', ' ');
-    return m[3] + '.' + m[2] + ' ' + m[4] + ':' + m[5];
+  //: Пояс чата для штампов истории (PVR-04.2.3). Источник — уже существующий
+  //: контракт `GET /api/config/time` (IANA-зона + offset, считает сервер).
+  //: Кэш разделён по области (чат/глобально), чтобы N карточек на странице
+  //: делали ОДИН запрос; `inflight` гасит параллельные дубли.
+  var _pvTzCache = new Map();      // scopeKey → {at, iana}
+  var _pvTzInflight = new Map();   // scopeKey → Promise<string>
+  var _PV_TZ_TTL_MS = 60000;
+
+  //: «03.11 15:42» из ISO журнала В ПОЯСЕ ЧАТА (`tz`, IANA).
+  //: Не выдумывает время: нет метки/пояса/валидной даты — пустая строка,
+  //: вызывающий показывает честную причину вместо UTC-цифр.
+  function pvShortWhen(iso, tz) {
+    if (!iso || !tz) return '';
+    var d = new Date(String(iso));
+    if (isNaN(d.getTime())) return '';
+    try {
+      var parts = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: String(tz), day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      }).formatToParts(d);
+      var got = {};
+      for (var i = 0; i < parts.length; i++) {
+        got[parts[i].type] = parts[i].value;
+      }
+      if (!got.day || !got.month || !got.hour || !got.minute) return '';
+      return got.day + '.' + got.month + ' ' + got.hour + ':' + got.minute;
+    } catch (e) {
+      return '';                    // неизвестная зона — без UTC-подстановки
+    }
   }
 
-  //: Человеческие подписи источника ревизии (§2.2 п.3 ТЗ): ручная /
-  //: импортирована / из релиза / восстановлена. Технические токены API
-  //: (`manual`, `legacy`, `factory`, `restored`) в карточку не попадают.
+  //: Человеческие подписи источника ревизии (§2.2 п.3 ТЗ + PVR-04.2.3):
+  //: «Вручную» / «Импортирована» / «Из релиза» / «Восстановлена» /
+  //: «Историческая». Технические токены API (`manual`, `legacy`, `factory`,
+  //: `restored`) в строку редакции не попадают. Для СОБЫТИЙ журнала серверная
+  //: `source_label` точнее (kind: «назначена базовая») — она приоритетнее.
   var _PV_SOURCE_LABELS = {
-    manual: 'ручная',
-    imported: 'импортирована',
-    from_release: 'из релиза',
-    restored: 'восстановлена',
-    legacy: 'до версионирования',
+    manual: 'Вручную',
+    imported: 'Импортирована',
+    from_release: 'Из релиза',
+    restored: 'Восстановлена',
+    legacy: 'Историческая',
   };
 
   app.component('prompt-version-card', {
@@ -35675,6 +35700,8 @@
       return {
         menu: false,
         details: false,
+        // Пояс чата для штампов истории: state — idle|ready|error, iana — зона.
+        chatTz: { state: 'idle', iana: '' },
         // Одна панель истории на карточку: боковая на десктопе,
         // полноэкранная на мобильном (CSS-медиа, не второй экран-страница).
         hist: {
@@ -35687,6 +35714,16 @@
           more: false,
           moreLoading: false,
           moreError: '',
+          // PVR-04.2.2: поиск по версиям (фильтр загруженного списка).
+          query: '',
+          // PVR-04.2.3/04.2.4: выбранная строка (selection != active) и
+          // экран деталей версии; меню «Действия» в футере деталей.
+          // `selectedId` — ВЫБОР строки (живёт и после «Назад»), `detailOpen`
+          // — открыт ли экран деталей. Это разные состояния: «Назад»
+          // закрывает экран и возвращает список с сохранённым выбором.
+          selectedId: '',
+          detailOpen: false,
+          actionsMenu: false,
           // Вторичная лента «История действий» (события активации,
           // «была применена»): PVR-02.2/C1.2 — события НЕ в основном списке.
           eventsOpen: false,
@@ -35717,7 +35754,17 @@
       isChatScope: function () { return this.chatIdNum != null; },
       scopeLabel: function () {
         if (!this.isChatScope) return 'Глобально';
-        return this.chatTitle ? ('этот чат · ' + this.chatTitle) : 'этот чат';
+        return this.chatTitle ? ('Этот чат · ' + this.chatTitle) : 'Этот чат';
+      },
+      // PVR-04.2.2: область в шапке панели — «Этот чат» или «Глобально».
+      panelScopeLabel: function () {
+        if (!this.isChatScope) return 'Глобально';
+        return this.chatTitle ? ('Этот чат · ' + this.chatTitle) : 'Этот чат';
+      },
+      // PVR-04.2.3: пояс чата не получен — штампы времени честно не рисуются
+      // (никаких UTC-цифр «как есть»); интерфейс называет причину словами.
+      tzUnavailable: function () {
+        return !!(this.chatTz && this.chatTz.state === 'error');
       },
       taId: function () {
         return 'pv-text-' + String(this.promptKey || 'prompt')
@@ -35803,7 +35850,7 @@
         var base = origin === 'chat_override' ? 'локальная версия чата'
           : origin === 'global' ? 'глобальная версия' : 'исходная из кода';
         var row = this.effectiveRevRow;
-        var when = (row && row.created_at) ? pvShortWhen(row.created_at) : '';
+        var when = (row && row.created_at) ? this.pvWhen(row.created_at) : '';
         return when ? (base + ' · ' + when) : base;
       },
       factoryLabel: function () {
@@ -35816,14 +35863,106 @@
         if (!b) return '—';
         if (!b.baseline) {
           if (b.cleared_at) {
-            return 'назначение снято ' + pvShortWhen(b.cleared_at);
+            var cleared = this.pvWhen(b.cleared_at);
+            return cleared ? ('назначение снято ' + cleared) : 'назначение снято';
           }
           return 'не назначен';
         }
-        var when = b.baseline.assigned_at ? pvShortWhen(b.baseline.assigned_at) : '';
+        var when = b.baseline.assigned_at ? this.pvWhen(b.baseline.assigned_at) : '';
         var who = String(b.baseline.assigned_by || '').trim();
         var tail = who ? (' · кто: ' + who) : '';
         return when ? ('назначен ' + when + tail) : ('назначен' + tail);
+      },
+      // PVR-04.0: «Сохранено <дата>» — только из реальной строки ревизий,
+      // сопоставленной с действующим текстом; нет строки/пояса — нет и даты.
+      savedWhen: function () {
+        var row = this.effectiveRevRow;
+        return (row && row.created_at) ? this.pvWhen(row.created_at) : '';
+      },
+      // PVR-04.0: число версий у пункта «История» — только честно известное:
+      // список ревизий догружен целиком. Пока есть непрочитанные страницы,
+      // числа нет — в API нет total, выдумывать нельзя.
+      // Полнота берётся из ДАННЫХ (`revisions_page.has_more`), а не из
+      // локального флага `hist.more`: после повторного монтирования из кэша
+      // флаг не восстанавливается, и «История 50» показывала бы загрузку
+      // как итог, хотя страниц больше.
+      historyCount: function () {
+        if (!this.revisionsComplete) return null;
+        return this.revisionRows.length;
+      },
+      // Сведения о полноте основного списка. Сервер отдаёт `revisions_page`;
+      // `page` — совместимость (merged-лента прежних ответов).
+      revisionsPage: function () {
+        var d = this.data;
+        if (!d) return null;
+        return d.revisions_page || d.page || null;
+      },
+      revisionsComplete: function () {
+        if (!this.data || this.hist.more) return false;
+        var p = this.revisionsPage;
+        if (!p || typeof p.has_more === 'undefined') return false;
+        return p.has_more === false;
+      },
+      // Активен ли фильтр поиска — от этого зависит честность пустого
+      // состояния: при непрочитанных страницах «не найдено» НЕ означает
+      // «сохранённых версий нет» (PVR-04.2.2).
+      searchActive: function () {
+        return !!String(this.hist.query || '').trim();
+      },
+      // PVR-04.2.2: поиск по версиям фильтрует ЗАГРУЖЕННЫЙ список (дата,
+      // источник, автор, статус, id). Ничего не выдумывается: не найдено —
+      // честный empty-state, а не подстановка похожих строк. Область поиска
+      // честно называется в интерфейсе (`searchActive`/`revisionsComplete`):
+      // пока загружены не все страницы, «не найдено» — это «нет совпадений
+      // СРЕДИ ЗАГРУЖЕННЫХ», а не «версий не существует».
+      visibleRevisionRows: function () {
+        var self = this;
+        var q = String(this.hist.query || '').trim().toLowerCase();
+        var rows = this.revisionRows;
+        if (!q) return rows;
+        return rows.filter(function (r) {
+          var hay = [r.revision_id, r.created_at, self.sourceLabel(r),
+                     self.rowName(r), self.rowActor(r), self.rowScope(r),
+                     self.rowBadge(r), r.status_label || '']
+            .join(' ').toLowerCase();
+          return hay.indexOf(q) >= 0;
+        });
+      },
+      // PVR-04.2.3/04.2.4: выбранная редакция (selection != active) и её
+      // события применения (тонкий вторичный список в деталях).
+      selectedRow: function () {
+        var id = this.hist.selectedId;
+        if (!id) return null;
+        var rows = this.revisionRows;
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i] && rows[i].revision_id === id) return rows[i];
+        }
+        return null;
+      },
+      selectedEvents: function () {
+        var id = this.hist.selectedId;
+        if (!id) return [];
+        return this.eventRows.filter(function (ev) {
+          return ev && ev.revision_id === id;
+        });
+      },
+      detailMode: function () {
+        // Экран деталей — ОТДЕЛЬНОЕ состояние от выбора строки: «Назад»
+        // закрывает экран, но не снимает выбор (selection ≠ active).
+        return !!(this.hist.detailOpen && this.hist.selectedId);
+      },
+      detailTitle: function () {
+        return this.selectedRow ? this.rowName(this.selectedRow) : '';
+      },
+      // PVR-04.0: честная причина read-only карточки (code-only / нет прав).
+      readonlyReason: function () {
+        if (this.canEdit) return '';
+        var d = this.data;
+        if (d && d.manageable === false) {
+          return 'значение задаётся кодом, а не в базе — историю можно '
+            + 'смотреть, применять нечего';
+        }
+        return 'у вашей роли нет права редактировать этот промпт';
       },
       entries: function () { return this.hist.entries || []; },
       // Основной список панели — ТОЛЬКО сохранённые ревизии (PVR-02.1/C1.2):
@@ -35888,13 +36027,22 @@
     },
     watch: {
       promptKey: function () { this.resetPanel(); this.primeState(); },
-      chatIdNum: function () { this.resetPanel(); this.primeState(); },
+      chatIdNum: function () {
+        this.resetPanel();
+        this.primeState();
+        this.ensureChatTz(true);       // новая область — другой пояс чата
+      },
       // Перечитывание по `reloadToken` (после внешнего изменения серверного
       // текста) сохраняет подтверждение успеха — иначе пользователь не
       // успевает увидеть, что сервер подтвердил.
       reloadToken: function () { this.reloadPreservingResult(); },
     },
-    mounted: function () { this.primeState(); },
+    mounted: function () {
+      this.primeState();
+      // Метанстрока карточки показывает «Сохранено …» ДО открытия панели —
+      // пояс чата нужен сразу; запрос один на область (кэш + dedupe).
+      this.ensureChatTz(false);
+    },
     methods: {
       iconGlyph: function (name) {
         if (this.root && typeof this.root.iconGlyph === 'function') {
@@ -35928,7 +36076,7 @@
         if (status === 0) return 'Нет связи с сервером.';
         return msg;
       },
-      resetPanel: function () {
+      resetPanel: function (keepSelection) {
         var h = this.hist;
         h.data = null;
         h.entries = [];
@@ -35936,6 +36084,15 @@
         h.more = false;
         h.moreError = '';
         h.error = '';
+        h.query = '';
+        // Сброс панели (смена промпта/чата, закрытие) снимает выбор и экран
+        // деталей. Явный `keepSelection` нужен только если выбор обязан
+        // пережить перечитывание того же промпта.
+        if (!keepSelection) {
+          h.selectedId = '';
+          h.detailOpen = false;
+        }
+        h.actionsMenu = false;
         h.events = [];
         h.nextEventsCursor = '';
         h.moreEvents = false;
@@ -35968,24 +36125,89 @@
         return String(this.promptKey || '') + '|'
           + (this.chatIdNum == null ? 'global' : ('chat:' + this.chatIdNum));
       },
+      // Применить снимок `/versions` к состоянию панели: списки, курсоры и
+      // ФАКТ полноты приходят из данных. Один и тот же путь используется и
+      // после сети, и при восстановлении из кэша (иначе кэш терял `has_more`
+      // и показывал загрузку как итог).
+      _applyData: function (data) {
+        var h = this.hist;
+        h.data = data || null;
+        h.entries = (data && data.entries) || [];
+        // Основной список = ревизии (revisions_cursor), вторичный «История
+        // действий» = события активации (activations_cursor) — PVR-02.1.
+        h.events = (data && data.activations) || [];
+        h.nextEventsCursor = (data && data.activations_page
+          && data.activations_page.next_cursor) || '';
+        h.moreEvents = !!(data && data.activations_page
+          && data.activations_page.has_more);
+        var revPage = (data && (data.revisions_page || data.page)) || null;
+        h.nextCursor = (revPage && revPage.next_cursor) || '';
+        h.more = !!(revPage && revPage.has_more);
+      },
       // Состояние карточки (активная/базовая/права). Кэш — только для
       // первичного показа: действия всегда перечитывают сервер.
       primeState: function () {
-        var self = this;
         var key = this.promptKey;
         if (!key) return;
         var cacheKey = this._cacheKey();
         var hit = _pvStateCache.get(cacheKey);
         if (hit && (Date.now() - hit.at) < _PV_STATE_TTL_MS) {
-          this.hist.data = hit.data;
+          this._applyData(hit.data);
           return;
         }
         this.loadHistory(true);
+      },
+      //: Пояс чата из УЖЕ существующего `GET /api/config/time` (UR-29.1):
+      //: additive-полей бэкенда не требуется. Кэш по области + dedupe
+      //: параллельных запросов; `utc_fallback` сервера — честная деградация:
+      //: зона неизвестна, UTC-цифры за «пояс чата» не выдаются.
+      _tzScopeKey: function () {
+        return this.isChatScope ? ('chat:' + this.chatIdNum) : 'global';
+      },
+      pvWhen: function (iso) {
+        if (!iso) return '';
+        var tz = this.chatTz;
+        if (!tz || tz.state !== 'ready' || !tz.iana) return '';
+        return pvShortWhen(iso, tz.iana);
+      },
+      ensureChatTz: async function (force) {
+        var self = this;
+        if (!this.root || typeof this.root.api !== 'function') return '';
+        var key = this._tzScopeKey();
+        var hit = _pvTzCache.get(key);
+        if (!force && hit && (Date.now() - hit.at) < _PV_TZ_TTL_MS) {
+          this.chatTz = { state: hit.iana ? 'ready' : 'error', iana: hit.iana };
+          return hit.iana;
+        }
+        var pending = _pvTzInflight.get(key);
+        if (!pending) {
+          pending = this.root.api('/api/config/time', {
+            global: !this.isChatScope, chatId: this.chatIdNum, silent403: true,
+          }).then(function (data) {
+            var iana = (data && data.iana && data.utc_fallback !== true)
+              ? String(data.iana) : '';
+            _pvTzCache.set(key, { at: Date.now(), iana: iana });
+            return iana;
+          }).catch(function () {
+            _pvTzCache.set(key, { at: Date.now(), iana: '' });
+            return '';
+          });
+          _pvTzInflight.set(key, pending);
+          pending.then(function () { _pvTzInflight.delete(key); },
+                       function () { _pvTzInflight.delete(key); });
+        }
+        var iana = await pending;
+        if (self._tzScopeKey() !== key) return iana;   // область уже сменилась
+        this.chatTz = { state: iana ? 'ready' : 'error', iana: iana };
+        return iana;
       },
       openHistory: function () {
         this.menu = false;
         this.hist.open = true;
         var self = this;
+        // Панель — главное место, где нужны штампы в TZ чата: читаем пояс
+        // заново (кэш карточки — только для метанстроки до открытия панели).
+        this.ensureChatTz(true);
         // Панель всегда читает сервер заново: показанное состояние не должно
         // отставать от фактического после Save/Применить/Назначить.
         this.loadHistory(true);
@@ -36001,7 +36223,12 @@
         }
       },
       closeHistory: function () {
+        // Закрытие панели — единственное место (вместе со сменой промпта),
+        // где выбор строки снимается явно.
         this.hist.open = false;
+        this.hist.selectedId = '';
+        this.hist.detailOpen = false;
+        this.hist.actionsMenu = false;
         this.hist.result = null;
       },
       loadHistory: async function (force) {
@@ -36020,24 +36247,27 @@
             { global: !this.isChatScope, chatId: this.chatIdNum,
               silent403: true });
           if (this._cacheKey() !== cacheKey) return;
-          h.data = data || null;
-          h.entries = (data && data.entries) || [];
-          // Основной список = ревизии (revisions_cursor), вторичный «История
-          // действий» = события активации (activations_cursor) — PVR-02.1.
-          h.events = (data && data.activations) || [];
-          h.nextEventsCursor = (data && data.activations_page
-            && data.activations_page.next_cursor) || '';
-          h.moreEvents = !!(data && data.activations_page
-            && data.activations_page.has_more);
-          h.nextCursor = (data && data.page && data.page.next_cursor) || '';
-          h.more = !!(data && data.page && data.page.has_more);
+          this._applyData(data);
           _pvStateCache.set(cacheKey, { at: Date.now(), data: h.data });
           if (force) {
-            h.viewId = '';
-            h.viewBody = '';
-            h.viewError = '';
             h.diff = null;
             h.diffError = '';
+            if (h.detailOpen && h.selectedId) {
+              // PVR-04.2.4: открытый экран деталей переживает перечитывание —
+              // дословный текст перезагружается для той же ревизии; если
+              // строка исчезла из журнала, экран закрывается (не пустышка).
+              var sel = this.selectedRow;
+              if (sel) {
+                await this.loadView(sel);
+              } else {
+                this.closeDetail();
+                h.selectedId = '';
+              }
+            } else if (!h.selectedId) {
+              h.viewId = '';
+              h.viewBody = '';
+              h.viewError = '';
+            }
           }
         } catch (err) {
           if (this._cacheKey() !== cacheKey) return;
@@ -36045,6 +36275,7 @@
           h.data = null;
           h.entries = [];
           h.more = false;
+          h.moreEvents = false;
         } finally {
           h.loading = false;
         }
@@ -36077,6 +36308,11 @@
           h.nextCursor = (data && data.revisions_page
             && data.revisions_page.next_cursor) || '';
           h.more = !!(data && data.revisions_page && data.revisions_page.has_more);
+          // Снимок (и кэш) обязан отражать фактическую полноту: иначе
+          // повторное монтирование покажет старую страницу как всё.
+          target.revisions_page = (data && data.revisions_page) || {
+            next_cursor: '', has_more: h.more,
+          };
         } catch (err) {
           if (this._cacheKey() !== cacheKey) return;
           h.moreError = this.errText(err);
@@ -36117,6 +36353,14 @@
             && data.activations_page.next_cursor) || '';
           h.moreEvents = !!(data && data.activations_page
             && data.activations_page.has_more);
+          // Снимок/кэш держит загруженные события и фактическую полноту:
+          // «более ранние события» не должны появляться как «нет событий».
+          if (h.data) {
+            h.data.activations = h.events.slice();
+            h.data.activations_page = (data && data.activations_page) || {
+              next_cursor: '', has_more: h.moreEvents,
+            };
+          }
         } catch (err) {
           if (this._cacheKey() !== cacheKey) return;
           h.moreEventsError = this.errText(err);
@@ -36124,29 +36368,72 @@
           h.moreEventsLoading = false;
         }
       },
+      // PVR-04.2.3: каноничная карта источников для строк редакций
+      // («Вручную»/«Из релиза»/«Импортирована»/«Историческая»/«Восстановлена»);
+      // для событий журнала серверная подпись точнее (kind-специфичная,
+      // например «назначена базовая») — она приоритетнее.
       sourceLabel: function (entry) {
         if (!entry) return '';
+        if (entry.activation_id != null && entry.source_label) {
+          return String(entry.source_label);
+        }
+        var mapped = _PV_SOURCE_LABELS[String(entry.source || '').trim()];
+        if (mapped) return mapped;
         if (entry.source_label) return String(entry.source_label);
-        return _PV_SOURCE_LABELS[entry.source] || 'источник неизвестен';
+        return 'источник неизвестен';
       },
       rowWhen: function (entry) {
-        return pvShortWhen(entry && entry.created_at);
+        return this.pvWhen(entry && entry.created_at);
+      },
+      //: Штамп времени строки словами: нет метки — «время неизвестно»;
+      //: пояс не получен — честная причина, а не UTC-цифры «как есть».
+      rowWhenText: function (entry) {
+        if (!entry || !entry.created_at) return 'время неизвестно';
+        var when = this.pvWhen(entry.created_at);
+        if (when) return when;
+        return this.tzUnavailable ? 'пояс чата недоступен'
+          : 'пояс чата определяется…';
       },
       rowActor: function (entry) {
         var actor = String((entry && entry.actor) || '').trim();
         if (!actor) return '';                 // неизвестен — не выдумываем
         return 'кто: ' + actor;
       },
+      // Область строки — человеческими словами: сырой Telegram-id чата
+      // (-100500…) в списке не показываем, он живёт только в технических
+      // подробностях.
       rowScope: function (entry) {
         if (!entry) return '';
-        return entry.scope === 'chat'
-          ? ('чат' + (entry.chat_id != null ? ' ' + entry.chat_id : ''))
-          : 'глобально';
+        if (entry.scope !== 'chat') return 'глобально';
+        if (this.chatIdNum != null && entry.chat_id != null
+            && Number(entry.chat_id) === this.chatIdNum) {
+          return this.chatTitle ? ('этот чат · ' + this.chatTitle) : 'этот чат';
+        }
+        return 'другой чат';
       },
       rowStatus: function (entry) {
         if (!entry) return '';
         if (entry.status_label) return String(entry.status_label);
         return entry.status || '';
+      },
+      // PVR-04.2.3: имя строки — «Версия от <дата>» (своих имён у ревизий
+      // нет); без метки времени — просто «Версия», а «время неизвестно»
+      // показывается в метаданных строки.
+      rowName: function (entry) {
+        if (!entry) return '';
+        var when = this.rowWhen(entry);
+        return when ? ('Версия от ' + when) : 'Версия';
+      },
+      // Максимум ОДИН уместный статус строки (PVR-04.2.3): «Действует» —
+      // только effective-matched резолвера; «Базовая» — отдельный указатель;
+      // «Недоступна» — текст не сохранён в журнале. Прочие строки без статуса:
+      // спокойный список, причины живут в деталях.
+      rowBadge: function (entry) {
+        if (!entry) return '';
+        if (this.isActiveEntry(entry)) return 'Действует';
+        if (this.isBaselineEntry(entry)) return 'Базовая';
+        if (entry.body_available === false) return 'Недоступна';
+        return '';
       },
       // Метка «активная» — только ревизия, сопоставленная резолвером с
       // реально действующим текстом (status=matched + effective_revision_id).
@@ -36218,6 +36505,8 @@
         }
         return entry.reason_text || '';
       },
+      // Переключатель просмотра текста (используется строками вторичной
+      // ленты событий); для деталей версии — см. openDetail/loadView.
       view: async function (entry) {
         var h = this.hist;
         if (!entry || !entry.revision_id) return;
@@ -36227,6 +36516,50 @@
           h.viewError = '';
           return;
         }
+        await this.loadView(entry);
+      },
+      // PVR-04.2.3/04.2.4: клик по строке редакции — selection (≠ active) и
+      // экран деталей: дословный текст открывается без изменения и без
+      // пересохранения; повторный клик/«Назад» возвращает список, СОХРАНЯЯ
+      // выбор строки (selection — отдельное состояние от открытого экрана).
+      openDetail: async function (entry) {
+        var h = this.hist;
+        if (!entry || !entry.revision_id) return;
+        h.actionsMenu = false;
+        if (h.detailOpen && h.selectedId === entry.revision_id) {
+          this.closeDetail();
+          return;
+        }
+        h.selectedId = entry.revision_id;
+        h.detailOpen = true;
+        h.diff = null;
+        h.diffTitle = '';
+        h.diffError = '';
+        await this.loadView(entry);
+      },
+      // «Назад»/Esc: закрыть экран деталей и вернуться к списку. Выбор строки
+      // НЕ снимается — строка остаётся `.is-selected` (и это не active).
+      closeDetail: function () {
+        var h = this.hist;
+        h.detailOpen = false;
+        h.actionsMenu = false;
+        h.viewId = '';
+        h.viewBody = '';
+        h.viewError = '';
+        h.diff = null;
+        h.diffTitle = '';
+        h.diffError = '';
+      },
+      // Escape: в деталях — назад к списку, иначе закрыть панель (PVR-04.3.1).
+      onPanelEsc: function () {
+        if (this.detailMode) this.closeDetail();
+        else this.closeHistory();
+      },
+      // Загрузка дословного текста версии: GET /source, никаких записей;
+      // пустой текст не подставляется — недоступность называется честно.
+      loadView: async function (entry) {
+        var h = this.hist;
+        if (!entry || !entry.revision_id) return;
         var cacheKey = this._cacheKey();
         h.viewId = entry.revision_id;
         h.viewBody = '';
@@ -36402,6 +36735,10 @@
           h.result = { ok: true,
                        text: 'Сервер подтвердил: действует выбранная версия («'
                          + this.sourceLabel(entry) + '»).' };
+          // PVR-04.2.4/B4: после «Применить» экран деталей закрывается —
+          // пользователь возвращается к списку, где видно новый активный
+          // маркер, а подтверждение сервера остаётся первым в теле панели.
+          this.closeDetail();
           this.$emit('refresh');
         } catch (err) {
           h.result = { ok: false,

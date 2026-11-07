@@ -1,0 +1,145 @@
+{
+  "candidate": "ce6b27f983b13c3917cba9109c73c19ef22cb6b3",
+  "widths": [
+    "1536",
+    "1440",
+    "1366",
+    "768",
+    "390",
+    "360",
+    "320"
+  ],
+  "shots_dir": "plans/features/pvr-fc-corrective-01/evidence/pvr-04/shots",
+  "checks": 1220,
+  "failures": [],
+  "notes": [],
+  "measure": {
+    "1536": {
+      "hscroll": 0,
+      "tz_requests": 11
+    },
+    "1440": {
+      "hscroll": 0,
+      "tz_requests": 12
+    },
+    "1366": {
+      "hscroll": 0,
+      "tz_requests": 11
+    },
+    "768": {
+      "hscroll": 0,
+      "tz_requests": 11
+    },
+    "390": {
+      "touch": {
+        "list": {
+          "count": 55,
+          "min_h": 44,
+          "named": {
+            "data-pv-panel-close": 44,
+            "data-pv-load-more": 44,
+            "data-pv-events-toggle": 44,
+            "data-pv-factory-restore": 44
+          }
+        },
+        "detail": {
+          "count": 6,
+          "min_h": 44,
+          "named": {
+            "data-pv-panel-back": 44,
+            "data-pv-panel-close": 44,
+            "data-pv-row-compare": 44,
+            "data-pv-row-copy": 44,
+            "data-pv-actions-toggle": 44,
+            "data-pv-row-activate": 44
+          }
+        },
+        "events": {
+          "count": 136,
+          "min_h": 44,
+          "named": {
+            "data-pv-panel-close": 44,
+            "data-pv-events-toggle": 44,
+            "data-pv-factory-restore": 44
+          }
+        }
+      },
+      "hscroll": 0,
+      "tz_requests": 12
+    },
+    "360": {
+      "touch": {
+        "list": {
+          "count": 55,
+          "min_h": 44,
+          "named": {
+            "data-pv-panel-close": 44,
+            "data-pv-load-more": 44,
+            "data-pv-events-toggle": 44,
+            "data-pv-factory-restore": 44
+          }
+        },
+        "detail": {
+          "count": 6,
+          "min_h": 44,
+          "named": {
+            "data-pv-panel-back": 44,
+            "data-pv-panel-close": 44,
+            "data-pv-row-compare": 44,
+            "data-pv-row-copy": 44,
+            "data-pv-actions-toggle": 44,
+            "data-pv-row-activate": 44
+          }
+        },
+        "events": {
+          "count": 136,
+          "min_h": 44,
+          "named": {
+            "data-pv-panel-close": 44,
+            "data-pv-events-toggle": 44,
+            "data-pv-factory-restore": 44
+          }
+        }
+      },
+      "hscroll": 0,
+      "tz_requests": 11
+    },
+    "320": {
+      "touch": {
+        "list": {
+          "count": 55,
+          "min_h": 44,
+          "named": {
+            "data-pv-panel-close": 44,
+            "data-pv-load-more": 44,
+            "data-pv-events-toggle": 44,
+            "data-pv-factory-restore": 44
+          }
+        },
+        "detail": {
+          "count": 6,
+          "min_h": 44,
+          "named": {
+            "data-pv-panel-back": 44,
+            "data-pv-panel-close": 44,
+            "data-pv-row-compare": 44,
+            "data-pv-row-copy": 44,
+            "data-pv-actions-toggle": 44,
+            "data-pv-row-activate": 44
+          }
+        },
+        "events": {
+          "count": 136,
+          "min_h": 44,
+          "named": {
+            "data-pv-panel-close": 44,
+            "data-pv-events-toggle": 44,
+            "data-pv-factory-restore": 44
+          }
+        }
+      },
+      "hscroll": 0,
+      "tz_requests": 11
+    }
+  }
+}

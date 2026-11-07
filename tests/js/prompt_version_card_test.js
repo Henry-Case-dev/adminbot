@@ -271,6 +271,7 @@ assert.strictEqual(s.state.text, 'Действует глобальная вер
 assert.strictEqual(s.state.detail, 'наследуется чатом');
 
 s = stateOf({ chatId: null,
+              chatTz: { state: 'ready', iana: 'Europe/Moscow' },
               hist: { data: {
                 effective_origin: 'global', effective_status: 'matched',
                 effective_content_hash: 'ab12cd34ef56ab12',
@@ -280,9 +281,23 @@ s = stateOf({ chatId: null,
                 active: activeRow('manual'), baseline: null, entries: [] },
                 error: '', entries: [] } });
 assert.strictEqual(s.state.text, 'Действует глобальная версия');
-assert.ok(s.activeLabel.indexOf('03.11 23:42') >= 0,
-  'дата действующей ревизии — из реальной строки ревизий: '
+// PVR-04.2.3: штамп — В ПОЯСЕ ЧАТА из /api/config/time (23:42 UTC =
+// 02:42 следующего дня в Europe/Moscow), а не UTC-цифры «как есть».
+assert.ok(s.activeLabel.indexOf('04.11 02:42') >= 0,
+  'дата действующей ревизии — в поясе чата, из реальной строки ревизий: '
   + JSON.stringify(s.activeLabel));
+// Пояс чата неизвестен — UTC-цифры не выдаются за местное время; причина
+// называется отдельной честной меткой (data-pv-tz-unavailable).
+assert.strictEqual(
+  stateOf({ chatId: null, hist: s.hist }).activeLabel, 'глобальная версия',
+  'без пояса чата дата не подставляется UTC-цифрами');
+assert.strictEqual(
+  stateOf({ chatId: null, hist: s.hist }).tzUnavailable, false,
+  'tzUnavailable — только после неудачной попытки получить пояс');
+assert.strictEqual(
+  stateOf({ chatId: null, chatTz: { state: 'error', iana: '' },
+            hist: s.hist }).tzUnavailable, true,
+  'неудачная попытка пояса обязана давать честную метку недоступности');
 
 s = stateOf({ hist: { data: {
   effective_origin: 'code', effective_status: 'matched',
@@ -468,7 +483,9 @@ async function pagingTest() {
     'догрузка ревизий идёт по стабильному revisions_cursor: ' + calls[0]);
   assert.strictEqual(c.hist.nextCursor, 'C2');
   // События активации в основной список не попадают (PVR-02.1/C1.2).
-  c.hist.data.activations = [{ activation_id: 7, revision_id: 'r1',
+  // revision_id события намеренно НЕ совпадает ни с одной ревизией: иначе
+  // дедупликация строк скрыла бы подмешивание событий в основной список.
+  c.hist.data.activations = [{ activation_id: 7, revision_id: 'rev-event-only',
                                status: 'was_applied' }];
   assert.strictEqual(c.revisionRows.length, 3,
     'событие активации не превратилось в строку основного списка');
