@@ -247,27 +247,9 @@ async def test_forward_row_and_edge_card_use_original_author(tmp_path,
         assert attribution.content_author == "user:777"
         assert attribution.attributed_author == "user:777"
 
-        sid = await d.upsert_node(CHAT, "Петя", "fact", origin="chat_history")
-        oid = await d.upsert_node(CHAT, "Маша", "fact", origin="chat_history")
-        await d.upsert_edge(sid, oid, "знает", origin="chat_history")
-        cursor = await d.db.execute(
-            "SELECT id FROM edges WHERE chat_id = ? AND source_id = ? "
-            "AND target_id = ?", (CHAT, sid, oid))
-        edge_id = int((await cursor.fetchone())["id"])
-        cursor = await d.db.execute(
-            "SELECT id FROM smart_messages WHERE chat_id = ? AND "
-            "tg_message_id = 400", (CHAT,))
-        row_id = int((await cursor.fetchone())["id"])
-        ref = await provenance.resolve_source_ref(
-            d, provenance.message_source_ref(chat_id=CHAT,
-                                             entity_id=str(row_id),
-                                             tg_message_id=400))
         from services import relation_evidence
-        await relation_evidence.attach_edge_evidence(
-            d, chat_id=CHAT, edge_id=edge_id, source_ref_id=ref,
-            link_type="supports", method="direct_reference",
-            verification="verified", independence="independent",
-            basis="direct reference", established_at=1000)
+        edge_id = await _seed_edge(d)
+        await _attach_message_source(d, edge_id, 400)
         evidence = await relation_evidence.edge_evidence(
             d, chat_id=CHAT, edge_id=edge_id)
         source = evidence["sources"][0]
