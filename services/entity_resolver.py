@@ -17,9 +17,16 @@
   узел, закреплённый за другим uid, даёт `identity_seed_node_conflict`, а не
   перезапись `stable_value` (§1.2.1, ID-11, EVAL-04).
 * **`resolve_or_create_node`** — единственная точка **создания** узла для
-  новых писателей (§1.4.1). Существующие писатели W1–W6 в этом слайсе не
-  переписываются (часть B); тест `test_no_direct_upsert_node_outside_resolver`
-  фиксирует, что новых прямых вызовов `upsert_node` не появляется.
+  писателей W1–W6 (§1.4.1). Часть B перевела на неё реальных создателей узлов
+  (`summary_memory`): W1 (real-time факт) и W2 (`_write_graph_triplets`,
+  `commit=False` — узлы и рёбра одной транзакцией). Остальные пути инвентаря
+  §1.4.1 на этой линии узлов не создают вообще (проверено `git grep
+  upsert_node` и тестом `test_no_direct_upsert_node_in_any_writer`): W3
+  (`dream_worker`, beliefs), W4 (`lore_worker`/`lore_compiler_service`), W5
+  (`chat_lore` → `user_memory`, self-факт `summary_memory::memorize_self_reply`),
+  W6 (`memory_maintenance`, `memory_rebuild`, `chat_migration`) пишут только
+  факты/строки и не материализуют сущности — дублей узлов там не возникает, а
+  прямой `upsert_node` запрещён структурно.
 * **DDL владельца** таблицы `mca_entity_canonical` (`v43`): миграция в
   `services/database.py` применяет ровно эти выражения, второй копии нет.
 
@@ -445,6 +452,15 @@ def _stable_uid(stable_identity: Mapping[str, Any] | None) -> str | None:
     if isinstance(value, bool) or not isinstance(value, int):
         return None
     return str(value)
+
+
+def parse_stable_identity(stable_identity: Any) -> str | None:
+    """Публичная точка разбора `stable_identity` (`str(uid)` или `None`).
+
+    Нужна слияниям B2 (`entity_merge`): доказательство и запись обязаны
+    разбирать идентичность ОДНИМ кодом, а не второй копией правила.
+    """
+    return _stable_uid(stable_identity)
 
 
 async def _identity_nodes_for_uid(db, chat_id: int, uid: str,
@@ -1001,7 +1017,7 @@ async def resolve_or_create_node(
         stable_identity: Mapping[str, Any] | None = None,
         evidence: Mapping[str, Any] | None = None,
         allow_create: bool = True, origin: str = "chat_history",
-        expires_at=None) -> ResolvedNode:
+        expires_at=None, commit: bool = True) -> ResolvedNode:
     """Единственная точка создания узла (§1.4.1): резолв → создание.
 
     При `new` и `allow_create` создание идёт существующим `upsert_node`
@@ -1010,6 +1026,12 @@ async def resolve_or_create_node(
     `entity_type_conflict`. OFF-гейт → байт-в-байт сегодняшний путь
     (`upsert_node` без новых чтений): тип возвращённого узла — тот, что
     занимает слот имени в чате.
+
+    `commit=False` — транзакцией владеет вызывающий (он уже держит
+    `db.serialized()`/`write_transaction`, §1.4.1 «внутри транзакции
+    писателя»): так W2 (`_write_graph_triplets`) пишет узлы и рёбра одной
+    транзакцией, как до слайса. Дефолт `True` — поведение W1 и прочих
+    вызовов не меняется.
     """
     chat_id = int(chat_id)
     entity_type = str(entity_type)
@@ -1017,7 +1039,8 @@ async def resolve_or_create_node(
     if not await memory_identity_enabled(chat_id):
         before = await _node_by_exact_name(db, chat_id, name)
         node_id = await db.upsert_node(chat_id, name, entity_type,
-                                       origin=origin, expires_at=expires_at)
+                                       origin=origin, expires_at=expires_at,
+                                       commit=commit)
         stored = await _node_by_id(db, int(node_id))
         actual_type = stored.entity_type if stored is not None else entity_type
         legacy_scope = _coerce_scope({"chat_id": chat_id,
@@ -1083,7 +1106,8 @@ async def resolve_or_create_node(
             reason_code=REASON_EXACT_NAME, resolution=resolution)
 
     node_id = await db.upsert_node(chat_id, name, entity_type,
-                                   origin=origin, expires_at=expires_at)
+                                   origin=origin, expires_at=expires_at,
+                                   commit=commit)
     stored = await _node_by_id(db, int(node_id))
     if stored is not None and stored.entity_type != entity_type:
         # `INSERT OR IGNORE` вернул чужой узел — не выдаём это за создание.
@@ -1118,4 +1142,5 @@ __all__ = [
     "SEED_NODE_CONFLICT", "SEED_REVOKED",
     "SeedResult", "seed_self_identity",
     "ResolvedNode", "resolve_or_create_node", "resolve_entity",
+    "parse_stable_identity",
 ]
