@@ -2961,3 +2961,97 @@ class TestF1Extraction4Tuples:
         assert rows[0][0] == "search_fact"
         assert rows[0][3] == "Вася"
         assert rows[0][4] == f"fact:{fid}"
+
+
+# ── MEMORY-03 (C-2): основание ребра на реальном fact-write path ────────────
+
+
+class TestMemorizeEdgeEvidence:
+    """Реальное поведение `memorize_facts`: у ребра появляется основание.
+
+    Проверяется не внутренняя функция, а наблюдаемая связка: факт + ребро +
+    основание ребра из одной записи (MEM-03.2/§2.5)."""
+
+    @pytest.mark.asyncio
+    async def test_memorize_attaches_edge_evidence_with_source_ref(
+            self, db, monkeypatch):
+        from services import relation_evidence
+
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda now=now: now)
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="вася", predicate="спорил с", obj="петя")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        # Автор сообщения сохранён в чате (как в проде): только это вместе с
+        # `self_report` подтверждает авторство (F2).
+        await db.db.execute(
+            "INSERT INTO smart_messages (user_id, chat_id, text, timestamp, "
+            "media_type, author_name, tg_message_id) VALUES (?,?,?,?,?,?,?)",
+            (77, -100, "вася спорил с петей", 1000, "text", "вася", 4242))
+        await db.db.commit()
+        # Субъект — сам говорящий (`target_user`), т.е. реальный self_report:
+        # только такой факт даёт независимый корень (F1/§2.3).
+        await memory.memorize_facts(-100, "вася спорил с петей",
+                                    "chat_history", target_user="вася",
+                                    tg_message_id=4242)
+
+        cursor = await db.db.execute("SELECT id FROM edges")
+        edge_ids = [int(r["id"]) for r in await cursor.fetchall()]
+        assert len(edge_ids) == 1
+        evidence = await relation_evidence.edge_evidence(
+            db, chat_id=-100, edge_id=edge_ids[0])
+        assert evidence["independent_support"] == 1
+        assert evidence["status"] == "confirmed"
+        assert len(evidence["sources"]) == 1
+        source = evidence["sources"][0]
+        assert source["kind"] == "message"
+        assert source["counts_as_independent"] is True
+        # одно ребро — один SourceRef ребра (ревизия стабильна)
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) FROM mca_source_refs WHERE "
+            "entity_type = 'graph_edge'")
+        assert int((await cursor.fetchone())[0]) == 1
+
+    @pytest.mark.asyncio
+    async def test_memorize_without_proven_authorship_is_not_confirmed(
+            self, db):
+        """F1: без доказанного авторства (участник неизвестен → world_knowledge)
+        ребро НЕ получает независимый корень и не становится подтверждённым."""
+        from services import relation_evidence
+
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="вася", predicate="спорил с", obj="петя")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "вася спорил с петей",
+                                    "chat_history", tg_message_id=4444)
+        cursor = await db.db.execute("SELECT id FROM edges")
+        edge_ids = [int(r["id"]) for r in await cursor.fetchall()]
+        assert edge_ids
+        evidence = await relation_evidence.edge_evidence(
+            db, chat_id=-100, edge_id=edge_ids[0])
+        assert evidence["independent_support"] == 0
+        assert evidence["status"] != "confirmed"
+        assert evidence["sources"][0]["counts_as_independent"] is False
+        assert evidence["sources"][0]["origin_class"] != "explicit_direct"
+
+    @pytest.mark.asyncio
+    async def test_memorize_bot_direct_reply_does_not_corroborate(self, db):
+        from services import relation_evidence
+
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="вася", predicate="любит", obj="кофе")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "вася любит кофе",
+                                    "bot_direct_reply", "вася",
+                                    tg_message_id=4343)
+        cursor = await db.db.execute("SELECT id FROM edges")
+        edge_ids = [int(r["id"]) for r in await cursor.fetchall()]
+        assert edge_ids, "ребро бота должно существовать"
+        evidence = await relation_evidence.edge_evidence(
+            db, chat_id=-100, edge_id=edge_ids[0])
+        # R-3: собственный ответ бота не подтверждает связь
+        assert evidence["independent_support"] == 0
+        assert evidence["status"] != "confirmed"
