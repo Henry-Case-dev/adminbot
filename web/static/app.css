@@ -8765,6 +8765,8 @@ body > .sticky-save[data-save-panel] {
   min-width: 0; font-size: var(--ctl-font-sm);
 }
 .pv-meta__saved { color: #94A3B8; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+/* PVR-04.2.3: честная причина отсутствия штампов времени (пояс чата). */
+.pv-meta__tz, .pv-now__tz { font-size: var(--ctl-font-sm); color: #FCD34D; overflow-wrap: anywhere; }
 .pv-state { font-size: var(--ctl-font-sm); color: #CBD5E1; min-width: 0; overflow-wrap: anywhere; }
 .pv-state--inherit, .pv-state--muted { color: #94A3B8; }
 .pv-state--factory { color: #93C5FD; }
@@ -9063,6 +9065,13 @@ body > .sticky-save[data-save-panel] {
   .pv-row__actions .btn-ghost, .pv-panel__back,
   .pv-panel__foot .btn-ghost, .pv-panel__foot--detail .btn-ghost,
   .pv-panel__foot--detail .btn-accent { min-height: 44px; }
+  /* PVR-04.3.1: КАЖДАЯ интерактивная цель внутри панели — ≥44px. Раньше
+     выпадали «Закрыть» в шапке, «Показать более ранние версии» и
+     «История действий» (34px при строках/CTA 44px) — те же 44px теперь
+     нормируются на всю панель, включая меню «Действия», × подтверждения. */
+  .pv-panel button, .pv-panel input, .pv-panel select,
+  .pv-panel textarea, .pv-panel [role="button"],
+  .pv-panel .more-menu-item { min-height: 44px; }
   /* Строки редакций — сами тач-цели (клик открывает детали). */
   .pv-row { min-height: 44px; }
   /* Шапка на узком экране: заголовок и eyebrow получают свою строку, иначе

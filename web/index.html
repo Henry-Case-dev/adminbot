@@ -16466,6 +16466,10 @@
               v-if="state.detail"> · {{ state.detail }}</template></span>
         <span v-if="savedWhen" class="pv-meta__saved"
               data-pv-saved>Сохранено {{ savedWhen }}</span>
+        <!-- PVR-04.2.3: пояс чата не получен — время не рисуется UTC-цифрами,
+             причина называется словами. -->
+        <span v-if="tzUnavailable" class="pv-meta__tz"
+              data-pv-tz-unavailable>пояс чата недоступен</span>
         <span v-if="dirty" class="pv-dirty" data-pv-dirty>черновик не сохранён</span>
         <span class="flex-1"></span>
         <button type="button" class="btn-ghost text-xs pv-history-btn"
@@ -16500,6 +16504,13 @@
           {{ isChatScope ? 'Восстановить базовую для чата…' : 'Восстановить базовую…' }}
         </button>
       </div>
+
+      <!-- PVR-04.1.4: честный read-only статус с причиной — на ЛЮБОЙ
+           поверхности компонента (card/bar/history), а не только там, где
+           есть поле ввода. Каталог (`variant="history"`) показывает историю
+           промпта из кода — причина обязана быть видна и там. -->
+      <div v-if="!canEdit && readonlyReason" class="pv-readonly"
+           data-pv-readonly role="note">Только чтение: {{ readonlyReason }}</div>
 
       <!-- ── Редактируемый текст (действующий; черновик отличается явно) ── -->
       <template v-if="variant === 'card'">
@@ -16544,10 +16555,6 @@
         <div v-if="notice" class="pv-notice" data-pv-notice
              :class="noticeOk ? 'text-emerald-300' : 'text-amber-300'"
              role="status" aria-live="polite">{{ notice }}</div>
-        <!-- PVR-04.0: честный read-only статус с причиной, когда промпт
-             задаётся кодом или у роли нет права редактирования. -->
-        <div v-if="!canEdit && readonlyReason" class="pv-readonly"
-             data-pv-readonly role="note">Только чтение: {{ readonlyReason }}</div>
         <div class="pv-foot">
           <button type="button" class="btn-ghost text-xs" data-pv-discard
                   :disabled="busy || !dirty"
@@ -16625,6 +16632,10 @@
                 <span data-pv-panel-factory>исходный из кода: {{ factoryLabel }}</span>
                 <span data-pv-panel-baseline>базовый по выбору владельца: {{ baselineLabel }}</span>
               </div>
+              <!-- PVR-04.2.3: без пояса чата штампы не выдумываются — причина
+                   названа словами прямо в блоке действующей версии. -->
+              <div v-if="tzUnavailable" class="pv-now__tz"
+                   data-pv-panel-tz-unavailable>пояс чата недоступен</div>
             </div>
             <div class="pv-panel__body scroll-thin">
               <!-- PVR-S4 B4: подтверждение последнего действия — ПЕРВЫМ в теле
@@ -16751,7 +16762,7 @@
                          class="pv-row pv-row--event" data-pv-event-row
                          :data-pv-event-status="ev.status">
                       <div class="pv-row__main">
-                        <span class="pv-row__when">{{ rowWhen(ev) || 'время неизвестно' }}</span>
+                        <span class="pv-row__when">{{ rowWhenText(ev) }}</span>
                         <span class="pv-row__source"
                               data-pv-event-source>{{ sourceLabel(ev) }}</span>
                         <span v-if="rowActor(ev)" class="pv-row__actor"
@@ -16820,7 +16831,7 @@
                       <div v-for="ev in selectedEvents"
                            :key="'pvde-' + (ev.activation_id != null ? ev.activation_id : ev.created_at)"
                            class="pv-row pv-row--flat" data-pv-detail-event-row>
-                        <span class="pv-row__when">{{ rowWhen(ev) || 'время неизвестно' }}</span>
+                        <span class="pv-row__when">{{ rowWhenText(ev) }}</span>
                         <span class="pv-row__source">{{ sourceLabel(ev) }}</span>
                         <span v-if="rowActor(ev)" class="pv-row__actor">{{ rowActor(ev) }}</span>
                         <span class="badge badge-muted pv-row__status">{{ rowStatus(ev) }}</span>

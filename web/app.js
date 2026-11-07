@@ -35440,13 +35440,35 @@
   var _pvStateCache = new Map();
   var _PV_STATE_TTL_MS = 20000;
 
-  //: «03.11 23:42» из ISO журнала. Не выдумывает время: нет метки — пусто.
-  function pvShortWhen(iso) {
-    if (!iso) return '';
-    var s = String(iso);
-    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-    if (!m) return s.slice(0, 16).replace('T', ' ');
-    return m[3] + '.' + m[2] + ' ' + m[4] + ':' + m[5];
+  //: Пояс чата для штампов истории (PVR-04.2.3). Источник — уже существующий
+  //: контракт `GET /api/config/time` (IANA-зона + offset, считает сервер).
+  //: Кэш разделён по области (чат/глобально), чтобы N карточек на странице
+  //: делали ОДИН запрос; `inflight` гасит параллельные дубли.
+  var _pvTzCache = new Map();      // scopeKey → {at, iana}
+  var _pvTzInflight = new Map();   // scopeKey → Promise<string>
+  var _PV_TZ_TTL_MS = 60000;
+
+  //: «03.11 15:42» из ISO журнала В ПОЯСЕ ЧАТА (`tz`, IANA).
+  //: Не выдумывает время: нет метки/пояса/валидной даты — пустая строка,
+  //: вызывающий показывает честную причину вместо UTC-цифр.
+  function pvShortWhen(iso, tz) {
+    if (!iso || !tz) return '';
+    var d = new Date(String(iso));
+    if (isNaN(d.getTime())) return '';
+    try {
+      var parts = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: String(tz), day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      }).formatToParts(d);
+      var got = {};
+      for (var i = 0; i < parts.length; i++) {
+        got[parts[i].type] = parts[i].value;
+      }
+      if (!got.day || !got.month || !got.hour || !got.minute) return '';
+      return got.day + '.' + got.month + ' ' + got.hour + ':' + got.minute;
+    } catch (e) {
+      return '';                    // неизвестная зона — без UTC-подстановки
+    }
   }
 
   //: Человеческие подписи источника ревизии (§2.2 п.3 ТЗ + PVR-04.2.3):
@@ -35495,6 +35517,8 @@
       return {
         menu: false,
         details: false,
+        // Пояс чата для штампов истории: state — idle|ready|error, iana — зона.
+        chatTz: { state: 'idle', iana: '' },
         // Одна панель истории на карточку: боковая на десктопе,
         // полноэкранная на мобильном (CSS-медиа, не второй экран-страница).
         hist: {
@@ -35553,6 +35577,11 @@
       panelScopeLabel: function () {
         if (!this.isChatScope) return 'Глобально';
         return this.chatTitle ? ('Этот чат · ' + this.chatTitle) : 'Этот чат';
+      },
+      // PVR-04.2.3: пояс чата не получен — штампы времени честно не рисуются
+      // (никаких UTC-цифр «как есть»); интерфейс называет причину словами.
+      tzUnavailable: function () {
+        return !!(this.chatTz && this.chatTz.state === 'error');
       },
       taId: function () {
         return 'pv-text-' + String(this.promptKey || 'prompt')
@@ -35638,7 +35667,7 @@
         var base = origin === 'chat_override' ? 'локальная версия чата'
           : origin === 'global' ? 'глобальная версия' : 'исходная из кода';
         var row = this.effectiveRevRow;
-        var when = (row && row.created_at) ? pvShortWhen(row.created_at) : '';
+        var when = (row && row.created_at) ? this.pvWhen(row.created_at) : '';
         return when ? (base + ' · ' + when) : base;
       },
       factoryLabel: function () {
@@ -35651,20 +35680,21 @@
         if (!b) return '—';
         if (!b.baseline) {
           if (b.cleared_at) {
-            return 'назначение снято ' + pvShortWhen(b.cleared_at);
+            var cleared = this.pvWhen(b.cleared_at);
+            return cleared ? ('назначение снято ' + cleared) : 'назначение снято';
           }
           return 'не назначен';
         }
-        var when = b.baseline.assigned_at ? pvShortWhen(b.baseline.assigned_at) : '';
+        var when = b.baseline.assigned_at ? this.pvWhen(b.baseline.assigned_at) : '';
         var who = String(b.baseline.assigned_by || '').trim();
         var tail = who ? (' · кто: ' + who) : '';
         return when ? ('назначен ' + when + tail) : ('назначен' + tail);
       },
       // PVR-04.0: «Сохранено <дата>» — только из реальной строки ревизий,
-      // сопоставленной с действующим текстом; нет строки — нет и даты.
+      // сопоставленной с действующим текстом; нет строки/пояса — нет и даты.
       savedWhen: function () {
         var row = this.effectiveRevRow;
-        return (row && row.created_at) ? pvShortWhen(row.created_at) : '';
+        return (row && row.created_at) ? this.pvWhen(row.created_at) : '';
       },
       // PVR-04.0: число версий у пункта «История» — только честно известное:
       // список ревизий догружен целиком. Пока есть непрочитанные страницы,
@@ -35814,13 +35844,22 @@
     },
     watch: {
       promptKey: function () { this.resetPanel(); this.primeState(); },
-      chatIdNum: function () { this.resetPanel(); this.primeState(); },
+      chatIdNum: function () {
+        this.resetPanel();
+        this.primeState();
+        this.ensureChatTz(true);       // новая область — другой пояс чата
+      },
       // Перечитывание по `reloadToken` (после внешнего изменения серверного
       // текста) сохраняет подтверждение успеха — иначе пользователь не
       // успевает увидеть, что сервер подтвердил.
       reloadToken: function () { this.reloadPreservingResult(); },
     },
-    mounted: function () { this.primeState(); },
+    mounted: function () {
+      this.primeState();
+      // Метанстрока карточки показывает «Сохранено …» ДО открытия панели —
+      // пояс чата нужен сразу; запрос один на область (кэш + dedupe).
+      this.ensureChatTz(false);
+    },
     methods: {
       iconGlyph: function (name) {
         if (this.root && typeof this.root.iconGlyph === 'function') {
@@ -35935,10 +35974,57 @@
         }
         this.loadHistory(true);
       },
+      //: Пояс чата из УЖЕ существующего `GET /api/config/time` (UR-29.1):
+      //: additive-полей бэкенда не требуется. Кэш по области + dedupe
+      //: параллельных запросов; `utc_fallback` сервера — честная деградация:
+      //: зона неизвестна, UTC-цифры за «пояс чата» не выдаются.
+      _tzScopeKey: function () {
+        return this.isChatScope ? ('chat:' + this.chatIdNum) : 'global';
+      },
+      pvWhen: function (iso) {
+        if (!iso) return '';
+        var tz = this.chatTz;
+        if (!tz || tz.state !== 'ready' || !tz.iana) return '';
+        return pvShortWhen(iso, tz.iana);
+      },
+      ensureChatTz: async function (force) {
+        var self = this;
+        if (!this.root || typeof this.root.api !== 'function') return '';
+        var key = this._tzScopeKey();
+        var hit = _pvTzCache.get(key);
+        if (!force && hit && (Date.now() - hit.at) < _PV_TZ_TTL_MS) {
+          this.chatTz = { state: hit.iana ? 'ready' : 'error', iana: hit.iana };
+          return hit.iana;
+        }
+        var pending = _pvTzInflight.get(key);
+        if (!pending) {
+          pending = this.root.api('/api/config/time', {
+            global: !this.isChatScope, chatId: this.chatIdNum, silent403: true,
+          }).then(function (data) {
+            var iana = (data && data.iana && data.utc_fallback !== true)
+              ? String(data.iana) : '';
+            _pvTzCache.set(key, { at: Date.now(), iana: iana });
+            return iana;
+          }).catch(function () {
+            _pvTzCache.set(key, { at: Date.now(), iana: '' });
+            return '';
+          });
+          _pvTzInflight.set(key, pending);
+          pending.then(function () { _pvTzInflight.delete(key); },
+                       function () { _pvTzInflight.delete(key); });
+        }
+        var iana = await pending;
+        if (self._tzScopeKey() !== key) return iana;   // область уже сменилась
+        this.chatTz = { state: iana ? 'ready' : 'error', iana: iana };
+        return iana;
+      },
       openHistory: function () {
         this.menu = false;
         this.hist.open = true;
         var self = this;
+        // Панель — главное место, где нужны штампы в TZ чата: читаем пояс
+        // заново (кэш карточки — только для метанстроки до открытия панели).
+        this.ensureChatTz(true);
         // Панель всегда читает сервер заново: показанное состояние не должно
         // отставать от фактического после Save/Применить/Назначить.
         this.loadHistory(true);
@@ -36114,7 +36200,16 @@
         return 'источник неизвестен';
       },
       rowWhen: function (entry) {
-        return pvShortWhen(entry && entry.created_at);
+        return this.pvWhen(entry && entry.created_at);
+      },
+      //: Штамп времени строки словами: нет метки — «время неизвестно»;
+      //: пояс не получен — честная причина, а не UTC-цифры «как есть».
+      rowWhenText: function (entry) {
+        if (!entry || !entry.created_at) return 'время неизвестно';
+        var when = this.pvWhen(entry.created_at);
+        if (when) return when;
+        return this.tzUnavailable ? 'пояс чата недоступен'
+          : 'пояс чата определяется…';
       },
       rowActor: function (entry) {
         var actor = String((entry && entry.actor) || '').trim();

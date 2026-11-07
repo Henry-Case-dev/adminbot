@@ -31,7 +31,11 @@ PVR-FC-CORRECTIVE-01 PVR-UI):
   * черновик защищён подтверждением при смене чата;
   * два промпта мемов рядом на широком экране и столбиком на мобильном;
     подсказка `{joke}` человеческая в трёх режимах (0/1/2), без «{joke}: N»;
-  * нет горизонтального скролла страницы: 1440/1366/768/390/320.
+  * нет горизонтального скролла страницы: 1536/1440/1366/768/390/360/320;
+  * штампы истории — В ПОЯСЕ ЧАТА из `GET /api/config/time` (PVR-04.2.3),
+    без пояса — честная метка «пояс чата недоступен», а не UTC-цифры;
+  * read-only статус с причиной виден и на поверхности каталога
+    (`variant="history"`, промпт из кода) — PVR-04.1.4.
   * «История N» показывает число только когда список догружен целиком (полнота
     берётся из `revisions_page.has_more`, а не из локального флага — после
     повторного монтирования карточка не выдаёт первую страницу за итог);
@@ -95,6 +99,11 @@ STATE = {
     "activations_more": False,
     "posts": [],             # все POST/DELETE с путём и телом
     "gets": [],
+    # PVR-04.2.3: пояс чата из /api/config/time. `tz_fallback` имитирует
+    # серверную деградацию UR-24.4 (зона неизвестна → UTC): UI обязан сказать
+    # «пояс чата недоступен», а не печатать UTC-цифры как местное время.
+    "tz_fallback": False,
+    "tz_requests": [],
     "active": "rev-002",     # сопоставленная действующая ревизия
     "baseline": None,        # revision_id или None
     "baseline_cleared": False,
@@ -193,6 +202,15 @@ def build_activations():
          "status": "event", "status_label": "событие",
          "actionable": False, "reason_text": "", "body_available": False},
     ]
+
+
+def _ms_time(iso, offset_hours=3):
+    """UTC-метка журнала → время в поясе чата (+03:00, Europe/Moscow)."""
+    from datetime import datetime, timedelta, timezone
+    dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone(timedelta(hours=offset_hours)))
 
 
 def _block_for(key):
@@ -305,6 +323,44 @@ def _versions_payload(url, key=""):
     }
 
 
+def _time_state():
+    """Честный ответ `GET /api/config/time` (UR-29.1): IANA-зона чата.
+
+    Пояс считает СЕРВЕР (zoneinfo), UI только форматирует штампы истории в
+    этой зоне (PVR-04.2.3). `tz_fallback` — явная деградация: зона неизвестна.
+    """
+    fallback = bool(STATE.get("tz_fallback"))
+    return {
+        "chat_id": CHAT_A,
+        "iana": "UTC" if fallback else "Europe/Moscow",
+        "source": "utc_fallback" if fallback else "chat",
+        "config_version": 1,
+        "configured": None,
+        "now_local": "2026-11-03T15:10:00+03:00",
+        "as_of_utc": "2026-11-03T12:10:00+00:00",
+        "utc_offset": "+00:00" if fallback else "+03:00",
+        "is_dst": False,
+        "weekday": 1,
+        "utc_fallback": fallback,
+    }
+
+
+def _prompt_catalog():
+    """`GET /api/prompts/catalog` — каталог зарегистрированных промптов.
+
+    Нужен ровно для поверхности `variant="history"`: там `can-edit=false`
+    всегда, и именно там PVR-04.1.4 обязан показывать честный read-only
+    статус с причиной (промпт из кода / нет прав).
+    """
+    return {"families": [
+        {"id": "initiative", "title": "Инициатива",
+         "prompts": [
+             {"block_id": "initiative.meme.joke", "pg_key": PROMPT_KEY,
+              "purpose": "Промпт прикола"},
+         ]},
+    ], "count": 1}
+
+
 def _speech_overview():
     """Витрина «Речь и характер»: нужна, чтобы кликнуть карточку «Характер»."""
     return {
@@ -403,6 +459,8 @@ def make_api_handler():
                                        "body": body})
             else:
                 STATE["gets"].append(path)
+            if path.endswith("/api/prompts/catalog"):
+                return send(_prompt_catalog())
             if path.endswith("/versions"):
                 if STATE["journal_down"]:
                     return send({"detail": "журнал версий недоступен "
@@ -506,6 +564,13 @@ def make_api_handler():
                 {"chat_id": CHAT_B, "title": "Чат B", "is_dm": False,
                  "photo_file_id": None, "access": "admin", "is_active": True},
             ])
+        # UR-29.1: уже существующий контракт пояса чата. Именно его читает
+        # компонент версий, чтобы печатать штампы в TZ чата (PVR-04.2.3) —
+        # аддитивных полей бэкенда не требуется.
+        if path.endswith("/api/config/time"):
+            STATE["tz_requests"].append(
+                {"path": path, "chat": req.headers.get("x-chat-id")})
+            return send(_time_state())
         if path.endswith("/api/config"):
             payload = M._stub_for(url)
             if req.method == "POST":
@@ -617,6 +682,11 @@ failures = []
 notes = []
 DIALOGS = []
 DIALOG_MODE = {"mode": "accept"}
+# PVR-04.2.3/04.3.1: измерения для отчёта (высоты, hscroll по ширинам).
+MEASURE = {}
+# Ошибки консоли/необработанные исключения страницы — обязаны быть пустыми
+# на каждом прогоне (раньше «чистая консоль» была словами в README).
+CONSOLE_ERRORS = []
 
 
 def _on_dialog(dialog):
@@ -628,6 +698,32 @@ def _on_dialog(dialog):
             dialog.dismiss()
     except Exception:  # noqa: BLE001
         pass
+
+
+def _on_console(msg):
+    """Автоматическая проверка «консоль чистая» (а не утверждение в отчёте)."""
+    try:
+        if msg.type != "error":
+            return
+        text = (msg.text or "").strip()
+        # 404 статического favicon — не ошибка приложения.
+        if "favicon" in text.lower():
+            return
+        # Сценарий «журнал недоступен» НАМЕРЕННО отдаёт 503 (PVR-05.2);
+        # честная деградация проверяется отдельными assertions. Сетевой
+        # лог браузера об этом — не ошибка кода приложения.
+        loc = msg.location or {}
+        where = loc.get("url") or ""
+        if ("Failed to load resource" in text and "503" in text
+                and "/api/prompts/" in where and "/versions" in where):
+            return
+        CONSOLE_ERRORS.append("console: %s (%s)" % (text[:240], where[:120]))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _on_pageerror(exc):
+    CONSOLE_ERRORS.append("pageerror: %s" % str(exc)[:240])
 
 
 def fail(label, msg):
@@ -655,6 +751,8 @@ def new_page(browser, width, height):
     page = ctx.new_page()
     page.set_default_timeout(20000)
     page.on("dialog", _on_dialog)
+    page.on("console", _on_console)
+    page.on("pageerror", _on_pageerror)
     return ctx, page
 
 
@@ -716,10 +814,72 @@ def card_text(page):
         ".textContent || '').trim()")
 
 
-def open_panel(page):
+def open_panel(page, wait_times=True):
     page.click("[data-prompt-history-toggle]")
     page.wait_for_selector("[data-pv-panel]", state="visible")
     page.wait_for_timeout(400)
+    if wait_times:
+        # Штампы истории печатаются только после ответа /api/config/time:
+        # ждём реальное время строки, а не фиксированный sleep.
+        page.wait_for_function(
+            "() => { const rows = document.querySelectorAll('[data-pv-row]');"
+            " if (!rows.length) return false;"
+            " const n = rows[0].querySelector('.pv-row__name');"
+            " return !!(n && /\\d{2}\\.\\d{2} \\d{2}:\\d{2}/.test("
+            "n.textContent || '')); }", timeout=10000)
+
+
+def touch_probe(page):
+    """Интерактивные элементы внутри панели: видимость и высота (≥44px)."""
+    return page.evaluate(r"""
+        () => {
+          const p = document.querySelector('[data-pv-panel]');
+          if (!p) return null;
+          const named = ['data-pv-panel-close', 'data-pv-panel-back',
+            'data-pv-load-more', 'data-pv-events-toggle',
+            'data-pv-actions-toggle', 'data-pv-row-activate',
+            'data-pv-result-dismiss', 'data-pv-row-compare',
+            'data-pv-row-copy', 'data-pv-factory-restore'];
+          const out = [];
+          p.querySelectorAll('button, input, select, textarea, a[href],'
+            + ' [role="button"]').forEach((el) => {
+              if (el.disabled) return;
+              const r = el.getBoundingClientRect();
+              const st = getComputedStyle(el);
+              if (r.width <= 0 || r.height <= 0) return;
+              if (st.display === 'none' || st.visibility === 'hidden') return;
+              let name = '';
+              for (const a of named) {
+                if (el.hasAttribute(a)) { name = a; break; }
+              }
+              if (!name) {
+                name = el.tagName.toLowerCase() + ':'
+                  + ((el.textContent || '').trim().slice(0, 16));
+              }
+              out.push({name: name,
+                        h: Math.round(r.height * 10) / 10,
+                        w: Math.round(r.width * 10) / 10});
+            });
+          return out;
+        }
+    """)
+
+
+def assert_touch_targets(page, label, where):
+    """PVR-04.3.1: КАЖДАЯ цель внутри панели ≥44px; цифры — в отчёт."""
+    items = touch_probe(page) or []
+    bad = [i for i in items if i["h"] < 43.5]
+    check(not bad, label,
+          "тач-цели панели <44px (%s): %r" % (where, bad[:8]))
+    mine = MEASURE.setdefault(label, {})
+    touch = mine.setdefault("touch", {})
+    touch[where] = {
+        "count": len(items),
+        "min_h": min([i["h"] for i in items]) if items else None,
+        "named": {i["name"]: i["h"] for i in items
+                  if i["name"].startswith("data-pv-")},
+    }
+    return items
 
 
 def panel_rows(page):
@@ -1005,9 +1165,44 @@ def run_editor(label, page, shots, width):
                    "исходный из кода", "базовый по выбору владельца"):
         check(needle in now_txt, label,
               "в блоке «Сейчас действует» нет %r: %r" % (needle, now_txt[:200]))
-    check("03.11 12:02" in head["active"], label,
-          "в «Сейчас действует» нет даты сопоставленной ревизии: %r"
-          % (head["active"],))
+    check("03.11 15:02" in head["active"], label,
+          "в «Сейчас действует» нет даты сопоставленной ревизии в поясе "
+          "чата (+03:00): %r" % (head["active"],))
+    check("03.11 12:02" not in head["active"], label,
+          "PVR-04.2.3: UTC-цифры выданы за время чата: %r" % (head["active"],))
+    saved_txt = page.evaluate(
+        "() => ((document.querySelector('[data-pv-saved]') || {})"
+        ".textContent || '').replace(/\\s+/g, ' ').trim()")
+    check("03.11 15:02" in saved_txt, label,
+          "«Сохранено …» не в поясе чата: %r" % (saved_txt,))
+    check(not page.evaluate(
+        "() => !!document.querySelector('[data-pv-panel-tz-unavailable]')"),
+        label, "при доступном поясе чата показана причина недоступности")
+    # PVR-04.2.3: час строки журнала = час UTC + 3 (Europe/Moscow), не UTC.
+    by_rev = {r["revision_id"]: r for r in STATE["revisions"]}
+    rows_shown = page.evaluate(
+        "() => Array.from(document.querySelectorAll('[data-pv-row]')).slice(0, 3)"
+        ".map((el) => ({rev: el.getAttribute('data-prompt-history-revision'),"
+        " name: ((el.querySelector('.pv-row__name') || {}).textContent"
+        "   || '').replace(/\\s+/g, ' ').trim()}))")
+    tz_checked = 0
+    for item in rows_shown:
+        match = re.search(r"(\d{2})\.(\d{2}) (\d{2}):(\d{2})", item["name"])
+        if not match:
+            continue
+        exp = _ms_time(by_rev[item["rev"]]["created_at"])
+        check((match.group(1), match.group(2), match.group(3), match.group(4))
+              == (exp.strftime("%d"), exp.strftime("%m"),
+                  exp.strftime("%H"), exp.strftime("%M")), label,
+              "время строки %s не в поясе чата: %r, ожидалось %s"
+              % (item["rev"], item["name"], exp.strftime("%d.%m %H:%M")))
+        tz_checked += 1
+    check(tz_checked >= 2, label,
+          "не удалось проверить штампы строк в поясе чата: %r" % (rows_shown,))
+    if width <= 430:
+        # PVR-04.3.1: «Закрыть» / «Показать более ранние версии» /
+        # «История действий» были 34px при строках/CTA 44px.
+        assert_touch_targets(page, label, "list")
     def set_search(q):
         page.evaluate(
             "(q) => { const el = document.querySelector('[data-pv-search]');"
@@ -1213,6 +1408,8 @@ def run_editor(label, page, shots, width):
           "статус активной строки не «Действует»: %r" % (active_txt,))
     open_row_detail(page, 3)
     page.wait_for_selector("[data-pv-detail]", state="visible")
+    if width <= 430:
+        assert_touch_targets(page, label, "detail")
     check(page.evaluate(
         "() => !document.querySelector('[data-prompt-history-versions]')"),
         label, "детали версии не открылись отдельным экраном")
@@ -1353,6 +1550,8 @@ def run_editor(label, page, shots, width):
           "у событий есть свои кнопки применения/назначения: %r" % (ev,))
     check("была применена" in ev["text"], label,
           "статус события «была применена» не показан: %r" % (ev["text"][:200],))
+    if width <= 430:
+        assert_touch_targets(page, label, "events")
     page.click("[data-pv-events-toggle]")
     page.wait_for_timeout(200)
 
@@ -1821,6 +2020,107 @@ def run_speech_core(label, page, shots, width):
     return True
 
 
+def run_catalog_readonly(label, page, shots):
+    """PVR-04.1.4: промпт ИЗ КОДА — честный read-only статус с причиной.
+
+    Каталог монтирует тот же компонент с `variant="history"` и
+    `can-edit=false`; раньше баннер рисовался только в `variant="card"`,
+    поэтому на этой поверхности честного статуса не было вовсе.
+    """
+    STATE["code_only"] = True
+    try:
+        page.goto(BASE + "/#/ai/prompts", wait_until="load")
+        page.wait_for_selector("header.header-sticky", state="visible")
+        page.wait_for_timeout(700)
+        page.wait_for_selector("[data-prompt-catalog-toggle]", state="visible")
+        page.click("[data-prompt-catalog-toggle]")
+        page.wait_for_selector("[data-prompt-catalog-key='%s']" % PROMPT_KEY,
+                               state="visible")
+        page.click("[data-prompt-catalog-key='%s']" % PROMPT_KEY)
+        page.wait_for_function(
+            "() => { const b = document.querySelector("
+            "'[data-prompt-catalog-history]');"
+            " const ro = b && b.querySelector('[data-pv-readonly]');"
+            " return !!(ro && /задаётся кодом/.test(ro.textContent || '')); }",
+            timeout=10000)
+        info = page.evaluate(r"""
+            () => {
+              const box = document.querySelector('[data-prompt-catalog-history]');
+              const ro = box && box.querySelector('[data-pv-readonly]');
+              const r = ro ? ro.getBoundingClientRect() : null;
+              const st = ro ? getComputedStyle(ro) : null;
+              const saves = box
+                ? Array.from(box.querySelectorAll('[data-pv-save]')) : [];
+              return {
+                text: ro ? (ro.textContent || '').replace(/\s+/g, ' ').trim() : '',
+                visible: !!(r && r.width > 0 && r.height > 0 && st
+                  && st.display !== 'none' && st.visibility !== 'hidden'),
+                saves: saves.length,
+                enabledSaves: saves.filter((b) => !b.disabled).length,
+                textareas: box ? box.querySelectorAll('textarea').length : -1,
+                card: box ? !!box.querySelector('[data-prompt-history]') : false,
+              };
+            }
+        """)
+        check(info["card"], label, "карточка версий в каталоге не отрисована")
+        check(info["visible"], label,
+              "read-only статус с причиной не виден в каталоге: %r" % (info,))
+        check("Только чтение" in info["text"], label,
+              "нет статуса «Только чтение»: %r" % (info["text"],))
+        check("задаётся кодом" in info["text"], label,
+              "причина read-only не называет код: %r" % (info["text"],))
+        check(info["saves"] == 0 and info["enabledSaves"] == 0, label,
+              "при read-only доступно сохранение: %r" % (info,))
+        check(info["textareas"] == 0, label,
+              "read-only промпт показан активным полем ввода: %r" % (info,))
+        shot(page, shots, "catalog_readonly_%s" % label)
+    finally:
+        STATE["code_only"] = False
+
+
+def run_tz_unavailable(label, page, shots):
+    """PVR-04.2.3: без пояса чата время честно НЕ печатается UTC-цифрами."""
+    STATE["tz_fallback"] = True
+    try:
+        open_prompt_editor(page)
+        open_panel(page, wait_times=False)
+        page.wait_for_selector("[data-pv-panel-tz-unavailable]",
+                               state="visible", timeout=10000)
+        info = page.evaluate(r"""
+            () => {
+              const rows = Array.from(document.querySelectorAll('[data-pv-row]'));
+              const names = rows.slice(0, 3).map((el) => (
+                (el.querySelector('.pv-row__name') || {}).textContent || ''
+              ).replace(/\s+/g, ' ').trim());
+              return {
+                rows: rows.length,
+                names: names,
+                times: names.filter((n) => /\d{2}\.\d{2} \d{2}:\d{2}/.test(n)),
+                note: ((document.querySelector('[data-pv-panel-tz-unavailable]')
+                  || {}).textContent || '').trim(),
+                saved: !!document.querySelector('[data-pv-saved]'),
+                cardNote: ((document.querySelector('[data-pv-tz-unavailable]')
+                  || {}).textContent || '').trim(),
+              };
+            }
+        """)
+        check(info["rows"] > 0, label, "панель без строк — проверка пуста")
+        check(info["times"] == [], label,
+              "без пояса чата время нарисовано UTC-цифрами: %r"
+              % (info["times"],))
+        check("пояс чата недоступен" in info["note"], label,
+              "нет честной метки недоступности пояса в панели: %r"
+              % (info["note"],))
+        check("пояс чата недоступен" in info["cardNote"], label,
+              "нет честной метки недоступности пояса в карточке: %r"
+              % (info["cardNote"],))
+        check(not info["saved"], label,
+              "«Сохранено …» показано без известного пояса чата")
+        shot(page, shots, "tz_unavailable_%s" % label)
+    finally:
+        STATE["tz_fallback"] = False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--shots", default="")
@@ -1845,13 +2145,17 @@ def main():
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        matrix = [(1440, 900, "1440"), (1366, 768, "1366"),
-                  (768, 1024, "768"), (390, 844, "390"),
-                  (320, 780, "320")]
+        # PVR-04.1: владелец назвал desktop 1536/1366/768 и mobile 390/360
+        # (+ рабочие 1440/320) — матрица обязана их содержать.
+        matrix = [(1536, 960, "1536"), (1440, 900, "1440"),
+                  (1366, 768, "1366"), (768, 1024, "768"),
+                  (390, 844, "390"), (360, 780, "360"), (320, 780, "320")]
         for width, height, label in matrix:
             DIALOGS.clear()
+            CONSOLE_ERRORS.clear()
             STATE["posts"] = []
             STATE["gets"] = []
+            STATE["tz_requests"] = []
             STATE["active"] = "rev-002"
             # Свежий журнал на каждый сценарий: статусы не тащат мутации
             # предыдущей ширины (остальное пересобирает /activate).
@@ -1861,6 +2165,8 @@ def main():
             STATE["factory_restored"] = False
             STATE["journal_down"] = False
             STATE["activations_more"] = False
+            STATE["code_only"] = False
+            STATE["tz_fallback"] = False
             STATE["core_text"] = {
                 "full": "ПОЛНЫЙ ХАРАКТЕР: спокойный, точный, без пафоса.",
                 "compact": "КОМПАКТНЫЙ ХАРАКТЕР: спокойный и точный.",
@@ -1875,8 +2181,20 @@ def main():
                     run_editor(label, page, args.shots, width)
                     run_memes(label, page, args.shots, width)
                 run_speech_core(label, page, args.shots, width)
+                # PVR-04.1.4: read-only статус на поверхности каталога
+                # (variant="history", can-edit=false, промпт из кода).
+                if width == 1440:
+                    run_catalog_readonly(label, page, args.shots)
+                # PVR-04.2.3: честная деградация без пояса чата.
+                if width == 390:
+                    run_tz_unavailable(label, page, args.shots)
                 check(hscroll(page) <= 1, label,
                       "горизонтальный скролл итог: %d px" % hscroll(page))
+                check(not CONSOLE_ERRORS, label,
+                      "ошибки консоли/страницы: %r" % (CONSOLE_ERRORS[:5],))
+                mine = MEASURE.setdefault(label, {})
+                mine["hscroll"] = hscroll(page)
+                mine["tz_requests"] = len(STATE["tz_requests"])
             except Exception as exc:  # noqa: BLE001
                 fail(label, "исключение: %s" % str(exc)[:300])
             finally:
@@ -1901,7 +2219,8 @@ def main():
             json.dump({"candidate": args.candidate,
                        "widths": [m[2] for m in matrix],
                        "shots_dir": shots_ref,
-                       "failures": failures, "notes": notes}, fh,
+                       "failures": failures, "notes": notes,
+                       "measure": MEASURE}, fh,
                       ensure_ascii=False, indent=2)
     if failures:
         sys.exit(1)
