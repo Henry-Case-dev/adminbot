@@ -6,13 +6,36 @@ coalesce — анти-рейс, прецедент summary_scheduler):
 1. merge — слияние повторяющихся эпизодов в общие факты (66.2): KNN-кластеры
    (или точный subject+predicate при FTS-фолбеке) → LLM-слияние (COMPRESS_PROMPT,
    канон-сосед R11 — НОВЫЙ промпт НЕ вводим) → проверка «ничего не потерялось»
-   (покрытие уникальных токенов ≥60%) → INSERT слитого + DELETE исходных +
-   журнал graph_fact_compressions (reason='episode_merge').
+   (покрытие уникальных токенов ≥60%) → INSERT производного факта с lineage на
+   источники; исходные строки ОСТАЮТСЯ живыми.
    Защищённые факты (65.10) в кластеры не попадают.
 
-2. review — периодический пересмотр (66.11): склейка точных дублей (keep самый
-   тяжёлый) и vec-кластеров ≥0.95, глобальный выброс истёкших, выброс
-   unconfirmed старше GRAPH_UNCONFIRMED_RETENTION_DAYS, усечение лога сжатий.
+2. review — периодический пересмотр (66.11): диагностика точных дублей и
+   vec-кластеров ≥0.95 (только КАНДИДАТ на дедуп — событие, без записи и без
+   удаления), глобальный выброс истёкших, выброс unconfirmed старше
+   GRAPH_UNCONFIRMED_RETENTION_DAYS, усечение лога сжатий.
+
+MEMORY-04 (C-3 §3.4/§3.5, MEM-04.3/04.5/04.6, audit A0 §5): консолидация
+выполняется ВСЕГДА и всегда неразрушающе. Ни слияние, ни пересмотр не удаляют
+исходные факты — ни при каком значении гейта (§3.4.1.1 п.1/п.9, §3.6:
+разрушающая ветка удалена из кода, а не спрятана за флагом).
+`delete_graph_fact` в этом модуле не вызывается вообще; физическое удаление
+остаётся только у явного пользовательского delete/forget и у retention-политик
+(`purge_expired_graph_facts`/`purge_unconfirmed_graph_facts` в `database`).
+Сходство (cosine) — не доказательство и не решение: оно может только предложить
+кандидата на дедуп. Каждое решение пишется явным кодом из `MEMORY_DECISIONS`
+(`summary_memory`): слияние — ADD производного факта + lineage в обе стороны
+(`source_ids`/`derived_from` forward, `supersedes` +
+`freshness_status='superseded'` backward), склейка/vec-дубль — NOOP-наблюдение
+(`memory_dedupe_candidate`).
+
+РАЗДЕЛЕНИЕ ГЕЙТА: `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` управляет ТОЛЬКО
+политикой решений на пути записи (`summary_memory::_dedup_decide`: ADD /
+ENRICH / CONFIRM / SUPERSEDE / CONTRADICT / NOOP против legacy cosine-полос,
+default **OFF до приёмки**). Обслуживание памяти (`merge_episodes`,
+`_merge_cluster`, `review`, `_glue_vec_dups`) от гейта НЕ зависит: слияние,
+lineage, диагностика дублей и retention-фазы работают всегда, а удаления нет
+ни в одном состоянии.
 """
 import asyncio
 import datetime
@@ -31,7 +54,7 @@ from services import hot_config as hot
 from services import retention_policy
 from services.graph_stoplist import METAFACT_PENALTY_IMPORTANCE
 from services.llm_client import LLMError
-from services.summary_memory import _TOKEN_RE
+from services.summary_memory import MEMORY_DECISIONS, _TOKEN_RE
 from services.summary_prompts import COMPRESS_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -63,7 +86,61 @@ _MERGE_COVERAGE_MIN = 0.6      # 66.2: доля уникальных токен�
 _MERGE_CLUSTER_SIM = 0.85      # 66.2: кластер-порог KNN-сходства (эпизоды одной темы)
 _MERGE_KNN_K = 5               # соседей на кластеризацию
 _REVIEW_VEC_BATCH = 100        # потолок фактов чата на vec-склейку (66.11)
-_REVIEW_GLUE_SIM = 0.95        # 66.11: vec-кластеры ≥0.95 → склейка
+_REVIEW_GLUE_SIM = 0.95        # 66.11: vec-кластеры ≥0.95 → кандидат на дедуп
+
+# MEMORY-04 (C-3 §3.4): коды решений этого модуля. Полный набор — в
+# `summary_memory.MEMORY_DECISIONS`; здесь только те, что реально возникают в
+# обслуживании: слияние = ADD производного факта, наблюдение дубля = NOOP.
+DECISION_ADD = "add"
+DECISION_NOOP = "noop"
+# Событие-наблюдение «похожие факты» (R17: только id/числа/коды). НЕ решение:
+# при гейте политики сходство вектора перестаёт быть доказательством (MEM-04.4).
+_CANDIDATE_EVENT = "memory_dedupe_candidate"
+
+
+def _source_id_list(raw) -> list:
+    """`graph_facts.source_ids` → список int (битое/не-список значение → [])."""
+    if raw in (None, ""):
+        return []
+    data = raw
+    if isinstance(raw, str):
+        try:
+            import json as _json
+            data = _json.loads(raw)
+        except (ValueError, TypeError):
+            return []
+    if not isinstance(data, (list, tuple)):
+        return []
+    out: list[int] = []
+    for value in data:
+        try:
+            out.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _emit_dedupe_candidate(chat_id: int, kind: str, fact_ids,
+                           similarity: float | None = None) -> None:
+    """Кандидат на дедуп как событие (`memory_dedupe_candidate`).
+
+    Ничего не пишет в граф и не меняет вес: только диагноз «эти строки похожи»
+    с id ближайшего кандидата (§3.4). `reason_code` — из штатного каталога
+    §17.2 (`insufficient_evidence`: сходства недостаточно для решения), вид
+    кандидата — в `stage`/`usage_json`. Fail-open (событие не рвёт тик)."""
+    try:
+        from services import mca_events
+        mca_events.emit_mca_event(
+            _CANDIDATE_EVENT, outcome="skipped",
+            component="memory_maintenance",
+            stage=f"dedupe_candidate:{kind}",
+            reason_code="insufficient_evidence", chat_id=int(chat_id),
+            entity_ids=[int(f) for f in fact_ids][:8],
+            usage_json={"kind": str(kind), **(
+                {"similarity": round(float(similarity), 3)}
+                if similarity is not None else {})})
+    except Exception:
+        pass
 
 # MCA-16 (T-5003): тик review опыта (сек); код-константа (Δ каталога = 0).
 _EXPERIENCE_REVIEW_TICK_SECONDS = 900
@@ -664,7 +741,15 @@ class MemoryMaintenanceService:
 
     async def merge_episodes(self) -> int:
         """Слияние по всем чатам; потолок GRAPH_EPISODE_MERGE_BATCH кластеров
-        за прогон. Возвращает число слитых кластеров."""
+        за прогон. Возвращает число слитых кластеров.
+
+        Консолидация выполняется ВСЕГДА и всегда неразрушающе (C-3 §3.4.1.1
+        п.1/п.9, §3.5, §3.6): гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED`
+        управляет ТОЛЬКО политикой решений на пути записи (`summary_memory::
+        _dedup_decide`), а не обслуживанием памяти. Ни одна исходная строка не
+        удаляется ни при каком значении гейта: слияние пишет производный факт
+        с lineage в обе стороны. Разрушающего legacy-пути в коде нет.
+        """
         budget = hot.get("limits.graph_episode_merge_batch", settings.GRAPH_EPISODE_MERGE_BATCH)
         merged_total = 0
         for chat_id in await self.db.get_graph_chat_ids():
@@ -686,22 +771,200 @@ class MemoryMaintenanceService:
         ]
         if len(rows) < 2:
             return 0
+        rows = await self._primary_rows(chat_id, rows, now)
+        if len(rows) < 2:
+            return 0
         clusters = await self._cluster_facts(chat_id, rows, now)
         merged = 0
-        for cluster in clusters:
+        for cluster, method in clusters:
             if merged >= budget:
                 break
             cluster = cluster[:hot.get("limits.graph_episode_merge_max_facts_per_cluster", settings.GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER)]
             if len(cluster) < 2:
                 continue
-            if await self._merge_cluster(chat_id, cluster, now):
+            if await self._merge_cluster(chat_id, cluster, now, method=method):
                 merged += 1
         return merged
 
+    async def _primary_rows(self, chat_id: int, rows: list, now: int) -> list:
+        """MEMORY-04 (C-3 §3.5): кластеризуются только ПЕРВИЧНЫЕ строки.
+
+        Производный факт (`source_ids` заполнен) — уже обобщение, а не
+        независимый сигнал: повторное слияние производной строки с её же
+        источниками ничего не добавляет. Строка, поглощённая живым производным
+        фактом, тоже не сливается заново (иначе каждый тик создавал бы новый
+        агрегат по тем же основаниям). Сами исходные строки при этом
+        СОХРАНЯЮТСЯ — они остаются живыми и доступными (MEM-04.3/04.6)."""
+        lineage = await self._lineage_columns(
+            chat_id, now, [int(row["id"]) for row in rows])
+        absorbed: set[int] = set()
+        primary: list = []
+        for row in rows:
+            sources = _source_id_list(
+                (lineage.get(int(row["id"])) or {}).get("source_ids"))
+            if sources:
+                absorbed.update(sources)
+                continue
+            primary.append(row)
+        return [row for row in primary if int(row["id"]) not in absorbed]
+
+    async def _lineage_columns(self, chat_id: int, now: int,
+                               fact_ids: list) -> dict:
+        """`source_ids`/`valid_from`/`valid_to`/`tg_message_id` живых строк —
+        один SELECT (C-3 §3.1: T_event и T_assertion читаются раздельно;
+        `now` не подставляется ни в одно из этих полей)."""
+        ids = [int(i) for i in fact_ids]
+        if not ids:
+            return {}
+        placeholders = ",".join("?" for _ in ids)
+        try:
+            cursor = await self.db.db.execute(
+                f"SELECT id, source_ids, valid_from, valid_to, tg_message_id "
+                f"FROM graph_facts WHERE chat_id = ? AND id IN ({placeholders})",
+                (int(chat_id), *ids))
+            return {int(row["id"]): dict(row) for row in await cursor.fetchall()}
+        except Exception:
+            logger.warning(
+                "episode merge: lineage columns unavailable | chat_id=%s",
+                chat_id, exc_info=True)
+            return {}
+
+    async def _link_lineage(self, chat_id: int, derived_id: int,
+                            source_ids: list, now: int, *,
+                            verification: str = "verified") -> int:
+        """Lineage производного факта FORWARD (C-3 §3.5, MEM-04.5).
+
+        `graph_facts.source_ids` (пишется при INSERT) + EvidenceLink
+        `derived_from` на КАЖДЫЙ источник; обратный индекс —
+        `provenance.links_derived_from_source()`. `verification` — от метода
+        кластеризации: `verified` только для точного кластера, `tentative`
+        для собранного сходством (INV-06). Идемпотентно (dedup link);
+        provenance OFF → 0 (остаётся `source_ids`). Fail-open: отсутствие
+        lineage не должно превращаться в потерю данных.
+        `independence='unknown'` — независимость источников НЕ выдумывается."""
+        made = 0
+        try:
+            from services import provenance
+            if not provenance.provenance_enabled():
+                return 0
+            obj = await provenance.resolve_source_ref(
+                self.db, provenance.graph_fact_source_ref(chat_id, derived_id))
+            if obj is None:
+                return 0
+            for sid in source_ids:
+                if int(sid) == int(derived_id):
+                    continue
+                ref = await provenance.resolve_source_ref(
+                    self.db, provenance.graph_fact_source_ref(chat_id, sid))
+                if ref is None:
+                    continue
+                await provenance.add_evidence_link(
+                    self.db, provenance.EvidenceLink(
+                        subject_ref_id=obj, source_ref_id=ref,
+                        link_type="derived_from", method="direct_reference",
+                        verification=verification, independence="unknown",
+                        basis="episode_merge", established_at=now))
+                made += 1
+        except Exception:
+            logger.warning(
+                "episode merge: lineage link failed — fail-open | chat_id=%s "
+                "| fact_id=%s", chat_id, derived_id, exc_info=True)
+        return made
+
+    async def _link_backward_supersede(self, chat_id: int, winner_id: int,
+                                       source_ids: list, now: int, *,
+                                       verification: str = "verified") -> int:
+        """Lineage производного факта BACKWARD (C-3 §3.3/§3.5, MEM-04.3/04.5).
+
+        Для каждой поглощённой строки: EvidenceLink `supersedes`
+        (победитель ← источник), `freshness_status='superseded'` в
+        `mca_provenance_status` (строка НЕ удаляется и не перезаписывается) и
+        указатель `graph_facts.supersedes` победителя (однослотовая колонка:
+        первый поглощённый). Идемпотентно; provenance OFF → 0. Fail-open."""
+        made = 0
+        absorbed = [int(sid) for sid in source_ids if int(sid) != int(winner_id)]
+        if not absorbed:
+            return 0
+        try:
+            await self.db.db.execute(
+                "UPDATE graph_facts SET supersedes = COALESCE(supersedes, ?) "
+                "WHERE id = ?", (absorbed[0], int(winner_id)))
+            await self.db.db.commit()
+        except Exception:
+            logger.warning(
+                "episode merge: supersedes pointer write failed — fail-open | "
+                "fact_id=%s", winner_id, exc_info=True)
+        try:
+            from services import provenance
+            if not provenance.provenance_enabled():
+                return made
+            obj = await provenance.resolve_source_ref(
+                self.db, provenance.graph_fact_source_ref(chat_id, winner_id))
+            if obj is None:
+                return made
+            for sid in absorbed:
+                ref = await provenance.resolve_source_ref(
+                    self.db, provenance.graph_fact_source_ref(chat_id, sid))
+                if ref is None:
+                    continue
+                await provenance.add_evidence_link(
+                    self.db, provenance.EvidenceLink(
+                        subject_ref_id=obj, source_ref_id=ref,
+                        link_type="supersedes", method="direct_reference",
+                        verification=verification, independence="unknown",
+                        basis="consolidation", established_at=now))
+                existing = await provenance.get_provenance_status(
+                    self.db, ref) or {}
+                await provenance.set_provenance_status(
+                    self.db, ref,
+                    origin_status=(existing.get("origin_status") or "unknown"),
+                    freshness_status="superseded")
+                made += 1
+        except Exception:
+            logger.warning(
+                "episode merge: backward supersede failed — fail-open | "
+                "chat_id=%s | fact_id=%s", chat_id, winner_id, exc_info=True)
+        return made
+
+    async def _apply_aggregate_validity(self, chat_id: int, fact_id: int,
+                                        source_ids: list, now: int) -> None:
+        """T_event производного факта (C-3 §3.1/§3.7).
+
+        `valid_from`/`valid_to` ставятся ТОЛЬКО когда их поддерживают ВСЕ
+        источники (min/max), иначе NULL: отсутствующая дата ≠ T_assertion ≠
+        `now`. Существующее значение не перезаписывается (COALESCE)."""
+        info = await self._lineage_columns(chat_id, now, source_ids)
+        if len(info) != len(source_ids):
+            return
+        rows = [info[int(i)] for i in source_ids]
+        starts = [row["valid_from"] for row in rows]
+        ends = [row["valid_to"] for row in rows]
+        valid_from = min(starts) if all(v is not None for v in starts) else None
+        valid_to = max(ends) if all(v is not None for v in ends) else None
+        if valid_from is None and valid_to is None:
+            return
+        try:
+            await self.db.db.execute(
+                "UPDATE graph_facts SET valid_from = COALESCE(valid_from, ?), "
+                "valid_to = COALESCE(valid_to, ?) WHERE id = ?",
+                (valid_from, valid_to, int(fact_id)))
+            await self.db.db.commit()
+        except Exception:
+            logger.warning(
+                "episode merge: aggregate validity write failed — fail-open "
+                "| fact_id=%s", fact_id, exc_info=True)
+
     async def _cluster_facts(self, chat_id: int, rows: list, now: int) -> list:
-        """Кластеры ≥2 похожих фактов: KNN-сходство (vec, cosine ≥
-        _MERGE_CLUSTER_SIM) или точный subject+predicate (FTS-фолбек — первые
-        два слова факта). Union-find; размер кластера ограничен
+        """Кластеры ≥2 похожих фактов + МЕТОД кластеризации (MEM-04.5).
+
+        Возврат: список `(cluster, method)`, где method ∈ {`vector`,`exact`}:
+        * `vector` — KNN-сходство (cosine ≥ _MERGE_CLUSTER_SIM). Сходство —
+          лишь предложение, поэтому производный факт от такого кластера
+          рождается `unconfirmed` с lineage `tentative` (INV-06);
+        * `exact` — точный subject+predicate (FTS-фолбек — первые два слова):
+          это не сходство, а совпадение утверждения.
+
+        Union-find; размер кластера ограничен
         GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER."""
         cap = hot.get("limits.graph_episode_merge_max_facts_per_cluster", settings.GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER)
         if self.memory._vec_available:
@@ -711,7 +974,8 @@ class MemoryMaintenanceService:
             except Exception:
                 logger.warning(
                     "episode merge: embed failed — exact subject+predicate fallback")
-                return self._cluster_exact(rows, cap)
+                return [(grp, "exact")
+                        for grp in self._cluster_exact(rows, cap)]
             by_id = {row["id"]: row for row in rows}
             for i, row in enumerate(rows):
                 near = await self.memory._dedup_knn(chat_id, vectors[i])
@@ -722,8 +986,9 @@ class MemoryMaintenanceService:
                     cosine = 1.0 - item["distance"]
                     if cosine >= _MERGE_CLUSTER_SIM:
                         pairs.append((row["id"], other["id"]))
-            return self._union_clusters(rows, pairs, cap)
-        return self._cluster_exact(rows, cap)
+            return [(grp, "vector")
+                    for grp in self._union_clusters(rows, pairs, cap)]
+        return [(grp, "exact") for grp in self._cluster_exact(rows, cap)]
 
     @staticmethod
     def _cluster_exact(rows: list, cap: int) -> list:
@@ -760,9 +1025,23 @@ class MemoryMaintenanceService:
             clusters.setdefault(find(row["id"]), []).append(row)
         return [grp for grp in clusters.values() if len(grp) >= 2]
 
-    async def _merge_cluster(self, chat_id: int, cluster: list, now: int):
+    async def _merge_cluster(self, chat_id: int, cluster: list, now: int, *,
+                             method: str = "exact"):
         """LLM-слияние (COMPRESS_PROMPT) + проверка покрытия токенов → INSERT
-        слитого + DELETE исходных + журнал (reason='episode_merge').
+        (или reuse идентичной живой строки) ПРОИЗВОДНОГО факта с lineage.
+
+        MEMORY-04 (C-3 §3.4.1/§3.5, MEM-04.3/04.5, INV-06) — решение ADD:
+        ни одна исходная строка не удаляется НИ ПРИ КАКОМ значении гейта
+        (§3.4.1.1 п.1/п.9: разрушающая ветка удалена из кода, а не спрятана
+        за флагом). Гейт политики сюда не применяется: консолидация
+        выполняется всегда. Lineage пишется в ОБЕ стороны: forward
+        `source_ids` + `derived_from`, backward `supersedes` +
+        `freshness_status='superseded'` (для точных кластеров — это замена
+        дублей, а не сходство).
+
+        `method='vector'` — кластер собран ТОЛЬКО сходством: производный факт
+        рождается `unconfirmed`, lineage `tentative` (сходство не
+        доказательство). `method='exact'` — `confirmed`/`verified`.
         Покрытие не прошло → пропуск кластера (WARNING), исходные живут."""
         texts = [str(row["fact"]) for row in cluster]
         source_tokens = {token for text in texts
@@ -788,6 +1067,7 @@ class MemoryMaintenanceService:
                 int(100 * len(merged_tokens) / max(1, len(source_tokens))),
                 int(100 * _MERGE_COVERAGE_MIN), chat_id)
             return None
+        source_ids = sorted({int(row["id"]) for row in cluster})
         origin = ("chat_history" if any(row["origin"] == "chat_history" for row in cluster)
                   else cluster[0]["origin"])
         expiry = (None if any(row["expires_at"] is None for row in cluster)
@@ -807,88 +1087,152 @@ class MemoryMaintenanceService:
             else None)
         targets = {row["target_user"] for row in cluster if row["target_user"]}
         target_user = targets.pop() if len(targets) == 1 else None
-        fact_id = await self.db.insert_graph_fact(
-            chat_id, merged_text, origin, expiry, target_user=target_user,
-            weight=weight, importance=importance)
-        if self.memory._vec_available:
-            await self.memory._save_graph_fact_embedding(
-                fact_id, chat_id, merged_text, origin, expiry)
+        candidate_status = ("unconfirmed" if method == "vector"
+                            else "confirmed")
+        verification = ("tentative" if method == "vector" else "verified")
+        # Идемпотентность: производный факт с тем же текстом уже записан (тик
+        # повторился после сбоя между INSERT и журналом) → переиспользуем его, а
+        # не плодим дубли. Переиспользуется ТОЛЬКО производная строка
+        # (`source_ids` заполнен) — совпадение текста с обычным фактом не даёт
+        # права считать его агрегатом.
+        existing = await self.db.find_graph_fact_exact(chat_id, merged_text, now)
+        reuse_id = None
+        if existing is not None:
+            known = await self._lineage_columns(
+                chat_id, now, [int(existing["id"])])
+            if _source_id_list(
+                    (known.get(int(existing["id"])) or {}).get("source_ids")):
+                reuse_id = int(existing["id"])
+        reused = reuse_id is not None
+        if reused:
+            fact_id = reuse_id
+        else:
+            fact_id = await self.db.insert_graph_fact(
+                chat_id, merged_text, origin, expiry, target_user=target_user,
+                weight=weight, importance=importance,
+                status=candidate_status,
+                source_ids=json.dumps(source_ids))
+            if self.memory._vec_available:
+                await self.memory._save_graph_fact_embedding(
+                    fact_id, chat_id, merged_text, origin, expiry)
+        await self._apply_aggregate_validity(chat_id, fact_id, source_ids, now)
+        links = await self._link_lineage(
+            chat_id, fact_id, source_ids, now, verification=verification)
+        backward = 0
+        if method == "exact":
+            backward = await self._link_backward_supersede(
+                chat_id, fact_id, source_ids, now,
+                verification=verification)
         for row in cluster:
-            await self.db.delete_graph_fact(row["id"])
             await self.db.log_fact_compression(
                 chat_id, fact_id, row["fact"], merged_text, "episode_merge")
         logger.info(
-            "episode merge: merged %d facts → fact_id=%d | chat_id=%s",
-            len(cluster), fact_id, chat_id)
+            "episode merge: decision=%s%s | method=%s | status=%s | sources=%d "
+            "kept=%d lineage=%d backward=%d | chat_id=%s | fact_id=%d",
+            DECISION_ADD, " (reuse)" if reused else "", method,
+            candidate_status, len(cluster), len(cluster), links, backward,
+            chat_id, fact_id)
         return fact_id
 
     # ── 66.11 (T-489): периодический пересмотр ──────────────────
 
     async def review(self) -> None:
-        """(1) склейка точных дублей (keep самый тяжёлый) и vec-кластеров
-        ≥0.95; (2) выброс истёкших — глобальный проход; (3) выброс unconfirmed
-        старше retention; (4) усечение лога сжатий."""
+        """(1) точные дубли и vec-кластеры ≥0.95 → КАНДИДАТ на дедуп (событие
+        `memory_dedupe_candidate`, решение NOOP: ни записи, ни удаления),
+        у точной группы — ещё и backward-указатель победителю;
+        (2) выброс истёкших — глобальный проход (retention, §3.4.1);
+        (3) выброс unconfirmed старше retention; (4) усечение лога сжатий.
+
+        Дедуп-ветка выполняется ВСЕГДА и ничего не уничтожает (C-3 §3.4.1.1
+        п.1/п.9, §3.6): сходство не является ни подтверждением, ни основанием
+        инвалидации. Гейт `MCA_MEMORY_MAINTENANCE_POLICY_ENABLED` относится
+        ТОЛЬКО к политике решений пути записи (`_dedup_decide`) и на review не
+        влияет. Событие-кандидат эмитится не более одного раза на пару за
+        прогон."""
         now = int(time.time())
+        candidates = 0
+        emitted: set[tuple] = set()
         for chat_id in await self.db.get_graph_chat_ids():
             groups = await self.db.find_exact_dup_groups(chat_id, now)
             for group in groups:
+                ids = sorted({int(row["id"]) for row in group})
+                # Обе строки живы; проигравший помечается superseded и
+                # получает указатель победителя (C-3 §3.3/§3.4.1.1 п.3/п.6).
                 keep = max(group, key=lambda r: (r["weight"], r["id"]))
-                for row in group:
-                    if row["id"] == keep["id"]:
-                        continue
-                    if await self.db.is_fact_protected(chat_id, row["fact"]):
-                        continue
-                    await self.db.delete_graph_fact(row["id"])
-                    await self.db.log_fact_compression(
-                        chat_id, keep["id"], row["fact"], keep["fact"],
-                        "review_glue")
+                losers = [int(row["id"]) for row in group
+                          if row["id"] != keep["id"]
+                          and not await self.db.is_fact_protected(
+                              chat_id, row["fact"])]
+                if losers:
+                    await self._link_backward_supersede(
+                        chat_id, int(keep["id"]),
+                        [int(keep["id"]), *losers], now,
+                        verification="verified")
+                for a_idx in range(len(ids)):
+                    for b_idx in range(a_idx + 1, len(ids)):
+                        pair = (ids[a_idx], ids[b_idx])
+                        if pair in emitted:
+                            continue
+                        emitted.add(pair)
+                        _emit_dedupe_candidate(
+                            chat_id, "exact_duplicate", list(pair))
+                        candidates += 1
             if self.memory._vec_available:
-                await self._glue_vec_dups(chat_id, now)
+                candidates += await self._glue_vec_dups(
+                    chat_id, now, emitted=emitted)
         expired = await self.db.purge_expired_graph_facts()
         unconfirmed = await self.db.purge_unconfirmed_graph_facts(
             now, hot.get("limits.graph_unconfirmed_retention_days", settings.GRAPH_UNCONFIRMED_RETENTION_DAYS))
         trimmed = await self.db.trim_compression_log(
             time.time(), hot.get("limits.graph_compression_log_retention_days", settings.GRAPH_COMPRESSION_LOG_RETENTION_DAYS))
         logger.info(
-            "graph review: expired=%d unconfirmed=%d log_trimmed=%d",
-            expired, unconfirmed, trimmed)
+            "graph review: decision=%s dedupe_candidates=%d expired=%d "
+            "unconfirmed=%d log_trimmed=%d",
+            DECISION_NOOP, candidates, expired, unconfirmed, trimmed)
 
-    async def _glue_vec_dups(self, chat_id: int, now: int) -> None:
-        """66.11: vec-кластеры cosine ≥0.95 → keep самый тяжёлый. Потолок
-        _REVIEW_VEC_BATCH фактов чата; защищённые не трогаем."""
+    async def _glue_vec_dups(self, chat_id: int, now: int, *,
+                             emitted: set | None = None) -> int:
+        """66.11 → MEM-04.4: vec-кластеры cosine ≥0.95 — только КАНДИДАТ на
+        дедуп (событие с id пары, не более одного раза на пару за прогон через
+        `emitted`), без склейки и без удаления: сходство вектора не
+        доказательство. Выполняется при любом значении гейта политики.
+        Потолок _REVIEW_VEC_BATCH фактов чата; защищённые не рассматриваются.
+        Возврат — число пар-кандидатов."""
         rows = await self.db.get_live_graph_facts(chat_id, now)
         rows = [
             row for row in rows[: _REVIEW_VEC_BATCH]
             if not await self.db.is_fact_protected(chat_id, row["fact"])
         ]
         if len(rows) < 2:
-            return
+            return 0
         try:
             vectors = await self.memory._embed([row["fact"] for row in rows])
         except Exception:
             logger.warning("graph review: vec glue embed failed — skipped")
-            return
+            return 0
         by_id = {row["id"]: row for row in rows}
-        pairs = set()
+        pairs: dict[tuple, float] = {}
         for i, row in enumerate(rows):
             near = await self.memory._dedup_knn(chat_id, vectors[i])
             for item in near[: _MERGE_KNN_K]:
                 other = by_id.get(item["fact_id"])
                 if other is None or other["id"] == row["id"]:
                     continue
-                if 1.0 - item["distance"] >= _REVIEW_GLUE_SIM:
-                    pairs.add(tuple(sorted((row["id"], other["id"]))))
-        for a_id, b_id in pairs:
-            a, b = by_id.get(a_id), by_id.get(b_id)
-            if a is None or b is None:
+                cosine = 1.0 - item["distance"]
+                if cosine >= _REVIEW_GLUE_SIM:
+                    key = tuple(sorted((row["id"], other["id"])))
+                    pairs[key] = max(pairs.get(key, 0.0), cosine)
+        seen = emitted if emitted is not None else set()
+        count = 0
+        for (a_id, b_id), cosine in sorted(pairs.items()):
+            pair = tuple(sorted((int(a_id), int(b_id))))
+            if pair in seen:
                 continue
-            keep = max((a, b), key=lambda r: (r["weight"], r["id"]))
-            drop = b if keep is a else a
-            if await self.db.is_fact_protected(chat_id, drop["fact"]):
-                continue
-            await self.db.delete_graph_fact(drop["id"])
-            await self.db.log_fact_compression(
-                chat_id, keep["id"], drop["fact"], keep["fact"], "review_glue")
+            seen.add(pair)
+            _emit_dedupe_candidate(
+                chat_id, "vector_similar", list(pair), similarity=cosine)
+            count += 1
+        return count
 
     async def shutdown(self) -> None:
         global _active_service

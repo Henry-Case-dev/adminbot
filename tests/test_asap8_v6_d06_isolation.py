@@ -309,10 +309,22 @@ class TestDedupKnnIsolation:
             self, db, monkeypatch):
         """Интеграция _dedup_decide + реальный _dedup_knn: чужая толпа ближе
         реального дубликата своего чата. Старый код: near=3 чужих → пара
-        сущностей не совпала → add (дубликат ПРОПУЩЕН). Теперь: свой дубликат
-        найден → noop (cosine 0.96 ≥ HIGH 0.95)."""
+        сущностей не совпала → add (дубликат ПРОПУЩЕН). Теперь свой кандидат
+        находится (chat-scope ДО top-K) и называется в решении, но решение —
+        ADD: сходство больше не доказательство (MEM-04.4/C-3 §3.4)."""
         memory = await _init_memory(db, VecLLM(), monkeypatch, int8=False)
         memory._vec_available = True
+        # MEMORY-04 F1: политика ON через реальный резолвер (env + hot-слой)
+        import services.hot_config as hot
+        real_get = hot.get
+
+        def fake_get(key, default=None):
+            if key == "flags.memory_maintenance_policy_enabled":
+                return True
+            return real_get(key, default)
+
+        monkeypatch.setenv("MCA_MEMORY_MAINTENANCE_POLICY_ENABLED", "on")
+        monkeypatch.setattr(hot, "get", fake_get)
         now = int(time.time())
         a_id = await db.insert_graph_fact(
             CHAT_A, "озон поставляет быстрее чем wildberries", "search_fact",
@@ -334,5 +346,6 @@ class TestDedupKnnIsolation:
              "object": "wildberries"},
             "озон поставляет быстрее чем wildberries — контекст",
             _unit(0))
-        assert decision == {"action": "noop", "old_id": a_id,
-                            "old_text": "озон поставляет быстрее чем wildberries"}
+        assert decision["action"] == "add"
+        assert decision["candidate_id"] == a_id
+        assert decision["old_id"] is None
