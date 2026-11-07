@@ -684,6 +684,8 @@ DIALOGS = []
 DIALOG_MODE = {"mode": "accept"}
 # PVR-04.2.3/04.3.1: измерения для отчёта (высоты, hscroll по ширинам).
 MEASURE = {}
+# Счётчик реально исполненных assertions (check(...)) — в отчёт, не «на глаз».
+CHECKS = [0]
 # Ошибки консоли/необработанные исключения страницы — обязаны быть пустыми
 # на каждом прогоне (раньше «чистая консоль» была словами в README).
 CONSOLE_ERRORS = []
@@ -732,6 +734,7 @@ def fail(label, msg):
 
 
 def check(cond, label, msg):
+    CHECKS[0] += 1
     if not cond:
         fail(label, msg)
     return bool(cond)
@@ -2201,7 +2204,7 @@ def main():
                 ctx.close()
         browser.close()
 
-    print("\n== Итог: failures=%d" % len(failures))
+    print("\n== Итог: failures=%d checks=%d" % (len(failures), CHECKS[0]))
     for f in failures:
         print("  - %s" % f)
     if args.json:
@@ -2219,6 +2222,7 @@ def main():
             json.dump({"candidate": args.candidate,
                        "widths": [m[2] for m in matrix],
                        "shots_dir": shots_ref,
+                       "checks": CHECKS[0],
                        "failures": failures, "notes": notes,
                        "measure": MEASURE}, fh,
                       ensure_ascii=False, indent=2)
