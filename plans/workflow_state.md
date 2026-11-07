@@ -3,18 +3,17 @@
 Task: EVOL queue plus EPIC-MEMORY-COGNITIVE-02, MENU-01, RCI and FactCheck clean publication
 Task source: plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md, plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md
 Status: in_progress
-Primary phase: post-release observation plus memory epic implementation
-Active feature: 2.58.162 deployed and verified; MENU-01 live rows awaiting a natural group /menu invocation
-Active lanes: none blocking; next dispatch = merge MEMORY-03 and bind its rows
-Deployment: prod 2.58.162 @ 8af1b10a (branch release/2.58.162, pushed tip ed2b059d = docs-only above the deployed commit). healthz 2.58.162, NRestarts 0, tracebacks 0, SQLite user_version 42 unchanged, slot_claims present, served app.js sha256 705a28cd... identical to 2.58.161 (web/** untouched), gate REG_CONFIRMED=True MODE=main SHORT_NAME empty, bot username PERMsoc_bot valid, zero `mca_event unmapped` and zero `short_reply: raw context stripped`, ledger 1395 rows and no write errors. Rollback = a563ee31 + restart; MINI_APP_* inert on old code; .env backup .env.bak-258162-20261107005407
-Release content: MENU-01 group deep link + honest fallback; FactCheck ambiguous-context fix; FactCheck ambiguity observability (real reason codes, unmapped marker, clarify reply in ledger); TMA group-launch ACL tests; UR-26.3/26.4/26.5 payload observability; summary deferred-generator clock refresh; MEMORY-01 inert types. No migration, schema v42
-Review record: whole-candidate Approved on ba24268d (106 files, nothing unreviewed, database.py/summary_memory.py/mca_retrieval_context.py byte-identical to prod); targeted Approved on 8af1b10a (raw-context stripper now only strips diagnostic forms; ordinary phrases byte-identical)
-Failure classification: 93 release failures -> 87-88 reproduce on a563ee31 (pre-existing debt, individually verified), 5 caused by the version bump/env-only settings and fixed (4 JS version pins + catalog coverage exclusion backed by a new closed pin), 1 parametrised id uncollectable on both lines
-Binding done: MENU-01 7 VERIFIED + 3 READY_FOR_LIVE (01.6/01.9/01.10 need an observed real group /menu launch), RCI-01..06 VERIFIED, MEMORY-01 VERIFIED
-Open next: (1) merge MEMORY-03 640cd818 into the line and bind MEM-03.3/03.4/03.9; (2) MEMORY-02 identity with schema v43; (3) PVR-04 blocker fixes verdict; (4) observe a natural group /menu to close MENU-01.6/9/10; (5) MEMORY-04 destructive episode merge rewrite; (6) MEM-08-S3 client corrections
-Next unlocks: MM03 merge -> map binding -> MEMORY-02 (v43 additive) -> MEMORY-06 retrieval -> MEMORY-08-S1..S5
-Next execution: runnable
-Review: approved (whole release + targeted fix); MEMORY-03 approved by review, pending merge/binding
+Primary phase: memory epic implementation after release 2.58.162
+Active feature: MEMORY-04 temporal lifecycle and lineage-preserving consolidation
+Active lanes: ses_e4bd59d8effeM6XxUJmwGz57wh (Builder MEMORY-04)
+Deployment: prod 2.58.162 @ 8af1b10a verified (healthz 2.58.162, NRestarts 0, tracebacks 0, SQLite v42 unchanged, app.js identical, gate REG_CONFIRMED=1 MODE=main, zero unmapped/raw-strip warnings, ledger 1395 rows no errors). Rollback = a563ee31 + restart. Branch tip release/2.58.162 = d646ff6f (docs only above the deployed commit)
+Line: one line `integ/unify-release` @ 65a3601c (contains release 2.58.162, MENU-01, RCI, FC observability, PVR-04 redesign, MEMORY-01/02A/02B/03)
+Bound VERIFIED: MENU-01 7 rows + 3 READY_FOR_LIVE (01.6/01.9/01.10 await a real group /menu launch); RCI-01..06; MEMORY-01; MEM-03.3/03.4/03.9; MEM-02.4/02.5/02.6/02.7/02.8; PVR-04 23 rows (incl C1.14, C3.5/C3.6)
+Still open by requirement: MEM-02.1/02.2/02.3 (resolver exists; extraction/retrieval/UI not wired); MEMORY-04 (in progress); MEMORY-05/06/07/08/09; PVR-06/06.1 (per-block verification), C3.11 (visual references); FCP-01..07 (clean publication acceptance on a real case); MENU-01 live rows
+Backlog recorded: summary test-run instrumentation gap; colon-form marker stripping; DDG network flake in factcheck tests; MEMORY-02A docstring and OFF type precheck; B1/B2 entry point missing; `_merge_cluster` deletion (this slice); ON type-collision edge loss needing a contract decision; dry-run/apply disagreement for a uid pinned outside the pair
+Next unlocks: MEMORY-04 verdict -> merge/bind -> MEMORY-05 attribution -> MEMORY-06 retrieval -> MEMORY-07 communities -> MEMORY-08 unified search S1..S5 -> MEMORY-09 telemetry
+Next execution: awaiting_children
+Review: approved (release, MENU-01, RCI, MEMORY-01/02A/02B/03, PVR-04); MEMORY-04 in review
 Human gate: none
-Progress scope: plans/progress_scope.json | fresh 2026-11-07 10:28 (13/44 tasks, 291/448 stages, 3756/5341 = 70%); recount after merge bindings
-Updated: 2026-11-07T23:05:00+12:00
+Progress scope: plans/progress_scope.json | fresh 2026-11-07 15:01 (13/44 tasks, 291/448 stages, 3780/5341 = 70%)
+Updated: 2026-11-08T03:20:00+12:00
