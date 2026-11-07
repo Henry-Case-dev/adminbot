@@ -419,19 +419,24 @@ async def _reply_target_label(db, chat_id: int, reply_to_id: Any) -> str | None:
 async def chat_identity_candidates(db, *, chat_id: int, text: str | None,
                                    exclude_user_id: int | None = None,
                                    ) -> tuple[str, ...]:
-    """Упомянутые участники chat scope → детерминированные кандидаты в адресата.
+    """Упомянутые в тексте участники → кандидаты `user:<uid>` ПО ВЕРДИКТУ C-1.
 
-    Источник — реальные участники чата (`get_active_participants`, тот же
-    ростер, что у карты участников) и текущий текст сообщения. Это не словарь
-    «вежливых» слов: совпадение — по имени участника отдельным токеном.
-    Собственное имя говорящего адресатом не считается. Без ростера → пусто
-    (не выдумываем адресата).
+    Ростер (`get_active_participants`) используется только для одного: понять,
+    какое имя участника вообще упомянуто в сообщении (совпадение отдельным
+    токеном, не словарь «вежливых» слов). Кто именно скрывается за именем,
+    решает **единственный авторитет идентичности** — канонический резолвер C-1
+    (`provenance.lookup_identity_user_ids`, тот же bounded-скан, что у
+    `resolve_subject_ref`):
 
-    Одноимённые люди не сливаются: если имя в ростере принадлежит ≥2 разным
-    `user_id`, кандидатами становятся различимые личности (`user:<uid>` для
-    каждой), а не одно имя. Иначе дедупликация по имени выдала бы «одного
-    адресата» там, где людей двое (MEM-05.2: несколько адресатов →
-    неоднозначность).
+    * ровно один `user_id` → кандидат `user:<uid>`;
+    * ≥2 `user_id` (одноимённые) → кандидаты `user:<uid>` для каждого:
+      неоднозначность, слияния нет (MEM-05.2, §2.2.1(е));
+    * ни одного → имени в сохранённых сообщениях нет, кандидата нет.
+
+    Поэтому слой атрибуции не может объявить адресатом человека, которого C-1
+    отказывается подтверждать: окно ростера (24 ч) и дедупликация по имени
+    больше не влияют на вердикт. Собственное имя говорящего адресатом не
+    считается; без упоминаний → пусто (адресат не выдумывается).
     """
     body = str(text or "").strip()
     if db is None or not chat_id or not body:
@@ -439,9 +444,8 @@ async def chat_identity_candidates(db, *, chat_id: int, text: str | None,
     roster = await _participant_roster(db, int(chat_id))
     if not roster:
         return ()
-    # casefold-имя → (видимое имя, [uid...]) в порядке первого упоминания ростера
-    mentioned: dict[str, tuple[str, list[int]]] = {}
-    order: list[str] = []
+    names: list[str] = []
+    seen: set[str] = set()
     for uid, name in roster:
         if exclude_user_id is not None and uid is not None \
                 and uid == int(exclude_user_id):
@@ -449,25 +453,23 @@ async def chat_identity_candidates(db, *, chat_id: int, text: str | None,
         cleaned = str(name or "").strip()
         if len(cleaned) < 2:
             continue
+        key = cleaned.casefold()
+        if key in seen:
+            continue
         pattern = _NAME_BOUNDARY.format(re.escape(cleaned))
         if not re.search(pattern, body, flags=re.IGNORECASE):
             continue
-        key = cleaned.casefold()
-        if key not in mentioned:
-            mentioned[key] = (cleaned, [])
-            order.append(key)
-        uids = mentioned[key][1]
-        if uid is not None and uid not in uids:
-            uids.append(uid)
-    found: list[str] = []
-    for key in order:
-        display, uids = mentioned[key]
-        if len(uids) > 1:
-            # Одноимённые: адресат не выбирается — кандидаты различают людей.
-            found.extend(_identity_label(uid) for uid in uids)
-        else:
-            found.append(display)
-    return _clean_candidates(found)
+        seen.add(key)
+        names.append(cleaned)
+    if not names:
+        return ()
+    # C-1 — единственный авторитет идентичности (§1, §8.2).
+    uids = await provenance.lookup_identity_user_ids(db, int(chat_id), names)
+    if exclude_user_id is not None:
+        uids.discard(int(exclude_user_id))
+    if not uids:
+        return ()
+    return tuple(f"user:{uid}" for uid in sorted(uids))
 
 
 async def _participant_roster(db, chat_id: int) -> list[tuple[int | None, str]]:
@@ -510,11 +512,15 @@ async def addressee_for_message(db, *, chat_id: int, row: Any = None,
     1. точный reply target (`reply_to_author_id` либо автор цели reply);
     2. `thread_chain` target, если он передан вызывающим (сама цепь уже
        построена на пути ответа — второй сборки здесь нет);
-    3. достоверный alias/uid в chat scope: упомянутые участники,
-       разрешённые ровно в одного человека (одноимённые → `ambiguous`);
+    3. достоверный uid в chat scope: упомянутые участники, чью личность
+       подтверждает **C-1** (`chat_identity_candidates`). Один uid → адресат
+       `user:<uid>`; несколько (одноимённые или несколько упомянутых) →
+       `ambiguous` без получателя;
     4. ближайший семантический контекст, если передан вызывающим.
 
-    Никакого «ближайшего» получателя по догадке: без сигнала — `unknown`.
+    Своих догадок об идентичности здесь нет: окно ростера и дедупликация по
+    имени не могут объявить адресатом того, кого C-1 отказывается сливать.
+    Без сигнала — `unknown` (получатель не выдумывается).
     """
     if row is None and tg_message_id is not None and db is not None:
         try:
@@ -539,43 +545,8 @@ async def addressee_for_message(db, *, chat_id: int, row: Any = None,
     candidates = await chat_identity_candidates(
         db, chat_id=int(chat_id), text=text,
         exclude_user_id=_row_get(row, "user_id"))
-    if candidates:
-        # Одноимённые участники: резолв по имени даёт ≥2 uid → не выбираем.
-        resolved = await _resolve_candidates(db, int(chat_id), candidates)
-        if len(resolved) > 1:
-            # Неоднозначность показывается именами людей (выбор не делаем).
-            return resolve_addressee(chat_candidates=candidates)
-        return resolve_addressee(chat_candidates=resolved,
-                                 semantic_candidates=semantic_candidates)
-    return resolve_addressee(semantic_candidates=semantic_candidates)
-
-
-async def _resolve_candidates(db, chat_id: int,
-                              names: Iterable[str]) -> tuple[str, ...]:
-    """Кандидаты, разрешённые в достоверную личность (C-1/`resolve_subject_ref`).
-
-    Имя, которое в чате принадлежит нескольким `user_id`, НЕ превращается в
-    адресата: возвращается исходное имя (тогда уровень chat-identity даёт
-    `ambiguous`), а не произвольно выбранный человек (§2.2.1(е)).
-    Уже различимая личность (`user:<uid>` от одноимённых) резолву не подлежит.
-    """
-    resolved: list[str] = []
-    for name in names:
-        label = str(name or "")
-        if label.startswith("user:") and label[5:].isdigit():
-            resolved.append(label)                # личность уже различена
-            continue
-        try:
-            ref = await provenance.resolve_subject_ref(db, int(chat_id), name)
-        except Exception:                                 # pragma: no cover
-            ref = None
-        if ref is not None and getattr(ref, "resolution", None) == "resolved":
-            identity = _identity_label(getattr(ref, "entity_id", None))
-            if identity:
-                resolved.append(identity)
-                continue
-        resolved.append(label)
-    return _clean_candidates(resolved)
+    return resolve_addressee(chat_candidates=candidates,
+                             semantic_candidates=semantic_candidates)
 
 
 # ── §8.5: медиа ────────────────────────────────────────────────────────────

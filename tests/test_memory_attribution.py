@@ -190,7 +190,11 @@ async def test_reply_chain_addressee_from_saved_messages(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_two_mentioned_participants_stay_ambiguous(tmp_path, monkeypatch):
-    """MEM-05.2: два упомянутых участника без reply → `ambiguous`, без выбора."""
+    """MEM-05.2: два упомянутых участника без reply → `ambiguous`, без выбора.
+
+    Кандидаты — различимые личности (`user:<uid>`), а не имена: имя не
+    идентифицирует человека (одноимённые существуют), поэтому слой атрибуции
+    не смешивает имена и uid в одном списке."""
     _enable_attribution(monkeypatch)
     d = await _fresh(tmp_path, "ambig.db")
     try:
@@ -202,9 +206,10 @@ async def test_two_mentioned_participants_stay_ambiguous(tmp_path, monkeypatch):
                                                   tg_message_id=202)
         assert addressee.status is mc.AddresseeStatus.AMBIGUOUS
         assert addressee.addressee is None
-        assert set(addressee.candidates) == {"Аня", "Борис"}
+        assert set(addressee.candidates) == {"user:7", "user:9"}
+        assert all(c.startswith("user:") for c in addressee.candidates)
         # своё имя адресатом не считается
-        assert "Маша" not in addressee.candidates
+        assert "user:5" not in addressee.candidates
     finally:
         await d.close()
 
@@ -257,6 +262,88 @@ async def test_same_name_duo_is_not_a_resolved_addressee(tmp_path, monkeypatch):
         assert reply.status is mc.AddresseeStatus.RESOLVED
         assert reply.addressee == "user:8"
         assert reply.basis is mc.AddresseeBasis.REPLY_TARGET
+    finally:
+        await d.close()
+
+
+@pytest.mark.asyncio
+async def test_same_name_outside_roster_window_stays_ambiguous(tmp_path,
+                                                              monkeypatch):
+    """Корень: C-1 — единственный авторитет идентичности в этом слое.
+
+    Ростер (24 ч) видит только uid 7, поэтому собственные догадки слоя
+    объявили бы «Аня» одним адресатом. Но C-1 по сохранённым сообщениям видит
+    двоих (uid 7 и uid 8, написавший 30 ч назад) и отказывается их сливать —
+    значит адресат `ambiguous` с двумя различными личностями, и на карточке,
+    и на пути записи (`message_attribution`).
+    """
+    _enable_attribution(monkeypatch)
+    d = await _fresh(tmp_path, "same_name_window.db")
+    try:
+        await _msg(d, user_id=8, author_name="Аня", text="давно", tg=1100,
+                   ts=NOW - 30 * 3600)          # вне окна ростера (24 ч)
+        await _msg(d, user_id=7, author_name="Аня", text="сейчас", tg=1101)
+        await _msg(d, user_id=5, author_name="Петя",
+                   text="Аня, посмотри видео", tg=1102)
+
+        roster = await ma.chat_identity_candidates(
+            d, chat_id=CHAT, text="Аня, посмотри видео", exclude_user_id=5)
+        c1_uids = await provenance.lookup_identity_user_ids(
+            d, CHAT, ("Аня",))
+        # C-1 видит двоих, и кандидаты совпадают ровно с его вердиктом
+        assert c1_uids == {7, 8}
+        assert set(roster) == {f"user:{uid}" for uid in c1_uids}
+        ref = await provenance.resolve_subject_ref(d, CHAT, "Аня")
+        assert ref.resolution == "unresolved"        # C-1 не сливает
+
+        card = await ma.addressee_for_message(d, chat_id=CHAT,
+                                             tg_message_id=1102)
+        assert card.status is mc.AddresseeStatus.AMBIGUOUS
+        assert card.addressee is None
+        assert set(card.candidates) == {"user:7", "user:8"}
+        assert all(c.startswith("user:") for c in card.candidates)
+
+        attribution = await ma.message_attribution(d, CHAT, 1102)
+        assert attribution is not None
+        assert attribution.addressee_status is mc.AddresseeStatus.AMBIGUOUS
+        assert attribution.addressee is None
+        assert set(attribution.addressee_candidates) == {"user:7", "user:8"}
+    finally:
+        await d.close()
+
+
+@pytest.mark.asyncio
+async def test_addressee_identity_agrees_with_c1(tmp_path, monkeypatch):
+    """Один авторитет: вывод адресата = вердикт C-1 по тому же имени.
+
+    `resolved` ⟺ ровно один uid у C-1; `unresolved` у C-1 (0 или ≥2 uid) →
+    никогда `resolved` с именем вместо личности.
+    """
+    _enable_attribution(monkeypatch)
+    d = await _fresh(tmp_path, "c1_agreement.db")
+    try:
+        await _msg(d, user_id=9, author_name="Борис", text="привет", tg=1200)
+        await _msg(d, user_id=5, author_name="Петя", text="Борис, глянь",
+                   tg=1201)
+        await _msg(d, user_id=5, author_name="Петя", text="Никто, глянь",
+                   tg=1202)
+        for name in ("Борис", "Никто"):
+            roster = await ma.chat_identity_candidates(
+                d, chat_id=CHAT, text=f"{name}, глянь", exclude_user_id=5)
+            uids = await provenance.lookup_identity_user_ids(d, CHAT, (name,))
+            ref = await provenance.resolve_subject_ref(d, CHAT, name)
+            assert (ref.resolution == "resolved") == (len(uids) == 1), name
+            assert set(roster) == {f"user:{uid}" for uid in uids}, name
+        # имя, которого нет в сохранённых сообщениях, адресатом не становится
+        unknown = await ma.addressee_for_message(d, chat_id=CHAT,
+                                                tg_message_id=1202)
+        assert unknown.addressee is None
+        assert unknown.status is not mc.AddresseeStatus.RESOLVED
+        # а подтверждённое единственное имя — резолвится
+        single = await ma.addressee_for_message(d, chat_id=CHAT,
+                                               tg_message_id=1201)
+        assert single.status is mc.AddresseeStatus.RESOLVED
+        assert single.addressee == "user:9"
     finally:
         await d.close()
 
@@ -389,7 +476,9 @@ async def test_edge_card_surfaces_ambiguous_addressee(tmp_path, monkeypatch):
         source = evidence["sources"][0]
         assert source["addressee_status"] == "ambiguous"
         assert source["addressee"] is None
-        assert set(source["addressee_candidates"]) == {"Аня", "Борис"}
+        assert set(source["addressee_candidates"]) == {"user:7", "user:9"}
+        assert all(c.startswith("user:")
+                   for c in source["addressee_candidates"])
     finally:
         await d.close()
 
