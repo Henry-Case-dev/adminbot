@@ -72,7 +72,9 @@ Reviewer уже классифицировал его как несвязанн�
 | Версия | `healthz` локально **и публично**: `{"status":"ok","version":"2.58.165"}`, HTTP 200 |
 | HTTP-поверхности | `/web/` 200, `/api/health` 200, `/healthz` 200 |
 | Сервис | `active/running`, `NRestarts=0`, `MainPID 2993197` |
-| Журнал (окно 3 мин с рестарта) | 285 строк, `Traceback` — 0, `ERROR` — 0, `WARNING` — 1 предсуществующий (`embedding generation not serviceable / smart_archive / superseded / FTS-only`) |
+| Журнал, окно 3 мин с рестарта | 285 строк, `Traceback` — 0, `ERROR` — 0, `WARNING` — 1 предсуществующий (`embedding generation not serviceable / smart_archive / superseded / FTS-only`) |
+| Журнал, окно 49 мин с рестарта | 683 строки, `Traceback` — **0**, `ERROR` — **2** (оба `services.anticliche_worker`, `step=fetch reason=sources_unavailable` + `step=refresh reason=wikipedia`; класс предсуществующий — за 24 ч до рестарта на 2.58.164 таких же было 4), `WARNING` — 4 (тот же embed-варнинг, 2 missed-run планировщика на старте, `[anticliche] no usable source`) |
+| База для сравнения (24 ч на 2.58.164 до рестарта) | 67 179 строк, `Traceback` — 15, `ERROR` — 71 (53 `llm_client`, 6 `mca_events`, 4 `anticliche_worker`, 2 `summary_memory`, 2 `image_generation`, 1 `summary_generator`) — окно после выкладки чище базы |
 | Схема | `user_version` 43 до и после, `schema_migrations` 32 → 32, `quick_check ok` |
 | Память/воркеры | `MemoryMaintenance started`, 6 job'ов (`wal/merge/review/embed_reprobe/intent_hb/initiative`), `sqlite-vec loaded (dim=3072, int8=True)`, `embedding index serviceable | graph_facts_vec | ADMITTED_COMPATIBLE` |
 | Served asset identity | `web/app.js` — **2 062 901 байт, sha256 `495d4882…c3050c6`**, БАЙТ-В-БАЙТ равен файлу в чекауте и в дереве кандидата (`cmp identical`) |
