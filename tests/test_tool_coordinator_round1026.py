@@ -742,7 +742,7 @@ class TestBounds:
                                              # release/2.58.160).
                                              # Все три файла уже выпущены и отревьюены;
                                              # иных несанкционированных web/-путей нет
-                                             # (на 2.58.164: ровно 33 web/-пути в diff
+                                             # (на 2.58.165: ровно 33 web/-пути в diff
                                              # = 30 прежних + эти 3).
                                              "web/api/anticliche.py",
                                              "web/api/initiative_publications.py",
@@ -877,7 +877,7 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.164"
+        assert APP_VERSION == "2.58.165"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         # ASAP5 §22 (27.10.2026): +5 «Типы медиа» → 587/466/562/121/119.
         assert len(pc.REGISTRY) == 597
