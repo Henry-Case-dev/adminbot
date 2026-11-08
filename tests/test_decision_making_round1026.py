@@ -919,13 +919,13 @@ class TestBounds:
         # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
         # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 572
+                    if s.category is not None]) == 573
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
 
     def test_version_unchanged(self):
-        assert APP_VERSION == "2.58.168"
+        assert APP_VERSION == "2.58.169"
 
     def test_canon_twelve_tools(self):
         assert len(TOOL_CALLING_TOOLS) == 16

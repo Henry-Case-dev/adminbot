@@ -639,7 +639,7 @@ class TestLivePathInvariants:
         # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
         # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 572
+                    if s.category is not None]) == 573
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
@@ -650,7 +650,7 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.168"
+        assert APP_VERSION == "2.58.169"
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):
