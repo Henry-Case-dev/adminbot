@@ -145,9 +145,9 @@ class TestFlagsAndInvariants:
         assert len({f.name for f in dataclasses.fields(Settings)}) == 467  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10; EVOL-032 §4.3: +3 VIDEO_INTENT_* (env-only общая конфигурация) ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.169", APP_VERSION
+        assert APP_VERSION == "2.58.170", APP_VERSION
         assert "v2.58.34" in README, "README не синхронизирован"
-        assert 'APP_VERSION = "2.58.169"' in SETTINGS
+        assert 'APP_VERSION = "2.58.170"' in SETTINGS
 
     def test_zero_ddl(self):
         # Δ DDL = 0: никаких новых таблиц/миграций эпиком не добавляется.
