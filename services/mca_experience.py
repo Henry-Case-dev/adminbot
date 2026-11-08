@@ -205,6 +205,20 @@ def _sha1_16(*parts) -> str:
     return hashlib.sha1(material.encode("utf-8")).hexdigest()[:16]
 
 
+def feedback_dedup_key(source_kind, chat_id, ref_type, ref_id,
+                       identity: str | None = None) -> str:
+    """Стабильная идентичность feedback (EXP-FIX-09).
+
+    Базовая часть — источник/чат/ref (совместимость с существующими
+    строками). `identity` (необязательная) уточняет СЕМАНТИЧЕСКИЙ вид
+    сигнала (kind/subject/версия): разные виды сигнала одной реплики не
+    сливаются в один кандидат, а повтор того же кандидата остаётся
+    идемпотентным. Без `identity` ключ бит-в-бит совпадает с прежним."""
+    if identity:
+        return _sha1_16(source_kind, chat_id, ref_type, ref_id, identity)
+    return _sha1_16(source_kind, chat_id, ref_type, ref_id)
+
+
 def _now(ts: int | float | None = None) -> int:
     return int(ts if ts is not None else time.time())
 
@@ -1740,11 +1754,15 @@ class ExperienceService:
                               operation_id: str | None = None,
                               episode_id: str | None = None,
                               signal=None,
+                              dedup_identity: str | None = None,
                               ts: int | float | None = None) -> str | None:
         """Типизированный feedback (R17: только refs/коды/числа).
 
         Дедуп по `dedup_key`; запоздалая связь по reply/trace; K2 OFF
-        закрывает контур кроме technical-исходов."""
+        закрывает контур кроме technical-исходов. `dedup_identity`
+        (EXP-FIX-09) — необязательное уточнение семантической идентичности
+        сигнала (kind/subject/версия): разные виды сигнала одной реплики
+        дают разные durable-кандидаты, повтор того же — no-op."""
         if not mca_gates.experience_lessons_enabled():
             return None
         if source_kind not in FEEDBACK_SOURCE_KINDS:
@@ -1758,7 +1776,8 @@ class ExperienceService:
                 and await self.store.get_episode(episode_id) is None:
             episode_id = None                      # висячая ссылка не создаётся
         authority, reliability = _FEEDBACK_CLASS[str(source_kind)]
-        dedup_key = _sha1_16(source_kind, chat_id, ref_type, ref_id)
+        dedup_key = feedback_dedup_key(source_kind, chat_id, ref_type, ref_id,
+                                       dedup_identity)
         record = {
             "feedback_id": uuid.uuid4().hex, "dedup_key": dedup_key,
             "source_kind": str(source_kind), "reliability": reliability,

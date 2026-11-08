@@ -118,14 +118,59 @@ DETECTOR_CURSOR_KEY = "cursor_message_rowid"
 SEMANTIC_CURSOR_PREFIX = "semantic_cursor:"
 SEMANTIC_WATERMARK_KEY = "semantic_watermark"
 SEMANTIC_PENDING_KEY = "semantic_pending"
+#: MOD-ACL-UX-01 / EXP-FIX-01: полный durable semantic checkpoint наследуется
+#: между терминальными job'ами (watermark, per-chat курсоры, pending,
+#: last_ts, момент появления бэклога, отложенные повторы, курсор ротации
+#: resume, версия схемы). Ни один элемент не сбрасывается в ноль.
+SEMANTIC_LAST_TS_KEY = "semantic_last_ts"
+SEMANTIC_PENDING_SINCE_KEY = "semantic_pending_since"   # {chat: ts}
+SEMANTIC_RETRY_KEY = "semantic_retry"                   # {chat: {...}}
+SEMANTIC_PROGRESS_KEY = "semantic_progress"             # снимок throughput/lag
+SEMANTIC_STATE_VERSION_KEY = "semantic_state_version"
+SEMANTIC_STATE_VERSION = 2
+RESUME_CURSOR_KEY = "resume_cursor"                     # EXP-FIX-07
 
 #: Покрытие (B02.3, 2k–5k сообщений/сутки): тик 900с × (4 чата × 10 строк) ≈
 #: 5.7k сообщений/сутки ёмкости; лаг курсора виден счётчиками/событием.
+#: EXP-FIX-02: это ЗАВОДСКИЕ пределы одного прохода (объём дренажа), их можно
+#: менять hot-параметрами без рестарта; продуктовый интервал ревью задаётся
+#: отдельно каденцией (`memory.experience_review_cadence`).
 SEMANTIC_DISCOVERY_LIMIT = 500     # строк discovery за проход (дёшево)
 SEMANTIC_CHATS_PER_PASS = 4        # справедливость: ≤4 чатов за проход
 SEMANTIC_PER_CHAT_MAX = 10         # ≤10 строк одного чата в батче
 SEMANTIC_MSG_TEXT_CAP = 300        # кап текста реплики в user-контенте
 SEMANTIC_BATCH_MAX_TOKENS = 1500
+
+#: EXP-FIX-10: индекс необработанных чатов bounded; при переполнении
+#: discovery останавливается (backpressure) — watermark НЕ уезжает за пределы
+#: проиндексированного, новые сообщения ждут за watermark и не теряются.
+SEMANTIC_PENDING_CHAT_CAP = 256
+#: EXP-FIX-04/05: отложенный повтор (invalid output / write failure) —
+#: экспоненциальный backoff, потолок; данные при этом не теряются.
+SEMANTIC_RETRY_BASE_SECONDS = 900
+SEMANTIC_RETRY_MAX_SECONDS = 21600
+SEMANTIC_RETRY_MAX_ATTEMPTS = 5
+
+#: EXP-FIX-05: типизированный результат разбора ответа LLM.
+SEMANTIC_PARSE_VALID_EMPTY = "valid_empty"
+SEMANTIC_PARSE_VALID_CANDIDATES = "valid_candidates"
+SEMANTIC_PARSE_INVALID = "invalid_output"
+SEMANTIC_PARSE_REASON_NO_ARRAY = "no_json_array"
+SEMANTIC_PARSE_REASON_JSON_ERROR = "json_error"
+SEMANTIC_PARSE_REASON_NOT_LIST = "not_list"
+SEMANTIC_PARSE_REASON_NO_USABLE = "no_usable_candidates"
+
+#: EXP-FIX-04: типизированный исход durable-записи кандидата.
+SEMANTIC_WRITE_ACCEPTED = "accepted"
+SEMANTIC_WRITE_DUPLICATE = "duplicate"
+SEMANTIC_WRITE_REJECTED = "rejected"
+SEMANTIC_WRITE_FAILED = "write_failed"
+SEMANTIC_WRITE_SKIPPED = "skipped"
+
+#: EXP-FIX-09: версия семантической идентичности сигнала (kind/subject/версия).
+#: Входит в dedup_key, поэтому разные виды сигнала одной реплики не
+#: сливаются, а повтор того же кандидата остаётся идемпотентным.
+SEMANTIC_SIGNAL_IDENTITY_VERSION = 2
 
 #: Типы кандидатов (закрытый набор B02.2).
 SEMANTIC_KINDS = frozenset({
@@ -423,27 +468,50 @@ def build_semantic_user_prompt(rows: list[dict]) -> str:
         semantic_window_lines(rows)) + "\n</Chat_Window>")
 
 
-def parse_semantic_candidates(raw) -> list[dict]:
-    """Разобрать JSON-массив кандидатов (bounded, whitelist). Мусор → []."""
-    if not raw:
-        return []
+def parse_semantic_candidates_typed(raw) -> dict:
+    """Типизированный разбор ответа LLM (EXP-FIX-05).
+
+    Отличает ВАЛИДНЫЙ пустой ответ (`[]` — проход успешен, позицию можно
+    двигать) от НЕВАЛИДНОГО вывода (нет JSON-массива / битый JSON / не
+    список / массив без единого пригодного элемента): при invalid курсор НЕ
+    двигается «как при успехе» — выполняется отложенный повтор.
+
+    Возврат: {"outcome": valid_empty|valid_candidates|invalid_output,
+              "reason": <код>|None, "candidates": [dict], "dropped": int}.
+    Мусор внутри массива отбрасывается поштучно (`dropped`), не превращая
+    валидный ответ в ошибку.
+    """
+    result = {"outcome": SEMANTIC_PARSE_INVALID, "reason": None,
+              "candidates": [], "dropped": 0}
+    if raw is None:
+        result["reason"] = SEMANTIC_PARSE_REASON_NO_ARRAY
+        return result
     text = str(raw).strip()
     start = text.find("[")
     end = text.rfind("]")
     if start < 0 or end <= start:
-        return []
+        result["reason"] = SEMANTIC_PARSE_REASON_NO_ARRAY
+        return result
     try:
         data = json.loads(text[start:end + 1])
     except (TypeError, ValueError):
-        return []
+        result["reason"] = SEMANTIC_PARSE_REASON_JSON_ERROR
+        return result
     if not isinstance(data, list):
-        return []
+        result["reason"] = SEMANTIC_PARSE_REASON_NOT_LIST
+        return result
+    if not data:
+        result["outcome"] = SEMANTIC_PARSE_VALID_EMPTY
+        return result
     out = []
+    dropped = 0
     for item in data[:32]:
         if not isinstance(item, dict):
+            dropped += 1
             continue
         kind = str(item.get("kind") or "")
         if kind not in SEMANTIC_KINDS:
+            dropped += 1
             continue
         msg_ids = []
         for value in (item.get("msg_ids") or ())[:6]:
@@ -451,6 +519,7 @@ def parse_semantic_candidates(raw) -> list[dict]:
                     and value > 0:
                 msg_ids.append(int(value))
         if not msg_ids:
+            dropped += 1
             continue
         subject = item.get("subject_user_id")
         if not isinstance(subject, int) or isinstance(subject, bool):
@@ -466,7 +535,21 @@ def parse_semantic_candidates(raw) -> list[dict]:
             "pref_token": str(item.get("pref_token") or "")[:64],
             "topic": topic,
         })
-    return out
+    result["candidates"] = out
+    result["dropped"] = dropped
+    if not out:
+        # Непустой ответ без единого пригодного элемента — это не «успех с
+        # нулём кандидатов»: LLM вернул нечто неразбираемое (EXP-FIX-05).
+        result["reason"] = SEMANTIC_PARSE_REASON_NO_USABLE
+        return result
+    result["outcome"] = SEMANTIC_PARSE_VALID_CANDIDATES
+    return result
+
+
+def parse_semantic_candidates(raw) -> list[dict]:
+    """Совместимость: список кандидатов (typed-исход —
+    `parse_semantic_candidates_typed`)."""
+    return list(parse_semantic_candidates_typed(raw)["candidates"])
 
 
 def _clean_topic(raw) -> str:
@@ -518,6 +601,18 @@ def default_counters() -> dict:
         "semantic_rejected": 0, "semantic_duplicates": 0,
         "semantic_llm_unavailable": 0,
         "semantic_reject_reasons": {},
+        # MOD-ACL-UX-01 (EXP-FIX-02..05, 10): честная воронка окна —
+        # прочитанные строки отделены от пригодных/отфильтрованных, видны
+        # отложенные повторы, backpressure discovery и ошибки чтения.
+        "semantic_rows_read": 0, "semantic_rows_eligible": 0,
+        "semantic_rows_ineligible": 0, "semantic_chats_disabled": 0,
+        "semantic_chats_empty": 0, "semantic_chats_deferred": 0,
+        "semantic_read_errors": 0, "semantic_discover_errors": 0,
+        "semantic_parse_invalid": 0, "semantic_parse_valid_empty": 0,
+        "semantic_write_failures": 0, "semantic_write_skipped": 0,
+        "semantic_pending_reconciled": 0,
+        "semantic_discovery_backpressure": 0, "semantic_throughput_rows": 0,
+        "semantic_parse_reasons": {},
         # W4 (SOUL-08): окно реакций на шутку — счётчики того же прохода.
         "humor_sends_scanned": 0, "humor_signals": 0, "humor_unknown": 0,
         "humor_windows_closed": 0, "humor_lessons_applied": 0,
@@ -600,6 +695,121 @@ def review_enabled() -> bool:
     return _learning_enabled()
 
 
+def _hot_int(key: str, default: int, lo: int, hi: int) -> int:
+    """Hot-параметр как int в допустимых границах (без рестарта).
+
+    Читается через существующий `hot_config` (Δ каталога = 0: ключи
+    необязательные, дефолт — заводская код-константа). Любая ошибка чтения →
+    заводское значение (тик не должен падать из-за настройки)."""
+    try:
+        from services import hot_config as hot
+        value = int(hot.get(key, int(default)))
+    except Exception:
+        return int(default)
+    return max(int(lo), min(int(hi), value))
+
+
+def semantic_drain_limits() -> tuple[int, int]:
+    """Пределы ОДНОГО прохода дренажа бэклога (EXP-FIX-02).
+
+    Продуктовый интервал ревью задаётся каденцией (`review_cadence`), а
+    скорость разбора накопленного бэклога — этими пределами: сколько чатов
+    за проход и сколько строк одного чата. Разделение позволяет дренировать
+    бэклог чаще планового ревью, не меняя продуктовый интервал и не заводя
+    второго воркера/планировщика.
+    """
+    chats = _hot_int("memory.experience_drain_chats_per_pass",
+                     SEMANTIC_CHATS_PER_PASS, 1, 16)
+    per_chat = _hot_int("memory.experience_drain_per_chat_max",
+                        SEMANTIC_PER_CHAT_MAX, 1, 50)
+    return chats, per_chat
+
+
+def semantic_pending_chat_cap() -> int:
+    """Предел размера durable-индекса необработанных чатов (EXP-FIX-10)."""
+    return _hot_int("memory.experience_pending_chat_cap",
+                    SEMANTIC_PENDING_CHAT_CAP, 4, 2048)
+
+
+def semantic_progress_snapshot(payload: dict, *,
+                               now: int | None = None) -> dict:
+    """Честный снимок throughput/lag семантического контура (EXP-FIX-02).
+
+    backlog_rows/backlog_chats — сумма необработанных строк индекса;
+    lag_seconds — возраст самой старой необработанной реплики (по моменту
+    появления в индексе); deferred_chats — чаты на отложенном повторе.
+    Только числа (R17): содержимое сообщений не отдаётся."""
+    now = int(time.time()) if now is None else int(now)
+    pending = payload.get(SEMANTIC_PENDING_KEY)
+    since = payload.get(SEMANTIC_PENDING_SINCE_KEY)
+    retry = payload.get(SEMANTIC_RETRY_KEY)
+    rows = 0
+    chats = 0
+    oldest = 0
+    retry_map = retry if isinstance(retry, dict) else {}
+    actionable_rows = 0
+    actionable_chats = 0
+    if isinstance(pending, dict):
+        for key, value in pending.items():
+            count = max(0, int(value or 0))
+            if not count:
+                continue
+            chats += 1
+            rows += count
+            since_map = since if isinstance(since, dict) else {}
+            ts = int(since_map.get(key) or 0)
+            if ts and (not oldest or ts < oldest):
+                oldest = ts
+            deferred_until = 0
+            try:
+                deferred_until = int(
+                    (retry_map.get(str(key)) or {}).get("retry_at") or 0)
+            except (TypeError, ValueError):
+                deferred_until = 0
+            if deferred_until <= now:
+                actionable_rows += count
+                actionable_chats += 1
+    deferred = 0
+    for info in retry_map.values():
+        try:
+            if int((info or {}).get("retry_at") or 0) > now:
+                deferred += 1
+        except (TypeError, ValueError):
+            continue
+    return {
+        "backlog_rows": rows,
+        "backlog_chats": chats,
+        # Планируемый (не отложенный) бэклог: чаты на backoff не должны
+        # порождать пустые проходы каждые 15 минут.
+        "actionable_rows": actionable_rows,
+        "actionable_chats": actionable_chats,
+        "lag_seconds": (now - oldest) if oldest else 0,
+        "deferred_chats": deferred,
+        "watermark": int(payload.get(SEMANTIC_WATERMARK_KEY) or 0),
+    }
+
+
+async def semantic_backlog(db) -> dict:
+    """Накопленный бэклог семантики из последнего терминального review-job.
+
+    Fail-open (нет строки/битый payload) → нули: отсутствие данных не
+    превращается в выдуманный бэклог. Возвращаются ПЛАНИРУЕМЫЕ строки/чаты
+    (без чатов на отложенном повторе) — планировщик порции опирается на них."""
+    try:
+        cursor = await db.db.execute(
+            "SELECT payload FROM task_jobs WHERE kind = ? AND status IN "
+            "('completed','failed') ORDER BY finished_at DESC, created_at "
+            "DESC, rowid DESC LIMIT 1", (REVIEW_JOB_KIND,))
+        row = await cursor.fetchone()
+    except Exception:
+        return {"rows": 0, "chats": 0}
+    if row is None:
+        return {"rows": 0, "chats": 0}
+    snapshot = semantic_progress_snapshot(_parse_json_dict(row["payload"]))
+    return {"rows": int(snapshot.get("actionable_rows") or 0),
+            "chats": int(snapshot.get("actionable_chats") or 0)}
+
+
 async def enqueue_experience_review(db, *, max_attempts: int = 3
                                     ) -> str | None:
     """Поставить review в durable-очередь (coalescing: активный → его job_id).
@@ -613,6 +823,10 @@ async def enqueue_experience_review(db, *, max_attempts: int = 3
         "cursor_event_rowid": 0,
         DETECTOR_CURSOR_KEY: 0,
         "link_scan_application_id": 0,
+        SEMANTIC_WATERMARK_KEY: 0,
+        SEMANTIC_PENDING_KEY: {},
+        SEMANTIC_LAST_TS_KEY: {},
+        SEMANTIC_STATE_VERSION_KEY: SEMANTIC_STATE_VERSION,
         "counters": default_counters(),
     }, ensure_ascii=True)
     return await store.enqueue(
@@ -687,7 +901,16 @@ async def tick_experience_review(db, *, now: int | None = None,
             last = await last_completed_review_at(db)
         except Exception:
             last = None
-        if last is not None and (now - last) < interval:
+        plan_review_due = last is None or (now - last) >= interval
+        # EXP-FIX-02: продуктовый интервал ревью отделён от скорости дренажа.
+        # При накопленном бэклоге следующий ОГРАНИЧЕННЫЙ проход планируется
+        # сразу (не ждём суточной каденции); объём прохода ограничивают
+        # `semantic_drain_limits()` внутри job. Второго воркера нет.
+        backlog = {"rows": 0, "chats": 0}
+        if not plan_review_due:
+            backlog = await semantic_backlog(db)
+        if not plan_review_due and int(backlog.get("rows") or 0) <= 0 \
+                and int(backlog.get("chats") or 0) <= 0:
             return "not_due"
         try:
             job_id = await enqueue_experience_review(db) or ""
@@ -799,24 +1022,88 @@ class ExperienceReviewRunner:
         data.setdefault(DETECTOR_CURSOR_KEY, 0)
         data.setdefault(SEMANTIC_WATERMARK_KEY, 0)
         data.setdefault(SEMANTIC_PENDING_KEY, {})
+        data.setdefault(SEMANTIC_LAST_TS_KEY, {})
         counters = data.setdefault("counters", default_counters())
         for key, value in default_counters().items():
             counters.setdefault(key, value)
         # Курсор durable ПОВЕРХ job-строки: новый запуск наследует позицию
         # последнего терминального review-прогона (идемпотентный повтор
         # событий не сканируется заново; bounded-порции продолжаются).
-        if not int(data.get("cursor_feedback_rowid") or 0) \
-                and not int(data.get("cursor_event_rowid") or 0) \
-                and not int(data.get(DETECTOR_CURSOR_KEY) or 0):
-            await self._inherit_cursor(data)
+        # EXP-FIX-01: наследуется ВЕСЬ semantic checkpoint (не только
+        # feedback/event/detector), поэтому новый job не начинает semantic
+        # pass с нуля. Наследование — max/min-merge: повторное применение
+        # идемпотентно и НИКОГДА не откатывает уже пройденные позиции.
+        await self._inherit_cursor(data)
+        self._normalize_semantic_state(data)
         return data
 
+    @staticmethod
+    def _normalize_semantic_state(data: dict) -> None:
+        """Integrity check payload (EXP-FIX-01): типы/границы/версия схемы.
+
+        Битую структуру нельзя «починить» догадкой, но нельзя и потерять
+        данные: невалидные элементы отбрасываются поштучно, отрицательные
+        позиции поднимаются до нуля, а per-chat курсор не может оказаться
+        дальше watermark (иначе discovery заново насчитает уже пройденные
+        строки — phantom pending)."""
+        try:
+            data[SEMANTIC_WATERMARK_KEY] = max(
+                0, int(data.get(SEMANTIC_WATERMARK_KEY) or 0))
+        except (TypeError, ValueError):
+            data[SEMANTIC_WATERMARK_KEY] = 0
+        for key in (SEMANTIC_PENDING_KEY, SEMANTIC_LAST_TS_KEY,
+                    SEMANTIC_PENDING_SINCE_KEY, SEMANTIC_RETRY_KEY):
+            value = data.get(key)
+            data[key] = value if isinstance(value, dict) else {}
+        clean_pending: dict = {}
+        for key, value in data[SEMANTIC_PENDING_KEY].items():
+            try:
+                count = int(value or 0)
+            except (TypeError, ValueError):
+                continue
+            if count > 0:
+                clean_pending[str(key)] = count
+        data[SEMANTIC_PENDING_KEY] = clean_pending
+        for key in (SEMANTIC_LAST_TS_KEY, SEMANTIC_PENDING_SINCE_KEY):
+            clean: dict = {}
+            for chat_key, value in data[key].items():
+                try:
+                    clean[str(chat_key)] = int(value or 0)
+                except (TypeError, ValueError):
+                    continue
+            data[key] = clean
+        positions = []
+        for chat_key, value in list(data.items()):
+            if not str(chat_key).startswith(SEMANTIC_CURSOR_PREFIX):
+                continue
+            try:
+                pos = max(0, int(value or 0))
+            except (TypeError, ValueError):
+                data.pop(chat_key, None)
+                continue
+            data[chat_key] = pos
+            positions.append(pos)
+        # Целостность: watermark не может отставать от per-chat позиций
+        # (иначе повторный discovery насчитает уже обработанные строки).
+        if positions:
+            data[SEMANTIC_WATERMARK_KEY] = max(
+                int(data[SEMANTIC_WATERMARK_KEY] or 0), max(positions))
+        data[SEMANTIC_STATE_VERSION_KEY] = SEMANTIC_STATE_VERSION
+
     async def _inherit_cursor(self, data: dict) -> None:
+        """EXP-FIX-01: наследовать полный durable checkpoint прошлого job'а.
+
+        Копируются feedback/event/detector/link курсоры, discovery-watermark,
+        per-chat semantic-курсоры, pending-счётчики и их время появления,
+        semantic_last_ts, состояние отложенных повторов и курсор ротации
+        resume. Всё — max-merge (pending/last_ts) и min-merge (pending_since),
+        то есть существующие позиции не стираются и не откатываются."""
         try:
             cursor = await self._db.db.execute(
                 "SELECT payload FROM task_jobs WHERE kind = ? AND status IN "
                 "('completed','failed') "
-                "ORDER BY finished_at DESC, created_at DESC LIMIT 1",
+                "ORDER BY finished_at DESC, created_at DESC, rowid DESC "
+                "LIMIT 1",
                 (REVIEW_JOB_KIND,))
             row = await cursor.fetchone()
             if row is None:
@@ -836,6 +1123,53 @@ class ExperienceReviewRunner:
             data["link_scan_application_id"] = max(
                 int(data.get("link_scan_application_id") or 0),
                 int(prev.get("link_scan_application_id") or 0))
+            # ── semantic checkpoint (EXP-FIX-01) ────────────────────────
+            data[SEMANTIC_WATERMARK_KEY] = max(
+                int(data.get(SEMANTIC_WATERMARK_KEY) or 0),
+                int(prev.get(SEMANTIC_WATERMARK_KEY) or 0))
+            for chat_key, value in list(prev.items()):
+                if not str(chat_key).startswith(SEMANTIC_CURSOR_PREFIX):
+                    continue
+                try:
+                    pos = int(value or 0)
+                except (TypeError, ValueError):
+                    continue
+                data[chat_key] = max(int(data.get(chat_key) or 0), pos)
+            pending = data.setdefault(SEMANTIC_PENDING_KEY, {})
+            for chat_key, value in (
+                    prev.get(SEMANTIC_PENDING_KEY) or {}).items():
+                try:
+                    count = int(value or 0)
+                except (TypeError, ValueError):
+                    continue
+                pending[str(chat_key)] = max(
+                    int(pending.get(str(chat_key)) or 0), count)
+            last_ts = data.setdefault(SEMANTIC_LAST_TS_KEY, {})
+            for chat_key, value in (
+                    prev.get(SEMANTIC_LAST_TS_KEY) or {}).items():
+                try:
+                    ts = int(value or 0)
+                except (TypeError, ValueError):
+                    continue
+                last_ts[str(chat_key)] = max(
+                    int(last_ts.get(str(chat_key)) or 0), ts)
+            since = data.setdefault(SEMANTIC_PENDING_SINCE_KEY, {})
+            for chat_key, value in (
+                    prev.get(SEMANTIC_PENDING_SINCE_KEY) or {}).items():
+                try:
+                    ts = int(value or 0)
+                except (TypeError, ValueError):
+                    continue
+                current = int(since.get(str(chat_key)) or 0)
+                since[str(chat_key)] = min(current, ts) if current else ts
+            retry = data.setdefault(SEMANTIC_RETRY_KEY, {})
+            for chat_key, value in (
+                    prev.get(SEMANTIC_RETRY_KEY) or {}).items():
+                if isinstance(value, dict) and str(chat_key) not in retry:
+                    retry[str(chat_key)] = dict(value)
+            if not data.get(RESUME_CURSOR_KEY) \
+                    and isinstance(prev.get(RESUME_CURSOR_KEY), dict):
+                data[RESUME_CURSOR_KEY] = dict(prev[RESUME_CURSOR_KEY])
         except Exception:
             logger.warning("[mca16] review cursor inherit failed — from zero",
                            exc_info=True)
@@ -888,13 +1222,18 @@ class ExperienceReviewRunner:
             # асинхронных батчах по bounded окнам, per-chat fairness,
             # provenance); детектор выше — дешёвый high-confidence вход.
             await self._semantic_extract(payload)
+            # EXP-FIX-01: durable checkpoint сразу после семантической стадии
+            # — падение процесса между durable вставкой и финальным finish не
+            # откатывает уже пройденные позиции (повтор идемпотентен по
+            # dedup_key).
+            await self._checkpoint(job_id, payload)
             counters["captured_feedback"] += await self._capture_feedback(
                 payload)
             counters["captured_events"] += await self._capture_tool_events(
                 payload)
             # D05 (§18E.5): каждый проход возобновляет незавершённые
             # durable-кандидаты с последнего durable состояния.
-            resumed = await self._resume_incomplete()
+            resumed = await self._resume_incomplete(payload)
             counters["resumed_validated"] += int(
                 resumed.get("validated") or 0)
             counters["resumed_activated"] += int(
@@ -1201,39 +1540,106 @@ class ExperienceReviewRunner:
         bounded окнам новых сообщений.
 
         Per-chat durable cursors + discovery-watermark (справедливые батчи
-        между чатами: ≤SEMANTIC_CHATS_PER_PASS чатов × ≤SEMANTIC_PER_CHAT_MAX
-        строк за проход, порядок — дольше всех без обработки идёт первым).
+        между чатами, порядок — дольше всех без обработки идёт первым).
         U4: чат с learning OFF — deliberate skip (курсор до конца чата).
         X1: курсор чата двигается ТОЛЬКО после durable обработки; сбой
         LLM → курсор на месте (retry следующим проходом). Инъекции из чата
         не поднимаются в system-инструкции: system-промпт фиксированный,
-        текст чата — только user-role (bounded)."""
+        текст чата — только user-role (bounded).
+
+        MOD-ACL-UX-01 (EXP-FIX-02..05, 10) внутри того же контракта:
+        * пределы прохода — конфигурируемые (`semantic_drain_limits`);
+        * прочитанные строки учитываются отдельно от пригодных, pending
+          уменьшается на ВСЕ прочитанные строки окна;
+        * ошибка чтения SQL — retryable (`semantic_read_errors`), не
+          deliberate skip и не двигает позицию;
+        * невалидный ответ LLM и сбой durable-записи НЕ считаются успешным
+          проходом: позиция стоит, включается отложенный повтор;
+        * в payload пишется честный снимок throughput/lag.
+        """
+        now = int(time.time())
+        try:
+            await self._semantic_pass(payload, now=now)
+        finally:
+            payload[SEMANTIC_PROGRESS_KEY] = semantic_progress_snapshot(
+                payload, now=now)
+
+    async def _semantic_pass(self, payload: dict, *, now: int) -> None:
+        """Один ограниченный проход семантики (см. `_semantic_extract`)."""
         counters = payload["counters"]
         if self._llm is None:
             # Честная недоступность: скан/курсоры не двигаются (retry позже).
             counters["semantic_llm_unavailable"] = int(
                 counters.get("semantic_llm_unavailable") or 0) + 1
             return
-        pending = payload.setdefault(SEMANTIC_PENDING_KEY, {})
         try:
-            await self._semantic_discover(payload)
+            await self._semantic_discover(payload, now=now)
         except Exception:
+            counters["semantic_discover_errors"] = int(
+                counters.get("semantic_discover_errors") or 0) + 1
             logger.warning("[mca16] semantic discovery failed",
                            exc_info=True)
-            return
-        chats = [int(k) for k, v in pending.items() if int(v or 0) > 0]
+            return                     # watermark/pending уже durable
+        chats_per_pass, per_chat_max = semantic_drain_limits()
+        chats = self._semantic_chat_order(payload, now=now)
         if not chats:
             return
-        # Справедливость: дольше всех без обработки — первым.
-        last_ts = payload.setdefault("semantic_last_ts", {})
-        chats.sort(key=lambda cid: (int(last_ts.get(str(cid)) or 0),
-                                    -int(pending.get(str(cid)) or 0)))
         batch_rows: list[dict] = []
-        for chat_id in chats[:SEMANTIC_CHATS_PER_PASS]:
-            rows, drained = await self._semantic_window(payload, chat_id)
-            if drained:
-                continue                       # deliberate skip (U4/пусто)
-            batch_rows.extend(rows)
+        windows: dict[int, dict] = {}
+        for chat_id in chats[:chats_per_pass]:
+            window = await self._semantic_window(
+                payload, chat_id, limit=per_chat_max)
+            state = str(window.get("state") or "")
+            if state == "disabled":
+                # U4: чат выключен — deliberate skip, pending снят, другие
+                # чаты не блокируются (EXP-FIX-03).
+                counters["semantic_chats_disabled"] = int(
+                    counters.get("semantic_chats_disabled") or 0) + 1
+                continue
+            if state == "empty":
+                # Позиция уже за последней строкой чата: счётчик pending был
+                # бы фантомным — честно обнуляем его (EXP-FIX-03).
+                if int(window.get("pending") or 0) > 0:
+                    counters["semantic_pending_reconciled"] = int(
+                        counters.get("semantic_pending_reconciled") or 0) + 1
+                    self._reset_semantic_pending(payload, chat_id)
+                counters["semantic_chats_empty"] = int(
+                    counters.get("semantic_chats_empty") or 0) + 1
+                continue
+            if state == "error":
+                # Техническая ошибка чтения ≠ deliberate skip: позиция стоит,
+                # повтор отложен, остальные чаты обрабатываются.
+                counters["semantic_read_errors"] = int(
+                    counters.get("semantic_read_errors") or 0) + 1
+                self._defer_semantic_chat(payload, chat_id,
+                                          reason="read_error", now=now)
+                continue
+            counters["semantic_rows_read"] = int(
+                counters.get("semantic_rows_read") or 0) + int(
+                window.get("read") or 0)
+            if not window.get("rows"):
+                # Все прочитанные строки непригодны структурно — это
+                # deliberate skip: позиция двигается, pending честно
+                # уменьшается на прочитанное (EXP-FIX-03).
+                counters["semantic_rows_ineligible"] = int(
+                    counters.get("semantic_rows_ineligible") or 0) + int(
+                    window.get("skipped") or 0)
+                self._book_semantic_window(
+                    payload, chat_id,
+                    advanced_to=int(window.get("last_id") or 0),
+                    consumed=int(window.get("read") or 0), now=now)
+                counters["semantic_throughput_rows"] = int(
+                    counters.get("semantic_throughput_rows") or 0) + int(
+                    window.get("read") or 0)
+                continue
+            counters["semantic_rows_eligible"] = int(
+                counters.get("semantic_rows_eligible") or 0) + len(
+                window["rows"])
+            counters["semantic_rows_ineligible"] = int(
+                counters.get("semantic_rows_ineligible") or 0) + int(
+                window.get("skipped") or 0)
+            windows[int(chat_id)] = window
+            batch_rows.extend(window["rows"])
         if not batch_rows:
             return
         counters["semantic_selected"] = int(
@@ -1243,32 +1649,168 @@ class ExperienceReviewRunner:
             counters["semantic_llm_unavailable"] = int(
                 counters.get("semantic_llm_unavailable") or 0) + 1
             return                             # курсоры на месте (X1)
-        candidates = parse_semantic_candidates(raw)
+        parsed = parse_semantic_candidates_typed(raw)
+        outcome = str(parsed.get("outcome") or "")
+        if outcome == SEMANTIC_PARSE_INVALID:
+            # EXP-FIX-05: битый вывод не равен «пусто». Позиция НЕ двигается,
+            # чаты уходят в отложенный повтор (данные не теряются).
+            counters["semantic_parse_invalid"] = int(
+                counters.get("semantic_parse_invalid") or 0) + 1
+            reasons = counters.setdefault("semantic_parse_reasons", {})
+            reason = str(parsed.get("reason") or "unknown")
+            reasons[reason] = int(reasons.get(reason) or 0) + 1
+            for chat_id in windows:
+                self._defer_semantic_chat(payload, chat_id,
+                                          reason=f"parse:{reason}", now=now)
+            logger.warning("[mca16] semantic parse invalid | reason=%s",
+                           reason)
+            return
+        if outcome == SEMANTIC_PARSE_VALID_EMPTY:
+            counters["semantic_parse_valid_empty"] = int(
+                counters.get("semantic_parse_valid_empty") or 0) + 1
+        candidates = list(parsed.get("candidates") or ())
         counters["semantic_extracted"] = int(
             counters.get("semantic_extracted") or 0) + len(candidates)
         rows_index = {int(r["id"]): r for r in batch_rows}
         accepted = 0
+        failed_chats: set[int] = set()
         for candidate in candidates:
             rejection = semantic_rejection(candidate)
             if rejection is not None:
                 self._reject_semantic(counters, rejection)
                 continue
-            if await self._write_semantic_candidate(candidate, rows_index,
-                                                    counters):
+            result = await self._write_semantic_candidate(candidate,
+                                                          rows_index, counters)
+            if result == SEMANTIC_WRITE_ACCEPTED:
                 accepted += 1
+            elif result == SEMANTIC_WRITE_FAILED:
+                # EXP-FIX-04: durable запись не состоялась — батч НЕ считается
+                # полностью обработанным; позиция чата не двигается, повтор
+                # следующим проходом идемпотентен по dedup_key.
+                counters["semantic_write_failures"] = int(
+                    counters.get("semantic_write_failures") or 0) + 1
+                for msg_id in candidate.get("msg_ids") or ():
+                    row = rows_index.get(int(msg_id))
+                    if row is not None:
+                        failed_chats.add(int(row["chat_id"]))
         counters["semantic_candidates"] = int(
             counters.get("semantic_candidates") or 0) + accepted
         # Курсоры/pending двигаются ТОЛЬКО после durable обработки батча.
-        await self._advance_semantic_cursors(payload, batch_rows)
-        now = int(time.time())
-        for chat_id in {int(r["chat_id"]) for r in batch_rows}:
-            last_ts[str(chat_id)] = now
-            pending[str(chat_id)] = max(
-                0, int(pending.get(str(chat_id)) or 0) -
-                sum(1 for r in batch_rows if int(r["chat_id"]) == chat_id))
+        for chat_id, window in windows.items():
+            if chat_id in failed_chats:
+                continue                       # retry без потери кандидата
+            self._book_semantic_window(
+                payload, chat_id,
+                advanced_to=int(window.get("last_id") or 0),
+                consumed=int(window.get("read") or 0), now=now)
+            counters["semantic_throughput_rows"] = int(
+                counters.get("semantic_throughput_rows") or 0) + int(
+                window.get("read") or 0)
+            self._clear_semantic_retry(payload, chat_id)
         # Числа воронки — в durable-счётчиках payload; событие — маркер.
         _emit("semantic_extract", outcome="success",
               stage="semantic_extract")
+
+    def _semantic_chat_order(self, payload: dict, *, now: int) -> list[int]:
+        """Порядок чатов прохода: LRU + отложенные повторы пропускаются.
+
+        Чат на отложенном повторе не блокирует остальные (EXP-FIX-03/04/05);
+        порядок — дольше всех без обработки первым, затем по размеру бэклога.
+        """
+        pending = payload.setdefault(SEMANTIC_PENDING_KEY, {})
+        last_ts = payload.setdefault(SEMANTIC_LAST_TS_KEY, {})
+        retry = payload.setdefault(SEMANTIC_RETRY_KEY, {})
+        chats: list[int] = []
+        deferred = 0
+        for key, value in pending.items():
+            try:
+                count = int(value or 0)
+            except (TypeError, ValueError):
+                continue
+            if count <= 0:
+                continue
+            try:
+                chat_id = int(key)
+            except (TypeError, ValueError):
+                continue
+            info = retry.get(str(chat_id)) or {}
+            try:
+                retry_at = int(info.get("retry_at") or 0)
+            except (TypeError, ValueError):
+                retry_at = 0
+            if retry_at > now:
+                deferred += 1
+                continue
+            chats.append(chat_id)
+        if deferred:
+            counters = payload.get("counters") or {}
+            counters["semantic_chats_deferred"] = int(
+                counters.get("semantic_chats_deferred") or 0) + deferred
+        chats.sort(key=lambda cid: (int(last_ts.get(str(cid)) or 0),
+                                    -int(pending.get(str(cid)) or 0), cid))
+        return chats
+
+    def _book_semantic_window(self, payload: dict, chat_id, *,
+                             advanced_to: int, consumed: int,
+                             now: int) -> None:
+        """Сдвинуть per-chat позицию и уменьшить pending на прочитанное.
+
+        Инвариант EXP-FIX-03: pending уменьшается на ВСЕ прочитанные строки
+        окна (не только на ушедшие в LLM), а при пустом окне обнуляется;
+        позиция только растёт (никогда не откатывается)."""
+        cid = int(chat_id)
+        key = f"{SEMANTIC_CURSOR_PREFIX}{cid}"
+        current = int(payload.get(key) or 0)
+        new_pos = max(current, int(advanced_to or 0))
+        payload[key] = new_pos
+        pending = payload.setdefault(SEMANTIC_PENDING_KEY, {})
+        left = max(0, int(pending.get(str(cid)) or 0)
+                   - max(0, int(consumed or 0)))
+        if left:
+            pending[str(cid)] = left
+        else:
+            self._reset_semantic_pending(payload, cid)
+        if new_pos > current:
+            payload.setdefault(SEMANTIC_LAST_TS_KEY, {})[str(cid)] = int(now)
+
+    def _reset_semantic_pending(self, payload: dict, chat_id) -> None:
+        """pending чата = 0 (нет необработанных строк за позицией)."""
+        key = str(int(chat_id))
+        (payload.setdefault(SEMANTIC_PENDING_KEY, {})).pop(key, None)
+        (payload.setdefault(SEMANTIC_PENDING_SINCE_KEY, {})).pop(key, None)
+
+    def _defer_semantic_chat(self, payload: dict, chat_id, *, reason: str,
+                             now: int) -> None:
+        """Отложенный повтор чата с экспоненциальным backoff (EXP-FIX-04/05).
+
+        Данные не теряются: pending/позиция остаются на месте, чат исключён
+        из ближайших проходов до `retry_at`, остальные чаты работают.
+        `attempts` ограничен `SEMANTIC_RETRY_MAX_ATTEMPTS`, поэтому после
+        исчерпания повторов интервал остаётся на потолке
+        (`SEMANTIC_RETRY_MAX_SECONDS`): чат продолжает периодически
+        повторяться, а не «выключается» и не теряет строки. Состояние видно
+        в счётчиках (`semantic_parse_reasons`, `semantic_read_errors`) и в
+        `semantic_progress.deferred_chats` — это операторская диагностика,
+        а не молчаливая потеря."""
+        key = str(int(chat_id))
+        retry = payload.setdefault(SEMANTIC_RETRY_KEY, {})
+        info = dict(retry.get(key) or {})
+        try:
+            attempts = int(info.get("attempts") or 0) + 1
+        except (TypeError, ValueError):
+            attempts = 1
+        base = max(1, int(SEMANTIC_RETRY_BASE_SECONDS))
+        delay = min(int(SEMANTIC_RETRY_MAX_SECONDS),
+                    base * (2 ** min(max(0, attempts - 1), 8)))
+        retry[key] = {
+            "attempts": min(attempts, int(SEMANTIC_RETRY_MAX_ATTEMPTS)),
+            "retry_at": int(now) + delay,
+            "reason": str(reason)[:40],
+        }
+
+    def _clear_semantic_retry(self, payload: dict, chat_id) -> None:
+        retry = payload.setdefault(SEMANTIC_RETRY_KEY, {})
+        retry.pop(str(int(chat_id)), None)
 
     def _reject_semantic(self, counters: dict, reason: str) -> None:
         counters["semantic_rejected"] = int(
@@ -1276,52 +1818,88 @@ class ExperienceReviewRunner:
         reasons = counters.setdefault("semantic_reject_reasons", {})
         reasons[reason] = int(reasons.get(reason) or 0) + 1
 
-    async def _semantic_discover(self, payload: dict) -> int:
-        """Discovery новых строк (watermark durable) → pending-счётчики."""
+    async def _semantic_discover(self, payload: dict, *,
+                                 now: int | None = None) -> int:
+        """Discovery новых строк (watermark durable) → pending-индекс.
+
+        EXP-FIX-10: durable-индекс ограничен (`semantic_pending_chat_cap`), и
+        при переполнении discovery останавливается ДО той строки, чей чат не
+        влезает в индекс: watermark не уезжает за непроиндексированные данные,
+        поэтому ни одно сообщение не теряется (backpressure на существующем
+        хранилище, без второй очереди). Следующие строки будут обнаружены,
+        когда индекс освободится.
+        """
+        now = int(time.time()) if now is None else int(now)
         counters = payload["counters"]
         watermark = int(payload.get(SEMANTIC_WATERMARK_KEY) or 0)
+        cap = semantic_pending_chat_cap()
+        pending = payload.setdefault(SEMANTIC_PENDING_KEY, {})
+        since = payload.setdefault(SEMANTIC_PENDING_SINCE_KEY, {})
         cursor = await self._db.db.execute(
-            "SELECT id, chat_id FROM smart_messages WHERE id > ? "
+            "SELECT id, chat_id, timestamp FROM smart_messages WHERE id > ? "
             "ORDER BY id LIMIT ?", (watermark, SEMANTIC_DISCOVERY_LIMIT))
         rows = [dict(r) for r in await cursor.fetchall()]
-        pending = payload.setdefault(SEMANTIC_PENDING_KEY, {})
         discovered = 0
         for row in rows:
             chat_id = row.get("chat_id")
             if chat_id is None:
+                # Вне чатов — не чатовый сигнал; watermark двигаем, иначе
+                # строка навсегда застрянет в голове discovery-окна.
+                payload[SEMANTIC_WATERMARK_KEY] = int(row["id"])
                 continue
             key = str(int(chat_id))
+            if key not in pending and len(pending) >= cap:
+                # Backpressure: строка остаётся ЗА watermark и будет
+                # обнаружена следующим проходом (не потеряна).
+                counters["semantic_discovery_backpressure"] = int(
+                    counters.get("semantic_discovery_backpressure") or 0) + 1
+                break
             pending[key] = int(pending.get(key) or 0) + 1
+            if key not in since:
+                try:
+                    since[key] = int(row.get("timestamp") or now)
+                except (TypeError, ValueError):
+                    since[key] = now
             payload[SEMANTIC_WATERMARK_KEY] = int(row["id"])
             discovered += 1
         counters["semantic_scanned"] = int(
             counters.get("semantic_scanned") or 0) + discovered
-        if len(pending) > 64:
-            for key in sorted(pending, key=lambda k: int(
-                    pending.get(k) or 0))[:len(pending) - 64]:
-                pending.pop(key, None)
         return discovered
 
-    async def _semantic_window(self, payload: dict,
-                               chat_id: int) -> tuple[list[dict], bool]:
-        """Bounded окно чата (≤SEMANTIC_PER_CHAT_MAX строк; курсор per-chat).
-        Возврат (rows, drained=True → чат пропущен deliberate)."""
-        key = f"{SEMANTIC_CURSOR_PREFIX}{int(chat_id)}"
+    async def _semantic_window(self, payload: dict, chat_id: int, *,
+                               limit: int | None = None) -> dict:
+        """Bounded окно чата с честным учётом прочитанного (EXP-FIX-03).
+
+        Возврат: {"state": ok|empty|disabled|error, "rows": пригодные,
+        "read": прочитано строк, "skipped": отфильтровано структурно,
+        "last_id": последняя прочитанная строка, "pending": pending чата}.
+        `error` — техническая ошибка SQL (retryable, НЕ deliberate skip).
+        """
+        limit = int(limit or SEMANTIC_PER_CHAT_MAX)
+        cid = int(chat_id)
+        key = f"{SEMANTIC_CURSOR_PREFIX}{cid}"
         cursor_pos = int(payload.get(key) or 0)
-        if not await learning_enabled_for_chat(chat_id):
-            await self._drain_semantic_chat(payload, chat_id, cursor_pos)
-            return [], True
+        pending_now = int((payload.get(SEMANTIC_PENDING_KEY) or {})
+                          .get(str(cid)) or 0)
+        if not await learning_enabled_for_chat(cid):
+            await self._drain_semantic_chat(payload, cid, cursor_pos)
+            return {"state": "disabled", "rows": [], "read": 0,
+                    "skipped": 0, "last_id": cursor_pos, "pending": 0}
         try:
             cursor = await self._db.db.execute(
                 "SELECT id, chat_id, user_id, text, author_name, timestamp, "
                 "reply_to_id, media_type, is_forward FROM smart_messages "
                 "WHERE chat_id = ? AND id > ? ORDER BY id LIMIT ?",
-                (int(chat_id), cursor_pos, SEMANTIC_PER_CHAT_MAX))
+                (cid, cursor_pos, limit))
             rows = [dict(r) for r in await cursor.fetchall()]
         except Exception:
             logger.warning("[mca16] semantic window read failed | chat=%s",
-                           chat_id, exc_info=True)
-            return [], True
+                           cid, exc_info=True)
+            return {"state": "error", "rows": [], "read": 0, "skipped": 0,
+                    "last_id": cursor_pos, "pending": pending_now}
+        if not rows:
+            return {"state": "empty", "rows": [], "read": 0, "skipped": 0,
+                    "last_id": cursor_pos, "pending": pending_now}
         # Структурный мусор не идёт в LLM-батч (regex ТОЛЬКО фильтр);
         # сомнительное (шутка/спор/третье лицо) идёт — решает семантика.
         eligible = [r for r in rows
@@ -1329,16 +1907,16 @@ class ExperienceReviewRunner:
                     and not r.get("is_forward")
                     and str(r.get("text") or "").strip()
                     and not _COMMAND_RE.match(str(r.get("text") or ""))]
-        if not eligible:
-            last_id = max([int(r["id"]) for r in rows] + [cursor_pos])
-            payload[key] = last_id
-            return [], True
-        return eligible, False
+        return {"state": "ok", "rows": eligible, "read": len(rows),
+                "skipped": len(rows) - len(eligible),
+                "last_id": max(int(r["id"]) for r in rows),
+                "pending": pending_now}
 
     async def _drain_semantic_chat(self, payload: dict, chat_id: int,
                                    cursor_pos: int) -> None:
         """Chat learning OFF → deliberate skip: курсор до последней строки
-        чата (без LLM; курсор детектора независим)."""
+        чата (без LLM; курсор детектора независим). Pending снимается
+        целиком — иначе чат навсегда остаётся фантомным в индексе."""
         key = f"{SEMANTIC_CURSOR_PREFIX}{int(chat_id)}"
         try:
             cursor = await self._db.db.execute(
@@ -1349,16 +1927,8 @@ class ExperienceReviewRunner:
         except Exception:
             last_id = cursor_pos
         payload[key] = max(cursor_pos, last_id)
-        pending = payload.setdefault(SEMANTIC_PENDING_KEY, {})
-        pending.pop(str(int(chat_id)), None)
-
-    async def _advance_semantic_cursors(self, payload: dict,
-                                        batch_rows: list[dict]) -> None:
-        for chat_id in {int(r["chat_id"]) for r in batch_rows}:
-            key = f"{SEMANTIC_CURSOR_PREFIX}{int(chat_id)}"
-            last_id = max(int(r["id"]) for r in batch_rows
-                          if int(r["chat_id"]) == chat_id)
-            payload[key] = max(int(payload.get(key) or 0), last_id)
+        self._reset_semantic_pending(payload, chat_id)
+        self._clear_semantic_retry(payload, chat_id)
 
     async def _semantic_llm_batch(self, rows: list[dict]):
         """ОДИН LLM-вызов на батч (bounded); None → недоступность."""
@@ -1392,19 +1962,27 @@ class ExperienceReviewRunner:
 
     async def _write_semantic_candidate(self, candidate: dict,
                                         rows_index: dict,
-                                        counters: dict) -> bool:
+                                        counters: dict) -> str:
         """Durable candidate → `record_feedback` (typed signal, provenance).
 
         Preference/correction/fact_user — owner/participant_correction
         (источник — автор реплики); observation (strategy_success/
         topic_pattern) — llm_hypothesis (durable candidate БЕЗ ложного
         успеха/провала). Дедуп — dedup_key record_feedback (повтор →
-        duplicate, не дубль-кандидат)."""
+        duplicate, не дубль-кандидат).
+
+        EXP-FIX-04/09: возвращает типизированный исход
+        (`SEMANTIC_WRITE_ACCEPTED|DUPLICATE|REJECTED|FAILED`); при
+        `write_failed` вызывающий НЕ двигает позицию. Идентичность сигнала
+        включает семантический вид/субъект/версию, поэтому разные виды
+        сигнала одного сообщения не сливаются, а повтор того же кандидата
+        остаётся идемпотентным.
+        """
         primary_id = int(candidate["msg_ids"][0])
         row = rows_index.get(primary_id)
         if row is None:
             self._reject_semantic(counters, REJECT_BAD_MSG_REF)
-            return False
+            return SEMANTIC_WRITE_REJECTED
         kind = str(candidate.get("kind") or "")
         klass = str(SEMANTIC_CLASS_BY_KIND.get(kind) or "observation")
         author_id = row.get("user_id")
@@ -1421,7 +1999,7 @@ class ExperienceReviewRunner:
             token = normalize_pref_token(candidate.get("pref_token"))
             if token is None:
                 self._reject_semantic(counters, REJECT_PARSE)
-                return False
+                return SEMANTIC_WRITE_REJECTED
             signal["preference"] = token
             signal["pref_key"] = str(token).split(".")[0]
             signal["pref_value"] = str(token).split(".", 1)[1]
@@ -1431,37 +2009,68 @@ class ExperienceReviewRunner:
                 signal["topic"] = topic
         source_kind = ("llm_hypothesis" if klass == "observation"
                        else self._semantic_source_kind(author_id))
+        # EXP-FIX-09: идентичность стабильного сигнала = версия схемы +
+        # семантический вид + субъект (+ нормализованный носитель сигнала:
+        # pref-токен/тема). Базовый ref сообщения остаётся в dedup_key;
+        # уточнение разделяет РАЗНЫЕ сигналы одной реплики, а повтор того же
+        # кандидата (тот же нормализованный носитель) остаётся дублем.
+        carrier = ""
+        if klass == "preference":
+            carrier = str(signal.get("preference") or "")
+        elif klass == "observation":
+            carrier = str(signal.get("topic") or "")
+        identity = (f"sem:{SEMANTIC_SIGNAL_IDENTITY_VERSION}:"
+                    f"{kind}:{subject_id}:{carrier}")
         try:
-            # Дедуп (X2): тот же (источник, чат, ref) уже durable →
-            # идемпотентный no-op, счётчик дублей (не второй кандидат).
-            dedup_key = me._sha1_16(source_kind, row.get("chat_id"),
-                                    "chat_message", primary_id)
-            existing = await self._service.store.get_feedback_by_dedup(
-                dedup_key)
-            if existing is not None:
+            # Дедуп (X2): тот же (источник, чат, ref, идентичность) уже
+            # durable → идемпотентный no-op, счётчик дублей.
+            if await self._feedback_exists(
+                    source_kind=source_kind, chat_id=row.get("chat_id"),
+                    ref_type="chat_message", ref_id=primary_id,
+                    identity=identity):
                 counters["semantic_duplicates"] = int(
                     counters.get("semantic_duplicates") or 0) + 1
-                return False
+                return SEMANTIC_WRITE_DUPLICATE
             feedback_id = await self._service.record_feedback(
                 source_kind=source_kind, chat_id=row.get("chat_id"),
-                ref_type="chat_message", ref_id=primary_id, signal=signal)
+                ref_type="chat_message", ref_id=primary_id, signal=signal,
+                dedup_identity=identity)
         except Exception:
             logger.warning("[mca16] semantic feedback write failed — "
                            "retry next pass | msg=%s", primary_id,
                            exc_info=True)
-            return False
+            return SEMANTIC_WRITE_FAILED
         if feedback_id:
             _emit("detector_signal", outcome="success",
                   stage=f"semantic:{kind}", chat_id=row.get("chat_id"),
                   entity_ids=[feedback_id])
-            return True
-        counters["semantic_duplicates"] = int(
-            counters.get("semantic_duplicates") or 0) + 1
+            return SEMANTIC_WRITE_ACCEPTED
+        # record_feedback вернул None: контур закрыт гейтом (policy) —
+        # второй durable-кандидат не создаётся и это не ошибка записи.
+        counters["semantic_write_skipped"] = int(
+            counters.get("semantic_write_skipped") or 0) + 1
+        return SEMANTIC_WRITE_SKIPPED
+
+    async def _feedback_exists(self, *, source_kind: str, chat_id,
+                               ref_type: str, ref_id, identity: str) -> bool:
+        """Кандидат уже durable?
+
+        Проверяются оба ключа: новый (с идентичностью сигнала) и legacy
+        (без неё — строки, записанные до EXP-FIX-09). Legacy-совпадение
+        считается дублем только для того же ref, чтобы существующий feedback
+        не превратился во второй кандидат после обновления."""
+        for key in (me.feedback_dedup_key(source_kind, chat_id, ref_type,
+                                          ref_id, identity),
+                    me.feedback_dedup_key(source_kind, chat_id, ref_type,
+                                          ref_id)):
+            if await self._service.store.get_feedback_by_dedup(key) \
+                    is not None:
+                return True
         return False
 
     # ── шаг 1c: D05 resume (§18E.5; crash после create/verify) ────────────
 
-    async def _resume_incomplete(self) -> dict:
+    async def _resume_incomplete(self, payload: dict) -> dict:
         """Возобновить незавершённые durable-кандидаты (каждый проход).
 
         Находит candidate/validated-версии (актуальная версия урока),
@@ -1470,17 +2079,41 @@ class ExperienceReviewRunner:
         (мало независимых эпизодов/нет provenance) ≠ transient technical
         failure: строка остаётся candidate (не удаляется, не активируется);
         повтор — bounded следующим проходом (эпизоды накапливаются →
-        eventual validation)."""
+        eventual validation).
+
+        EXP-FIX-07: окно выбирается durable-курсором ротации
+        (`resume_cursor`, порядок `created_at, lesson_id`), поэтому старые
+        непроходящие кандидаты не занимают окно навсегда: за круг каждая
+        строка получает попытку, а непройденные не активируются и не
+        удаляются."""
         limit = me.ExperiencePolicy.review_batch_max()
+        cursor_pos = payload.get(RESUME_CURSOR_KEY)
+        try:
+            after_created = int((cursor_pos or {}).get("created_at") or 0)
+            after_lesson = str((cursor_pos or {}).get("lesson_id") or "")
+        except (TypeError, ValueError, AttributeError):
+            after_created, after_lesson = 0, ""
         cursor = await self._db.db.execute(
             "SELECT l.lesson_id, l.version, l.type, l.scope, "
             "l.scope_chat_id, l.scope_user_id, l.applicability, l.status, "
-            "l.source_ref_id FROM mca_lessons l WHERE l.version = "
-            "(SELECT MAX(x.version) FROM mca_lessons x WHERE "
+            "l.source_ref_id, l.created_at FROM mca_lessons l WHERE "
+            "l.version = (SELECT MAX(x.version) FROM mca_lessons x WHERE "
             "x.lesson_id = l.lesson_id) AND l.status IN "
-            "('candidate','validated') ORDER BY l.created_at, l.lesson_id "
-            "LIMIT ?", (limit,))
+            "('candidate','validated') AND (l.created_at > ? OR "
+            "(l.created_at = ? AND l.lesson_id > ?)) "
+            "ORDER BY l.created_at, l.lesson_id LIMIT ?",
+            (after_created, after_created, after_lesson, limit))
         rows = [dict(r) for r in await cursor.fetchall()]
+        if rows:
+            last = rows[-1]
+            payload[RESUME_CURSOR_KEY] = {
+                "created_at": int(last.get("created_at") or 0),
+                "lesson_id": str(last.get("lesson_id") or ""),
+            }
+        if not rows or len(rows) < max(1, int(limit)):
+            # Круг завершён: следующий проход начнёт с начала (bounded
+            # fairness), чтобы новые/накопленные эпизоды были замечены.
+            payload.pop(RESUME_CURSOR_KEY, None)
         validated = activated = rejected = 0
         pref_provenance: dict | None = None
         for row in rows:
@@ -2068,7 +2701,8 @@ async def run_semantic_backfill(db, llm, *, start_rowid: int = 0,
     вызывающим (`next_rowid`). Никогда не бросает."""
     result: dict = {"scanned": 0, "extracted": 0, "accepted": 0,
                     "rejected": 0, "duplicates": 0, "batches": 0,
-                    "next_rowid": int(start_rowid), "llm_unavailable": 0}
+                    "next_rowid": int(start_rowid), "llm_unavailable": 0,
+                    "parse_invalid": 0, "write_failures": 0}
     if llm is None:
         result["llm_unavailable"] = 1
         return result
@@ -2089,6 +2723,7 @@ async def run_semantic_backfill(db, llm, *, start_rowid: int = 0,
             break
         if not rows:
             break
+        pos_before = pos
         pos = max(int(r["id"]) for r in rows)
         result["next_rowid"] = pos
         eligible: list[dict] = []
@@ -2118,18 +2753,34 @@ async def run_semantic_backfill(db, llm, *, start_rowid: int = 0,
             result["next_rowid"] = int(start_rowid)   # retry с места старта
             break
         counters = {"semantic_rejected": 0, "semantic_duplicates": 0,
-                    "semantic_reject_reasons": {}}
-        candidates = parse_semantic_candidates(raw)
+                    "semantic_write_skipped": 0, "semantic_reject_reasons": {}}
+        parsed = parse_semantic_candidates_typed(raw)
+        if str(parsed.get("outcome")) == SEMANTIC_PARSE_INVALID:
+            # EXP-FIX-05: невалидный вывод — диапазон НЕ считается
+            # обработанным, позиция остаётся на месте старта батча.
+            result["parse_invalid"] = int(result.get("parse_invalid") or 0) + 1
+            result["next_rowid"] = int(pos_before)
+            break
+        candidates = list(parsed.get("candidates") or ())
         result["extracted"] += len(candidates)
         rows_index = {int(r["id"]): r for r in fair}
+        write_failed = False
         for candidate in candidates:
             rejection = semantic_rejection(candidate)
             if rejection is not None:
                 runner._reject_semantic(counters, rejection)
                 continue
-            if await runner._write_semantic_candidate(candidate, rows_index,
-                                                      counters):
+            outcome = await runner._write_semantic_candidate(
+                candidate, rows_index, counters)
+            if outcome == SEMANTIC_WRITE_ACCEPTED:
                 result["accepted"] += 1
+            elif outcome == SEMANTIC_WRITE_FAILED:
+                write_failed = True
+        if write_failed:
+            result["write_failures"] = int(
+                result.get("write_failures") or 0) + 1
+            result["next_rowid"] = int(pos_before)
+            break
         result["rejected"] += int(counters.get("semantic_rejected") or 0)
         result["duplicates"] += int(
             counters.get("semantic_duplicates") or 0)

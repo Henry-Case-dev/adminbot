@@ -180,7 +180,12 @@ _initiative_observer_last_tick: dict = {"ts": None, "status": None,
 
 
 def _experience_review_tick_enabled() -> bool:
-    """K1+K3+UI-настройка review опыта (fail-closed, никогда не бросает)."""
+    """K1+K3+UI-настройка review опыта (fail-closed, никогда не бросает).
+
+    MOD-ACL-UX-01 / EXP-FIX-06: это диагностический резолвер effective-гейта
+    (для витрины/логов), а НЕ условие регистрации тика — тик регистрируется
+    всегда и проверяет гейт на каждом заходе, поэтому hot-ON/OFF применяется
+    без рестарта."""
     try:
         from services import mca_experience_jobs as jobs
         return bool(jobs.review_enabled())
@@ -372,15 +377,19 @@ class MemoryMaintenanceService:
         # планировщик обслуживания (второй очереди/планировщика нет). Тик
         # каждые 15 минут: каденция (hourly/daily/weekly) и UI-настройка
         # learning читаются hot при каждом тике → применяются без рестарта.
-        if _experience_review_tick_enabled():
-            self._scheduler.add_job(
-                self._tick_experience_review,
-                IntervalTrigger(
-                    seconds=_EXPERIENCE_REVIEW_TICK_SECONDS,
-                    timezone=hot.get("limits.summary_timezone",
-                                     settings.SUMMARY_TIMEZONE)),
-                id=self.JOB_EXPERIENCE_REVIEW_ID, replace_existing=True,
-                max_instances=1, coalesce=True)
+        # MOD-ACL-UX-01 / EXP-FIX-06: регистрация НЕ зависит от гейта при
+        # старте (прецедент intent_heartbeat/communities) — иначе hot-ON
+        # после запуска процесса не работал до рестарта. Аварийный env-гейт
+        # и UI-настройка резолвятся тиком на каждом заходе; при OFF тик
+        # выходит ДО любого SQL (ноль работы).
+        self._scheduler.add_job(
+            self._tick_experience_review,
+            IntervalTrigger(
+                seconds=_EXPERIENCE_REVIEW_TICK_SECONDS,
+                timezone=hot.get("limits.summary_timezone",
+                                 settings.SUMMARY_TIMEZONE)),
+            id=self.JOB_EXPERIENCE_REVIEW_ID, replace_existing=True,
+            max_instances=1, coalesce=True)
         # MCA-09 (T-5026, ADR-1028-16 D5) + v6 C06A: лёгкий heartbeat
         # due-намерений — тот же планировщик. Раньше джоба регистрировалась
         # ТОЛЬКО если гейт был ON при старте процесса → hot-ON тумблера

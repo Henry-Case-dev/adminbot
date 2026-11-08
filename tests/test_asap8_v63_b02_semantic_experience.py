@@ -540,8 +540,9 @@ async def test_b02_funnel_counters_and_duplicate_dedup(tmp_path):
         assert counters["semantic_candidates"] == 1
         names = {e.get("event_name") for e in mca_events._pending}
         assert "semantic_extract" in names
-        # дедуп: два кандидата одного источника на одно сообщение в ОДНОМ
-        # батче → durable-кандидат один (dedup_key record_feedback)
+        # EXP-FIX-09: два РАЗНЫХ семантических вида сигнала об одной реплике
+        # не сливаются — оба durable-кандидата сохраняются (kind/subject/
+        # версия входят в идентичность сигнала), дублей нет.
         await _next_pass(db)
         m_new = await _msg(db, user_id=42, ts=1100,
                            text="новая реплика для батча")
@@ -553,7 +554,39 @@ async def test_b02_funnel_counters_and_duplicate_dedup(tmp_path):
         ], ensure_ascii=False)])
         assert await mj.tick_experience_review(db, llm=llm2) == "completed"
         payload = await _payload_of(db)
-        assert payload["counters"]["semantic_duplicates"] == 1
-        assert len(await _feedback_rows(db)) == 2
+        assert payload["counters"]["semantic_duplicates"] == 0
+        rows = await _feedback_rows(db)
+        assert len(rows) == 3
+        kinds = {json.loads(r["signal_json"]).get("kind") for r in rows}
+        assert {"preference", "correction"} <= kinds
+        # повтор ТОГО ЖЕ кандидата идемпотентен даже если durable-запись
+        # состоялась, а checkpoint потерян (сбой между insert и checkpoint):
+        # курсор не сохранён → окно переигрывается, dedup не даёт дублей.
+        await _next_pass(db)
+        m_dup = await _msg(db, user_id=42, ts=1200,
+                           text="ещё одна реплика для сбоя checkpoint")
+        cand = _cand(kind="preference", msg_ids=[m_dup],
+                     subject_user_id=42, pref_token="reply.medium")
+        llm3 = _FakeLLM([json.dumps([cand], ensure_ascii=False)])
+        original_checkpoint = mj.ExperienceReviewRunner._checkpoint
+
+        async def _lost_checkpoint(self, job_id, payload):
+            return None                    # «crash» до сохранения checkpoint
+
+        mj.ExperienceReviewRunner._checkpoint = _lost_checkpoint
+        try:
+            assert await mj.tick_experience_review(db, llm=llm3) == "completed"
+        finally:
+            mj.ExperienceReviewRunner._checkpoint = original_checkpoint
+        rows_after_insert = await _feedback_rows(db)
+        assert len(rows_after_insert) == 4        # durable insert состоялся
+        # новый проход: курсор снова с начала (checkpoint потерян) → тот же
+        # кандидат приходит повторно и отсекается дедупом
+        llm4 = _FakeLLM([json.dumps([cand], ensure_ascii=False)])
+        await _next_pass(db)
+        assert await mj.tick_experience_review(db, llm=llm4) == "completed"
+        payload = await _payload_of(db)
+        assert payload["counters"]["semantic_duplicates"] >= 1
+        assert len(await _feedback_rows(db)) == 4
     finally:
         await db.close()

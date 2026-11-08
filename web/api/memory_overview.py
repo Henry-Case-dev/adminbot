@@ -126,6 +126,17 @@ async def _latest_job_async(db, kind: str) -> dict | None:
                 pending_sum += max(0, int(v or 0))
         out["semantic_watermark"] = watermark
         out["semantic_pending"] = pending_sum
+        # EXP-FIX-02: throughput/лаг прохода — из честного снимка payload
+        # (backlog chats/rows, возраст старейшей необработанной реплики,
+        # число чатов на отложенном повторе). Только числа (R17).
+        progress = payload.get("semantic_progress")
+        if isinstance(progress, dict):
+            out["semantic_progress"] = {
+                "backlog_rows": int(progress.get("backlog_rows") or 0),
+                "backlog_chats": int(progress.get("backlog_chats") or 0),
+                "lag_seconds": int(progress.get("lag_seconds") or 0),
+                "deferred_chats": int(progress.get("deferred_chats") or 0),
+            }
     return out
 
 
@@ -285,6 +296,15 @@ async def memory_intel_funnels(
                 "max_message_id": await _max_smart_message_id(db),
                 "pending": int((review_job or {}).get(
                     "semantic_pending") or 0),
+                # EXP-FIX-02: пропускная способность/лаг дренажа бэклога.
+                "backlog_rows": int(((review_job or {}).get(
+                    "semantic_progress") or {}).get("backlog_rows") or 0),
+                "backlog_chats": int(((review_job or {}).get(
+                    "semantic_progress") or {}).get("backlog_chats") or 0),
+                "lag_seconds": int(((review_job or {}).get(
+                    "semantic_progress") or {}).get("lag_seconds") or 0),
+                "deferred_chats": int(((review_job or {}).get(
+                    "semantic_progress") or {}).get("deferred_chats") or 0),
             },
             "last_application": await _last_application(db, chat_id),
             "events": exp_events,
