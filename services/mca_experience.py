@@ -1073,17 +1073,15 @@ class LessonService:
               chat_id=scope_chat_id)
         return lesson_id, version
 
-    async def validate(self, lesson_id: str, version: int | None = None,
-                       evidence: ValidationEvidence | None = None) -> bool:
-        """candidate → validated по типу (детерминированно, fail-closed)."""
-        if not (mca_gates.experience_lessons_enabled()
-                and mca_gates.experience_review_enabled()):
-            return False
-        ev = evidence or ValidationEvidence()
-        lesson = await self._store.get_lesson(lesson_id, version)
-        if lesson is None or str(lesson["status"]) != "candidate":
-            return False
-        version = int(lesson["version"])
+    @staticmethod
+    def _validation_failures(lesson: dict,
+                             ev: "ValidationEvidence") -> list[str]:
+        """Правила проверки урока (spec §5) — ЕДИНЫЙ путь validate/recheck.
+
+        Возврат пустого списка = свидетельства достаточны. Один и тот же
+        набор правил применяется и к `candidate` (validate), и к повторной
+        проверке уже активного урока (resolve_recheck): второго, «мягкого»
+        пути проверки не существует."""
         failures: list[str] = []
         if ev.kind not in VALIDATION_KINDS:
             failures.append("unknown_kind")
@@ -1141,6 +1139,20 @@ class LessonService:
         # новых контекстах (любой тип проверки; spec §5/T-5001).
         if lesson.get("historical") and not ev.fresh_context_verified:
             failures.append("no_fresh_context")
+        return failures
+
+    async def validate(self, lesson_id: str, version: int | None = None,
+                       evidence: ValidationEvidence | None = None) -> bool:
+        """candidate → validated по типу (детерминированно, fail-closed)."""
+        if not (mca_gates.experience_lessons_enabled()
+                and mca_gates.experience_review_enabled()):
+            return False
+        ev = evidence or ValidationEvidence()
+        lesson = await self._store.get_lesson(lesson_id, version)
+        if lesson is None or str(lesson["status"]) != "candidate":
+            return False
+        version = int(lesson["version"])
+        failures = self._validation_failures(lesson, ev)
         if failures:
             _emit("validation_failed", outcome="failed",
                   reason_code="validation_failed", level="WARN",
@@ -1287,6 +1299,65 @@ class LessonService:
                   entity_ids=[str(lesson_id)],
                   chat_id=lesson.get("scope_chat_id"))
         return updated
+
+    async def resolve_recheck(self, lesson_id: str, version: int | None = None,
+                              *,
+                              evidence: "ValidationEvidence | None" = None
+                              ) -> str:
+        """Снять/подтвердить `recheck_required` у УЖЕ активного урока.
+
+        Единственное «только совместимость» расхождение (tool schema / model /
+        config сменились, а свидетельства урока не менялись) не должно
+        навсегда выключать урок: он перепроверяется тем же набором правил
+        (`_validation_failures`), что и `candidate` в `validate()`. Свидетельства
+        берутся ТОЛЬКО из уже сохранённых связей/сигналов — вызывающий не
+        может «дописать» успех, а новых данных здесь не создаётся.
+
+        Успех → прежний статус сохраняется (active остаётся active, validated
+        не активируется сам), compat-метки и `last_validated_at` обновляются,
+        флаг снят. Провал → `suspended` существующим переходом жизненного
+        цикла (не спор с уроком и не тихое удаление), чтобы устаревшее правило
+        не блокировало новые предложения по той же identity.
+
+        Возврат: 'passed' | 'suspended' | 'skipped'.
+        """
+        if not (mca_gates.experience_lessons_enabled()
+                and mca_gates.experience_review_enabled()):
+            return "skipped"
+        lesson = await self._store.get_lesson(lesson_id, version)
+        if lesson is None or str(lesson["status"]) not in (
+                "active", "validated"):
+            return "skipped"
+        if not int(lesson.get("recheck_required") or 0):
+            return "skipped"                    # нечего разрешать (идемпотентно)
+        version = int(lesson["version"])
+        status = str(lesson["status"])
+        ev = evidence or ValidationEvidence()
+        if self._validation_failures(lesson, ev):
+            await self._store.set_lesson_status(
+                lesson_id, version, "suspended", recheck_required=1)
+            _emit("suspended", outcome="skipped", reason_code="suspended",
+                  level="WARN", entity_ids=[str(lesson_id)],
+                  chat_id=lesson.get("scope_chat_id"))
+            return "suspended"
+        updated = await self._store.set_lesson_status(
+            lesson_id, version, status, recheck_required=0, unverified=0,
+            last_validated_at=_now(), validator_version=VALIDATOR_VERSION,
+            compat_tool_schema_hash=current_tool_schema_hash(),
+            compat_model_fingerprint=current_model_fingerprint(),
+            compat_config_version=current_config_version())
+        if not updated:
+            return "skipped"
+        if status == "active":
+            _emit("activated", outcome="success", reason_code="activated",
+                  entity_ids=[str(lesson_id)],
+                  chat_id=lesson.get("scope_chat_id"))
+        else:
+            _emit("validation_passed", outcome="success",
+                  reason_code="validation_passed",
+                  entity_ids=[str(lesson_id)],
+                  chat_id=lesson.get("scope_chat_id"))
+        return "passed"
 
     # ── delta / lineage / merge ─────────────────────────────────────────────
     async def revise(self, lesson_id: str, *, rule_key: str | None = None,

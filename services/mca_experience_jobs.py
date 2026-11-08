@@ -589,6 +589,9 @@ def default_counters() -> dict:
         "suspended": 0, "outcomes_linked": 0, "utility_updates": 0,
         "stale_marked": 0, "pruned_episodes": 0, "pruned_feedback": 0,
         "pruned_applications": 0, "errors": 0, "batches": 0,
+        # STALE-DEADLOCK: разрешение recheck_required по существующим
+        # свидетельствам (recheck_resolved) и честный уход в suspended.
+        "recheck_resolved": 0, "recheck_suspended": 0,
         # D05: детектор + долговечность (X1) + resume (X4) + fair scan (X5).
         "detector_scanned": 0, "detector_detected": 0, "detector_skipped": 0,
         "capture_write_failures": 0, "resumed_validated": 0,
@@ -1239,6 +1242,13 @@ class ExperienceReviewRunner:
             counters["resumed_activated"] += int(
                 resumed.get("activated") or 0)
             counters["resume_rejected"] += int(resumed.get("rejected") or 0)
+            # STALE-DEADLOCK: пометить и СРАЗУ разрешить расхождение
+            # совместимости ДО предложений — иначе устаревший урок держит
+            # identity и новый кандидат по тому же правилу не создаётся.
+            counters["stale_marked"] += await self._recheck_stale()
+            resolved = await self._resolve_recheck()
+            counters["recheck_resolved"] += int(resolved.get("resolved") or 0)
+            counters["recheck_suspended"] += int(resolved.get("suspended") or 0)
             batch = await self._propose_batch()
             counters["proposed"] += int(batch.get("proposed") or 0)
             counters["skipped_existing"] += int(batch.get("skipped") or 0)
@@ -1258,7 +1268,6 @@ class ExperienceReviewRunner:
                       config_version=me.EXPERIENCE_POLICY_VERSION,
                       entity_ids=[str(x) for x in
                                   (batch.get("linked_lesson_ids") or ())][:20])
-            counters["stale_marked"] += await self._recheck_stale()
             # SOUL-08 (W4): окно реакций на шутку — ЧАСТЬ этого же прохода
             # опыта (второго контура самообучения нет). Гейт
             # `HUMOR_FEEDBACK_ENABLED` резолвится внутри; OFF → нули и
@@ -2231,12 +2240,18 @@ class ExperienceReviewRunner:
         skipped = 0
 
         # P1: ≥need независимых технических неудач по инструменту в чате.
+        # Учитываются только эпизоды, записанные под ТЕКУЩИЕ tool schema и
+        # модель: иначе прошлый провал «переупаковывался» бы в свежий урок
+        # сразу после провала повторной проверки (обход recheck).
         cursor = await self._db.db.execute(
             "SELECT episode_id, chat_id, tool_ids_json, created_at "
             "FROM mca_experience_episodes WHERE outcome_kind = 'failure' "
             "AND outcome_source = 'technical' "
             "AND outcome_reliability = 'verified' "
-            "ORDER BY created_at DESC, episode_id LIMIT ?", (limit * 4,))
+            "AND tool_schema_hash = ? AND model_version = ? "
+            "ORDER BY created_at DESC, episode_id LIMIT ?",
+            (me.current_tool_schema_hash(), me.current_model_fingerprint(),
+             limit * 4))
         by_tool: dict[tuple, list[str]] = {}
         for row in await cursor.fetchall():
             row = dict(row)
@@ -2461,7 +2476,13 @@ class ExperienceReviewRunner:
         X2 (§18E.3): identity включает subject (`applicability`, напр.
         `tool:A` / `user:N pref:…`) — урок для tool A не глушит эквивалентный
         для tool B; повтор того же события (тот же subject) → skip
-        (идемпотентность)."""
+        (идемпотентность).
+
+        STALE-DEADLOCK: урок, снятый с применения провалом повторной проверки
+        (`suspended` + `recheck_required=1`), identity НЕ занимает — иначе
+        дефект совместимости навсегда запрещал бы новое предложение по тому
+        же правилу. Такой урок остаётся в истории (не удаляется), но его
+        место в открытом множестве свободно."""
         canonical = me.CANONICAL_RECOMMENDATIONS.get((type, rule_key))
         if canonical is None:
             return True
@@ -2471,7 +2492,9 @@ class ExperienceReviewRunner:
         try:
             cursor = await self._db.db.execute(
                 "SELECT COUNT(*) AS c FROM mca_lessons WHERE status != "
-                "'superseded' AND type = ? AND scope = ? AND recommendation = ? "
+                "'superseded' AND NOT (status = 'suspended' AND "
+                "recheck_required = 1) AND type = ? AND scope = ? AND "
+                "recommendation = ? "
                 "AND (scope_chat_id IS ? OR scope_chat_id = ?) "
                 "AND (scope_user_id IS ? OR scope_user_id = ?) "
                 "AND ((applicability IS NULL AND ? = '') OR applicability = ?)",
@@ -2629,6 +2652,88 @@ class ExperienceReviewRunner:
         Повторная проверка выполняется только по реальному контрольному
         примеру (существующие пути/fixtures); job не выдумывает успех."""
         return await self._service.lesson.recheck_stale()
+
+    async def _resolve_recheck(self) -> dict:
+        """Разрешить `recheck_required` у активных уроков по СУЩЕСТВУЮЩИМ
+        свидетельствам (те же правила, что у `validate()`).
+
+        Дефект совместимости (маркеры старой версии) не должен навсегда
+        выключать урок: свидетельства берутся из уже сохранённых связей
+        (`mca_evidence_links` → эпизоды) и durable feedback-сигналов (для
+        preference) — новых доказательств не создаётся. Успех → флаг снят,
+        урок снова отбирается; провал → `suspended` через существующий
+        переход, чтобы `_lesson_exists` не блокировал новое предложение по
+        тому же правилу."""
+        limit = me.ExperiencePolicy.review_batch_max()
+        cursor = await self._db.db.execute(
+            "SELECT * FROM mca_lessons WHERE recheck_required = 1 "
+            "AND status IN ('active','validated') "
+            "ORDER BY updated_at, lesson_id LIMIT ?", (limit,))
+        rows = [dict(r) for r in await cursor.fetchall()]
+        resolved = suspended = 0
+        pref_provenance: dict | None = None
+        for row in rows:
+            lesson_id = str(row.get("lesson_id") or "")
+            version = int(row.get("version") or 0)
+            if not lesson_id or version <= 0:
+                continue
+            evidence = None
+            try:
+                if str(row.get("type")) == "social_preference" \
+                        and str(row.get("scope")) == "user_in_chat":
+                    if pref_provenance is None:
+                        pref_provenance = \
+                            await self._load_preference_provenance()
+                    evidence = await self._preference_evidence(
+                        row, pref_provenance)
+                else:
+                    independent = await self._lesson_independent_evidence(row)
+                    evidence = me.ValidationEvidence(
+                        kind="generalization",
+                        independent_episode_ids=tuple(independent))
+            except Exception:
+                logger.warning("[mca16] recheck evidence read failed",
+                               exc_info=True)
+                evidence = None
+            if evidence is None:
+                # durable-свидетельства не подтверждаются → не применяем.
+                outcome = await self._service.lesson.resolve_recheck(
+                    lesson_id, version,
+                    evidence=me.ValidationEvidence(kind="unknown"))
+            else:
+                outcome = await self._service.lesson.resolve_recheck(
+                    lesson_id, version, evidence=evidence)
+            if outcome == "passed":
+                resolved += 1
+            elif outcome == "suspended":
+                suspended += 1
+        return {"resolved": resolved, "suspended": suspended}
+
+    async def _lesson_independent_evidence(self, lesson: dict) -> list[str]:
+        """Независимые эпизоды-основания, подтверждённые в ТЕКУЩЕМ окружении.
+
+        Учитываются только `derived_from`/`supports` с `verification='verified'`
+        и `independence='independent'` (A10), записанные под текущие tool
+        schema и модель: смена схемы/модели означает, что прошлое измерение
+        правило больше не подтверждает (THR-7), поэтому такие эпизоды не
+        пересчитываются как доказательство. `config_version` сюда НЕ входит —
+        это бухгалтерия релиза (меняется на каждом выкате), а не семантика."""
+        ref_id = lesson.get("source_ref_id")
+        if ref_id is None:
+            return []
+        cursor = await self._db.db.execute(
+            "SELECT DISTINCT r.entity_id AS episode_id "
+            "FROM mca_evidence_links l "
+            "JOIN mca_source_refs r ON r.source_ref_id = l.source_ref_id "
+            "JOIN mca_experience_episodes e ON e.episode_id = r.entity_id "
+            "WHERE l.subject_ref_id = ? AND r.entity_type = 'episode' "
+            "AND l.link_type IN ('derived_from','supports') "
+            "AND l.verification = 'verified' "
+            "AND l.independence = 'independent' "
+            "AND e.tool_schema_hash = ? AND e.model_version = ?",
+            (int(ref_id), me.current_tool_schema_hash(),
+             me.current_model_fingerprint()))
+        return [str(r["episode_id"]) for r in await cursor.fetchall()]
 
     # ── шаг 8: prune (retention; связанное с уроками/lineage не трогаем) ─
 
