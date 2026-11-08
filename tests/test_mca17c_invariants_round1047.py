@@ -106,11 +106,13 @@ def test_no_ddl_catalog_ks_tools_delta():
         # EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (contracts §5.1, 08.11.2026):
         # v44 (memory_communities_v44) — аддитивные таблицы сообществ
         # `mca_community_builds`/`mca_community_members` (DDL у владельца
-        # services/memory_communities.py, PG no-op). Санкционированный хвост =
-        # 44; Δ каталога/KS/тулов по-прежнему нулевой.
+        # services/memory_communities.py, PG no-op). Санкционированный хвост
+        # был = 44; VMQ-V (09.11.2026): v45 (voice_transcript_v45) — аддитивные
+        # колонки версии расшифровки в `smart_messages` (PG no-op), хвост = 45.
+        # Δ каталога/KS/тулов по-прежнему нулевой.
         # Точное равенство сохранено; второй assert ловит расхождение
         # реестра шагов и фактического `user_version` свежей БД.
-        assert int(row[0]) == 44
+        assert int(row[0]) == 45
         assert int(row[0]) == max(
             s.version for s in DatabaseService.migration_steps())
     finally:

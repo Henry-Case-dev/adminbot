@@ -441,9 +441,9 @@ class TestSlotClaimsMigrationV42:
         await db.initialize()
         cursor = await db.db.execute("PRAGMA user_version")
         # Хвост схемы: v42 (эта полоса) + v43 (MEMORY-02, mca_entity_canonical)
-        # + v44 (MEMORY-07, mca_community_*).
+        # + v44 (MEMORY-07, mca_community_*) + v45 (VMQ-V, transcript revision).
         latest = max(s.version for s in DatabaseService.migration_steps())
-        assert (await cursor.fetchone())[0] == latest == 44
+        assert (await cursor.fetchone())[0] == latest == 45
         cursor = await db.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
             (SLOT_CLAIMS_TABLE,))
@@ -453,7 +453,7 @@ class TestSlotClaimsMigrationV42:
         db2 = DatabaseService(path)
         await db2.initialize()
         cursor = await db2.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == latest == 44
+        assert (await cursor.fetchone())[0] == latest == 45
         await db2.close()
 
 

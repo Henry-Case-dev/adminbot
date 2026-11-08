@@ -4,11 +4,13 @@
 contracts.md` §5.1 и §6 (инертность):
 
 * `v44` — единственный новый шаг для сообществ: на свежей БД создаются
-  `mca_community_builds` и `mca_community_members` + индексы, `user_version`
-  заканчивается на `44`, реестр шагов совпадает с фактической головой;
+  `mca_community_builds` и `mca_community_members` + индексы, голова схемы
+  (v45 = VMQ-V voice transcript) выше, реестр шагов совпадает с фактической
+  головой;
 * повторный прогон шага и повторный старт — no-op (DDL только
   `CREATE ... IF NOT EXISTS`), версия не растёт, строки не теряются;
-* апгрейд существующей БД `v43` доводит её до `44`, не меняя данные `v43`
+* апгрейд существующей БД `v43` доводит её до головы схемы (`v44` + `v45`),
+  не меняя данные `v43`
   (`mca_entity_canonical`) и не трогая `nodes`/`edges`/`graph_facts`;
 * колонки/индексы обеих таблиц — ровно контрактные;
 * шаг инертен: миграция ничего не backfill'ит, обычные писатели памяти не
@@ -104,7 +106,8 @@ async def test_v44_registered_as_next_step_after_v43():
     steps = {s.version: s.name for s in DatabaseService.migration_steps()}
     assert steps[43] == er.ENTITY_CANONICAL_MIGRATION_STEP_NAME   # v43 не тронут
     assert steps[44] == mcomm.COMMUNITIES_MIGRATION_STEP_NAME
-    assert max(steps) == 44                                        # голова
+    # Голова схемы выше v44 (v45 = VMQ-V voice transcript); пиним точно.
+    assert max(steps) == 45
     assert callable(DatabaseService._migrate_communities_v44)
 
 
@@ -115,8 +118,8 @@ async def test_v44_fresh_db_creates_contract_tables_and_columns(tmp_path):
     svc = DatabaseService(str(tmp_path / "v44_fresh.db"))
     await svc.initialize()
     try:
-        assert await _user_version(svc) == 44
-        assert 44 == max(s.version for s in DatabaseService.migration_steps())
+        assert await _user_version(svc) == 45
+        assert 45 == max(s.version for s in DatabaseService.migration_steps())
 
         objects = await _schema_objects(svc, mcomm.COMMUNITY_BUILDS_TABLE)
         assert objects.get(mcomm.COMMUNITY_BUILDS_TABLE) == "table"
@@ -183,6 +186,8 @@ async def test_v44_repeat_run_is_noop_and_keeps_rows(tmp_path):
         await svc._migrate_communities_v44()
         await svc._migrate_communities_v44()
 
+        # Прямой вызов шага фиксирует ЕГО версию (44), а не голову схемы:
+        # голову (45) доводит только полный раннер — см. ниже.
         assert await _user_version(svc) == 44
         assert await _row_count(svc, "schema_migrations") == book_before
         assert await _row_count(svc, mcomm.COMMUNITY_BUILDS_TABLE) == 1
@@ -196,7 +201,7 @@ async def test_v44_repeat_run_is_noop_and_keeps_rows(tmp_path):
     reopened = DatabaseService(str(tmp_path / "v44_noop.db"))
     await reopened.initialize()
     try:
-        assert await _user_version(reopened) == 44
+        assert await _user_version(reopened) == 45
         assert await _row_count(reopened, "schema_migrations") == book_before
         assert await _row_count(reopened, mcomm.COMMUNITY_BUILDS_TABLE) == 1
     finally:
@@ -241,7 +246,7 @@ async def test_v44_upgrades_v43_db_without_touching_v43_data(tmp_path):
     upgraded = DatabaseService(str(path))
     await upgraded.initialize()
     try:
-        assert await _user_version(upgraded) == 44
+        assert await _user_version(upgraded) == 45
         # Данные v43 и графа не тронуты (ни ALTER, ни UPDATE/DELETE).
         assert await _v43_row(upgraded, papa) == v43_row_before
         assert await _row_count(upgraded, "nodes") == nodes_before
@@ -257,11 +262,11 @@ async def test_v44_upgrades_v43_db_without_touching_v43_data(tmp_path):
     finally:
         await upgraded.close()
 
-    # Повторный старт после апгрейда — no-op, версия остаётся 44.
+    # Повторный старт после апгрейда — no-op, версия остаётся 45 (голова).
     reopened = DatabaseService(str(path))
     await reopened.initialize()
     try:
-        assert await _user_version(reopened) == 44
+        assert await _user_version(reopened) == 45
         assert await _v43_row(reopened, papa) == v43_row_before
     finally:
         await reopened.close()
