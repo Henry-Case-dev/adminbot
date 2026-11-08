@@ -1295,8 +1295,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.1.** Оставить существующие FTS5/exact, vec0/embedding, `reply_graph`, эпизоды, `graph_facts`, Dossier/`get_user_context`, EvidenceB» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.1: единый retrieval-контракт без второго поиска; Reviewer Approved на 90e67277",
+          "observation": "Существующие каналы сохранены и собираются ОДНИМ retrieve(): FTS5/exact, vec0/vector (MemoryManager.retrieve_fact_candidates), reply_graph, эпизоды, entity/community, Dossier/get_user_context, EvidenceBundle и tool loop. AST-гвардия второго поискового пути не находит; счётчики на ответ: unified_calls=1, legacy_calls=0; шесть purposes get_user_context идут через тот же retrieve. Прогон: tests/test_memory_unified_retrieval_06.py 43 passed (кандидат), 14 failed на 40ae401a с тем же тест-файлом.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Контракт §4.4/§7 доказан кодом и тестами на 90e67277; Reviewer независимо подтвердил единственность пути (0 обращений к прежнему чтению RAG, 1 вход единого retrieval). Живая половина качества выдачи — строка MEM-06-RUNTIME (READY_FOR_LIVE)."
     },
     {
       "source_id": "M-MEM-06.2",
@@ -1310,8 +1321,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.2.** Схема запроса: `query`, реальный `chat_id`, `trigger_message/ref`, intent (`fact / who / what-happened / history / relationshi» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.2: схема запроса и ACL-scope; тесты единого retrieval",
+          "observation": "RetrievalRequest несёт query, chat_id/chat_ids (ACL-скоуп проверяется отдельным тестом), trigger_ref (реальный tg_message_id), intent, subject_entity_ids отдельно от nodes.id subject_node_ids, ambiguous_subjects, time-границы, purpose, include_archived/access, top_k/cursor (ui_search 1..20, invalid_limit валидируется). Неразрешённый субъект не угадывается: при двух одноимённых людях — resolution='ambiguous' без автовыбора.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Поля схемы и их действие проверены тестами кандидата (ACL, ambiguity, purpose, режимы, limit); новых типов запроса не введено — расширение существующего RetrievalRequest."
     },
     {
       "source_id": "M-MEM-06.3",
@@ -1325,8 +1347,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.3.** Прикреплять по необходимости точные недавние сообщения и reply-ветку; делать retrieval по всей доступной scoped истории: `exac» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.3: единый канал-набор по scoped истории + fusion; живая embedding-половина вынесена",
+          "observation": "Каналы exact/aliases, FTS (сообщения + граф-факты), vector (vec0/embedding через существующее чтение), subject (факты о субъекте), entity (bounded nodes по id), reply_graph, episode, community и recent объединены в одну выдачу; применяются временные и provenance-фильтры, chat_ids-ACL и дедуп с channel-rank fusion. В тестах канал vector работает на двойниках (внутри чтения — FTS-фолбэк), поэтому качество KNN/MMR на реальных эмбеддингах этим артефактом не доказано.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Структурная часть требования (набор каналов, scoped-история, fusion, ACL, фильтры) доказана на кандидате. Живая половина — реальные эмбеддинги/vec0 KNN и качество состава выдачи на живом корпусе — вынесена в MEM-06-RUNTIME (READY_FOR_LIVE), не выдана за VERIFIED."
     },
     {
       "source_id": "M-MEM-06.4",
@@ -1340,8 +1373,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.4.** Типизированное ранжирование: релевантность запросу, тождество говорящего и субъекта, доверие к источнику, актуальность времени» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.4: типизированный ранг (доверие/свежесть/identity) против высокой cosine",
+          "observation": "typed_rank_score учитывает релевантность, тождество говорящего/субъекта, доверие источника, свежесть, независимость подтверждений и режим; устаревший факт с высокой cosine не выигрывает у свежего точного assertion (отдельный тест), identity-prior предпочитает запрошенного субъекта, архивный статус не поднимает строку. Для путей с принятым контрактом порядка канала (профиль субъекта, recent-срез, direct-RAG) preserve_channel_order отключает типизированное переупорядочивание, чтобы не менять уже отобранный топ.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Политика ранжирования детерминирована и проверена на синтетических кандидатах; фактическое качество ранжирования на живом корпусе с реальными эмбеддингами остаётся в MEM-06-RUNTIME."
     },
     {
       "source_id": "M-MEM-06.5",
@@ -1355,8 +1399,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.5.** Не навязывать фиксированное число memory snippets по классам и не терять exact fact только потому, что его нет в топ-697 для U» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.5: без слепых квот по классам; max_items — кап инструмента",
+          "observation": "Квоты по классам в retrieval/контексте отсутствуют; _MEMORY_LOOKUP_PURPOSE_DEFAULTS остаются капом выдачи инструмента get_user_context и не переносятся в бюджет контекста (тест: изменение max_items не меняет состав контекста Writer, нет отсечения top-697), limit канала — параметр запроса, а не классовое ограничение.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Проверено тестом отсутствия фиксированных квот на кандидате; INV-12 не нарушен."
     },
     {
       "source_id": "M-MEM-06.6",
@@ -1370,8 +1425,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.6.** Нужны три режима: `specific` — точный субъект/факт, `episodic` — восстановление последовательности событий, `thematic` — широк» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.6: три режима specific/episodic/thematic без LLM-маршрутизатора",
+          "observation": "Режимы отображаются на существующие mode/scope: specific — точный субъект/факт, episodic — эпизоды-первыми и хронология, thematic — community/membership и FTS по scoped-истории. На фиксированных входах выбор детерминирован, счётчик LLM-вызовов на пути выбора = 0, неизвестный интент уходит в существующий fallback auto, а не в угаданный режим; выдачи режимов различимы.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Два отдельных теста (различимость/детерминизм и LLM-free выбор) зелёные на кандидате."
     },
     {
       "source_id": "M-MEM-06.7",
@@ -1385,8 +1451,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.7.** Семантический recall возможен по нескольким источникам, но ответ не должен автоматом включать все найденные факты. Нужны прове» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.7: гейты «не перепутан человек»/уместность/«память не нужна»",
+          "observation": "Relevance-гейт отбрасывает кандидатов другого человека и допускает решение «не использовать память»; ambiguity-гейт показывает варианты без автовыбора (в независимом PM-probe два одноимённых человека без uid → resolution='ambiguous', facts=[], empty_reason='ambiguous'); строка, отобранная в scope объявленного субъекта, получает честную атрибуцию subject_entity_id — питает гейты, а не ранжирование. Несколько источников не означают автоматического включения всех найденных фактов.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Гейты проверены тестами кандидата и независимым probe на реальном DatabaseService (два человека с одинаковым отображаемым именем, изоляция в обе стороны)."
     },
     {
       "source_id": "M-MEM-06.8",
@@ -1400,8 +1477,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.8.** Предоставлять Writer **человеческий evidence summary с временными/источниковыми маркерами для внутренней проверки**, отделённы» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.8: человеческий evidence summary без внутренних id; активные промпты не тронуты",
+          "observation": "EvidenceBundle.summary_text формируется с датой/автором/источниковыми маркерами через chat_clock (per-chat IANA), регэксп не находит node_id/edge_id/source_ref_id/cosine/channel=/ent:/fact:; поле аддитивно, hash активных промптов до/после совпадает, post-writer rewriting не добавлен, summary уходит только Writer (в Telegram не выводится). Batch-чтение фактов для summary ограничено _BUNDLE_BLOCK_MAX_REFS ДО обращения к БД (тест на 30 ссылках).",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Три теста (маркеры/отсутствие id, аддитивность, промпт-hash + bounded-чтение) зелёные."
     },
     {
       "source_id": "M-MEM-06.9",
@@ -1415,8 +1503,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.9.** Фактчек не подменять памятью: память может показать «N утверждал X в момент T», но внешняя истинность X проверяется существующ» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.9: фактчек не переписывает статус памяти",
+          "observation": "Память отдаёт утверждение как asserted_by_source; тест проверяет, что вердикт factcheck не меняет статус факта/провенанс записи памяти и не превращает «кто-то сказал» в «подтверждено». Отдельного канала истинности память не заводит.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Проверено тестом неизменности статуса памяти при вердикте factcheck на кандидате."
     },
     {
       "source_id": "M-MEM-06.10",
@@ -1430,8 +1529,45 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.10.** `get_user_context` должен переиспользовать новый resolver/retrieval, сохраняя purpose (`identity/appearance/speech_style/biog» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.10: get_user_context через единый retrieval; регрессия «1 факт из 4» исправлена",
+          "observation": "Все шесть purposes (identity/appearance/speech_style/biography/relationships/general) идут ровно одним входом в общий retrieve с документированной политикой полей; схема инструмента и имена аргументов сохранены, relationships возвращает рёбра с основанием legacy_ids/has_unsupported_sources и не деградирует до general/invalid_purpose. Регрессия ре-ревью исправлена: 4 факта о человеке, имя только в одном тексте → identity и biography возвращают ВСЕ 4 (на 40ae401a возвращался 1), appearance возвращает факты внешности без имени в тексте, general — все 4, архивный факт субъекта в профиль не протекает; uid отделён от nodes.id.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Это ключевая исправленная регрессия: на предке 40ae401a тест воспроизводит потерю 3 из 4 фактов ('вернулось [Лёха носит бороду]'), на 90e67277 — зелёный. Живая половина качества профиля на реальных эмбеддингах — MEM-06-RUNTIME."
+    },
+    {
+      "source_id": "M-MEM-06-RUNTIME",
+      "source_line": 144,
+      "source_text_sha256": "b86e2afe20c3ed05c6e5eeabe3abf91012ed47465442849d9ee300a48eb7a3ce",
+      "source_excerpt": "**MEM-06.4.** Типизированное ранжирование: релевантность запросу, тождество говорящего и субъекта, доверие к источнику, актуальность времени",
+      "disposition": "required",
+      "reason": "Живая половина MEM-06.3/06.4: детерминированная политика отбора и ранжирования доказана кодом и тестами, но в прогонах канал vector работает на двойниках с FTS-фолбэком — фактическое качество KNN/MMR на реальных эмбеддингах и живом корпусе не проверялось.",
+      "req_id": "MEM-06-RUNTIME",
+      "slice": "MEMORY-06",
+      "acceptance": "На развёрнутом кандидате с реальными эмбеддингами (vec0/KNN, без FTS-фолбэка внутри чтения) профиль человека возвращает все известные подтверждённые факты о нём, включая факты без имени в тексте, архивные факты не протекают, перекрёстной утечки между одноимёнными людьми нет; состав и порядок блока RAG direct-ответа на одних и тех же данных совпадают с принятой выдачей (прежний KNN/MMR-порядок, ASC-хронология, капы), качество top-k не хуже прежнего чтения; зафиксированы соответствующие события/метрики.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "review",
+          "ref": "MEM-06-RUNTIME: граница доказанного названа Reviewer при Approved на 90e67277 — реальные эмбеддинги/живой корпус в тестах не участвовали",
+          "observation": "Reviewer Approved после фокусного ре-ревью правок, но отдельно зафиксировал: в прогонах канал vector падал в FTS-фолбэк, поэтому фактическое качество KNN/MMR-ранжирования на живом корпусе с реальными эмбеддингами не проверено. Код и тесты доказывают политику отбора, порядок канала и изоляцию, но не качество выдачи на живых данных; условие закрытия перечислено в acceptance этой строки.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Строка выделена как живая половина §7 (postdeploy-проверка качества ранжирования на реальных эмбеддингах), по образцу MEM-04.6-RUNTIME. Она не расширяет продуктовый объём: те же требования MEM-06.3/06.4, чьи детерминированные части уже VERIFIED. До наблюдения на живом корпусе остаётся READY_FOR_LIVE."
     },
     {
       "source_id": "M-MEMORY-07",

@@ -552,3 +552,14 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
 - (2.58.164, учёт) `HMF-ACC-09`: принятые снимки и e2e относятся к кандидату 97390ee4; после него web/app.js
   менялся существенно (PVR-04, перекомпоновка «Инициативы»), поэтому нужны e2e/снимки заново на 8aada85e.
   Адресат: Builder/Reviewer.
+
+## Added 2026-11-08 (MEMORY-06 unified retrieval — предсуществующие падения, non-blocking)
+
+Зафиксировано один раз при связывании доказательств MEMORY-06 на кандидате 90e67277; каждое падение воспроизведено на предке 40ae401a и не относится к этому кандидату (см. `plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md`).
+
+- [PRE-EXISTING, test-maintenance] `tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken`: секция style-anchors снята переработкой UR-14, а двойник `AnchorsDB` не содержит `get_protected_facts`; тест кодирует удалённый контракт. Правка теста/двойника, не поведения записи; падает одинаково на 40ae401a и 90e67277.
+- [PRE-EXISTING, UI-widget, owner lane EPIC-CM-VISUAL] два падения виджета когнитивной карты (`this._cogBlitLabel`) — наблюдались в UI-проверках лейна; в дереве MEMORY-06 сам символ отсутствует, локализацию и фикс выполняет владелец визуала карты. На память/retrieval не влияет, релиз MEMORY-06 не блокирует.
+- [PRE-EXISTING, initiative, требует подтверждения владельцем лейна] четыре падения инициативы, оставшиеся неподтверждёнными (unconfirmed): в выборках MEMORY-06 не воспроизводятся (1581 passed по memory/graphrag/mca07/mca22/dossier/retrieval и 974 passed по history/direct_chat/tool_router/memory_lookup), поэтому точные ID и статус «продуктовый дефект или гигиена тестов» должен подтвердить initiative-лейн прежде чем чинить; не блокирует MEMORY-06.
+- [PRE-EXISTING, test-maintenance, history-suite doubles] двойники history-набора без `get_protected_facts`/`projection`: 8 тестов `tests/test_history_w4_fixes.py` (двойник `_render_thread` без `projection`), `tests/test_history_cli.py::TestCliFts::test_scope_is_required`, `tests/test_webapp_asap_cover_ui_v21.py::TestHistoryAndCoverTimer::test_history_shows_activation_date`. Набор идентичен на 40ae401a и 90e67277 (974 passed / 10 failed на обеих выборках history/direct_chat/tool_router/memory_lookup).
+- [PRE-EXISTING, test-maintenance, graphrag warning coalescing] `tests/test_asap5_graphrag_recovery.py::test_warning_coalesced_not_repeated` и `tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced` — детерминированно падают на обоих кандидатах; правка логики схлопывания предупреждений, к MEMORY-06 отношения не имеет.
+- [PRE-EXISTING, test-maintenance, youtube double] setup-error `tests/test_youtube_multimodal_download_round1024.py::TestDownloadPublishMultimodal::test_multimodal_success_writes_no_memory`: у `handlers.youtube` нет `get_smart_cache`, двойник отстал от модуля; воспроизводится на 40ae401a.
