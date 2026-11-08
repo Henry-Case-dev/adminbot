@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 /* hotfix7 round 10.25 (T-2658…T-2694, ADR-1025-13) — регресс областей A/B/C/D:
  *   A (D1)  — единый сток высоты `--shell-h`, два явных режима normal/fullscreen,
  *             legacy-откат `shell-layout-legacy` (`UI_SHELL_LAYOUT_V2`).
@@ -313,7 +313,7 @@ function canvasStub() {
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
   }
   // HOTFIX10 (10.25) — bump 2.58.12 → 2.58.13 (ADR-1025-18, T-2864).
-  assert.ok(/APP_VERSION = "2\.58\.167"/.test(SETTINGS), 'D: APP_VERSION 2.58.34');
+  assert.ok(/APP_VERSION = "2\.58\.168"/.test(SETTINGS), 'D: APP_VERSION 2.58.34');
   // Матрица: 5 режимов + пробы shell/glass/heartbeat.
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {

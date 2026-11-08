@@ -742,7 +742,7 @@ class TestBounds:
                                              # release/2.58.160).
                                              # Все три файла уже выпущены и отревьюены;
                                              # иных несанкционированных web/-путей нет
-                                             # (на 2.58.167: ровно 33 web/-пути в diff
+                                             # (на 2.58.168: ровно 33 web/-пути в diff
                                              # = 30 прежних + эти 3).
                                              "web/api/anticliche.py",
                                              "web/api/initiative_publications.py",
@@ -877,7 +877,7 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.167"
+        assert APP_VERSION == "2.58.168"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         # ASAP5 §22 (27.10.2026): +5 «Типы медиа» → 587/466/562/121/119.
         assert len(pc.REGISTRY) == 598
@@ -886,8 +886,11 @@ class TestBounds:
         # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
         # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
         # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
+        # MEMORY-07 (C-6 §5.2): +1 categorized ключ
+        # flags.memory_communities_enabled → 572→573 (REGISTRY 598 тем же
+        # лейном; санкция — принятая дельта каталога волны 3–4).
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 572   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
+                    if s.category is not None]) == 573   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22

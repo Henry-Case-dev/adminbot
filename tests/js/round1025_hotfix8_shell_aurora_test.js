@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 /* hotfix8 round 10.25 (T-2748…T-2782, ADR-1025-16) — регресс shell v3/aurora:
  *   A/B — shell §4: `--shell-*` токены, `data-glass="shell"` на панелях,
  *         снятие цветной линзы `[data-glass="a"]::before` с shell, нейтральный
@@ -210,7 +210,7 @@ function token(name) {
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
   }
   // T-2864: HOTFIX10 bump 2.58.12 → 2.58.13 (cache-bust glass/geometry/bg).
-  assert.ok(/APP_VERSION = "2\.58\.167"/.test(SETTINGS), 'D: APP_VERSION 2.58.34');
+  assert.ok(/APP_VERSION = "2\.58\.168"/.test(SETTINGS), 'D: APP_VERSION 2.58.34');
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {
     assert.ok(MATRIX.indexOf(m) >= 0, 'D: режим ' + m);

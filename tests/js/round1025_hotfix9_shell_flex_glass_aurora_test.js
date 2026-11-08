@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 /* HOTFIX9 round 10.25 (ADR-1025-17) — регресс flex-геометрии shell,
  * графитового shell без текстуры, vendored Liquid Glass и Dark Aurora Flow.
  *   A — единый источник `--app-usable-height` (+ `--shell-h` алиас), flex-колонка
@@ -212,7 +212,7 @@ function token(name) {
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
     assert.ok(ENV.indexOf(flag) >= 0, 'D: .env.example ' + flag);
   }
-  assert.ok(/APP_VERSION = "2\.58\.167"/.test(SETTINGS), 'D: APP_VERSION 2.58.34');
+  assert.ok(/APP_VERSION = "2\.58\.168"/.test(SETTINGS), 'D: APP_VERSION 2.58.34');
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {
     assert.ok(MATRIX.indexOf(m) >= 0, 'D: режим ' + m);
