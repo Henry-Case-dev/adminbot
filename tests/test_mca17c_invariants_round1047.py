@@ -45,7 +45,10 @@ def test_reason_280_single_delta():
     # по фактическому набору. +5 сверх 315 — коды ветки допуска фактчека:
     # ambiguous_needs_clarification, no_claim_after_context,
     # unsafe_or_unavailable_target, unified_retrieval, speech_guard_flagged.
-    assert len(mca_events.REASON_CODES) == 320
+    # MEMORY-06 (72cf7cf4, единый retrieval §4.4/§7.1): 320 → 325 (+5 честных
+    # исходов расширенного запроса и гейтов уместности: ambiguous_subject,
+    # subject_mismatch, invalid_purpose, invalid_limit, limit_not_allowed).
+    assert len(mca_events.REASON_CODES) == 325
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     assert "oversight_job_action" in mca_events.REASON_CODES
     # другие контрольные коды в словаре отсутствуют (grep-факт T-5179)

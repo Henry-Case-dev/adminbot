@@ -377,6 +377,9 @@ class TestValidatorStage:
         # ASAP-EVIDENCE-ROUTING-01 v3 (01.11.2026): 311 → 314 (+3, §1.4 — тоже
         # вне validator-стадии: evidence_skipped/evidence_reused/
         # evidence_unverified_claim_removed).
-        assert len(mca_events.REASON_CODES) == 320
+        # MEMORY-06 (72cf7cf4, единый retrieval §4.4/§7.1): 320 → 325 (+5:
+        # ambiguous_subject/subject_mismatch/invalid_purpose/invalid_limit/
+        # limit_not_allowed — вне validator-стадии).
+        assert len(mca_events.REASON_CODES) == 325
         assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
         assert tf.TEMPORAL_VALIDATOR_SYSTEM

@@ -188,7 +188,9 @@ def test_reason_codes_269():
     # FC-OBSERVABILITY-01 (d8feb2a0, влит 10486bc7/ba8d2b72): 315 → 320
     # (+5: ambiguous_needs_clarification / no_claim_after_context /
     # unsafe_or_unavailable_target / unified_retrieval / speech_guard_flagged).
-    assert len(mca_events.REASON_CODES) == 320       # 309 → 311 → 314 → 320
+    # MEMORY-06 (72cf7cf4, единый retrieval §4.4/§7.1): 320 → 325 (+5: ambiguous_subject /
+    # subject_mismatch / invalid_purpose / invalid_limit / limit_not_allowed).
+    assert len(mca_events.REASON_CODES) == 325       # 309 → 311 → 314 → 320 → 325
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды
