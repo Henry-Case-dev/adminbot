@@ -616,15 +616,21 @@ MEMORY_GATES: dict[str, tuple[bool, str]] = {
     # Ось резолвится НА КАЖДОМ тике регистрации job и на каждом запросе
     # retrieval — тумблер симметричен без рестарта; сборщик гейт не читает
     # (второго механизма резолва в проекте нет).
+    # Заводской дефолт — **ON** (правило проекта: готовая и проверенная
+    # функция включается глобально при первом production-деплое, а
+    # «выключено по умолчанию» не может стать постоянным состоянием).
+    # OFF остаётся рабочим путём: явный выбор владельца (каталог/override
+    # чата) или аварийный env — оба дают ровно прежний паритет baseline.
     "MCA_MEMORY_COMMUNITIES_ENABLED": (
-        False,
-        "C-6: сборка/чтение сообществ. OFF → таблицы `mca_community_*` "
-        "инертны: фоновый тик не делает SQL сборки, единый retrieval не "
-        "читает членство (паритет baseline, обычная выдача не меняется). "
-        "ON → существующий планировщик обслуживания собирает сообщества "
+        True,
+        "C-6: сборка/чтение сообществ. ON (заводской дефолт) → "
+        "существующий планировщик обслуживания собирает сообщества "
         "чат-скоупа и публикует active-сборку, а единый retrieval добавляет "
-        "ограниченный community-канал только в режиме thematic. Новых "
-        "хранилищ/поисков/LLM-вызовов гейт не включает",
+        "ограниченный community-канал только в режиме thematic. OFF → "
+        "таблицы `mca_community_*` инертны: фоновый тик не делает SQL "
+        "сборки, единый retrieval не читает членство (паритет baseline, "
+        "обычная выдача не меняется). Новых хранилищ/поисков/LLM-вызовов "
+        "гейт не включает",
     ),
 }
 
@@ -738,8 +744,10 @@ async def memory_identity_enabled(chat_id: int | None = None) -> bool:
 
 
 def memory_communities_env_enabled() -> bool:
-    """Env-половина `MCA_MEMORY_COMMUNITIES_ENABLED` (аварийный OFF, OFF).
+    """Env-половина `MCA_MEMORY_COMMUNITIES_ENABLED` (аварийный OFF, ON).
 
+    Заводской дефолт — ON (готовая функция включена при первом выкате);
+    явный `MCA_MEMORY_COMMUNITIES_ENABLED=off` остаётся аварийным рубильником.
     Читается до любого SQL: при OFF фоновый тик сообществ и retrieval-канал
     инертны (нулевые запросы), каталоговый слой не резолвится."""
     return _env_flag("MCA_MEMORY_COMMUNITIES_ENABLED",
@@ -753,21 +761,26 @@ async def memory_communities_enabled(chat_id: int | None = None) -> bool:
     * `chat_id=None` (§5.2.1) → только `hot.get`, chat-override не читается;
     * иначе — существующий `chat_params.get_chat_param` (chat override →
       global hot → default), второго механизма нет;
-    * default **OFF до приёмки** (OFF — точный паритет baseline, таблицы
-      `mca_community_*` инертны). Никогда не бросает.
+    * заводской дефолт — **ON** (единственный источник истины —
+      `MEMORY_GATES[...][0]`, литерала в теле нет, чтобы дефолт нельзя было
+      рассинхронизировать); явное сохранённое значение каталога/чата
+      по-прежнему важнее заводского и НЕ перетирается сменой дефолта.
+      Никогда не бросает.
     """
     if not memory_communities_env_enabled():
         return False
     key = MEMORY_GATE_CATALOG_KEYS["MCA_MEMORY_COMMUNITIES_ENABLED"]
+    factory = MEMORY_GATES["MCA_MEMORY_COMMUNITIES_ENABLED"][0]
     if chat_id is None:
         try:
             from services import hot_config as hot
-            return bool(hot.get(key, False))
+            return bool(hot.get(key, factory))
         except Exception:      # pragma: no cover — защитная ветка
             return False
     try:
         from services import chat_params
-        return bool(await chat_params.get_chat_param(int(chat_id), key, False))
+        return bool(await chat_params.get_chat_param(
+            int(chat_id), key, factory))
     except Exception:          # pragma: no cover — защитная ветка
         return False
 

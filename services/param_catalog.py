@@ -3571,11 +3571,13 @@ def _build_registry() -> dict[str, ParamSpec]:
                       secret=False, pg_id=pg_id, group="memory_random",
                       description=desc, progressive_level=level))
     # EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (C-6 §5.2): PG-only product-ось
-    # сборки и чтения семантических сообществ. Заводской дефолт — OFF
-    # (`config_cache._PG_ONLY_BOOL_DEFAULTS`), env-аварийная ось
+    # сборки и чтения семантических сообществ. Заводской дефолт — ON
+    # (`config_cache._PG_ONLY_BOOL_DEFAULTS`; у ParamSpec своего поля дефолта
+    # нет — рантайм-значение читается через hot), env-аварийная ось
     # `MCA_MEMORY_COMMUNITIES_ENABLED` в каталоге НЕ дублируется (резолв —
-    # `mca_gates.memory_communities_enabled`, env AND этот ключ). Пока OFF —
-    # таблицы `mca_community_*` инертны, обычная память работает как раньше.
+    # `mca_gates.memory_communities_enabled`, env AND этот ключ). Сохранённый
+    # явный выбор владельца (global/override чата) важнее заводского и сменой
+    # дефолта не перетирается.
     add(ParamSpec(None, None, CATEGORY_FLAGS,
                   "Сообщества памяти (сборка и чтение)", "bool",
                   secret=False, pg_id="flags.memory_communities_enabled",

@@ -338,8 +338,13 @@ PG_DB_SHA256_B07 = (
 # tools/gen_param_registry_round1025.py, --check OK 597).
 # Хэш ниже — фактический sha256 services/param_catalog.py линии
 # integ/unify-release на 640da3eb (осознанное переутверждение, L-F11S-1).
+# MEMORY-07 активация (09.11.2026, L-F11S-1 re-pin): изменён ТОЛЬКО
+# комментарий записи `flags.memory_communities_enabled` — заводской дефолт
+# оси стал ON (правило «готовая функция включена при первом выкате»); сам
+# ParamSpec/ключи/группы/описания не тронуты, Δ каталога = 0 (REGISTRY 598),
+# `tools/gen_param_registry_round1025.py --check` → OK (артефакты без дрейфа).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "9e482c9f60646f7257818480a9594e865da98b3803b5de6e847dad50631874fc")
+    "69da7ea44dce347b0de284fb301dc2727603ab481645cbf90c200dbdd2c08e63")
 
 
 def _sha256(path: Path) -> str:

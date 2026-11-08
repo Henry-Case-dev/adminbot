@@ -2,7 +2,8 @@
 
 Контракт `plans/features/memory-cognitive-02/contracts.md` §6 (retrieval читает
 ТОЛЬКО `active`-сборку через существующий единый `retrieve`) и §5.2 (гейт
-`MCA_MEMORY_COMMUNITIES_ENABLED`, default OFF).
+`MCA_MEMORY_COMMUNITIES_ENABLED` — заводской default ON после приёмки; OFF —
+явный выбор владельца или аварийный env).
 
 Проверяется:
 
@@ -37,6 +38,8 @@ def _gate(monkeypatch, *, on: bool) -> None:
     if on:
         monkeypatch.setenv("MCA_MEMORY_COMMUNITIES_ENABLED", "on")
     else:
+        # Аварийный env не выставлен (заводской дефолт — ON), значит OFF
+        # задаётся именно каталоговым слоем — как у владельца, снявшего флаг.
         monkeypatch.delenv("MCA_MEMORY_COMMUNITIES_ENABLED", raising=False)
     real_get = hot.get
 
@@ -83,18 +86,22 @@ def _communities(result) -> list:
 @pytest.mark.asyncio
 async def test_no_active_build_keeps_ordinary_results_byte_equivalent(
         tmp_path, monkeypatch):
-    """Нет сборок: выдача с включённым гейтом == выдача с выключенным."""
+    """Нет сборок: заводской ON не меняет выдачу относительно явного OFF."""
     db = await _db(tmp_path, "no_build.db")
     try:
         await db.insert_graph_fact(
             CHAT, "живой факт про дроны", "chat_history", None,
             target_user="Лёха")
 
+        # Заводской дефолт (env не выставлен, каталог не патчится) — ON.
         monkeypatch.delenv("MCA_MEMORY_COMMUNITIES_ENABLED", raising=False)
-        off = await rc.retrieve(db, None, rc.RetrievalRequest(
-            chat_id=CHAT, query="дроны", mode="thematic", top_k=10))
-        _gate(monkeypatch, on=True)
+        assert await mca_gates.memory_communities_enabled(CHAT) is True
         on = await rc.retrieve(db, None, rc.RetrievalRequest(
+            chat_id=CHAT, query="дроны", mode="thematic", top_k=10))
+
+        _gate(monkeypatch, on=False)     # владелец снял флаг в каталоге
+        assert await mca_gates.memory_communities_enabled(CHAT) is False
+        off = await rc.retrieve(db, None, rc.RetrievalRequest(
             chat_id=CHAT, query="дроны", mode="thematic", top_k=10))
 
         assert [c.id for c in on.candidates] == [c.id for c in off.candidates]

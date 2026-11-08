@@ -106,9 +106,11 @@ _PG_ONLY_BOOL_DEFAULTS: dict[str, bool] = {
     # `factcheck_service.critique_section_default`).
     "flags.factcheck_critique_section_enabled": True,
     # EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (C-6 §5.2): ось сообществ —
-    # заводской дефолт OFF до приёмки (OFF = таблицы `mca_community_*`
-    # инертны, обычная память байт-в-байт прежняя).
-    "flags.memory_communities_enabled": False,
+    # заводской дефолт ON (готовая функция включена при первом выкате;
+    # «выключено по умолчанию» не может быть постоянным состоянием).
+    # OFF остаётся рабочим путём: явный выбор владельца (global/override
+    # чата) или аварийный env `MCA_MEMORY_COMMUNITIES_ENABLED=off`.
+    "flags.memory_communities_enabled": True,
 }
 
 

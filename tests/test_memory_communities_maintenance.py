@@ -1,8 +1,9 @@
 """EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 — волна 3: регистрация job сборки.
 
 Контракт `plans/features/memory-cognitive-02/contracts.md` §5.2 (реестр гейтов,
-`MCA_MEMORY_COMMUNITIES_ENABLED` default OFF) и §6 (запуск сборки — только
-существующий `memory_maintenance`, никогда на горячем пути).
+`MCA_MEMORY_COMMUNITIES_ENABLED` — заводской default ON после приёмки) и §6
+(запуск сборки — только существующий `memory_maintenance`, никогда на горячем
+пути).
 
 Проверяется:
 
@@ -13,7 +14,9 @@
   ни одной сборки), ON-hot → сборка запускается без рестарта;
 * сборщик достижим ТОЛЬКО из обслуживания памяти (структурная проверка
   исходников: ни ответ, ни retrieval, ни карта, ни `/status` его не зовут);
-* ключ гейта зарегистрирован в существующем реестре/каталоге с дефолтом OFF.
+* ключ гейта зарегистрирован в существующем реестре/каталоге с дефолтом ON;
+* явный сохранённый выбор владельца (global/override чата) важнее заводского
+  дефолта и сменой дефолта НЕ перетирается.
 
 TEST-LIFECYCLE: CONTRACT owner=MEMORY-07 (contracts §5.2, §6)
 """
@@ -114,9 +117,26 @@ async def test_job_registered_always_with_single_instance_and_coalesce(
 # ── гейт читается каждым тиком (§5.2/§6) ──────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_gate_off_tick_is_noop_without_any_sql(tmp_path, monkeypatch):
-    """OFF → тик инертен: сборка не вызывается, БД не читается вообще."""
-    _flag_off(monkeypatch)
+async def test_emergency_env_off_tick_makes_no_sql_at_all(
+        tmp_path, monkeypatch):
+    """Аварийный env OFF → тик выходит ДО любого чтения БД (ноль SQL).
+
+    После активации MEMORY-07 заводской дефолт оси — ON, поэтому нулевой SQL
+    гарантирует именно аварийный env-рубильник (`=off`): он резолвится
+    раньше scope-скана. Каталоговый OFF остаётся рабочим и проверяется
+    отдельно (`test_catalog_off_tick_builds_nothing`): он требует per-chat
+    резолва (override чата важнее global), поэтому scope-скан там законен.
+    """
+    import services.hot_config as hot
+    monkeypatch.setenv("MCA_MEMORY_COMMUNITIES_ENABLED", "off")
+    real_get = hot.get
+
+    def fake_get(key, default=None):
+        if key == FLAG_KEY:
+            return True                 # каталог ON — важнее только env
+        return real_get(key, default)
+
+    monkeypatch.setattr(hot, "get", fake_get)
     db = await _db(tmp_path, "gate_off.db")
     svc = mm.MemoryMaintenanceService(db, memory=None, llm=None, bot=None)
     builds_calls: list[int] = []
@@ -141,7 +161,37 @@ async def test_gate_off_tick_is_noop_without_any_sql(tmp_path, monkeypatch):
         assert sql_calls == []         # ни одного запроса scope-скана
         assert builds_calls == []
         assert await _builds(db) == []
-        # И прямой резолвер тоже честно OFF (env-половина, без каталога).
+        # И прямой резолвер тоже честно OFF (env-аварийный важнее каталога).
+        assert await mca_gates.memory_communities_enabled(CHAT) is False
+    finally:
+        await svc.shutdown()
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_catalog_off_tick_builds_nothing(tmp_path, monkeypatch):
+    """Каталоговый OFF (владелец снял флаг) → ни одной сборки и ни строки.
+
+    Per-chat резолв требует списка чатов, поэтому scope-скан допустим; но
+    сборщик не вызывается и реестр сборок остаётся пустым.
+    """
+    _flag_off(monkeypatch)
+    db = await _db(tmp_path, "catalog_off.db")
+    svc = mm.MemoryMaintenanceService(db, memory=None, llm=None, bot=None)
+    builds_calls: list[int] = []
+
+    from services import memory_communities as communities
+
+    async def fake_build(db_, chat_id, **kwargs):
+        builds_calls.append(int(chat_id))
+        raise AssertionError("OFF-тик не должен запускать сборку")
+
+    monkeypatch.setattr(communities, "build_chat_communities", fake_build)
+    try:
+        await _seed_graph(db)          # граф есть, каталоговый гейт OFF
+        await svc._tick_communities()
+        assert builds_calls == []
+        assert await _builds(db) == []
         assert await mca_gates.memory_communities_enabled(CHAT) is False
     finally:
         await svc.shutdown()
@@ -266,14 +316,14 @@ def test_maintenance_module_uses_existing_scheduler_only():
 
 # ── реестр флага (§5.2) ───────────────────────────────────────────────────
 
-def test_flag_registered_default_off_through_existing_mechanism():
+def test_flag_registered_default_on_through_existing_mechanism():
     from services import config_cache
     from services import param_catalog as pc
 
     assert "MCA_MEMORY_COMMUNITIES_ENABLED" in mca_gates.MEMORY_GATES
     default, off_parity = mca_gates.MEMORY_GATES[
         "MCA_MEMORY_COMMUNITIES_ENABLED"]
-    assert default is False                     # OFF до приёмки
+    assert default is True            # готовая функция включена при выкате
     assert isinstance(off_parity, str) and "OFF" in off_parity
     assert mca_gates.MEMORY_GATE_CATALOG_KEYS[
         "MCA_MEMORY_COMMUNITIES_ENABLED"] == FLAG_KEY
@@ -286,23 +336,80 @@ def test_flag_registered_default_off_through_existing_mechanism():
     assert spec.per_chat is True
     assert spec.title_ru.strip()
     assert spec.description.strip()
-    # Заводской дефолт OFF и в синтетике конфига (не «не задано»).
-    assert config_cache._PG_ONLY_BOOL_DEFAULTS[FLAG_KEY] is False
+    # Заводской дефолт ON и в синтетике конфига (не «не задано»).
+    assert config_cache._PG_ONLY_BOOL_DEFAULTS[FLAG_KEY] is True
 
 
 @pytest.mark.asyncio
-async def test_flag_resolver_default_off_and_env_half_is_separate(monkeypatch):
-    """Резолвер по умолчанию OFF; env-половина читается без каталога."""
+async def test_flag_resolver_default_on_and_env_half_is_separate(monkeypatch):
+    """Резолвер по умолчанию ON; env-аварийный OFF читается без каталога."""
     monkeypatch.delenv("MCA_MEMORY_COMMUNITIES_ENABLED", raising=False)
+    assert mca_gates.memory_communities_env_enabled() is True
+    assert await mca_gates.memory_communities_enabled(CHAT) is True
+    assert await mca_gates.memory_communities_enabled(None) is True
+
+    # env-аварийный OFF важнее каталога (и заводского дефолта).
+    monkeypatch.setenv("MCA_MEMORY_COMMUNITIES_ENABLED", "off")
     assert mca_gates.memory_communities_env_enabled() is False
     assert await mca_gates.memory_communities_enabled(CHAT) is False
-    assert await mca_gates.memory_communities_enabled(None) is False
 
     _flag_on(monkeypatch)
     assert mca_gates.memory_communities_env_enabled() is True
     assert await mca_gates.memory_communities_enabled(CHAT) is True
     assert await mca_gates.memory_communities_enabled(None) is True
 
-    # env-аварийный OFF важнее каталога.
-    monkeypatch.setenv("MCA_MEMORY_COMMUNITIES_ENABLED", "off")
-    assert await mca_gates.memory_communities_enabled(CHAT) is False
+
+@pytest.mark.asyncio
+async def test_explicit_off_override_survives_factory_default_change(
+        monkeypatch):
+    """Смена заводского дефолта OFF→ON не сбрасывает выбор владельца.
+
+    Проверяются ОБА слоя существующего резолва (второго механизма нет):
+    сохранённый global (`hot.get` ← строка bot_settings) и сохранённый
+    per-chat override (`chat_params.overrides`). Явный OFF важнее нового
+    заводского ON и переживает включение по умолчанию; заводской дефолт при
+    этом остаётся ON для чата без override.
+    """
+    from services import chat_params
+
+    assert mca_gates.MEMORY_GATES[
+        "MCA_MEMORY_COMMUNITIES_ENABLED"][0] is True     # новый заводской старт
+    monkeypatch.delenv("MCA_MEMORY_COMMUNITIES_ENABLED", raising=False)
+    OTHER_CHAT = CHAT + 1
+
+    # 1) Global: владелец уже сохранил OFF до смены дефолта.
+    import services.hot_config as hot
+    real_get = hot.get
+
+    def fake_get(key, default=None):
+        if key == FLAG_KEY:
+            return False                 # существующая строка bot_settings
+        return real_get(key, default)
+
+    monkeypatch.setattr(hot, "get", fake_get)
+    assert await mca_gates.memory_communities_enabled(None) is False
+
+    # 2) Per-chat: у чата CHAT сохранён OFF, у OTHER_CHAT override нет.
+    class _Cache:
+        async def get_chat_params(self, chat_id):
+            if int(chat_id) == CHAT:
+                return {"overrides": {FLAG_KEY: False}}
+            return {"overrides": {}}
+
+    saved = chat_params.get_chat_params_cache()
+    chat_params.set_chat_params_cache(_Cache())
+    try:
+        assert await mca_gates.memory_communities_enabled(CHAT) is False
+        assert await mca_gates.memory_communities_enabled(OTHER_CHAT) is False
+    finally:
+        chat_params.set_chat_params_cache(saved)
+
+    # 3) Тот же чат, но global-значение уже новое (заводской ON): explicit
+    #    per-chat OFF продолжает побеждать и не «схлопывается» к дефолту.
+    monkeypatch.setattr(hot, "get", real_get)
+    chat_params.set_chat_params_cache(_Cache())
+    try:
+        assert await mca_gates.memory_communities_enabled(OTHER_CHAT) is True
+        assert await mca_gates.memory_communities_enabled(CHAT) is False
+    finally:
+        chat_params.set_chat_params_cache(saved)
