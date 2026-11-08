@@ -62,15 +62,27 @@ async def _node(db, chat_id, name, etype="user"):
 
 
 async def _add_build(db, *, build_id, status, members, started_at,
-                     chat_id=CHAT, prev_build_id=None):
-    """Настоящие строки реестра сборок/членства (без выдуманных колонок)."""
+                     chat_id=CHAT, prev_build_id=None,
+                     proven_community_ids=None, proven_communities=None):
+    """Настоящие строки реестра сборок/членства (без выдуманных колонок).
+
+    `change_summary_json` — реальный носитель proven-набора (§14.3): без него
+    сборка читается как «proven нет», поэтому тесты, ожидающие сообщества в
+    выдаче, обязаны объявить `proven_community_ids`/`proven_communities`.
+    """
+    summary: dict = {}
+    if proven_community_ids is not None:
+        summary["proven_community_ids"] = list(proven_community_ids)
+    if proven_communities is not None:
+        summary["proven_communities"] = list(proven_communities)
     await db.db.execute(
         "INSERT INTO mca_community_builds (build_id, chat_id, algorithm, "
         "algorithm_version, params_json, graph_revision, node_count, "
         "edge_count, prev_build_id, change_summary_json, status, started_at, "
         "finished_at) VALUES (?, ?, 'weighted_modularity_local_moving', '1', "
-        "'{}', 'rev', ?, 0, ?, '{}', ?, ?, ?)",
-        (build_id, chat_id, len(members), prev_build_id, status, started_at,
+        "'{}', 'rev', ?, 0, ?, ?, ?, ?, ?)",
+        (build_id, chat_id, len(members), prev_build_id,
+         json.dumps(summary, ensure_ascii=False), status, started_at,
          started_at))
     for community_id, nodes in members.items():
         for node_id, weight in nodes:
@@ -106,7 +118,11 @@ async def _seed_active_communities(db):
         db, build_id=BUILD_ACTIVE, status=mcom.STATUS_ACTIVE,
         members={"c1": [(hub, 3.0), (topic, 3.0)],
                  "c2": [(other_a, 1.0), (other_b, 1.0)]},
-        started_at=1750000000)
+        started_at=1750000000,
+        # Оба сообщества — proven (для c2 доказана связь в синтетике нет, но
+        # контракт §14.2 не пересчитывается read-моделью: она читает статус
+        # сборки). Проверяется семантика подписи, а фильтр WEAK — отдельно.
+        proven_community_ids=["c1", "c2"])
     return {"hub": hub, "topic": topic, "other_a": other_a, "other_b": other_b}
 
 
@@ -681,8 +697,153 @@ class TestCommunitySearchItems:
             "участник чата", "другой участник"}
 
 
-# ── 7. ACL/RBAC эндпоинта ──────────────────────────────────────────────────
+# ── 7. §14.3: наружу только PROVEN, WEAK не появляется вовсе ───────────────
 
+class TestProvenOnlyCommunities:
+    """Блокирующая находка ревью: read-модель отдавала ВСЕ сообщества.
+
+    §14.3 разрешает пользовательским путям (карта и поиск) только proven;
+    слабые не подписываются и не выдаются ни при каких обстоятельствах.
+    """
+
+    async def _mixed_build(self, db):
+        """Одна сборка: `c-proven` в proven-наборе, `c-weak` — нет."""
+        strong_a = await _node(db, CHAT, "Кирилл")
+        strong_b = await _node(db, CHAT, "Папаха", "topic")
+        weak_a = await _node(db, CHAT, "Сосна", "topic")
+        weak_b = await _node(db, CHAT, "Берег", "topic")
+        await db.upsert_edge(strong_a, strong_b, "обсуждали",
+                             weight_increment=3)
+        await db.upsert_edge(weak_a, weak_b, "рядом")
+        await _add_build(
+            db, build_id=BUILD_ACTIVE, status=mcom.STATUS_ACTIVE,
+            members={"c-proven": [(strong_a, 3.0), (strong_b, 3.0)],
+                     "c-weak": [(weak_a, 1.0), (weak_b, 1.0)]},
+            started_at=1750000000, proven_community_ids=["c-proven"],
+            proven_communities=[{
+                "community_id": "c-proven", "status": "proven", "size": 3,
+                "strong_share": 1.0, "density": 0.667,
+                "basis": "сборка", "label": "Сообщество: Кирилл"}])
+        return {"strong_a": strong_a, "strong_b": strong_b,
+                "weak_a": weak_a, "weak_b": weak_b}
+
+    @pytest.mark.asyncio
+    async def test_build_without_proven_ids_returns_empty_items(self, db):
+        """Активная сборка без proven-набора: `items=[]`, а не «все сообщества»."""
+        member_a = await _node(db, CHAT, "Сосна", "topic")
+        member_b = await _node(db, CHAT, "Берег", "topic")
+        await _add_build(db, build_id=BUILD_ACTIVE, status=mcom.STATUS_ACTIVE,
+                         members={"c-weak": [(member_a, 1.0),
+                                             (member_b, 1.0)]},
+                         started_at=1750000000)          # '{}' — ключа нет
+
+        block = await ms.read_active_communities(db, CHAT)
+        assert block["state"] == ms.COMMUNITY_STATE_OK
+        assert block["reason_code"] == \
+            ms.COMMUNITY_REASON_NO_PROVEN_COMMUNITIES
+        assert block["items"] == [] and block["shown"] == 0
+        assert block["total"] == 0
+        # Сборка по-прежнему честно названа (не «нет сборки»).
+        assert block["build"]["build_id"] == BUILD_ACTIVE
+
+    @pytest.mark.asyncio
+    async def test_mixed_build_returns_only_proven_ids(self, db):
+        await self._mixed_build(db)
+        block = await ms.read_active_communities(db, CHAT)
+        assert block["state"] == ms.COMMUNITY_STATE_OK
+        assert block["reason_code"] is None
+        assert {item["community_id"] for item in block["items"]} == {"c-proven"}
+        assert block["total"] == 1 and block["shown"] == 1
+
+        # Запрос конкретного слабого сообщества ничего не подписывает.
+        only_weak = await ms.read_active_communities(
+            db, CHAT, community_ids=("c-weak",))
+        assert only_weak["items"] == []
+        assert only_weak["reason_code"] == \
+            ms.COMMUNITY_REASON_NO_PROVEN_COMMUNITIES
+        assert only_weak["build"]["build_id"] == BUILD_ACTIVE
+
+    @pytest.mark.asyncio
+    async def test_weak_community_never_surfaces_a_label(self, db,
+                                                         monkeypatch):
+        """Ни в read-модели, ни в поиске, ни в карте подписи WEAK нет."""
+        await self._mixed_build(db)
+
+        block = await ms.read_active_communities(db, CHAT)
+        # Наружу — только proven; слабый id не встречается в блоке вообще
+        # (ни подписью, ни метриками, ни нейтральным «Сообщество N»).
+        assert {item["community_id"] for item in block["items"]} == {"c-proven"}
+        assert "c-weak" not in json.dumps(block, ensure_ascii=False)
+
+        # Поиск: кандидат-сообщество слабой сборки не подписывается меткой.
+        async def fake_retrieve(db_arg, memory, request):
+            return _result([_candidate(id="comm:c-weak:1",
+                                       entity_type="community",
+                                       entity_id="c-weak",
+                                       channel="community")])
+
+        monkeypatch.setattr(rc, "retrieve", fake_retrieve)
+        response = await ms.search_memory(db, None, query="Сосна",
+                                          chat_id=CHAT)
+        assert response.items[0].title == "Без названия"
+        assert "Сообщество" not in response.items[0].title
+
+        # Карта: аддитивный блок сообществ содержит только proven.
+        payload = await cm.build_cognitive_map(db, CHAT)
+        assert {item["community_id"]
+                for item in payload["communities"]["items"]} == {"c-proven"}
+        assert "c-weak" not in json.dumps(payload["communities"],
+                                          ensure_ascii=False)
+
+    @pytest.mark.asyncio
+    async def test_proven_community_keeps_existing_label_semantics(self, db):
+        """Proven-сообщество подписывается как раньше (деградации нет)."""
+        await self._mixed_build(db)
+        block = await ms.read_active_communities(db, CHAT)
+        item = block["items"][0]
+        assert item["label_kind"] in ("named", "neutral")
+        assert item["label_basis"]
+        assert item["metrics"]["confirmed_links"] >= 0
+        assert item["member_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_broken_summary_json_is_honestly_empty(self, db):
+        """Сломанный JSON сборки не превращается в «все сообщества»."""
+        member_a = await _node(db, CHAT, "Сосна", "topic")
+        member_b = await _node(db, CHAT, "Берег", "topic")
+        await _add_build(db, build_id=BUILD_ACTIVE, status=mcom.STATUS_ACTIVE,
+                         members={"c-1": [(member_a, 1.0), (member_b, 1.0)]},
+                         started_at=1750000000)
+        await db.db.execute(
+            "UPDATE mca_community_builds SET change_summary_json = 'not-json' "
+            "WHERE build_id = ?", (BUILD_ACTIVE,))
+        await db.db.commit()
+
+        block = await ms.read_active_communities(db, CHAT)
+        assert block["items"] == [] and block["total"] == 0
+        assert block["reason_code"] == \
+            ms.COMMUNITY_REASON_NO_PROVEN_COMMUNITIES
+
+    @pytest.mark.asyncio
+    async def test_map_payload_stays_additive_with_empty_communities(self, db):
+        """Пустой proven-набор не ломает аддитивность payload карты."""
+        member_a = await _node(db, CHAT, "Сосна", "topic")
+        member_b = await _node(db, CHAT, "Берег", "topic")
+        await _add_build(db, build_id=BUILD_ACTIVE, status=mcom.STATUS_ACTIVE,
+                         members={"c-weak": [(member_a, 1.0),
+                                             (member_b, 1.0)]},
+                         started_at=1750000000)
+        payload = await cm.build_cognitive_map(db, CHAT)
+        block = payload["communities"]
+        assert set(block) == {"state", "reason_code", "build", "items",
+                              "total", "shown", "truncated"}
+        assert block["state"] == ms.COMMUNITY_STATE_OK
+        assert block["items"] == [] and block["total"] == 0
+        assert block["build"]["build_id"] == BUILD_ACTIVE
+        assert payload["sources"]["communities"] == "loaded"
+
+
+# ── 8. ACL/RBAC эндпоинта ──────────────────────────────────────────────────
 class TestSearchEndpointAccess:
     def test_search_route_registered(self):
         paths = {(route.path, tuple(sorted(route.methods)))

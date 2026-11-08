@@ -16,6 +16,10 @@
   ``state='unavailable'``; таблицы есть, сборки нет → ``state='no_active_build'``;
   есть active-сборка → реальные сообщества. Ни одно состояние не подменяется
   «пустым успехом» (§6/§4.7 S-4);
+* наружу выходят ТОЛЬКО proven-сообщества активной сборки
+  (``change_summary_json.proven_community_ids``, §14.2/§14.3): WEAK в карту и
+  в поиск не попадают вовсе, а пустой proven-набор — это ``items=[]`` с
+  ``reason_code='no_proven_communities'`` (не «все сообщества»);
 * LOD-тайлы (``agg:``) и клиентские компоненты связности (``cl:``) здесь не
   появляются: это техника рендера, а не сообщество (§4.6/INV-15);
 * ноль LLM-вызовов, ноль мутаций памяти, ноль re-embed (§4.7 S-2).
@@ -63,6 +67,9 @@ COMMUNITY_REASON_TABLES_ABSENT = "tables_absent"
 COMMUNITY_REASON_NO_ACTIVE_BUILD = "no_active_build"
 COMMUNITY_REASON_SCOPE_GLOBAL = "scope_global"
 COMMUNITY_REASON_READ_FAILED = "read_failed"
+#: Активная сборка есть, но доказанных сообществ в ней нет (§14.2/§14.3):
+#: `state='ok'` — чтение удалось, `items` пуст честно, а не «все сообщества».
+COMMUNITY_REASON_NO_PROVEN_COMMUNITIES = "no_proven_communities"
 
 #: Сколько сообществ отдаёт карта (payload остаётся bounded).
 COMMUNITY_READ_LIMIT = 24
@@ -194,6 +201,60 @@ def community_read_failure() -> dict:
     """Честный блок сообществ при сбое чтения (не «пустой успех»)."""
     return _empty_communities(COMMUNITY_STATE_UNAVAILABLE,
                               COMMUNITY_REASON_READ_FAILED)
+
+
+def _build_block(build) -> dict:
+    """Публичная часть строки сборки (без `change_summary_json`)."""
+    return {
+        "build_id": str(build["build_id"]),
+        "algorithm": str(build["algorithm"] or ""),
+        "algorithm_version": str(build["algorithm_version"] or ""),
+        "graph_revision": str(build["graph_revision"] or ""),
+        "status": str(build["status"] or ""),
+        "node_count": int(build["node_count"] or 0),
+        "edge_count": int(build["edge_count"] or 0),
+        "prev_build_id": (str(build["prev_build_id"])
+                          if build["prev_build_id"] is not None else None),
+        "started_at": (int(build["started_at"])
+                       if build["started_at"] is not None else None),
+        "finished_at": (int(build["finished_at"])
+                        if build["finished_at"] is not None else None),
+    }
+
+
+def _proven_community_ids(build) -> set[str]:
+    """Proven-набор активной сборки (§14.2/§14.3) — единственное, что выходит.
+
+    Нормативный ключ — `change_summary_json.proven_community_ids`;
+    `proven_communities` добавляет метрики и статус, поэтому proven-строки из
+    него тоже учитываются (слабые — нет). Ключа нет (сборка до quality
+    contract) или разбор сломан → пустой набор: «неизвестно» НЕ означает
+    «всё доказано», поэтому канал честно молчит, а не отдаёт все сообщества.
+    """
+    try:
+        summary = json.loads(build["change_summary_json"] or "{}")
+    except (KeyError, TypeError, ValueError):
+        return set()
+    if not isinstance(summary, dict):
+        return set()
+    proven: set[str] = set()
+    ids = summary.get("proven_community_ids")
+    if isinstance(ids, (list, tuple)):
+        for community_id in ids:
+            key = str(community_id or "").strip()
+            if key:
+                proven.add(key)
+    entries = summary.get("proven_communities")
+    if isinstance(entries, (list, tuple)):
+        for item in entries:
+            if not isinstance(item, dict):
+                continue
+            if item.get("status") != _communities.COMMUNITY_STATUS_PROVEN:
+                continue
+            key = str(item.get("community_id") or "").strip()
+            if key:
+                proven.add(key)
+    return proven
 
 
 async def _community_stats_and_label(db, *, chat_id: int, build_id: str,
@@ -341,6 +402,14 @@ async def read_active_communities(db, chat_id: int | None, *,
 
     ``community_ids`` ограничивает набор (используется поиском для подписей
     уже найденных сообществ), ``None`` — весь bounded-набор карты.
+
+    §14.3 (quality contract): наружу выходят ТОЛЬКО proven-сообщества — те,
+    что перечислены в `change_summary_json.proven_community_ids` активной
+    сборки. WEAK-сообщества не появляются здесь вовсе (ни подписи, ни
+    метрики, ни нейтрального «Сообщество N» как категории), потому что этот
+    блок питает и карту, и поисковый путь. Пустой/отсутствующий proven-набор
+    даёт честный `state='ok'` с `items=[]` и
+    `reason_code='no_proven_communities'` — НЕ «все сообщества».
     """
     if chat_id is None:
         return _empty_communities(COMMUNITY_STATE_NO_ACTIVE_BUILD,
@@ -364,7 +433,8 @@ async def read_active_communities(db, chat_id: int | None, *,
             db,
             "SELECT build_id, algorithm, algorithm_version, graph_revision, "
             "node_count, edge_count, prev_build_id, status, started_at, "
-            "finished_at FROM " + _communities.COMMUNITY_BUILDS_TABLE +
+            "finished_at, change_summary_json FROM "
+            + _communities.COMMUNITY_BUILDS_TABLE +
             " WHERE chat_id = ? AND status = ? "
             "ORDER BY started_at DESC, build_id DESC LIMIT 1",
             (chat_id, _communities.STATUS_ACTIVE))
@@ -377,15 +447,26 @@ async def read_active_communities(db, chat_id: int | None, *,
                                   COMMUNITY_REASON_NO_ACTIVE_BUILD)
 
     build_id = str(build["build_id"])
+    build_block = _build_block(build)
+    proven = _proven_community_ids(build)
+    # Запрошенный набор (например, уже найденные retrieval-кандидаты)
+    # пересекается с proven: слабое сообщество не подписывается и на
+    # поисковом пути.
+    wanted = ([str(cid) for cid in community_ids if str(cid) in proven]
+              if community_ids is not None else sorted(proven))
+    if not wanted:
+        return {
+            "state": COMMUNITY_STATE_OK,
+            "reason_code": COMMUNITY_REASON_NO_PROVEN_COMMUNITIES,
+            "build": build_block,
+            "items": [], "total": 0, "shown": 0, "truncated": False,
+        }
+
     sql = ("SELECT community_id, COUNT(*) AS member_count FROM "
            + _communities.COMMUNITY_MEMBERS_TABLE +
-           " WHERE chat_id = ? AND build_id = ?")
-    params: list = [chat_id, build_id]
-    wanted = [str(cid) for cid in community_ids] \
-        if community_ids is not None else None
-    if wanted is not None:
-        sql += " AND community_id IN (" + ",".join("?" for _ in wanted) + ")"
-        params.extend(wanted)
+           " WHERE chat_id = ? AND build_id = ?"
+           " AND community_id IN (" + ",".join("?" for _ in wanted) + ")")
+    params: list = [chat_id, build_id, *wanted]
     sql += " GROUP BY community_id ORDER BY community_id LIMIT ?"
     params.append(COMMUNITY_READ_LIMIT + 1)
 
@@ -429,21 +510,7 @@ async def read_active_communities(db, chat_id: int | None, *,
     return {
         "state": COMMUNITY_STATE_OK,
         "reason_code": None,
-        "build": {
-            "build_id": build_id,
-            "algorithm": str(build["algorithm"] or ""),
-            "algorithm_version": str(build["algorithm_version"] or ""),
-            "graph_revision": str(build["graph_revision"] or ""),
-            "status": str(build["status"] or ""),
-            "node_count": int(build["node_count"] or 0),
-            "edge_count": int(build["edge_count"] or 0),
-            "prev_build_id": (str(build["prev_build_id"])
-                              if build["prev_build_id"] is not None else None),
-            "started_at": (int(build["started_at"])
-                           if build["started_at"] is not None else None),
-            "finished_at": (int(build["finished_at"])
-                            if build["finished_at"] is not None else None),
-        },
+        "build": build_block,
         "items": items,
         "total": int(total),
         "shown": len(rows),
@@ -947,6 +1014,7 @@ __all__ = [
     "COMMUNITY_REASON_NO_ACTIVE_BUILD",
     "COMMUNITY_REASON_SCOPE_GLOBAL",
     "COMMUNITY_REASON_READ_FAILED",
+    "COMMUNITY_REASON_NO_PROVEN_COMMUNITIES",
     "SEARCH_PAGE_DEFAULT",
     "SEARCH_PAGE_MAX",
     "SEARCH_POOL_LIMIT",
