@@ -21,6 +21,8 @@ TEST-LIFECYCLE: CONTRACT owner=MEMORY-07 (contracts §6, §5.2)
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from services import mca_gates
@@ -59,15 +61,29 @@ async def _db(tmp_path, name: str = "communities_retrieval.db") \
 
 
 async def _add_build(db, *, build_id: str, status: str, members: dict,
-                     started_at: int, prev_build_id: str | None = None) -> None:
-    """Настоящие строки реестра сборок/членства (без выдуманных колонок)."""
+                     started_at: int, prev_build_id: str | None = None,
+                     proven_community_ids: list | None = None,
+                     proven_communities: list | None = None,
+                     chat_id: int = CHAT) -> None:
+    """Настоящие строки реестра сборок/членства (без выдуманных колонок).
+
+    `change_summary_json` — реальный носитель proven-набора (§14.3): без него
+    сборка читается как «proven нет», поэтому тесты, ожидающие выдачу канала,
+    обязаны объявить `proven_community_ids`/`proven_communities`.
+    """
+    summary: dict = {}
+    if proven_community_ids is not None:
+        summary["proven_community_ids"] = list(proven_community_ids)
+    if proven_communities is not None:
+        summary["proven_communities"] = list(proven_communities)
     await db.db.execute(
         "INSERT INTO mca_community_builds (build_id, chat_id, algorithm, "
         "algorithm_version, params_json, graph_revision, node_count, "
         "edge_count, prev_build_id, change_summary_json, status, started_at, "
-        "finished_at) VALUES (?, ?, 'test', '1', '{}', 'rev', ?, 0, ?, '{}', "
+        "finished_at) VALUES (?, ?, 'test', '1', '{}', 'rev', ?, 0, ?, ?, "
         "?, ?, ?)",
-        (build_id, CHAT, len(members), prev_build_id, status, started_at,
+        (build_id, chat_id, len(members), prev_build_id,
+         json.dumps(summary, ensure_ascii=False), status, started_at,
          started_at))
     for community_id, nodes in members.items():
         for node_id, weight in nodes:
@@ -75,7 +91,7 @@ async def _add_build(db, *, build_id: str, status: str, members: dict,
                 "INSERT INTO mca_community_members (chat_id, build_id, "
                 "community_id, node_id, member_weight, created_at) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
-                (CHAT, build_id, community_id, node_id, weight, started_at))
+                (chat_id, build_id, community_id, node_id, weight, started_at))
     await db.db.commit()
 
 
@@ -123,16 +139,18 @@ async def test_only_active_build_membership_is_returned(tmp_path, monkeypatch):
 
         await _add_build(db, build_id="cb-old", status="superseded",
                          members={"c-stale": [(old_node, 1.0)]},
-                         started_at=1000)
+                         started_at=1000,
+                         proven_community_ids=["c-stale"])
         await _add_build(db, build_id="cb-new", status="active",
                          members={"c-fresh": [(first, 1.0), (second, 0.25)]},
-                         started_at=2000, prev_build_id="cb-old")
+                         started_at=2000, prev_build_id="cb-old",
+                         proven_community_ids=["c-fresh"])
         await _add_build(db, build_id="cb-broken", status="failed",
                          members={"c-failed": [(old_node, 1.0)]},
-                         started_at=3000)
+                         started_at=3000, proven_community_ids=["c-failed"])
         await _add_build(db, build_id="cb-partial", status="building",
                          members={"c-building": [(old_node, 1.0)]},
-                         started_at=4000)
+                         started_at=4000, proven_community_ids=["c-building"])
 
         _gate(monkeypatch, on=True)
 
@@ -163,7 +181,8 @@ async def test_gate_off_hides_existing_active_build(tmp_path, monkeypatch):
     try:
         node = await db.upsert_node(CHAT, "Папаха", "user")
         await _add_build(db, build_id="cb-active", status="active",
-                         members={"c-1": [(node, 1.0)]}, started_at=1000)
+                         members={"c-1": [(node, 1.0)]}, started_at=1000,
+                         proven_community_ids=["c-1"])
         _gate(monkeypatch, on=False)
         result = await rc.retrieve(db, None, rc.RetrievalRequest(
             chat_id=CHAT, query="Папаха", mode="thematic", top_k=10))
@@ -180,7 +199,8 @@ async def test_non_thematic_mode_never_reads_communities(tmp_path, monkeypatch):
     try:
         node = await db.upsert_node(CHAT, "Папаха", "user")
         await _add_build(db, build_id="cb-active", status="active",
-                         members={"c-1": [(node, 1.0)]}, started_at=1000)
+                         members={"c-1": [(node, 1.0)]}, started_at=1000,
+                         proven_community_ids=["c-1"])
         _gate(monkeypatch, on=True)
         for mode in ("specific", "episodic"):
             result = await rc.retrieve(db, None, rc.RetrievalRequest(
@@ -203,7 +223,8 @@ async def test_member_weight_is_internal_weight_not_ranking_score(
         weak = await db.upsert_node(CHAT, "Слабый", "user")
         strong = await db.upsert_node(CHAT, "Сильный", "user")
         await _add_build(db, build_id="cb-w", status="active", started_at=1000,
-                         members={"c-w": [(weak, 0.1), (strong, 1.0)]})
+                         members={"c-w": [(weak, 0.1), (strong, 1.0)]},
+                         proven_community_ids=["c-w"])
         _gate(monkeypatch, on=True)
 
         rows = await rc._community_candidates(db, CHAT, [], 10)
@@ -234,7 +255,8 @@ async def test_membership_ids_are_node_ids_not_telegram_uids(
     try:
         node = await db.upsert_node(CHAT, "Папаха", "user")
         await _add_build(db, build_id="cb-active", status="active",
-                         members={"c-node": [(node, 1.0)]}, started_at=1000)
+                         members={"c-node": [(node, 1.0)]}, started_at=1000,
+                         proven_community_ids=["c-node"])
         _gate(monkeypatch, on=True)
         result = await rc.retrieve(db, None, rc.RetrievalRequest(
             chat_id=CHAT, query="Папаха", mode="thematic", top_k=10,
@@ -263,5 +285,146 @@ async def test_channel_is_empty_when_tables_absent(tmp_path, monkeypatch):
         result = await rc.retrieve(db, None, rc.RetrievalRequest(
             chat_id=CHAT, query="Папаха", mode="thematic", top_k=10))
         assert _communities(result) == []
+    finally:
+        await db.close()
+
+
+# ── MEMORY-07 §14.2/§14.3: PROVEN/WEAK в retrieval ──────────────────────────
+
+def _proven_entry(community_id: str, *, size: int, strong_share: float,
+                  density: float, label: str | None = None,
+                  basis: str = "сформировано по реальным связям чата") -> dict:
+    """Запись `proven_communities` ровно в том виде, что пишет сборщик."""
+    return {"community_id": community_id, "status": "proven", "size": size,
+            "strong_share": strong_share, "density": density,
+            "basis": basis, "label": label}
+
+
+@pytest.mark.asyncio
+async def test_weak_community_excluded_from_thematic_channel(
+        tmp_path, monkeypatch):
+    """§14.3: WEAK не выводятся вообще, PROVEN остаётся; other modes — паритет."""
+    db = await _db(tmp_path, "weak.db")
+    try:
+        hub = await db.upsert_node(CHAT, "Кирилл", "user")
+        topic_a = await db.upsert_node(CHAT, "Папаха", "topic")
+        topic_b = await db.upsert_node(CHAT, "Самовар", "topic")
+        weak_a = await db.upsert_node(CHAT, "Сосна", "topic")
+        weak_b = await db.upsert_node(CHAT, "Берег", "topic")
+        await _add_build(
+            db, build_id="cb-mixed", status="active", started_at=2000,
+            members={"c-proven": [(hub, 2.0), (topic_a, 1.0), (topic_b, 1.0)],
+                     "c-weak": [(weak_a, 1.0), (weak_b, 1.0)]},
+            proven_community_ids=["c-proven"],
+            proven_communities=[_proven_entry(
+                "c-proven", size=3, strong_share=1.0, density=0.667,
+                label="Сообщество: Кирилл")])
+        _gate(monkeypatch, on=True)
+
+        rows = await rc._community_candidates(db, CHAT, [], 10)
+        assert {row["community_id"] for row in rows} == {"c-proven"}
+        # Метрики proven-сообщества доезжают до кандидата (не выдумываются).
+        candidate = rc._community_candidate(rows[0], CHAT, 0)
+        assert candidate.provenance_backed is True
+        assert candidate.community is not None
+        assert candidate.community.status == "proven"
+        assert candidate.community.size == 3
+        assert candidate.community.strong_share == 1.0
+        assert candidate.community.density == 0.667
+        assert candidate.community.basis
+
+        thematic = await rc.retrieve(db, None, rc.RetrievalRequest(
+            chat_id=CHAT, query="Кирилл", mode="thematic", top_k=10))
+        assert {c.entity_id for c in _communities(thematic)} == {"c-proven"}
+        assert "c-weak" not in {c.entity_id for c in thematic.candidates}
+
+        # Обычные режимы не меняются: состав/порядок как при выключенном канале.
+        _gate(monkeypatch, on=False)
+        specific_off = await rc.retrieve(db, None, rc.RetrievalRequest(
+            chat_id=CHAT, query="Кирилл", mode="specific", top_k=10))
+        _gate(monkeypatch, on=True)
+        specific_on = await rc.retrieve(db, None, rc.RetrievalRequest(
+            chat_id=CHAT, query="Кирилл", mode="specific", top_k=10))
+        assert [c.id for c in specific_on.candidates] == \
+            [c.id for c in specific_off.candidates]
+        assert specific_on.channels_used == specific_off.channels_used
+        assert _communities(specific_on) == []
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_provenance_backed_is_derived_not_hardcoded(
+        tmp_path, monkeypatch):
+    """§14.3: `provenance_backed` — из статуса, а не константа `True`."""
+    db = await _db(tmp_path, "provenance_backed.db")
+    try:
+        node = await db.upsert_node(CHAT, "Папаха", "user")
+        await _add_build(db, build_id="cb-p", status="active", started_at=1000,
+                         members={"c-p": [(node, 1.0)]},
+                         proven_community_ids=["c-p"])
+        _gate(monkeypatch, on=True)
+        row = (await rc._community_candidates(db, CHAT, [], 10))[0]
+        assert rc._community_candidate(row, CHAT, 0).provenance_backed is True
+
+        weak_row = dict(row, status="weak")
+        weak_candidate = rc._community_candidate(weak_row, CHAT, 0)
+        assert weak_candidate.provenance_backed is False
+        assert weak_candidate.community.status == "weak"
+
+        # Статус не объявлен вовсе → честно НЕ подтверждено (никакой догадки).
+        unknown_row = dict(row)
+        unknown_row.pop("status", None)
+        assert rc._community_candidate(unknown_row, CHAT, 0).provenance_backed \
+            is False
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_build_without_proven_set_is_not_served(tmp_path, monkeypatch):
+    """Сборка без proven-набора (например, до quality contract) → канал пуст."""
+    db = await _db(tmp_path, "no_proven.db")
+    try:
+        node = await db.upsert_node(CHAT, "Папаха", "user")
+        await _add_build(db, build_id="cb-legacy", status="active",
+                         members={"c-1": [(node, 1.0)]}, started_at=1000)
+        _gate(monkeypatch, on=True)
+        assert await rc._community_candidates(db, CHAT, [], 10) == []
+        result = await rc.retrieve(db, None, rc.RetrievalRequest(
+            chat_id=CHAT, query="Папаха", mode="thematic", top_k=10))
+        assert _communities(result) == []
+        assert "community" not in result.channels_used
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_neutral_label_never_surfaces_in_search(tmp_path, monkeypatch):
+    """§14.3: «Сообщество N» — диагностика сборки, не категория поиска."""
+    db = await _db(tmp_path, "neutral.db")
+    try:
+        node_a = await db.upsert_node(CHAT, "Папаха", "topic")
+        node_b = await db.upsert_node(CHAT, "Самовар", "topic")
+        neutral_basis = ("сформировано по реальным связям чата: узлов 3, "
+                         "связей подтверждённых 1, сомнительных 0, без "
+                         "происхождения 0, совпадений 0; плотность 0.667; "
+                         "последняя активность Неизвестно")
+        await _add_build(
+            db, build_id="cb-neutral", status="active", started_at=1000,
+            members={"c-n": [(node_a, 1.0), (node_b, 1.0)]},
+            proven_community_ids=["c-n"],
+            proven_communities=[_proven_entry(
+                "c-n", size=3, strong_share=1.0, density=0.667,
+                label=None, basis=neutral_basis)])
+        _gate(monkeypatch, on=True)
+        result = await rc.retrieve(db, None, rc.RetrievalRequest(
+            chat_id=CHAT, query="Папаха", mode="thematic", top_k=10))
+        found = _communities(result)
+        assert found, "proven-сообщество обязано быть в thematic-выдаче"
+        for candidate in found:
+            assert candidate.community.label is None
+            assert "Сообщество" not in candidate.preview
+            assert "Сообщество" not in (candidate.community.basis or "")
     finally:
         await db.close()

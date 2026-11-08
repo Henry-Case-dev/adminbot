@@ -185,6 +185,22 @@ REASON_DROPPED = "no_new_overlap_at_or_above_threshold"
 #: Нейтральная подпись и честное «неизвестно» (MEM-07.4).
 NEUTRAL_LABEL_TEMPLATE = "Сообщество {ordinal}"
 UNKNOWN_VALUE_TEXT = "Неизвестно"
+
+# ── MEMORY-07 §14.2 (замороженный quality contract): PROVEN / WEAK ─────────
+#: `PROVEN` ⇔ одновременно `size ≥ 3`, `S ≥ 1.0`, `S/T ≥ 0.5`, где
+#: S = confirmed×1.0 + tentative×0.5, T = S + legacy×0.25 + cooccurrence×0.1
+#: по связям ВНУТРИ сообщества. Всё остальное — `WEAK`. Порог не ослабляется
+#: «под данные»: 74.2% корпуса — пары размера 2, и именно они отклонены
+#: владельцем. Одно сообщество из 3 933 — честный размер доказанной части.
+COMMUNITY_STATUS_PROVEN = mc.CommunityStatus.PROVEN.value
+COMMUNITY_STATUS_WEAK = mc.CommunityStatus.WEAK.value
+COMMUNITY_PROVEN_MIN_SIZE = 3
+COMMUNITY_PROVEN_MIN_STRONG_WEIGHT = 1.0
+COMMUNITY_PROVEN_MIN_STRONG_SHARE = 0.5
+#: Допуск только на двоичное представление 0.25/0.5-долей, не на «почти»:
+#: без него сумма 0.25+0.25 могла бы оказаться 0.49999999999999994.
+_EPS = 1e-9
+
 #: Потолок длины сохранённого текста ошибки сборки (диагностика, без текстов
 #: чата).
 _ERROR_MAX_CHARS = 200
@@ -242,6 +258,31 @@ class CommunityStats:
         return ("Неизвестно" if self.last_activity is None
                 else str(int(self.last_activity)))
 
+    @property
+    def strong_weight(self) -> float:
+        """S = confirmed×1.0 + tentative×0.5 (§14.2) — факт-обоснованный вес."""
+        return round(float(self.confirmed_links) *
+                     PROVENANCE_WEIGHTS[PROVENANCE_CONFIRMED]
+                     + float(self.tentative_links) *
+                     PROVENANCE_WEIGHTS[PROVENANCE_TENTATIVE], 6)
+
+    @property
+    def total_weight(self) -> float:
+        """T = S + legacy×0.25 + cooccurrence×0.1 (§14.2) — весь внутренний вес."""
+        return round(
+            self.strong_weight
+            + float(self.legacy_links) * PROVENANCE_WEIGHTS[PROVENANCE_LEGACY]
+            + float(self.cooccurrence_links)
+            * PROVENANCE_WEIGHTS[PROVENANCE_COOCCURRENCE], 6)
+
+    @property
+    def strong_share(self) -> float | None:
+        """S/T — доля внутреннего веса, подтверждённая фактами; None без веса."""
+        total = self.total_weight
+        if total <= 0:
+            return None
+        return round(self.strong_weight / total, 6)
+
     def as_dict(self) -> dict:
         return {
             "node_count": int(self.node_count),
@@ -263,6 +304,15 @@ class CommunityLabel:
     label: str
     basis: str
     dominant_names: tuple[str, ...]
+
+    @property
+    def is_neutral(self) -> bool:
+        """Нейтральная подпись (`Сообщество N`) — диагностика, НЕ категория.
+
+        §14.3: такая подпись не выводится ни в поиск, ни в визуальный граф;
+        потребитель обязан опираться на этот признак, а не на текст шаблона.
+        """
+        return not self.dominant_names
 
     def as_dict(self) -> dict:
         return {
@@ -917,6 +967,52 @@ def _label_basis(stats: CommunityStats) -> str:
         f"последняя активность {stats.last_activity_text}")
 
 
+def classify_community_status(*, size: int, strong_weight: float,
+                              total_weight: float) -> str:
+    """PROVEN/WEAK по порогам §14.2 (единственное место правила).
+
+    `PROVEN` ⇔ `size ≥ 3` И `S ≥ 1.0` И `S/T ≥ 0.5`; иначе `WEAK`.
+    Границы входят в PROVEN (`≥`, не `>`); допуск — только на двоичную
+    запись долей (`_EPS`), не на «почти порог».
+    """
+    if int(size) < COMMUNITY_PROVEN_MIN_SIZE:
+        return COMMUNITY_STATUS_WEAK
+    if float(strong_weight) + _EPS < COMMUNITY_PROVEN_MIN_STRONG_WEIGHT:
+        return COMMUNITY_STATUS_WEAK
+    if float(total_weight) <= 0:
+        return COMMUNITY_STATUS_WEAK
+    share = float(strong_weight) / float(total_weight)
+    if share + _EPS < COMMUNITY_PROVEN_MIN_STRONG_SHARE:
+        return COMMUNITY_STATUS_WEAK
+    return COMMUNITY_STATUS_PROVEN
+
+
+def community_status(stats: CommunityStats) -> str:
+    """Статус сообщества по его настоящим метрикам (§14.2)."""
+    return classify_community_status(
+        size=stats.node_count, strong_weight=stats.strong_weight,
+        total_weight=stats.total_weight)
+
+
+def community_quality(community: BuiltCommunity) -> dict:
+    """Компактная запись качества сообщества для `change_summary_json`.
+
+    Хранится БЕЗ DDL (§5.1): proven-сообществ на практике единицы, поэтому
+    список остаётся маленьким. `label` попадает только не-нейтральная —
+    нейтральная подпись остаётся диагностикой сборки (§14.3)."""
+    stats = community.stats
+    label = community.label
+    return {
+        "community_id": community.community_id,
+        "status": community_status(stats),
+        "size": int(stats.node_count),
+        "strong_share": stats.strong_share,
+        "density": stats.density,
+        "basis": label.basis,
+        "label": (None if label.is_neutral else label.label),
+    }
+
+
 # ── жизненный цикл сборки (§6) ─────────────────────────────────────────────
 
 
@@ -1172,6 +1268,17 @@ async def build_chat_communities(db, chat_id: int, *, now: int | None = None,
         ids, change_summary = map_community_ids(
             [frozenset(c.members) for c in communities], prev_members)
         communities = _reassign_community_ids(communities, ids)
+        # §14.2/§14.3: PROVEN/WEAK считается по настоящим метрикам сборки и
+        # хранится в существующем `change_summary_json` (без DDL и без
+        # per-community строк). Слабые в список не попадают вовсе: WEAK =
+        # «всё, чего нет в списке», поэтому старые сборки без ключа читаются
+        # как «ни одного proven» — честно, а не «всё proven».
+        quality = [community_quality(c) for c in communities]
+        proven = [q for q in quality
+                  if q["status"] == COMMUNITY_STATUS_PROVEN]
+        provenance_counts = dict(provenance_counts)
+        provenance_counts["proven_communities"] = len(proven)
+        provenance_counts["weak_communities"] = len(quality) - len(proven)
         change_summary = dict(change_summary)
         change_summary.update({
             "prev_build_id": prev_build_id,
@@ -1182,6 +1289,8 @@ async def build_chat_communities(db, chat_id: int, *, now: int | None = None,
             "unresolved_identity_nodes": list(unresolved),
             "node_count": len(node_ids),
             "edge_count": edge_count,
+            "proven_community_ids": [q["community_id"] for q in proven],
+            "proven_communities": proven,
         })
         finished_at = int(now if now is not None else time.time())
         await _publish_build(db, build_id=identifier, chat_id=int(chat_id),
@@ -1261,6 +1370,14 @@ __all__ = [
     "REASON_DROPPED",
     "NEUTRAL_LABEL_TEMPLATE",
     "UNKNOWN_VALUE_TEXT",
+    "COMMUNITY_STATUS_PROVEN",
+    "COMMUNITY_STATUS_WEAK",
+    "COMMUNITY_PROVEN_MIN_SIZE",
+    "COMMUNITY_PROVEN_MIN_STRONG_WEIGHT",
+    "COMMUNITY_PROVEN_MIN_STRONG_SHARE",
+    "classify_community_status",
+    "community_status",
+    "community_quality",
     "BUILD_PARAMS",
     "EvidenceLink",
     "CommunityStats",

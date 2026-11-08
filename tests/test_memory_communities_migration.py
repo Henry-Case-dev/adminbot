@@ -470,7 +470,11 @@ async def test_build_weights_exact_per_provenance_class(tmp_path):
 
         result = await mcomm.build_chat_communities(svc, CHAT, now=1000)
         assert result.status == mcomm.STATUS_ACTIVE
-        assert result.provenance_counts == counts
+        # Классы весов не изменились; §14.3 добавляет ТОЛЬКО наблюдаемость
+        # proven/weak в те же счётчики сборки.
+        assert {key: result.provenance_counts[key] for key in counts} == counts
+        assert result.provenance_counts["proven_communities"] == 1
+        assert result.provenance_counts["weak_communities"] == 0
         assert result.edge_count == 5
     finally:
         await svc.close()

@@ -266,6 +266,12 @@ async def test_rag_block_cap_is_per_chat(monkeypatch):
     class _Self:
         memory = _Mem()
 
+        async def _rag_unified_rows(self, chat_id, query, message):
+            # Двойник без каналов единого retrieval (MEMORY-06): реальный
+            # `_rag_unified_rows` возвращает None, когда каналы недоступны, и
+            # direct-RAG остаётся на прежнем чтении того же слоя.
+            return None
+
     class _Hot:
         @staticmethod
         def get(key, default=None):

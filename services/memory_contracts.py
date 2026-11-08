@@ -56,6 +56,7 @@ __all__ = [
     "AssertionMode", "OriginClass", "RelationStatus", "EntityResolutionStatus",
     "SearchStatus", "QueryState", "MemoryPurpose", "IntentMode",
     "SearchScopeMode", "RefKind", "MatchCause", "EvidenceStatus",
+    "CommunityStatus",
     # константы
     "LINK_TYPES", "VERIFICATIONS", "INDEPENDENCES", "ASSERTION_KINDS",
     "SUPPORTING_LINK_TYPES", "WEAK_LINK_TYPES", "SUPPORTING_ORIGIN_CLASSES",
@@ -237,6 +238,19 @@ class EntityResolutionStatus(_StrEnum):
     AMBIGUOUS = "ambiguous"
     NEW = "new"
     REJECTED = "rejected"
+
+
+class CommunityStatus(_StrEnum):
+    """Качество сообщества (§14.2 quality contract).
+
+    `PROVEN` ⇔ `size ≥ 3` И `S ≥ 1.0` И `S/T ≥ 0.5`; всё остальное — `WEAK`.
+    Словарь живёт здесь (не в сборщике), потому что его читают и сборка, и
+    retrieval: критерии считает `services/memory_communities.py`, а выдача
+    обязана называть статус тем же значением.
+    """
+
+    PROVEN = "proven"
+    WEAK = "weak"
 
 
 class SearchStatus(_StrEnum):

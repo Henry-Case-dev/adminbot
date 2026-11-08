@@ -22,6 +22,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import hashlib
+import json
 import logging
 import re
 import time
@@ -583,6 +584,35 @@ class RetrievalCandidate:
     #    факта); None → ключом остаётся `id` (сообщения/узлы/эпизоды —
     #    прежнее поведение).
     dedup_id: str | None = None
+    # ── MEMORY-07 §14.3: качество сообщества (только proven попадает в выдачу) ─
+    community: "CommunityMeta | None" = None
+
+
+@dataclasses.dataclass(frozen=True)
+class CommunityMeta:
+    """Качество сообщества из сборки (§14.2/§14.3): статус и метрики.
+
+    `status` — `proven|weak` по порогам сборщика; `label` заполнен ТОЛЬКО
+    для не-нейтральной подписи: «Сообщество N» не выводится как категория.
+    `size`/`strong_share`/`density`/`basis` — из `change_summary_json`
+    сборки; неизвестное остаётся None/"" (не выдумывается).
+    """
+
+    community_id: str
+    status: str
+    size: int | None = None
+    strong_share: float | None = None
+    density: float | None = None
+    basis: str = ""
+    label: str | None = None
+
+    def as_dict(self) -> dict:
+        return {
+            "community_id": self.community_id, "status": self.status,
+            "size": self.size, "strong_share": self.strong_share,
+            "density": self.density, "basis": self.basis,
+            "label": self.label,
+        }
 
 
 def apply_identity_prior(candidates: list, *, subject_entity_ids: tuple = (),
@@ -1835,16 +1865,67 @@ def _entity_candidate(row, chat_id: int, position: int) -> RetrievalCandidate:
         provenance_backed=True)
 
 
+async def _active_community_quality(db, chat_id: int
+                                   ) -> tuple[str | None, dict[str, dict]]:
+    """Активная сборка → `(build_id, {community_id: качество})` ТОЛЬКО proven.
+
+    §14.2/§14.3: статус сообщества — данные сборки (`change_summary_json`),
+    а не константа чтения. Нормативный ключ — `proven_community_ids`;
+    `proven_communities` добавляет метрики. Сборка без ключа (например,
+    собранная до quality contract) трактуется как «proven нет» — WEAK
+    исключается из выдачи целиком, поэтому неизвестный статус не выдаётся
+    за доказанный.
+    """
+    proven_value = _mc.CommunityStatus.PROVEN.value
+    raw_db = getattr(db, "db", None)
+    execute = getattr(raw_db, "execute", None)
+    if not callable(execute):
+        return None, {}
+    cursor = await execute(
+        "SELECT build_id, change_summary_json FROM mca_community_builds "
+        "WHERE chat_id = ? AND status = 'active' "
+        "ORDER BY started_at DESC, build_id DESC LIMIT 1", (int(chat_id),))
+    row = await cursor.fetchone()
+    if row is None:
+        return None, {}
+    build_id = str(row["build_id"])
+    try:
+        summary = json.loads(row["change_summary_json"] or "{}")
+    except (TypeError, ValueError):
+        summary = {}
+    if not isinstance(summary, dict):
+        return build_id, {}
+    proven: dict[str, dict] = {}
+    for item in summary.get("proven_communities") or ():
+        if not isinstance(item, dict):
+            continue
+        community_id = str(item.get("community_id") or "").strip()
+        if not community_id or item.get("status") != proven_value:
+            continue
+        proven[community_id] = dict(item)
+    for community_id in summary.get("proven_community_ids") or ():
+        key = str(community_id or "").strip()
+        if key:
+            proven.setdefault(key, {"community_id": key,
+                                    "status": proven_value})
+    return build_id, proven
+
+
 async def _community_candidates(db, chat_id: int, keywords: list[str],
                                 limit: int) -> list:
-    """Членство ТОЛЬКО действующей сборки сообществ (C-6 §6).
+    """Членство ТОЛЬКО proven-сообществ действующей сборки (C-6 §6, §14.3).
 
     * гейт `MCA_MEMORY_COMMUNITIES_ENABLED` резолвится здесь (per chat:
       env AND каталоговый ключ) → OFF даёт пусто, не трогая таблицы;
-    * членство читается исключительно через join с реестром сборок по
+    * членство читается исключительно через реестр сборок по
       `status='active'` того же чата: `building`/`superseded`/`failed` не
       читаются вообще, поэтому вытесненная (superseded) или недопубликованная
       сборка не может попасть в выдачу;
+    * WEAK-сообщества исключены ИЗ КАНАЛА ЦЕЛИКОМ (не демоция): канал
+      существует ради тематической группировки, а участники слабой пары уже
+      достижимы обычными каналами. Proven-набор — из
+      `change_summary_json` активной сборки, поэтому это данные, а не
+      константа;
     * нет таблиц (`v44` не применён) или нет active-сборки → честно пусто:
       сообщество не выдумывается из раскладки витрины.
 
@@ -1866,17 +1947,31 @@ async def _community_candidates(db, chat_id: int, keywords: list[str],
     present = await cursor.fetchone()
     if present is None or int(present[0]) != 2:
         return []
-    tokens = set(keywords)
+    build_id, proven = await _active_community_quality(db, chat_id)
+    if build_id is None or not proven:
+        return []
+    placeholders = ",".join("?" for _ in sorted(proven))
     cursor = await execute(
         "SELECT m.community_id, m.node_id, m.member_weight, n.entity_name "
         "FROM mca_community_members m "
-        "JOIN mca_community_builds b "
-        "ON b.chat_id = m.chat_id AND b.build_id = m.build_id "
-        "AND b.status = 'active' "
         "JOIN nodes n ON n.id = m.node_id "
-        "WHERE m.chat_id = ? LIMIT ?",
-        (chat_id, max(1, int(limit) * 4)))
-    rows = [dict(row) for row in await cursor.fetchall()]
+        "WHERE m.chat_id = ? AND m.build_id = ? "
+        f"AND m.community_id IN ({placeholders}) "
+        "ORDER BY m.community_id, m.node_id LIMIT ?",
+        (int(chat_id), build_id, *sorted(proven),
+         max(1, int(limit) * 4)))
+    rows = []
+    for row in await cursor.fetchall():
+        item = dict(row)
+        quality = proven.get(str(item.get("community_id"))) or {}
+        item["status"] = quality.get("status")
+        item["size"] = quality.get("size")
+        item["strong_share"] = quality.get("strong_share")
+        item["density"] = quality.get("density")
+        item["basis"] = quality.get("basis") or ""
+        item["label"] = quality.get("label")
+        rows.append(item)
+    tokens = set(keywords)
     if not tokens:
         return rows[:limit]
     matched = [row for row in rows
@@ -1885,22 +1980,54 @@ async def _community_candidates(db, chat_id: int, keywords: list[str],
     return (matched or [])[:limit]
 
 
-def _community_candidate(row, chat_id: int, position: int
-                         ) -> RetrievalCandidate:
+def _community_candidate(row, chat_id: int, position: int,
+                         *, status: str | None = None) -> RetrievalCandidate:
     """Кандидат-сообщество: `community_id` сборки + `nodes.id` участника.
 
     Оба значения — из пространства идентификаторов БД (`mca_community_*`,
     `nodes.id`), а не Telegram UID: `subject_entity_ids` (uid) здесь не
     используются и не смешиваются (C-6 §6 / §7.1).
+
+    `provenance_backed` ВЫВОДИТСЯ из статуса сообщества (§14.3): `True`
+    только для `proven`; неизвестный/слабый статус → `False`. Константа
+    `True` здесь больше недопустима — иначе слабое сообщество выдавалось бы
+    за подтверждённое. Метрики (`status/size/strong_share/density/basis`)
+    идут в `community`; нейтральная подпись не выводится (`label=None`).
     """
     community_id = _row_get(row, "community_id")
+    raw_status = status if status is not None else _row_get(row, "status")
+    resolved_status = str(raw_status).strip() if raw_status is not None else ""
+    proven_value = _mc.CommunityStatus.PROVEN.value
+    size = _row_get(row, "size")
+    try:
+        size = None if size is None else int(size)
+    except (TypeError, ValueError):
+        size = None
+    strong_share = _row_get(row, "strong_share")
+    try:
+        strong_share = None if strong_share is None else float(strong_share)
+    except (TypeError, ValueError):
+        strong_share = None
+    density = _row_get(row, "density")
+    try:
+        density = None if density is None else float(density)
+    except (TypeError, ValueError):
+        density = None
+    raw_label = _row_get(row, "label")
+    label = str(raw_label).strip() if raw_label else None
+    meta = CommunityMeta(
+        community_id=str(community_id),
+        status=resolved_status or _mc.CommunityStatus.WEAK.value,
+        size=size, strong_share=strong_share, density=density,
+        basis=str(_row_get(row, "basis") or ""), label=label or None)
     return RetrievalCandidate(
         id=f"comm:{community_id}:{_row_get(row, 'node_id')}",
         entity_type="community", entity_id=str(community_id),
         chat_id=chat_id, score=_channel_rank("community", position),
         channel="community",
         preview=_truncate_preview(_row_get(row, "entity_name")),
-        provenance_backed=True)
+        provenance_backed=meta.status == proven_value,
+        community=meta)
 
 
 async def _episode_candidates(db, request: RetrievalRequest,

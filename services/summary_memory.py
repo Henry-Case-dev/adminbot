@@ -1240,6 +1240,12 @@ def _graph_max_triplets() -> int:
         return 0
 
 
+#: MEMORY-07 §14.1(A): происхождение факт-строки, создаваемой крон-извлечением
+#: триплетов. То же значение, что `origin` ребра по умолчанию (`upsert_edge`):
+#: это утверждение из истории чата, а не из личного пула и не речь бота.
+_GRAPH_TRIPLET_FACT_ORIGIN = "chat_history"
+
+
 class GraphExtractionError(Exception):
     """Raw LLM extraction answer is not a JSON array of triplets (35.4)."""
 
@@ -4729,11 +4735,27 @@ class MemoryManager:
                 canon=self._canon_fact_name, participants=canons)
         kind = declared_kind or provenance.classify_assertion_kind(
             subject, None, canon=self._canon_fact_name, participants=canons)
+        # MEMORY-07 §14.1(B) (quality contract, 09.11.2026): `subject_ref_id`
+        # резолвится для ЛЮБОЙ факт-строки, чей субъект резолвится в реальную
+        # сущность чата, — не только для self_report/third_party. Причина
+        # измерена: класс ребра выводится из (subject_ref_id, speaker), и
+        # `world_knowledge`-строки с реальным субъектом оставались без ref
+        # вовсе, из-за чего 96% факт-связанных рёбер были legacy. Идентичность
+        # НЕ выдумывается: колонка пишется ТОЛЬКО при
+        # `resolution='resolved'` (ровно один uid); неизвестное имя и
+        # одноимённые остаются `unresolved` без ref. Второго пути резолва нет —
+        # тот же `resolve_subject_ref`/`resolve_source_ref`.
         subject_ref_id = None
-        if method in ("self_report", "third_party") \
-                and kind != "world_knowledge":
-            ref = method_ref or await provenance.resolve_subject_ref(
+        ref = method_ref
+        if method == "bot_self_reply":
+            # C-8 §8.4/R-3 (сохранено): собственный вывод бота не подтверждает
+            # внешний факт. `classify_fact_provenance` не знает про origin,
+            # поэтому ref за бота поднял бы его класс — не пишем его вовсе.
+            ref = None
+        elif ref is None:
+            ref = await provenance.resolve_subject_ref(
                 self.db, chat_id, subject, canon=self._canon_fact_name)
+        if ref is not None and getattr(ref, "resolution", "") == "resolved":
             subject_ref_id = await provenance.resolve_source_ref(self.db, ref)
         channel = "import" if origin == "history_import" else "live"
         await provenance.record_fact_provenance(
@@ -6920,9 +6942,21 @@ class MemoryManager:
 
         B-MCA01-1 (D3): вся транзакция — под общим single-writer
         (`self.db.serialized()`), т.к. `upsert_node`/`upsert_edge(commit=False)`
-        оставляют запись в транзакции вызывающего."""
+        оставляют запись в транзакции вызывающего.
+
+        MEMORY-07 §14.1(A) (quality contract, 09.11.2026): крон-путь больше
+        НЕ пишет `fact_id=NULL`. Каждый триплет получает факт-строку ТЕМ ЖЕ
+        контрактом, что живой путь (`insert_graph_fact` → `upsert_edge(
+        fact_id=…)`): факт создаётся ПЕРВЫМ в этой же транзакции, а ребро
+        ссылается на него. Дедуп не изобретается: существующий
+        `find_graph_fact_exact` (64.1) переиспользует строку того же
+        утверждения, поэтому повторные прогоны не инфлируют факты.
+        Субъект-атрибуция — тот же `_attach_fact_provenance`, но ПОСЛЕ
+        коммита пары (его внутренние `write_transaction` коммитят сами).
+        """
         async with self.db.serialized():
             await self.db.db.execute("BEGIN")
+            created_facts: list[tuple[int, str, str]] = []
             try:
                 for triplet in triplets:
                     # Epic 60 (66.9, T-487): user-сущности — канон-имена по алиасам
@@ -6949,17 +6983,28 @@ class MemoryManager:
                         continue
                     sid = subject_node.node_id
                     oid = object_node.node_id
-                    # F3 (T-1774, ADR-1018-3 D1): cron-путь graph_facts НЕ создаёт →
-                    # fact_id ребра остаётся NULL ОСОЗНАННО (без provenance); скоринг
-                    # деградирует к COALESCE(importance, weight).
+                    predicate = _normalize_name(triplet["predicate"])
+                    # §14.1(A): факт ПЕРВЫМ, затем ребро с fact_id — тот же
+                    # порядок, что в живом пути (`_write_fact_pair`).
+                    sentence = f"{subject} {predicate} {obj}"
+                    existing = await self.db.find_graph_fact_exact(
+                        chat_id, sentence, int(time.time()))
+                    if existing is not None:
+                        fact_id = int(existing["id"])
+                    else:
+                        fact_id = await self.db.insert_graph_fact(
+                            chat_id, sentence, _GRAPH_TRIPLET_FACT_ORIGIN,
+                            None, subject=subject, object=obj, commit=False)
+                        created_facts.append((fact_id, subject, obj))
                     await self.db.upsert_edge(
                         sid,
                         oid,
-                        _normalize_name(triplet["predicate"]),
+                        predicate,
                         weight_increment=(await _chat_limit(
                             chat_id, "limits.graph_edge_weight_increment",
                             hot.get("limits.graph_edge_weight_increment",
                                     settings.GRAPH_EDGE_WEIGHT_INCREMENT)) or 0),
+                        fact_id=fact_id,
                         commit=False,
                     )
                 await self.db.db.commit()
@@ -6970,6 +7015,19 @@ class MemoryManager:
                 # single-writer соединении (наследие для следующих писателей).
                 await self.db.db.rollback()
                 raise
+        # Атрибуция — ПОСЛЕ коммита пары fact+edge: `_attach_fact_provenance`
+        # пишет своими `write_transaction` (собственный COMMIT), поэтому
+        # внутри открытой транзакции он ломал бы атомарность. Fail-open: сбой
+        # атрибуции не отменяет уже записанные факт/ребро (как в живом пути).
+        for fact_id, subject, obj in created_facts:
+            try:
+                await self._attach_fact_provenance(
+                    chat_id, fact_id, _GRAPH_TRIPLET_FACT_ORIGIN, subject,
+                    None, None, {})
+            except Exception:
+                logger.warning(
+                    "graph triplets: provenance attach failed — fail-open | "
+                    "fact_id=%s", fact_id, exc_info=True)
         logger.info("graph: triplets=%d | chat_id=%s", len(triplets), chat_id)
         trace_step(logger, component="graph", step="write", status="ok",
                    reason="saved", chat_id=chat_id,
