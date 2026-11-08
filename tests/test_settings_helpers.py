@@ -152,16 +152,17 @@ class TestEpic39SettingsDefaults:
 
 
 _EPIC45_KEYS = (
-    "CHECKUP_BETTERSTACK_SQL_HOST",
-    "CHECKUP_BETTERSTACK_SQL_USER",
-    "CHECKUP_BETTERSTACK_SQL_PASSWORD",
-    "CHECKUP_BETTERSTACK_SQL_TABLE",
-    "CHECKUP_BETTERSTACK_SQL_QUERY",
+    "CHECKUP_LOG_WINDOW_LINES",
+    "CHECKUP_LOG_UNIT",
 )
 
 
-class TestEpic45SettingsDefaults:
-    """Epic 45 (54.2, #17): дефолты SQL-ключей; легаси live-tail-ключей нет."""
+class TestCheckupLogSettingsDefaults:
+    """SELF-DIAG-01 D1: настройки локального источника логов чекапа.
+
+    Better Stack SQL-ключи и CHECKUP_JOURNALCTL_CMD удалены целиком — в
+    Settings их больше нет (мёртвого credentials-path не остаётся).
+    """
 
     @pytest.fixture(autouse=True)
     def _clean_env(self, monkeypatch):
@@ -172,22 +173,27 @@ class TestEpic45SettingsDefaults:
 
     def test_defaults_without_env(self):
         importlib.reload(settings_mod)
-        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_HOST == (
-            "https://eu-fsn-3-connect.betterstackdata.com"
-        )
-        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_USER == ""
-        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_PASSWORD == ""
-        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_TABLE == ""
-        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_QUERY == ""
+        assert settings_mod.settings.CHECKUP_LOG_WINDOW_LINES == 300
+        assert settings_mod.settings.CHECKUP_LOG_UNIT == ""
 
     def test_valid_values_parsed(self, monkeypatch):
-        monkeypatch.setenv("CHECKUP_BETTERSTACK_SQL_USER", "clickhouse_user")
-        monkeypatch.setenv("CHECKUP_BETTERSTACK_SQL_TABLE", "t123_x")
-        monkeypatch.setenv("CHECKUP_BETTERSTACK_SQL_QUERY", "SELECT 1")
+        monkeypatch.setenv("CHECKUP_LOG_WINDOW_LINES", "500")
+        monkeypatch.setenv("CHECKUP_LOG_UNIT", "admin_bot.service")
         importlib.reload(settings_mod)
-        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_USER == "clickhouse_user"
-        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_TABLE == "t123_x"
-        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_QUERY == "SELECT 1"
+        assert settings_mod.settings.CHECKUP_LOG_WINDOW_LINES == 500
+        assert settings_mod.settings.CHECKUP_LOG_UNIT == "admin_bot.service"
+
+    def test_legacy_betterstack_keys_absent(self):
+        """D1: checkup-only Better Stack и shell-команда удалены из Settings."""
+        for key in (
+            "CHECKUP_BETTERSTACK_SQL_HOST",
+            "CHECKUP_BETTERSTACK_SQL_USER",
+            "CHECKUP_BETTERSTACK_SQL_PASSWORD",
+            "CHECKUP_BETTERSTACK_SQL_TABLE",
+            "CHECKUP_BETTERSTACK_SQL_QUERY",
+            "CHECKUP_JOURNALCTL_CMD",
+        ):
+            assert not hasattr(settings_mod.settings, key), f"legacy {key} должен быть удалён"
 
     def test_legacy_live_tail_keys_absent(self):
         """54.4: легаси-ключи Epic 44 отсутствуют в Settings."""

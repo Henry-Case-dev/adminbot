@@ -257,7 +257,7 @@ class TestCompleteness:
         #   VIDEO_INTENT_* (TTL pending-намерения, размер окна соседства, макс.
         #   возраст соседнего медиа) → 468. Каталога не касаются — см.
         #   _ENV_ONLY_SHARED_CONFIG выше (env-уровень, не per-chat ось).
-        assert len(fields) == 471  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов; EVOL-032 §4.3: +3 VIDEO_INTENT_* ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        assert len(fields) == 467  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов; EVOL-032 §4.3: +3 VIDEO_INTENT_* ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         # EVOL-031: 5 no-op полей снятого кеша — сознательно вне каталога.
         # EVOL-032 §4.3: 3 env-only поля общей конфигурации VideoIntent — тоже
@@ -300,7 +300,7 @@ class TestInfraExcluded:
     INFRA_FIELDS = {
         "API_TOKEN", "DB_PATH", "MEDIA_BASE", "COBALT_API_URL",
         "LOCAL_BOT_API_URL", "TELEGRAM_API_FILES_DIR", "DOWNLOAD_DIR",
-        "INFO_TEXT_FILE", "CHECKUP_JOURNALCTL_CMD",
+        "INFO_TEXT_FILE", "CHECKUP_LOG_WINDOW_LINES", "CHECKUP_LOG_UNIT",
         # embed-фоллбэк (раунд 5): тайминги остаются infra (.env).
         # 10.11 (ADR-1011-2): BASE_URL/MODEL/API_KEY/API_KEY_2 переведены в
         # first-class каталог (models/keys) — здесь их больше нет.
@@ -349,7 +349,6 @@ class TestSecrets:
     SECRET_KEYS = {
         "LLM_API_KEY", "LLM_FALLBACK_API_KEY", "TAVILY_API_KEY", "EXA_API_KEY",
         "GROQ_API_KEY", "OPENROUTER_API_KEY",
-        "CHECKUP_BETTERSTACK_SQL_USER", "CHECKUP_BETTERSTACK_SQL_PASSWORD",
         "YOUTUBE_TRANSCRIPT_PROXY_URL", "YOUTUBE_TRANSCRIPT_PROXY_USERNAME",
         "YOUTUBE_TRANSCRIPT_PROXY_PASSWORD", "YOUTUBE_COOKIES_FILE",
         "API_TOKEN", "POSTGRES_DSN", "POSTGRES_PASSWORD", "SENTRY_DSN",
@@ -529,7 +528,7 @@ class TestGroups8424:
         # ASAP 7 (F3, §3.2): +2 — flags_intent (mod_initiative),
         # limits_intent (mod_initiative) → GROUPS 115.
         # EVOL-031 (30.10.2026): −2 группы (smart_cache flags/limits) → 119.
-        assert len(GROUPS) == 121
+        assert len(GROUPS) == 119
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -686,8 +685,11 @@ class TestGroups8424:
         # готовности, окно связи, срок ожидающего запроса, lease/очередь/срок
         # жизни/попытки/backoff, limits_vision in-place) → models 77,
         # limits 232, итого 570.
-        assert counts == {"prompts": 28, "models": 77, "keys": 35,
-                          "limits": 232, "flags": 107, "reactions": 39,
+        # SELF-DIAG-01 D1 (09.11.2026): −3 models / −2 keys / −2 GROUPS —
+        # checkup-only Better Stack SQL и старый CHECKUP_JOURNALCTL_CMD
+        # удалены, вместо них 2 env-only инфра-ключа (CHECKUP_LOG_*).
+        assert counts == {"prompts": 28, "models": 74, "keys": 33,
+                          "limits": 232, "flags": 108, "reactions": 39,
                           "content": 5, "memory": 48, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

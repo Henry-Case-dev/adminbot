@@ -64,15 +64,15 @@ class TestCatalogParity:
         # EVOL-031 (30.10.2026): −5 REGISTRY (smart cache ×3 + chat dedup ×2),
         # −2 GROUPS (Умный кэш удалена); пин 588 дрейфовал на базе W1
         # (факт 586) — учтено → 581/119.
-        assert len(REGISTRY) == 598, len(REGISTRY)
-        assert len(GROUPS) == 121
+        assert len(REGISTRY) == 595, len(REGISTRY)
+        assert len(GROUPS) == 119
         from config.settings import Settings
         import dataclasses
         # NOST-REWORK W2 (28.10.2026, NOST-12): +1 поле Settings
         # (NOSTALGIA_HISTORY_DEPTH_YEARS) → пин 467. EVOL-031 все 5
         # smart/dedup-ключей СОХРАЕНЫ (no-op); дрейф 467→465 внешний
         # (закоммиченный EVOL-016/012), не этой задачи.
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 471  # MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 467  # MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():

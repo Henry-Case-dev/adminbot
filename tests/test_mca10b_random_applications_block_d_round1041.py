@@ -268,9 +268,9 @@ def test_blockE_catalog_random_uses_keys():
     # EVOL-031 (30.10.2026): 586 → 581 (−5 ключей Exact Match Cache /
     # direct_dedup, replay готовых ответов удалён; вкладка smart_cache
     # снята) → 581/119/117/22.
-    assert len(pc.REGISTRY) == 598
-    assert len(pc.GROUPS) == 121
-    assert len(pc._TAB_BY_GROUP) == 119
+    assert len(pc.REGISTRY) == 595
+    assert len(pc.GROUPS) == 119
+    assert len(pc._TAB_BY_GROUP) == 117
     assert len(pc.TAB_RULES) == 22
     uses = [f"memory.random_uses_{u}" for u in sorted(mx.USES)]
     assert len(uses) == 6
@@ -287,7 +287,7 @@ def test_blockE_catalog_random_uses_keys():
     # секрет-счётчик: 33 (mca-10b) + 1 (ASAP 7 F2: keys.direct_l1_api_key,
     # secret=True; F4 secret-осей НЕ добавлял — 13 флагов не секреты)
     secrets = [s for s in pc.REGISTRY.values() if s.secret]
-    assert len(secrets) == 34
+    assert len(secrets) == 32
 
 
 def test_blockE_f8_check_green_and_baselines():
@@ -312,12 +312,12 @@ def test_blockE_f8_check_green_and_baselines():
     # фактчека: флаг раздела + директива «Критического разноса»).
     # MEMORY-07 волны 3-4 (08.11.2026): 583 … 597 → 598 (+1 PG-only ключ
     # сообществ flags.memory_communities_enabled).
-    assert "598" in res.stdout
+    assert "595" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 598
-    assert fx["counts"]["GROUPS"] == 121
-    assert fx["counts"]["TAB_BY_GROUP"] == 119
+    assert fx["counts"]["REGISTRY"] == 595
+    assert fx["counts"]["GROUPS"] == 119
+    assert fx["counts"]["TAB_BY_GROUP"] == 117
     assert fx["counts"]["TAB_RULES"] == 22
     # v6.3 B01 (W1-CHAT-INTEL): delta 150→160 (+10 INITIATIVE_*, все new).
     # SOUL-1 mobile-prompts (2026-10-16): delta 160→161 (+1 L1 Planner).
@@ -325,10 +325,10 @@ def test_blockE_f8_check_green_and_baselines():
     # распознавания: предел ответа/режимы модели + границы ожидания и жизни
     # медиа-задачи). FC-06C/EVOL-031 сняли ключи исторически — набор не
     # пересчитывался.
-    assert fx["counts"]["delta"] == 192
+    assert fx["counts"]["delta"] == 194
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 598
+    assert len(cb["registry_keys"]) == 595
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

@@ -2243,22 +2243,13 @@ class Settings:
     # ── Checkup 400 (Epic 49, Section 57.5) ──
     # Потолок user-входа (<system_logs>) в символах после scrub C0; <1000 → 12000 (WARNING).
     CHECKUP_MAX_INPUT_SYMBOLS: int = _env_int_min("CHECKUP_MAX_INPUT_SYMBOLS", 12000, 1000)
-    # ── SmartModule: Checkup Betterstack SQL API (Epic 45, D172/D173) ──
-    # ClickHouse HTTP-коннекшн (R45-1): POST SQL-тела, Basic auth,
-    # FORMAT JSONEachRow (в тексте SQL). Пустые USER/PASSWORD ИЛИ пустой
-    # TABLE при пустом QUERY → ступень пропущена (WARNING) → journalctl.
-    # Хост — полный URL (порт неявный); не секрет, значение в .env необязательно.
-    CHECKUP_BETTERSTACK_SQL_HOST: str = _env_str(
-        "CHECKUP_BETTERSTACK_SQL_HOST", "https://eu-fsn-3-connect.betterstackdata.com"
-    )
-    CHECKUP_BETTERSTACK_SQL_USER: str = _env_str("CHECKUP_BETTERSTACK_SQL_USER", "")
-    # R17: значение НИКОГДА не логируется (только факт configured/not configured).
-    CHECKUP_BETTERSTACK_SQL_PASSWORD: str = _env_str("CHECKUP_BETTERSTACK_SQL_PASSWORD", "")
-    # Префикс сорса логов (t<id>_<source> из карточки коннекшна «Query with»).
-    CHECKUP_BETTERSTACK_SQL_TABLE: str = _env_str("CHECKUP_BETTERSTACK_SQL_TABLE", "")
-    # Полный SQL-оверрайд (если задан — используется ВМЕСТО шаблона 54.3).
-    CHECKUP_BETTERSTACK_SQL_QUERY: str = _env_str("CHECKUP_BETTERSTACK_SQL_QUERY", "")
-    CHECKUP_JOURNALCTL_CMD: str = _env_str("CHECKUP_JOURNALCTL_CMD", "journalctl -u admin_bot -n 300 --no-pager")
+    # ── SELF-DIAG-01 D1: локальный источник логов чекапа ──
+    # Окно чтения журнала (строк); <10 → дефолт 300.
+    CHECKUP_LOG_WINDOW_LINES: int = _env_int_min("CHECKUP_LOG_WINDOW_LINES", 300, 10)
+    # Необязательный пин systemd-юнита. Пусто = unit определяется из
+    # собственного /proc/self/cgroup; значение принимается только при
+    # совпадении с живым cgroup (устаревшее имя не даёт ложное «ошибок нет»).
+    CHECKUP_LOG_UNIT: str = _env_str("CHECKUP_LOG_UNIT", "")
 
     # ── /info + /edit_info (Epic 43) ────────────────────────────
     # Кулдаун /info per-chat в СЕКУНДАХ (float; прецедент SEARCH_COOLDOWN_SECONDS).

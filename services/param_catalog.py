@@ -436,8 +436,6 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Страховка от зависших запросов: жёсткий лимит и «рубильник».", 5),
     GroupSpec("models_extra_providers", "models", "Дополнительные провайдеры",
               "Groq — голосовые, OpenRouter — пересказы видео.", 6),
-    GroupSpec("models_checkup", "models", "Чек-ап (Betterstack)",
-              "Откуда бот берёт метрики сервера для чекапа.", 7),
     GroupSpec("models_video_summary", "models", "Видео-выжимка (OpenRouter)",
               "Модели, которые смотрят видео сами, и таймаут выжимки.", 8),
     # models (9; раунд 10.23, F5/ADR-1023-5 §D5): генерация изображений.
@@ -462,8 +460,6 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Ключ пересказов видео и страниц.", 3),
     GroupSpec("keys_search", "keys", "Поиск: Exa и Tavily",
               "Ключи интернет-поиска.", 4),
-    GroupSpec("keys_betterstack", "keys", "Логи и чек-ап",
-              "Логин и пароль SQL-базы для чекапа.", 5),
     GroupSpec("keys_youtube", "keys", "YouTube: прокси и пропуска",
               "Прокси и сохранённые пропуска браузера для субтитров YouTube.", 6),
     GroupSpec("keys_media", "keys", "Медиа-шара",
@@ -1035,7 +1031,9 @@ _INFRA: list[tuple] = [
     ("TELEGRAM_API_FILES_DIR", "Хост-путь data-dir telegram-bot-api", "str", False),
     ("DOWNLOAD_DIR", "Папка скачанных файлов", "str", False),
     ("INFO_TEXT_FILE", "Путь к info_text.md", "str", False),
-    ("CHECKUP_JOURNALCTL_CMD", "Команда journalctl для чекапа", "str", False),
+    # SELF-DIAG-01 D1: локальный источник логов чекапа (env-only, без UI).
+    ("CHECKUP_LOG_WINDOW_LINES", "Окно журнала чекапа, строк", "int", False),
+    ("CHECKUP_LOG_UNIT", "Пин systemd-юнита чекапа (пусто — авто)", "str", False),
     # Embed-фоллбэк (EMBEDDING_FALLBACK_*): Google AI Studio OpenAI-совместимый
     # /embeddings — когда основной провайдер не отдаёт эмбеддинги (403-квоты).
     # Раунд 10.11 (ADR-1011-2): BASE_URL/API_KEY/API_KEY_2/MODEL переведены в
@@ -1103,10 +1101,6 @@ _KEYS: list[tuple] = [
      "Ключ сервиса Groq — им бот распознаёт голосовые сообщения. Получить: console.groq.com."),
     ("OPENROUTER_API_KEY", "Ключ OpenRouter", "str", True, "keys_openrouter",
      "Ключ сервиса OpenRouter — пересказы видео и страниц. Получить: openrouter.ai."),
-    ("CHECKUP_BETTERSTACK_SQL_USER", "Пользователь Betterstack SQL", "str", True, "keys_betterstack",
-     "Логин базы метрик Betterstack для чекапа. Взять: кабинет сервиса."),
-    ("CHECKUP_BETTERSTACK_SQL_PASSWORD", "Пароль Betterstack SQL", "str", True, "keys_betterstack",
-     "Пароль базы метрик Betterstack для чекапа. Взять: кабинет сервиса."),
     ("YOUTUBE_TRANSCRIPT_PROXY_URL", "Прокси YouTube (логин:пароль)", "str", True, "keys_youtube",
      "Адрес прокси с логином и паролем — через него бот берёт субтитры YouTube. Получить: кабинет прокси-сервиса."),
     ("YOUTUBE_TRANSCRIPT_PROXY_USERNAME", "Логин resident-прокси Webshare", "str", True, "keys_youtube",
@@ -1240,12 +1234,6 @@ _MODELS: list[tuple] = [
      "Сколько сбоев подряд до «рубильника» — бот временно перестаёт дёргать нейросеть."),
     ("LLM_CB_COOLDOWN_SECONDS", "Кулдаун Circuit Breaker, сек", "float", "models_llm_guard",
      "Сколько отдыхает «рубильник» после сбоев, прежде чем снова пробовать."),
-    ("CHECKUP_BETTERSTACK_SQL_HOST", "Хост базы метрик Betterstack", "str", "models_checkup",
-     "Адрес сервера метрик Betterstack для чекапа. Меняется редко."),
-    ("CHECKUP_BETTERSTACK_SQL_TABLE", "Префикс источника Betterstack", "str", "models_checkup",
-     "Имя источника метрик в Betterstack. Меняется, если пересоздали источник."),
-    ("CHECKUP_BETTERSTACK_SQL_QUERY", "SQL-оверрайд чекапа", "str", "models_checkup",
-     "Свой SQL-запрос к метрикам, если стандартный не подходит. Обычно не трогать."),
     ("TOKENIZER_ENCODING", "Кодировка tiktoken", "str", "models_embeddings",
      "Как бот считает длину текста в словах. Меняется только вместе с моделью."),
     ("TOKEN_SAFETY_MULTIPLIER", "Запас при подсчёте длины текста", "float", "models_embeddings",
@@ -3588,6 +3576,24 @@ def _build_registry() -> dict[str, ParamSpec]:
                               "читаются, память работает как раньше. Аварийный "
                               "env: MCA_MEMORY_COMMUNITIES_ENABLED.",
                   progressive_level="advanced"))
+    # EPIC-MEMORY-COGNITIVE-02 / MEM-08-S3 (C-4 §4.10/§5.2): PG-only
+    # product-ось единого поиска по памяти. Заводской дефолт — ON
+    # (`config_cache._PG_ONLY_BOOL_DEFAULTS`; у ParamSpec своего поля дефолта
+    # нет — рантайм-значение читается через hot), env-аварийная ось
+    # `MCA_MEMORY_SEARCH_ENABLED` в каталоге НЕ дублируется (резолв —
+    # `mca_gates.memory_search_enabled`, env AND этот ключ). OFF → ручка
+    # поиска отключена, карта не отдаёт поле `search`, UI показывает прежний
+    # toolbar; сохранённый явный выбор владельца важнее заводского дефолта.
+    add(ParamSpec(None, None, CATEGORY_FLAGS,
+                  "Единый поиск по памяти (поле «Найти в памяти»)", "bool",
+                  secret=False, pg_id="flags.memory_search_enabled",
+                  group="flags_memory",
+                  description="Одно поле поиска в когнитивной карте: типизированные "
+                              "результаты (человек, событие, факт, убеждение, "
+                              "тема, связь) из общего retrieval-контура. "
+                              "Выключено — прежний поиск только по загруженной "
+                              "сцене. Аварийный env: MCA_MEMORY_SEARCH_ENABLED.",
+                  progressive_level="advanced"))
     for row in _MEMORY:      # (field, title, type, group, desc[, level])
         if len(row) == 6:
             field, title, typ, group, desc, level = row
@@ -4033,8 +4039,6 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         (CATEGORY_FLAGS, frozenset({"flags_service", "flags_throttle"})),
         (CATEGORY_LIMITS, frozenset({
             "limits_checkup", "limits_service"})),
-        (CATEGORY_MODELS, frozenset({"models_checkup"})),
-        (CATEGORY_KEYS, frozenset({"keys_betterstack"})),
     )),
     (TAB_MOD_SLEEP, (
         (CATEGORY_MEMORY, frozenset({"memory_dream"})),
@@ -4078,7 +4082,8 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         (CATEGORY_LIMITS, frozenset({"limits_intent"})),
     )),
     # ── Настройки AI (7 подразделов) ───────────────────────────────────────
-    # A8: keys_youtube → М6, models_checkup/keys_betterstack → М9.
+    # A8: keys_youtube → М6. SELF-DIAG-01 D1: checkup-only Better Stack
+    # группы удалены целиком (мёртвые ключи не остаются в каталоге).
     (TAB_LLM_PROVIDERS, (
         (CATEGORY_MODELS, frozenset({
             "models_main", "models_fallback", "models_embeddings",

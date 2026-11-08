@@ -426,7 +426,7 @@ class TestCatalogConsistency:
         }
         api_only = {s.pg_key for s in pc.REGISTRY.values()
                     if s.category is None}
-        assert len(api_only) == 25
+        assert len(api_only) == 26
 
 
 class TestClassNegatives:
@@ -498,13 +498,13 @@ class TestClassNegatives:
 
 class TestPins:
     def test_counts_and_artifacts(self):
-        assert len(pc.REGISTRY) == 598
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
+        assert len(pc.REGISTRY) == 595
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117
         assert len(pc.TAB_RULES) == 22
         tsv = (ROOT / "plans/docs/param-registry-round1025.tsv").read_text(
             encoding="utf-8").splitlines()
-        assert len(tsv) - 1 == 598
+        assert len(tsv) - 1 == 595
         screen_keys = set()
         for line in (ROOT / "plans/docs/screen-map-round1025.md").read_text(
                 encoding="utf-8").splitlines():

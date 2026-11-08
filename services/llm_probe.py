@@ -17,9 +17,7 @@
     primary embeds (10.12, OD-1) при пустом keys.embedding_api_key
     зеркалят runtime-фолбэк на keys.llm_api_key;
   * search_keys — НЕ требует base_url (ходит на фиксированные Exa/Tavily);
-  * media_share — не сетевой: проверяет, что секрет задан;
-  * checkup_betterstack — best-effort HTTP-probe хоста SQL API (вызывается
-    только контрактом; UI-кнопки нет — настройки живут в Модуле 9).
+  * media_share — не сетевой: проверяет, что секрет задан.
 `llm_guard` намеренно НЕ в KNOWN_BLOCKS: это не сетевой провайдер, а таймауты/
 ретраи — UI не показывает кнопку «Проверить» для него.
 """
@@ -51,7 +49,7 @@ _EMBEDDING_BLOCKS = frozenset({
 # MINOR-2: `search_keys:tavily`/`search_keys:exa` — раздельные пробы ключей.
 KNOWN_BLOCKS = _LLM_BLOCKS | _EMBEDDING_BLOCKS | {
     "search_keys", "search_keys:tavily", "search_keys:exa",
-    "media_share", "checkup_betterstack",
+    "media_share",
 }
 
 # 10.11 (ADR-1011-1): блок → pg-ключ СОХРАНЁННОГО секрета. Если UI прислал
@@ -347,20 +345,6 @@ async def probe_block(block: str, base_url: str = "", model: str = "",
             return _result(True, resp.status_code)
         return _result(False, resp.status_code,
                        sanitize_error(resp.text, api_key))
-
-    # checkup_betterstack — простой GET хоста (не OpenAI-совместимый).
-    if block == "checkup_betterstack":
-        base, base_error = _safe_base(base_url)
-        if base_error:
-            return _result(False, None, base_error)
-        try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
-                resp = await client.get(base, headers=_bearer(api_key))
-        except httpx.HTTPError as exc:
-            return _result(False, None, sanitize_error(str(exc), api_key))
-        if resp.status_code < 400:
-            return _result(True, resp.status_code)
-        return _result(False, resp.status_code, sanitize_error(resp.text, api_key))
 
     # ADR-109-3: chat/embeddings/stt — единый probe_openai.
     #   * transcribe_groq — Whisper-модель принимает только

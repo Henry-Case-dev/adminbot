@@ -566,19 +566,14 @@ async def on_startup():
     logger.info("SmartModule YouTube + Web (Epic 37) initialized")
 
     # ── SmartModule: Checkup (Epic 42) — общий DI ──
+    # SELF-DIAG-01 D1: источник логов строится по фактической среде процесса
+    # (systemd/container/standalone), Better Stack из чекапа удалён.
     global _checkup_fetcher
     _checkup_fetcher = CheckupLogsFetcher(
-        sql_host=hot.get("models.checkup_betterstack_sql_host", settings.CHECKUP_BETTERSTACK_SQL_HOST),
-        sql_user=hot.get("keys.checkup_betterstack_sql_user", settings.CHECKUP_BETTERSTACK_SQL_USER),
-        sql_password=hot.get("keys.checkup_betterstack_sql_password", settings.CHECKUP_BETTERSTACK_SQL_PASSWORD),
-        sql_table=hot.get("models.checkup_betterstack_sql_table", settings.CHECKUP_BETTERSTACK_SQL_TABLE),
-        sql_query=hot.get("models.checkup_betterstack_sql_query", settings.CHECKUP_BETTERSTACK_SQL_QUERY),
-        journalctl_cmd=settings.CHECKUP_JOURNALCTL_CMD,
+        unit_override=settings.CHECKUP_LOG_UNIT,
+        window_lines=settings.CHECKUP_LOG_WINDOW_LINES,
     )
-    logger.info(
-        "Checkup SQL API configured=%s (R17: только факт)",
-        bool(hot.get("keys.checkup_betterstack_sql_user", settings.CHECKUP_BETTERSTACK_SQL_USER) and hot.get("keys.checkup_betterstack_sql_password", settings.CHECKUP_BETTERSTACK_SQL_PASSWORD)),
-    )
+    logger.info("Checkup log source: %s", _checkup_fetcher.describe_source())
     # Раунд 10.15 (F8, T-1615): инстанс сохраняется для tool-сета
     # (инструмент get_bot_health — тот же путь, что роутер 0g).
     checkup_service = CheckupService(_llm_client, db=db, memory=memory)

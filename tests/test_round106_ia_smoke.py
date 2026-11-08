@@ -48,13 +48,13 @@ class TestCatalogInvariant106:
         # (VIDEO_INTENT_PENDING_TTL_SECONDS / _WINDOW_MESSAGES /
         # _WINDOW_MAX_AGE_SECONDS); REGISTRY/GROUPS/TAB_RULES не растут
         # (hot.get с settings-дефолтом, ΔDDL = 0) → Settings 465→468.
-        assert len(pc.REGISTRY) == 598
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
+        assert len(pc.REGISTRY) == 595
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117
         assert len(pc.TAB_RULES) == 22
         # Settings-поля: EVOL-031 все 5 smart/dedup-ключей СОХРАЕНЫ (no-op) —
         # дрейф 466→465 внешний (закоммиченный EVOL-016/012), не этой задачи.
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 471  # MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 467  # MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_five_master_flags_default_true(self):
         s = Settings()
@@ -211,8 +211,10 @@ class TestLlmProbeService:
         assert "***" in sanitize_error("bad sk-secret", "sk-secret")
         for block in ("direct_main", "direct_fallback", "transcribe_groq",
                       "transcribe_openrouter", "video_summary_openrouter",
-                      "embeddings", "search_keys", "checkup_betterstack"):
+                      "embeddings", "search_keys"):
             assert block in KNOWN_BLOCKS, block
+        # SELF-DIAG-01 D1: checkup-only Better Stack probe удалён из чекапа.
+        assert "checkup_betterstack" not in KNOWN_BLOCKS
         # MAJOR-1: llm_guard — не сетевой провайдер, тест не поддерживается.
         assert "llm_guard" not in KNOWN_BLOCKS
 

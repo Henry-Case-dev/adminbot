@@ -473,8 +473,12 @@ def test_positive_controls_alive():
     from services import smartmodule_phrases as phrases  # PC-05/PC-06
     assert any("интернет сдох" in p for p in phrases.SEARCH_ERROR_PHRASES)
     assert any("llm откинулась" in p for p in phrases.LLM_ERROR_PHRASES)
-    assert any("беттерстак" in p.lower()
+    # SELF-DIAG-01 D1: фолбек-пул по-прежнему живой и честно описывает
+    # деградацию ЛОКАЛЬНОГО источника (удалённый из чекапа сервис не зовётся).
+    assert any("журнал" in p.lower() or "ledger" in p.lower()
                for p in phrases.CHECKUP_FALLBACK_PHRASES)
+    assert any("журнал" in p.lower()
+               for p in phrases.CHECKUP_DEAD_PHRASES)
     from services import smartmodule_utils as smu       # PC-04
     assert asyncio.iscoroutinefunction(smu.react_moai)
     from services import info_service as info           # PC-07 (О5)

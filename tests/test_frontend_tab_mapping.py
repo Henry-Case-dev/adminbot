@@ -190,9 +190,9 @@ class TestTabMappingAudit:
         # SMART_CACHE_TTL_SECONDS/SMART_CACHE_MAX_ROWS/CHAT_DEDUP_ENABLED/
         # CHAT_DEDUP_TTL_SECONDS), −2 GROUPS (limits_smart_cache/
         # flags_smart_cache), −2 mapped → фактические 581/119/117.
-        assert len(pc._TAB_BY_GROUP) == 119
-        assert len(GROUPS) == 121
-        assert len(pc.REGISTRY) == 598
+        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(GROUPS) == 119
+        assert len(pc.REGISTRY) == 595
 
 
 class TestModuleTabs:
@@ -287,16 +287,17 @@ class TestModuleTabs:
         assert tab_group_ids(TAB_MOD_WEB) == {"flags_module_web", "limits_web"}
 
     def test_mod_checkup_has_diagnostics_settings(self):
-        # A8/T-1205: models_checkup + keys_betterstack — в «Диагностике».
+        # A8/T-1205: «Диагностика» — флаги + лимиты.
         # 10.19 (F3/D1): limits_worker переехал в «Бюджеты» (mod_budgets).
+        # SELF-DIAG-01 D1: checkup-only Better Stack группы (models_checkup,
+        # keys_betterstack) удалены из каталога вместе с полями.
         groups = tab_group_ids(TAB_MOD_CHECKUP)
         assert groups == {
             "flags_service", "flags_throttle", "limits_checkup",
-            "limits_service", "models_checkup",
-            "keys_betterstack"}
+            "limits_service"}
         assert "limits_worker" not in groups
-        assert "models_checkup" not in tab_group_ids(TAB_LLM_PROVIDERS)
-        assert "keys_betterstack" not in tab_group_ids(TAB_LLM_PROVIDERS)
+        assert "models_checkup" not in {g.id for g in GROUPS}
+        assert "keys_betterstack" not in {g.id for g in GROUPS}
 
     def test_mod_budgets_composition(self):
         """F3 (D1) + F21 (10.24, ADR-1024-22 D1): «Бюджеты» — оба контура +
@@ -321,8 +322,7 @@ class TestAiTabs:
         # ASAP 7 F2 (§1.6/§19): models_direct_l1 — слот L1 Planner на
         # mod_direct (keys-слот в той же группе, прецедент Hybrid).
         assert tab_group_ids(TAB_LLM_PROVIDERS) == (
-            models | keys) - {"models_checkup", "keys_betterstack",
-                              "keys_youtube", "models_summary_hybrid",
+            models | keys) - {"keys_youtube", "models_summary_hybrid",
                               "models_direct_l1"}
 
     def test_memory_rag_has_limits_rag(self):
