@@ -1,0 +1,519 @@
+{
+  "caps": {
+    "classes": 4,
+    "edges": 2400,
+    "entity_nodes": 792,
+    "nodes": 800,
+    "per_class": 150
+  },
+  "degraded": {
+    "active": false,
+    "not_loaded": []
+  },
+  "edges": [
+    {
+      "chat_id": -1001,
+      "derived": false,
+      "from": "ent:-1001:1",
+      "id": "edge:-1001:1",
+      "justification_recorded": true,
+      "kind": "recorded",
+      "provenance": {
+        "basis": "fact_provenance",
+        "edge_id": 1,
+        "fact_id": 2,
+        "origin": "chat_history",
+        "recorded_at": null,
+        "updated_at": 1794145236,
+        "weight": 3
+      },
+      "relation": "обсуждали",
+      "to": "ent:-1001:2"
+    },
+    {
+      "chat_id": -1001,
+      "derived": true,
+      "from": "fact:-1001:2",
+      "id": "derived:-1001:1:fact",
+      "justification_recorded": true,
+      "kind": "derived",
+      "provenance": {
+        "basis": "edge_fact_id",
+        "chat_id": -1001,
+        "edge_id": 1,
+        "fact_id": 2
+      },
+      "relation": "derived_from",
+      "to": "ent:-1001:1"
+    },
+    {
+      "chat_id": -1001,
+      "derived": true,
+      "from": "fact:-1001:1",
+      "id": "revision:-1001:2:1",
+      "justification_recorded": false,
+      "kind": "derived",
+      "provenance": {
+        "basis": "supersedes",
+        "chat_id": -1001,
+        "new_fact_id": 2,
+        "old_fact_id": 1
+      },
+      "relation": "revised_by",
+      "to": "fact:-1001:2"
+    },
+    {
+      "chat_id": -1001,
+      "derived": true,
+      "from": "belief:-1001:3",
+      "id": "derived:-1001:3:2",
+      "justification_recorded": true,
+      "kind": "derived",
+      "provenance": {
+        "basis": "source_ids",
+        "chat_id": -1001,
+        "fact_id": 3,
+        "source_fact_id": 2
+      },
+      "relation": "derived_from",
+      "to": "fact:-1001:2"
+    },
+    {
+      "chat_id": -1001,
+      "derived": true,
+      "from": "belief:-1001:3",
+      "id": "derived:-1001:3:1",
+      "justification_recorded": true,
+      "kind": "derived",
+      "provenance": {
+        "basis": "source_ids",
+        "chat_id": -1001,
+        "fact_id": 3,
+        "source_fact_id": 1
+      },
+      "relation": "derived_from",
+      "to": "fact:-1001:1"
+    }
+  ],
+  "generated_at": 1760000000,
+  "nodes": [
+    {
+      "chat_id": -1001,
+      "id": "fact:-1001:2",
+      "isolated": false,
+      "kind": "fact",
+      "metrics": {
+        "degree": null,
+        "importance": 7,
+        "weight": 0.5
+      },
+      "provenance": {
+        "belief_meta_type": null,
+        "chat_id": -1001,
+        "fact_id": 2,
+        "forward_from": null,
+        "message_id": null,
+        "origin": "chat_history",
+        "record": "graph_facts",
+        "source_ids": [],
+        "version_of": 1
+      },
+      "refs": {
+        "source_ids": [],
+        "supersedes": 1
+      },
+      "scope": "chat",
+      "status": "confirmed",
+      "text": "Любит утренний кофе",
+      "time": {
+        "confirmed_at": 1750000000,
+        "observed_at": null,
+        "occurred_at": 1750000000,
+        "saved_at": 1750000000,
+        "updated_at": null
+      },
+      "title": "Любит утренний кофе"
+    },
+    {
+      "chat_id": -1001,
+      "id": "fact:-1001:1",
+      "isolated": false,
+      "kind": "fact",
+      "metrics": {
+        "degree": null,
+        "importance": 3,
+        "weight": 0.5
+      },
+      "provenance": {
+        "belief_meta_type": null,
+        "chat_id": -1001,
+        "fact_id": 1,
+        "forward_from": null,
+        "message_id": null,
+        "origin": "chat_history",
+        "record": "graph_facts",
+        "source_ids": [],
+        "version_of": null
+      },
+      "refs": {
+        "source_ids": [],
+        "supersedes": null
+      },
+      "scope": "chat",
+      "status": "confirmed",
+      "text": "Старый факт про кофе",
+      "time": {
+        "confirmed_at": 1740000000,
+        "observed_at": null,
+        "occurred_at": 1740000000,
+        "saved_at": 1740000000,
+        "updated_at": null
+      },
+      "title": "Старый факт про кофе"
+    },
+    {
+      "chat_id": -1001,
+      "id": "fact:-1001:5",
+      "isolated": true,
+      "kind": "fact",
+      "metrics": {
+        "degree": null,
+        "importance": 1,
+        "weight": 0.5
+      },
+      "provenance": {
+        "belief_meta_type": null,
+        "chat_id": -1001,
+        "fact_id": 5,
+        "forward_from": null,
+        "message_id": null,
+        "origin": "chat_history",
+        "record": "graph_facts",
+        "source_ids": [],
+        "version_of": null
+      },
+      "refs": {
+        "source_ids": [],
+        "supersedes": null
+      },
+      "scope": "chat",
+      "status": "confirmed",
+      "text": "Изолированный факт",
+      "time": {
+        "confirmed_at": 1750000400,
+        "observed_at": null,
+        "occurred_at": null,
+        "saved_at": 1750000400,
+        "updated_at": null
+      },
+      "title": "Изолированный факт"
+    },
+    {
+      "chat_id": -1001,
+      "id": "belief:-1001:3",
+      "isolated": false,
+      "kind": "belief",
+      "metrics": {
+        "degree": null,
+        "importance": 6,
+        "weight": 0.5
+      },
+      "provenance": {
+        "belief_meta_type": null,
+        "chat_id": -1001,
+        "fact_id": 3,
+        "forward_from": null,
+        "message_id": null,
+        "origin": "chat_history",
+        "record": "graph_facts",
+        "source_ids": [
+          2,
+          1
+        ],
+        "version_of": null
+      },
+      "refs": {
+        "source_ids": [
+          2,
+          1
+        ],
+        "supersedes": null
+      },
+      "scope": "chat",
+      "status": "confirmed",
+      "text": "Кофе — ритуал",
+      "time": {
+        "confirmed_at": 1750000200,
+        "observed_at": null,
+        "occurred_at": null,
+        "saved_at": 1750000200,
+        "updated_at": null
+      },
+      "title": "Кофе — ритуал"
+    },
+    {
+      "chat_id": -1001,
+      "id": "paradigm:-1001:4",
+      "isolated": true,
+      "kind": "paradigm",
+      "metrics": {
+        "degree": null,
+        "importance": 9,
+        "weight": 0.5
+      },
+      "provenance": {
+        "belief_meta_type": "paradigm",
+        "chat_id": -1001,
+        "fact_id": 4,
+        "forward_from": null,
+        "message_id": null,
+        "origin": "chat_history",
+        "record": "graph_facts",
+        "source_ids": [],
+        "version_of": null
+      },
+      "refs": {
+        "source_ids": [],
+        "supersedes": null
+      },
+      "scope": "chat",
+      "status": "confirmed",
+      "text": "Бережёт утро",
+      "time": {
+        "confirmed_at": 1750000300,
+        "observed_at": null,
+        "occurred_at": null,
+        "saved_at": 1750000300,
+        "updated_at": null
+      },
+      "title": "Бережёт утро"
+    },
+    {
+      "chat_id": -1001,
+      "id": "evt:-1001:dream:1",
+      "isolated": true,
+      "kind": "evolution_event",
+      "metrics": {
+        "degree": null,
+        "importance": null,
+        "weight": null
+      },
+      "provenance": {
+        "belief_id": null,
+        "chat_id": -1001,
+        "cluster_id": null,
+        "dream_kind": "distilled",
+        "log_id": 1,
+        "record": "memory_dream_log",
+        "source_ids": []
+      },
+      "refs": {
+        "belief_id": null
+      },
+      "scope": "chat",
+      "status": "ok",
+      "text": null,
+      "time": {
+        "confirmed_at": null,
+        "observed_at": null,
+        "occurred_at": 1750000600,
+        "saved_at": 1750000600,
+        "updated_at": null
+      },
+      "title": "Цикл памяти: distilled"
+    },
+    {
+      "chat_id": -1001,
+      "id": "evt:-1001:revision:2",
+      "isolated": true,
+      "kind": "evolution_event",
+      "metrics": {
+        "degree": null,
+        "importance": null,
+        "weight": null
+      },
+      "provenance": {
+        "chat_id": -1001,
+        "new_fact_id": 2,
+        "old_fact_id": 1,
+        "record": "graph_facts.supersedes"
+      },
+      "refs": {
+        "new_fact_id": 2,
+        "old_fact_id": 1
+      },
+      "scope": "chat",
+      "status": "superseded",
+      "text": null,
+      "time": {
+        "confirmed_at": null,
+        "observed_at": null,
+        "occurred_at": 1750000000,
+        "saved_at": 1750000000,
+        "updated_at": null
+      },
+      "title": "Версия заменена: Любит утренний кофе"
+    },
+    {
+      "chat_id": -1001,
+      "id": "obs:-1001:1",
+      "isolated": true,
+      "kind": "observation",
+      "metrics": {
+        "degree": null,
+        "importance": null,
+        "weight": null
+      },
+      "provenance": {
+        "agent_id": "bot",
+        "chat_id": -1001,
+        "dimension": "humor",
+        "observation_id": 1,
+        "record": "mca_trait_observations",
+        "source_refs": []
+      },
+      "refs": {},
+      "scope": "chat",
+      "status": "self",
+      "text": "Любит сарказм",
+      "time": {
+        "confirmed_at": null,
+        "observed_at": 1750000100,
+        "occurred_at": null,
+        "saved_at": 1750000100,
+        "updated_at": null
+      },
+      "title": "Любит сарказм"
+    },
+    {
+      "chat_id": -1001,
+      "id": "ent:-1001:1",
+      "isolated": false,
+      "kind": "entity",
+      "metrics": {
+        "degree": 1,
+        "importance": null,
+        "weight": null
+      },
+      "provenance": {
+        "chat_id": -1001,
+        "degree": 1,
+        "entity_type": "user",
+        "node_id": 1,
+        "record": "nodes"
+      },
+      "refs": {},
+      "scope": "chat",
+      "status": null,
+      "text": null,
+      "time": {
+        "confirmed_at": null,
+        "observed_at": null,
+        "occurred_at": null,
+        "saved_at": null,
+        "updated_at": null
+      },
+      "title": "Хаб"
+    },
+    {
+      "chat_id": -1001,
+      "id": "ent:-1001:2",
+      "isolated": false,
+      "kind": "entity",
+      "metrics": {
+        "degree": 1,
+        "importance": null,
+        "weight": null
+      },
+      "provenance": {
+        "chat_id": -1001,
+        "degree": 1,
+        "entity_type": "topic",
+        "node_id": 2,
+        "record": "nodes"
+      },
+      "refs": {},
+      "scope": "chat",
+      "status": null,
+      "text": null,
+      "time": {
+        "confirmed_at": null,
+        "observed_at": null,
+        "occurred_at": null,
+        "saved_at": null,
+        "updated_at": null
+      },
+      "title": "Тема"
+    }
+  ],
+  "scope": {
+    "chat_id": -1001,
+    "mode": "chat"
+  },
+  "shown_of": {
+    "by_kind": {
+      "belief": {
+        "shown": 1,
+        "total": 1,
+        "truncated": false
+      },
+      "entity": {
+        "shown": 2,
+        "total": 3,
+        "truncated": true
+      },
+      "evolution_event": {
+        "shown": 2,
+        "total": 2,
+        "truncated": false
+      },
+      "fact": {
+        "shown": 3,
+        "total": 3,
+        "truncated": false
+      },
+      "observation": {
+        "shown": 1,
+        "total": 1,
+        "truncated": false
+      },
+      "paradigm": {
+        "shown": 1,
+        "total": 1,
+        "truncated": false
+      }
+    },
+    "edges": 5,
+    "nodes": 10,
+    "totals": {
+      "edges": 5,
+      "nodes": 11
+    },
+    "unresolved_refs": 0
+  },
+  "sources": {
+    "beliefs": "loaded",
+    "edges": "loaded",
+    "facts": "loaded",
+    "graph": "loaded",
+    "memory_cycle": "loaded",
+    "node_totals": "loaded",
+    "observations": "loaded",
+    "paradigms": "loaded",
+    "revisions": "loaded",
+    "totals": "loaded"
+  },
+  "state": "partial",
+  "truncated": {
+    "by_class": {
+      "belief": false,
+      "entity": true,
+      "evolution": false,
+      "fact": false,
+      "paradigm": false
+    },
+    "edges": false,
+    "nodes": true
+  },
+  "version": "cog-map/1"
+}

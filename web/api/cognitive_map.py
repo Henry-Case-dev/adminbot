@@ -9,7 +9,12 @@
     (узлы ``entity``/``fact``/``belief``/``paradigm``/``observation``/
     ``evolution_event`` + рёбра) поверх СУЩЕСТВУЮЩИХ источников;
   * ``build_cognitive_map(db, chat_id)`` — та же сборка без FastAPI-слоя
-    (используется тестами; auth/DI остаются в эндпоинте).
+    (используется тестами; auth/DI остаются в эндпоинте);
+  * MEM-08-S2 (аддитивно): блок ``communities`` из АКТИВНОЙ сборки сообществ
+    (``memory_search.read_active_communities``) и
+    ``GET /api/memory/search`` — единый поиск, который вызывает **только**
+    существующий ``mca_retrieval_context.retrieve`` через
+    ``memory_search.search_memory`` (своего поиска здесь нет).
 
 Чего здесь НЕТ (сознательно, §2 «запрет второго хранилища»):
   * второго графового хранилища / новой очереди извлечения / эмбеддингов;
@@ -71,9 +76,10 @@ import time
 from typing import Annotated, Any, Awaitable, Callable
 
 from aiogram.utils.web_app import WebAppUser
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from services.database import parse_belief_meta
+from services import memory_search
 from web.api.deps import get_tma_user
 from web.api.memory_agi import (
     GRAPH_MAX_EDGES,
@@ -860,6 +866,31 @@ async def build_cognitive_map(db, chat_id: int | None = None, *,
     else:
         state = "ok"
 
+    # MEM-08-S2 (§6 C-6): семантические сообщества — ТОЛЬКО активная сборка.
+    # Нет таблиц / нет сборки / есть сборка — три разных честных состояния
+    # (`memory_search.read_active_communities`), LOD-тайлы сюда не попадают.
+    communities_source = "communities"
+    if chat is not None:
+        try:
+            communities = await memory_search.read_active_communities(db, chat)
+        except Exception:
+            logger.warning("[cognitive_map] сообщества недоступны — degraded",
+                           exc_info=True)
+            communities = memory_search.community_read_failure()
+        if communities.get("reason_code") == \
+                memory_search.COMMUNITY_REASON_READ_FAILED:
+            sources[communities_source] = "not_loaded"
+            if communities_source not in unavailable:
+                unavailable.append(communities_source)
+                state = "degraded"
+        else:
+            sources[communities_source] = "loaded"
+    else:
+        # Глобальная область не имеет единственной сборки: честно сообщаем,
+        # что сообщества — per chat, а не показываем чужой/выдуманный список.
+        communities = await memory_search.read_active_communities(db, None)
+        sources[communities_source] = "loaded"
+
     return {
         "version": PAYLOAD_VERSION,
         "generated_at": generated_at,
@@ -894,6 +925,7 @@ async def build_cognitive_map(db, chat_id: int | None = None, *,
         },
         "nodes": nodes,
         "edges": used_edges,
+        "communities": communities,
     }
 
 
@@ -914,3 +946,33 @@ async def memory_cognitive_map(
     _require_global_admin(request, user)
     db = _db_or_503()
     return await build_cognitive_map(db, chat_id)
+
+
+@cognitive_map_router.get("/memory/search")
+async def memory_search_endpoint(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    q: Annotated[str, Query()] = "",
+    chat_id: Annotated[int | None, Query()] = None,
+    limit: Annotated[int | None, Query()] = None,
+    cursor: Annotated[str | None, Query()] = None,
+):
+    """Единый поиск по памяти (MEM-08-S2, §4.3/§4.9).
+
+    Один backend-вход на один client input: внутри **только** существующий
+    `services.mca_retrieval_context.retrieve` (никакого второго поиска).
+    RBAC — как у остального Memory-API; `chat_id` — область, `None` —
+    разрешённый администратору набор чатов (`scope_all`).
+
+    Явные исходы (не подменяются друг другом): `forbidden`/`no_rights`,
+    `empty`/`no_matches`, `error`/`error`, `cursor_stale` (§4.9) и
+    `ok`/`candidates`. Невалидный вход — 400 с точным `reason_code`.
+    """
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    try:
+        response = await memory_search.search_memory(
+            db, None, query=q, chat_id=chat_id, limit=limit, cursor=cursor)
+    except memory_search.SearchRequestError as exc:
+        raise HTTPException(status_code=400, detail=exc.reason_code) from None
+    return response.as_dict()
