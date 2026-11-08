@@ -612,6 +612,23 @@ MEMORY_GATES: dict[str, tuple[bool, str]] = {
         "подтверждает, медиа без выполненного распознавания не читается как "
         "понимание. Новых хранилищ/LLM-вызовов/промптов гейт не включает",
     ),
+    # MEM-08-S3 (C-4 §4.10/§5.2): единый поиск по памяти — ручка
+    # `/api/memory/search` и новое аддитивное поле карты `search`.
+    # Заводской дефолт — **ON** (правило проекта: готовая и проверенная
+    # функция включается глобально при первом production-деплое; «выключено
+    # по умолчанию» не может стать постоянным состоянием). OFF остаётся
+    # рабочим путём откатa: payload карты не содержит `search` (паритет S2),
+    # UI показывает прежний toolbar и ищет только по загруженной сцене.
+    "MCA_MEMORY_SEARCH_ENABLED": (
+        True,
+        "C-4: единый поиск (ручка + поле карты). ON (заводской дефолт) → "
+        "`GET /api/memory/search` отвечает типизированной выдачей общего "
+        "`retrieve`, карта несёт аддитивное поле `search.enabled`, UI "
+        "показывает ОДНО поле «Найти в памяти». OFF → эндпоинт честно "
+        "отключён (409, не пустая выдача), поля `search` в payload нет, "
+        "UI возвращается к прежнему toolbar и поиску по загруженной сцене "
+        "(`CognitiveMap.searchNodes`); второго поискового движка нет ни в "
+        "одном режиме"),
     # MEMORY-07 (C-6 §5.2/§6): сборка и чтение семантических сообществ.
     # Ось резолвится НА КАЖДОМ тике регистрации job и на каждом запросе
     # retrieval — тумблер симметричен без рестарта; сборщик гейт не читает
@@ -640,6 +657,7 @@ MEMORY_GATE_CATALOG_KEYS: dict[str, str] = {
     "MCA_MEMORY_MAINTENANCE_POLICY_ENABLED":
         "flags.memory_maintenance_policy_enabled",
     "MCA_MEMORY_ATTRIBUTION_ENABLED": "flags.memory_attribution_enabled",
+    "MCA_MEMORY_SEARCH_ENABLED": "flags.memory_search_enabled",
     "MCA_MEMORY_COMMUNITIES_ENABLED": "flags.memory_communities_enabled",
 }
 
@@ -771,6 +789,45 @@ async def memory_communities_enabled(chat_id: int | None = None) -> bool:
         return False
     key = MEMORY_GATE_CATALOG_KEYS["MCA_MEMORY_COMMUNITIES_ENABLED"]
     factory = MEMORY_GATES["MCA_MEMORY_COMMUNITIES_ENABLED"][0]
+    if chat_id is None:
+        try:
+            from services import hot_config as hot
+            return bool(hot.get(key, factory))
+        except Exception:      # pragma: no cover — защитная ветка
+            return False
+    try:
+        from services import chat_params
+        return bool(await chat_params.get_chat_param(
+            int(chat_id), key, factory))
+    except Exception:          # pragma: no cover — защитная ветка
+        return False
+
+
+def memory_search_env_enabled() -> bool:
+    """Env-половина `MCA_MEMORY_SEARCH_ENABLED` (аварийный OFF, ON).
+
+    Заводской дефолт — ON (готовая функция включена при первом выкате);
+    явный `MCA_MEMORY_SEARCH_ENABLED=off` остаётся аварийным рубильником:
+    эндпоинт отвечает честным disabled, поле `search` в карте отсутствует."""
+    return _env_flag("MCA_MEMORY_SEARCH_ENABLED",
+                     MEMORY_GATES["MCA_MEMORY_SEARCH_ENABLED"][0])
+
+
+async def memory_search_enabled(chat_id: int | None = None) -> bool:
+    """Effective гейт C-4/§4.10: `env AND flags.memory_search_enabled`.
+
+    * env-emergency OFF важнее каталога (аварийное отключение без рестарта);
+    * `chat_id=None` (§5.2.1) → только `hot.get`, chat-override не читается;
+    * иначе — существующий `chat_params.get_chat_param` (chat override →
+      global hot → default), второго механизма нет;
+    * заводской дефолт — **ON** (единственный источник истины —
+      `MEMORY_GATES[...][0]`); явное сохранённое значение каталога/чата
+      важнее заводского и сменой дефолта не перетирается. Никогда не бросает.
+    """
+    if not memory_search_env_enabled():
+        return False
+    key = MEMORY_GATE_CATALOG_KEYS["MCA_MEMORY_SEARCH_ENABLED"]
+    factory = MEMORY_GATES["MCA_MEMORY_SEARCH_ENABLED"][0]
     if chat_id is None:
         try:
             from services import hot_config as hot

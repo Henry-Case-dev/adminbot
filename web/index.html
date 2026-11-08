@@ -13540,7 +13540,8 @@
                         aria-hidden="true"></span>{{ lg.label }}
                 </span>
               </div>
-              <div class="graph-search">
+              <div v-if="!cogSearchEnabled" class="graph-search"
+                   data-cog-legacy-search>
                 <input type="search" class="field input graph-search__input"
                        placeholder="Поиск по имени или алиасу…"
                        aria-label="Поиск узла по имени или алиасу"
@@ -13594,6 +13595,96 @@
                           data-cog-search-show
                           @click="showCogSearchResult()">Показать результат</button>
                 </div>
+              </div>
+              <!-- ═══ MEM-08-S3 (SC-21/SC-28, MEM-08.14/20/23/25): ЕДИНСТВЕННОЕ
+                   поле поиска — «Найти в памяти». Один state (`cogSearch`) на
+                   встроенную карту и полный экран: второй input/вторая форма
+                   запрещены контрактом. Прежний toolbar выше остаётся ТОЛЬКО
+                   как аварийный OFF-паритет гейта `MCA_MEMORY_SEARCH_ENABLED`
+                   (§4.10) и в обычном режиме не рендерится. -->
+              <div v-else class="cog-omni"
+                   :class="{ 'cog-omni--open': cogSearch.open }"
+                   :data-cog-search-state="cogSearch.state"
+                   data-cog-omni role="search">
+                <div class="cog-omni__field">
+                  <svg class="cog-omni__icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.4 10.4 L14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                  <label class="cog-omni__caption" for="cog-omni-inline">Найти в памяти</label>
+                  <input id="cog-omni-inline"
+                         class="graph-search__input cog-omni__input"
+                         data-cog-omni-input
+                         type="search" autocomplete="off" spellcheck="false"
+                         placeholder="Человек, событие, факт или вопрос…"
+                         aria-label="Найти в памяти"
+                         role="combobox" aria-autocomplete="list"
+                         aria-controls="cog-omni-inline-list"
+                         :aria-expanded="cogSearch.open ? 'true' : 'false'"
+                         v-model="cogSearch.query"
+                         @input="cogSearchInput($event)"
+                         @focus="cogSearchFocus()"
+                         @blur="cogSearchBlur()"
+                         @keydown="cogSearchKeydown($event)">
+                  <span v-if="cogSearch.busy" class="cog-omni__busy"
+                        data-cog-search-busy aria-hidden="true"></span>
+                  <button v-if="cogSearch.query" type="button"
+                          class="cog-omni__clear" data-cog-search-clear
+                          aria-label="Очистить запрос"
+                          @click="cogSearchClear()">×</button>
+                </div>
+                <p v-if="cogSearch.notice"
+                   class="cog-omni__status text-xs"
+                   :class="(cogSearch.state === 'error'
+                     || cogSearch.state === 'no_rights') ? 'text-amber-300'
+                     : 'text-gray-500'"
+                   :data-cog-search-state="cogSearch.state"
+                   role="status" aria-live="polite">{{ cogSearch.notice }}
+                  <button v-if="cogSearch.canRetry" type="button"
+                          class="btn-ghost text-xs" data-cog-search-retry
+                          @click="cogSearchRetry()">Попробовать ещё раз</button>
+                </p>
+                <ul v-if="cogSearch.open && cogSearch.rows.length"
+                    id="cog-omni-inline-list" class="cog-omni__panel"
+                    role="listbox" aria-label="Результаты поиска по памяти"
+                    data-cog-search-panel>
+                  <li v-for="(r, oi) in cogSearch.rows" :key="'omi' + oi"
+                      :id="'cog-omni-inline-opt-' + oi" role="option"
+                      :aria-selected="oi === cogSearch.activeIndex ? 'true' : 'false'"
+                      class="cog-omni__row"
+                      :class="{ 'is-active': oi === cogSearch.activeIndex }"
+                      :data-cog-omni-item="r.id"
+                      @mousedown.prevent="cogSearchSelect(oi)"
+                      @mouseenter="cogSearchHover(oi)">
+                    <span class="cog-omni__row-title">{{ r.title }}</span>
+                    <span v-if="r.metaLine" class="cog-omni__row-meta">{{ r.metaLine }}</span>
+                    <span v-if="r.snippet" class="cog-omni__row-snippet">{{ r.snippet }}</span>
+                    <span v-if="r.variants.length" class="cog-omni__row-variants">
+                      Варианты: {{ r.variants.join(' · ') }}</span>
+                  </li>
+                  <li v-if="cogSearch.hasMore" class="cog-omni__more">
+                    <button type="button" class="btn-ghost text-xs"
+                            data-cog-search-more
+                            @click="cogSearchMore()">Показать ещё</button>
+                  </li>
+                </ul>
+              </div>
+              <!-- MEM-08-S3 (§3 артефакта S1, MEM-08.5): сообщества — только
+                   proven-набор активной сборки; три состояния словами, без
+                   выдуманных «Сообщество N» в роли категории. -->
+              <div v-if="cogCommunities" class="cog-communities text-xs"
+                   :data-cog-communities="cogCommunities.state">
+                <span class="cog-communities__caption">Сообщества:</span>
+                <template v-if="cogCommunities.items.length">
+                  <span v-for="cm in cogCommunities.items" :key="'cmi' + cm.id"
+                        class="cog-communities__item"
+                        :data-cog-community="cm.id"
+                        :title="cm.labelBasis || ''">{{ cm.label }}
+                    <span class="cog-communities__meta">{{ cm.memberText }}</span></span>
+                  <span class="text-gray-500"
+                        data-cog-communities-truncated
+                        v-if="cogCommunities.truncated">показано
+                    {{ cogCommunities.shown }} из {{ cogCommunities.total }}</span>
+                </template>
+                <span v-else class="text-gray-500"
+                      data-cog-communities-empty>{{ cogCommunities.text }}</span>
               </div>
               <!-- ОДНА видимая строка статуса по «худшему факту» (Architect
                    §9.1): renderer_failed → loading/not_loaded → degraded →
@@ -15029,7 +15120,8 @@
                     <span class="cog-count" :data-cog-count="part.key">{{ part.text }}</span>
                   </template>
                 </span>
-                <div class="graph-search cog-fs__search">
+                <div v-if="!cogSearchEnabled" class="graph-search cog-fs__search"
+                     data-cog-legacy-search>
                   <input type="search" class="field input graph-search__input"
                          placeholder="Поиск по имени или алиасу…"
                          aria-label="Поиск узла по имени или алиасу"
@@ -15080,6 +15172,72 @@
                             @click="showCogSearchResult()">Показать результат</button>
                   </div>
                 </div>
+                <!-- MEM-08-S3: ТО ЖЕ поле и ТО ЖЕ состояние, что во встроенной
+                     карте (SC-28: «ни одного дубля поля»; блоки взаимоисключающие
+                     по `graphFullVisible`). Второго input/второй модели нет. -->
+                <div v-else class="cog-omni cog-fs__omni"
+                     :class="{ 'cog-omni--open': cogSearch.open }"
+                     :data-cog-search-state="cogSearch.state"
+                     data-cog-omni role="search">
+                  <div class="cog-omni__field">
+                    <svg class="cog-omni__icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.4 10.4 L14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                    <label class="cog-omni__caption" for="cog-omni-full">Найти в памяти</label>
+                    <input id="cog-omni-full"
+                           class="graph-search__input cog-omni__input"
+                           data-cog-omni-input
+                           type="search" autocomplete="off" spellcheck="false"
+                           placeholder="Человек, событие, факт или вопрос…"
+                           aria-label="Найти в памяти"
+                           role="combobox" aria-autocomplete="list"
+                           aria-controls="cog-omni-full-list"
+                           :aria-expanded="cogSearch.open ? 'true' : 'false'"
+                           v-model="cogSearch.query"
+                           @input="cogSearchInput($event)"
+                           @focus="cogSearchFocus()"
+                           @blur="cogSearchBlur()"
+                           @keydown="cogSearchKeydown($event)">
+                    <span v-if="cogSearch.busy" class="cog-omni__busy"
+                          data-cog-search-busy aria-hidden="true"></span>
+                    <button v-if="cogSearch.query" type="button"
+                            class="cog-omni__clear" data-cog-search-clear
+                            aria-label="Очистить запрос"
+                            @click="cogSearchClear()">×</button>
+                  </div>
+                  <p v-if="cogSearch.notice" class="cog-omni__status text-xs"
+                     :class="(cogSearch.state === 'error'
+                       || cogSearch.state === 'no_rights') ? 'text-amber-300'
+                       : 'text-gray-500'"
+                     :data-cog-search-state="cogSearch.state"
+                     role="status" aria-live="polite">{{ cogSearch.notice }}
+                    <button v-if="cogSearch.canRetry" type="button"
+                            class="btn-ghost text-xs" data-cog-search-retry
+                            @click="cogSearchRetry()">Попробовать ещё раз</button>
+                  </p>
+                  <ul v-if="cogSearch.open && cogSearch.rows.length"
+                      id="cog-omni-full-list" class="cog-omni__panel"
+                      role="listbox" aria-label="Результаты поиска по памяти"
+                      data-cog-search-panel>
+                    <li v-for="(r, oi) in cogSearch.rows" :key="'omf' + oi"
+                        :id="'cog-omni-full-opt-' + oi" role="option"
+                        :aria-selected="oi === cogSearch.activeIndex ? 'true' : 'false'"
+                        class="cog-omni__row"
+                        :class="{ 'is-active': oi === cogSearch.activeIndex }"
+                        :data-cog-omni-item="r.id"
+                        @mousedown.prevent="cogSearchSelect(oi)"
+                        @mouseenter="cogSearchHover(oi)">
+                      <span class="cog-omni__row-title">{{ r.title }}</span>
+                      <span v-if="r.metaLine" class="cog-omni__row-meta">{{ r.metaLine }}</span>
+                      <span v-if="r.snippet" class="cog-omni__row-snippet">{{ r.snippet }}</span>
+                      <span v-if="r.variants.length" class="cog-omni__row-variants">
+                        Варианты: {{ r.variants.join(' · ') }}</span>
+                    </li>
+                    <li v-if="cogSearch.hasMore" class="cog-omni__more">
+                      <button type="button" class="btn-ghost text-xs"
+                              data-cog-search-more
+                              @click="cogSearchMore()">Показать ещё</button>
+                    </li>
+                  </ul>
+                </div>
                 <button class="btn-ghost text-xs cog-fs__close" type="button"
                         data-cog-close @click="closeGraphFull()">✕ Закрыть</button>
               </div>
@@ -15104,6 +15262,26 @@
                     <button v-if="cogLoadErrorLabel" class="btn-ghost text-xs"
                             type="button" data-cog-load-retry
                             @click="loadCognitionGraph()">Повторить</button>
+                    <!-- MEM-08-S3: тот же блок сообществ и то же состояние, что
+                         во встроенной карте (полный экран не вводит второй
+                         источник подписей). -->
+                    <span v-if="cogCommunities" class="cog-communities text-xs"
+                          :data-cog-communities="cogCommunities.state">
+                      <span class="cog-communities__caption">Сообщества:</span>
+                      <template v-if="cogCommunities.items.length">
+                        <span v-for="cm in cogCommunities.items"
+                              :key="'cmf' + cm.id" class="cog-communities__item"
+                              :data-cog-community="cm.id"
+                              :title="cm.labelBasis || ''">{{ cm.label }}
+                          <span class="cog-communities__meta">{{ cm.memberText }}</span></span>
+                        <span class="text-gray-500"
+                              data-cog-communities-truncated
+                              v-if="cogCommunities.truncated">показано
+                          {{ cogCommunities.shown }} из {{ cogCommunities.total }}</span>
+                      </template>
+                      <span v-else class="text-gray-500"
+                            data-cog-communities-empty>{{ cogCommunities.text }}</span>
+                    </span>
                   </div>
                   <div class="cog-legend" data-cog-legend role="list"
                        aria-label="Обозначения когнитивной карты">

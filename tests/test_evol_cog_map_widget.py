@@ -243,16 +243,56 @@ def test_widget_markup_and_legend():
                  "entity", "observation"):
         assert "cog-legend__swatch--" + kind in CSS, kind
     assert "clip-path" in CSS            # форма, не только цвет
-    # Контролы паритета: поиск по имени/алиасу, тип, кластер, сброс, fullscreen.
+    # MEM-08-S3 (SC-21/SC-28, MEM-08.28): в обычном режиме контролы ровно
+    # ОДНОГО поля «Найти в памяти»; прежний toolbar (тип/кластер/«Найти»)
+    # остаётся только как аварийный OFF-паритет гейта (§4.10), поэтому
+    # `v-model="graphFilterGroup"`/`v-model="cognitionMapCluster"` живут в
+    # ветке `v-if="!cogSearchEnabled"`, а не в видимой строке.
     assert 'graph-search__input' in block
-    assert 'v-model="graphFilterGroup"' in block
-    assert 'v-model="cognitionMapCluster"' in block
+    assert 'data-cog-legacy-search' in block
+    assert 'v-if="!cogSearchEnabled"' in block
+    assert 'v-model="cogSearch.query"' in block
+    assert 'v-model="graphFilterGroup"' in block      # только OFF-паритет
+    assert 'v-model="cognitionMapCluster"' in block   # только OFF-паритет
     assert "@click=\"graphResetView()\"" in block
     assert "@click=\"openGraphFull()\"" in block
     # Та же позиция в сетке «Статуса» и тот же маршрут полного экрана.
     assert 'class="card p-4 status-graph sg-12"' in INDEX
     assert 'class="status-graph-full"' in INDEX
     assert 'ref="graphFullPanel"' in INDEX
+
+
+def test_mem08_s3_single_omnibox_in_both_views():
+    """MEM-08-S3/SC-21/SC-28: ОДНО поле «Найти в памяти» в обоих видах.
+
+    Второй поисковой формы/строки нет (MEM-08.14, INV-15); оба блока
+    (встроенная карта и полный экран) читают ОДНО состояние `cogSearch` и
+    взаимоисключающи по `graphFullVisible` — прежний toolbar остаётся только
+    как аварийный OFF-паритет гейта (§4.10).
+    """
+    embedded = _map_block(INDEX)
+    full = _fs_block(INDEX)
+    for name, block in (("встроенный", embedded), ("полный экран", full)):
+        assert block.count('data-cog-omni role="search"') == 1, name
+        assert block.count("data-cog-omni-input") == 1, name
+        assert block.count('aria-label="Найти в памяти"') == 1, name
+        assert 'v-model="cogSearch.query"' in block, name
+        assert '@keydown="cogSearchKeydown($event)"' in block, name
+        assert 'placeholder="Человек, событие, факт или вопрос…"' in block, name
+        assert 'data-cog-search-state' in block, name
+        assert 'data-cog-legacy-search' in block, name
+        assert 'data-cog-communities=' in block, name
+        # Второй модели/второго поля в блоке нет.
+        assert 'graphSearchQuery' in block      # только OFF-ветка
+    # Один и тот же state используется ровно в двух (взаимоисключающих) местах.
+    assert INDEX.count('v-model="cogSearch.query"') == 2
+    assert "cogSearch: {" in APP_JS
+    assert "COG_SEARCH_ENDPOINT = '/api/memory/search'" in APP_JS
+    assert 'cogFsSearch' not in APP_JS and 'fullscreenSearch' not in APP_JS
+    # Стили omnibox: прикреплённая панель + safe-area + reduced-motion.
+    assert ".cog-omni__panel" in CSS and "max-height" in CSS
+    assert "env(safe-area-inset-bottom" in CSS
+    assert "prefers-reduced-motion" in CSS
 
 
 def test_visible_status_is_single_worst_fact():
@@ -956,12 +996,12 @@ def test_cmv_d_counters_distinguish_four_values():
 
 
 def test_cmv_d_truncated_is_labelled_and_explained():
-    """§2.2: «Показана часть графа» + объяснение; честность не ослаблена."""
+    """§2.2: «Отображена часть графа» + объяснение; честность не ослаблена."""
     for block in (D_BLOCK, _fs_block(INDEX)):
         assert "data-cog-truncated" in block, "усечение не помечено"
         assert ':title="cogTruncated.hint"' in block, \
             "усечение не объясняется по hover"
-        assert "Показана часть графа" in block
+        assert "Отображена часть графа" in block
     body = _block(APP_JS, "cogTruncated: function () {",
                   "cogViewCounters: function () {")
     assert "tr.nodes === true" in body and "tr.edges === true" in body

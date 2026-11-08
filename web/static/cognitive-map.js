@@ -94,6 +94,11 @@
     // `generated_at` (контракт §4: `stale` — клиентское состояние, сервер его
     // не отдаёт). 15 минут = ритм существующего cognition-polling.
     staleMs: 15 * 60 * 1000,
+    // MEM-08-S3 (§4.8/MEM-08.26): debounce 120–180 мс — серверный запрос не
+    // летит на каждый символ; страница подсказок — 6–8 первых результатов
+    // (MEM-08.20), пагинация «Показать ещё» в той же панели.
+    searchDebounceMs: 150,
+    searchPageSize: 8,
   };
 
   /* ── визуальная система (§2.4 контракта) ─────────────────────────────── */
@@ -318,6 +323,8 @@
       byId: {},
       adjacency: {},
       warnings: [],
+      communities: communitiesView(null),
+      search: { enabled: false },
     };
   }
 
@@ -383,6 +390,10 @@
       },
     };
     model.shownOf = normalizeShownOf(source.shown_of);
+    // MEM-08-S3: гейт единого поиска и честный блок сообществ живут в модели,
+    // чтобы и шапка, и панель, и fullscreen читали ОДНО представление.
+    model.search = { enabled: searchGateEnabled(source) };
+    model.communities = communitiesView(source.communities);
 
     var aliasMap = opts.aliases && typeof opts.aliases === 'object'
       ? opts.aliases : null;
@@ -473,6 +484,299 @@
         || (a.node.id < b.node.id ? -1 : (a.node.id > b.node.id ? 1 : 0));
     });
     return hits.map(function (hit) { return hit.node; });
+  }
+
+  /* ═══ MEM-08-S3: единое поле поиска (omnibox) ═══════════════════════════
+   * Контракт: `plans/features/memory-cognitive-02/contracts.md` §4.3/§4.9/
+   * §4.10, §10 (Visual Preservation Map) и `search-read-model.md` §1/§3.
+   * Здесь — ТОЛЬКО чистые преобразования ответа `/api/memory/search` в
+   * пользовательское состояние и блок `communities` карты в честный вид.
+   * Сеть, debounce, фокус и клавиатура живут в `web/app.js`; второго
+   * поискового движка нет (сервер — общий `retrieve`, §4.4/S-1).
+   */
+
+  // Состояния saga поиска (§10, MEM-08.23). `cursor_stale` — ТЕХНИЧЕСКИЙ
+  // исход: он не рисует пустой экран, а тихо перезапускает первую страницу
+  // (§4.9), поэтому у него нет пользовательского текста.
+  var SEARCH_UI = {
+    EMPTY_INPUT: 'empty_input',
+    LOCAL_MATCHES: 'local_matches',
+    SERVER_SEARCHING: 'server_searching',
+    CANDIDATES: 'candidates',
+    AMBIGUOUS: 'ambiguous',
+    NO_MATCHES: 'no_matches',
+    WEAK_LEGACY_ONLY: 'weak_legacy_only',
+    PARTIAL: 'partial',
+    ERROR: 'error',
+    NO_RIGHTS: 'no_rights',
+    CURSOR_STALE: 'cursor_stale',
+  };
+
+  // Тексты различны СЛОВАМИ, а не цветом: «нет прав» ≠ «нет совпадений» ≠
+  // «сбой» (§4.7 S-4, MEM-08.23). Пустое состояние обзора — без подсказок и
+  // выдуманных историй запросов (S-6).
+  var SEARCH_UI_TEXT = {
+    empty_input: '',
+    local_matches: 'Совпадения на карте',
+    server_searching: 'Ищем по всей памяти…',
+    candidates: '',
+    ambiguous: 'Несколько вариантов — выберите нужный',
+    no_matches: 'Ничего не найдено в разрешённой области памяти',
+    weak_legacy_only: 'Найдены только записи без подтверждённого источника',
+    partial: 'Часть результатов: поиск ограничен областью',
+    error: 'Поиск не выполнен: техническая ошибка. Попробуйте ещё раз',
+    no_rights: 'Нет прав на эту область памяти',
+    cursor_stale: '',
+  };
+
+  // §4.9: `cursor_stale` — тихий перезапуск с первой страницы.
+  var SEARCH_RETRY_STATES = { error: true, no_rights: true };
+
+  function _searchStatus(resp) {
+    return (resp && typeof resp.status === 'string') ? resp.status : '';
+  }
+
+  function _searchQueryState(resp) {
+    return (resp && typeof resp.query_state === 'string')
+      ? resp.query_state : '';
+  }
+
+  /* searchStateFromResponse(resp) -> {
+   *   state, text, items, hasMore, nextCursor, reasonCode,
+   *   retryFirstPage, canRetry, ambiguous, empty
+   * }
+   * Мутации «ошибка выглядит как пусто» здесь невозможны: каждый исход
+   * разбирается по `status` (технический) и `query_state` (пользовательский),
+   * а отсутствующий/битый ответ — честный `error`, не `no_matches`.
+   */
+  function searchStateFromResponse(resp) {
+    var status = _searchStatus(resp);
+    var queryState = _searchQueryState(resp);
+    var out = {
+      state: SEARCH_UI.ERROR,
+      text: SEARCH_UI_TEXT.error,
+      items: [],
+      hasMore: false,
+      nextCursor: null,
+      reasonCode: (resp && resp.reason_code) ? String(resp.reason_code) : '',
+      retryFirstPage: false,
+      canRetry: false,
+      ambiguous: false,
+      empty: false,
+    };
+    if (!resp || typeof resp !== 'object') {
+      out.canRetry = true;   // сеть/битый ответ: повтор — честное действие
+      return out;            // битый ответ — не «ничего не найдено»
+    }
+    var rawItems = Array.isArray(resp.items) ? resp.items : [];
+    var items = [];
+    for (var i = 0; i < rawItems.length; i += 1) {
+      var row = searchRow(rawItems[i], i);
+      if (row) items.push(row);
+    }
+    out.items = items;
+    out.hasMore = resp.has_more === true;
+    out.nextCursor = resp.next_cursor ? String(resp.next_cursor) : null;
+
+    if (status === 'cursor_stale' || queryState === 'server_searching') {
+      // Устаревшая ревизия: НЕ экран «ничего не найдено», а тихий повтор.
+      out.state = status === 'cursor_stale' ? SEARCH_UI.CURSOR_STALE
+        : SEARCH_UI.SERVER_SEARCHING;
+      out.text = SEARCH_UI_TEXT[out.state] || '';
+      out.retryFirstPage = status === 'cursor_stale';
+      out.canRetry = false;
+      return out;
+    }
+    if (status === 'forbidden' || queryState === 'no_rights') {
+      out.state = SEARCH_UI.NO_RIGHTS;
+      out.text = SEARCH_UI_TEXT.no_rights;
+      out.canRetry = false;
+      return out;
+    }
+    if (status === 'error' || queryState === 'error') {
+      out.state = SEARCH_UI.ERROR;
+      out.text = SEARCH_UI_TEXT.error;
+      out.canRetry = true;      // повтор уместен ТОЛЬКО у сбоя
+      return out;
+    }
+    if (status === 'empty' || queryState === 'no_matches') {
+      out.state = SEARCH_UI.NO_MATCHES;
+      out.text = SEARCH_UI_TEXT.no_matches;
+      out.canRetry = false;
+      out.empty = true;
+      return out;
+    }
+    if (status === 'legacy_only' || queryState === 'weak_legacy_only') {
+      out.state = SEARCH_UI.WEAK_LEGACY_ONLY;
+      out.text = SEARCH_UI_TEXT.weak_legacy_only;
+      return out;
+    }
+    if (status === 'ambiguous' || queryState === 'candidates') {
+      var hasVariants = false;
+      for (var j = 0; j < items.length; j += 1) {
+        if (items[j].variants.length) { hasVariants = true; break; }
+      }
+      out.ambiguous = status === 'ambiguous' || hasVariants;
+      out.state = out.ambiguous ? SEARCH_UI.AMBIGUOUS
+        : SEARCH_UI.CANDIDATES;
+      out.text = SEARCH_UI_TEXT[out.state] || '';
+      return out;
+    }
+    if (status === 'partial' || queryState === 'partial') {
+      out.state = SEARCH_UI.PARTIAL;
+      out.text = SEARCH_UI_TEXT.partial;
+      out.canRetry = false;
+      return out;
+    }
+    if (status === 'ok' && queryState === 'local_matches') {
+      out.state = SEARCH_UI.LOCAL_MATCHES;
+      out.text = SEARCH_UI_TEXT.local_matches;
+      return out;
+    }
+    return out;                        // неизвестный исход остаётся error
+  }
+
+  // Категории — закрытый набор §4.3; подпись берётся из данных, а не из
+  // догадки клиента. `relation` показывается словом «Связь».
+  var SEARCH_ENTRY_LABELS = {
+    confirmed: 'подтверждено',
+    tentative: 'вероятно',
+    legacy: 'источник не указан',
+    contradicted: 'противоречие',
+    unknown: 'статус неизвестен',
+  };
+
+  /* searchRow(item, index) -> view-строка подсказки (без внутренних ID).
+   * Raw id/score/cosine/тройки в видимый текст не попадают (S-7): `id`
+   * возвращается отдельным полем только для обработчика выбора.
+   */
+  function searchRow(item, index) {
+    if (!item || typeof item !== 'object') return null;
+    var title = typeof item.title === 'string' ? item.title.trim() : '';
+    if (!title) return null;
+    var evidence = typeof item.evidence_status === 'string'
+      ? item.evidence_status : 'unknown';
+    var cause = typeof item.match_cause === 'string' ? item.match_cause : '';
+    var category = typeof item.category === 'string' ? item.category : '';
+    var snippet = typeof item.snippet === 'string' ? item.snippet.trim() : '';
+    var meta = [];
+    if (category) meta.push(category);
+    if (SEARCH_ENTRY_LABELS[evidence]) meta.push(SEARCH_ENTRY_LABELS[evidence]);
+    // Смысловое совпадение — «может относиться», а не «точно найдено»
+    // (MEM-08.20): точность обещаем только точным каналам.
+    var approximate = (cause === 'semantic');
+    if (approximate) meta.push('может относиться к запросу');
+    var variants = [];
+    if (item.ambiguity && Array.isArray(item.ambiguity.variants)) {
+      for (var v = 0; v < item.ambiguity.variants.length; v += 1) {
+        var variant = item.ambiguity.variants[v];
+        var text = (variant && typeof variant.title === 'string')
+          ? variant.title.trim() : '';
+        if (text) variants.push(text);
+      }
+    }
+    var focusNode = null;
+    if (item.focus && item.focus.node_id != null) {
+      focusNode = String(item.focus.node_id);
+    }
+    return {
+      id: String(item.canonical_id || ('row:' + index)),
+      title: title,
+      refKind: typeof item.ref_kind === 'string' ? item.ref_kind : '',
+      category: category,
+      snippet: snippet,
+      evidence: evidence,
+      evidenceLabel: SEARCH_ENTRY_LABELS[evidence] || '',
+      approximate: approximate,
+      metaLine: meta.join(' · '),
+      variants: variants,
+      focusNodeId: focusNode,
+      eventTs: (item.event_ts == null) ? null : item.event_ts,
+    };
+  }
+
+  function _plural(count, one, few, many) {
+    var n = Math.abs(Number(count) || 0);
+    var mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 14) return many;
+    var mod10 = n % 10;
+    if (mod10 === 1) return one;
+    if (mod10 >= 2 && mod10 <= 4) return few;
+    return many;
+  }
+
+  /* communitiesView(block) -> {state, text, items, truncated, total, shown}
+   * §3 артефакта S1: три честных состояния; нейтральная подпись не выдаётся
+   * за категорию, отсутствующая метрика — «Неизвестно», а не 0.
+   */
+  function communitiesView(block) {
+    var out = {
+      state: 'unavailable', text: 'н/д',
+      items: [], truncated: false, total: 0, shown: 0,
+    };
+    if (!block || typeof block !== 'object') return out;
+    var state = typeof block.state === 'string' ? block.state : '';
+    var items = Array.isArray(block.items) ? block.items : [];
+    out.truncated = block.truncated === true;
+    out.total = numberOr(block.total, items.length);
+    out.shown = numberOr(block.shown, items.length);
+    for (var i = 0; i < items.length; i += 1) {
+      var row = items[i];
+      if (!row || typeof row !== 'object') continue;
+      var label = typeof row.label === 'string' ? row.label.trim() : '';
+      var labelKind = row.label_kind === 'named' ? 'named' : 'neutral';
+      if (!label) {
+        // Подписи нет вовсе — не выдумываем её и не показываем пустую строку.
+        label = 'Без названия';
+        labelKind = 'neutral';
+      }
+      var members = (row.member_count == null) ? null
+        : numberOr(row.member_count, 0);
+      var metrics = (row.metrics && typeof row.metrics === 'object')
+        ? row.metrics : {};
+      out.items.push({
+        id: String(row.community_id || ('community:' + i)),
+        label: label,
+        labelKind: labelKind,
+        labelBasis: typeof row.label_basis === 'string' ? row.label_basis : '',
+        memberCount: members,
+        memberText: (members == null) ? 'Неизвестно'
+          : (members + ' ' + _plural(members, 'участник', 'участника',
+            'участников')),
+        metricsBasis: typeof row.metrics_basis === 'string'
+          ? row.metrics_basis : 'unknown',
+        confirmedLinks: (metrics.confirmed_links == null) ? null
+          : numberOr(metrics.confirmed_links, 0),
+      });
+    }
+    if (state === 'no_active_build') {
+      out.state = 'no_active_build';
+      out.text = 'ещё не собраны';
+      out.items = [];
+      return out;
+    }
+    if (state !== 'ok') {
+      out.state = 'unavailable';
+      out.text = 'н/д';
+      out.items = [];
+      return out;
+    }
+    if (!out.items.length) {
+      // `ok` с пустым набором — «подтверждённых нет», а не «все сообщества».
+      out.state = 'none';
+      out.text = 'подтверждённых пока нет';
+      return out;
+    }
+    out.state = 'ok';
+    out.text = '';
+    return out;
+  }
+
+  // Гейт единого поиска (§4.10): поля нет (OFF/старый сервер) → false.
+  function searchGateEnabled(payload) {
+    if (!payload || typeof payload !== 'object') return false;
+    var block = payload.search;
+    return !!(block && typeof block === 'object' && block.enabled === true);
   }
 
   function toSet(list) {
@@ -2125,6 +2429,14 @@
     normalizePayload: normalizePayload,
     normalizeShownOf: normalizeShownOf,
     searchNodes: searchNodes,
+    // MEM-08-S3: единый поиск — чистые преобразования ответа и сообществ.
+    SEARCH_UI: SEARCH_UI,
+    SEARCH_UI_TEXT: SEARCH_UI_TEXT,
+    SEARCH_RETRY_STATES: SEARCH_RETRY_STATES,
+    searchStateFromResponse: searchStateFromResponse,
+    searchRow: searchRow,
+    communitiesView: communitiesView,
+    searchGateEnabled: searchGateEnabled,
     applyFilters: applyFilters,
     computeClusters: computeClusters,
     kindSummary: kindSummary,

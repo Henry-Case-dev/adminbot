@@ -111,6 +111,13 @@ _PG_ONLY_BOOL_DEFAULTS: dict[str, bool] = {
     # OFF остаётся рабочим путём: явный выбор владельца (global/override
     # чата) или аварийный env `MCA_MEMORY_COMMUNITIES_ENABLED=off`.
     "flags.memory_communities_enabled": True,
+    # EPIC-MEMORY-COGNITIVE-02 / MEM-08-S3 (C-4 §4.10): ось единого поиска по
+    # памяти — заводской дефолт ON (готовая функция включается при первом
+    # выкате; «выключено по умолчанию» не может быть постоянным состоянием).
+    # OFF остаётся рабочим путём: явный выбор владельца (global/override
+    # чата) или аварийный env `MCA_MEMORY_SEARCH_ENABLED=off` → поле `search`
+    # в карте отсутствует, UI возвращается к прежнему toolbar.
+    "flags.memory_search_enabled": True,
 }
 
 

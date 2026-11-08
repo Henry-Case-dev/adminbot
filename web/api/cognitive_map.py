@@ -79,6 +79,7 @@ from aiogram.utils.web_app import WebAppUser
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from services.database import parse_belief_meta
+from services import mca_gates
 from services import memory_search
 from web.api.deps import get_tma_user
 from web.api.memory_agi import (
@@ -92,6 +93,10 @@ from web.api.memory_agi import (
 logger = logging.getLogger(__name__)
 
 cognitive_map_router = APIRouter()
+
+# MEM-08-S3: причина честного disabled-ответа ручки поиска при выключенном
+# гейте `MCA_MEMORY_SEARCH_ENABLED`/`flags.memory_search_enabled` (§4.10).
+SEARCH_DISABLED_REASON = "memory_search_disabled"
 
 # Версия payload: клиентский адаптер (web/static/cognitive-map.js) сверяет её
 # и не падает на незнакомой версии (только честный warning + базовые поля).
@@ -891,7 +896,18 @@ async def build_cognitive_map(db, chat_id: int | None = None, *,
         communities = await memory_search.read_active_communities(db, None)
         sources[communities_source] = "loaded"
 
-    return {
+    # MEM-08-S3 (§4.10): гейт единого поиска. OFF → поля `search` в payload
+    # НЕТ (паритет S2 байт-в-байт), UI остаётся с прежним toolbar и ищет
+    # только по загруженной сцене. Резолв — существующий `mca_gates`
+    # (env AND каталог, per-chat наследование); второго механизма нет.
+    try:
+        search_enabled = await mca_gates.memory_search_enabled(chat)
+    except Exception:          # pragma: no cover — защитная ветка
+        logger.warning("[cognitive_map] гейт поиска недоступен — OFF",
+                       exc_info=True)
+        search_enabled = False
+
+    payload = {
         "version": PAYLOAD_VERSION,
         "generated_at": generated_at,
         "state": state,
@@ -927,6 +943,11 @@ async def build_cognitive_map(db, chat_id: int | None = None, *,
         "edges": used_edges,
         "communities": communities,
     }
+    # Аддитивное поле ТОЛЬКО при включённом гейте: OFF обязан совпадать с
+    # payload S2 (никаких «выключено, но поле есть»).
+    if search_enabled:
+        payload["search"] = {"enabled": True}
+    return payload
 
 
 # ── эндпоинт ────────────────────────────────────────────────────────────────
@@ -973,6 +994,12 @@ async def memory_search_endpoint(
     """
     _require_global_admin(request, user)
     db = _db_or_503()
+    # MEM-08-S3 (§4.10): гейт единого поиска — ручка и поле карты включаются
+    # одним тумблером. OFF → честный disabled (409), а не «ничего не найдено»:
+    # пустая выдача при выключенной функции была бы ложью о памяти.
+    if not await mca_gates.memory_search_enabled(chat_id):
+        raise HTTPException(status_code=409,
+                            detail=SEARCH_DISABLED_REASON)
     # MEM-08-S2: гибридный поиск обязан идти с ЖИВЫМ менеджером памяти —
     # он внедряется в приложение при старте (bot.py → create_app(memory=...),
     # app.state.memory), как cache/control. Второй менеджер здесь не

@@ -1555,6 +1555,9 @@
   // запрашивает. Рендер — тот же self-host vis-network 9.1.9 (новых
   // библиотек/CDN нет), подписи — собственный экранный слой (`afterDrawing`).
   var COG_MAP_ENDPOINT = '/api/memory/cognitive-map';
+  // MEM-08-S3 (§9.5): единый backend-вход поиска — уже существующая ручка
+  // (`web/api/cognitive_map.py`), второго поискового endpoint нет.
+  var COG_SEARCH_ENDPOINT = '/api/memory/search';
   // Порог «данные устарели» — клиентская константа (контракт §4/§7.2).
   var COG_MAP_STALE_MS = 15 * 60 * 1000;
   var COG_MAP_LABEL_FONT_PX = 11;      // подписи слоя (не подписи vis)
@@ -4139,6 +4142,30 @@
         // {id, title, blocks, blocksLabel} с действием «Показать результат».
         // Молчаливое снятие фильтров запрещено требованием CMV-NAV-03.
         graphSearchConflict: null,
+        // ═══ MEM-08-S3: ОДНО поле «Найти в памяти» (omnibox) ═══════════════
+        // Единственная модель состояния: inline-карта и полный экран читают
+        // ЭТОТ объект — второго поля/второго состояния нет (SC-21/SC-28,
+        // контракт S-8). Гейт `MCA_MEMORY_SEARCH_ENABLED` (ON по умолчанию)
+        // приходит из payload карты: OFF → прежний toolbar ниже (`v-if`).
+        cogSearchEnabled: false,
+        cogSearch: {
+          query: '',            // единственный ввод (v-model)
+          open: false,          // панель подсказок раскрыта
+          state: 'empty_input', // состояние saga (см. CognitiveMap.SEARCH_UI)
+          notice: '',           // человеческий текст состояния
+          rows: [],             // видимые строки подсказок (без внутренних ID)
+          activeIndex: -1,      // keyboard highlight
+          busy: false,          // «Ищем…» внутри поля
+          canRetry: false,
+          retryFirstPage: false,
+          hasMore: false,
+          cursor: null,
+          reasonCode: '',       // технический reason_code (admin-диагностика)
+        },
+        _cogSearchGen: 0,       // поколение запроса (поздний ответ не перетирает)
+        _cogSearchTimer: null,  // debounce-таймер
+        _cogSearchAbort: null,  // AbortController последнего запроса
+        _cogSearchLastQ: '',    // нормализованный запрос последнего ответа
         memoryWidgetBusy: false,
         reducedMotion: false,          // prefers-reduced-motion (анимации off)
         // hotfix6 (ADR-1025-12 D1/D4): диагностика tier стекла (R17-safe) +
@@ -8856,6 +8883,15 @@
         var model = this.cognitionGraphData || null;
         if (!C || !model) return [];
         return C.computeClusters(model);
+      },
+      // MEM-08-S3 (§3 артефакта S1, MEM-08.5): блок сообществ карты в честном
+      // виде. Три состояния различаются словами; нейтральная подпись не
+      // выдаётся за категорию, отсутствующая метрика — «Неизвестно», а не 0.
+      cogCommunities: function () {
+        var C = window.CognitiveMap;
+        var model = this.cognitionGraphData || null;
+        if (!C || !model || typeof C.communitiesView !== 'function') return null;
+        return model.communities || C.communitiesView(null);
       },
       // Легенда: четыре слова владельца (Факты/Убеждения/Парадигмы/Изменения)
       // + вторичные классы, если они реально есть в данных.
@@ -30548,6 +30584,16 @@
             ? this.summaryAliasesMap() : {};
           this.cognitionGraphData = C.normalizePayload(payload,
             { aliases: aliases });
+          // MEM-08-S3 (§4.10): effective-гейт поиска приходит ИЗ PAYLOAD
+          // (env AND каталог на сервере); OFF → прежний toolbar, а набранный
+          // запрос сбрасывается (результаты прежней области не живут).
+          this.cogSearchEnabled = !!(this.cognitionGraphData
+            && this.cognitionGraphData.search
+            && this.cognitionGraphData.search.enabled === true);
+          if (!this.cogSearchEnabled && this.cogSearch
+              && this.cogSearch.query) {
+            this._cogSearchReset();
+          }
           this.cognitionMapVisMissing = false;
           this.cognitionMapFailed = false;
           // Успешный ответ снимает видимую ошибку прошлой попытки.
@@ -33193,6 +33239,10 @@
         this.graphSearchStatus = '';
         this._graphSearchMatches = [];
         this._graphSearchMatchIds = [];
+        // MEM-08-S3: область поиска сменилась — прежние подсказки и запрос не
+        // показываются даже кадром (S-3: кэш ключуется scope, а не разделяется).
+        this._cogSearchCancelPending();
+        this._cogSearchReset();
         if (typeof this.graphClearDetail === 'function') this.graphClearDetail();
         var self = this;
         this.$nextTick(function () {
@@ -33547,6 +33597,346 @@
           staleMs: COG_MAP_STALE_MS,
           visibleNodes: this.cogViewNodes,
         });
+      },
+      // ═══ MEM-08-S3: ОДНО поле «Найти в памяти» (omnibox) ═════════════════
+      // Один state (`cogSearch`) на inline и fullscreen (S-8/SC-21/SC-28):
+      // второго поля, второй модели и второго поиска нет. Локальный отклик —
+      // синхронный по уже загруженной сцене; серверное дополнение — после
+      // debounce 150 мс через существующую ручку `/api/memory/search`
+      // (общий `retrieve`, §4.4/S-1). Поздний ответ не перетирает свежий:
+      // поколение запроса + AbortController (§4.8/MEM-08.19).
+      cogSearchFocus: function () {
+        if (!this.cogSearchEnabled) return;
+        var s = this.cogSearch;
+        if (s.query) s.open = s.rows.length > 0;
+      },
+      cogSearchInput: function (ev) {
+        var self = this;
+        var s = this.cogSearch;
+        if (ev && ev.target && typeof ev.target.value === 'string') {
+          // Значение берём из поля: порядок обработчиков v-model и @input не
+          // влияет на то, что реально введено (в т.ч. составные IME-символы).
+          s.query = ev.target.value;
+        }
+        var q = String(s.query || '').trim();
+        this._cogSearchCancelPending();
+        if (!q) {
+          // Пустой ввод — обычный обзор, без выдуманных подсказок (S-6).
+          this._cogSearchReset();
+          return;
+        }
+        // (а) синхронно: подходящие узлы уже загруженной сцены (MEM-08.19).
+        var local = this._cogSearchLocalRows(q);
+        s.rows = local;
+        s.activeIndex = local.length ? 0 : -1;
+        s.open = local.length > 0;
+        s.busy = true;
+        s.canRetry = false;
+        s.retryFirstPage = false;
+        s.reasonCode = '';
+        s.hasMore = false;
+        s.cursor = null;
+        s.state = local.length ? 'local_matches' : 'server_searching';
+        // Локальный отклик НЕ выдаётся за полный серверный поиск.
+        s.notice = local.length
+          ? 'Совпадения на карте · ищем по всей памяти…'
+          : 'Ищем по всей памяти…';
+        if (s.open && typeof this._cogSearchClampPanel === 'function') {
+          this._cogSearchClampPanel();
+        }
+        // (б) серверное дополнение по всей разрешённой памяти после debounce.
+        var C = window.CognitiveMap;
+        var delay = (C && C.DEFAULTS && C.DEFAULTS.searchDebounceMs) || 150;
+        this._cogSearchTimer = setTimeout(function () {
+          self._cogSearchTimer = null;
+          self._cogSearchRun(q, self._cogSearchGen, {});
+        }, delay);
+      },
+      // Отмена всего «в полёте»: таймер debounce + сетевой запрос + поколение.
+      _cogSearchCancelPending: function () {
+        this._cogSearchGen = (this._cogSearchGen || 0) + 1;
+        if (this._cogSearchTimer != null) {
+          clearTimeout(this._cogSearchTimer);
+          this._cogSearchTimer = null;
+        }
+        if (this._cogSearchAbort) {
+          try { this._cogSearchAbort.abort(); } catch (e) { /* noop */ }
+          this._cogSearchAbort = null;
+        }
+      },
+      // Локальные (синхронные) строки — только реальные узлы модели.
+      _cogSearchLocalRows: function (q) {
+        var C = window.CognitiveMap;
+        var model = this.cognitionGraphData || null;
+        if (!C || !model || typeof C.searchNodes !== 'function') return [];
+        var hits = C.searchNodes(model, q) || [];
+        var limit = (C.DEFAULTS && C.DEFAULTS.searchPageSize) || 8;
+        var cap = Math.min(limit, 6);
+        var out = [];
+        for (var i = 0; i < hits.length && out.length < cap; i += 1) {
+          var node = hits[i];
+          var kindLabel = node.kind ? (C.KIND_LABELS[node.kind] || '') : '';
+          out.push({
+            id: String(node.id),
+            title: node.title || String(node.id),
+            refKind: '',
+            category: '',
+            snippet: '',
+            evidence: 'unknown',
+            evidenceLabel: '',
+            approximate: false,
+            metaLine: [kindLabel, 'на карте'].filter(Boolean).join(' · '),
+            variants: [],
+            focusNodeId: String(node.id),
+            local: true,
+          });
+        }
+        return out;
+      },
+      // Один серверный запрос. `gen` — поколение: ответ, пришедший после
+      // нового ввода, отбрасывается молча (медленный «Пап» не перетирает
+      // свежий «Папаха»). `cursor_stale` — тихий перезапуск первой страницы.
+      _cogSearchRun: async function (q, gen, opts) {
+        opts = opts || {};
+        var C = window.CognitiveMap;
+        if (!C || typeof C.searchStateFromResponse !== 'function') return;
+        if (gen !== this._cogSearchGen) return;
+        var pageSize = (C.DEFAULTS && C.DEFAULTS.searchPageSize) || 8;
+        var url = COG_SEARCH_ENDPOINT + '?q=' + encodeURIComponent(q)
+          + '&limit=' + pageSize
+          + (opts.cursor ? '&cursor=' + encodeURIComponent(opts.cursor) : '')
+          + this._cidQuery(false);
+        var ctrl = null;
+        try {
+          if (typeof AbortController === 'function') ctrl = new AbortController();
+        } catch (e) { ctrl = null; }
+        this._cogSearchAbort = ctrl;
+        var payload = null;
+        var failure = null;
+        try {
+          payload = ctrl ? await this.api(url, { signal: ctrl.signal })
+            : await this.api(url);
+        } catch (e) {
+          failure = e;
+        }
+        if (gen !== this._cogSearchGen
+            || String(this.cogSearch.query || '').trim() !== q) {
+          return;                       // устаревший ответ — тихо отброшен
+        }
+        this._cogSearchAbort = null;
+        if (failure) {
+          if (failure.status === 409) {
+            // Гейт выключен на сервере (аварийный/владельческий OFF) —
+            // честно возвращаем прежний toolbar, а не «ничего не найдено».
+            this.cogSearchEnabled = false;
+            this._cogSearchReset();
+            return;
+          }
+          // Сетевой сбой — «Попробовать ещё раз», НЕ пустая выдача (08.23).
+          var netView = C.searchStateFromResponse(null);
+          netView.reasonCode = 'network';
+          this._cogSearchApply(netView, {});
+          return;
+        }
+        var view = C.searchStateFromResponse(payload);
+        if (view.retryFirstPage === true && !opts.staleRetry) {
+          // §4.9: устаревшая ревизия → первая страница, пустой экран не рисуем.
+          return this._cogSearchRun(q, gen, { staleRetry: true });
+        }
+        this._cogSearchApply(view, { append: opts.append === true });
+      },
+      // Применение результата к ОДНОЙ модели состояния.
+      _cogSearchApply: function (view, opts) {
+        opts = opts || {};
+        var s = this.cogSearch;
+        if (!s) return;
+        s.busy = false;
+        s.canRetry = view.canRetry === true;
+        s.retryFirstPage = view.retryFirstPage === true;
+        s.reasonCode = view.reasonCode || '';
+        var rows = Array.isArray(view.items) ? view.items.slice() : [];
+        if (opts.append) {
+          var seen = {};
+          for (var i = 0; i < s.rows.length; i += 1) seen[s.rows[i].id] = true;
+          for (var j = 0; j < rows.length; j += 1) {
+            if (!seen[rows[j].id]) s.rows.push(rows[j]);
+          }
+          s.hasMore = (view.hasMore === true) && !!view.nextCursor;
+          s.cursor = view.nextCursor || null;
+          s.state = view.state;
+          if (view.text) s.notice = view.text;
+          return;
+        }
+        s.rows = rows;
+        s.activeIndex = rows.length ? 0 : -1;
+        s.state = view.state;
+        s.notice = view.text || '';
+        s.hasMore = (view.hasMore === true) && !!view.nextCursor;
+        s.cursor = view.nextCursor || null;
+        // Панель открыта только когда есть из чего выбирать: честный текст
+        // состояния (нет прав / сбой / нет совпадений) виден и без панели.
+        s.open = rows.length > 0;
+        if (s.open && typeof this._cogSearchClampPanel === 'function') {
+          this._cogSearchClampPanel();
+        }
+      },
+      _cogSearchReset: function () {
+        var s = this.cogSearch;
+        if (!s) return;      // минимальные пробные контексты тестов/роутинга
+        s.query = '';
+        s.open = false;
+        s.state = 'empty_input';
+        s.notice = '';
+        s.rows = [];
+        s.activeIndex = -1;
+        s.busy = false;
+        s.canRetry = false;
+        s.retryFirstPage = false;
+        s.hasMore = false;
+        s.cursor = null;
+        s.reasonCode = '';
+      },
+      // Клавиатура (MEM-08.25): ArrowUp/Down, Enter, Escape, Tab.
+      // IME/кириллическая композиция не запускает поиск/выбор преждевременно.
+      cogSearchKeydown: function (ev) {
+        if (!ev) return;
+        if (ev.isComposing === true || ev.keyCode === 229) return;
+        var s = this.cogSearch;
+        var key = ev.key;
+        if (key === 'ArrowDown' || key === 'ArrowUp') {
+          if (!s.rows.length) return;
+          ev.preventDefault();
+          s.open = true;
+          var dir = key === 'ArrowDown' ? 1 : -1;
+          var n = s.rows.length;
+          s.activeIndex = (s.activeIndex < 0)
+            ? (dir > 0 ? 0 : n - 1)
+            : (s.activeIndex + dir + n) % n;
+          return;
+        }
+        if (key === 'Enter') {
+          if (!s.rows.length) {
+            if (s.notice) ev.preventDefault();
+            return;
+          }
+          ev.preventDefault();
+          this.cogSearchSelect(s.activeIndex < 0 ? 0 : s.activeIndex);
+          return;
+        }
+        if (key === 'Escape') {
+          if (s.open) {
+            ev.preventDefault();
+            s.open = false;
+            s.activeIndex = -1;
+            return;
+          }
+          if (s.query) {
+            ev.preventDefault();
+            this.cogSearchClear();
+          }
+          if (ev.target && typeof ev.target.blur === 'function') ev.target.blur();
+          return;
+        }
+        if (key === 'Tab') {
+          // Tab сохраняет логический порядок: список не перехватывает фокус.
+          s.open = false;
+        }
+      },
+      cogSearchHover: function (index) {
+        if (index < 0 || index >= this.cogSearch.rows.length) return;
+        this.cogSearch.activeIndex = index;
+      },
+      cogSearchBlur: function () {
+        this.cogSearch.open = false;
+        this.cogSearch.activeIndex = -1;
+      },
+      // Панель подсказок не должна уходить под экран/клавиатуру (MEM-08.24:
+      // «результаты в safe-area overlay … над экранной клавиатурой»). Высота
+      // ограничивается ОСТАТКОМ видимой области, а при нехватке места панель
+      // раскрывается вверх от поля. Это геометрия, не второй компонент.
+      _cogSearchClampPanel: function () {
+        var self = this;
+        if (typeof document === 'undefined' || !document.querySelector) return;
+        var apply = function () {
+          var panel = document.querySelector('.cog-omni__panel');
+          if (!panel || !panel.parentElement) return;
+          var field = panel.parentElement.querySelector('.cog-omni__field');
+          if (!field || typeof window === 'undefined') return;
+          var rect = field.getBoundingClientRect();
+          var below = window.innerHeight - rect.bottom - 8;
+          var above = rect.top - 8;
+          if (below < 140 && above > below) {
+            panel.classList.add('cog-omni__panel--up');
+            panel.style.maxHeight = Math.max(96, above) + 'px';
+          } else {
+            panel.classList.remove('cog-omni__panel--up');
+            panel.style.maxHeight = Math.max(96, below) + 'px';
+          }
+        };
+        if (this.$nextTick) this.$nextTick(apply);
+        else apply();
+      },
+      // Выбор результата: подсказки — preview (MEM-08.21). Никакого слияния
+      // сущностей и выдуманных узлов: если записи нет в текущем окне карты,
+      // это честно сказано, а не нарисовано.
+      cogSearchSelect: function (index) {
+        var s = this.cogSearch;
+        var row = (index >= 0 && index < s.rows.length) ? s.rows[index] : null;
+        if (!row) return;
+        s.activeIndex = index;
+        s.open = false;
+        var model = this.cognitionGraphData || null;
+        var nodeId = null;
+        if (model && model.byId) {
+          if (model.byId[String(row.id)]) {
+            nodeId = String(row.id);
+          } else if (row.focusNodeId != null) {
+            var suffix = ':' + String(row.focusNodeId);
+            var keys = Object.keys(model.byId);
+            for (var i = 0; i < keys.length; i += 1) {
+              if (keys[i].indexOf('ent:') === 0
+                  && keys[i].slice(-suffix.length) === suffix) {
+                nodeId = keys[i];
+                break;
+              }
+            }
+          }
+        }
+        if (nodeId != null) {
+          this._graphSearchMatchIds = [nodeId];
+          this._graphSearchMatches = [model.byId[nodeId]];
+          var scene = this._cogScene;
+          if (scene) scene.searchRev = (scene.searchRev || 0) + 1;
+          if (typeof this.focusGraphNode === 'function') this.focusGraphNode(nodeId);
+          s.notice = 'Показано на карте: ' + row.title;
+          return;
+        }
+        s.notice = 'Запись вне текущего окна карты: ' + row.title;
+      },
+      cogSearchMore: function () {
+        var q = String(this.cogSearch.query || '').trim();
+        if (!q || !this.cogSearch.cursor) return;
+        this.cogSearch.busy = true;
+        this._cogSearchRun(q, this._cogSearchGen,
+          { cursor: this.cogSearch.cursor, append: true });
+      },
+      cogSearchRetry: function () {
+        var q = String(this.cogSearch.query || '').trim();
+        if (!q) return;
+        this._cogSearchCancelPending();
+        this.cogSearch.busy = true;
+        this.cogSearch.canRetry = false;
+        this.cogSearch.notice = 'Ищем по всей памяти…';
+        this._cogSearchRun(q, this._cogSearchGen, {});
+      },
+      // `×` очищает ввод и снимает подсветку/фокус поиска (история сцены не
+      // стирается — back-stack карты живёт отдельно).
+      cogSearchClear: function () {
+        this._cogSearchCancelPending();
+        this._cogSearchReset();
+        if (typeof this.clearCognitionGraphSearch === 'function') {
+          this.clearCognitionGraphSearch();
+        }
       },
       // F2 (T-1560/1561, spec §5): поиск по имени/алиасу с фокусом. Алиасы
       // уже разложены в модели (`summaryAliasesMap` при загрузке), поэтому

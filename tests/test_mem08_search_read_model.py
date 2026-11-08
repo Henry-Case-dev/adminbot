@@ -318,13 +318,16 @@ def _code_strings(tree) -> list[str]:
 
 
 def _normalized_payload(payload: dict) -> dict:
-    """Убирает volatile-значения, аддитивные поля S2 и порядок рёбер.
+    """Убирает volatile-значения, аддитивные поля и порядок рёбер.
 
     Порядок внутри `edges` зависит от порядка `source_ids` в строке факта, а
-    не от контракта; набор и содержимое проверяются полностью.
+    не от контракта; набор и содержимое проверяются полностью. Аддитивные
+    поля срезов MEM-08 (`communities` — S2, `search` — S3) сравниваются
+    отдельно, чтобы паритет остальных полей был байт-в-байт.
     """
     data = json.loads(json.dumps(payload, ensure_ascii=False))
     data.pop("communities", None)
+    data.pop("search", None)
     data.get("sources", {}).pop("communities", None)
     data["generated_at"] = 0
     for edge in data.get("edges") or ():
@@ -344,8 +347,10 @@ class TestMapPayloadUnchanged:
         expected = json.loads(FIXTURE.read_text(encoding="utf-8"))
 
         assert _normalized_payload(payload) == _normalized_payload(expected)
-        # Ровно одно аддитивное дополнение верхнего уровня (S2).
-        assert set(payload) - set(expected) == {"communities"}
+        # Ровно аддитивные дополнения верхнего уровня: S2 (`communities`) и
+        # S3 (`search` — только при включённом гейте; OFF-паритет проверяется
+        # в `tests/test_mem08_omnibox.py`).
+        assert set(payload) - set(expected) == {"communities", "search"}
         assert set(payload["sources"]) - set(expected["sources"]) == {
             "communities"}
 
