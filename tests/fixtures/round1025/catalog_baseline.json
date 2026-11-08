@@ -5,7 +5,7 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 597,
+    "REGISTRY": 598,
     "GROUPS": 121,
     "_TAB_BY_GROUP": 119,
     "TAB_RULES": 22
@@ -784,6 +784,7 @@
     "flags.direct_l1_enabled",
     "flags.direct_l1_fallback_enabled",
     "flags.factcheck_critique_section_enabled",
+    "flags.memory_communities_enabled",
     "flags.summary_hybrid_l1_repair_enabled",
     "flags.summary_hybrid_l1_retry_enabled",
     "flags.summary_hybrid_l2_enabled",

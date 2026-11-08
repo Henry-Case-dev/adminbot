@@ -877,7 +877,15 @@ def test_module_writes_only_community_tables():
 
 
 def test_builder_is_not_registered_on_hot_path():
-    """Ни один горячий путь не собирает сообщества (MEM-07.3)."""
+    """Ни один горячий путь не собирает сообщества (MEM-07.3).
+
+    Проверяется достижимость СБОРЩИКА: модуль не импортируется и
+    `build_chat_communities` не вызывается. Гейт-резолвер
+    (`mca_gates.memory_communities_enabled`) горячему пути разрешён — это
+    чтение флага (волна 4: канал читает готовую active-сборку), а не сборка.
+    """
+    import ast
+
     root = Path(__file__).resolve().parent.parent
     hot_paths = (
         "services/direct_chat_service.py",
@@ -888,7 +896,18 @@ def test_builder_is_not_registered_on_hot_path():
     for relative in hot_paths:
         text = (root / relative).read_text(encoding="utf-8")
         assert "build_chat_communities" not in text, relative
-        assert "memory_communities" not in text, relative
+        tree = ast.parse(text)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    assert not alias.name.startswith(
+                        "services.memory_communities"), relative
+            elif isinstance(node, ast.ImportFrom):
+                assert (node.module or "") != "services.memory_communities", \
+                    relative
+                if node.module == "services":
+                    for alias in node.names:
+                        assert alias.name != "memory_communities", relative
 
 
 # ── подписи (§6/MEM-07.4) ──────────────────────────────────────────────────

@@ -166,6 +166,13 @@ _EMBED_RECOVERY_TICK_SECONDS = 600
 # semantic evaluation — bounded по расписанию внутри job.
 _INITIATIVE_OBSERVER_TICK_SECONDS = 300
 
+# EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (§6): период фоновой сборки сообществ
+# (сек; код-константа, Δ каталога = 0). Сборка — пакетная и недорогая по
+# сравнению с LLM-проходами (только чтение графа чата + запись двух таблиц
+# сообществ), но она НЕ должна попадать в горячий путь: восстановление drift
+# раз в час достаточно, а при выключенном гейте тик даже не читает БД.
+_COMMUNITIES_TICK_SECONDS = 3600
+
 # v6.3 B01: честный штамп последнего тика наблюдателя (in-memory вид для
 # Status; durable-состояние — payload durable-задачи initiative.observe).
 _initiative_observer_last_tick: dict = {"ts": None, "status": None,
@@ -316,6 +323,13 @@ class MemoryMaintenanceService:
     # планировщик; gate читается тиком на каждом заходе (прецедент
     # intent_heartbeat: регистрация всегда, OFF-hot → тик инертен).
     JOB_INITIATIVE_OBSERVER_ID = "initiative_observer_tick"
+    # EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (C-6 §6): пакетная сборка
+    # семантических сообществ — тот же планировщик обслуживания (второго
+    # воркера/очереди нет). Гейт `MCA_MEMORY_COMMUNITIES_ENABLED` читается
+    # тиком на КАЖДОМ заходе → тумблер симметричен без рестарта, OFF — тик
+    # инертен (0 SQL). `max_instances=1, coalesce=True` обязательны: два
+    # параллельных прохода одного чата могут потерять linkage `prev_build_id`.
+    JOB_COMMUNITIES_ID = "memory_communities_build"
 
     def __init__(self, db, memory, llm, bot=None) -> None:
         self.db = db
@@ -416,6 +430,20 @@ class MemoryMaintenanceService:
                 timezone=hot.get("limits.summary_timezone",
                                  settings.SUMMARY_TIMEZONE)),
             id=self.JOB_INITIATIVE_OBSERVER_ID, replace_existing=True,
+            max_instances=1, coalesce=True)
+        # EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (C-6 §6, волна 3): сборка
+        # сообществ — регистрируется ВСЕГДА (прецедент intent_heartbeat/
+        # initiative_observer), гейт `MCA_MEMORY_COMMUNITIES_ENABLED`
+        # резолвится тиком на каждом заходе → ON/OFF без рестарта. При OFF
+        # тик не делает ни одного SQL. `max_instances=1, coalesce=True` —
+        # обязательны (гонка двух проходов лоссово теряет `prev_build_id`).
+        self._scheduler.add_job(
+            self._tick_communities,
+            IntervalTrigger(
+                seconds=_COMMUNITIES_TICK_SECONDS,
+                timezone=hot.get("limits.summary_timezone",
+                                 settings.SUMMARY_TIMEZONE)),
+            id=self.JOB_COMMUNITIES_ID, replace_existing=True,
             max_instances=1, coalesce=True)
         self._scheduler.start()
         # v6 C06A: сервис запущен → registered/next_tick доступны Status;
@@ -547,6 +575,58 @@ class MemoryMaintenanceService:
         except Exception:
             logger.warning("[b01] initiative observer tick failed",
                            exc_info=True)
+
+    async def _tick_communities(self) -> None:
+        """MEMORY-07 (C-6 §6, волна 3): фоновая сборка сообществ чата.
+
+        Гейт `MCA_MEMORY_COMMUNITIES_ENABLED` резолвится НА КАЖДОМ заходе:
+        сначала env-половина (без SQL) — при OFF тик инертен и не делает ни
+        одного запроса к БД; затем per-chat effective-значение (env AND
+        `flags.memory_communities_enabled`), поэтому включение/выключение
+        работает без рестарта. Сборщик вызывается ТОЛЬКО отсюда — горячий
+        путь (`/status`, ответ, retrieval, карта) его не запускает
+        (структурный тест). Ошибка одного чата не рвёт планировщик.
+        """
+        try:
+            from services import mca_gates
+            if not mca_gates.memory_communities_env_enabled():
+                logger.debug("[memory07] communities tick | gate OFF")
+                return
+            from services import memory_communities as communities
+            chat_ids = await self._community_chat_ids()
+            built = 0
+            for chat_id in chat_ids:
+                if not await mca_gates.memory_communities_enabled(chat_id):
+                    continue
+                result = await communities.build_chat_communities(
+                    self.db, chat_id)
+                if result.status == communities.STATUS_ACTIVE:
+                    built += 1
+                    logger.info(
+                        "[memory07] communities built | chat_id=%s "
+                        "build_id=%s communities=%s nodes=%s edges=%s",
+                        chat_id, result.build_id,
+                        len(result.communities), result.node_count,
+                        result.edge_count)
+                else:
+                    logger.warning(
+                        "[memory07] communities build failed | chat_id=%s "
+                        "build_id=%s error=%s", chat_id, result.build_id,
+                        result.error)
+            if built == 0:
+                logger.debug("[memory07] communities tick | nothing gated on")
+        except Exception:
+            logger.warning("[memory07] communities tick failed", exc_info=True)
+
+    async def _community_chat_ids(self) -> list[int]:
+        """Чаты со графом памяти (`nodes`) — scope сборки сообществ.
+
+        Чтение выполняется ТОЛЬКО после env-половины гейта (см.
+        `_tick_communities`), поэтому при OFF тик не делает запросов.
+        """
+        cursor = await self.db.db.execute(
+            "SELECT DISTINCT chat_id FROM nodes")
+        return [int(row["chat_id"]) for row in await cursor.fetchall()]
 
     async def _tick_intent_heartbeat(self) -> None:
         """MCA-09 (T-5026) + ASAP 8 F6 (§13.2/§28.15): heartbeat due-намерений

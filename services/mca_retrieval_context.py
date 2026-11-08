@@ -1837,21 +1837,42 @@ def _entity_candidate(row, chat_id: int, position: int) -> RetrievalCandidate:
 
 async def _community_candidates(db, chat_id: int, keywords: list[str],
                                 limit: int) -> list:
-    """Членство активной сборки сообществ (C-6). До появления таблиц
-    MEMORY-07 честно пусто: сообщество не выдумывается из раскладки."""
+    """Членство ТОЛЬКО действующей сборки сообществ (C-6 §6).
+
+    * гейт `MCA_MEMORY_COMMUNITIES_ENABLED` резолвится здесь (per chat:
+      env AND каталоговый ключ) → OFF даёт пусто, не трогая таблицы;
+    * членство читается исключительно через join с реестром сборок по
+      `status='active'` того же чата: `building`/`superseded`/`failed` не
+      читаются вообще, поэтому вытесненная (superseded) или недопубликованная
+      сборка не может попасть в выдачу;
+    * нет таблиц (`v44` не применён) или нет active-сборки → честно пусто:
+      сообщество не выдумывается из раскладки витрины.
+
+    Поле `member_weight` строк — ВНУТРЕННИЙ вес ребра кластера (вклад
+    подтверждённых/сомнительных/legacy/cooccurrence связей узла в это
+    сообщество), а НЕ нормированный 0..1-скор и не ранжирующий балл канала.
+    Канал его не перенормирует и в `score` не подмешивает.
+    """
+    from services import mca_gates
+    if not await mca_gates.memory_communities_enabled(int(chat_id)):
+        return []
     raw_db = getattr(db, "db", None)
     execute = getattr(raw_db, "execute", None)
     if not callable(execute):
         return []
     cursor = await execute(
-        "SELECT name FROM sqlite_master WHERE type='table' "
-        "AND name='mca_community_members'")
-    if await cursor.fetchone() is None:
+        "SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' "
+        "AND name IN ('mca_community_members', 'mca_community_builds')")
+    present = await cursor.fetchone()
+    if present is None or int(present[0]) != 2:
         return []
     tokens = set(keywords)
     cursor = await execute(
-        "SELECT m.community_id, m.node_id, n.entity_name "
+        "SELECT m.community_id, m.node_id, m.member_weight, n.entity_name "
         "FROM mca_community_members m "
+        "JOIN mca_community_builds b "
+        "ON b.chat_id = m.chat_id AND b.build_id = m.build_id "
+        "AND b.status = 'active' "
         "JOIN nodes n ON n.id = m.node_id "
         "WHERE m.chat_id = ? LIMIT ?",
         (chat_id, max(1, int(limit) * 4)))
@@ -1866,6 +1887,12 @@ async def _community_candidates(db, chat_id: int, keywords: list[str],
 
 def _community_candidate(row, chat_id: int, position: int
                          ) -> RetrievalCandidate:
+    """Кандидат-сообщество: `community_id` сборки + `nodes.id` участника.
+
+    Оба значения — из пространства идентификаторов БД (`mca_community_*`,
+    `nodes.id`), а не Telegram UID: `subject_entity_ids` (uid) здесь не
+    используются и не смешиваются (C-6 §6 / §7.1).
+    """
     community_id = _row_get(row, "community_id")
     return RetrievalCandidate(
         id=f"comm:{community_id}:{_row_get(row, 'node_id')}",

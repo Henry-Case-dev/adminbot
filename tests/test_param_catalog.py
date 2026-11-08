@@ -687,7 +687,7 @@ class TestGroups8424:
         # жизни/попытки/backoff, limits_vision in-place) → models 77,
         # limits 232, итого 570.
         assert counts == {"prompts": 28, "models": 77, "keys": 35,
-                          "limits": 232, "flags": 106, "reactions": 39,
+                          "limits": 232, "flags": 107, "reactions": 39,
                           "content": 5, "memory": 48, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
 - **APP_VERSION:** `2.58.167`
-- **HEAD (short):** `8a1f85f8`
+- **HEAD (short):** `4cfe02a4`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **597** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **22**.
-- **Реестр:** 597 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **598** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **22**.
+- **Реестр:** 598 строк == REGISTRY.
 - **inventory.tsv (10.14):** 406 baseline-ключей.
-- **Дельта 411 → 597 = 191** новых ключей (`status=new`).
+- **Дельта 411 → 598 = 192** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 597 = 191 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 598 = 192 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -59,6 +59,7 @@
 - `flags.intent_heartbeat_enabled`
 - `flags.legacy_traits_migration_enabled`
 - `flags.lore_compiler_enabled`
+- `flags.memory_communities_enabled`
 - `flags.postprocess_form_guard_enabled`
 - `flags.self_model_enabled`
 - `flags.send_recheck_enabled`

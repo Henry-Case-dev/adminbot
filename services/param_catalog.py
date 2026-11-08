@@ -3570,6 +3570,22 @@ def _build_registry() -> dict[str, ParamSpec]:
         add(ParamSpec(None, None, CATEGORY_MEMORY, title, "bool",
                       secret=False, pg_id=pg_id, group="memory_random",
                       description=desc, progressive_level=level))
+    # EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (C-6 §5.2): PG-only product-ось
+    # сборки и чтения семантических сообществ. Заводской дефолт — OFF
+    # (`config_cache._PG_ONLY_BOOL_DEFAULTS`), env-аварийная ось
+    # `MCA_MEMORY_COMMUNITIES_ENABLED` в каталоге НЕ дублируется (резолв —
+    # `mca_gates.memory_communities_enabled`, env AND этот ключ). Пока OFF —
+    # таблицы `mca_community_*` инертны, обычная память работает как раньше.
+    add(ParamSpec(None, None, CATEGORY_FLAGS,
+                  "Сообщества памяти (сборка и чтение)", "bool",
+                  secret=False, pg_id="flags.memory_communities_enabled",
+                  group="flags_memory",
+                  description="Сборка сообществ по реальным связям чата и чтение "
+                              "только действующей сборки в широком обзоре. "
+                              "Выключено — сообщества не считаются и не "
+                              "читаются, память работает как раньше. Аварийный "
+                              "env: MCA_MEMORY_COMMUNITIES_ENABLED.",
+                  progressive_level="advanced"))
     for row in _MEMORY:      # (field, title, type, group, desc[, level])
         if len(row) == 6:
             field, title, typ, group, desc, level = row
