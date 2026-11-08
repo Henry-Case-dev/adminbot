@@ -511,9 +511,14 @@ def test_checkup_admin_genre_intact():
 
 def test_checkup_fallback_notice_is_honest_unavailability():
     """D2: честный факт фолбэка (без bracket-машинного синтаксиса, FA-08)
-    зарегистрирован как honest_unavailability и словарём не флагается."""
+    зарегистрирован как honest_unavailability и словарём не флагается.
+    SELF-DIAG-01 D1: без удалённого провайдера и без stale-claims."""
     assert "[СИСТЕМНОЕ УВЕДОМЛЕНИЕ" not in CHECKUP_FALLBACK_NOTICE
-    assert "API Betterstack недоступно" in CHECKUP_FALLBACK_NOTICE
+    assert "основной локальный источник логов" in CHECKUP_FALLBACK_NOTICE
+    assert "частичная диагностика" in CHECKUP_FALLBACK_NOTICE
+    assert "betterstack" not in CHECKUP_FALLBACK_NOTICE.casefold()
+    assert "journalctl" not in CHECKUP_FALLBACK_NOTICE.casefold()
+    assert "401" not in CHECKUP_FALLBACK_NOTICE
     assert psg.is_honest_unavailability(CHECKUP_FALLBACK_NOTICE)
     assert psg.find_backstage_metatext(CHECKUP_FALLBACK_NOTICE) == ()
     assert not psg.claims_total_verification(CHECKUP_FALLBACK_NOTICE)

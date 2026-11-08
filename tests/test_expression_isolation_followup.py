@@ -207,5 +207,5 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # (метка l1-planner-source-facts, sha12 2354a5cc57c4); набор пересчитан.
     # Было e9dc109330a8, стало a701aea74399 (EVR4), затем a29e68dc1de6 (EVR5, RLR-03.3).
     # Переутверждено осознанно (SOUL-AMD.3.2). FC-04 corrective: mixed/causality rules in temporal analyst+validator (branch fc/backend, 7b897c80).
-    assert pr.FACTORY_SET_SHA256_12 == "30a072887fdd"
+    assert pr.FACTORY_SET_SHA256_12 == "b4e8b3569ab2"
 

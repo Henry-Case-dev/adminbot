@@ -157,11 +157,14 @@ def test_active_canon_keeps_genre_contracts(name):
 
 
 def test_checkup_fallback_notice_has_no_bracket_marker():
-    """FA-08/D2: bracket-машинный формат снят; честный факт фолбэка цел."""
+    """FA-08/D2: bracket-машинный формат снят; честный факт фолбэка цел.
+    SELF-DIAG-01 D1: приписка описывает недоступность ЛОКАЛЬНОГО источника."""
     notice = cp.CHECKUP_FALLBACK_NOTICE
     assert "[СИСТЕМНОЕ УВЕДОМЛЕНИЕ" not in notice
-    assert "API Betterstack недоступно" in notice
-    assert "локальные логи сервера" in notice
+    assert "основной локальный источник логов" in notice
+    assert "частичная диагностика" in notice
+    assert "betterstack" not in notice.casefold()
+    assert "journalctl" not in notice.casefold()
 
 
 def test_direct_canon_writer_contract_present():

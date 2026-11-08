@@ -508,7 +508,7 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "message.image_failure.delivery_failed": ("", "9f14a8cf06b8"),
     "message.image_failure.freq_limited": ("", "c23703ef0c4e"),
     "message.image_request.clarify": ("", "0e246b7071ff"),
-    "message.checkup_fallback_notice": ("", "ba3fe05850c6"),
+    "message.checkup_fallback_notice": ("", "bcb7bc24e6cc"),
     # EVOL-018 (W2A): отставшие шаблоны, включённые в реестр (grep-аудит).
     "summary.l2.reviewer": ("summary-l2-reviewer-w2a", "ad56b7bcf655"),
     "summary.l2.reviser": ("summary-l2-reviser-w2a", "54ad7dd700b2"),
@@ -1387,9 +1387,9 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
        "managed_message/clarification", owner_lane="W3", speech=True,
        migration="managed_message", ui="catalog_pending"),
     _b("message.checkup_fallback_notice",
-       "Фраза-приписка к system-сообщению чек-апа, когда облачное API "
-       "мониторинга недоступно (пользователь слышит её в отчёте; несёт "
-       "оценочную инструкцию в техническом обработчике).",
+       "Приписка к system-сообщению чек-апа, когда основной локальный источник "
+       "логов этого запуска недоступен: честно сообщает о частичной "
+       "диагностике из внутреннего буфера событий процесса.",
        "message", "code", "services.checkup_prompts.CHECKUP_FALLBACK_NOTICE",
        ("checkup_service.py:72", "tests/test_checkup_service.py:55"),
        "managed_message/checkup_fallback", owner_lane="W3", speech=True,
@@ -2619,8 +2619,8 @@ def factory_set_fingerprint() -> str:
 #: Переутверждено осознанно (SOUL-AMD.3.2).
 #: Бамп P0 (24.10.2026, P0-CHECKUP/CORE + ADDENDUM #2): изменены 4 фабрики —
 #: checkup.base.system (owner-редакция §2 аддендума, «СУТЬ АНАЛИЗА» дословно),
-#: message.checkup_fallback_notice (401 = отказ авторизации, journalctl
-#: прочитан), core.personality и core.personality.compact (абзац «Как говорить
+#: message.checkup_fallback_notice (честная приписка о фолбэке),
+#: core.personality и core.personality.compact (абзац «Как говорить
 #: о реальных событиях» + принцип свободы речи на уровне личности; Compact —
 #: одно предложение). Метки: checkup-p0-24-10, asap-core-full-v4,
 #: asap-core-compact-v4. Было ``0163a686c401``, стало ``47f0d1eb8de4``
@@ -2920,7 +2920,12 @@ def factory_set_fingerprint() -> str:
 #: причинности в ``temporal.analyst``/``temporal.validator`` переписано
 #: (метки ``*-fc04-corrective``, печати ``5baf6afaf2d8``/``e1c2038a835d``).
 #: Было ``a29e68dc1de6``, стало ``30a072887fdd``.
-FACTORY_SET_SHA256_12 = "30a072887fdd"
+#: SELF-DIAG-01 D1 (09.11.2026): changed = 1 — операционная приписка
+#: ``message.checkup_fallback_notice`` переписана на честную недоступность
+#: локального источника (печать ``bcb7bc24e6cc``); пользовательский канон
+#: ``checkup.base.system``/``prompts.checkup_system_prompt`` байт-в-байт.
+#: Было ``30a072887fdd``, стало ``b4e8b3569ab2``.
+FACTORY_SET_SHA256_12 = "b4e8b3569ab2"
 
 
 

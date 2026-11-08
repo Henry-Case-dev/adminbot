@@ -13,8 +13,9 @@
   * типографика/мат не регулируются внутри жанра (Style Policy/Expression);
   * прежние байты — ``PREV_CHECKUP_P0_SYSTEM_PROMPT`` (прод 2.58.118,
     2077 c, 38d63d86b54d); старые PREV-ступени не переписаны;
-  * ``CHECKUP_FALLBACK_NOTICE``: 401 = отказ авторизации, journalctl
-    прочитан успешно, без вывода «сервис упал».
+  * ``CHECKUP_FALLBACK_NOTICE``: честная недоступность основного локального
+    источника логов и частичная диагностика из буфера процесса; удалённого
+    внешнего провайдера, 401 и journalctl-claim'ов здесь нет (SELF-DIAG-01 D1).
 
 TEST-LIFECYCLE: CONTRACT owner=P0-CHECKUP/addendum-24.10 (§1-§2)
 """
@@ -178,17 +179,25 @@ class TestPreviousEditions:
 
 
 class TestFallbackNotice:
-    def test_401_is_auth_denial_not_outage(self):
-        assert "HTTP 401" in CHECKUP_FALLBACK_NOTICE
-        assert "отказ авторизации" in CHECKUP_FALLBACK_NOTICE
-        assert "а не падение сервиса" in CHECKUP_FALLBACK_NOTICE
-        assert "journalctl прочитан успешно" in CHECKUP_FALLBACK_NOTICE
+    def test_notice_is_honest_local_degradation(self):
+        assert "основной локальный источник логов" in CHECKUP_FALLBACK_NOTICE
+        assert "прочитать не удалось" in CHECKUP_FALLBACK_NOTICE
+        assert "частичная диагностика" in CHECKUP_FALLBACK_NOTICE
+        assert "может быть неполным" in CHECKUP_FALLBACK_NOTICE
         # прежний ложный вывод «сервис упал» не возвращён
         assert "сервис упал" not in CHECKUP_FALLBACK_NOTICE
         assert "всё упало" not in CHECKUP_FALLBACK_NOTICE
 
+    def test_no_removed_provider_or_stale_transport_claims(self):
+        """SELF-DIAG-01 D1: приписка не называет удалённую интеграцию и не
+        утверждает успешное чтение конкретного backend'а."""
+        lowered = CHECKUP_FALLBACK_NOTICE.casefold()
+        for forbidden in ("betterstack", "better stack", "беттерстак",
+                          "journalctl", "401", "http", "sql"):
+            assert forbidden not in lowered, forbidden
+        assert "прочитан успешно" not in lowered
+
     def test_keeps_honest_unavailability_marker_and_tone(self):
-        assert "API Betterstack недоступно" in CHECKUP_FALLBACK_NOTICE
         assert "поиздеваться" in CHECKUP_FALLBACK_NOTICE
         assert "[СИСТЕМНОЕ УВЕДОМЛЕНИЕ" not in CHECKUP_FALLBACK_NOTICE
         assert "{max_symbols}" not in CHECKUP_FALLBACK_NOTICE
