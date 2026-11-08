@@ -76,6 +76,7 @@ Python `C:\Code\Python\adminbot\.venv\Scripts\python.exe`, cwd — worktree ка
 | Публично `/web/` | 200, 1 276 327 б, `2.58.166` — **17** вхождений, `2.58.165` — **0** |
 | Сервис | `active`, `enabled`, `NRestarts=0`, `MainPID 3015325` |
 | Журнал, окно 3 мин после рестарта | 302 строки, `Traceback` — **0**, `ERROR` — **0**, `WARNING` — **1** (известный `embedding generation not serviceable / smart_archive / superseded`) |
+| Журнал, финальное окно 10 мин (после прогрева) | 554 строки, `Traceback` — **0**, `ERROR` — **2** (`services.anticliche_worker`: `step=fetch reason=sources_unavailable` + `step=refresh reason=wikipedia` — та же предсуществующая пара, что зафиксирована при выкладке 2.58.165 и живёт вне памяти), `WARNING` — 3 |
 | База сравнения, 24 ч ДО деплоя | 66 772 строки, `Traceback` — 15, `ERROR` — 72 (те же источники: llm_client, mca_events, anticliche, summary) |
 | Схема | `user_version` **43** (не менялась), `schema_migrations` 32, `quick_check ok`, `graph_facts` 23 281, `confirmed` 22 170, `archived_fact` 0 |
 | sqlite-vec | `vec_version v0.1.9`, `graph_facts_vec` **23 394** строки, `embedding index serviceable | graph_facts_vec | ADMITTED_COMPATIBLE` |
@@ -164,8 +165,12 @@ Python `C:\Code\Python\adminbot\.venv\Scripts\python.exe`, cwd — worktree ка
 ## 10. Гигиена
 
 Прогоны и вывод проб: `…\WorkspaceData\runs\c742e4de9e92c489\memory-cognitive-02-52a705214107\probe-ca814f0b85\`
-(`recon_258166.sh`, `deploy_258166.sh`, `probe_258166.sh`, `probe2_258166.sh`,
-`deploy-258166.out`, `probe-258166.out`, `probe2-258166.out`, логи pytest, gate-вывод) —
+(`recon_258166.sh`, `deploy_258166.sh`, `probe_258166.sh`, `probe2_258166.sh`, `final_258166.sh`,
+`deploy-258166.out`, `probe-258166.out`, `probe2-258166.out`, `final-258166.out`, логи pytest, gate-вывод) —
 сохранены намеренно для воспроизведения §5; снимутся при закрытии эпика.
-Временный worktree для базового сравнения `74ea64cb` снят после прогона.
+На сервере удалены мои одноразовые артефакты проб (`/tmp/probe-258166.db`,
+`/tmp/served-app-258166.js`, `/tmp/served-index-258166.html`, `/tmp/old_rc_258165.py`);
+сохранены только снимки `predeploy-258165.db` и `predeploy-258166.db`.
+Временный worktree для базового сравнения `74ea64cb` снят после прогона
+(в реестре housekeeping осталась запись об уже удалённом каталоге — безвредна).
 Прод-данные не изменялись: все пробы §5 — на копии снимка.
