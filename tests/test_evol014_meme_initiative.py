@@ -1016,7 +1016,9 @@ async def test_fresh_db_migrates_to_v41_with_quota_and_claim_tables(tmp_path):
         # UNIFIED-REPLY UR-C-SCHED (06.11.2026, 1ca13926, уже в 2.58.161):
         # хвост схемы 41 -> 42 (аддитивная slot_claims_v42, PG no-op).
         # MEMORY-02 (2.58.163): хвост 42 -> 43 (аддитивная mca_entity_canonical).
-        assert (await cur.fetchone())[0] == latest == 43
+        # MEMORY-07 (contracts §5.1): хвост 43 -> 44 (mca_community_builds /
+        # mca_community_members, аддитивно, PG no-op).
+        assert (await cur.fetchone())[0] == latest == 44
         assert _SCHEMA_VERSION_PUBLISH_CLAIM == 41
         book = await svc.db.execute(
             "SELECT name, checksum FROM schema_migrations WHERE version = 40")
@@ -1086,7 +1088,8 @@ async def test_v39_db_upgrades_to_v40_without_data_loss(tmp_path):
         cur = await svc.db.execute("PRAGMA user_version")
         # UNIFIED-REPLY UR-C-SCHED (1ca13926): хвост схемы 41 -> 42.
         # MEMORY-02 (2.58.163): хвост 42 -> 43 (mca_entity_canonical).
-        assert (await cur.fetchone())[0] == latest == 43
+        # MEMORY-07 (contracts §5.1): хвост 43 -> 44 (mca_community_*).
+        assert (await cur.fetchone())[0] == latest == 44
         cur = await svc.db.execute(
             "SELECT checksum FROM schema_migrations WHERE version = 39")
         assert (await cur.fetchone())["checksum"] == checksum_39

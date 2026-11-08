@@ -15,7 +15,7 @@ contracts.md`:
 * §1.4.1 — единственная точка создания (`resolve_or_create_node`) и AST-запрет
   новых прямых `upsert_node` вне резолвера/`database.py`;
 * §5.1 — миграция `v43` аддитивна и идемпотентна, существующие таблицы не
-  меняются;
+  меняются (голова схемы после MEMORY-07 — `v44`, шаг `v43` её не отменяет);
 * §1.7 — OFF-гейт = паритет baseline (новые таблицы не читаются).
 """
 import ast
@@ -28,6 +28,7 @@ import pytest
 
 from services import entity_resolver as er
 from services import mca_gates
+from services import memory_communities as mcomm
 from services import memory_contracts as mc
 from services.database import DatabaseService
 
@@ -157,7 +158,8 @@ def _scope(entity_type="user", chat=CHAT):
 def test_migration_v43_is_additive_and_idempotent(env):
     db, loop = env
     cursor = run(loop, db.db.execute("PRAGMA user_version"))
-    assert int(run(loop, cursor.fetchone())[0]) == 43
+    # Свежая БД доезжает до головы схемы: v43 (эта полоса) + v44 (MEMORY-07).
+    assert int(run(loop, cursor.fetchone())[0]) == 44
 
     cursor = run(loop, db.db.execute(
         "SELECT name, type, sql FROM sqlite_master WHERE "
@@ -218,12 +220,12 @@ def _schema_snapshot(loop, db) -> tuple[dict, dict]:
 
 
 def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
-    """§5.1: апгрейд существующей БД v42 → v43 на файловой копии.
+    """§5.1: апгрейд существующей БД v42 → голова схемы (v43 + v44).
 
     Baseline фиксируется ДО миграции: счётчики строк и DDL
     `nodes`/`edges`/`graph_facts`. После стартовой миграции — те же данные,
-    `user_version=43`, `integrity_check=ok`, добавлены только новые объекты,
-    повторный запуск — no-op.
+    `user_version=44`, `integrity_check=ok`, добавлены только новые объекты
+    (шаги v43 и v44), повторный запуск — no-op.
     """
     path = tmp_path / "v42.db"
     loop = asyncio.new_event_loop()
@@ -253,29 +255,33 @@ def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
             (er.ENTITY_CANONICAL_TABLE,)))
         assert loop.run_until_complete(cursor.fetchall()) != []
 
-        # Откат в состояние v42: таблицы идентичности нет, маркер и книга
-        # согласованы (как на БД до этого слайса).
+        # Откат в состояние v42: таблиц v43 и v44 нет, маркер и книга
+        # согласованы (как на БД до этих слайсов).
         loop.run_until_complete(db.db.execute(
             f"DROP TABLE {er.ENTITY_CANONICAL_TABLE}"))
         loop.run_until_complete(db.db.execute(
-            "DELETE FROM schema_migrations WHERE version = 43"))
+            f"DROP TABLE {mcomm.COMMUNITY_MEMBERS_TABLE}"))
+        loop.run_until_complete(db.db.execute(
+            f"DROP TABLE {mcomm.COMMUNITY_BUILDS_TABLE}"))
+        loop.run_until_complete(db.db.execute(
+            "DELETE FROM schema_migrations WHERE version IN (43, 44)"))
         loop.run_until_complete(db.db.execute("PRAGMA user_version = 42"))
         loop.run_until_complete(db.db.commit())
         cursor = loop.run_until_complete(db.db.execute("PRAGMA user_version"))
         assert int(loop.run_until_complete(cursor.fetchone())[0]) == 42
         _, v42_counts = _schema_snapshot(loop, db)
         assert v42_counts["schema_migrations"] == \
-            baseline_counts["schema_migrations"] - 1
+            baseline_counts["schema_migrations"] - 2
     finally:
         loop.run_until_complete(db.close())
 
-    # Стартовая миграция v42 → v43 (с backup-guard, как в проде).
+    # Стартовая миграция v42 → голова (v43 + v44), с backup-guard, как в проде.
     upgraded = DatabaseService(str(path))
     loop.run_until_complete(upgraded.initialize())
     try:
         cursor = loop.run_until_complete(upgraded.db.execute(
             "PRAGMA user_version"))
-        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 43
+        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 44
         cursor = loop.run_until_complete(upgraded.db.execute(
             "PRAGMA integrity_check"))
         assert loop.run_until_complete(cursor.fetchone())[0] == "ok"
@@ -284,7 +290,7 @@ def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
         for table in ("nodes", "edges", "graph_facts", "smart_messages"):
             assert counts_after[table] == baseline_counts[table], table
         assert counts_after["schema_migrations"] == \
-            v42_counts["schema_migrations"] + 1
+            v42_counts["schema_migrations"] + 2
         for table in ("nodes", "edges", "graph_facts", "smart_messages"):
             assert ddl_after[table] == baseline_ddl[table], table
 
@@ -301,6 +307,10 @@ def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
             "SELECT name FROM schema_migrations WHERE version = 43"))
         assert [row["name"] for row in loop.run_until_complete(
             cursor.fetchall())] == [er.ENTITY_CANONICAL_MIGRATION_STEP_NAME]
+        cursor = loop.run_until_complete(upgraded.db.execute(
+            "SELECT name FROM schema_migrations WHERE version = 44"))
+        assert [row["name"] for row in loop.run_until_complete(
+            cursor.fetchall())] == [mcomm.COMMUNITIES_MIGRATION_STEP_NAME]
         assert list(tmp_path.glob("pre_migration_*.db")), \
             "backup-guard до миграции не сработал"
         book_after = counts_after["schema_migrations"]
@@ -313,7 +323,7 @@ def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
     try:
         cursor = loop.run_until_complete(reopened.db.execute(
             "PRAGMA user_version"))
-        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 43
+        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 44
         cursor = loop.run_until_complete(reopened.db.execute(
             "SELECT COUNT(*) AS n FROM schema_migrations"))
         assert int(loop.run_until_complete(cursor.fetchone())["n"]) == book_after

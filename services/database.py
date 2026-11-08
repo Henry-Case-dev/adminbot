@@ -1798,6 +1798,23 @@ _SCHEMA_VERSION_PUBLISH_CLAIM = 41
 # `MCA_MEMORY_IDENTITY_ENABLED` (default OFF) — cold git revert безопасен.
 _SCHEMA_VERSION_ENTITY_CANONICAL = 43
 
+# ── EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (contracts §5.1; 08.11.2026): v44 ──
+# Второй (и последний) аддитивный шаг эпика — таблицы семантических сообществ
+# `mca_community_builds` (PK build_id, индекс chat_id+status+started_at DESC) и
+# `mca_community_members` (PK chat_id+build_id+community_id+node_id + 2
+# индекса). Вынесен отдельным шагом, а не дописан в v43: v43 остаётся ровно
+# одной миграцией канонической идентичности (§0.5, §5.1). DDL — дословно в
+# модуле-владельце (`services.memory_communities`: `COMMUNITY_BUILDS_DDL_SQLITE`
+# / `COMMUNITY_MEMBERS_DDL_SQLITE` / `COMMUNITY_INDEX_DDL`, везде IF NOT
+# EXISTS); шаг только применяет его. Существующие `nodes`/`edges`/`graph_facts`
+# НЕ меняются, backfill в шаге нет (сборка `B4` — отдельная идемпотентная
+# волна), повтор — no-op. Шаг применяется безусловно при старте, независимо от
+# гейта: при `MCA_MEMORY_COMMUNITIES_ENABLED=OFF` таблицы существуют и
+# инертны — их никто не читает и не пишет, поведение прежнее. PG — no-op
+# (memory-контур SQLite-only, как v28/v30). Обратимость поведенческая: старый
+# код таблиц не знает, `DROP` не требуется.
+_SCHEMA_VERSION_MEMORY_COMMUNITIES = 44
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -2838,6 +2855,7 @@ class DatabaseService:
         добавляются своими фичами отдельными строками."""
         from services import slot_claims  # v42: имя шага у владельца DDL
         from services import entity_resolver  # v43: DDL идентичности у владельца
+        from services import memory_communities  # v44: DDL сообществ у владельца
         return [
             MigrationStep(1, "graphrag_v2",
                           lambda svc: svc._migrate_graphrag_v2()),
@@ -3060,6 +3078,17 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_ENTITY_CANONICAL,
                           entity_resolver.ENTITY_CANONICAL_MIGRATION_STEP_NAME,
                           lambda svc: svc._migrate_entity_canonical_v43()),
+            # EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (contracts §5.1): v44 —
+            # таблицы семантических сообществ `mca_community_builds`
+            # (PK build_id) и `mca_community_members` (PK chat_id+build_id+
+            # community_id+node_id) + 3 индекса. DDL — в модуле-владельце
+            # (`services.memory_communities`), шаг его только применяет.
+            # Идемпотентно, повтор — no-op, PG — no-op, существующая схема
+            # (включая v43) не меняется, backfill нет: при выключенном гейте
+            # таблицы инертны.
+            MigrationStep(_SCHEMA_VERSION_MEMORY_COMMUNITIES,
+                          memory_communities.COMMUNITIES_MIGRATION_STEP_NAME,
+                          lambda svc: svc._migrate_communities_v44()),
         ]
 
     @staticmethod
@@ -3518,6 +3547,44 @@ class DatabaseService:
                     entity_resolver.ENTITY_CANONICAL_TABLE)
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_ENTITY_CANONICAL}")
+        await self.db.commit()
+
+    async def _migrate_communities_v44(self) -> None:
+        """v44 (EPIC-MEMORY-COGNITIVE-02 / MEMORY-07, contracts §5.1):
+        таблицы семантических сообществ `mca_community_builds` /
+        `mca_community_members`.
+
+        Аддитивно: реестр сборок (PK `build_id`, индекс
+        `(chat_id, status, started_at DESC)`) + версионное членство
+        (PK `(chat_id, build_id, community_id, node_id)` + индексы по узлу и
+        по сообществу), без backfill. DDL — дословно в модуле-владельце
+        (`services.memory_communities.COMMUNITY_BUILDS_DDL_SQLITE` /
+        `COMMUNITY_MEMBERS_DDL_SQLITE` / `COMMUNITY_INDEX_DDL`); шаг
+        применяет именно его, второй копии выражений здесь нет. v43
+        (`mca_entity_canonical`) не трогается: шаг её не читает и не требует,
+        существующие `nodes`/`edges`/`graph_facts` не меняются.
+
+        Повтор, legacy-БД и частично созданный набор объектов — no-op
+        (`CREATE ... IF NOT EXISTS`). Шаг применяется безусловно при старте:
+        при выключенном гейте `MCA_MEMORY_COMMUNITIES_ENABLED` таблицы
+        существуют и инертны (пустая сборка = честное «сообществ не
+        строилось»).
+
+        PG — no-op: контур памяти SQLite-only (как v28/v30). Обратимость
+        поведенческая: старый код таблиц не читает, `DROP` не требуется."""
+        from services import memory_communities
+        for statement in memory_communities.COMMUNITY_BUILDS_DDL_SQLITE:
+            await self.db.execute(statement)
+        for statement in memory_communities.COMMUNITY_MEMBERS_DDL_SQLITE:
+            await self.db.execute(statement)
+        for statement in memory_communities.COMMUNITY_INDEX_DDL:
+            await self.db.execute(statement)
+        await self.db.commit()
+        logger.info("[database] migration v44: %s, %s",
+                    memory_communities.COMMUNITY_BUILDS_TABLE,
+                    memory_communities.COMMUNITY_MEMBERS_TABLE)
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_MEMORY_COMMUNITIES}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:
