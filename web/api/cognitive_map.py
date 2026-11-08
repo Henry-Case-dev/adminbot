@@ -966,13 +966,22 @@ async def memory_search_endpoint(
 
     Явные исходы (не подменяются друг другом): `forbidden`/`no_rights`,
     `empty`/`no_matches`, `error`/`error`, `cursor_stale` (§4.9) и
-    `ok`/`candidates`. Невалидный вход — 400 с точным `reason_code`.
+    `ok`/`candidates`. Поиск без менеджера памяти — `error`/`error` с
+    `reason_code='vector_unavailable'` (гибридная возможность отсутствует,
+    поэтому «нет совпадений» не утверждается). Невалидный вход — 400 с
+    точным `reason_code`.
     """
     _require_global_admin(request, user)
     db = _db_or_503()
+    # MEM-08-S2: гибридный поиск обязан идти с ЖИВЫМ менеджером памяти —
+    # он внедряется в приложение при старте (bot.py → create_app(memory=...),
+    # app.state.memory), как cache/control. Второй менеджер здесь не
+    # создаётся; его отсутствие адаптер честно сообщает в ответе.
+    memory = getattr(getattr(request, "app", None), "state", None)
+    memory = getattr(memory, "memory", None)
     try:
         response = await memory_search.search_memory(
-            db, None, query=q, chat_id=chat_id, limit=limit, cursor=cursor)
+            db, memory, query=q, chat_id=chat_id, limit=limit, cursor=cursor)
     except memory_search.SearchRequestError as exc:
         raise HTTPException(status_code=400, detail=exc.reason_code) from None
     return response.as_dict()

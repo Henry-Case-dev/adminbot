@@ -98,7 +98,7 @@ async def test_main_start_stop_clean(bot_module, monkeypatch):
     monkeypatch.setattr(bot.dp, "start_polling", fake_polling)
     monkeypatch.setattr(
         bot, "create_app",
-        lambda cache_obj, control=None: object())
+        lambda cache_obj, control=None, memory=None: object())
     monkeypatch.setattr(
         bot, "uvicorn",
         types.SimpleNamespace(Server=lambda cfg: _FakeServer(0.05),
@@ -131,7 +131,7 @@ async def test_main_polling_error_state(bot_module, monkeypatch):
     monkeypatch.setattr(bot, "on_shutdown", AsyncMock())
     monkeypatch.setattr(bot.dp, "start_polling", fake_polling)
     monkeypatch.setattr(bot, "create_app",
-                        lambda cache_obj, control=None: object())
+                        lambda cache_obj, control=None, memory=None: object())
     monkeypatch.setattr(
         bot, "uvicorn",
         types.SimpleNamespace(Server=lambda cfg: _FakeServer(0.15),
@@ -170,7 +170,7 @@ async def test_dev_stop_actually_stops_bot(bot_module, monkeypatch):
     monkeypatch.setattr(bot, "on_shutdown", fake_on_shutdown)
     monkeypatch.setattr(bot.dp, "start_polling", fake_polling)
     monkeypatch.setattr(bot, "create_app",
-                        lambda cache_obj, control=None: object())
+                        lambda cache_obj, control=None, memory=None: object())
     monkeypatch.setattr(
         bot, "uvicorn",
         types.SimpleNamespace(Server=lambda cfg: _ShutdownAwareServer(),

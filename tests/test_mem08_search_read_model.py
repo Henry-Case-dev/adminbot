@@ -27,6 +27,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import types
 from pathlib import Path
 
 import pytest
@@ -368,19 +369,39 @@ def _result(candidates=(), *, status=rc.RETRIEVAL_OK, reason=None,
         ambiguity=tuple(ambiguity))
 
 
+class _StubMemory:
+    """Живой менеджер памяти там, где проверяется исход, а не его выдача.
+
+    Наличие `retrieve_fact_candidates` — единственное, что включает векторный
+    канал единого retrieval (§4.4/S-1); в этих тестах сам `retrieve`
+    подменяется, поэтому выдача стаба не используется.
+    """
+
+    async def retrieve_fact_candidates(self, chat_id, query, limit=None,
+                                       **kwargs):
+        return []
+
+
+STUB_MEMORY = _StubMemory()
+
+
 class TestSearchUsesSingleRetrieve:
     @pytest.mark.asyncio
     async def test_adapter_calls_shared_retrieve_once(self, db, monkeypatch):
         calls: list = []
+        seen_memory: list = []
 
         async def fake_retrieve(db_arg, memory, request):
             calls.append(request)
+            seen_memory.append(memory)
             return _result([_candidate()])
 
         monkeypatch.setattr(rc, "retrieve", fake_retrieve)
-        response = await ms.search_memory(db, None, query="Кирилл",
+        response = await ms.search_memory(db, STUB_MEMORY, query="Кирилл",
                                           chat_id=CHAT)
         assert len(calls) == 1, "адаптер обязан идти через единый retrieve"
+        assert seen_memory[0] is STUB_MEMORY, (
+            "адаптер обязан передать retrieve ТОТ ЖЕ менеджер памяти")
         assert calls[0].purpose == mc.MemoryPurpose.UI_SEARCH.value
         assert calls[0].limit == ms.SEARCH_POOL_LIMIT
         assert response.status is mc.SearchStatus.OK
@@ -445,7 +466,7 @@ class TestSearchOutcomes:
                            reason="retrieval_empty")
 
         monkeypatch.setattr(rc, "retrieve", fake_retrieve)
-        response = await ms.search_memory(db, None, query="ничего",
+        response = await ms.search_memory(db, STUB_MEMORY, query="ничего",
                                           chat_id=CHAT)
         assert response.status is mc.SearchStatus.EMPTY
         assert response.query_state is mc.QueryState.NO_MATCHES
@@ -472,7 +493,7 @@ class TestSearchOutcomes:
                                        provenance_backed=False)])
 
         monkeypatch.setattr(rc, "retrieve", fake_retrieve)
-        response = await ms.search_memory(db, None, query="кофе",
+        response = await ms.search_memory(db, STUB_MEMORY, query="кофе",
                                           chat_id=CHAT)
         assert response.status is mc.SearchStatus.EMPTY
         assert response.query_state is mc.QueryState.NO_MATCHES
@@ -886,3 +907,166 @@ class TestSearchEndpointAccess:
                             "revision", "debug"}
         assert body["scope"] == {"chat_id": CHAT, "mode": "chat",
                                  "partial": False}
+
+
+# ── 9. менеджер памяти: эндпоинт берёт его из app-контекста (блокер S2) ─────
+#
+# Наблюдаемый контракт: `/api/memory/search` обязан идти в ТОТ ЖЕ
+# MemoryManager, что создан при старте процесса (bot.py → create_app), иначе
+# векторный канал единого `retrieve` молча выключен и перефразированный запрос
+# получает `retrieval_empty`, хотя адаптер с живым менеджером его находит.
+
+PARAPHRASE_QUERY = "хобби"
+FACT_TEXT = "Кирилл коллекционирует виниловые пластинки"
+
+
+def _endpoint_request(memory):
+    """Request с app.state — ровно то, что FastAPI отдаёт обработчику."""
+    state = types.SimpleNamespace()
+    if memory is not None:
+        state.memory = memory
+    return types.SimpleNamespace(app=types.SimpleNamespace(state=state))
+
+
+class _RecordingMemory:
+    """Двойник MemoryManager: только semantic-канал (embedding-провайдер).
+
+    Подменена ИСКЛЮЧИТЕЛЬНО выдача эмбеддингов (реальные требуют провайдера):
+    `mca_retrieval_context.retrieve` вызывается настоящий, поэтому канал
+    `vector`, дедуп и типизация элементов — реальные. Факт возвращается
+    только на перефразированный запрос — так видно, что запрос реально дошёл
+    до менеджера.
+    """
+
+    def __init__(self, fact_id: int, text: str, *, chat_id: int = CHAT):
+        self.fact_id = fact_id
+        self.text = text
+        self.chat_id = chat_id
+        self.calls: list[dict] = []
+
+    async def retrieve_fact_candidates(self, chat_id, query, limit=None,
+                                       **kwargs):
+        self.calls.append({"chat_id": chat_id, "query": query,
+                           "limit": limit, "kwargs": kwargs})
+        if PARAPHRASE_QUERY not in str(query):
+            return []
+        return [{"id": self.fact_id, "chat_id": self.chat_id,
+                 "fact": self.text, "subject_ref_id": "1",
+                 "rag_ts": 1750000000, "target_user": None,
+                 "speaker_author_id": 42}]
+
+
+class TestEndpointUsesRuntimeMemory:
+    @pytest.mark.asyncio
+    async def test_endpoint_hands_same_manager_and_vector_channel_runs(
+            self, db, monkeypatch):
+        fact_id = await db.insert_graph_fact(
+            CHAT, FACT_TEXT, "chat_history", None, subject_ref_id=1,
+            speaker_author_id=42)
+        memory = _RecordingMemory(fact_id, FACT_TEXT)
+        real_retrieve = rc.retrieve
+        seen: dict = {}
+
+        async def spy(db_arg, memory_arg, request):
+            seen["memory"] = memory_arg
+            seen["query"] = request.query
+            result = await real_retrieve(db_arg, memory_arg, request)
+            seen["channels"] = tuple(result.channels_used)
+            return result
+
+        monkeypatch.setattr(rc, "retrieve", spy)
+        monkeypatch.setattr(cm, "_require_global_admin", lambda *a, **k: None)
+        monkeypatch.setattr(cm, "_db_or_503", lambda: db)
+        body = await cm.memory_search_endpoint(
+            request=_endpoint_request(memory), user=None, q=PARAPHRASE_QUERY,
+            chat_id=CHAT, limit=5, cursor=None)
+
+        assert seen["memory"] is memory, (
+            "эндпоинт обязан передать в retrieve ТОТ ЖЕ менеджер памяти")
+        assert seen["query"] == PARAPHRASE_QUERY
+        assert memory.calls and memory.calls[0]["chat_id"] == CHAT, (
+            "менеджер не получил запрос — векторный канал не работал")
+        assert "vector" in seen["channels"], "векторный канал не выполнялся"
+        # Перефразированный запрос лексикой (FTS) не находится: находка
+        # пришла именно из semantic-канала.
+        assert "lexical" not in seen["channels"]
+
+        assert body["status"] == "ok", body
+        assert body["query_state"] == "candidates"
+        assert "vector" in body["debug"]["channels"]
+        assert body["debug"]["degraded"] == []
+        assert any(item["canonical_id"] == f"fact:{fact_id}"
+                   for item in body["items"]), body["items"]
+
+    @pytest.mark.asyncio
+    async def test_context_without_manager_is_degraded_not_no_matches(
+            self, db, monkeypatch):
+        await db.insert_graph_fact(CHAT, FACT_TEXT, "chat_history", None,
+                                   subject_ref_id=1, speaker_author_id=42)
+        monkeypatch.setattr(cm, "_require_global_admin", lambda *a, **k: None)
+        monkeypatch.setattr(cm, "_db_or_503", lambda: db)
+        body = await cm.memory_search_endpoint(
+            request=_endpoint_request(None), user=None, q=PARAPHRASE_QUERY,
+            chat_id=CHAT, limit=5, cursor=None)
+        assert body["status"] == "error"
+        assert body["query_state"] == "error"
+        assert body["query_state"] != "no_matches"
+        assert body["reason_code"] == ms.SEARCH_REASON_VECTOR_UNAVAILABLE
+        assert body["items"] == []
+        assert body["debug"]["degraded"] == [
+            ms.SEARCH_REASON_VECTOR_UNAVAILABLE]
+        assert set(body) == {"status", "reason_code", "query_state", "items",
+                             "next_cursor", "has_more", "generation", "scope",
+                             "revision", "debug"}
+
+    @pytest.mark.asyncio
+    async def test_adapter_without_manager_reports_degradation(self, db):
+        """Тот же исход без HTTP: адаптер не выдаёт «нет совпадений»."""
+        await db.insert_graph_fact(CHAT, FACT_TEXT, "chat_history", None,
+                                   subject_ref_id=1, speaker_author_id=42)
+        response = await ms.search_memory(db, None, query=PARAPHRASE_QUERY,
+                                          chat_id=CHAT)
+        assert response.status is mc.SearchStatus.ERROR
+        assert response.query_state is mc.QueryState.ERROR
+        assert response.reason_code == ms.SEARCH_REASON_VECTOR_UNAVAILABLE
+
+    @pytest.mark.asyncio
+    async def test_degraded_marker_does_not_replace_found_items(self, db,
+                                                                monkeypatch):
+        """Найденные элементы остаются результатом; деградация — в debug."""
+        async def fake_retrieve(db_arg, memory, request):
+            return _result([_candidate()])
+
+        monkeypatch.setattr(rc, "retrieve", fake_retrieve)
+        response = await ms.search_memory(db, None, query="Кирилл",
+                                          chat_id=CHAT)
+        assert response.status is mc.SearchStatus.OK
+        assert response.items
+        assert response.debug["degraded"] == [
+            ms.SEARCH_REASON_VECTOR_UNAVAILABLE]
+
+
+class TestAppWiresRuntimeMemory:
+    def test_create_app_exposes_injected_manager(self):
+        from services.config_cache import ConfigCache
+        from web.app import create_app
+
+        memory = _RecordingMemory(1, FACT_TEXT)
+        app = create_app(ConfigCache(pg=None, retry_attempts=1,
+                                     retry_delay=0), memory=memory)
+        assert app.state.memory is memory
+
+    def test_bot_passes_the_same_manager_into_create_app(self):
+        source = Path("bot.py").read_text(encoding="utf-8")
+        assert "memory = await on_startup()" in source, (
+            "менеджер из on_startup обязан дойти до сборки приложения")
+        assert ("app = create_app(cache, control=control, memory=memory)"
+                in source)
+        # Инстанс создаётся РОВНО один раз; on_startup отдаёт именно его
+        # (явная передача вместо нового глобального состояния/копии).
+        assert source.count("MemoryManager(db, _llm_client") == 1
+        assert source.count("return memory") == 1
+        assert source.index("MemoryManager(db, _llm_client") < \
+            source.index("return memory") < \
+            source.index("memory = await on_startup()") < \
+            source.index("create_app(cache, control=control, memory=memory)")

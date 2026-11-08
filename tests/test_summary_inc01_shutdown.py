@@ -238,7 +238,7 @@ def _main_mocks(bot, monkeypatch, polling_calls, *, real_uvicorn):
     monkeypatch.setattr(bot, "on_startup", AsyncMock())
     monkeypatch.setattr(bot.dp, "start_polling", fake_polling)
     monkeypatch.setattr(bot, "create_app",
-                        lambda cache, control=None: _TinyASGIApp())
+                        lambda cache, control=None, memory=None: _TinyASGIApp())
     monkeypatch.setattr(bot.ControlService, "flag_file_exists",
                         classmethod(lambda cls, *a, **k: False))
     if not real_uvicorn:

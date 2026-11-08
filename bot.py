@@ -303,7 +303,11 @@ _runtime_sqlite_db = None
 
 
 async def on_startup():
-    """Initialize DB, scheduler, and wire dependencies."""
+    """Initialize DB, scheduler, and wire dependencies.
+
+    Возвращает созданный `MemoryManager` — единственный инстанс процесса:
+    `main()` передаёт его в web-приложение (гибридный поиск памяти).
+    """
     global _runtime_sqlite_db
     db = DatabaseService(settings.DB_PATH)
     # INC-FIX-RESIDUAL: ref сразу (даже если initialize() упадёт) — соединение
@@ -1048,6 +1052,12 @@ async def on_startup():
             pass
     logger.info("Relay channel media group tracker registered (Epic 14)")
 
+    # MEM-08-S2: ТОТ ЖЕ экземпляр `MemoryManager` уходит в web-приложение
+    # (main() → create_app(memory=...)): гибридный поиск /api/memory/search
+    # без него молча теряет векторный канал. Общего состояния/второго
+    # инстанса не вводим — передача идёт явным возвращаемым значением.
+    return memory
+
 
 async def on_shutdown():
     """Cleanup resources on bot shutdown.
@@ -1457,7 +1467,10 @@ async def main():
     from services.summary_memory import migrate_direct_reply_ttl_default
     await migrate_direct_reply_ttl_default(cache)
 
-    await on_startup()
+    # MEM-08-S2: on_startup() отдаёт ЕДИНСТВЕННЫЙ MemoryManager процесса —
+    # он же уходит в web-приложение для гибридного поиска (второй инстанс
+    # не создаётся, общего глобального состояния не вводим).
+    memory = await on_startup()
     logger.info("Bot started, listening for messages...")
     print("Бот запущен и слушает чат...")
 
@@ -1483,7 +1496,9 @@ async def main():
     # UI-полировка TMA: web-api ходит в Bot API через единый runtime-держатель
     # (аватар-прокси /api/avatar/* и обогащение /api/chat_lore title/username).
     set_web_bot(bot)
-    app = create_app(cache, control=control)
+    # MEM-08-S2: тот же MemoryManager (из on_startup) уходит в web-приложение —
+    # гибридный поиск /api/memory/search без него молчит.
+    app = create_app(cache, control=control, memory=memory)
     web_port = int(os.getenv("WEB_PORT", "8000"))
     server = uvicorn.Server(uvicorn.Config(
         app, host="127.0.0.1", port=web_port,

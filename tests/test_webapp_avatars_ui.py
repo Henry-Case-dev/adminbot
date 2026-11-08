@@ -68,7 +68,7 @@ class TestAvatarBackendAudit:
         src = _Static.read("bot.py")
         assert "from services.web_runtime import set_web_bot" in src
         assert src.index("set_web_bot(bot)") < src.index(
-            "app = create_app(cache, control=control)")
+            "app = create_app(cache, control=control, memory=memory)")
 
     def test_me_route_carries_last_name_and_photo_url(self):
         src = _Static.read("web/api/routes.py")

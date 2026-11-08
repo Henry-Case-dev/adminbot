@@ -135,10 +135,14 @@ def _startup_diag() -> None:
                     parts.path or "-")
 
 
-def create_app(cache: ConfigCache, control=None) -> FastAPI:
+def create_app(cache: ConfigCache, control=None, memory=None) -> FastAPI:
     """FastAPI-фабрика (84.4): app.state.cache = cache — общий для aiogram+FastAPI.
     control — ControlService (84.15; из bot.py с request_shutdown-колбэком;
-    None → дефолт без graceful-exit колбэка — для тестов/стендалон-режима)."""
+    None → дефолт без graceful-exit колбэка — для тестов/стендалон-режима).
+    memory — ТОТ ЖЕ MemoryManager, что создан в bot.py (не второй инстанс:
+    векторный канал retrieval без него не работает). Доступ — через
+    `request.app.state.memory`, как cache/control; None честно означает, что
+    в этом запуске гибридного поиска нет (тесты/стендалон)."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -151,6 +155,10 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
 
     app = FastAPI(title="AdminBot TMA Dashboard", lifespan=lifespan)
     app.state.cache = cache
+    # MEM-08-S2: менеджер памяти — из bot.py (один инстанс на процесс); web-API
+    # обязан идти в него же, а не строить второй (иначе векторный канал поиска
+    # молча выключен). None — стендалон/тесты: деградация сообщается в ответе.
+    app.state.memory = memory
 
     # R10.6-3 (R17): Pydantic v2 RequestValidationError по умолчанию кладёт
     # в `input`/`ctx` сырое значение поля — для /api/llm/test это api_key.

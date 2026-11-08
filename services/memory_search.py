@@ -71,6 +71,11 @@ COMMUNITY_REASON_READ_FAILED = "read_failed"
 #: `state='ok'` — чтение удалось, `items` пуст честно, а не «все сообщества».
 COMMUNITY_REASON_NO_PROVEN_COMMUNITIES = "no_proven_communities"
 
+#: Поиск без `MemoryManager` (§4.4/S-1): векторный канал `retrieve` в этом
+#: контексте не выполняется вообще, поэтому «совпадений нет» было бы неправдой.
+#: Технический исход — `error` с явной причиной, а не `empty`/`no_matches`.
+SEARCH_REASON_VECTOR_UNAVAILABLE = "vector_unavailable"
+
 #: Сколько сообществ отдаёт карта (payload остаётся bounded).
 COMMUNITY_READ_LIMIT = 24
 #: Полный состав сообщества больше этого — подпись не пересчитывается.
@@ -91,6 +96,16 @@ class SearchRequestError(ValueError):
     def __init__(self, reason_code: str) -> None:
         super().__init__(reason_code)
         self.reason_code = reason_code
+
+
+def _vector_capable(memory) -> bool:
+    """Гибридный поиск возможен только с живым `MemoryManager` (§4.4/S-1).
+
+    Векторный канал `mca_retrieval_context.retrieve` включается ровно при
+    наличии менеджера; второго поиска адаптер не заводит. Отсутствие
+    менеджера — не «нет совпадений», а отсутствующая возможность поиска.
+    """
+    return callable(getattr(memory, "retrieve_fact_candidates", None))
 
 
 # ── мелкие чтения (bounded SQL; это НЕ поиск) ───────────────────────────────
@@ -877,6 +892,7 @@ async def search_memory(db, memory, *, query: str, chat_id: int | None,
         mode="auto",
         chat_ids=chat_ids,
     )
+    vector_available = _vector_capable(memory)
     result = await _retrieval.retrieve(db, memory, request)
     if str(getattr(result, "status", "")) == _retrieval.RETRIEVAL_ERROR:
         return _mc.SearchResponse(
@@ -888,6 +904,15 @@ async def search_memory(db, memory, *, query: str, chat_id: int | None,
     communities = await _communities_for_candidates(db, result)
     items, untyped = await _items_from_result(
         db, result, communities=_community_labels(communities))
+    if not items and not vector_available:
+        # Честная деградация (§4.3/S-4): менеджера памяти в этом контексте нет,
+        # значит семантический канал НЕ выполнялся и утверждать «совпадений
+        # нет» нельзя. Ответ остаётся типизированным, причина — явная.
+        return _mc.SearchResponse(
+            status=_mc.SearchStatus.ERROR, query_state=_mc.QueryState.ERROR,
+            revision=revision, generation=0, scope=_scope(chat_id),
+            reason_code=SEARCH_REASON_VECTOR_UNAVAILABLE,
+            debug=_debug(result, untyped, {}, vector_available=False))
     if offset > len(items):
         raise SearchRequestError("invalid_cursor")
 
@@ -912,7 +937,8 @@ async def search_memory(db, memory, *, query: str, chat_id: int | None,
         status=status, query_state=state, revision=revision, generation=0,
         scope=_scope(chat_id), items=tuple(page),
         next_cursor=next_cursor, has_more=has_more, reason_code=reason,
-        debug=_debug(result, untyped, communities))
+        debug=_debug(result, untyped, communities,
+                     vector_available=vector_available))
 
 
 def _scope(chat_id: int | None) -> _mc.SearchScope:
@@ -938,7 +964,8 @@ def _outcome(result, items: list, untyped: int, *, ambiguous: bool):
     return _mc.SearchStatus.OK, _mc.QueryState.CANDIDATES, None
 
 
-def _debug(result, untyped: int, communities: dict) -> dict | None:
+def _debug(result, untyped: int, communities: dict, *,
+           vector_available: bool = True) -> dict | None:
     """Админ-диагностика: каналы и причины, без текста переписки (R17)."""
     channels = list(getattr(result, "channels_used", ()) or ())
     return {
@@ -946,6 +973,9 @@ def _debug(result, untyped: int, communities: dict) -> dict | None:
         "retrieval_mode": str(getattr(result, "mode", "") or ""),
         "retrieval_reason": getattr(result, "reason_code", None),
         "untyped_matches": int(untyped),
+        # Явная деградация возможностей: пустой список — гибридный поиск полон.
+        "degraded": ([] if vector_available
+                     else [SEARCH_REASON_VECTOR_UNAVAILABLE]),
         "community": ({"state": communities.get("state"),
                        "build_id": (communities.get("build") or {}).get(
                            "build_id")} if communities else None),
@@ -1015,6 +1045,7 @@ __all__ = [
     "COMMUNITY_REASON_SCOPE_GLOBAL",
     "COMMUNITY_REASON_READ_FAILED",
     "COMMUNITY_REASON_NO_PROVEN_COMMUNITIES",
+    "SEARCH_REASON_VECTOR_UNAVAILABLE",
     "SEARCH_PAGE_DEFAULT",
     "SEARCH_PAGE_MAX",
     "SEARCH_POOL_LIMIT",

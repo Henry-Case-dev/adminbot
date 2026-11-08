@@ -181,7 +181,7 @@ def _main_mocks(bot, monkeypatch, *, polling=None):
     monkeypatch.setattr(bot, "ConfigCache", lambda **kw: _FakeCache())
     monkeypatch.setattr(bot, "on_startup", AsyncMock())
     monkeypatch.setattr(bot, "create_app",
-                        lambda cache, control=None: _TinyASGIApp())
+                        lambda cache, control=None, memory=None: _TinyASGIApp())
     monkeypatch.setattr(bot, "uvicorn",
                         types.SimpleNamespace(
                             Server=lambda cfg: _ShutdownAwareServer(),
