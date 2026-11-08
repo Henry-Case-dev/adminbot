@@ -1815,6 +1815,25 @@ _SCHEMA_VERSION_ENTITY_CANONICAL = 43
 # код таблиц не знает, `DROP` не требуется.
 _SCHEMA_VERSION_MEMORY_COMMUNITIES = 44
 
+# ── VMQ-ONTO-01 / VMQ-V (VOICE-01 P0, 09.11.2026): v45 ──────────────────────
+# Один Telegram voice/document-with-audio = один оригинальный source-ref
+# (`chat_id` + `tg_message_id` — существующие колонки, второго медиа-реестра
+# нет). Текст STT — ВЕРСИЯ содержимого этого source-ref: `transcript_status`
+# (`pending|ready|failed|unavailable`), монотонная `transcript_revision`,
+# `transcript_updated_at` и нормализованная `transcript_reason` (честное
+# различие «ещё идёт» / «не удалось» / «нет расшифровки»).
+# Аддитивно: `ALTER ADD COLUMN` под guard `PRAGMA table_info`, backfill НЕ
+# требуется ('' = строка никогда не проходила STT — не «готово»), повтор —
+# no-op, PG — no-op (контур сообщений SQLite-only). Старый код этих колонок
+# не читает; откат — cold git revert (колонки инертны).
+_SCHEMA_VERSION_VOICE_TRANSCRIPT = 45
+_VOICE_TRANSCRIPT_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("transcript_status", "TEXT NOT NULL DEFAULT ''"),
+    ("transcript_revision", "INTEGER NOT NULL DEFAULT 0"),
+    ("transcript_updated_at", "INTEGER"),
+    ("transcript_reason", "TEXT NOT NULL DEFAULT ''"),
+)
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -2297,7 +2316,15 @@ class DatabaseService:
             author_name     TEXT NOT NULL DEFAULT '',
             is_forward      INTEGER NOT NULL DEFAULT 0,
             forward_source  TEXT NOT NULL DEFAULT '',
-            tg_message_id   INTEGER
+            tg_message_id   INTEGER,
+            -- VMQ-V (VOICE-01 P0, 09.11.2026): расшифровка — ВЕРСИЯ
+            -- содержимого этого source-ref, а не отдельная реплика.
+            -- '' = не медиа-STT-строка / статус ещё не выставлялся
+            -- (pending|ready|failed|unavailable — см. миграцию v45).
+            transcript_status      TEXT NOT NULL DEFAULT '',
+            transcript_revision    INTEGER NOT NULL DEFAULT 0,
+            transcript_updated_at  INTEGER,
+            transcript_reason      TEXT NOT NULL DEFAULT ''
         );
         CREATE INDEX IF NOT EXISTS idx_smart_messages_chat_ts ON smart_messages(chat_id, timestamp);
         -- idx_smart_messages_tg создаётся в _migrate_direct_chat_v2 (старые БД
@@ -3089,6 +3116,14 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_MEMORY_COMMUNITIES,
                           memory_communities.COMMUNITIES_MIGRATION_STEP_NAME,
                           lambda svc: svc._migrate_communities_v44()),
+            # VMQ-ONTO-01 / VMQ-V (VOICE-01 P0, 09.11.2026): v45 — версия
+            # расшифровки голосового source-ref. Аддитивные nullable-колонки
+            # `smart_messages` (+`transcript_reason`), backfill НЕТ (пустой
+            # статус = честное «STT не сохранял результат»), существующие
+            # строки/поведение не меняются, повтор — no-op.
+            MigrationStep(_SCHEMA_VERSION_VOICE_TRANSCRIPT,
+                          "voice_transcript_v45",
+                          lambda svc: svc._migrate_voice_transcript_v45()),
         ]
 
     @staticmethod
@@ -3585,6 +3620,36 @@ class DatabaseService:
                     memory_communities.COMMUNITY_MEMBERS_TABLE)
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_MEMORY_COMMUNITIES}")
+        await self.db.commit()
+
+    async def _migrate_voice_transcript_v45(self) -> None:
+        """v45 (VMQ-ONTO-01 / VMQ-V, VOICE-01 P0): версия расшифровки.
+
+        Аддитивно (`ALTER ADD COLUMN` под guard `PRAGMA table_info`) в
+        `smart_messages`: `transcript_status` ('': не STT-строка),
+        `transcript_revision` (монотонная версия СОДЕРЖИМОГО), `transcript_updated_at`,
+        `transcript_reason` (нормализованная причина отказа/отсутствия).
+        Второго медиа-реестра и второй таблицы нет: source-ref — существующая
+        пара `(chat_id, tg_message_id)`.
+
+        Backfill НЕ требуется: пустой статус = честное «STT не сохранял
+        результат», а не «готово». Существующие строки не UPDATE/DELETE-ятся,
+        поведение прежнее, повтор и legacy-БД — no-op. PG — no-op (контур
+        сообщений SQLite-only). Обратимость: cold git revert, колонки инертны.
+        """
+        cols = await self._smart_messages_columns()
+        added = []
+        for name, decl in _VOICE_TRANSCRIPT_COLUMNS:
+            if name in cols:
+                continue
+            await self.db.execute(
+                f"ALTER TABLE smart_messages ADD COLUMN {name} {decl}")
+            added.append(name)
+        await self.db.commit()
+        logger.info("[database] migration v45: smart_messages transcript "
+                    "columns (added=%s)", added or "-")
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_VOICE_TRANSCRIPT}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:
@@ -8187,20 +8252,183 @@ class DatabaseService:
             return 0
         row_id = row["id"]
         old_text = row["text"] or ""
-        await self.db.execute(
-            "UPDATE smart_messages SET text = ? WHERE id = ?", (text, row_id))
-        # FTS: DELETE несуществующего rowid в FTS5 даёт «malformed» — трогаем
-        # индекс только если строка там была (текст был непустой).
-        if old_text:
+        # FTS5 external-content: индекс удаляется, ПОКА content-строка ещё
+        # содержит старый текст, иначе FTS5 сверяет термы индекса с уже
+        # обновлённым content и падает «database disk image is malformed»
+        # (бой при повторной расшифровке того же source-ref).
+        if old_text and old_text != text:
             await self.db.execute(
                 "DELETE FROM smart_messages_fts WHERE rowid = ?", (row_id,))
-        if text:
+        await self.db.execute(
+            "UPDATE smart_messages SET text = ? WHERE id = ?", (text, row_id))
+        if text and old_text != text:
             await self.db.execute(
                 "INSERT INTO smart_messages_fts(rowid, text) VALUES (?, ?)",
                 (row_id, text),
             )
         await self.db.commit()
         return 1
+
+    # ── VMQ-V (VOICE-01 P0): версия расшифровки голосового source-ref ───────
+    # Один Telegram voice/document-with-audio = один source-ref
+    # `(chat_id, tg_message_id)`; текст STT — версия содержимого ЭТОЙ строки.
+    # Отдельной таблицы/реестра нет: `transcript_*` живут в `smart_messages`
+    # (миграция v45).
+
+    TRANSCRIPT_STATUSES = ("pending", "ready", "failed", "unavailable")
+
+    @_serialized_write
+    async def set_smart_message_transcript(
+            self, chat_id: int, tg_message_id: int, *, status: str,
+            text: str | None = None, reason: str = "") -> int:
+        """Записать ВЕРСИЮ расшифровки source-ref; вернуть revision (−1 = нет строки).
+
+        ``status='ready'`` + ``text`` — публикует содержимое: текст заменяет
+        плейсхолдер, `transcript_revision` растёт ТОЛЬКО при реальной смене
+        текста (повторная публикация того же текста revision не двигает),
+        FTS переиндексируется. ``pending``/``failed``/``unavailable`` текст
+        НЕ трогают (уже полученная расшифровка не стирается) и revision не
+        меняют: revision — версия СОДЕРЖИМОГО, а не попытки.
+        ``ready`` без текста и без прежнего текста → честный `unavailable`
+        (`empty_transcript`): «готово без содержимого» не выдаётся за речь.
+
+        Возвращает фактическую revision строки (−1, если observer не сохранил
+        строку: no-op). Для `ready` revision ≥ 1; для `pending` на свежей
+        строке revision остаётся 0 — это версия содержимого, а не попытки.
+        Неизвестный статус → ValueError (вызывающий обязан передавать
+        словарь выше)."""
+        if status not in self.TRANSCRIPT_STATUSES:
+            raise ValueError(f"unknown transcript status: {status!r}")
+        try:
+            chat_id = int(chat_id)
+            tg_message_id = int(tg_message_id)
+        except (TypeError, ValueError):
+            return -1
+        cursor = await self.db.execute(
+            "SELECT id, text, transcript_status, transcript_revision "
+            "FROM smart_messages WHERE chat_id = ? AND tg_message_id = ?",
+            (int(chat_id), int(tg_message_id)),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return -1
+        row_id = int(row["id"])
+        old_text = str(row["text"] or "")
+        revision = int(row["transcript_revision"] or 0)
+        now = int(time.time())
+        new_text = old_text
+        new_status = status
+        new_reason = str(reason or "")[:120]
+        if status == "ready":
+            candidate = old_text if text is None else str(text)
+            if not candidate.strip():
+                new_status = "unavailable"
+                new_reason = new_reason or "empty_transcript"
+            else:
+                new_text = candidate
+                if new_text != old_text:
+                    revision = max(revision, 0) + 1
+                elif revision <= 0:
+                    # legacy-строка: текст есть, версии ещё не было — фиксируем.
+                    revision = 1
+                new_reason = ""
+        else:
+            new_reason = new_reason or status
+        # FTS5 external-content: удаление индекса — ДО обновления content,
+        # иначе термы индекса не совпадут с новой строкой и FTS5 вернёт
+        # «database disk image is malformed» (повторная расшифровка того же
+        # source-ref — штатный путь, не ошибка).
+        if new_text != old_text and old_text:
+            await self.db.execute(
+                "DELETE FROM smart_messages_fts WHERE rowid = ?", (row_id,))
+        await self.db.execute(
+            "UPDATE smart_messages SET text = ?, transcript_status = ?, "
+            "transcript_revision = ?, transcript_updated_at = ?, "
+            "transcript_reason = ? WHERE id = ?",
+            (new_text, new_status, revision, now, new_reason, row_id),
+        )
+        if new_text != old_text and new_text:
+            await self.db.execute(
+                "INSERT INTO smart_messages_fts(rowid, text) VALUES (?, ?)",
+                (row_id, new_text),
+            )
+        await self.db.commit()
+        return revision
+
+    async def get_voice_window(self, chat_id: int, since_ts: int,
+                               limit: int = 120) -> list:
+        """Строки окна чата с колонками версии расшифровки (ASC).
+
+        Один чат (`chat_id`), поэтому cross-chat изоляция — по построению.
+        Возвращает и НЕ-голосовые строки: разрешение группы соседних
+        голосовых требует видеть, чем ряд прерывается (текст/фото).
+        Ошибка БД пробрасывается; пусто — «в окне нет сообщений»."""
+        cursor = await self.db.execute(
+            "SELECT id, user_id, chat_id, text, caption, reply_to_id, timestamp, "
+            "media_type, author_name, is_forward, forward_source, tg_message_id, "
+            "sent_at, transcript_status, transcript_revision, "
+            "transcript_updated_at, transcript_reason "
+            "FROM smart_messages WHERE chat_id = ? AND timestamp >= ? "
+            "ORDER BY timestamp DESC, id DESC LIMIT ?",
+            (int(chat_id), int(since_ts), int(limit)),
+        )
+        rows = list(await cursor.fetchall())
+        rows.reverse()
+        return rows
+
+    async def count_voice_sources(self, chat_id: int,
+                                  before_tg_id: int | None = None) -> int:
+        """Сколько голосовых source-ref'ов есть в чате ВСЕГО (не в окне).
+
+        Нужен, чтобы «в недавнем окне ряда нет» не превращалось в ложное
+        «голосовых сообщений не было»: окно ограничено по времени, а источник
+        остаётся в чате."""
+        sql = ("SELECT COUNT(*) AS n FROM smart_messages WHERE chat_id = ? "
+               "AND (media_type = 'voice' OR (media_type = 'video' AND "
+               "transcript_status <> ''))")
+        params: list = [int(chat_id)]
+        if before_tg_id is not None:
+            sql += " AND tg_message_id IS NOT NULL AND tg_message_id < ?"
+            params.append(int(before_tg_id))
+        cursor = await self.db.execute(sql, tuple(params))
+        row = await cursor.fetchone()
+        try:
+            return int(row["n"])
+        except (TypeError, ValueError, KeyError):
+            return 0
+
+    async def get_transcript_states(self, chat_id: int, tg_message_ids) -> dict:
+        """Актуальные состояния расшифровок по source-ref'ам (один запрос).
+
+        ``{tg_message_id: row}``; отсутствующие id в словарь не попадают
+        (вызывающий отличает «нет такой строки» от «нет расшифровки»)."""
+        ids = []
+        for value in tg_message_ids or ():
+            try:
+                value = int(value)
+            except (TypeError, ValueError):
+                continue
+            if value and value not in ids:
+                ids.append(value)
+        if not ids:
+            return {}
+        marks = ",".join("?" for _ in ids)
+        cursor = await self.db.execute(
+            "SELECT tg_message_id, text, caption, reply_to_id, timestamp, "
+            "media_type, author_name, is_forward, forward_source, "
+            "transcript_status, transcript_revision, transcript_updated_at, "
+            "transcript_reason FROM smart_messages "
+            f"WHERE chat_id = ? AND tg_message_id IN ({marks})",
+            (int(chat_id), *ids),
+        )
+        out: dict = {}
+        for row in await cursor.fetchall():
+            try:
+                key = int(row["tg_message_id"])
+            except (TypeError, ValueError):
+                continue
+            out[key] = row
+        return out
 
     async def get_smart_window(self, chat_id: int, since_ts: int, limit: int) -> list:
         """L1: messages within the generation window (timestamp >= since_ts), ASC order.
@@ -8425,7 +8653,8 @@ class DatabaseService:
             "reply_to_kind, reply_to_author_id, quote_text, quote_author_id, "
             "quote_position, quote_is_manual, quote_entities, "
             "forward_author_id, message_state, state_evidence, current_revision, "
-            "media_group_id "
+            "media_group_id, transcript_status, transcript_revision, "
+            "transcript_updated_at, transcript_reason "
             "FROM smart_messages WHERE chat_id = ? AND tg_message_id = ?",
             (chat_id, tg_message_id),
         )

@@ -182,7 +182,14 @@ async def _inject_memory(message: types.Message, name: str, text: str,
     """CRITICAL (D267): двойная инъекция — L2-строка + GraphRAG-факт.
     Epic 72 (74.B.3): у форвардов факт несёт forward_from-атрибуцию.
     F19: при ``force=True`` ``memorize_facts`` пропускается, если строка уже
-    содержала расшифровку (идемпотентность повторного «транскрипта»)."""
+    содержала расшифровку (идемпотентность повторного «транскрипта»).
+
+    VMQ-V (VOICE-01 P0, 09.11.2026): текст STT пишется как ВЕРСИЯ содержимого
+    исходного source-ref (`set_smart_message_transcript(status='ready')`:
+    монотонная `transcript_revision`, `transcript_updated_at`), а не как
+    независимая реплика «пользователь сказал ещё раз». Ответ бота с
+    расшифровкой в `smart_messages` не попадает вовсе (observer бот-сообщения
+    не сохраняет), поэтому второй пользовательской реплики не возникает."""
     chat_id = message.chat.id
     # Подпись медиа (observer пишет её в text): не путать с расшифровкой.
     caption = (getattr(message, "text", None)
@@ -190,14 +197,17 @@ async def _inject_memory(message: types.Message, name: str, text: str,
     already = (await _row_has_transcript(chat_id, message.message_id, caption)
                if force else False)
     try:
-        updated = await _db.update_smart_message_text(
-            chat_id, message.message_id, text)
-        if not updated:
+        revision = await _db.set_smart_message_transcript(
+            chat_id, message.message_id, status="ready", text=text)
+        if revision < 0:
             logger.info("[transcribe] smart_message row not found | chat=%s msg=%s",
                         chat_id, message.message_id)
+        else:
+            logger.info("[transcribe] transcript stored | chat=%s msg=%s | "
+                        "revision=%s", chat_id, message.message_id, revision)
     except Exception:
-        logger.warning("[transcribe] smart_message text update failed | chat=%s",
-                       chat_id, exc_info=True)
+        logger.warning("[transcribe] smart_message transcript write failed | "
+                       "chat=%s", chat_id, exc_info=True)
     if _memory is None or already:
         if already:
             logger.info("[transcribe] repeat — memorize skipped (row already "
@@ -231,6 +241,25 @@ async def _reply_media(bot, media_message, reply_to_id, text,
     await bot.send_message(media_message.chat.id, text, **kwargs)
 
 
+async def _mark_transcript_status(message, status: str, reason: str = "") -> None:
+    """Честный статус версии расшифровки у исходного source-ref (VMQ-V).
+
+    Вызывается ДО/вместо записи текста, чтобы Writer мог отличить «ещё идёт»,
+    «не удалось» и «расшифровки нет» — без выдумывания содержимого. Ошибка
+    записи статуса НЕ ломает STT-поток (fail-open): отсутствие статуса
+    читатель трактует как «ещё не расшифровано»."""
+    if _db is None:
+        return
+    try:
+        await _db.set_smart_message_transcript(
+            message.chat.id, getattr(message, "message_id", None),
+            status=status, reason=reason)
+    except Exception:
+        logger.debug("[transcribe] transcript status write failed | chat=%s",
+                     getattr(getattr(message, "chat", None), "id", None),
+                     exc_info=True)
+
+
 async def transcribe_media_message(media_message, bot, *,
                                    reply_to_id: int | None = None,
                                    force: bool = False) -> bool:
@@ -256,6 +285,8 @@ async def transcribe_media_message(media_message, bot, *,
     if duration > hot.get("limits.voice_max_duration_seconds",
                           settings.VOICE_MAX_DURATION_SECONDS):
         # Edge case #4: файл НЕ качаем.
+        await _mark_transcript_status(media_message, "unavailable",
+                                      "duration_limit")
         await _reply_media(bot, media_message, reply_to_id,
                            random.choice(VT_TOO_LONG_PHRASES))
         return False
@@ -271,6 +302,9 @@ async def transcribe_media_message(media_message, bot, *,
     await _safe_typing(bot, chat_id)
     fd, path = tempfile.mkstemp(prefix="vt_", suffix=suffix)
     os.close(fd)
+    # VMQ-V: «расшифровка идёт» — durable статус ДО STT, чтобы параллельный
+    # Writer-ход не принял отсутствие текста за «сообщения нет».
+    await _mark_transcript_status(media_message, "pending")
     try:
         # Хотфикс v2.46.1 (Epic 69) + Epic 78 (D292): при локальном Bot API
         # файл берётся с диска хоста; иначе — прежний bot.download.
@@ -281,15 +315,23 @@ async def transcribe_media_message(media_message, bot, *,
         except EmptyTranscript:
             logger.info("[transcribe] empty transcript | chat=%s user=%s",
                         chat_id, user.id)
+            await _mark_transcript_status(media_message, "unavailable",
+                                          "empty_transcript")
             await _reply_media(bot, media_message, reply_to_id,
                                random.choice(VT_SILENCE_PHRASES))
             return False
         except TranscriptionUnavailable as exc:
             logger.warning("[transcribe] all strategies failed | chat=%s | error=%s",
                            chat_id, exc)
+            await _mark_transcript_status(media_message, "failed",
+                                          "stt_failed")
             await _reply_media(bot, media_message, reply_to_id,
                                random.choice(VT_ALL_FAILED_PHRASES))
             return False
+        except Exception:
+            # Нештатный сбой STT — честный терминальный статус, а не «идёт».
+            await _mark_transcript_status(media_message, "failed", "stt_error")
+            raise
     finally:
         # Cleanup temp ГАРАНТИРОВАННО на 100% путей (Section 71.4 п.5).
         try:

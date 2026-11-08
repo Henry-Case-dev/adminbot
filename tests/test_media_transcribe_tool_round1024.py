@@ -123,6 +123,8 @@ def _setup_voice(transcribe_result="привет мир", transcribe_error=None,
         svc.transcribe_voice = AsyncMock(return_value=transcribe_result)
     db = MagicMock()
     db.update_smart_message_text = AsyncMock(return_value=1)
+    # VMQ-V: расшифровка пишется как ВЕРСИЯ source-ref (status/revision).
+    db.set_smart_message_transcript = AsyncMock(return_value=1)
     db.get_smart_message_by_tg_id = AsyncMock(return_value=row)
     memory = MagicMock()
     memory.memorize_facts = AsyncMock()
@@ -256,7 +258,7 @@ class TestVoiceCommand:
         await asyncio.sleep(0)
         svc.transcribe_voice.assert_awaited_once()   # STT заново (свежий)
         memory.memorize_facts.assert_not_awaited()   # но факт не дублируется
-        db.update_smart_message_text.assert_awaited_once()
+        db.set_smart_message_transcript.assert_awaited()
 
     @pytest.mark.asyncio
     async def test_force_repeat_video_note(self, clean_env):
@@ -303,7 +305,7 @@ class TestVoiceCommand:
         await yt.youtube_handler(command, bot=bot)
         await asyncio.sleep(0)
         memory.memorize_facts.assert_awaited_once()
-        db.update_smart_message_text.assert_awaited_once()
+        db.set_smart_message_transcript.assert_awaited()
 
     @pytest.mark.asyncio
     async def test_caption_video_note_placeholder_still_memorizes(self,

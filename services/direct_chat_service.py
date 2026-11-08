@@ -3836,6 +3836,11 @@ class DirectChatService:
         _media_readiness = await self._prepare_turn_media_evidence(
             chat_id, message, query=query, correlation_id=correlation_id,
             extra_markers=_extra_media_markers)
+        # VMQ-V (VOICE-01 P0): голосовые source-ref'ы готовятся там же —
+        # bounded-ожидание STT не держит per-chat слот; Writer получает
+        # фактический текст, а не маркер «[медиа: voice]».
+        _voice_bundle = await self._prepare_turn_voice_evidence(
+            chat_id, message, query=query)
         # Epic 60 (63.2, T-461) — раунд N (T-840): слот пула ПОСЛЕ
         # throttle/CB-веток (мгновенные, не стоят в очереди); таймаут
         # ожидания → CHAT_LOCK_BUSY_PHRASES. Текст лога сохранён
@@ -3978,6 +3983,10 @@ class DirectChatService:
                 user_blocks, _media_readiness,
                 deferred_question=_deferred_question,
                 projection=_speech_projection)
+            # VMQ-V: явно запрошенные голосовые — отдельным блоком (данные,
+            # не инструкции) рядом с текущим вопросом, вне контекст-бюджета.
+            user_blocks = self._insert_voice_evidence(user_blocks,
+                                                      _voice_bundle)
             # MCA-15 (T-4920, ADR-1028-12 D6; K3): intent-различение
             # `social_banter`/`historical_evidence`/`chat_statistics`/`mixed`
             # по контексту и reply (не только по словам «никогда»/«бот»).
@@ -4809,6 +4818,10 @@ class DirectChatService:
                 _media_readiness, user_blocks,
                 deferred_question=_deferred_question,
                 projection=_speech_projection)
+            # VMQ-V: STT мог завершиться после снимка контекста — перед
+            # Writer'ом перечитывается ФАКТИЧЕСКАЯ версия расшифровки.
+            user_blocks = await self._refresh_turn_voice_evidence(
+                _voice_bundle, user_blocks)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
             # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
@@ -10368,6 +10381,96 @@ class DirectChatService:
             logger.warning("[direct] media refresh failed — прежний payload",
                            exc_info=True)
             return blocks
+
+    # ── VMQ-V (VOICE-01 P0): голосовые source-ref'ы → Writer ────────────────
+    # Тот же шов, что у изображений: подготовка ДО слота (bounded-ожидание
+    # STT не занимает пул), фактическая ревизия перечитывается перед финальной
+    # сборкой payload. Отдельного пайплайна/второго STT нет — модуль только
+    # читает durable-версию расшифровки и рендерит блок.
+
+    VOICE_EVIDENCE_TAG = "voice_transcripts"
+
+    async def _prepare_turn_voice_evidence(self, chat_id, message, *, query: str):
+        """Связать запрос с группой голосовых и дождаться готовности.
+
+        ``None`` — голосовые в запросе не участвуют (payload прежний).
+        Никогда не бросает: сбой чтения не ломает ход."""
+        db = getattr(self, "db", None)
+        if db is None:
+            return None
+        try:
+            from services import voice_transcripts as _vt
+            bundle = await _vt.prepare_voice_evidence(
+                db, chat_id=int(chat_id), message=message, query=query,
+                bot_id=getattr(self, "bot_id", None))
+            if bundle is not None:
+                payload = bundle.to_dict()
+                logger.info(
+                    "[direct] voice bundle | chat=%s | kind=%s | status=%s | "
+                    "refs=%s | omitted=%s", chat_id, payload["kind"],
+                    payload["status"], payload["source_refs"],
+                    payload["omitted"])
+            return bundle
+        except Exception:
+            logger.warning("[direct] voice evidence prepare failed — обычный "
+                           "ход | chat=%s", chat_id, exc_info=True)
+            return None
+
+    def _insert_voice_evidence(self, user_blocks, bundle) -> list:
+        """Блок расшифровок ЗАПРОШЕННЫХ голосовых ПЕРЕД <Current_Question>.
+
+        Ставится после бюджет-проходов (как медиа-свидетельство): явно
+        запрошенные голосовые не вытесняются фоновыми строками при тесном
+        окне, история источников при этом не меняется."""
+        blocks = list(user_blocks or [])
+        if bundle is None:
+            return blocks
+        try:
+            from services import voice_transcripts as _vt
+            block = _vt.render_voice_block(bundle)
+        except Exception:
+            logger.debug("[direct] voice block render failed", exc_info=True)
+            return blocks
+        if not block:
+            return blocks
+        prefix = f"<{self.VOICE_EVIDENCE_TAG}"
+        for index, candidate in enumerate(blocks):
+            if str(candidate or "").lstrip().startswith(prefix):
+                blocks[index] = block
+                return blocks
+        index = next((i for i, candidate in enumerate(blocks)
+                      if str(candidate).lstrip().startswith(
+                          "<Current_Question")), None)
+        if index is None:
+            return blocks + [block]
+        return blocks[:index] + [block] + blocks[index:]
+
+    async def _refresh_turn_voice_evidence(self, bundle, user_blocks) -> list:
+        """Финальная ревизия расшифровок ПЕРЕД Writer (без ожидания).
+
+        Если STT завершился между снимком контекста и сборкой payload, Writer
+        получает готовый текст с source-ref'ом и revision; иначе — честный
+        pending. Ошибка → payload не меняется."""
+        if bundle is None:
+            return user_blocks
+        db = getattr(self, "db", None)
+        if db is None:
+            return user_blocks
+        try:
+            from services import voice_transcripts as _vt
+            fresh = await _vt.refresh_voice_bundle(db, bundle)
+            if fresh is None:
+                return user_blocks
+            if fresh.summary_status() != bundle.summary_status():
+                logger.info("[direct] voice transcript revision applied "
+                            "before writer | chat=%s | status=%s | refs=%s",
+                            fresh.chat_id, fresh.summary_status(),
+                            list(fresh.refs))
+            return self._insert_voice_evidence(user_blocks, fresh)
+        except Exception:
+            logger.warning("[direct] voice refresh failed — прежний payload",
+                           exc_info=True)
+            return user_blocks
 
     # ── ASAP-VISION-SYNC-01 §5: возобновление отложенного медиа-запроса ─────
 

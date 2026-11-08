@@ -113,6 +113,8 @@ def vt_env(tmp_path):
     service = VoiceTranscriber(strategies=(FakeTranscriber("заглушка"),))
     db = MagicMock()
     db.update_smart_message_text = AsyncMock(return_value=1)
+    # VMQ-V: расшифровка пишется как ВЕРСИЯ source-ref (status/revision).
+    db.set_smart_message_transcript = AsyncMock(return_value=1)
     aliases = MagicMock()
     aliases.resolve = MagicMock(side_effect=lambda uid, nickname=None, username=None:
                                 nickname or "Анонимус")
@@ -254,7 +256,11 @@ class TestHandlerPools:
         replied = msg.reply.call_args.args[0]
         assert replied in VT_TOO_LONG_PHRASES
         assert len(tmp_file_path) == 0            # файл НЕ качали
-        vt._db.update_smart_message_text.assert_not_called()
+        # VMQ-V: честный статус «расшифровки нет (лимит длительности)» —
+        # НЕ pending и не «сообщения нет».
+        vt._db.set_smart_message_transcript.assert_awaited_once_with(
+            CHAT_ID, msg.message_id, status="unavailable",
+            reason="duration_limit")
 
     @pytest.mark.asyncio
     async def test_all_failed_replies_api_fail_pool(self, vt_env, tmp_file_path):
@@ -329,8 +335,12 @@ class TestMemoryInjection:
     async def test_update_smart_message_text_called(self, vt_env, tmp_file_path):
         msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
         await vt.voice_transcription_handler(msg, bot=_make_bot())
-        vt._db.update_smart_message_text.assert_awaited_once_with(
-            CHAT_ID, msg.message_id, "заглушка")
+        # VMQ-V: сначала durable «идёт», затем версия содержимого (ready).
+        calls = vt._db.set_smart_message_transcript.await_args_list
+        assert calls[0].args == (CHAT_ID, msg.message_id)
+        assert calls[0].kwargs == {"status": "pending", "reason": ""}
+        assert calls[1].args == (CHAT_ID, msg.message_id)
+        assert calls[1].kwargs == {"status": "ready", "text": "заглушка"}
 
     @pytest.mark.asyncio
     async def test_memorize_facts_wrapped_media_message_voice(self, vt_env,
