@@ -1380,3 +1380,158 @@ async def test_reply_rag_keeps_channel_order_and_composition(monkeypatch):
     assert len(lines) == 2, block
     assert "fact:3" not in block, "FTS-факт вне top-limit не должен попадать"
     assert "любит дроны" in block and "собирает квадрокоптеры" in block
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Регрессия post-deploy 2.58.165 (MEM-06.10 / MEM-06-RUNTIME): профиль
+# субъекта не теряет факты одного сообщения-источника.
+# ADR-1020-1 `tg:<tg_message_id>` — политика ПРЕДСТАВЛЕНИЯ ссылки (какой
+# сегмент печатать), а НЕ идентичность строки факта: несколько разных фактов
+# одного сообщения законно несут один `tg:`. Дедуп кандидатов по этому id
+# склеивал их в один (а `fact_rows` по тому же ключу отдавали текст чужой
+# строки), поэтому профиль возвращал меньше подтверждённых фактов, чем есть.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: 6 подтверждённых фактов одного субъекта: 4 — из сообщения 9001, 2 — из 9002.
+_SAME_MESSAGE_FACTS = (
+    ("Лёха носит бороду", 9001, 0.9),
+    ("любит дронов", 9001, 0.8),
+    ("работает программистом", 9001, 0.7),
+    ("живёт в Москве", 9001, 0.6),
+    ("ездит на старой Волге", 9002, 0.5),
+    ("слушает джаз по вечерам", 9002, 0.4),
+)
+
+
+async def _seed_same_message_facts(db, *, name="Лёха", chat_id=-100) -> dict:
+    """Реальные `graph_facts` с общим `tg_message_id` у части фактов."""
+    ids = {}
+    for text, tg, weight in _SAME_MESSAGE_FACTS:
+        ids[text] = await db.insert_graph_fact(
+            chat_id, text, "chat_history", None, target_user=name,
+            weight=weight, tg_message_id=tg)
+    return ids
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("purpose", ["identity", "biography", "general"])
+async def test_profile_keeps_distinct_facts_of_one_source_message(
+        tmp_path, purpose):
+    """6 фактов (4 из одного сообщения, 2 из другого) → профиль возвращает все
+    6 ТЕКСТОВ, каждый ровно один раз. Раньше 4 факта сообщения 9001
+    схлопывались в один кандидат, а `fact_rows` по ключу `tg:` отдавали строку
+    последнего факта группы — на выходе оставалась 1 строка из 6."""
+    db = DatabaseService(str(tmp_path / f"same_msg_{purpose}.db"))
+    await db.initialize()
+    try:
+        ids = await _seed_same_message_facts(db)
+        router = _router(db=db, memory=_NoMemory())
+        out = await _purpose_payload(router, purpose, max_items=20)
+        texts = [f["text"] for f in out["facts"]]
+        missing = [text for text, _tg, _w in _SAME_MESSAGE_FACTS
+                   if text not in texts]
+        assert not missing, (
+            f"{purpose}: потеряны факты одного сообщения {missing} "
+            f"(вернулось {texts})")
+        assert len(texts) == len(_SAME_MESSAGE_FACTS), (
+            f"{purpose}: ожидалось {len(_SAME_MESSAGE_FACTS)} фактов, "
+            f"вернулось {len(texts)}: {texts}")
+        assert len(set(texts)) == len(texts), f"дубли в профиле: {texts}"
+        # представление ссылки (ADR-1020-1) не изменилось: факты одного
+        # сообщения по-прежнему ссылаются на `tg:9001`
+        same_source = [f for f in out["facts"]
+                       if f.get("source_id") == "tg:9001"]
+        assert len(same_source) == 4, same_source
+        assert len(ids) == len(_SAME_MESSAGE_FACTS)
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_distinct_facts_of_one_message_stay_distinct_in_retrieve(
+        tmp_path):
+    """Уровень единого retrieval: разные факты одного сообщения — разные
+    кандидаты (у каждого свой `fact_rows`), при этом `id` как представление
+    ссылки остаётся общим `tg:<id>` — ID-политика ADR-1020-1 не переписана."""
+    db = DatabaseService(str(tmp_path / "same_msg_retrieve.db"))
+    await db.initialize()
+    try:
+        ids = await _seed_same_message_facts(db)
+        result = await rc.retrieve(db, None, rc.RetrievalRequest(
+            chat_id=-100, query="Лёха", purpose="dossier", top_k=20,
+            channels=("subject",), subject_names=("Лёха",),
+            subject_entity_ids=(5,), preserve_channel_order=True))
+        assert len(result.candidates) == 6, [c.entity_id
+                                             for c in result.candidates]
+        # идентичность сущности уникальна, представление ссылки — нет
+        assert len({c.dedup_id for c in result.candidates}) == 6
+        assert {c.id for c in result.candidates} == {"tg:9001", "tg:9002"}
+        # каждый кандидат несёт СВОЮ строку факта (не последнюю из группы)
+        assert sorted(int(row["id"]) for row in result.fact_rows) == sorted(
+            ids.values())
+        assert {row["fact"] for row in result.fact_rows} == {
+            text for text, _tg, _w in _SAME_MESSAGE_FACTS}
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_same_fact_from_two_channels_is_not_duplicated(tmp_path):
+    """Повтор ТОГО ЖЕ факта из другого канала по-прежнему склеивается: два
+    факта одного сообщения → ровно два кандидата, ни один не дублируется,
+    остаётся лучший канал (subject 95 > lexical 80)."""
+    db = DatabaseService(str(tmp_path / "same_fact_channels.db"))
+    await db.initialize()
+    try:
+        first = await db.insert_graph_fact(
+            -100, "Лёха носит бороду", "chat_history", None,
+            target_user="Лёха", weight=0.9, tg_message_id=9001)
+        second = await db.insert_graph_fact(
+            -100, "любит дронов", "chat_history", None,
+            target_user="Лёха", weight=0.7, tg_message_id=9001)
+        result = await rc.retrieve(db, None, rc.RetrievalRequest(
+            chat_id=-100, query="Лёха", purpose="dossier", top_k=20,
+            channels=("subject", "lexical"), subject_names=("Лёха",),
+            subject_entity_ids=(5,), preserve_channel_order=True))
+        assert sorted(int(c.entity_id) for c in result.candidates) == sorted(
+            [first, second]), [c.entity_id for c in result.candidates]
+        assert len(result.candidates) == 2
+        by_entity = {int(c.entity_id): c for c in result.candidates}
+        assert by_entity[first].channel == "subject"   # лучший канал выжил
+        assert sorted(int(row["id"]) for row in result.fact_rows) == sorted(
+            [first, second])
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_vector_channel_keeps_facts_of_one_message(tmp_path):
+    """Паритет direct-RAG: прежнее чтение (`get_rag_facts`/KNN) отдавало СТРОКУ
+    на факт, поэтому два разных факта одного сообщения обязаны остаться двумя
+    кандидатами и двумя строками `fact_rows` (до фикса оставался один)."""
+    db = DatabaseService(str(tmp_path / "same_msg_vector.db"))
+    await db.initialize()
+    try:
+        first = await db.insert_graph_fact(
+            -100, "Лёха носит бороду", "chat_history", None,
+            target_user="Лёха", weight=0.9, tg_message_id=9001)
+        second = await db.insert_graph_fact(
+            -100, "любит дронов", "chat_history", None,
+            target_user="Лёха", weight=0.7, tg_message_id=9001)
+        memory = _FakeMemory(vec=[
+            {"id": first, "fact": "Лёха носит бороду", "rag_ts": 1000,
+             "tg_message_id": 9001, "chat_id": -100, "target_user": "Лёха",
+             "item_id": "tg:9001", "subject_ref_id": 5},
+            {"id": second, "fact": "любит дронов", "rag_ts": 1001,
+             "tg_message_id": 9001, "chat_id": -100, "target_user": "Лёха",
+             "item_id": "tg:9001", "subject_ref_id": 5}])
+        result = await rc.retrieve(db, memory, rc.RetrievalRequest(
+            chat_id=-100, query="дроны", purpose="reply", top_k=10,
+            channels=("vector",), preserve_channel_order=True,
+            include_self=True, include_direct_reply=True))
+        assert [int(c.entity_id) for c in result.candidates] == [first, second]
+        assert [int(row["id"]) for row in result.fact_rows] == [first, second]
+        assert {row["fact"] for row in result.fact_rows} == {
+            "Лёха носит бороду", "любит дронов"}
+    finally:
+        await db.close()

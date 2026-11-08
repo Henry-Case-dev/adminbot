@@ -573,6 +573,16 @@ class RetrievalCandidate:
     provenance_backed: bool = False        # False = legacy/unverified (§9)
     # ── MEMORY-06 (§4.4): канонический узел C-1 (`nodes.id`), НЕ uid ────────
     subject_node_id: int | None = None
+    # ── MEMORY-06 (§7.5, фикс потери фактов): идентичность сущности для
+    #    дедупликации. `id` — ID-ПРЕДСТАВЛЕНИЕ ссылки на источник по
+    #    ADR-1020-1 (`tg:<tg_message_id>` → `msg:` → `fact:`), поэтому
+    #    несколько РАЗНЫХ фактов одного сообщения законно несут один `tg:`.
+    #    Дедуп по `id` склеивал их в один кандидат и терял тексты (профиль
+    #    субъекта отдавал меньше подтверждённых фактов, чем хранится).
+    #    `dedup_id` = идентичность самой сущности (`fact:<graph_facts.id>` у
+    #    факта); None → ключом остаётся `id` (сообщения/узлы/эпизоды —
+    #    прежнее поведение).
+    dedup_id: str | None = None
 
 
 def apply_identity_prior(candidates: list, *, subject_entity_ids: tuple = (),
@@ -1258,13 +1268,34 @@ def _channel_native_order(candidates: list, channels: tuple[str, ...]) -> list:
                                     -float(cand.score)))
 
 
+def _candidate_identity(cand) -> str:
+    """Ключ дедупликации = идентичность СУЩНОСТИ, а не представления ссылки.
+
+    ADR-1020-1 задаёт `id` как политику ПРЕДСТАВЛЕНИЯ ссылки на источник
+    (`tg:<tg_message_id>` → `msg:` → `fact:`), а не как идентичность строки:
+    несколько разных фактов, извлечённых из одного сообщения, законно несут
+    один и тот же `tg:`. Дедуп по такому `id` склеивал их в один кандидат и
+    терял тексты (профиль субъекта возвращал меньше подтверждённых фактов,
+    чем хранится в `graph_facts`; direct-RAG терял факты одного сообщения).
+
+    Поэтому у факта ключ — строка `graph_facts` (`dedup_id`), у прочих типов
+    (сообщение/узел/эпизод/сообщество) — прежний стабильный `id`.
+    Повтор ТОГО ЖЕ факта из другого канала по-прежнему склеивается: остаётся
+    лучший по score канал."""
+    return getattr(cand, "dedup_id", None) or cand.id
+
+
 def _dedup(candidates: list) -> list:
-    """Дедуп по стабильному id — сохраняется лучший (макс score) канал."""
+    """Дедуп по идентичности сущности — сохраняется лучший (макс score) канал.
+
+    Разные факты одного сообщения — РАЗНЫЕ сущности (общий только источник),
+    поэтому они не склеиваются; повтор того же факта склеивается."""
     best: dict[str, RetrievalCandidate] = {}
     for cand in candidates:
-        current = best.get(cand.id)
+        key = _candidate_identity(cand)
+        current = best.get(key)
         if current is None or cand.score > current.score:
-            best[cand.id] = cand
+            best[key] = cand
     return list(best.values())
 
 
@@ -1433,7 +1464,7 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                         cand = dataclasses.replace(
                             cand, subject_entity_id=scope_uids[0])
                     raw.append(cand)
-                    fact_rows[cand.id] = dict(row)
+                    fact_rows[_candidate_identity(cand)] = dict(row)
                 if rows:
                     channels.append("subject")
             except Exception:
@@ -1476,7 +1507,7 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                     cand = _fact_candidate(row, "lexical", pos,
                                            resolve_item_id)
                     raw.append(cand)
-                    fact_rows[cand.id] = dict(row)
+                    fact_rows[_candidate_identity(cand)] = dict(row)
                 if rows:
                     channels.append("lexical")
             except TypeError:
@@ -1489,7 +1520,7 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                         cand = _fact_candidate(row, "lexical", pos,
                                                resolve_item_id)
                         raw.append(cand)
-                        fact_rows[cand.id] = dict(row)
+                        fact_rows[_candidate_identity(cand)] = dict(row)
                     if rows:
                         channels.append("lexical")
                 except Exception:
@@ -1518,7 +1549,7 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                     cand = _fact_meta_candidate(row, pos, resolve_item_id)
                     raw.append(cand)
                     if isinstance(row, dict):
-                        fact_rows[cand.id] = dict(row)
+                        fact_rows[_candidate_identity(cand)] = dict(row)
                 if facts:
                     channels.append("vector")
             except Exception:
@@ -1655,8 +1686,8 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         mode=mode, purpose=str(request.purpose or "reply"),
         chat_ids=chat_ids, ambiguity=ambiguity, relevance=relevance,
         relations=relations,
-        fact_rows=tuple(fact_rows[cand.id] for cand in ordered
-                        if cand.id in fact_rows))
+        fact_rows=tuple(fact_rows[_candidate_identity(cand)] for cand in ordered
+                        if _candidate_identity(cand) in fact_rows))
 
 
 def _message_candidate(row, channel: str, position: int, resolve_item_id):
@@ -1703,6 +1734,9 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
                     or _row_get(row, "created_at") or 0),
         author_id=speaker if speaker is not None else subject_id,
         score=_channel_rank(channel, position), channel=channel,
+        # §7.5 (фикс потери фактов): дедуп по строке факта, а не по `tg:`-
+        # представлению источника — иначе 4 факта одного сообщения → 1.
+        dedup_id=(f"fact:{fact_id}" if fact_id not in (None, "") else None),
         preview=_truncate_preview(_row_get(row, "fact")),
         # C5 (D7): subject/speaker/provenance — из v17-колонок (§10):
         # факт без subject_ref_id = legacy/unverified → weak hint.
@@ -1735,6 +1769,10 @@ def _fact_meta_candidate(row, position: int, resolve_item_id):
                        if subject_ref not in (None, "") else None),
         sent_at=int(row.get("rag_ts") or 0),
         score=_channel_rank("vector", position), channel="vector",
+        # §7.5 (фикс потери фактов): эта же идентичность строки факта, что и у
+        # канальных конструкторов, — повтор ТОГО ЖЕ факта из другого канала
+        # склеивается, разные факты одного сообщения — нет.
+        dedup_id=(f"fact:{fact_id}" if fact_id not in (None, "") else None),
         preview=_truncate_preview(row.get("fact")),
         subject_entity_id=subject_id,
         speaker_entity_id=row.get("speaker_author_id"),
