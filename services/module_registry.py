@@ -441,11 +441,16 @@ def effective_gate(module_id: str) -> tuple[bool, bool, str]:
     return (requested, True, "both")
 
 
-def gate_snapshot(module_id: str) -> dict:
-    """Плоский снимок гейта для status/UI (аддитивные поля; никогда не бросает)."""
+def gate_snapshot(module_id: str, state: dict | None = None) -> dict:
+    """Плоский снимок гейта для status/UI (аддитивные поля; никогда не бросает).
+
+    ``state`` — снимок канонического резолвера (`CapabilityState.as_dict()`)
+    для per-chat модулей: витрина показывает реальное состояние ЧАТА, а не
+    только глобальный requested/effective (MOD-ACL-UX-01 M2 §2.2/E).
+    """
     spec = MODULE_REGISTRY.get(module_id)
     requested, effective, source = effective_gate(module_id)
-    return {
+    snapshot = {
         "module_id": module_id,
         "master_param": spec.master_param if spec else "",
         "env_param": ENV_GATES.get(module_id, ""),
@@ -454,9 +459,24 @@ def gate_snapshot(module_id: str) -> dict:
         "source": source,
         "env_enabled": env_enabled(module_id),
     }
+    if isinstance(state, dict):
+        snapshot["chat_state"] = state.get("chat_state")
+        snapshot["desired"] = state.get("desired")
+        snapshot["effective_runtime"] = state.get("effective_runtime")
+        snapshot["global_value"] = state.get("global_value")
+        snapshot["global_source"] = state.get("global_source")
+        snapshot["ready"] = state.get("ready")
+        snapshot["reason_code"] = state.get("reason_code")
+        snapshot["pending_restart"] = state.get("pending_restart")
+        snapshot["version"] = state.get("version")
+        snapshot["observed_at"] = state.get("observed_at")
+        snapshot["last_activity_at"] = state.get("last_activity_at")
+        snapshot["can_read"] = state.get("can_read")
+        snapshot["can_edit"] = state.get("can_edit")
+    return snapshot
 
 
-def registry_for_frontend() -> list[dict]:
+def registry_for_frontend(chat_states: dict | None = None) -> list[dict]:
     """Сериализация реестра для аддитивного ключа ``modules`` ответа
     `GET /api/config` (§3.1: frontend рендерит из registry при наличии записи,
     fallback — hardcoded список; порядок детерминированный).
@@ -469,8 +489,13 @@ def registry_for_frontend() -> list[dict]:
     `gate_snapshot` на момент запроса (requested/effective/source + env-ось),
     чтобы подкарточки без собственного /api/status-блока показывали честный
     effective-дисплей (§4.3) из уже существующего носителя (routes.py не
-    менялся)."""
+    менялся).
+
+    ``chat_states`` (MOD-ACL-UX-01 M2): {module_id: CapabilityState.as_dict()}
+    для per-chat модулей — снимок дополняется три-состоянием и раздельными
+    осями из канонического резолвера."""
     out: list[dict] = []
+    states = chat_states or {}
     for spec in MODULE_REGISTRY.values():
         if spec.visibility == "hidden":
             continue
@@ -493,9 +518,10 @@ def registry_for_frontend() -> list[dict]:
             # Производные поверхности фронта (tab/route — конвенция mod_*)
             "tab": f"mod_{spec.id}",
             "route": f"#/modules/{spec.id}",
-            "gate": gate_snapshot(spec.id),
+            "gate": gate_snapshot(spec.id, states.get(spec.id)),
         })
     return out
+
 
 
 def validate_spec(spec: ModuleSpec) -> list[str]:

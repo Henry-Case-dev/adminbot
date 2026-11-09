@@ -31,8 +31,26 @@ ALL = feature_gates.ALL_GATED_FEATURES
 
 
 class GateBody(BaseModel):
+    """Три-состояние записи гейта (§2.4-3).
+
+    ``enabled=True/False`` — явная настройка чата; ``"inherit"`` — снять
+    запись чата и вернуться к глобальному дефолту (та же точка записи
+    `chat_params`, второй store не появляется).
+    """
+
     feature: str
-    enabled: bool
+    enabled: bool | str
+
+
+def _tri_state(enabled) -> bool | None:
+    """bool | "inherit" → True/False/None (None = INHERIT); иначе ValueError."""
+    if isinstance(enabled, bool):
+        return enabled
+    if isinstance(enabled, str) and enabled.strip().lower() in (
+            chat_params.INHERIT, "наследовать", ""):
+        return None
+    raise ValueError(f"недопустимое состояние гейта: {enabled!r}")
+
 
 
 def _pool(cache):
@@ -69,16 +87,31 @@ async def gates_get(
     # воркера); состояние резолвит ЕДИНЫЙ резолвер, поэтому «Гейты/Тяжёлые»
     # показывают то, что реально исполняется, и отдают три-состояние чата
     # (INHERIT/ON/OFF) отдельными полями — UI не угадывает сохранение.
+    # §2.2: здесь же считается ось `ready` (технические предпосылки),
+    # `can_read/can_edit` (права зрителя), `consent` (участие в opt-in),
+    # `observed_at/last_activity_at/version/pending_restart` и машинный
+    # `reason_code` — вместо одного bool.
+    opt_in = await feature_gates.has_opt_in(chat_id, cache.pg, root=root)
+    version = await chat_params.get_chat_updated_at(chat_id)
     gates = {}
     states = {}
     for f in sorted(ALL):
+        fallback = await feature_gates.master_fallback(chat_id, f)
+        # Легаси-ключ `gates[f]` — «выбор чата/глобальная ось + аварийная ось»,
+        # без готовности: это то же, что решает воркер (он передаёт ready=None).
+        # Иначе тумблер в UI гас бы при настроенном, но неготовом провайдере —
+        # ровно тот «тихий OFF», который запрещает §2.2.
+        base = await feature_gates.gate_state(
+            chat_id, f, root=root, fallback=fallback, ctx=ctx, opt_in=opt_in)
+        # Полный снимок осей (`states[f]`) — с готовностью и наблюдением.
         state = await feature_gates.gate_state(
-            chat_id, f, root=root,
-            fallback=await feature_gates.master_fallback(chat_id, f))
-        gates[f] = bool(state is not None and state.effective_runtime)
+            chat_id, f, root=root, fallback=fallback,
+            ctx=ctx, opt_in=opt_in, with_readiness=True,
+            with_observation=True)
+        gates[f] = bool(base is not None and base.effective_runtime)
         states[f] = state.as_dict() if state is not None else None
-    opt_in = await feature_gates.has_opt_in(chat_id, cache.pg,
-                                            root=root)
+        if state is not None:
+            states[f]["version"] = version
 
     who = {}
     for f in sorted(ALL):
@@ -120,6 +153,10 @@ async def gates_put(
     if payload.feature not in ALL:
         raise HTTPException(status_code=422,
                             detail=f"неизвестная фича: {payload.feature}")
+    try:
+        enabled = _tri_state(payload.enabled)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     if not ctx.is_global_admin:
         # F7 (ADR-1025-20 D3): permsoc-семейство (мастер + блок-гейты) —
         # только global admin; локальный админ — тяжёлые (Q3).
@@ -134,7 +171,7 @@ async def gates_put(
     _require_pg(cache)
     try:
         root = await feature_gates.set_feature_gate(
-            chat_id, payload.feature, payload.enabled,
+            chat_id, payload.feature, enabled,
             changed_by=user.id, pg=cache.pg)
     except ChatParamsConflict as exc:
         raise HTTPException(
@@ -142,10 +179,19 @@ async def gates_put(
             detail={"code": "conflict",
                     "current_updated_at": exc.current_updated_at})
     opt_in = await feature_gates.has_opt_in(chat_id, cache.pg, root=root)
-    logger.info("[gates] set | chat=%s feature=%s enabled=%s by=%s",
-                chat_id, payload.feature, payload.enabled, user.id)
-    return {"feature": payload.feature, "enabled": bool(payload.enabled),
-            "opt_in": opt_in}
+    state = await feature_gates.gate_state(
+        chat_id, payload.feature, root=root, ctx=ctx, opt_in=opt_in,
+        with_readiness=True, with_observation=True)
+    logger.info("[gates] set | chat=%s feature=%s state=%s by=%s",
+                chat_id, payload.feature,
+                "inherit" if enabled is None else bool(enabled), user.id)
+    return {"feature": payload.feature,
+            "enabled": enabled,
+            "chat_state": "inherit" if enabled is None else
+                          ("on" if enabled else "off"),
+            "opt_in": opt_in,
+            "state": state.as_dict() if state is not None else None}
+
 
 
 async def _admin_grant_chat_ids(cache, telegram_id: int) -> set[int]:

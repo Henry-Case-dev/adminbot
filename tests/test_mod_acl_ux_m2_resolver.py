@@ -256,10 +256,14 @@ def test_state_snapshot_exposes_separate_axes():
     assert snapshot["ready"] is False           # готовность — своя ось
     assert snapshot["authorized"] is True       # права — своя ось
     assert snapshot["observed"] is None         # наблюдение — своя ось
+    # §2.2: полный набор «живых» полей состояния (не один bool).
     assert set(snapshot) == {
         "capability", "key", "domain", "chat_id", "chat_state", "desired",
         "source", "global_value", "global_source", "emergency_block",
-        "effective_runtime", "ready", "authorized", "observed"}
+        "effective_runtime", "ready", "authorized", "observed",
+        "observed_at", "last_activity_at", "reason_code", "pending_restart",
+        "version", "can_read", "can_edit", "consent", "conflict"}
+
 
 
 # ── before/after impact report ──────────────────────────────────────────────

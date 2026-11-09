@@ -720,13 +720,11 @@ class NostalgiaWorker:
         now = _now_ts()
         stats = {"chats": 0, "candidates": 0, "sent": 0, "skipped": 0,
                  "errors": 0}
-        if not self._flag("enabled", settings.NOSTALGIA_ENABLED):
-            # P0-followup §2: джоб зарегистрирован всегда, поэтому OFF —
-            # дешёвый no-op тика (событие skipped/disabled от `_run`);
-            # hot-включение активирует без рестарта бота.
-            logger.info("[nostalgia] tick: memory.nostalgia_enabled off — "
-                        "no-op (hot-включение активирует без рестарта)")
-            return stats
+        # MOD-ACL-UX-01 M2 (§2.1/§2.3.1): глобальный `memory.nostalgia_enabled`
+        # — наследуемый ДЕФОЛТ, а не запрет. Раньше здесь был ранний no-op,
+        # из-за чего явный чатовый ON при GLOBAL OFF не исполнялся никогда.
+        # Теперь тик идёт (дешёвый проход списка чатов), а допустимость
+        # каждого чата решает ЕДИНЫЙ резолвер перед дорогими шагами.
         if only_chat is not None:
             chats: list = [int(only_chat)]
         elif self.store is None:
@@ -771,16 +769,10 @@ class NostalgiaWorker:
                 logger.info("[nostalgia] skip | chat=%s | reason=not_group",
                             chat_id)
                 return out
-            # ФИКС R5: глобальный гейт-флаг применяется и к ручному
-            # run_once (F-10 §6: gate ⊇ manual — kill-switch стопит ручные
-            # запуски; run_once-докс «без флага» устарел).
-            if not self._flag("enabled", settings.NOSTALGIA_ENABLED):
-                logger.info("[nostalgia] skip | chat=%s | reason=flag_off",
-                            chat_id)
-                return out
-            # Раунд 10 (F-10 §6): тяжёлый гейт nostalgia (kill-switch:
-            # gates[nostalgia] → глобальный флаг → False); ФИКС R5 — и для
-            # ручного run_once; skip — nostalgia_log status='budget_skip'.
+            # ФИКС R5 → MOD-ACL-UX-01 M2: гейт один и он канонический
+            # (`gates_enabled`: чатовый выбор → глобальный дефолт). Отдельная
+            # проверка глобального `memory.nostalgia_enabled` удалена — она
+            # была вторым, более сильным решателем и глушила явный чатовый ON.
             try:
                 from services.feature_gates import gates_enabled
                 if not await gates_enabled(chat_id, "nostalgia"):

@@ -74,6 +74,98 @@ MASTER_FALLBACK_KEYS: dict[str, str] = {"dream": "memory.dream_enabled"}
 # alias при INHERIT. Двойной независимой записи нет.
 COMPAT_OVERRIDE_KEYS: dict[str, str] = {"permsoc": "flags.permsoc_enabled"}
 
+# ── MOD-ACL-UX-01 / M2 §2.2: отдельные оси состояния ───────────────────────
+# `gates_opt_in` (колонка chat_profiles) — участие чата в opt-in. Это
+# СОГЛАСИЕ, а не мастер-запрет: оно показывается отдельной осью и кодом
+# `consent_required`, но никогда не переводит capability в OFF (§2.3/§2.4-8:
+# «явный gates_opt_in=false не выключает тяжёлые автоматически»). Явный выбор
+# пользователя сам является согласием — существующий `auto_opt_in` фиксирует
+# его в той же транзакции записи гейта.
+OPT_IN_FEATURES: frozenset[str] = HEAVY_FEATURES
+
+#: Гейты, которым для реальной работы нужен LLM-провайдер. Готовность
+#: (`ready`) считается ТОЛЬКО на state/API-поверхности: горячий путь воркера
+#: не должен превращать это в «тихий OFF» (решение воркера — за его
+#: собственными диагностиками, а не за снимком UI).
+LLM_DEPENDENT_FEATURES: frozenset[str] = frozenset(
+    {"dream", "nostalgia", "lore_auto"})
+
+
+def _llm_provider_ready() -> bool:
+    """Настроен ли основной LLM-провайдер (hot-ключ → Settings-дефолт).
+
+    Процесс-независимая проверка конфигурации (та же, что читает
+    `direct_l1`): без провайдера capability не может выполниться вообще."""
+    from services import hot_config as hot
+    base_url = hot.get("models.llm_base_url", None) or getattr(
+        settings, "LLM_BASE_URL", "") or ""
+    model = hot.get("models.llm_model_name", None) or getattr(
+        settings, "LLM_MODEL_NAME", "") or ""
+    return bool(str(base_url).strip() and str(model).strip())
+
+
+def gate_prerequisites(feature: str):
+    """Технические предпосылки гейта (ось `ready`, §2.1/§2.2).
+
+    Единственная реальная зависимость тяжёлых контентных фич — LLM-провайдер.
+    Пустой `Prerequisites` ⇒ `ready=None` («этим слоем не оценивалось»), а не
+    ложное «готово».
+    """
+    from services import chat_params as cp
+    if feature not in LLM_DEPENDENT_FEATURES:
+        return cp.Prerequisites()
+    try:
+        providers = {"llm": _llm_provider_ready()}
+    except Exception:      # pragma: no cover — защитная ветка
+        return cp.Prerequisites()
+    return cp.Prerequisites(providers=providers)
+
+
+def gate_authorization(ctx, feature: str, chat_id: int) -> tuple[bool, bool]:
+    """(can_read, can_edit) для capability-гейта (§2.2, A-ось).
+
+    Повторяет правила существующих guard'ов (`GET/PUT /api/chat/{id}/gates`):
+    чтение — global admin / local admin / moderator / владелец ЛС; запись —
+    global admin, а тяжёлые фичи дополнительно local admin своего чата.
+    Семейство `permsoc*` — только global admin (F7 D3). `None` при отсутствии
+    контекста («не оценивалось»), чтобы не выдавать отсутствие данных за
+    запрет.
+    """
+    if ctx is None or not chat_id:
+        return None, None
+    from services import access as access_srv
+    dm = False
+    try:
+        dm = bool(getattr(ctx, "is_dm_owner", False))
+    except Exception:      # pragma: no cover — защитная ветка
+        dm = False
+    can_read = bool(getattr(ctx, "is_global_admin", False) or dm
+                    or getattr(ctx, "role_chat", None) in ("local_admin",
+                                                           "moderator")
+                    or access_srv.can_access_chat(ctx, chat_id))
+    if feature.startswith("permsoc"):
+        can_edit = bool(getattr(ctx, "is_global_admin", False))
+    else:
+        can_edit = bool(getattr(ctx, "is_global_admin", False)
+                        or (feature in HEAVY_FEATURES
+                            and getattr(ctx, "role_chat", None)
+                            == "local_admin"))
+    return can_read, can_edit
+
+
+def _opt_in_from_root(root, feature: str) -> bool | None:
+    """Согласие чата из уже прочитанного root (`gates_opt_in`), если есть.
+
+    `chat_params` root не содержит колонку `gates_opt_in` (она в профиле),
+    поэтому здесь значение появляется только если владелец чтения положил
+    его в root; иначе `None` — «не оценивалось», не «не согласовано»."""
+    if feature not in OPT_IN_FEATURES or not isinstance(root, dict):
+        return None
+    if "gates_opt_in" not in root:
+        return None
+    return bool(root.get("gates_opt_in"))
+
+
 
 
 def _master_fallback_default(feature: str) -> bool:
@@ -132,13 +224,22 @@ def _global_flag_sourced(feature: str) -> tuple[bool, str]:
 
 
 async def gate_state(chat_id: int, feature: str, root: dict | None = None, *,
-                     fallback: bool | None = None):
+                     fallback: bool | None = None, ctx=None,
+                     opt_in: bool | None = None, with_readiness: bool = False,
+                     prerequisites=None, with_observation: bool = False):
     """Каноническое состояние гейта (все оси) или ``None`` вне домена.
 
     Возвращает `chat_params.CapabilityState`: chat_state (INHERIT/ON/OFF),
     desired, source, global_value, emergency_block, effective_runtime +
-    раздельные ready/authorized/observed. Единственная реализация семантики
-    для домена `chat_params.gates` — `gates_enabled` и API/статус читают её.
+    раздельные ready/authorized/observed/can_read/can_edit/consent/
+    reason_code/observed_at/last_activity_at/version. Единственная
+    реализация семантики для домена `chat_params.gates` — `gates_enabled` и
+    API/статус читают её.
+
+    ``with_readiness`` — считать ось `ready` (технические предпосылки).
+    Включается только на state/API-поверхности: горячий путь воркера
+    передаёт `ready=None` («не оценивалось»), иначе снимок UI начал бы
+    управлять реальным исполнением (§2.2: оси не схлопываются).
     """
     if feature not in ALL_GATED_FEATURES:
         return None
@@ -160,10 +261,21 @@ async def gate_state(chat_id: int, feature: str, root: dict | None = None, *,
         global_value, global_source = bool(fallback), source
     else:
         global_value, global_source = _global_flag_sourced(feature)
+    can_read, can_edit = gate_authorization(ctx, feature, chat_id)
+    if feature in OPT_IN_FEATURES:
+        consent = (opt_in if opt_in is not None
+                   else _opt_in_from_root(root, feature))
+    else:
+        consent = None          # opt-in относится только к тяжёлым фичам
+    if prerequisites is None and with_readiness:
+        prerequisites = gate_prerequisites(feature)
     return await cp.resolve_gate_capability(
         chat_id, feature, global_value=global_value,
         global_source=global_source, root=root,
-        chat_alias_key=COMPAT_OVERRIDE_KEYS.get(feature))
+        chat_alias_key=COMPAT_OVERRIDE_KEYS.get(feature),
+        prerequisites=prerequisites, consent=consent,
+        can_read=can_read, can_edit=can_edit,
+        with_observation=with_observation)
 
 
 async def gates_enabled(chat_id: int, feature: str,
@@ -186,24 +298,37 @@ async def gates_enabled(chat_id: int, feature: str,
     return bool(state is not None and state.effective_runtime)
 
 
-async def set_feature_gate(chat_id: int, feature: str, enabled: bool, *,
+async def set_feature_gate(chat_id: int, feature: str,
+                           enabled: bool | None, *,
                            changed_by=None, expected_updated_at: str | None = None,
                            pg=None) -> dict:
     """ЕДИНСТВЕННАЯ точка записи gates (F-7 set_chat_params; история
-    field='gates'; 409 optimistic; auto_opt_in при первом тяжёлом ON)."""
+    field='gates'; 409 optimistic; auto_opt_in при первом тяжёлом ON).
+
+    Три состояния (§2.4-3): ``enabled=True/False`` — явная настройка чата;
+    ``enabled=None`` (``chat_params.INHERIT``) — УДАЛЕНИЕ записи чата, после
+    которого действует глобальный дефолт. Ничего кроме своего ключа в
+    namespace `gates` не меняется: значения других чатов и глобальный слой
+    не участвуют в записи."""
     if feature not in ALL_GATED_FEATURES:
         raise ValueError(f"неизвестная фича: {feature}")
     from services import chat_params as cp
     root = await cp.get_all_chat_params(chat_id)
     gates = dict(root.get("gates") or {})
-    gates[feature] = bool(enabled)
+    if enabled is None:
+        gates.pop(feature, None)
+    else:
+        gates[feature] = bool(enabled)
     meta = dict(root.get("meta") or {})
     meta["updated_by"] = changed_by
     new_root = await cp.set_chat_params(
         chat_id, {"gates": gates, "meta": meta},
         changed_by=changed_by, pg=pg,
         expected_updated_at=expected_updated_at,
-        history_field="gates")
+        history_field="gates",
+        # INHERIT = удаление записи: optimistic short-circuit обязан видеть
+        # это как «ключа нет», иначе снятие гейта примет за уже применённое.
+        removed={feature} if enabled is None else frozenset())
     if feature in HEAVY_FEATURES and enabled:
         try:
             await auto_opt_in(chat_id, pg=pg)
@@ -214,24 +339,31 @@ async def set_feature_gate(chat_id: int, feature: str, enabled: bool, *,
 
 
 async def has_opt_in(chat_id: int, pg=None, root: dict | None = None) -> bool:
-    """gates_opt_in (колонка). Fail-open → False."""
-    if root is None:
-        try:
-            if pg is None:
-                from services import hot_config as hot
-                cache = hot.get_config_cache()
-                pg = getattr(cache, "pg", None) if cache is not None else None
-            pool = getattr(pg, "pool", None) if pg is not None else None
-            if pool is None:
-                return False
-            async with pool.acquire() as conn:
-                row = await conn.fetchrow(
-                    "SELECT gates_opt_in FROM chat_profiles "
-                    "WHERE chat_id = $1", chat_id)
-            return bool(row and row["gates_opt_in"])
-        except Exception:
+    """gates_opt_in (колонка профиля). Fail-open → False.
+
+    MOD-ACL-UX-01 M2: `chat_params`-root НЕ содержит колонку `gates_opt_in`
+    (её отдаёт только SELECT профиля), поэтому `root` используется лишь как
+    источник, если владелец чтения реально положил туда значение. Иначе —
+    честный запрос к БД: иначе согласие чата читалось бы как «нет» всегда и
+    каждый тяжёлый гейт получал бы ложный код `consent_required`.
+    """
+    if isinstance(root, dict) and "gates_opt_in" in root:
+        return bool(root.get("gates_opt_in"))
+    try:
+        if pg is None:
+            from services import hot_config as hot
+            cache = hot.get_config_cache()
+            pg = getattr(cache, "pg", None) if cache is not None else None
+        pool = getattr(pg, "pool", None) if pg is not None else None
+        if pool is None:
             return False
-    return bool(root.get("gates_opt_in"))
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT gates_opt_in FROM chat_profiles "
+                "WHERE chat_id = $1", chat_id)
+        return bool(row and row["gates_opt_in"])
+    except Exception:
+        return False
 
 
 async def auto_opt_in(chat_id: int, pg=None) -> None:

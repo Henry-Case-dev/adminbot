@@ -1287,8 +1287,7 @@ class StatusService:
                             await permsoc.module_enabled(chat_id, m.module_id))
             else:
                 from services import hot_config as hot
-                master = bool(hot.get("flags.permsoc_enabled",
-                                      permsoc.master_flag_default()))
+                master = await permsoc.master_enabled_global()
                 for m in modules:
                     if not master:
                         continue

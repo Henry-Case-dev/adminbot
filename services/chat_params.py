@@ -156,11 +156,17 @@ def _same_value(a, b) -> bool:
     return False
 
 
-def _patch_already_applied(patch: dict, current_root: dict) -> bool:
+def _patch_already_applied(patch: dict, current_root: dict,
+                           removed=frozenset()) -> bool:
     """D-409-1: все значения патча (value-namespace) уже на сервере.
 
     L-1 (ревью): патч БЕЗ value-namespace (например, meta-only) НЕ считается
-    «уже применённым» — иначе ложный `revalidated` вместо реального конфликта."""
+    «уже применённым» — иначе ложный `revalidated` вместо реального конфликта.
+
+    ``removed`` (MOD-ACL-UX-01 M2 §2.4-3): явный INHERIT снимает запись, то
+    есть «уже применено» = ключа НЕТ ни в одном value-namespace. Без этого
+    удаление невидимо для short-circuit'а, и снятие override молча
+    превращалось в `revalidated` без записи."""
     compared = False
     for ns in _VALUE_NAMESPACES:
         req = patch.get(ns)
@@ -170,6 +176,11 @@ def _patch_already_applied(patch: dict, current_root: dict) -> bool:
         for key, value in req.items():
             compared = True
             if key not in cur or not _same_value(cur[key], value):
+                return False
+    for key in removed:
+        compared = True
+        for ns in _VALUE_NAMESPACES:
+            if key in (current_root.get(ns) or {}):
                 return False
     return compared
 
@@ -412,6 +423,7 @@ async def set_chat_params(chat_id: int, patch: dict, *, changed_by=None,
                           history_field: str = _HISTORY_FIELD,
                           record_history: bool = True,
                           conn=None,
+                          removed=frozenset(),
                           ) -> dict:
     """Атомарная запись патча в chat_params (spec §4.3).
 
@@ -435,7 +447,7 @@ async def set_chat_params(chat_id: int, patch: dict, *, changed_by=None,
                 conn, chat_id, patch,
                 expected_updated_at=expected_updated_at,
                 changed_by=changed_by, history_field=history_field,
-                record_history=record_history)
+                record_history=record_history, removed=removed)
         # Кэш инвалидирует владелец транзакции после commit (§3.2 п.9):
         # инвалидация до commit вернула бы читателям незакоммиченное.
         return ChatParamsResult(_root_with_meta(new_root),
@@ -464,7 +476,7 @@ async def set_chat_params(chat_id: int, patch: dict, *, changed_by=None,
                     conn, chat_id, patch,
                     expected_updated_at=expected_updated_at,
                     changed_by=changed_by, history_field=history_field,
-                    record_history=record_history)
+                    record_history=record_history, removed=removed)
     cache = _chat_params_cache
     if cache is not None:
         try:
@@ -500,7 +512,9 @@ def _assert_prompt_overrides_journaled(chat_id: int, old_root: dict,
 async def _apply_chat_patch(conn, chat_id: int, patch: dict, *,
                             expected_updated_at: str | None,
                             changed_by, history_field: str,
-                            record_history: bool) -> tuple[dict, bool, str | None]:
+                            record_history: bool,
+                            removed=frozenset()
+                            ) -> tuple[dict, bool, str | None]:
     """Тело записи профиля на уже открытом коннекте (транзакция у владельца)."""
     row = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
     if row is None:
@@ -530,7 +544,7 @@ async def _apply_chat_patch(conn, chat_id: int, patch: dict, *,
             _load_chat_params(current.get("chat_params")))
             if current is not None else {})
         if current is not None and _patch_already_applied(
-                patch, cur_root):
+                patch, cur_root, removed):
             # D-409-1 (idempotent short-circuit): токен устарел,
             # но сервер УЖЕ содержит запрошенные значения —
             # операция выполнена, 409 не бросаем.
@@ -801,6 +815,106 @@ SOURCE_DEFAULT = "default"
 DOMAIN_OVERRIDE = "override"   # chat_params.overrides[<pg_key>]
 DOMAIN_GATE = "gate"           # chat_params.gates[<feature>]
 
+# ── Reason codes (§2.2/D-3): машинные коды, без свободного текста ───────────
+# Каждый код отвечает на ОДИН вопрос и не подменяет другой:
+#   permission_denied — у зрителя нет права даже читать (backend, не CSS);
+#   emergency_block   — техническая env-ось владельца (не пользовательская
+#                       настройка, §2.3);
+#   capability_off    — пользовательский выбор «выключено» (или наследован);
+#   not_ready / <group>_missing:<name> — capability включена, но не готова
+#                       (dependencies/indexes/providers/permissions);
+#   consent_required  — чат ещё не подтвердил участие в opt-in (§2.3/§2.4-8);
+#   gate_conflict:<x>  — две записи/две capability противоречат друг другу
+#                       (раньше это был «тихий false», теперь код).
+REASON_PERMISSION_DENIED = "permission_denied"
+REASON_EMERGENCY_BLOCK = "emergency_block"
+REASON_CAPABILITY_OFF = "capability_off"
+REASON_NOT_READY = "not_ready"
+REASON_CONSENT_REQUIRED = "consent_required"
+REASON_GATE_CONFLICT = "gate_conflict"
+
+#: Группы технических предпосылок готовности (порядок = порядок диагностики).
+_PREREQ_GROUPS: tuple[tuple[str, str], ...] = (
+    ("dependencies", "dependency"),
+    ("indexes", "index"),
+    ("providers", "provider"),
+    ("permissions", "permission"),
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class Prerequisites:
+    """Технические предпосылки работы capability (ось ``ready``, §2.1/§2.2).
+
+    Каждая группа — имя → доступность. Пустая группа означает «этим слоем не
+    оценивалась»; пустой объект целиком ⇒ ``ready=None`` (не «готово» и не
+    «не готово»). Первая недоступная предпосылка даёт машинный код
+    ``<group>_missing:<name>`` — это и есть «явная точная причина», которую
+    UI обязан показать вместо выключенного тумблера.
+    """
+
+    dependencies: dict = dataclasses.field(default_factory=dict)
+    indexes: dict = dataclasses.field(default_factory=dict)
+    providers: dict = dataclasses.field(default_factory=dict)
+    permissions: dict = dataclasses.field(default_factory=dict)
+
+    def is_empty(self) -> bool:
+        return not any(getattr(self, group) for group, _ in _PREREQ_GROUPS)
+
+    def evaluate(self) -> tuple[bool | None, str | None]:
+        """(ready, reason_code): ``(None, None)`` — не оценивалось."""
+        if self.is_empty():
+            return None, None
+        for group, label in _PREREQ_GROUPS:
+            values = getattr(self, group) or {}
+            for name in sorted(values):
+                if not values[name]:
+                    return False, f"{label}_missing:{name}"
+        return True, None
+
+
+def gate_conflict_code(other: str) -> str:
+    """Код конфликта двух записей/capability (§2.4-4, D-3)."""
+    return f"{REASON_GATE_CONFLICT}:{other}"
+
+
+#: Capability, которым для применения настройки нужен перезапуск процесса.
+#: Сейчас пусто: все gated capability читают hot-слой (см. тест
+#: `test_hot_change_reaches_running_process`), поэтому `pending_restart=False`
+#: — проверенный факт, а не заглушка. Появится capability без hot-consumer —
+#: она добавляется сюда, и UI честно покажет «нужен перезапуск».
+RESTART_REQUIRED_CAPABILITIES: frozenset[str] = frozenset()
+
+
+def _now_iso() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _capability_conflict(root, key: str, domain: str,
+                         chat_alias_key: str | None,
+                         conflict_with=None) -> str | None:
+    """Имя записи/capability, которая противоречит выбранной (§2.4-4).
+
+    Два реальных класса:
+    * одна capability в двух namespace (`chat_params.gates.permsoc` и
+      `chat_params.overrides["flags.permsoc_enabled"]`) с РАЗНЫМИ явными
+      значениями — раньше alias просто игнорировался («тихий false»);
+    * объявленные владельцем домена конфликтующие capability
+      (`conflict_with={feature: enabled})`.
+    """
+    conflict = None
+    flag = _chat_flag(root, key, domain)
+    if chat_alias_key and flag is not None:
+        alias = _chat_flag(root, chat_alias_key, DOMAIN_OVERRIDE)
+        if alias is not None and alias != flag:
+            conflict = chat_alias_key
+    if conflict is None:
+        for other in sorted((conflict_with or {})):
+            if (conflict_with or {})[other]:
+                conflict = other
+                break
+    return conflict
+
 
 @dataclasses.dataclass(frozen=True)
 class CapabilityState:
@@ -829,6 +943,16 @@ class CapabilityState:
     ready: bool | None = None
     authorized: bool | None = None
     observed: bool | None = None
+    # §2.2: «живые» поля состояния (а не только один bool).
+    observed_at: str | None = None
+    last_activity_at: str | None = None
+    reason_code: str | None = None
+    pending_restart: bool = False
+    version: str | None = None
+    can_read: bool | None = None
+    can_edit: bool | None = None
+    consent: bool | None = None
+    conflict: str | None = None
 
     def as_dict(self) -> dict:
         """Плоский снимок для API/UI (аддитивные поля, без вычислений)."""
@@ -847,6 +971,15 @@ class CapabilityState:
             "ready": self.ready,
             "authorized": self.authorized,
             "observed": self.observed,
+            "observed_at": self.observed_at,
+            "last_activity_at": self.last_activity_at,
+            "reason_code": self.reason_code,
+            "pending_restart": self.pending_restart,
+            "version": self.version,
+            "can_read": self.can_read,
+            "can_edit": self.can_edit,
+            "consent": self.consent,
+            "conflict": self.conflict,
         }
 
 
@@ -930,12 +1063,28 @@ def resolve_capability(*, capability: str, key: str, domain: str,
                        emergency_block: bool = False,
                        ready: bool | None = None,
                        authorized: bool | None = None,
-                       observed: bool | None = None) -> CapabilityState:
+                       observed: bool | None = None,
+                       prerequisites: "Prerequisites | None" = None,
+                       consent: bool | None = None,
+                       conflict_with=None,
+                       observed_at: str | None = None,
+                       last_activity_at: str | None = None,
+                       version: str | None = None,
+                       can_read: bool | None = None,
+                       can_edit: bool | None = None,
+                       pending_restart: bool | None = None,
+                       ) -> CapabilityState:
     """Чистое ядро резолва (без I/O) — пригодно для тестов/отчёта.
 
     Приоритет: явная настройка чата (``chat_alias_key`` — документированный
     read-compat alias того же capability, читается ТОЛЬКО при INHERIT
     основной записи) → глобальный слой. ``emergency_block`` перекрывает всё.
+
+    Раздельные оси §2.2 не схлопываются: ``ready`` (технические
+    предпосылки, ``prerequisites.evaluate()`` если не задано явно),
+    ``authorized``/``can_read``/``can_edit`` (права зрителя), ``consent``
+    (участие в opt-in), ``observed``/``observed_at``/``last_activity_at``
+    (факт исполнения) и ``reason_code`` — машинный код состояния.
     """
     flag = _chat_flag(root, key, domain)
     if flag is None and chat_alias_key:
@@ -946,6 +1095,20 @@ def resolve_capability(*, capability: str, key: str, domain: str,
     else:
         state = ON if flag else OFF
         desired, source = flag, SOURCE_CHAT
+
+    ready_reason = None
+    if ready is None and prerequisites is not None:
+        ready, ready_reason = prerequisites.evaluate()
+    conflict = _capability_conflict(root, key, domain, chat_alias_key,
+                                    conflict_with)
+    if authorized is None and can_read is not None:
+        authorized = can_read
+    if pending_restart is None:
+        pending_restart = (capability or key) in RESTART_REQUIRED_CAPABILITIES
+    reason = _reason_code(
+        can_read=can_read, emergency_block=emergency_block, desired=desired,
+        ready=ready, ready_reason=ready_reason, conflict=conflict,
+        consent=consent)
     effective = bool(desired and not emergency_block and ready is not False)
     return CapabilityState(
         capability=capability or key,
@@ -962,22 +1125,96 @@ def resolve_capability(*, capability: str, key: str, domain: str,
         ready=ready,
         authorized=authorized,
         observed=observed,
+        observed_at=observed_at,
+        last_activity_at=last_activity_at,
+        reason_code=reason,
+        pending_restart=bool(pending_restart),
+        version=version,
+        can_read=can_read,
+        can_edit=can_edit,
+        consent=consent,
+        conflict=conflict,
     )
+
+
+def _reason_code(*, can_read, emergency_block: bool, desired: bool,
+                 ready: bool | None, ready_reason: str | None,
+                 conflict: str | None, consent: bool | None) -> str | None:
+    """Один машинный код с фиксированным приоритетом (§2.2).
+
+    Порядок: нет права читать → аварийная ось → конфликт записей →
+    пользовательский OFF → неготовность → отсутствие согласия. ``None`` —
+    «работает как выбрано», без причины.
+
+    Конфликт стоит выше «выключено» намеренно: `desired=False` и
+    `chat_state=off` и так видны в снимке, а противоречивые записи одной
+    capability иначе снова остались бы «тихим false» (§2.4-4).
+    """
+    if can_read is False:
+        return REASON_PERMISSION_DENIED
+    if emergency_block:
+        return REASON_EMERGENCY_BLOCK
+    if conflict:
+        return gate_conflict_code(conflict)
+    if not desired:
+        return REASON_CAPABILITY_OFF
+    if ready is False:
+        return ready_reason or REASON_NOT_READY
+    if consent is False:
+        return REASON_CONSENT_REQUIRED
+    return None
+
+
+# ── Факт исполнения (ось observed, §2.2) ────────────────────────────────────
+# Провайдер активности — единственный хук: слои-владельцы регистрируют функцию
+# (chat_id, capability, key) -> ISO-строка | None. Ядро остаётся без I/O;
+# отсутствие провайдера — честное «не наблюдалось» (None), а не ложный 0.
+_activity_provider = None
+
+
+def set_activity_provider(provider) -> None:
+    """Регистрация источника «когда capability реально работала»."""
+    global _activity_provider
+    _activity_provider = provider
+
+
+async def capability_last_activity(chat_id, capability: str,
+                                   key: str) -> str | None:
+    provider = _activity_provider
+    if provider is None or chat_id is None:
+        return None
+    try:
+        return await provider(int(chat_id), capability, key)
+    except Exception:
+        logger.warning("[chat_params] activity provider failed | chat=%s | "
+                       "cap=%s", chat_id, capability, exc_info=True)
+        return None
 
 
 async def _root_for(chat_id: int | None) -> dict:
     """root-лейаут chat_params чата (fail-open ``{}`` = «override нет»)."""
+    root, _version = await _root_and_version(chat_id)
+    return root
+
+
+async def _root_and_version(chat_id: int | None) -> tuple[dict, str | None]:
+    """(root, optimistic-версия профиля) одним чтением кэша (§2.4-6)."""
     if chat_id is None:
-        return {}
+        return {}, None
     cache = _chat_params_cache
     if cache is None:
-        return {}
+        return {}, None
     try:
-        return await cache.get_chat_params(int(chat_id)) or {}
+        loader = getattr(cache, "get_chat_params_full", None)
+        if callable(loader):
+            root, updated_at = await loader(int(chat_id))
+            return root or {}, updated_at
+        # fake/legacy-кэш без контракта версии: только значения.
+        return await cache.get_chat_params(int(chat_id)) or {}, None
     except Exception:
         logger.warning("[chat_params] capability root read failed — inherit | "
                        "chat=%s", chat_id, exc_info=True)
-        return {}
+        return {}, None
 
 
 async def resolve_param_capability(chat_id: int | None, key: str, *,
@@ -986,46 +1223,90 @@ async def resolve_param_capability(chat_id: int | None, key: str, *,
                                    ready: bool | None = None,
                                    authorized: bool | None = None,
                                    observed: bool | None = None,
+                                   prerequisites: "Prerequisites | None" = None,
+                                   consent: bool | None = None,
+                                   conflict_with=None,
+                                   can_read: bool | None = None,
+                                   can_edit: bool | None = None,
+                                   with_observation: bool = False,
                                    ) -> CapabilityState:
     """Capability из ``chat_params.overrides`` (каталоговый параметр).
 
     GLOBAL-слой — существующий ``hot.get(key, default)`` этого же модуля;
-    второй копии чтения нет."""
+    второй копии чтения нет. ``with_observation=True`` добавляет
+    observed_at/last_activity_at/version (для API/UI; горячие пути воркеров
+    остаются без этих чтений)."""
+    version = None
     if root is None:
-        root = await _root_for(chat_id)
+        root, version = await _root_and_version(chat_id)
     value, source = global_flag_value(key, default)
+    cap = capability or key
+    observed_at = last_activity = None
+    if with_observation:
+        observed_at = _now_iso()
+        last_activity = await capability_last_activity(chat_id, cap, key)
+        version = version if version is not None \
+            else await get_chat_updated_at(chat_id) if chat_id is not None \
+            else None
     return resolve_capability(
-        capability=capability or key, key=key, domain=DOMAIN_OVERRIDE,
+        capability=cap, key=key, domain=DOMAIN_OVERRIDE,
         chat_id=chat_id, root=root, global_value=value,
         global_source=source, emergency_block=emergency_block, ready=ready,
-        authorized=authorized, observed=observed)
+        authorized=authorized, observed=observed, prerequisites=prerequisites,
+        consent=consent, conflict_with=conflict_with, can_read=can_read,
+        can_edit=can_edit, observed_at=observed_at,
+        last_activity_at=last_activity, version=version)
 
 
 async def resolve_gate_capability(chat_id: int | None, feature: str, *,
-                                  global_value: bool,
-                                  global_source: str = SOURCE_GLOBAL,
-                                  root=None,
-                                  chat_alias_key: str | None = None,
-                                  emergency_block: bool = False,
-                                  ready: bool | None = None,
-                                  ) -> CapabilityState:
+                                   global_value: bool,
+                                   global_source: str = SOURCE_GLOBAL,
+                                   root=None,
+                                   chat_alias_key: str | None = None,
+                                   emergency_block: bool = False,
+                                   ready: bool | None = None,
+                                   prerequisites: "Prerequisites | None" = None,
+                                   consent: bool | None = None,
+                                   conflict_with=None,
+                                   can_read: bool | None = None,
+                                   can_edit: bool | None = None,
+                                   authorized: bool | None = None,
+                                   with_observation: bool = False,
+                                   ) -> CapabilityState:
     """Capability из ``chat_params.gates`` (домен feature_gates).
 
     GLOBAL-слой передаёт владелец маппинга флагов (``feature_gates``):
     резолвер отвечает только за три-состояние и приоритет §2.1."""
+    version = None
     if root is None:
-        root = await _root_for(chat_id)
+        root, version = await _root_and_version(chat_id)
+    observed_at = last_activity = None
+    if with_observation:
+        observed_at = _now_iso()
+        last_activity = await capability_last_activity(chat_id, feature,
+                                                       feature)
+        version = version if version is not None \
+            else await get_chat_updated_at(chat_id) if chat_id is not None \
+            else None
     return resolve_capability(
         capability=feature, key=feature, domain=DOMAIN_GATE, chat_id=chat_id,
         root=root, global_value=global_value, global_source=global_source,
         chat_alias_key=chat_alias_key, emergency_block=emergency_block,
-        ready=ready)
+        ready=ready, prerequisites=prerequisites, consent=consent,
+        conflict_with=conflict_with,
+        can_read=can_read, can_edit=can_edit, authorized=authorized,
+        observed_at=observed_at, last_activity_at=last_activity,
+        version=version)
 
 
 async def resolve_module_capability(chat_id: int | None, module_id: str, *,
                                     root=None, ready: bool | None = None,
                                     authorized: bool | None = None,
                                     observed: bool | None = None,
+                                    prerequisites: "Prerequisites | None" = None,
+                                    can_read: bool | None = None,
+                                    can_edit: bool | None = None,
+                                    with_observation: bool = False,
                                     ) -> CapabilityState | None:
     """Состояние продуктового модуля реестра (``module_registry``).
 
@@ -1048,4 +1329,7 @@ async def resolve_module_capability(chat_id: int | None, module_id: str, *,
     return await resolve_param_capability(
         chat_id, spec.master_param, capability=module_id, default=default,
         root=root, emergency_block=emergency, ready=ready,
-        authorized=authorized, observed=observed)
+        authorized=authorized, observed=observed,
+        prerequisites=prerequisites, can_read=can_read, can_edit=can_edit,
+        with_observation=with_observation)
+

@@ -99,11 +99,17 @@ _ACCESS_SECTION_TITLE = "Управление доступом"
 
 class ConfigItemUpdate(BaseModel):
     key: str
-    value: Any
+    value: Any = None
     # F0.1 (ADR-1025-2 D-409-3): per-key optimistic-токен для глобального
     # пути (аддитивно; клиент может не присылать). Несовпадение при
     # совпадающем значении → revalidated; при отличающемся → 409 conflicting.
     updated_at: str | None = None
+    # MOD-ACL-UX-01 M2 (§2.4-3): три-состояние настройки ЧАТА.
+    # mode="set" (по умолчанию) — записать значение; mode="inherit" —
+    # УДАЛИТЬ override этого чата (явное «наследовать глобальный дефолт»).
+    # Второй store/новый endpoint не появляется: запись идёт тем же
+    # `chat_params.set_chat_params`.
+    mode: str | None = None
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -301,6 +307,21 @@ def _chat_id_or_none(x_chat_id: str | None) -> int | None:
     except (TypeError, ValueError):
         raise HTTPException(status_code=422,
                             detail="X-Chat-Id — целое число")
+
+
+def _chat_state_of(spec, chat_root: dict, key: str,
+                   chat_id: int | None) -> str | None:
+    """Три-состояние настройки чата для UI (`inherit`/`on`/`off`).
+
+    Источник семантики — `chat_params.chat_state` (единственная реализация
+    три-состояния); `None` для небулевых ключей и глобального запроса: у них
+    нет состояния «выключено», и выдумывать его нельзя (§2.2)."""
+    if chat_id is None or spec is None or spec.type != "bool":
+        return None
+    try:
+        return chat_params.chat_state(chat_root, key)
+    except Exception:      # pragma: no cover — защитная ветка
+        return None
 
 
 def _mask_secret(value, telegram_id: int, pg_key: str, cache: ConfigCache) -> dict:
@@ -619,7 +640,13 @@ async def get_config(
                       "view_roles": list(matrix.get("view_roles") or []),
                       "edit_roles": list(matrix.get("edit_roles") or []),
                       "chat_updated_at": chat_root.get("meta", {}).get(
-                          "updated_at") if chat_id is not None else None})
+                          "updated_at") if chat_id is not None else None,
+                      # MOD-ACL-UX-01 M2 (§2.4-3): три-состояние настройки
+                      # ЧАТА для ключа — inherit (записи нет) | on | off.
+                      # Для небулевых параметров tri_state=None: у них нет
+                      # «выключено», есть только «задано/наследуется».
+                      "chat_state": _chat_state_of(spec, chat_root, key,
+                                                   chat_id)})
     # 84.24.3: сортировка (category, group.order, title_ru)
     items.sort(key=lambda it: (it["category"], group_order(it["group"]),
                                it["title"]))
@@ -635,9 +662,26 @@ async def get_config(
     # ASAP 7 (F3, §3.1): аддитивный ключ реестра модулей (ModuleSpec →
     # services/module_registry.py). Frontend обогащает/дополняет MODULES
     # при наличии записи; fallback — текущий hardcoded список (Δ риска = 0).
+    # MOD-ACL-UX-01 M2 §2.2: для модулей с runtime_gate="per_chat" отдаём
+    # каноническое состояние ЕДИНОГО резолвера (истина по чату), иначе
+    # витрина показывала бы глобальный requested/effective и расходилась с
+    # фактическим поведением (E-инвентарь: ни один читатель не решает сам).
+    module_states: dict = {}
+    if chat_id is not None:
+        try:
+            from services import module_registry as _registry
+            for _mid, _spec in _registry.MODULE_REGISTRY.items():
+                if _spec.runtime_gate != "per_chat" or not _spec.master_param:
+                    continue
+                _state = await chat_params.resolve_module_capability(
+                    chat_id, _mid, root=chat_root, with_observation=True)
+                if _state is not None:
+                    module_states[_mid] = _state.as_dict()
+        except Exception:          # pragma: no cover — fail-open
+            module_states = {}
     try:
         from services.module_registry import registry_for_frontend
-        out["modules"] = registry_for_frontend()
+        out["modules"] = registry_for_frontend(module_states)
     except Exception:          # pragma: no cover — fail-open (fallback JS)
         out["modules"] = []
     if chat_id is not None:
@@ -660,6 +704,7 @@ async def _write_chat_overrides_with_retry(
     cache: ConfigCache,
     *,
     expected_updated_at: str | None,
+    removed: frozenset[str] | set[str] = frozenset(),
 ) -> dict:
     """P0 admin-toggle-save (28.10.2026): запись per-chat overrides с ОДНИМ
     ограниченным ретраем на ``ChatParamsConflict``.
@@ -684,12 +729,17 @@ async def _write_chat_overrides_with_retry(
     Права/типизация проверены до записи и не зависят от value_overrides
     (матрица прав — perm_overrides), пере-проверка не нужна.
     Профиль чата отсутствует (current_updated_at=None; join-событие
-    потеряно) → ensure дефолтного профиля, как DM-ветка F-14 выше."""
+    потеряно) → ensure дефолтного профиля, как DM-ветка F-14 выше.
+
+    ``removed`` (MOD-ACL-UX-01 M2 §2.4-3): ключи, снятые явным INHERIT.
+    Merge поверх свежего root обязан ИХ УДАЛИТЬ: иначе при устаревшем токене
+    снятый override молча возвращался из свежих данных, и «наследовать»
+    переставало работать ровно в конкурентном случае."""
     try:
         return await chat_params.set_chat_params(
             chat_id, {"overrides": new_overrides, "meta": meta},
             changed_by=meta.get("updated_by"), pg=cache.pg,
-            expected_updated_at=expected_updated_at)
+            expected_updated_at=expected_updated_at, removed=removed)
     except chat_params.ChatParamsConflict as exc:
         if getattr(exc, "current_updated_at", None) is None:
             await chat_params.ensure_scope_profile(chat_id, dm=False,
@@ -697,11 +747,13 @@ async def _write_chat_overrides_with_retry(
             return await chat_params.set_chat_params(
                 chat_id, {"overrides": new_overrides, "meta": meta},
                 changed_by=meta.get("updated_by"), pg=cache.pg,
-                expected_updated_at=None)
+                expected_updated_at=None, removed=removed)
         fresh_root = await chat_params.get_all_chat_params(chat_id,
                                                            pg=cache.pg)
         fresh_overrides = dict(fresh_root.get("overrides") or {})
         fresh_overrides.update(new_overrides)
+        for key in removed:
+            fresh_overrides.pop(key, None)
         fresh_meta = dict(fresh_root.get("meta") or {})
         fresh_meta["updated_by"] = meta.get("updated_by")
         return await chat_params.set_chat_params(
@@ -731,6 +783,14 @@ async def post_config(
         raise HTTPException(status_code=422, detail="items пуст")
     chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
+        # §2.4-3: «наследовать» есть только у ЧАТА (снять override). У
+        # глобального слоя нет родителя — отказ, а не запись null.
+        for item in payload.items:
+            if (item.mode or "set").strip().lower() == "inherit":
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{item.key}: «наследовать» доступно только для "
+                           "настроек чата (X-Chat-Id)")
         return await _post_config_global(request, payload, user)
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
     if not access_srv.can_access_chat(ctx, chat_id):
@@ -753,7 +813,13 @@ async def post_config(
     # Смешение этих пространств и было багом: одиночный save затирал значения.
     perm_overrides = dict(root.get("perm_overrides") or {})
     patch_overrides = {}
+    inherit_keys: set[str] = set()
     for item in payload.items:
+        mode = (item.mode or "set").strip().lower()
+        if mode not in ("set", "inherit"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"{item.key}: неизвестный режим записи: {item.mode!r}")
         spec = get_by_pg_key(item.key)
         if spec is not None and spec.hidden:
             # ASAP-3.2 (§102/§124): скрытые ключи (например
@@ -782,6 +848,18 @@ async def post_config(
         if not access_srv.can_edit_param(ctx, matrix):
             raise HTTPException(status_code=403,
                                 detail=f"нет права на {item.key}")
+        if mode == "inherit":
+            # §2.4-3/§2.5: снятие override — только значение настройки;
+            # тексты промптов живут в журнале ревизий и «наследование» для
+            # них не определено (честный отказ вместо тихой подмены).
+            if _prompt_block_for_key(item.key) is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{item.key}: для промптов «наследовать» не "
+                           "поддерживается — выберите версию/значение")
+            inherit_keys.add(item.key)
+            patch_overrides.pop(item.key, None)
+            continue
         try:
             value = _coerce_value(spec, item.value)
         except ValueError as exc:
@@ -800,7 +878,7 @@ async def post_config(
                     detail=f"{item.key}: промпт не может быть пустым")
         _meme_template_guard(item.key, value)
         patch_overrides[item.key] = value
-    if not patch_overrides:
+    if not patch_overrides and not inherit_keys:
         raise HTTPException(status_code=422, detail="items пуст")
     prompt_items: list = []
     settings_overrides: dict = {}
@@ -814,6 +892,7 @@ async def post_config(
                 expected_updated_at=payload.updated_at))
     new_root = None
     prompt_result: dict = {}
+    noop_inherit = False
     if prompt_items:
         # §3.5: промпты — ПЕРВЫМИ и одной транзакцией (CAS-токен — тот же
         # payload.updated_at); только после них пишутся прочие настройки
@@ -822,19 +901,33 @@ async def post_config(
             cache, prompt_items, scope="chat", chat_id=chat_id, actor=user.id,
             pg=cache.pg, reason="owner_edit",
             operation_id=getattr(payload, "operation_id", None))
-    if settings_overrides:
+    if settings_overrides or inherit_keys:
         try:
             # Полный набор overrides читается ПОСЛЕ записи промптов: иначе
             # повторная запись namespace вернула бы прежние промптные байты.
             fresh = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
             new_overrides = dict((fresh or {}).get("overrides") or {})
+            base_overrides = dict(new_overrides)
             new_overrides.update(settings_overrides)
+            for key in sorted(inherit_keys):
+                new_overrides.pop(key, None)
             meta = dict((fresh or {}).get("meta") or {})
             meta["updated_by"] = user.id
-            new_root = await _write_chat_overrides_with_retry(
-                chat_id, new_overrides, meta, cache,
-                expected_updated_at=(None if prompt_items
-                                     else payload.updated_at))
+            if not settings_overrides and new_overrides == base_overrides:
+                # Идемпотентность (§2.4-3): запись уже отсутствует — не
+                # двигаем optimistic-токен, не пишем историю и NOTIFY. Только
+                # чистый INHERIT: явная установка значения идёт прежним путём
+                # (иначе «сохранить то же значение» перестало бы обновлять
+                # updated_at/кэш — механика hot-config, §2.4-6). Метку
+                # возвращаем ниже — текущую, без сдвига.
+                noop_inherit = True
+            else:
+                new_root = await _write_chat_overrides_with_retry(
+                    chat_id, new_overrides, meta, cache,
+                    expected_updated_at=(None if prompt_items
+                                         else payload.updated_at),
+                    removed=inherit_keys)
+                updated_at_out = None
         except chat_params.ChatParamsConflict as exc:
             if prompt_items:
                 # §3.5: второй этап упал — честный частичный отчёт.
@@ -864,13 +957,15 @@ async def post_config(
     if not updated_at_out:
         updated_at_out = (prompt_result.get("chat_updated_at")
                           or await chat_params.get_chat_updated_at(chat_id))
-    logger.info("[api] config chat updated | chat=%s | keys=%d | by=%s | "
-                "revalidated=%s",
-                chat_id, len(patch_overrides), user.id,
-                bool(getattr(new_root, "revalidated", False)))
-    out_chat = {"updated": sorted(patch_overrides),
+    logger.info("[api] config chat updated | chat=%s | keys=%d | inherit=%d | "
+                "by=%s | revalidated=%s",
+                chat_id, len(patch_overrides), len(inherit_keys), user.id,
+                bool(getattr(new_root, "revalidated", False) or noop_inherit))
+    out_chat = {"updated": sorted(set(patch_overrides) | inherit_keys),
+                "inherit": sorted(inherit_keys),
                 "chat_id": chat_id,
-                "revalidated": bool(getattr(new_root, "revalidated", False)),
+                "revalidated": bool(getattr(new_root, "revalidated", False)
+                                    or noop_inherit),
                 "updated_at": updated_at_out}
     snapshots = list(prompt_result.get("prompt_snapshots") or [])
     if snapshots:

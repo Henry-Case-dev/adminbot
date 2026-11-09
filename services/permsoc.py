@@ -121,6 +121,25 @@ async def master_enabled(chat_id: int) -> bool:
 
 
 
+async def master_enabled_global() -> bool:
+    """Master-тумблер в ГЛОБАЛЬНОМ скоупе (нет чата) — тот же резолвер.
+
+    Нужен статус-API для сводки без chat_id: раньше здесь был прямой
+    `hot.get("flags.permsoc_enabled")` — третья копия приоритета (E-инвентарь
+    MOD-ACL-UX-01 M2). Теперь решение принимает `chat_params`."""
+    try:
+        from services import chat_params as cp
+        value, source = cp.global_flag_value(MASTER_FLAG_KEY,
+                                            master_flag_default())
+        state = await cp.resolve_gate_capability(
+            None, "permsoc", global_value=value, global_source=source)
+        return bool(state.effective_runtime)
+    except Exception:
+        logger.warning("[permsoc] global master check failed — FAIL-OPEN OFF",
+                       exc_info=True)
+        return False
+
+
 async def permsoc_enabled(chat_id: int) -> bool:
     """Алиас master_enabled (спец-имя, F-9 §4)."""
     return await master_enabled(chat_id)

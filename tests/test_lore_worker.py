@@ -355,6 +355,9 @@ class TestProfileGates:
 
     @pytest.mark.asyncio
     async def test_auto_flag_disabled_skips(self, tmp_path, monkeypatch):
+        """GLOBAL OFF + чат INHERIT → skip через единый резолвер (код
+        `gate_lore_auto`; прежний отдельный `auto_flag_disabled` был вторым
+        решателем — MOD-ACL-UX-01 M2 §2.1)."""
         conn = await _open_db(tmp_path)
         try:
             await _seed_busy_chat(conn)
@@ -364,9 +367,38 @@ class TestProfileGates:
             worker, _ = _worker(store, conn, llm)
             result = await worker.generate_for_chat(CHAT_ID)
             assert result == {"status": "skipped",
-                              "reason": "auto_flag_disabled"}
+                              "reason": "gate_lore_auto"}
             assert llm.call_count == 0
         finally:
+            await conn.close()
+
+    @pytest.mark.asyncio
+    async def test_global_off_chat_on_lore_runs(self, tmp_path, monkeypatch):
+        """§2.1 строка 5: GLOBAL OFF + ЯВНЫЙ чат ON → воркер работает.
+        Глобальный флаг — наследуемый дефолт, а не запрет."""
+        from services import chat_params as cp
+        conn = await _open_db(tmp_path)
+        try:
+            await _seed_busy_chat(conn)
+            _hot_cache(monkeypatch, {"flags.lore_auto_enabled": False})
+
+            class _Cache:
+                async def get_chat_params(self, chat_id):
+                    return {"gates": {"lore_auto": True}, "overrides": {}}
+
+                async def get_chat_params_full(self, chat_id):
+                    return (await self.get_chat_params(chat_id),
+                            "2026-09-06T10:00:00+00:00")
+
+            cp.set_chat_params_cache(_Cache())
+            store = FakeStore({CHAT_ID: make_profile(last_auto_at=None)})
+            llm = FakeLLM()
+            worker, _ = _worker(store, conn, llm)
+            result = await worker.generate_for_chat(CHAT_ID)
+            assert result["status"] == "ok", result
+            assert llm.call_count >= 1
+        finally:
+            cp.set_chat_params_cache(None)
             await conn.close()
 
     @pytest.mark.asyncio
@@ -378,14 +410,14 @@ class TestProfileGates:
             fresh = (datetime.now(timezone.utc) - timedelta(hours=1)
                      ).isoformat()
             # ФИКС R5: гейт-флаг OFF применяется и к manual («Сгенерировать
-            # сейчас») — kill-switch стопит ручные запуски.
+            # сейчас») — через единый резолвер (код `gate_lore_auto`).
             _hot_cache(monkeypatch, {"flags.lore_auto_enabled": False})
             store = FakeStore({CHAT_ID: make_profile(last_auto_at=fresh)})
             llm = FakeLLM()
             worker, _ = _worker(store, conn, llm)
             result = await worker.generate_for_chat(CHAT_ID, manual=True)
             assert result == {"status": "skipped",
-                              "reason": "auto_flag_disabled"}
+                              "reason": "gate_lore_auto"}
             assert llm.call_count == 0
             # гейт ON → manual вне периода работает (Q4-семантика сохранена)
             _hot_cache(monkeypatch, {"flags.lore_auto_enabled": True})

@@ -555,15 +555,12 @@ class LoreWorker:
             # строгий скип (тумблер): авто-тик токены не тратит; «Сгенерировать
             # сейчас» при выключенном отсекается на API (409 auto_disabled)
             return {"status": "skipped", "reason": "auto_disabled"}
-        # ФИКС R5 (F-10 §6): гейты (глобальный флаг + chat-gate lore_auto)
-        # применяются и к РУЧНОМУ запуску «Сгенерировать сейчас» — kill-switch
-        # стопит и ручные прогоны (спецификация БЕЗ carve-out).
-        if not hot.get("flags.lore_auto_enabled",
-                       settings.LORE_AUTO_ENABLED):
-            return {"status": "skipped", "reason": "auto_flag_disabled"}
         # Раунд 10 (F-10 §6): префильтр тяжёлого гейта lore_auto
-        # (kill-switch override: gates[feature] → глобальный флаг →
-        # False); WARNING skip без записи истории.
+        # (гейт чата → глобальный флаг → дефолт). MOD-ACL-UX-01 M2: отдельная
+        # проверка глобального флага lore_auto УДАЛЕНА — она была вторым (и
+        # более сильным) решателем: глобальный OFF глушил явный чатовый ON,
+        # что противоречит §2.1 (GLOBAL — наследуемый дефолт, не запрет). Вся
+        # семантика — в единственном резолвере `feature_gates.gates_enabled`.
         try:
             from services.feature_gates import gates_enabled
             if not await gates_enabled(chat_id, "lore_auto"):
