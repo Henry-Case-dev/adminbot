@@ -45,7 +45,10 @@ Cherry-pick `3b1ba3b2` на базу 2.58.174 падал ровно на отс�
 
 ## 2. Доказательство исключения D2
 
-`git diff --name-only ac943f40..34213999` — 58 файлов, из них ни одного:
+`git diff --name-only ac943f40..34213999` — 83 файла: 58 содержательных
+(коммиты M2/M4) + 25 файлов только с пинами версии
+(`config/settings.py`, `plans/docs/param-registry-round1025.meta.md`,
+`tests/*`), из них ни одного D2-файла:
 
 ```
 services/diagnostic_policy.py      отсутствует
@@ -70,7 +73,7 @@ tests/test_diagnostic_policy.py    отсутствует
 `web/api/memory_agi.py`), M4 (`web/app.js`, `web/index.html`) + тесты,
 `tools/`, `docs/`, `scripts/`.
 
-Контроль целостности: для всех 58 изменённых путей blob-объект в
+Контроль целостности: для всех 58 содержательных путей blob-объект в
 `release/2.58.175` совпадает с `integ/unify-release` (единственное
 исключение — `tests/test_round1025_f8_registry.py`, где разница только в
 пине `APP_VERSION`: 2.58.175 против 2.58.172 в integ).
