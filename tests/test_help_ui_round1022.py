@@ -63,7 +63,7 @@ class TestCanonV4:
         # PREV_R1048_DEFAULT_INFO_TEXT (слепок миграции);
         # mca-23 (2.58.71): 6 → 7, v6 заморожен как PREV_MCA23_DEFAULT_INFO_TEXT;
         # asap7 (2.58.74): 7 → 8, v7 заморожен как PREV_ASAP7_DEFAULT_INFO_TEXT.
-        assert INFO_CANON_VERSION == 9
+        assert INFO_CANON_VERSION == 10
 
     def test_v3_snapshot_registered(self):
         assert PREV_R1022_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
@@ -73,7 +73,7 @@ class TestCanonV4:
         assert PREV_R1048_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_MCA23_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_ASAP7_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
-        assert len(KNOWN_INFO_SNAPSHOTS) == 8
+        assert len(KNOWN_INFO_SNAPSHOTS) == 9
 
     def test_v3_snapshot_is_previous_canon_not_current(self):
         # v3-слепок — прошлый текст (h4/h5 + безлимиты), а не текущий канон.
@@ -108,10 +108,12 @@ class TestLayoutRules:
         # F9 10.23 добавил 3 команды изображений → blockquote == 24;
         # mca-21 добавил 3 команды распознавания → 27;
         # mca-23 добавил 2 примера сравнения ссылок → 29;
-        # asap7 добавил 2 примера заказа формы (§13) → 31.
-        assert text.count("<blockquote>") == text.count("</blockquote>") == 31
+        # asap7 добавил 2 примера заказа формы (§13) → 31;
+        # P0-B (10.11.2026): у выжимки один пример вместо двух → 30
+        # («о чем видео» / «поясни за видос» из справки убраны).
+        assert text.count("<blockquote>") == text.count("</blockquote>") == 30
         # ключевые команды — в цитате (выделенная цитата/код в UI).
-        for cmd in ("Бот, транскрипт", "Бот, поясни за видос", "Бот, о чем видео",
+        for cmd in ("Бот, транскрипт", "Бот, че за видос",
                     "Бот, загугли", "Бот, скачай", "фактчек"):
             assert f"<blockquote>" in text
             assert cmd in text, cmd
@@ -135,10 +137,31 @@ class TestContent:
         assert "голосовых" in text and "кружков" in text and "YouTube" in text
 
     def test_summary_commands_present(self):
+        # P0-B (10.11.2026): смысловая выжимка — ОДНА команда «че за видос»
+        # (краткий разбор ролика). Разговорные «поясни за видос» / «о чем видео»
+        # из реестра удалены → их не должно быть и в справке.
         text = DEFAULT_INFO_TEXT
         assert "Смысловая выжимка" in text
-        assert "<blockquote><b><i>Бот, поясни за видос</i></b></blockquote>" in text
-        assert "<blockquote><b><i>Бот, о чем видео</i></b></blockquote>" in text
+        assert "<blockquote><b><i>Бот, че за видос</i></b></blockquote>" in text
+        assert "поясни за видос" not in text
+        assert "о чем видео" not in text
+        assert "о чём видео" not in text
+
+    def test_video_commands_match_registry(self):
+        """P0-B: в §4 ровно те две команды, что остались в реестре.
+
+        Источник истины — ``services/command_registry.FUNCTIONAL_COMMANDS``;
+        справка не имеет права рекламировать несуществующую команду.
+        """
+        from services.command_registry import FUNCTIONAL_COMMANDS
+        text = DEFAULT_INFO_TEXT
+        for trigger in FUNCTIONAL_COMMANDS["youtube"]:
+            assert f"<b><i>{trigger}</i></b>" in text, trigger
+            assert f"<b><i>Бот, {trigger}</i></b>" in text, trigger
+        # Ни одна удалённая формулировка не выдаётся за команду.
+        for stale in ("поясни за видос", "о чем видео", "о чём видео",
+                      "перескажи видос", "че в видосе"):
+            assert f"<b><i>{stale}</i></b>" not in text, stale
 
     def test_limits_section_removed(self):
         text = DEFAULT_INFO_TEXT
@@ -274,7 +297,7 @@ class TestMigrationV3ToV4:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 9
+        assert value["canon_version"] == INFO_CANON_VERSION == 10
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_info_inserts(conn)) == 1
 

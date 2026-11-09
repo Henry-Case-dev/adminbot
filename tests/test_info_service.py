@@ -39,22 +39,22 @@ class TestDefaultInfoText:
     def test_rich_structure_complete(self):
         """asap7 (2.58.74): rich-канон v8 — только h1/h2 для заголовков
         (никаких h3/h4/h5), команды — в blockquote.
-        h1=1, h2=13, blockquote=31 (v7 + 2 примера заказа формы §13),
-        p=61 (v7 + §10-обложка + §13-форма/инструменты)."""
+        h1=1, h2=13, blockquote=30 (v7 + 2 примера формы §13 − 1 пример
+        выжимки, снятый в P0-B), p=62 (§10-обложка + §13-форма/инструменты)."""
         assert DEFAULT_INFO_TEXT.count("<h1>") == DEFAULT_INFO_TEXT.count("</h1>") == 1
         assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 13
         assert DEFAULT_INFO_TEXT.count("<h3>") == 0
         assert DEFAULT_INFO_TEXT.count("<h4>") == 0
         assert DEFAULT_INFO_TEXT.count("<h5>") == 0
         assert DEFAULT_INFO_TEXT.count("<blockquote>") == \
-            DEFAULT_INFO_TEXT.count("</blockquote>") == 31
+            DEFAULT_INFO_TEXT.count("</blockquote>") == 30
         assert DEFAULT_INFO_TEXT.count("<p>") == DEFAULT_INFO_TEXT.count("</p>") == 62
 
     def test_html_tags_balanced(self):
-        """asap7 (2.58.74): инлайн-акценты — b=48, i=48, u=0, a=2
-        (ссылки-примеры)."""
-        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 48
-        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 48
+        """asap7 (2.58.74): инлайн-акценты — b=49, i=49, u=0, a=2
+        (ссылки-примеры; P0-B: +2 акцента на командах в прозе, −1 пример-цитата)."""
+        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 49
+        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 49
         assert DEFAULT_INFO_TEXT.count("<u>") == 0
         assert DEFAULT_INFO_TEXT.count("</u>") == 0
         assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>") == 2
@@ -75,7 +75,8 @@ class TestDefaultInfoText:
             "youtu.be", "какой-то-сайт.ru",
             "ботяра", "Богу Машине", "требуют обращения",
             # F7 10.22 (ADR-1022-7): транскрипт vs смысловая выжимка.
-            "транскрипт", "поясни за видос", "о чем видео",
+            # P0-B (10.11.2026): в реестре остались только эти две команды.
+            "транскрипт", "че за видос",
             # H 10.20 (БЛОК 8) сохранённое: актуальные фичи фаз B–G.
             "Летописец", "UPD (Свежак)", "Часовой пояс чата",
         ):

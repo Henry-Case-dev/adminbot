@@ -177,11 +177,12 @@ class TestCanonInvariants:
 
     def test_versions_and_registries(self):
         # asap7 (2.58.74): бамп 7→8 / 4→5, слепки v7/v4 — PREV_ASAP7_*.
-        assert INFO_CANON_VERSION == 9
+        # P0-B (10.11.2026): INFO 9→10, слепок v9 — PREV_P0B_* (реестр +1).
+        assert INFO_CANON_VERSION == 10
         assert GUIDE_CANON_VERSION == 6
-        assert len(KNOWN_INFO_SNAPSHOTS) == 8
+        assert len(KNOWN_INFO_SNAPSHOTS) == 9
         assert len(KNOWN_GUIDE_SNAPSHOTS) == 5
-        assert KNOWN_INFO_SNAPSHOTS[-3] is PREV_MCA23_DEFAULT_INFO_TEXT
+        assert KNOWN_INFO_SNAPSHOTS[-4] is PREV_MCA23_DEFAULT_INFO_TEXT
         assert KNOWN_GUIDE_SNAPSHOTS[-3] is PREV_MCA23_INTELLIGENCE_GUIDE
 
     def test_prev_v6_frozen_without_mca23_blocks(self):

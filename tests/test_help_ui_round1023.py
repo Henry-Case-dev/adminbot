@@ -7,7 +7,7 @@
 и v5 (гайд); слепки v7/v4 — PREV_ASAP7_*.
 
 Покрытие (ADR-1023-9, spec §6; review iter1; mca-21; mca-23; asap7):
-  * канон-версия ``INFO_CANON_VERSION == 9`` + слепки v1…v8
+  * канон-версия ``INFO_CANON_VERSION == 10`` + слепки v1…v9
     (``PREV_ASAP7_DEFAULT_INFO_TEXT`` = v7) в ``KNOWN_INFO_SNAPSHOTS``;
   * байт-зеркало ``DEFAULT_INFO_TEXT ↔ info_text.md``;
   * секция «11. Генерация изображений»: команды в ``<blockquote>``, только
@@ -41,6 +41,7 @@ from services.info_service import (
     PREV_ASAP7_INTELLIGENCE_GUIDE,
     PREV_DEFAULT_INFO_TEXT,
     PREV_MCA23_DEFAULT_INFO_TEXT,
+    PREV_P0B_DEFAULT_INFO_TEXT,
     PREV_MCA23_INTELLIGENCE_GUIDE,
     PREV_R1022_DEFAULT_INFO_TEXT,
     PREV_R1023_DEFAULT_INFO_TEXT,
@@ -73,17 +74,18 @@ class TestInfoCanonV5:
         # v6 заморожен слепком PREV_MCA23_DEFAULT_INFO_TEXT;
         # asap7 (2.58.74): 7 → 8 (Direct-семантика, обложки из выжимки, §7);
         # v7 заморожен слепком PREV_ASAP7_DEFAULT_INFO_TEXT.
-        assert INFO_CANON_VERSION == 9
+        assert INFO_CANON_VERSION == 10
 
     def test_v4_snapshot_registered_and_chain_kept(self):
         assert PREV_MCA23_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v6
         assert PREV_ASAP7_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v7
+        assert PREV_P0B_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS      # v9
         assert PREV_R1048_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v5
         assert PREV_R1023_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS   # v4
         assert PREV_R1022_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS   # v3
         assert PREV_R2020_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS   # v2
         assert PREV_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS         # v1
-        assert len(KNOWN_INFO_SNAPSHOTS) == 8
+        assert len(KNOWN_INFO_SNAPSHOTS) == 9
 
     def test_v4_snapshot_is_previous_not_current(self):
         assert normalize_canon(PREV_ASAP7_DEFAULT_INFO_TEXT) != \
@@ -140,8 +142,9 @@ class TestImageSectionLayout:
         ):
             assert frag in text, frag
         # mca-23 (2.58.71): 29 (v6 + примеры §13);
-        # asap7 (2.58.74): 31 (+2 примера заказа формы в §13).
-        assert text.count("<blockquote>") == text.count("</blockquote>") == 31
+        # asap7 (2.58.74): 31 (+2 примера заказа формы в §13);
+        # P0-B (10.11.2026): 30 — у выжимки один пример («че за видос»).
+        assert text.count("<blockquote>") == text.count("</blockquote>") == 30
 
     def test_no_punctuation_or_conjunction_between_examples(self):
         gaps = between_adjacent_blockquotes(DEFAULT_INFO_TEXT)
@@ -266,7 +269,7 @@ class TestInfoMigrationV5ToV6:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 9
+        assert value["canon_version"] == INFO_CANON_VERSION == 10
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_inserts(conn, INFO_KEY)) == 1
 
@@ -278,7 +281,7 @@ class TestInfoMigrationV5ToV6:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 9
+        assert value["canon_version"] == INFO_CANON_VERSION == 10
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_inserts(conn, INFO_KEY)) == 1
 
@@ -290,7 +293,7 @@ class TestInfoMigrationV5ToV6:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 9
+        assert value["canon_version"] == INFO_CANON_VERSION == 10
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_inserts(conn, INFO_KEY)) == 1
 

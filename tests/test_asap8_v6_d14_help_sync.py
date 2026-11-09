@@ -208,11 +208,11 @@ class TestCanonInvariants:
     """Бампы 8→9 / 5→6: слепки заморожены чисто, лестница версий цела."""
 
     def test_versions_and_registries(self):
-        assert INFO_CANON_VERSION == 9
+        assert INFO_CANON_VERSION == 10
         assert GUIDE_CANON_VERSION == 6
-        assert len(KNOWN_INFO_SNAPSHOTS) == 8
+        assert len(KNOWN_INFO_SNAPSHOTS) == 9
         assert len(KNOWN_GUIDE_SNAPSHOTS) == 5
-        assert KNOWN_INFO_SNAPSHOTS[-1] is PREV_ASAP8V6_DEFAULT_INFO_TEXT
+        assert KNOWN_INFO_SNAPSHOTS[-2] is PREV_ASAP8V6_DEFAULT_INFO_TEXT
         assert KNOWN_GUIDE_SNAPSHOTS[-1] is PREV_ASAP8V6_INTELLIGENCE_GUIDE
 
     def test_v8_snapshot_frozen_clean(self):
@@ -323,7 +323,7 @@ class TestMigrations:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 9
+        assert value["canon_version"] == INFO_CANON_VERSION == 10
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_inserts(conn, INFO_KEY)) == 1
 
