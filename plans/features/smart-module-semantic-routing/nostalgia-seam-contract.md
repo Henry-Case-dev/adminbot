@@ -1,103 +1,80 @@
 # Nostalgia Seam — Frozen Contract
 **Feature:** smart-module-semantic-routing / NOST-PROACTIVE  
-**Date:** 2026-11-10  **Status:** NOSTALGIA SEAM FROZEN
+**Date:** 2026-11-10  **Status:** NOSTALGIA SEAM RECONCILED
 
----
+## 1. In-conversation seam
 
-## Decision 1 — Proactive seam interface (NOST-PRO-01..04, 09..11)
+**Call site:** `InitiativeObserverRunner._act_on_memory_recall`, immediately after the
+opportunity evaluator returns `kind=memory_recall`; it does not wait for
+`nostalgia_tick`.
 
-**Call site:** `initiative_observer.py::_act_on_opportunity` — существующая ветка,
-когда `kind == "memory_recall"` и `horizon == "now"`.
-
-**Вызов:**
 ```python
-candidate = await nostalgia_worker.probe_for_active_context(
-    chat_id=chat_id,
-    context_messages=window_messages,   # list[dict] — текущее окно Observer'а
-    now=int(time.time()),
+result = await nostalgia_worker.recall_in_conversation(
+    chat_id: int,
+    memory_refs=(),       # refs to real retrieved records: story:/episode:/lore:
+    context_rows=None,    # current conversation window
 )
-# candidate: dict | None
+# result: {"status": str, "reason_code": str | absent}
 ```
 
-**Контракт `probe_for_active_context`:**
-- Входы: `chat_id: int`, `context_messages: list[dict]`, `now: int`
-- Находит кандидата через `_pick_candidate_semantic` (см. Decision 3).
-- Возвращает `None` — если кандидатов нет ИЛИ семантическая схожесть < порога (`_threshold()`). Silence — валидный исход; лог `[nostalgia] probe: no match | reason=<…>`.
-- Возвращает `dict` — структура идентична текущему кандидату `_pick_candidate`, плюс поле `"probe_score": float`.
-- **Не отправляет** текст сам — передаёт управление обратно Observer'у через `_delegate_initiative` (существующий путь L647).
-- Не изменяет таймер тика NostalgiaWorker (тик — отдельный путь).
+`now` is an optional keyword accepted by the implementation for deterministic
+clocking: `now: int | None = None`. `context_rows` may be omitted; the worker
+then obtains its recent context. The worker resolves only real records by
+`memory_refs`, reconstructs the episode from factual source messages, and uses
+the existing Writer/Decision/SendRecheck/publication transport. It does not
+make the evaluator's publication decision and does not create a second send
+path.
 
-**Инициатива:** Observer решает `say/silent`, как для любого другого `memory_recall`. NostalgiaWorker не дублирует transport.
+Statuses are `sent`, `skipped`, `silent`, `disabled`, or `error`; silence is a
+normal non-exceptional outcome. Skips/errors carry a stable `reason_code` when
+available. Invalid, missing, repeated, unavailable, or non-relevant records
+must not be invented or published.
 
----
+## 2. Evaluator memory context
 
-## Decision 2 — RandomSource plug-in (NOST-PRO-07, 08, 12, 18 + VMQ-ONTO-01)
+When `random.uses.memory_recall` is enabled (factory default ON), the existing
+GraphRAG retrieval, episode channel, supplies at most three real records in
+`<Related_Memory>`, numbered 1..3. The evaluator may return optional
+`memory_slot` (integer 1..3), but must choose `memory_recall` only when a record
+is genuinely related to the current conversation and the conversation has
+actually approached that subject. Records merely being present are not proof;
+no suitable relation means `silent`/non-recall. The existing evaluator,
+Writer, Decision and transport remain the authorities for relevance, text and
+publication. Empty retrieval produces no memory block.
 
-**Интерфейс:**
+## 3. Candidate ranking and direction
+
+Autonomous candidate ordering uses:
+`0.65 * relevance + 0.2 * coverage + 0.1 * usage`, where relevance is the
+retrieval signal (FTS topicality is only a weak fallback), coverage rewards an
+unrecently used period, and usage rewards stale usage. Ties are resolved by
+period freshness and episode start; repeats are excluded by stable
+`story:/episode:/lore:` references. `last_used_in_chat_at` changes only after a
+confirmed send.
+
 ```python
-class RandomSource(Protocol):
-    def random(self) -> float: ...   # возвращает float в [0, 1)
+async def _direction_pick(
+    self, chat_id: int, ordered: list[int], info: dict
+) -> int | None
 ```
 
-**Точка инжекции:** `NostalgiaWorker.__init__` — параметр `random_source: RandomSource | None = None`.
+`_direction_pick` is the sole `RandomSourceService` integration. It can select
+only an index within the equal-weight tie band; it returns `None` when there is
+no tie band or the source is unavailable/deferred, preserving deterministic
+order. It cannot establish memory truth, alter relevance/thresholds, turn a
+non-memory into a memory, or oblige the evaluator/Writer to publish. All
+selected material still comes from real records and the common publication
+path.
 
-**Fallback:** `random_source is None` → `import random; random.random`.
+## 4. Invariants, compatibility and safety
 
-**Контракт:** `RandomSource.random()` влияет **только на направление выбора** внутри `_pick_candidate_semantic` (тай-брейкер равновесных весов, Decision 3). Не влияет на истинность/ложность воспоминания, на порог, на решение Observer'а публиковать. Инжекция производится снаружи (тесты, VMQ-адаптер); продакшн-код использует `random.random`.
+- Silence is valid and logged; no exception or forced fallback publication.
+- One transport path: existing `_delegate_initiative` → `handle_initiative`.
+- No user prompt, Personality Core or instruction text is rewritten.
+- No new OFF/SHADOW default is introduced; the ready feature remains ON by
+  default while explicit existing user/chat overrides are preserved.
+- `RandomSource` is not persisted in the database or included in LLM payload.
+- Retrieval failure degrades to no related-memory block; it must not fabricate
+  records or force `memory_recall`.
 
----
-
-## Decision 3 — Замена `_pick_candidate()` (NOST-PRO-05, 06, 13..17)
-
-**Новый метод:** `_pick_candidate_semantic(chat_id, now, context_messages=None)`.
-
-**Веса:**
-```
-year_back_lines → base 0.7  ×  (1 + semantic_sim(year_lines, context_messages) × 0.5)
-golden fact     → base 0.3 + 0.05×importance  ×  (1 + semantic_sim(fact_text, context_messages) × 0.5)
-```
-`semantic_sim` — косинусная схожесть эмбеддингов через `self.memory.embed(...)`;
-если `context_messages is None` или memory недоступен → `semantic_sim = 0` (деградация к старому поведению).
-
-**Тай-брейкер равных весов (±0.01):** `self._random_source.random()`.
-
-**Silence:** возвращает `None` если `best["weight"] < self._threshold()`.
-
-**GraphRAG/долгосрочная память:** остаётся `fetch_golden_facts` (нет нового пайплайна).
-
----
-
-## Decision 4 — Тестовые имена (NOST-PRO-19)
-
-| Сценарий | Имя теста |
-|---|---|
-| Семантически близкое воспоминание → probe возвращает кандидата | `test_probe_returns_candidate_when_context_matches` |
-| Нет совпадения → probe возвращает None (silence) | `test_probe_returns_none_when_no_semantic_match` |
-| Уже опубликованное воспоминание не повторяется | `test_probe_skips_recently_sent_candidate` |
-| Нет memory/year_back → silence с честным логом | `test_probe_silence_when_no_candidates_available` |
-| RandomSource тай-брейкер не меняет факт, только выбор | `test_random_source_affects_selection_not_fact` |
-
----
-
-## Инварианты
-
-- Один transport-путь: только через `handle_initiative` (L10620 `direct_chat_service.py`).
-- `probe_for_active_context` не изменяет таймер тика.
-- Новые настройки не вводятся; новая функция ON by default (PET_PROJECT).
-- Silence логируется, не бросает исключение.
-- `RandomSource` не сохраняется в БД, не логируется в payload.
-
----
-
-## Параллельная безопасность
-
-`probe_for_active_context` — READ_ONLY_PARALLEL (читает память, не пишет).  
-`_pick_candidate_semantic` — READ_ONLY_PARALLEL.  
-`_delegate_initiative` — SERIALIZE (единственный send-path, без изменений).
-
----
-
-**NOSTALGIA SEAM FROZEN**
-
-*Architect:* claude-opus-5-5 / ai_server — 2026-11-10  
-*Feature owner:* smart-module-semantic-routing / NOST-PROACTIVE
+**NOSTALGIA SEAM RECONCILED**
