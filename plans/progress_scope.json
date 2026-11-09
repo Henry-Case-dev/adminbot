@@ -377,7 +377,8 @@
       "source_path": "plans/owner_inputs/2026-11-10-smart-module-semantic-routing-p0.md",
       "source_sha256": "2ECA66DA1825F85EBD0E9353E53A5281635297427510DE6274E9EF5E2AF48A8C",
       "maps": [
-        "plans/features/smart-module-semantic-routing/requirements-map.json"
+        "plans/features/smart-module-semantic-routing/requirements-map.json",
+        "plans/features/smart-module-semantic-routing/requirements-map-nostalgia-correction.json"
       ],
       "coverage_complete": true,
       "source_note": "P0 corrective of the existing Smart Module, not a new epic. Incident A: the manga question ('японцы рисуют или форматом страниц') hit the image generator and reported a daily image quota; cause named by the owner at services/direct_capabilities.py `_DRAW_VERB_STRONG` containing the stem 'рису', classified as INTENT_CREATE_IMAGE, after which `_image_capability_gate()` can end the turn before L1. Incident B: 'бот, что происходит в чате' was answered by analysing a participant's video, then asking which of two videos was meant. Owner forbids adding any lexeme, regex or trigger for such phrases: the model (L1) must decide, using the existing history/memory/search tools. Architectural invariant: the current user message is the task; reply target, quote, forward, recent history, transcript and tool results are evidence, never a substitute task. Explicit commands must survive unchanged: фактчек, чекап, 'Бот, нарисуй ...' with the full user prompt, 'Бот, найди ...' with its argument; 'Нарисуй кота' without the bot prefix goes through L1. Remove the semantic authority of `_DRAW_VERB_STRONG`, `_DRAW_VERB_PREFIXED`, `_CREATE_VERB_GENERIC`, `_IMAGE_OBJECT` and related lexical gates (detect_action_intent, _image_capability_gate, _image_pre_gate_block, _l1_capability_consistency, IMAGE_KEYWORD_RE, legacy/fallback planning, generate_image execution) leaving only the explicit command fast-path. No new LLM classifier, no second summary pipeline, no new user settings. P1 is a bounded revision of the named spots (direct answers, nostalgia pre-gate, search/factcheck markers, vision intent patterns, experience lexical filters, style/self-model). Trace both P0s end to end; do not pass DONE on unit tests alone, and verify negative scenarios independently.",
@@ -2015,6 +2016,16 @@
             "NOST-PRO-17",
             "NOST-PRO-18",
             "NOST-PRO-19"
+          ]
+        },
+        {
+          "task_id": "vmq-onto-01",
+          "map": "plans/features/vmq-onto-01/requirements-map.json",
+          "req_ids": [
+            "Q-01",
+            "Q-09",
+            "QM-01",
+            "VMQ-MEM-08"
           ]
         }
       ]
