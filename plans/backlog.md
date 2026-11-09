@@ -515,3 +515,26 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
 ## Добавлено 2026-11-10 (выкладка 2.58.176 — состояние вне релиза, наблюдение)
 
 - [2.58.176, конфигурация прода, НЕ дефект релиза] Capability изображений в проде **не настроена**: `caps.resolve("image_generation")` → `available=False`, `status=not_configured`, `reason=image_provider_unconfigured` (ключ провайдера изображений в `.env` не задан). Поэтому команда «Бот, нарисуй кота» на 2.58.176 возвращает **управляемый отказ** «не настроено», и сквозной путь генерации (платный вызов провайдера, доставка картинки в чат) проверить на проде нельзя. Состояние предшествует релизу 2.58.176 и им не менялось: `capability_registry` и ключи провайдеров в дельту не входят. Действие: когда у владельца появится решение по провайдеру — задать ключ эксплуатационной настройкой и один раз прогнать сквозную проверку команды; отдельного кода это не требует и блокером P0-среза не является. Факт зафиксирован в `plans/features/smart-module-semantic-routing/evidence/p0-release-2.58.176.md` §8 и в `evidence/p0-binding-2.58.176.md`.
+
+
+## Добавлено 2026-11-10 (выкладка 2.58.177 — состояние вне релиза, наблюдение)
+
+- [2.58.177, описание параметра расходится с поведением] В `services/param_catalog.py:1768`
+  параметр `DIG_PRE_GATE_ENABLED` описан как рабочий пре-гейт («dig_into_lore: пре-гейт
+  маркеров ностальгии»), хотя после P1 semantic-routing флаг **инертен**: потребителей в
+  `services/` ноль (проверено на выкаченном дереве), поле сохранено только ради
+  совместимости конфигурации. Нужна правка одной строки описания (отметить, что флаг
+  не читается, а решение о `dig_into_lore` принимает модель) + переиздание F8-пина
+  каталога. Решение об обслуживании — одно, отдельного эпика не требуется.
+- [PRE-EXISTING на 2b7e9c7f, test-maintenance] В широком прогоне (121 файл direct/vision/
+  nostalgia/lore/experience/style/speech/guard/evidence) 11 падений воспроизводятся
+  идентично на `2b7e9c7f` и на `1a4a9b1b`, релизом не привнесены: `test_budget_guardrails_round1024::TestMenuFreeze`
+  (menu freeze ожидает 15 позиций, в дереве 16), `test_direct_fallback_recompose_asap32`
+  (5 тестов: локальный мок `fb_retries()` без kwarg `sent` против `services/llm_client.py`),
+  `test_outgoing_guard_round1022::test_every_send_point_is_registered_or_allowlisted`
+  (незарегистрированная send-точка `handlers/meme_command.py`),
+  `test_p0_followup_nostalgia_ab::test_job_registered_at_off_start_and_hot_enable_works`.
+  Ранее уже перечисленные `test_nostalgia_worker::test_year_back_candidate_sent` и
+  `test_speech_p0_a2_memory::test_style_anchors_not_broken` повторяются в том же наборе.
+  Решение об обслуживании — одно, вне рамок P1.
+
