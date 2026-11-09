@@ -33,10 +33,10 @@ from services.log_ring import sanitize
 logger = logging.getLogger(__name__)
 
 # ── Версии контракта (меняются только санкцией @Architect; spec §1) ──────────
-EXPERIENCE_POLICY_VERSION = "mca16-policy-1"
+EXPERIENCE_POLICY_VERSION = "mca16-policy-2"
 PROPOSAL_VERSION = "mca16-proposal-1"
-VALIDATOR_VERSION = "mca16-validator-1"
-SELECTION_POLICY_VERSION = "mca16-select-1"
+VALIDATOR_VERSION = "mca16-validator-2"
+SELECTION_POLICY_VERSION = "mca16-select-2"
 
 # ── Закрытые наборы (spec §2/§3) ─────────────────────────────────────────────
 SCOPES = frozenset({"global", "chat", "user_in_chat", "task"})
@@ -570,7 +570,6 @@ def canonical_template_seed_rows(now: int) -> list[tuple]:
             str(text), semantic_template_scope_pattern(lesson_type, rule_key),
             origin_kinds, int(now)))
     return rows
-
 
 
 def _forbidden_effects(recommendation: str, applicability: str = "") -> bool:
