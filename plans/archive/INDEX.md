@@ -63,3 +63,7 @@ plans/archive/features/… (сам код/тесты вне plans/ не меня
 `plans/reports/F` → `plans/archive/reports/F` (кроме списка pinned выше);
 `plans/metrics.md` (история) → `plans/archive/metrics-2026-10-15.md`.
 Git-история перемещений: коммиты `chore(plans)` от 2026-10-15 (`git log --follow <path>`).
+
+## Перемещения 2026-10-28 (PLANS-AUDIT)
+
+- `plans/features/expression-bisect-2026-10-21-results/` → `plans/archive/features/expression-bisect-2026-10-21-results/` (19 файлов, `git mv`). Живые карты и `owner_inputs` на каталог не ссылались. Отчёт `plans/features/expression-bisect-2026-10-21.md` оставлен: его путь цитируют `current_task.md` и карта `asap-speech-arch`. Две относительные ссылки в этом отчёте переведены на архивный путь.

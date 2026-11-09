@@ -1,0 +1,158 @@
+{
+ "event_cols_has_entity_id": false,
+ "bot_ids": [
+  {
+   "bot_user_id": 8802473181,
+   "n": 786
+  }
+ ],
+ "initiative_outputs_in_smart": [
+  {
+   "out": {
+    "chat_id": -1002661910336,
+    "tg_message_id": 1169991,
+    "sent_at": 1792650396,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1004482340693,
+    "tg_message_id": 3569,
+    "sent_at": 1792657151,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1002661910336,
+    "tg_message_id": 1170214,
+    "sent_at": 1792664347,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1004482340693,
+    "tg_message_id": 3815,
+    "sent_at": 1792665848,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1002661910336,
+    "tg_message_id": 1170589,
+    "sent_at": 1792673964,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1004482340693,
+    "tg_message_id": 4325,
+    "sent_at": 1792677035,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1004482340693,
+    "tg_message_id": 4433,
+    "sent_at": 1792691421,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1004482340693,
+    "tg_message_id": 4445,
+    "sent_at": 1792702514,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1002661910336,
+    "tg_message_id": 1172138,
+    "sent_at": 1792710002,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1002661910336,
+    "tg_message_id": 1172238,
+    "sent_at": 1792718419,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1004482340693,
+    "tg_message_id": 4468,
+    "sent_at": 1792725618,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1002661910336,
+    "tg_message_id": 1172502,
+    "sent_at": 1792736647,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1004482340693,
+    "tg_message_id": 4510,
+    "sent_at": 1792744814,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1002661910336,
+    "tg_message_id": 1172843,
+    "sent_at": 1792753833,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1002661910336,
+    "tg_message_id": 1172887,
+    "sent_at": 1792755918,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  },
+  {
+   "out": {
+    "chat_id": -1004482340693,
+    "tg_message_id": 4647,
+    "sent_at": 1792788130,
+    "output_kind": "initiative_reply"
+   },
+   "smart_rows": []
+  }
+ ],
+ "smart_has_tg_col": true,
+ "bot_authored_in_smart_48h": [],
+ "smart_reply_targets_for_bot_msgs": []
+}

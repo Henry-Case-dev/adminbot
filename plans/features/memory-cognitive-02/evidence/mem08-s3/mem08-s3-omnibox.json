@@ -1,0 +1,767 @@
+{
+  "suite": "mem08-s3-omnibox",
+  "checks": [
+    {
+      "name": "ровно одно поле «Найти в памяти» @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "одно поле внутри omnibox @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "прежний toolbar не виден при ON @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "поле внутри карточки @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет горизонтального скролла @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет JS-ошибок при рендере @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "подсказки раскрылись вводом @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "состояние candidates @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не выходит за viewport @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "внутренние ID не попадают в выдачу @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не уходит под экран @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "раскрытая панель не создаёт гориз. скролл @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "очистка «×» доступна и внутри карточки @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ArrowDown двигает активный пункт @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Escape закрывает подсказки @320x568",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ровно одно поле «Найти в памяти» @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "одно поле внутри omnibox @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "прежний toolbar не виден при ON @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "поле внутри карточки @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет горизонтального скролла @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет JS-ошибок при рендере @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "подсказки раскрылись вводом @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "состояние candidates @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не выходит за viewport @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "внутренние ID не попадают в выдачу @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не уходит под экран @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "раскрытая панель не создаёт гориз. скролл @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "очистка «×» доступна и внутри карточки @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ArrowDown двигает активный пункт @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Escape закрывает подсказки @360x780",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ровно одно поле «Найти в памяти» @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "одно поле внутри omnibox @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "прежний toolbar не виден при ON @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "поле внутри карточки @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет горизонтального скролла @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет JS-ошибок при рендере @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "подсказки раскрылись вводом @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "состояние candidates @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не выходит за viewport @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "внутренние ID не попадают в выдачу @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не уходит под экран @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "раскрытая панель не создаёт гориз. скролл @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "очистка «×» доступна и внутри карточки @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ArrowDown двигает активный пункт @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Escape закрывает подсказки @390x844",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ровно одно поле «Найти в памяти» @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "одно поле внутри omnibox @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "прежний toolbar не виден при ON @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "поле внутри карточки @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет горизонтального скролла @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет JS-ошибок при рендере @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "подсказки раскрылись вводом @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "состояние candidates @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не выходит за viewport @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "внутренние ID не попадают в выдачу @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не уходит под экран @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "раскрытая панель не создаёт гориз. скролл @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "очистка «×» доступна и внутри карточки @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ArrowDown двигает активный пункт @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Escape закрывает подсказки @430x932",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ровно одно поле «Найти в памяти» @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "одно поле внутри omnibox @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "прежний toolbar не виден при ON @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "поле внутри карточки @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет горизонтального скролла @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет JS-ошибок при рендере @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "подсказки раскрылись вводом @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "состояние candidates @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не выходит за viewport @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "внутренние ID не попадают в выдачу @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не уходит под экран @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "раскрытая панель не создаёт гориз. скролл @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "очистка «×» доступна и внутри карточки @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ArrowDown двигает активный пункт @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Escape закрывает подсказки @667x375",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ровно одно поле «Найти в памяти» @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "одно поле внутри omnibox @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "прежний toolbar не виден при ON @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "поле внутри карточки @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет горизонтального скролла @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет JS-ошибок при рендере @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "подсказки раскрылись вводом @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "состояние candidates @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не выходит за viewport @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "внутренние ID не попадают в выдачу @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не уходит под экран @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "раскрытая панель не создаёт гориз. скролл @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "очистка «×» доступна и внутри карточки @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ArrowDown двигает активный пункт @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Escape закрывает подсказки @768x1024",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ровно одно поле «Найти в памяти» @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "одно поле внутри omnibox @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "прежний toolbar не виден при ON @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "поле внутри карточки @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет горизонтального скролла @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет JS-ошибок при рендере @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "подсказки раскрылись вводом @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "состояние candidates @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не выходит за viewport @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "внутренние ID не попадают в выдачу @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не уходит под экран @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "раскрытая панель не создаёт гориз. скролл @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "очистка «×» доступна и внутри карточки @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ArrowDown двигает активный пункт @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Escape закрывает подсказки @1280x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ровно одно поле «Найти в памяти» @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "одно поле внутри omnibox @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "прежний toolbar не виден при ON @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "поле внутри карточки @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет горизонтального скролла @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет JS-ошибок при рендере @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "подсказки раскрылись вводом @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "состояние candidates @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не выходит за viewport @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "внутренние ID не попадают в выдачу @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "панель не уходит под экран @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "раскрытая панель не создаёт гориз. скролл @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "очистка «×» доступна и внутри карточки @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ArrowDown двигает активный пункт @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Escape закрывает подсказки @1440x900",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "no_rights показан словами",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "no_rights — свой data-state",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "error показан словами",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "error — свой data-state",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "empty показан словами",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "empty — свой data-state",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "три исхода звучат по-разному",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "сбой не показан как «ничего не найдено»",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "fullscreen: одно поле",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "fullscreen: один input",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "fullscreen: прежний toolbar не виден",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "fullscreen: поле находится в панели полного экрана",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "fullscreen: подсказки работают",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "fullscreen: Enter закрывает подсказки",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "fullscreen: выбор даёт понятный результат",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "OFF: omnibox не рендерится",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "OFF: прежний toolbar виден",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "сообщества proven-набора видны",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "подпись сообщества — из сборки",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "LOD-тайл «Группа · N» не выдаётся за сообщество",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "нет активной сборки — отдельное состояние",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "честный текст «ещё не собраны»",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "фейковых сообществ нет",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "passed": 143,
+  "total": 143,
+  "screenshots": [
+    "mem08-s3-320-omnibox.png",
+    "mem08-s3-390-omnibox.png",
+    "mem08-s3-390-panel.png",
+    "mem08-s3-768-omnibox.png",
+    "mem08-s3-1280-omnibox.png",
+    "mem08-s3-390-empty.png",
+    "mem08-s3-390-fullscreen.png",
+    "mem08-s3-1280-gate-off.png",
+    "mem08-s3-1280-communities.png"
+  ],
+  "viewports": [
+    [
+      320,
+      568
+    ],
+    [
+      360,
+      780
+    ],
+    [
+      390,
+      844
+    ],
+    [
+      430,
+      932
+    ],
+    [
+      667,
+      375
+    ],
+    [
+      768,
+      1024
+    ],
+    [
+      1280,
+      900
+    ],
+    [
+      1440,
+      900
+    ]
+  ]
+}

@@ -22,7 +22,7 @@ D0 ─ D1 ─ D2 ─┬─ D3 ─┐
 |---|---|---|---|---|
 | D0 | Architect + PM | — | read-only (plans) | `plans/features/self-diag-01/{d0-discovery.md,requirements-map.json,slice-graph.json,plan.md}` |
 | D1 | Builder + Reviewer | D0 | writer | `services/system_logs_fetcher.py`, `config/settings.py`, `bot.py`, `web/app.js`, `tests/test_checkup_logs_portable.py` |
-| D2 | Architect + Builder | D1 | writer | `services/roles.py`, `services/access.py`, `services/telegram_role_check.py`, `services/diagnostic_policy.py`, `services/output_projection.py`, `web/api/access.py`, `tests/test_diagnostic_policy.py` |
+| D2 | Architect + Builder | D1 | writer | `services/roles.py`, `services/access.py`, `services/telegram_role_check.py`, `services/diagnostic_policy.py`, `services/output_projection.py`, `web/api/access.py`, `services/tool_router.py` (точка гейта в `dispatch`), `handlers/checkup.py` (точка гейта чекапа), `tests/test_diagnostic_policy.py` |
 | D3 | Architect + Builder | D2 | writer | `services/diagnostic_collector.py`, `services/evidence_bundle.py`, `services/runtime_probes.py`, `services/tool_router.py`, `services/tool_schemas.py`, `services/memory_health.py`, тесты probes/bundle |
 | D4 | Builder | D2 | writer | `services/source_reader.py`, `services/deploy_identity.py`, `services/capability_registry.py`, `tests/test_deploy_identity.py` |
 | D5 | Builder + Security Reviewer | D2 | writer | `services/prompt_readback.py`, `handlers/prompt_readback.py`, `tests/test_prompt_readback.py` |
@@ -84,7 +84,22 @@ D0 ─ D1 ─ D2 ─┬─ D3 ─┐
 
 - `requirements-map.json`: 183 извлечённых строки источника (все классифицированы: 137 `required`, 46 `context` со ссылкой на несущие норматив строки — 0 `unassigned`), 53 ручные строки (`AC-01…AC-24`, `AMX-01…AMX-09`, прозаические обязательства §5/§6.3/§7.1/§8/§9.3/§10/§11/§13.2/§15/§18/§19).
 - Итого 182 уникальных требования; владеющий этап ровно один.
-- Распределение: D0 — 5, D1 — 17, D2 — 48, D3 — 36, D4 — 16, D5 — 18, D6 — 30, D7 — 12.
+- Распределение: D0 — 5, D1 — 17, D2 — 41, D3 — 36, D4 — 18, D5 — 21, D6 — 32, D7 — 12 (итого 182).
 - Поправка владельца про управление доступами инвентаризована отдельными строками `SD1-AMX-01…09`; `amendment_ref` хранит точный адрес в файле поправки, `source_line` — нормативную строку эпика с тем же содержанием (единый `source_path` карты не позволяет валидировать второй файл).
 - Внешние зависимости, при которых acceptance остаётся честным `unavailable`/`auth_unverified`, а не VERIFIED: `EXT-VPS-LOGS`, `EXT-TG-ADMIN` (см. `slice-graph.json`).
+- Перераспределение после ревью D2 (`98bc424e`, 2026-11-09): `SD1-AMX-01` и `SD1-D2-32` → D6 (нужен отрисованный экран), `SD1-D2-08` и `SD1-D2-11` → D5 (нужна фактическая выдача промпта). Отсюда D2 — 44, D5 — 20, D6 — 32; общий итог 182 не изменился.
+- Перераспределение по решению владельца 2026-11-10 (три подпункта без исполнителя): `SD1-D2-25` → D4, `SD1-D2-29` → D4 с частью `SD1-D2-29b` в D6, `SD1-D2-16` → D5. Отсюда **D2 — 41, D4 — 18, D5 — 21, D6 — 32; общий итог по-прежнему 182** (строки не удалены и не добавлены, сменился только владелец).
+
+## 7. Границы приёмки D2 (решения Reviewer 2026-11-09 и владельца 2026-11-10)
+
+Решения зафиксированы, чтобы их не переоткрывали как дефекты:
+
+1. **Карта фичи в checkout кандидата.** `plans/features/self-diag-01/` и `plans/owner_inputs/2026-11-09-self-diag-01.md` созданы после точки ветвления `integ/unify-release`, поэтому в дереве кандидата их нет (`git ls-tree 98bc424e plans/features/self-diag-01/` → пусто). Review-gate **всегда** запускается из основного checkout против SHA кандидата: `--repo . --candidate <sha>`. Это процессное ограничение, дефектом D2 не считается; вторая копия карты в релизной ветке не создаётся.
+2. **Визуальная приёмка — этап D6, не D2.** D2 — слой политики: строки, описывающие решение/класс/проекцию/аудит, закрываются политическими тестами без рендера. Строки, которым нужен экран (`SD1-AMX-01`, `SD1-D2-32`), принадлежат D6 с условием **«отрисованная поверхность Access/Self-Diagnosis, Playwright плюс независимый браузер, desktop и mobile»**. Политическая часть этих строк уже доказана `SD1-D2-07`, `SD1-AC-16`, `SD1-AMX-02`, `SD1-AMX-07`.
+3. **Живая приёмка Telegram — обязательство после выката.** Пять строк D2 (`SD1-D2-03`, `SD1-AMX-08`, `SD1-AC-10`, `SD1-AC-11`, `SD1-AC-14`) переведены в `READY_FOR_LIVE` с `live_when=postdeploy`; точное условие — поле `postdeploy_condition` строки, откат — `rollback_ref` (возврат на 2.58.174 @ `ac943f40`). Условия: реальная числовая идентичность и `getChatMember`, смена статуса администратора во время идущей проверки, «бот не в чате» → `auth_unverified` без protected readback, отзыв прав до публикации с записью `revocation_detected`.
+
+4. **Подпункты без исполнителя — назначены решением владельца 2026-11-10, без нового гейта проверки.** `SD1-D2-25` → D4 (ограничение принадлежит механизму, который вводит чтение файлов: source reader, deploy identity, SHA и история коммитов). `SD1-D2-29` разделён: traces/debug requests/retries/source references → D4 как `SD1-D2-29a`, HTML/Markdown preview → D6 как `SD1-D2-29b`; держатель строки — D4, строка закрывается после обеих частей. `SD1-D2-16` → D5 (классификацию раскрытия промптов определяет prompt readback); реализованная защита **строже** требования — ничего не раскрывается, поэтому открыта нормализация правила прозрачности, а не исправление утечки.
+
+Состояние среза D2 после привязки и назначения владельцев: **33 VERIFIED, 5 READY_FOR_LIVE, 3 PENDING** (`SD1-AMX-09`, `SD1-D2-23`, `SD1-D2-24`); доказательства и остаток — `evidence/d2/d2-evidence-98bc424e.md`. Ни один из трёх оставшихся PENDING не является дефектом D2: `SD1-AMX-09` ждёт вход `inspect_runtime` (D3) и отрисованную поверхность (D6), `SD1-D2-23` ждёт обязательный флаг sensitivity при регистрации провайдера, `SD1-D2-24` ждёт evidence bundle D3 и typed settings adapter.
+
 

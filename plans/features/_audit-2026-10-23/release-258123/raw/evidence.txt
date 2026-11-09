@@ -1,0 +1,108 @@
+REL-258123 raw observations (verbatim key lines, secrets scrubbed)
+
+[A PRE 06:58:03Z]
+HEAD=c128675a6a1294c657f13149994b6424b6fae539
+VERSION=2.58.122
+TRACKED_DIRTY=0
+HZ={"status":"ok","version":"2.58.122"}
+active
+MainPID=953134 NRestarts=0 ExecMainStatus=0
+DF_MB=3965
+
+[B CHECKOUT]
+HEAD_FULL=3dfdf9cb8ecb05423e0d39d9defe8ca563cd780f
+VERSION=2.58.123
+TRACKED_DIRTY=0
+UNTRACKED=13
+OBJ_PREV=commit
+SINCE=2026-10-24T06:58:03Z
+
+[C RESTART]
+sudo systemctl restart admin_bot -> RC=0
+HZ_TRY1=502 HZ_TRY2=502 HZ_TRY3=502 HZ_TRY4=200
+
+[D STATE 06:58:36Z]
+active
+MainPID=1014187 NRestarts=0 ExecMainStatus=0 ActiveEnterTimestamp=Sat 2026-10-24 06:58:16 UTC
+HZ={"status":"ok","version":"2.58.123"}
+
+[POST IDENTITY 07:00:00Z]
+HEAD=3dfdf9cb8ecb05423e0d39d9defe8ca563cd780f
+VERSION=2.58.123
+TRACKED_DIRTY=0
+HZ={"status":"ok","version":"2.58.123"}
+active
+MainPID=1014187 NRestarts=0 ExecMainStatus=0
+
+[POST JOURNAL since 06:58:03Z]
+LINES=262
+CRITICAL=0
+ERR=0
+TRACEBACK=0
+LOCKED=0
+ADOPTED=0
+BUILD_START=0
+ROLLBACK=0
+WARNING=11
+--- core patch / migration (tail) ---
+[prompt_migration] уже новый канон | key=prompts.direct_chat_system_prompt
+[prompt_migration] уже новый канон | key=prompts.direct_chat_verbalizer_system_prompt
+[prompt_migration] уже новый канон | key=prompts.direct_l1_planner_system_prompt
+[prompt_migration] кастом юзера — НЕ трогаем | key=prompts.summary_system_prompt | chars=3558
+[prompt_migration] уже новый канон | key=prompts.compress_system_prompt
+[prompt_migration] кастом юзера — НЕ трогаем | key=prompts.checkup_system_prompt | chars=2312
+[prompt_migration] кастом юзера — НЕ трогаем | key=prompts.factcheck_system_prompt | chars=4666
+[prompt_migration] кастом юзера — НЕ трогаем | key=prompts.search_system_prompt | chars=2622
+[prompt_migration] кастом юзера — НЕ трогаем | key=prompts.youtube_system_prompt | chars=2252
+[prompt_migration] кастом юзера — НЕ трогаем | key=prompts.youtube_video_system_prompt | chars=2248
+[prompt_migration] кастом юзера — НЕ трогаем | key=prompts.webpage_system_prompt | chars=2071
+[prompt_migration] кастом юзера — НЕ трогаем | key=prompts.summary_editor_system_prompt | chars=2023
+[prompt_migration] уже новый канон | key=prompts.factcheck_analyst_system_prompt
+[prompt_migration] кастом юзера — НЕ трогаем | key=prompts.factcheck_verbalizer_system_prompt | chars=1712
+[prompt_migration] уже новый канон | key=prompts.summary_l1_clusterizer_system_prompt
+[prompt_migration] кастом юзера — НЕ трогаем | key=prompts.summary_l2_writer_system_prompt | chars=8388
+[prompt_migration] уже новый канон | key=prompts.summary_narrator_system_prompt
+[prompt_migration] core patch: абзацы уже есть, авторские байты целы | key=character.core | sha=ead77b2ab509
+--- embedding/adopt (tail) ---
+SmartModule: embedding index serviceable | index=graph_facts_vec | class=ADMITTED_COMPATIBLE
+SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=2d0efab0e817 new_fp=2d0efab0e817 — FTS-only (A06) | build pending — durable job missing
+mca_event=mca07_retrieval | outcome=skipped | reason_code=embedding_generation_changed | model=gemini-embedding-001
+
+[POST PG 07:08Z]
+FACTORY_SET=47f0d1eb8de4
+FACTORY_CONST=47f0d1eb8de4
+WITHHELD_N=0            (probe limitation: withheld_values() without pg_get)
+PG_CANON_ROWS=25
+CANON prompts.checkup_system_prompt sha12=ed50299b0f57 len=2352
+CANON prompts.direct_l1_planner_system_prompt sha12=92428c51110d len=8412
+CANON prompts.summary_l2_writer_system_prompt sha12=d268726aaa62 len=8514
+CANON prompts.summary_system_prompt sha12=5ea179bf4156 len=3612
+CORE sha12=a37678237533 len=3473
+CORE_P1=Да CORE_P2=Да CORE_COUNT_P1=1 CORE_COUNT_P2=1
+CORE_HISTORY_ROWS=1
+MISC character.expression sha12=ae896ff34c4c len=275
+MISC style.policy sha12=f4c6292269bf len=3525
+
+[POST EXPRESSION 07:09Z]
+pytest tests/test_p0_expression_final_contract.py -q -> 15 passed, 2 warnings in 19.07s
+1539:            text=(text + ("\n\n" + expression_final if expression_final
+1544:            detail=(f"final_contract=tail chars={len(expression_final)}"
+1718:    if expression_final:
+1719:        _append(parts, expression_final)
+1721:    system = _joined(parts)
+MODE=off len=106
+MODE=occasional len=280
+MODE=frequent len=464
+MODE=inherit len=0
+HEADER=ПРАВИЛО РЕЧИ (действует поверх остальных инструкций этого сообщения):
+FREQ_SHA=4b4100524a22
+LADDER prev_sha12=fcfcf6fcea09 next_sha12=4b4100524a22
+
+[POST FINAL 07:11Z]
+active
+MainPID=1014187 NRestarts=0 ExecMainStatus=0
+HZ={"status":"ok","version":"2.58.123"}
+
+[SQLITE]
+no data/*.db generation tables found on this host path (probe returned empty);
+generation state observed indirectly: graph_facts_vec serviceable, smart_archive building.

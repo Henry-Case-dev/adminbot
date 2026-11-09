@@ -1424,8 +1424,8 @@
      "x": 0,
      "y": 113,
      "w": 768,
-     "h": 1563,
-     "bottom": 1676,
+     "h": 2028,
+     "bottom": 2141,
      "right": 768
     },
     "breadcrumb": "Статус/ИИ",
@@ -1704,8 +1704,8 @@
      "x": 0,
      "y": 113,
      "w": 1024,
-     "h": 1855,
-     "bottom": 1969,
+     "h": 2304,
+     "bottom": 2418,
      "right": 1024
     },
     "breadcrumb": "Статус/ИИ",
@@ -1984,8 +1984,8 @@
      "x": 216,
      "y": 109,
      "w": 1064,
-     "h": 1457,
-     "bottom": 1566,
+     "h": 1906,
+     "bottom": 2015,
      "right": 1280
     },
     "breadcrumb": "Статус/ИИ",
@@ -2264,8 +2264,8 @@
      "x": 216,
      "y": 109,
      "w": 1224,
-     "h": 1961,
-     "bottom": 2070,
+     "h": 2410,
+     "bottom": 2519,
      "right": 1440
     },
     "breadcrumb": "Статус/ИИ",
@@ -2737,8 +2737,8 @@
     },
     "band_bottom": {
      "on": 46.8,
-     "off": 45.8,
-     "delta_pct": 2.2
+     "off": 46.0,
+     "delta_pct": 1.7
     }
    }
   },
@@ -2888,6 +2888,16 @@
    "label": "320/code",
    "items": [
     {
+     "key": "other",
+     "whiteSpace": "pre-wrap",
+     "overflowWrap": "anywhere",
+     "scrollW": 252,
+     "clientW": 252,
+     "hOverflow": 0,
+     "right": 287,
+     "cardRight": 300
+    },
+    {
      "key": "preview",
      "whiteSpace": "pre-wrap",
      "overflowWrap": "anywhere",
@@ -2921,6 +2931,16 @@
    "label": "360/code",
    "items": [
     {
+     "key": "other",
+     "whiteSpace": "pre-wrap",
+     "overflowWrap": "anywhere",
+     "scrollW": 292,
+     "clientW": 292,
+     "hOverflow": 0,
+     "right": 327,
+     "cardRight": 340
+    },
+    {
      "key": "preview",
      "whiteSpace": "pre-wrap",
      "overflowWrap": "anywhere",
@@ -2943,6 +2963,16 @@
   {
    "label": "390/code",
    "items": [
+    {
+     "key": "other",
+     "whiteSpace": "pre-wrap",
+     "overflowWrap": "anywhere",
+     "scrollW": 322,
+     "clientW": 322,
+     "hOverflow": 0,
+     "right": 357,
+     "cardRight": 370
+    },
     {
      "key": "preview",
      "whiteSpace": "pre-wrap",
@@ -2977,6 +3007,16 @@
    "label": "430/code",
    "items": [
     {
+     "key": "other",
+     "whiteSpace": "pre-wrap",
+     "overflowWrap": "anywhere",
+     "scrollW": 362,
+     "clientW": 362,
+     "hOverflow": 0,
+     "right": 397,
+     "cardRight": 410
+    },
+    {
      "key": "preview",
      "whiteSpace": "pre-wrap",
      "overflowWrap": "anywhere",
@@ -2999,6 +3039,16 @@
   {
    "label": "landscape/code",
    "items": [
+    {
+     "key": "other",
+     "whiteSpace": "pre-wrap",
+     "overflowWrap": "anywhere",
+     "scrollW": 599,
+     "clientW": 599,
+     "hOverflow": 0,
+     "right": 634,
+     "cardRight": 647
+    },
     {
      "key": "preview",
      "whiteSpace": "pre-wrap",
@@ -3603,7 +3653,7 @@
    "probe": {
     "bar": true,
     "state": "saved",
-    "text": "Сохранено ✓ 12:54",
+    "text": "Сохранено ✓ 02:58",
     "primary": false,
     "primaryDisabled": null,
     "retry": false,
@@ -3617,7 +3667,7 @@
      "h": 32
     },
     "vh": 844,
-    "savedText": "Сохранено ✓ 12:54"
+    "savedText": "Сохранено ✓ 02:58"
    }
   },
   {
@@ -3721,7 +3771,7 @@
    "probe": {
     "bar": true,
     "state": "saved",
-    "text": "Сохранено ✓ 12:54",
+    "text": "Сохранено ✓ 02:59",
     "primary": false,
     "primaryDisabled": null,
     "retry": false,
@@ -3735,7 +3785,7 @@
      "h": 32
     },
     "vh": 800,
-    "savedText": "Сохранено ✓ 12:54"
+    "savedText": "Сохранено ✓ 02:59"
    }
   },
   {
@@ -4424,33 +4474,5 @@
    "chat": "-1001234567890"
   }
  ],
- "shots": [
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_showcase_320.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_core_320.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\prompts_320.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_showcase_360.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_core_360.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\prompts_360.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_showcase_390.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_core_390.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\prompts_390.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_showcase_430.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_core_430.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\prompts_430.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_showcase_768.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_core_768.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\prompts_768.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_showcase_1024.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_core_1024.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\prompts_1024.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_showcase_1280.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_core_1280.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\prompts_1280.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_showcase_1440.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_core_1440.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\prompts_1440.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_showcase_landscape.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\speech_core_landscape.png",
-  "plans\\features\\asap-speech-arch\\evidence\\w4\\shots\\after\\prompts_landscape.png"
- ]
+ "shots": []
 }
