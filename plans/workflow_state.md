@@ -1,20 +1,39 @@
 ﻿# Workflow State
 
-Task: existing EVOL queue plus EPIC-MEMORY-COGNITIVE-02, MENU-01, EVOL-REPLY-CONTEXT-INTEGRITY-01 and FactCheck clean publication
-Task source: plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md, plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md
+Task: mod-acl-ux-01 (primary) plus queued MEMORY-08 S4/S5, VMQ-ONTO-01, SELF-DIAG-01
+Task source: plans/owner_inputs/2026-11-09-mod-acl-ux-01.md (current_task.md L10016-L10747)
 Status: in_progress
-Primary phase: integration to the production line plus runtime diagnosis
-Active feature: porting MENU-01 and the FactCheck fix onto evol/impl; case trace; Mini App runtime evidence; PVR-04 review
-Active lanes: ses_e4d63f508ffe5ZYXIfq2wpDRuq (integration onto evol/impl); ses_e4d5bb3f7ffeLhdTcQ7xYu5yQ0 (PVR-04 blocker fixes); ses_e4d623b1effe78nnjcXwBcjAOJ (TMA group-launch ACL tests); ses_e4d60182fffekekC746Jh8rG1P (contracts review); ses_e4d5cf20dffeutu56T80h16p2d (ambiguity observability fix)
-Join barriers: MENU-01 runtime proven (8077 valid initData, 3 identities, 17 non-admin); group button live only after deploy; production case reconstructed with real IDs; PVR-04 Needs Fixes on 350cb228 (4 blockers) -> fix then targeted re-review
-Line divergence (verified): master lacks web/api/cognitive_map.py, web/static/cognitive-map.js, services/chat_clock.py and migrations v41-v42; all shipping work must land on evol/impl (tip 2c1af33e). factcheck_orchestrator.py, its cfg06 test and config/settings.py differ between lines; handlers/menu.py and tests/test_menu.py are identical
-Join barriers: MENU-01 code approved at 14400b73 (master base) but must be re-verified after the port; FactCheck fix 1703ff46 needs port + independent review on the ported SHA; PVR-04 pending verdict; contracts.md frozen, MEMORY-01 may start only after the contract check
-Policy correction: PENDING_EXTERNAL only for proven unreachable dependencies. Agents must exhaust local DB/history/diagnostics; NOT_VERIFIED (insufficient evidence) and CONFIRMED_MISSING (proven absent setting) stay distinct. MENU-01 registration is owner-confirmed present, so no owner action is outstanding there
-Last verified: prod 2.58.161 @ a563ee31 (healthz 2.58.161; migration v42; rollback 2.58.160 @ 309f69c2); MENU-01 map 7 VERIFIED + 3 runtime-pending with review gate errors=0; earlier bound: UR-C-SCHED, FC-BACKEND 27, PVR-BACKEND 25, PVR-UI 6, UR-23.4, UR-26.3/26.4/26.5
-Next unlocks: (1) integration SHA -> re-run gates -> bind ported candidates; (2) case trace -> lost stage proven (ambiguous branch drops ctx) -> finish RCI-04/05/06; (3) runtime launch evidence -> close MENU-01.6/9/10; (4) PVR-04 verdict -> bind; (5) contract check -> start MEMORY-01
+Primary phase: implementation
+Active feature: mod-acl-ux-01 M2 canonical GLOBAL->CHAT resolver; M5A evidence closure
+Active lanes: ses_e40b9e08effeQ074tWJ7jI8ppP (Builder: M2 resolver); ses_e40b9e08dffeOgd0B4siwuykfx (Reviewer: M5A 14 rows)
+Join barriers: M2 commit -> review -> deploy; M5A per-row verdict -> bind rows via PM
+Last verified: DEPLOYED 2.58.173 @ 17c3a05e (candidate adfd0d0c, parent bee14188, schema 46 unchanged, Δ DDL 0, NRestarts 0, 0 traceback): memory_agi.py and chat_lore.py now use the single canonical deps.user_is_global_admin evaluating role_type over 24 call sites, so a role_type=global_admin owner no longer gets a false 403 on Vector Memory/Embeddings while plain users, chat local admins and moderators still get 403, missing/broken initData gets 401 and cross-chat isolation is unchanged; live probe returned 401 on /api/memory/stats and /api/memory/embeddings with 404 on a nonexistent route as the control
+Next unlocks: M2 verdict -> deploy -> before/after impact report on real chats; M5A rows bound -> M5A green; then M3 design freeze, M4A/M4B/M4C UI waves, M5B, M6
 Next execution: awaiting_children
-Review: in flight (PVR-04 350cb228); MENU-01 code approved on master base, ported review pending
-Deployment: current prod 2.58.161 @ a563ee31 (verified; rollback 2.58.160 @ 309f69c2)
+Review: approved (adfd0d0c, c51933d0, d0127c29, b8617cbb, f71dfb56, 2779059b); M5A rows in review
+Deployment: verified (2.58.173 @ 17c3a05e, schema 46)
 Human gate: none
-Progress scope: plans/progress_scope.json | fresh 2026-11-07 08:43 (11/30 tasks, 229/329 stages, 2571/3029 required = 85%; 12 postdeploy waits)
-Updated: 2026-11-07T09:45:00+12:00
+Progress scope: plans/progress_scope.json | stale
+Updated: 2026-11-09T19:46:00+12:00
+
+## Queue state
+
+- MOD-ACL-UX-01: M0 baseline, M1 ACL false-403 and M5A/M5L experience work are done and shipped; M2 is the first backend stage that changes user-visible effective state.
+- MEMORY-08: S1-S3 shipped (read model, search endpoint, omnibox with gate ON). S4 (focus/ego-network/back-stack/inspector/context actions) and S5 (gold set >=60, p50/p95, cursor_stale rate, screenshots) are not started.
+- VMQ-ONTO-01: VMQ-V voice shipped; L-01 needs one real owner voice message. ONTO-A/B and Q0 not started.
+- SELF-DIAG-01: D1 shipped and verified live (systemd invocation aa277a53..., no provider client in the fetcher). D2 access policy is next.
+
+## Owner-side and time-gated items
+
+- Owner: open Vector Memory and Embeddings in the Mini App under the real Telegram ID; a second non-admin account must still be denied. Non-blocking for engineering.
+- Owner: one real voice message to close VOICE L-01 (transcript_status=ready, revision>=1, non-empty text, Writer block).
+- Time: archive cursor/coverage appears after the fresh backlog drains (~2 days, backlog 15,628 rows). Then first contradiction demotion, first re-confirmation +0.1, first live application.
+- 14 M5A §7/§15 rows had no per-row verdict; review in flight now.
+
+## Invariants for the next lanes
+
+- GLOBAL is only an inheritable default; chat tri-state INHERIT/ON/OFF; absent != OFF; stored values are never rewritten by a reader.
+- One canonical resolver per capability; no second ACL, catalogue or store; secrets never surfaced.
+- New functions are ON by default at first production deploy; disabling a flag is never a quality fix.
+- Architect and Reviewer must judge design, Russian copy, real screens and behaviour, not only green tests.
+- Deploy only by immutable SHA from a clean release branch; production is 2.58.173.

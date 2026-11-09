@@ -1,0 +1,432 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "SELF-DIAG-01",
+  "created": "2026-11-09",
+  "source": "plans/owner_inputs/2026-11-09-self-diag-01.md",
+  "amendment_source": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md",
+  "queue_position": "SELF-DIAG-01 стоит одним эпиком после VMQ-ONTO-01 (и после завершения активного MEMORY-08); независимый D1 corrective допускается раньше очереди эпика, если его файлы не держит другой Builder. Перестановка очереди фиксируется PM с причиной, эпик не считается запущенным от факта записи в current_task.",
+  "dependency_order": "D0 -> D1 -> D2 -> {D3, D4} -> D5 -> D6 -> D7",
+  "lanes": {
+    "serial_main": "D0 -> D1 -> D2 — обязательная последовательность: baseline, затем независимый corrective, затем policy",
+    "parallel_after_D2": "D3 (probes/evidence) и D4 (deploy identity/source) идут параллельно только по непересекающимся файлам",
+    "join": "D5 (prompt readback) требует D2; D6 требует D1+D3+D4+D5; D7 требует D6"
+  },
+  "serialized_files": [
+    "services/memory_health.py — D3 после интеграции MEMORY-08 (общий контракт метрик памяти)",
+    "services/system_logs_fetcher.py, config/settings.py, bot.py, web/app.js — D1 эксклюзивно до D2/D6",
+    "services/roles.py, services/access.py, web/api/access.py — D2 эксклюзивно; D6 только читает контракт",
+    "services/prompt_registry.py — только чтение/резолв, запись effective-значений не выполняется ни одним слайсом",
+    "services/checkup_service.py, handlers/checkup.py — D6 эксклюзивно (промпт и стиль не меняются)",
+    "plans/features/self-diag-01/* — D0 владеет картой/графом/планом, D7 владеет evidence/"
+  ],
+  "join_barriers": [
+    "D2 и контракт evidence (SD1-EVD-04) обязаны завершиться до первой выдачи защищённых данных (D5/D6).",
+    "D5 не стартует без принятого D2: иначе readback обходит policy.",
+    "D6 не стартует до фиксации контрактов D3/D4/D5: UI не должен задавать API.",
+    "D7 не выпускает релиз до собранного live evidence по AC-01…AC-24."
+  ],
+  "invariants": [
+    "prompts.checkup_system_prompt, его factory-версия, активная ревизия и история остаются байт-в-байт; деплой не создаёт новую запись сохранения.",
+    "Характер чекапа (язвительный, грубый, при необходимости матерный) не смягчается и не переписывается вторым Writer.",
+    "Единственный новый специальный лексический вход — «чекап»; никаких regex/словарей фраз.",
+    "Только read-only: нет shell/SSH/SQL от модели, нет write-effects.",
+    "Credential values не выдаются никому через чат; матрица прав использует существующий ACL, параллельный не создаётся."
+  ],
+  "conflict_guards": {
+    "MEMORY-08": "общий файл services/memory_health.py и контракт метрик: D3 стартует после интеграции MEMORY-08, счётчики не переписываются",
+    "VMQ-ONTO-01": "прямой кодовой зависимости нет; пересечение возможно по tool/evidence/analytics файлам — общий владелец не назначается, слайсы разводятся по write_scope",
+    "prompt_versioning": "используется существующий registry/resolver; новая система версий или копия текста не создаются",
+    "tool_calling": "используется существующий tool_loop/router; второй tool-loop и второй агент запрещены",
+    "observability": "глобальный Better Stack ingest/observability остаётся; удаляется только checkup-only поверхность"
+  },
+  "external_dependencies": [
+    {
+      "id": "EXT-VPS-LOGS",
+      "affects": [
+        "SD1-D1-01",
+        "SD1-D1-13",
+        "SD1-AC-07"
+      ],
+      "kind": "deployment_environment",
+      "statement": "Фактический backend логов нового VPS (unit name, journal permissions, container/standalone) подтверждается только на реальной среде; при отсутствии прав acceptance фиксируется как честный unavailable, а не как VERIFIED."
+    },
+    {
+      "id": "EXT-TG-ADMIN",
+      "affects": [
+        "SD1-D2-03",
+        "SD1-D2-06",
+        "SD1-AC-12",
+        "SD1-AC-13"
+      ],
+      "kind": "telegram_capability",
+      "statement": "getChatMember для другого пользователя гарантирован только когда бот администратор группы; иначе статус auth_unverified и отказ в protected readback. Требуется подтвердить фактическое право бота в реальном чате."
+    }
+  ],
+  "slices": [
+    {
+      "id": "D0",
+      "title": "Discovery, dependency map and immutability baseline",
+      "owner_role": "Architect + PM",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/self-diag-01/d0-discovery.md",
+        "plans/features/self-diag-01/requirements-map.json",
+        "plans/features/self-diag-01/slice-graph.json",
+        "plans/features/self-diag-01/plan.md"
+      ],
+      "acceptance": "d0-discovery.md содержит baseline промпта (bytes/hash/ревизия), инвентарь Better Stack с пометкой checkup-only/used-elsewhere, фактическое состояние ACL/getChatMember/prompt registry и dependency map с MEMORY-08 и VMQ-ONTO-01; Reviewer подтверждает отсутствие пропущенных AC.",
+      "risk": "R0",
+      "next_role": "Reviewer",
+      "mode": "read-only (только plans)",
+      "coherence": "Один планировочный результат: проверяемая база и неизменяемый baseline, на которые опираются все слайсы; продукт не меняется.",
+      "note": "D0-артефакт уже доставлен (sha256 306c23e7…); статус строк остаётся PENDING до независимого принятия.",
+      "requirements": [
+        "SD1-D0-01",
+        "SD1-D0-02",
+        "SD1-D0-03",
+        "SD1-D0-04",
+        "SD1-D0-05"
+      ]
+    },
+    {
+      "id": "D1",
+      "title": "Corrective: portable local log backend and checkup-only Better Stack removal",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "D0"
+      ],
+      "write_scope": [
+        "services/system_logs_fetcher.py",
+        "config/settings.py",
+        "bot.py",
+        "web/app.js",
+        "tests/test_checkup_logs_portable.py"
+      ],
+      "acceptance": "Чекап читает логи собственного процесса через актуальный local backend (systemd-argv без shell, container stdout, standalone stream) либо честный unavailable; ноль сетевых обращений к Better Stack в checkup runtime; bare чекап сохраняет reply/cooldown/реакцию/busy; переименованный unit не даёт ложного «ошибок нет».",
+      "risk": "R1",
+      "next_role": "Builder",
+      "mode": "writer",
+      "coherence": "Один наблюдаемый исход: чекап после переезда VPS получает логи именно этого экземпляра и не зависит от Better Stack; остальные подсистемы не затронуты.",
+      "note": "Независимый P0 corrective: может запускаться раньше очереди эпика, если ни один Builder не держит services/system_logs_fetcher.py, config/settings.py, bot.py, web/app.js.",
+      "requirements": [
+        "SD1-AC-07",
+        "SD1-AC-08",
+        "SD1-D1-01",
+        "SD1-D1-02",
+        "SD1-D1-03",
+        "SD1-D1-04",
+        "SD1-D1-05",
+        "SD1-D1-06",
+        "SD1-D1-07",
+        "SD1-D1-08",
+        "SD1-D1-09",
+        "SD1-D1-10",
+        "SD1-D1-11",
+        "SD1-D1-12",
+        "SD1-D1-13",
+        "SD1-D1-14",
+        "SD1-D1-17"
+      ]
+    },
+    {
+      "id": "D2",
+      "title": "Policy and data classification: roles, scopes, resource classes, secret projection",
+      "owner_role": "Architect + Builder",
+      "depends_on": [
+        "D1"
+      ],
+      "write_scope": [
+        "services/roles.py",
+        "services/access.py",
+        "services/telegram_role_check.py",
+        "services/diagnostic_policy.py",
+        "services/output_projection.py",
+        "web/api/access.py",
+        "tests/test_diagnostic_policy.py"
+      ],
+      "acceptance": "Один policy layer вычисляет allow|deny|unverified по (actor, chat_scope, resource_class, resource_scope, action, destination) с reason_code; principal берётся только из Telegram update; getChatMember-проверка administrator/creator выполняется online; credential values недоступны ни при какой роли и ни на одном маршруте; protected результат не попадает в общий кэш/лог/историю.",
+      "risk": "R1",
+      "next_role": "Architect",
+      "mode": "writer",
+      "coherence": "Одна связная граница безопасности: кто, в каком чате, к какому классу данных и с каким действием имеет доступ; без неё нельзя выдавать защищённые данные.",
+      "note": "Обязательный барьер: D2 и контракт evidence должны завершиться до любой выдачи защищённых данных (D5/D6). Параллельный ACL/role store/кэш прав не создаётся — используется существующая матрица.",
+      "requirements": [
+        "SD1-AC-10",
+        "SD1-AC-11",
+        "SD1-AC-14",
+        "SD1-AC-15",
+        "SD1-AC-16",
+        "SD1-AMX-01",
+        "SD1-AMX-02",
+        "SD1-AMX-05",
+        "SD1-AMX-07",
+        "SD1-AMX-08",
+        "SD1-AMX-09",
+        "SD1-D2-01",
+        "SD1-D2-02",
+        "SD1-D2-03",
+        "SD1-D2-04",
+        "SD1-D2-05",
+        "SD1-D2-06",
+        "SD1-D2-07",
+        "SD1-D2-08",
+        "SD1-D2-09",
+        "SD1-D2-10",
+        "SD1-D2-11",
+        "SD1-D2-12",
+        "SD1-D2-13",
+        "SD1-D2-14",
+        "SD1-D2-15",
+        "SD1-D2-16",
+        "SD1-D2-17",
+        "SD1-D2-18",
+        "SD1-D2-19",
+        "SD1-D2-20",
+        "SD1-D2-21",
+        "SD1-D2-22",
+        "SD1-D2-23",
+        "SD1-D2-24",
+        "SD1-D2-25",
+        "SD1-D2-26",
+        "SD1-D2-27",
+        "SD1-D2-28",
+        "SD1-D2-29",
+        "SD1-D2-30",
+        "SD1-D2-31",
+        "SD1-D2-32",
+        "SD1-D2-34",
+        "SD1-D2-35",
+        "SD1-GRAL-03",
+        "SD1-GRAL-05",
+        "SD1-SEM-05"
+      ]
+    },
+    {
+      "id": "D3",
+      "title": "Typed runtime probes and shared diagnostic evidence collector",
+      "owner_role": "Architect + Builder",
+      "depends_on": [
+        "D2"
+      ],
+      "write_scope": [
+        "services/diagnostic_collector.py",
+        "services/evidence_bundle.py",
+        "services/runtime_probes.py",
+        "services/tool_router.py",
+        "services/tool_schemas.py",
+        "services/memory_health.py",
+        "tests/test_diagnostic_probes.py",
+        "tests/test_evidence_bundle.py"
+      ],
+      "acceptance": "Один typed inspect_runtime и общий collector дают одинаковый bundle для чекапа и Tool Calling; статусы ok/degraded/unavailable/permission_denied/not_configured/stale/unsupported/unknown/not_checked отражают реальные замеры; declared≠configured≠probe≠healthy; ни одного нового LLM-агента или keyword-роута.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "mode": "writer",
+      "coherence": "Один наблюдаемый исход: любой вход получает один и тот же структурированный, честный по достоверности набор технических фактов.",
+      "note": "Сериализация с MEMORY-08 по services/memory_health.py и метрикам памяти: memory-часть D3 стартует только после интеграции MEMORY-08.",
+      "requirements": [
+        "SD1-AC-04",
+        "SD1-AC-05",
+        "SD1-AC-18",
+        "SD1-AC-20",
+        "SD1-D3-01",
+        "SD1-D3-02",
+        "SD1-D3-03",
+        "SD1-D3-04",
+        "SD1-D3-05",
+        "SD1-D3-06",
+        "SD1-D3-07",
+        "SD1-D3-08",
+        "SD1-EVD-01",
+        "SD1-EVD-03",
+        "SD1-EVD-04",
+        "SD1-EVD-05",
+        "SD1-EVD-06",
+        "SD1-EVD-07",
+        "SD1-EVD-08",
+        "SD1-EVD-09",
+        "SD1-EVD-10",
+        "SD1-EVD-11",
+        "SD1-EVD-12",
+        "SD1-EVD-13",
+        "SD1-EVD-14",
+        "SD1-EVD-15",
+        "SD1-EVD-17",
+        "SD1-EVD-18",
+        "SD1-EVD-19",
+        "SD1-SEM-01",
+        "SD1-SEM-03",
+        "SD1-SEM-06",
+        "SD1-SEM-07",
+        "SD1-SEM-08",
+        "SD1-SEM-11",
+        "SD1-SEM-12"
+      ]
+    },
+    {
+      "id": "D4",
+      "title": "Git and self-source: deployed identity, pinned SHA, source correlation",
+      "owner_role": "Builder",
+      "depends_on": [
+        "D2"
+      ],
+      "write_scope": [
+        "services/source_reader.py",
+        "services/deploy_identity.py",
+        "services/capability_registry.py",
+        "tests/test_deploy_identity.py"
+      ],
+      "acceptance": "Для своего репозитория подтверждаются deployed_sha/образ, затем checkout_sha, dirty-state и remote HEAD; код master/HEAD не выдаётся за исполняемый; локальный snapshot помечается local_unverified без доказательства; сервис продолжает читать сторонние репозитории; на каждый чекап есть ограниченная попытка commit metadata.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "mode": "writer",
+      "coherence": "Один наблюдаемый исход: ответ о коде привязан к фактически исполняемой ревизии, а не к HEAD репозитория.",
+      "requirements": [
+        "SD1-AC-03",
+        "SD1-AC-06",
+        "SD1-AC-17",
+        "SD1-D4-01",
+        "SD1-D4-03",
+        "SD1-D4-04",
+        "SD1-D4-05",
+        "SD1-D4-06",
+        "SD1-D4-07",
+        "SD1-D4-08",
+        "SD1-D4-09",
+        "SD1-D4-10",
+        "SD1-D4-12",
+        "SD1-D4-13",
+        "SD1-D4-14",
+        "SD1-SEM-04"
+      ]
+    },
+    {
+      "id": "D5",
+      "title": "Prompt readback resource with Telegram-verified disclosure",
+      "owner_role": "Builder + Security Reviewer",
+      "depends_on": [
+        "D2"
+      ],
+      "write_scope": [
+        "services/prompt_readback.py",
+        "handlers/prompt_readback.py",
+        "tests/test_prompt_readback.py"
+      ],
+      "acceptance": "Админ чата получает effective-промпт своего чата прямо в группу без перефразирования и без чтения чужих override; public_user получает denied без обращения к содержимому; auth_unverified не выдаёт текст; длинный промпт доставляется целиком; в audit пишутся actor/chat_id/prompt_id/revision/destination без содержимого и секретов.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "mode": "writer",
+      "coherence": "Один наблюдаемый исход: авторизованная точная выдача действующего промпта в разрешённый чат.",
+      "note": "Требует завершённого D2; использует существующий prompt registry и его effective resolver, вторая копия текста не создаётся.",
+      "requirements": [
+        "SD1-AC-12",
+        "SD1-AC-13",
+        "SD1-AMX-03",
+        "SD1-AMX-04",
+        "SD1-D5-01",
+        "SD1-D5-02",
+        "SD1-D5-03",
+        "SD1-D5-04",
+        "SD1-D5-05",
+        "SD1-D5-06",
+        "SD1-D5-07",
+        "SD1-D5-08",
+        "SD1-D5-09",
+        "SD1-D5-10",
+        "SD1-D5-11",
+        "SD1-D5-12",
+        "SD1-SEM-02",
+        "SD1-SEM-10"
+      ]
+    },
+    {
+      "id": "D6",
+      "title": "Dual-path output, admin matrix UI, status and analytics",
+      "owner_role": "Builder (UI) + Reviewer",
+      "depends_on": [
+        "D1",
+        "D3",
+        "D4",
+        "D5"
+      ],
+      "write_scope": [
+        "services/checkup_service.py",
+        "services/tool_loop.py",
+        "handlers/checkup.py",
+        "web/api/routes.py",
+        "web/index.html",
+        "tests/test_checkup_contract.py"
+      ],
+      "acceptance": "Чекап сохраняет reply/cooldown/реакцию/busy/стиль и байт-идентичный промпт, при этом получает реальный evidence; свободная реплика идёт через Unified Writer с сопоставимым диагнозом; админка показывает measured-состояния, объяснимую матрицу прав с наследованием и аналитику без зелёных placeholder.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "mode": "writer",
+      "coherence": "Один наблюдаемый исход: два пользовательских пути показывают один и тот же честный диагноз в своём стиле, а админка отражает фактическое состояние.",
+      "note": "Следует после контрактов API/evidence, а не перед ними; prompt и характер чекапа не редактируются.",
+      "requirements": [
+        "SD1-AC-01",
+        "SD1-AC-02",
+        "SD1-AC-09",
+        "SD1-AC-19",
+        "SD1-AMX-06",
+        "SD1-D6-01",
+        "SD1-D6-02",
+        "SD1-D6-03",
+        "SD1-D6-04",
+        "SD1-D6-05",
+        "SD1-D6-06",
+        "SD1-D6-07",
+        "SD1-D6-08",
+        "SD1-D6-09",
+        "SD1-D6-10",
+        "SD1-D6-11",
+        "SD1-D6-12",
+        "SD1-D6-13",
+        "SD1-D6-14",
+        "SD1-D6-15",
+        "SD1-D6-16",
+        "SD1-D6-17",
+        "SD1-D6-18",
+        "SD1-D6-19",
+        "SD1-D6-20",
+        "SD1-D6-22",
+        "SD1-EVD-02",
+        "SD1-GRAL-02",
+        "SD1-GRAL-06",
+        "SD1-GRAL-07"
+      ]
+    },
+    {
+      "id": "D7",
+      "title": "Security and quality review, real tests, golden set, release",
+      "owner_role": "Reviewer + DevOps",
+      "depends_on": [
+        "D6"
+      ],
+      "write_scope": [
+        "plans/features/self-diag-01/evidence/",
+        "tests/test_self_diag_golden.py",
+        "tests/test_self_diag_delivery.py"
+      ],
+      "acceptance": "Пройдены AC-01…AC-24 и 31 корнер-кейс §15 на реальном пути доставки; golden set ≥25 кейсов; read-only аудит прод-поведения с known limitations; ноль раскрытий credential values; релиз с default-ON и записанным live evidence, завершённость не объявляется по healthz/CI.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer (только evidence/tests)",
+      "coherence": "Один наблюдаемый исход: независимо подтверждённая приёмка всего эпика на реальном кандидате и на проде.",
+      "requirements": [
+        "SD1-AC-21",
+        "SD1-AC-22",
+        "SD1-AC-23",
+        "SD1-AC-24",
+        "SD1-D7-01",
+        "SD1-D7-02",
+        "SD1-D7-03",
+        "SD1-D7-04",
+        "SD1-D7-05",
+        "SD1-D7-06",
+        "SD1-GRAL-01",
+        "SD1-GRAL-04"
+      ]
+    }
+  ]
+}

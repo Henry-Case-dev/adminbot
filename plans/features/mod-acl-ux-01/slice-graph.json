@@ -1,0 +1,326 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "MOD-ACL-UX-01",
+  "created": "2026-11-09",
+  "queue_position": "MOD-ACL-UX-01 — последний новый эпик действующей очереди: после SELF-DIAG-01 и VMQ-ONTO-01. Полный Builder стартует только после освобождения шести файлов, занятых MEMORY-08 S3 (memory_agi.py, mca_gates.py, config_cache.py, param_catalog.py, web/app.js, cognitive_map.py). M1 (ACL false-403) и M5A (EXP-FIX correctives) — две независимые критические правки, которые допускаются раньше остального эпика: M5A не касается ни одного из шести сериализованных файлов, M1 требует memory_agi.py и потому идёт либо после MEMORY-08, либо через явную PM-координацию патча.",
+  "lanes": {
+    "L1_foundation": "M0 -> M1 -> M2 -> M3",
+    "L2_ui": "M3 -> M4A -> M4B -> M4C",
+    "L3_experience": "M5A + M2 -> M5L (контракт уроков, выкат 2.58.172) -> M5C; M5B (ждёт M2) -> M5C",
+    "join": "M6 после M4C и M5C"
+  },
+  "requirements_note": "Поле requirements в узле называет ведущую строку среза; фактическое владение — все строки requirements-map.json с совпадающим полем slice (один владелец = один срез).",
+  "serialized_files": [
+    "web/api/memory_agi.py — M1; сейчас M-статус MEMORY-08 S3, правка только после merge/close или координации",
+    "services/mca_gates.py — M2; занят MEMORY-08 S3",
+    "services/config_cache.py — M2; занят MEMORY-08 S3",
+    "services/param_catalog.py — M2; занят MEMORY-08 S3",
+    "web/app.js — M4A, затем M4B, затем M4C (одна UI-полоса, последовательно); занят MEMORY-08 S3",
+    "web/api/cognitive_map.py — не трогается эпиком, но занят MEMORY-08 S3 (соседний API); учитывать при merge",
+    "web/index.html, web/static/app.css — та же последовательная UI-полоса M4A -> M4B -> M4C",
+    "services/mca_experience_jobs.py, services/mca_experience.py — M5A, затем M5B (последовательная правка одного контура)"
+  ],
+  "external_blockers": [
+    {
+      "id": "EXT-QUESTION-GATE",
+      "affects": [
+        "M5C"
+      ],
+      "kind": "real_human_gate",
+      "statement": "После EXP-FIX-01..10 и ограниченного production-proof оркестратор обязан вызвать нативный OpenCode question с тремя стратегиями уроков. Пока ответа нет, расширение семантики уроков не реализуется; остальные совместимые работы эпика продолжаются. Markdown-список вариантов gate не заменяет."
+    },
+    {
+      "id": "EXT-MEMORY08-S3",
+      "affects": [
+        "M1",
+        "M2",
+        "M4A"
+      ],
+      "kind": "file_lock",
+      "statement": "Шесть файлов заняты in-flight MEMORY-08 S3. MOD-ACL-UX-01 не пишет в них параллельно."
+    }
+  ],
+  "slices": [
+    {
+      "id": "M0",
+      "title": "Read-only baseline closure: deployed SHA, config backup, stored/effective matrix",
+      "owner_role": "DevOps probe + Architect review; PM ведёт map/graph",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/mod-acl-ux-01/m0-baseline.md",
+        "plans/features/mod-acl-ux-01/evidence/m0/**"
+      ],
+      "requirements": [
+        "MAC-M0-01"
+      ],
+      "acceptance": "Зафиксированы deployed_sha и HEAD, бэкап конфигурации, аудит 21 карточки/реестра/ключей/consumers/ACL guards и матрица stored/effective по GLOBAL и 2–3 чатам без записи; расхождений с m0-baseline.md не осталось или они явно перечислены.",
+      "risk": "R1",
+      "next_role": "Architect",
+      "coherence": "Один read-only результат: фактическая база, от которой зависят все остальные срезы."
+    },
+    {
+      "id": "M1",
+      "title": "ACL corrective: единый global-admin predicate и различение 401/403/404/503",
+      "owner_role": "Builder (backend)",
+      "depends_on": [],
+      "write_scope": [
+        "web/api/memory_agi.py",
+        "web/api/deps.py",
+        "web/api/analytics.py",
+        "plans/features/mod-acl-ux-01/evidence/m1/**"
+      ],
+      "requirements": [
+        "MAC-M1-01"
+      ],
+      "acceptance": "Владелец с role_type=global_admin открывает Embeddings и аналитику на каждом защищённом endpoint; 401/403/404/503 различаются; негативная матрица local admin/DM/user и cross-chat проходит; в памяти нет локальной копии проверки администратора.",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "coherence": "Одна причина отказа и один общий predicate; отдельно от редизайна и без UI-зависимостей."
+    },
+    {
+      "id": "M2",
+      "title": "Canonical GLOBAL→CHAT resolver, adapters и совместимость данных",
+      "owner_role": "Builder (backend) по контракту Architect",
+      "depends_on": [
+        "M1"
+      ],
+      "write_scope": [
+        "services/module_registry.py",
+        "services/chat_params.py",
+        "services/feature_gates.py",
+        "services/hot_config.py",
+        "services/mca_gates.py",
+        "services/param_catalog.py",
+        "services/config_cache.py",
+        "web/api/routes.py",
+        "web/api/gates.py",
+        "plans/features/mod-acl-ux-01/evidence/m2/**"
+      ],
+      "requirements": [
+        "MAC-M2-01"
+      ],
+      "acceptance": "Truth table из шести случаев проходит в реальном runtime, включая GLOBAL OFF + CHAT ON; desired/effective_runtime/readiness/authorization/observed разделены; stored values не переписаны; before/after impact report и межчатовая изоляция доказаны интеграционными тестами.",
+      "risk": "R2",
+      "next_role": "Architect + Reviewer",
+      "coherence": "Одна семантика effective-state на capability плюс adapters её потребителей; UI не входит, иначе срез нельзя проверить отдельно."
+    },
+    {
+      "id": "M3",
+      "title": "Design freeze: IA-карта, wireframes, тексты, responsive и token mapping",
+      "owner_role": "Architect (Opus 5.5), редактура — Architect + Reviewer",
+      "depends_on": [
+        "M0",
+        "M2"
+      ],
+      "write_scope": [
+        "plans/features/mod-acl-ux-01/design-spec.md",
+        "plans/features/mod-acl-ux-01/copy-inventory.md",
+        "plans/features/mod-acl-ux-01/requirements-map.json",
+        "plans/features/mod-acl-ux-01/slice-graph.json",
+        "plans/features/mod-acl-ux-01/plan.md"
+      ],
+      "requirements": [
+        "MAC-M3-01"
+      ],
+      "acceptance": "Design specification содержит карту всех карточек, реальные вкладки и owner-ключи, wireframes каталога и трёх классов модулей, «Статуса» и матрицы прав, responsive, token mapping, финальные русские тексты, навигационную таблицу и данные первого viewport; copy inventory до/после полон.",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "coherence": "Один письменный контракт, который обязаны исполнять все UI-срезы; без него параллельные писатели изобретут разные дизайн-системы."
+    },
+    {
+      "id": "M4A",
+      "title": "Каталог модулей и рабочие workspace-страницы с реальными вкладками",
+      "owner_role": "Builder (UI)",
+      "depends_on": [
+        "M3"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "web/api/routes.py",
+        "plans/features/mod-acl-ux-01/evidence/m4a/**"
+      ],
+      "requirements": [
+        "MAC-M4-01"
+      ],
+      "acceptance": "Каталог соответствует §5.5, каждая карточка открывает workspace с реальными вкладками, Обзор наполнен живыми данными или не показывается, чатовый tri-state и effective/readiness видны, непустые вкладки содержат реальные поля и промпты.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "coherence": "Один пользовательский результат: навигация «каталог → модуль → подраздел» с рабочим управлением; не смешивается с «Статусом» и правами."
+    },
+    {
+      "id": "M4B",
+      "title": "Переработка «Статуса»: пять живых лент, воронка наблюдателя, последний вызов, лента опыта",
+      "owner_role": "Builder (UI) по design spec",
+      "depends_on": [
+        "M4A"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "services/status_service.py",
+        "services/initiative_diagnostics.py",
+        "web/api/oversight.py",
+        "plans/features/mod-acl-ux-01/evidence/m4b/**"
+      ],
+      "requirements": [
+        "MAC-AC-14"
+      ],
+      "acceptance": "Досье стоит пятой лентой рядом с четырьмя потоками и нижняя копия удалена; воронка показывает сопоставимые KPI без псевдоконверсий и объясняет молчание; пустой «Последний вызов» компактен; лента опыта под индикаторами читает реальные данные.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "coherence": "Один экран и один источник данных; вкладки модулей и матрица прав не затрагиваются, поэтому результат проверяется отдельным визуальным прогоном."
+    },
+    {
+      "id": "M4C",
+      "title": "«Роли и права» как страница: поиск, наследование, 409 и проверка доступа",
+      "owner_role": "Builder (UI+ACL read)",
+      "depends_on": [
+        "M4B"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "web/api/access.py",
+        "services/permissions.py",
+        "services/access.py",
+        "plans/features/mod-acl-ux-01/evidence/m4c/**"
+      ],
+      "requirements": [
+        "MAC-AC-13"
+      ],
+      "acceptance": "Матрица открывается страницей с deep link, все действующие пункты доступны поиском и деревом, наследование и override видны, сохранение даёт 409 на устаревшей версии, «Проверить доступ» показывает путь до backend guard, а отзыв прав в долгом запросе перепроверяется.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "coherence": "Одна поверхность прав: изучение и изменение существующих грантов без второго ACL; визуальная полоса сериализована после M4B из-за общих app.js/index.html."
+    },
+    {
+      "id": "M5A",
+      "title": "EXP-FIX-01..07, 09, 10: checkpoint, cadence, pending, write-fail, typed parse, tick, fair resume, dedup identity, discovery overflow",
+      "owner_role": "Builder (experience contour)",
+      "depends_on": [
+        "M0"
+      ],
+      "write_scope": [
+        "services/mca_experience_jobs.py",
+        "services/mca_experience.py",
+        "services/memory_maintenance.py",
+        "services/experience_diagnostics.py",
+        "plans/features/mod-acl-ux-01/evidence/m5a/**"
+      ],
+      "requirements": [
+        "MAC-EXP-01"
+      ],
+      "acceptance": "Каждый из девяти дефектов воспроизведён до правки и закрыт: checkpoint наследуется, backlog разгребается управляемо, pending не фантомит, write_failed не двигает курсор, invalid JSON отличается от [], tick регистрируется без рестарта, resume справедлив, dedup учитывает семантический kind, 64+ чатов не теряются.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "coherence": "Один контур опыта и один regression set; не требует новой семантики наследования, поэтому может идти раньше остального эпика."
+    },
+    {
+      "id": "M5B",
+      "title": "EXP-FIX-08: shared review при GLOBAL OFF + CHAT ON через единый resolver",
+      "owner_role": "Builder (experience + gates)",
+      "depends_on": [
+        "M2",
+        "M5A"
+      ],
+      "write_scope": [
+        "services/mca_experience_jobs.py",
+        "services/chat_params.py",
+        "services/mca_gates.py",
+        "plans/features/mod-acl-ux-01/evidence/m5b/**"
+      ],
+      "requirements": [
+        "MAC-EXP-08"
+      ],
+      "acceptance": "При глобальном OFF и явном chat ON shared review обрабатывает только разрешённые чаты, review_enabled не блокирует job до выбора чата, capture/detector/semantic/retrieval проверены, при отсутствии eligible чатов тик дешёвый и инертный.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "coherence": "Один межсистемный шов: наследование M2 применено к контуру опыта; без M2 проверка невозможна, поэтому срез отделён."
+    },
+    {
+      "id": "M5L",
+      "title": "Семантический контракт уроков: схема v46, пороги по классам, канонические шаблоны, гибридное расписание, временной ранг, аналитика",
+      "owner_role": "Builder (experience contour) + Architect (контракт заморожен)",
+      "depends_on": [
+        "M2",
+        "M5A"
+      ],
+      "write_scope": [
+        "plans/features/mod-acl-ux-01/evidence/m5l/**",
+        "plans/features/mod-acl-ux-01/lesson-strategy-contract.md"
+      ],
+      "requirements": [
+        "MAC-LSN-01",
+        "MAC-LSN-06"
+      ],
+      "acceptance": "На проде схема v46 применилась аддитивно и идемпотентно (6 уроков сохранены, 10 колонок, 19 шаблонов, повтор — no-op); пороги 2/1/1/3 без hot-override; блок уроков рендерится канонически (non_canonical пуст); проход дренажа укладывается в 6 чатов × 50 строк; ранг в [0,2]; 8 событий аналитики зарегистрированы, 3 наблюдались.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "coherence": "Один замороженный контракт и один вертикальный шов опыта (схема → шаблоны → пороги → расписание → ранг → аналитика); продуктовый код уже выкачен 2.58.172, оставшаяся работа среза — доказательства, поэтому срез закрыт для правок продукта.",
+      "note": "Продуктовый код реализован и выкачен кандидатом c51933d0 → bee14188: services/database.py (шаг lesson_semantic_v46), services/mca_experience.py (колонки/шаблоны/ранг/события), services/mca_experience_jobs.py (гибридное расписание/курсор/аналитика), services/param_catalog.py (ParamSpec memory_experience). В write_scope — только оставшиеся артефакты среза, потому что новых правок продукта не требуется; зависимости M2/M5A означают общие файлы и контракт (param_catalog, контур опыта), а не требование закрыть эти срезы."
+    },
+    {
+      "id": "M5L-OBS",
+      "title": "Живые наблюдения контракта уроков после 2.58.172: архивный курсор, противоречие, повторное подтверждение, применение, оставшиеся события",
+      "owner_role": "DevOps (read-only live) + Reviewer",
+      "depends_on": [
+        "M5L"
+      ],
+      "write_scope": [
+        "plans/features/mod-acl-ux-01/evidence/m5l/**"
+      ],
+      "requirements": [
+        "MAC-LSN-07",
+        "MAC-LSN-11"
+      ],
+      "acceptance": "Наблюдаемы: архивный курсор и покрытие после дренажа свежего бэклога (≈2 суток), первое противоречие с рангом ×0.5 без удаления, первый инкремент +0.1 при независимом повторном подтверждении, строка mca_lesson_applications из живого ответа, 5 оставшихся событий контракта с полями §5.",
+      "risk": "R1",
+      "next_role": "DevOps",
+      "coherence": "Один класс доказательств — поведение уже выкаченного кода на реальных данных; правок продукта срез не содержит."
+    },
+    {
+      "id": "M5C",
+      "title": "Ограниченный production-proof (60–90 мин) и нативный question по стратегии уроков",
+      "owner_role": "DevOps read-only probe + Architect (формулировка развилки) + Orchestrator (native question)",
+      "depends_on": [
+        "M5A",
+        "M5B"
+      ],
+      "write_scope": [
+        "plans/features/mod-acl-ux-01/evidence/m5c/**",
+        "plans/features/mod-acl-ux-01/lesson-strategy-question.md"
+      ],
+      "requirements": [
+        "MAC-AC-17"
+      ],
+      "acceptance": "Один краткий отчёт по §7.3 содержит deployed_sha, курсоры, backlog и причины нулей; затем оркестратор в основной сессии вызывает нативный question с тремя вариантами и фиксирует выбранный. Без ответа расширенная семантика не реализуется; недоступность VPS фиксируется как unverified, а недоступность tool — как blocker без подмены решения.",
+      "risk": "R1",
+      "next_role": "Orchestrator (native question), затем Architect",
+      "coherence": "Один доказательный проход плюс один human gate; без него нельзя ни закрыть AC-17, ни начинать расширение семантики уроков."
+    },
+    {
+      "id": "M6",
+      "title": "Live acceptance в TMA, скриншоты пяти viewport, deploy и rollback",
+      "owner_role": "Reviewer (визуально и редакционно) + DevOps (deploy/rollback)",
+      "depends_on": [
+        "M4C",
+        "M5C"
+      ],
+      "write_scope": [
+        "plans/features/mod-acl-ux-01/evidence/m6/**",
+        "plans/reports/mod-acl-ux-01/**"
+      ],
+      "requirements": [
+        "MAC-M6-01"
+      ],
+      "acceptance": "Настоящий TMA проверен для global admin, chat admin и user на двух чатах; скриншоты desktop 1440/1280, tablet, mobile 390/320 и сценарии каталога, модуля, прав, «Статуса», ошибки, GLOBAL OFF + CHAT ON и Global Admin access приложены; новые функции включены по умолчанию без перезаписи сохранённых OFF; rollback доказан.",
+      "risk": "R1",
+      "next_role": "Orchestrator (закрытие эпика)",
+      "coherence": "Один финальный приёмочный проход на реальном кандидате и реальном клиенте; не подменяет независимые code/UI-проверки предыдущих срезов."
+    }
+  ]
+}

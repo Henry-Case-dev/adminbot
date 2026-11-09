@@ -311,7 +311,7 @@
         "plans/features/memory-cognitive-02/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "Полный эпик MEMORY-00..09 + MEM-08-S1..S5 + INV/EVAL/SC. Карта plans/features/memory-cognitive-02/requirements-map.json: 145 обязательных строк, plan-gate errors=0. MEMORY-00 аудит выполнен (read-only, HEAD 8bb2800f): все разделы PARTIAL/MISSING, требуется заморозка identity/provenance/temporal/retrieval контрактов до реализации. MENU-01 ведётся отдельной картой. Ни одна строка не VERIFIED."
+      "source_note": "Полный эпик MEMORY-00..09 + MEM-08-S1..S5 + INV/EVAL/SC. Карта plans/features/memory-cognitive-02/requirements-map.json: 145 обязательных строк, plan-gate errors=0. MEMORY-00 аудит выполнен (read-only, HEAD 8bb2800f): все разделы PARTIAL/MISSING, требуется заморозка identity/provenance/temporal/retrieval контрактов до реализации. MENU-01 ведётся отдельной картой. Ни одна строка не VERIFIED. | 2026-11-08 DEPLOYED 2.58.165 @ 74ea64cb (release/2.58.165): MEMORY-01..06 plus the P0 quota-archival fix are live. healthz 2.58.165 local and public, NRestarts=0, 0 traceback in the 49-min window (2 ERROR both pre-existing anticliche/wikipedia), schema stayed 43 with no new migration, served app.js byte-identical to the candidate. Live checks: sqlite-vec real KNN active over 23,393 vectors, archived facts structurally excluded (verified on a DB copy with synthetic confirmed+archived rows), subject profile returns 8 facts whose text lacks the name while lexical search returns 0 of 20. MEM-06.1..06.10 VERIFIED on 90e67277; MEM-06-RUNTIME stays NOT_VERIFIED: live ranking quality on real dialogues unobserved and profile returned 5 of 12 confirmed facts due to the tg:<message_id> candidate-id policy (under investigation). Rollback release/2.58.164 (8aada85e) + data snapshot."
     },
     {
       "id": "menu-01",
@@ -345,6 +345,54 @@
       ],
       "coverage_complete": true,
       "source_note": "Чистая смысловая публикация FactCheck. Карта plans/features/factcheck-clean-publication/requirements-map.json (7 строк, plan-gate errors=0); маршрут L1 Analyst→L2 Verbalizer→Renderer сохраняется, без нового редактора/LLM-вызова/лимита длины."
+    },
+    {
+      "id": "vmq-onto-01",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
+      "source_sha256": "11FD732FED30E5EA2B78B1951D2E8DF8B483FF55FEA92285F6DA57FCC7637CD0",
+      "maps": [
+        "plans/features/vmq-onto-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 47 required rows (37 epic acceptance rows, 9 provider-management rows, 1 mapping row), 12 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=46 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V voice is the first executable slice when its files are free; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
+      "updated": "2026-11-09"
+    },
+    {
+      "id": "self-diag-01",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-09-self-diag-01.md",
+      "source_sha256": "BA12833AEBC259039C7C198F596346880639618D9EAFDB2E76D8EDE17D0EB400",
+      "maps": [
+        "plans/features/self-diag-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
+      "updated": "2026-11-09"
+    },
+    {
+      "id": "mod-acl-ux-01",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-09-mod-acl-ux-01.md",
+      "source_sha256": "BA6CF3D68B9E4BABD181C2AC0439CC80A8E127341A48AD76200BB2BDE6FF92A7",
+      "maps": [
+        "plans/features/mod-acl-ux-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Owner epic MOD-ACL-UX-01 FINAL v1.0 (09.11.2026), current_task.md lines 10016-10747, 732 lines. Reconciled into plans/features/mod-acl-ux-01/requirements-map.json: 274 required rows (AC-01..AC-19, EXP-FIX-01..10 in owner semantics, the six-case GLOBAL/CHAT truth table, five separated axes, amendment obligations including the mandatory native question), 279 source lines inventoried with 93 context and none unclassified, 11 stages M0->M6, slice-graph and plan.md; plan gate PASS (inventory=279 manual=88 scoped=0 errors=0). M0 baseline artifact m0-baseline.md (sha256 42C0103F…3706) confirms the ACL false-403 root cause (local `_is_global_admin` in memory_agi.py ignoring role_type on 15+ endpoints), fragmented params/gates effective-state, Roles and Permissions as modals, and all ten EXP-FIX defects present in the deployed line. Queue: last, after SELF-DIAG-01 and VMQ-ONTO-01; two independent critical fixes may run earlier (ACL false 403 in memory_agi.py; EXP-FIX correctives).",
+      "updated": "2026-11-09"
+    },
+    {
+      "id": "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-08-epic-adminbot-corrective-ym-nost-20261108.md",
+      "source_sha256": "E93991785CF75C7B37E6364AD00150FFC2CD10E1539C4BF0C2BCC3A66F3C4A7D",
+      "maps": [
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Owner final spec revision 3 (2026-11-08), current_task.md lines 7420-8278. Crosswalk in plans/features/epic-adminbot-corrective-ym-nost-20261108/plan.md; strict map 177 required / 125 correction pointers / 134 context, inventory 419, unassigned 0; slice graph 19 slices; plan gate PASS (inventory=419 manual=17 scoped=0 errors=0). MEM-AUDIT urgent and confirmed destructive quota eviction (physical delete of graph_facts/FTS/vec) routed as correction to this epic's memory owner instead of a second MEMORY epic; fix 3bfd3b06 reviewed and DEPLOYED in 2.58.163 @ e4b97ce5. Live eviction observation still open. PAY-YM remains OFF; factory price 50 RUB / pack 3 is an owner decision, not an external blocker.",
+      "updated": "2026-11-08"
     }
   ],
   "owner_inputs": [
@@ -761,6 +809,142 @@
       ],
       "reconciled": true,
       "note": "Production Reply context-loss plus clean FactCheck publication. Obligations decomposed into plans/features/evol-reply-context-integrity/requirements-map.json (5 rows) and plans/features/factcheck-clean-publication/requirements-map.json (7 rows), both plan gates errors=0. Code-level loss in the FactCheck ambiguous branch independently verified at 8bb2800f. Real production Telegram IDs/trace remain PENDING_EXTERNAL; no row is VERIFIED yet."
+    },
+    {
+      "id": "OI-2026-11-08-EPIC-ADMINBOT-CORRECTIVE-YM-NOST",
+      "source_path": "plans/owner_inputs/2026-11-08-epic-adminbot-corrective-ym-nost-20261108.md",
+      "source_sha256": "E93991785CF75C7B37E6364AD00150FFC2CD10E1539C4BF0C2BCC3A66F3C4A7D",
+      "kind": "new_task",
+      "target_task_ids": [
+        "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108",
+        "epic-memory-cognitive-02",
+        "evol-reply-context-integrity-01",
+        "factcheck-clean-publication",
+        "p0-vision-universal",
+        "asap5-multimodal",
+        "p0-nostalgia-rework",
+        "evol"
+      ],
+      "reconciled": true,
+      "note": "Final owner spec revision 3 registered and reconciled through plans/features/epic-adminbot-corrective-ym-nost-20261108/plan.md crosswalk plus strict requirements map (177 required, 125 correction pointers, 134 context, unassigned 0) and 19-slice graph; plan gate PASS (inventory=419 manual=17 scoped=0 errors=0). MEM-AUDIT stays a correction inside the existing memory owner, not a second MEMORY epic. ЮMoney remains OFF pending external provider credentials/verification; factory price 50 RUB / pack 3 needs no owner question.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-08 / current_task.md L7420-L8278",
+      "received": "2026-11-08"
+    },
+    {
+      "id": "OI-2026-11-08-MEMORY-07-REVIEW-DISCIPLINE",
+      "source_path": "plans/owner_inputs/2026-11-08-memory-07-review-discipline.md",
+      "source_sha256": "4FCD7DC80CE68A982DEE51C7E637A0501760FA25E174C9DA8E5E2A8035F76DFB",
+      "kind": "decision",
+      "target_task_ids": [
+        "epic-memory-cognitive-02"
+      ],
+      "reconciled": true,
+      "note": "Owner decision applying to MEMORY-07 review process: keep the strict independent Reviewer, but every Needs Fixes must name a concrete reproducible defect, a requirement violation or a justified material risk; check real community semantics including the effect of many weak edges on clustering; after fixes verify affected contracts and necessary regressions without rerunning all broad suites without cause; if there are no critical defects, approve and move to the next wave; do not delay retrieval/visual-graph integration for optional improvements. Applied immediately: the in-flight wave-2 review was instructed accordingly and no acceptance requirement was relaxed.",
+      "recorded_in": "plans/owner_inputs/2026-11-08-memory-07-review-discipline.md",
+      "origin": "root chat 2026-11-08",
+      "received": "2026-11-08"
+    },
+    {
+      "id": "OI-2026-11-09-MEMORY-07-ENABLE-AND-QUALITY",
+      "source_path": "plans/owner_inputs/2026-11-09-memory-07-enable-and-quality.md",
+      "source_sha256": "CDACA04D997F975413642272048C03A43DDEFFF5D17DFC4DA35DAC6DA2442E3A",
+      "kind": "correction",
+      "target_task_ids": [
+        "epic-memory-cognitive-02"
+      ],
+      "reconciled": true,
+      "note": "Reconciled into plans/features/memory-cognitive-02/requirements-map.json (153 items plus 147 additional rows) and the project rule in AGENTS.md; MEMORY-07 progress and quality work deployed through 2.58.169-2.58.173. Rows still PENDING there reflect unverified acceptance (scheduled tick observation, user-facing proven-only display), not missing mapping. Owner correction: shipping MEMORY-07 with MCA_MEMORY_COMMUNITIES_ENABLED default-off is wrong. Project-wide rule recorded in AGENTS.md: a ready feature is globally enabled by default at its first production deploy; shadow/deferred activation must not become permanent; existing user overrides are preserved. MEMORY-07 must be enabled, a real community build run, and thematic retrieval consumption verified. Simultaneously fix quality: with 99.87% legacy edges, weak communities must be filtered or demoted and never presented as proven; neutral labels must not pollute search or the visual graph; provenance is fixed at its source. Disabling the flag is not an acceptable closure.",
+      "recorded_in": "AGENTS.md",
+      "origin": "root chat 2026-11-09",
+      "received": "2026-11-09"
+    },
+    {
+      "id": "OI-2026-11-09-VMQ-ONTO-01",
+      "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
+      "source_sha256": "11FD732FED30E5EA2B78B1951D2E8DF8B483FF55FEA92285F6DA57FCC7637CD0",
+      "kind": "new_task",
+      "target_task_ids": [
+        "vmq-onto-01",
+        "epic-memory-cognitive-02"
+      ],
+      "reconciled": true,
+      "note": "VMQ-ONTO-01 FINAL 1.0 registered as one new epic at the end of the owner queue and reconciled into plans/features/vmq-onto-01/requirements-map.json (47 required rows: 37 from the epic's acceptance ledger plus 9 provider-management rows plus 1 mapping row), 12 slices, slice-graph and plan.md; plan gate errors=0 (inventory=380 manual=46 scoped=0). Architect mapping artifact restored at plans/features/vmq-onto-01/audit-head.md (sha256 88B22C2A…C67D). Queue position unchanged; VMQ-V voice is the first executable slice when its files are free; IBM hardware verification stays blocked_external without faking. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-09 / current_task.md L8282-L9482",
+      "received": "2026-11-09"
+    },
+    {
+      "id": "OI-2026-11-09-VMQ-QRNG-PROVIDER-MANAGEMENT",
+      "source_path": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md",
+      "source_sha256": "B9EF7AC882064E08180D0AEC10894CD13765BB82650123139885EFC6FCAD5597",
+      "kind": "amendment",
+      "target_task_ids": [
+        "vmq-onto-01"
+      ],
+      "reconciled": true,
+      "note": "Provider-management amendment integrated into the VMQ ledger as 9 explicit rows (dynamic per-provider admin fields, masked secrets without overwrite, live apply and restart, honest diagnostics with a real check button, official-doc verification, owner credential request protocol, real-request acceptance including IBM job/queue/pool, unconfigured must not block other providers). Merged into VMQ-Q0 and VMQ-U scope; no parallel settings or secrets module; plan gate errors=0.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-09",
+      "received": "2026-11-09"
+    },
+    {
+      "id": "OI-2026-11-09-SELF-DIAG-01",
+      "source_path": "plans/owner_inputs/2026-11-09-self-diag-01.md",
+      "source_sha256": "BA12833AEBC259039C7C198F596346880639618D9EAFDB2E76D8EDE17D0EB400",
+      "kind": "new_task",
+      "target_task_ids": [
+        "self-diag-01"
+      ],
+      "reconciled": true,
+      "note": "Reconciled into plans/features/self-diag-01/requirements-map.json (183 items, 53 additional rows, stages D0-D7, plan gate errors=0) with the D0 discovery artifact; D1 is implemented and deployed inside 2.58.173. SELF-DIAG-01 FINAL v2.0 registered as its own epic at the end of the owner queue. Requires D0 discovery against HEAD before any implementation, and a decision on whether D1 (portable local log backend plus checkup-only Better Stack removal) can run as an independent P0 corrective ahead of the epic body. Must not duplicate tools, observability, ACL or prompt versioning; 'чекап' stays the only explicit command; the checkup prompt and character stay byte-identical; new functions ON by default.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-09 / current_task.md L9484-L10013",
+      "received": "2026-11-09"
+    },
+    {
+      "id": "OI-2026-11-09-SELF-DIAG-ACCESS-MATRIX",
+      "source_path": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md",
+      "source_sha256": "9E5AB002527C59798A145178F58E0362E24C202921EA23227EDC52F29038BB40",
+      "kind": "amendment",
+      "target_task_ids": [
+        "self-diag-01"
+      ],
+      "reconciled": true,
+      "note": "Reconciled as additional requirement rows inside plans/features/self-diag-01/requirements-map.json (no second ACL and no separate access store); the access-policy stage D2 owns implementation. Adds an access-management subsection inside the existing Access admin surface, enforced by the existing authorization layer (no parallel ACL). Categories: bot/server state, detailed metrics, logs and traceback, source code and GitHub, commit history, non-secret configuration, memory and service analytics, prompts, deep diagnostics, each with view/run actions where meaningful. Roles: ordinary member, admin of the specific Telegram chat (verified through the Telegram API by numeric ID), project owner; chat scope and current settings respected; text claims, nicknames, forwards and replies are never trusted. Prompts: read default denied for members, allowed for the chat's admin by explicit request including in-group; global vs chat-overridden prompts distinguished; read and edit separated. Secret values remain a non-configurable denial enforced in backend, tool results and final delivery, unaffected by any toggle. Admin UI shows an understandable matrix with inheritance and an explanation of why a user was allowed or denied; changes persist across restart and affect real tool calls. Audit covers diagnostic calls, role checks, decisions and denials, policy changes and effective state, never secrets or full protected prompt text. Acceptance includes member/admin/owner, admin status change, revocation during a session, cross-chat, DM, live setting change, concurrent requests, bypass attempts through indirect tools or LLM paraphrase, and revocation applying to already-running checks before publication. Applies to ALL entry points: чекап, get_bot_health, read_source_code, inspect_runtime, ordinary Tool Calling, API and admin UI.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-09",
+      "received": "2026-11-09"
+    },
+    {
+      "id": "OI-2026-11-09-MOD-ACL-UX-01",
+      "source_path": "plans/owner_inputs/2026-11-09-mod-acl-ux-01.md",
+      "source_sha256": "BA6CF3D68B9E4BABD181C2AC0439CC80A8E127341A48AD76200BB2BDE6FF92A7",
+      "kind": "new_task",
+      "target_task_ids": [
+        "mod-acl-ux-01"
+      ],
+      "reconciled": true,
+      "note": "MOD-ACL-UX-01 FINAL v1.0 registered and reconciled into plans/features/mod-acl-ux-01/requirements-map.json (274 required rows, 11 stages, slice-graph, plan.md; plan gate inventory=279 manual=88 scoped=0 errors=0) with the M0 baseline at plans/features/mod-acl-ux-01/m0-baseline.md (sha256 42C0103F…3706). Queue position: last, after SELF-DIAG-01 and VMQ-ONTO-01; two independent critical fixes may run earlier (ACL false 403 in memory_agi.py; EXP-FIX correctives) subject to file availability. M0 rejected an initial artifact that renamed the owner's EXP-FIX-01..10 list; the corrected version keeps the owner's exact semantics with per-item verdicts. Mandatory native question after the correctives and the bounded production proof stays recorded as an owner gate, not a text substitute.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-09 / current_task.md L10016-L10747",
+      "received": "2026-11-09"
+    },
+    {
+      "id": "OI-2026-11-09-LESSON-STRATEGY-HUMAN-GATE",
+      "source_path": "plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md",
+      "source_sha256": "E1101272EA31A5D0EF1EF16BBB27D91F59CF13B8ED6B4BDC48701118A70E4C4E",
+      "kind": "decision",
+      "target_task_ids": [
+        "mod-acl-ux-01",
+        "vmq-onto-01",
+        "epic-memory-cognitive-02"
+      ],
+      "reconciled": true,
+      "note": "Reconciled into the frozen plans/features/mod-acl-ux-01/lesson-strategy-contract.md (ARCHITECT_VALIDATED), implemented at c51933d0 and deployed as 2.58.172 @ bee14188, with map rows M5L (VERIFIED) and M5L-OBS (PENDING with exact observation conditions). The QN direction remains a cross-epic dependency on VMQ-ONTO-01. Owner answered the mandatory native question (MAC-M5-01). Q1: verified semantic lessons, but thresholds revised — 2 independent observations for recurring local patterns, 1 for explicit participant requests and verified technical errors; configurable defaults; local learning simpler than global; closed CANONICAL_RECOMMENDATIONS must stop being the only source and be replaced by a structured semantic contract with source, scope and contradiction checks; detection/storage/confirmation/application separated; useful observations stored immediately; light validation inside the existing review; never lower to accepting any LLM hypothesis; no Personality Core or user prompt changes; lessons influence through the existing context and stay reversible. Q2: hybrid learning — continuous fresh-stream processing that keeps up with inflow, plus archive learning through the existing ExperienceReviewRunner with durable cursors and weighted temporal exploration; QN from VMQ-ONTO-01 chooses the area through the single existing RandomSource (no second generator, no PRNG/QN mixing, randomness never decides truth); adaptive weights and budgets without hardcoded calendar periods; temporal applicability and adaptive ranking for beliefs and lessons, old versions preserved, age alone never reduces truth; analytics for fresh lag, archive coverage, QN-selected areas, staleness, candidates/lessons/rejections; fix cursor and throughput limits now, quantum integration as a cross-epic dependency; no additional human gate on implementation.",
+      "recorded_in": "plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md",
+      "origin": "root chat 2026-11-09 native question answers",
+      "received": "2026-11-09"
     },
     {
       "id": "OI-2026-11-02-PERF-PARITY",

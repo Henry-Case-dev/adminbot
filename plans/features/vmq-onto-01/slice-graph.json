@@ -1,0 +1,245 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "VMQ-ONTO-01",
+  "created": "2026-11-09",
+  "queue_position": "VMQ-ONTO-01 стоит одним новым эпиком в конце исходной очереди (ТЗ §16.1-16.2). VMQ-V (voice P0 corrective) допускается раньше остальных слайсов эпика только при отсутствии Builder, правящего те же файлы; перестановка очереди фиксируется PM с причиной.",
+  "lanes": {
+    "L1": "foundation: VMQ-A (done by Architect) -> VMQ-V -> VMQ-ONTO-A -> VMQ-ONTO-B",
+    "L2": "memory: VMQ-M1 -> VMQ-M2 (ONTO-C/D внутри одного unified retrieval)",
+    "L3": "quantum: VMQ-Q0 -> VMQ-Q0-IBM (изолированные файлы RandomSource/IBM)",
+    "join": "VMQ-Q1 (нужны VMQ-M2 + VMQ-Q0-IBM) -> VMQ-O -> VMQ-U -> VMQ-R"
+  },
+  "serialized_files": [
+    "services/database.py — миграции/индексы: только VMQ-M1, затем VMQ-M2 (зависимость M2->M1 обязательна)",
+    "services/mca_random_source.py — VMQ-Q0, затем VMQ-Q0-IBM (зависимость Q0-IBM->Q0)",
+    "services/direct_context_composer.py — VMQ-V, затем VMQ-M2 (зависимость M2->V)",
+    "web/app.js, web/index.html, handlers/web.py — VMQ-Q0 (настройки провайдеров), затем VMQ-U (Статус/Аналитика)",
+    "services/mca_dream_random.py — VMQ-Q0, затем VMQ-Q1",
+    "plans/features/vmq-onto-01/* — VMQ-A владеет map/graph/plan/audit-head, VMQ-R владеет evidence/ и reports/"
+  ],
+  "external_blockers": [
+    {
+      "id": "EXT-IBM-QPU",
+      "affects": ["Q-04", "QM-08"],
+      "kind": "owner_credentials_and_quota",
+      "statement": "Реальная проверка IBM hardware QPU требует IBM API token/instance владельца и доступной квоты Open Plan. До получения реквизитов Q-04 и QM-08 остаются PENDING + blocked_external=true и не могут стать VERIFIED (симулятор не засчитывается). Остальные провайдеры, пул, fallback, no-PRNG purity и replay реализуемы и проверяемы сейчас.",
+      "not_blocked": ["Q-01", "Q-02", "Q-03", "Q-05", "Q-06", "Q-07", "Q-08", "QM-01", "QM-02", "QM-03", "QM-04", "QM-05", "QM-06", "QM-07", "QM-09", "VMQ-Q0", "VMQ-Q0-IBM", "VMQ-Q1"]
+    }
+  ],
+  "slices": [
+    {
+      "id": "VMQ-A",
+      "title": "Delta mapping HEAD/MEMORY/queue + event and fixture contract",
+      "owner_role": "Architect (already delivered audit-head.md, pending Reviewer/PM acceptance)",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/vmq-onto-01/audit-head.md",
+        "plans/features/vmq-onto-01/requirements-map.json",
+        "plans/features/vmq-onto-01/slice-graph.json",
+        "plans/features/vmq-onto-01/plan.md"
+      ],
+      "requirements": ["VMQ-A-01"],
+      "acceptance": "audit-head.md фиксирует done/in-progress/delta против фактического HEAD и MEMORY-06/07/08, событийный контракт и fixtures; дубли MEMORY-строк и перестановка очереди отсутствуют; PM подтверждает отсутствие конфликтующих карт.",
+      "risk": "R0",
+      "next_role": "Reviewer",
+      "coherence": "Один планировочный результат без кода: границы эпика и контракт событий, на который опираются все слайсы."
+    },
+    {
+      "id": "VMQ-V",
+      "title": "VOICE-01: голосовой source-ref, группа медиа и доставка в Writer (P0 corrective)",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": ["VMQ-A"],
+      "write_scope": [
+        "handlers/voice_transcription.py",
+        "handlers/direct_chat.py",
+        "handlers/media_common.py",
+        "services/direct_context_composer.py",
+        "tests/test_voice_context_vmq.py"
+      ],
+      "requirements": ["V-01", "V-02", "V-03", "V-04"],
+      "acceptance": "Реальный payload на 2-3 соседних голосовых доставляет запрошенные расшифровки в Writer, различает pending/failed/restart без ложного «не вижу» и не порождает дублей ответа.",
+      "risk": "R1",
+      "next_role": "Builder",
+      "coherence": "Один наблюдаемый исход: готовый запрошенный транскрипт реально доходит до Writer с корректным source-ref.",
+      "note": "Может идти как P0 corrective раньше остальных слайсов эпика только если ни один Builder не редактирует эти файлы."
+    },
+    {
+      "id": "VMQ-ONTO-A",
+      "title": "ONTO typed semantic contracts: concepts, roles, ambiguity",
+      "owner_role": "Architect + Builder",
+      "depends_on": ["VMQ-A"],
+      "write_scope": [
+        "services/semantic_contracts.py",
+        "services/message_identity.py",
+        "services/summary_aliases.py",
+        "tests/test_semantic_contracts.py"
+      ],
+      "requirements": ["O-01", "O-02"],
+      "acceptance": "Typed-проверки различают user/topic/event/fact и speaker/subject; alias не сливается с обычным существительным, одинаковые имена и неоднозначные термины остаются раздельными/ambiguous.",
+      "risk": "R1",
+      "next_role": "Architect",
+      "coherence": "Один контракт смыслов без нового хранилища: типы и разрешение неоднозначности, на которые опираются relations и retrieval."
+    },
+    {
+      "id": "VMQ-ONTO-B",
+      "title": "ONTO typed relations, provenance and conflict/version state",
+      "owner_role": "Builder",
+      "depends_on": ["VMQ-ONTO-A"],
+      "write_scope": [
+        "services/semantic_contracts.py",
+        "services/graphrag_provenance.py",
+        "tests/test_semantic_relations.py"
+      ],
+      "requirements": ["O-03"],
+      "acceptance": "Отношения имеют тип, направление, автора и provenance; legacy-связи помечены как не подтверждённые, cooccurrence не становится фактом, конфликты и версии определений видны в данных.",
+      "risk": "R1",
+      "next_role": "Builder",
+      "coherence": "Один производный слой отношений поверх существующего графа без второй БД и без второго резолвера."
+    },
+    {
+      "id": "VMQ-M1",
+      "title": "MEMORY episodes and longitudinal views (delta над MEMORY-06/07/08)",
+      "owner_role": "Builder",
+      "depends_on": ["VMQ-ONTO-A"],
+      "write_scope": [
+        "services/memory_episodes.py",
+        "services/memory_maintenance.py",
+        "services/dossier_rebuild_jobs.py",
+        "services/database.py",
+        "tests/test_memory_episodes.py"
+      ],
+      "requirements": ["M-01", "M-02", "M-03"],
+      "acceptance": "Эпизоды строятся по связной Reply-ветке и хронологии, тематические линии покрывают годы с контрпримерами, а продольное представление инкрементально, версионируемо и корректно инвалидируется.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "coherence": "Одна evidence-линия памяти: derived-эпизоды и их продольная агрегация с ревизиями; без второго graph store."
+    },
+    {
+      "id": "VMQ-M2",
+      "title": "Unified retrieval + ONTO-C/D grounding, coverage and evidence bundle",
+      "owner_role": "Builder + Architect (ONTO-C/D внутри одного маршрута)",
+      "depends_on": ["VMQ-M1", "VMQ-ONTO-B", "VMQ-V"],
+      "write_scope": [
+        "services/mca_retrieval_context.py",
+        "services/direct_context_composer.py",
+        "services/database.py",
+        "tests/test_memory_unified_retrieval.py"
+      ],
+      "requirements": ["M-04", "M-05", "O-04"],
+      "acceptance": "Один retrieve() отвечает на person_overview/temporal_change из coverage и evidence expansion, Writer получает bundle с ограничениями, семантические подсказки не создают второго роутера, массового reembedding и cross-chat утечек нет.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "coherence": "Один unified retrieval/Composer: ONTO-подсказка, coverage и evidence expansion дают один и тот же Writer bundle."
+    },
+    {
+      "id": "VMQ-Q0",
+      "title": "RandomSource core: 4-provider registry, settings/secrets, live apply, health, QAN field",
+      "owner_role": "Builder + Architect (политика/лимиты)",
+      "depends_on": ["VMQ-A"],
+      "write_scope": [
+        "services/mca_random_source.py",
+        "services/mca_dream_random.py",
+        "services/hot_config.py",
+        "handlers/web.py",
+        "web/app.js",
+        "web/index.html",
+        "tests/test_qan_provider_settings.py",
+        "tests/test_qan_failover.py"
+      ],
+      "requirements": ["Q-01", "Q-02", "Q-07", "Q-08", "QM-01", "QM-02", "QM-03", "QM-04", "QM-05", "QM-06", "QM-09"],
+      "acceptance": "Единственный RandomSource обслуживает четыре провайдера с отдельными адаптерами; провайдер настраивается и проверяется в существующей админке, секреты маскируются без перезаписи, изменения применяются и переживают рестарт, unconfigured не блокирует остальных, поле строится без modulo bias.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "coherence": "Один backend энтропии и его существующая поверхность настроек: реестр, конфигурация, честная диагностика и смысловое поле."
+    },
+    {
+      "id": "VMQ-Q0-IBM",
+      "title": "IBM demand-first, adaptive wait, hardware pool, source purity, replay",
+      "owner_role": "Builder",
+      "depends_on": ["VMQ-Q0"],
+      "write_scope": [
+        "services/mca_random_source.py",
+        "services/ibm_quantum_driver.py",
+        "services/qan_pool.py",
+        "tests/test_qan_ibm_driver.py"
+      ],
+      "requirements": ["Q-03", "Q-04", "Q-05", "Q-06", "QM-07", "QM-08"],
+      "acceptance": "При primary=ibm_qiskit операция инициирует реальный QPU job или атомарно присоединяется к общему, укладывается в adaptive deadline, поздние результаты уходят в отдельный IBM-пул, а тракт выбора не содержит PRNG/seed-expansion; Q-04/QM-08 остаются blocked_external до реквизитов владельца.",
+      "risk": "R3",
+      "next_role": "Builder",
+      "coherence": "Одна изолированная подсистема IBM (job lifecycle + pool + purity) под общим RandomSource; не блокирует остальных провайдеров."
+    },
+    {
+      "id": "VMQ-Q1",
+      "title": "Шесть consumer-интеграций QAN за общим API",
+      "owner_role": "Builder",
+      "depends_on": ["VMQ-M2", "VMQ-Q0-IBM"],
+      "write_scope": [
+        "services/nostalgia_worker.py",
+        "services/dream_worker.py",
+        "services/anticliche_worker.py",
+        "services/chat_lore.py",
+        "services/initiative_observer.py",
+        "services/mca_dream_random.py",
+        "tests/test_qan_consumers.py"
+      ],
+      "requirements": ["I-01", "I-02", "I-03", "I-04", "I-05", "I-06", "Q-09"],
+      "acceptance": "Каждое из шести направлений (memory exploration, nostalgia, sleep, deep sleep, initiative, meme) имеет e2e-след eligible -> influenced choice -> native module -> persisted/published/rejected, причём хотя бы одно реальное изменение решения доказано на тестовом наборе.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "coherence": "Один набор интеграций одного API в шесть существующих модулей; публикуются включёнными, а не выключенными до следующего эпика."
+    },
+    {
+      "id": "VMQ-O",
+      "title": "OBS: реальные provider health, IBM quota/pool, run funnel и знаменатели",
+      "owner_role": "Builder",
+      "depends_on": ["VMQ-Q0-IBM"],
+      "write_scope": [
+        "services/mca_events.py",
+        "services/pipeline_analytics.py",
+        "services/status_service.py",
+        "services/usage_events.py",
+        "tests/test_qan_observability.py"
+      ],
+      "requirements": ["S-01", "S-02", "S-03"],
+      "acceptance": "События и агрегаты показывают измеренный health/sample age по провайдерам, раздельные IBM quota/jobs/queue/pool и корректные знаменатели воронки, включая честное «нет данных» и недоступность детального replay после retention.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "coherence": "Один слой наблюдаемости поверх реальных событий: без моков и без нового хранилища телеметрии."
+    },
+    {
+      "id": "VMQ-U",
+      "title": "UI «Статус»/«Аналитика» на живых данных",
+      "owner_role": "Builder + UI acceptance (Playwright + Browser Use)",
+      "depends_on": ["VMQ-O"],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/static/status-analytics.js",
+        "handlers/web.py",
+        "tests/ui_vmq_status_analytics_e2e.py"
+      ],
+      "requirements": ["U-01", "U-02"],
+      "acceptance": "Виджеты читают серверные события, различают 0/unknown/no_data/unconfigured/stale, дают кликабельную трассу и фильтры периода/чата на desktop и mobile, а refresh не создаёт provider-probes.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "coherence": "Одна визуальная поставка существующего стеклянного UI без новой дизайн-системы и без выдуманных зелёных статусов."
+    },
+    {
+      "id": "VMQ-R",
+      "title": "Release gate: default-ON effective, baseline vs new, DevOps evidence, PM reconciliation",
+      "owner_role": "Reviewer + DevOps + PM",
+      "depends_on": ["VMQ-V", "VMQ-M2", "VMQ-Q1", "VMQ-O", "VMQ-U"],
+      "write_scope": [
+        "plans/features/vmq-onto-01/evidence/",
+        "plans/features/vmq-onto-01/reports/"
+      ],
+      "requirements": ["R-01", "R-02", "R-03", "R-04"],
+      "acceptance": "Reviewer независимо воспроизводит e2e и негативные случаи, DevOps фиксирует effective ON/рестарт/восстановление и честный blocked_external IBM, PM закрывает только доказанные acceptance ID без ложного DONE.",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "coherence": "Один релизный вердикт по всему эпику с честным разделением «выпущено» и «заблокировано внешне»."
+    }
+  ]
+}
