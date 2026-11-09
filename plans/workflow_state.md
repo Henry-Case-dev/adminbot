@@ -2,13 +2,13 @@
 
 Task: mod-acl-ux-01 (primary) plus queued MEMORY-08 S4/S5, VMQ-ONTO-01, SELF-DIAG-01
 Task source: plans/owner_inputs/2026-11-09-mod-acl-ux-01.md (current_task.md L10016-L10747)
-Status: blocked
-Primary phase: independent reviews blocked by provider capacity
-Active feature: mod-acl-ux-01 M2 (committed, unreviewed); self-diag-01 D2 (committed, unreviewed)
-Active lanes: none — both reviewer sessions aborted with "Insufficient balance"
-Join barriers: provider capacity must return before any review can run; no review means no approval and no deploy
-Last verified: TWO REVIEWER SESSIONS ABORTED on a provider balance error and produced no verdict: SELF-DIAG D2 (98bc424e) and MOD-ACL M2 behaviours (dd52cbf9). Nothing was approved, nothing was rejected; both are UNVERIFIED. All work is preserved: integration branch tip dd52cbf9 with a clean product tree (0 dirty product files), production 2.58.174 @ ac943f40 fully verified, schema 46, NRestarts 0.
-Next unlocks: after capacity returns — D2 security review, then M2 behaviours review, then PM row binding and the M2 deploy with live observation; M4A UI follows the frozen M3 design
+Status: in_progress
+Primary phase: independent reviews (security and behaviour)
+Active feature: self-diag-01 D2 + mod-acl-ux-01 M2 behaviours
+Active lanes: ses_e3fb6c463ffe1xlsgO1YXSVW8E (Reviewer: D2 98bc424e); ses_e3fb6c463ffd9GcMCGI9YEdmRj (Reviewer: M2 dd52cbf9)
+Join barriers: D2 verdict -> deploy + live Telegram acceptance; M2 verdict -> PM binding -> deploy with live observation
+Last verified: provider capacity restored; both reviews restarted as fresh sessions after the earlier balance aborts (that abort was a platform failure and produced no verdict, so nothing had been approved). Committed work unchanged: integration branch tip dd52cbf9 with a clean product tree, D2 at 98bc424e, production 2.58.174 @ ac943f40 (schema 46, NRestarts 0, fully verified). M2 ledger stood at 23/54 VERIFIED before the behaviours commit; D2 has 40 tests and no review yet.
+Next unlocks: D2 verdict -> deploy; M2 verdict -> bind rows -> deploy M2 then observe the live rows; M4A UI against the frozen M3 design
 Next execution: none
 Review: approved (53c78594, 78a4e017, ebc5a23b); D2 and M2 behaviours UNVERIFIED due to the provider block
 Deployment: verified (2.58.174 @ ac943f40, schema 46)
