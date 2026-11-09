@@ -947,6 +947,20 @@
       "received": "2026-11-09"
     },
     {
+      "id": "OI-2026-11-09-VECTOR-MEMORY-DENIED-LIVE",
+      "source_path": "plans/owner_inputs/2026-11-09-vector-memory-denied-live.md",
+      "source_sha256": "D7048A7C98E1C716C9DD1704B2F12DD59CFE8D305DF6D4E44DBE96B0CDBB6E0A",
+      "kind": "correction",
+      "target_task_ids": [
+        "mod-acl-ux-01"
+      ],
+      "reconciled": false,
+      "note": "Live acceptance failure: the owner still cannot open the Vector Memory section after 2.58.173 that was supposed to fix exactly that false denial. Owner Telegram ID 5885953495 supplied, so production role rows and the real denied request can be read instead of assumed. M1 rows must not remain VERIFIED on unit tests alone while the real owner is denied; the reopening is a status correction, not a new epic. Diagnosis is split into read-only production facts (role rows, real 4xx paths, served bundle) and a code-side gate map; no impersonation, no new ACL, no widening for non-owners.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-09",
+      "received": "2026-11-09"
+    },
+    {
       "id": "OI-2026-11-02-PERF-PARITY",
       "source_path": "plans/owner_inputs/2026-11-02-performance-parity-clarification.md",
       "source_sha256": "9F66BE9720084CE685FDB2E4B5244223523C2D4FFC0A59AABAC1853474FB823F",
