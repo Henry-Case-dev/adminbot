@@ -5,9 +5,14 @@
     "description": "Проактивные намерения: бот сам возвращается к открытым вопросам и напоминаниям (heartbeat, решения, recheck).",
     "id": "initiative",
     "master_param": "flags.initiative_enabled",
+    "model_slots": [],
     "parent_id": null,
     "route": "#/modules/initiative",
     "runtime_gate": "global",
+    "settings_groups": [
+      "flags_intent",
+      "limits_intent"
+    ],
     "tab": "mod_initiative",
     "title": "Инициатива",
     "visibility": "visible"
@@ -18,9 +23,13 @@
     "description": "Витрина «Истории чата», действия с историями и жизненный цикл эпизодов (мастер, фасад компилятора, продолжение, backfill).",
     "id": "stories",
     "master_param": "flags.stories_vitrina_enabled",
+    "model_slots": [],
     "parent_id": "memory",
     "route": "#/modules/stories",
     "runtime_gate": "global",
+    "settings_groups": [
+      "flags_stories"
+    ],
     "tab": "mod_stories",
     "title": "Истории и эпизоды",
     "visibility": "visible"
@@ -31,9 +40,13 @@
     "description": "Эволюция характера: модель себя, правила черт, миграция legacy-черт, слои и речь характера, scope стиля, форм-гард постобработки.",
     "id": "character",
     "master_param": "flags.self_model_enabled",
+    "model_slots": [],
     "parent_id": "persona",
     "route": "#/modules/character",
     "runtime_gate": "global",
+    "settings_groups": [
+      "flags_character"
+    ],
     "tab": "mod_character",
     "title": "Характер (SelfModel)",
     "visibility": "advanced"
@@ -44,9 +57,13 @@
     "description": "Банк проверенного опыта: запись эпизодов, уроки и пакетный разбор (уроки не меняют правила бота). Worker глобальный; обучение включается по чатам (наследование → глобальное значение).",
     "id": "experience",
     "master_param": "memory.experience_learning_enabled",
+    "model_slots": [],
     "parent_id": "memory",
     "route": "#/modules/experience",
     "runtime_gate": "per_chat",
+    "settings_groups": [
+      "memory_experience"
+    ],
     "tab": "mod_experience",
     "title": "Опыт и уроки",
     "visibility": "visible"
@@ -57,9 +74,15 @@
     "description": "Источник случайности (квантовый ANU или локальный), честный откат, вероятности исследования и разрешения применений. Shared: спонтанность, сон, инициатива.",
     "id": "random",
     "master_param": "memory.random_enabled",
+    "model_slots": [
+      "keys_random"
+    ],
     "parent_id": "memory",
     "route": "#/modules/random",
     "runtime_gate": "global",
+    "settings_groups": [
+      "memory_random"
+    ],
     "tab": "mod_random",
     "title": "Случайность",
     "visibility": "visible"
@@ -70,9 +93,15 @@
     "description": "Проверка утверждений: поиск источников, аналитик, перепроверка (validator) и вербализация с сохранением дат и оговорок.",
     "id": "factcheck",
     "master_param": "flags.factcheck_enabled",
+    "model_slots": [],
     "parent_id": null,
     "route": "#/modules/factcheck",
     "runtime_gate": "global",
+    "settings_groups": [
+      "flags_module_factcheck",
+      "limits_factcheck",
+      "prompts_factcheck"
+    ],
     "tab": "mod_factcheck",
     "title": "Фактчек",
     "visibility": "visible"
@@ -83,9 +112,16 @@
     "description": "Анализ картинок в чате: ручной и автоматический прогон, backfill, tool-доступ; модели и лимиты vision-провайдера.",
     "id": "vision",
     "master_param": "flags.vision_enabled",
+    "model_slots": [],
     "parent_id": null,
     "route": "#/modules/vision",
     "runtime_gate": "global",
+    "settings_groups": [
+      "flags_module_vision",
+      "limits_vision",
+      "models_vision",
+      "keys_vision"
+    ],
     "tab": "mod_vision",
     "title": "Распознавание изображений",
     "visibility": "visible"
@@ -96,9 +132,13 @@
     "description": "Слой B «кстати…»: бот вспоминает давние события чата в тихие моменты (год-спустя, золотые факты, окно тишины, cooldown).",
     "id": "nostalgia",
     "master_param": "memory.nostalgia_enabled",
+    "model_slots": [],
     "parent_id": null,
     "route": "#/modules/nostalgia",
     "runtime_gate": "global",
+    "settings_groups": [
+      "memory_nostalgia"
+    ],
     "tab": "mod_nostalgia",
     "title": "Ностальгия",
     "visibility": "visible"
@@ -109,9 +149,13 @@
     "description": "Ночной синтез убеждений из фактов чата и «глубокий сон» (парадигмы «раньше → сейчас») с окнами, бюджетами и журналом прогонов.",
     "id": "sleep",
     "master_param": "memory.dream_enabled",
+    "model_slots": [],
     "parent_id": null,
     "route": "#/modules/sleep",
     "runtime_gate": "global",
+    "settings_groups": [
+      "memory_dream"
+    ],
     "tab": "mod_sleep",
     "title": "Сон и память",
     "visibility": "visible"
@@ -122,9 +166,15 @@
     "description": "Инфраструктура векторов и графа знаний: генерация эмбеддингов, индексы/поколения, восстановление after-сбоев. Настройка — в родителях, не отдельным тумблером.",
     "id": "embeddings",
     "master_param": "",
+    "model_slots": [
+      "keys_llm"
+    ],
     "parent_id": null,
     "route": "#/modules/embeddings",
     "runtime_gate": "global",
+    "settings_groups": [
+      "models_embeddings"
+    ],
     "tab": "mod_embeddings",
     "title": "Векторная память (Embeddings/GraphRAG)",
     "visibility": "advanced"

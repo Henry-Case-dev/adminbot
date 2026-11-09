@@ -22,8 +22,12 @@ SCRIPT = os.path.join("tests", "js", "mod_acl_ux_m3_module_routes_test.js")
 
 # Поля ModuleSpec, которые реально доезжают до фронта (`f3ApplyModuleRegistry`
 # и `registry_for_frontend`) — snapshot описывает ровно их.
+# MOD-ACL-UX-01 M4: `settings_groups`/`model_slots` — объявление модуля о
+# своих группах каталога; страница модуля без собственной config-вкладки
+# выводит из них РЕАЛЬНЫЕ параметры (пустой sources давал ложную пустоту).
 FIELDS = ("id", "title", "description", "master_param", "runtime_gate",
-          "parent_id", "config_tab", "visibility", "classification")
+          "parent_id", "config_tab", "visibility", "classification",
+          "settings_groups", "model_slots")
 
 
 def _registry_snapshot():
@@ -35,6 +39,11 @@ def _registry_snapshot():
         row = {f: getattr(spec, f) for f in FIELDS}
         row["parent_id"] = spec.parent_id
         row["config_tab"] = spec.config_tab or ("mod_" + spec.id)
+        # Кортежи ModuleSpec сериализуются в JSON как массивы — снимок хранит
+        # ровно ту форму, которую получает фронт (писал и сверяет один код).
+        for f in FIELDS:
+            if isinstance(row[f], tuple):
+                row[f] = list(row[f])
         row["tab"] = "mod_" + spec.id
         row["route"] = "#/modules/" + spec.id
         out.append(row)

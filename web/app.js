@@ -5676,28 +5676,66 @@
       // причину — нет прав роли / не применимо к выбранной области. Каталог
       // не трогаем: выводим то, что можно доказать из уже загруженного
       // состояния (configItems / scopeKind).
+      // MOD-ACL-UX-01 M4: слово «права» звучит ТОЛЬКО когда сервер этот
+      // раздел для этой роли действительно фильтрует. Глобальному админу
+      // /api/config не скрывает ни одного не-секретного параметра, поэтому
+      // пустая вкладка у него — «параметров нет», а не «отфильтровали».
+      emptyTabCause: function () {
+        if (!(this.configItems || []).length) return 'no-data';
+        // Причина «область»: параметры вкладки живут только на уровне бота.
+        if (this.scopeKind && this.scopeKind !== 'global') return 'scope';
+        // Сервер по правам скрывает: (1) ключи-секреты — всем, кроме
+        // глобального админа (web/api/routes.py → get_config), (2) матрицу
+        // прав — только в чат-скоупе (это причина «scope» выше). Значит фильтр
+        // прав мог сработать ТОЛЬКО у не-админа и только для вкладки, которая
+        // объявляет секретные параметры (категория keys).
+        if (this.isGlobalAdmin) return 'none';
+        var sources = (this.currentTab && this.currentTab.sources) || [];
+        var declaresSecret = sources.some(function (s) {
+          return s && s.category === 'keys';
+        });
+        return declaresSecret ? 'filtered' : 'none';
+      },
+      // Заголовок пустого блока — часть той же честной причины.
+      emptyTabTitle: function () {
+        return {
+          'no-data': 'Параметры не загружены',
+          'scope': 'Для выбранной области параметров нет',
+          'filtered': 'На этой вкладке нет доступных параметров',
+          'none': 'На этой вкладке нет параметров',
+        }[this.emptyTabCause] || 'На этой вкладке нет параметров';
+      },
       emptyTabReason: function () {
-        var total = (this.configItems || []).length;
         var q = (this.configSearch || '').trim();
-        if (!total) {
-          return 'Сервер не отдал ни одного доступного значения: у вашей роли '
-            + 'нет прав на параметры этой области. Проверьте свой доступ или '
-            + 'выберите другую область (чат / «Весь бот»).';
+        var cause = this.emptyTabCause;
+        if (cause === 'no-data') {
+          var why = this.isGlobalAdmin
+            ? 'Сервер не вернул ни одного параметра: значения не загружены '
+              + 'или недоступны. Проверьте подключение к базе и повторите '
+              + 'загрузку.'
+            : 'Сервер не отдал ни одного доступного значения: у вашей роли '
+              + 'нет прав на параметры этой области. Проверьте свой доступ или '
+              + 'выберите другую область (чат / «Весь бот»).';
+          return why;
         }
         // F1 (review-ui-fixes, 2026-10-16, блокирующая находка): карточка
         // рендерится только при нуле элементов вкладки БЕЗ учёта поиска
         // (`tabItemCount` игнорирует configSearch) → запрос структурно НЕ
-        // может быть причиной пустоты. Причина — область/права, а запрос
-        // лишь снимаем с подозрения (фильтровать в пустой вкладке нечего).
-        var why = (this.scopeKind && this.scopeKind !== 'global')
-          ? 'Для выбранной области ('
+        // может быть причиной пустоты. Причина — область/права/каталог, а
+        // запрос лишь снимаем с подозрения (фильтровать в пустой вкладке
+        // нечего).
+        var msg = {
+          'scope': 'Для выбранной области ('
             + (this.scopeKind === 'dm' ? 'ЛС' : 'чат') + ') нет применимых '
             + 'параметров этой вкладки: часть настроек живёт только на уровне '
-            + 'всего бота. Переключите область на «Весь бот».'
-          : 'На этой вкладке нет параметров, доступных вашей роли '
-            + '(сервер отфильтровал их по правам).';
-        if (!q) return why;
-        return why + ' Запрос «' + q + '» здесь ничего не изменит: '
+            + 'всего бота. Переключите область на «Весь бот».',
+          'filtered': 'На этой вкладке нет параметров, доступных вашей роли '
+            + '(сервер отфильтровал их по правам).',
+          'none': 'Каталог не назначает этой вкладке ни одного параметра — '
+            + 'настройки этого раздела живут в связанных вкладках.',
+        }[cause] || 'Каталог не назначает этой вкладке ни одного параметра.';
+        if (!q) return msg;
+        return msg + ' Запрос «' + q + '» здесь ничего не изменит: '
           + 'фильтровать в пустой вкладке нечего.';
       },
       // F6 (ADR-1025-19 D6/§53–§56): реально присутствующие подгруппы
@@ -19887,8 +19925,63 @@
         var t = (this.tabs || []).find(function (x) { return x.id === m.tab; });
         if (t) return t;
         if (!m.fromRegistry) return null;
+        // MOD-ACL-UX-01 M4: собственная config-вкладка у модуля есть в TABS
+        // далеко не всегда («Векторная память» — инфраструктурный модуль без
+        // своего каталогового таба). Своих ключей у него нет, но РЕАЛЬНЫЕ
+        // параметры есть — те группы каталога, которые объявил реестр
+        // (`settings_groups` + `model_slots`). Источники вкладки выводятся из
+        // каталога, а не из рукописного списка: пустой `sources` давал
+        // пустую страницу с ложной причиной «сервер отфильтровал по правам».
+        var sources = (typeof this._registryPageSources === 'function')
+          ? this._registryPageSources(m) : [];
         return { id: m.tab, type: 'config', menu: 'modules',
-                 label: m.title || '', fromRegistry: true, sources: [] };
+                 label: m.title || '', fromRegistry: true, sources: sources };
+      },
+      // MOD-ACL-UX-01 M4: страница модуля реестра БЕЗ собственной config-
+      // вкладки — её параметры выводятся из объявления реестра (см.
+      // `_registryPageSources`), раскладка по вкладкам — `workspaceGroupTab`.
+      _isDerivedModulePage: function (m) {
+        if (!m || !m.fromRegistry || !m.tab) return false;
+        return !(this.tabs || []).some(function (t) { return t.id === m.tab; });
+      },
+      // Группы каталога, объявленные владельцем-модулем в реестре
+      // (`services/module_registry.py`: settings_groups + model_slots).
+      _registryPageGroupIds: function (m) {
+        if (!m) return [];
+        var slug = m.routeSlug || String(m.id || '').replace(/^mod_/, '');
+        var spec = (this._f4Registry || {})[slug];
+        if (!spec) return [];
+        var out = [];
+        (spec.settings_groups || []).concat(spec.model_slots || [])
+          .forEach(function (gid) {
+            if (gid && out.indexOf(gid) < 0) out.push(gid);
+          });
+        return out;
+      },
+      // Источники вкладки (словарь TAB_RULES: category + groups) для
+      // объявленных реестром групп. Категория группы — из каталога, приходящего
+      // в /api/config (`groups[]`), с добором по реальным items (если сервер
+      // не отдал метаданные группы). Порядок — порядок каталога.
+      _registryPageSources: function (m) {
+        var ids = this._registryPageGroupIds(m);
+        if (!ids.length) return [];
+        var catOf = {}, order = [];
+        function add(category, gid) {
+          if (!category) return;
+          if (!catOf[category]) { catOf[category] = []; order.push(category); }
+          if (catOf[category].indexOf(gid) < 0) catOf[category].push(gid);
+        }
+        (this.configGroups || []).forEach(function (g) {
+          if (!g || ids.indexOf(g.id) < 0) return;
+          add(g.category, g.id);
+        });
+        (this.configItems || []).forEach(function (it) {
+          if (!it || ids.indexOf(it.group) < 0) return;
+          add(it.category, it.group);
+        });
+        return order.map(function (c) {
+          return { category: c, groups: catOf[c] };
+        });
       },
       // Навигация по вкладке workspace (hash — источник истины).
       openWorkspaceTab: function (tabId) {
@@ -20452,9 +20545,22 @@
         if (m && m.id === 'mod_images' && grp.id === 'limits_images') {
           return 'settings';
         }
-        if (grp.category === 'models') return 'models';
-        if (grp.category === 'limits') return 'limits';
-        return 'settings';
+        var natural = (grp.category === 'models') ? 'models'
+          : (grp.category === 'limits') ? 'limits' : 'settings';
+        // MOD-ACL-UX-01 M4: у модуля реестра без собственной config-вкладки
+        // (напр. «Векторная память») объявленные каталогом группы живут в его
+        // «Настройках» — вкладок «Модели»/«Память» у такой карточки нет.
+        // Без этой раскладки реальные параметры module-страницы терялись и
+        // она показывала пустоту (ложный «нет доступных параметров»).
+        // `typeof`-гейт: раскладку зовут и урезанные контексты (юнит-стенды
+        // без полного набора методов) — падать на этом нельзя.
+        if (natural !== 'settings' && m
+            && typeof this._isDerivedModulePage === 'function'
+            && this._isDerivedModulePage(m)
+            && (m.tabs || []).indexOf(natural) < 0) {
+          return 'settings';
+        }
+        return natural;
       },
       _workspaceGroupsFor: function (m, tabId) {
         if (!m) return [];

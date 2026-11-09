@@ -4797,9 +4797,10 @@
                    «нет доступных настроек» при пропавшем промпте). Баннер
                    configError важнее — при нём пустые состояния не рисуются. -->
               <div v-if="currentTabItemCount === 0 && !configError"
-                   class="card p-6 text-gray-400 col-span-full" data-empty-tab>
+                   class="card p-6 text-gray-400 col-span-full" data-empty-tab
+                   :data-empty-cause="emptyTabCause">
                 <div class="text-sm font-semibold text-gray-300 mb-1">
-                  На этой вкладке нет доступных параметров
+                  {{ emptyTabTitle }}
                 </div>
                 <div class="text-xs">{{ emptyTabReason }}</div>
               </div>
