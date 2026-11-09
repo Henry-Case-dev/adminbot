@@ -88,6 +88,7 @@ async def get_tma_user(
     if not init_data:
         init_data = await _init_data_from_json_body(request)
     if not init_data:
+        request.state.tma_deny_reason = "missing_init_data"
         _tma_trace(valid=False, err="missing init data",
                    init_data_len=0, src="none",
                    path=request.url.path)
@@ -96,23 +97,30 @@ async def get_tma_user(
         parsed = safe_parse_webapp_init_data(
             token=settings.API_TOKEN, init_data=init_data)
     except ValueError:
+        request.state.tma_deny_reason = "invalid_init_data"
         _tma_trace(valid=False, err="invalid init data",
                    init_data_len=len(init_data),
                    src=_init_data_src(request, x_telegram_init_data),
                    path=request.url.path)
         raise HTTPException(status_code=401, detail="invalid init data")
     if parsed.user is None:
+        request.state.tma_deny_reason = "no_user_in_init_data"
         _tma_trace(valid=False, err="no user in init data",
                    init_data_len=len(init_data),
                    src=_init_data_src(request, x_telegram_init_data),
                    path=request.url.path)
         raise HTTPException(status_code=401, detail="no user in init data")
+    # Наблюдаемость (web/request_status.py): HMAC подтвердил личность —
+    # telegram_id попадает в строку non-2xx ответа (даже если дальше откажет
+    # свежесть/права). Никаких других данных в state не кладём.
+    request.state.telegram_id = parsed.user.id
     auth_date = parsed.auth_date
     auth_ts = auth_date.timestamp() if hasattr(auth_date, "timestamp") \
         else (auth_date or 0)
     age = time.time() - auth_ts
     max_age = _tma_auth_max_age()
     if max_age > 0 and age > max_age:
+        request.state.tma_deny_reason = "init_data_expired"
         _tma_trace(valid=False, err="expired", age=age,
                    init_data_len=len(init_data),
                    src=_init_data_src(request, x_telegram_init_data),
@@ -189,6 +197,7 @@ def requires_permission(required: str):
         cache: ConfigCache = get_cache(request)
         perms = _user_permissions(cache, user.id)
         if not match_permission(perms, required):
+            request.state.tma_deny_reason = "permission_denied"
             raise HTTPException(status_code=403, detail="permission denied")
         return user
 
@@ -222,6 +231,7 @@ def requires_global_admin():
         user: Annotated[WebAppUser, Depends(get_tma_user)],
     ) -> WebAppUser:
         if not user_is_global_admin(get_cache(request), user.id):
+            request.state.tma_deny_reason = "not_global_admin"
             raise HTTPException(status_code=403,
                                 detail="только для глобального админа")
         return user

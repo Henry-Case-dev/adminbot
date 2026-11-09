@@ -154,6 +154,13 @@ def create_app(cache: ConfigCache, control=None, memory=None) -> FastAPI:
         logger.info("[webapp] lifespan finished")
 
     app = FastAPI(title="AdminBot TMA Dashboard", lifespan=lifespan)
+    # Наблюдаемость отказов (/api/*): одна R17-safe строка на каждый non-2xx
+    # (method/path-шаблон/status/telegram_id/reason; без initData, заголовков,
+    # тел и query). 2xx — без работы. Полный access-log uvicorn НЕ включаем:
+    # в проде log_level="warning", Caddy access-log отсутствует, поэтому без
+    # этого middleware отказ (403/401) не привязать к запросу и пользователю.
+    from web.request_status import ApiStatusLogMiddleware
+    app.add_middleware(ApiStatusLogMiddleware)
     app.state.cache = cache
     # MEM-08-S2: менеджер памяти — из bot.py (один инстанс на процесс); web-API
     # обязан идти в него же, а не строить второй (иначе векторный канал поиска
