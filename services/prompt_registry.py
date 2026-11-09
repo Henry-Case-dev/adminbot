@@ -293,7 +293,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "internal.dossier.layer_b": "dossier-layer-b",
     "internal.vision.analysis": "vision-analysis",
     "internal.self_reflection": "self-reflection",
-    "internal.initiative_observer": "initiative-observer",
+    "internal.initiative_observer": "initiative-observer-memory-recall",
     "internal.direct_orchestrator": "direct-orchestrator",
     "internal.anticliche.extract": "anticliche-extract",
     # Слои стиля/идентичности (W2/W3 владельцы)
@@ -448,7 +448,8 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "internal.dossier.layer_b": ("dossier-layer-b", "e6f035eeb5b9"),
     "internal.vision.analysis": ("vision-analysis", "e3e4efb23349"),
     "internal.self_reflection": ("self-reflection", "a1d2a21721a3"),
-    "internal.initiative_observer": ("initiative-observer", "f1169884093b"),
+    "internal.initiative_observer": ("initiative-observer-memory-recall",
+                                     "108f277a466f"),
     "internal.direct_orchestrator": ("direct-orchestrator", "f05c11426a49"),
     "internal.anticliche.extract": ("anticliche-extract", "f8e60639b708"),
     "identity.no_ai_disclosure": ("no-ai-disclosure", "fad1b64a2f0c"),
@@ -1764,7 +1765,7 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
        "Оценка ценности инициативного повода (funnel-стадия).",
        "internal", "code",
        "services.initiative_observer.OBSERVER_EVAL_SYSTEM_PROMPT",
-       ("initiative_observer.py:895",), "internal/initiative_observer",
+       ("initiative_observer.py:944",), "internal/initiative_observer",
        owner_lane="W5", speech=False),
     _b("internal.direct_orchestrator",
        "Tool Orchestrator Direct: выбор инструментов (машинная стадия).",
@@ -2925,7 +2926,14 @@ def factory_set_fingerprint() -> str:
 #: локального источника (печать ``bcb7bc24e6cc``); пользовательский канон
 #: ``checkup.base.system``/``prompts.checkup_system_prompt`` байт-в-байт.
 #: Было ``30a072887fdd``, стало ``b4e8b3569ab2``.
-FACTORY_SET_SHA256_12 = "b4e8b3569ab2"
+#: NOST-PROACTIVE (NOST-PRO-01/02, 10.11.2026): changed = 1 —
+#: ``internal.initiative_observer`` получил блок ``<Related_Memory>`` и
+#: необязательное поле вердикта ``memory_slot`` (контракт шва
+#: ``plans/features/smart-module-semantic-routing/nostalgia-seam-contract.md``
+#: §2, метка ``initiative-observer-memory-recall``, печать ``108f277a466f``).
+#: Прочие 110 канонов, включая пользовательские тексты, байт-в-байт.
+#: Было ``b4e8b3569ab2``, стало ``011c83dfac95``.
+FACTORY_SET_SHA256_12 = "011c83dfac95"
 
 
 

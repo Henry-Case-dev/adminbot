@@ -207,5 +207,10 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # (метка l1-planner-source-facts, sha12 2354a5cc57c4); набор пересчитан.
     # Было e9dc109330a8, стало a701aea74399 (EVR4), затем a29e68dc1de6 (EVR5, RLR-03.3).
     # Переутверждено осознанно (SOUL-AMD.3.2). FC-04 corrective: mixed/causality rules in temporal analyst+validator (branch fc/backend, 7b897c80).
-    assert pr.FACTORY_SET_SHA256_12 == "b4e8b3569ab2"
+    # NOST-PROACTIVE (10.11.2026, контракт шва nostalgia-seam-contract.md §2):
+    # changed = 1 — internal.initiative_observer получил блок <Related_Memory>
+    # и поле вердикта memory_slot (метка initiative-observer-memory-recall,
+    # sha12 108f277a466f); прочие каноны байт-в-байт.
+    # Было b4e8b3569ab2, стало 011c83dfac95.
+    assert pr.FACTORY_SET_SHA256_12 == "011c83dfac95"
 

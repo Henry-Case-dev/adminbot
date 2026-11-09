@@ -185,14 +185,14 @@ _TOPIC_WORD_RE = re.compile(r"[а-яёa-z0-9]{5,}", re.IGNORECASE)
 # периодов и повторяемость — из фактических журналов. Квантовое направление
 # (VMQ-ONTO-01) — один plug-in `RandomSourceService`, только направление.
 #
-# PROVISIONAL SEAM (ожидается plans/features/smart-module-semantic-routing/
-# nostalgia-seam-contract.md): два общих интерфейса помечены ниже явно:
-#   * `NostalgiaWorker.recall_in_conversation(...)` — шов проактивного
-#     воспоминания (вызывается Observer/Decision; решение публиковать НЕ
-#     принимает: генерацию и отправку делает тот же Writer/транспорт);
-#   * `NostalgiaWorker._direction_pick(...)` — единственная точка подключения
-#     RandomSource (направление исследования).
-# До прихода контракта подписи считаются провизорными и подлежат сверке.
+# FROZEN SEAM (NOSTALGIA SEAM RECONCILED):
+#   plans/features/smart-module-semantic-routing/nostalgia-seam-contract.md
+# Два общих интерфейса реализованы ровно по этому контракту:
+#   * `NostalgiaWorker.recall_in_conversation(...)` — §1: шов проактивного
+#     воспоминания; вызывается Observer/Decision, решение публиковать НЕ
+#     принимает (генерация и отправка — тот же Writer/транспорт);
+#   * `NostalgiaWorker._direction_pick(...)` — §3: единственная точка
+#     подключения RandomSource (направление исследования).
 _SEMANTIC_TOP_K = 6            # кандидатов памяти на один проход
 _SEMANTIC_MATERIALIZE_MAX = 3  # сколько кандидатов реконструируется в эпизод
 _SEMANTIC_CHANNEL = ("episode",)   # существующий канал единого retrieval
@@ -1396,18 +1396,19 @@ class NostalgiaWorker:
                                      now: int | None = None,
                                      memory_refs=(), context_rows=None
                                      ) -> dict:
-        """PROVISIONAL SEAM — инициативная ностальгия в ЖИВОМ разговоре.
-
-        ВНИМАНИЕ: подпись провизорна до контракта
+        """Инициативная ностальгия в ЖИВОМ разговоре — §1 контракта
         `plans/features/smart-module-semantic-routing/nostalgia-seam-contract.md`
-        (Architect фиксирует шов Observer/Decision). Состав:
+        (NOSTALGIA SEAM RECONCILED; подпись заморожена).
+
+        Состав по контракту:
           вход   — chat_id, ссылки на РЕАЛЬНЫЕ записи памяти (`memory_refs`,
-                   `story:<id>`/`episode:<id>`) и окно текущего разговора;
-          выход  — R17-статус `{"status", "reason_code"}`; `status="sent"`
-                   означает, что реплику принял существующий транспорт;
+                   `story:<id>`/`episode:<id>`/`lore:<id>`) и окно текущего
+                   разговора; `now` — необязательные детерминированные часы;
+          выход  — R17-статус `{"status", "reason_code"}`; допустимые статусы
+                   sent/skipped/silent/disabled/error, молчание — нормальный
+                   неисключительный исход;
           решает — НЕ шов: публикует Writer/Decision/бронь (как и по тику),
                    шов только материализует эпизод и просит писателя;
-          молчание — `status="skipped"` + `reason_code` (без отправки);
           место  — сразу после решения Observer (`_act_on_memory_recall`),
                    без ожидания следующего nostalgia_tick.
 
@@ -1417,7 +1418,7 @@ class NostalgiaWorker:
         сообщений и текст пишет существующий Writer (NOSTALGIA_PROMPT).
         Публикация — единый `_delegate_initiative` → `handle_initiative`
         (SendRecheck, бронь публикации, настройки чата, вердикт модели).
-        Второго пайплайна не прибавилось.
+        Второго пайплайна/пути отправки нет.
 
         Гейты анти-навязчивости — прежние пользовательские настройки
         (дневной лимит, Q14-стоп неотвеченных, флаг «Ностальгии»); повтор
@@ -1676,9 +1677,9 @@ class NostalgiaWorker:
 
     async def _direction_pick(self, chat_id: int, ordered: list[int],
                               info: dict) -> int | None:
-        """PROVISIONAL PLUG-IN POINT — единственная точка квантового
-        направления (VMQ-ONTO-01). Подпись подлежит сверке с контрактом
-        `plans/features/smart-module-semantic-routing/nostalgia-seam-contract.md`.
+        """Единственная точка квантового направления (VMQ-ONTO-01) — §3
+        контракта `plans/features/smart-module-semantic-routing/
+        nostalgia-seam-contract.md` (NOSTALGIA SEAM RECONCILED).
 
         Контракт по существу (owner corrective 2026-11-10): случайность
         (`RandomSourceService`, purpose `memory_recall`) решает ТОЛЬКО, какой

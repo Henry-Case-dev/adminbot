@@ -283,7 +283,12 @@ def test_kill_switch_registry_73_and_defaults():
     # MEMORY-06 (72cf7cf4, единый retrieval §4.4/§7.1): 320→325 (+5 честных
     # исходов расширенного запроса и гейтов уместности: ambiguous_subject,
     # subject_mismatch, invalid_purpose, invalid_limit, limit_not_allowed).
-    assert len(mca_events.REASON_CODES) == 325
+    # MOD-ACL-UX-01 M2 (dd52cbf9, CHAT OFF в полёте / capability-state §2.1):
+    # 325→330 (+5 честных кодов состояния готовности модуля: capability_off,
+    # emergency_block, permission_denied, consent_required, not_ready).
+    # Пин отражает фактический словарь как есть; к ностальгии отношения не
+    # имеет (services/mca_events.py корректировкой 2026-11-10 не менялся).
+    assert len(mca_events.REASON_CODES) == 330
     assert {"evidence_skipped", "evidence_reused",
             "evidence_unverified_claim_removed"} <= mca_events.REASON_CODES
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES

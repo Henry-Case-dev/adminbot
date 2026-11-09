@@ -2334,12 +2334,12 @@ class InitiativeObserverRunner:
 
     async def _act_on_memory_recall(self, payload: dict, chat_id: int,
                                     verdict: dict, rows: list[dict]) -> None:
-        """PROVISIONAL SEAM SITE — место вызова шва проактивного воспоминания.
+        """Место вызова шва проактивного воспоминания — §1 контракта
+        `plans/features/smart-module-semantic-routing/
+        nostalgia-seam-contract.md` (NOSTALGIA SEAM RECONCILED).
 
         Стоит сразу после решения Observer внутри живого прохода оценки, до
-        любого ожидания nostalgia_tick. Подпись вызова подлежит сверке с
-        `plans/features/smart-module-semantic-routing/
-        nostalgia-seam-contract.md`; логика решения о публикации остаётся у
+        любого ожидания nostalgia_tick; логика решения о публикации остаётся у
         общего транспорта (шов только просит писателя).
 
         Решение «есть смысловая связь» уже принято оценщиком окна; здесь
