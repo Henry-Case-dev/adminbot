@@ -1,0 +1,1180 @@
+{
+  "admin": {
+    "groups": [
+      {
+        "category": "models",
+        "description": "Главная нейросеть бота: адрес и название модели.",
+        "id": "models_main",
+        "order": 1,
+        "title": "Основная модель"
+      },
+      {
+        "category": "keys",
+        "description": "Пароли доступа к основной и запасной нейросети.",
+        "id": "keys_llm",
+        "order": 1,
+        "title": "Основная нейросеть"
+      },
+      {
+        "category": "models",
+        "description": "Запасная нейросеть — когда основная недоступна.",
+        "id": "models_fallback",
+        "order": 2,
+        "title": "Фолбэк-модель"
+      },
+      {
+        "category": "keys",
+        "description": "Ключ распознавания голосовых.",
+        "id": "keys_groq",
+        "order": 2,
+        "title": "Groq"
+      },
+      {
+        "category": "models",
+        "description": "Модель «отпечатков» текста для поиска по памяти + подсчёт длины.",
+        "id": "models_embeddings",
+        "order": 3,
+        "title": "Отпечатки текста и длина"
+      },
+      {
+        "category": "keys",
+        "description": "Ключ пересказов видео и страниц.",
+        "id": "keys_openrouter",
+        "order": 3,
+        "title": "OpenRouter"
+      },
+      {
+        "category": "models",
+        "description": "Сколько ждать ответ нейросети и как повторять при сбоях.",
+        "id": "models_llm_timeouts",
+        "order": 4,
+        "title": "Таймауты и повторы"
+      },
+      {
+        "category": "keys",
+        "description": "Ключи интернет-поиска.",
+        "id": "keys_search",
+        "order": 4,
+        "title": "Поиск: Exa и Tavily"
+      },
+      {
+        "category": "models",
+        "description": "Страховка от зависших запросов: жёсткий лимит и «рубильник».",
+        "id": "models_llm_guard",
+        "order": 5,
+        "title": "Бюджет и защита от сбоев"
+      },
+      {
+        "category": "models",
+        "description": "Groq — голосовые, OpenRouter — пересказы видео.",
+        "id": "models_extra_providers",
+        "order": 6,
+        "title": "Дополнительные провайдеры"
+      },
+      {
+        "category": "keys",
+        "description": "Прокси и сохранённые пропуска браузера для субтитров YouTube.",
+        "id": "keys_youtube",
+        "order": 6,
+        "title": "YouTube: прокси и пропуска"
+      },
+      {
+        "category": "keys",
+        "description": "Секрет подписи временных ссылок на видео (раунд 3).",
+        "id": "keys_media",
+        "order": 7,
+        "title": "Медиа-шара"
+      },
+      {
+        "category": "models",
+        "description": "Модели, которые смотрят видео сами, и таймаут выжимки.",
+        "id": "models_video_summary",
+        "order": 8,
+        "title": "Видео-выжимка (OpenRouter)"
+      },
+      {
+        "category": "keys",
+        "description": "Ключ провайдера генерации картинок (GET-режим работает без ключа).",
+        "id": "keys_images",
+        "order": 8,
+        "title": "Генерация изображений: ключ"
+      },
+      {
+        "category": "models",
+        "description": "Адрес, модель и режим запроса к провайдеру генерации картинок.",
+        "id": "models_images",
+        "order": 9,
+        "title": "Генерация изображений"
+      },
+      {
+        "category": "keys",
+        "description": "Подключение квантового источника чисел ANU: адрес, ключ, размер и тип партии, таймаут и границы запаса. Ключ хранится маской; подписка не оформляется автоматически.",
+        "id": "keys_random",
+        "order": 9,
+        "title": "Случайность: подключение ANU"
+      },
+      {
+        "category": "models",
+        "description": "Отдельные модель и адрес для каждого шага новой статьи-саммари. Пусто — наследуется основная нейросеть.",
+        "id": "models_summary_hybrid",
+        "order": 10,
+        "title": "Hybrid Summary: модели L1/L2"
+      },
+      {
+        "category": "keys",
+        "description": "Ключ отдельной модели распознавания картинок. Хранится маской; пусто — используется ключ основной нейросети.",
+        "id": "keys_vision",
+        "order": 10,
+        "title": "Распознавание изображений: ключ"
+      },
+      {
+        "category": "models",
+        "description": "Отдельная модель для понимания картинок: адрес сервера и название модели. Пусто — используется основная нейросеть.",
+        "id": "models_vision",
+        "order": 11,
+        "title": "Распознавание изображений"
+      },
+      {
+        "category": "models",
+        "description": "Отдельные модель и адрес для шага планирования ответа в прямом чате (L1 Planner). Пусто — наследуется основная нейросеть.",
+        "id": "models_direct_l1",
+        "order": 12,
+        "title": "Direct: модель планировщика (L1)"
+      }
+    ],
+    "items": [
+      {
+        "category": "keys",
+        "description": "Ключ провайдера основной модели «отпечатков» текста. Пусто — используется ключ основной нейросети.",
+        "group": "keys_llm",
+        "key": "keys.embedding_api_key",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": true,
+        "title": "Ключ основной модели памяти",
+        "type": "str",
+        "value": {
+          "configured": true,
+          "last4": "0000"
+        },
+        "widget": ""
+      },
+      {
+        "category": "keys",
+        "description": "Ключ первой запасной модели «отпечатков» текста (если основная не отдаёт эмбеддинги). Получить: кабинет провайдера.",
+        "group": "keys_llm",
+        "key": "keys.embedding_fallback_api_key",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": true,
+        "title": "Ключ запасной модели памяти",
+        "type": "str",
+        "value": {
+          "configured": true,
+          "last4": "0000"
+        },
+        "widget": ""
+      },
+      {
+        "category": "keys",
+        "description": "Ключ второй запасной модели «отпечатков» текста — запасной аккаунт того же провайдера. Получить: кабинет провайдера.",
+        "group": "keys_llm",
+        "key": "keys.embedding_fallback_api_key_2",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": true,
+        "title": "Ключ второй запасной модели памяти",
+        "type": "str",
+        "value": {
+          "configured": true,
+          "last4": "0000"
+        },
+        "widget": ""
+      },
+      {
+        "category": "keys",
+        "description": "Группы квот ключей «отпечатков» текста: формат «имя:группа,...», например primary:проект-а,fallback_1:проект-б,fallback_2:проект-б. Ключи одного кабинета провайдера — одна группа; независимые квоты — разные. Пусто — все ключи считаются одной безопасной группой.",
+        "group": "keys_llm",
+        "key": "keys.embedding_quota_group_labels",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Квоты: группы ключей памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "keys",
+        "description": "Ключ отдельной нейросети для фоновых проверок (оценка важности). Пусто — используется ключ основной нейросети.",
+        "group": "keys_llm",
+        "key": "keys.intel_bg_api_key",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": true,
+        "title": "Ключ нейросети для фоновых проверок",
+        "type": "str",
+        "value": {
+          "configured": true,
+          "last4": "0000"
+        },
+        "widget": ""
+      },
+      {
+        "category": "keys",
+        "description": "Ключ отдельной нейросети для исторической памяти (Вехи/Лор). Пусто — используется ключ основной нейросети.",
+        "group": "keys_llm",
+        "key": "keys.intel_history_api_key",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": true,
+        "title": "Ключ нейросети для Вех и Лора",
+        "type": "str",
+        "value": {
+          "configured": true,
+          "last4": "0000"
+        },
+        "widget": ""
+      },
+      {
+        "category": "keys",
+        "description": "Ключ отдельной нейросети для экстрактора сути (саморефлексия). Пусто — используется ключ основной нейросети.",
+        "group": "keys_llm",
+        "key": "keys.intel_reflection_api_key",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": true,
+        "title": "Ключ нейросети саморефлексии",
+        "type": "str",
+        "value": {
+          "configured": true,
+          "last4": "0000"
+        },
+        "widget": ""
+      },
+      {
+        "category": "keys",
+        "description": "Ключ основной нейросети — через него идёт почти вся работа бота. Взять: кабинет провайдера.",
+        "group": "keys_llm",
+        "key": "keys.llm_api_key",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": true,
+        "title": "Ключ основной нейросети",
+        "type": "str",
+        "value": {
+          "configured": true,
+          "last4": "0000"
+        },
+        "widget": ""
+      },
+      {
+        "category": "keys",
+        "description": "Ключ запасной нейросети на случай сбоя основной. Получить: кабинет запасного провайдера.",
+        "group": "keys_llm",
+        "key": "keys.llm_fallback_api_key",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": true,
+        "title": "Ключ запасной нейросети",
+        "type": "str",
+        "value": {
+          "configured": true,
+          "last4": "0000"
+        },
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Адрес сервера модели «отпечатков» текста. Может быть у другого провайдера, чем основная нейросеть.",
+        "group": "models_embeddings",
+        "key": "models.embedding_base_url",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Адрес основной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Длина «отпечатка» текста. Должна совпадать с моделью эмбеддингов, иначе поиск сломается.",
+        "group": "models_embeddings",
+        "key": "models.embedding_dim",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Размерность эмбеддингов",
+        "type": "int",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Как называть модель поиска по памяти. Пусто — покажется адрес сервера.",
+        "group": "models_embeddings",
+        "key": "models.embedding_display_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Название основной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Адрес сервера первой запасной модели «отпечатков» текста. Пусто — используется прежний общий адрес запасной модели.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback1_base_url",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 1: адрес модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Модель первой запасной. Пусто — прежняя общая модель запасных.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback1_model",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 1: модель памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Группа квоты ключа Fallback 1 (одна группа — общий лимит провайдера). Пусто — группа из списка «Квоты: группы ключей памяти».",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback1_quota_group",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 1: квота-группа",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Адрес сервера второй запасной модели «отпечатков» текста. Пусто — Fallback 2 наследует адрес Fallback 1 (наследуется честно помечается в статусе).",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback2_base_url",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 2: адрес модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Как называть вторую запасную модель памяти. Пусто — покажется адрес сервера.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback2_display_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Название второй запасной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Модель второй запасной. Пусто — наследует модель Fallback 1.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback2_model",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 2: модель памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Группа квоты ключа Fallback 2. Пусто — группа из списка «Квоты: группы ключей памяти».",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback2_quota_group",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 2: квота-группа",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Адрес сервера запасной модели «отпечатков» текста. Общий для обоих запасных ключей.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback_base_url",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Адрес запасной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Как называть первую запасную модель памяти. Пусто — покажется адрес сервера.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback_display_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Название запасной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Название запасной модели «отпечатков». Общее для обоих запасных ключей; пусто — берётся основная.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback_model",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Модель запасной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Модель «отпечатков» текста для поиска по памяти. Менять только вместе с размерностью ниже.",
+        "group": "models_embeddings",
+        "key": "models.embedding_model_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Модель эмбеддингов",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Запас при подсчёте длины: больше — бот осторожнее и чаще вписывается в лимиты.",
+        "group": "models_embeddings",
+        "key": "models.token_safety_multiplier",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Запас при подсчёте длины текста",
+        "type": "float",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Как бот считает длину текста в словах. Меняется только вместе с моделью.",
+        "group": "models_embeddings",
+        "key": "models.tokenizer_encoding",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Кодировка tiktoken",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Обычно оставьте 0 (Авто): система сама определяет доступный контекст выбранной модели по данным провайдера или сервера. Укажите значение вручную только если ваш сервер использует нестандартное окно и не сообщает его автоматически.",
+        "group": "models_main",
+        "key": "models.chat_model_context_window",
+        "per_chat": false,
+        "progressive_level": "advanced",
+        "secret": false,
+        "title": "Ручное окно модели (токены; 0 — авто)",
+        "type": "int",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Адрес сервера нейросети. Меняется, только если переезжаете на другого провайдера.",
+        "group": "models_main",
+        "key": "models.llm_base_url",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Адрес основной нейросети",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Как называть основную нейросеть в админке. Пусто — покажется адрес сервера.",
+        "group": "models_main",
+        "key": "models.llm_display_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Название основной модели",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Название основной модели бота. От неё зависит качество и скорость почти всех ответов.",
+        "group": "models_main",
+        "key": "models.llm_model_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Модель основной нейросети",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      }
+    ]
+  },
+  "registry": [
+    {
+      "analytics_anchor": "intent.initiative",
+      "classification": "product_module",
+      "config_tab": "mod_initiative",
+      "description": "Проактивные намерения: бот сам возвращается к открытым вопросам и напоминаниям (heartbeat, решения, recheck).",
+      "help_anchor": "Намерение",
+      "id": "initiative",
+      "master_param": "flags.initiative_enabled",
+      "model_slots": [],
+      "parent_id": null,
+      "route": "#/modules/initiative",
+      "runtime_gate": "global",
+      "settings_groups": [
+        "flags_intent",
+        "limits_intent"
+      ],
+      "status_source": "status_service.intent_snapshot",
+      "tab": "mod_initiative",
+      "title": "Инициатива",
+      "visibility": "visible"
+    },
+    {
+      "analytics_anchor": "stories.vitrina",
+      "classification": "submodule",
+      "config_tab": "memory_rag",
+      "description": "Витрина «Истории чата», действия с историями и жизненный цикл эпизодов (мастер, фасад компилятора, продолжение, backfill).",
+      "help_anchor": "Истории",
+      "id": "stories",
+      "master_param": "flags.stories_vitrina_enabled",
+      "model_slots": [],
+      "parent_id": "memory",
+      "route": "#/modules/stories",
+      "runtime_gate": "global",
+      "settings_groups": [
+        "flags_stories"
+      ],
+      "status_source": "status_service «Истории чата» + web/api/stories",
+      "tab": "mod_stories",
+      "title": "Истории и эпизоды",
+      "visibility": "visible"
+    },
+    {
+      "analytics_anchor": "self_model.snapshot",
+      "classification": "submodule",
+      "config_tab": "permsoc",
+      "description": "Эволюция характера: модель себя, правила черт, миграция legacy-черт, слои и речь характера, scope стиля, форм-гард постобработки.",
+      "help_anchor": "Динамические черты",
+      "id": "character",
+      "master_param": "flags.self_model_enabled",
+      "model_slots": [],
+      "parent_id": "persona",
+      "route": "#/modules/character",
+      "runtime_gate": "global",
+      "settings_groups": [
+        "flags_character"
+      ],
+      "status_source": "mca17c self_model + adjacentSelfModelLine (Статус)",
+      "tab": "mod_character",
+      "title": "Характер (SelfModel)",
+      "visibility": "advanced"
+    },
+    {
+      "analytics_anchor": "self_learning.run",
+      "classification": "submodule",
+      "config_tab": "memory_rag",
+      "description": "Банк проверенного опыта: запись эпизодов, уроки и пакетный разбор (уроки не меняют правила бота). Worker глобальный; обучение включается по чатам (наследование → глобальное значение).",
+      "help_anchor": "Урок",
+      "id": "experience",
+      "master_param": "memory.experience_learning_enabled",
+      "model_slots": [],
+      "parent_id": "memory",
+      "route": "#/modules/experience",
+      "runtime_gate": "per_chat",
+      "settings_groups": [
+        "memory_experience"
+      ],
+      "status_source": "status_service data-experience лента",
+      "tab": "mod_experience",
+      "title": "Опыт и уроки",
+      "visibility": "visible"
+    },
+    {
+      "analytics_anchor": "random.source",
+      "classification": "submodule",
+      "config_tab": "mod_sleep",
+      "description": "Источник случайности (квантовый ANU или локальный), честный откат, вероятности исследования и разрешения применений. Shared: спонтанность, сон, инициатива.",
+      "help_anchor": "Источник случайности",
+      "id": "random",
+      "master_param": "memory.random_enabled",
+      "model_slots": [
+        "keys_random"
+      ],
+      "parent_id": "memory",
+      "route": "#/modules/random",
+      "runtime_gate": "global",
+      "settings_groups": [
+        "memory_random"
+      ],
+      "status_source": "status_service «Источник случайности»",
+      "tab": "mod_random",
+      "title": "Случайность",
+      "visibility": "visible"
+    },
+    {
+      "analytics_anchor": "factcheck.run",
+      "classification": "product_module",
+      "config_tab": "mod_factcheck",
+      "description": "Проверка утверждений: поиск источников, аналитик, перепроверка (validator) и вербализация с сохранением дат и оговорок.",
+      "help_anchor": "Фактчек",
+      "id": "factcheck",
+      "master_param": "flags.factcheck_enabled",
+      "model_slots": [],
+      "parent_id": null,
+      "route": "#/modules/factcheck",
+      "runtime_gate": "global",
+      "settings_groups": [
+        "flags_module_factcheck",
+        "limits_factcheck",
+        "prompts_factcheck"
+      ],
+      "status_source": "status_service фактчек + factcheck_run события",
+      "tab": "mod_factcheck",
+      "title": "Фактчек",
+      "visibility": "visible"
+    },
+    {
+      "analytics_anchor": "vision.media",
+      "classification": "product_module",
+      "config_tab": "mod_vision",
+      "description": "Анализ картинок в чате: ручной и автоматический прогон, backfill, tool-доступ; модели и лимиты vision-провайдера.",
+      "help_anchor": "Распознавание изображений",
+      "id": "vision",
+      "master_param": "flags.vision_enabled",
+      "model_slots": [],
+      "parent_id": null,
+      "route": "#/modules/vision",
+      "runtime_gate": "global",
+      "settings_groups": [
+        "flags_module_vision",
+        "limits_vision",
+        "models_vision",
+        "keys_vision"
+      ],
+      "status_source": "vision_media события + панель mca_vision",
+      "tab": "mod_vision",
+      "title": "Распознавание изображений",
+      "visibility": "visible"
+    },
+    {
+      "analytics_anchor": "nostalgia.run",
+      "classification": "product_module",
+      "config_tab": "mod_nostalgia",
+      "description": "Слой B «кстати…»: бот вспоминает давние события чата в тихие моменты (год-спустя, золотые факты, окно тишины, cooldown).",
+      "help_anchor": "Ностальгия",
+      "id": "nostalgia",
+      "master_param": "memory.nostalgia_enabled",
+      "model_slots": [],
+      "parent_id": null,
+      "route": "#/modules/nostalgia",
+      "runtime_gate": "global",
+      "settings_groups": [
+        "memory_nostalgia"
+      ],
+      "status_source": "nostalgia_log + nostalgia_run события",
+      "tab": "mod_nostalgia",
+      "title": "Ностальгия",
+      "visibility": "visible"
+    },
+    {
+      "analytics_anchor": "sleep.dream",
+      "classification": "product_module",
+      "config_tab": "mod_sleep",
+      "description": "Ночной синтез убеждений из фактов чата и «глубокий сон» (парадигмы «раньше → сейчас») с окнами, бюджетами и журналом прогонов.",
+      "help_anchor": "Сон",
+      "id": "sleep",
+      "master_param": "memory.dream_enabled",
+      "model_slots": [],
+      "parent_id": null,
+      "route": "#/modules/sleep",
+      "runtime_gate": "global",
+      "settings_groups": [
+        "memory_dream"
+      ],
+      "status_source": "«Сон и активность» (cognition) + sleep_dream/sleep.deep",
+      "tab": "mod_sleep",
+      "title": "Сон и память",
+      "visibility": "visible"
+    },
+    {
+      "analytics_anchor": "embeddings.index",
+      "classification": "infrastructure",
+      "config_tab": "mod_embeddings",
+      "description": "Инфраструктура векторов и графа знаний: генерация эмбеддингов, индексы/поколения, восстановление after-сбоев. Настройка — в родителях, не отдельным тумблером.",
+      "help_anchor": "Эмбеддинги",
+      "id": "embeddings",
+      "master_param": "",
+      "model_slots": [
+        "keys_llm"
+      ],
+      "parent_id": null,
+      "route": "#/modules/embeddings",
+      "runtime_gate": "global",
+      "settings_groups": [
+        "models_embeddings"
+      ],
+      "status_source": "панель Embeddings + embeddings.index события",
+      "tab": "mod_embeddings",
+      "title": "Векторная память (Embeddings/GraphRAG)",
+      "visibility": "advanced"
+    }
+  ],
+  "user": {
+    "groups": [
+      {
+        "category": "models",
+        "description": "Главная нейросеть бота: адрес и название модели.",
+        "id": "models_main",
+        "order": 1,
+        "title": "Основная модель"
+      },
+      {
+        "category": "keys",
+        "description": "Пароли доступа к основной и запасной нейросети.",
+        "id": "keys_llm",
+        "order": 1,
+        "title": "Основная нейросеть"
+      },
+      {
+        "category": "models",
+        "description": "Запасная нейросеть — когда основная недоступна.",
+        "id": "models_fallback",
+        "order": 2,
+        "title": "Фолбэк-модель"
+      },
+      {
+        "category": "keys",
+        "description": "Ключ распознавания голосовых.",
+        "id": "keys_groq",
+        "order": 2,
+        "title": "Groq"
+      },
+      {
+        "category": "models",
+        "description": "Модель «отпечатков» текста для поиска по памяти + подсчёт длины.",
+        "id": "models_embeddings",
+        "order": 3,
+        "title": "Отпечатки текста и длина"
+      },
+      {
+        "category": "keys",
+        "description": "Ключ пересказов видео и страниц.",
+        "id": "keys_openrouter",
+        "order": 3,
+        "title": "OpenRouter"
+      },
+      {
+        "category": "models",
+        "description": "Сколько ждать ответ нейросети и как повторять при сбоях.",
+        "id": "models_llm_timeouts",
+        "order": 4,
+        "title": "Таймауты и повторы"
+      },
+      {
+        "category": "keys",
+        "description": "Ключи интернет-поиска.",
+        "id": "keys_search",
+        "order": 4,
+        "title": "Поиск: Exa и Tavily"
+      },
+      {
+        "category": "models",
+        "description": "Страховка от зависших запросов: жёсткий лимит и «рубильник».",
+        "id": "models_llm_guard",
+        "order": 5,
+        "title": "Бюджет и защита от сбоев"
+      },
+      {
+        "category": "models",
+        "description": "Groq — голосовые, OpenRouter — пересказы видео.",
+        "id": "models_extra_providers",
+        "order": 6,
+        "title": "Дополнительные провайдеры"
+      },
+      {
+        "category": "keys",
+        "description": "Прокси и сохранённые пропуска браузера для субтитров YouTube.",
+        "id": "keys_youtube",
+        "order": 6,
+        "title": "YouTube: прокси и пропуска"
+      },
+      {
+        "category": "keys",
+        "description": "Секрет подписи временных ссылок на видео (раунд 3).",
+        "id": "keys_media",
+        "order": 7,
+        "title": "Медиа-шара"
+      },
+      {
+        "category": "models",
+        "description": "Модели, которые смотрят видео сами, и таймаут выжимки.",
+        "id": "models_video_summary",
+        "order": 8,
+        "title": "Видео-выжимка (OpenRouter)"
+      },
+      {
+        "category": "keys",
+        "description": "Ключ провайдера генерации картинок (GET-режим работает без ключа).",
+        "id": "keys_images",
+        "order": 8,
+        "title": "Генерация изображений: ключ"
+      },
+      {
+        "category": "models",
+        "description": "Адрес, модель и режим запроса к провайдеру генерации картинок.",
+        "id": "models_images",
+        "order": 9,
+        "title": "Генерация изображений"
+      },
+      {
+        "category": "keys",
+        "description": "Подключение квантового источника чисел ANU: адрес, ключ, размер и тип партии, таймаут и границы запаса. Ключ хранится маской; подписка не оформляется автоматически.",
+        "id": "keys_random",
+        "order": 9,
+        "title": "Случайность: подключение ANU"
+      },
+      {
+        "category": "models",
+        "description": "Отдельные модель и адрес для каждого шага новой статьи-саммари. Пусто — наследуется основная нейросеть.",
+        "id": "models_summary_hybrid",
+        "order": 10,
+        "title": "Hybrid Summary: модели L1/L2"
+      },
+      {
+        "category": "keys",
+        "description": "Ключ отдельной модели распознавания картинок. Хранится маской; пусто — используется ключ основной нейросети.",
+        "id": "keys_vision",
+        "order": 10,
+        "title": "Распознавание изображений: ключ"
+      },
+      {
+        "category": "models",
+        "description": "Отдельная модель для понимания картинок: адрес сервера и название модели. Пусто — используется основная нейросеть.",
+        "id": "models_vision",
+        "order": 11,
+        "title": "Распознавание изображений"
+      },
+      {
+        "category": "models",
+        "description": "Отдельные модель и адрес для шага планирования ответа в прямом чате (L1 Planner). Пусто — наследуется основная нейросеть.",
+        "id": "models_direct_l1",
+        "order": 12,
+        "title": "Direct: модель планировщика (L1)"
+      }
+    ],
+    "items": [
+      {
+        "category": "keys",
+        "description": "Группы квот ключей «отпечатков» текста: формат «имя:группа,...», например primary:проект-а,fallback_1:проект-б,fallback_2:проект-б. Ключи одного кабинета провайдера — одна группа; независимые квоты — разные. Пусто — все ключи считаются одной безопасной группой.",
+        "group": "keys_llm",
+        "key": "keys.embedding_quota_group_labels",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Квоты: группы ключей памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Адрес сервера модели «отпечатков» текста. Может быть у другого провайдера, чем основная нейросеть.",
+        "group": "models_embeddings",
+        "key": "models.embedding_base_url",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Адрес основной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Длина «отпечатка» текста. Должна совпадать с моделью эмбеддингов, иначе поиск сломается.",
+        "group": "models_embeddings",
+        "key": "models.embedding_dim",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Размерность эмбеддингов",
+        "type": "int",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Как называть модель поиска по памяти. Пусто — покажется адрес сервера.",
+        "group": "models_embeddings",
+        "key": "models.embedding_display_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Название основной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Адрес сервера первой запасной модели «отпечатков» текста. Пусто — используется прежний общий адрес запасной модели.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback1_base_url",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 1: адрес модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Модель первой запасной. Пусто — прежняя общая модель запасных.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback1_model",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 1: модель памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Группа квоты ключа Fallback 1 (одна группа — общий лимит провайдера). Пусто — группа из списка «Квоты: группы ключей памяти».",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback1_quota_group",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 1: квота-группа",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Адрес сервера второй запасной модели «отпечатков» текста. Пусто — Fallback 2 наследует адрес Fallback 1 (наследуется честно помечается в статусе).",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback2_base_url",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 2: адрес модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Как называть вторую запасную модель памяти. Пусто — покажется адрес сервера.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback2_display_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Название второй запасной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Модель второй запасной. Пусто — наследует модель Fallback 1.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback2_model",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 2: модель памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Группа квоты ключа Fallback 2. Пусто — группа из списка «Квоты: группы ключей памяти».",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback2_quota_group",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Fallback 2: квота-группа",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Адрес сервера запасной модели «отпечатков» текста. Общий для обоих запасных ключей.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback_base_url",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Адрес запасной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Как называть первую запасную модель памяти. Пусто — покажется адрес сервера.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback_display_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Название запасной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Название запасной модели «отпечатков». Общее для обоих запасных ключей; пусто — берётся основная.",
+        "group": "models_embeddings",
+        "key": "models.embedding_fallback_model",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Модель запасной модели памяти",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Модель «отпечатков» текста для поиска по памяти. Менять только вместе с размерностью ниже.",
+        "group": "models_embeddings",
+        "key": "models.embedding_model_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Модель эмбеддингов",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Запас при подсчёте длины: больше — бот осторожнее и чаще вписывается в лимиты.",
+        "group": "models_embeddings",
+        "key": "models.token_safety_multiplier",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Запас при подсчёте длины текста",
+        "type": "float",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Как бот считает длину текста в словах. Меняется только вместе с моделью.",
+        "group": "models_embeddings",
+        "key": "models.tokenizer_encoding",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Кодировка tiktoken",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Обычно оставьте 0 (Авто): система сама определяет доступный контекст выбранной модели по данным провайдера или сервера. Укажите значение вручную только если ваш сервер использует нестандартное окно и не сообщает его автоматически.",
+        "group": "models_main",
+        "key": "models.chat_model_context_window",
+        "per_chat": false,
+        "progressive_level": "advanced",
+        "secret": false,
+        "title": "Ручное окно модели (токены; 0 — авто)",
+        "type": "int",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Адрес сервера нейросети. Меняется, только если переезжаете на другого провайдера.",
+        "group": "models_main",
+        "key": "models.llm_base_url",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Адрес основной нейросети",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Как называть основную нейросеть в админке. Пусто — покажется адрес сервера.",
+        "group": "models_main",
+        "key": "models.llm_display_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Название основной модели",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      },
+      {
+        "category": "models",
+        "description": "Название основной модели бота. От неё зависит качество и скорость почти всех ответов.",
+        "group": "models_main",
+        "key": "models.llm_model_name",
+        "per_chat": false,
+        "progressive_level": "basic",
+        "secret": false,
+        "title": "Модель основной нейросети",
+        "type": "str",
+        "value": null,
+        "widget": ""
+      }
+    ]
+  }
+}

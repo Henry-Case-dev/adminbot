@@ -56,6 +56,48 @@ EMB_GROUP = "models_embeddings"
 KEYS_GROUP = "keys_llm"
 
 SCRIPT = os.path.join("tests", "js", "mod_acl_ux_m4_module_params_test.js")
+FIXTURE = os.path.join("tests", "fixtures", "mod_acl_m4_embeddings_payload.json")
+
+# Строки bot_settings «как в проде»: все ключи каталога этих групп сохранены
+# владельцем (сид keys-строки не создаёт — services/config_cache,
+# `_synthetic_group_items`/D13), поэтому `/api/config` содержит ПОЛНЫЙ набор:
+# models_embeddings 16 + keys_llm 9 + models_main 4.
+KEEP_GROUPS = ("models_embeddings", "keys_llm", "models_main")
+
+
+def _catalogue_rows(groups=KEEP_GROUPS):
+    from services import param_catalog as pc
+    rows = []
+    for spec in pc.REGISTRY.values():
+        if spec.group not in groups or spec.hidden or not spec.pg_key:
+            continue
+        if spec.secret:
+            value = "sk-test-key"
+        elif spec.type == "int":
+            value = 1
+        elif spec.type == "float":
+            value = 1.0
+        elif spec.type == "bool":
+            value = False
+        else:
+            value = ""
+        rows.append({"key": spec.pg_key, "value": value,
+                     "category": spec.category, "updated_at": None})
+    return rows
+
+
+_SETTINGS_ROWS = _catalogue_rows()
+
+# Поля ModuleSpec, которые получает фронт через `registry_for_frontend()`.
+# `gate` намеренно не входит: его requested/effective/source зависит от env и
+# сделал бы снимок недетерминированным (JS-контракту гейт не нужен).
+REGISTRY_FIELDS = (
+    "id", "title", "description", "parent_id", "master_param",
+    "runtime_gate", "settings_groups", "model_slots", "config_tab",
+    "visibility", "classification", "status_source", "analytics_anchor",
+    "help_anchor", "tab", "route",
+)
+
 
 
 def make_init_data(user_id: int = ADMIN_ID) -> str:
@@ -146,13 +188,8 @@ _ADMIN_ROWS = [
 ]
 # Сохранённые владельцем ключи (в проде строки bot_settings существуют —
 # поэтому группа keys_llm реально приходит в /api/config; сид keys-строки не
-# создаёт, см. services/config_cache._synthetic_group_items/D13).
-_SETTINGS_ROWS = [
-    {"key": "keys.llm_api_key", "value": "sk-test-llm",
-     "category": "keys", "updated_at": None},
-    {"key": "keys.embedding_api_key", "value": "sk-test-emb",
-     "category": "keys", "updated_at": None},
-]
+# создаёт, см. services/config_cache._synthetic_group_items/D13). Набор строк
+# генерируется из каталога (`_SETTINGS_ROWS` выше) — рукописного списка нет.
 
 
 @pytest.fixture
@@ -177,14 +214,19 @@ def _items_of(body, group):
 
 
 def test_global_admin_receives_embeddings_groups(client):
-    """Причина (B) отклонена: глобальному админу сервер НЕ режет параметры."""
+    """Причина (B) отклонена: глобальному админу сервер НЕ режет параметры.
+
+    Реальный набор страницы: models_embeddings 16 параметров + keys_llm 9
+    ключей = 25 — ровно то, что рендерится на «Основных настройках».
+    """
     resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
     assert resp.status_code == 200
     body = resp.json()
     emb = _items_of(body, EMB_GROUP)
     keys = _items_of(body, KEYS_GROUP)
-    assert len(emb) >= 3, "каталог объявляет >=3 параметра models_embeddings"
-    assert keys, "глобальный админ видит секретные ключи своей области"
+    assert len(emb) == 16, "каталог объявляет 16 параметров models_embeddings"
+    assert len(keys) == 9, "каталог объявляет 9 ключей keys_llm"
+    assert len(emb) + len(keys) == 25, "страница модуля показывает 25 параметров"
     # Категории реальные (источники вкладки строятся по ним, не по догадке).
     assert {it["category"] for it in emb} == {"models"}
     assert {it["category"] for it in keys} == {"keys"}
@@ -193,23 +235,105 @@ def test_global_admin_receives_embeddings_groups(client):
     assert EMB_GROUP in gids and KEYS_GROUP in gids
     assert gids[EMB_GROUP]["title"] == "Отпечатки текста и длина"
     assert gids[EMB_GROUP]["category"] == "models"
+    assert gids[KEYS_GROUP]["title"] == "Основная нейросеть"
+    assert gids[KEYS_GROUP]["category"] == "keys"
+    assert any(it["secret"] for it in keys), "ключи отданы в маскированном виде"
 
 
 def test_plain_user_loses_secret_keys_but_keeps_model_params(client):
-    """Настоящий фильтр прав существует — но он не объясняет пустоту админа."""
+    """Настоящий фильтр прав существует — но он не объясняет пустоту админа.
+
+    Сервер скрывает от не-админа именно СЕКРЕТЫ (`secret=True`, категория
+    keys); несекретные участники той же группы (например «Квоты: группы
+    ключей») остаются — поэтому проверяем и убыль набора, и отсутствие
+    секретов, а не «группа пуста».
+    """
     resp = client.get("/api/config", headers=_hdr(USER_ID))
     assert resp.status_code == 200
     body = resp.json()
-    assert _items_of(body, EMB_GROUP), (
+    keys = _items_of(body, KEYS_GROUP)
+    assert len(_items_of(body, EMB_GROUP)) == 16, (
         "несекретные параметры embeddings видны и обычному пользователю")
-    assert not _items_of(body, KEYS_GROUP), (
+    assert not [it for it in keys if it["secret"]], (
         "ключи-секреты не-админу сервер не отдаёт — это и есть права")
+    admin_keys = _items_of(
+        client.get("/api/config", headers=_hdr(ADMIN_ID)).json(), KEYS_GROUP)
+    assert len(keys) < len(admin_keys), (
+        "у не-админа группа keys_llm реально урезана серверным фильтром")
 
 
 def _registry_snapshot():
-    """Ровно то, что получает фронт: `registry_for_frontend()`."""
+    """Ровно то, что получает фронт: `registry_for_frontend()` (без gate)."""
     from services.module_registry import registry_for_frontend
-    return registry_for_frontend()
+    rows = []
+    for spec in registry_for_frontend():
+        rows.append({f: spec[f] for f in REGISTRY_FIELDS})
+    return rows
+
+
+def _project_body(body):
+    """Детерминированная проекция `/api/config` для node-теста.
+
+    Оставляем только группы, которые проверяет контракт (объявленные модулю +
+    соседняя models_main), и только поля, влияющие на рендер/проверки. Значения
+    параметров не входят в снимок: они зависят от env/Settings, а контракт
+    здесь — НАБОР параметров, их группы, заголовки и фильтрация поиском.
+    """
+    items = [
+        {
+            "key": it["key"], "category": it["category"], "group": it["group"],
+            "title": it["title"], "description": it["description"],
+            "type": it["type"], "secret": bool(it["secret"]),
+            "per_chat": bool(it["per_chat"]), "widget": it.get("widget") or "",
+            "progressive_level": it.get("progressive_level") or "basic",
+            "value": ({"configured": True, "last4": "0000"}
+                      if it["secret"] else None),
+        }
+        for it in body.get("items", [])
+        if it.get("group") in KEEP_GROUPS
+    ]
+    items.sort(key=lambda it: (it["category"], it["group"], it["key"]))
+    present = {it["category"] for it in items}
+    groups = [
+        {"id": g["id"], "category": g["category"], "title": g["title"],
+         "description": g["description"], "order": g["order"]}
+        for g in body.get("groups", []) if g["category"] in present
+    ]
+    return {"items": items, "groups": groups}
+
+
+def _fixture_payload(client):
+    """Снимок, который node-тест берёт по умолчанию (самодостаточный прогон)."""
+    return {
+        "registry": _registry_snapshot(),
+        "admin": _project_body(client.get("/api/config",
+                                         headers=_hdr(ADMIN_ID)).json()),
+        "user": _project_body(client.get("/api/config",
+                                        headers=_hdr(USER_ID)).json()),
+    }
+
+
+def _run_node(node, root, argv):
+    return subprocess.run([node, SCRIPT] + list(argv), capture_output=True,
+                          text=True, timeout=180, cwd=root)
+
+
+def test_js_fixture_matches_live_contract(client):
+    """Drift-guard: снимок в репозитории = живой контракт сервера.
+
+    Тот же приём, что у `tests/fixtures/module_registry_visible.json` (M3):
+    node-тест обязан запускаться БЕЗ аргументов стандартным прогоном
+    `node tests/js/*.js`, поэтому ему нужен закоммиченный снимок; расхождение
+    с живым контрактом ловится здесь, а не «зелёным» устаревшим снимком.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(root, FIXTURE)
+    with open(path, encoding="utf-8") as fh:
+        saved = json.load(fh)
+    live = _fixture_payload(client)
+    assert saved == live, (
+        "tests/fixtures/mod_acl_m4_embeddings_payload.json устарел — "
+        "пересоберите его из живого контракта (см. docstring теста)")
 
 
 def test_js_module_page_uses_real_catalogue_params(client):
@@ -224,14 +348,31 @@ def test_js_module_page_uses_real_catalogue_params(client):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, ensure_ascii=False)
-        res = subprocess.run([node, SCRIPT, snap], capture_output=True,
-                             text=True, timeout=180, cwd=root)
+        res = _run_node(node, root, [snap])
     finally:
         try:
             os.unlink(snap)
         except OSError:
             pass
     assert res.returncode == 0, (
-        "MOD-ACL-UX-01 M4 JS-UNIT провалился:\nSTDOUT:\n%s\nSTDERR:\n%s"
-        % (res.stdout, res.stderr))
+        "MOD-ACL-UX-01 M4 JS-UNIT провалился (живой контракт):\n"
+        "STDOUT:\n%s\nSTDERR:\n%s" % (res.stdout, res.stderr))
+    assert "MOD-ACL-UX-01 M4 MODULE PARAMS OK" in res.stdout
+
+
+def test_js_standalone_runs_from_committed_snapshot():
+    """Стандартный прогон `node tests/js/*.js` (без аргументов) ЗЕЛЁНЫЙ.
+
+    Раньше файл требовал обязательный аргумент-снимок и валил стандартный
+    прогон (9 падений вместо 8 на предке). Теперь он читает закоммиченный
+    снимок относительно своего расположения.
+    """
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node недоступен — JS-unit пропущен")
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    res = _run_node(node, root, [])
+    assert res.returncode == 0, (
+        "standalone-прогон M4 упал (нет аргумента = берётся снимок из repo):\n"
+        "STDOUT:\n%s\nSTDERR:\n%s" % (res.stdout, res.stderr))
     assert "MOD-ACL-UX-01 M4 MODULE PARAMS OK" in res.stdout

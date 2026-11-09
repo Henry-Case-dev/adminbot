@@ -22,7 +22,13 @@
  *       невозможно у глобального админа и не заявляется без реального
  *       фильтра.
  *
- * Запуск: node tests/js/mod_acl_ux_m4_module_params_test.js <snapshot.json>
+ * Запуск (стандартный прогон — без аргументов):
+ *   node tests/js/mod_acl_ux_m4_module_params_test.js
+ *   → берёт закоммиченный снимок `tests/fixtures/mod_acl_m4_embeddings_payload.json`
+ *     (путь относительно файла; drift-guard в
+ *     `tests/test_mod_acl_ux_01_m4_module_params.py`).
+ * Аргумент-путь (необязательный) — живой снимок из python-обёртки:
+ *   node tests/js/mod_acl_ux_m4_module_params_test.js <snapshot.json>
  */
 const fs = require('fs');
 const path = require('path');
@@ -73,9 +79,14 @@ const computed = captured.computed;
 const MODULES = data.modules;
 const TABS = data.tabs;
 
-const snapshotPath = process.argv[2];
-assert.ok(snapshotPath && fs.existsSync(snapshotPath),
-  'нужен снимок живого контракта (его готовит python-обёртка)');
+// Снимок контракта: аргумент (живой, из python-обёртки) ИЛИ закоммиченный
+// снимок рядом с тестом. Стандартный прогон `node tests/js/*.js` идёт БЕЗ
+// аргументов — файл обязан быть самодостаточным, иначе он валит весь набор.
+const snapshotPath = process.argv[2]
+  || path.join(__dirname, '..', 'fixtures', 'mod_acl_m4_embeddings_payload.json');
+assert.ok(fs.existsSync(snapshotPath),
+  'нет снимка контракта M4: ' + snapshotPath
+  + ' (его пересобирает tests/test_mod_acl_ux_01_m4_module_params.py)');
 const SNAP = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
 const REGISTRY = SNAP.registry;
 const CATALOG_ADMIN = SNAP.admin;    // GET /api/config для глобального админа
@@ -196,10 +207,15 @@ const keyItems = itemsOfGroup(CATALOG_ADMIN, 'keys_llm');
 {
   ok(DECLARED.length >= 2,
     'реестр объявляет группы параметров модуля (settings_groups+model_slots)');
-  ok(embItems.length > 0,
-    'каталог отдаёт админу параметры models_embeddings (сервер не фильтрует)');
-  ok(keyItems.length > 0,
-    'каталог отдаёт админу ключи keys_llm (паритет с витриной провайдеров)');
+  // Контракт владельца: 16 параметров эмбеддингов + 9 ключей = 25 на странице.
+  eq(embItems.length, 16,
+    'каталог отдаёт админу 16 параметров models_embeddings (без фильтра прав)');
+  eq(keyItems.length, 9,
+    'каталог отдаёт админу 9 ключей keys_llm (паритет с витриной провайдеров)');
+  eq(embItems.length + keyItems.length, 25,
+    'страница «Основные настройки» показывает 25 параметров');
+  ok(itemsOfGroup(CATALOG_ADMIN, 'models_main').length > 0,
+    'в снимке есть соседняя группа models_main (для проверки поиска)');
 
   const ctx = mkCtx(ADMIN, CATALOG_ADMIN, { route: '#/modules/embeddings/settings' });
   const desc = computed.currentTab.call(ctx);
@@ -298,11 +314,19 @@ const keyItems = itemsOfGroup(CATALOG_ADMIN, 'keys_llm');
   eq(plain.route, '#/', 'plain: адрес модуля редиректит на #/');
   eq(plain._toasts.length, 1, 'plain: ровно один тост отказа');
   eq(plain._toasts[0][0], 'Нет доступа к разделу', 'plain: честный отказ прав');
-  // Настоящий серверный фильтр для не-админа подтверждён снимком.
-  eq(itemsOfGroup(CATALOG_USER, 'keys_llm').length, 0,
-    'не-админу сервер НЕ отдаёт ключи (реальный фильтр прав существует)');
-  ok(itemsOfGroup(CATALOG_USER, 'models_embeddings').length > 0,
-    'не-админ видит несекретные параметры того же модуля');
+  // Настоящий серверный фильтр для не-админа подтверждён снимком: секретные
+  // ключи группа объявляет, но не-админу они не приходят (несекретные
+  // участники группы — например «Квоты: группы ключей» — остаются, поэтому
+  // проверяем именно секреты и реальную убыль набора).
+  eq(itemsOfGroup(CATALOG_USER, 'keys_llm')
+      .filter(function (it) { return it.secret; }).length, 0,
+    'не-админу сервер НЕ отдаёт секретные ключи (реальный фильтр прав)');
+  ok(itemsOfGroup(CATALOG_USER, 'keys_llm').length < keyItems.length,
+    'набор keys_llm у не-админа реально меньше, чем у админа');
+  ok(keyItems.filter(function (it) { return it.secret; }).length > 0,
+    'у админа те же секреты присутствуют (маскированно)');
+  ok(itemsOfGroup(CATALOG_USER, 'models_embeddings').length === 16,
+    'не-админ видит те же 16 несекретных параметров того же модуля');
 
   // Глобальный админ по-прежнему открывает страницу без отказа.
   const admin = mkCtx(ADMIN, CATALOG_ADMIN, { route: '#/' });
