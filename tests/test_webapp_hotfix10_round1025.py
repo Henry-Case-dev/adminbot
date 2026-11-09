@@ -254,7 +254,7 @@ class TestVersionAndInvariants:
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 595
+        assert len(pc.REGISTRY) == 606
         assert len(pc.GROUPS) == 119
         assert len(pc._TAB_BY_GROUP) == 117
         assert len(pc.TAB_RULES) == 22

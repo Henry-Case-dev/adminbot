@@ -268,7 +268,7 @@ def test_blockE_catalog_random_uses_keys():
     # EVOL-031 (30.10.2026): 586 → 581 (−5 ключей Exact Match Cache /
     # direct_dedup, replay готовых ответов удалён; вкладка smart_cache
     # снята) → 581/119/117/22.
-    assert len(pc.REGISTRY) == 595
+    assert len(pc.REGISTRY) == 606
     assert len(pc.GROUPS) == 119
     assert len(pc._TAB_BY_GROUP) == 117
     assert len(pc.TAB_RULES) == 22
@@ -312,10 +312,12 @@ def test_blockE_f8_check_green_and_baselines():
     # фактчека: флаг раздела + директива «Критического разноса»).
     # MEMORY-07 волны 3-4 (08.11.2026): 583 … 597 → 598 (+1 PG-only ключ
     # сообществ flags.memory_communities_enabled).
-    assert "595" in res.stdout
+    # MOD-ACL-UX-01 amendment (09.11.2026): 598 … 606 (+11 PG-only ключей
+    # семантического контракта уроков).
+    assert "606" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 595
+    assert fx["counts"]["REGISTRY"] == 606
     assert fx["counts"]["GROUPS"] == 119
     assert fx["counts"]["TAB_BY_GROUP"] == 117
     assert fx["counts"]["TAB_RULES"] == 22
@@ -325,10 +327,10 @@ def test_blockE_f8_check_green_and_baselines():
     # распознавания: предел ответа/режимы модели + границы ожидания и жизни
     # медиа-задачи). FC-06C/EVOL-031 сняли ключи исторически — набор не
     # пересчитывался.
-    assert fx["counts"]["delta"] == 194
+    assert fx["counts"]["delta"] == 205
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 595
+    assert len(cb["registry_keys"]) == 606
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

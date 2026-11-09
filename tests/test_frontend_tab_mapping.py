@@ -192,7 +192,7 @@ class TestTabMappingAudit:
         # flags_smart_cache), −2 mapped → фактические 581/119/117.
         assert len(pc._TAB_BY_GROUP) == 117
         assert len(GROUPS) == 119
-        assert len(pc.REGISTRY) == 595
+        assert len(pc.REGISTRY) == 606
 
 
 class TestModuleTabs:

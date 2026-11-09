@@ -46,7 +46,7 @@ def test_catalog_counts_sanctioned():
     # TTL-ключа TEMPORAL_FRESHNESS_*, кеш вердиктов удалён W1).
     # EVOL-031 (28d55bd1, 30.10.2026): 586→581, 121→119, 119→117, 23→22 —
     # удаление answer-cache ключей/группы/tab (SMART_CACHE_*, CHAT_DEDUP).
-    assert len(pc.REGISTRY) == 595          # 510 → 519 (+9) → 586 → 581
+    assert len(pc.REGISTRY) == 606          # 510 → 519 (+9) → 586 → 581
     assert len(pc.GROUPS) == 119            # 108 → 112 (+4) → 121 → 119
     assert len(pc._TAB_BY_GROUP) == 117     # 106 → 110 → 119 → 117
     assert len(pc.TAB_RULES) == 22          # 21 → 22 (mod_vision)
@@ -126,7 +126,9 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # распознавания → 595+header=596.
     # MEME-PIPELINE-REFactor-01 P2 (03.11.2026): +2 промпт-ключа мемов
     # (prompts.meme_joke / prompts.meme_image) → 597+header=598.
-    assert len(tsv) == 596
+    # MOD-ACL-UX-01 amendment (09.11.2026): +11 PG-only ключей уроков →
+    # 606+header=607.
+    assert len(tsv) == 607
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
@@ -134,7 +136,9 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # EVOL-031: 581/175 (снятые ключи исторические — delta-набор не менялся).
     # EVOL §5 W5 review-fix B1 (31.10.2026): reissue под 595/189 (+2 ключа
     # подачи фактчека: флаг раздела + директива «Критического разноса»).
-    assert "595" in meta and "411" in meta and "194" in meta
+    # MOD-ACL-UX-01 amendment (09.11.2026): reissue под 606/205 (+11
+    # PG-only ключей семантического контракта уроков).
+    assert "606" in meta and "411" in meta and "205" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────

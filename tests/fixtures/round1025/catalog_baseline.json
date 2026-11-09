@@ -5,7 +5,7 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 595,
+    "REGISTRY": 606,
     "GROUPS": 119,
     "_TAB_BY_GROUP": 117,
     "TAB_RULES": 22

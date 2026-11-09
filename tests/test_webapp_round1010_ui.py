@@ -201,7 +201,7 @@ class TestCatalog1010:
         # prompts.direct_l1_planner_system_prompt (читался рантаймом,
         # записи каталога не имел) → REGISTRY 571→572; группы/табы/
         # Settings без изменений.
-        assert len(pc.REGISTRY) == 595
+        assert len(pc.REGISTRY) == 606
         assert len(pc.GROUPS) == 119
         assert len(pc._TAB_BY_GROUP) == 117
         assert len(pc.TAB_RULES) == 22

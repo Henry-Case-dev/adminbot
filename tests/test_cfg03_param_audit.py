@@ -498,13 +498,13 @@ class TestClassNegatives:
 
 class TestPins:
     def test_counts_and_artifacts(self):
-        assert len(pc.REGISTRY) == 595
+        assert len(pc.REGISTRY) == 606
         assert len(pc.GROUPS) == 119
         assert len(pc._TAB_BY_GROUP) == 117
         assert len(pc.TAB_RULES) == 22
         tsv = (ROOT / "plans/docs/param-registry-round1025.tsv").read_text(
             encoding="utf-8").splitlines()
-        assert len(tsv) - 1 == 595
+        assert len(tsv) - 1 == 606
         screen_keys = set()
         for line in (ROOT / "plans/docs/screen-map-round1025.md").read_text(
                 encoding="utf-8").splitlines():
