@@ -464,8 +464,7 @@ async def test_plan_edit_unavailable_denied_and_notice(monkeypatch):
     svc = _make_svc()
     block, fired, delivered, denied = await svc._l1_capability_consistency(
         CHAT, "пусть человек на снимке смотрит влево", MagicMock(),
-        MagicMock(), L1Plan(capabilities_needed=("image_edit",)),
-        intent=None, image_pre_gate_fired=False)
+        MagicMock(), L1Plan(capabilities_needed=("image_edit",)))
     assert fired is False
     assert delivered is False
     assert "image_edit" in denied
@@ -481,8 +480,7 @@ async def test_plan_edit_available_no_denial_no_generation_force(monkeypatch):
     svc = _make_svc()
     block, fired, delivered, denied = await svc._l1_capability_consistency(
         CHAT, "пусть человек на снимке смотрит влево", MagicMock(),
-        MagicMock(), L1Plan(capabilities_needed=("image_edit",)),
-        intent=None, image_pre_gate_fired=False)
+        MagicMock(), L1Plan(capabilities_needed=("image_edit",)))
     assert fired is False
     assert delivered is False
     assert denied == ()
@@ -490,27 +488,22 @@ async def test_plan_edit_available_no_denial_no_generation_force(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_word_intent_create_does_not_override_plan_edit(monkeypatch):
-    """COR-02: детерминированный create-интент (need+объект) НЕ подменяет
-    генерацией план, выбравший edit (структурное поле); честность edit
-    сохраняется через пометку."""
+async def test_create_intent_cannot_override_plan_edit(monkeypatch):
+    """COR-02 + P0-A: детерминированной генерации «вместо плана L1» больше нет
+    вовсе — план, выбравший edit, остаётся edit; честность edit сохраняется
+    через правдивую пометку."""
     from services.direct_l1 import L1Plan
     _patch_reg_resolve(monkeypatch, edit_status=caps.STATUS_NOT_CONFIGURED,
                        gen_status=caps.STATUS_READY)
     svc = _make_svc()
-    create_intent = dc.ActionIntent(intent=dc.INTENT_CREATE_IMAGE,
-                                    capability="image_generation",
-                                    confidence=dc.CONFIDENCE_HIGH)
     block, fired, delivered, denied = await svc._l1_capability_consistency(
         CHAT, "можешь изменить мем", MagicMock(), MagicMock(),
-        L1Plan(capabilities_needed=("image_edit",)),
-        intent=create_intent, image_pre_gate_fired=False)
-    # План выбрал edit → routing-fix генерации НЕ стреляет:
+        L1Plan(capabilities_needed=("image_edit",)))
     assert fired is False
     assert delivered is False
-    assert denied == ()          # image_generation готов (не он выбирался)
-    # Недоступный edit — правдивая пометка Writer'у (генерация вместо него
-    # не идёт); контракт §5.18 others: инструмент не прячется, пометка есть.
+    # План запросил недоступный edit → capability честно отклонена (denied:
+    # инструмент скрыт) и подменена генерацией НЕ была.
+    assert "image_edit" in denied
     assert "capability_notice" in block and "image_edit" in block
 
 
@@ -889,20 +882,20 @@ async def test_edit_image_uses_chat_provider_config(monkeypatch):
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# REQ-GEN-CONTEXT (§21): уточняющий вопрос не повторяется
+# REQ-GEN-CONTEXT (§21) / P0-A: уточняющий вопрос по СЛОВАМ удалён целиком
 # ════════════════════════════════════════════════════════════════════════════
 
-def test_clarify_not_repeated_within_ttl(monkeypatch):
+def test_lexical_clarify_mechanism_is_gone():
+    """P0-A (2026-11-10): «уточнение изобразить или текстом?» больше не
+    порождается словами — вместе с порождавшей его лексической
+    двусмысленностью удалён и TTL-кеш повторов. Уточнение — штатный путь L1
+    (`needs_clarification`), собственного кеша у него нет."""
     from services.direct_chat_service import DirectChatService
     svc = object.__new__(DirectChatService)
-    svc._CLARIFY_REPEAT_SECONDS = 600.0
-    assert svc._clarify_recently(CHAT) is False
-    svc._mark_clarify_sent(CHAT)
-    assert svc._clarify_recently(CHAT) is True
-    # TTL истёк → вопрос можно задать снова (не «навсегда заглушен»).
-    from services.direct_chat_service import _CLARIFY_TS
-    _CLARIFY_TS[int(CHAT)] = time.monotonic() - 601.0
-    assert svc._clarify_recently(CHAT) is False
+    assert not hasattr(svc, "_clarify_recently")
+    assert not hasattr(svc, "_mark_clarify_sent")
+    import services.direct_chat_service as dcs
+    assert not hasattr(dcs, "_CLARIFY_TS")
 
 
 # ════════════════════════════════════════════════════════════════════════════

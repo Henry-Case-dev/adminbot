@@ -660,9 +660,10 @@ _PROTECTED_SPAN_RESERVE_BUDGET = 48
 # (никакого «угаданного» распознавания; уточнение — штатный путь L1/Writer).
 _EARLIER_IMAGE_WINDOW_SECONDS = 1800
 _EARLIER_IMAGE_SCAN_LIMIT = 24
-# ASAP5 §21 (context): chat_id → monotonic-время последнего clarify
-# (дедупликация повторного уточняющего вопроса; bounded 512 чатов).
-_CLARIFY_TS: dict[int, float] = {}
+# P0-A (2026-11-10): TTL-кеш «уточняющего вопроса» (`_CLARIFY_TS`) удалён
+# вместе с порождавшей его лексической двусмысленностью: clarify по словам —
+# это и был тот самый semantic authority, который контракт запрещает.
+# Уточнение — штатный путь L1 (`needs_clarification`), свой кеш ему не нужен.
 # Поддерживаемые kind'ы = резолвимые `mca_vision.SUPPORTED_ASSET_KINDS`
 # (photo/document/sticker; animation — честный unsupported-кандидат MCA-19)
 # + preview-kind ASAP5 W1 (video_preview / animation_preview): видео, GIF,
@@ -4032,22 +4033,16 @@ class DirectChatService:
                             dig_block, _ha_sample_id(history_sample))
                     user_blocks = self._insert_dig_result(user_blocks,
                                                           dig_block)
-            # ── SOUL-1 W10 (§5.1/5.3/5.9/5.14): смысловое поручение действия →
-            # capability ТЕКУЩЕГО чата (0 LLM-вызовов). Неготовый инструмент
-            # или существенно неоднозначное поручение → детерминированный
-            # честный ответ из управляемого шаблона реестра
-            # (`message.image_failure.*`/`message.image_request.clarify`);
-            # генерация и LLM при этом не запускаются вовсе.
-            _image_intent = None
+            # ── SOUL-1 §5.14 + P0-A (2026-11-10): ТЕХНИЧЕСКАЯ проверка
+            # готовности ПОДТВЕРЖДЁННОГО намерения (0 LLM-вызовов). Вход ровно
+            # один — явная команда «Бот, нарисуй <промпт>» (syntax-парсер);
+            # словесной семантики здесь нет, поэтому обычная фраза не может ни
+            # завершить ход, ни спросить модуль/ключ/квоту/провайдера.
+            # Неготовый инструмент у команды → честный ответ из управляемого
+            # шаблона реестра (`message.image_failure.*`).
             try:
-                _cap_reply_msg = getattr(message, "reply_to_message", None)
-                _cap_reply_text = str(
-                    getattr(_cap_reply_msg, "text", None)
-                    or getattr(_cap_reply_msg, "caption", None) or "")
-                _cap_handled, _image_intent = \
-                    await self._image_capability_gate(
-                        chat_id, query, message, bot,
-                        reply_text=_cap_reply_text)
+                _cap_handled = await self._image_capability_gate(
+                    chat_id, query, message, bot)
                 if _cap_handled:
                     return
             except asyncio.CancelledError:
@@ -4055,16 +4050,15 @@ class DirectChatService:
             except Exception:
                 logger.warning("direct: image capability gate — обычный ход | "
                                "chat=%s", chat_id, exc_info=True)
-            # Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
-            # изображений («Бот, нарисуй …») — генерация и отправка ДО Stage-1,
-            # блок <image_result> для инъекции. НЕ зависит от tool_router
+            # Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт явной команды
+            # («Бот, нарисуй …») — генерация и отправка ДО Stage-1, блок
+            # <image_result> для инъекции. НЕ зависит от tool_router
             # (spec §2.2: условие — только «модуль ON»); review iter1 Finding 4.
-            # SOUL-1 W10: регекс остаётся БЫСТРЫМ путём очевидных команд;
-            # смысловые формулировки без «бот, нарисуй» доходят до той же
-            # генерации через проверку согласованности после L1 (§5.10).
+            # P0-A: единственная дверь — `is_image_keyword` (команда). Всё
+            # остальное, включая «Нарисуй кота», решает L1.
             image_block = await self._image_pre_gate_block(
                 chat_id, query, bot, message, user_id,
-                correlation_id=correlation_id, intent=_image_intent,
+                correlation_id=correlation_id,
                 delivered_out=_image_delivery)
             image_pre_gate_fired = bool(image_block)
             # P0 MEME-IMAGE-ONLY (owner 02.11.2026): картинка, реально
@@ -4716,17 +4710,15 @@ class DirectChatService:
                         action=pre_action)
                 except Exception:
                     pass
-            # ── SOUL-1 W10 (§5.10/§5.14): дешёвая проверка согласованности
-            # решения L1 с реальным состоянием capability (0 LLM; TTL-кеш).
-            # Доступное действие, которое L1 не выбрал, выполняется тем же
-            # единственным путём в этом же ходу; недоступное — не обещается
-            # (правдивая пометка Writer'у). Ошибка проверки → обычный ход.
+            # ── SOUL-1 W10 (§5.10/§5.14) + P0-A: ТЕХНИЧЕСКАЯ проверка
+            # согласованности плана L1 с реальным состоянием capability
+            # (0 LLM; TTL-кеш). Недоступное не обещается (правдивая пометка
+            # Writer'у). Решение L1 здесь НЕ переигрывается: детерминированной
+            # генерации «вместо текста» больше нет. Ошибка → обычный ход.
             try:
                 _cap_block, _cap_fired, _cap_delivered, _cap_denied = \
                     await self._l1_capability_consistency(
                         chat_id, query, message, bot, l1_plan,
-                        intent=_image_intent,
-                        image_pre_gate_fired=image_pre_gate_fired,
                         correlation_id=correlation_id)
             except asyncio.CancelledError:
                 raise
@@ -10675,121 +10667,69 @@ class DirectChatService:
                            exc_info=True)
             return None
 
-    # ── ASAP5 §21 (context): дедупликация уточняющего вопроса ──────────────
-    # Один и тот же clarify («изобразить или текстом?») не повторяется ход за
-    # ходом: TTL-кеш в памяти процесса (прецедент module-level _OUTCOMES
-    # capability_registry). Fail-open: ошибки чтения/записи не рвут ход.
-    _CLARIFY_REPEAT_SECONDS = 600.0
-
-    def _clarify_recently(self, chat_id: int) -> bool:
-        """True — clarify этому чату отправлялся недавно (в пределах TTL)."""
-        try:
-            ts = _CLARIFY_TS.get(int(chat_id))
-        except Exception:      # pragma: no cover
-            return False
-        if not ts:
-            return False
-        return (time.monotonic() - float(ts)) < self._CLARIFY_REPEAT_SECONDS
-
-    def _mark_clarify_sent(self, chat_id: int) -> None:
-        try:
-            _CLARIFY_TS[int(chat_id)] = time.monotonic()
-            # bounded: держим не более 512 чатов (старейшие вытесняются).
-            while len(_CLARIFY_TS) > 512:
-                _CLARIFY_TS.pop(next(iter(_CLARIFY_TS)))
-        except Exception:      # pragma: no cover
-            pass
-
+    # ── P0-A: технический gate подтверждённой команды (без словесной семантики)
     async def _image_capability_gate(self, chat_id: int, query: str, message,
-                                     bot, *, reply_text: str = ""
-                                     ) -> tuple[bool, object]:
-        """SOUL-1 W10 (§5.1/5.3/5.9/5.14): смысловое поручение → capability.
+                                     bot) -> bool:
+        """SOUL-1 §5.14 + P0-A (2026-11-10): ТЕХНИЧЕСКАЯ готовность
+        ПОДТВЕРЖДЁННОГО намерения генерации.
 
-        Дешёвая детерминированная проверка ДО платных стадий (0 LLM):
-        ``detect_action_intent`` распознаёт поручение создать изображение по
-        смыслу, затем состояние `image_generation` берётся из runtime-реестра
-        (`services/capability_registry` — реальные модуль/ключ/квота/провайдер
-        этого чата).
+        Единственный вход — явная команда «Бот, нарисуй <промпт>»
+        (`services.image_generation.is_image_keyword`: syntax-парсер команды).
+        Словесного авторитета здесь больше нет: `detect_action_intent` не
+        вызывается, поэтому обычная фраза (в том числе «…её японцы рисуют…»)
+        не может ни завершить ход, ни спросить модуль/ключ/квоту/провайдера.
 
-        Возврат ``(handled, intent)``: ``handled=True`` — ответ уже отправлен
-        из УПРАВЛЯЕМОГО шаблона реестра (неготовый инструмент либо один
-        уточняющий вопрос при неоднозначности), ход завершается; ``False`` —
-        либо это не поручение изображения, либо capability готова и генерация
-        идёт существующим единственным путём. Fail-open: любая ошибка → False
-        (обычный ход, без выдуманных отказов).
+        Возврат ``True`` — ответ уже отправлен из УПРАВЛЯЕМОГО шаблона реестра
+        (неготовый инструмент: модуль OFF / нет ключа / квота / провайдер) и
+        ход завершается; ``False`` — обычный ход: не команда либо capability
+        готова и генерация идёт существующим единственным путём.
+        Fail-open: любая ошибка → ``False`` (без выдуманных отказов).
 
-        ``forwarded`` (review-w10 F2): пересланное сообщение — чужие слова, не
-        поручение пользователя (детектор отдаёт не-поручение с наблюдаемой
-        причиной ``create_image_forwarded``)."""
+        ``forwarded``: пересланная команда — чужие слова, не поручение
+        пользователя (генерации нет, обычный ход)."""
+        from services import image_generation as _ig
         from services import capability_registry as _capreg
         try:
-            intent = _caps.detect_action_intent(
-                query, reply_text=reply_text, addressed=True,
-                forwarded=bool(_forward_source_of(message)))
-            if intent.intent != _caps.INTENT_CREATE_IMAGE:
-                # COR-02: edit-решение — за семантическим L1-планом
-                # (структурные поля `capabilities_needed`), не за словниками
-                # пре-гейта; плана на этой стадии ещё нет → default non-edit
-                # handling (без edit-специфичных действий). Честность
-                # edit-capability («не ready» → правдивая пометка Writer'у,
-                # инструмент скрыт) обеспечивает `_l1_capability_consistency`
-                # по плану — генерация вместо редактирования не подменяется.
-                return False, intent
-            if intent.confidence == _caps.CONFIDENCE_AMBIGUOUS:
-                # §5.9: ровно ОДИН короткий уточняющий вопрос вместо генерации.
-                # ASAP5 §21 (context): тот же вопрос не повторяется ход за
-                # ходом — недавний clarify гасит повтор (обычный ход, Writer
-                # решает сам); TTL-кеш в памяти процесса.
-                if self._clarify_recently(chat_id):
-                    logger.info("[direct] capability clarify suppressed "
-                                "(recent) | chat=%s | reason=%s", chat_id,
-                                intent.reason)
-                    return False, intent
-                text, block_id, _src = _capreg.clarify_text()
-                await _reply(bot, chat_id, text, message.message_id)
-                self._mark_turn_text_replied(chat_id)
-                self._mark_clarify_sent(chat_id)
-                logger.info("[direct] capability clarify | chat=%s | reason=%s "
-                            "| template=%s", chat_id, intent.reason, block_id)
-                _capreg.emit_capability_event(
-                    _capreg.CapabilityState(
-                        capability_id="image_generation",
-                        status=_capreg.STATUS_UNKNOWN,
-                        reason_code=intent.reason),
-                    outcome="skipped", chat_id=chat_id, template_id=block_id)
-                return True, intent
+            if not _ig.is_image_keyword(query):
+                # Не команда — решения по изображению здесь нет вообще:
+                # намерение (если оно есть) определяет L1.
+                return False
+            if _forward_source_of(message):
+                return False
             state = await _capreg.resolve("image_generation", chat_id)
-            if not state.available:
-                # §5.14: «не умею» только после проверки — и с реальной
-                # причиной (выключено/нет ключа/провайдер/квота), в голосе
-                # бота, из редактируемого Factory Default-шаблона.
-                text, block_id, _src = _capreg.status_message(state)
-                await _reply(bot, chat_id, text, message.message_id)
-                self._mark_turn_text_replied(chat_id)
-                logger.info(
-                    "[direct] capability not ready | chat=%s | cap=%s | "
-                    "status=%s | reason=%s | template=%s",
-                    chat_id, state.capability_id, state.status,
-                    state.reason_code, block_id)
-                _capreg.emit_capability_event(state, outcome="failed",
-                                              chat_id=chat_id,
-                                              template_id=block_id)
-                return True, intent
-            return False, intent
+            if state.available:
+                # Готова: генерация идёт существующим единственным путём
+                # (пре-гейт команды → run_image_request).
+                return False
+            # §5.14: «не умею» только после проверки — и с реальной причиной
+            # (выключено/нет ключа/провайдер/квота), в голосе бота, из
+            # редактируемого Factory Default-шаблона.
+            text, block_id, _src = _capreg.status_message(state)
+            await _reply(bot, chat_id, text, message.message_id)
+            self._mark_turn_text_replied(chat_id)
+            logger.info(
+                "[direct] capability not ready | chat=%s | cap=%s | "
+                "status=%s | reason=%s | template=%s",
+                chat_id, state.capability_id, state.status,
+                state.reason_code, block_id)
+            _capreg.emit_capability_event(state, outcome="failed",
+                                          chat_id=chat_id,
+                                          template_id=block_id)
+            return True
         except asyncio.CancelledError:
             raise
         except Exception:
             logger.warning("direct: capability gate failed — обычный ход | "
                            "chat=%s", chat_id, exc_info=True)
-            return False, None
+            return False
 
     async def _l1_capability_consistency(self, chat_id: int, query: str,
                                          message, bot, l1_plan, *,
-                                         intent, image_pre_gate_fired: bool,
                                          correlation_id: str | None = None
                                          ) -> tuple[str, bool, bool, tuple]:
-        """SOUL-1 W10 (§5.10/§5.14): дешёвая проверка согласованности решения
-        L1 с РЕАЛЬНЫМ состоянием capability (0 LLM; TTL-кеш реестра).
+        """SOUL-1 W10 (§5.10/§5.14) + P0-A (2026-11-10): ТЕХНИЧЕСКАЯ
+        проверка согласованности плана L1 с реальным состоянием capability
+        (0 LLM; TTL-кеш реестра).
 
         Возврат ``(блок_для_инъекции, генерация_выполнена, доставлено,
         denied)``:
@@ -10798,15 +10738,14 @@ class DirectChatService:
           отбрасывается (``denied``: инструмент не анонсируется, отказ с
           наблюдаемым кодом) + правдивая пометка ``<capability_notice>``
           Writer'у (обещать недоступное запрещено);
-        * смысловое поручение создать изображение + capability готова, но L1
-          выбрал обычный текст → маршрутизация исправляется В ЭТОМ ЖЕ ходу:
-          тот же единственный путь генерации/доставки, ровно один вызов
-          (наблюдаемый случай «доступное действие не было выбрано L1», §6.5);
         * capability не готова → инъекция правдивого состояния, без вызова.
 
-        ``доставлено`` (P0 MEME-IMAGE-ONLY) — картинка РЕАЛЬНО ушла в чат:
-        отдельно от ``генерация_выполнена``, потому что отказ провайдера тоже
-        даёт непустой блок и маркер «инструмент больше не анонсируем».
+        P0-A: ветки, которая по словесному ``intent.actionable``
+        ПЕРЕИСПОЛНЯЛА решение L1 детерминированной генерацией, больше нет —
+        после L1 допустим только технический guard. Поэтому источник
+        решения здесь ровно один: ``capabilities_needed`` плана L1.
+        ``генерация_выполнена``/``доставлено`` остаются в контракте возврата
+        (вызывающий не меняется), но этим методом больше не выставляются.
 
         Никогда не бросает (любая ошибка → ``("", False, False, ())``)."""
         from services import capability_registry as _capreg
@@ -10814,33 +10753,26 @@ class DirectChatService:
         fired = False
         delivered = False
         denied: list[str] = []
-        # P0 MEME-IMAGE-ONLY: наблюдаемый исход доставки картинки (см. ниже).
-        _delivered_state: dict = {}
         try:
             plan = l1_plan or _l1.L1Plan()
             requested = tuple(str(c) for c in
                               (getattr(plan, "capabilities_needed", ()) or ()))
             state = None
             state_capability = ""
-            if "image_generation" in requested or (
-                    intent is not None and intent.intent
-                    == _caps.INTENT_CREATE_IMAGE):
+            if "image_generation" in requested:
                 state = await _capreg.resolve("image_generation", chat_id)
                 state_capability = "image_generation"
-            elif "image_edit" in requested or (
-                    intent is not None and intent.intent
-                    == _caps.INTENT_EDIT_IMAGE):
+            elif "image_edit" in requested:
                 # ASAP5 §20 / COR-02: edit-способность честно показана
                 # Writer'у той же правдой, что и генерация (недоступность
                 # одной операции ≠ недоступность остальных). Источник
-                # решения — СТРУКТУРНЫЙ: capabilities_needed L1-плана
-                # (семантический путь) либо сконструированный intent;
+                # решения — СТРУКТУРНЫЙ: capabilities_needed L1-плана;
                 # словесных словарей нет.
                 state = await _capreg.resolve("image_edit", chat_id)
                 state_capability = "image_edit"
             if state is not None and not state.available:
                 blockers = _caps.intent_blockers(
-                    intent, capability_status=state.status)
+                    None, capability_status=state.status)
                 if state_capability in requested:
                     denied.append(state_capability)
                     _capreg.emit_capability_event(
@@ -10859,49 +10791,7 @@ class DirectChatService:
                         "blockers=%s | status=%s", chat_id,
                         state.capability_id, ",".join(blockers), state.status)
                 block = _capreg.notice_block(state)
-            elif (state is not None and state.available
-                    and not image_pre_gate_fired
-                    and intent is not None and intent.actionable
-                    and "image_generation" not in requested
-                    and "image_edit" not in requested):
-                # §5.10: исправление маршрутизации в рамках хода — тот же
-                # единственный путь (генерация+доставка), без второго LLM.
-                # ``intent_confirms`` открывает смысловую дверь пре-гейта: L1
-                # выбрал обычный текст при однозначно доступном действии.
-                # COR-02: план, выбравший edit (структурное поле
-                # capabilities_needed), детерминированной генерацией НЕ
-                # подменяется — «создание не путается с редактированием»;
-                # недоступный edit → правдивая пометка Writer'у ниже.
-                fired_block = await self._image_pre_gate_block(
-                    chat_id, query, bot, message,
-                    getattr(getattr(message, "from_user", None), "id", 0) or 0,
-                    correlation_id=correlation_id, intent=intent,
-                    intent_confirms=True, delivered_out=_delivered_state)
-                if fired_block:
-                    block = fired_block
-                    fired = True
-                    delivered = bool(_delivered_state.get("delivered"))
-                    blockers = _caps.intent_blockers(
-                        intent, capability_status=state.status)
-                    logger.info(
-                        "[direct] capability routing fixed | chat=%s | "
-                        "cap=%s | l1_capabilities=%s | reason=%s | blockers=%s",
-                        chat_id, state.capability_id, ",".join(requested),
-                        intent.reason, ",".join(blockers) or "-")
-                    _capreg.emit_capability_event(
-                        state, outcome="success", chat_id=chat_id,
-                        trace_id=correlation_id or "")
-                    try:
-                        from services.agentic_events import (
-                            L1_CAPABILITY_REJECTED, emit_agentic_event)
-                        emit_agentic_event(
-                            L1_CAPABILITY_REJECTED,
-                            capability="image_generation",
-                            reason="available_action_not_chosen" + (
-                                ":" + ",".join(blockers) if blockers else ""),
-                            chat_id=chat_id, run_id=correlation_id)
-                    except Exception:      # pragma: no cover
-                        pass
+            # P0-A: принудительной генерации «вместо текста L1» здесь нет.
             # Прочие запрошенные capability (§5.18): недоступное не обещаем —
             # правдивая пометка Writer'у + наблюдаемый блокер. Инструмент НЕ
             # прячем (анонс остаётся контрактом §1.4); отказ виден в trace.
@@ -10933,35 +10823,29 @@ class DirectChatService:
     async def _image_pre_gate_block(self, chat_id: int, query: str, bot,
                                     message, user_id,
                                     correlation_id: str | None = None,
-                                    intent=None,
-                                    intent_confirms: bool = False,
                                     delivered_out: dict | None = None) -> str:
-        """Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
-        изображений («Бот, нарисуй …»). Генерация+отправка ДО Stage-1, блок
+        """Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт явной КОМАНДЫ генерации
+        («Бот, нарисуй …»). Генерация+отправка ДО Stage-1, блок
         ``<image_result>`` для инъекции. `tool_choice` НЕ форсируется. Нет
-        ключевика/модуль OFF/нет бота → ``""``. Fail-open — не бросает.
+        команды/модуль OFF/нет бота → ``""``. Fail-open — не бросает.
         F7 rework: ``correlation_id`` ответа прокидывается в ToolContext, чтобы
         событие ``step='image'`` попало в дерево последнего вызова.
-        SOUL-1 W10 fix (review-w10 F2): смысловой ``intent`` — VETO для
-        регекса: не-поручение (``actionable=False``: отрицание/«придумать»/
-        цитата/«я сам»/пересылка) подавляет быстрый путь. Дверь открывает
-        регекс ИЛИ ``intent_confirms=True`` (подтверждённое смысловое
-        поручение — путь согласованности §5.10, где L1 не выбрал доступное
-        действие: наблюдаемый случай §6.5 остаётся живым).
+
+        P0-A (2026-11-10): дверь ровно одна — ``is_image_keyword`` (обращение +
+        императив, syntax-парсер команды). Смыслового ``veto`` и параметра
+        ``intent_confirms`` больше нет: словесная эвристика (``actionable``)
+        не открывала и не закрывала быстрый путь, а ``detect_action_intent``
+        здесь не вызывается вовсе.
 
         P0 MEME-IMAGE-ONLY (owner 02.11.2026): ``delivered_out`` — словарь
         наблюдаемого исхода для вызывающего: ``{"delivered": bool}``. True —
         изображение РЕАЛЬНО доставлено в чат (не просто сработал регекс: при
         отказе провайдера блок тоже строится, но картинки нет)."""
         from services import image_generation
-        # Смысловой вердикт главнее регекса: отрицание не может проиграть
-        # быстрому пути («Бот, нарисуй мем, но не рисуй» → генерации нет).
-        if intent is not None and not getattr(intent, "actionable", False):
-            return ""
-        if not (image_generation.is_image_keyword(query) or intent_confirms):
+        if not image_generation.is_image_keyword(query):
             return ""
         if _forward_source_of(message):
-            # Пересланное сообщение — чужие слова, не поручение пользователя.
+            # Пересланная команда — чужие слова, не поручение пользователя.
             return ""
         if not await image_generation.resolve_module_enabled(chat_id):
             return ""
@@ -10983,10 +10867,7 @@ class DirectChatService:
                 if value is not None:
                     deps[name] = value
             block = await image_generation.maybe_handle_keyword(
-                tool_ctx, query, **deps,
-                intent_confirmed=bool(intent is not None
-                                      and getattr(intent, "actionable",
-                                                  False)))
+                tool_ctx, query, **deps)
             # P0 MEME-IMAGE-ONLY: вызывающему нужен именно ФАКТ доставки
             # картинки (при отказе провайдера блок тоже непустой).
             if delivered_out is not None:

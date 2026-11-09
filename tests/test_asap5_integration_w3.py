@@ -1375,57 +1375,13 @@ class TestImageGenDirectAdmin:
             ready.get("visual_description") or "")
 
     @pytest.mark.asyncio
-    async def test_c08_clarify_once_not_repeated(self, db, monkeypatch):
-        """§25.8 уточнение требований: СТРУКТУРНО неоднозначное поручение
-        (intent ``ambiguous``, например от плана) → ровно один clarify; повтор
-        в пределах TTL — обычный ход (вопрос не повторяется).
-
-        P0-A (2026-11-10): словесная двусмысленность больше НЕ порождает
-        clarify — такая реплика идёт обычным путём (см. следующий тест), а
-        механизм уточнения проверяется на структурном интенте."""
+    async def test_c08_gate_checks_only_confirmed_command(self, db,
+                                                          monkeypatch):
+        """P0-A (2026-11-10): технический gate работает ТОЛЬКО для явной
+        команды. Обычная реплика («Бот, сделай это», «…японцы рисуют…») не
+        спрашивает capability и ничего не отправляет; команда при выключенном
+        модуле получает честный шаблон отказа и завершает ход."""
         _patch_image_sources(monkeypatch)
-        from services import direct_capabilities as dcap
-        from services.direct_chat_service import _CLARIFY_TS
-        _CLARIFY_TS.clear()
-        svc = _direct_service(db)
-
-        class _GateBot:
-            def __init__(self):
-                self.sent = []
-
-            async def send_message(self, chat_id, text, **kw):
-                self.sent.append(str(text))
-                return MagicMock()
-
-        ambiguous = dcap.ActionIntent(
-            intent=dcap.INTENT_CREATE_IMAGE, capability="image_generation",
-            confidence=dcap.CONFIDENCE_AMBIGUOUS,
-            reason=dcap.REASON_CREATE_DEICTIC)
-        monkeypatch.setattr(
-            dcap, "detect_action_intent",
-            lambda *a, **k: ambiguous)
-        bot = _GateBot()
-        text = "Бот, сделай это"
-        msg = _user_message(210, text=text)
-        handled1, _i1 = await svc._image_capability_gate(CHAT, text, msg, bot)
-        assert handled1 is True and len(bot.sent) == 1
-        handled2, _i2 = await svc._image_capability_gate(CHAT, text, msg, bot)
-        assert handled2 is False            # clarify подавлен — обычный ход
-        assert len(bot.sent) == 1
-        # TTL истёк → вопрос снова возможен (не «навсегда заглушен»)
-        _CLARIFY_TS[int(CHAT)] = time.monotonic() - 601.0
-        handled3, _i3 = await svc._image_capability_gate(CHAT, text, msg, bot)
-        assert handled3 is True and len(bot.sent) == 2
-
-    @pytest.mark.asyncio
-    async def test_c08b_lexical_ambiguity_no_longer_clarifies(self, db,
-                                                              monkeypatch):
-        """P0-A: «Бот, сделай это» — обычная реплика: ни уточняющего вопроса,
-        ни генерации; решение за L1 (словесный словарь удалён)."""
-        _patch_image_sources(monkeypatch)
-        from services import direct_capabilities as dcap
-        from services.direct_chat_service import _CLARIFY_TS
-        _CLARIFY_TS.clear()
         svc = _direct_service(db)
 
         class _GateBot:
@@ -1437,14 +1393,75 @@ class TestImageGenDirectAdmin:
                 return MagicMock()
 
         bot = _GateBot()
-        text = "Бот, сделай это"
-        msg = _user_message(211, text=text)
-        intent = dcap.detect_action_intent(text, addressed=True)
-        assert intent.actionable is False
-        assert intent.confidence != dcap.CONFIDENCE_AMBIGUOUS
-        handled, _i = await svc._image_capability_gate(CHAT, text, msg, bot)
+        ordinary = "Бот, чем отличается манга от не манги? Тем что её японцы рисуют?"
+        msg = _user_message(210, text=ordinary)
+        handled = await svc._image_capability_gate(CHAT, ordinary, msg, bot)
         assert handled is False
         assert bot.sent == []
+
+        handled2 = await svc._image_capability_gate(
+            CHAT, "Бот, сделай это", _user_message(212, text="Бот, сделай это"),
+            bot)
+        assert handled2 is False
+        assert bot.sent == []
+
+        from services import capability_registry as caps
+        from services import direct_chat_service as dcs
+        import services.image_generation as ig
+
+        async def _off(*_a, **_k):
+            return False
+
+        async def _ready(*_a, **_k):
+            return caps.CapabilityState(
+                capability_id="image_generation", title="Генерация",
+                status=caps.STATUS_DISABLED, reason_code="module_disabled",
+                declared=True)
+
+        monkeypatch.setattr(ig, "resolve_module_enabled", _off)
+        monkeypatch.setattr(caps, "resolve", _ready)
+        command = "Бот, нарисуй кота"
+        handled3 = await svc._image_capability_gate(
+            CHAT, command, _user_message(213, text=command), bot)
+        assert handled3 is True
+        assert bot.sent == [caps.failure_text("disabled")[0]]
+
+    @pytest.mark.asyncio
+    async def test_c08b_detect_action_intent_is_not_image_authority(
+            self, db, monkeypatch):
+        """P0-A: инъекция словесного image-интента больше НЕ меняет исход —
+        `_image_capability_gate` не спрашивает детектор вообще."""
+        _patch_image_sources(monkeypatch)
+        from services import direct_capabilities as dcap
+        svc = _direct_service(db)
+
+        class _GateBot:
+            def __init__(self):
+                self.sent = []
+
+            async def send_message(self, chat_id, text, **kw):
+                self.sent.append(str(text))
+                return MagicMock()
+
+        calls: list = []
+
+        def _spy(*a, **k):
+            calls.append((a, k))
+            return dcap.ActionIntent(
+                intent=dcap.INTENT_CREATE_IMAGE,
+                capability="image_generation",
+                confidence=dcap.CONFIDENCE_HIGH,
+                reason=dcap.REASON_CREATE_COMMAND,
+                evidence=("explicit_command",))
+
+        monkeypatch.setattr(dcap, "detect_action_intent", _spy)
+        bot = _GateBot()
+        text = "Бот, чем отличается манга от не манги? Тем что её японцы рисуют?"
+        handled = await svc._image_capability_gate(
+            CHAT, text, _user_message(211, text=text), bot)
+        assert handled is False
+        assert bot.sent == []
+        assert calls == [], "детектор не является авторитетом изображения"
 
     @pytest.mark.asyncio
     async def test_c09_source_preserved_between_messages(self, db):

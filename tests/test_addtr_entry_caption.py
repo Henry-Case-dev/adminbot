@@ -571,7 +571,7 @@ class TestAdtrEntryServiceMediaContext:
         seen = {}
 
         async def _fake_gate(self, chat_id, query, message, bot, **kwargs):
-            return False, None
+            return False
 
         async def _fake_pre_gate(self, chat_id, query, bot, message, user_id,
                                  **kwargs):

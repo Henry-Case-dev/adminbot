@@ -373,6 +373,71 @@ async def test_command_with_cancellation_in_same_message_generates_nothing(
     assert gen_calls == []
 
 
+@pytest.mark.asyncio
+async def test_detect_action_intent_is_not_image_authority(monkeypatch):
+    """P0-A: детектор больше не является семантическим авторитетом изображения.
+    Даже если он вернёт «create_image/high», исход обычной фразы не меняется:
+    ни генерации, ни квоты, ни перехвата хода."""
+    from services import direct_capabilities as dc_mod
+    calls: list = []
+
+    def _spy(*args, **kwargs):
+        calls.append(args)
+        return dc_mod.ActionIntent(
+            intent=dc_mod.INTENT_CREATE_IMAGE,
+            capability="image_generation",
+            confidence=dc_mod.CONFIDENCE_HIGH,
+            reason=dc_mod.REASON_CREATE_COMMAND,
+            evidence=("explicit_command",))
+
+    monkeypatch.setattr(dc_mod, "detect_action_intent", _spy)
+    resolved: list = []
+    real_resolve = caps.resolve
+
+    async def spy_resolve(capability_id, chat_id=None, **kwargs):
+        resolved.append(str(capability_id))
+        return await real_resolve(capability_id, chat_id, **kwargs)
+
+    monkeypatch.setattr(caps, "resolve", spy_resolve)
+    svc, llm, bot, msg, user, gen_calls, announced = _drive(
+        monkeypatch, MANGA_QUESTION)
+    await _run(svc, bot, msg, user)
+    # NB: единственный оставшийся вызов детектора на этом пути — не-image
+    # сигнал evidence-политики (`_evidence_explicit_request`: поиск/фактчек,
+    # P1-демоция). Авторитетом ИЗОБРАЖЕНИЯ он не является — проверяется ниже.
+    assert gen_calls == []
+    assert "image_generation" not in resolved, resolved
+    assert announced and announced[0][0] is True
+    assert not [t for t in _sent_texts(bot) if t in _image_refusal_texts()]
+    assert "l2_writer" in llm.steps() or "single" in llm.steps()
+
+
+@pytest.mark.asyncio
+async def test_non_image_commands_generate_nothing(monkeypatch):
+    """Решение §1a: общие глаголы без объекта изображения — не команда
+    генерации. «Бот, сгенерируй отчёт» и «Бот, создай план» дают ноль
+    генераций, ноль обращений к квоте/готовности и обычный текстовый путь."""
+    for text in ("Бот, сгенерируй отчёт по продажам",
+                 "Бот, создай план на март"):
+        resolved: list = []
+        real_resolve = caps.resolve
+
+        async def spy_resolve(capability_id, chat_id=None, **kwargs):
+            resolved.append(str(capability_id))
+            return await real_resolve(capability_id, chat_id, **kwargs)
+
+        monkeypatch.setattr(caps, "resolve", spy_resolve)
+        assert ig.is_image_keyword(text) is False, text
+        svc, llm, bot, msg, user, gen_calls, announced = _drive(
+            monkeypatch, text)
+        await _run(svc, bot, msg, user)
+        assert gen_calls == [], text
+        assert "image_generation" not in resolved, (text, resolved)
+        assert announced and announced[0][0] is True
+        assert not [t for t in _sent_texts(bot) if t in _image_refusal_texts()]
+        assert "l2_writer" in llm.steps() or "single" in llm.steps()
+
+
 # ── §4/§8 C: «Нарисуй кота» без обращения — решение за L1 ──────────────────
 
 @pytest.mark.asyncio
