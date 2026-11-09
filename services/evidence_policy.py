@@ -320,8 +320,11 @@ class ExplicitRequest:
     """Детерминированно распознанное поручение (§1.3).
 
     Значения заполняет вызывающий ИЗ СУЩЕСТВУЮЩИХ детекторов:
-    ``search`` — ``direct_capabilities.detect_action_intent``
-    (``INTENT_WEB_SEARCH``) / ``direct_execution._SEARCH_RE``; ``verify`` —
+    ``search`` — ЯВНАЯ поисковая команда реестра
+    (``direct_l1.is_search_command``: «Бот, найди …»); P1 semantic-routing
+    (2026-11-10, §7) снял прежний сигнал по словарю search-стемов
+    (``INTENT_WEB_SEARCH``/``_SEARCH_RE``) — слова не доказывают поручение;
+    ``verify`` —
     явная ФОРМА просьбы проверить факт (``direct_capabilities.
     is_explicit_factcheck_request`` поверх маркеров ``INTENT_FACT_CHECK``) и
     ``temporal_factcheck.is_referential_claim`` («проверь это» на reply);

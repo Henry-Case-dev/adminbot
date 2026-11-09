@@ -442,10 +442,16 @@ class ChainResult(ToolLoopResult):
 
 
 # ── Дет. деривация шагов simple_tools (0 LLM) ────────────────────────────────
-
-_SEARCH_RE = re.compile(
-    r"поищи|поиск\w*|найди|найти|загугли|погугли|загуглить|гугл\w*|"
-    r"в интернете|в сети|search|google", re.IGNORECASE)
+#
+# P1 semantic-routing (2026-11-10, owner corrective §6/§7): лексического
+# fallback-шага поиска больше нет. Прежняя ветка «нет шагов + в тексте есть
+# search-стем (``_SEARCH_RE``: поищи/найди/в интернете/…) → дет.
+# ``execute_web_search``» была принудительным tool call по стему: обычная
+# фраза («я вчера в интернете видел мем», «как найти мотивацию») уходила в
+# сеть даже когда план L1 не просил поиска. Источники шага теперь только
+# структурные: ``capabilities_needed`` плана L1, ``required_caps``
+# evidence-политики и явная поисковая команда (``handlers/search.py``,
+# реестр команд) — она обрабатывается своим маршрутом и сюда не попадает.
 
 # capability → (tool, args_builder). Только безопасные read-only/media
 # деривации; side-effect generate_image дет. НЕ запускается (пре-гейт
@@ -485,7 +491,7 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
     ``search_forbidden`` — структурный технический запрет сетевого поиска на
     ход (человек прямо запретил сеть / уже прочитанный источник / после
     гигиены не осталось терминов). Тогда `execute_web_search` вычищается из
-    шагов (в т.ч. из fallback-ветки `_SEARCH_RE`), а ``search_query`` НИКОГДА
+    шагов, а ``search_query`` НИКОГДА
     не подменяется сырым текстом хода.
     """
     steps: list[dict] = []
@@ -669,14 +675,10 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                     "execute_web_search: сетевой поиск на этом ходе не "
                     "выполняется (запрет сети человеком, уже прочитанный "
                     "источник или пустая формулировка) — не исполнено")
-        # Явный search-запрос без capability от плана (fallback-план) →
-        # дет. web_search (§18C.3: planner failure не стирает required tool).
-        if not steps and q and not search_forbidden and _SEARCH_RE.search(q) \
-                and "execute_web_search" in allowed:
-            steps.append({"step_id": "web_fallback_1",
-                          "tool": "execute_web_search",
-                          "arguments": {"query": q_bounded},
-                          "depends_on": [], "failure_policy": "optional"})
+        # Явный search-запрос без capability от плана больше НЕ деривируется:
+        # P1 semantic-routing (2026-11-10, §7) — стем в тексте не является
+        # поручением искать. Поиск появляется только по плану L1
+        # (`capabilities_needed`) / `required_caps` политики / явной команде.
         return steps, limitations
     except Exception:      # pragma: no cover - защитная ветка
         return [], ["step_derivation_failed"]
@@ -2170,14 +2172,12 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
         or (axis.search_expected and not search_task.usable))
     # Сеть запрещена СТРУКТУРНО на шагах, а не только статусом: при
     # техническом пропуске и уже прочитанном источнике (reuse) шаг
-    # `execute_web_search` не деривируется ни из capabilities, ни из
-    # fallback-ветки — иначе трасса писала `search_called=False` при реальном
-    # сетевом вызове.
+    # `execute_web_search` не деривируется из capabilities — иначе трасса
+    # писала `search_called=False` при реальном сетевом вызове.
     # Решение оси «поиск не нужен» (`not_applicable` от плана) — тоже
-    # структурный запрет, а не только снятие capability: без него деривация
-    # шагов возвращала `execute_web_search` по старому `_SEARCH_RE` из самой
-    # фразы («найди в переписке…», «…в интернете вчера») и отправляла
-    # провайдеру сырой текст хода. Причина отказа при этом остаётся прежней
+    # структурный запрет, а не только снятие capability: без него шаги или
+    # evidence-путь отправляли провайдеру сырой текст хода вопреки решению
+    # модели. Причина отказа при этом остаётся прежней
     # (`search_intent_not_applicable`): `axis.source` не переписывается.
     search_forbidden = bool(
         axis_decided_off or user_forbids or reuse_used

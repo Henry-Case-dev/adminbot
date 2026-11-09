@@ -163,14 +163,19 @@ def test_c1_required_caps_derive_steps_with_empty_l1_plan():
 
 @pytest.mark.asyncio
 async def test_scenario1_explicit_search_low_confidence_still_calls_tool():
-    """Сценарий 1: «погугли» + low confidence → Search реально вызван."""
-    query = "погугли, какая сейчас версия DeepSeek"
+    """Сценарий 1: ЯВНАЯ поисковая команда + low confidence → Search вызван.
+
+    P1 semantic-routing (2026-11-10, §7): поручением считается только явная
+    команда реестра («Бот, погугли …»), а не голый стем в тексте."""
+    query = "Бот, загугли, какая сейчас версия DeepSeek"
     plan = _plan(confidence=0.2, capabilities_needed=["web_search"],
                  execution_mode="none")
     assert plan.confidence_bucket == "low"
+    explicit = dcs._evidence_explicit_request(query)
+    assert explicit.search is True
     decision = ep.evaluate_evidence_need(
         plan=plan, task_kind="social_chat",
-        explicit=dcs._evidence_explicit_request(query),
+        explicit=explicit,
         supplied=dcs._evidence_supplied(query, "", plan),
         runtime_state=ep.RuntimeState(), context=_ok_ctx())
     assert decision.required and decision.explicit_request
@@ -189,6 +194,14 @@ async def test_scenario1_explicit_search_low_confidence_still_calls_tool():
         required_caps=decision.required_caps)
     assert result is not None
     assert [d["tool"] for d in router.dispatched] == ["execute_web_search"]
+
+
+def test_scenario1_bare_search_word_is_not_an_explicit_request():
+    """P1: голое «погугли …» (без обращения к боту) — не команда и не
+    поручение: ось поиска не получает `user_forced` из стема."""
+    explicit = dcs._evidence_explicit_request("погугли, какая сейчас версия")
+    assert explicit.search is False
+    assert explicit.any is False
 
 
 @pytest.mark.asyncio
@@ -847,14 +860,16 @@ async def test_review_fix2_casual_initiative_makes_no_search(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_review_fix3_initiative_required_without_query_is_unmet(monkeypatch):
-    """§1.2 п.10: обязательная проверка без адресного запроса — честно unmet.
+async def test_review_fix3_initiative_search_marker_is_not_a_request(monkeypatch):
+    """P1 semantic-routing (2026-11-10, §7): маркер поиска во ВНУТРЕННЕЙ
+    формулировке инициативной цели не делает проверку обязательной.
 
-    Инициативная цель с маркером поиска («погугли …») делает проверку
-    обязательной, но claim'ов в плане нет → запроса, который можно отправить
-    в сеть, тоже нет. Служебная цель в поисковик НЕ уходит (0 вызовов), а
-    решение остаётся `required=True` + `required_unmet`, Writer получает
-    «внешняя проверка НЕ выполнена»."""
+    Раньше «погугли …» в goal включал `required` и давал unmet-пометку — то
+    есть стем бота запускал сетевую проверку. Теперь служебная цель не
+    отправляется в поисковик и не создаёт обязательства: 0 сетевых вызовов,
+    Writer получает обычный контекст. Честный `required_unmet` при реально
+    обязательной проверке проверяется unit-тестом `mark_required_unmet`
+    (см. `test_review_fix4_…`)."""
     router = _Router(outputs={"execute_web_search": "что-то из сети"})
     svc, writer_calls = _init_service(router, monkeypatch,
                                       answer="Кстати, в чате тихо.")
@@ -866,7 +881,7 @@ async def test_review_fix3_initiative_required_without_query_is_unmet(monkeypatc
     assert text == "Кстати, в чате тихо."
     assert writer_calls and writer_calls[0]["evidence"] == ""
     note = " ".join(writer_calls[0]["user_blocks"])
-    assert "внешняя проверка НЕ выполнена" in note
+    assert "внешняя проверка НЕ выполнена" not in note
 
 
 @pytest.mark.asyncio

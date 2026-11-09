@@ -387,9 +387,16 @@ def classify_chat_message(*, text: str | None, media_type: str | None,
       ``{"signal": {...typed...}, "class": ..., "source_kind": ...}`` —
       high-confidence очевидный сигнал → feedback candidate.
 
-    Приоритет: сомнительное (шутка/агрессия/третье лицо/спор/forward)
-    проверяется ДО коррекционных паттернов — сомнительная реплика никогда
-    не становится истиной/уроком. Только коды/числа (R17)."""
+    P1 semantic-routing (2026-11-10, owner corrective §6 «Опыт и уроки»/§7):
+    лексический маркер шутки/грубости больше НЕ удаляет содержательную форму.
+    Если в реплике есть предпочтение/коррекция/факт о пользователе, кандидат
+    остаётся (``confidence: medium`` + ``suspect`` = код маркера), и решение
+    принимает следующий слой (семантический экстрактор → lesson pipeline).
+    Шутка/грубость без содержательной формы по-прежнему deliberate skip.
+    Третье лицо/спор/reply другому участнику остаются сильнее: чужие слова и
+    спор двух людей не становятся уроком ни при какой лексике.
+
+    Только коды/числа (R17)."""
 
     def _skip(reason: str) -> dict:
         return {"skip": reason}
@@ -404,10 +411,14 @@ def classify_chat_message(*, text: str | None, media_type: str | None,
     if _COMMAND_RE.match(body):
         return _skip(DETECTOR_SKIP_COMMAND)
     head = body[:DETECTOR_TEXT_CAP]
+    substantive = _substantive_signal(head)
+    suspect = ""
     if _JOKE_RE.search(head):
-        return _skip(DETECTOR_SKIP_JOKE)
-    if _AGGRESSION_RE.search(head):
-        return _skip(DETECTOR_SKIP_AGGRESSION)
+        suspect = DETECTOR_SKIP_JOKE
+    elif _AGGRESSION_RE.search(head):
+        suspect = DETECTOR_SKIP_AGGRESSION
+    if suspect and substantive is None:
+        return _skip(suspect)
     if _THIRD_PARTY_RE.match(head):
         return _skip(DETECTOR_SKIP_THIRD_PARTY)
     if _DISPUTE_RE.search(head):
@@ -415,7 +426,24 @@ def classify_chat_message(*, text: str | None, media_type: str | None,
     # Реплика-ответ ДРУГОМУ участнику — спор между людьми, не коррекция бота.
     if reply_to_user_id is not None:
         return _skip(DETECTOR_SKIP_DISPUTE)
+    if substantive is not None:
+        if suspect:
+            # Содержательная форма важнее тона: кандидат сохраняется, но с
+            # наблюдаемой пометкой сомнения и средней уверенностью.
+            substantive = dict(substantive)
+            substantive["confidence"] = "medium"
+            substantive["suspect"] = suspect
+        return substantive
 
+    return _skip(DETECTOR_SKIP_LOW_CONFIDENCE)
+
+
+def _substantive_signal(head: str) -> dict | None:
+    """Содержательная форма реплики (предпочтение/факт о пользователе/
+    коррекция) без учёта тона. ``None`` — содержательной формы нет.
+
+    Порядок классов — прежний (preference → fact_user → correction); функция
+    только выделяет форму из решения о тоне (P1 2026-11-10)."""
     for key, value, patterns in _PREFERENCE_RULES:
         for pattern in patterns:
             if pattern.search(head):
@@ -425,24 +453,21 @@ def classify_chat_message(*, text: str | None, media_type: str | None,
                     "pref_token": f"{key}.{value}",
                     "confidence": "high",
                 }
-
     for pattern in _FACT_USER_PATTERNS:
         if pattern.match(head):
             if _NOT_FACT_USER_RE.match(head):
-                return _skip(DETECTOR_SKIP_LOW_CONFIDENCE)
+                return None
             return {
                 "class": DETECTOR_CLASS_FACT_USER,
                 "confidence": "high",
             }
-
     for pattern in _CORRECTION_PATTERNS:
         if pattern.search(head):
             return {
                 "class": DETECTOR_CLASS_CORRECTION,
                 "confidence": "high",
             }
-
-    return _skip(DETECTOR_SKIP_LOW_CONFIDENCE)
+    return None
 
 
 # ── B02: семантический экстрактор — чистые хелперы (переиспользуются

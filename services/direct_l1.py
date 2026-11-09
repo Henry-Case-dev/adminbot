@@ -2299,20 +2299,43 @@ def rejected_note(rejected) -> str:
 
 # ── §1.6 ladder: deterministic legacy fallback ──────────────────────────────
 
-# §18C.3: planner failure не стирает required tools — дет. inference
-# required capability из текста запроса (высокая точность: только явные
-# URL и явные search-маркеры).
-_FALLBACK_SEARCH_RE = re.compile(
-    r"поищи|поиск\w*|найди|найти|загугли|погугли|в интернете|в сети|"
-    r"проверь (в )?интернет|search", re.IGNORECASE)
+# P1 semantic-routing (2026-11-10, owner corrective §7/§8-E): лексического
+# inference поиска при сбое L1 больше нет. Прежний `_FALLBACK_SEARCH_RE`
+# (поищи|найди|в интернете|… → capability `web_search`) был скрытым fallback,
+# повторяющим удалённую эвристику: слова в тексте не доказывают поручение.
+# Детерминированы ровно два СТРУКТУРНЫХ факта: явная http(s)-ссылка (fetch_url)
+# и ЯВНАЯ поисковая команда реестра «Бот, найди …» (:func:`is_search_command`).
+
+
+def is_search_command(text) -> bool:
+    """Реплика — ЯВНАЯ поисковая команда (``Бот, найди/поищи/загугли <X>``).
+
+    Единственное определение этой поверхности: обращение снимается
+    существующим ``command_prefix``, остаток проверяет канонический
+    ``command_registry.matches_group("search", …)`` — тот же реестр, что у
+    маршрута `handlers/search.py` (новых синонимов/списков нет). Никогда не
+    бросает."""
+    try:
+        from services import command_prefix as _prefix
+        from services import command_registry
+        token, rest = _prefix.split_prefix(str(text or "").strip())
+        if token is None:
+            return False
+        return bool(command_registry.matches_group("search",
+                                                  str(rest).strip()))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
 
 
 def infer_fallback_capabilities(query: str, reply_text: str = "",
                                 *, announced=()) -> tuple[str, ...]:
-    """§18C.3: безопасный дет. capability-резолвер для fallback-плана.
-    URL (в запросе/реплае) → fetch_url; явный search-маркер → web_search.
-    Только capability с активным инструментом; пусто → (). Никогда не
-    бросает."""
+    """§18C.3 + P1: безопасный дет. capability-резолвер для fallback-плана.
+
+    Только структурные сигналы: явная ссылка (в запросе/реплае) → ``fetch_url``
+    и явная поисковая команда (:func:`is_search_command`) → ``web_search``.
+    Обычные слова запроса поиск НЕ включают (решение о нём — L1/явная
+    команда). Только capability с активным инструментом; пусто → (). Никогда
+    не бросает."""
     try:
         active = {str(t or "").strip() for t in (announced or ())}
         caps: list[str] = []
@@ -2323,8 +2346,7 @@ def infer_fallback_capabilities(query: str, reply_text: str = "",
                 caps.append("fetch_url")
         except Exception:
             pass
-        if _FALLBACK_SEARCH_RE.search(str(query or "")) \
-                and "execute_web_search" in active:
+        if is_search_command(query) and "execute_web_search" in active:
             caps.append("web_search")
         return tuple(caps)
     except Exception:      # pragma: no cover - защитная ветка
@@ -2334,12 +2356,12 @@ def infer_fallback_capabilities(query: str, reply_text: str = "",
 def fallback_plan(query, *, action: str = "reply",
                   allowed_actions=("REPLY",),
                   capabilities_needed: tuple[str, ...] = ()) -> L1Plan:
-    """Deterministic safe fallback (§1.6 + §18C.3): classify_request +
+    """Deterministic safe fallback (§1.6 + §18C.3 + P1): classify_request +
     прежняя demote-матрица (action задаёт вызывающий из pre_action).
-    L1Plan с ``source="fallback"``; capabilities — дет. inference
-    required-инструментов (вызывающий передаёт
-    ``infer_fallback_capabilities(...)``): planner outage больше НЕ
-    удаляет search/fetch молча. execution_mode — деривация от
+    L1Plan с ``source="fallback"``; capabilities — только структурный
+    inference (вызывающий передаёт ``infer_fallback_capabilities(...)``:
+    явная ссылка → fetch). При сбое L1 слова не инициируют поиск
+    (P1 semantic-routing §7/§8-E). execution_mode — деривация от
     capabilities."""
     from services import response_extent as _extent
     try:

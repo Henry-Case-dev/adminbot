@@ -642,15 +642,97 @@ def test_detector_signal_never_carries_raw_text():
 
 
 def test_detector_patterns_closed_set():
-    # сомнительные классы не проходят даже с коррекционной лексикой
-    for text in ("ахаха ты ошибаешься конечно",
-                 "ты тупой, ошибаешься",
-                 "он сказал, что ты ошибаешься",
+    # третье лицо и спор остаются сильнее любой лексики
+    for text in ("он сказал, что ты ошибаешься",
                  "не согласен, ты ошибаешься"):
         verdict = mj.classify_chat_message(text=text, media_type="text",
                                            is_forward=False,
                                            reply_to_user_id=None)
         assert verdict is not None and "skip" in verdict, text
+
+
+def test_joke_or_aggression_does_not_delete_substantive_correction():
+    """P1 semantic-routing (2026-11-10, §6 «Опыт и уроки»/сценарий D):
+    лексический маркер шутки/грубости не уничтожает содержательную коррекцию.
+
+    Кандидат сохраняется (medium + наблюдаемый код сомнения), решение о
+    ценности принимает следующий слой, а не словарь тона."""
+    joke = mj.classify_chat_message(
+        text="ахаха ты ошибаешься, я про дату говорил", media_type="text",
+        is_forward=False, reply_to_user_id=None)
+    assert joke and "skip" not in joke
+    assert joke["class"] == mj.DETECTOR_CLASS_CORRECTION
+    assert joke["confidence"] == "medium"
+    assert joke["suspect"] == mj.DETECTOR_SKIP_JOKE
+
+    rude = mj.classify_chat_message(
+        text="ты тупой, ты неверно написал дату", media_type="text",
+        is_forward=False, reply_to_user_id=None)
+    assert rude and "skip" not in rude
+    assert rude["class"] == mj.DETECTOR_CLASS_CORRECTION
+    assert rude["confidence"] == "medium"
+    assert rude["suspect"] == mj.DETECTOR_SKIP_AGGRESSION
+
+
+def test_joke_or_aggression_alone_is_still_deliberate_skip():
+    """Негатив: без содержательной формы шутка/грубость — deliberate skip."""
+    for text, code in (("ахаха ну ты даёшь", mj.DETECTOR_SKIP_JOKE),
+                       ("ты тупой вообще", mj.DETECTOR_SKIP_AGGRESSION)):
+        verdict = mj.classify_chat_message(text=text, media_type="text",
+                                           is_forward=False,
+                                           reply_to_user_id=None)
+        assert verdict == {"skip": code}
+
+
+def test_profane_substantive_correction_is_high_confidence():
+    """Мат сам по себе не мешает: содержательная коррекция остаётся
+    кандидатом с высокой уверенностью (нет ни маркера шутки, ни грубости)."""
+    verdict = mj.classify_chat_message(
+        text="ты неверно написал, я просил дату, а ты время дал, бля",
+        media_type="text", is_forward=False, reply_to_user_id=None)
+    assert verdict and "skip" not in verdict
+    assert verdict["class"] == mj.DETECTOR_CLASS_CORRECTION
+    assert verdict["confidence"] == "high"
+    assert "suspect" not in verdict
+
+
+def test_substantive_form_beats_joke_in_detector_signal():
+    """`_detector_signal` пропускает плотную пометку в типизированный signal
+    (R17: коды, без текста)."""
+    verdict = mj.classify_chat_message(
+        text="хах, ты неверно посчитал, там 5 а не 6", media_type="text",
+        is_forward=False, reply_to_user_id=None)
+    runner = mj.ExperienceReviewRunner.__new__(mj.ExperienceReviewRunner)
+    signal = runner._detector_signal(
+        {"id": 7, "user_id": 42, "reply_to_id": None}, verdict, False)
+    assert signal["confidence"] == "medium"
+    blob = json.dumps(signal, ensure_ascii=False)
+    assert "неверно" not in blob and "5 а не 6" not in blob
+    assert mj.me.sanitize_typed_json(signal) is not None
+
+
+@pytest.mark.asyncio
+async def test_semantic_window_keeps_profane_correction(tmp_path):
+    """P1: пропуск БЫСТРОГО детектора ≠ потеря для семантического извлечения.
+
+    Реплика с матом/грубостью и содержательной коррекцией может быть
+    deliberate skip быстрого детектора, но обязана попасть в LLM-окно: там
+    решение принимает семантика, а не словарь тона."""
+    db = await _db(tmp_path)
+    try:
+        await _msg(db, text="ты неверно посчитал, бля, там 5 а не 6")
+        runner = mj.ExperienceReviewRunner(db)
+        payload = await runner._load_payload("nope")
+        window = await runner._semantic_window(payload, -100)
+        assert window["state"] == "ok"
+        texts = [r["text"] for r in window["rows"]]
+        assert "ты неверно посчитал, бля, там 5 а не 6" in texts
+        fast = mj.classify_chat_message(
+            text="ты неверно посчитал, бля, там 5 а не 6", media_type="text",
+            is_forward=False, reply_to_user_id=None)
+        assert fast and fast["class"] == mj.DETECTOR_CLASS_CORRECTION
+    finally:
+        await db.close()
 
 
 @pytest.mark.asyncio

@@ -260,6 +260,23 @@ class TestStyleParser:
     def test_not_a_request_is_silent(self, text):
         assert ss.parse_directive_request(text) is None
 
+    @pytest.mark.parametrize("text", [
+        "«отвечай короче»", "“без шуток”", '"говори прямо"',
+        "\"обращайся на «ты»\"",
+    ])
+    def test_quoted_directive_is_not_a_request(self, text):
+        """P1 semantic-routing (2026-11-10, сценарий D): цитата просьбы изменить
+        стиль не меняет настройки — сообщение целиком в кавычках это чужие
+        слова (данные), а не поручение участника."""
+        assert ss.parse_directive_request(text) is None
+
+    def test_quote_detector_structure(self):
+        assert ss.is_quoted_message("«отвечай короче»") is True
+        assert ss.is_quoted_message("> отвечай короче") is True
+        assert ss.is_quoted_message("отвечай короче") is False
+        # две цитаты в одном сообщении — не решаем структурно
+        assert ss.is_quoted_message("«без шуток» и «без смайлов»") is False
+
     def test_directive_only_for_command(self):
         assert ss.parse_directive_only("отвечай короче") == \
             ("verbosity", "short")
@@ -298,6 +315,22 @@ class TestStyleIngestRights:
             assert await ss.resolve_block(
                 db, chat_id=-100, text="привет", participant_id=8,
                 now=1001.0) == ""
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_quoted_request_does_not_change_settings(self, tmp_path):
+        """Сценарий D: «цитата просьбы изменить стиль» не создаёт правило."""
+        db = await _db(tmp_path)
+        try:
+            result = await ss.ingest_message(
+                db, chat_id=-100, sender_id=7, text="«отвечай короче»",
+                message_id=56, now=1000.0)
+            assert result is None
+            assert await _active(db, -100, now=1001.0) == []
+            block = await ss.resolve_block(
+                db, chat_id=-100, text="привет", participant_id=7, now=1001.0)
+            assert block == ""
         finally:
             await db.close()
 

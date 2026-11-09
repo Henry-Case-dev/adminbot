@@ -160,6 +160,39 @@ def _residual_ok(residual: str) -> bool:
     return True
 
 
+#: Пары обрамляющих кавычек (типографика, не лексика): сообщение ЦЕЛИКОМ в
+#: кавычках — это цитата чужой речи, а не просьба участника (P1
+#: semantic-routing 2026-11-10, §6 «Стиль и характер»/сценарий D: «цитата
+#: просьбы изменить стиль не меняет настройки»).
+_QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
+    ("«", "»"), ("\"", "\""), ("“", "”"), ("„", "“"), ("'", "'"), ("`", "`"))
+
+
+def is_quoted_message(text: str) -> bool:
+    """Сообщение целиком является цитатой (структурная проверка кавычек).
+
+    ``«отвечай короче»`` — чужие слова, просьбой не являются. Кавычка внутри
+    (две цитаты в одном сообщении, вложенная кавычка) → False: неоднозначность
+    решается обычным путём (residual-проверка). Никогда не бросает."""
+    body = str(text or "").strip()
+    if len(body) < 3:
+        return False
+    if body.startswith(">") or body.startswith("&gt;"):
+        return True                      # markdown-цитата
+    for left, right in _QUOTE_PAIRS:
+        if not (body.startswith(left) and body.endswith(right)):
+            continue
+        if len(body) <= len(left) + len(right):
+            continue
+        inner = body[len(left):len(body) - len(right)]
+        if not inner.strip():
+            continue
+        if left in inner or right in inner:
+            continue                     # две цитаты/вложенность — не решаем
+        return True
+    return False
+
+
 def _topic_label(cleaned: str, marker: re.Match, spans: tuple[int, int]
                  ) -> str:
     """Метка темы — между маркером и директивой/пунктуацией/концом."""
@@ -206,6 +239,9 @@ def parse_directive_request(text: str) -> ParsedRequest | None:
     try:
         cleaned = _strip_bot_address(_normalize(text))
         if not cleaned:
+            return None
+        if is_quoted_message(cleaned):
+            # Цитата чужой просьбы — данные, а не поручение (сценарий D).
             return None
         matches = _directive_matches(cleaned)
         if not matches:
@@ -260,7 +296,11 @@ def parse_directive_request(text: str) -> ParsedRequest | None:
 
 
 def parse_directive_only(text: str) -> tuple[str, str] | None:
-    """Для команды: ровно одна директива, без scope-маркеров и мусора."""
+    """Для команды: ровно одна директива, без scope-маркеров и мусора.
+
+    Явная команда `/style` — зарегистрированный вход (её аргумент исполняется
+    как есть): правило «цитата не просьба» относится к свободной речи, а не к
+    команде."""
     try:
         cleaned = _strip_bot_address(_normalize(text))
         matches = _directive_matches(cleaned)

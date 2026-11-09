@@ -3155,11 +3155,13 @@ class TestDirectChatToolCalling:
         assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
 
 
-class TestDirectChatDigPreGate:
-    """Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): пре-гейт
-    маркеров ностальгии. Маркер в сообщении + flags.dig_pre_gate_enabled →
-    dig_into_lore вызван ДО генерации, <dig_result> инжектится ПЕРЕД
-    <Target_User>; флаг off / нет маркера → ничего."""
+class TestDirectChatDigPreGateRemoved:
+    """P1 semantic-routing (2026-11-10, owner corrective §6 «Ностальгия»).
+
+    Лексический пре-гейт снят: упоминание прошлого/года/«помнишь» само по себе
+    НЕ запускает исторический поиск, даже при включённом
+    `flags.dig_pre_gate_enabled`. Инструмент `dig_into_lore` сохранён и
+    доступен модели (положительный путь — решение L1/канон промпта)."""
 
     @staticmethod
     def _hot_cache(monkeypatch, values):
@@ -3206,57 +3208,40 @@ class TestDirectChatDigPreGate:
         return content, router
 
     @pytest.mark.asyncio
-    async def test_marker_flag_on_calls_dig_before_target(self, monkeypatch,
-                                                          fake_time):
+    async def test_markers_do_not_force_dig_even_with_flag_on(
+            self, monkeypatch, fake_time):
+        """Негатив: маркер прошлого + флаг ON → принудительного dig нет."""
         router = self._capture_router()
         content, router = await self._run(
             monkeypatch, "бот, помнишь как мы тогда гуляли в 2024?",
             router, flags={"flags.dig_pre_gate_enabled": True})
-        assert router.calls and router.calls[0][0] == "dig_into_lore"
-        assert router.calls[0][1]["query"] == \
-            "бот, помнишь как мы тогда гуляли в 2024?"
-        assert content.index("<dig_result>") \
-            < content.index("<Target_User>")
-        assert "[вася 2024-05-12]: тогда и гуляли" in content
-
-    @pytest.mark.asyncio
-    async def test_flag_off_no_dig_no_block(self, monkeypatch, fake_time):
-        router = self._capture_router()
-        content, router = await self._run(
-            monkeypatch, "бот, помнишь как мы тогда гуляли?",
-            router, flags={"flags.dig_pre_gate_enabled": False})
         assert router.calls == []
         assert "<dig_result>" not in content
 
     @pytest.mark.asyncio
-    async def test_no_markers_flag_on_no_dig(self, monkeypatch, fake_time):
+    async def test_year_mention_does_not_force_dig(self, monkeypatch,
+                                                  fake_time):
         router = self._capture_router()
         content, router = await self._run(
-            monkeypatch, "бот, что по планам на вечер?",
-            router, flags={"flags.dig_pre_gate_enabled": True})
+            monkeypatch, "бот, а было же лето в 2023...", router,
+            flags={"flags.dig_pre_gate_enabled": True})
         assert router.calls == []
         assert "<dig_result>" not in content
 
     @pytest.mark.asyncio
-    async def test_default_flag_off_ignores_markers(self, monkeypatch,
+    async def test_dig_tool_still_available_to_model(self, monkeypatch,
                                                     fake_time):
-        """Дефолт settings: флаг off (Q12/D-11) — без явного включения
-        пре-гейт молчит даже при маркере."""
+        """Позитив: `dig_into_lore` остаётся инструментом модели."""
+        from services import tool_schemas as _ts
+        from services import direct_capabilities as _caps
+        assert _caps.CAPABILITY_TOOLS["historical_search"] == (
+            "dig_into_lore", "compile_lore_story")
+        names = {t["function"]["name"] for t in _ts.active_tools()}
+        assert "dig_into_lore" in names
         router = self._capture_router()
         content, router = await self._run(
-            monkeypatch, "бот, а было же лето в 2023...", router)
-        assert router.calls == []
-        assert "<dig_result>" not in content
-
-    @pytest.mark.asyncio
-    async def test_disabled_or_error_dig_result_not_injected(
-            self, monkeypatch, fake_time):
-        router = self._capture_router(
-            result="Инструмент dig_into_lore отключен.")
-        content, router = await self._run(
-            monkeypatch, "бот, помнишь тот поход?",
-            router, flags={"flags.dig_pre_gate_enabled": True})
-        assert router.calls and router.calls[0][0] == "dig_into_lore"
+            monkeypatch, "бот, что было с Васей в 2022?", router)
+        assert router.calls == []          # пре-гейта нет
         assert "<dig_result>" not in content
 
 

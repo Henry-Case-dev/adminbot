@@ -628,15 +628,15 @@ def _segment_json(text: str) -> list | None:
                     "continues": 1 if item.get("continues") else 0,
                     "note": note})
     return out
-# Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): маркеры ностальгии
-# для пре-гейта dig (флаг flags.dig_pre_gate_enabled, default false). Regex
-# по тексту сообщения (без границ слов — «как мы тогда гуляли» и т.п.);
-# «в 20\d\d» — упоминание года («в 2024»).
-_NOSTALGIA_MARKERS_RE = re.compile(
-    r"помнишь|помните|как мы тогда|как вы тогда|год назад|лет назад|"
-    r"в 20\d\d|кто был тот|а было же|когда-то", re.IGNORECASE)
+# P1 semantic-routing (2026-11-10, owner corrective §6/§7): лексический
+# пре-гейт исторического поиска (`_NOSTALGIA_MARKERS_RE`: «помнишь|как мы
+# тогда|год назад|в 20\d\d|кто был тот|а было же|когда-то») удалён вместе с
+# принудительным `dig_into_lore` ДО модели: упоминание прошлого само по себе
+# больше не запускает исторический поиск. Инструмент `dig_into_lore` и его
+# контракт в каноне промпта сохранены — вызывает его модель по смыслу
+# (capability `historical_search`), а не словарь маркеров.
 # Потолок инжекта <dig_result> (спека §3.2.3; dig уже режет 3500 сам —
-# страховка для результатов не-dig веток).
+# страховка для остальных dig-совместимых блоков: stats-хинт, capability-блок).
 _DIG_RESULT_MAX_CHARS = 3600
 # S10.20-10: лимит Telegram-сообщения — HTML-история шлётся разметкой только
 # если экранированный текст влезает в ОДИН чанк (иначе чанкинг мог порвать
@@ -1065,12 +1065,6 @@ def _message_user_text(message) -> str:
     if not isinstance(text, str):
         return ""
     return text.strip()
-
-
-def _nostalgia_markers(text: str) -> bool:
-    """Раунд 9 (фикс-раунд major-1, spec §3.2.3): есть ли в сообщении маркер
-    ностальгии (помнишь, как мы тогда, год назад, «в 20XX» и т.п.)."""
-    return bool(_NOSTALGIA_MARKERS_RE.search(str(text or "")))
 
 
 def _strip_direct_prefix(text: str) -> str:
@@ -2614,13 +2608,31 @@ def _evidence_urls(*texts) -> tuple[str, ...]:
     return tuple(out)
 
 
+def _evidence_is_explicit_search_command(query: str) -> bool:
+    """Поручение искать = ЯВНАЯ поисковая команда реестра (§4/§6/§7).
+
+    Единственное определение поверхности живёт в ``direct_l1.is_search_command``
+    (обращение снимается `command_prefix`, остаток проверяет
+    `command_registry.matches_group("search", …)`); отдельного словаря
+    search-стемов больше нет — «я вчера в интернете видел мем» не является
+    поручением, а решение о естественном поисковом запросе принимает L1.
+    Никогда не бросает."""
+    try:
+        return bool(_l1.is_search_command(query))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def _evidence_explicit_request(query: str,
                                reply_text: str = "",
                                plan=None) -> "_evp.ExplicitRequest":
     """Детерминированные сигналы поручения (§1.3) — только существующие.
 
-    * ``search`` — ``direct_capabilities.detect_action_intent``
-      (``INTENT_WEB_SEARCH``; тот же класс запроса, что ``_SEARCH_RE``);
+    * ``search`` — ЯВНАЯ поисковая команда ``Бот, найди …`` (реестр команд,
+      :func:`_evidence_is_explicit_search_command`); P1 semantic-routing
+      (2026-11-10, §7): прежний сигнал по словарю ``INTENT_WEB_SEARCH`` снят —
+      стем в тексте не доказывает поручение и не может форсировать поиск
+      поверх решения L1 (ось получала ``user_forced`` из обычной фразы);
     * ``verify`` — явная ФОРМА просьбы проверить факт: существующий набор
       маркеров ``INTENT_FACT_CHECK`` («правда ли…», «проверь факт…», «это
       правда?», «проверь это», «фактчек…») в форме запроса
@@ -2654,7 +2666,9 @@ def _evidence_explicit_request(query: str,
         kind = str(getattr(intent, "intent", "") or "")
     except Exception:      # pragma: no cover - защитная ветка
         kind = ""
-    search = kind == _caps.INTENT_WEB_SEARCH
+    # P1 semantic-routing (2026-11-10, §7): поручением искать считается только
+    # ЯВНАЯ поисковая команда (реестр), не совпадение стема в тексте.
+    search = _evidence_is_explicit_search_command(str(query or ""))
     # Форма запроса проверяется один раз и применяется к ОБОИМ источникам
     # сигнала: маркеры `INTENT_FACT_CHECK` и референтная форма отвечают на
     # вопрос «о чём», а форму («проверь/правда ли/вопрос») решает
@@ -4016,23 +4030,15 @@ class DirectChatService:
                 if _stats_block:
                     user_blocks = self._insert_dig_result(
                         user_blocks, _stats_block)
-            # Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): пре-гейт
-            # маркеров ностальгии — принудительный dig ДО генерации, результат
-            # в <dig_result> ПЕРЕД <Target_User> (флаг off/нет маркера/нет
-            # роутера → ничего; раунды TOOL_MAX_ROUNDS не тратятся).
+            # P1 semantic-routing (2026-11-10, owner corrective §6 «Ностальгия»):
+            # лексического пре-гейта исторического поиска здесь больше НЕТ.
+            # Упоминание прошлого/года/«помнишь» само по себе не запускает dig:
+            # решение о старом контексте принимает модель, а `dig_into_lore`
+            # остаётся её инструментом (канон промпта и capability
+            # `historical_search` не менялись). Прежний маркер-путь
+            # (`_NOSTALGIA_MARKERS_RE`/`_dig_pre_gate_block`) был pre-L1
+            # принудительным tool call по стему — ровно то, что запрещено §7.
             dig_fired = False
-            if self.tool_router is not None:
-                dig_block = await self._dig_pre_gate_block(chat_id, query)
-                if dig_block:
-                    dig_fired = True
-                    # P0-HA ISOLATION (§3): <dig_result> (Lore) — память вне
-                    # диапазона; при активной выборке помечается баннером
-                    # (источник не выключается). Без выборки — паритет.
-                    if history_sample is not None:
-                        dig_block = _ha_banner_in_block(
-                            dig_block, _ha_sample_id(history_sample))
-                    user_blocks = self._insert_dig_result(user_blocks,
-                                                          dig_block)
             # ── SOUL-1 §5.14 + P0-A (2026-11-10): ТЕХНИЧЕСКАЯ проверка
             # готовности ПОДТВЕРЖДЁННОГО намерения (0 LLM-вызовов). Вход ровно
             # один — явная команда «Бот, нарисуй <промпт>» (syntax-парсер);
@@ -4502,11 +4508,12 @@ class DirectChatService:
                     # (classify_request + demote-матрица). Duplicate reply
                     # невозможен: один turn — максимум одна отправка (D13),
                     # freshness/dedup-гварды ниже общие.
-                    # §18C.3: planner failure НЕ стирает required tools —
-                    # дет. inference required capability (URL/search) +
-                    # planner_fallback_reason/required_capability в
-                    # telemetry; инструменты исполняются детерминированно,
-                    # L2 получает честную пометку.
+                    # P1 semantic-routing (2026-11-10, §7/§8-E): при сбое L1
+                    # слова запроса НЕ инициируют инструмент. Детерминирован
+                    # только структурный сигнал — явная ссылка → fetch_url
+                    # (`infer_fallback_capabilities`); поиск по стему больше
+                    # не выводится, решение о поиске остаётся за L1/явной
+                    # командой.
                     _fb_reply_text = ""
                     try:
                         _fb_reply_msg = getattr(message, "reply_to_message",
@@ -10218,14 +10225,48 @@ class DirectChatService:
                     query=query, own_media=own_media,
                     reply_media=reply_media,
                     explicit_ref=bool(explicit_reference)):
+                # P1 semantic-routing (2026-11-10, §6 «Vision»/§7): словесное
+                # упоминание изображения без привязки к медиа НЕ делает ход
+                # медиа-зависимым — разбор «единственного фото рядом» не
+                # запускается. Но явная просьба разобрать изображение,
+                # которого ещё нет, сохраняет durable-намерение «сейчас скину»
+                # (bounded TTL, без LLM/vision-вызова): ответ на поздно
+                # присланное изображение возобновится по существующему пути.
+                if not own_media and not reply_media:      # медиа не привязано
+                    try:
+                        from services import mca_vision as _mv
+                        if _mv.vision_intent(query):
+                            author = getattr(message, "from_user", None)
+                            await media_readiness.register_pending_intent(
+                                db, chat_id=int(chat_id),
+                                trigger_message_id=int(getattr(
+                                    message, "message_id", 0) or 0),
+                                consumer="direct", question=query,
+                                user_id=getattr(author, "id", None))
+                            # Честное состояние «цели ещё нет» без догадки о
+                            # соседнем изображении и без vision-вызова.
+                            return media_readiness.MediaReadiness(
+                                chat_id=int(chat_id),
+                                target_message_id=(int(getattr(
+                                    message, "message_id", 0) or 0) or None),
+                                association_status=media_readiness.ASSOC_MISSING,
+                                analysis_status=media_readiness.ANALYSIS_MISSING,
+                                reason_code="no_target",
+                                consumer="direct", media_dependent=True)
+                    except Exception:
+                        logger.debug(
+                            "[direct] pending intent register failed",
+                            exc_info=True)
                 return None
             author = getattr(message, "from_user", None)
             author_user_id = getattr(author, "id", None)
             author_name = str(getattr(author, "first_name", "") or "")
             reply_to_id = getattr(reply, "message_id", None)
-            # Слабая связь включается только когда своего медиа нет: вопрос
-            # «что на скрине?» без вложения должен найти фото того же автора
-            # рядом, но чужое фото без структурной связи не приписывается.
+            # Слабая связь включается только когда своего медиа нет: вопрос о
+            # ранее присланном изображении без вложения. Цель такого вопроса
+            # резолвится структурно (явный `tg:`-ref реестра/цитата); слова
+            # сами по себе медиа-зависимость не создают
+            # (`media_readiness.is_media_dependent`, P1 2026-11-10).
             allow_adjacent = bool(explicit_reference) or (
                 not own_media and not reply_media)
             readiness = await media_readiness.prepare_media_evidence(
@@ -10549,47 +10590,6 @@ class DirectChatService:
         return getattr(message, "reply_to_message", None) is not None
 
     # ── Раунд 9 (AGI Memory, T-819/B4, spec §3.1.4/Q3): <user_relations> ──
-
-    async def _dig_pre_gate_block(self, chat_id: int, query: str) -> str:
-        """Пре-гейт маркеров ностальгии (major-1, spec §3.2.3): маркер в
-        сообщении И флаг flags.dig_pre_gate_enabled (default false) →
-        dig_into_lore через роутер (dispatch по имени, как модель) →
-        блок `<dig_result>\n…\n</dig_result>`. Ничего (""): флаг off, нет
-        маркера, нет роутера, пустой/служебный результат («отключен»/
-        «ОШИБКА …»/пусто). Fail-open — никогда не бросает."""
-        if not hot.get("flags.dig_pre_gate_enabled",
-                       settings.DIG_PRE_GATE_ENABLED):
-            return ""
-        text = str(query or "").strip()
-        if not text or not _nostalgia_markers(text):
-            return ""
-        router = self.tool_router
-        if router is None or not hasattr(router, "dispatch"):
-            return ""
-        try:
-            raw = await router.dispatch(
-                "dig_into_lore",
-                {"query": text, "mode": "both"},
-                ToolContext(chat_id, text))
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.warning(
-                "direct: dig pre-gate failed — блок не строится | chat=%s",
-                chat_id, exc_info=True)
-            return ""
-        result = str(raw or "").strip()
-        if not result:
-            return ""
-        if result.startswith("ОШИБКА") \
-                or "отключен" in result.lower():
-            logger.info(
-                "direct: dig pre-gate служебный ответ — без инжекта | chat=%s",
-                chat_id)
-            return ""
-        if len(result) > _DIG_RESULT_MAX_CHARS:
-            result = result[:_DIG_RESULT_MAX_CHARS].rstrip() + "…"
-        return f"<dig_result>\n{result}\n</dig_result>"
 
     @staticmethod
     def _insert_dig_result(user_blocks: list[str], dig_block: str

@@ -3214,10 +3214,15 @@ class Settings:
     # сидятся в bot_settings при pg.init(); env-чтение дефолтами не ломает
     # (.env.example НЕ меняем — I1, новых env нет; прецедент LORE_*/RELATIONS_*).
     # DIG_ENABLED — тул доступен модели (default true, Q12/D-11: раунды
-    # тратит только по вызову); DIG_PRE_GATE_ENABLED — код-пре-гейт маркеров
-    # ностальгии перед генерацией (default false); лимиты — потолки выдачи
+    # тратит только по вызову); лимиты — потолки выдачи
     # (сниппеты/факты/символы), глубина граф-обхода имён, окно «N лет назад».
     DIG_ENABLED: bool = _env_bool("DIG_ENABLED", True)
+    # DIG_PRE_GATE_ENABLED: поле СОХРАНЕНО ради совместимости конфигурации
+    # (env/PG-строка flags.dig_pre_gate_enabled не удаляется, миграции нет),
+    # но НЕ читается: лексический пре-гейт исторического поиска снят
+    # (P1 semantic-routing 2026-11-10, owner corrective §6/§7 — упоминание
+    # прошлого само по себе не запускает поиск; решает модель через
+    # инструмент dig_into_lore).
     DIG_PRE_GATE_ENABLED: bool = _env_bool("DIG_PRE_GATE_ENABLED", False)
     # Раунд 10.20 (БЛОК 1/О3, ADR-1020-4 п.5): `flags.lore_compiler_enabled` —
     # простой тумблер ВКЛ/ВЫКЛ 8-го инструмента compile_lore_story. ДЕФОЛТ ON

@@ -521,13 +521,25 @@ class TestL2FallbackRepack:
         assert isinstance(out.get("messages"), list) or out == broken
 
 
-# ── fallback capability inference (§18C.3) ───────────────────────────────────
+# ── fallback capability inference (§18C.3 + P1 semantic-routing) ─────────────
 
 
 class TestFallbackCapabilityInference:
-    def test_search_markers_infer_web_search(self):
+    def test_search_markers_do_not_infer_web_search(self):
+        """P1 (2026-11-10, §7/§8-E): при сбое L1 обычные слова не ведут к поиску.
+
+        Прежний `_FALLBACK_SEARCH_RE` форсировал web_search по стему — это
+        скрытый fallback, повторяющий удалённую эвристику."""
         caps = _l1.infer_fallback_capabilities(
-            "бот, поищи в интернете курс биткоина", "",
+            "искал в интернете курс биткоина, но так и не нашёл", "",
+            announced={"execute_web_search", "fetch_article"})
+        assert caps == ()
+
+    def test_explicit_search_command_still_infers_web_search(self):
+        """Позитив: явная команда «Бот, найди …» сохраняет свой путь и при
+        сбое L1 (это команда, а не стем)."""
+        caps = _l1.infer_fallback_capabilities(
+            "бот, поищи курс биткоина", "",
             announced={"execute_web_search", "fetch_article"})
         assert caps == ("web_search",)
 
