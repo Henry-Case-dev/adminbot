@@ -2672,6 +2672,21 @@
       "recorded_in": "",
       "origin": "root chat 2026-11-10",
       "received": "2026-11-10"
+    },
+    {
+      "id": "OI-2026-11-10-QUANTUM-NONDETERMINISM",
+      "source_path": "plans/owner_inputs/2026-11-10-quantum-nondeterminism-correction.md",
+      "source_sha256": "11118D955CB8FA5AC172C0D09D51BB9BBE6811A3A309FE7AC474B965679441AA",
+      "kind": "correction",
+      "target_task_ids": [
+        "smart-module-semantic-routing-p0",
+        "vmq-onto-01"
+      ],
+      "reconciled": false,
+      "note": "Cancels the tie-break-only role of QRNG. Quantum values must govern the next semantic check moment (per-chat independent stochastic scheduling with a bounded adaptive distribution, durable per-chat state, restart and missed-deadline handling, no mass catch-up), the direction of memory exploration, weighted candidate choice, the publication probability (replacing the double gate where the LLM nearly always says SILENT), and other initiative situations already covered by contracts. Only the existing RandomSource and its VMQ extension; no mixing quantum and pseudo-random values inside one choice; every decision logs its actual source. Status/Analytics must show real non-determinism per mechanism and must not claim 'working' when QRNG was not used. Scope: proactive nostalgia and regular initiative at minimum, keeping the existing dreams/memory integrations. Acceptance includes the decisive check that the same semantic situation can yield different publication decisions under different allowed quantum values.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-10",
+      "received": "2026-11-10"
     }
   ],
   "source_inventory": {
