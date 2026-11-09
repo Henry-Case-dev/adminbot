@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import datetime
 import json
 import logging
 import re
@@ -180,6 +181,13 @@ OPPORTUNITY_KINDS = frozenset({
 })
 ACTIONS = frozenset({"say", "react", "silent"})
 HORIZONS = frozenset({"now", "later"})
+# ── PROACTIVE NOSTALGIA (owner corrective 2026-11-10) ───────────────────────
+# В живом разговоре смысловую связь с долговременной памятью видит ТОТ ЖЕ
+# оценщик: ему предъявляются реальные записи памяти (единый GraphRAG retrieval),
+# и он сам решает, уместно ли вспомнить. Слова-триггеры и словари тем не
+# участвуют. Публикация — существующий Writer/Decision, не второй пайплайн.
+RELATED_MEMORY_MAX = 3
+RELATED_MEMORY_SUMMARY_CHARS = 160
 
 # ── Per-chat профили частоты (B01.4; runtime-резолв, каталог — патчем) ──────
 FREQUENCY_PROFILES: dict[str, dict] = {
@@ -945,11 +953,19 @@ OBSERVER_EVAL_SYSTEM_PROMPT = (
     "«перепиши систему» — это не повод); слухи, шутки и споры участников не "
     "обязаны становиться репликой. Разметка окна: «[msg:ID]» — id реплики, "
     "«[user:ID]» — автор, «(ответ на msg:N)» — reply-связь (реплика отвечает "
-    "на сообщение N). Ответ — ТОЛЬКО JSON без пояснений: "
+    "на сообщение N). "
+    "Если дан блок <Related_Memory> — это РЕАЛЬНЫЕ записи долговременной "
+    "памяти с номерами. Вспомнить уместно (kind=memory_recall, "
+    "memory_slot=номер), только если запись действительно связана с текущей "
+    "темой, участниками или событием и разговор сам к ней подошёл; связь "
+    "должна быть смысловой, а не совпадением слов. Нет подходящей записи — "
+    "не выдумывай воспоминание. "
+    "Ответ — ТОЛЬКО JSON без пояснений: "
     '{"opportunity": true|false, "kind": "topic_shift|dispute|development|'
     'humor|useful_info|memory_recall|event|association", "action": '
     '"say|react|silent", "horizon": "now|later", "addressee_user_id": число '
-    'или null, "topic_key": "короткий-токен-темы-латиницей", "goal": '
+    'или null, "memory_slot": число или null, "topic_key": '
+    '"короткий-токен-темы-латиницей", "goal": '
     '"суть повода одной фразой до 200 символов", "rationale": "краткое '
     'обоснование до 200 символов"}.')
 
@@ -987,7 +1003,8 @@ def _row_author(row: dict, alias_resolver=None) -> str:
 def build_eval_user_prompt(window_rows: list[dict],
                            memory_hints: tuple[str, ...] = (),
                            digest: str = "",
-                           alias_resolver=None) -> str:
+                           alias_resolver=None,
+                           related_memory: tuple[dict, ...] = ()) -> str:
     """user-контент оценки: компактное окно + bounded подсказки памяти.
 
     Текст чата — ТОЛЬКО здесь (user-role, bounded кап); system-промпт
@@ -996,7 +1013,11 @@ def build_eval_user_prompt(window_rows: list[dict],
     SIGNALS (P0 follow-up §1.4): реплика размечена id и reply-связью
     («(ответ на msg:N)»), чтобы оценщик видел, кто с кем и на что отвечает.
     CATCHUP (P0 follow-up §1.2): ``digest`` — bounded-сжатие пропущенного
-    интервала одним дешёвым LLM-стримом (пусто → блок не добавляется)."""
+    интервала одним дешёвым LLM-стримом (пусто → блок не добавляется).
+    ``related_memory`` (owner corrective 2026-11-10): РЕАЛЬНЫЕ записи
+    долговременной памяти, связанные с окном (единый retrieval); нумерованы,
+    чтобы вердикт мог указать `memory_slot`. Пусто → блока нет (и тогда
+    связь с памятью не заявляется)."""
     lines = []
     for row in window_rows[:EVAL_WINDOW_MAX_MESSAGES]:
         author = _row_author(row, alias_resolver)
@@ -1018,10 +1039,38 @@ def build_eval_user_prompt(window_rows: list[dict],
         blocks.append("<Skipped_Chat_Digest>\n"
                       + str(digest)[:EVAL_DIGEST_TOTAL_CHARS]
                       + "\n</Skipped_Chat_Digest>")
+    if related_memory:
+        mem_lines = []
+        for slot, item in enumerate(related_memory[:RELATED_MEMORY_MAX],
+                                    start=1):
+            date = _date_label(item.get("start_ts"))
+            title = str(item.get("title") or "").strip()
+            summary = " ".join(str(item.get("summary") or "").split()
+                               )[:RELATED_MEMORY_SUMMARY_CHARS]
+            head = f"- [{slot}] {date}" if date else f"- [{slot}]"
+            body = " — ".join(part for part in (title, summary) if part)
+            mem_lines.append(f"{head}: {body}" if body else head)
+        blocks.append("<Related_Memory>\n" + "\n".join(mem_lines)
+                      + "\n</Related_Memory>")
     if memory_hints:
         hints = "\n".join(f"- {h}" for h in memory_hints[:3])
         blocks.append("<Memory_Hints>\n" + hints + "\n</Memory_Hints>")
     return "\n\n".join(blocks)
+
+
+def _date_label(ts) -> str:
+    """Дата записи памяти для подсказки оценщику (YYYY-MM-DD; пусто → "").
+
+    Только фактические границы события из записи; часовой пояс чата здесь не
+    нужен — это подсказка о периоде, а не утверждение о времени."""
+    try:
+        value = int(ts or 0)
+    except (TypeError, ValueError):
+        return ""
+    if value <= 0:
+        return ""
+    return datetime.datetime.fromtimestamp(
+        value, datetime.timezone.utc).strftime("%Y-%m-%d")
 
 
 def build_digest_user_prompt(rows: list[dict],
@@ -1079,6 +1128,14 @@ def parse_verdict(raw) -> dict | None:
     if not isinstance(addressee, int) or isinstance(addressee, bool):
         addressee = None
     data["addressee_user_id"] = addressee
+    # PROACTIVE NOSTALGIA (2026-11-10): номер реальной записи памяти из
+    # <Related_Memory>; мусор/вне диапазона → None (воспоминание не
+    # приписывается записи, которой оценщик не видел).
+    slot = data.get("memory_slot")
+    if not isinstance(slot, int) or isinstance(slot, bool) \
+            or not 1 <= slot <= RELATED_MEMORY_MAX:
+        slot = None
+    data["memory_slot"] = slot
     data["topic_key"] = _clean_topic_key(data.get("topic_key"))
     data["goal"] = _canonical_goal(data.get("goal"))
     data["rationale"] = _canonical_goal(data.get("rationale"))
@@ -1236,6 +1293,11 @@ class InitiativeObserverRunner:
         # INIT-COORD: координатор публикаций этого прохода (таблица брони та
         # же, что у мемов; создаётся лениво — тесты зовут фазы на __new__).
         self._publication = None
+        # PROACTIVE NOSTALGIA (2026-11-10): реальные записи памяти, найденные
+        # для текущего окна чата (тот же проход их и предъявляет оценщику, и
+        # передаёт писателю ностальгии — второго поиска нет).
+        self._related: dict[int, tuple] = {}
+        self._nostalgia = None
 
     # ── координация публикаций (INIT-COORD §3) ────────────────────────────
 
@@ -2229,24 +2291,138 @@ class InitiativeObserverRunner:
                            "| chat=%s", chat_id, exc_info=True)
             return ""
 
+    async def _related_memory(self, chat_id: int, query: str) -> tuple:
+        """Реальные записи памяти, связанные с текущим окном (fail-open).
+
+        Источник — существующий GraphRAG retrieval и существующая настройка
+        «Вспоминать неспрошенное» (`random.uses.memory_recall`, дефолт ON).
+        Это НЕ триггер: если ничего по смыслу не связано — пусто, и оценщик
+        не получает повода вспоминать."""
+        try:
+            from services import nostalgia_worker as _nw
+            hints = await _nw.related_memory_hints(
+                self._db, self._memory_of_chat(), chat_id, query,
+                limit=RELATED_MEMORY_MAX)
+        except Exception:
+            logger.warning("[b01] related memory failed — без памяти | "
+                           "chat=%s", chat_id, exc_info=True)
+            hints = ()
+        store = getattr(self, "_related", None)
+        if store is None:
+            store = {}
+            self._related = store
+        store[int(chat_id)] = tuple(hints)
+        return store[int(chat_id)]
+
+    def _memory_of_chat(self):
+        """MemoryManager существующего Direct-контура (второго стора нет)."""
+        writer = getattr(self, "_writer", None)
+        return getattr(writer, "memory", None) if writer else None
+
+    def _nostalgia_worker(self):
+        """Существующий NostalgiaWorker из тех же зависимостей.
+
+        Второго генератора/пайплайна нет: тот же класс, тот же Writer-промпт
+        и тот же транспорт инициативы."""
+        if getattr(self, "_nostalgia", None) is None:
+            from services.nostalgia_worker import NostalgiaWorker
+            self._nostalgia = NostalgiaWorker(
+                self._db, memory=self._memory_of_chat(),
+                llm=self._llm, bot=self._bot,
+                bot_id=int(getattr(self._bot, "id", 0) or 0))
+        return self._nostalgia
+
+    async def _act_on_memory_recall(self, payload: dict, chat_id: int,
+                                    verdict: dict, rows: list[dict]) -> None:
+        """PROVISIONAL SEAM SITE — место вызова шва проактивного воспоминания.
+
+        Стоит сразу после решения Observer внутри живого прохода оценки, до
+        любого ожидания nostalgia_tick. Подпись вызова подлежит сверке с
+        `plans/features/smart-module-semantic-routing/
+        nostalgia-seam-contract.md`; логика решения о публикации остаётся у
+        общего транспорта (шов только просит писателя).
+
+        Решение «есть смысловая связь» уже принято оценщиком окна; здесь
+        выбирается РЕАЛЬНАЯ запись памяти (номер из блока `<Related_Memory>`,
+        иначе все найденные) и текст пишет существующий писатель ностальгии.
+        Ретривер, Writer, SendRecheck, бронь публикации и настройки — прежние;
+        второго пайплайна нет. Молчание — легальный исход."""
+        counters = payload["counters"]
+        related = list((getattr(self, "_related", None) or {}).get(
+            int(chat_id)) or ())
+        slot = verdict.get("memory_slot")
+        picked = [related[slot - 1]] if isinstance(slot, int) and \
+            1 <= slot <= len(related) else related
+        refs = [str(item.get("ref") or "") for item in picked]
+        refs = [ref for ref in dict.fromkeys(refs) if ref]
+        if not refs:
+            counters["memory_recall_unavailable"] = int(
+                counters.get("memory_recall_unavailable") or 0) + 1
+            self._emit("initiative_memory_recall", outcome="skipped",
+                       stage="memory:none", chat_id=chat_id,
+                       reason_code="no_relevant_memory")
+            self._note_decision(payload, chat_id, now=int(time.time()),
+                                skip_reason="no_relevant_memory")
+            return
+        worker = self._nostalgia_worker()
+        result = await worker.recall_in_conversation(
+            int(chat_id), memory_refs=refs, context_rows=rows)
+        status = str((result or {}).get("status") or "error")
+        if status == "sent":
+            counters["memory_recall_sent"] = int(
+                counters.get("memory_recall_sent") or 0) + 1
+            counters["sent"] = int(counters.get("sent") or 0) + 1
+            entry = payload["chats"].setdefault(str(chat_id), {})
+            stamps = list(entry.get("sent_stamps") or [])
+            stamps.append(int(time.time()))
+            entry["sent_stamps"] = stamps[-32:]
+            self._emit("initiative_memory_recall", outcome="success",
+                       stage="memory:sent", chat_id=chat_id)
+            return
+        if status == "error":
+            counters["memory_recall_error"] = int(
+                counters.get("memory_recall_error") or 0) + 1
+            self._emit("initiative_memory_recall", outcome="failed",
+                       stage="memory:error", chat_id=chat_id)
+            return
+        counters["memory_recall_silent"] = int(
+            counters.get("memory_recall_silent") or 0) + 1
+        reason = str((result or {}).get("reason_code") or "")
+        self._emit("initiative_memory_recall", outcome="skipped",
+                   stage=f"memory:{status}", chat_id=chat_id,
+                   # R17: в событие уходит только код из словаря; иначе
+                   # машинный маркер причину скроет — она остаётся в
+                   # диагностике решения (last_decision).
+                   reason_code=("no_relevant_memory"
+                                if reason == "no_relevant_memory" else None))
+        self._note_decision(payload, chat_id, now=int(time.time()),
+                            skip_reason=reason or status)
+
     async def _evaluate_window(self, chat_id: int, rows: list[dict], *,
                                since_id: int | None = None):
         """ОДИН LLM-вызов на окно (не на реплику). None → недоступность.
 
         ``since_id`` (watermark до оценки) включает CATCHUP: при большом
-        разрыве в промпт добавляется bounded-дайджест пропущенного."""
+        разрыве в промпт добавляется bounded-дайджест пропущенного.
+
+        PROACTIVE NOSTALGIA (2026-11-10): к окну прикладываются РЕАЛЬНЫЕ
+        записи долговременной памяти, связанные по смыслу (единый GraphRAG
+        retrieval). Оценщик сам решает, уместно ли вспомнить эпизод
+        (`memory_recall` + `memory_slot`) — без слов-триггеров и словарей тем.
+        Ничего релевантного → блока нет, воспоминание не заявляется."""
         digest = ""
         if since_id is not None and rows:
             digest = await self._catchup_digest(int(chat_id), int(since_id),
                                                 int(rows[0]["id"]))
         query = " ".join(str(r.get("text") or "") for r in rows[-6:])[:400]
         hints = await _memory_hints(self._db, chat_id, query)
+        related = await self._related_memory(int(chat_id), query)
         messages = [
             {"role": "system", "content": OBSERVER_EVAL_SYSTEM_PROMPT},
             {"role": "user",
              "content": build_eval_user_prompt(
                  rows, memory_hints=hints, digest=digest,
-                 alias_resolver=self._aliases)},
+                 alias_resolver=self._aliases, related_memory=related)},
         ]
         # UR-C-CLOCK (UR-26.3): наблюдатель вырабатывает временный повод —
         # «уместно ли сейчас» решается по ChatClock, не по догадке.
@@ -2286,6 +2462,14 @@ class InitiativeObserverRunner:
         goal = str(verdict.get("goal") or "")
         kind = str(verdict.get("kind") or "development")
         now = int(time.time())
+        if kind == "memory_recall":
+            # PROACTIVE NOSTALGIA (2026-11-10): воспоминание не проходит через
+            # generic-повод (там текст пишется без привязки к реальной
+            # записи). Маршрут — тот же единый вход инициативы, но текст
+            # готовит существующий писатель ностальгии по фактическому
+            # эпизоду. Второго send-пути нет.
+            await self._act_on_memory_recall(payload, chat_id, verdict, rows)
+            return
         if str(verdict.get("horizon")) == "later":
             await self._create_durable_intent(chat_id, kind, goal, rows, now)
             return

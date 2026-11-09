@@ -377,7 +377,16 @@ class TestCandidatesAndThreshold:
         assert rows[0]["fact_id"] is None
         meta = json.loads(rows[0]["meta"])
         assert meta["candidate"] == "year_back"
-        assert "год назад" in meta["candidate_text"]
+        # P0 REWORK W1 (NOST-07.3): строки пула рендерятся как
+        # «[Имя ГГГГ-ММ-ДД]: текст» (provenance + дата вместо прежнего
+        # «N год назад»); кандидат — первая строка пула, т.е. ФАКТИЧЕСКАЯ
+        # реплика архива, а не выдуманная преамбула. Какой из двух архивных
+        # сегментов станет поводом, зависит от календарной годовщины текущих
+        # суток (тест использует реальный NOW) — проверяем принадлежность
+        # архиву, а не конкретную строку.
+        text = meta["candidate_text"]
+        assert text.startswith("[Вася ") and "]: " in text
+        assert ("спор" in text) or ("поездка" in text)
         # дневной лимит потрачен (sent)
         assert await _sent_count(db) == 1
 

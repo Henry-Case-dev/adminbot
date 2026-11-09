@@ -179,6 +179,33 @@ _REPEAT_LOOKBACK_DAYS = 30     # временнáя граница «недав�
 
 _TOPIC_WORD_RE = re.compile(r"[а-яёa-z0-9]{5,}", re.IGNORECASE)
 
+# ── PROACTIVE NOSTALGIA (owner corrective 2026-11-10) ───────────────────────
+# Инициативная ностальгия — не «ровно год назад в этот день» и не словарь тем:
+# relevance берётся из ЕДИНОГО GraphRAG-retrieval (канал episode), покрытие
+# периодов и повторяемость — из фактических журналов. Квантовое направление
+# (VMQ-ONTO-01) — один plug-in `RandomSourceService`, только направление.
+#
+# PROVISIONAL SEAM (ожидается plans/features/smart-module-semantic-routing/
+# nostalgia-seam-contract.md): два общих интерфейса помечены ниже явно:
+#   * `NostalgiaWorker.recall_in_conversation(...)` — шов проактивного
+#     воспоминания (вызывается Observer/Decision; решение публиковать НЕ
+#     принимает: генерацию и отправку делает тот же Writer/транспорт);
+#   * `NostalgiaWorker._direction_pick(...)` — единственная точка подключения
+#     RandomSource (направление исследования).
+# До прихода контракта подписи считаются провизорными и подлежат сверке.
+_SEMANTIC_TOP_K = 6            # кандидатов памяти на один проход
+_SEMANTIC_MATERIALIZE_MAX = 3  # сколько кандидатов реконструируется в эпизод
+_SEMANTIC_CHANNEL = ("episode",)   # существующий канал единого retrieval
+_RELEVANCE_W = 0.65            # вес смысловой релевантности в порядке
+_COVERAGE_BONUS = 0.2          # незвучавший недавно период
+_USAGE_BONUS = 0.1             # давно не рассказывалось (mca usage)
+_FALLBACK_TOPICAL_REL = 0.45   # FTS/тематика — слабый сигнал, не решатель
+_FALLBACK_OTHER_REL = 0.15
+_DIRECTION_BAND = 0.999        # полоса равно допустимых для квантового выбора
+_MEMORY_SUMMARY_CHARS = 160    # кап summary в подсказке памяти
+_MEMORY_HINT_TOTAL = 3         # подсказок Observer за окно
+_MEMORY_QUERY_CAP = 400        # запрос retrieval из текущей беседы
+
 
 def _now_ts() -> int:
     """Текущее unix-время (обёртка — тесты подменяют для гейтов/окон)."""
@@ -454,7 +481,11 @@ def _episode_identity(ep: dict) -> dict:
     """Идентичность эпизода для контроля повторов (NOST-08.2): стабильные
     message_key первого/последнего сообщения (каноническая идентичность
     mca-03) + фактические границы. НЕ текст: один эпизод можно пересказать
-    другими словами — идентичность не изменится."""
+    другими словами — идентичность не изменится.
+
+    PROACTIVE NOSTALGIA (2026-11-10): `ref` — ссылка на запись долговременной
+    памяти (`story:<id>` / `episode:<id>`), если эпизод пришёл из единого
+    retrieval, а не только из реконструкции истории."""
     rows = ep.get("rows") or []
     keys = [str(r.get("message_key") or "") for r in rows]
     keys = [k for k in keys if k]
@@ -462,17 +493,22 @@ def _episode_identity(ep: dict) -> dict:
             "last": keys[-1] if keys else "",
             "start_ts": int(ep.get("start_ts") or 0),
             "end_ts": int(ep.get("end_ts") or 0),
-            "year": int(ep.get("year") or 0)}
+            "year": int(ep.get("year") or 0),
+            "ref": str(ep.get("memory_ref") or "")}
 
 
 def _same_episode(ep: dict, told: dict) -> bool:
     """Тот же эпизод? (детерминированная проверка идентичности, NOST-08.2):
-    точное совпадение границ ключей ИЛИ пересечение фактических диапазонов
-    внутри одного года (сегменты непересекающи по времени; пересечение
-    диапазонов = то же событие, найденное с чуть другими границами
-    расширения). Буквального сравнения текстов нет."""
+    совпадение ссылки на запись памяти → тот же эпизод; иначе точное
+    совпадение границ ключей ИЛИ пересечение фактических диапазонов внутри
+    одного года (сегменты непересекающи по времени; пересечение диапазонов =
+    то же событие, найденное с чуть другими границами расширения). Буквального
+    сравнения текстов нет."""
     if not told:
         return False
+    ref = str(ep.get("memory_ref") or "")
+    if ref and ref == str(told.get("ref") or ""):
+        return True
     ep_first, ep_last = "", ""
     rows = ep.get("rows") or []
     keys = [str(r.get("message_key") or "") for r in rows]
@@ -492,9 +528,14 @@ def _same_episode(ep: dict, told: dict) -> bool:
 
 def _episodes_dedup(cal: list, thematic: list) -> list:
     """Дедуп пула (NOST-06: эпизод может найтись обоими режимами):
-    пересечение диапазонов одного года = один эпизод; календарный
-    приоритетен (годовщина — более определённый повод), тематический
-    выпадает. Порядок входа сохраняется."""
+    пересечение диапазонов одного года = один эпизод; приоритет — первый
+    аргумент, второй дубль выпадает. Порядок входа сохраняется.
+
+    PROACTIVE NOSTALGIA (2026-11-10): вызывающий подаёт ветки в порядке
+    «смысловая память → тематическая → календарная», поэтому остаётся карточка
+    с смысловой ссылкой (`memory_ref`) и/или тематической связью — календарная
+    годовщина перестала быть приоритетным поводом (она даёт период, а не
+    первенство)."""
     out: list = []
     for ep in list(cal) + list(thematic):
         if any(_same_episode(ep, kept) for kept in out):
@@ -516,14 +557,66 @@ def _filter_repeats(pool: list, told: list) -> tuple[list, int]:
     return fresh, repeats
 
 
-def _rank_episodes(pool: list) -> list:
-    """Технический порядок предъявления (NOST-05/06, предварительный отбор —
-    НЕ оценка ценности: финальное решение — вердикт LLM): тематическая
-    связь с текущим разговором выше календарного совпадения («нельзя
-    гарантированно предпочитать календарное совпадение»), внутри группы —
-    свежие годы первыми. Объём (число сообщений) не участвует."""
-    return sorted(pool, key=lambda e: (0 if e.get("topical") else 1,
-                                       -int(e.get("year") or 0)))
+def _episode_weight(ep: dict, years: set[int]) -> float:
+    """Вес эпизода для порядка предъявления (owner corrective 2026-11-10).
+
+    Вес — технический предварительный отбор, не «оценка ценности»: финальное
+    решение о публикации остаётся за вердиктом модели (NOST-01/05).
+
+    * relevance — смысловая близость из ЕДИНОГО retrieval (канал episode),
+      нормированная к [0,1]; без смыслового попадания остаётся слабый сигнал
+      тематического FTS-поиска (не словарь-решатель);
+    * coverage — период, который ещё не звучал в недавних воспоминаниях
+      (разнообразие по фактам журнала, без квот);
+    * usage — эпизод давно не рассказывался (mca usage), повторяемость уже
+      исключена до отбора.
+    Объём (число сообщений) не участвует — объём ≠ интересность.
+    """
+    try:
+        relevance = float(ep.get("relevance"))
+    except (TypeError, ValueError):
+        relevance = None
+    if relevance is None:
+        relevance = (_FALLBACK_TOPICAL_REL if ep.get("topical")
+                     else _FALLBACK_OTHER_REL)
+    relevance = max(0.0, min(1.0, relevance))
+    year = int(ep.get("year") or 0)
+    coverage = 0.0 if year in years else _COVERAGE_BONUS
+    usage = _USAGE_BONUS if ep.get("usage_stale") else 0.0
+    return _RELEVANCE_W * relevance + coverage + usage
+
+
+def _rank_episodes(pool: list, *, told_years=()) -> list:
+    """Порядок предъявления (owner corrective 2026-11-10): взвешенный по
+    смысловой релевантности, покрытию периодов и давности использования —
+    вместо прежнего «тематическая связь, затем самый свежий год». Ничьи
+    разрешаются свежестью периода, затем началом эпизода (детерминированно);
+    объём (число сообщений) в порядке не участвует.
+
+    Возврат — НОВЫЙ список (входной не меняется), эпизоды несут
+    `weight_score` для честной диагностики прогона."""
+    years = {int(y) for y in (told_years or ()) if y}
+    scored = []
+    for pos, ep in enumerate(pool):
+        weight = _episode_weight(ep, years)
+        ep["weight_score"] = round(weight, 4)
+        scored.append((weight, -int(ep.get("year") or 0),
+                       -int(ep.get("start_ts") or 0), pos, ep))
+    scored.sort(key=lambda item: (-item[0], item[1], item[2], item[3]))
+    return [item[4] for item in scored]
+
+
+def _told_years(told: list) -> set[int]:
+    """Годы недавно рассказанных эпизодов (покрытие периодов без квот)."""
+    years: set[int] = set()
+    for item in told or ():
+        try:
+            year = int((item or {}).get("year") or 0)
+        except (TypeError, ValueError):
+            continue
+        if year:
+            years.add(year)
+    return years
 
 
 def _pool_periods(shown: list, tz=None) -> dict:
@@ -564,6 +657,181 @@ def _payload_sections(*, episodes: bool, year_lines: bool, golden: bool,
     if memes:
         out.append("memes")
     return out
+
+
+def _memory_query(rows: list[dict]) -> str:
+    """Строка запроса к памяти из содержания текущей беседы.
+
+    Это НЕ триггер и НЕ классификатор: текст последних реплик уходит в
+    существующий retrieval как запрос, а решение «есть смысловая связь»
+    принимает модель. Пусто → запроса нет."""
+    texts = [" ".join(str((r or {}).get("text") or "").split())
+             for r in (rows or [])[-6:]]
+    return " ".join(t for t in texts if t)[:_MEMORY_QUERY_CAP]
+
+
+async def memory_candidates(db, memory, chat_id: int, query: str, *,
+                            top_k: int = _SEMANTIC_TOP_K
+                            ) -> tuple[list[dict], str | None]:
+    """Кандидаты-воспоминания из ЕДИНОГО GraphRAG retrieval (канал episode).
+
+    Возврат (кандидаты, код ошибки). Кандидат ссылается на РЕАЛЬНУЮ запись
+    памяти (`story:<id>` в mca_stories / `episode:<id>` в mca_episodes) и несёт
+    оценку релевантности канала + фактические границы события. Ничего не
+    выдумывает: запись, которую нельзя прочитать, отбрасывается.
+    Никогда не бросает (fail-open → пусто + код ошибки)."""
+    text = " ".join(str(query or "").split())
+    if not text:
+        return [], None
+    try:
+        from services import mca_retrieval_context as _rc
+        request = _rc.RetrievalRequest(
+            chat_id=int(chat_id), query=text, mode="auto",
+            channels=_SEMANTIC_CHANNEL, top_k=max(1, int(top_k)))
+        result = await _rc.retrieve(db, memory, request)
+    except Exception:
+        logger.warning("[nostalgia] semantic retrieval failed — пул без "
+                       "смысловой ветки | chat_id=%s", chat_id, exc_info=True)
+        return [], "retrieval_failed"
+    try:
+        from services.mca_episodes import EpisodeRepository
+        repo = EpisodeRepository(db)
+    except Exception:
+        return [], "retrieval_failed"
+    out: list[dict] = []
+    legacy_rows: dict[int, dict] | None = None
+    for cand in (getattr(result, "candidates", ()) or ()):
+        if str(getattr(cand, "entity_type", "")) != "episode":
+            continue
+        ref_id = str(getattr(cand, "entity_id", "") or "")
+        if not ref_id:
+            continue
+        score = float(getattr(cand, "score", 0.0) or 0.0)
+        story = await repo.get_story(ref_id)
+        if story:
+            out.append({
+                "ref": f"story:{ref_id}", "store": "story", "id": ref_id,
+                "score": score,
+                "title": str(story.get("title") or ""),
+                "summary": str(story.get("summary") or ""),
+                "start_ts": int(story.get("event_start_ts") or 0),
+                "end_ts": int(story.get("event_end_ts") or 0)})
+            continue
+        episode = await repo.get_episode(ref_id)
+        if episode:
+            out.append({
+                "ref": f"episode:{ref_id}", "store": "episode",
+                "id": ref_id, "score": score,
+                "title": str(episode.get("title") or ""),
+                "summary": str(episode.get("summary") or ""),
+                "start_ts": int(episode.get("event_start_ts") or 0),
+                "end_ts": int(episode.get("event_end_ts") or 0),
+                "used_at": episode.get("last_used_in_chat_at")})
+            continue
+        # legacy-история «Темы» (та же таблица lore_stories, что читает канал
+        # episode): границы события неизвестны — берётся фактический last_ts
+        # темы; сам эпизод всё равно реконструируется из РЕАЛЬНЫХ сообщений.
+        if legacy_rows is None:
+            try:
+                rows = await db.list_lore_stories(int(chat_id), limit=200)
+                legacy_rows = {int(r["id"]): dict(r) for r in (rows or ())}
+            except Exception:
+                legacy_rows = {}
+        try:
+            legacy = legacy_rows.get(int(ref_id))
+        except (TypeError, ValueError):
+            legacy = None
+        if legacy:
+            last_ts = int(legacy.get("last_ts") or 0)
+            out.append({
+                "ref": f"lore:{ref_id}", "store": "lore", "id": ref_id,
+                "score": score,
+                "title": str(legacy.get("topic") or ""),
+                "summary": str(legacy.get("story") or ""),
+                "start_ts": last_ts, "end_ts": last_ts})
+    return out, None
+
+
+async def memory_candidate_by_ref(db, ref: str, *, chat_id: int | None = None
+                                  ) -> dict | None:
+    """Кандидат памяти по ссылке журнала (`story:<id>`/`episode:<id>`).
+
+    Нужен инициативной ностальгии в живом разговоре: решение уже принято
+    общим Observer/Decision, остаётся прочитать ту же запись памяти, о
+    которой шла речь. Нет записи → None (ссылка не переизобретается)."""
+    text = str(ref or "").strip()
+    store, _, ident = text.partition(":")
+    if not ident:
+        return None
+    try:
+        from services.mca_episodes import EpisodeRepository
+        repo = EpisodeRepository(db)
+    except Exception:
+        return None
+    if store == "story":
+        story = await repo.get_story(ident)
+        if not story:
+            return None
+        return {"ref": text, "store": "story", "id": ident, "score": 0.0,
+                "title": str(story.get("title") or ""),
+                "summary": str(story.get("summary") or ""),
+                "start_ts": int(story.get("event_start_ts") or 0),
+                "end_ts": int(story.get("event_end_ts") or 0)}
+    if store == "episode":
+        episode = await repo.get_episode(ident)
+        if not episode:
+            return None
+        return {"ref": text, "store": "episode", "id": ident, "score": 0.0,
+                "title": str(episode.get("title") or ""),
+                "summary": str(episode.get("summary") or ""),
+                "start_ts": int(episode.get("event_start_ts") or 0),
+                "end_ts": int(episode.get("event_end_ts") or 0),
+                "used_at": episode.get("last_used_in_chat_at")}
+    if store == "lore":
+        try:
+            rows = await db.list_lore_stories(int(chat_id), limit=200)
+        except Exception:
+            return None
+        for row in rows or ():
+            data = dict(row)
+            if str(data.get("id")) != ident:
+                continue
+            last_ts = int(data.get("last_ts") or 0)
+            return {"ref": text, "store": "lore", "id": ident, "score": 0.0,
+                    "title": str(data.get("topic") or ""),
+                    "summary": str(data.get("story") or ""),
+                    "start_ts": last_ts, "end_ts": last_ts}
+        return None
+    return None
+
+
+async def related_memory_hints(db, memory, chat_id: int, query: str, *,
+                               limit: int = _MEMORY_HINT_TOTAL
+                               ) -> tuple[dict, ...]:
+    """Bounded-подсказки реальных записей памяти для Observer.
+
+    Проактивное воспоминание НЕ ищется по словарю тем: Observer видит
+    кандидатов из того же GraphRAG retrieval, что и ответы по памяти, и сам
+    решает, есть ли смысловая связь. Ничего не связано → пусто (молчание)."""
+    try:
+        from services import mca_exploration as me
+        if not me.master_enabled():
+            return ()
+        if not await me.use_enabled(db, me.USE_MEMORY_RECALL, chat_id):
+            return ()
+    except Exception:
+        return ()
+    candidates, _error = await memory_candidates(
+        db, memory, chat_id, query, top_k=max(1, int(limit)))
+    hints: list[dict] = []
+    for cand in candidates[:max(1, int(limit))]:
+        hints.append({
+            "ref": cand["ref"],
+            "title": str(cand.get("title") or "")[:120],
+            "summary": " ".join(str(cand.get("summary") or "").split()
+                                )[:_MEMORY_SUMMARY_CHARS],
+            "start_ts": int(cand.get("start_ts") or 0)})
+    return tuple(hints)
 
 
 class NostalgiaWorker:
@@ -893,13 +1161,20 @@ class NostalgiaWorker:
 
     async def _candidate_llm_send(self, chat_id: int, now: int,
                                   out: dict, *,
-                                  active: bool = False) -> None:
+                                  active: bool = False,
+                                  candidate: dict | None = None,
+                                  pick_info: dict | None = None) -> None:
         """Дорогой шаг тика (§3.5.2–3.5.4): кандидат, порог агрессивности,
         1 облачный LLM-вызов, отправка. Все исходы — строка в nostalgia_log
         (status sent/skipped/error). Никогда не бросает (fail-open).
         `active` (P0-followup §2) — сценарий A (живая беседа): пробрасывается
-        в user-блок LLM, чтобы преамбула не утверждала «в чате давно тихо»."""
-        candidate, pick_info = await self._pick_candidate(chat_id, now)
+        в user-блок LLM, чтобы преамбула не утверждала «в чате давно тихо».
+        `candidate` (owner corrective 2026-11-10) — готовый кандидат
+        живого разговора (`recall_in_conversation`): решение о связи уже
+        принято общим Observer/Decision, а маршрут (порог, budget, единый
+        Writer/SendRecheck, журнал) остаётся ОДИН и тот же."""
+        if candidate is None:
+            candidate, pick_info = await self._pick_candidate(chat_id, now)
         if candidate is None:
             # Честная диагностика (NOST-12): no_candidates / repeat
             # (все найденные эпизоды уже недавно публиковались) / ошибки
@@ -1022,6 +1297,7 @@ class NostalgiaWorker:
                                 candidate.get("fact_id"), _STATUS_SENT,
                                 {**meta, "path": "initiative"})
                 out["sent"] += 1
+                await self._mark_memory_used(chat_id, candidate)
             elif status == "error":
                 # сбой единственного транспорта — честный error (не skip)
                 await self._log(
@@ -1091,9 +1367,140 @@ class NostalgiaWorker:
                         candidate.get("fact_id"), _STATUS_SENT,
                         {**meta, "coordination": publication.coordination})
         out["sent"] += 1
+        await self._mark_memory_used(chat_id, candidate)
         logger.info(
             "[nostalgia] sent | chat=%s | kind=%s | chars=%d",
             chat_id, candidate["kind"], len(text))
+
+    async def _mark_memory_used(self, chat_id: int, candidate: dict) -> None:
+        """Отметить ФАКТ доставки записи памяти (mca usage: `last_used_in_chat_at`).
+
+        Нужно разнообразию выбора: «поиск ≠ рассказ», колонка обновляется
+        только после подтверждённой отправки. Fail-open — журнал ностальгии
+        (nostalgia_log) остаётся главным контролем повторов."""
+        refs = [str(e.get("memory_ref") or "")
+                for e in (candidate.get("episodes") or ())]
+        ids = [ref.split(":", 1)[1] for ref in refs
+               if ref.startswith("episode:") and ":" in ref]
+        if not ids:
+            return
+        try:
+            from services import mca_exploration as me
+            await me.mark_episodes_used_in_chat(
+                self.db, ids, chat_id=int(chat_id))
+        except Exception:
+            logger.warning("[nostalgia] memory usage mark failed | chat=%s",
+                           chat_id, exc_info=True)
+
+    async def recall_in_conversation(self, chat_id: int, *,
+                                     now: int | None = None,
+                                     memory_refs=(), context_rows=None
+                                     ) -> dict:
+        """PROVISIONAL SEAM — инициативная ностальгия в ЖИВОМ разговоре.
+
+        ВНИМАНИЕ: подпись провизорна до контракта
+        `plans/features/smart-module-semantic-routing/nostalgia-seam-contract.md`
+        (Architect фиксирует шов Observer/Decision). Состав:
+          вход   — chat_id, ссылки на РЕАЛЬНЫЕ записи памяти (`memory_refs`,
+                   `story:<id>`/`episode:<id>`) и окно текущего разговора;
+          выход  — R17-статус `{"status", "reason_code"}`; `status="sent"`
+                   означает, что реплику принял существующий транспорт;
+          решает — НЕ шов: публикует Writer/Decision/бронь (как и по тику),
+                   шов только материализует эпизод и просит писателя;
+          молчание — `status="skipped"` + `reason_code` (без отправки);
+          место  — сразу после решения Observer (`_act_on_memory_recall`),
+                   без ожидания следующего nostalgia_tick.
+
+        Owner corrective 2026-11-10: решение «в текущей теме есть смысловая
+        связь с прошлым» принимает существующий Observer/Decision (он видит
+        те же записи памяти); здесь материализуется эпизод из РЕАЛЬНЫХ
+        сообщений и текст пишет существующий Writer (NOSTALGIA_PROMPT).
+        Публикация — единый `_delegate_initiative` → `handle_initiative`
+        (SendRecheck, бронь публикации, настройки чата, вердикт модели).
+        Второго пайплайна не прибавилось.
+
+        Гейты анти-навязчивости — прежние пользовательские настройки
+        (дневной лимит, Q14-стоп неотвеченных, флаг «Ностальгии»); повтор
+        исключается журналом. Возврат — R17-статус:
+        disabled / skipped / sent / silent / error."""
+        stamp = int(now if now is not None else _now_ts())
+        try:
+            from services.feature_gates import gates_enabled
+            if not await gates_enabled(int(chat_id), "nostalgia"):
+                return {"status": "disabled", "reason_code": "gate_nostalgia"}
+        except Exception:
+            logger.warning("[nostalgia] conversation recall gate check "
+                           "failed | chat_id=%s", chat_id, exc_info=True)
+        day_start = _day_start_ts(stamp, self._tz_name)
+        max_day = int(self._limit("max_per_day",
+                                  settings.NOSTALGIA_MAX_PER_DAY) or 0)
+        if max_day > 0 and await self.db.count_nostalgia_sent_since(
+                int(chat_id), day_start) >= max_day:
+            return {"status": "skipped", "reason_code": "max_per_day"}
+        if await self._unanswered_stop(int(chat_id), stamp):
+            return {"status": "skipped", "reason_code": "unanswered"}
+        tz = _zone(self._tz_name)
+        base_days = int(self._key(
+            "year_back_days_window",
+            settings.NOSTALGIA_YEAR_BACK_DAYS_WINDOW) or 0) or \
+            settings.NOSTALGIA_YEAR_BACK_DAYS_WINDOW
+        if not context_rows:
+            context_rows, _words = await self._recent_context(int(chat_id))
+        told = await self._told_identities(int(chat_id), stamp)
+        refs = [str(r) for r in (memory_refs or ()) if str(r or "").strip()]
+        episodes: list[dict] = []
+        for ref in refs[:_EPISODES_MAX]:
+            cand = await memory_candidate_by_ref(self.db, ref,
+                                                chat_id=int(chat_id))
+            if cand is None:
+                continue
+            ep = await self._episode_from_memory(
+                int(chat_id), cand, tz, base_days)
+            if ep is None:
+                continue
+            if any(_same_episode(ep, t) for t in told):
+                continue
+            episodes.append(ep)
+        if not episodes:
+            return {"status": "skipped", "reason_code": "no_relevant_memory"}
+        ordered = _rank_episodes(episodes, told_years=_told_years(told))
+        shown = ordered[:_EPISODES_MAX]
+        names = await self._display_names(
+            int(chat_id), [r for ep in shown for r in ep["rows"]])
+        now_local = _local_datetime(stamp, tz)
+        lines: list[str] = []
+        for ep in shown:
+            ep["years_ago"] = (now_local.year - ep["year"]) \
+                if now_local else 0
+            ep["lines"] = self._episode_lines(ep, names, tz)
+            ep["start_date"] = _ts_date_local(ep["start_ts"], tz)
+            ep["end_date"] = _ts_date_local(ep["end_ts"], tz)
+            lines.extend(ep["lines"])
+        for i, ep in enumerate(shown, start=1):
+            ep["slot"] = i
+        candidate = {
+            "kind": "memory_recall", "fact_id": None,
+            "weight": self._threshold(),
+            "text": lines[0] if lines else "",
+            "year_lines": lines, "episodes": shown, "golden_lines": [],
+            "context_rows": list(context_rows or []),
+            "topical": True,
+            "_pool_info": {"mode": "conversation",
+                           "episodes_found": len(episodes),
+                           "episodes_shown": len(shown),
+                           "context_messages": len(context_rows or []),
+                           "periods": _pool_periods(shown, tz)},
+        }
+        out = {"candidates": 0, "sent": 0, "skipped": 0, "errors": 0}
+        out["candidates"] += 1
+        await self._candidate_llm_send(
+            int(chat_id), stamp, out, active=True, candidate=candidate,
+            pick_info=candidate["_pool_info"])
+        if out["sent"]:
+            return {"status": "sent"}
+        if out["errors"]:
+            return {"status": "error"}
+        return {"status": "silent"}
 
     async def _delegate_initiative(self, chat_id: int, text: str,
                                    candidate: dict) -> dict:
@@ -1193,41 +1600,185 @@ class NostalgiaWorker:
             "aggressiveness", settings.NOSTALGIA_AGGRESSIVENESS) or 0.3)))
         return 0.3 + aggr * 0.5
 
+    async def _semantic_episodes(self, chat_id: int, query: str,
+                                 tz, base_days: int) -> tuple[list[dict],
+                                                               int, str | None]:
+        """Смысловая ветка пула: GraphRAG-кандидаты → РЕАЛЬНЫЕ эпизоды.
+
+        Кандидат retrieval указывает на запись памяти; здесь она
+        материализуется в эпизод существующим детерминированным движком
+        (`_episode_from_memory`) — никаких выдуманных сообщений. Relevance
+        нормируется к [0,1] (лучший кандидат = 1.0). Возврат
+        (эпизоды, число кандидатов, код ошибки)."""
+        candidates, error = await memory_candidates(
+            self.db, self.memory, chat_id, query)
+        episodes: list[dict] = []
+        for cand in candidates[:_SEMANTIC_MATERIALIZE_MAX]:
+            ep = await self._episode_from_memory(chat_id, cand, tz, base_days)
+            if ep:
+                episodes.append(ep)
+        if episodes:
+            best = max(float(ep.get("relevance") or 0.0) for ep in episodes)
+            for ep in episodes:
+                score = float(ep.get("relevance") or 0.0)
+                ep["relevance"] = round(score / best, 4) if best > 0 else 0.0
+        return episodes, len(candidates), error
+
+    async def _episode_from_memory(self, chat_id: int, cand: dict, tz,
+                                   base_days: int) -> dict | None:
+        """Запись долговременной памяти → исторический эпизод из реальных
+        сообщений.
+
+        Границы события — из самой записи (event_start_ts/event_end_ts); окно
+        расширяется только существующим зазором сегментатора. Внутри окна
+        берётся сегмент, который действительно покрывает событие
+        (`segment_messages`: время + reply-граф + участники), затем эпизод
+        достраивается общим движком `_episode_around` (день → неделя →
+        месяц → продолжение). Нет реальных сообщений → None (память не
+        пересказывается по summary)."""
+        start = int(cand.get("start_ts") or 0)
+        end = int(cand.get("end_ts") or 0) or start
+        if start <= 0:
+            return None
+        pad = _SEGMENT_EPS * 2
+        window = (start - pad, max(start, end) + pad)
+        seen: set = set()
+        rows, truncated = await self._fetch_window_rows(chat_id, window, seen)
+        if not rows:
+            return None
+        segments = segment_messages(rows)
+        best: list = []
+        best_n = 0
+        for seg in segments:
+            n = sum(1 for r in seg
+                    if window[0] <= int(r.get("timestamp") or 0) <= window[1])
+            if n > best_n:
+                best, best_n = seg, n
+        seed_keys = {str(r.get("message_key") or "") for r in best}
+        if not seed_keys:
+            return None
+        anchor = _local_datetime(start, tz)
+        if anchor is None:
+            return None
+        card = await self._episode_around(
+            chat_id, anchor.date(), seed_keys, tz, base_days,
+            seed_rows=(rows, truncated), seen_keys=seen, topical=True)
+        if not card:
+            return None
+        card["memory_ref"] = str(cand.get("ref") or "")
+        card["memory_title"] = str(cand.get("title") or "")
+        card["relevance"] = float(cand.get("score") or 0.0)
+        used_at = cand.get("used_at")
+        if used_at:
+            age_days = (time.time() - float(used_at)) / 86400.0
+            card["usage_stale"] = age_days >= 30
+        return card
+
+    async def _direction_pick(self, chat_id: int, ordered: list[int],
+                              info: dict) -> int | None:
+        """PROVISIONAL PLUG-IN POINT — единственная точка квантового
+        направления (VMQ-ONTO-01). Подпись подлежит сверке с контрактом
+        `plans/features/smart-module-semantic-routing/nostalgia-seam-contract.md`.
+
+        Контракт по существу (owner corrective 2026-11-10): случайность
+        (`RandomSourceService`, purpose `memory_recall`) решает ТОЛЬКО, какой
+        из равно допустимых по весу эпизодов займёт граничный слот
+        предъявления — направление исследования. Достоверность воспоминания
+        (источник — реальные сообщения) и обязанность публикации (вердикт
+        модели + общий Decision) не затрагиваются: подмена источника на
+        детерминированный меняет только распределение, не результат-истину.
+        Нет полосы равенства/источник недоступен → None (детерминированный
+        порядок).
+        """
+        if len(ordered) <= _EPISODES_MAX:
+            return None
+        pivot = ordered[_EPISODES_MAX - 1]
+        band = [i for i in range(_EPISODES_MAX - 1, len(ordered))
+                if ordered[i].get("weight_score", 0.0) + 1e-9
+                >= pivot.get("weight_score", 0.0) * _DIRECTION_BAND]
+        if len(band) < 2:
+            return None
+        try:
+            from services import mca_exploration as me
+            allowed, _reason = await me.exploration_allowed(
+                self.db, me.PURPOSE_MEMORY_RECALL, chat_id)
+            if not allowed:
+                return None
+            source = me.get_source(self.db)
+            result = await source.draw_index(
+                len(band), chat_id=chat_id, purpose=me.PURPOSE_MEMORY_RECALL,
+                candidates=[str(i) for i in band])
+        except Exception:
+            logger.warning("[nostalgia] direction draw failed — порядок "
+                           "детерминированный | chat_id=%s", chat_id)
+            return None
+        if result is None or getattr(result, "deferred", False):
+            info["direction"] = {"deferred": True,
+                                 "reason": str(getattr(result, "reason", "")
+                                               or "deferred")}
+            return None
+        index = getattr(result, "index", None)
+        if not isinstance(index, int) or not 0 <= index < len(band):
+            return None
+        info["direction"] = {
+            "band": len(band), "index": index,
+            "source": str(getattr(result, "source", "") or ""),
+            "purpose": me.PURPOSE_MEMORY_RECALL}
+        return band[index]
+
     async def _pick_candidate(self, chat_id: int, now: int
                               ) -> tuple[dict | None, dict]:
-        """Лучший кандидат чата (§3.5.2; P0 REWORK W2, NOST-05/06/08/11):
-        пул = календарные эпизоды годовщин + тематические эпизоды по всей
-        истории (ОДИН движок реконструкции `_episode_around`) + «золотые»
-        факты.
+        """Лучший кандидат чата (§3.5.2; P0 REWORK W2, NOST-05/06/08/11).
 
-        NOST-05: фиксированный вес происхождения снят — содержательная
-        пригодность решается типизированным вердиктом LLM (NOST-01), поэтому
-        исторический пул не гейтится арифметикой; порог агрессивности
-        остаётся техническим предварительным отбором только для слабых
-        «золотых» фактов. Количество сообщений в отборе не участвует
-        (объём ≠ интересность). Порядок предъявления — технический сигнал
-        (тематическая связь с разговором, затем свежесть), не оценка
-        ценности; кап предъявления применяется ПОСЛЕ ранжирования, найдено/
-        показано — честно в meta (NOST-11.3: важное не теряется).
+        Пул (owner corrective 2026-11-10) — три источника ОДНОГО движка
+        реконструкции `_episode_around`:
+          1. смысловая память: ЕДИНЫЙ GraphRAG retrieval (канал episode,
+             `mca_retrieval_context.retrieve`) → реальные записи
+             долговременной памяти → эпизод из фактических сообщений;
+          2. тематический поиск по всей истории (существующий FTS-путь);
+          3. календарные периоды архива (годовщины — покрытие периодов, а не
+             «ровно год назад»).
+        Порядок предъявления взвешен: смысловая релевантность, покрытие
+        периодов, давность использования (см. `_rank_episodes`). Прежний
+        приоритет «~год назад» снят: календарный источник даёт периоды, а не
+        приоритет. Финальное решение о публикации остаётся за типизированным
+        вердиктом модели (NOST-01) и общим Decision; кап предъявления — после
+        ранжирования (NOST-11.3).
+
         NOST-08.2: недавние опубликованные эпизоды исключаются по
-        ИДЕНТИЧНОСТИ (message_key/границы, не текст); все кандидаты —
-        повторы → None + info.reason=repeat (молчание, искусственной
-        новизны нет).
+        ИДЕНТИЧНОСТИ (ссылка на запись памяти / message_key, не текст); все
+        кандидаты — повторы → None + info.reason=repeat (молчание).
 
         Возврат (кандидат|None, info) — info для честной диагностики
         nostalgia_log (NOST-12). None — кандидатов нет."""
         self._pool_flags = {}
         info: dict = {"reason": "no_candidates"}
+        tz = _zone(self._tz_name)
+        base_days = int(self._key(
+            "year_back_days_window",
+            settings.NOSTALGIA_YEAR_BACK_DAYS_WINDOW) or 0) or \
+            settings.NOSTALGIA_YEAR_BACK_DAYS_WINDOW
         told = await self._told_identities(chat_id, now)
-        # календарный режим (годовщины по годам архива)
-        cal_episodes = await self._calendar_episodes(chat_id, now)
-        # тематический режим: содержание текущего разговора (NOST-05.3/06)
+        told_years = _told_years(told)
+        # содержание текущего разговора (NOST-05.3/06): и контекст payload,
+        # и запрос к памяти — одно и то же окно беседы
         context_rows, topic_words = await self._recent_context(chat_id)
+        query = _memory_query(context_rows) or " ".join(topic_words[:24])
+        # 1) смысловая память: релевантность из единого retrieval
+        semantic_episodes, semantic_found, semantic_error = \
+            await self._semantic_episodes(chat_id, query, tz, base_days)
+        info["semantic_found"] = semantic_found
+        if semantic_error:
+            info["semantic_error"] = semantic_error
+        # 2) тематический FTS-путь по всей истории (слабый сигнал)
         thematic_episodes, thematic_error = await self._thematic_episodes(
             chat_id, topic_words, now, context_rows)
-        info["mode"] = _pool_mode(bool(cal_episodes),
-                                  bool(thematic_episodes))
-        info["episodes_found"] = len(cal_episodes) + len(thematic_episodes)
+        # 3) календарные периоды архива (покрытие периодов)
+        cal_episodes = await self._calendar_episodes(chat_id, now)
+        topical_side = bool(thematic_episodes or semantic_episodes)
+        info["mode"] = _pool_mode(bool(cal_episodes), topical_side)
+        info["episodes_found"] = (len(cal_episodes) + len(thematic_episodes)
+                                  + len(semantic_episodes))
         if thematic_error:
             info["thematic_error"] = True
         if self._pool_flags.get("archive_error"):
@@ -1235,20 +1786,27 @@ class NostalgiaWorker:
         info["calendar_years"] = list(self._pool_flags.get(
             "calendar_years") or [])
         info["context_messages"] = len(context_rows)
-        # дедуп пересечений (эпизод может найтись обоими режимами)
-        pool = _episodes_dedup(cal_episodes, thematic_episodes)
+        # дедуп пересечений: смысловая ветка приоритетна (несёт relevance и
+        # ссылку на запись памяти), затем тематическая, затем календарная
+        pool = _episodes_dedup(
+            semantic_episodes, thematic_episodes + cal_episodes)
         # NOST-08.2: исключение недавних повторов по идентичности эпизода
         fresh, repeats = _filter_repeats(pool, told)
         info["repeats_skipped"] = repeats
         if repeats:
             info["reason"] = "repeat"
         if fresh:
-            fresh = _rank_episodes(fresh)
-            shown = fresh[:_EPISODES_MAX]
+            ordered = _rank_episodes(fresh, told_years=told_years)
+            chosen_index = await self._direction_pick(chat_id, ordered, info)
+            if chosen_index is not None:
+                chosen = ordered[chosen_index]
+                rest = [e for e in ordered if e is not chosen]
+                ordered = rest[:_EPISODES_MAX - 1] + [chosen] \
+                    + rest[_EPISODES_MAX - 1:]
+            shown = ordered[:_EPISODES_MAX]
             info["episodes_shown"] = len(shown)
             names = await self._display_names(
                 chat_id, [r for ep in shown for r in ep["rows"]])
-            tz = _zone(self._tz_name)
             now_local = _local_datetime(now, tz)
             lines: list[str] = []
             for ep in shown:
@@ -1450,6 +2008,12 @@ class NostalgiaWorker:
             for eid in (meta or {}).get("episode_ids") or []:
                 if isinstance(eid, dict):
                     out.append(eid)
+            # PROACTIVE NOSTALGIA (2026-11-10): ссылки на записи памяти,
+            # рассказанные в прошлый раз — тот же эпизод не рассказывается
+            # повторно, даже если сегмент реконструкции сместился.
+            for ref in (meta or {}).get("memory_refs") or []:
+                if isinstance(ref, str) and ref:
+                    out.append({"ref": ref})
         return out
 
     async def _historical_lines(self, chat_id: int,
@@ -1956,7 +2520,10 @@ class NostalgiaWorker:
                                  "messages": e.get("messages"),
                                  "level": e.get("level"),
                                  "truncated": e.get("truncated"),
-                                 "topical": bool(e.get("topical"))}
+                                 "topical": bool(e.get("topical")),
+                                 "relevance": e.get("relevance"),
+                                 "weight": e.get("weight_score"),
+                                 "memory_ref": e.get("memory_ref") or ""}
                                 for e in episodes]
             # NOST-08.2: идентичности ДЛЯ ЖУРНАЛА ПОВТОРОВ. Модель указала
             # валидный номер блока (SAY <slot>) → только выбранный эпизод;
@@ -1971,13 +2538,17 @@ class NostalgiaWorker:
                         break
             targets = [chosen] if chosen is not None else episodes
             meta["episode_ids"] = [_episode_identity(e) for e in targets]
+            refs = [str(e.get("memory_ref") or "") for e in targets]
+            refs = [ref for ref in dict.fromkeys(refs) if ref]
+            if refs:
+                meta["memory_refs"] = refs
             if chosen is None and len(episodes) > 1:
                 meta["episode_slot_unknown"] = True
         info = candidate.get("_pool_info") or {}
         for field in ("mode", "episodes_found", "episodes_shown",
                       "repeats_skipped", "thematic_error", "archive_error",
-                      "calendar_years", "context_messages", "periods",
-                      "topical"):
+                      "semantic_error", "semantic_found", "calendar_years",
+                      "context_messages", "periods", "direction", "topical"):
             value = info.get(field)
             if value:
                 meta[field] = value

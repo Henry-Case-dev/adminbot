@@ -162,7 +162,10 @@ class TestHotEnable:
             assert ids == [w.JOB_NOSTALGIA_ID]      # регистрация не зависит
             stats = await w._run(manual=False)      # от старт-значения флага
             assert stats["sent"] == 0 and bot.calls == []
-            assert await _log_rows(db) == []        # OFF → дешёвый no-op
+            # MOD-ACL-UX-01 M2 §2.1: выключенный чат объясняет пропуск
+            # честной строкой (budget_skip/gate_nostalgia) — публикации НЕТ.
+            rows = await _log_rows(db)
+            assert all(row["status"] != "sent" for row in rows)
             result = await w.run_once(CHAT_ID)      # kill-switch держит ручные
             assert result["sent"] == 0 and llm.calls == []
             h.values["memory.nostalgia_enabled"] = True   # hot-включение
