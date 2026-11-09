@@ -440,9 +440,14 @@ async def chat_param_permission_put(
         raise HTTPException(status_code=422, detail="пустое тело — нечего сохранить")
     _require_pg(cache)
     try:
-        root = await chat_params.set_chat_params(
+        # SELF-DIAG-01 D2 (связанный дефект): не терять прочие чат-перекрытия —
+        # namespace `perm_overrides` пишется целиком, поэтому читаем-мержим.
+        root = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
+        overrides = dict((root or {}).get("perm_overrides") or {})
+        overrides[key] = value
+        await chat_params.set_chat_params(
             chat_id,
-            {"perm_overrides": {key: value}},
+            {"perm_overrides": overrides},
             changed_by=user.id,
             pg=cache.pg)
     except chat_params.ChatParamsConflict as exc:
@@ -456,3 +461,261 @@ async def chat_param_permission_put(
     logger.info("[access] chat param_permission upsert | chat=%s key=%s by=%s",
                 chat_id, key, user.id)
     return {"chat_id": chat_id, "key": key, **access_srv._normalize_perms(value)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SELF-DIAG-01 D2 — подраздел «Самодиагностика» раздела «Доступы».
+#
+# Матрица диагностических возможностей живёт в ТОМ ЖЕ слое прав:
+# глобальные перекрытия — таблица `param_permissions` (ключ `diag.<cap>`),
+# чат-скоуп — `chat_params.perm_overrides` с тем же ключом. Изменения
+# применяются к реальным tool calls сразу (сброс кэша прав), переживают
+# рестарт (PostgreSQL) и аудируются без секретов и текстов промптов.
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DiagnosticMatrixBody(BaseModel):
+    """Перекрытие матрицы: роли, которым разрешены просмотр/запуск/правка."""
+
+    view_roles: list[str] | None = None
+    run_roles: list[str] | None = None
+    edit_roles: list[str] | None = None
+
+
+def _diag_capability_or_404(capability: str):
+    from services import diagnostic_policy as diag_srv
+    cap = diag_srv.CAPABILITY_MAP.get(capability)
+    if cap is None:
+        raise HTTPException(status_code=404,
+                            detail=f"нет такой возможности: {capability}")
+    return cap
+
+
+def _diag_matrix_from_payload(payload) -> dict:
+    value: dict[str, list[str]] = {}
+    for field in ("view_roles", "run_roles", "edit_roles"):
+        raw = getattr(payload, field, None)
+        if raw is None:
+            continue
+        for role in raw:
+            if role not in access_srv.DIAG_ROLE_DOMAIN:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"роль вне домена диагностики: {role}")
+        value[field] = list(raw)
+    return value
+
+
+async def _require_diag_admin(request: Request, user: WebAppUser):
+    cache = get_cache(request)
+    ctx = await roles_srv.access_for(user.id, cache=cache)
+    if not ctx.is_global_admin:
+        raise HTTPException(status_code=403,
+                            detail="доступ только для global admin")
+    return cache
+
+
+@access_router.get("/diagnostic_policy")
+async def diagnostic_policy_get(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Матрица «Самодиагностика» с наследованием (дефолт ⊕ глобально ⊕ чат)."""
+    from services import diagnostic_policy as diag_srv
+    cache = await _require_diag_admin(request, user)
+    chat_id = _chat_id_or_none(x_chat_id)
+    pg = getattr(cache, "pg", None) if _pool(cache) is not None else None
+    snapshot = await diag_srv.matrix_snapshot(pg=pg, chat_id=chat_id)
+    snapshot["effective_state"] = diag_srv.effective_state()
+    return snapshot
+
+
+@access_router.get("/diagnostic_policy/explain")
+async def diagnostic_policy_explain(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    telegram_id: int,
+    x_chat_id: Annotated[str | None, Header()] = None,
+    capability: str | None = None,
+):
+    """Почему конкретному пользователю разрешено/отказано (без данных)."""
+    from services import diagnostic_policy as diag_srv
+    cache = await _require_diag_admin(request, user)
+    chat_id = _chat_id_or_none(x_chat_id)
+    return await diag_srv.explain_for(
+        telegram_id, chat_id, cache=cache, pg=getattr(cache, "pg", None),
+        capability=capability, fresh_telegram=False)
+
+
+@access_router.get("/diagnostic_policy/audit")
+async def diagnostic_policy_audit(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    limit: int = 100,
+):
+    """Последние записи аудита решений (без секретов и текстов промптов)."""
+    from services import diagnostic_policy as diag_srv
+    await _require_diag_admin(request, user)
+    return {"items": diag_srv.audit_snapshot(limit), "limit": limit}
+
+
+@access_router.get("/diagnostic_policy/effective")
+async def diagnostic_policy_effective(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Текущее effective-state политики процесса (наблюдаемость)."""
+    from services import diagnostic_policy as diag_srv
+    await _require_diag_admin(request, user)
+    return diag_srv.effective_state()
+
+
+@access_router.put("/diagnostic_policy/{capability}")
+async def diagnostic_policy_put(
+    capability: str,
+    request: Request,
+    payload: DiagnosticMatrixBody,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Глобальное перекрытие матрицы (только global admin)."""
+    from services import diagnostic_policy as diag_srv
+    cache = await _require_diag_admin(request, user)
+    cap = _diag_capability_or_404(capability)
+    if cap.data_class == diag_srv.SECRET_VALUE:
+        raise HTTPException(
+            status_code=422,
+            detail="класс SECRET_VALUE не настраивается: значения секретов "
+                   "не выдаются никогда")
+    value = _diag_matrix_from_payload(payload)
+    if not value:
+        raise HTTPException(status_code=422,
+                            detail="пустое тело — нечего сохранить")
+    _require_pg(cache)
+    before = (await access_srv.diag_global_overrides(cache.pg)).get(capability)
+    try:
+        effective = await access_srv.upsert_diag_matrix(cache.pg, capability,
+                                                        value)
+    except Exception:
+        logger.exception("[access] diagnostic policy upsert failed | cap=%s",
+                         capability)
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    diag_srv.notify_policy_change(changed_by=user.id, capability=capability,
+                                  before=before, after=effective,
+                                  scope="global")
+    logger.info("[access] diagnostic policy upsert | cap=%s by=%s",
+                capability, user.id)
+    return {"capability": capability, "matrix": effective,
+            "source": diag_srv.SOURCE_GLOBAL_OVERRIDE}
+
+
+@access_router.delete("/diagnostic_policy/{capability}")
+async def diagnostic_policy_delete(
+    capability: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Сброс глобального перекрытия к дефолту класса."""
+    from services import diagnostic_policy as diag_srv
+    cache = await _require_diag_admin(request, user)
+    _diag_capability_or_404(capability)
+    _require_pg(cache)
+    before = (await access_srv.diag_global_overrides(cache.pg)).get(capability)
+    try:
+        removed = await access_srv.delete_diag_matrix(cache.pg, capability)
+    except Exception:
+        logger.exception("[access] diagnostic policy delete failed | cap=%s",
+                         capability)
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    if not removed:
+        raise HTTPException(status_code=404,
+                            detail=f"нет перекрытия: {capability}")
+    diag_srv.notify_policy_change(changed_by=user.id, capability=capability,
+                                  before=before, after=None, scope="global")
+    logger.info("[access] diagnostic policy reset | cap=%s by=%s",
+                capability, user.id)
+    return {"capability": capability, "reset": True}
+
+
+@access_router.post("/chats/{chat_id}/diagnostic_policy/{capability}")
+async def diagnostic_policy_chat_put(
+    chat_id: int,
+    capability: str,
+    request: Request,
+    payload: DiagnosticMatrixBody,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Чат-скоуп перекрытие матрицы (perm_overrides, тот же слой прав)."""
+    from services import diagnostic_policy as diag_srv
+    cache = await _require_diag_admin(request, user)
+    cap = _diag_capability_or_404(capability)
+    if cap.data_class == diag_srv.SECRET_VALUE:
+        raise HTTPException(status_code=422,
+                            detail="класс SECRET_VALUE не настраивается")
+    value = _diag_matrix_from_payload(payload)
+    if not value:
+        raise HTTPException(status_code=422,
+                            detail="пустое тело — нечего сохранить")
+    _require_pg(cache)
+    key = access_srv.diag_perm_key(capability)
+    normalized = access_srv.normalize_diag_matrix(value)
+    try:
+        root = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
+        overrides = dict((root or {}).get("perm_overrides") or {})
+        overrides[key] = normalized
+        await chat_params.set_chat_params(
+            chat_id, {"perm_overrides": overrides},
+            changed_by=user.id, pg=cache.pg)
+    except chat_params.ChatParamsConflict as exc:
+        raise HTTPException(status_code=409,
+                            detail={"code": "conflict",
+                                    "current_updated_at": exc.current_updated_at})
+    except Exception:
+        logger.exception("[access] chat diagnostic policy failed | chat=%s | "
+                         "cap=%s", chat_id, capability)
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    diag_srv.notify_policy_change(changed_by=user.id, capability=capability,
+                                  before=None, after=normalized,
+                                  scope=f"chat:{chat_id}")
+    logger.info("[access] chat diagnostic policy upsert | chat=%s cap=%s by=%s",
+                chat_id, capability, user.id)
+    return {"chat_id": chat_id, "capability": capability,
+            "matrix": normalized}
+
+
+@access_router.delete("/chats/{chat_id}/diagnostic_policy/{capability}")
+async def diagnostic_policy_chat_delete(
+    chat_id: int,
+    capability: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Сброс чат-перекрытия (возврат к глобальному/дефолту)."""
+    from services import diagnostic_policy as diag_srv
+    cache = await _require_diag_admin(request, user)
+    _diag_capability_or_404(capability)
+    _require_pg(cache)
+    key = access_srv.diag_perm_key(capability)
+    try:
+        root = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
+        overrides = dict((root or {}).get("perm_overrides") or {})
+        if key not in overrides:
+            raise HTTPException(status_code=404,
+                                detail=f"нет чат-перекрытия: {capability}")
+        overrides.pop(key)
+        await chat_params.set_chat_params(
+            chat_id, {"perm_overrides": overrides},
+            changed_by=user.id, pg=cache.pg)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("[access] chat diagnostic policy delete failed | "
+                         "chat=%s | cap=%s", chat_id, capability)
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    diag_srv.notify_policy_change(changed_by=user.id, capability=capability,
+                                  before=None, after=None,
+                                  scope=f"chat:{chat_id}")
+    logger.info("[access] chat diagnostic policy reset | chat=%s cap=%s by=%s",
+                chat_id, capability, user.id)
+    return {"chat_id": chat_id, "capability": capability, "reset": True}

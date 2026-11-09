@@ -1432,14 +1432,98 @@ class ToolRouter:
         if method is None:
             logger.warning("[tools] unknown tool | name=%s", name)
             return f"ОШИБКА: неизвестный инструмент {name}"
+        # SELF-DIAG-01 D2 (owner amendment 2026-11-09): решение политики
+        # доступа принимается ДО выполнения инструмента; principal берётся
+        # только из Telegram-контекста (chat_id/user_id), не из arguments.
+        blocked = await self._diagnostic_guard(name, ctx)
+        if blocked is not None:
+            return blocked
         try:
-            return await method(arguments, ctx)
+            result = await method(arguments, ctx)
         except Exception as exc:
             # R17: только класс исключения (без str(exc) — он может нести
             # URL/секреты; ревью-итер.1 L7).
             logger.warning("[tools] exec failed | tool=%s | error=%s",
                            name, type(exc).__name__)
             return f"ОШИБКА {name}: {type(exc).__name__}"
+        # SELF-DIAG-01 D2: перепроверка прав ПЕРЕД возвратом защищённого
+        # результата (revocation действует на уже запущенную проверку) +
+        # структурное удаление секретов из результата инструмента.
+        return await self._diagnostic_output(name, ctx, result)
+
+    # ── SELF-DIAG-01 D2: политика доступа к диагностике ────────────
+    #
+    # Единая точка для ЛЮБОГО Tool Calling: решение принимается до
+    # выполнения инструмента и перепроверяется перед возвратом результата.
+    # Роль актора берётся только из Telegram-контекста (`ctx.chat_id`,
+    # `ctx.user_id`); аргументы модели (`arguments`) прав не повышают.
+    @staticmethod
+    def _diag_runtime():
+        """(cache, pg) существующего слоя прав; недоступность — не падение."""
+        try:
+            from services import hot_config as hot
+            cache = hot.get_config_cache()
+        except Exception:
+            cache = None
+        pg = getattr(cache, "pg", None) if cache is not None else None
+        if getattr(pg, "pool", None) is None:
+            pg = None
+        return cache, pg
+
+    async def _diagnostic_guard(self, name: str, ctx) -> str | None:
+        """Отказ политики до выполнения инструмента (None — можно)."""
+        from services import diagnostic_policy as diag
+        if name not in diag.TOOL_CAPABILITIES:
+            return None
+        cache, pg = self._diag_runtime()
+        decision = await diag.check_tool_call(
+            name,
+            telegram_id=getattr(ctx, "user_id", None),
+            chat_id=getattr(ctx, "chat_id", None),
+            cache=cache, bot=getattr(ctx, "bot", None), pg=pg,
+            destination="tool")
+        if decision is None or decision.allowed:
+            return None
+        return diag.denial_message(decision, tool_name=name)
+
+    async def _diagnostic_output(self, name: str, ctx, result: str) -> str:
+        """Перепроверка прав + удаление секретов перед отдачей результата."""
+        from services import diagnostic_policy as diag
+        from services import output_projection as projection
+        cache, pg = self._diag_runtime()
+        capability = diag.TOOL_CAPABILITIES.get(name)
+        try:
+            if capability is not None:
+                decision = await diag.check_tool_call(
+                    name,
+                    telegram_id=getattr(ctx, "user_id", None),
+                    chat_id=getattr(ctx, "chat_id", None),
+                    cache=cache, bot=getattr(ctx, "bot", None), pg=pg,
+                    destination="tool_result")
+                if decision is not None and not decision.allowed:
+                    return diag.denial_message(decision, tool_name=name)
+            # Секреты вычищаются из ЛЮБОГО результата инструмента (ТЗ §9.2:
+            # output validation перед моделью и перед Telegram). Для
+            # диагностических инструментов дополнительно учитывается
+            # BYOK-ключ конкретного чата; для остальных — глобальные
+            # источники (без БД).
+            if capability is not None:
+                secrets = await projection.known_secret_values_async(
+                    cache=cache, pg=pg, chat_id=getattr(ctx, "chat_id", None))
+            else:
+                secrets = projection.known_secret_values(cache=cache)
+            sanitized = projection.sanitize(result, kind="tool_result",
+                                            secrets=secrets)
+        except Exception as exc:
+            # Политика/санитайзер недоступны → fail-closed: сырой результат
+            # не отдаём (никогда не бросаем — контракт ToolRouter).
+            logger.warning("[tools] diag output failed | tool=%s | error=%s",
+                           name, type(exc).__name__)
+            return (f"ОШИБКА {name}: вывод заблокирован "
+                    "(политика недоступна)")
+        if not sanitized.allowed:
+            return f"ОШИБКА {name}: вывод заблокирован политикой секретов"
+        return sanitized.text
 
     # ── execute_web_search ────────────────────────────────────────
 

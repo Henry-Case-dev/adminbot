@@ -15,6 +15,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from config.settings import settings
 from services import command_prefix
 from services import command_registry
+from services import diagnostic_policy
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMError
 from services.persistent_throttling import (
@@ -89,6 +90,42 @@ def setup_checkup(service, fetcher, db=None) -> None:
         "checkup", settings.CHECKUP_COOLDOWN_SECONDS, db)
 
 
+def _diag_runtime():
+    """(cache, pg) существующего слоя прав; недоступность — не падение."""
+    try:
+        cache = hot.get_config_cache()
+    except Exception:
+        cache = None
+    pg = getattr(cache, "pg", None) if cache is not None else None
+    if getattr(pg, "pool", None) is None:
+        pg = None
+    return cache, pg
+
+
+async def _checkup_diagnostic_gate(actor_id, chat_id):
+    """Разрешение на чекап: запуск проверки + право видеть логи чата.
+
+    Возвращает `(gate, denied_decision)`: `gate` — открытое разрешение для
+    перепроверки перед публикацией; `denied_decision` — отказ политики
+    (тогда отчёт не формируется и логи не читаются). Недоступность слоя
+    прав не роняет чекап: публичная диагностика остаётся доступной, факт
+    пишется в лог.
+    """
+    cache, pg = _diag_runtime()
+    try:
+        gate = await diagnostic_policy.open_gate(
+            "bot_server_state", "run", telegram_id=actor_id,
+            chat_id=chat_id, cache=cache, pg=pg, destination="checkup",
+            also=(("logs_traceback", "view"),))
+        if not gate.decision.allowed:
+            return gate, gate.decision
+        return gate, None
+    except Exception:
+        logger.warning("[checkup] diagnostic policy unavailable — public "
+                       "diagnostics kept | chat=%s", chat_id, exc_info=True)
+        return None, None
+
+
 @checkup_router.message()
 async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or _fetcher is None or bot is None:
@@ -110,6 +147,21 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
                      message.message_id)
         return
     await cooldown_touch(_cooldown, message.chat.id, _CHAT_SLOT)
+    # SELF-DIAG-01 D2 (owner amendment 2026-11-09 §5): «чекап» — такой же
+    # вход, как tool/API, и не является обходом политики диагностики.
+    # Решение принимается ДО чтения логов; отчёт перепроверяется и
+    # очищается от секретов ПЕРЕД отправкой. Промпт и характер чекапа не
+    # меняются — гейт стоит только на доступе к данным.
+    actor_id = message.from_user.id if message.from_user else None
+    gate, denied = await _checkup_diagnostic_gate(actor_id, message.chat.id)
+    if denied is not None:
+        logger.info("[checkup] denied by diagnostic policy | chat=%s user=%s "
+                    "| reason=%s", message.chat.id, actor_id,
+                    denied.reason_code)
+        await _reply(bot, message.chat.id,
+                     diagnostic_policy.denial_message(denied),
+                     message.message_id)
+        return
     try:
         logs, used_fallback = await _fetcher.fetch()
     except CheckupLogsUnavailableException as exc:
@@ -142,6 +194,27 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
             # владельца в канон чек-апа (пользовательский речевой маршрут).
             report = await _service.checkup(logs, used_fallback,
                                             chat_id=message.chat.id)
+        # SELF-DIAG-01 D2: перепроверка прав ПЕРЕД публикацией (отзыв
+        # действует на уже запущенную проверку) + удаление секретов.
+        if gate is not None:
+            try:
+                pub_cache, pub_pg = _diag_runtime()
+                publication = await diagnostic_policy.publish(
+                    gate, report, cache=pub_cache, pg=pub_pg, kind="final")
+            except Exception:
+                logger.exception("[checkup] publication guard failed | chat=%s",
+                                 message.chat.id)
+                return
+            if not publication.allowed:
+                logger.info("[checkup] publication blocked | chat=%s | "
+                            "reason=%s", message.chat.id,
+                            publication.decision.reason_code)
+                await _reply(bot, message.chat.id,
+                             diagnostic_policy.denial_message(
+                                 publication.decision),
+                             message.message_id)
+                return
+            report = publication.text
         await send_chunked_reply(bot, message.chat.id, report, message.message_id)
         logger.info("[checkup] report sent | chat=%s", message.chat.id)
     except LLMBadResponseError as exc:

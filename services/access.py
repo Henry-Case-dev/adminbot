@@ -306,3 +306,120 @@ def can_edit_param(ctx: AccessCtx, matrix: dict) -> bool:
         return False
     m = _as_new_matrix(matrix)
     return eligible_type(ctx) in m.get("edit_roles", [])
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SELF-DIAG-01 D2 — матрица диагностических возможностей.
+#
+# ТОТ ЖЕ слой прав, а не второй ACL: строки живут в существующей таблице
+# `param_permissions` под префиксом `diag.<capability>`, чат-скоуп — в
+# существующем `chat_params.perm_overrides` тем же ключом. Дефолт (таблица
+# роль×класс из ТЗ §7.2) — в коде `services.diagnostic_policy`, здесь только
+# нормализация/хранение/чтение перекрытий.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Префикс ключей диагностической матрицы в общем сторе прав.
+DIAG_KEY_PREFIX = "diag."
+
+#: Действия диагностических возможностей (просмотр/запуск/редактирование).
+DIAG_ACTIONS: tuple[str, ...] = ("view", "run", "edit")
+
+#: Действие → поле матрицы.
+DIAG_ACTION_FIELD: dict[str, str] = {
+    "view": "view_roles",
+    "run": "run_roles",
+    "edit": "edit_roles",
+}
+
+#: Домен ролей диагностической матрицы. global_admin (project_owner) —
+#: неявный и всегда разрешён (кроме абсолютных запретов класса), moderator
+#: в диагностике не участвует: роль `chat_admin` подтверждается только
+#: онлайн-проверкой Telegram и отображается строкой local_admin.
+DIAG_ROLE_DOMAIN: tuple[str, ...] = (ROLE_USER, ROLE_LOCAL_ADMIN)
+
+
+def diag_perm_key(capability_id: str) -> str:
+    """Ключ строки общего стора прав для диагностической возможности."""
+    return f"{DIAG_KEY_PREFIX}{capability_id}"
+
+
+def is_diag_perm_key(key: str) -> bool:
+    return isinstance(key, str) and key.startswith(DIAG_KEY_PREFIX)
+
+
+def capability_of_diag_key(key: str) -> str:
+    return key[len(DIAG_KEY_PREFIX):] if is_diag_perm_key(key) else key
+
+
+def normalize_diag_matrix(value: dict, base: dict | None = None) -> dict:
+    """Нормализация перекрытия {view_roles, run_roles, edit_roles}.
+
+    Домен — `DIAG_ROLE_DOMAIN` (неизвестные и global_admin отбрасываются);
+    «запуск/редактирование подразумевают просмотр»: view_roles ⊇ run_roles ∪
+    edit_roles. `base` — текущая матрица (наследование отсутствующих полей).
+    """
+    base = base or {}
+    if not isinstance(value, dict):
+        return {"view_roles": [], "run_roles": [], "edit_roles": []}
+
+    def _field(name: str) -> list[str]:
+        if name not in value:
+            return list(base.get(name) or [])
+        raw = value.get(name)
+        if not isinstance(raw, (list, tuple)):
+            return []
+        return [r for r in DIAG_ROLE_DOMAIN if r in set(raw)]
+
+    run_roles = _field("run_roles")
+    edit_roles = _field("edit_roles")
+    view_roles = _field("view_roles")
+    allowed = set(view_roles) | set(run_roles) | set(edit_roles)
+    return {
+        "view_roles": [r for r in DIAG_ROLE_DOMAIN if r in allowed],
+        "run_roles": run_roles,
+        "edit_roles": edit_roles,
+    }
+
+
+async def diag_global_overrides(pg) -> dict[str, dict]:
+    """Перекрытия {capability_id: normalized matrix} из общего стора прав."""
+    rows = await db_override_map(pg)
+    out: dict[str, dict] = {}
+    for key, value in rows.items():
+        if not is_diag_perm_key(key):
+            continue
+        out[capability_of_diag_key(key)] = normalize_diag_matrix(value)
+    return out
+
+
+async def upsert_diag_matrix(pg, capability_id: str, matrix: dict) -> dict:
+    """Записать перекрытие диагностической матрицы (та же таблица прав)."""
+    normalized = normalize_diag_matrix(matrix)
+    await upsert_param_permission(pg, diag_perm_key(capability_id), normalized)
+    return normalized
+
+
+async def delete_diag_matrix(pg, capability_id: str) -> bool:
+    """Сбросить перекрытие к дефолту класса (404-семантика у вызывающего)."""
+    return await delete_param_permission(pg, diag_perm_key(capability_id))
+
+
+async def diag_chat_overrides(chat_id: int | None,
+                              pg=None) -> dict[str, dict]:
+    """Чат-скоуп перекрытия диагностической матрицы (perm_overrides)."""
+    if chat_id is None:
+        return {}
+    from services import chat_params
+    try:
+        root = await chat_params.get_all_chat_params(int(chat_id), pg=pg)
+    except Exception:                                  # pragma: no cover
+        logger.warning("[access] chat perm_overrides недоступны — дефолт | "
+                       "chat=%s", chat_id, exc_info=True)
+        return {}
+    raw = (root or {}).get("perm_overrides") or {}
+    out: dict[str, dict] = {}
+    for key, value in raw.items():
+        if not is_diag_perm_key(key):
+            continue
+        out[capability_of_diag_key(key)] = normalize_diag_matrix(value)
+    return out
