@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\smart-module-semantic-routing\\source-2026-11-10.md",
   "source_sha256": "ab17153299486de97aa3e9e3563b95d0f3791adede35b6a4ed24c534921fa4b8",
-  "candidate_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
-  "deployed_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+  "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+  "deployed_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "record_kinds": {
@@ -1484,7 +1484,8 @@
       "kind": "requirement",
       "merged_source_ids": [
         "M00228-SMR-P1-01"
-      ]
+      ],
+      "reconciliation_note": "response_extent.py не входит в дельту 2.58.177; нужен один статический разбор на 1a4a9b1b, что в нём нет лексического авторитета (direct_l1/direct_execution/direct_chat_service уже подтверждены пробами поиска/vision/nostalgia)."
     },
     {
       "source_id": "M00228-SMR-P1-01",
@@ -1531,8 +1532,18 @@
       "acceptance": "Упоминание прошлого, года или «помнишь» само по себе не запускает принудительный исторический поиск: _NOSTALGIA_MARKERS_RE и _dig_pre_gate_block проверены, включённость pre-gate на production установлена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+          "type": "production",
+          "ref": "SMR-P1-02 / SRC-0234: pre-gate снят, флаг инертен",
+          "observation": "На выкаченном дереве 1a4a9b1b: читателей DIG_PRE_GATE_ENABLED в services/ — 0, effective-значение False; hasattr(DirectChatService,'_dig_pre_gate_block')=False, _NOSTALGIA_MARKERS_RE/_nostalgia_markers отсутствуют; вызовов dispatch dig_into_lore из ностальгической фразы — 0 (5 упоминаний только в комментариях). Единственное упоминание флага — текст-описание каталога param_catalog.py:1768, значение не читает (в backlog). Слова текста больше не запускают принудительный исторический поиск.",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+          "artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+          "produced_on": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e"
+        }
+      ],
       "kind": "requirement",
       "merged_source_ids": [
         "M00236-SMR-P1-02"
@@ -1567,8 +1578,18 @@
       "acceptance": "Существующий dig_into_lore сохранён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+          "type": "production",
+          "ref": "SMR-P1-03 / SRC-0238: dig_into_lore сохранён и вызываем",
+          "observation": "На 1a4a9b1b: CAPABILITY_TOOLS['historical_search'] = ('dig_into_lore','compile_lore_story') — инструмент и capability живы; снятие pre-gate удалило только принудительный автозапуск, не сам инструмент. Широкий набор (2735 passed, набор падений идентичен базе) подтверждает отсутствие регрессии в lore-путях.",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+          "artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+          "produced_on": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e"
+        }
+      ],
       "kind": "requirement"
     },
     {
@@ -1588,7 +1609,8 @@
       "kind": "requirement",
       "merged_source_ids": [
         "M00244-SMR-P1-04"
-      ]
+      ],
+      "reconciliation_note": "factcheck_suitability.py и temporal_factcheck.py в дельте отсутствуют и в пост-деплой чек-листе не пробовались; нужна отдельная проверка словарей маркеров и семантической классификации фактов."
     },
     {
       "source_id": "M00244-SMR-P1-04",
@@ -1619,8 +1641,18 @@
       "acceptance": "Сохранены явные команды, разбор дат, чисел, ссылок, Reply и структурированные проверки доказательств.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+          "type": "test",
+          "ref": "SMR-P1-05 / SRC-0246: явные команды и разбор сохранены",
+          "observation": "Явная команда сохранила детерминированный путь: «Бот, найди информацию о X» -> search=True, is_search_command=True, capability-план L1 ['execute_web_search']; позитив стиля «(Бот,) отвечай короче» -> ParsedRequest(verbosity=short). На точном релизном дереве 437 passed / 0 failed в шести целевых наборах (против 403 на базе), широкий прогон 2735/11 с идентичным базе набором падений — регрессий в сохранённых путях нет.",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+          "artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+          "produced_on": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e"
+        }
+      ],
       "kind": "requirement"
     },
     {
@@ -1635,8 +1667,18 @@
       "acceptance": "Слова «фото», «изображение», «скрин» сами по себе не запускают анализ без подтверждённого намерения (mca_vision, VISION_INTENT_PATTERNS, vision_intent и их потребители).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+          "type": "production",
+          "ref": "SMR-P1-06 / SRC-0250: слова о картинке больше не запускают анализ",
+          "observation": "На 1a4a9b1b: is_media_dependent(«что на картинке?»/«прочитай скрин»/«разбери фото»)=False, при этом vision_intent(«что на картинке?»)=True — слово само ничего не решает; реальный ход _prepare_turn_media_evidence для текста без медиа даёт MediaReadiness(association_status='missing', analysis_status='missing', reason_code='no_target', media_dependent=True, consumer='direct'), vision-анализ не запускался. Позитив: own_media=True -> True, reply_media=True -> True, обычный чат -> False.",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+          "artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+          "produced_on": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e"
+        }
+      ],
       "kind": "requirement",
       "merged_source_ids": [
         "M00252-SMR-P1-06"
@@ -1673,7 +1715,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "kind": "requirement"
+      "kind": "requirement",
+      "reconciliation_note": "Пробы покрывают позитив own_media/reply_media; реестр медиа, разрешение цели через Telegram ID, несколько изображений и проверки возможностей провайдера не прогонялись."
     },
     {
       "source_id": "M00258-SMR-P1-08",
@@ -1687,8 +1730,18 @@
       "acceptance": "Содержательная коррекция бота с матом не теряется из конвейера из-за лексического определения агрессии или шутки в mca_experience_jobs.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+          "type": "production",
+          "ref": "SMR-P1-08 / SRC-0258: мат не уничтожает содержательную коррекцию",
+          "observation": "На 1a4a9b1b: «бля, ты тупой что ли, ты ошибся — я говорил про Петю, а не про Васю» -> {'class':'correction','confidence':'medium','suspect':'aggression'}; коррекция без брани -> {'class':'correction','confidence':'high'}; брань без содержательной формы -> {'skip':'aggression'}. Содержательная коррекция больше не отбрасывается лексическим детектором агрессии.",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+          "artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+          "produced_on": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e"
+        }
+      ],
       "kind": "requirement",
       "merged_source_ids": [
         "M00260-SMR-P1-08"
@@ -1723,8 +1776,18 @@
       "acceptance": "Различаются пропуск быстрого детектора и фактическая потеря для семантического извлечения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+          "type": "production",
+          "ref": "SMR-P1-09 / SRC-0262: пропуск детектора отличается от потери",
+          "observation": "На 1a4a9b1b различие наблюдаемо в самом выводе: брань без содержательной формы даёт {'skip':'aggression'} (быстрый детектор пропустил, семантической потери нет), а содержательная коррекция с бранью сохраняется как correction/medium с suspect='aggression' (не потеряна). Плюс поисковый путь: быстрый лексический слой возвращает search=False, но решение остаётся за L1 — «Бот, найди …» даёт search=True и шаг execute_web_search.",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+          "artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+          "produced_on": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e"
+        }
+      ],
       "kind": "requirement"
     },
     {
@@ -1741,7 +1804,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "kind": "requirement"
+      "kind": "requirement",
+      "reconciliation_note": "В дельте 41 файла нет модулей архитектуры смысловых уроков, но отдельного доказательства «не переписана параллельно» нет; нужна одна адресная сверка."
     },
     {
       "source_id": "M00268-SMR-P1-11",
@@ -1760,7 +1824,8 @@
       "kind": "requirement",
       "merged_source_ids": [
         "M00270-SMR-P1-11"
-      ]
+      ],
+      "reconciliation_note": "Проба покрывает mca_style_scope (цитата vs прямая просьба); mca_self_model, mca_humor_feedback, public_speech_guard не проверялись."
     },
     {
       "source_id": "M00270-SMR-P1-11",
@@ -1793,7 +1858,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "kind": "requirement"
+      "kind": "requirement",
+      "reconciliation_note": "Проверена только граница цитаты; права, TTL и области применимости стиля, защитные/диагностические регулярки не пробировались."
     },
     {
       "source_id": "M00274-SMR-P1-13",
@@ -1807,8 +1873,18 @@
       "acceptance": "Пользовательские промпты и Personality Core не изменены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+          "type": "production",
+          "ref": "SMR-P1-13 / SRC-0274: промпты и Personality Core не тронуты",
+          "observation": "Дельта 2b7e9c7f..1a4a9b1b (41 путь, проверено PM локально) не содержит промптов, Personality Core, handlers/ и services/info_service.py/info_text.md: только 10 продуктовых файлов P1, 6 тестовых файлов P1 и 25 version-пинов.",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+          "artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+          "produced_on": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e"
+        }
+      ],
       "kind": "requirement"
     },
     {
@@ -2106,11 +2182,23 @@
       "req_id": "SMR-SCEN-D2",
       "slice": "P1",
       "acceptance": "Упоминание прошлого не обязательно запускает ностальгию.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "kind": "requirement"
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+          "type": "production",
+          "ref": "SMR-SCEN-D2 / SRC-0347: упоминание прошлого не запускает ностальгию",
+          "observation": "In-process на 1a4a9b1b: принудительного пути «слова -> dig_into_lore» больше нет (0 dispatch-вызовов, pre-gate снят). Живое поведение в чате владельца ещё не наблюдалось.",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+          "artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+          "produced_on": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e"
+        }
+      ],
+      "kind": "requirement",
+      "expected_evidence": "Живой разговор с упоминанием прошлого («помнишь, как мы тогда…») — ответ по смыслу, без автоматического исторического блока.",
+      "postdeploy_condition": "В чате владельца: фраза про прошлое не вызывает автоматического исторического поиска; ответ осмысленный, инструмент при необходимости выбирает L1."
     },
     {
       "source_id": "M00349-SMR-SCEN-D3",
@@ -2122,11 +2210,23 @@
       "req_id": "SMR-SCEN-D3",
       "slice": "P1",
       "acceptance": "Мат не уничтожает полезную коррекцию.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "kind": "requirement"
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+          "type": "production",
+          "ref": "SMR-SCEN-D3 / SRC-0349: мат не уничтожает полезную коррекцию",
+          "observation": "In-process на 1a4a9b1b: грубая коррекция классифицируется как correction/medium с suspect=aggression и не теряется. Живого прогона в чате не было.",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+          "artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+          "produced_on": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e"
+        }
+      ],
+      "kind": "requirement",
+      "expected_evidence": "Реальная грубая коррекция бота в чате владельца доходит до конвейера опыта и меняет поведение, а не отбрасывается.",
+      "postdeploy_condition": "В чате: грубая, но содержательная коррекция учитывается (поведение меняется), брань без сути ничего не запускает."
     },
     {
       "source_id": "M00351-SMR-SCEN-D4",
@@ -2138,11 +2238,23 @@
       "req_id": "SMR-SCEN-D4",
       "slice": "P1",
       "acceptance": "Цитата просьбы изменить стиль не меняет настройки.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "kind": "requirement"
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+          "type": "production",
+          "ref": "SMR-SCEN-D4 / SRC-0351: цитата просьбы о стиле не меняет настройки",
+          "observation": "In-process на 1a4a9b1b: цитата «отвечай короче» -> parse_directive_request None, без кавычек -> ParsedRequest(verbosity=short). Живого прогона в чате не было.",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+          "artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+          "produced_on": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e"
+        }
+      ],
+      "kind": "requirement",
+      "expected_evidence": "В чате: сообщение с цитатой чужой просьбы о стиле не меняет настройки, а прямая просьба меняет.",
+      "postdeploy_condition": "В чате владельца: «отвечай короче» в кавычках/цитатой — стиль не меняется; без кавычек — меняется."
     },
     {
       "source_id": "M00353-SMR-SCEN-D5",
@@ -5566,60 +5678,57 @@
       "binding": "replaces the earlier video-command correction; binding source for video commands"
     }
   ],
-  "notes": "Выкат 2.58.176 @ 2b7e9c7f подтверждён: продуктовая дельта байт-идентична одобренным кандидатам (P0-A 468ee956, P0-B 67063aa5, справка 6fec18d2), поэтому доказательства кандидатов перенесены на выкаченные байты (запись deployment_evidence + строки, привязанные к 2b7e9c7f). Закрыто фактами выката: P0-A — все эксплуатационные строки, кроме tool calling; P0-B — все строки маршрутизации и реестра; SMR-HELP-01 и SMR-COMMANDS (CMD-03/09/11/13/14) — по живым пробам и канону v10. READY_FOR_LIVE: строки, чья приёмка — «владелец видит правильное поведение в реальном чате» (сценарии A1/D1/B1..B6/D5, INV-09/10/30/31/32) — у каждой указан postdeploy_condition. Остаются PENDING строки инспекции внутренних путей (INV-06/13/14/15/16/17/18/19/20/21/22/23/24/25/26/27, IMG-06) и все критерии SMR-DONE: SMR-DONE-09 (live_required) не закрывается без реального прогона сценариев владельцем. SMR-POLICY, P1, SMR-TRACE остаются в своих срезах. Изображения в проде not_configured (нет ключа провайдера) — состояние до релиза, вынесено в plans/backlog.md.",
+  "notes": "Выкат 2.58.177 @ 1a4a9b1b подтверждён и привязан: продуктовая дельта — ровно 10 файлов P1 + 6 тестовых файлов P1 + 25 version-пинов, services/database.py не менялся (тот же blob), ни web/, handlers/, промптов, справки и файлов D2/ACL в релизе нет. P1: 7 технических строк закрыты фактами выклада (pre-gate, dig_into_lore, vision, мат/коррекция, пропуск vs потеря, промпты, явные команды), 3 сценария (D2/D3/D4) переведены в READY_FOR_LIVE — их приёмка требует живого чата; 6 строк остались PENDING с адресной причиной (P1-01 response_extent, P1-04 factcheck, P1-07 медиа-реестр, P1-10 уроки, P1-11 три модуля, P1-12 права/TTL). Lineage прежнего выклада сохранён: доказательства P0-срезов остаются на 2b7e9c7f (см. release_lineage). Корректировка владельца по проактивной ностальгии вынесена в отдельную карту того же среза (requirements-map-nostalgia-correction.json, срез NOST-PROACTIVE, 18 строк PENDING) — исходник и его sha не переписывались. Изображения в проде not_configured (нет ключа провайдера) — состояние до релиза, в plans/backlog.md.",
   "deployment_evidence": {
-    "version": "2.58.176",
-    "deployed_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
-    "previous_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
-    "previous_version": "2.58.175",
-    "release_branch": "release/2.58.176",
-    "deployed_at": "2026-11-10",
-    "evidence_artifact": "plans/features/smart-module-semantic-routing/evidence/p0-release-2.58.176.md",
-    "evidence_artifact_sha256": "06b430452f0118ce193fb6ab27d8d9f1ad8f4794397bff38744ca494e3bbf01f",
-    "db_schema": "user_version=46, schema_migrations=35, quick_check=ok; DDL=0",
+    "version": "2.58.177",
+    "deployed_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+    "previous_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+    "previous_version": "2.58.176",
+    "release_branch": "release/2.58.177",
+    "deployed_at": "2026-11-09T18:29:17Z (ActiveEnterTimestamp unit admin_bot)",
+    "evidence_artifact": "plans/features/smart-module-semantic-routing/evidence/p1-release-2.58.177.md",
+    "evidence_artifact_sha256": "a31aebd8cbd242769db511b8f58d6bbe4741c06f976210ab25488385b96f5460",
+    "db_schema": "user_version=46, schema_migrations=35; DDL=0; откат совместим в обе стороны",
+    "train": {
+      "base": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+      "cherry_pick": "0d460d4c (9f862b0f, одобренный P1-кандидат) — применился без конфликтов, Auto-merging config/settings.py",
+      "release": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+      "bump": "APP_VERSION 2.58.176 -> 2.58.177 + 25 version-пинов"
+    },
     "product_identity": {
-      "verified_by_pm_locally": "git diff --stat 34213999 2b7e9c7f -- services handlers web bot.py → ровно 6 файлов; каждый blob равен blob в 6fec18d2",
-      "blobs": {
-        "handlers/youtube.py": "d52537c33f39",
-        "services/command_registry.py": "0cce7abd7c4d",
-        "services/direct_capabilities.py": "670e28d9f1c7",
-        "services/direct_chat_service.py": "0d6c15fdbd86",
-        "services/image_generation.py": "702ac558fd67",
-        "services/info_service.py": "9dc9f21789f7",
-        "info_text.md": "7f622ad9d3c9"
-      },
-      "unshipped_d2_line": "git diff 6fec18d2 2b7e9c7f даёт 7 путей: 4 общих файла (handlers/checkup.py dc18b1e21905, services/access.py 2e70f6d31cd8, services/tool_router.py 500669c81923, web/api/access.py d29119dafea4) равны 34213999, три D2-модуля (diagnostic_policy, output_projection, telegram_role_check) отсутствуют в выкате — это намеренно невыпущенная линия, не остаток P0",
-      "rejected_intermediate": "368a738a (промежуточный контракт P0-B) полностью замещён на всех изменённых путях",
-      "web_unchanged": "web/ не меняется: /web/app.js байт-идентичен 2.58.175 (sha256 f91ce8ec…), идентичность релиза доказывается версией, SHA и ?v=2.58.176 в index"
+      "verified_by_pm_locally": "git diff --name-only 2b7e9c7f 1a4a9b1b = 41 путь, 654/233; 10 продуктовых файлов (config/settings.py + 9 services/*), 6 тестовых файлов P1 с содержательными правками, 25 однострочных version-пинов",
+      "p1_files": "services/direct_execution.py, direct_l1.py, direct_chat_service.py, direct_capabilities.py, media_readiness.py, mca_vision.py, mca_experience_jobs.py, mca_style_scope.py, evidence_policy.py, config/settings.py",
+      "untouched": "services/database.py — blob 5ba74e1e64b68bcf241a54f32edf0c22caa8d772 идентичен 2b7e9c7f; в дельте нет web/, handlers/, services/info_service.py, info_text.md, промптов",
+      "no_d2_acl_leak": "в дельте нет services/access.py, diagnostic_policy.py, output_projection.py, telegram_role_check.py, web/api/access.py",
+      "candidate_identity": "P1-файлы на релизе байт-идентичны 9f862b0f: cherry-pick без ручного слияния, git diff --stat 2b7e9c7f..1a4a9b1b = 16 файлов, 627/206 — те же цифры, что у исходного коммита"
     },
-    "live_probes_attested_by_devops": {
-      "note": "Пробы выполнены DevOps интерпретатором юнита на выкаченном дереве без отправок в чаты и без вызовов провайдера; PM независимо перепроверил статические факты (реестр, INFO_CANON_VERSION, текст info_text.md) на git-объектах 2b7e9c7f.",
-      "youtube_registry": [
-        "транскрипт",
-        "че за видос"
-      ],
-      "non_commands": [
-        "о чем видео",
-        "поясни за видос",
-        "че по видосу",
-        "выжимка из видео"
-      ],
-      "info_canon_version": 10,
-      "canon_delivered": "12 663 символа, canon_drift=false",
-      "chat_question": "_triggered_body=None, _handle_unclassified=UNHANDLED",
-      "kept_commands": {
-        "Бот, транскрипт": "транскрипт",
-        "Бот, че за видос": "че за видос"
-      },
-      "prose_with_command": "None",
-      "image_command": "is_image_keyword=True, extract_prompt='кота', detect_action_intent=create_image",
-      "manga_sentence": "is_image_keyword=False, intent пустой, _image_capability_gate=False, 0 отправок",
-      "image_capability": "available=False, status=not_configured, reason=image_provider_unconfigured (состояние до релиза)"
+    "tests_on_release_tree": {
+      "six_targeted": "437 passed / 0 failed на 1a4a9b1b против 403 на 2b7e9c7f (прирост 11 в изменённых файлах + 23 новый P1-файл)",
+      "with_version_pins": "506 passed / 0 failed (6 целевых + test_round1025_f8_registry + test_param_catalog)",
+      "wide": "2735 passed / 11 failed / 38 skipped против 2724 / 11 / 38 на 2b7e9c7f; наборы падений идентичны по ID (diff строк FAILED пустой) — 11 предсуществующих, релизом не привнесены"
     },
-    "tests_on_release_tree": "1401 passed/4 failed; 906/6; 110/3 — все 13 падений воспроизводятся на 34213999 с теми же текстами",
-    "health": "/healthz локально и публично 2.58.176; NRestarts=0; ExecMainStatus=0; tracebacks=0 (две ERROR-строки — anticliche worker, wikipedia source, кода в дельте нет)",
-    "bound_by_pm": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
-    "binding_record": "plans/features/smart-module-semantic-routing/evidence/p0-binding-2.58.176.md"
+    "health": "/healthz публично {\"status\":\"ok\",\"version\":\"2.58.177\"}; ActiveState=active, MainPID=3495237, NRestarts=0, ExecMainStatus=0; журнал с рестарта: 238 строк, Traceback=0, CRITICAL=0, ERROR=0, WARNING=3 (2 из старого процесса mca_events fresh_stream_lag, 1 summary_memory FTS-only; ни одного из путей P1)",
+    "postdeploy_in_process": {
+      "note": "Прогон интерпретатором юнита на выкаченном дереве: без сообщений в чаты, без вызовов провайдера, без записей в БД",
+      "dig_pre_gate": "читателей DIG_PRE_GATE_ENABLED в services/ = 0; effective false; единственное упоминание — текст каталога param_catalog.py:1768 (в backlog)",
+      "nostalgia_phrase": "ностальгическая фраза не запускает dig_into_lore: hasattr(DirectChatService,'_dig_pre_gate_block')=False, _NOSTALGIA_MARKERS_RE отсутствует, вызовов dispatch = 0 (5 упоминаний — комментарии)",
+      "historical_search_alive": "CAPABILITY_TOOLS['historical_search'] = ('dig_into_lore','compile_lore_story')",
+      "vision_text_only": "is_media_dependent=False для «что на картинке?», «прочитай скрин», «разбери фото»; реальный ход _prepare_turn_media_evidence даёт MediaReadiness(reason_code='no_target'), vision-анализ не запускается",
+      "vision_positive": "own_media=True -> True; reply_media=True -> True; обычный чат без медиа -> False",
+      "quoted_style": "цитата «отвечай короче» -> parse_directive_request None; без кавычек -> ParsedRequest(verbosity=short)",
+      "search_phrase": "«я вчера в интернете видел мем», «как найти мотивацию», «в сети пишут…» -> search=False, шаги []; «Бот, найди информацию о X» -> search=True, план ['execute_web_search']",
+      "profane_correction": "«бля, ты тупой что ли, ты ошибся — я говорил про Петю, а не про Васю» -> correction/medium, suspect=aggression; коррекция без брани -> correction/high; брань без содержательной формы -> {'skip':'aggression'}"
+    },
+    "rollback": "git checkout --detach 2b7e9c7f + systemctl restart admin_bot + backups/predeploy-258177.db (1 941 712 896 B, sha256 87d75afe…961f7e, read-back quick_check=ok, v46); объект 2b7e9c7f на сервере есть; предыдущие снапшоты 258176/258175 сохранены",
+    "owner_optional_observations": [
+      "живой разговор с упоминанием прошлого — ответ по смыслу без автоматического исторического блока",
+      "вопрос про картинку без картинки — бот не разбирает соседнее изображение",
+      "«отвечай короче» без кавычек меняет стиль, в кавычках — нет",
+      "«Бот, найди …» ищет, «я в интернете видел…» — обычный ответ без сети"
+    ],
+    "bound_by_pm": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+    "binding_record": "plans/features/smart-module-semantic-routing/evidence/p1-binding-2.58.177.md",
+    "binding_record_sha256": "2d2457efcda0b8bfc72984d35b0e97d593f0533284f31e668341ab1791f6ef05"
   },
   "anchors_2b7e9c7f": {
     "commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
@@ -5660,5 +5769,51 @@
       }
     },
     "correction": "An earlier verification claimed the deployed _render_current_question was at 7692 and the working tree at 9954; that is inverted. The deployed file has it at 9954, the working tree at 7692."
-  }
+  },
+  "release_lineage": {
+    "map_candidate_now": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+    "previous_deployed": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+    "slice_candidates_path": "slice_candidates (эта карта)",
+    "note": "Продукт изменился между 2.58.176 и 2.58.177: дельта 2b7e9c7f..1a4a9b1b — 41 файл (10 продуктовых файлов P1, 6 тестовых файлов P1, 25 version-пинов), включая services/direct_chat_service.py и services/direct_capabilities.py, на которые опираются строки P0-A. Поэтому байтовую идентичность доказательств P0 на 1a4a9b1b НЕ утверждаем: строки P0-A/P0-B/SMR-HELP/SMR-COMMANDS остаются привязанными к 2b7e9c7f (см. slice_candidates), а карта в целом выкачена на 1a4a9b1b. Появление строки 'no evidence bound to reviewed candidate' на P0-срезе при прогоне с кандидатом 1a4a9b1b — учётная артефактика, не регрессия; строки не переиздаются.",
+    "p1_binding_record": "plans/features/smart-module-semantic-routing/evidence/p1-binding-2.58.177.md",
+    "nostalgia_correction_map": "plans/features/smart-module-semantic-routing/requirements-map-nostalgia-correction.json"
+  },
+  "slice_candidates": {
+    "P0-A": {
+      "candidate_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+      "deployed_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+      "version": "2.58.176",
+      "reviewed_candidate": "468ee956",
+      "basis": "Строки P0-A приняты и выкачены на 2b7e9c7f; доказательства строк несут candidate_commit=2b7e9c7f (и исходный кандидат ревью 468ee956)."
+    },
+    "P0-B": {
+      "candidate_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+      "deployed_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+      "version": "2.58.176",
+      "reviewed_candidate": "67063aa5",
+      "basis": "Строки P0-B приняты и выкачены на 2b7e9c7f; доказательства строк несут candidate_commit=2b7e9c7f (и исходный кандидат ревью 67063aa5)."
+    },
+    "SMR-HELP": {
+      "candidate_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+      "deployed_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+      "version": "2.58.176",
+      "reviewed_candidate": "6fec18d2",
+      "basis": "Справка синхронизирована кандидатом 6fec18d2 и выкачена в 2.58.176; в 2.58.177 ни info_service.py, ни info_text.md не менялись."
+    },
+    "SMR-COMMANDS": {
+      "candidate_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+      "deployed_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+      "version": "2.58.176",
+      "reviewed_candidate": "468ee956 / 67063aa5",
+      "basis": "Реестр команд и видео-команды приняты на 2b7e9c7f (кандидаты 468ee956/67063aa5); в 2.58.177 файлы реестра не менялись."
+    },
+    "P1": {
+      "candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+      "deployed_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+      "version": "2.58.177",
+      "reviewed_candidate": "9f862b0f",
+      "basis": "Строки P1 привязаны к выкату 1a4a9b1b (перенос кандидата 9f862b0f cherry-pick без конфликтов)."
+    }
+  },
+  "slice_candidate_policy": "Карта одноканальна по candidate_commit/deployed_commit (так устроен requirements_gate.py), поэтому её верхний уровень указывает на последний выкат 1a4a9b1b (2.58.177), а фактический кандидат доказательств задаётся здесь по срезам. Прогон гейта делается со срезовым кандидатом: --slice P0-A/P0-B/SMR-HELP/SMR-COMMANDS --candidate 2b7e9c7f, --slice P1 --candidate 1a4a9b1b. На P0-прогонах гейт дополнительно печатает структурные строки 'candidate mismatch' и 'map deployed_commit does not match actual deployment' — это ограничение одноканального гейта, а не ошибка доказательств. Срезы без доказательств (SMR-POLICY, SMR-TRACE, SMR-DONE) кандидата не получают, пока не появится их собственный артефакт."
 }

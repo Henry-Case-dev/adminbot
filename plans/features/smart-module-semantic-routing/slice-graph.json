@@ -1,7 +1,7 @@
 {
   "schema": "openworkflow-slices-v1",
   "epic": "smart-module-semantic-routing-p0",
-  "notes": "P0-A and P0-B are independent writers (disjoint files) and are both blocking. Everything else joins after them. Write scopes list only files the slice may actually change; verification-only slices declare no product scope.",
+  "notes": "P0-A and P0-B are independent writers (disjoint files) and are both blocking. Everything else joins after them. Write scopes list only files the slice may actually change; verification-only slices declare no product scope. NOST-PROACTIVE is the owner's 2026-11-10 nostalgia correction: it joins after P1 (pre-gate removal) and is mapped in requirements-map-nostalgia-correction.json; it does not reopen P0/P1 evidence.",
   "slices": [
     {
       "id": "P0-A",
@@ -124,6 +124,21 @@
       "acceptance": "Все восемь критериев DONE подтверждены на выкаченной версии реальными Telegram-сценариями, включая доказательство отсутствия повторного перехвата текущего намерения.",
       "risk": "R2",
       "next_role": "DevOps → Reviewer"
+    },
+    {
+      "id": "NOST-PROACTIVE",
+      "title": "Проактивная ностальгия: смысловое воспоминание в живом разговоре и автономный отбор",
+      "depends_on": ["P1"],
+      "write_scope": [
+        "services/nostalgia_worker.py",
+        "services/initiative_observer.py",
+        "services/direct_chat_service.py",
+        "tests/test_nostalgia_worker.py",
+        "tests/test_nostalgia_proactive_recall.py"
+      ],
+      "acceptance": "В живом разговоре бот сам вспоминает уместный эпизод (без слов-триггеров), автономный тик продолжает искать старую историю вне последних сообщений и ровно годичного окна, вопрос о прошлом остаётся за L1; публикацию решает существующий initiative-механизм, молчание — допустимый исход, выдуманных связей и повторов нет.",
+      "risk": "R2",
+      "next_role": "Architect (RandomSource contract + proactive seam) → Builder → Reviewer"
     }
   ]
 }

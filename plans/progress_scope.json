@@ -1986,11 +1986,38 @@
         "smart-module-semantic-routing-p0",
         "vmq-onto-01"
       ],
-      "reconciled": false,
+      "reconciled": true,
       "note": "Corrects a conflation in the P1 report: the user's historical question (decided by L1) and proactive nostalgia (initiated by the bot) are two different mechanisms. Removing the lexical pre-gate must not disable proactive nostalgia nor reduce it to a query-only feature. Required: in a live conversation the model itself detects a semantic link between the current topic, participants, events and long-term memory and may recall an episode when genuinely relevant, with no word triggers or topic dictionaries; the autonomous NostalgiaWorker tick keeps exploring old history, not limited to recent messages or to events exactly one year old; publication stays with the existing initiative mechanism using relevance, context, freshness, repetition and the user's settings, never to fill a tick; silence is a valid outcome; Quantum Navigation from VMQ-ONTO-01 later joins the weighted selection of periods and episodes as direction only, never truth or obligation, with no second generator. `_pick_candidate()`'s preference for ~year-old events and golden facts keyed by words of the latest messages is explicitly rejected as link detection. Acceptance requires three independent scenarios (spontaneous in-conversation recall, autonomous initiation, a plain past question without keywords) plus the ability to stay silent, checked against real memory sources with no invented links and no repeats.",
       "recorded_in": "",
       "origin": "root chat 2026-11-10",
-      "received": "2026-11-10"
+      "received": "2026-11-10",
+      "coverage_refs": [
+        {
+          "task_id": "smart-module-semantic-routing-p0",
+          "map": "plans/features/smart-module-semantic-routing/requirements-map-nostalgia-correction.json",
+          "req_ids": [
+            "NOST-PRO-01",
+            "NOST-PRO-02",
+            "NOST-PRO-03",
+            "NOST-PRO-04",
+            "NOST-PRO-05",
+            "NOST-PRO-06",
+            "NOST-PRO-07",
+            "NOST-PRO-08",
+            "NOST-PRO-09",
+            "NOST-PRO-10",
+            "NOST-PRO-11",
+            "NOST-PRO-12",
+            "NOST-PRO-13",
+            "NOST-PRO-14",
+            "NOST-PRO-15",
+            "NOST-PRO-16",
+            "NOST-PRO-17",
+            "NOST-PRO-18",
+            "NOST-PRO-19"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-02-PERF-PARITY",
