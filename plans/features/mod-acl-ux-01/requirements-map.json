@@ -4,7 +4,7 @@
   "created": "2026-11-09",
   "source_path": "plans/owner_inputs/2026-11-09-mod-acl-ux-01.md",
   "source_sha256": "ba6cf3d68b9e4babd181c2ac0439cc80a8e127341a48ad76200bb2bde6ff92a7",
-  "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+  "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
   "deployed_commit": "bee14188f5d554021813db332ab35abea2ecbff5",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -175,12 +175,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/desired считается одной формулой и не смешивается с осями (перепривязка)",
-          "observation": "desired = chat_override != INHERIT ? chat_override : global_default; шесть строк таблицы проверяют desired/source/chat_state; test_state_snapshot_exposes_separate_axes: desired True одновременно с ready False, authorized True, observed None.",
+          "observation": "desired = chat_override != INHERIT ? chat_override : global_default; шесть строк таблицы проверяют desired/source/chat_state; test_state_snapshot_exposes_separate_axes: desired True одновременно с ready False, authorized True, observed None. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -207,12 +207,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/effective_runtime = desired AND prerequisites AND NOT emergency (перепривязка)",
-          "observation": "test_permission_denied_is_distinct_from_consent_required: effective_runtime True при отказе в правах (оси не схлопнуты); test_desired_on_ready_false_with_exact_reason: ready False -> effective_runtime False при неизменном desired; test_env_kill_switch_overrides_table: emergency -> effective_runtime False при desired True; формула global_master AND chat_enabled удалена (строка 5 таблицы).",
+          "observation": "test_permission_denied_is_distinct_from_consent_required: effective_runtime True при отказе в правах (оси не схлопнуты); test_desired_on_ready_false_with_exact_reason: ready False -> effective_runtime False при неизменном desired; test_env_kill_switch_overrides_table: emergency -> effective_runtime False при desired True; формула global_master AND chat_enabled удалена (строка 5 таблицы). Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -239,12 +239,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/ready: готовность считается отдельной осью с конкретной причиной по группам",
-          "observation": "test_prerequisites_report_concrete_reason_per_group: provider_missing:stt, index_missing:embeddings, dependency_missing:dream_worker, permission_missing:chat_profile, фиксированный порядок групп, пустой набор -> ready=None («не оценивалось»); test_gate_readiness_uses_real_llm_provider_check: реальная проверка models.llm_* (provider_missing:llm), у фич без LLM ready is None; test_gates_api_keeps_choice_when_not_ready: states[].ready=False и reason_code в HTTP-ответе. Композиция экрана — строка среза M4B, этой привязкой не покрыта.",
+          "observation": "test_prerequisites_report_concrete_reason_per_group: provider_missing:stt, index_missing:embeddings, dependency_missing:dream_worker, permission_missing:chat_profile, фиксированный порядок групп, пустой набор -> ready=None («не оценивалось»); test_gate_readiness_uses_real_llm_provider_check: реальная проверка models.llm_* (provider_missing:llm), у фич без LLM ready is None; test_gates_api_keeps_choice_when_not_ready: states[].ready=False и reason_code в HTTP-ответе. Композиция экрана — строка среза M4B, этой привязкой не покрыта. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -271,12 +271,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/authorization: права считаются отдельной осью и не превращают модуль в OFF",
-          "observation": "test_can_read_differs_from_can_edit_for_reader: moderator -> (can_read True, can_edit False), local_admin -> тяжёлые (True, True) и permsoc (True, False), global admin permsoc (True, True); test_permission_denied_is_distinct_from_consent_required: can_read False при desired True и effective_runtime True — отказ в правах не является выключением модуля; test_gates_api_keeps_choice_when_not_ready: can_read/can_edit в ответе.",
+          "observation": "test_can_read_differs_from_can_edit_for_reader: moderator -> (can_read True, can_edit False), local_admin -> тяжёлые (True, True) и permsoc (True, False), global admin permsoc (True, True); test_permission_denied_is_distinct_from_consent_required: can_read False при desired True и effective_runtime True — отказ в правах не является выключением модуля; test_gates_api_keeps_choice_when_not_ready: can_read/can_edit в ответе. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -349,12 +349,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/диагностика: точные коды причин вместо тихого false, второго master нет",
-          "observation": "test_permission_denied_is_distinct_from_consent_required: permission_denied / consent_required / emergency_block / capability_off — разные коды, emergency-ось не подменяется; test_gate_conflict_is_named_not_silent: противоречие gates.permsoc=OFF и alias overrides.flags.permsoc_enabled=ON даёт gate_conflict:flags.permsoc_enabled при неизменном authoritative-пути, согласованные значения конфликтом не считаются; test_declared_conflicts_are_reported; test_no_second_resolver_module (второй решатель/мастер отсутствует); test_gates_opt_in_is_consent_not_veto (default не стирает ось согласия).",
+          "observation": "test_permission_denied_is_distinct_from_consent_required: permission_denied / consent_required / emergency_block / capability_off — разные коды, emergency-ось не подменяется; test_gate_conflict_is_named_not_silent: противоречие gates.permsoc=OFF и alias overrides.flags.permsoc_enabled=ON даёт gate_conflict:flags.permsoc_enabled при неизменном authoritative-пути, согласованные значения конфликтом не считаются; test_declared_conflicts_are_reported; test_no_second_resolver_module (второй решатель/мастер отсутствует); test_gates_opt_in_is_consent_not_veto (default не стирает ось согласия). Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -2472,12 +2472,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/GLOBAL OFF + CHAT ON исполняется (перепривязка с 97cfdef1)",
-          "observation": "test_six_case_table_global_module и test_six_case_table_per_chat_experience: строка 5 таблицы (GLOBAL OFF + CHAT ON) даёт chat_state on / desired True / source chat; test_global_off_chat_on_worker_runs_and_selects: review_enabled() True и learning_enabled_for_chat(-100) True при GLOBAL OFF; test_every_consumer_reaches_single_resolver: все четыре потребителя дают True при GLOBAL OFF + явном CHAT ON; test_global_off_chat_on_lore_runs: lore-воркер генерирует.",
+          "observation": "test_six_case_table_global_module и test_six_case_table_per_chat_experience: строка 5 таблицы (GLOBAL OFF + CHAT ON) даёт chat_state on / desired True / source chat; test_global_off_chat_on_worker_runs_and_selects: review_enabled() True и learning_enabled_for_chat(-100) True при GLOBAL OFF; test_every_consumer_reaches_single_resolver: все четыре потребителя дают True при GLOBAL OFF + явном CHAT ON; test_global_off_chat_on_lore_runs: lore-воркер генерирует. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -2504,12 +2504,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/INHERIT-запись: явное третье состояние снимает только override этого чата",
-          "observation": "POST /api/config mode=inherit снимает только ключ этого чата (overrides становится {KEY2: False}), чат B и bot_settings не тронуты, state.chat_state == inherit; round-trip INHERIT -> ON -> INHERIT пишет и снимает значение; PUT /api/chat/{id}/gates enabled=inherit снимает только этот гейт; повторная запись INHERIT не даёт UPDATE/NOTIFY. Тесты: test_inherit_removes_only_this_chat_override, test_inherit_then_explicit_on_round_trip, test_gates_put_accepts_inherit, test_inherit_is_idempotent.",
+          "observation": "POST /api/config mode=inherit снимает только ключ этого чата (overrides становится {KEY2: False}), чат B и bot_settings не тронуты, state.chat_state == inherit; round-trip INHERIT -> ON -> INHERIT пишет и снимает значение; PUT /api/chat/{id}/gates enabled=inherit снимает только этот гейт; повторная запись INHERIT не даёт UPDATE/NOTIFY. Тесты: test_inherit_removes_only_this_chat_override, test_inherit_then_explicit_on_round_trip, test_gates_put_accepts_inherit, test_inherit_is_idempotent. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -2533,16 +2533,25 @@
       "acceptance": "Сохранённые значения, промпты и версии не перезаписываются при деплое; миграции аддитивны, обратимы и имеют доказанный mapping.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "static",
+          "ref": "M2/деплой: схемы и промптов не трогает, сохранённые значения не перезаписывает",
+          "observation": "plans/features/mod-acl-ux-01/reports/m2-deploy-surface-dd52cbf9.md — байт-идентичная копия docs/mod-acl-ux-01-m2-deploy.md из кандидата: services/database.py в диффе M2 отсутствует, шага _migrate_* и сдвига PRAGMA user_version нет (фронтьер 46), новых таблиц/колонок/индексов/сидов нет, prompt_migrations не расширялся (17 те же), PromptWriteItem не вызывается, APP_VERSION в срезе не менялся; деплой — git pull --ff-only + systemctl restart, откат — git revert кода. Сторож: test_stage_introduces_no_schema_or_prompt_rewrite по 12 продуктовым файлам среза (нет prompt_migrations, PromptWriteItem(, def _migrate_*, _SCHEMA_VERSION_).",
+          "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-deploy-surface-dd52cbf9.md",
+          "artifact_sha256": "868e1e3e7c0416c5ef8ebfc767fa993a8a3a88866548a5581d3a9af36dca13e8",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s0-03.md",
           "description": "наблюдаемый артефакт проверки MAC-S0-03"
         }
-      ],
-      "pending_condition": "деплой M2 не выполнялся: нужен снимок сохранённых значений/промптов/версий до и после выката и diff миграций (M2 DDL не вводит — подтверждается пустым diff'ом при упаковке, а не ссылкой на отсутствие изменений)"
+      ]
     },
     {
       "source_id": "L00019",
@@ -2650,12 +2659,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/новый реестр не введён (перепривязка с 97cfdef1)",
-          "observation": "test_no_second_resolver_module: resolve_capability определена только в services/chat_params.py; test_gates_api_and_config_use_canonical_state: API-поверхности берут состояние из резолвера, module_registry отдаёт gate_snapshot; в диффе кандидата нет новых таблиц/хранилищ — только существующие chat_params, module_registry, chat_profiles.",
+          "observation": "test_no_second_resolver_module: resolve_capability определена только в services/chat_params.py; test_gates_api_and_config_use_canonical_state: API-поверхности берут состояние из резолвера, module_registry отдаёт gate_snapshot; в диффе кандидата нет новых таблиц/хранилищ — только существующие chat_params, module_registry, chat_profiles. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -2965,12 +2974,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/один effective-state без дублирования хранения (перепривязка с 97cfdef1)",
-          "observation": "test_overrides_priority_is_implemented_once: ни один потребитель не читает overrides напрямую (диагностический worker_settings помечен как НЕ decision-path); test_one_resolver_no_second_gateway; test_gate_domain_rows_and_permsoc_alias; три адаптера над одним ядром resolve_capability.",
+          "observation": "test_overrides_priority_is_implemented_once: ни один потребитель не читает overrides напрямую (диагностический worker_settings помечен как НЕ decision-path); test_one_resolver_no_second_gateway; test_gate_domain_rows_and_permsoc_alias; три адаптера над одним ядром resolve_capability. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -3244,12 +3253,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/состояние: полный набор осей в ответе вместо одного bool",
-          "observation": "CapabilityState.as_dict() отдаёт source, desired, effective_runtime, ready, observed_at, last_activity_at, reason_code, pending_restart, version, can_read, can_edit (+chat_state, consent, conflict); test_state_snapshot_exposes_separate_axes утверждает точный набор ключей снимка, test_consumer_state_exposes_tri_state — наличие осей у потребителя, test_gates_api_keeps_choice_when_not_ready — те же поля в states{} HTTP-ответа.",
+          "observation": "CapabilityState.as_dict() отдаёт source, desired, effective_runtime, ready, observed_at, last_activity_at, reason_code, pending_restart, version, can_read, can_edit (+chat_state, consent, conflict); test_state_snapshot_exposes_separate_axes утверждает точный набор ключей снимка, test_consumer_state_exposes_tri_state — наличие осей у потребителя, test_gates_api_keeps_choice_when_not_ready — те же поля в states{} HTTP-ответа. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -3341,12 +3350,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/чатовый OFF локален, общий worker жив (перепривязка с 97cfdef1)",
-          "observation": "test_global_off_chat_on_worker_runs_and_selects: review_enabled() True (общий worker не остановлен) при learning_enabled_for_chat(-200) False (наследованный OFF); test_opt_in_legacy_does_not_disable_chat_gates: выключенная по наследованию nostalgia не останавливает механизм; родительский test_u4_chat_off_is_local_other_chat_learns проходит.",
+          "observation": "test_global_off_chat_on_worker_runs_and_selects: review_enabled() True (общий worker не остановлен) при learning_enabled_for_chat(-200) False (наследованный OFF); test_opt_in_legacy_does_not_disable_chat_gates: выключенная по наследованию nostalgia не останавливает механизм; родительский test_u4_chat_off_is_local_other_chat_learns проходит. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -3373,12 +3382,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/opt-in: согласие как ось, а не veto; ложный consent_required устранён",
-          "observation": "test_gates_opt_in_is_consent_not_veto: при opt_in=False effective_runtime остаётся True, consent False, reason_code consent_required (у лёгких фич consent None) — двойное veto снято; test_opt_in_legacy_does_not_disable_chat_gates: отсутствие согласия не превращает явные чатовые гейты в «всё выключено»; test_has_opt_in_reads_profile_column_not_empty_root: согласие читается из chat_profiles.gates_opt_in, а не из отсутствующей колонки в chat_params-root (дефект D1).",
+          "observation": "test_gates_opt_in_is_consent_not_veto: при opt_in=False effective_runtime остаётся True, consent False, reason_code consent_required (у лёгких фич consent None) — двойное veto снято; test_opt_in_legacy_does_not_disable_chat_gates: отсутствие согласия не превращает явные чатовые гейты в «всё выключено»; test_has_opt_in_reads_profile_column_not_empty_root: согласие читается из chat_profiles.gates_opt_in, а не из отсутствующей колонки в chat_params-root (дефект D1). Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -3432,16 +3441,25 @@
       "acceptance": "Инвентаризация storage и всех runtime readers (hot.get, get_chat_param, gates_enabled, env guards, workers, schedulers, UI) приложена к плану.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "static",
+          "ref": "M2/инвентарь storage и всех runtime-читателей приложен к плану",
+          "observation": "plans/features/mod-acl-ux-01/reports/m2-consumers-dd52cbf9.md — байт-идентичная копия docs/mod-acl-ux-01-m2-consumers.md из кандидата: таблица хранилищ (второго нет), канонический слой, 19 потребителей с точным путём решения, три исправленных читателя приватного кэша, перечень per-chat-ключей, читаемых только глобально (с причиной), и полный список прямых читателей вне домена с причиной не менять их в срезе. Машинные сторожа: test_consumer_inventory_note_lists_real_modules (≥8 ссылок на существующие файлы) и test_no_raw_chat_params_cache_readers_outside_resolver (скан services/, web/, handlers/ на приватный кэш — нарушителей нет, read_override_sync существует).",
+          "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-consumers-dd52cbf9.md",
+          "artifact_sha256": "57c1f6b87de3279de2c639a8a962e2b2ef1fc54f3dc7d2c41ecf349b3c90e082",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-102.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-102"
         }
-      ],
-      "pending_condition": "инвентарь storage-ключей и ВСЕХ runtime-читателей (hot.get, get_chat_param, gates_enabled, env-guards, workers, schedulers, UI) не приложен: в кандидате перечислены 6 потребителей, но не tool router, планировщики и UI"
+      ]
     },
     {
       "source_id": "L00103",
@@ -3458,12 +3476,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/единый резолвер на существующем слое и явный mapping (перепривязка с 97cfdef1)",
-          "observation": "resolve_capability + адаптеры resolve_param_capability / resolve_gate_capability / resolve_module_capability; mapping ModuleSpec.master_param -> pg-ключ через module_registry; test_no_second_resolver_module, test_gates_api_and_config_use_canonical_state.",
+          "observation": "resolve_capability + адаптеры resolve_param_capability / resolve_gate_capability / resolve_module_capability; mapping ModuleSpec.master_param -> pg-ключ через module_registry; test_no_second_resolver_module, test_gates_api_and_config_use_canonical_state. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -3490,12 +3508,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/INHERIT: отсутствие записи читается как наследование, снятие не воскресает",
-          "observation": "test_absent_is_inherit_explicit_false_is_off (нет записи -> INHERIT, записанный false -> OFF, разный effective); test_inherit_removes_only_this_chat_override и test_inherit_then_explicit_on_round_trip («Наследовать» удаляет только override этого чата); test_inherit_survives_stale_token (removed-набор доходит до retry-merge, снятие не возвращается из свежего root при устаревшем токене); test_stored_explicit_false_is_never_rewritten (сохранённые true/false не перезаписаны).",
+          "observation": "test_absent_is_inherit_explicit_false_is_off (нет записи -> INHERIT, записанный false -> OFF, разный effective); test_inherit_removes_only_this_chat_override и test_inherit_then_explicit_on_round_trip («Наследовать» удаляет только override этого чата); test_inherit_survives_stale_token (removed-набор доходит до retry-merge, снятие не возвращается из свежего root при устаревшем токене); test_stored_explicit_false_is_never_rewritten (сохранённые true/false не перезаписаны). Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -3522,13 +3540,13 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "production",
           "ref": "M2/два источника overrides: production-snapshot, отсутствие коллизий, один authoritative путь",
-          "observation": "Снимок обоих источников снят на реальных данных (reports/m2-impact-3b1ba3b2.md, прогон из дерева 3b1ba3b2 read-only по production-БД): 3 профиля, у всех непустые overrides и gates; записей false/true — 9/8 в overrides и 5/2 в gates, то есть второй источник реально населён, а не пуст. Коллизий, меняющих семантику, не найдено: 0 изменённых пар из 16 capability × 3 профиля, а alias-ключ flags.permsoc_enabled в overrides не встречается ни у одного профиля. Authoritative read/write-путь один — chat_params (test_overrides_priority_is_implemented_once: потребители не читают overrides напрямую; test_no_second_resolver_module); второй источник оставлен только read-compat alias с явным приоритетом и тестами (test_gate_domain_rows_and_permsoc_alias: alias действует лишь при INHERIT) и с машинным сигналом противоречия gate_conflict:<name> вместо тихого false (test_gate_conflict_is_named_not_silent). Оговорка, чтобы колонка OLD не читалась как живое сравнение: задеплоенный прод 2.58.174 (@ac943f40) не содержит chat_params.resolve_capability (0 совпадений) и несёт собственный services/capability_registry.py; поэтому OLD в отчёте — реконструкция домигрированной семантики по контракту, а не рантайм прода. NEW кандидата совпадает с OLD на всех парах, поэтому вывод об отсутствии изменений это не отменяет, но live-сравнение рантаймов этот прогон не заменяет.",
+          "observation": "Снимок обоих источников снят на реальных данных (reports/m2-impact-3b1ba3b2.md, прогон из дерева 3b1ba3b2 read-only по production-БД): 3 профиля, у всех непустые overrides и gates; записей false/true — 9/8 в overrides и 5/2 в gates, то есть второй источник реально населён, а не пуст. Коллизий, меняющих семантику, не найдено: 0 изменённых пар из 16 capability × 3 профиля, а alias-ключ flags.permsoc_enabled в overrides не встречается ни у одного профиля. Authoritative read/write-путь один — chat_params (test_overrides_priority_is_implemented_once: потребители не читают overrides напрямую; test_no_second_resolver_module); второй источник оставлен только read-compat alias с явным приоритетом и тестами (test_gate_domain_rows_and_permsoc_alias: alias действует лишь при INHERIT) и с машинным сигналом противоречия gate_conflict:<name> вместо тихого false (test_gate_conflict_is_named_not_silent). Оговорка, чтобы колонка OLD не читалась как живое сравнение: задеплоенный прод 2.58.174 (@ac943f40) не содержит chat_params.resolve_capability (0 совпадений) и несёт собственный services/capability_registry.py; поэтому OLD в отчёте — реконструкция домигрированной семантики по контракту, а не рантайм прода. NEW кандидата совпадает с OLD на всех парах, поэтому вывод об отсутствии изменений это не отменяет, но live-сравнение рантаймов этот прогон не заменяет. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-impact-3b1ba3b2.md",
           "artifact_sha256": "1227f1ce0856cea230d59fe7b9c47e5326b336df713cf35a2afa012e8d34e0d1",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515"
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
         }
       ],
       "expected_evidence": [
@@ -3554,13 +3572,13 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "production",
           "ref": "M2/before-after impact report на финальном кандидате: пары, сохранность stored values, защита отправок",
-          "observation": "Все три условия acceptance проверены на 3b1ba3b2. (1) Пары GLOBAL OFF + сохранённый CHAT ON перечислены: во всех трёх профилях и 16 capability такая строка ровно одна — gate:permsoc в чате -1002661910336 (явный true в gates.permsoc, глобал false); измеренный ответ об изменении поведения — ноль: 0 изменённых пар, 0 чатов с изменением, потому что эта строка резолвилась ON и по прежней семантике (чат-гейт перекрывал глобал). (2) Stored values не переписаны: скрипт не содержит INSERT/UPDATE/DELETE/DDL, вспомогательное соединение открыто с default_transaction_read_only = on; до/после одинаковы bot_settings 547/547, chat_profiles 3/3, таблиц в public 30/30, pg_stat ins/upd/del по обеим таблицам, число явных false в overrides/gates 9/5, SQLite user_version 46; сервис не перезапускался (NRestarts 0, MainPID 3379284 неизменен). (3) Защита отправок и дорогого backfill: при нуле изменённых пар ни одна новая отправка или догрузка от смены семантики не возникает, а на уровне механизма допустимость чата проверяет канонический резолвер в воркерах (MAC-S2-116, test_global_off_chat_on_worker_runs_and_selects: обрабатываются только eligible-чаты). Оговорка, чтобы колонка OLD не читалась как живое сравнение: задеплоенный прод 2.58.174 (@ac943f40) не содержит chat_params.resolve_capability (0 совпадений) и несёт собственный services/capability_registry.py; поэтому OLD в отчёте — реконструкция домигрированной семантики по контракту, а не рантайм прода. NEW кандидата совпадает с OLD на всех парах, поэтому вывод об отсутствии изменений это не отменяет, но live-сравнение рантаймов этот прогон не заменяет.",
+          "observation": "Все три условия acceptance проверены на 3b1ba3b2. (1) Пары GLOBAL OFF + сохранённый CHAT ON перечислены: во всех трёх профилях и 16 capability такая строка ровно одна — gate:permsoc в чате -1002661910336 (явный true в gates.permsoc, глобал false); измеренный ответ об изменении поведения — ноль: 0 изменённых пар, 0 чатов с изменением, потому что эта строка резолвилась ON и по прежней семантике (чат-гейт перекрывал глобал). (2) Stored values не переписаны: скрипт не содержит INSERT/UPDATE/DELETE/DDL, вспомогательное соединение открыто с default_transaction_read_only = on; до/после одинаковы bot_settings 547/547, chat_profiles 3/3, таблиц в public 30/30, pg_stat ins/upd/del по обеим таблицам, число явных false в overrides/gates 9/5, SQLite user_version 46; сервис не перезапускался (NRestarts 0, MainPID 3379284 неизменен). (3) Защита отправок и дорогого backfill: при нуле изменённых пар ни одна новая отправка или догрузка от смены семантики не возникает, а на уровне механизма допустимость чата проверяет канонический резолвер в воркерах (MAC-S2-116, test_global_off_chat_on_worker_runs_and_selects: обрабатываются только eligible-чаты). Оговорка, чтобы колонка OLD не читалась как живое сравнение: задеплоенный прод 2.58.174 (@ac943f40) не содержит chat_params.resolve_capability (0 совпадений) и несёт собственный services/capability_registry.py; поэтому OLD в отчёте — реконструкция домигрированной семантики по контракту, а не рантайм прода. NEW кандидата совпадает с OLD на всех парах, поэтому вывод об отсутствии изменений это не отменяет, но live-сравнение рантаймов этот прогон не заменяет. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-impact-3b1ba3b2.md",
           "artifact_sha256": "1227f1ce0856cea230d59fe7b9c47e5326b336df713cf35a2afa012e8d34e0d1",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515"
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
         }
       ],
       "expected_evidence": [
@@ -3586,12 +3604,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/hot-config: updated_at, NOTIFY и инвалидация кэша сохранены для реальной записи",
-          "observation": "test_write_bumps_updated_at_notifies_and_invalidates: запись уже установленного значения True всё равно даёт pg_notify == 1, updated_at == NEW_TS и инвалидацию кэша чата (дефект D4 — no-op только для чистого INHERIT); test_notify_invalidates_cache_and_change_is_visible: payload канала сбрасывает кэш и следующий резолв видит новое значение без рестарта; test_hot_change_reaches_running_process: глобальная правка видна следующему резолву, чатовый выбор не меняется; test_inherit_is_idempotent: повторный INHERIT не двигает optimistic-метку.",
+          "observation": "test_write_bumps_updated_at_notifies_and_invalidates: запись уже установленного значения True всё равно даёт pg_notify == 1, updated_at == NEW_TS и инвалидацию кэша чата (дефект D4 — no-op только для чистого INHERIT); test_notify_invalidates_cache_and_change_is_visible: payload канала сбрасывает кэш и следующий резолв видит новое значение без рестарта; test_hot_change_reaches_running_process: глобальная правка видна следующему резолву, чатовый выбор не меняется; test_inherit_is_idempotent: повторный INHERIT не двигает optimistic-метку. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -3618,12 +3636,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/read-пути не создают explicit override (перепривязка с 97cfdef1)",
-          "observation": "test_stored_explicit_false_is_never_rewritten: set_chat_params подменён на бросающую AssertionError функцию, затем вызваны read-пути (модуль, гейты двух чатов, резолв опыта); cache.by_chat == snapshot до/после, invalidated == [], сохранённый false остался false; test_inherit_is_idempotent: повторное сохранение не создаёт записей.",
+          "observation": "test_stored_explicit_false_is_never_rewritten: set_chat_params подменён на бросающую AssertionError функцию, затем вызваны read-пути (модуль, гейты двух чатов, резолв опыта); cache.by_chat == snapshot до/после, invalidated == [], сохранённый false остался false; test_inherit_is_idempotent: повторное сохранение не создаёт записей. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -3684,16 +3702,25 @@
       "acceptance": "Задание проверяет настройку чата при создании и перед первым пользовательским side effect; OFF из устаревшего snapshot не публикует инициативу.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§2.5: OFF в полёте перед первым side effect не публикует инициативу",
+          "observation": "test_text_initiative_off_mid_flight_single_outcome (реальная SQLite-БД: чат выключается между оценкой и отправкой): bot.sent == [], initiative_sent — ноль, writer.generate_calls == 1, в payload задания counters['sent'] == 0 и counters['capability_blocked'] == 1, ровно одно терминальное событие initiative_publication_cancelled с reason_code 'capability_off' и stage 'capability:off'. test_publish_block_reason_reads_fresh_profile: прогретый TTL-кэш держит ON, а финальная проверка читает профиль заново и возвращает 'capability_off' — OFF из устаревшего snapshot не публикует.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
+          "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-113.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-113"
         }
-      ],
-      "pending_condition": "in-flight CHAT OFF: проверка настройки чата перед первым пользовательским side effect инициативы и отсутствие публикации из устаревшего snapshot на кандидате не проверены"
+      ]
     },
     {
       "source_id": "L00114",
@@ -3707,16 +3734,25 @@
       "acceptance": "Выключение прекращает новую обработку и публикацию, но сохраняет историю, прошлые ответы и индекс.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§2.5: OFF прекращает обработку и публикацию, история и настройка сохранены",
+          "observation": "test_text_initiative_off_mid_flight_single_outcome: COUNT(*) строк smart_messages чата до и после тика совпадает, сохранённое initiative.enabled остаётся False, новых публикаций ноль. test_meme_off_mid_flight_cancels_publication: картинка сгенерирована (generated True), но published False, sent == [], в журнале попытки ровно одна терминальная строка (stage=PUBLISH, outcome=skipped) — история попытки сохранена, доставки нет. Индексы в этих путях не пишутся.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
+          "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-114.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-114"
         }
-      ],
-      "pending_condition": "in-flight CHAT OFF: остановка новой обработки и публикации с сохранением истории, прошлых ответов и индекса на кандидате не проверена"
+      ]
     },
     {
       "source_id": "L00115",
@@ -3730,16 +3766,25 @@
       "acceptance": "Повторное включение не даёт неконтролируемого replay/backfill; догрузка истории — отдельное действие с preview и правами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§2.5: повторное включение не даёт неконтролируемого replay/backfill",
+          "observation": "test_text_initiative_no_replay_after_reenable: первый тик отменяет публикацию при OFF и НЕ откладывает результат, второй тик уже при ON без новых сообщений завершается completed без новой оценки (llm.calls == 1) и без отправок (bot.sent == []). test_deferred_meme_not_published_after_chat_off: отложенная строка при OFF закрывается терминально без отправки, deferred_active_row is None, байты удалены. Граница: вторая половина acceptance ('догрузка истории — отдельное действие с preview и правами') в M2 не реализуется — такого действия в продукте нет, поэтому replay невозможен; контрол с preview/правами относится к UI-срезу M4C. Строка привязана по проверяемой в M2 части.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
+          "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-115.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-115"
         }
-      ],
-      "pending_condition": "in-flight CHAT OFF: повторное включение без неконтролируемого replay/backfill и отдельная догрузка истории с preview на кандидате не проверены"
+      ]
     },
     {
       "source_id": "L00116",
@@ -3756,12 +3801,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/worker фильтрует eligible-чаты (перепривязка с 97cfdef1)",
-          "observation": "test_global_off_chat_on_worker_runs_and_selects: тик выбирает только eligible-чаты (явный ON True, INHERIT при GLOBAL OFF False); test_every_consumer_reaches_single_resolver; test_global_off_chat_on_lore_runs.",
+          "observation": "test_global_off_chat_on_worker_runs_and_selects: тик выбирает только eligible-чаты (явный ON True, INHERIT при GLOBAL OFF False); test_every_consumer_reaches_single_resolver; test_global_off_chat_on_lore_runs. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -6357,12 +6402,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/§10-2: смена чата A не меняет B, отсутствие записи = настоящий INHERIT",
-          "observation": "test_inherit_removes_only_this_chat_override: снятие у чата A не меняет чат B; test_hot_change_reaches_running_process: два чата с разными выборами дают разный effective_runtime, источник унаследованного — global; test_absent_is_inherit_explicit_false_is_off.",
+          "observation": "test_inherit_removes_only_this_chat_override: снятие у чата A не меняет чат B; test_hot_change_reaches_running_process: два чата с разными выборами дают разный effective_runtime, источник унаследованного — global; test_absent_is_inherit_explicit_false_is_off. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -6386,16 +6431,25 @@
       "acceptance": "Два параллельных редактирования с устаревшей версией дают 409 без потери записи; двойной клик не порождает два POST.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§10-3: 409 без потери записи и одиночный POST при двойном клике",
+          "observation": "test_stale_concurrent_edit_is_409_without_lost_write: первая правка пишется, вторая с тем же токеном → ChatParamsConflict с current_updated_at и conflicting, сохранено только победившее значение, повтор с актуальной меткой дописывает вторую правку без потери первой. test_duplicate_post_is_idempotent_not_second_write: дубль с устаревшим токеном даёт revalidated True без роста истории. test_ui_double_click_cannot_emit_two_posts: per-key in-flight guard и operation_id в web/app.js. E2E-артефакт m2-race-e2e-dd52cbf9.json: ok true, double_click.posts == 1 с operation_id 'op-1'.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-race-e2e-dd52cbf9.json",
+          "artifact_sha256": "f1499c4af8217f2e2651f51dbeae91ecc34ccb2dbf9ca30502e73c069d103c5d",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-03.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-03"
         }
-      ],
-      "pending_condition": "UI-часть (двойной клик не порождает два POST) принадлежит M4C; 409 без потери записи на прямом пути set_chat_params подтверждён родительскими наборами (test_set_chat_params_conflict, test_concurrent_edit_race_409_then_refresh_retry), но UI-путь не принят"
+      ]
     },
     {
       "source_id": "L00573",
@@ -6418,7 +6472,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S10-04"
         }
       ],
-      "pending_condition": "UI-сценарий трёх последовательных смен чата с поздним API-ответом не выполнялся (срез M4C); на кандидате проверок нет"
+      "pending_condition": "m2-race-e2e-dd52cbf9.json покрывает строку (4 запроса конфигурации при трёх сменах чата, 40 замеров, 0 поздних перезаписей), но в явный список одобренных ревьюером строк она не входила — нужна отдельная строка вердикта (и, желательно, именованный pytest вместо E2E)"
     },
     {
       "source_id": "L00574",
@@ -6432,16 +6486,25 @@
       "acceptance": "После рестарта процесса, инвалидации кэшей и PG NOTIFY desired/effective совпадают с сохранённым.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§10-5: после рестарта, инвалидации кэшей и PG NOTIFY состояние совпадает с сохранённым",
+          "observation": "test_restart_and_notify_keep_stored_state: новый ChatParamsCache на том же профиле («рестарт») даёт те же (chat_state, desired, source) для значения и для гейта; затем внешняя запись + invalidate_chat_from_notify → резолв видит новое сохранённое значение (ON для значения, OFF для гейта). Рестарт смоделирован новым кэшем, реального systemctl restart в доказательстве нет.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
+          "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-05.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-05"
         }
-      ],
-      "pending_condition": "сценарий рестарта процесса не выполнялся: NOTIFY, инвалидация кэша и hot-видимость доказаны (MAC-S2-107), совпадение desired/effective с сохранённым после рестарта — нет"
+      ]
     },
     {
       "source_id": "L00575",
@@ -6458,12 +6521,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/§10-6: провайдер недоступен -> requested ON и ready false, тумблер не гаснет",
-          "observation": "test_desired_on_ready_false_with_exact_reason: GLOBAL OFF + CHAT ON + провайдер недоступен -> desired True, chat_state ON, ready False, effective_runtime False, reason_code provider_missing:stt, сохранённое значение не переписано; test_gates_api_keeps_choice_when_not_ready: gates.dream True при states.dream.ready False и reason_code provider_missing:llm — «неготовность» не подменяет выбор чата (дефект D2).",
+          "observation": "test_desired_on_ready_false_with_exact_reason: GLOBAL OFF + CHAT ON + провайдер недоступен -> desired True, chat_state ON, ready False, effective_runtime False, reason_code provider_missing:stt, сохранённое значение не переписано; test_gates_api_keeps_choice_when_not_ready: gates.dream True при states.dream.ready False и reason_code provider_missing:llm — «неготовность» не подменяет выбор чата (дефект D2). Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -6487,16 +6550,25 @@
       "acceptance": "In-flight задача при CHAT OFF завершает уже вычисленное без новых публикаций и дублированных доставок.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§10-7: in-flight задача завершается без новых публикаций и дублей",
+          "observation": "test_text_initiative_off_mid_flight_single_outcome: bot.sent == [], generate_calls == 1, counters['sent'] == 0 — единственный терминальный исход. test_meme_off_mid_flight_cancels_publication: provider.calls == [-100] (генерация ровно одна), sent == [], published False. Дублированной доставки нет ни в текстовой, ни в мем-ветке.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
+          "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-07.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-07"
         }
-      ],
-      "pending_condition": "in-flight задача при CHAT OFF: завершение уже вычисленного без новых публикаций и дублированных доставок на кандидате не проверено"
+      ]
     },
     {
       "source_id": "L00577",
@@ -6510,16 +6582,25 @@
       "acceptance": "Выключение одного чата не роняет retrieval у другого и не останавливает общие индексы и пулы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§10-8: OFF одного чата не роняет retrieval у другого и не останавливает общие индексы",
+          "observation": "test_vector_lookup_off_only_for_that_chat: у OFF-чата нет ни KNN, ни query-embedding; у соседнего чата vector_search возвращает knn-результат, повторный запрос снова обслужен (calls['knn'] == [B, B]) — backlog не заморожен; mm._vec_available is True, _index_generation_ok('smart_archive') is True. test_vector_gate_is_per_chat_not_shared: memory_search_enabled(A) False при memory_search_enabled(B) True и глобальном флаге True.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
+          "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-08.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-08"
         }
-      ],
-      "pending_condition": "изоляция retrieval: выключение одного чата не роняет поиск у другого и не останавливает общие индексы и пулы — сценарий не выполнялся"
+      ]
     },
     {
       "source_id": "L00578",
@@ -6533,16 +6614,25 @@
       "acceptance": "Сохранённые старым путём chat flags не читаются новым UI как inherit; каждая миграция сверена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§10-9: старые сохранённые флаги не читаются как inherit, write-пути сверены",
+          "observation": "test_legacy_stored_flags_are_not_inherit (параметризовано True/False/1/0): все сохранённые форматы дают явное ON/OFF и в домене значений, и в домене гейтов; INHERIT — только отсутствие ключа. test_every_legacy_write_path_stores_explicit_bool: set_feature_gate пишет bool(enabled), снятие — gates.pop; POST /api/config mode='inherit' делает new_overrides.pop(key, None); строка 'inherit'/null не пишется, резолвер ничего не материализует.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
+          "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-09.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-09"
         }
-      ],
-      "pending_condition": "сохранённые старым путём chat flags не должны читаться новым UI как inherit: сверка каждой миграции/чтения не выполнена"
+      ]
     },
     {
       "source_id": "L00579",
@@ -6559,13 +6649,13 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "production",
           "ref": "M2/§10-10: все пары GLOBAL OFF + сохранённый CHAT ON выгружены и поведение измерено",
-          "observation": "Выгружены все: перебор 3 профилей × 16 capability, а не выборка — таблица по ключам и таблица по чатам в reports/m2-impact-3b1ba3b2.md. Такая пара ровно одна: чат -1002661910336, gate:permsoc, состояние чата on (явный true), глобал false; новый effective ON. Прежнее поведение по этой паре тоже было ON (чат-гейт перекрывал глобал), поэтому интерпретация меняется, а фактическое поведение нет; остальные capability либо наследуют глобал, либо выключены явно — расхождений ноль. Остальные false-записи (9 в overrides, 5 в gates) под новой семантикой означают «выключено именно здесь», но при текущих глобальных значениях расхождения OLD/NEW не дают. Оговорка, чтобы колонка OLD не читалась как живое сравнение: задеплоенный прод 2.58.174 (@ac943f40) не содержит chat_params.resolve_capability (0 совпадений) и несёт собственный services/capability_registry.py; поэтому OLD в отчёте — реконструкция домигрированной семантики по контракту, а не рантайм прода. NEW кандидата совпадает с OLD на всех парах, поэтому вывод об отсутствии изменений это не отменяет, но live-сравнение рантаймов этот прогон не заменяет.",
+          "observation": "Выгружены все: перебор 3 профилей × 16 capability, а не выборка — таблица по ключам и таблица по чатам в reports/m2-impact-3b1ba3b2.md. Такая пара ровно одна: чат -1002661910336, gate:permsoc, состояние чата on (явный true), глобал false; новый effective ON. Прежнее поведение по этой паре тоже было ON (чат-гейт перекрывал глобал), поэтому интерпретация меняется, а фактическое поведение нет; остальные capability либо наследуют глобал, либо выключены явно — расхождений ноль. Остальные false-записи (9 в overrides, 5 в gates) под новой семантикой означают «выключено именно здесь», но при текущих глобальных значениях расхождения OLD/NEW не дают. Оговорка, чтобы колонка OLD не читалась как живое сравнение: задеплоенный прод 2.58.174 (@ac943f40) не содержит chat_params.resolve_capability (0 совпадений) и несёт собственный services/capability_registry.py; поэтому OLD в отчёте — реконструкция домигрированной семантики по контракту, а не рантайм прода. NEW кандидата совпадает с OLD на всех парах, поэтому вывод об отсутствии изменений это не отменяет, но live-сравнение рантаймов этот прогон не заменяет. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-impact-3b1ba3b2.md",
           "artifact_sha256": "1227f1ce0856cea230d59fe7b9c47e5326b336df713cf35a2afa012e8d34e0d1",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515"
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
         }
       ],
       "expected_evidence": [
@@ -6654,16 +6744,25 @@
       "acceptance": "«Время» остаётся без продуктового тумблера, timezone доступен и применяется во всех consumers.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§10-14: «Время» без продуктового тумблера, timezone применяется всеми потребителями",
+          "observation": "test_time_has_no_product_toggle: ни один модуль реестра не содержит time/timezone в id или master_param; limits.chat_timezone — тип str, per_chat True, 'time' нет в ALL_GATED_FEATURES. test_timezone_effective_value_matches_across_consumers: A Asia/Tokyo, B наследует Europe/Berlin; chat_clock.snapshot, meme.resolve_timezone и worker_budget._chat_tz_name дают одно и то же значение по каждому чату, снапшот часов не «выключен».",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
+          "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-14.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-14"
         }
-      ],
-      "pending_condition": "«Время» без продуктового тумблера и применимость timezone во всех consumers не проверены"
+      ]
     },
     {
       "source_id": "L00584",
@@ -6677,16 +6776,25 @@
       "acceptance": "CHAT OFF для векторного поиска отключает lookup только этого чата; индекс и backlog других чатов целы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§10-15: CHAT OFF векторного поиска отключает lookup только этого чата",
+          "observation": "test_vector_lookup_off_only_for_that_chat: OFF-чат обслужен fallback-путём (fts:<chat>), KNN и embed для него не вызывались; второй чат получил knn:<chat>; флаг доступности вектора и поколение индекса не изменились — индекс и backlog других чатов целы.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
+          "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-15.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-15"
         }
-      ],
-      "pending_condition": "CHAT OFF для векторного поиска (lookup только этого чата, индекс и backlog других целы) не проверен"
+      ]
     },
     {
       "source_id": "L00585",
@@ -6766,16 +6874,25 @@
       "acceptance": "До и после смены флагов runtime counters и ledger по chat_id показывают ноль вызовов отключённого функционала, но не shared-сервиса.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+          "type": "test",
+          "ref": "M2/§10-19: counters и ledger по chat_id — ноль у отключённого, shared-сервис жив",
+          "observation": "test_runtime_counters_show_zero_for_disabled_chat (реальная БД, два чата с одинаковым профилем): llm.by_chat[A] == 0, в bot.sent нет A, в in-memory журнале нет initiative_opportunity/initiative_sent по A; при этом shared-скан выполняется (событие initiative_observer_scan) и соседний чат даёт ровно одну оценку (llm.by_chat[B] == 1); после flush_events durable-журнал по chat_id=A пуст, по B — непуст.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
+          "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-19.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-19"
         }
-      ],
-      "pending_condition": "runtime counters и ledger по chat_id до/после смены флагов требуют реального прогона на задеплоенном SHA"
+      ]
     },
     {
       "source_id": "L00589",
@@ -6798,7 +6915,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S10-20"
         }
       ],
-      "pending_condition": "отложенный результат задачи, запрошенной до выключения, не должен публиковаться в отключённый чат — сценарий не выполнялся"
+      "pending_condition": "test_deferred_meme_not_published_after_chat_off покрывает строку (отложенная строка при OFF закрывается терминально, отправки нет, байты удалены), но в явный список одобренных строк она не входила — нужна отдельная строка вердикта"
     },
     {
       "source_id": "L00593",
@@ -7836,12 +7953,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "type": "test",
           "ref": "M2/основание отказа: consent_required, permission_denied, emergency_block различны",
-          "observation": "test_permission_denied_is_distinct_from_consent_required: основание отказа выводится машиночитаемым кодом при неизменном desired; test_gates_opt_in_is_consent_not_veto: смена глобального default не отменяет ось согласия (opt_in=False -> consent False + consent_required); test_can_read_differs_from_can_edit_for_reader: ось прав сохраняется. Печать кода на экране — срез M4B; здесь доказан контракт, который UI печатает без домыслов.",
+          "observation": "test_permission_denied_is_distinct_from_consent_required: основание отказа выводится машиночитаемым кодом при неизменном desired; test_gates_opt_in_is_consent_not_veto: смена глобального default не отменяет ось согласия (opt_in=False -> consent False + consent_required); test_can_read_differs_from_can_edit_for_reader: ось прав сохраняется. Печать кода на экране — срез M4B; здесь доказан контракт, который UI печатает без домыслов. Перепривязано с 3b1ba3b2 на dd52cbf9 (финальный кандидат среза), и это не перенос «на веру»: файлы M2-тестов в dd52cbf9 байт-идентичны (git diff 3b1ba3b2 dd52cbf9 по test_mod_acl_ux_m2_* и test_lore_worker.py пуст), ядро resolve_capability и приоритет не правились, а изменения dd52cbf9 аддитивны — fresh-чтение профиля перед side effect (get_chat_params_fresh), read_override_sync и blocks_side_effect/gate_blocks_publication. Ревьюер проверял dd52cbf9 как единый кандидат среза.",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
-          "produced_on": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+          "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
         }
       ],
@@ -8141,9 +8258,9 @@
       ]
     }
   ],
-  "candidate_note": "Map-level candidate_commit указывает на финального кандидата привязываемого среза M2 (3b1ba3b2, родитель 53c78594; 97cfdef1 — его ancestor). Доказательства M5A/M5L сохраняют собственные привязки (4e07817e / c51933d0 -> bee14188) в своих строках и в deployment_evidence; смена map-level значения их не переписывает. deployed_commit относится к релизу M5L (2.58.172) и для M2 не применяется. Impact report для M2 переснят на финального кандидата: plans/features/mod-acl-ux-01/reports/m2-impact-3b1ba3b2.md (sha256 1227f1ce…e0d1, docs-коммит de9addc5 на release/2.58.174, 11 569 B, бит-в-бит). Прежний отчёт reports/m2-impact-production-17c3a05e.md остаётся историческим доказательством для 97cfdef1 и строк больше не связывает. Колонка OLD нового отчёта — реконструкция домигрированной семантики: задеплоенный прод 2.58.174 (@ac943f40) не содержит chat_params.resolve_capability, поэтому это не живое сравнение рантаймов.",
+  "candidate_note": "Map-level candidate_commit указывает на кандидата привязываемого среза M2 (dd52cbf9, родитель 98bc424e; база M2 3b1ba3b2 — его ancestor). Доказательства M5A/M5L сохраняют собственные привязки (4e07817e / c51933d0 -> bee14188) в своих строках и в deployment_evidence; смена map-level значения их не переписывает. deployed_commit относится к релизу M5L (2.58.172) и для M2 не применяется. Строки, доказанные на 3b1ba3b2, перепривязаны к dd52cbf9 на проверенном основании: файлы M2-тестов в dd52cbf9 не изменены (тот же блоб), ядро resolve_capability и приоритет не правились, изменения dd52cbf9 аддитивны (fresh-чтение перед side effect, read_override_sync, blocks_side_effect), поэтому effective-state на тех же сохранённых данных не меняется и impact report reports/m2-impact-3b1ba3b2.md остаётся валидным. Для M2 действуют артефакты: evidence/m2/m2-evidence-dd52cbf9.md (поведенческие строки dd52cbf9), evidence/m2/m2-evidence-3b1ba3b2.md (код и состояние), reports/m2-impact-3b1ba3b2.md (impact report), reports/m2-consumers-dd52cbf9.md и reports/m2-deploy-surface-dd52cbf9.md (инвентарь и поверхность деплоя). Колонка OLD impact report — реконструкция домигрированной семантики: прод 2.58.174 (@ac943f40) не содержит chat_params.resolve_capability.",
   "slice_candidates": {
-    "M2": "3b1ba3b2c0b3cb69ecdc5fcc0c5cd54ddfc53515",
+    "M2": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
     "M5A": "4e07817e9a4836a6e68837bbb815aa3ffdfe3dc8",
     "M5L": "c51933d0f29bd70d746b15529504cb4b8a645fc5 (deployed bee14188f5d554021813db332ab35abea2ecbff5)"
   }
