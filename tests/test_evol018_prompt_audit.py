@@ -96,8 +96,10 @@ def test_grep_audit_counts_are_stable():
                 for sub in pr._AUDIT_SCAN_MODULES)
     # QND-NONDET (10.11.2026): +3 файла services/ (semantic_schedule,
     # quantum_publication, qnd_diagnostics). Пин ДО этой волны уже дрейфовал
-    # (фактические 312 против пина 294) — зафиксировано фактическое значение.
-    assert files == 315, (
+    # (на проде 2.58.179 фактические 309 против пина 294; на ветке кандидата
+    # 312 из-за трёх файлов SELF-DIAG-01 D2 вне этого среза) — зафиксировано
+    # ФАКТИЧЕСКОЕ значение релизного дерева: 309 + 3 = 312.
+    assert files == 312, (
         f"файлов под аудитом {files}: обновите §5 контракта и этот пин")
     assert files < pr._AUDIT_TREE_MAX_FILES, (
         "потолок _AUDIT_TREE_MAX_FILES срезает обход — «294 файла» тогда "
