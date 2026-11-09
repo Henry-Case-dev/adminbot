@@ -3582,6 +3582,11 @@
         // (GET /api/memory/embeddings); только алиасы, без ключей (R17).
         embeddingsPanel: null,
         embeddingsBusy: false,
+        // MOD-ACL-UX-01 M3: отказ прав и ошибка загрузки — РАЗНЫЕ состояния,
+        // не «панель недоступна» на всё подряд (403 не должен выглядеть как
+        // техническая ошибка, и наоборот).
+        embeddingsDenied: false,
+        embeddingsError: '',
         // ── ASAP 8 F9 (§16/Y4/Y5): YouTube proxy health — последний
         // результат GET /api/youtube/proxy/health или живой POST
         // /api/youtube/proxy/test; только masked endpoint + коды (Y5).
@@ -5002,7 +5007,19 @@
           route: parent }, current: this._routeLabel(r) };
       },
       currentTab: function () {
-        return this.tabs.find(function (t) { return t.id === this.activeTab; }, this) || null;
+        var id = this.activeTab;
+        var t = this.tabs.find(function (x) { return x.id === id; });
+        if (t) return t;
+        // MOD-ACL-UX-01 M3: у модуля реестра может не быть статической
+        // config-вкладки — его страница всё равно рендерится (дескриптор
+        // выводится из карточки модуля, см. `_tabDescriptorFor`).
+        if (typeof this.moduleByTab === 'function') {
+          var m = this.moduleByTab(id);
+          if (m && typeof this._tabDescriptorFor === 'function') {
+            return this._tabDescriptorFor(m);
+          }
+        }
+        return null;
       },
       // A2/T-1167: активная модалка модуля (по openModuleId).
       activeModule: function () {
@@ -5772,8 +5789,17 @@
         return (this.me && this.me.permissions) ? this.me.permissions : {};
       },
       // chat_lore (3.10): глобальный admin = роль admin || wildcard; remap и
-      // управление chat_admins (D5/D8/Q9) видны в UI только ему (C2)
+      // управление chat_admins (D5/D8/Q9) видны в UI только ему (C2).
+      // MOD-ACL-UX-01 M3: единственный источник истины — СЕРВЕР
+      // (`/api/me.is_global_admin`, services/roles.access_for: role_type
+      // `global_admin` ИЛИ wildcard). Legacy-эвристика по имени роли остаётся
+      // ТОЛЬКО fallback для ответа без поля (старый сервер/тест-стенд): по ней
+      // кастомная роль с `role_type=global_admin` считалась обычным юзером, и
+      // фронт отказывал в разделах, которые сервер уже разрешил.
       isGlobalAdmin: function () {
+        if (this.me && typeof this.me.is_global_admin === 'boolean') {
+          return this.me.is_global_admin;
+        }
         return !!(this.me && (this.me.role_name === 'admin'
           || (this.me.permissions && this.me.permissions.wildcard)));
       },
@@ -5781,9 +5807,9 @@
       // админ с сервера (`/api/me.is_global_admin` — единый источник
       // `services/roles.access_for`). Паритет с RBAC safe-эндпоинта: custom-
       // роль с `role_type=global_admin` без wildcard тоже правит глобальный
-      // секрет. Fallback на legacy-эвристику `isGlobalAdmin`, если поле не
-      // пришло (старый сервер/тест-стенд). НЕ заменяет `isGlobalAdmin`
-      // (общий флаг других фич) — только гейт глобальных секретов.
+      // секрет. MOD-ACL-UX-01 M3: тот же серверный приоритет теперь и в
+      // `isGlobalAdmin` (единый флаг всех UI-гейтов), поэтому здесь остаётся
+      // только явный серверный ответ + fallback legacy-эвристики.
       isGlobalAdminEffective: function () {
         if (this.me && typeof this.me.is_global_admin === 'boolean') {
           return this.me.is_global_admin;
@@ -11725,12 +11751,32 @@
       },
       // §62/§63: Embedding Run Inspector — панели Wave A одним GET
       // (provider + vector memory); только алиасы (R17).
+      // MOD-ACL-UX-01 M3: три исхода панели различимы и НЕ маскируют друг
+      // друга — нет прав (403) / сбой запроса (ошибка с причиной) / данные
+      // (возможно пустые: «индексы ещё не строились»). Раньше любой из них
+      // превращался в null и показывал «Панель недоступна», то есть реальный
+      // отказ читался как техническая неисправность.
       loadEmbeddingsPanel: async function () {
         this.embeddingsBusy = true;
+        this.embeddingsDenied = false;
+        this.embeddingsError = '';
         try {
-          this.embeddingsPanel = await this.api('/api/memory/embeddings');
+          // 403 обрабатывается ниже своим состоянием — без общего тоста.
+          this.embeddingsPanel = await this.api('/api/memory/embeddings',
+            { silent403: true });
         } catch (e) {
           this.embeddingsPanel = null;
+          var status = e && e.status;
+          if (status === 403) {
+            this.embeddingsDenied = true;
+          } else if (status === 401) {
+            this.embeddingsError = 'нужно заново открыть админку из Telegram';
+          } else if (status === 0) {
+            this.embeddingsError = 'нет связи с сервером';
+          } else {
+            this.embeddingsError = (e && e.message)
+              ? String(e.message) : 'сервер не ответил';
+          }
         } finally {
           this.embeddingsBusy = false;
         }
@@ -14531,6 +14577,20 @@
             if (deep && this._f4Registry[deep]) self.applyRoute(h);
           }
         }
+        // MOD-ACL-UX-01 M3: тот же холодный старт, но адрес уже заменён на
+        // витрину (`#/modules`) первым applyRoute — восстанавливаем заявленный
+        // маршрут модуля реестра один раз, иначе F5-догрузка его не увидит.
+        var pending = this._pendingModuleRoute;
+        if (pending) {
+          this._pendingModuleRoute = null;
+          var pws = parseWorkspaceRoute(pending);
+          if (pws && this._f4Registry[pws.slug]) {
+            // hash вернулся на витрину первым applyRoute — возвращаем адрес
+            // модуля, чтобы URL и состояние страницы совпадали.
+            try { history.replaceState(null, '', pending); } catch (e) { /* file:// */ }
+            self.applyRoute(pending);
+          }
+        }
       },
       // ═══ ASAP 7 F4 (§3.2): гейт подмодуля для «Обзора» — честный
       // requested/effective/source из реестра (registry_for_frontend.gate);
@@ -15388,8 +15448,21 @@
         // экран); неприменимая вкладка → дефолт «Обзор».
         var wsParsed = parseWorkspaceRoute(route);
         if (wsParsed) {
-          var wsm = _wsModuleById(wsParsed.slug);
+          // MOD-ACL-UX-01 M3: страница модуля может быть у модуля РЕЕСТРА,
+          // которого нет в статическом JS-списке (реестр доливается в
+          // `this.modules` при `loadConfig`). Иначе холодный deep-link получал
+          // «Модуль не найден» и терял адрес. Ищем по фактическому списку,
+          // статический MODULES остаётся fallback (unit-стабы без this.modules).
+          var wsm = (typeof this.moduleBySlug === 'function'
+            && this.moduleBySlug(wsParsed.slug))
+            || _wsModuleById(wsParsed.slug);
           if (!wsm) {
+            // MOD-ACL-UX-01 M3: реестр модулей приходит в `loadConfig`
+            // (асинхронно), поэтому на холодной загрузке адрес модуля реестра
+            // ещё не резолвится. Запоминаем заявленный адрес: после merge
+            // (f3ApplyModuleRegistry) он переприменяется, иначе обновление
+            // страницы модуля выбрасывало бы в витрину.
+            this._pendingModuleRoute = route;
             this.toast('Модуль не найден', 'warn');
             route = '#/modules';
             try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
@@ -19780,6 +19853,35 @@
         }
         return null;
       },
+      // ═══ MOD-ACL-UX-01 M3: страницы модулей без статической вкладки ═══
+      // Реестр (services/module_registry.py) отдаёт карточкам конвенцию
+      // `mod_<slug>`; у инфраструктурных модулей (напр. «Векторная память»)
+      // своей config-вкладки в TABS нет, поэтому id нужно уметь разбирать по
+      // РЕАЛЬНОМУ списку модулей, а не только по статическому TABS. Неизвестный
+      // `mod_*` (нет такого модуля) остаётся неразрешённым → отказ.
+      moduleByTab: function (tabId) {
+        if (!tabId) return null;
+        var list = this.modules || MODULES;
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && list[i].tab === tabId) return list[i];
+        }
+        return null;
+      },
+      _isModuleTab: function (tabId) {
+        return !!this.moduleByTab(tabId);
+      },
+      // Дескриптор config-вкладки модуля для рендера страницы. Если запись в
+      // TABS есть — она и есть канон; иначе (модуль реестра без своей вкладки)
+      // поверхность — страница модуля: тип config без собственных sources
+      // (своих ключей у такого модуля нет, настройки живут в родителях).
+      _tabDescriptorFor: function (m) {
+        if (!m || !m.tab) return null;
+        var t = (this.tabs || []).find(function (x) { return x.id === m.tab; });
+        if (t) return t;
+        if (!m.fromRegistry) return null;
+        return { id: m.tab, type: 'config', menu: 'modules',
+                 label: m.title || '', fromRegistry: true, sources: [] };
+      },
       // Навигация по вкладке workspace (hash — источник истины).
       openWorkspaceTab: function (tabId) {
         var ws = this.workspace;
@@ -20348,7 +20450,12 @@
       },
       _workspaceGroupsFor: function (m, tabId) {
         if (!m) return [];
-        var t = (this.tabs || []).find(function (x) { return x.id === m.tab; });
+        // MOD-ACL-UX-01 M3: дескриптор вкладки модуля — из TABS, а для модуля
+        // реестра без своей config-вкладки — производный (sources пустые:
+        // настройки такого модуля живут в родительских вкладках).
+        var t = (typeof this._tabDescriptorFor === 'function')
+          ? this._tabDescriptorFor(m)
+          : (this.tabs || []).find(function (x) { return x.id === m.tab; });
         if (!t) return [];
         var self = this;
         // ASAP 7 F4: подмодули-реестра показывают ТОЛЬКО свои группы
@@ -23173,7 +23280,19 @@
             || this.isLocalAdminCtx();
         }
         var tab = this.tabs.find(function (t) { return t.id === tabId; });
-        if (!tab) return false;
+        if (!tab) {
+          // MOD-ACL-UX-01 M3: страница модуля живёт на СГЕНЕРИРОВАННОМ id
+          // `mod_<slug>` (ModuleSpec: `tab`/`config_tab` сохраняют конвенцию
+          // `mod_*`), а статической записи в TABS у инфраструктурных модулей
+          // нет — «Векторная память (Embeddings/GraphRAG)» не имеет своей
+          // config-вкладки. Раньше такой id не находился → отказ «Нет доступа
+          // к разделу» ЛЮБОЙ роли, включая глобального админа (ложный запрет).
+          // Теперь доступ к странице модуля = доступ к разделу «Модули» (тот
+          // же гейт, что у витрины и кнопки «Настроить»). Настоящий отказ
+          // сохранён: нет раздела «Модули» — нет и страницы модуля.
+          if (!this._isModuleTab(tabId)) return false;
+          return this.canViewTab('modules');
+        }
         if (tab.always) return true;
         // F-14 (§6.2): DM-скоуп (свои ЛС) — конфиг-вкладки открыты
         // (Провайдеры read-only/BYOK, Промпты, Лимиты, Память-RAG,

@@ -9346,6 +9346,14 @@
                           @click="loadEmbeddingsPanel()" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <div v-if="embeddingsBusy && !embeddingsPanel" class="spinner my-2"></div>
+                <!-- MOD-ACL-UX-01 M3: отказ прав, сбой запроса и пустые данные —
+                     РАЗНЫЕ сообщения; 403 больше не выглядит как поломка панели. -->
+                <div v-else-if="embeddingsDenied"
+                     class="rounded-lg border border-amber-400/30 px-3 py-2 text-xs text-amber-300"
+                     data-embeddings-state="denied">
+                  Нет доступа к панели векторной памяти: сервер отклонил запрос.
+                  Права на этот раздел выдаёт администратор бота.
+                </div>
                 <template v-else-if="embeddingsPanel">
                   <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
                        v-if="embeddingsPanel.provider && embeddingsPanel.provider.provider">
@@ -9433,13 +9441,23 @@
                     </div>
                   </div>
                   <div v-if="!embeddingsIndexes.length"
-                       class="text-xs text-gray-500">Индексы ещё не строились.</div>
+                       class="text-xs text-gray-500"
+                       data-embeddings-state="empty">Индексы ещё не построены.</div>
                   <div class="text-xs text-gray-400"
                        v-if="(embeddingsPanel.vector_memory || {}).lease">
                     Rebuild активен: {{ (embeddingsPanel.vector_memory.lease || {}).holder_index || (embeddingsPanel.vector_memory.lease || {}).job_id }}
                   </div>
                 </template>
-                <div v-else class="text-xs text-gray-500">Панель недоступна.</div>
+                <div v-else-if="embeddingsError"
+                     class="rounded-lg border border-amber-400/30 px-3 py-2 text-xs text-amber-300"
+                     data-embeddings-state="error">
+                  Панель недоступна: {{ embeddingsError }}.
+                  <button type="button" class="btn-ghost text-xs ml-1"
+                          @click="loadEmbeddingsPanel()">Повторить</button>
+                </div>
+                <div v-else class="text-xs text-gray-500" data-embeddings-state="idle">
+                  Панель ещё не загружалась — нажмите «Обновить».
+                </div>
               </div>
               <!-- F5 (T-1454..T-1456, ТЗ §7): «Интеллект и Память» — пульс
                    процессов, прогресс-бары бюджета/лимитов, метрики БД и
