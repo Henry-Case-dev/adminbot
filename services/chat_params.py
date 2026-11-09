@@ -18,6 +18,7 @@ chat_profiles; `expected_updated_at` не совпал → ChatParamsConflict �
 409 {code:'conflict', current_updated_at} (прецедент ChatLoreConflict).
 """
 import asyncio
+import dataclasses
 import datetime
 import json
 import logging
@@ -760,3 +761,291 @@ async def chat_summary_enabled(chat_id: int) -> bool:
     from config.settings import settings
     return bool(hot.get("flags.chat_running_summary_enabled",
                         settings.CHAT_RUNNING_SUMMARY_ENABLED))
+
+
+# ═══ MOD-ACL-UX-01 M2: канонический резолвер GLOBAL-дефолт → CHAT-override ═══
+#
+# ЕДИНСТВЕННАЯ точка семантики «глобальное значение — наследуемый дефолт,
+# чатовое — явный выбор» для каждой gated capability. Потребители
+# (feature_gates, permsoc, mca_experience_jobs, worker_settings, API/UI-снимки)
+# не повторяют приоритет сами — они вызывают этот слой.
+#
+#   desired(chat)           = chat_override != INHERIT ? chat_override
+#                                                     : global_default
+#   effective_runtime(chat) = desired AND NOT emergency_block
+#                             AND ready is not False
+#
+# Три состояния ЧАТА: INHERIT (записи нет) / ON / OFF. INHERIT — НЕ то же
+# самое, что OFF: явный `false` в строке чата хранится побитово и означает
+# «выключено именно здесь». GLOBAL — бинарный и НЕ является запретом:
+# GLOBAL OFF + явный чат ON → ON (наследование, а не родительский veto).
+#
+# Аварийный env kill-switch — отдельная ТЕХНИЧЕСКАЯ ось (`emergency_block`):
+# она перекрывает desired и никогда не смешивается с пользовательской
+# настройкой. Готовность (`ready`), авторизация (`authorized`) и факт
+# исполнения (`observed`) остаются у своих владельцев и отдаются отдельными
+# полями — сводить их в один bool запрещено контрактом §2.2.
+#
+# Резолвер только ЧИТАЕТ строки: ничего не мигрирует, не нормализует и не
+# удаляет. Отсутствие ключа — это INHERIT, а не запись `false`.
+
+INHERIT = "inherit"
+ON = "on"
+OFF = "off"
+CHAT_STATES: tuple[str, ...] = (INHERIT, ON, OFF)
+
+SOURCE_CHAT = "chat"
+SOURCE_GLOBAL = "global"
+SOURCE_DEFAULT = "default"
+
+DOMAIN_OVERRIDE = "override"   # chat_params.overrides[<pg_key>]
+DOMAIN_GATE = "gate"           # chat_params.gates[<feature>]
+
+
+@dataclasses.dataclass(frozen=True)
+class CapabilityState:
+    """Состояние одной capability для одного scope — раздельные оси §2.2.
+
+    * ``chat_state`` — что выбрано в чате: ``inherit`` | ``on`` | ``off``;
+    * ``desired`` — итоговый пользовательский выбор (GLOBAL → CHAT);
+    * ``source`` — откуда взят ``desired``: ``chat`` | ``global`` | ``default``;
+    * ``effective_runtime`` — что реально исполняется (desired, не задавлен
+      emergency-осью и технической готовностью);
+    * ``ready`` / ``authorized`` / ``observed`` — отдельные оси; ``None``
+      означает «этим слоем не оценивалась», а не «false».
+    """
+
+    capability: str
+    key: str
+    domain: str
+    chat_id: int | None
+    chat_state: str
+    desired: bool
+    source: str
+    global_value: bool
+    global_source: str
+    emergency_block: bool
+    effective_runtime: bool
+    ready: bool | None = None
+    authorized: bool | None = None
+    observed: bool | None = None
+
+    def as_dict(self) -> dict:
+        """Плоский снимок для API/UI (аддитивные поля, без вычислений)."""
+        return {
+            "capability": self.capability,
+            "key": self.key,
+            "domain": self.domain,
+            "chat_id": self.chat_id,
+            "chat_state": self.chat_state,
+            "desired": self.desired,
+            "source": self.source,
+            "global_value": self.global_value,
+            "global_source": self.global_source,
+            "emergency_block": self.emergency_block,
+            "effective_runtime": self.effective_runtime,
+            "ready": self.ready,
+            "authorized": self.authorized,
+            "observed": self.observed,
+        }
+
+
+def _flag_of(value) -> bool | None:
+    """Строгое булево значение настройки: True/False (или legacy 0/1).
+
+    Любой другой тип — ``None`` («настройки нет» → INHERIT), а не результат
+    ``bool(value)``: иначе строка ``"false"`` из мусорных данных читалась бы
+    как ON."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    return None
+
+
+def _chat_flag(root, key: str, domain: str) -> bool | None:
+    """Явное значение чата (``None`` ⇔ записи нет/мусор → INHERIT)."""
+    if not isinstance(root, dict):
+        return None
+    if domain == DOMAIN_GATE:
+        gates = root.get("gates") or {}
+        if not isinstance(gates, dict) or key not in gates:
+            return None
+        return _flag_of(gates.get(key))
+    override = _override_layer(root, key)
+    if override is _MISSING:
+        return None
+    return _flag_of(override)
+
+
+def chat_state(root, key: str, *, domain: str = DOMAIN_OVERRIDE) -> str:
+    """`INHERIT`/`ON`/`OFF` настройки ЧАТА (глобальный слой не участвует).
+
+    Отсутствие записи → ``INHERIT``; явный ``false`` → ``OFF``. Эти два
+    состояния различимы — в этом смысл три-состояния (§2.4-3)."""
+    flag = _chat_flag(root, key, domain)
+    if flag is None:
+        return INHERIT
+    return ON if flag else OFF
+
+
+def read_override(root, key: str) -> tuple[object, bool]:
+    """(значение, True) для валидного override чата; (None, False) — записи
+    нет (или значение мусорное). Единственная реализация чтения чата — для
+    резолвера и для `worker_settings` (второй копии приоритета нет)."""
+    value = _override_layer(root, key)
+    if value is _MISSING:
+        return None, False
+    return value, True
+
+
+def read_global(key: str, default=None) -> tuple[object, str]:
+    """(значение, "global"|"default") глобального слоя с кастом каталога.
+
+    Один read-path для всех потребителей effective-state (в т.ч. воркеров
+    через `services.worker_settings`)."""
+    source, value = _global_layer(key)
+    if source == SOURCE_GLOBAL:
+        try:
+            return normalize_value(key, value), SOURCE_GLOBAL
+        except Exception:
+            return value, SOURCE_GLOBAL
+    return default, SOURCE_DEFAULT
+
+
+def global_flag_value(key: str, default=None) -> tuple[bool, str]:
+    """Глобальный слой параметра: hot/ConfigCache → ``default``.
+
+    Returns ``(bool, "global"|"default")`` — источник нужен UI, чтобы не
+    выдавать код-дефолт за сохранённую настройку (§2.2)."""
+    value, source = read_global(key, default)
+    return bool(value), source
+
+
+def resolve_capability(*, capability: str, key: str, domain: str,
+                       chat_id: int | None = None, root=None,
+                       global_value: bool = False,
+                       global_source: str = SOURCE_GLOBAL,
+                       chat_alias_key: str | None = None,
+                       emergency_block: bool = False,
+                       ready: bool | None = None,
+                       authorized: bool | None = None,
+                       observed: bool | None = None) -> CapabilityState:
+    """Чистое ядро резолва (без I/O) — пригодно для тестов/отчёта.
+
+    Приоритет: явная настройка чата (``chat_alias_key`` — документированный
+    read-compat alias того же capability, читается ТОЛЬКО при INHERIT
+    основной записи) → глобальный слой. ``emergency_block`` перекрывает всё.
+    """
+    flag = _chat_flag(root, key, domain)
+    if flag is None and chat_alias_key:
+        flag = _chat_flag(root, chat_alias_key, DOMAIN_OVERRIDE)
+    if flag is None:
+        state = INHERIT
+        desired, source = bool(global_value), global_source
+    else:
+        state = ON if flag else OFF
+        desired, source = flag, SOURCE_CHAT
+    effective = bool(desired and not emergency_block and ready is not False)
+    return CapabilityState(
+        capability=capability or key,
+        key=key,
+        domain=domain,
+        chat_id=None if chat_id is None else int(chat_id),
+        chat_state=state,
+        desired=desired,
+        source=source,
+        global_value=bool(global_value),
+        global_source=global_source,
+        emergency_block=bool(emergency_block),
+        effective_runtime=effective,
+        ready=ready,
+        authorized=authorized,
+        observed=observed,
+    )
+
+
+async def _root_for(chat_id: int | None) -> dict:
+    """root-лейаут chat_params чата (fail-open ``{}`` = «override нет»)."""
+    if chat_id is None:
+        return {}
+    cache = _chat_params_cache
+    if cache is None:
+        return {}
+    try:
+        return await cache.get_chat_params(int(chat_id)) or {}
+    except Exception:
+        logger.warning("[chat_params] capability root read failed — inherit | "
+                       "chat=%s", chat_id, exc_info=True)
+        return {}
+
+
+async def resolve_param_capability(chat_id: int | None, key: str, *,
+                                   capability: str = "", default=None,
+                                   root=None, emergency_block: bool = False,
+                                   ready: bool | None = None,
+                                   authorized: bool | None = None,
+                                   observed: bool | None = None,
+                                   ) -> CapabilityState:
+    """Capability из ``chat_params.overrides`` (каталоговый параметр).
+
+    GLOBAL-слой — существующий ``hot.get(key, default)`` этого же модуля;
+    второй копии чтения нет."""
+    if root is None:
+        root = await _root_for(chat_id)
+    value, source = global_flag_value(key, default)
+    return resolve_capability(
+        capability=capability or key, key=key, domain=DOMAIN_OVERRIDE,
+        chat_id=chat_id, root=root, global_value=value,
+        global_source=source, emergency_block=emergency_block, ready=ready,
+        authorized=authorized, observed=observed)
+
+
+async def resolve_gate_capability(chat_id: int | None, feature: str, *,
+                                  global_value: bool,
+                                  global_source: str = SOURCE_GLOBAL,
+                                  root=None,
+                                  chat_alias_key: str | None = None,
+                                  emergency_block: bool = False,
+                                  ready: bool | None = None,
+                                  ) -> CapabilityState:
+    """Capability из ``chat_params.gates`` (домен feature_gates).
+
+    GLOBAL-слой передаёт владелец маппинга флагов (``feature_gates``):
+    резолвер отвечает только за три-состояние и приоритет §2.1."""
+    if root is None:
+        root = await _root_for(chat_id)
+    return resolve_capability(
+        capability=feature, key=feature, domain=DOMAIN_GATE, chat_id=chat_id,
+        root=root, global_value=global_value, global_source=global_source,
+        chat_alias_key=chat_alias_key, emergency_block=emergency_block,
+        ready=ready)
+
+
+async def resolve_module_capability(chat_id: int | None, module_id: str, *,
+                                    root=None, ready: bool | None = None,
+                                    authorized: bool | None = None,
+                                    observed: bool | None = None,
+                                    ) -> CapabilityState | None:
+    """Состояние продуктового модуля реестра (``module_registry``).
+
+    Никакого нового каталога: ключ мастера и заводской дефолт берутся из
+    существующего ``ModuleSpec.master_param`` / ``PRODUCT_DEFAULTS``, а
+    аварийная ось — из ``ENV_GATES`` реестра (emergency_block)."""
+    try:
+        from services import module_registry as registry
+    except Exception:      # pragma: no cover — реестр обязан читаться
+        return None
+    spec = registry.MODULE_REGISTRY.get(module_id)
+    if spec is None or not spec.master_param:
+        return None
+    emergency = False
+    try:
+        emergency = not registry.env_enabled(module_id)
+    except Exception:      # pragma: no cover — защитная ветка
+        emergency = False
+    default = registry.PRODUCT_DEFAULTS.get(spec.master_param, True)
+    return await resolve_param_capability(
+        chat_id, spec.master_param, capability=module_id, default=default,
+        root=root, emergency_block=emergency, ready=ready,
+        authorized=authorized, observed=observed)

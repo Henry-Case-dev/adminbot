@@ -395,8 +395,10 @@ async def test_m6_learning_resolver_inherit_on_off(hot_with):
 
 
 @pytest.mark.asyncio
-async def test_m6_global_master_off_disables_all_chats(hot_with):
-    """M6/U4: global master OFF → все чаты выключены (worker-гейт)."""
+async def test_m6_global_default_is_inherited_not_prohibitive(hot_with):
+    """MOD-ACL-UX-01 M2 (строка 5 таблицы §2.1): GLOBAL OFF — наследуемый
+    дефолт, а не запрет. Явный чат ON включает обучение при глобальном OFF;
+    чат без записи (INHERIT) наследует OFF."""
     from services import chat_params
     from services import mca_experience_jobs as jobs
 
@@ -405,9 +407,12 @@ async def test_m6_global_master_off_disables_all_chats(hot_with):
         -200: {"memory.experience_learning_enabled": True},   # override ON
     }))
     try:
-        # override чата ON, но глобальная ось OFF → глобальный master важнее
-        assert await jobs.learning_enabled_for_chat(-200) is False
-        assert jobs.review_enabled() is False   # worker: global master OFF
+        assert await jobs.learning_enabled_for_chat(-200) is True   # чат ON
+        assert await jobs.learning_enabled_for_chat(-300) is False  # inherit
+        # shared-worker не останавливается глобальным OFF: решение по чату
+        assert jobs.review_enabled() == (
+            mca_gates.experience_lessons_enabled()
+            and mca_gates.experience_review_enabled())
     finally:
         chat_params.set_chat_params_cache(None)
     hot_with({"memory.experience_learning_enabled": True})

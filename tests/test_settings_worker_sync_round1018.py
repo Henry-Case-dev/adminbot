@@ -335,11 +335,12 @@ class TestStatusApiSource:
 
 class TestStatusMatchesWorkerBehavior:
     @pytest.mark.asyncio
-    async def test_kill_switch_gates_cognition_active(self, monkeypatch):
-        """R10.18-3: cognition `active` учитывает kill-switch так же, как
-        воркер (`gates_enabled` → chat-gate → kill-switch → fallback →
-        global): master ON + `flags.dream_enabled=false` → OFF, хотя окно
-        сна открыто. `enabled` остаётся рубильником (master)."""
+    async def test_global_flag_does_not_veto_cognition_active(self, monkeypatch):
+        """MOD-ACL-UX-01 M2 (§2.1): GLOBAL — наследуемый дефолт, а не запрет.
+        master ON + глобальный `flags.dream_enabled=false` → effective/active
+        True (статус совпадает с воркером). Вето — только аварийная env-ось
+        (mca_gates), она проверяется отдельно. Прежнее ожидание
+        R10.18-3 (kill-switch гасит тик) снято как противоречащее контракту."""
         import datetime
         import types
         from web.api import memory_agi as ma
@@ -358,8 +359,8 @@ class TestStatusMatchesWorkerBehavior:
         monkeypatch.setattr(cp, "_chat_params_cache", _FakeChatCache({}))
         data = await ma.cognition_status(request=None, user=None, chat_id=None)
         assert data["dream"]["enabled"] is True        # рубильник (master)
-        assert data["dream"]["effective"] is False     # kill-switch побеждает
-        assert data["dream"]["active"] is False
+        assert data["dream"]["effective"] is True      # GLOBAL не запрещает
+        assert data["dream"]["active"] is True
 
     @pytest.mark.asyncio
     async def test_no_kill_switch_in_window_is_active(self, monkeypatch):
@@ -386,18 +387,27 @@ class TestStatusMatchesWorkerBehavior:
 
 class TestDreamGateFallback:
     @pytest.mark.asyncio
-    async def test_kill_switch_beats_per_chat_fallback(self, monkeypatch):
-        """F7/R10.18-3 (регресс): явный глобальный kill-switch
-        `flags.dream_enabled=false` ОБЯЗАН остановить тик даже при master-флаге
-        `memory.dream_enabled=true` (per-chat override ON → fallback=True).
-        Порядок слоёв: chat-gate → kill-switch → fallback → global."""
+    async def test_global_flag_is_default_not_veto(self, monkeypatch):
+        """MOD-ACL-UX-01 M2 (§2.1, строка 5): глобальный продуктовый флаг —
+        наследуемый дефолт, а НЕ запрет. Явный чат ON (per-chat master
+        `memory.dream_enabled=true` → fallback=True) даёт effective ON даже
+        при глобальном `flags.dream_enabled=false`. Аварийным veto остаётся
+        только env-ось (mca_gates), а не пользовательская настройка.
+
+        Заменяет прежнее ожидание F7/R10.18-3 (kill-switch побеждал
+        fallback): эта семантика противоречила контракту GLOBAL → CHAT и
+        снята по ТЗ MOD-ACL-UX-01 §2.1/§2.3.1."""
         from services.feature_gates import gates_enabled
         _hot(monkeypatch, {"memory.dream_enabled": True,
                            "flags.dream_enabled": False})
         monkeypatch.setattr(cp, "_chat_params_cache",
                             _FakeChatCache({"overrides":
                                             {"memory.dream_enabled": True}}))
-        assert await gates_enabled(-100, "dream", fallback=True) is False
+        assert await gates_enabled(-100, "dream", fallback=True) is True
+        # чат без записи наследует глобальный дефолт (OFF) — не «вечный ON»
+        monkeypatch.setattr(cp, "_chat_params_cache",
+                            _FakeChatCache({"overrides": {}}))
+        assert await gates_enabled(-100, "dream", fallback=False) is False
 
     @pytest.mark.asyncio
     async def test_fallback_used_when_no_kill_switch(self, monkeypatch):

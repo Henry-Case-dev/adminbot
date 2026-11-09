@@ -27,7 +27,6 @@ from aiogram.filters import BaseFilter
 from aiogram.types import Message
 
 from config.settings import settings
-from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -105,22 +104,21 @@ def master_flag_default() -> bool:
 
 
 async def master_enabled(chat_id: int) -> bool:
-    """Master-тумблер (Q2): gates.permsoc (явный) → override флага →
-    hot.get(flags.permsoc_enabled, False). Fail-open → False."""
+    """Master-тумблер (Q2) — через канонический резолвер MOD-ACL-UX-01 M2.
+
+    Приоритет (единый для `gates_enabled`, §2.1): gates.permsoc (explicit) →
+    read-compat alias `overrides["flags.permsoc_enabled"]` (только при
+    INHERIT) → глобальный `hot.get(flags.permsoc_enabled, False)`.
+    GLOBAL OFF + явный чат ON → ON (наследование, не запрет). Собственной
+    копии приоритета здесь больше нет. Fail-open → False."""
     try:
-        from services.chat_params import get_all_chat_params
-        root = await get_all_chat_params(chat_id)
-        gates = root.get("gates") or {}
-        if "permsoc" in gates:
-            return bool(gates["permsoc"])
-        overrides = root.get("overrides") or {}
-        if MASTER_FLAG_KEY in overrides:
-            return bool(overrides[MASTER_FLAG_KEY])
-        return bool(hot.get(MASTER_FLAG_KEY, False))
+        from services import feature_gates
+        return bool(await feature_gates.gates_enabled(chat_id, "permsoc"))
     except Exception:
         logger.warning("[permsoc] master check failed — FAIL-OPEN OFF | "
                        "chat=%s", chat_id, exc_info=True)
         return False
+
 
 
 async def permsoc_enabled(chat_id: int) -> bool:

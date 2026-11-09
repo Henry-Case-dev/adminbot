@@ -88,13 +88,38 @@ def test_settings_catalog_group_and_defaults():
     assert "len(pc.TAB_RULES) == 23" not in app_js  # sanity: JS не пинит каталог
 
 
-def test_settings_apply_without_restart(monkeypatch):
+@pytest.mark.asyncio
+async def test_settings_apply_without_restart(monkeypatch):
+    from services import chat_params
     from services import hot_config as hot
+
+    class _Cache:
+        def __init__(self, by_chat):
+            self._by_chat = by_chat
+            self._items = {}
+
+        async def get_chat_params(self, chat_id):
+            return {"overrides": dict(self._by_chat.get(int(chat_id), {}))}
+
     monkeypatch.setattr(hot, "get", lambda key, default=None: (
         {"memory.experience_review_cadence": "weekly",
          "memory.experience_learning_enabled": False}.get(key, default)))
     assert mj.review_cadence() == "weekly"       # hot, без рестарта
-    assert mj.review_enabled() is False          # UI-гейт нового обучения
+    # MOD-ACL-UX-01 M2 (§2.1): глобальная настройка — наследуемый дефолт,
+    # а не запрет. Shared-job останавливают только аварийные env-оси K1/K3,
+    # поэтому review_enabled() не зависит от продуктового флага.
+    assert mj.review_enabled() == (mca_gates.experience_lessons_enabled()
+                                   and mca_gates.experience_review_enabled())
+    # Глобальная ось реально видна там, где её читают: чат без override
+    # наследует OFF, явный чат ON — включает обучение (строка 5 таблицы).
+    chat_params.set_chat_params_cache(_Cache({
+        -200: {"memory.experience_learning_enabled": True}}))
+    try:
+        assert mj._learning_enabled() is False          # глобальный слой
+        assert await mj.learning_enabled_for_chat(-300) is False
+        assert await mj.learning_enabled_for_chat(-200) is True
+    finally:
+        chat_params.set_chat_params_cache(None)
     monkeypatch.setattr(hot, "get", lambda key, default=None: (
         {"memory.experience_review_cadence": "bogus",
          "memory.experience_learning_enabled": True}.get(key, default)))

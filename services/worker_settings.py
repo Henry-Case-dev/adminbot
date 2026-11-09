@@ -16,7 +16,6 @@ R17-safe: логируем ТОЛЬКО key/chat_id/source — значения 
 секреты/свободный текст) в лог НЕ попадают.
 """
 import logging
-import math
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -26,51 +25,34 @@ _SENTINEL = object()
 
 
 def _global_with_source(key: str, default: Any) -> tuple[Any, str]:
-    """(значение, 'global'|'default') — глобальный слой через hot.get.
+    """(значение, 'global'|'default') — через единый read-path chat_params.
 
-    `hot.get(key, _SENTINEL)` возвращает сентинел, если ключа нет ни в кэше,
-    ни в env-дефолте (в т.ч. при отсутствии ConfigCache) → source='default'.
-    Сентинел проходит `_coerce` без изменений (ни один тип каталога его не
-    кастует)."""
-    from services import hot_config as hot
+    MOD-ACL-UX-01 M2: приоритет/каст больше не дублируются здесь — их
+    реализует `chat_params.read_global` (единственный источник семантики)."""
+    from services import chat_params as cp
     try:
-        raw = hot.get(key, _SENTINEL)
+        return cp.read_global(key, default)
     except Exception:
         logger.warning("[settings] global read failed — default | key=%s", key)
         return default, "default"
-    if raw is _SENTINEL:
-        return default, "default"
-    return raw, "global"
 
 
 def _chat_with_source(root: dict | None, key: str) -> tuple[Any, str] | None:
     """(значение, 'chat') из overrides с кастом по каталогу; None — нет
     валидного chat-override (идём на глобальный слой).
 
-    Каст/валидация повторяют `chat_params._resolve_from_root` (мусор/NaN/inf
-    → None → глобальный фолбэк)."""
+    Реализация — `chat_params.read_override` (одна копия правил каста);
+    мусор/NaN/inf → None → глобальный фолбэк, как и раньше."""
     from services import chat_params as cp
-    from services.param_catalog import get_by_pg_key, normalize_value
-    overrides = (root or {}).get("overrides") or {}
-    if key not in overrides:
-        return None
     try:
-        value = overrides.get(key)
+        value, found = cp.read_override(root, key)
     except Exception:
-        return None
-    spec = get_by_pg_key(key)
-    if spec is None:
-        return value, "chat"
-    try:
-        casted = normalize_value(key, value)
-        if cp._cast_type_ok(spec.type, casted) and not (
-                spec.type == "float" and isinstance(casted, float)
-                and not math.isfinite(casted)):
-            return casted, "chat"
-    except Exception:
-        logger.warning("[settings] chat cast failed — global fallback | "
+        logger.warning("[settings] chat read failed — global fallback | "
                        "key=%s", key)
-    return None
+        return None
+    if not found:
+        return None
+    return value, "chat"
 
 
 async def _chat_root(chat_id: int | None) -> tuple[dict, bool]:

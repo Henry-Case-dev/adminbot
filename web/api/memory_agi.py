@@ -880,10 +880,10 @@ async def cognition_status(
         "flags.deep_sleep_enabled", chat_id=chat_id,
         default=settings.DEEP_SLEEP_ENABLED)
     deep_enabled = bool(deep_enabled)
-    # R10.18-3: `enabled` — рубильник (master per-chat); `dream_effective` —
-    # тот же порядок слоёв, что в `gates_enabled` (chat-gate → kill-switch →
-    # fallback(master) → global). Статус/бейдж должны отражать то, что реально
-    # исполняет воркер: явный `flags.dream_enabled=false` гасит активность.
+    # C10/M2 (MOD-ACL-UX-01): `enabled` — рубильник (per-chat master);
+    # `dream_effective` — тот же канонический резолвер, что в воркере
+    # (chat-gate → глобальный слой/fallback; GLOBAL OFF не запрещает явный
+    # чат ON — §2.1). Статус обязан совпадать с фактическим исполнением.
     dream_effective = enabled
     try:
         from services.feature_gates import gates_enabled

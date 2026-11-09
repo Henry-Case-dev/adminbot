@@ -553,7 +553,11 @@ class _FakeChatParamsCache:
 
 
 @pytest.mark.asyncio
-async def test_u4_global_master_off_silences_all_chats(tmp_path):
+async def test_u4_global_off_chat_on_still_learns(tmp_path):
+    """MOD-ACL-UX-01 M2 §2.3.1 (строка 5 таблицы §2.1): GLOBAL OFF —
+    наследуемый дефолт, а не запрет. Shared review-job тикает и обрабатывает
+    ТОЛЬКО чат с явным ON; чат без записи (INHERIT) остаётся выключенным;
+    сохранённый override не переписывается."""
     hot_config.set_config_cache(_FakeHot(
         {"memory.experience_learning_enabled": False}))
     db = await _db(tmp_path)
@@ -564,16 +568,20 @@ async def test_u4_global_master_off_silences_all_chats(tmp_path):
     chat_params.set_chat_params_cache(cache)
     try:
         await _msg(db, chat_id=-100, text="отвечай короче", user_id=42)
-        # global master OFF: worker честно disabled — ни одного сигнала
-        assert await mj.tick_experience_review(db) == "disabled"
+        await _msg(db, chat_id=-200, text="отвечай короче", user_id=42)
+        # global OFF + явный чат ON → worker НЕ disabled
+        assert await mj.tick_experience_review(db) == "completed"
         cursor = await db.db.execute(
-            "SELECT COUNT(*) AS c FROM mca_experience_feedback")
-        assert (await cursor.fetchone())["c"] == 0
-        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM mca_lessons")
-        assert (await cursor.fetchone())["c"] == 0
-        # stored per-chat override НЕ переписан глобальным master
+            "SELECT chat_id FROM mca_experience_feedback")
+        chats = {int(r["chat_id"]) for r in await cursor.fetchall()}
+        assert chats == {-100}                 # только eligible-чат
+        payload = await _payload_of(db)
+        assert payload["counters"]["detector_skipped"] == 1
+        assert payload["counters"]["detector_detected"] == 1
+        # stored per-chat override НЕ переписан глобальным значением
         assert cache._by_chat[-100] == {
             "memory.experience_learning_enabled": True}
+        assert -200 not in cache._by_chat       # INHERIT не материализован
     finally:
         chat_params.set_chat_params_cache(None)
         hot_config.set_config_cache(None)

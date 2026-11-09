@@ -6,12 +6,16 @@
 `set_feature_gate` → F-7 `set_chat_params` (транзакция + история
 field='gates' + NOTIFY; 409 optimistic).
 
-Резолв (единый, F-9/F-12):
+Резолв (MOD-ACL-UX-01 M2, §2.1 — канонический `chat_params`):
     gates_enabled(chat, feature):
-      1. chat_params.gates[feature] — если явно (bool);
-      2. hot.get("flags.<feature>_enabled", settings-дефолт) — глобальный
-         слой (существующие флаги остаются глобальными дефолтами);
-      3. иначе False (безопасно).
+      1. chat_params.gates[feature] — если запись ЯВНО есть (bool):
+         ON / OFF (глобальный слой при этом не спрашивается);
+      2. запись отсутствует (INHERIT) → глобальный слой фичи
+         (`flags.<feature>_enabled` / master-флаг воркера / код-дефолт).
+    GLOBAL — наследуемый дефолт, НЕ запрет: явный чат ON включает фичу при
+    глобальном OFF. Приоритет и три-состояние живут в одном месте
+    (`services/chat_params.py`), здесь остаётся только маппинг «фича →
+    глобальный флаг» и домен хранения `chat_params["gates"]`.
 "OFF для новых чатов" — явная запись gates=false при ensure_profile
 (chat_lifecycle.ensure_gates_defaults); живые чаты (без явных гейтов) при
 включённом глобальном флаге остаются ON (прежнее поведение).
@@ -63,6 +67,14 @@ DEFAULT_BY_FEATURE = {
 # поведение не меняем.
 MASTER_FALLBACK_KEYS: dict[str, str] = {"dream": "memory.dream_enabled"}
 
+# MOD-ACL-UX-01 / M2 (§2.4-4): документированный read-compat alias того же
+# capability в ДРУГОМ namespace. `permsoc` исторически имеет два чатовых поля
+# (`gates.permsoc` и `overrides["flags.permsoc_enabled"]`); authoritative-путь
+# один — gate записи (`set_feature_gate`), а override читается ТОЛЬКО как
+# alias при INHERIT. Двойной независимой записи нет.
+COMPAT_OVERRIDE_KEYS: dict[str, str] = {"permsoc": "flags.permsoc_enabled"}
+
+
 
 def _master_fallback_default(feature: str) -> bool:
     """R10.18-15: env-дефолт master-флага — ЕДИНЫЙ с воркером.
@@ -99,74 +111,79 @@ async def master_fallback(chat_id: int, feature: str) -> bool | None:
 def _global_flag_value(feature: str) -> bool:
     """Значение глобального слоя: первый НЕ-None из FLAG_KEYS[feature]
     (None = ключ не задан в кэше — переходим к следующему/дефолту)."""
+    return _global_flag_sourced(feature)[0]
+
+
+def _global_flag_sourced(feature: str) -> tuple[bool, str]:
+    """(значение, источник) глобального слоя: `global` — ключ реально
+    сохранён в bot_settings/ConfigCache; `default` — код-дефолт каталога.
+
+    Источник нужен каноническому резолверу/UI, чтобы не выдавать дефолт за
+    пользовательскую настройку (§2.2)."""
     default = DEFAULT_BY_FEATURE[feature]
-    value = default
     for key in FLAG_KEYS.get(feature, ()):
         try:
             v = hot.get(key, None)
         except Exception:
             v = None
         if v is not None:
-            value = bool(v)
-            break
-    return value
+            return bool(v), "global"
+    return default, "default"
 
 
-def _explicit_flag_value(feature: str) -> bool | None:
-    """Явное значение КАНОНИЧЕСКОГО kill-switch флага (первый ключ FLAG_KEYS)
-    либо None, если ключ не задан.
+async def gate_state(chat_id: int, feature: str, root: dict | None = None, *,
+                     fallback: bool | None = None):
+    """Каноническое состояние гейта (все оси) или ``None`` вне домена.
 
-    Фикс R10.18-3: для `dream`/`nostalgia` канонический ключ —
-    `flags.<feature>_enabled` (kill-switch), а `memory.<feature>_enabled` —
-    master-флаг, который воркер передаёт как `fallback`. Kill-switch должен
-    побеждать fallback: явный глобальный `flags.dream_enabled=false`
-    останавливает тик даже при per-chat `memory.dream_enabled=true`."""
-    keys = FLAG_KEYS.get(feature, ())
-    if not keys:
-        return None
-    try:
-        v = hot.get(keys[0], None)
-    except Exception:
-        return None
-    return None if v is None else bool(v)
-
-
-async def gates_enabled(chat_id: int, feature: str,
-                        root: dict | None = None, *,
-                        fallback: bool | None = None) -> bool:
-    """Эффективный гейт (приоритет: явный chat-гейт → явный глобальный
-    kill-switch → fallback (master-флаг) → глобальный флаг → False).
-    Fail-open: PG/кэш down → глобальный флаг (прецедентно безопасно).
-
-    F7 (ADR-1018-7 D3/R4): `fallback` позволяет вызывающему передать уже
-    разрешённый per-chat master-флаг (`memory.dream_enabled` по приоритету
-    chat → global → default). Явный глобальный kill-switch
-    (`flags.<feature>_enabled`) при этом сохраняет приоритет — иначе
-    выключение рубильника не останавливало бы воркер (регрессия R10.18-3)."""
+    Возвращает `chat_params.CapabilityState`: chat_state (INHERIT/ON/OFF),
+    desired, source, global_value, emergency_block, effective_runtime +
+    раздельные ready/authorized/observed. Единственная реализация семантики
+    для домена `chat_params.gates` — `gates_enabled` и API/статус читают её.
+    """
     if feature not in ALL_GATED_FEATURES:
-        return False
+        return None
+    from services import chat_params as cp
     if root is None:
         try:
             from services.chat_params import get_all_chat_params
             root = await get_all_chat_params(chat_id)
         except Exception:
             root = None
-    if isinstance(root, dict):
-        gates = root.get("gates") or {}
-        if feature in gates:
-            try:
-                return bool(gates[feature])
-            except Exception:
-                return False
-    explicit = _explicit_flag_value(feature)
-    if explicit is not None:
-        return explicit
     if fallback is not None:
-        return bool(fallback)
-    try:
-        return _global_flag_value(feature)
-    except Exception:
-        return False
+        # F7 (ADR-1018-7 D3/R4): воркер передаёт уже разрешённый per-chat
+        # master-флаг. Источник честный: `chat`, если override этого флага
+        # реально записан в чате, иначе — глобальный слой.
+        alias = MASTER_FALLBACK_KEYS.get(feature)
+        source = "global"
+        if alias and cp.chat_state(root, alias) != cp.INHERIT:
+            source = "chat"
+        global_value, global_source = bool(fallback), source
+    else:
+        global_value, global_source = _global_flag_sourced(feature)
+    return await cp.resolve_gate_capability(
+        chat_id, feature, global_value=global_value,
+        global_source=global_source, root=root,
+        chat_alias_key=COMPAT_OVERRIDE_KEYS.get(feature))
+
+
+async def gates_enabled(chat_id: int, feature: str,
+                        root: dict | None = None, *,
+                        fallback: bool | None = None) -> bool:
+    """Эффективный гейт фичи — ЧЕРЕЗ канонический резолвер chat_params (§2.1).
+
+    Приоритет: явная настройка чата (`chat_params.gates[feature]`, read-compat
+    alias — `COMPAT_OVERRIDE_KEYS`) → глобальный слой фичи → дефолт. GLOBAL —
+    наследуемый дефолт, а НЕ запрет: явный чат ON включает фичу при GLOBAL
+    OFF (строка 5 таблицы §2.1).
+
+    Что изменилось (MOD-ACL-UX-01 M2): глобальный продуктовый флаг больше не
+    выступает «тихим мастером-запретом» — аварийная ось остаётся только
+    env-рубильником владельца оси (mca_gates), техническая готовность и
+    авторизация — отдельные оси. Сама семантика чата/глобали живёт в ОДНОМ
+    месте — `services/chat_params.resolve_gate_capability`.
+    Fail-open: PG/кэш down → глобальный флаг (прецедентно безопасно)."""
+    state = await gate_state(chat_id, feature, root, fallback=fallback)
+    return bool(state is not None and state.effective_runtime)
 
 
 async def set_feature_gate(chat_id: int, feature: str, enabled: bool, *,

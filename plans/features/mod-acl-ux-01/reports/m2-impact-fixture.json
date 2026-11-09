@@ -1,0 +1,18 @@
+{
+  "_comment": "MOD-ACL-UX-01 M2 — фиксированный набор для детерминированного before/after. Значения отражают классы production-строк, а не реальные чаты.",
+  "globals": {
+    "flags.initiative_enabled": false,
+    "memory.experience_learning_enabled": false,
+    "flags.dream_enabled": false,
+    "memory.dream_enabled": true
+  },
+  "env": {
+    "MCA_EXPERIENCE_LESSONS_ENABLED": true
+  },
+  "chats": [
+    {"chat_id": -100, "overrides": {"memory.experience_learning_enabled": true}},
+    {"chat_id": -200, "gates": {"dream": false}},
+    {"chat_id": -300},
+    {"chat_id": -400, "gates": {"dream": true}}
+  ]
+}

@@ -65,14 +65,21 @@ async def gates_get(
             "local_admin", "moderator"):
         raise HTTPException(status_code=403, detail="нет доступа к чату")
     root = await chat_params.get_all_chat_params(chat_id)
-    # R10.18-3: fallback = per-chat master-флаг (как у воркера) — «Гейты/
-    # Тяжёлые» показывают то, что реально исполняется.
-    gates = {f: await feature_gates.gates_enabled(
-        chat_id, f, root=root,
-        fallback=await feature_gates.master_fallback(chat_id, f))
-        for f in sorted(ALL)}
+    # R10.18-3 + MOD-ACL-UX-01 M2: fallback = per-chat master-флаг (как у
+    # воркера); состояние резолвит ЕДИНЫЙ резолвер, поэтому «Гейты/Тяжёлые»
+    # показывают то, что реально исполняется, и отдают три-состояние чата
+    # (INHERIT/ON/OFF) отдельными полями — UI не угадывает сохранение.
+    gates = {}
+    states = {}
+    for f in sorted(ALL):
+        state = await feature_gates.gate_state(
+            chat_id, f, root=root,
+            fallback=await feature_gates.master_fallback(chat_id, f))
+        gates[f] = bool(state is not None and state.effective_runtime)
+        states[f] = state.as_dict() if state is not None else None
     opt_in = await feature_gates.has_opt_in(chat_id, cache.pg,
                                             root=root)
+
     who = {}
     for f in sorted(ALL):
         # F7 (ADR-1025-20 D3/§5.2): ВСЁ семейство `permsoc*` (мастер +
@@ -84,6 +91,10 @@ async def gates_get(
         "chat_id": chat_id,
         "opt_in": opt_in,
         "gates": gates,
+        # MOD-ACL-UX-01 M2 (аддитивно): каноническое состояние по каждой фичи
+        # — chat_state/desired/source/global_value/emergency_block/
+        # effective_runtime + раздельные оси. Старые ключи не изменены.
+        "states": states,
         "who_can_toggle": who,
         "updated_at": await chat_params.get_chat_updated_at(chat_id),
     }

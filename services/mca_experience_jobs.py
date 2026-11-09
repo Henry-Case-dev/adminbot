@@ -722,11 +722,13 @@ def review_status_from_job(row: dict | None) -> str | None:
 
 
 def _learning_enabled() -> bool:
-    """UI-настройка `memory.experience_learning_enabled` (hot; default true).
+    """ГЛОБАЛЬНЫЙ слой `memory.experience_learning_enabled` (hot; default true).
 
-    Это НЕ kill-switch: K1/K3 — env-only гейты (spec D11); настройка лишь
-    останавливает НОВОЕ обучение (review), не удаляя уже выученное.
-    Глобальная ось (наследуется чатами без override)."""
+    Это НЕ запрет для чата: глобальное значение — наследуемый дефолт
+    (MOD-ACL-UX-01 §2.1). Пользовательские решения по чатам резолвит
+    `learning_enabled_for_chat`; аварийные оси — env-гейты K1/K3.
+    Настройка лишь останавливает НОВОЕ обучение (review), не удаляя уже
+    выученное."""
     try:
         from services import hot_config as hot
         from config.settings import settings
@@ -737,30 +739,53 @@ def _learning_enabled() -> bool:
         return True
 
 
-async def learning_enabled_for_chat(chat_id) -> bool:
-    """F5 (ТЗ §9/U4, архитектура §5.4): per-chat resolver обучения.
+LEARNING_KEY = "memory.experience_learning_enabled"
 
-    Семантика U4: глобальная ось (``memory.experience_learning_enabled``,
-    hot) — master: OFF → все чаты выключены (global master важнее override);
-    ON → чат решает override'ом, без override — наследует глобальную ось.
-    ``chat_params.overrides`` (hot per-chat override) → глобальная ось →
-    settings-дефолт; None-чат (глобальные технические события) — только
-    глобальная ось. Глобальный worker (worker глобальный, обучение по
-    чатам — M6) пропускает чаты, не opted-in. Fail-open → глобальная ось
-    (прежнее поведение)."""
-    if not _learning_enabled():
-        return False
-    if chat_id is None:
-        return True
+
+def _learning_factory_default() -> bool:
     try:
-        from services import chat_params
         from config.settings import settings
-        value = await chat_params.get_chat_param(
-            int(chat_id), "memory.experience_learning_enabled",
-            getattr(settings, "EXPERIENCE_LEARNING_ENABLED", True))
-        return bool(value)
-    except Exception:
+        return bool(getattr(settings, "EXPERIENCE_LEARNING_ENABLED", True))
+    except Exception:      # pragma: no cover — защитная ветка
         return True
+
+
+def _learning_emergency_block() -> bool:
+    """Аварийная env-ось K1 (`MCA_EXPERIENCE_LESSONS_ENABLED`) — отдельно от
+    пользовательской настройки (§2.3: kill-switch не подменяет GLOBAL)."""
+    try:
+        return not bool(mca_gates.experience_lessons_enabled())
+    except Exception:      # pragma: no cover — защитная ветка
+        return True
+
+
+async def learning_state(chat_id):
+    """Каноническое состояние обучения для чата (MOD-ACL-UX-01 M2 §2.1).
+
+    ЕДИНСТВЕННЫЙ резолвер: три-состояние чата (INHERIT/ON/OFF) →
+    глобальный дефолт; env K1 — отдельная emergency-ось. GLOBAL OFF +
+    явный чат ON → ON (главная исправленная строка таблицы §2.1).
+    Ничего не пишет: сохранённый `false` чата остаётся `false`.
+    """
+    from services import chat_params
+    return await chat_params.resolve_param_capability(
+        chat_id, LEARNING_KEY, capability="experience",
+        default=_learning_factory_default(),
+        emergency_block=_learning_emergency_block())
+
+
+async def learning_enabled_for_chat(chat_id) -> bool:
+    """F5 (ТЗ §9/U4) + MOD-ACL-UX-01 M2: обучение разрешено для чата?
+
+    Через канонический резолвер `chat_params` (единый приоритет для всех
+    gated capability). ``chat_id=None`` (глобальные технические события) —
+    только глобальный слой. Fail-open → глобальный слой (прежнее
+    поведение)."""
+    try:
+        state = await learning_state(chat_id)
+        return bool(state.effective_runtime)
+    except Exception:      # pragma: no cover — защитная ветка
+        return bool(_learning_enabled())
 
 
 def review_cadence() -> str:
@@ -778,14 +803,20 @@ def review_cadence() -> str:
 
 
 def review_enabled() -> bool:
-    """K1 master + K3 review + UI-настройка learning enabled (fail-closed)."""
+    """Стоит ли shared review-job вообще (MOD-ACL-UX-01 §2.3.1).
+
+    Решение принимают ТОЛЬКО аварийные env-оси K1/K3 (`emergency_block`).
+    Глобальная продуктовая настройка больше не является запретом: при
+    GLOBAL OFF + явном CHAT ON общий worker обязан тикать, а
+    допустимость каждого чата проверяется перед дорогим действием через
+    `learning_enabled_for_chat` (единый резолвер). При полном отсутствии
+    eligible-чатов проход остаётся инертным (без LLM).
+    Fail-closed при ошибке чтения env-осей."""
     try:
-        if not (mca_gates.experience_lessons_enabled()
-                and mca_gates.experience_review_enabled()):
-            return False
+        return bool(mca_gates.experience_lessons_enabled()
+                    and mca_gates.experience_review_enabled())
     except Exception:
         return False
-    return _learning_enabled()
 
 
 def _hot_int(key: str, default: int, lo: int, hi: int) -> int:
@@ -1647,11 +1678,12 @@ class ExperienceReviewRunner:
         коррекция/предпочтение → `record_feedback` (candidate ≠ fact ≠
         lesson; валидация — отдельные шаги). Сомнительное (шутка/агрессия/
         третье лицо/спор/forward/команда) → deliberate skip с кодом причины,
-        никогда не истина. U4: гейт обучения — `learning_enabled_for_chat`
-        (глобальный master OFF глушит все чаты; chat OFF — только этот чат;
-        stored override не переписывается). X1: курсор — только после
-        durable записи/deliberate skip; сбой записи останавливает pass без
-        продвижения курсора (retry идемпотентен по dedup_key)."""
+        никогда не истина. U4 + M2: гейт обучения — `learning_enabled_for_chat`
+        (GLOBAL OFF + явный чат ON → чат учится; INHERIT наследует дефолт;
+        chat OFF — только этот чат; stored override не переписывается). X1:
+        курсор — только после durable записи/deliberate skip; сбой записи
+        останавливает pass без продвижения курсора (retry идемпотентен по
+        dedup_key)."""
         limit = me.ExperiencePolicy.review_batch_max()
         cursor = await self._db.db.execute(
             "SELECT id, chat_id, user_id, text, reply_to_id, is_forward, "
@@ -1662,6 +1694,15 @@ class ExperienceReviewRunner:
         skip_reasons: dict[str, int] = {}
         for row in rows:
             scanned += 1
+            # U4 + MOD-ACL-UX-01 M2: гейт обучения — первым (дешёвый
+            # резолвер без SQL); stored override не читается на запись и не
+            # переписывается. GLOBAL OFF + явный чат ON → чат учится.
+            if not await learning_enabled_for_chat(row.get("chat_id")):
+                skip_reasons[DETECTOR_SKIP_CHAT_DISABLED] = \
+                    skip_reasons.get(DETECTOR_SKIP_CHAT_DISABLED, 0) + 1
+                skipped += 1
+                payload[DETECTOR_CURSOR_KEY] = int(row["id"])
+                continue
             # Reply-target: ответ ДРУГОМУ участнику — спор, не коррекция бота.
             reply_to_user_id = await self._reply_target_user_id(
                 row.get("chat_id"), row.get("reply_to_id"))
@@ -1673,14 +1714,6 @@ class ExperienceReviewRunner:
                 reason = str((verdict or {}).get("skip")
                              or DETECTOR_SKIP_LOW_CONFIDENCE)
                 skip_reasons[reason] = skip_reasons.get(reason, 0) + 1
-                skipped += 1
-                payload[DETECTOR_CURSOR_KEY] = int(row["id"])
-                continue
-            # U4: глобальная ось/per-chat override (мастер OFF глушит всех;
-            # stored override не читается на запись и не переписывается).
-            if not await learning_enabled_for_chat(row.get("chat_id")):
-                skip_reasons[DETECTOR_SKIP_CHAT_DISABLED] = \
-                    skip_reasons.get(DETECTOR_SKIP_CHAT_DISABLED, 0) + 1
                 skipped += 1
                 payload[DETECTOR_CURSOR_KEY] = int(row["id"])
                 continue
