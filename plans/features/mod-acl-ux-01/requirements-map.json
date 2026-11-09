@@ -4,7 +4,7 @@
   "created": "2026-11-09",
   "source_path": "plans/owner_inputs/2026-11-09-mod-acl-ux-01.md",
   "source_sha256": "ba6cf3d68b9e4babd181c2ac0439cc80a8e127341a48ad76200bb2bde6ff92a7",
-  "candidate_commit": "c51933d0f29bd70d746b15529504cb4b8a645fc5",
+  "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
   "deployed_commit": "bee14188f5d554021813db332ab35abea2ecbff5",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -20,7 +20,7 @@
     "note": "Развёрнутый SHA — релизный bump поверх одобренного кандидата c51933d0: продуктовый код идентичен (git diff --name-only c51933d0 bee14188 -- services handlers web пуст), менялись только APP_VERSION, README и version-пины тестов. Предыдущий прод 2.58.171 @ 4f7428e6. Миграция v45→v46 аддитивная, backfill нет. Строки M5A сохраняют собственную привязку к 4e07817e — map-level candidate указывает на последнего ревьюированного кандидата."
   },
   "queue_position": "MOD-ACL-UX-01 стоит в конце действующей очереди после SELF-DIAG-01 и VMQ-ONTO-01; полный Builder стартует после освобождения шести файлов MEMORY-08 S3. Две независимые критические правки (M1 ACL false-403 и M5A EXP-FIX correctives) допускаются раньше остального эпика при доступности своих файлов.",
-  "binding_note": "Единственный владелец строки = req_id; owning stage ровно один (M0…M6, включая под-срезы M4A/M4B/M4C и M5A/M5B/M5C, потому что один M4 и один M5 — слишком крупные неделимые outcomes). Строки L*-AC-* §12 и M0…M6 §11 — нормативный источник; manual-строки MAC-S2-TT-*, MAC-S2-AX-*, MAC-EXP-* и MAC-AMD-* ссылаются на нормативные строки таблиц/prose, потому что gate инвентаризует только заголовки и списки. Наблюдения §1 и адреса файлов §14 классифицированы как context с указанием несущей нормы; §16 дублирует §5–§8 и AC-*. Статусы PENDING до фактических доказательств; live/ui-строки требуют живого интерфейса, а не отчёта Builder. Поправка уроков 09.11.2026 добавлена двумя срезами: M5L (MAC-LSN-01…06 — реализация и выкат 2.58.172, доказано) и M5L-OBS (MAC-LSN-07…11 — живые наблюдения после дренажа свежего бэклога, первого противоречия, повторного подтверждения, применения в ответе и оставшихся событий аналитики). Источник поправки — plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md и замороженный план plans/features/mod-acl-ux-01/lesson-strategy-contract.md.",
+  "binding_note": "Единственный владелец строки = req_id; owning stage ровно один (M0…M6, включая под-срезы M4A/M4B/M4C и M5A/M5B/M5C, потому что один M4 и один M5 — слишком крупные неделимые outcomes). Строки L*-AC-* §12 и M0…M6 §11 — нормативный источник; manual-строки MAC-S2-TT-*, MAC-S2-AX-*, MAC-EXP-* и MAC-AMD-* ссылаются на нормативные строки таблиц/prose, потому что gate инвентаризует только заголовки и списки. Наблюдения §1 и адреса файлов §14 классифицированы как context с указанием несущей нормы; §16 дублирует §5–§8 и AC-*. Статусы PENDING до фактических доказательств; live/ui-строки требуют живого интерфейса, а не отчёта Builder. Поправка уроков 09.11.2026 добавлена двумя срезами: M5L (MAC-LSN-01…06 — реализация и выкат 2.58.172, доказано) и M5L-OBS (MAC-LSN-07…11 — живые наблюдения после дренажа свежего бэклога, первого противоречия, повторного подтверждения, применения в ответе и оставшихся событий аналитики). Источник поправки — plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md и замороженный план plans/features/mod-acl-ux-01/lesson-strategy-contract.md. Поправка 09.11.2026 (M2, clerical): MAC-S2-106, MAC-S10-10, MAC-S2-105 привязаны к production impact report plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md (sha256 f18dc7dc…, коммит 74f8f342 на release/2.58.173; read-only прогон кандидата 97cfdef1 по реальной базе 2.58.173 @ 17c3a05e: 3 профиля x 16 capability, 0 изменённых пар). Одиннадцать строк каталога/UI (MAC-S0-04, MAC-S2-49, MAC-S2-89, MAC-S2-90, MAC-S2-82, MAC-S2-83, MAC-S3-CAT-01, MAC-S3-TYPES-01, MAC-S3-SHARED-01, MAC-AC-01, MAC-AC-05) переназначены из M2 в M3/M4A по решению координатора 2026-11-09 (поле reassignment_rationale у каждой строки; acceptance не менялся). Пятнадцать live-строк M2 остаются PENDING с условием «живое наблюдение на задеплоенном SHA после выката M2» — это postdeploy-обязательства, а не блокеры ревью.",
   "additional_requirements": [
     {
       "source_id": "MAC-TT-1",
@@ -42,7 +42,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-tt-1.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-1"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "MAC-TT-2",
@@ -64,7 +65,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-tt-2.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-2"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "MAC-TT-3",
@@ -86,7 +88,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-tt-3.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-3"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "MAC-TT-4",
@@ -108,7 +111,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-tt-4.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-4"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "MAC-TT-5",
@@ -130,7 +134,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-tt-5.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-5"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "MAC-TT-6",
@@ -152,7 +157,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-tt-6.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-6"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "MAC-AX-1",
@@ -166,8 +172,17 @@
       "acceptance": "desired вычисляется как chat_override != INHERIT ? chat_override : global_default и не смешивается с другими осями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "test",
+          "ref": "desired вычисляется одной формулой и не смешивается с осями",
+          "observation": "шесть строк таблицы проверяют desired/source/chat_state, test_state_snapshot_exposes_separate_axes показал desired=True при ready=False/authorized=True/observed=None",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-97cfdef1.md",
+          "artifact_sha256": "a03c8fc563cbbb9f581fdf7d7b532b0e884b5401ebb12393466e1bdaccfd0268"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -188,8 +203,17 @@
       "acceptance": "effective_runtime = desired AND runtime_prerequisites AND NOT emergency_block; формула global_master AND chat_enabled для продуктовых модулей запрещена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "test",
+          "ref": "effective_runtime = desired AND ready AND NOT emergency, формула global AND chat запрещена",
+          "observation": "test_env_kill_switch_overrides_table дал desired=True/emergency_block=True/effective_runtime=False; строка 5 таблицы (GLOBAL OFF + CHAT ON -> ON) исключает формулу global AND chat",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-97cfdef1.md",
+          "artifact_sha256": "a03c8fc563cbbb9f581fdf7d7b532b0e884b5401ebb12393466e1bdaccfd0268"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -218,7 +242,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-ax-03.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-AX-03"
         }
-      ]
+      ],
+      "pending_condition": "readiness провайдера/worker/модели/обязательных зависимостей не вычисляется (ready приходит извне, в API None)"
     },
     {
       "source_id": "MAC-AX-4",
@@ -240,7 +265,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-ax-04.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-AX-04"
         }
-      ]
+      ],
+      "pending_condition": "authorized для actor/scope/operation не вычисляется (ось есть, значение None) и не превращает модуль в OFF"
     },
     {
       "source_id": "MAC-AX-5",
@@ -262,7 +288,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-ax-05.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-AX-05"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "MAC-SHARED",
@@ -284,7 +311,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-shared-01.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-SHARED-01"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "MAC-GATE",
@@ -306,7 +334,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-gate-01.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-GATE-01"
         }
-      ]
+      ],
+      "pending_condition": "точная диагностика причины при несовместимости старых gate-систем не реализована (kill-switch часть доказана)"
     },
     {
       "source_id": "MAC-S3-CAT",
@@ -316,7 +345,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S3-CAT-01",
-      "slice": "M2",
+      "slice": "M3",
       "acceptance": "Каждой из 21 видимой карточки и каждому скрытому подмодулю назначен серверный kind и scope_capability, подтверждённый реальным consumer.",
       "live_required": false,
       "live_when": "preprod",
@@ -328,7 +357,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s3-cat-01.md",
           "description": "наблюдаемый артефакт проверки MAC-S3-CAT-01"
         }
-      ]
+      ],
+      "pending_condition": "инвентаризация 21 карточки и скрытых подмодулей: kind/scope_capability с реальным consumer — артефакт дизайн-фриза M3 (решение координатора 2026-11-09, вопрос владельцу не требуется)",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Инвентаризация 21 карточки и скрытых подмодулей: kind/scope_capability с реальным consumer — артефакт дизайн-фриза M3."
     },
     {
       "source_id": "MAC-S3-TYPES",
@@ -338,7 +370,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S3-TYPES-01",
-      "slice": "M2",
+      "slice": "M3",
       "acceptance": "Остальные карточки определены по фактическому каталогу; global_only не вводится искусственно, chat_id доведён до реальных точек потребления.",
       "live_required": false,
       "live_when": "preprod",
@@ -350,7 +382,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s3-types-01.md",
           "description": "наблюдаемый артефакт проверки MAC-S3-TYPES-01"
         }
-      ]
+      ],
+      "pending_condition": "типы остальных карточек по фактическому каталогу, chat_id до точек потребления (каталог/UI)",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Типы остальных карточек по фактическому каталогу и chat_id до точек потребления — инвентаризация M3."
     },
     {
       "source_id": "MAC-S3-SHARED",
@@ -360,7 +395,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S3-SHARED-01",
-      "slice": "M2",
+      "slice": "M3",
       "acceptance": "Chat OFF не выключает общий Embeddings API и общий QRNG-пул; «индексация работает» и «поиск разрешён в чате» — разные поля.",
       "live_required": false,
       "live_when": "preprod",
@@ -372,7 +407,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s3-shared-01.md",
           "description": "наблюдаемый артефакт проверки MAC-S3-SHARED-01"
         }
-      ]
+      ],
+      "pending_condition": "chat OFF не выключает shared Embeddings/QRNG; «индексация» и «поиск в чате» — разные поля (каталог/UI)",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Разделение полей «индексация работает» и «поиск разрешён в чате», shared Embeddings/QRNG без общего тумблера — контракт полей каталога M3."
     },
     {
       "source_id": "MAC-S4-RPT",
@@ -1538,7 +1576,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-m2-01.md",
           "description": "наблюдаемый артефакт проверки MAC-M2-01"
         }
-      ]
+      ],
+      "pending_condition": "сводная строка среза: закрывается только после всех строк M2 (включая impact report, live и D1-D8)"
     },
     {
       "source_id": "MAC-M3",
@@ -2401,8 +2440,17 @@
       "acceptance": "При GLOBAL OFF и CHAT ON модуль исполняется для этого чата: глобальный OFF не блокирует явный chat ON.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "test",
+          "ref": "GLOBAL OFF + явный CHAT ON исполняется",
+          "observation": "test_six_case_table_global_module и test_six_case_table_per_chat_experience прошли строку 5 (OFF/ON -> desired=True, effective_runtime=True, source=chat), а test_global_off_chat_on_worker_runs_and_selects дал review_enabled()=True при глобальном OFF",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-97cfdef1.md",
+          "artifact_sha256": "a03c8fc563cbbb9f581fdf7d7b532b0e884b5401ebb12393466e1bdaccfd0268"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -2431,7 +2479,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s0-02.md",
           "description": "наблюдаемый артефакт проверки MAC-S0-02"
         }
-      ]
+      ],
+      "pending_condition": "путь записи «Наследовать» (удаление только своего override) не проверен ни одним тестом кандидата"
     },
     {
       "source_id": "L00018",
@@ -2453,7 +2502,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s0-03.md",
           "description": "наблюдаемый артефакт проверки MAC-S0-03"
         }
-      ]
+      ],
+      "pending_condition": "деплой кандидата и аудит миграций: сохранённые значения/промпты/версии пережили выкат, DDL аддитивен и обратим"
     },
     {
       "source_id": "L00019",
@@ -2463,7 +2513,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S0-04",
-      "slice": "M2",
+      "slice": "M3",
       "acceptance": "Продуктовые возможности управляются по чатам; глобальными остаются только shared-инфраструктура и обязательные механизмы.",
       "live_required": false,
       "live_when": "preprod",
@@ -2475,7 +2525,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s0-04.md",
           "description": "наблюдаемый артефакт проверки MAC-S0-04"
         }
-      ]
+      ],
+      "pending_condition": "каталог/UI-контракт: классификация продуктовых возможностей по чатам против shared-инфраструктуры фиксируется в design freeze M3 (решение координатора 2026-11-09, вопрос владельцу не требуется)",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Классификация «продуктовые возможности по чатам vs shared-инфраструктура» — состав каталога, фиксируется в design freeze M3, а не кодом резолвера M2."
     },
     {
       "source_id": "L00020",
@@ -2555,8 +2608,17 @@
       "acceptance": "Новый реестр не вводится: используются module_registry, param_catalog, chat_params, feature_gates, roles, access, permissions.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "test",
+          "ref": "новый реестр не введён",
+          "observation": "резолвер построен на существующих chat_params + module_registry.master_param; в диффе кандидата нет новых хранилищ/таблиц, test_one_resolver_no_second_gateway показал одинаковый desired для двух доменов",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-97cfdef1.md",
+          "artifact_sha256": "a03c8fc563cbbb9f581fdf7d7b532b0e884b5401ebb12393466e1bdaccfd0268"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -2860,8 +2922,17 @@
       "acceptance": "chat_params.overrides и chat_params.gates консолидированы в одну семантику effective-state без дублирования хранения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "test",
+          "ref": "overrides и gates сведены к одной семантике",
+          "observation": "resolve_param_capability и resolve_gate_capability вызывают одно ядро resolve_capability; test_one_resolver_no_second_gateway и test_gate_domain_rows_and_permsoc_alias прошли, второго хранилища нет",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-97cfdef1.md",
+          "artifact_sha256": "a03c8fc563cbbb9f581fdf7d7b532b0e884b5401ebb12393466e1bdaccfd0268"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -2878,7 +2949,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S2-49",
-      "slice": "M2",
+      "slice": "M4A",
       "acceptance": "Дрейф между Python-реестром модулей и JS-fallback устранён: источник каталога ровно один.",
       "live_required": false,
       "live_when": "preprod",
@@ -2890,7 +2961,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-49.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-49"
         }
-      ]
+      ],
+      "pending_condition": "дрейф Python-реестра и JS-fallback не устранён в кандидате (каталог/UI-контракт)",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Устранение дрейфа Python-реестра и JS-fallback — правка каталога в UI-слое (web/app.js); acceptance наблюдается в собранном каталоге, а не в резолвере."
     },
     {
       "source_id": "L00050",
@@ -3039,7 +3113,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-81.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-81"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "L00082",
@@ -3049,7 +3124,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S2-82",
-      "slice": "M2",
+      "slice": "M4A",
       "acceptance": "desired ON при ready false даёт «включён · сейчас не работает» с точной причиной; stored ON не переписывается в OFF.",
       "live_required": false,
       "live_when": "preprod",
@@ -3061,7 +3136,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-82.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-82"
         }
-      ]
+      ],
+      "pending_condition": "UI-подпись «включён · сейчас не работает» с точной причиной (backend-оси доказаны, текста нет)",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Нужна подпись «включён · сейчас не работает» с точной причиной в интерфейсе; backend-оси уже доказаны в M2, остаётся UI-текст и рендер M4A."
     },
     {
       "source_id": "L00083",
@@ -3071,7 +3149,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S2-83",
-      "slice": "M2",
+      "slice": "M4A",
       "acceptance": "desired OFF показывается как «выключен» независимо от готовности провайдера.",
       "live_required": false,
       "live_when": "preprod",
@@ -3083,7 +3161,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-83.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-83"
         }
-      ]
+      ],
+      "pending_condition": "UI-подпись «выключен» независимо от готовности провайдера",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Подпись «выключен» независимо от готовности провайдера — UI-рендер каталога, M4A."
     },
     {
       "source_id": "L00084",
@@ -3127,7 +3208,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-85.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-85"
         }
-      ]
+      ],
+      "pending_condition": "ответ должен содержать observed_at/last_activity_at/reason_code/pending_restart/version/can_read/can_edit — в as_dict() и states{} их нет"
     },
     {
       "source_id": "L00087",
@@ -3152,7 +3234,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S2-89",
-      "slice": "M2",
+      "slice": "M3",
       "acceptance": "Секреты, авторизация, ограничения Telegram, приватность и сетевая доступность не выдаются за пользовательский выключатель.",
       "live_required": false,
       "live_when": "preprod",
@@ -3164,7 +3246,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-89.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-89"
         }
-      ]
+      ],
+      "pending_condition": "«секреты/авторизация/Telegram/приватность/сеть не выдаются за тумблер» — каталог и дефолты, не код резолвера",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Перечень того, что не выдаётся за пользовательский выключатель (секреты/авторизация/Telegram/приватность/сеть) — решение о составе каталога, фиксируется в M3."
     },
     {
       "source_id": "L00090",
@@ -3174,7 +3259,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S2-90",
-      "slice": "M2",
+      "slice": "M4A",
       "acceptance": "Аварийный kill-switch отображается как emergency_block и не подменяет global master; заводское значение исправной функции — ON.",
       "live_required": false,
       "live_when": "preprod",
@@ -3186,7 +3271,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-90.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-90"
         }
-      ]
+      ],
+      "pending_condition": "заводское значение исправной функции ON не проверено (emergency_block как отдельная ось доказан)",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Acceptance про отображение: emergency_block как отдельный блок и заводское ON наблюдаются в отрисованном каталоге (M4A)."
     },
     {
       "source_id": "L00091",
@@ -3200,8 +3288,17 @@
       "acceptance": "Чатовый OFF запрещает потребление и инициацию для этого чата, но не останавливает общий worker/индекс для других.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "test",
+          "ref": "чатовый OFF не останавливает общий worker",
+          "observation": "test_u4_chat_off_is_local_other_chat_learns: при OFF у -100 чат -200 обработан, курсор -100 продвинут как осознанный skip, уроки -200 не видны в -100",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-97cfdef1.md",
+          "artifact_sha256": "a03c8fc563cbbb9f581fdf7d7b532b0e884b5401ebb12393466e1bdaccfd0268"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3230,7 +3327,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-92.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-92"
         }
-      ]
+      ],
+      "pending_condition": "семантика gates_opt_in/старых chat gates на кандидате не проверялась (двойное veto снято)"
     },
     {
       "source_id": "L00094",
@@ -3282,7 +3380,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-102.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-102"
         }
-      ]
+      ],
+      "pending_condition": "инвентаризация storage и всех runtime readers неполная: нет tool router, schedulers, UI"
     },
     {
       "source_id": "L00103",
@@ -3296,8 +3395,17 @@
       "acceptance": "Единый canonical resolver построен на существующем слое; mapping ModuleSpec → текущие pg-ключи зафиксирован явно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "test",
+          "ref": "единый резолвер и явный mapping ModuleSpec -> pg-ключ",
+          "observation": "resolve_module_capability берёт ModuleSpec.master_param (обязательное поле реестра) и PRODUCT_DEFAULTS, нового каталога нет; test_one_resolver_no_second_gateway прошёл",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-97cfdef1.md",
+          "artifact_sha256": "a03c8fc563cbbb9f581fdf7d7b532b0e884b5401ebb12393466e1bdaccfd0268"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3326,7 +3434,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-104.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-104"
         }
-      ]
+      ],
+      "pending_condition": "удаление override при «Наследовать» не проверено; чтение INHERIT и сохранность true/false доказаны"
     },
     {
       "source_id": "L00105",
@@ -3340,15 +3449,33 @@
       "acceptance": "При двух источниках overrides снят snapshot, найдены коллизии и выбран один authoritative read/write-путь; второй оставлен только alias с приоритетом и тестами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "production",
+          "ref": "Snapshot реальных значений и отсутствие коллизий двух источников overrides",
+          "observation": "Read-only снимок прода (2.58.173 @ 17c3a05e): 3 профиля с непустыми chat_params, 16 capability, изменённых пар 0 — в реальных сохранённых значениях нет коллизии gates/overrides, меняющей effective-state; данные не переписаны (counts и pg_stat до/после идентичны).",
+          "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md",
+          "artifact_sha256": "f18dc7dca9dcb6757ba84abaa6fcd9c49d7b5bad1720e16ac92820c7bf40a35f"
+        },
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "test",
+          "ref": "Один authoritative путь для overrides и gates, вторичный — alias с приоритетом и тестами",
+          "observation": "overrides -> resolve_param_capability и gates -> resolve_gate_capability вызывают одно ядро resolve_capability, двойной независимой записи нет; legacy permsoc-путь оставлен read-compat alias (приоритет только при INHERIT, явный выбор важнее) и покрыт test_gate_domain_rows_and_permsoc_alias и test_one_resolver_no_second_gateway.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-97cfdef1.md",
+          "artifact_sha256": "a03c8fc563cbbb9f581fdf7d7b532b0e884b5401ebb12393466e1bdaccfd0268"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-105.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-105"
         }
-      ]
+      ],
+      "pending_condition": null
     },
     {
       "source_id": "L00106",
@@ -3362,15 +3489,25 @@
       "acceptance": "Before/after impact report перечисляет пары GLOBAL OFF + CHAT ON; stored values не переписаны, отправка сообщений и backfill защищены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "production",
+          "ref": "Impact report прода 2.58.173: пары GLOBAL OFF + CHAT ON и сохранность stored values",
+          "observation": "Read-only прогон scripts/mod_acl_effective_state_report из кандидата 97cfdef1 против реальной базы production 2.58.173 (17c3a05e): 3 профиля x 16 capability, изменённых пар 0, чатов с изменением поведения 0 — то есть ни у одного чата нет комбинации GLOBAL OFF + сохранённый CHAT ON, которая меняет поведение. Stored values не переписаны: до/после bot_settings 547/547, chat_profiles 3/3, pg_stat ins/upd/del без изменений, 30 таблиц, схема 46; в скрипте нет UPDATE/INSERT/DELETE/DDL, сервис не перезапускался, live-каталог не переключался. Нежелательных запусков, от которых нужно точечно защищать отправку сообщений и дорогой backfill, при 0 изменённых пар нет.",
+          "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md",
+          "artifact_sha256": "f18dc7dca9dcb6757ba84abaa6fcd9c49d7b5bad1720e16ac92820c7bf40a35f"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-106.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-106"
         }
-      ]
+      ],
+      "pending_condition": null
     },
     {
       "source_id": "L00107",
@@ -3392,7 +3529,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-107.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-107"
         }
-      ]
+      ],
+      "pending_condition": "сохранность updated_at/optimistic version/PG NOTIFY/cache invalidation и доставка из UI без рестарта не проверены"
     },
     {
       "source_id": "L00108",
@@ -3406,8 +3544,17 @@
       "acceptance": "Просмотр модуля, выбор чата, открытие карточки, refresh и повторная загрузка не создают новых explicit overrides.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "test",
+          "ref": "read-пути не создают override",
+          "observation": "test_stored_explicit_false_is_never_rewritten: при запрещённом set_chat_params чтение модуля/гейта/обучения не изменило снимок хранилища и не инвалидировало кэш",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-97cfdef1.md",
+          "artifact_sha256": "a03c8fc563cbbb9f581fdf7d7b532b0e884b5401ebb12393466e1bdaccfd0268"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3473,7 +3620,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-113.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-113"
         }
-      ]
+      ],
+      "pending_condition": "повторная проверка настройки перед публикацией инициативы и отсутствие публикации из устаревшего snapshot не проверены"
     },
     {
       "source_id": "L00114",
@@ -3495,7 +3643,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-114.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-114"
         }
-      ]
+      ],
+      "pending_condition": "сохранение истории/прошлых ответов/индекса при выключении не проверено"
     },
     {
       "source_id": "L00115",
@@ -3517,7 +3666,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-115.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-115"
         }
-      ]
+      ],
+      "pending_condition": "отсутствие неконтролируемого replay/backfill при повторном включении не проверено"
     },
     {
       "source_id": "L00116",
@@ -3531,8 +3681,17 @@
       "acceptance": "Глобальный worker фильтрует eligible чаты; у выключенного чата не возникает новых затратных задач.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "test",
+          "ref": "worker фильтрует eligible-чаты",
+          "observation": "test_global_off_chat_on_worker_runs_and_selects и test_u4_chat_off_is_local_other_chat_learns: detector_skipped=1, обработка только eligible-чата, у выключенного новых задач нет",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-97cfdef1.md",
+          "artifact_sha256": "a03c8fc563cbbb9f581fdf7d7b532b0e884b5401ebb12393466e1bdaccfd0268"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -6107,7 +6266,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-01.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-01"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "L00571",
@@ -6129,7 +6289,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-02.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-02"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: переключение чата A не меняет B, отсутствие override остаётся INHERIT"
     },
     {
       "source_id": "L00572",
@@ -6151,7 +6312,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-03.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-03"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: два параллельных редактирования -> 409 без потери записи, двойной клик без двух POST"
     },
     {
       "source_id": "L00573",
@@ -6173,7 +6335,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-04.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-04"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: три смены чата, поздний ответ не перезаписывает новую карточку"
     },
     {
       "source_id": "L00574",
@@ -6195,7 +6358,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-05.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-05"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: рестарт процесса/кэш/NOTIFY/scheduler дают одинаковый desired/effective"
     },
     {
       "source_id": "L00575",
@@ -6217,7 +6381,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-06.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-06"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: GLOBAL OFF + CHAT ON при недоступном провайдере -> requested ON, ready false, UI не уходит в OFF"
     },
     {
       "source_id": "L00576",
@@ -6239,7 +6404,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-07.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-07"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: in-flight задача при CHAT OFF без новых публикаций и дублей"
     },
     {
       "source_id": "L00577",
@@ -6261,7 +6427,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-08.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-08"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: OFF у A не роняет retrieval у B и не останавливает общие индексы/пулы"
     },
     {
       "source_id": "L00578",
@@ -6283,7 +6450,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-09.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-09"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: сохранённые старым путём chat flags не читаются новым UI как inherit"
     },
     {
       "source_id": "L00579",
@@ -6297,15 +6465,25 @@
       "acceptance": "Все пары GLOBAL OFF + сохранённый CHAT ON выгружены в impact report и проверены на реальном поведении.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "97cfdef114609512b2d340fd619fb108d82593cd",
+          "type": "production",
+          "ref": "Все пары GLOBAL OFF + сохранённый CHAT ON выгружены и проверены на реальных значениях",
+          "observation": "Выгрузка покрывает все профили базы: 2 группы (-1004482340693, -1002661910336) и личный чат владельца 5885953495, по 16 capability. Пар «GLOBAL OFF + сохранённый CHAT ON», дающих смену поведения, — 0: OLD и NEW совпадают во всех точках. Проверка выполнена резолвером кандидата на реальных сохранённых значениях прода, поэтому выгружать и наблюдать живьём нечего — изменённых пар нет.",
+          "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md",
+          "artifact_sha256": "f18dc7dca9dcb6757ba84abaa6fcd9c49d7b5bad1720e16ac92820c7bf40a35f"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-10.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-10"
         }
-      ]
+      ],
+      "pending_condition": null
     },
     {
       "source_id": "L00580",
@@ -6393,7 +6571,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-14.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-14"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: «Время» без тумблера, timezone применяется во всех consumers"
     },
     {
       "source_id": "L00584",
@@ -6415,7 +6594,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-15.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-15"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: CHAT OFF векторного поиска отключает lookup только этого чата"
     },
     {
       "source_id": "L00585",
@@ -6503,7 +6683,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-19.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-19"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: counters и ledger по chat_id до/после смены флагов"
     },
     {
       "source_id": "L00589",
@@ -6525,7 +6706,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s10-20.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-20"
         }
-      ]
+      ],
+      "pending_condition": "сценарий: отложенный результат не публикуется в отключённый чат"
     },
     {
       "source_id": "L00593",
@@ -6565,7 +6747,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-AC-01",
-      "slice": "M2",
+      "slice": "M3",
       "acceptance": "Для 21/21 видимых карточек доказаны kind, scope, актуальный параметр, реальные consumer и способ управления; неуправляемых функций без технического основания нет.",
       "live_required": false,
       "live_when": "preprod",
@@ -6577,7 +6759,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-ac-01.md",
           "description": "наблюдаемый артефакт проверки MAC-AC-01"
         }
-      ]
+      ],
+      "pending_condition": "21/21 карточек: kind, scope, актуальный параметр, потребитель, способ управления (каталог/UI)",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Доказательство 21/21 по kind/scope/параметру/consumer/способу управления — инвентаризационный артефакт M3."
     },
     {
       "source_id": "L00616",
@@ -6599,7 +6784,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-ac-02.md",
           "description": "наблюдаемый артефакт проверки MAC-AC-02"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "L00617",
@@ -6621,7 +6807,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-ac-03.md",
           "description": "наблюдаемый артефакт проверки MAC-AC-03"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "L00618",
@@ -6643,7 +6830,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-ac-04.md",
           "description": "наблюдаемый артефакт проверки MAC-AC-04"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "L00619",
@@ -6653,7 +6841,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-AC-05",
-      "slice": "M2",
+      "slice": "M3",
       "acceptance": "Shared Embeddings и QRNG не получают фиктивного общеботового chat toggle; чат управляет использованием.",
       "live_required": false,
       "live_when": "preprod",
@@ -6665,7 +6853,10 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-ac-05.md",
           "description": "наблюдаемый артефакт проверки MAC-AC-05"
         }
-      ]
+      ],
+      "pending_condition": "shared Embeddings/QRNG без фиктивного общего тумблера; чат управляет использованием (каталог/UI)",
+      "reassigned_from": "M2",
+      "reassignment_rationale": "Решение «shared Embeddings и QRNG без фиктивного общеботового тумблера» — состав каталога M3."
     },
     {
       "source_id": "L00620",
@@ -7432,7 +7623,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s15-12.md",
           "description": "наблюдаемый артефакт проверки MAC-S15-12"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "L00679",
@@ -7535,7 +7727,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s15-1-01.md",
           "description": "наблюдаемый артефакт проверки MAC-S15-1-01"
         }
-      ]
+      ],
+      "pending_condition": "живое наблюдение на задеплоенном SHA после выката M2 (live observation on the deployed SHA after M2 ships)"
     },
     {
       "source_id": "L00686",
@@ -7557,7 +7750,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s15-1-02.md",
           "description": "наблюдаемый артефакт проверки MAC-S15-1-02"
         }
-      ]
+      ],
+      "pending_condition": "причина отказа consent_required/permission_denied/emergency_block как различимые коды не реализована"
     },
     {
       "source_id": "L00687",
@@ -7846,5 +8040,11 @@
         }
       ]
     }
-  ]
+  ],
+  "candidate_note": "Map-level candidate_commit указывает на кандидата привязываемого среза M2 (97cfdef1). Доказательства M5A/M5L сохраняют собственные привязки (4e07817e / c51933d0 -> bee14188) в своих строках и в deployment_evidence; смена map-level значения их не переписывает. deployed_commit относится к релизу M5L (2.58.172) и для M2 не применяется.",
+  "slice_candidates": {
+    "M2": "97cfdef114609512b2d340fd619fb108d82593cd",
+    "M5A": "4e07817e9a4836a6e68837bbb815aa3ffdfe3dc8",
+    "M5L": "c51933d0f29bd70d746b15529504cb4b8a645fc5 (deployed bee14188f5d554021813db332ab35abea2ecbff5)"
+  }
 }
