@@ -406,7 +406,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Живая проба доказала только, что инцидентная формулировка «Бот, что происходит в чате?» не перехватывается (_triggered_body=None, UNHANDLED). Инспекция handlers/direct_chat.py и соседних обработчиков для остальных текстовых обращений не выполнена.",
+      "blocked_reason": "Цитаты по handlers/direct_chat.py точны: файл идентичен выкаченному (blob 0bcc917039), _is_direct_trigger 226-272 и direct_chat_handler 551-586 проверены верно. Не покрыта вторая половина приёмки — «связанные обработчики». В этой проверке порядок роутеров и гейты соседей разобраны (evidence/internal-audit-v2-verification-2026-11-10.md §8): до direct_chat_router (bot.py 925) стоят summary_observer 903, summary 906, factcheck 909, search 912, youtube 915, web 918, checkup 921; шесть из них — командные/триггерные гейты либо не потребляющий observer, обычный текст они не перехватывают. Открыт ровно один пункт: youtube_handler 1758-1785, ветка _handle_unclassified (1785) может назначить видео-задачу без канонического триггера — это класс, который чинил P0-B. (a) статически разобрать _classify_video_request, _observe_and_bind_pending и _handle_unclassified в редакции 2b7e9c7f и подтвердить гарантию P0-B (видео-задача только от текущего сообщения); проба не требуется.",
       "kind": "requirement"
     },
     {
@@ -423,7 +423,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Разделение собственного текста, message_id, chat_id, user_id, Reply и Forward на уровне формирования запроса отдельно не проверялось.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. В выкаченном коде `_build_user_content` на 8413, `trigger_message_id` 8451, `target_block` 8528, блок `current` 8608, `_strip_direct_prefix` 1076. Не рассмотрена треть приёмки — `Forward` (`_forward_source_of` 1039, forward-адресат 1529/1537). (a) проследить сборку payload по всем шести полям (текст, message_id, chat_id, user_id, Reply, Forward); (b) детерминированная проба: собрать user-контент для синтетического сообщения с reply+forward+медиа и проверить, что ни одно поле не попало в чужой блок и текст вопроса не подменён.",
       "kind": "requirement"
     },
     {
@@ -467,7 +467,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Полнота сохранения текущего вопроса (не заменяется текстом Reply, расшифровкой, последним медиа) на уровне payload не проверялась.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Проверялось, где формируется вопрос (7692 в старой редакции), а не состав payload; в выкаченном коде это 9954 (`strip` 9986, медиа-маркеры 9989-10017, резерв `room` 10032) и блок `(\"current\", …)` 8608. (b) детерминированная проба с заглушкой модели: собрать payload хода, где у сообщения есть reply-видео и в истории лежит расшифровка; `<Current_Question>` должен равняться собственному тексту (+маркеры), а текст reply и расшифровки присутствовать только в своих блоках. (a) — только как подготовка к этой пробе.",
       "kind": "requirement"
     },
     {
@@ -484,7 +484,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Семантическое влияние порядка блоков, контекстного бюджета и медиа-маркеров на выбор темы ответа не проверялось.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Семантическое влияние на выбор темы не проверялось вообще. (b) детерминированная проба фиксирует проверяемые инварианты payload: маркер выживает при усечении (`room` 10032-10042), `current` идёт после исторических блоков (8608), cap применяется с honest-warning (10037/10046), порядок блоков не меняется композером (8624). (c) сама семантика («какую тему выберет модель при таком порядке/бюджете») закрывается только реальным вызовом модели с инцидентным payload.",
       "kind": "requirement"
     },
     {
@@ -501,7 +501,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Фактическое решение модели (а не наличие вопроса в payload) не проверялось.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Наличие вопроса в payload не является доказательством исправления, а фактическое решение модели не проверялось. Заглушка модели здесь ничего не доказывает — (b) неприменим. (c) один реальный вызов модели на payload хода B с фиксацией выбранной темы и капабилити; минимальная форма — in-process вызов настоящей модели без чата, полный чат не обязателен.",
       "kind": "requirement"
     },
     {
@@ -518,7 +518,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Причинный разбор выбора видеозадачи L1 и отсутствия подмены корректного решения после планирования не выполнялся.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Задача делится надвое. (a) «корректное решение L1 не подменяется после планирования» — статически по выкаченным `direct_execution.py` `resolve_execution_mode` 362, `derive_simple_steps` 461, исключение `image_generation` 537-540, `direct_capabilities.available_capabilities` 131. (c) «почему L1 выбрал видеозадачу вместо анализа переписки» — только реальный вызов модели с инцидентным payload; статика и проба с заглушкой причину выбора не устанавливают.",
       "kind": "requirement"
     },
     {
@@ -535,7 +535,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Наследование медиа-намерения от предыдущего сообщения или результата инструмента не проверялось.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Наследование медиа-намерения не проверялось; вывод сделан из кода старой редакции. (a) в выкаченном: `available_caps` 6483 считается из `active_tools` текущего сообщения, медиа-маркеры 9989-10001 берутся только из текущего сообщения и его reply, evidence-пакет capability не добавляет (2546-2568). (b) проба: предыдущее сообщение — видео, текущее — текст; в L1-payload текущего хода нет медиа-маркера и в `available_caps` нет видео-капабилити.",
       "kind": "requirement"
     },
     {
@@ -552,7 +552,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Отсутствие подмены L1-решения на медиаоперацию исполнителем не проверялось (кроме инцидентной формулировки, где перехвата нет).",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Подмена решения исполнителем проверялась только «на уровне кода» без наблюдения шагов. (a) подтвердить по выкаченным `resolve_execution_mode` 362 и `derive_simple_steps` 461, что capability из L1Plan идёт напрямую; (b) детерминированная проба: план с capability «анализ беседы» не порождает шагов `image_generation`/`media_download`/`summarize_video` и не добавляет медиа-limitation.",
       "kind": "requirement"
     },
     {
@@ -569,7 +569,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "handlers/voice_transcription.py, механизм хранения транскриптов и последние правки обработки Reply не проверялись.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Механизм хранения описан неверно для выкаченного кода: там расшифровка пишется как версия содержимого — `set_smart_message_transcript(..., status=\"ready\", text=...)` (`handlers/voice_transcription.py` 200-201) с `transcript_revision` и статусами 254-256/288/307/318/326; `update_smart_message_text` не вызывается, `_resolve_transcript_author` — вызов на 297. (a) перечитать выкаченный файл по существу: 122-128 (`is_reply_to_transcription`), 144-175 (идемпотентность и caption), 178-222 (`_inject_memory`, `memorize_facts` 221, `source_type=\"voice_transcript\"`), 225-241 (`_reply_media`, `reply_to_id`), 263-422 (транскрипция, повтор, handler 407). Проба не нужна.",
       "kind": "requirement"
     },
     {
@@ -586,7 +586,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Атрибуция расшифровки (автор, ID, происхождение) в контексте модели не проверялась.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Атрибуция расшифровки в контексте модели не проверялась; аудит сам предложил «runtime-пробу или инспекцию контекстных рендеров». (a) статически: как версия расшифровки попадает в блоки `global`/`thread` с автором и привязкой к конкретному сообщению (`voice_transcription.py` 200-222 → сборка контекста 8484-8518). (b) проба payload: в блоке присутствуют автор, привязка к media-сообщению и происхождение, текст не выглядит репликой другого человека.",
       "kind": "requirement"
     },
     {
@@ -603,7 +603,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Отсутствие трактовки расшифровки как текущего вопроса другого человека не проверялось.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Обязательство двойное. (a) статически: `voice_transcription.py` 225-241 (ответ строго на media), `handlers/direct_chat.py:245` исключает расшифровочный реплай из триггера, `direct_chat_service.py:9986` берёт только текущее сообщение. (b) проба: при расшифровке в истории `<Current_Question>` не подменяется и в `available_caps` нет видео-капабилити. (c) «L1 сам не запускает анализ ролика» — только реальный вызов модели.",
       "kind": "requirement"
     },
     {
@@ -620,7 +620,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Регрессия распознавания голосовых, повторных транскрипций и записи в существующую память не проверялась.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Регрессия не проверялась. (c) реальный прогон: голосовое в чате → расшифровка, затем повтор «транскрипт» (`force=True`, `voice_transcription.py:374`, обход идемпотентности 197-198) и проверка записи в память (`memorize_facts` 221) и версии содержимого (`set_smart_message_transcript` 200-201). (a) как подготовка — существующие тесты обработчика расшифровок и записи версии.",
       "kind": "requirement"
     },
     {
@@ -3674,7 +3674,7 @@
           "produced_on": "67063aa5"
         }
       ],
-      "blocked_reason": "Вердикт 67063aa5 не рассматривал использование результатов инструментов как материала ответа вместо новой задачи; отдельная проверка не выполнена.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. В выкаченном `direct_execution.py` `run_simple_tools` на 887, `build_evidence_pack` на 2546, `l2_evidence_budget_chars` на 2377, исключение `image_generation` на 537-540; упомянутых аудитом `tool_context`/«System2 stage1» в выкаченном `direct_chat_service.py` нет вовсе. (a) проследить по этим координатам путь «пакет доказательств → `_evidence` (5446-5449, бюджет 5425/6737) → блоки user-контента Writer'а» и убедиться, что результаты инструментов попадают материалом ответа; (b) затем детерминированная проба с заглушкой модели: на ходе с готовым пакетом новый план инструментов не порождается (результат = доказательство, а не новая задача).",
       "kind": "requirement"
     },
     {
@@ -3736,7 +3736,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Инспекция direct_chat_service (_render_current_question, _build_user_content, _l1_reply_block, _plan_direct_l1), direct_context_composer, direct_l1 (build_l1_context, _cap_context) и media_marker в релизе не выполнялась: идентичность blob кандидату не заменяет проверку этих внутренних путей.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Половина списка приёмки не открывалась — сам аудит пишет «`_l1_reply_block` (существование подтверждено, детали видны в других чтениях)»; `_cap_context`, `direct_context_composer` и `media_marker` не инспектировались. (a) читать тела, а не заголовки, по выкаченным координатам: `direct_chat_service.py` `_render_current_question` 9954, `_build_user_content` 8413, `_l1_reply_block` 5963, `_plan_direct_l1` 6371 (вызов `build_l1_context` 6516); `direct_l1.build_l1_context` 1606 и `_cap_context` 1706; `direct_context_composer.composer_on` 137; `media_marker.media_marker` 106. Проба не требуется.",
       "kind": "requirement",
       "merged_source_ids": [
         "L00104",
@@ -3827,7 +3827,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Проверка direct_execution, direct_capabilities, tool_router, tool_loop и контрактов summarize_video/transcribe_video/get_recent_history/query_chat_memory/исторического поиска не выполнялась.",
+      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Аудит сам признаёт, что контракты `summarize_video/transcribe_video/get_recent_history/query_chat_memory` не инспектировал, и при этом отнёс строку к «runtime-пробам»; в выкаченном коде проверено только существование модулей. (a) чисто статическая задача: `direct_execution.py` 362/461/887/1110/2546, `direct_capabilities.py` `CAPABILITY_TOOLS` 28 / `available_capabilities` 131 / `detect_action_intent` 459, `tool_router.py` и `tool_loop.py` целиком по существу, `tool_schemas.active_tools` 1099 и схемы четырёх инструментов. Проба не нужна.",
       "kind": "requirement",
       "merged_source_ids": [
         "L00121",
