@@ -1,0 +1,388 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "behavior-gates-simplification",
+  "note": "Восемь слайсов по пакетам BGS-01—08. Волна 1 — три независимых писателя с непересекающимися файлами (BGS-01-PRIVACY в лейне ur/b-search, BGS-03-SPEECH, BGS-04-GUARD-SCOPE) плюс backend-дельта BGS-06-ADMIN. BGS-02-EGRESS сериализуется за BGS-01 явной зависимостью (общий services/evidence_policy.py). BGS-05-BUDGET ждёт внешних UR-C/UR-D, UI-часть BGS-06 — UR-F/PVR UI. BGS-07-MATRIX и BGS-08-ACCEPT — join-слайсы.",
+  "arch_note": "arch/bgs-integration-contract.md в этом worktree отсутствует (документ утерян при рестарте сервера). Граф не вводит новых контрактов: он использует существующие evidence_policy.allowed/guard_egress, ToolEvidence из UR-B, public_speech_guard/outgoing_guard, negative_constraints/style_policy, param_catalog + effective-config UR-20—22. Новая общая граница => остановка и Architect.",
+  "serialization_rules": [
+    "services/evidence_policy.py — один писатель за раз: сначала BGS-01-PRIVACY (на свежем дереве после слияния UR-B кандидата 1001514e), затем BGS-02-EGRESS. Параллельная запись запрещена.",
+    "services/direct_chat_service.py — принадлежит BGS-02-EGRESS. Call-site правки из BGS-03/BGS-04/BGS-05 делаются отдельным патчем после BGS-02, никогда параллельно.",
+    "services/direct_execution.py — принадлежит BGS-05-BUDGET и только после UR-C/UR-D; до этого файл в ведении UR-лейна, BGS его не трогает.",
+    "services/negative_constraints.py — принадлежит BGS-04-GUARD-SCOPE; BGS-03-SPEECH и UR-E не пишут его в тот же интервал.",
+    "web/** (web/app.js, web/index.html, web/static/app.css) — один писатель за раз; UI-часть BGS-06-ADMIN стартует только после merge UR-F/PVR UI и не открывает второй экран настроек.",
+    "tests/** — файлы тестов закреплены за слайсами (test_evidence_policy_privacy, test_evidence_egress_guard, test_public_speech_guard, test_negative_constraints_bgs, test_direct_execution_budget, test_param_catalog_bgs, test_bgs_*); общий файл тестов не переиспользуется двумя писателями.",
+    "plans/features/behavior-gates-simplification/** — только PM/Reviewer/DevOps-документация и evidence; Builder не пишет туда код."
+  ],
+  "cross_task_serialization": [
+    "unified-reply:UR-B — та же зона (search/tool). BGS-01 применяется к его свежему дереву, а не к релизному снимку; второй параллельной реализации evidence_policy/tool-фазы не создаётся.",
+    "unified-reply:UR-E — speech-постпроцессор пересекается с BGS-03/BGS-04 по смыслу, но не по файлам (UR-E: direct_chat_service/prompt composer вызовы). Пересечение по prompt_composer.py снимается порядком: UR-E мержится первым.",
+    "unified-reply:UR-F / PVR UI — единственный владелец web/** на время UI-работы.",
+    "PVR-FC — доказательная проверка фактчека не ослабляется; FC-изменения мержатся до BGS-02, чтобы не переписывать один postprocess дважды."
+  ],
+  "slices": [
+    {
+      "id": "BGS-01-PRIVACY",
+      "title": "Удалить privacy-вето на веб-поиск и заменить его payload-гигиеной",
+      "wave": "W1",
+      "depends_on": [],
+      "write_scope": [
+        "services/evidence_policy.py",
+        "services/factcheck_planner.py",
+        "tests/test_evidence_policy_privacy.py"
+      ],
+      "mode": "writer",
+      "req_ids": [
+        "BGS-00.1",
+        "BGS-ANC-01",
+        "BGS-ANC-02",
+        "BGS-01",
+        "BGS-01.1",
+        "BGS-01.2",
+        "BGS-01.3",
+        "BGS-01.4",
+        "BGS-01.5",
+        "BGS-01.6",
+        "BGS-01.7",
+        "BGS-01.8",
+        "BGS-01.9",
+        "BGS-01.10",
+        "BGS-01.11",
+        "BGS-01.12",
+        "BGS-00.6",
+        "BGS-00.7"
+      ],
+      "acceptance": "Все ранее блокировавшиеся privacy-примеры доходят до реального поиска при доступном инструменте; новые трассы не содержат privacy_blocked, а RBAC, provider-down, SSRF и explicit no-web по-прежнему дают отказ с истинной причиной.",
+      "can_parallel_with": [
+        "BGS-03-SPEECH",
+        "BGS-04-GUARD-SCOPE",
+        "BGS-06-ADMIN"
+      ],
+      "join_barrier": "До BGS-02-EGRESS (общий services/evidence_policy.py) и до BGS-07-MATRIX",
+      "risk": "R0",
+      "next_role": "Builder (лейн ur/b-search уже в работе) -> Reviewer",
+      "why_one_slice": "Один связный результат — «инструмент больше не отказывает по приватности, остальные технические ограничения целы»; разделение на «снять флаг» и «убрать классификатор» дало бы полуработающий поиск.",
+      "active_lane": "ur/b-search, кандидат 1001514e на ревью (эта карта не создаёт второй параллельный путь)"
+    },
+    {
+      "id": "BGS-02-EGRESS",
+      "title": "Убрать смысловую постцензуру Evidence Egress Guard",
+      "wave": "W2",
+      "depends_on": [
+        "BGS-01-PRIVACY"
+      ],
+      "write_scope": [
+        "services/evidence_policy.py",
+        "services/direct_chat_service.py",
+        "tests/test_evidence_egress_guard.py"
+      ],
+      "mode": "writer",
+      "req_ids": [
+        "BGS-ANC-03",
+        "BGS-ANC-04",
+        "BGS-ANC-05",
+        "BGS-02",
+        "BGS-02.1",
+        "BGS-02.2",
+        "BGS-02.3",
+        "BGS-02.4",
+        "BGS-02.5",
+        "BGS-02.6",
+        "BGS-02.7",
+        "BGS-02.8",
+        "BGS-02.9",
+        "BGS-02.10",
+        "BGS-02.11",
+        "BGS-00.8"
+      ],
+      "acceptance": "На обычном ответе после L2 нет удаления содержательных предложений и повторного lookup ради фильтра; фактчек сохраняет claim→evidence, а доставленный текст совпадает с L2 original за вычетом явного стиля и технической очистки.",
+      "can_parallel_with": [
+        "BGS-03-SPEECH",
+        "BGS-04-GUARD-SCOPE"
+      ],
+      "join_barrier": "До BGS-07-MATRIX; пишет тот же файл, что BGS-01, поэтому строго после него",
+      "risk": "R1",
+      "next_role": "Builder -> Reviewer",
+      "why_one_slice": "Один результат — «готовый ответ больше не редактируется программно, а фактчек не ослаблен»; оба механизма живут в одном post-evidence контуре и по отдельности не проверяются.",
+      "serialized_file": "services/evidence_policy.py (общий с BGS-01-PRIVACY, поэтому явная зависимость)"
+    },
+    {
+      "id": "BGS-03-SPEECH",
+      "title": "Public Speech Guard: техническая очистка + наблюдение вместо цензуры речи",
+      "wave": "W1",
+      "depends_on": [],
+      "write_scope": [
+        "services/public_speech_guard.py",
+        "services/outgoing_guard.py",
+        "tests/test_public_speech_guard.py"
+      ],
+      "mode": "writer",
+      "req_ids": [
+        "BGS-00.2",
+        "BGS-ANC-06",
+        "BGS-ANC-09",
+        "BGS-03",
+        "BGS-03.1",
+        "BGS-03.2",
+        "BGS-03.3",
+        "BGS-03.4",
+        "BGS-03.5",
+        "BGS-03.6",
+        "BGS-03.7",
+        "BGS-03.8",
+        "BGS-03.9"
+      ],
+      "acceptance": "Естественные фразы и их цитаты возвращаются byte-preserving, служебные маркеры удаляются, а обнаружение метатекста даёт только событие без правки текста и без LLM-retry.",
+      "can_parallel_with": [
+        "BGS-01-PRIVACY",
+        "BGS-04-GUARD-SCOPE",
+        "BGS-06-ADMIN"
+      ],
+      "join_barrier": "До BGS-07-MATRIX",
+      "risk": "R1",
+      "next_role": "Builder -> Reviewer",
+      "why_one_slice": "Один результат — «две природы разделены: маркеры чистим, слова не трогаем»; это единственная точка, где решается судьба живого текста."
+    },
+    {
+      "id": "BGS-04-GUARD-SCOPE",
+      "title": "Form/Numeric/Metatext/Format — только при реальной трансформации",
+      "wave": "W1",
+      "depends_on": [],
+      "write_scope": [
+        "services/negative_constraints.py",
+        "services/style_policy.py",
+        "services/prompt_composer.py",
+        "tests/test_negative_constraints_bgs.py"
+      ],
+      "mode": "writer",
+      "req_ids": [
+        "BGS-00.5",
+        "BGS-ANC-07",
+        "BGS-ANC-08",
+        "BGS-04",
+        "BGS-04.1",
+        "BGS-04.2",
+        "BGS-04.3",
+        "BGS-04.4",
+        "BGS-04.5",
+        "BGS-04.6",
+        "BGS-04.7",
+        "BGS-04.8",
+        "BGS-04.9",
+        "BGS-04.10",
+        "BGS-04.11",
+        "BGS-00.9"
+      ],
+      "acceptance": "Form/Numeric/Format действуют только при реальной трансформации или протокольной ошибке; свободный Direct/Initiative не перегенерируется, владельческие правила формы применяются один раз.",
+      "can_parallel_with": [
+        "BGS-01-PRIVACY",
+        "BGS-03-SPEECH",
+        "BGS-06-ADMIN"
+      ],
+      "join_barrier": "До BGS-07-MATRIX",
+      "risk": "R1",
+      "next_role": "Builder -> Reviewer",
+      "why_one_slice": "Один результат — «проверки привязаны к факту трансформации, а не к свободной генерации»; разрыв на два слайса дал бы две конкурирующие политики одного нормализатора."
+    },
+    {
+      "id": "BGS-05-BUDGET",
+      "title": "Бюджеты и права выбора инструментов, согласованные с UR",
+      "wave": "W3",
+      "depends_on": [],
+      "write_scope": [
+        "services/direct_execution.py",
+        "config/settings.py",
+        "tests/test_direct_execution_budget.py"
+      ],
+      "mode": "writer",
+      "req_ids": [
+        "BGS-ANC-10",
+        "BGS-ANC-11",
+        "BGS-ANC-12",
+        "BGS-05",
+        "BGS-05.1",
+        "BGS-05.2",
+        "BGS-05.3",
+        "BGS-05.4",
+        "BGS-05.5",
+        "BGS-05.6"
+      ],
+      "acceptance": "Пределы шагов/токенов/символов выведены из ёмкости модели и бюджета и объяснимы; усечение посередине и потеря доказательств отсутствуют, физические лимиты и защита от зацикливания сохранены.",
+      "can_parallel_with": [],
+      "join_barrier": "После UR-C/UR-D (внешняя зависимость), до BGS-07-MATRIX",
+      "risk": "R2",
+      "next_role": "Builder (после UR-C/UR-D) -> Reviewer",
+      "why_one_slice": "Один результат — «ёмкость считается, а не угадывается»; но он целиком зависит от executor/budget пакетов UR, поэтому сейчас только PENDING.",
+      "blocked_by": [
+        "unified-reply:UR-C",
+        "unified-reply:UR-D"
+      ],
+      "blocked_reason": "services/direct_execution.py принадлежит активному UR-лейну; пересчёт пределов до его слияния создал бы вторую политику бюджета"
+    },
+    {
+      "id": "BGS-06-ADMIN",
+      "title": "Админка соответствует фактическому поведению (каталог, миграция, трасса)",
+      "wave": "W1",
+      "depends_on": [],
+      "write_scope": [
+        "services/param_catalog.py",
+        "config/chat_settings_seed.json",
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "tests/test_param_catalog_bgs.py"
+      ],
+      "mode": "writer",
+      "req_ids": [
+        "BGS-00.4",
+        "BGS-06",
+        "BGS-06.1",
+        "BGS-06.2",
+        "BGS-06.3",
+        "BGS-06.4",
+        "BGS-06.5",
+        "BGS-06.6",
+        "BGS-06.7",
+        "BGS-06.8",
+        "BGS-06.9",
+        "BGS-06.10",
+        "BGS-06.11",
+        "BGS-06.12",
+        "BGS-06.13"
+      ],
+      "acceptance": "В админке нет мёртвых настроек: параметр без runtime consumer недоступен для записи и помечен deprecated, у действующего показан source/effective value/consumer, а трасса turn показывает цепочку до и после.",
+      "can_parallel_with": [
+        "BGS-01-PRIVACY",
+        "BGS-03-SPEECH",
+        "BGS-04-GUARD-SCOPE"
+      ],
+      "join_barrier": "Backend-часть каталога — сейчас; web/** — только после merge UR-F/PVR UI, до BGS-07-MATRIX",
+      "risk": "R2",
+      "next_role": "Builder (backend catалог) -> Builder/Reviewer (UI после UR-F)",
+      "why_one_slice": "Один результат — «UI и каталог говорят правду о runtime»; но UI нельзя безопасно менять до UR-F/PVR, поэтому внутри слайса backend-дельта идёт первой.",
+      "blocked_by": [
+        "unified-reply:UR-F",
+        "PVR UI"
+      ],
+      "blocked_reason": "web/app.js, web/index.html, web/static/app.css — единственный писатель; сейчас их держит UR-F/PVR. Backend-часть (param_catalog, seed, effective settings) независима и стартует сразу."
+    },
+    {
+      "id": "BGS-07-MATRIX",
+      "title": "Conflict Resolution Matrix и снятие несовместимых императивов",
+      "wave": "W4",
+      "depends_on": [
+        "BGS-01-PRIVACY",
+        "BGS-02-EGRESS",
+        "BGS-03-SPEECH",
+        "BGS-04-GUARD-SCOPE",
+        "BGS-05-BUDGET",
+        "BGS-06-ADMIN"
+      ],
+      "write_scope": [
+        "plans/features/behavior-gates-simplification/"
+      ],
+      "mode": "writer (документ)",
+      "req_ids": [
+        "BGS-00",
+        "BGS-00.3",
+        "BGS-07",
+        "BGS-07.1",
+        "BGS-07.2",
+        "BGS-07.3",
+        "BGS-07.4",
+        "BGS-07.5",
+        "BGS-07.6",
+        "BGS-07.7",
+        "BGS-07.8",
+        "BGS-07.9",
+        "BGS-00.10",
+        "BGS-07.10",
+        "BGS-07.12",
+        "BGS-07.11",
+        "BGS-07.M1",
+        "BGS-07.M2",
+        "BGS-07.M3",
+        "BGS-07.M4",
+        "BGS-07.M5",
+        "BGS-07.M6",
+        "BGS-07.M7",
+        "BGS-07.M8",
+        "BGS-07.M9",
+        "BGS-07.M10",
+        "BGS-07.M11",
+        "BGS-07.M12"
+      ],
+      "acceptance": "Матрица заполнена по каждому пункту §8 и §0, ссылки на строки unified-reply переписаны, расхождений без записи нет; документ приложен к результату эпика, а не вместо кода.",
+      "can_parallel_with": [],
+      "join_barrier": "Join после всех исполнительных слайсов; до BGS-08-ACCEPT",
+      "risk": "R1",
+      "next_role": "PM/Reviewer -> Reviewer",
+      "why_one_slice": "Один результат — «ни один прежний императив не остался в силе случайно»; это сквозная сверка, её нельзя доказать внутри отдельного пакета."
+    },
+    {
+      "id": "BGS-08-ACCEPT",
+      "title": "Приёмочные проверки, сценарии A-J, реальные манифесты и DoD",
+      "wave": "W5",
+      "depends_on": [
+        "BGS-01-PRIVACY",
+        "BGS-02-EGRESS",
+        "BGS-03-SPEECH",
+        "BGS-04-GUARD-SCOPE",
+        "BGS-05-BUDGET",
+        "BGS-06-ADMIN",
+        "BGS-07-MATRIX"
+      ],
+      "write_scope": [
+        "tests/test_bgs_acceptance.py",
+        "tests/test_bgs_integration_scenarios.py",
+        "plans/features/behavior-gates-simplification/evidence/"
+      ],
+      "mode": "writer (тесты) + evidence",
+      "req_ids": [
+        "BGS-08",
+        "BGS-08.1",
+        "BGS-08.2",
+        "BGS-08.3",
+        "BGS-08.4",
+        "BGS-08.5",
+        "BGS-08.6",
+        "BGS-08.7",
+        "BGS-08.18",
+        "BGS-08.19",
+        "BGS-08.20",
+        "BGS-08.21",
+        "BGS-08.22",
+        "BGS-08.23",
+        "BGS-08.24",
+        "BGS-08.25",
+        "BGS-08.26",
+        "BGS-08.27",
+        "BGS-08.28",
+        "BGS-08.29",
+        "BGS-08.31",
+        "BGS-08.32",
+        "BGS-08.33",
+        "BGS-08.34",
+        "BGS-08.35",
+        "BGS-08.36",
+        "BGS-08.37",
+        "BGS-08.8",
+        "BGS-08.9",
+        "BGS-08.10",
+        "BGS-08.11",
+        "BGS-08.12",
+        "BGS-08.13",
+        "BGS-08.14",
+        "BGS-08.15",
+        "BGS-08.16",
+        "BGS-08.17",
+        "BGS-08.30",
+        "BGS-08.38"
+      ],
+      "acceptance": "Компонентные тесты, сценарии A-J на реальных манифестах и независимое ревью подтверждают BGS-01—07; DoD выполнен, отчёт «не удалось» не принимается.",
+      "can_parallel_with": [],
+      "join_barrier": "Финальный join; после него — release/деплой DevOps",
+      "risk": "R2",
+      "next_role": "Builder (тесты) -> Reviewer -> DevOps",
+      "why_one_slice": "Один результат — «эпик доказан на реальных данных, а не на моках»; отдельные тесты по строкам создали бы параллельный harness вместо родного."
+    }
+  ]
+}

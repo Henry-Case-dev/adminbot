@@ -1,0 +1,970 @@
+{
+ "OI-2026-10-25-P0-CORRECTIVE": [
+  {
+   "task_id": "asap-speech-arch",
+   "map": "plans/features/asap-speech-arch/requirements-map-p0-corrective.json",
+   "req_ids": [
+    "L1-ROUTING-REPAIR",
+    "MEMORY-LORE-AUDIT",
+    "L1-ROOT-CAUSE",
+    "L1-NO-FORCED-MODE",
+    "L1-HISTORY-DEEP",
+    "L1-DEPTH-NOT-LENGTH",
+    "L1-NO-HARDCODED",
+    "L1-TWO-SCENARIOS"
+   ]
+  }
+ ],
+ "OI-2026-10-25-REPORT-FORMAT": [
+  {
+   "task_id": "asap-speech-arch",
+   "map": "plans/features/asap-speech-arch/requirements-map-p0-corrective.json",
+   "req_ids": [
+    "REPORT-PLAIN-LANGUAGE",
+    "REPORT-WHY-STOPPED",
+    "REPORT-VERSION",
+    "REPORT-RESIDUAL",
+    "REPORT-PROD-13"
+   ]
+  },
+  {
+   "task_id": "p0-factcheck-media",
+   "map": "plans/features/p0-factcheck-media/requirements-map.json",
+   "req_ids": [
+    "FC-QUEUE-09",
+    "FC-QUEUE-08",
+    "FC-QUEUE-01",
+    "FC-QUEUE-05",
+    "FC-CTX-02"
+   ]
+  }
+ ],
+ "OI-2026-10-25-P0-FACTCHECK": [
+  {
+   "task_id": "p0-factcheck-media",
+   "map": "plans/features/p0-factcheck-media/requirements-map.json",
+   "req_ids": [
+    "FC-QUEUE-08",
+    "FC-QUEUE-01",
+    "FC-QUEUE-09",
+    "FC-QUEUE-02",
+    "FC-QUEUE-03",
+    "FC-QUEUE-04",
+    "FC-QUEUE-05",
+    "FC-QUEUE-06"
+   ]
+  }
+ ],
+ "OI-2026-10-25-FC-WHOLE-POST": [
+  {
+   "task_id": "p0-factcheck-media",
+   "map": "plans/features/p0-factcheck-media/requirements-map.json",
+   "req_ids": [
+    "FC-WHOLE-01",
+    "FC-WHOLE-03",
+    "FC-WHOLE-02",
+    "FC-AUDIT-04",
+    "REQ-FC-09-08"
+   ]
+  }
+ ],
+ "OI-2026-10-25-FC-CONTEXT-WINDOW": [
+  {
+   "task_id": "p0-factcheck-media",
+   "map": "plans/features/p0-factcheck-media/requirements-map.json",
+   "req_ids": [
+    "REQ-FC-09-12",
+    "FC-WIDE-05",
+    "FC-VISION-05",
+    "FC-VISION-04",
+    "FC-CTX-01"
+   ]
+  }
+ ],
+ "OI-2026-10-25-FC-WIDE-DEFAULT": [
+  {
+   "task_id": "p0-factcheck-media",
+   "map": "plans/features/p0-factcheck-media/requirements-map.json",
+   "req_ids": [
+    "FC-WIDE-02",
+    "FC-WIDE-05",
+    "FC-WIDE-01",
+    "FC-CTX-02",
+    "FC-WIDE-03"
+   ]
+  }
+ ],
+ "OI-2026-10-25-UNIFIED-INTAKE": [
+  {
+   "task_id": "asap-speech-arch",
+   "map": "plans/features/asap-speech-arch/requirements-map.json",
+   "req_ids": [
+    "REQ-REPLY-OPT",
+    "P0G-PARSER",
+    "ADD2-PRESERVE",
+    "ADD2-PERSONA-FULL",
+    "ADD2-KEEP-FULL"
+   ]
+  },
+  {
+   "task_id": "p0-factcheck-media",
+   "map": "plans/features/p0-factcheck-media/requirements-map.json",
+   "req_ids": [
+    "FC-QUEUE-10",
+    "FC-QUEUE-09",
+    "FC-QUEUE-08",
+    "FC-QUEUE-01"
+   ]
+  }
+ ],
+ "OI-2026-10-26-P0-DELTA": [
+  {
+   "task_id": "p0-delta-analysis",
+   "map": "plans/features/p0-delta-analysis/requirements-map.json",
+   "req_ids": [
+    "REQ-DELTA-06-NEW-TOOL-PROOF",
+    "REQ-DELTA-DONE-NO-UNIVERSAL-TEMPLATE",
+    "REQ-DELTA-12-HL-MULTIYEAR-SUBJECT",
+    "REQ-DELTA-12-02",
+    "REQ-DELTA-03-EIGHT-DISTINCTIONS"
+   ]
+  },
+  {
+   "task_id": "asap-speech-arch",
+   "map": "plans/features/asap-speech-arch/requirements-map.json",
+   "req_ids": [
+    "UI-P2",
+    "P0G-MODELONLY",
+    "P0F-MATRIX",
+    "P0A-RISK",
+    "MIGR-NORETURN"
+   ]
+  }
+ ],
+ "OI-2026-10-26-NO-META-SCOPE": [
+  {
+   "task_id": "p0-delta-analysis",
+   "map": "plans/features/p0-delta-analysis/requirements-map.json",
+   "req_ids": [
+    "REQ-DELTA-11-NO-NEW-LAYER",
+    "REQ-DELTA-11-NO-MANDATORY-STRUCTURES",
+    "REQ-DELTA-03-NO-JUDGE-BY-PLAUSIBLE-ANSWER",
+    "REQ-DELTA-DONE-PRESERVE-CORE",
+    "REQ-DELTA-14-SAFE-DEPLOY"
+   ]
+  },
+  {
+   "task_id": "asap-speech-arch",
+   "map": "plans/features/asap-speech-arch/requirements-map-p0-hotfix.json",
+   "req_ids": [
+    "GOAL-NATURAL-SPEECH",
+    "CORE-ACTIVE-SNAPSHOT",
+    "TRACE-NO-BLAME-MODEL",
+    "REVIEW-RAW-ANSWERS",
+    "REVIEW-PAYLOAD-PROVENANCE"
+   ]
+  }
+ ],
+ "OI-2026-10-26-ASAP5-QUEUED": [
+  {
+   "task_id": "asap5-multimodal",
+   "map": "plans/features/asap5-multimodal/requirements-map.json",
+   "req_ids": [
+    "REQ-QUEUE-LAST",
+    "REQ-QUEUE-DEDUP",
+    "REQ-VIS-RACE"
+   ]
+  }
+ ],
+ "OI-2026-10-27-POST-ASAP5": [
+  {
+   "task_id": "post-asap5-corrective",
+   "map": "plans/features/post-asap5-corrective/requirements-map.json",
+   "req_ids": [
+    "PA5-QUEUE",
+    "PA5-S9-ALIGN",
+    "PA5-S12-DELIVERY",
+    "PA5-S4-MODEL",
+    "PA5-S10-4"
+   ]
+  }
+ ],
+ "OI-2026-10-27-NOSTALGIA-REWORK": [
+  {
+   "task_id": "p0-nostalgia-rework",
+   "map": "plans/features/p0-nostalgia-rework/requirements-map.json",
+   "req_ids": [
+    "NOST-01",
+    "NOST-02",
+    "NOST-03",
+    "NOST-04",
+    "NOST-05",
+    "NOST-06",
+    "NOST-07",
+    "NOST-08",
+    "NOST-09",
+    "NOST-10"
+   ]
+  }
+ ],
+ "OI-2026-10-28-FACTCHECK-POST-RELEASE": [
+  {
+   "task_id": "p0-factcheck-post-release",
+   "map": "plans/features/p0-factcheck-post-release/requirements-map.json",
+   "req_ids": [
+    "FC-06A",
+    "FC-11",
+    "FC-04D",
+    "FC-02D",
+    "FC-02A"
+   ]
+  }
+ ],
+ "OI-2026-10-28-ADMIN-CACHE-TOGGLE-SAVE": [
+  {
+   "task_id": "p0-admin-cache-toggle-save",
+   "map": "plans/features/p0-admin-cache-toggle-save/requirements-map.json",
+   "req_ids": [
+    "TOG-1",
+    "TOG-2",
+    "TOG-4",
+    "TOG-3",
+    "TOG-5"
+   ]
+  }
+ ],
+ "OI-2026-10-29-HISTORY-ANALYSIS": [
+  {
+   "task_id": "p0-history-analysis",
+   "map": "plans/features/p0-history-analysis/requirements-map.json",
+   "req_ids": [
+    "REQ-HA-DEPLOY-QUEUE",
+    "REQ-HA-DEPLOY-POSTCHECK",
+    "REQ-HA-SAMPLE-NO-MEMORY-COPY",
+    "REQ-HA-PAGES-CONTINUATION",
+    "REQ-HA-STAGE-A"
+   ]
+  }
+ ],
+ "OI-2026-10-29-RELEASE-THEN-MIGRATE": [
+  {
+   "task_id": "release-then-migrate",
+   "map": "plans/features/release-then-migrate/requirements-map.json",
+   "req_ids": [
+    "REQ-RM-PREP-NO-REKEY",
+    "REQ-RM-ORDER-A2E",
+    "REQ-RM-MIGRATE-NOW",
+    "REQ-RM-SECRETS-DEPLOY",
+    "REQ-RM-PROHIB-DATA",
+    "REQ-RM-PROHIB-DUAL",
+    "REQ-RM-PROHIB-DUALUPGRADE",
+    "REQ-RM-PROHIB-REIMPORT"
+   ]
+  },
+  {
+   "task_id": "p0-history-analysis",
+   "map": "plans/features/p0-history-analysis/requirements-map.json",
+   "req_ids": [
+    "REQ-HA-OWNER-REPORT",
+    "REQ-HA-STAGE-A",
+    "REQ-HA-SEG-DETERMINISTIC",
+    "REQ-HA-SEG-DEGRADE",
+    "REQ-HA-SAMPLE-STABLE"
+   ]
+  }
+ ],
+ "OI-2026-10-29-FINAL-DECOMMISSION": [
+  {
+   "task_id": "release-then-migrate",
+   "map": "plans/features/release-then-migrate/requirements-map.json",
+   "req_ids": [
+    "REQ-RM-SECRETS-DEPLOY",
+    "REQ-RM-SWITCH-REPORT",
+    "REQ-RM-RELEASE-GATE",
+    "REQ-RM-CUT-STEP6",
+    "REQ-RM-ROLLBACK-POST"
+   ]
+  }
+ ],
+ "OI-2026-10-29-EVOL-LAUNCH": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "EVOL-001",
+    "EVOL-010",
+    "EVOL-045",
+    "EVOL-014"
+   ]
+  }
+ ],
+ "OI-2026-10-31-EVOL-ADDENDUM": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "EVOL-032"
+   ]
+  }
+ ],
+ "OI-2026-10-31-EVOL-SRC-COG": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "ER-S44",
+    "ER-S03",
+    "ER-61",
+    "ER-50",
+    "ER-22"
+   ]
+  }
+ ],
+ "OI-2026-10-31-ASAP-FC-ADMISSION": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "ASAP-VISION-SYNC-ADMIN-01",
+    "ASAP-VISION-SYNC-01"
+   ]
+  }
+ ],
+ "OI-2026-10-31-ASAP-VISION-SYNC": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "ASAP-FC-ADMISSION-01"
+   ]
+  }
+ ],
+ "OI-2026-10-31-ASAP-VISION-SYNC-WATCHDOG": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "SC-16",
+    "ASAP-VISION-SYNC-ADMIN-01"
+   ]
+  }
+ ],
+ "OI-2026-10-31-ASAP-FC-EVIDENCE-STYLE": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "ASAP-FC-ADMISSION-01"
+   ]
+  }
+ ],
+ "OI-2026-10-31-NAV-CONTRACT": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "EVOL-023"
+   ]
+  }
+ ],
+ "OI-2026-10-31-ASAP-UI-02": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "ASAP-UI-02-00"
+   ]
+  }
+ ],
+ "OI-2026-11-01-ASAP-EVIDENCE-ROUTING": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "ER-66",
+    "ER-74",
+    "ER-02",
+    "EVOL-DoD",
+    "ER-62"
+   ]
+  }
+ ],
+ "OI-2026-11-01-SUMMARY-COVER-INTEGRITY": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "EVOL-027"
+   ]
+  }
+ ],
+ "OI-2026-11-07-MEMORY-COGNITIVE-02": [
+  {
+   "task_id": "epic-memory-cognitive-02",
+   "map": "plans/features/memory-cognitive-02/requirements-map.json",
+   "req_ids": [
+    "MEM-02.1",
+    "MEM-02.2",
+    "MEM-02.3",
+    "MEM-02.4",
+    "MEM-02.5",
+    "MEM-02.6",
+    "MEM-02.7",
+    "MEM-02.8",
+    "MEM-03.1",
+    "MEM-03.2"
+   ]
+  },
+  {
+   "task_id": "menu-01",
+   "map": "plans/features/menu-01/requirements-map.json",
+   "req_ids": [
+    "MENU-01.8",
+    "MENU-01.9",
+    "MENU-01.7",
+    "MENU-01.6",
+    "MENU-01.5"
+   ]
+  }
+ ],
+ "OI-2026-11-07-CONTEXT-INTEGRITY-FACTCHECK": [
+  {
+   "task_id": "factcheck-clean-publication",
+   "map": "plans/features/factcheck-clean-publication/requirements-map.json",
+   "req_ids": [
+    "FCP-01",
+    "FCP-02",
+    "FCP-03",
+    "FCP-04",
+    "FCP-05",
+    "FCP-06",
+    "FCP-07"
+   ]
+  },
+  {
+   "task_id": "evol-reply-context-integrity-01",
+   "map": "plans/features/evol-reply-context-integrity-01/requirements-map.json",
+   "req_ids": [
+    "RC-TGT-NO-FABRICATED-ID",
+    "RC-TGT-EXPLICIT-STORED",
+    "RC-TGT-EXPLICIT-REPLY",
+    "RC-S109",
+    "RC-S100"
+   ]
+  }
+ ],
+ "OI-2026-11-08-EPIC-ADMINBOT-CORRECTIVE-YM-NOST": [
+  {
+   "task_id": "epic-memory-cognitive-02",
+   "map": "plans/features/memory-cognitive-02/requirements-map.json",
+   "req_ids": [
+    "MEM-04.6"
+   ]
+  },
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "ASAP-VISION-SYNC-01"
+   ]
+  },
+  {
+   "task_id": "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108",
+   "map": "plans/features/epic-adminbot-corrective-ym-nost-20261108/requirements-map.json",
+   "req_ids": [
+    "SRC-0631",
+    "SRC-0332",
+    "PAY-YM-SIGNATURE",
+    "NOST-EVIDENCE-FRAME",
+    "VISION-OWN-PROVENANCE"
+   ]
+  },
+  {
+   "task_id": "evol-reply-context-integrity-01",
+   "map": "plans/features/evol-reply-context-integrity-01/requirements-map.json",
+   "req_ids": [
+    "RC-S070",
+    "RC-S068",
+    "RC-S057",
+    "RC-S045",
+    "RC-S044"
+   ]
+  },
+  {
+   "task_id": "p0-vision-universal",
+   "map": "plans/features/p0-vision-universal/requirements-map.json",
+   "req_ids": [
+    "P0V-TEST-MATRIX",
+    "P0V-PROBE-CACHE",
+    "P0V-ARCH-SWITCH",
+    "P0V-ARCH-SPLIT"
+   ]
+  },
+  {
+   "task_id": "asap5-multimodal",
+   "map": "plans/features/asap5-multimodal/requirements-map.json",
+   "req_ids": [
+    "REQ-QUEUE-DEDUP",
+    "REQ-CLOSE-ARCH-PRESERVE"
+   ]
+  },
+  {
+   "task_id": "p0-nostalgia-rework",
+   "map": "plans/features/p0-nostalgia-rework/requirements-map.json",
+   "req_ids": [
+    "NOST-18",
+    "DEV-04",
+    "COR-04"
+   ]
+  }
+ ],
+ "OI-2026-11-09-MEMORY-07-ENABLE-AND-QUALITY": [
+  {
+   "task_id": "epic-memory-cognitive-02",
+   "map": "plans/features/memory-cognitive-02/requirements-map.json",
+   "req_ids": [
+    "MEM-07.2",
+    "MEMORY-00",
+    "MEM-08-S1",
+    "MEM-07.5",
+    "SC-30"
+   ]
+  }
+ ],
+ "OI-2026-11-09-VMQ-ONTO-01": [
+  {
+   "task_id": "vmq-onto-01",
+   "map": "plans/features/vmq-onto-01/requirements-map.json",
+   "req_ids": [
+    "QM-01",
+    "QM-06",
+    "QM-02",
+    "QM-08",
+    "QM-09",
+    "QM-04",
+    "QM-03",
+    "QM-07"
+   ]
+  },
+  {
+   "task_id": "epic-memory-cognitive-02",
+   "map": "plans/features/memory-cognitive-02/requirements-map.json",
+   "req_ids": [
+    "MEM-07.5",
+    "SC-20",
+    "MENU-01.9",
+    "MEMORY-07",
+    "MEMORY-00"
+   ]
+  }
+ ],
+ "OI-2026-11-09-VMQ-QRNG-PROVIDER-MANAGEMENT": [
+  {
+   "task_id": "vmq-onto-01",
+   "map": "plans/features/vmq-onto-01/requirements-map.json",
+   "req_ids": [
+    "QM-02",
+    "Q-08",
+    "Q-02",
+    "Q-01",
+    "U-01"
+   ]
+  }
+ ],
+ "OI-2026-11-09-SELF-DIAG-01": [
+  {
+   "task_id": "self-diag-01",
+   "map": "plans/features/self-diag-01/requirements-map.json",
+   "req_ids": [
+    "SD1-GRAL-01",
+    "SD1-D1-14",
+    "SD1-GRAL-02",
+    "SD1-GRAL-03",
+    "SD1-EVD-01",
+    "SD1-EVD-02",
+    "SD1-D3-01",
+    "SD1-D4-01"
+   ]
+  }
+ ],
+ "OI-2026-11-09-SELF-DIAG-ACCESS-MATRIX": [
+  {
+   "task_id": "self-diag-01",
+   "map": "plans/features/self-diag-01/requirements-map.json",
+   "req_ids": [
+    "SD1-AC-14",
+    "SD1-D5-02",
+    "SD1-AMX-09",
+    "SD1-AMX-05",
+    "SD1-SEM-11"
+   ]
+  }
+ ],
+ "OI-2026-11-09-MOD-ACL-UX-01": [
+  {
+   "task_id": "mod-acl-ux-01",
+   "map": "plans/features/mod-acl-ux-01/requirements-map.json",
+   "req_ids": [
+    "MAC-S0-01",
+    "MAC-S0-02",
+    "MAC-S0-03",
+    "MAC-S0-04",
+    "MAC-S0-05",
+    "MAC-S0-06",
+    "MAC-S0-07",
+    "MAC-S0-08"
+   ]
+  }
+ ],
+ "OI-2026-11-09-VECTOR-MEMORY-DENIED-LIVE": [
+  {
+   "task_id": "mod-acl-ux-01",
+   "map": "plans/features/mod-acl-ux-01/requirements-map.json",
+   "req_ids": [
+    "MAC-S0-05",
+    "MAC-S2-50",
+    "MAC-S4-157",
+    "MAC-S4-158",
+    "MAC-S4-159",
+    "MAC-S4-160",
+    "MAC-S4-161",
+    "MAC-S4-169"
+   ]
+  }
+ ],
+ "OI-2026-11-02-PERF-PARITY": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "ASAP-UI-02-06",
+    "SC-40",
+    "SC-25",
+    "SC-03",
+    "EVOL-SRC-READER-S3"
+   ]
+  }
+ ],
+ "OI-2026-11-02-LIMITS-DECISION": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "ER-08",
+    "ER-24"
+   ]
+  }
+ ],
+ "OI-2026-11-02-ASAP-FC-VOICE-01": [
+  {
+   "task_id": "asap-fc-voice-01",
+   "map": "plans/features/asap-fc-voice-01/requirements-map.json",
+   "req_ids": [
+    "FCV-ORD-09",
+    "FCV-ORD-07",
+    "FCV-PRE-01",
+    "FCV-VOICE-01",
+    "FCV-PRO-05",
+    "FCV-PRO-03",
+    "FCV-PRO-06",
+    "FCV-PRO-02"
+   ]
+  }
+ ],
+ "OI-2026-11-02-NARROW-VIEWPORT": [
+  {
+   "task_id": "evol",
+   "map": "plans/features/evol/requirements-map.json",
+   "req_ids": [
+    "ASAP-UI-02-18",
+    "ASAP-UI-02-05",
+    "ASAP-VISION-SYNC-01"
+   ]
+  }
+ ],
+ "OI-2026-11-02-ANTICLICHE-MEMORY-ADMIN-UX": [
+  {
+   "task_id": "asap-evol-anticliche-memory-admin-ux",
+   "map": "plans/features/asap-evol-anticliche-memory-admin-ux/requirements-map.json",
+   "req_ids": [
+    "GLOBAL-CONFLICT-PRIORITY",
+    "GLOBAL-EXEC-CONTRACT",
+    "AC-INV-01",
+    "AC-INV-02",
+    "AC-INV-03",
+    "AC-INV-04",
+    "AC-INV-05",
+    "AC-INV-06"
+   ]
+  }
+ ],
+ "OI-2026-11-02-EXPERIENCE-LEARNING-PERFORMANCE-HELP": [
+  {
+   "task_id": "epic-experience-learning-performance-help",
+   "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+   "req_ids": [
+    "P-01",
+    "P-02",
+    "P-03",
+    "P-04",
+    "P-05",
+    "P-06",
+    "P-07",
+    "P-08",
+    "P-09",
+    "P-10"
+   ]
+  }
+ ],
+ "OI-2026-11-02-PERFORMANCE-PARITY": [
+  {
+   "task_id": "epic-experience-learning-performance-help",
+   "map": "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+   "req_ids": [
+    "P-SPEC-PARITY"
+   ]
+  },
+  {
+   "task_id": "epic-experience-learning-performance-help",
+   "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+   "req_ids": [
+    "P-01",
+    "P-12",
+    "P-16",
+    "P-SPEC-PARITY",
+    "P-GENUINE"
+   ]
+  }
+ ],
+ "OI-2026-11-02-MEME-IMAGE-ONLY": [
+  {
+   "task_id": "p0-meme-image-only",
+   "map": "plans/features/p0-meme-image-only/requirements-map.json",
+   "req_ids": [
+    "MEME-ACC-01",
+    "MEME-ACC-02",
+    "MEME-ACC-03",
+    "MEME-ACC-04",
+    "MEME-ACC-05",
+    "MEME-RULE-01",
+    "MEME-RULE-02",
+    "MEME-RULE-03"
+   ]
+  }
+ ],
+ "OI-2026-11-03-MEME-PIPELINE-REFACTOR": [
+  {
+   "task_id": "meme-pipeline-refactor-01",
+   "map": "plans/features/meme-pipeline-refactor-01/requirements-map.json",
+   "req_ids": [
+    "MEME-PIPE-THREE-STAGES",
+    "MEME-PROHIB-NO-DUP-PIPELINE",
+    "MEME-STAGE-A-NO-CEILING",
+    "MEME-STAGE-B-JOKE-CALL",
+    "MEME-PROMPT-JOKE-DEFAULT",
+    "MEME-PROMPT-JOKE-FIELD",
+    "MEME-STAGE-C-IMAGE-PROMPT",
+    "MEME-LEN-J-BUDGET"
+   ]
+  }
+ ],
+ "OI-2026-11-03-MEME-CMD-AUTODELETE": [
+  {
+   "task_id": "meme-pipeline-refactor-01",
+   "map": "plans/features/meme-pipeline-refactor-01/requirements-map.json",
+   "req_ids": [
+    "MEME-CMD-DELETE-ON-RECEIPT",
+    "MEME-CMD-DELETE-NO-NOISE",
+    "MEME-CMD-DELETE-FAILOPEN",
+    "MEME-CMD-DELETE-ADMIN",
+    "MEME-IIC-STALE-NO-SEND"
+   ]
+  }
+ ],
+ "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS": [
+  {
+   "task_id": "meme-pipeline-refactor-01",
+   "map": "plans/features/meme-pipeline-refactor-01/requirements-map.json",
+   "req_ids": [
+    "MEME-JOKE-DIAG-REVISIONS",
+    "MEME-JOKE-REAL-PAYLOAD-REVIEW",
+    "MEME-JOKE-SUMMARY-UNCHANGED",
+    "MEME-JOKE-TASK-ONLY",
+    "MEME-JOKE-DIAG-UI"
+   ]
+  }
+ ],
+ "OI-2026-11-03-INITIATIVE-INDEPENDENCE": [
+  {
+   "task_id": "meme-pipeline-refactor-01",
+   "map": "plans/features/meme-pipeline-refactor-01/requirements-map.json",
+   "req_ids": [
+    "MEME-IIC-ATOMIC-ONE-PUBLISHES",
+    "MEME-IIC-STALE-NO-SEND",
+    "MEME-IIC-POSTPONE-RECHECK",
+    "MEME-IIC-MANUAL-PRIORITY",
+    "MEME-IIC-INTERVAL-NOT-REPLACE"
+   ]
+  }
+ ],
+ "OI-2026-11-03-MEME-PUBLICATION-HOTFIX": [
+  {
+   "task_id": "hotfix-meme-publication-initiative-ui",
+   "map": "plans/features/hotfix-meme-publication-initiative-ui/requirements-map.json",
+   "req_ids": [
+    "HMF-ACC-01",
+    "HMF-ACC-02",
+    "HMF-ACC-04",
+    "HMF-ACC-03",
+    "HMF-ACC-05",
+    "HMF-ACC-08",
+    "HMF-LEN-01",
+    "HMF-LEN-02"
+   ]
+  }
+ ],
+ "OI-2026-11-03-EPIC-CM-VISUAL-01": [
+  {
+   "task_id": "epic-cm-visual-01",
+   "map": "plans/features/epic-cm-visual-01/requirements-map.json",
+   "req_ids": [
+    "CMV-PERF-01",
+    "CMV-INT-01",
+    "CMV-NODE-01",
+    "CMV-EDGE-01",
+    "CMV-ANI-01",
+    "CMV-LOD-01",
+    "CMV-LODB-02",
+    "CMV-INV-01"
+   ]
+  }
+ ],
+ "OI-2026-11-03-REPLY-CONTEXT-INTEGRITY-V5": [
+  {
+   "task_id": "evol-reply-context-integrity-01",
+   "map": "plans/features/evol-reply-context-integrity-01/requirements-map.json",
+   "req_ids": [
+    "RC-CF-PRIORITY",
+    "RC-TGT-INVARIANT",
+    "RC-FIN-NO-AUDIT-ONLY",
+    "RC-TGT-NO-FABRICATED-ID",
+    "RC-DSC-INTERVENTION",
+    "RC-FIN-RECONCILE-HEAD",
+    "RC-DEF-TRIGGER",
+    "RC-DEF-TARGET"
+   ]
+  }
+ ],
+ "OI-2026-11-04-PROMPT-VERSIONING-UX": [
+  {
+   "task_id": "epic-prompt-versioning-ux-01",
+   "map": "plans/features/epic-prompt-versioning-ux-01/requirements-map.json",
+   "req_ids": [
+    "PVR-BYTES-01",
+    "PVR-HEAD-01",
+    "PVR-GOAL-01",
+    "PVR-INV-01",
+    "PVR-INV-02",
+    "PVR-INV-03",
+    "PVR-INV-04",
+    "PVR-INV-05"
+   ]
+  }
+ ],
+ "OI-2026-11-05-UNIFIED-REPLY": [
+  {
+   "task_id": "unified-reply",
+   "map": "plans/features/unified-reply/requirements-map.json",
+   "req_ids": [
+    "UR-01",
+    "UR-02",
+    "UR-03",
+    "UR-04",
+    "UR-05",
+    "UR-06",
+    "UR-07",
+    "UR-08",
+    "UR-09",
+    "UR-10"
+   ]
+  }
+ ],
+ "OI-2026-11-05-PVR-FC-CORRECTIVE-01": [
+  {
+   "task_id": "pvr-fc-corrective-01",
+   "map": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+   "req_ids": [
+    "PVR-01",
+    "PVR-02",
+    "PVR-03",
+    "PVR-04",
+    "PVR-05",
+    "PVR-06"
+   ]
+  }
+ ],
+ "OI-2026-11-05-GOODMORNING-QUANTUM-MEDIA": [
+  {
+   "task_id": "goodmorning-quantum-media",
+   "map": "plans/features/goodmorning-quantum-media/requirements-map.json",
+   "req_ids": [
+    "GM-01",
+    "GM-02",
+    "GM-03",
+    "GM-04",
+    "GM-05",
+    "GM-06"
+   ]
+  }
+ ],
+ "OI-2026-11-05-BEHAVIOR-GATES-SIMPLIFICATION": [
+  {
+   "task_id": "behavior-gates-simplification-01",
+   "map": "plans/features/behavior-gates-simplification/requirements-map.json",
+   "req_ids": [
+    "BGS-01",
+    "BGS-02",
+    "BGS-03",
+    "BGS-04",
+    "BGS-05",
+    "BGS-06",
+    "BGS-07",
+    "BGS-08"
+   ]
+  }
+ ],
+ "OI-2026-11-05-REMOVE-LEGACY-REPHRASING-V2": [
+  {
+   "task_id": "remove-legacy-rephrasing-01",
+   "map": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+   "req_ids": [
+    "R-PROC.0",
+    "R-PROC.9",
+    "R-DEF.AREA",
+    "R-DEF.ROOT",
+    "R-DEF.MAINRULE",
+    "R-PROC.10",
+    "R-00.1",
+    "R-00.2"
+   ]
+  }
+ ],
+ "OI-2026-11-10-VECTOR-MEMORY-NO-SETTINGS": [
+  {
+   "task_id": "mod-acl-ux-01",
+   "map": "plans/features/mod-acl-ux-01/requirements-map.json",
+   "req_ids": [
+    "MAC-S0-06",
+    "MAC-S2-49",
+    "MAC-S2-82",
+    "MAC-S2-83",
+    "MAC-S2-84",
+    "MAC-S2-90",
+    "MAC-S5-NAV-01",
+    "MAC-S5-OVW-01"
+   ]
+  }
+ ],
+ "OI-2026-11-10-VIDEO-COMMANDS-FINAL-CONTRACT": [],
+ "OI-2026-11-10-SMART-MODULE-SEMANTIC-ROUTING": []
+}

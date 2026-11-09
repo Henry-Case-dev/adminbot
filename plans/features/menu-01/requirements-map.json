@@ -46,6 +46,32 @@
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "Private keeps web_app + WEBAPP_URL; group/supergroup emits a URL button labelled «Открыть мини-приложение» with no app domain."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "5a503cb4",
+          "ref": "tests/test_menu.py",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
+          "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "5a503cb4",
+          "ref": "handlers/menu.py",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
+          "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "5a503cb4",
+          "ref": "plans/features/menu-01/requirements-map.json",
+          "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
+        },
+        {
+          "kind": "acceptance",
+          "candidate_commit": "5a503cb4",
+          "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "observation": "Private keeps web_app + WEBAPP_URL; group/supergroup emits a URL button labelled «Открыть мини-приложение» with no app domain."
         }
       ],
       "verification_tier": "engineering"
@@ -87,6 +113,32 @@
         {
           "kind": "acceptance",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "observation": "Only the registered mode's official form is produced: main -> t.me/<bot>?startapp, named -> t.me/<bot>/<short_name>; the other form cannot be emitted. Named form without payload is sanctioned by the owner source and Telegram docs."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "5a503cb4",
+          "ref": "tests/test_menu.py",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
+          "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "5a503cb4",
+          "ref": "handlers/menu.py",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
+          "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "5a503cb4",
+          "ref": "plans/features/menu-01/requirements-map.json",
+          "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
+        },
+        {
+          "kind": "acceptance",
+          "candidate_commit": "5a503cb4",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "Only the registered mode's official form is produced: main -> t.me/<bot>?startapp, named -> t.me/<bot>/<short_name>; the other form cannot be emitted. Named form without payload is sanctioned by the owner source and Telegram docs."
         }
@@ -132,6 +184,32 @@
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "bot_username comes from bot.me()/config and short_name is syntax-validated; no hardcoded bot/app/chat identifiers; the deep link is never derived from WEBAPP_URL."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "5a503cb4",
+          "ref": "tests/test_menu.py",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
+          "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "5a503cb4",
+          "ref": "handlers/menu.py",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
+          "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "5a503cb4",
+          "ref": "plans/features/menu-01/requirements-map.json",
+          "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
+        },
+        {
+          "kind": "acceptance",
+          "candidate_commit": "5a503cb4",
+          "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "observation": "bot_username comes from bot.me()/config and short_name is syntax-validated; no hardcoded bot/app/chat identifiers; the deep link is never derived from WEBAPP_URL."
         }
       ],
       "verification_tier": "engineering"
@@ -165,6 +243,19 @@
         {
           "kind": "code",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "ref": "handlers/menu.py",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
+          "observation": "Code emits the official main form t.me/<bot_username>?startapp with the username taken dynamically from bot.me(); the mode is selected from configuration, not guessed."
+        },
+        {
+          "kind": "external",
+          "candidate_commit": "5a503cb4",
+          "ref": "owner-side Telegram/BotFather evidence",
+          "observation": "BotFather registration / Main Mini App or named Direct Link confirmation requires the owner account. Code part is reviewed; only this live observation is outstanding."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "5a503cb4",
           "ref": "handlers/menu.py",
           "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
           "observation": "Code emits the official main form t.me/<bot_username>?startapp with the username taken dynamically from bot.me(); the mode is selected from configuration, not guessed."
@@ -210,6 +301,32 @@
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "initData/payload/chat_instance grant no rights; existing backend initData validation (HMAC + auth_date) untouched."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "5a503cb4",
+          "ref": "tests/test_menu.py",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
+          "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "5a503cb4",
+          "ref": "handlers/menu.py",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
+          "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "5a503cb4",
+          "ref": "plans/features/menu-01/requirements-map.json",
+          "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
+        },
+        {
+          "kind": "acceptance",
+          "candidate_commit": "5a503cb4",
+          "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "observation": "initData/payload/chat_instance grant no rights; existing backend initData validation (HMAC + auth_date) untouched."
         }
       ],
       "verification_tier": "engineering"
@@ -231,6 +348,12 @@
         {
           "kind": "live_plan",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "ref": "server-side launch evidence",
+          "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
+        },
+        {
+          "kind": "live_plan",
+          "candidate_commit": "5a503cb4",
           "ref": "server-side launch evidence",
           "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
         }
@@ -276,6 +399,32 @@
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "Unconfirmed/invalid registration produces an honest private /menu fallback and no broken or profile-directing button."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "5a503cb4",
+          "ref": "tests/test_menu.py",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
+          "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "5a503cb4",
+          "ref": "handlers/menu.py",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
+          "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "5a503cb4",
+          "ref": "plans/features/menu-01/requirements-map.json",
+          "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
+        },
+        {
+          "kind": "acceptance",
+          "candidate_commit": "5a503cb4",
+          "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "observation": "Unconfirmed/invalid registration produces an honest private /menu fallback and no broken or profile-directing button."
         }
       ],
       "verification_tier": "engineering"
@@ -319,6 +468,32 @@
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
           "observation": "Command(\"menu\") registration, private keyboard, other commands, config, prompts and auth principle unchanged (command suites green)."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "5a503cb4",
+          "ref": "tests/test_menu.py",
+          "artifact_sha256": "4C13CBB65FE7EC742E3584E03118ECE66EE3FA093326BD51DB7CFF50293D9A3B",
+          "observation": "18 passed on the candidate; assertions check button type, exact deep-link URL, absence of the app domain, fallback wording and username taken from bot.me()."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "5a503cb4",
+          "ref": "handlers/menu.py",
+          "artifact_sha256": "695BFE9603C9FB6FF5E79C04CFC1182AD21019B8EE911B2A8668CBCC01081F1B",
+          "observation": "Private web_app branch unchanged; group/supergroup URL branch emits only official t.me forms and falls back honestly."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "5a503cb4",
+          "ref": "plans/features/menu-01/requirements-map.json",
+          "observation": "Independent Reviewer Approved the code part and exercised 8 own counterexamples: named mode with slashed short_name, empty WEBAPP_URL, private with flags on, channel type, leading-digit username, trailing newline, padded mode, unconfirmed registration."
+        },
+        {
+          "kind": "acceptance",
+          "candidate_commit": "5a503cb4",
+          "ref": "candidate 14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "observation": "Command(\"menu\") registration, private keyboard, other commands, config, prompts and auth principle unchanged (command suites green)."
         }
       ],
       "verification_tier": "engineering"
@@ -348,6 +523,18 @@
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
           "ref": "plans/features/menu-01/evidence/runtime-launch.md",
           "observation": "Production read-only logs: 8077 successful initData validations across 3 Telegram identities (2026-10-30..2026-11-06), all from the X-Telegram-Init-Data header, HMAC and auth_date valid, none older than 1h; roles admin/wildcard 8040, moderator/actions 20, user/none 17 (a non-admin really uses the app); 15 rejections, all 'missing init data', zero bad signatures or expiries. Group /menu still logs 'group hint' because the candidate is not deployed yet."
+        },
+        {
+          "kind": "live_plan",
+          "candidate_commit": "5a503cb4",
+          "ref": "server-side launch evidence",
+          "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
+        },
+        {
+          "kind": "runtime",
+          "candidate_commit": "5a503cb4",
+          "ref": "plans/features/menu-01/evidence/runtime-launch.md",
+          "observation": "Production read-only logs: 8077 successful initData validations across 3 Telegram identities (2026-10-30..2026-11-06), all from the X-Telegram-Init-Data header, HMAC and auth_date valid, none older than 1h; roles admin/wildcard 8040, moderator/actions 20, user/none 17 (a non-admin really uses the app); 15 rejections, all 'missing init data', zero bad signatures or expiries. Group /menu still logs 'group hint' because the candidate is not deployed yet."
         }
       ],
       "blocked_reason": "LIVE_OBSERVATION_PENDING"
@@ -369,6 +556,12 @@
         {
           "kind": "live_plan",
           "candidate_commit": "14400b73df5c4d65f05822f623daf34e16ecaea5",
+          "ref": "server-side launch evidence",
+          "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
+        },
+        {
+          "kind": "live_plan",
+          "candidate_commit": "5a503cb4",
           "ref": "server-side launch evidence",
           "observation": "Registration is confirmed, so this row now needs observed runtime evidence: a real startapp launch reaching the server, initData signature/auth_date validation succeeding, and ACL denying a non-admin. Agents gather this from production logs and server-side checks; it is not an owner action."
         }

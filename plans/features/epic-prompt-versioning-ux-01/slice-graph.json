@@ -1,0 +1,171 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "note": "EPIC-PROMPT-VERSIONING-UX-01 (OI-2026-11-04-EPIC-PROMPT-VERSIONING-UX-01). Map: plans/features/epic-prompt-versioning-ux-01/requirements-map.json. 58 обязательных строк / 8 срезов. Владение: PVR-GOAL-01 — PVR-S7-VERIFY (эпик-цель доказуема только приёмкой после S4+S6; решение координатора 2026-11-04), подтверждение назначения базовой в UI — отдельная строка PVR-UX-BASECONFIRM-01 в PVR-S4-UX. Backend-волна (S1) не пересекается по файлам с двумя активными лейнами RC v5 (services/canonical_context|media_marker|thread_chain, services/factcheck*|handlers/factcheck.py) и может стартовать сразу. Внутри пакета реальная параллельность ограничена: S1/S2/S3 делят services/prompt_release_policy.py, S1/S3 делят web/api/routes.py, S4 — единственный писатель web/app.js|index.html|static/app.css (сериализация против EPIC-CM-VISUAL-01 CMV-A/B/D). docs/AGENTS (S5) и tests (S6) не конфликтуют ни с одной backend-строкой.",
+  "waves": {
+    "W0": ["PVR-S0-GUARD"],
+    "W1": ["PVR-S1-WRITE"],
+    "W2": ["PVR-S2-BASELINE", "PVR-S5-STD-DOC"],
+    "W3": ["PVR-S3-HISTORY"],
+    "W4": ["PVR-S4-UX"],
+    "W5": ["PVR-S6-AUDIT"],
+    "W6": ["PVR-S7-VERIFY"]
+  },
+  "slices": [
+    {
+      "id": "PVR-S0-GUARD",
+      "title": "Снимок-эталон и защита байтов: текущие тексты промптов, HEAD/deployed SHA, неизменность meme_joke/meme_image",
+      "wave": "W0",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/epic-prompt-versioning-ux-01/evidence/baseline/"
+      ],
+      "acceptance": "До первой правки снят защищённый эталон: sha256 эффективных значений всех 38 PG-управляемых промпт-значений (global + chat overrides) и заводских редакций реестра, отдельно и явно для prompts.meme_joke и prompts.meme_image; в отчёте зафиксированы фактический HEAD, активные лейны и deployed SHA. Повторный снимок после релиза даёт те же хеши, дифф текстов пуст (кроме метаданных/событий).",
+      "risk": "R0",
+      "next_role": "Builder",
+      "req_ids": ["PVR-HEAD-01", "PVR-BYTES-01", "PVR-INV-01"],
+      "why_one_slice": "Это один наблюдаемый результат — доказанный паритет байтов до/после; без него нельзя ни начать правки, ни закрыть пакет."
+    },
+    {
+      "id": "PVR-S1-WRITE",
+      "title": "Единый атомарный write-слой: значение + ревизия + событие, честный 503, закрытие всех обходов (config, meme-settings, speech, reset/inherit)",
+      "wave": "W1",
+      "depends_on": ["PVR-S0-GUARD"],
+      "write_scope": [
+        "services/prompt_release_policy.py",
+        "services/prompt_factory.py",
+        "web/api/routes.py",
+        "web/api/speech.py",
+        "tests/test_prompt_versioned_write.py",
+        "plans/features/epic-prompt-versioning-ux-01/evidence/write-layer/"
+      ],
+      "acceptance": "Каждая точка записи промпта (POST /api/config global и chat, POST /api/initiative/meme-settings, /api/speech/block/{id} и reset/rollback, DELETE /api/config/chat/{key}, заводской сброс) коммитит значение + неизменяемую ревизию + событие активации в одной PG-транзакции, а при недоступном журнале возвращает 503 и НЕ меняет значение; сохранение тех же байт даёт skipped_same без дубликата ревизии; CAS chat_params сохраняется и даёт 409 без потери текста; reset-to-inherit пишет событие и предварительную ревизию последнего своего текста; POST /api/initiative/meme-settings больше не обходит журнал.",
+      "risk": "R3",
+      "next_role": "Builder",
+      "req_ids": [
+        "PVR-INV-02", "PVR-INV-05", "PVR-INV-06",
+        "PVR-WRITE-01", "PVR-WRITE-02", "PVR-WRITE-03", "PVR-WRITE-04",
+        "PVR-WRITE-05", "PVR-WRITE-06", "PVR-WRITE-07", "PVR-WRITE-08"
+      ],
+      "why_one_slice": "Разные endpoint'ы пишут в одни и те же файлы и один журнал; ценность появляется только когда ни один путь не может обойти транзакцию. Отдельный срез на meme-settings не даёт независимого результата, т.к. правит тот же web/api/routes.py и тот же слой."
+    },
+    {
+      "id": "PVR-S2-BASELINE",
+      "title": "Owner baseline как указатель на неизменяемую ревизию: назначение, снятие, возврат; factory-поставка не перекрывает закреплённый scope",
+      "wave": "W2",
+      "depends_on": ["PVR-S1-WRITE"],
+      "write_scope": [
+        "services/prompt_release_policy.py",
+        "services/prompt_registry.py",
+        "tests/test_prompt_owner_baseline.py"
+      ],
+      "acceptance": "Baseline хранится событием/метаданными для (block_id, scope, chat_id) в существующей PG-политике и ссылается на revision_id; назначение меняет только указатель и пишет событие с автором/датой; повтор идемпотентен; снятие возвращает кодовый эталон, не меняя активный текст; «Применить», «Назначить базовой», «Восстановить базовую» и «Снять чатовый override» — разные операции; новая заводская метка пишет ревизию и НЕ перекрывает закреплённый scope, у незакреплённого сохраняется прежняя семантика; retired/несовместимая ревизия не активируется и не назначается; при первой миграции baseline не назначается никому и эффективные значения не меняются.",
+      "risk": "R3",
+      "next_role": "Builder",
+      "req_ids": [
+        "PVR-APPLY-01", "PVR-APPLY-02",
+        "PVR-BASE-01", "PVR-BASE-02", "PVR-BASE-03", "PVR-BASE-04",
+        "PVR-BASE-05", "PVR-BASE-06", "PVR-BASE-07", "PVR-BASE-08",
+        "PVR-BASE-09", "PVR-BASE-10"
+      ],
+      "why_one_slice": "Все одиннадцать обязательств — один связный контракт эталона и одна транзакция в том же файле политики; по отдельности они не дают проверяемого пользовательского результата."
+    },
+    {
+      "id": "PVR-S3-HISTORY",
+      "title": "Полнота и безопасность истории: без лимита ревизий, страницы со стабильным курсором, полный текст, RBAC, отсутствие тел в списках и логах",
+      "wave": "W3",
+      "depends_on": ["PVR-S2-BASELINE"],
+      "write_scope": [
+        "services/prompt_release_policy.py",
+        "services/prompt_factory.py",
+        "web/api/routes.py",
+        "tests/test_prompt_history_pagination.py"
+      ],
+      "acceptance": "GET /api/prompts/{key}/versions отдаёт страницы с устойчивым курсором и детерминированной сортировкой, без потолка в 50 активаций и без потери 1000+ ревизий; тело ревизии приходит только по авторизованному /revisions/{id}/source (полный дословный текст, без пересохранения и без новой ревизии); списки/каталог и логи не содержат тел и секретов; чатовая ревизия чужого чата недоступна (403), полная история — только владельцу права на этот промпт/чат; утраченные legacy-записи помечены честной границей.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": ["PVR-INV-03", "PVR-HIST-01", "PVR-HIST-02", "PVR-HIST-03", "PVR-HISTUI-04"],
+      "why_one_slice": "Это один read-контракт журнала (объём, курсор, тело, права) в одном наборе функций чтения; разбиение потребовало бы двух параллельных правок services/prompt_release_policy.py."
+    },
+    {
+      "id": "PVR-S4-UX",
+      "title": "Единый компонент версий в каждом редакторе: карточка, панель истории, действия, честные причины, черновик, мемные карточки и режим {joke}",
+      "wave": "W4",
+      "depends_on": ["PVR-S1-WRITE", "PVR-S3-HISTORY"],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "tests/js/prompt_version_ui_test.js"
+      ],
+      "acceptance": "Один переиспользуемый компонент карточки/панели применён ко всем редакторам промптов (Direct, FactCheck, Memory, Speech/Character, Initiative/Memes, Summary, Vision, Experience, источники); карточка показывает человекочитаемые активность/область/наследование/время и держит сырые id только в «Подробностях»; панель открывается из каждого редактора (десктоп — боковая/модальная, мобильный 390px — полноэкранная), даёт полный постранично загружаемый список, полный текст, diff, «Применить», «Назначить базовой», «Снять назначение», «Восстановить базовую», «Скопировать»; недоступные операции объясняют причину и не рисуют активную кнопку; при смене чата есть предупреждение о несохранённом; два мемных поля стоят рядом/последовательно, имеют свои «История версий», а {joke} подан как подсказка о режиме вставки без сырого {joke}:0; тема Dark Aurora/glass/анимации сохранены.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": [
+        "PVR-INV-04", "PVR-UX-01", "PVR-UX-02", "PVR-UX-META-01",
+        "PVR-UX-MEME-01", "PVR-UX-SCOPE-01", "PVR-UX-DRAFT-01",
+        "PVR-UX-JOKE-01", "PVR-UX-JOKE-02", "PVR-UX-NOBLOAT-01",
+        "PVR-UX-REASON-01", "PVR-HISTUI-01", "PVR-HISTUI-02",
+        "PVR-HISTUI-03", "PVR-HISTUI-05", "PVR-UX-BASECONFIRM-01"
+      ],
+      "why_one_slice": "web/app.js — один большой файл с единственным Vue-инстансом: параллельные UI-писатели гарантированно конфликтуют, а «одинаковый компонент на каждом экране» — это одно наблюдаемое свойство, а не набор независимых экранов."
+    },
+    {
+      "id": "PVR-S5-STD-DOC",
+      "title": "Постоянный проектный стандарт: контракт версионирования и нормативные инструкции агентов/Reviewer",
+      "wave": "W2",
+      "depends_on": ["PVR-S1-WRITE"],
+      "write_scope": [
+        "docs/prompt-versioning-contract.md",
+        "AGENTS.md"
+      ],
+      "acceptance": "docs/prompt-versioning-contract.md и действующие нормативные инструкции (AGENTS.md проекта) содержат дословное правило «любой промпт, отображаемый для редактирования, обязан регистрироваться в едином prompt_registry, сохраняться через prompt_release_policy с полным неизменяемым журналом, иметь одинаковую UI-панель версий, diff, активацию, owner baseline и восстановление; новое поле без этого — архитектурная регрессия и блокер релиза», а также явно ограничивают запрет менять тексты мемов только этим пакетом; контракт описывает фактическое поведение (owner pin, честный 503, pagination), а не устаревшую таблицу релиза.",
+      "risk": "R1",
+      "next_role": "Builder",
+      "req_ids": ["PVR-STD-01", "PVR-STD-02", "PVR-STD-05"],
+      "why_one_slice": "Три обязательства — один редактируемый нормативный текст в двух файлах, который нельзя осмысленно разделить: правило и его область действия формулируются вместе."
+    },
+    {
+      "id": "PVR-S6-AUDIT",
+      "title": "Аудит полноты: pytest/CI проверяет pg_key ↔ block_id ↔ UI-editor ↔ versioned write и падает на обходе журнала",
+      "wave": "W5",
+      "depends_on": ["PVR-S4-UX", "PVR-S5-STD-DOC"],
+      "write_scope": [
+        "tests/test_evol018_prompt_audit.py",
+        "tests/test_prompt_field_audit.py",
+        "tests/test_prompt_journal_bypass.py",
+        "plans/features/epic-prompt-versioning-ux-01/evidence/audit/"
+      ],
+      "acceptance": "Новый pytest-аудит перечисляет зарегистрированные изменяемые prompt-fields и падает, если pg_key/block_id не совпадает с UI-editor маркером или запись идёт мимо versioned-слоя; негативный тест на фиктивном специализированном POST без журнала действительно краснеет; code-only блоки отражены как read-only с причиной и без активных кнопок включения; аудит входит в штатный прогон (pytest.ini), отдельного CI-раннера не требуется.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": ["PVR-STD-03", "PVR-STD-04"],
+      "why_one_slice": "Аудит и его негативный контроль — одна проверяющая программа с одним наблюдаемым исходом (красный тест на обходе), а UI-маркеры становятся доступны только после S4."
+    },
+    {
+      "id": "PVR-S7-VERIFY",
+      "title": "Независимая приёмка: бэкенд, мемы, фронтенд (десктоп + WebView), отрицательные случаи, отчёт",
+      "wave": "W6",
+      "depends_on": [
+        "PVR-S0-GUARD", "PVR-S1-WRITE", "PVR-S2-BASELINE", "PVR-S3-HISTORY",
+        "PVR-S4-UX", "PVR-S5-STD-DOC", "PVR-S6-AUDIT"
+      ],
+      "write_scope": [
+        "plans/features/epic-prompt-versioning-ux-01/evidence/review/"
+      ],
+      "acceptance": "Независимый Reviewer на принятом кандидате проходит все блоки §6: бэкенд (версия от любого API, полнота, rollback/forward, diff, baseline, reset/inherit, история после рестарта, pin против релиза, 409/503 без потери текста, PG backup/restore, batch), мемы (общий редактор, отсутствие обхода meme-settings, render_image_prompt X Y / X {joke} Y, placeholders=0, 800 от effective template, байтовая идентичность текстов), фронтенд (Playwright + Browser Use: десктоп и 390px WebView, скриншоты и взаимодействия), отрицательные случаи; в evidence приложены артефакты, а отчёт на русском содержит SHA, тесты, скриншоты и показатели.",
+      "risk": "R3",
+      "next_role": "Reviewer",
+      "req_ids": ["PVR-GOAL-01", "PVR-REV-01", "PVR-REV-02", "PVR-REV-03", "PVR-REV-04", "PVR-EXEC-01"],
+      "why_one_slice": "Это одна приёмочная сессия Reviewer на одном кандидате; разбиение по блокам §6 создало бы несколько вердиктов на одном и том же коде."
+    }
+  ],
+  "barriers": {
+    "PVR-S0-GUARD": "blocks all: снимок-эталон обязан быть снят до любой правки (иначе byte-identity недоказуема).",
+    "PVR-S1-WRITE": "blocks S2/S3/S5: контракт записи фиксируется один раз; S2/S3 правят тот же services/prompt_release_policy.py.",
+    "PVR-S2-BASELINE": "blocks S3: тот же файл политики (осознанная последовательная стыковка, не параллель).",
+    "PVR-S3-HISTORY": "blocks S4: панель истории строится на финальном контракте страниц/курсора.",
+    "PVR-S4-UX": "blocks S6 (UI-маркеры) и S7; также требует, чтобы EPIC-CM-VISUAL-01 CMV-A/B/D не стартовали одновременно (единый писатель web/app.js|index.html|static/app.css).",
+    "PVR-S5-STD-DOC": "blocks S6: аудит проверяет сформулированное правило.",
+    "PVR-S6-AUDIT": "blocks S7: приёмка включает зелёный аудит."
+  }
+}

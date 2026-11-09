@@ -1,0 +1,175 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "note": "EVOL-REPLY-CONTEXT-INTEGRITY-01 FINAL v5 (OI-2026-11-03-REPLY-CONTEXT-INTEGRITY-V5). Карта: plans/features/evol-reply-context-integrity-01/requirements-map.json. Решение о месте в очереди и сериализации: plans/features/evol-reply-context-integrity-01/plan.md. Восемь срезов повторяют собственную структуру ТЗ §4-§12; 120 сценариев §13 распределены по срезам отдельными строками. CONTEXT-FIDELITY-01 (§5.4, §9.5) — не отдельная задача, а сквозной инвариант: срез RC-CONTEXT-FIDELITY строит структурный шов, а его соблюдение на каждом маршруте проверяется в RC-SPEECH-BOUNDARY, RC-DIRECT-SELFCORR и финальном RC-TRACE-ACCEPT.",
+  "purpose": "Сделать законным пошаговое исполнение: срезы RC-TARGET-ANCHOR и RC-CONTEXT-FIDELITY могут начаться сразу (оба — разные файлы), а Фактчек- и Direct-ветки сериализованы там, где у них общий писатель.",
+  "release_order": [
+    "RC-TARGET-ANCHOR",
+    "RC-CONTEXT-FIDELITY",
+    "RC-CONTEXT-CLAIM",
+    "RC-MEDIA-OPTIONAL",
+    "RC-SPEECH-BOUNDARY",
+    "RC-EVIDENCE-STATUS",
+    "RC-DIRECT-SELFCORR",
+    "RC-TRACE-ACCEPT"
+  ],
+  "waves": [
+    {"wave": "A", "slices": ["RC-TARGET-ANCHOR", "RC-CONTEXT-FIDELITY"], "writers": 2},
+    {"wave": "B", "slices": ["RC-CONTEXT-CLAIM", "RC-MEDIA-OPTIONAL", "RC-SPEECH-BOUNDARY"], "writers": 3},
+    {"wave": "C", "slices": ["RC-EVIDENCE-STATUS", "RC-DIRECT-SELFCORR"], "writers": 2},
+    {"wave": "D", "slices": ["RC-TRACE-ACCEPT"], "writers": 1}
+  ],
+  "shared_file_note": "handlers/factcheck.py пишут RC-TARGET-ANCHOR (порядок выбора цели) и RC-MEDIA-OPTIONAL (текстовая цель раньше необязательной медиа-ассоциации) — один и тот же вход, поэтому RC-MEDIA-OPTIONAL зависит от RC-TARGET-ANCHOR и меняет файл после него, а не параллельно. services/factcheck_orchestrator.py и services/factcheck_service.py нужны RC-MEDIA-OPTIONAL и RC-EVIDENCE-STATUS (уведомление о медиа и заголовки статусов формируются в одной точке сборки) — сериализованы ребром RC-MEDIA-OPTIONAL → RC-EVIDENCE-STATUS. services/direct_chat_service.py и services/prompt_composer.py — самый горячий общий файл: его владелец RC-SPEECH-BOUNDARY (речевая проекция), а RC-DIRECT-SELFCORR входит в него только после (ребро RC-SPEECH-BOUNDARY → RC-DIRECT-SELFCORR). Внешние пакеты, которые тоже пишут эти файлы, не могут идти одновременно: asap-fc-voice-01 (FC-WRITER-PATH/FC-RENDERER/FC-L1-PROFILE: factcheck_service, factcheck_renderer, prompt_composer, direct_chat_service, direct_l1) — идёт ПОСЛЕ этого пакета; asap-evol-anticliche-memory-admin-ux (AC-P0/AC-COMPILER: direct_chat_service, prompt_composer, factcheck_service) и epic-experience-learning-performance-help (EP-E-DIALOGUE: direct_chat_service, prompt_composer) — только после или до, но не одновременно с RC-SPEECH-BOUNDARY/RC-DIRECT-SELFCORR; meme-pipeline-refactor-01 (P4 MEME-UI-FIELDS / P9 MEME-INIT-DIAG) держит web/** и services/initiative_diagnostics.py — с этим пакетом не пересекается, но services/meme_initiative.py числится за RC-SPEECH-BOUNDARY (сценарий §13.69), поэтому мем-пакет не правит его, пока срез не принят.",
+  "architecture": "ARCHITECT_REQUIRED до старта Builder на срезах RC-CONTEXT-CLAIM, RC-MEDIA-OPTIONAL, RC-SPEECH-BOUNDARY, RC-DIRECT-SELFCORR: меняется общий контракт представления контекста (canonical_context/chat_context/context_middleware), порядок выбора цели и media-зависимости в двух маршрутах фактчека и обязательные поля трассы. RC-TARGET-ANCHOR и RC-CONTEXT-FIDELITY могут начинаться как разведка/подготовка до архитектурного решения, но их интерфейсы фиксирует Architect.",
+  "slices": [
+    {
+      "id": "RC-TARGET-ANCHOR",
+      "title": "Цель и якорь: Trigger/Target/Claim/контексты, приоритет явной цели, семантическое раскрытие референтов, команда без адресной цели, ветки и деградация (§3, §4, §13.1-12, §13.23-25)",
+      "wave": "A",
+      "depends_on": [],
+      "write_scope": [
+        "handlers/factcheck.py",
+        "services/factcheck_suitability.py",
+        "services/target_marking.py",
+        "services/thread_chain.py",
+        "tests/test_rc_target_anchor.py"
+      ],
+      "acceptance": "На фактической трассе видно, почему целевым стало именно это сообщение: явный Reply/сохранённый reply_to_id/quote/forward/явный тезис дают неизменяемый Target; рядом лежащая более громкая реплика и соседняя ветка не меняют предмет; при неоднозначности выдаётся уточнение, а не вердикт; find_context_claim()/_dominant_dispute() не переписывают Claim; сценарии §13.1-12 и 23-25 воспроизведены с другими именами и ID.",
+      "can_parallel_with": ["RC-CONTEXT-FIDELITY"],
+      "join_barrier": "до старта RC-CONTEXT-CLAIM и RC-MEDIA-OPTIONAL (общий вход и общий Target)",
+      "risk": "R2",
+      "next_role": "Architect (контракт target_ref) → Builder",
+      "why_one_slice": "Все строки описывают одно решение — какое сообщение проверяется; разрезать его на «handler» и «suitability» значило бы получить два писателя на одном порядке выбора цели."
+    },
+    {
+      "id": "RC-CONTEXT-FIDELITY",
+      "title": "CONTEXT-FIDELITY-01: структурный шов служебных ключей и смысловых связей, общий контракт ролей для Direct/Observer/Writer, запрет псевдооптимизаций и проверка эквивалентности (§5.4, §6, §9.5, §13.97-120)",
+      "wave": "A",
+      "depends_on": [],
+      "write_scope": [
+        "services/canonical_context.py",
+        "services/chat_context.py",
+        "services/context_middleware.py",
+        "tests/test_rc_context_fidelity.py"
+      ],
+      "acceptance": "На одном и том же входе сравнены внутренние структуры, фактический L1/LLM payload (включая Composer OFF и fallback) и публичный текст: доступные субъект, тема, исходный тезис, source, Reply/quote, хронология и relevant cross-branch context совпадают, обратное отображение меток на реальные ID существует, ни один отобранный элемент не теряет автора и основание; сценарии §13.97-120 проходят, включая одинаковые ники, цитату без Reply, два чата, старый/новый факт и таймзону.",
+      "can_parallel_with": ["RC-TARGET-ANCHOR"],
+      "join_barrier": "до старта RC-SPEECH-BOUNDARY (речевая проекция строится поверх шва) и до RC-DIRECT-SELFCORR",
+      "risk": "R3",
+      "next_role": "Architect (заморозка контракта представления) → Builder",
+      "why_one_slice": "Шов один: набор полей и обратное отображение меток в одном слое форматирования; разделение на «ключи» и «связи» породило бы двух писателей в canonical_context.py и вернуло бы дефект."
+    },
+    {
+      "id": "RC-CONTEXT-CLAIM",
+      "title": "Контекст и Claim: структура вместо плоского лога, приоритет отбора, атомизация и атрибуция, непрерывность target_ref через стадии (§5.1-5.3, §13.13-22)",
+      "wave": "B",
+      "depends_on": ["RC-TARGET-ANCHOR"],
+      "write_scope": [
+        "services/factcheck_context.py",
+        "services/factcheck_planner.py",
+        "tests/test_rc_context_claim.py"
+      ],
+      "acceptance": "Фактический payload фактчека содержит Target с явной маркировкой, строки с ID/автором/адресатом/временем/ролью/происхождением, отдельные разделы цепочки и семантики; search-план построен по Claim из Target, а не по самой шумной ветке; атомарный Claim сохраняет своего автора и фрагмент; чужая цитата не подтверждает слова проверяемого; сценарии §13.13-22 проходят.",
+      "can_parallel_with": ["RC-MEDIA-OPTIONAL", "RC-SPEECH-BOUNDARY"],
+      "join_barrier": "нужен Architect-контракт по формату контекста до Builder",
+      "risk": "R2",
+      "next_role": "Architect → Builder",
+      "why_one_slice": "§5.1-5.3 — это один предмет: что именно уходит в LLM как «что проверяем» и «чем это подтверждается»; разделение дало бы два разных формата контекста в одном пайплайне."
+    },
+    {
+      "id": "RC-MEDIA-OPTIONAL",
+      "title": "FC-MEDIA-OPTIONAL-01: текстовая цель достаточна, медиа опционально, typed media-ambiguous, одна политика на всех входных маршрутах (§10, §13.31-43)",
+      "wave": "B",
+      "depends_on": ["RC-TARGET-ANCHOR"],
+      "write_scope": [
+        "services/factcheck_service.py",
+        "services/media_readiness.py",
+        "services/factcheck_orchestrator.py",
+        "handlers/factcheck.py",
+        "tests/test_rc_media_optional.py"
+      ],
+      "acceptance": "Для явной текстовой цели не запускается необязательный поиск соседних картинок, media_ambiguous не выставляется и в вердикт не добавляется просьба выбрать изображение; при подтверждённой связи с медиа проверяются текст и медиа с честной пометкой непрочитанного; photo-only ждёт Vision и не даёт no_claim раньше времени; handler v1, v2-orchestrator, отложенное возобновление и инструментальный вызов ведут себя одинаково; сценарии §13.31-43 проходят.",
+      "can_parallel_with": ["RC-CONTEXT-CLAIM", "RC-SPEECH-BOUNDARY"],
+      "join_barrier": "вход в services/factcheck_orchestrator.py только после закрытия RC-TARGET-ANCHOR; до RC-EVIDENCE-STATUS срез не закрывается",
+      "risk": "R2",
+      "next_role": "Architect → Builder",
+      "why_one_slice": "Одно решение — нужна ли проверке именно эта медиа-связь; оно принимается в одной точке и обязано быть одинаковым на всех четырёх входах, иначе получим починенный экран и живой дефект в оркестраторе."
+    },
+    {
+      "id": "RC-SPEECH-BOUNDARY",
+      "title": "GLOBAL-OUTPUT-BOUNDARY-01: content vs internal metadata vs requested technical content, единая граница для всех исходящих путей, без постобработки, наблюдаемость трёх границ (§9.1-9.4, §13.53-70)",
+      "wave": "B",
+      "depends_on": ["RC-CONTEXT-FIDELITY"],
+      "write_scope": [
+        "services/direct_chat_service.py",
+        "services/prompt_composer.py",
+        "services/meme_initiative.py",
+        "tests/test_rc_speech_boundary.py"
+      ],
+      "acceptance": "Ни один пользовательский маршрут (Direct обычный и Reply, текстовая инициатива, FactCheck Writer+renderer, память/RAG/GraphRAG, результаты инструментов, саммари, текст для мема/картинки) не печатает непрошеные транспортные ID, trace_id, служебные статусы и строки инструментов; при этом содержательные числа, даты, версии, цитаты и техническая лексика сохраняются, запрошенные по смыслу значения сообщаются, Reply доставляется на правильное сообщение, а regex-чистки, второго Writer и LLM-редактора нет; сценарии §13.53-70 проходят, включая Composer ON/OFF.",
+      "can_parallel_with": ["RC-CONTEXT-CLAIM", "RC-MEDIA-OPTIONAL"],
+      "join_barrier": "вход в services/direct_chat_service.py и services/prompt_composer.py только после закрытия RC-CONTEXT-FIDELITY; до RC-DIRECT-SELFCORR срез не закрывается",
+      "risk": "R3",
+      "next_role": "Architect → Builder",
+      "why_one_slice": "Это одна граница, а не набор фильтров: разделение по модулям породило бы разные правила в Direct, инициативе и фактчеке и вернуло бы дефект на непокрытом маршруте."
+    },
+    {
+      "id": "RC-EVIDENCE-STATUS",
+      "title": "FC-EVIDENCE-STATUS-01: матрица девяти исходов, честные заголовки, разделение evidence и media status, диагностика счётчиков (§11, §13.44-52)",
+      "wave": "C",
+      "depends_on": ["RC-MEDIA-OPTIONAL"],
+      "write_scope": [
+        "services/factcheck_renderer.py",
+        "services/factcheck_orchestrator.py",
+        "services/factcheck_service.py",
+        "tests/test_rc_evidence_status.py"
+      ],
+      "acceptance": "Каждый из девяти исходов §11.2 даёт собственный заголовок и объяснение: недоступность провайдера, дедлайн с названной стадией, реальный сбой извлечения, пустая выдача, отсутствие релевантных источников, отсутствие цитируемых URL, условный разбор, частичный прогон, Vision-specific; reason-code подтверждён событием или метрикой стадии, а не отсутствием URL; заголовок не противоречит успешным частям и не сопровождается ложной медиа-оговоркой; сценарии §13.44-52 проходят.",
+      "can_parallel_with": ["RC-DIRECT-SELFCORR"],
+      "join_barrier": "требует закрытого RC-MEDIA-OPTIONAL (одна точка сборки заголовка и уведомлений); до RC-TRACE-ACCEPT не закрывается",
+      "risk": "R2",
+      "next_role": "Builder → Reviewer",
+      "why_one_slice": "§11 — это одно состояние-и-форматирование: если разделить «статусы» и «заголовки», публичный текст снова начнёт противоречить фактическому исходу стадии."
+    },
+    {
+      "id": "RC-DIRECT-SELFCORR",
+      "title": "DIRECT-SELF-CORRECTION-01: референт возражения, уровни утверждений, единица счёта, пересмотр собственного вывода, прагматика критики, роли и личность (§12, §13.71-96)",
+      "wave": "C",
+      "depends_on": ["RC-CONTEXT-FIDELITY", "RC-SPEECH-BOUNDARY"],
+      "write_scope": [
+        "services/direct_chat_service.py",
+        "services/prompt_composer.py",
+        "tests/test_rc_direct_self_correction.py"
+      ],
+      "acceptance": "В фактическом Direct payload текущая реплика, собственное прошлое утверждение бота, контраргумент и их источники видны как различимые роли; обоснованное возражение пересматривает вывод в этом же диалоге, ошибочное — аргументированно отклоняется, при нехватке данных фиксируется неопределённость; единица счёта не подменяется молча; метафора про «провал теста» не превращается в буквальный фактчек; характер, Core и Humor сохранены; сценарии §13.71-96 проходят на независимых контекстах.",
+      "can_parallel_with": ["RC-EVIDENCE-STATUS"],
+      "join_barrier": "вход в direct_chat_service.py и prompt_composer.py только после RC-SPEECH-BOUNDARY; отдельного Experience-эпика не создаёт",
+      "risk": "R3",
+      "next_role": "Architect → Builder",
+      "why_one_slice": "Пункты §12.2 — один навык работы с возражением и собственным ответом; отдельные срезы на «единицу счёта» и «прагматику» дали бы три писателя в одной сборке prompt."
+    },
+    {
+      "id": "RC-TRACE-ACCEPT",
+      "title": "Сквозная трасса и финальная приёмка: поля §7, совместимость и запреты §8/§14, эксплуатационные сценарии §13.26-30, P0-критерий",
+      "wave": "D",
+      "depends_on": [
+        "RC-TARGET-ANCHOR",
+        "RC-CONTEXT-CLAIM",
+        "RC-MEDIA-OPTIONAL",
+        "RC-EVIDENCE-STATUS",
+        "RC-CONTEXT-FIDELITY",
+        "RC-SPEECH-BOUNDARY",
+        "RC-DIRECT-SELFCORR"
+      ],
+      "write_scope": [
+        "tests/test_rc_trace_accept.py",
+        "plans/features/evol-reply-context-integrity-01/evidence/"
+      ],
+      "acceptance": "По одной трассе доказано: trigger → target_resolution → thread_context → semantic_context → claim_selection → planner/search/verdict → delivery, с реальными ID и причинами; отсутствие запрещённых механизмов подтверждено (нет новых LLM-агентов и обязательных вызовов, нет regex-чистки готового текста, нет новых бюджетов, нет хардкодов примеров, нет второго графа веток); общие маршруты (инициатива, Direct, алиасы, FactCheck Voice, media/vision, источники, форматный контракт, RBAC) не регрессировали; при ухудшении различения авторов/Reply/дат/источников/алиасов/Scope релиз не проходит даже без утечек ID.",
+      "can_parallel_with": [],
+      "join_barrier": "единственная финальная точка приёмки пакета; приёмка среза не означает приёмку родителя",
+      "risk": "R3",
+      "next_role": "Reviewer (независимо) → DevOps",
+      "why_one_slice": "Это одна проверка целостности пакета на одном кандидате: трасса + отсутствие запрещённых механизмов + отсутствие регрессий; по отдельности ни один её вывод не доказывает выполнение задания."
+    }
+  ]
+}

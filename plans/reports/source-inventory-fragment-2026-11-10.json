@@ -1,0 +1,908 @@
+{
+ "source_path": "plans/current_task.md",
+ "heading_level": 1,
+ "sections": [
+  {
+   "id": "H1:ca92cc639234:1",
+   "sha256": "afb089fa075a08fc58fc5bcab9a1ac072fa17618da68a8a0194802e0bc792a09",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol"
+   ],
+   "coverage_refs": [
+    "plans/features/evol/requirements-map.json"
+   ],
+   "reason": "Раздел 'EVOL — Adminbot Evolution' (стр. 1-910) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+   "requirement_refs": [
+    {
+     "task_id": "evol",
+     "map": "plans/features/evol/requirements-map.json",
+     "req_ids": [
+      "EVOL-DoD",
+      "EVOL-045",
+      "EVOL-044",
+      "EVOL-043",
+      "EVOL-042",
+      "EVOL-041",
+      "EVOL-040",
+      "EVOL-039"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:8f44c90f6ae8:1",
+   "sha256": "50233fbc626fb4d1efd58b380d3aff6a202019f4b3cbd1fff2a69faffc52dadc",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol"
+   ],
+   "coverage_refs": [
+    "plans/features/evol/requirements-map.json"
+   ],
+   "reason": "Раздел 'EVOL — дополнительная корректирующая директива: социальный контекст, в' (стр. 911-1157) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+   "requirement_refs": [
+    {
+     "task_id": "evol",
+     "map": "plans/features/evol/requirements-map.json",
+     "req_ids": [
+      "EVOL-VIDEO-INTENT",
+      "EVOL-SOCIAL-FRAME",
+      "EVOL-GLASS-SEAM",
+      "EVOL-FACTCHECK-CRITICAL"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:28dc3f9a79d2:1",
+   "sha256": "cf9cb59f119d5f1122f5d7ce01cdeff6204c141c714a7d076f119dfbe4136bce",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol"
+   ],
+   "coverage_refs": [
+    "plans/features/evol/requirements-map.json"
+   ],
+   "reason": "Раздел 'EVOL — дополнительное поручение: Source Code Reader и Когнитивная карт' (стр. 1158-1362) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+   "requirement_refs": [
+    {
+     "task_id": "evol",
+     "map": "plans/features/evol/requirements-map.json",
+     "req_ids": [
+      "EVOL-SRC-READER-S7",
+      "EVOL-SRC-READER-S6",
+      "EVOL-SRC-READER-S5",
+      "EVOL-SRC-READER-S4",
+      "EVOL-SRC-READER-S3",
+      "EVOL-SRC-READER-S2",
+      "EVOL-SRC-READER-S1",
+      "EVOL-SRC-READER-R2"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:37c56011b12a:1",
+   "sha256": "94dd4816bcd20cfd14a4d2b6752c3a489af6bd31f80529d8cacde45e6dfa8ad7",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol"
+   ],
+   "coverage_refs": [
+    "plans/features/evol/requirements-map.json"
+   ],
+   "reason": "Раздел 'ASAP-FC-ADMISSION-01 — ложный отказ фактчека при наличии проверяемого ' (стр. 1363-1432) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+   "requirement_refs": [
+    {
+     "task_id": "evol",
+     "map": "plans/features/evol/requirements-map.json",
+     "req_ids": [
+      "ASAP-FC-ADMISSION-01",
+      "ASAP-VISION-SYNC-01",
+      "ASAP-VISION-SYNC-ADMIN-01"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:dc451b1c05f5:1",
+   "sha256": "a7d5c21a9603b72706e06174c8ff3a56f38aa9421c94c7123d44c587d7b0c5e6",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol"
+   ],
+   "coverage_refs": [
+    "plans/features/evol/requirements-map.json"
+   ],
+   "reason": "Раздел 'ASAP-VISION-SYNC-01 — Глобальная синхронизация медиаанализа и потребит' (стр. 1433-1616) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+   "requirement_refs": [
+    {
+     "task_id": "evol",
+     "map": "plans/features/evol/requirements-map.json",
+     "req_ids": [
+      "ASAP-VISION-SYNC-ADMIN-01",
+      "ASAP-VISION-SYNC-01",
+      "EVOL-DoD"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:dc0ddb5851ec:1",
+   "sha256": "7ad59e226b888739a8206865c9e9ce28b8d6a018d7ce6ff132fbe3838326081c",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol"
+   ],
+   "coverage_refs": [
+    "plans/features/evol/requirements-map.json"
+   ],
+   "reason": "Раздел 'ASAP-FC-EVIDENCE-STYLE-02 — полнота поиска, релевантность доказательст' (стр. 1617-1750) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+   "requirement_refs": [
+    {
+     "task_id": "evol",
+     "map": "plans/features/evol/requirements-map.json",
+     "req_ids": [
+      "ASAP-FC-ES-TELEMETRY",
+      "ASAP-FC-ES-STYLE",
+      "ASAP-FC-ES-STATUS",
+      "ASAP-FC-ES-SOURCES",
+      "ASAP-FC-ES-PLANNER",
+      "ASAP-FC-ES-CLAIM",
+      "ASAP-FC-ES-BOUND",
+      "ASAP-FC-ES-ACCEPT"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:762ec4718ed3:1",
+   "sha256": "f6ffd239dad91978710997d4cd28d6fad92597f01d4ec060c3c169d3ea333430",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol"
+   ],
+   "coverage_refs": [
+    "plans/features/evol/requirements-map.json"
+   ],
+   "reason": "Раздел 'ASAP-UI-02 — единый дизайн-контракт, навигация и устранение неоднознач' (стр. 1751-2007) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+   "requirement_refs": [
+    {
+     "task_id": "evol",
+     "map": "plans/features/evol/requirements-map.json",
+     "req_ids": [
+      "ASAP-UI-02-DOD",
+      "ASAP-UI-02-18",
+      "ASAP-UI-02-17B",
+      "ASAP-UI-02-17",
+      "ASAP-UI-02-16T",
+      "ASAP-UI-02-16",
+      "ASAP-UI-02-15",
+      "ASAP-UI-02-14"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:1b7d3c4e3d47:1",
+   "sha256": "d1e90477baa207e52352b46354cde956e1c9a49101e9be741c422a7a8d76d2f4",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol"
+   ],
+   "coverage_refs": [
+    "plans/features/evol/requirements-map.json"
+   ],
+   "reason": "Раздел 'ASAP-EVIDENCE-ROUTING-01 v3 — Evidence-first без лишнего веб-поиска, д' (стр. 2008-2442) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+   "requirement_refs": [
+    {
+     "task_id": "evol",
+     "map": "plans/features/evol/requirements-map.json",
+     "req_ids": [
+      "ER-S46",
+      "ER-S45",
+      "ER-S44",
+      "ER-S43",
+      "ER-S42",
+      "ER-S41",
+      "ER-S40",
+      "ER-S39"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:43030e9e80ce:1",
+   "sha256": "8433cac3b4f979e0bde258900245f71c1d67304b74f61ce71d5c62cba368bd56",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol"
+   ],
+   "coverage_refs": [
+    "plans/features/evol/requirements-map.json"
+   ],
+   "reason": "Раздел 'ASAP-SUMMARY-COVER-INTEGRITY-01 v2.1 — восстановление Summary/Cover, и' (стр. 2443-2731) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+   "requirement_refs": [
+    {
+     "task_id": "evol",
+     "map": "plans/features/evol/requirements-map.json",
+     "req_ids": [
+      "SC-44",
+      "SC-43",
+      "SC-42",
+      "SC-41",
+      "SC-40",
+      "SC-39",
+      "SC-38",
+      "SC-37"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:489ce9539a87:1",
+   "sha256": "34c6971e5012dc28dd7e2e7030afbc826b07e666e6d3c0f995b3e9540b0f8e7c",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol"
+   ],
+   "coverage_refs": [
+    "plans/features/evol/requirements-map.json"
+   ],
+   "reason": "Раздел 'ASAP-FC-VOICE-01 — восстановить аргументативный голос старого FactChec' (стр. 2732-2901) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+   "requirement_refs": [
+    {
+     "task_id": "evol",
+     "map": "plans/features/evol/requirements-map.json",
+     "req_ids": [
+      "ASAP-VISION-SYNC-01",
+      "ASAP-VISION-SYNC-ADMIN-01",
+      "EVOL-FACTCHECK-CRITICAL",
+      "EVOL-DoD",
+      "EVOL-COG-MAP",
+      "EVOL-034",
+      "EVOL-014",
+      "EVOL-016"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:2a03350e28c8:1",
+   "sha256": "1c84db58d6bdd88da0fd2d915ecedc42d162adcf6414d1bd12cd2fe93b31a695",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "asap-evol-anticliche-memory-admin-ux"
+   ],
+   "coverage_refs": [
+    "plans/features/asap-evol-anticliche-memory-admin-ux/requirements-map.json"
+   ],
+   "reason": "Раздел 'ASAP-EVOL-ANTICLICHE-MEMORY-ADMIN-UX-2026-11-02 — ЧИСТОВОЕ ТЗ НА РЕАЛИ' (стр. 2902-4029) реализуется задачей asap-evol-anticliche-memory-admin-ux; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "asap-evol-anticliche-memory-admin-ux",
+     "map": "plans/features/asap-evol-anticliche-memory-admin-ux/requirements-map.json",
+     "req_ids": [
+      "MEM-ACC-SEMANTIC",
+      "MEM-ACC-TOOLS",
+      "UI-MEME-GLOBAL",
+      "UI-MODULES-EXISTING-ASSETS",
+      "MEM-TRACE-FIELDS",
+      "MEM-ACC-RECONSTRUCTION",
+      "AC-GROUPING-RULES",
+      "AC-FINAL-REVIEWER"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:4af314834201:1",
+   "sha256": "ea6827d1426c6044b395fee750408b32ba57e1500508d33ae8d08c906b9ec56d",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "epic-experience-learning-performance-help"
+   ],
+   "coverage_refs": [
+    "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+    "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json"
+   ],
+   "reason": "Раздел 'EPIC-EXPERIENCE-LEARNING-ADMIN-PERFORMANCE-HELP — FINAL IMPLEMENTATION' (стр. 4030-4077) реализуется задачей epic-experience-learning-performance-help; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "epic-experience-learning-performance-help",
+     "map": "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+     "req_ids": [
+      "P-SPEC-PARITY",
+      "PAR-01",
+      "P-DELIV-04"
+     ]
+    },
+    {
+     "task_id": "epic-experience-learning-performance-help",
+     "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+     "req_ids": [
+      "EP-GUARD-ARCH",
+      "P-SPEC-PARITY",
+      "EP-H-HELP"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:2ec78366aceb:1",
+   "sha256": "4cb535856234306899f80d8b17e1f0532b2e30ac9998dfea986439a0dbca0a86",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "epic-experience-learning-performance-help"
+   ],
+   "coverage_refs": [
+    "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+    "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json"
+   ],
+   "reason": "Раздел 'E. Полноценное самообучение: опыт, саморефлексия, пересмотр и перенос ' (стр. 4078-4197) реализуется задачей epic-experience-learning-performance-help; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "epic-experience-learning-performance-help",
+     "map": "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+     "req_ids": [
+      "P-BOOT-05",
+      "P-API-03",
+      "P-GATE-00",
+      "P-FE-01",
+      "P-BOOT-04",
+      "P-BOOT-01",
+      "P-MEAS-05",
+      "P-MEAS-04"
+     ]
+    },
+    {
+     "task_id": "epic-experience-learning-performance-help",
+     "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+     "req_ids": [
+      "EP-E7-6",
+      "EP-E5-1",
+      "EP-E4-1",
+      "EP-E3-4",
+      "EP-E4-3",
+      "EP-E3-1",
+      "EP-E8-DOD",
+      "EP-E7-5"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:b1fecc90827c:1",
+   "sha256": "c867bc31cce0bf379e1dad3b6f957d4b52acd8c4a474090b0cd1a00538ab418c",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "epic-experience-learning-performance-help"
+   ],
+   "coverage_refs": [
+    "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+    "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json"
+   ],
+   "reason": "Раздел 'P. Ускорение загрузки и работы админки (Telegram Mini App + desktop)' (стр. 4198-4281) реализуется задачей epic-experience-learning-performance-help; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "epic-experience-learning-performance-help",
+     "map": "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+     "req_ids": [
+      "P-GATE-00",
+      "P-GOAL-01",
+      "P-MEAS-02",
+      "P-DELIV-04",
+      "P-BOOT-01",
+      "P-MEAS-01",
+      "P-VER-15",
+      "P-DELIV-02"
+     ]
+    },
+    {
+     "task_id": "epic-experience-learning-performance-help",
+     "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+     "req_ids": [
+      "P-GENUINE",
+      "EP-P3-4-16",
+      "EP-P3-1-2",
+      "EP-P3-1-4",
+      "EP-P3-3-10",
+      "EP-P3-5-20",
+      "P-GATE-00",
+      "EP-P3-2-6"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:d1d447b20691:1",
+   "sha256": "6998cefe6630eb3b83a1d74180069e0056c3489ee944559e78424a00abc2b3db",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "epic-experience-learning-performance-help"
+   ],
+   "coverage_refs": [
+    "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+    "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json"
+   ],
+   "reason": "Раздел 'H. ПОСЛЕДНЯЯ ОТДЕЛЬНАЯ ЗАДАЧА: актуализировать «Справку» целиком' (стр. 4282-4336) реализуется задачей epic-experience-learning-performance-help; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "epic-experience-learning-performance-help",
+     "map": "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+     "req_ids": [
+      "P-DELIV-04",
+      "P-BOOT-04",
+      "P-BOOT-03"
+     ]
+    },
+    {
+     "task_id": "epic-experience-learning-performance-help",
+     "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+     "req_ids": [
+      "EP-H-HELP",
+      "EP-E7-5",
+      "EP-E3-5"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:93cdf4a3b5a5:1",
+   "sha256": "92650bc6691f23a79db96ad9fba67b69a6f08c5217dbe4f7dcfc1f2f7026d809",
+   "disposition": "context",
+   "target_task_ids": [],
+   "coverage_refs": [],
+   "reason": "Организационный раздел о порядке исполнения и составе доказательств: он не содержит отдельного продуктового требования, а задаёт процедуру. Исполнение отслеживается статусами задач и гейтами требований, собственных строк требований у раздела нет."
+  },
+  {
+   "id": "H1:19c61df17031:1",
+   "sha256": "e09e74e2434f86f58e5a27ce29909474a05223c168b4f71fd47299017918d570",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "hotfix-meme-publication-initiative-ui"
+   ],
+   "coverage_refs": [
+    "plans/features/hotfix-meme-publication-initiative-ui/requirements-map.json"
+   ],
+   "reason": "Раздел 'HOTFIX-MEME-PUBLICATION-AND-INITIATIVE-UI — обязательное корректирующе' (стр. 4579-4707) реализуется задачей hotfix-meme-publication-initiative-ui; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "hotfix-meme-publication-initiative-ui",
+     "map": "plans/features/hotfix-meme-publication-initiative-ui/requirements-map.json",
+     "req_ids": [
+      "HMF-ACC-02",
+      "HMF-UI-07",
+      "HMF-ACC-03",
+      "HMF-UI-06",
+      "HMF-UI-05",
+      "HMF-UI-02",
+      "HMF-ACC-10",
+      "HMF-UI-04"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:c57173d91b1a:1",
+   "sha256": "b5452b9791a5687ce0bbd410a4c8c57ab86e15882ff69d9a5a730a61bfbb6328",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "epic-cm-visual-01"
+   ],
+   "coverage_refs": [
+    "plans/features/epic-cm-visual-01/requirements-map.json"
+   ],
+   "reason": "Раздел 'EPIC-CM-VISUAL-01 — Полный редизайн визуализации когнитивной карты Adm' (стр. 4708-5022) реализуется задачей epic-cm-visual-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "epic-cm-visual-01",
+     "map": "plans/features/epic-cm-visual-01/requirements-map.json",
+     "req_ids": [
+      "CMV-VIS-14",
+      "CMV-REP-02",
+      "CMV-NODE-01",
+      "CMV-HDR-02",
+      "CMV-INV-02",
+      "CMV-INT-01",
+      "CMV-PERF-04",
+      "CMV-HDR-01"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:ac88ff5fff8a:1",
+   "sha256": "667abf0f8971dab02d5cb4a457030fb9ec0b61371d2bd5212190d075e06dff1b",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "evol-reply-context-integrity-01"
+   ],
+   "coverage_refs": [
+    "plans/features/evol-reply-context-integrity-01/requirements-map.json"
+   ],
+   "reason": "Раздел 'EVOL-REPLY-CONTEXT-INTEGRITY-01 — Цель, контекст, чистая речь и честны' (стр. 5023-5534) реализуется задачей evol-reply-context-integrity-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "evol-reply-context-integrity-01",
+     "map": "plans/features/evol-reply-context-integrity-01/requirements-map.json",
+     "req_ids": [
+      "RC-FIN-DOD",
+      "RC-FIN-REVIEWER-DUTY",
+      "RC-CF-REVIEWER-MATCH",
+      "RC-GSB-KEYS-VS-RELATIONS",
+      "RC-S118",
+      "RC-MED-LINKED",
+      "RC-CF-RULE",
+      "RC-MED-TEXTONLY"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:355abdc2a506:1",
+   "sha256": "1c82ac9d2187e9a9f2c05cd4cd148137f1880eb883637d3ea7baf311714e6921",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "epic-prompt-versioning-ux-01"
+   ],
+   "coverage_refs": [
+    "plans/features/epic-prompt-versioning-ux-01/requirements-map.json"
+   ],
+   "reason": "Раздел 'EPIC-PROMPT-VERSIONING-UX-01 — единый контроль версий промптов и UX ре' (стр. 5535-5650) реализуется задачей epic-prompt-versioning-ux-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "epic-prompt-versioning-ux-01",
+     "map": "plans/features/epic-prompt-versioning-ux-01/requirements-map.json",
+     "req_ids": [
+      "PVR-REV-01",
+      "PVR-EXEC-01",
+      "PVR-BASE-07",
+      "PVR-REV-04",
+      "PVR-REV-03",
+      "PVR-INV-02",
+      "PVR-GOAL-01",
+      "PVR-INV-01"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:017f4d8bdead:1",
+   "sha256": "f014399b0af5989aed4c83f599c9f5251b575ac843be3dd40e9a25cf37c2d02b",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "unified-reply"
+   ],
+   "coverage_refs": [
+    "plans/features/unified-reply/requirements-map.json"
+   ],
+   "reason": "Раздел 'UNIFIED-REPLY — единый интеллект ответа, поиск, контекст и интерфейс' (стр. 5651-6156) реализуется задачей unified-reply; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "unified-reply",
+     "map": "plans/features/unified-reply/requirements-map.json",
+     "req_ids": [
+      "UR-RES-02",
+      "UR-30.2",
+      "UR-07.1",
+      "UR-28.5",
+      "UR-23.2",
+      "UR-28.2",
+      "UR-RES-04",
+      "UR-30.3"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:6ae9fb3ea272:1",
+   "sha256": "84e1d451c929163c9784126337a1fd7015216aadc3f0564b4ed5d9c9ab6b0d80",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "pvr-fc-corrective-01"
+   ],
+   "coverage_refs": [
+    "plans/features/pvr-fc-corrective-01/requirements-map.json"
+   ],
+   "reason": "Раздел 'Adminbot — PVR-FC-CORRECTIVE-01' (стр. 6157-6202) реализуется задачей pvr-fc-corrective-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "pvr-fc-corrective-01",
+     "map": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+     "req_ids": [
+      "A3.2",
+      "A3.5",
+      "A3.1",
+      "A3.4",
+      "FC-02.1",
+      "A3",
+      "FC-04.6",
+      "PVR-01.6"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:1ef222405562:1",
+   "sha256": "463b169b6b537829d54d9918d8bc8e186629f9dce7e805c410113b02927e3035",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "pvr-fc-corrective-01"
+   ],
+   "coverage_refs": [
+    "plans/features/pvr-fc-corrective-01/requirements-map.json"
+   ],
+   "reason": "Раздел 'Блок PVR. Версионирование и UI' (стр. 6203-6279) реализуется задачей pvr-fc-corrective-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "pvr-fc-corrective-01",
+     "map": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+     "req_ids": [
+      "PVR-03.1",
+      "PVR-06.1",
+      "PVR-05.1",
+      "PVR-04.2.1",
+      "PVR-04.3.1",
+      "PVR-04.2.4",
+      "PVR-04.0",
+      "PVR-03.2"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:086c1fe6323e:1",
+   "sha256": "06731a7d358bd940a52c3c28386a27a7d2bd9deb36a0f8637c612df1e01788bb",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "pvr-fc-corrective-01"
+   ],
+   "coverage_refs": [
+    "plans/features/pvr-fc-corrective-01/requirements-map.json"
+   ],
+   "reason": "Раздел 'Блок FC. Качество фактчека, источников и вывода' (стр. 6280-6347) реализуется задачей pvr-fc-corrective-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "pvr-fc-corrective-01",
+     "map": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+     "req_ids": [
+      "FC-06.2",
+      "FC-07.1",
+      "FC-02.2",
+      "FC-02.3",
+      "FC-01.1",
+      "FC-04.6",
+      "FC-03.4",
+      "FC-04.7"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:893888fa6f18:1",
+   "sha256": "9668190add95d4e74ad133b3c282bbc093545315fdcb0f39397e61cd60555c77",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "pvr-fc-corrective-01"
+   ],
+   "coverage_refs": [
+    "plans/features/pvr-fc-corrective-01/requirements-map.json"
+   ],
+   "reason": "Раздел 'Совместимость, реализация и приёмка' (стр. 6348-6435) реализуется задачей pvr-fc-corrective-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "pvr-fc-corrective-01",
+     "map": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+     "req_ids": [
+      "C5.4",
+      "C4.10",
+      "C5.3",
+      "C1.9",
+      "C1.1",
+      "FC-04.1",
+      "C4.14",
+      "C4.11"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:b3f52760d609:1",
+   "sha256": "56182f6c584071310dcfb743d382a926f1efd5a777ed9445b6610ea90ccc11d9",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "behavior-gates-simplification-01"
+   ],
+   "coverage_refs": [
+    "plans/features/behavior-gates-simplification/requirements-map.json"
+   ],
+   "reason": "Раздел 'Adminbot — BEHAVIOR-GATES-SIMPLIFICATION-01' (стр. 6436-6701) реализуется задачей behavior-gates-simplification-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "behavior-gates-simplification-01",
+     "map": "plans/features/behavior-gates-simplification/requirements-map.json",
+     "req_ids": [
+      "BGS-03.4",
+      "BGS-04.10",
+      "BGS-04.3",
+      "BGS-00.6",
+      "BGS-00.5",
+      "BGS-00.3",
+      "BGS-00.2",
+      "BGS-06.3"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:6d28e34e049c:1",
+   "sha256": "51e07b4fb9ea7bd23bb799474f8ea6408944737e40989e7274f6835f60614624",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "remove-legacy-rephrasing-01"
+   ],
+   "coverage_refs": [
+    "plans/features/remove-legacy-rephrasing/requirements-map.json"
+   ],
+   "reason": "Раздел 'ADMINBOT — REMOVE-LEGACY-REPHRASING / FINAL CORRECTIVE v2.0' (стр. 6702-6945) реализуется задачей remove-legacy-rephrasing-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "remove-legacy-rephrasing-01",
+     "map": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+     "req_ids": [
+      "R-DEF.BAN",
+      "R-ADM.5",
+      "R-OPS.ALLOWED",
+      "R-06.1",
+      "R-01.2",
+      "R-02.3",
+      "R-FAIL.6",
+      "R-CONF.13"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:49e5a2e07849:1",
+   "sha256": "55bcedd747a642206786ce0c36db71bdb11e2321d6be3e58c7609988f003e2fa",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "epic-memory-cognitive-02"
+   ],
+   "coverage_refs": [
+    "plans/features/memory-cognitive-02/requirements-map.json"
+   ],
+   "reason": "Раздел 'EPIC-MEMORY-COGNITIVE-02 — Человекоподобная память, качественный Graph' (стр. 6946-7419) реализуется задачей epic-memory-cognitive-02; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "epic-memory-cognitive-02",
+     "map": "plans/features/memory-cognitive-02/requirements-map.json",
+     "req_ids": [
+      "MEM-04.6-RUNTIME",
+      "MEM-06-RUNTIME",
+      "SC-21",
+      "MEM-06.9",
+      "MEM-07.5",
+      "MEM-05.5",
+      "MEM-07.4",
+      "INV-04"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:ef18301c21ed:1",
+   "sha256": "fe64739ed5267ba1e26f060ec613ee131ff9b285d8088913c3331173404888ee",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108"
+   ],
+   "coverage_refs": [
+    "plans/features/epic-adminbot-corrective-ym-nost-20261108/requirements-map.json"
+   ],
+   "reason": "Раздел 'ADMINBOT — CLEAN FINAL OWNER SPEC: TIME / REPLY / VISION / RBAC / YOOM' (стр. 7420-8281) реализуется задачей EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108",
+     "map": "plans/features/epic-adminbot-corrective-ym-nost-20261108/requirements-map.json",
+     "req_ids": [
+      "SRC-0384",
+      "PAY-YM-SIGNATURE",
+      "NOST-LIVE-QUALITY",
+      "SRC-0642",
+      "SRC-0790",
+      "SRC-0522",
+      "VISION-OWN-PROVENANCE",
+      "SRC-0460"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:be6ffcafab13:1",
+   "sha256": "8282f6e243a073ab4fb0b32398b644d422f50e381721998e7f48c12be3d28e9e",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "vmq-onto-01"
+   ],
+   "coverage_refs": [
+    "plans/features/vmq-onto-01/requirements-map.json"
+   ],
+   "reason": "Раздел 'ADMINBOT — VMQ-ONTO-01: интеграция голосового контекста, продольной па' (стр. 8282-9483) реализуется задачей vmq-onto-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "vmq-onto-01",
+     "map": "plans/features/vmq-onto-01/requirements-map.json",
+     "req_ids": [
+      "QM-04",
+      "QM-01",
+      "QM-03",
+      "QM-08",
+      "QM-09",
+      "QM-07",
+      "Q-04",
+      "Q-03"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:0edabc2e7db4:1",
+   "sha256": "f6bdf61ae292af29372c2136b60eb41938b6133d1f0ad2287d2f4ffc311b8620",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "self-diag-01"
+   ],
+   "coverage_refs": [
+    "plans/features/self-diag-01/requirements-map.json"
+   ],
+   "reason": "Раздел 'ADMINBOT — SELF-DIAG-01' (стр. 9484-10015) реализуется задачей self-diag-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "self-diag-01",
+     "map": "plans/features/self-diag-01/requirements-map.json",
+     "req_ids": [
+      "SD1-D7-02",
+      "SD1-D5-12",
+      "SD1-AC-23",
+      "SD1-AC-11",
+      "SD1-GRAL-04",
+      "SD1-D6-07",
+      "SD1-AC-09",
+      "SD1-D2-31"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H1:cac772d10e52:1",
+   "sha256": "f18505df35d43469a9ead4da653e1b2faa0cc42679614d54da94e3fa617aad0f",
+   "disposition": "mapped",
+   "target_task_ids": [
+    "mod-acl-ux-01"
+   ],
+   "coverage_refs": [
+    "plans/features/mod-acl-ux-01/requirements-map.json"
+   ],
+   "reason": "Раздел 'ADMINBOT — MOD-ACL-UX-01' (стр. 10016-10747) реализуется задачей mod-acl-ux-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+   "requirement_refs": [
+    {
+     "task_id": "mod-acl-ux-01",
+     "map": "plans/features/mod-acl-ux-01/requirements-map.json",
+     "req_ids": [
+      "MAC-LSN-10",
+      "MAC-LSN-04",
+      "MAC-LSN-02",
+      "MAC-LSN-01",
+      "MAC-LSN-11",
+      "MAC-LSN-07",
+      "MAC-LSN-03",
+      "MAC-LSN-06"
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,273 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "source_map": "requirements-map.json",
+  "waves": [],
+  "slices": [
+    {
+      "id": "AC-P0",
+      "scope": "Снять любой AntiCliche-стимул к перегенерации и отделить стиль от независимых guard'ов.",
+      "depends_on": [],
+      "write_scope": [
+        "services/negative_constraints.py",
+        "services/prompt_style_blocks.py",
+        "services/direct_chat_service.py",
+        "services/factcheck_service.py",
+        "tests/test_negative_constraints_round1022.py",
+        "tests/test_anticliche_semantics_round1025.py"
+      ],
+      "acceptance": "Число AntiCliche-перегенераций = 0 на всех legacy/manual/dynamic/pinned сценариях при сохранных numeric/form/metatext/format guard'ах, доказано тестами и трассой генерации.",
+      "mode": "writer"
+    },
+    {
+      "id": "AC-DATA",
+      "scope": "Независимые источники, честные статусы/revisions/freshness, LKG без ложных нулей и retry storm. Сознательный serial join: §8 arch — один писатель на подсистему AntiCliche.",
+      "depends_on": [
+        "AC-P0"
+      ],
+      "write_scope": [
+        "services/anticliche_worker.py",
+        "services/anticliche_cache.py",
+        "services/anticliche_sources.py",
+        "services/pg_db.py",
+        "web/api/anticliche.py",
+        "tests/test_anticliche_round1023.py",
+        "tests/test_anticliche_cron_limit_round1024.py"
+      ],
+      "acceptance": "Источник A=403 и B=200 дают partial_success с публикацией по B, LKG остаётся активным, ложные version=0/count=0 не появляются, 429/403 не вызывают storm.",
+      "mode": "writer"
+    },
+    {
+      "id": "AC-PIPE",
+      "scope": "Parse → LLM-анализ → quality gate → staging → атомарная публикация snapshot с реальными событиями.",
+      "depends_on": [
+        "AC-DATA"
+      ],
+      "write_scope": [
+        "services/anticliche_worker.py",
+        "services/anticliche_pipeline.py",
+        "services/mca_events.py",
+        "services/pg_db.py",
+        "tests/test_anticliche_snapshot_round1023.py"
+      ],
+      "acceptance": "Run публикует атомарную версию только из прошедших gate кандидатов, неизменённый вход даёт skipped_unchanged/no_change, а каждый этап оставляет связанное событие с run_id/analysis_id.",
+      "mode": "writer"
+    },
+    {
+      "id": "AC-COMPILER",
+      "scope": "Детерминированный Prompt Compiler: Hint/Observation views, селектор по route/scope, один блок в существующем Composer (слой anticliche_hint).",
+      "depends_on": [
+        "AC-P0",
+        "AC-PIPE"
+      ],
+      "write_scope": [
+        "services/anticliche_compile.py",
+        "services/prompt_composer.py",
+        "services/prompt_style_blocks.py",
+        "services/style_policy.py",
+        "services/prompt_registry.py",
+        "tests/test_anticliche_compiler.py"
+      ],
+      "acceptance": "Опубликованный snapshot даёт совместимый AntiCliche-блок в Writer без LLM на горячем пути, preview байт-в-байт равен runtime, 0 hints не ломает базовый стиль.",
+      "mode": "writer"
+    },
+    {
+      "id": "AC-API",
+      "scope": "Read/mutation контракт шести вкладок на существующих routes с operation id, конфликтами и RBAC.",
+      "depends_on": [
+        "AC-DATA",
+        "AC-PIPE",
+        "AC-COMPILER"
+      ],
+      "write_scope": [
+        "web/api/anticliche.py",
+        "tests/test_anticliche_api.py"
+      ],
+      "acceptance": "Overview/sources/runs/rules/preview/traces/events и мутации отдают реальные поля ledger, accepted отличается от finished, stale version даёт conflict, RBAC соблюдён.",
+      "mode": "writer"
+    },
+    {
+      "id": "AC-UI",
+      "scope": "Карточка в «Речь и характер», шесть вкладок на реальных данных, карточка extractor-модели, удаление legacy-блока.",
+      "depends_on": [
+        "AC-API",
+        "AC-COMPILER",
+        "UI-LOGS-FE",
+        "UI-MEME"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/speech.py",
+        "tests/js/anticliche_admin_ui_test.js"
+      ],
+      "acceptance": "Все шесть вкладок показывают реальные run/source/rule данные, один toggle в «Речь и характер» влияет на runtime, legacy-блок удалён, desktop 1536×960 и mobile 390×844 без переполнений и обрезки.",
+      "mode": "writer"
+    },
+    {
+      "id": "AC-LIVE",
+      "scope": "Сквозная конечная приёмка и контролируемый live-smoke с доказательствами.",
+      "depends_on": [
+        "AC-UI",
+        "AC-PIPE",
+        "MEM-TRACE",
+        "UI-LOGS-FE",
+        "UI-MEME"
+      ],
+      "write_scope": [
+        "plans/features/asap-evol-anticliche-memory-admin-ux/evidence/live/"
+      ],
+      "acceptance": "Все 84 сценария §9 имеют PASS/FAIL/NOT_VERIFIED/N/A с evidence, контролируемый live-smoke подтверждает активный snapshot и отсутствие задержек, NOT_VERIFIED не выдаётся за PASS.",
+      "mode": "writer"
+    },
+    {
+      "id": "MEM-CONTRACT",
+      "scope": "Цель запроса и отбор кандидатов по смыслу, идентичности, времени и доказательности до Composer.",
+      "depends_on": [],
+      "write_scope": [
+        "services/tool_router.py",
+        "services/mca_retrieval_context.py",
+        "services/summary_memory.py",
+        "tests/test_memory_relevance_contract.py"
+      ],
+      "acceptance": "person+topic запрос выбирает тематические сведения вместо досье, высокий vector score не вытесняет верный SourceRef, исторический вопрос сохраняет старый эпизод с датой.",
+      "mode": "writer"
+    },
+    {
+      "id": "MEM-IDENTITY",
+      "scope": "Таксономия идентичности и корректная самореференция бота без выдуманных персон.",
+      "depends_on": [
+        "MEM-CONTRACT"
+      ],
+      "write_scope": [
+        "services/tool_router.py",
+        "services/summary_aliases.py",
+        "tests/test_memory_identity_contract.py"
+      ],
+      "acceptance": "Имя без подтверждённого user_id не даёт verified identity, одинаковые имена не сливаются, исторический персонаж не считается участником, самовведённое имя разговорно исправляется без новой биографии.",
+      "mode": "writer"
+    },
+    {
+      "id": "MEM-PACKAGE",
+      "scope": "Model-visible сериализация tool-результатов и изоляция метрик от разговорной речи.",
+      "depends_on": [
+        "AC-COMPILER"
+      ],
+      "write_scope": [
+        "services/tool_result.py",
+        "services/tool_loop.py",
+        "services/prompt_composer.py",
+        "tests/test_memory_tool_packaging.py"
+      ],
+      "acceptance": "В финальный текст не попадают str(dict)/repr/chat_id/confidence/source_ref, статистика появляется только при явном запросе с MetricResult, память используется как внутренняя опора.",
+      "mode": "writer"
+    },
+    {
+      "id": "MEM-TRACE",
+      "scope": "Телеметрия отбора и расширение существующего drill-down реальными решениями.",
+      "depends_on": [
+        "MEM-CONTRACT",
+        "MEM-IDENTITY",
+        "MEM-PACKAGE",
+        "AC-UI"
+      ],
+      "write_scope": [
+        "services/mca_trace.py",
+        "web/app.js",
+        "web/index.html",
+        "tests/js/memory_trace_drilldown_test.js"
+      ],
+      "acceptance": "Карточка обращения воспроизводит путь query → candidates → selected/rejected с причинами → context → ответ, при отсутствии данных показывает «Нет данных».",
+      "mode": "writer"
+    },
+    {
+      "id": "UI-BOOT",
+      "scope": "Состояния первичной загрузки Mini App с гарантированным завершением и рабочим retry.",
+      "depends_on": [],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "tests/js/admin_boot_states_test.js"
+      ],
+      "acceptance": "Для success/slow/401/403/5xx/network/empty/retry скелетоны исчезают, есть причина и «Повторить», быстрый switch чата не перезаписывает область устаревшим ответом.",
+      "mode": "writer"
+    },
+    {
+      "id": "UI-SELECTOR",
+      "scope": "Popover выбора чата, привязанный к триггеру вместо нижнего экрана.",
+      "depends_on": [
+        "UI-BOOT"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/static/app.css",
+        "tests/js/chat_scope_popover_test.js"
+      ],
+      "acceptance": "На 390×844 popover открывается у селектора, имеет поиск/GLOBAL/чаты, собственный скролл и safe-area, работает touch/keyboard, z-index не обрезается.",
+      "mode": "writer"
+    },
+    {
+      "id": "UI-MODULES",
+      "scope": "Матрица тумблеров модулей в GLOBAL и чате с честным происхождением значения.",
+      "depends_on": [
+        "UI-SELECTOR"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "tests/js/module_scope_matrix_test.js"
+      ],
+      "acceptance": "Per-chat override редактируется и сбрасывается, global-only виден read-only с переходом в global, неприменимый модуль показывает причину, effective совпадает с server.",
+      "mode": "writer"
+    },
+    {
+      "id": "UI-LOGS-BE",
+      "scope": "Полный журнал эпохи запуска: durable sink, единое определение счётчиков, cursor pagination.",
+      "depends_on": [],
+      "write_scope": [
+        "services/log_ring.py",
+        "services/status_service.py",
+        "services/system_logs_fetcher.py",
+        "web/api/routes.py",
+        "bot.py",
+        "tests/test_log_coverage_epoch.py"
+      ],
+      "acceptance": "errors_since_start равен count(ERROR+CRITICAL) за ту же эпоху, ранние записи доступны через cursor без дублей и пропусков, RBAC и sanitization сохранены.",
+      "mode": "writer"
+    },
+    {
+      "id": "UI-MEME",
+      "scope": "Мем-инициатива: глобальные настройки плюс наследуемые чатовые переопределения.",
+      "depends_on": [
+        "UI-MODULES",
+        "UI-LOGS-BE"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "services/meme_initiative.py",
+        "web/api/routes.py",
+        "tests/test_meme_settings_scopes.py"
+      ],
+      "acceptance": "GLOBAL сохраняет настройки мемов, чат без override их наследует, чат с override хранит только delta, reset возвращает наследование, runtime читает тот же effective.",
+      "mode": "writer"
+    },
+    {
+      "id": "UI-LOGS-FE",
+      "scope": "Экран журнала на полных данных: шапка эпохи, фильтры, «Загрузить ещё».",
+      "depends_on": [
+        "UI-LOGS-BE",
+        "UI-MEME"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "tests/js/logs_epoch_screen_test.js"
+      ],
+      "acceptance": "Экран показывает «Запуск», «Доступно с», покрытие и раздельные ERROR/WARNING, фильтры и ранние страницы не теряются, секретов нет.",
+      "mode": "writer"
+    }
+  ]
+}

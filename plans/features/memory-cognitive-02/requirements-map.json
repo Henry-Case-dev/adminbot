@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
   "source_sha256": "316893a95392d7fba23ef7d96eaa603384a587b7ab82bd29a6350453d9ca0ed1",
-  "candidate_commit": "",
-  "deployed_commit": "",
+  "candidate_commit": "2141b020",
+  "deployed_commit": "b2fed7077e3dac5b5904fc5d999c69bc4363de30",
   "strict_evidence": false,
   "slice_graph_path": "",
   "additional_requirements": [
@@ -304,8 +304,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «## 2. Целевая логическая модель памяти (MEMORY-01)» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "5666c0a4",
+          "ref": "services/memory_contracts.py",
+          "artifact_sha256": "FCBE934BCA698F2D8B8B19A90225B5520533349E0F2198B1ACD138F059CB4786",
+          "observation": "Pure types: confirmed relation impossible without a resolvable verified independent source; mentions/cooccurrence/legacy never count as independent support; strongest verified root decides status while legacy sources stay reported separately; ambiguity cannot become a merge; absent signal is unknown; assertion/event/observed times are separate and never defaulted; search outcomes are a mutually exclusive matrix with cursor, revision echo and partial scope, and no-rights cannot be expressed as no-matches."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "5666c0a4",
+          "ref": "tests/test_memory_contracts.py",
+          "artifact_sha256": "8574BB3125A00C7C42E479E273A26F0A1AFC972A39BB5ED5B63B84B54F1E6B38",
+          "observation": "64 contract tests pass; reviewer mutations (mentions counted as support; valid_from defaulted) go red; reviewer's own probes confirmed bot_output+independent is still representable, so rule R-3 remains an obligation of MEMORY-03, not of this slice."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "5666c0a4",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer: Approved. Existing files untouched, no SQL/DDL/network, module import does not pull in database; constants resolved from their real homes (provenance, graphrag_provenance, mca_retrieval_context). Dependent slices MEMORY-02/03/04/06 stay blocked."
+        }
+      ]
     },
     {
       "source_id": "M-MEMORY-02",
@@ -335,7 +356,29 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
+        }
+      ],
+      "pending_reason": "resolve_entity exists and is Approved (part A), but extraction, retrieval and the UI do not call it yet; the row requires availability from those consumers."
     },
     {
       "source_id": "M-MEM-02.2",
@@ -350,7 +393,29 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
+        }
+      ],
+      "pending_reason": "The resolver applies the uid-first key with chat scope and alias fallback; the row also requires extraction to supply stable identity end-to-end, which is a later slice."
     },
     {
       "source_id": "M-MEM-02.3",
@@ -365,7 +430,29 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
+        }
+      ],
+      "pending_reason": "Casefold only proposes candidates and never merges (tested with ПАПАХА/Папаха/папаха and the Бабаха negative); the row also requires the same guarantee on every existing write path, which part B wires only for W1/W2."
     },
     {
       "source_id": "M-MEM-02.4",
@@ -379,8 +466,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-02.4.** Пример `папаха` vs `Папаха`: если в одном чате по доказательствам это один и тот же человек/понятие — один канонический узел, » — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-02.5",
@@ -394,8 +502,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-02.5.** Операции `MERGE / ALIAS / KEEP_SEPARATE / AMBIGUOUS` имеют отдельные причины и набор источников. Высокое сходство векторов ник» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-02.6",
@@ -409,8 +538,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-02.6.** Для уже существующих дублей построить **dry-run** кандидатов по chat/type, алиасам и источникам; выгрузить число кандидатов, п» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-02.7",
@@ -424,8 +574,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-02.7.** Предотвращать повторное появление дублей **на входе каждого существующего write-path**: real-time, summary/crons, Graph extrac» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-02.8",
@@ -439,8 +610,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-02.8.** Контрольные отрицательные случаи: одинаковые алиасы в двух чатах; имя «Саша» у двух людей; смена ника; фраза про другого через» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "services/entity_merge.py",
+          "artifact_sha256": "BA8B2048E049537A4198A7784CE65292C617100BDA47DA776E37F0321D652AE1",
+          "observation": "Duplicate detection is read-only and reports candidate/safe/ambiguous/refused with impact counts; apply_merge writes one additive mca_entity_canonical row transactionally, revoke restores the member, merges preserve every fact_id, weight, validity and status, and a merge requires one proven stable identity on both sides. A seeded canonical absorbs a duplicate spelling (both forms resolve to it) without duplicating the pinned uid; the partial UNIQUE is untouched."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "tests/test_memory_identity_migration.py",
+          "artifact_sha256": "78C1EA901A2723D518B1581BD4ABBED59073BE18B4070E00711C9C62D7D8CAF2",
+          "observation": "24 tests: seed -> duplicate -> dry-run safe -> merged -> both spellings in one canonical node -> revoke; backfill applies 1 and resumes from the checkpoint; a uid pinned to a third node is refused; two same-named uids stay ambiguous; OFF parity fixture is byte-identical to the base commit."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "d554a139b87280a6dcce51155cb757279fddcf3e",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after rejecting the first candidate: it reproduced the seeded-canonical merge, verified the precise refusals, re-derived OFF parity against the base code (not the fixture), and reproduced both of its own mutations. Non-blocking follow-ups recorded in the backlog: a dry-run/apply disagreement for a uid pinned outside the pair, a missing durable test for that refusal, and the absent production entry point for B1/B2."
+        }
+      ]
     },
     {
       "source_id": "M-MEMORY-03",
@@ -499,8 +691,22 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-03.3.** Все новые person-affecting relations проходят уже существующую проверку `graphrag_provenance.py`. Без подтверждения авторства/» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "640cd818b2abd991a0de4de4c8654f3fd877ca4f",
+          "ref": "services/graphrag_provenance.py",
+          "artifact_sha256": "32AB1F67256759C5855B2CE79EDF38CE40393D2CC6F1F278A63C6BDDFF873036",
+          "observation": "Authorship is corroborated by identity, not by display name: perspective='self', or a stored non-forwarded author message whose user_id matches the subject uid resolved via provenance helpers (0 or >=2 candidates means no match). Forwards classify as quote_forward; third-party as reported_third_party; world_knowledge as derived_with_lineage; unresolved stays legacy_unknown. Corroborated authorship pairs with assertion_mode='asserted', so the card cannot claim a direct author statement while reporting an unknown modality."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "640cd818b2abd991a0de4de4c8654f3fd877ca4f",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer, three passes: first rejected the third-party/repost double-count, then the fabricated verified payload, then the name-based identity comparison. Final pass Approved with own probes P1-P8 (same-name different uid refused, uid match confirmed, repost quote_forward, third_party refused) and mutations returning red; 386 targeted tests green; no schema change, no migration, no destructive path."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-03.4",
@@ -514,8 +720,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-03.4.** Строго разделить происхождение: `explicit_direct` (высказано автором), `reported_third_party`, `quote/forward`, `derived_with_» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "640cd818b2abd991a0de4de4c8654f3fd877ca4f",
+          "ref": "services/relation_evidence.py",
+          "artifact_sha256": "CBDC4C2353D9A1FED291A955B9DA0590AAFA1A9BA7EAC134B0C989B492A20864",
+          "observation": "Edge evidence reuses the existing mca_source_refs/mca_evidence_links: an edge is addressed as a SourceRef subject, the fact's own SourceRef is attached with a stable revision, and the origin class is computed from the fact row only (link semantics cannot upgrade it). Independent support counts only derived_from/supports + verified + independent; mentions/cooccurrence/legacy never count; legacy sources are reported separately and do not demote a verified edge; no transitivity."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "640cd818b2abd991a0de4de4c8654f3fd877ca4f",
+          "ref": "services/graphrag_provenance.py",
+          "artifact_sha256": "32AB1F67256759C5855B2CE79EDF38CE40393D2CC6F1F278A63C6BDDFF873036",
+          "observation": "Authorship is corroborated by identity, not by display name: perspective='self', or a stored non-forwarded author message whose user_id matches the subject uid resolved via provenance helpers (0 or >=2 candidates means no match). Forwards classify as quote_forward; third-party as reported_third_party; world_knowledge as derived_with_lineage; unresolved stays legacy_unknown. Corroborated authorship pairs with assertion_mode='asserted', so the card cannot claim a direct author statement while reporting an unknown modality."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "640cd818b2abd991a0de4de4c8654f3fd877ca4f",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer, three passes: first rejected the third-party/repost double-count, then the fabricated verified payload, then the name-based identity comparison. Final pass Approved with own probes P1-P8 (same-name different uid refused, uid match confirmed, repost quote_forward, third_party refused) and mutations returning red; 386 targeted tests green; no schema change, no migration, no destructive path."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-03.5",
@@ -589,8 +816,22 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-03.9.** Для ошибочных связей — статусы `confirmed / tentative / unverified / contradicted / superseded / rejected`; изменения сохраняю» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "640cd818b2abd991a0de4de4c8654f3fd877ca4f",
+          "ref": "services/relation_evidence.py",
+          "artifact_sha256": "CBDC4C2353D9A1FED291A955B9DA0590AAFA1A9BA7EAC134B0C989B492A20864",
+          "observation": "Edge evidence reuses the existing mca_source_refs/mca_evidence_links: an edge is addressed as a SourceRef subject, the fact's own SourceRef is attached with a stable revision, and the origin class is computed from the fact row only (link semantics cannot upgrade it). Independent support counts only derived_from/supports + verified + independent; mentions/cooccurrence/legacy never count; legacy sources are reported separately and do not demote a verified edge; no transitivity."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "640cd818b2abd991a0de4de4c8654f3fd877ca4f",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer, three passes: first rejected the third-party/repost double-count, then the fabricated verified payload, then the name-based identity comparison. Final pass Approved with own probes P1-P8 (same-name different uid refused, uid match confirmed, repost quote_forward, third_party refused) and mutations returning red; 386 targeted tests green; no schema change, no migration, no destructive path."
+        }
+      ]
     },
     {
       "source_id": "M-MEMORY-04",
@@ -620,7 +861,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Not covered by this slice: 04.1 needs both times on the general write path, 04.2 needs relative-time resolution in extraction, 04.6 needs the quota path to stop deleting."
     },
     {
       "source_id": "M-MEM-04.2",
@@ -635,7 +877,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Not covered by this slice: 04.1 needs both times on the general write path, 04.2 needs relative-time resolution in extraction, 04.6 needs the quota path to stop deleting."
     },
     {
       "source_id": "M-MEM-04.3",
@@ -649,8 +892,36 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-04.3.** Свежая поправка **не уничтожает** старый факт: записать `supersedes`, relation revision, источник, дату, статус старого, новую» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "services/memory_maintenance.py",
+          "artifact_sha256": "6367DA71E2D439723D6E4409F6109CFDDE703C4B114CC59279EC4CAF13221B62",
+          "observation": "Consolidation always runs and never deletes: the aggregate is inserted with source_ids, sources keep their rows/FTS/vec, forward derived_from plus backward supersedes and freshness_status='superseded' are written for exact clusters, and the module contains no delete_graph_fact call. Vector-only clusters are written unconfirmed/tentative; exact clusters confirmed/verified. Reviewer measured zero delete calls across merge and two review runs, versus the base commit where sources were destroyed."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "services/summary_memory.py",
+          "artifact_sha256": "7672A5DB85F5AB1294AF16E2ED638AB488DAFAAF0859D72D57A827406E918433",
+          "observation": "The write-path policy is a single decision point with six explicit codes; a correction closes the old fact's validity at the correction's assertion time (never 'now'), keeps the old row, sets supersedes and provenance superseded. Similarity alone only emits a dedupe-candidate event and never supersedes or deletes. With the gate OFF the legacy cosine bands are byte-identical to the base."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "tests/test_memory_maintenance.py",
+          "artifact_sha256": "E0C984EDB6D012D26082D13F6112E12A0518BF8986BC21C974561D7470385F5E",
+          "observation": "20 tests including: lineage kept on merge, consolidation still runs with the gate off and stays non-destructive, vector cluster tentative vs exact confirmed, exact duplicates keep both rows with a pointer to the winner, and the OFF vector pair completes review without raising while purge still runs."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds. Its own scenario with an instrumented delete counter recorded zero deletions; four self-made mutations (skip consolidation at OFF, reinstate deletion, vector cluster confirmed, restore the tuple-unpack crash) all returned red. Caveats: MEM-04.3 is bound on supersedes+provenance evidence rather than a separate relation-revision mechanism; MEM-04.4 is live only when the policy gate is enabled; aggregate memory_kind is not inherited, which blocks MEM-04.5."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-04.4",
@@ -664,8 +935,36 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-04.4.** Единая политика `ADD / ENRICH / CONFIRM / SUPERSEDE / CONTRADICT / NOOP` как *семантика решений*, применяемая существующей mem» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "services/memory_maintenance.py",
+          "artifact_sha256": "6367DA71E2D439723D6E4409F6109CFDDE703C4B114CC59279EC4CAF13221B62",
+          "observation": "Consolidation always runs and never deletes: the aggregate is inserted with source_ids, sources keep their rows/FTS/vec, forward derived_from plus backward supersedes and freshness_status='superseded' are written for exact clusters, and the module contains no delete_graph_fact call. Vector-only clusters are written unconfirmed/tentative; exact clusters confirmed/verified. Reviewer measured zero delete calls across merge and two review runs, versus the base commit where sources were destroyed."
+        },
+        {
+          "kind": "code",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "services/summary_memory.py",
+          "artifact_sha256": "7672A5DB85F5AB1294AF16E2ED638AB488DAFAAF0859D72D57A827406E918433",
+          "observation": "The write-path policy is a single decision point with six explicit codes; a correction closes the old fact's validity at the correction's assertion time (never 'now'), keeps the old row, sets supersedes and provenance superseded. Similarity alone only emits a dedupe-candidate event and never supersedes or deletes. With the gate OFF the legacy cosine bands are byte-identical to the base."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "tests/test_memory_maintenance.py",
+          "artifact_sha256": "E0C984EDB6D012D26082D13F6112E12A0518BF8986BC21C974561D7470385F5E",
+          "observation": "20 tests including: lineage kept on merge, consolidation still runs with the gate off and stays non-destructive, vector cluster tentative vs exact confirmed, exact duplicates keep both rows with a pointer to the winner, and the OFF vector pair completes review without raising while purge still runs."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2c47c3598765e136ee020358d9af4aafc4c7b641",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds. Its own scenario with an instrumented delete counter recorded zero deletions; four self-made mutations (skip consolidation at OFF, reinstate deletion, vector cluster confirmed, restore the tuple-unpack crash) all returned red. Caveats: MEM-04.3 is bound on supersedes+provenance evidence rather than a separate relation-revision mechanism; MEM-04.4 is live only when the policy gate is enabled; aggregate memory_kind is not inherited, which blocks MEM-04.5."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-04.5",
@@ -680,7 +979,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Lineage is proven, but the aggregate does not inherit memory_kind, so bot_belief/observation/stable_trait distinction is not guaranteed yet; close before enabling mca-18 typed facts."
     },
     {
       "source_id": "M-MEM-04.6",
@@ -694,8 +994,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-04.6.** Старое, редкое, «забытое» воспоминание **не стирать** ради квот. Управлять hot-context вероятностью вызова по релевантности/вр» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3bfd3b063b2cb9b26c0191da103319d18d2ffa8d",
+          "type": "test",
+          "ref": "MEM-AUDIT SRC-0792 / MEM-04.6: неразрушающее вытеснение квоты; независимый Reviewer Approved на кандидате 3bfd3b06 (три опоры); production runtime вне доказанной границы",
+          "observation": "До фикса _enforce_user_quota вызывал delete_graph_fact, т.е. физически удалял graph_facts/graph_facts_fts/graph_facts_vec (случай C по MEM-AUDIT). На 3bfd3b06 вытеснение по квоте — атомарный переход confirmed→archived_fact (id+chat+target_user, NULL-safe) с ровно одной записью graph_fact_compressions reason='quota' (fact_after NULL); повтор/чужой скоуп/отсутствующий факт → False без второго журнала; сбой журнала → rollback статуса. Строки факта, FTS и vec сохраняются; обычная выдача (include_archived=False) архив не видит, include_archived=True (историческое копание) возвращает тот же id/текст; явное забывание остаётся физическим DELETE. Reviewer: Approved (инспекция кода, оценка assertions с DB-level COUNT и реальным RAISE(ABORT), независимые проверки). Тесты: 249 passed. Production runtime/данные НЕ проверены.",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/mem-audit-quota-archive-3bfd3b06.md",
+          "artifact_sha256": "ff53b9df7bda85f6f0bafe11ac5157bfcd8023d46e6cd17c3a41f060b79b9293",
+          "produced_on": "3bfd3b063b2cb9b26c0191da103319d18d2ffa8d"
+        },
+        {
+          "candidate_commit": "e4b97ce591703ee8d341fa1b1ba94e3cabc7ac17",
+          "type": "production",
+          "ref": "MEM-04.6 на развёрнутом релизе 2.58.163 (e4b97ce5): quota-путь в проде не удаляет историю; проверка кода развёрнутого коммита + read-only состояние БД",
+          "observation": "Развёрнут e4b97ce5 (release/2.58.163): healthz 2.58.163 HTTP 200, systemd active NRestarts=0, ноль traceback и ноль ERROR/CRITICAL после рестарта; миграция user_version 42→43 (entity_canonical_v43) с backup-guard VACUUM INTO read-back ok. На этом коммите в services/database.py присутствует archive_graph_fact_for_quota (4 вхождения), в services/summary_memory.py вызовов delete_graph_fact — ноль. Read-only по проду: graph_facts confirmed 22127; graph_fact_compressions reason='quota' 140 строк — все до деплоя (последняя 2026-11-03 07:56 UTC) и ссылаются на факты, удалённые прежним разрушающим путём; строк status='archived_fact' — 0; новых quota-строк после рестарта — 0. Значит разрушающий путь в проде отсутствует, но реальное вытеснение по квоте на живых данных ещё не наступало — runtime-наблюдение вынесено в MEM-04.6-RUNTIME (READY_FOR_LIVE).",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/mem-audit-quota-archive-deploy-e4b97ce5.md",
+          "artifact_sha256": "730023edcc2687e334ac7479c5ce2f43d3d83b95ebdaa174b8a88d418be785bf",
+          "produced_on": "e4b97ce591703ee8d341fa1b1ba94e3cabc7ac17"
+        }
+      ],
+      "reconciliation_note": "Кандидат 3bfd3b06 доказал контракт (confirmed→archived_fact, ровно один журнал reason='quota'; live-выдача архив не видит, include_archived=True возвращает тот же факт; явные delete/forget не обойдены), Reviewer Approved. Развёрнутый релиз 2.58.163 (e4b97ce5) подтверждает, что этот путь находится в проде и прежний delete_graph_fact в summary_memory.py отсутствует; реальное событие вытеснения на проде ещё не наблюдалось, поэтому live-часть требований вынесена отдельной строкой MEM-04.6-RUNTIME (READY_FOR_LIVE), а не выдана за проверенную.",
+      "pending_reason": "Not covered by this slice: 04.1 needs both times on the general write path, 04.2 needs relative-time resolution in extraction, 04.6 needs the quota path to stop deleting."
     },
     {
       "source_id": "M-MEMORY-05",
@@ -724,8 +1045,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-05.1.** Совместить, но не слить воедино: (а) оперативный локальный контекст последнего общения, (б) точные эпизоды и последовательност» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-05.2",
@@ -739,8 +1081,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-05.2.** Разрешать реальные связи «кто кому отвечает», reply/quote/mention/forward и временные последовательности. Для определения адре» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-05.3",
@@ -755,7 +1118,29 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ],
+      "pending_reason": "Tone/irony/argument vs meme is not derived from the message sequence yet; only the modality rule is proven."
     },
     {
       "source_id": "M-MEM-05.4",
@@ -770,7 +1155,29 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ],
+      "pending_reason": "The bot's own speech is proven at type level, but the mca_bot_outputs channel is not wired into answers yet."
     },
     {
       "source_id": "M-MEM-05.5",
@@ -784,8 +1191,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-05.5.** Из фото, GIF, sticker, video, voice, альбомов и превью переносить в память **фактически выполненную** выжимку с идентификаторо» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ]
     },
     {
       "source_id": "M-MEM-05.6",
@@ -800,7 +1228,29 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ],
+      "pending_reason": "The repost + 'look at this video' linkage is not implemented; only the absence of duplicate ingest/vision is proven."
     },
     {
       "source_id": "M-MEM-05.7",
@@ -814,8 +1264,29 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-05.7.** Полезность опыта: использовать действующие `mca_experience`, lesson/retrieval и доказанные feedback outcomes; не создавать веч» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "kind": "code",
+          "candidate_commit": "2141b020",
+          "ref": "services/memory_attribution.py",
+          "artifact_sha256": "9763F9D887AB2DA354ABCD95407415C0FE8BD29E4B9D16BF292F9B9D97DDDF38",
+          "observation": "Attribution maps the six memory layers onto existing tables (no new store, read-only SQL), resolves the addressee with reply-target priority and takes identity EXCLUSIVELY from the canonical resolver: one uid resolves, two or more yield ambiguity with user:<uid> candidates, none stays unresolved. Forwards are attributed to the original author, quotes keep both speakers, bot output is self_referential and cannot corroborate, media carries only actually processed summaries, a single failure stays experimental."
+        },
+        {
+          "kind": "test",
+          "candidate_commit": "2141b020",
+          "ref": "tests/test_memory_attribution.py",
+          "artifact_sha256": "1AC6DDEA23BB0CBD3A4AFE3515B2973E5499B39935F64E46C06C0ACD0FF0FCFD",
+          "observation": "32 tests: reply beats semantics; two candidates give ambiguous without a recipient; an out-of-roster same-name pair still yields ambiguity because C-1 refuses to unify; forward/quote attribution; bot corroboration impossible; media not_processed cannot carry a description with zero vision calls; one failure stays experimental; no LLM call on the attribution path."
+        },
+        {
+          "kind": "review",
+          "candidate_commit": "2141b020",
+          "ref": "plans/features/memory-cognitive-02/requirements-map.json",
+          "observation": "Independent Reviewer Approved after three rounds (type invariant, same-name duplication, and finally the root cause: the layer resolving identity on its own). Its own out-of-window case with different uids confirmed ambiguity on both the card and the write path; its mutation replacing C-1 with roster uids produced 8 failures. Caveats: 05.5 and 05.7 are API-level proofs (no consumer in output yet); 05.3 tone, 05.4 bot-outputs channel and 05.6 repost+video linkage remain unverified."
+        }
+      ]
     },
     {
       "source_id": "M-MEMORY-06",
@@ -844,8 +1315,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.1.** Оставить существующие FTS5/exact, vec0/embedding, `reply_graph`, эпизоды, `graph_facts`, Dossier/`get_user_context`, EvidenceB» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.1: единый retrieval-контракт без второго поиска; Reviewer Approved на 90e67277",
+          "observation": "Существующие каналы сохранены и собираются ОДНИМ retrieve(): FTS5/exact, vec0/vector (MemoryManager.retrieve_fact_candidates), reply_graph, эпизоды, entity/community, Dossier/get_user_context, EvidenceBundle и tool loop. AST-гвардия второго поискового пути не находит; счётчики на ответ: unified_calls=1, legacy_calls=0; шесть purposes get_user_context идут через тот же retrieve. Прогон: tests/test_memory_unified_retrieval_06.py 43 passed (кандидат), 14 failed на 40ae401a с тем же тест-файлом.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Контракт §4.4/§7 доказан кодом и тестами на 90e67277; Reviewer независимо подтвердил единственность пути (0 обращений к прежнему чтению RAG, 1 вход единого retrieval). Живая половина качества выдачи — строка MEM-06-RUNTIME (READY_FOR_LIVE)."
     },
     {
       "source_id": "M-MEM-06.2",
@@ -859,8 +1341,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.2.** Схема запроса: `query`, реальный `chat_id`, `trigger_message/ref`, intent (`fact / who / what-happened / history / relationshi» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.2: схема запроса и ACL-scope; тесты единого retrieval",
+          "observation": "RetrievalRequest несёт query, chat_id/chat_ids (ACL-скоуп проверяется отдельным тестом), trigger_ref (реальный tg_message_id), intent, subject_entity_ids отдельно от nodes.id subject_node_ids, ambiguous_subjects, time-границы, purpose, include_archived/access, top_k/cursor (ui_search 1..20, invalid_limit валидируется). Неразрешённый субъект не угадывается: при двух одноимённых людях — resolution='ambiguous' без автовыбора.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Поля схемы и их действие проверены тестами кандидата (ACL, ambiguity, purpose, режимы, limit); новых типов запроса не введено — расширение существующего RetrievalRequest."
     },
     {
       "source_id": "M-MEM-06.3",
@@ -874,8 +1367,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.3.** Прикреплять по необходимости точные недавние сообщения и reply-ветку; делать retrieval по всей доступной scoped истории: `exac» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.3: единый канал-набор по scoped истории + fusion; живая embedding-половина вынесена",
+          "observation": "Каналы exact/aliases, FTS (сообщения + граф-факты), vector (vec0/embedding через существующее чтение), subject (факты о субъекте), entity (bounded nodes по id), reply_graph, episode, community и recent объединены в одну выдачу; применяются временные и provenance-фильтры, chat_ids-ACL и дедуп с channel-rank fusion. В тестах канал vector работает на двойниках (внутри чтения — FTS-фолбэк), поэтому качество KNN/MMR на реальных эмбеддингах этим артефактом не доказано.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Структурная часть требования (набор каналов, scoped-история, fusion, ACL, фильтры) доказана на кандидате. Живая половина — реальные эмбеддинги/vec0 KNN и качество состава выдачи на живом корпусе — вынесена в MEM-06-RUNTIME (READY_FOR_LIVE), не выдана за VERIFIED."
     },
     {
       "source_id": "M-MEM-06.4",
@@ -889,8 +1393,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.4.** Типизированное ранжирование: релевантность запросу, тождество говорящего и субъекта, доверие к источнику, актуальность времени» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.4: типизированный ранг (доверие/свежесть/identity) против высокой cosine",
+          "observation": "typed_rank_score учитывает релевантность, тождество говорящего/субъекта, доверие источника, свежесть, независимость подтверждений и режим; устаревший факт с высокой cosine не выигрывает у свежего точного assertion (отдельный тест), identity-prior предпочитает запрошенного субъекта, архивный статус не поднимает строку. Для путей с принятым контрактом порядка канала (профиль субъекта, recent-срез, direct-RAG) preserve_channel_order отключает типизированное переупорядочивание, чтобы не менять уже отобранный топ.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Политика ранжирования детерминирована и проверена на синтетических кандидатах; фактическое качество ранжирования на живом корпусе с реальными эмбеддингами остаётся в MEM-06-RUNTIME."
     },
     {
       "source_id": "M-MEM-06.5",
@@ -904,8 +1419,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.5.** Не навязывать фиксированное число memory snippets по классам и не терять exact fact только потому, что его нет в топ-697 для U» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.5: без слепых квот по классам; max_items — кап инструмента",
+          "observation": "Квоты по классам в retrieval/контексте отсутствуют; _MEMORY_LOOKUP_PURPOSE_DEFAULTS остаются капом выдачи инструмента get_user_context и не переносятся в бюджет контекста (тест: изменение max_items не меняет состав контекста Writer, нет отсечения top-697), limit канала — параметр запроса, а не классовое ограничение.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Проверено тестом отсутствия фиксированных квот на кандидате; INV-12 не нарушен."
     },
     {
       "source_id": "M-MEM-06.6",
@@ -919,8 +1445,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.6.** Нужны три режима: `specific` — точный субъект/факт, `episodic` — восстановление последовательности событий, `thematic` — широк» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.6: три режима specific/episodic/thematic без LLM-маршрутизатора",
+          "observation": "Режимы отображаются на существующие mode/scope: specific — точный субъект/факт, episodic — эпизоды-первыми и хронология, thematic — community/membership и FTS по scoped-истории. На фиксированных входах выбор детерминирован, счётчик LLM-вызовов на пути выбора = 0, неизвестный интент уходит в существующий fallback auto, а не в угаданный режим; выдачи режимов различимы.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Два отдельных теста (различимость/детерминизм и LLM-free выбор) зелёные на кандидате."
     },
     {
       "source_id": "M-MEM-06.7",
@@ -934,8 +1471,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.7.** Семантический recall возможен по нескольким источникам, но ответ не должен автоматом включать все найденные факты. Нужны прове» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.7: гейты «не перепутан человек»/уместность/«память не нужна»",
+          "observation": "Relevance-гейт отбрасывает кандидатов другого человека и допускает решение «не использовать память»; ambiguity-гейт показывает варианты без автовыбора (в независимом PM-probe два одноимённых человека без uid → resolution='ambiguous', facts=[], empty_reason='ambiguous'); строка, отобранная в scope объявленного субъекта, получает честную атрибуцию subject_entity_id — питает гейты, а не ранжирование. Несколько источников не означают автоматического включения всех найденных фактов.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Гейты проверены тестами кандидата и независимым probe на реальном DatabaseService (два человека с одинаковым отображаемым именем, изоляция в обе стороны)."
     },
     {
       "source_id": "M-MEM-06.8",
@@ -949,8 +1497,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.8.** Предоставлять Writer **человеческий evidence summary с временными/источниковыми маркерами для внутренней проверки**, отделённы» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.8: человеческий evidence summary без внутренних id; активные промпты не тронуты",
+          "observation": "EvidenceBundle.summary_text формируется с датой/автором/источниковыми маркерами через chat_clock (per-chat IANA), регэксп не находит node_id/edge_id/source_ref_id/cosine/channel=/ent:/fact:; поле аддитивно, hash активных промптов до/после совпадает, post-writer rewriting не добавлен, summary уходит только Writer (в Telegram не выводится). Batch-чтение фактов для summary ограничено _BUNDLE_BLOCK_MAX_REFS ДО обращения к БД (тест на 30 ссылках).",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Три теста (маркеры/отсутствие id, аддитивность, промпт-hash + bounded-чтение) зелёные."
     },
     {
       "source_id": "M-MEM-06.9",
@@ -964,8 +1523,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.9.** Фактчек не подменять памятью: память может показать «N утверждал X в момент T», но внешняя истинность X проверяется существующ» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.9: фактчек не переписывает статус памяти",
+          "observation": "Память отдаёт утверждение как asserted_by_source; тест проверяет, что вердикт factcheck не меняет статус факта/провенанс записи памяти и не превращает «кто-то сказал» в «подтверждено». Отдельного канала истинности память не заводит.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Проверено тестом неизменности статуса памяти при вердикте factcheck на кандидате."
     },
     {
       "source_id": "M-MEM-06.10",
@@ -979,8 +1549,55 @@
       "acceptance": "Приёмка: соблюдено требование источника «**MEM-06.10.** `get_user_context` должен переиспользовать новый resolver/retrieval, сохраняя purpose (`identity/appearance/speech_style/biog» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "test",
+          "ref": "MEM-06.10: get_user_context через единый retrieval; регрессия «1 факт из 4» исправлена",
+          "observation": "Все шесть purposes (identity/appearance/speech_style/biography/relationships/general) идут ровно одним входом в общий retrieve с документированной политикой полей; схема инструмента и имена аргументов сохранены, relationships возвращает рёбра с основанием legacy_ids/has_unsupported_sources и не деградирует до general/invalid_purpose. Регрессия ре-ревью исправлена: 4 факта о человеке, имя только в одном тексте → identity и biography возвращают ВСЕ 4 (на 40ae401a возвращался 1), appearance возвращает факты внешности без имени в тексте, general — все 4, архивный факт субъекта в профиль не протекает; uid отделён от nodes.id.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        }
+      ],
+      "reconciliation_note": "Это ключевая исправленная регрессия: на предке 40ae401a тест воспроизводит потерю 3 из 4 фактов ('вернулось [Лёха носит бороду]'), на 90e67277 — зелёный. Живая половина качества профиля на реальных эмбеддингах — MEM-06-RUNTIME."
+    },
+    {
+      "source_id": "M-MEM-06-RUNTIME",
+      "source_line": 144,
+      "source_text_sha256": "b86e2afe20c3ed05c6e5eeabe3abf91012ed47465442849d9ee300a48eb7a3ce",
+      "source_excerpt": "**MEM-06.4.** Типизированное ранжирование: релевантность запросу, тождество говорящего и субъекта, доверие к источнику, актуальность времени",
+      "disposition": "required",
+      "reason": "Живая половина MEM-06.3/06.4: детерминированная политика отбора и ранжирования доказана кодом и тестами, но в прогонах канал vector работает на двойниках с FTS-фолбэком — фактическое качество KNN/MMR на реальных эмбеддингах и живом корпусе не проверялось.",
+      "req_id": "MEM-06-RUNTIME",
+      "slice": "MEMORY-06",
+      "acceptance": "На развёрнутом кандидате с реальными эмбеддингами (vec0/KNN, без FTS-фолбэка внутри чтения) профиль человека возвращает все известные подтверждённые факты о нём, включая факты без имени в тексте, архивные факты не протекают, перекрёстной утечки между одноимёнными людьми нет; состав и порядок блока RAG direct-ответа на одних и тех же данных совпадают с принятой выдачей (прежний KNN/MMR-порядок, ASC-хронология, капы), качество top-k не хуже прежнего чтения; зафиксированы соответствующие события/метрики.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "90e6727793956d6b95d48bc58f8e831cdea25b4a",
+          "type": "review",
+          "ref": "MEM-06-RUNTIME: граница доказанного названа Reviewer при Approved на 90e67277 — реальные эмбеддинги/живой корпус в тестах не участвовали",
+          "observation": "Reviewer Approved после фокусного ре-ревью правок, но отдельно зафиксировал: в прогонах канал vector падал в FTS-фолбэк, поэтому фактическое качество KNN/MMR-ранжирования на живом корпусе с реальными эмбеддингами не проверено. Код и тесты доказывают политику отбора, порядок канала и изоляцию, но не качество выдачи на живых данных; условие закрытия перечислено в acceptance этой строки.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-unified-retrieval-90e67277.md",
+          "artifact_sha256": "fc31ce83327168783a1d2b944424cf4caaf8fd3c345469312566f9299969e141",
+          "produced_on": "90e6727793956d6b95d48bc58f8e831cdea25b4a"
+        },
+        {
+          "candidate_commit": "b2744b58fce42066b26bc76b3ebbae41c7deaf1e",
+          "type": "production",
+          "ref": "MEM-06-RUNTIME: на 2.58.166 профиль реального production-субъекта отдаёт все подтверждённые факты (живой корпус)",
+          "observation": "Живой корпус: реальный subject (source_ref_id 15612, uid 138811255, чат -1002661910336; 12 подтверждённых фактов на 4 tg_message_id — 1134501x6, 1160394x4, 1130674x1, 1142152x1) на коде 2.58.166 отдаёт полный профиль: identity 5 из 5 уникальных текстов (на 2.58.165 — 1), biography 10 (было 2), general 8 (было 3), общий потолок 20 — все 12 подтверждённых фактов (было 2), ноль дублей текстов. Повтор ТОГО ЖЕ факта из двух каналов по-прежнему склеивается: 20 кандидатов -> 16 строк -> 16 различных фактов, 0 дублей; кэпы purpose (5/10/8/20) и публичное представление id (tg:/msg:/fact:) не изменены. Развёртывание 2.58.166 @ b2744b58 (release/2.58.166, предыдущий прод 2.58.165 @ 74ea64cb): healthz 2.58.166 HTTP 200 локально и публично, сервис active NRestarts=0, журнал после рестарта без traceback и без ERROR от дельты, schema user_version осталась 43 без новой миграции, отданный app.js байт-в-байт равен кандидату, снимок данных снят, откат — cold revert до 2.58.165 (74ea64cb) с бэкапом. Прогон read-only на копии снимка; живой диалог не наблюдался, поэтому строка остаётся READY_FOR_LIVE.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-06-runtime-deploy-2.58.166-b2744b58.md",
+          "artifact_sha256": "8edfd138929e43affbf9f7ab118968a76015c18527c6d6286952ad7d8e34ba6c",
+          "produced_on": "b2744b58fce42066b26bc76b3ebbae41c7deaf1e"
+        }
+      ],
+      "reconciliation_note": "Строка выделена как живая половина §7 (postdeploy-проверка качества ранжирования на реальных эмбеддингах), по образцу MEM-04.6-RUNTIME. Она не расширяет продуктовый объём: те же требования MEM-06.3/06.4, чьи детерминированные части уже VERIFIED. До наблюдения на живом корпусе остаётся READY_FOR_LIVE. 2026-11-08 (2.58.166 @ b2744b58): половина «полнота на живом корпусе» доказана на реальном production-субъекте — см. production-запись в evidence и companion-артефакт; счёт до/после снят на одном и том же субъекте и одних данных. Строка сознательно НЕ переведена в VERIFIED: вторая половина acceptance — качество ранжирования в живом диалоге на реальных эмбеддингах — не наблюдалась; точное условие закрытия записано в поле remaining_condition.",
+      "remaining_condition": "Живой диалог: нужен реальный ответ бота в подключённом чате на реальный вопрос, где канал vector реально работает на реальных эмбеддингах (vec0/KNN, без FTS-фолбэка внутри чтения), и в записанном payload/событии видно, что блок RAG direct-ответа собран из тех же данных в сопоставимом с прежде принятым поведением СОСТАВЕ И ПОРЯДКЕ (KNN-топ, ASC-хронология, кэпы purpose 5/10/8/20), а качество top-k не хуже прежнего чтения. До такого наблюдения строка остаётся READY_FOR_LIVE."
     },
     {
       "source_id": "M-MEMORY-07",
@@ -995,7 +1612,63 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "153063b2826228b699786c911151b4348555bd48",
+          "type": "production",
+          "ref": "MEMORY-07 (клауза схемы): выкладка 2.58.167 применила шаг v44 memory_communities_v44 на прод-БД",
+          "observation": "На прод-БД шаг v44 применён после backup-guard с read-back: user_version 43→44, schema_migrations 32→33 (хвост (44,'memory_communities_v44')), таблиц 125→127 (+mca_community_builds, +mca_community_members), 3 индекса сообществ, обе таблицы 0 строк, ни одна таблица не удалена, DDL/индексы nodes/edges/graph_facts/smart_messages/mca_entity_canonical/graph_facts_vec/schema_migrations идентичны преддеплойному снимку, quick_check и integrity_check ok; smart_messages 2 073 204→2 073 222 — только живой трафик, все строки id <= 2 395 432 на месте. Клауза ограничена схемой: сборка сообществ, веса, lifecycle, подписи, стабильность ID и retrieval join не реализованы.",
+          "artifact_path": "plans/features/memory-cognitive-02/reports/deploy-2.58.167.md",
+          "artifact_sha256": "dc90b0d77136f765703b03b41fae67a2ca4c24d605e9daee4e531cbcdc3add89",
+          "produced_on": "153063b2826228b699786c911151b4348555bd48"
+        },
+        {
+          "candidate_commit": "153063b2826228b699786c911151b4348555bd48",
+          "type": "review",
+          "ref": "MEMORY-07 (клауза схемы): сводка PM — pre/post таблица, точные строки журнала, граница инертности",
+          "observation": "Сводный артефакт PM по той же выкладке: схема до/после (user_version, schema_migrations, 127 таблиц, 3 индекса, 0 строк в обеих таблицах, quick_check/integrity_check ok), дословные строки журнала миграции (backup-guard VACUUM INTO + read-back 24.1s, затем v44 applied in 0.0s), код кандидата 8b5907b0 (5 DDL-выражений с IF NOT EXISTS, guard по sqlite_master, нет писателей), независимая проба PM на свежей и v43-подобной БД (двойное применение — no-op, DDL существующих объектов не меняется). Граница: таблицы пусты и инертны, живой тематический retrieval с сообществами не проверялся (членства нет), флаг MCA_MEMORY_COMMUNITIES_ENABLED на этой волне в реестре гейтов не зарегистрирован — тишину канала обеспечивают пустая таблица и mode=thematic.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-v44-schema-deploy-153063b2.md",
+          "artifact_sha256": "09132e4374014d0631ad93b0d9350347419af9818abe3f834c4570aa86470c5c",
+          "produced_on": "153063b2826228b699786c911151b4348555bd48"
+        },
+        {
+          "candidate_commit": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e",
+          "type": "measurement",
+          "ref": "MEMORY-07: сводное измерение волн 3–4 на копии прод-БД (5 чатов, 4 158 сообществ)",
+          "observation": "Сборка 4 553/7 054 мс (31 552 узла), 42/86 мс (1 294), 15/17 мс (385), ~1 мс (крошечные); p50 15.1 мс, p95 7 054 мс, тик 4.6–7.2 с при часовом периоде. Сообщества 3 613+428+111+5+1=4 158, размеры min 2 / медиана 2 / max 4 172, аномалий 0, все сборки active. Провенанс 64/22/64 346/0. Подписи: все проверенные (пять чатов) нейтральные, доминирующих нет. Reuse id 100 %, created 0, dropped 0. Паритет retrieval 34/34 везде, кроме thematic при ON. Механизм доказан, пользовательский показ сообществ и метрик — нет.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+          "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356",
+          "produced_on": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e"
+        },
+        {
+          "candidate_commit": "ea9a71415dfbeb9f5363363ab4461e4e2a2a0d2f",
+          "type": "production",
+          "ref": "MEMORY-07: выкладка 2.58.168 — healthz, журнал, схема без изменений, пустые таблицы, job зарегистрирован, флаг OFF",
+          "observation": "healthz 2.58.168 локально и публично (200); сервис active/enabled, NRestarts=0; 527 строк журнала от рестарта, Traceback 0, ERROR 2 (предсуществующие anticliche_worker вне релиза); user_version 44 и schema_migrations 33 без миграций, quick_check ok, таблиц 128; обе community-таблицы 0/0; nodes 33 244 / edges 64 432 / graph_facts 23 323 / smart_messages 2 073 960 как в снимке ДО; served /web/app.js 2 062 901 б побайтово равен checkout; job memory_communities_build зарегистрирован, гейт OFF (env False, code default False), тик без SQL.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+          "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356",
+          "produced_on": "ea9a71415dfbeb9f5363363ab4461e4e2a2a0d2f"
+        },
+        {
+          "candidate_commit": "e3ae13ae98d84dd8b0f3e8460043b8d54631d55c",
+          "type": "review",
+          "ref": "MEMORY-07 (клауза качества): quality-контракт §14 — PROVEN/WEAK в источнике, proven-only read-модель",
+          "observation": "pm-code: quality-контракт реализован в кандидате e3ae13ae без DDL (user_version 44): пороги PROVEN/WEAK в services/memory_communities.py:970, proven-набор в существующем change_summary_json, исправление провенанса в services/summary_memory.py (крон-триплеты создают факт и связывают ребро; subject_ref_id только при resolution='resolved' и никогда для bot_self_output), proven-only выдача в services/memory_search.py и services/mca_retrieval_context.py. Тесты (прогнаны PM в изолированном checkout): 10/10 tests/test_memory_quality_contract_07.py, 11/11 tests/test_memory_communities_retrieval.py, 42/42 tests/test_mem08_search_read_model.py, 23/23 tests/test_evol_cog_map_api.py. Граница: прод-сборка с новым кодом не запускалась, доля proven, качество подписей, потребление в тематическом retrieval и влияние на поиск на проде не измерены.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-quality-and-mem08-readmodel-e3ae13ae.md",
+          "artifact_sha256": "35064a475ef61f4f666b0c29c8c1300a5f8347e597909c1c984b792abe43ce46",
+          "produced_on": "e3ae13ae98d84dd8b0f3e8460043b8d54631d55c"
+        },
+        {
+          "candidate_commit": "b2fed7077e3dac5b5904fc5d999c69bc4363de30",
+          "type": "production",
+          "ref": "MEMORY-07: выкладка 2.58.169 — флаг effective ON, реальная сборка, proven-only read-модель, потребление в thematic",
+          "observation": "healthz 2.58.169 локально и публично; NRestarts=0; журнал нового PID — 0 Traceback и 0 ERROR после рестарта (одно предсуществующее embedding-предупреждение, WARNING, вне релиза); user_version 44 и schema_migrations 33 без новых шагов; nodes 33 501 / edges 65 188 / graph_facts 23 351 как в преддеплойном снимке; served /web/app.js sha256 495d4882…c3050c6 побайтово равен checkout. Effective-флаг: env не задан (env-половина ON), заводской дефолт True (fd198eb8), hot в PG True, effective глобально True и True для всех 5 чатов с nodes; скрытого сохранённого false нет. Реальная сборка производственным кодом на живой БД: 5 активных сборок, 33 499 членств, error=None, 4 163 сообщества (3 618/428/111/5/1), proven 1 (c76861, size 5, «Сообщество: леха и вдовин»), weak 4 162, нейтральных proven 0. Read-модель: крупный чат state=ok items=1 total=1 weak_in_items=0 label_kind=[named]; остальные четыре — state=ok reason_code=no_proven_communities items=[]. Тематический retrieval поверх этой сборки: 5 кандидатов, все proven, provenance_backed=True, ids ⊆ proven, weak_present=0. Осталось (обязательно): изменение-ориентированный запуск MEM-07.3, наблюдение автоматического часового тика и пользовательский показ сообществ (UI/граф).",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-mem08-production-measurement-b2fed707.md",
+          "artifact_sha256": "4cff524e9f9eee69ef6879ed9ded2ed4e4166ce9b3cd0c29e2f0c21cb44ea5b7",
+          "produced_on": "b2fed7077e3dac5b5904fc5d999c69bc4363de30"
+        }
+      ],
+      "reconciliation_note": "Контейнер §8 остаётся PENDING. Волны 3–4 (2.58.168 @ ea9a7141) доказали регистрацию job, гейт на каждом тике, инертность OFF, active-build канал, OFF-паритет 34/34, стабильность id и реальные веса. Кандидат e3ae13ae добавил quality-контракт §14 (PROVEN/WEAK, провенанс в источнике) и proven-only read-модель. Выкладка 2.58.169 @ b2fed707 закрыла live-условие: флаг effective ON на всех слоях (env не задан, заводской True, PG hot True, 5/5 чатов), реальная сборка дала 4 163 сообщества (1 proven, 4 162 weak), read-модель и тематический retrieval потребляют ТОЛЬКО proven (weak_in_items=0, weak_present=0), WEAK-id структурно не хранятся. Осталось до закрытия: (1) MEM-07.3 — изменение-ориентированный запуск и проверка затронутых компонентов; (2) наблюдение автоматического часового тика по расписанию (сборка доказана тем же кодом, но вручную); (3) пользовательский показ сообществ и метрик (MEMORY-08 UI/граф) — клиентских файлов в релизе нет; (4) авторизованное тело /api/memory/search и независимый quality/latency gold (MEM-08-S2). Выключение флага остаётся недопустимым способом закрыть качество."
     },
     {
       "source_id": "M-MEM-07.1",
@@ -1006,11 +1679,31 @@
       "reason": "",
       "req_id": "MEM-07.1",
       "slice": "MEMORY-07",
-      "acceptance": "Приёмка: соблюдено требование источника «**MEM-07.1.** Разделить три вещи, которые ранее путались: **топологическая компонента**, **семантическое сообщество на основе подтверждённых» — подтверждается целевым тестом/доказательством и независимым ревью.",
+      "acceptance": "Сообщество — связная группа реальных рёбер chat scope, а не топологическая компонента и не LOD-тайл: id `c<min nodes.id>`, состав, метрики и подпись не совпадают с render-тайлом; соседство точек на экране семантического отношения не создаёт.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4cfe02a4918c1a1a59b9df1fde152c201cf34c9d",
+          "type": "review",
+          "ref": "MEM-07.1: разделение сообщества/топологической компоненты/UI-тайла; Reviewer Approved на 4cfe02a4",
+          "observation": "Сборщик строит сообщества по связям узлов chat scope и пишет собственный community_id (`c<min nodes.id>`) в отдельные таблицы mca_community_builds/mca_community_members; UI-LOD-кластеры (computeClusters) в backend не используются и на сборку не влияют. Диф по 98 таблицам: меняются только эти две (builds 0→3, members 0→12), узлы/рёбра/эпизоды/канонические таблицы без изменений. test_builder_is_not_registered_on_hot_path подтверждает отсутствие сборки на горячем пути.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave2-communities-4cfe02a4.md",
+          "artifact_sha256": "928046d44679eb97094e158803c365fc10cf4ead7c594b3da363388ccbe3c5e5",
+          "produced_on": "4cfe02a4918c1a1a59b9df1fde152c201cf34c9d"
+        },
+        {
+          "candidate_commit": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e",
+          "type": "review",
+          "ref": "MEM-07.1: community-канал волны 4 отдаёт сообщество, а не render-тайл (измерение на копии прод-БД)",
+          "observation": "pm-code: retrieval-кандидат строится из community_id сборки и nodes.id участника; UI-LOD-кластеры (computeClusters) в backend не участвуют, таблицы сообществ отдельные. Измерение: 4 158 сообществ записаны в mca_community_*, в дельте нет UI/web-файлов, рендер-тайлы и их источник не менялись; на копии прод-БД сообщества не смешиваются с топологическими компонентами (собственный id c<min nodes.id>); в дельте релиза нет UI/web-файлов — рендер-тайлы и их источник не менялись.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+          "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356",
+          "produced_on": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e"
+        }
+      ],
+      "reconciliation_note": "Волна 2: сообщество отделено от топологической компоненты и UI-тайла (собственный id, свои таблицы, никакого влияния экранных кластеров). Волна 4 (2.58.168): active-build канал отдаёт community_id сборки и nodes.id участника, рендер-тайлы по-прежнему не участвуют. Пользовательский показ сообществ (read-модель, отдельный элемент от LOD-тайла) не реализован — это открытая часть контейнера MEMORY-07, потребитель — MEMORY-08."
     },
     {
       "source_id": "M-MEM-07.2",
@@ -1021,11 +1714,40 @@
       "reason": "",
       "req_id": "MEM-07.2",
       "slice": "MEMORY-07",
-      "acceptance": "Приёмка: соблюдено требование источника «**MEM-07.2.** Сообщества вычислять **на backend по реальным узлам и рёбрам в пределах chat scope**, с весами, понижающими tentative/unverifi» — подтверждается целевым тестом/доказательством и независимым ревью.",
+      "acceptance": "Сборка идёт на backend по реальным узлам и рёбрам всего chat scope (вход не ограничен экранными 697) с весами confirmed 1.0 / tentative 0.5 / legacy 0.25 / cooccurrence 0.1; algorithm/version пишутся в mca_community_builds, новые рёбра не выдумываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4cfe02a4918c1a1a59b9df1fde152c201cf34c9d",
+          "type": "review",
+          "ref": "MEM-07.2: backend-сборка по реальным рёбрам с точными весами; Reviewer Approved на 4cfe02a4",
+          "observation": "Веса ровно 1.0/0.5/0.25/0.1 (PROVENANCE_WEIGHTS, тест точной таблицы); класс факта берётся только из существующего graphrag_provenance.classify_fact_provenance (monkeypatch-тест делегирования). Вход — все узлы/рёбра chat scope: 80 узлов/200 рёбер и 4 кластера по 5 с 380 ассоциациями считаются целиком, ограничения экранными 697/800 нет. algorithm='weighted_modularity_local_moving' и version=1 записаны в сборку. Записи идут только в две таблицы сообществ: edges/graph_facts/mca_associations не пополняются.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave2-communities-4cfe02a4.md",
+          "artifact_sha256": "928046d44679eb97094e158803c365fc10cf4ead7c594b3da363388ccbe3c5e5",
+          "produced_on": "4cfe02a4918c1a1a59b9df1fde152c201cf34c9d"
+        },
+        {
+          "candidate_commit": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e",
+          "type": "measurement",
+          "ref": "MEM-07.2: реальные веса и полный вход chat scope на копии прод-БД (5 чатов)",
+          "observation": "Вход 33 244 узла / 64 432 ребра, крупнейший чат 31 552 узла (не экранные 697). Фактически использованные веса: 64 confirmed (1.0), 22 tentative (0.5), 64 346 legacy (0.25), 0 cooccurrence (0.1) = 64 432, т.е. все edges. algorithm weighted_modularity_local_moving / version 1 в mca_community_builds. Стоимость: p50 15.1 мс, p95 7 054 мс, полный тик 4.6–7.2 с при часовом периоде. Новых рёбер не создавалось (dropped_links=0, mca_associations не пополнялись).",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+          "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356",
+          "produced_on": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e"
+        },
+        {
+          "candidate_commit": "b2fed7077e3dac5b5904fc5d999c69bc4363de30",
+          "type": "measurement",
+          "ref": "MEM-07.2: реальная сборка на живой прод-БД — 5 active-сборок, 33 499 членств, полный chat scope",
+          "observation": "Сборка выполнена производственным кодом memory_communities.build_chat_communities тем же путём, что _tick_communities, без правки конфига прода и без форсирования гейта в конфиге. Итог: mca_community_builds 5 (все status='active', error=None), mca_community_members 33 499, сообщества 3 618/428/111/5/1 по чатам, длительности 4.8 c / 0.1 c / <0.1 c / <0.1 c / <0.1 c. Вход — реальные узлы/рёбра всего chat scope, а не экранный срез; веса §6 (confirmed 1.0 / tentative 0.5 / legacy 0.25 / cooccurrence 0.1) применялись производственным кодом.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-mem08-production-measurement-b2fed707.md",
+          "artifact_sha256": "4cff524e9f9eee69ef6879ed9ded2ed4e4166ce9b3cd0c29e2f0c21cb44ea5b7",
+          "produced_on": "b2fed7077e3dac5b5904fc5d999c69bc4363de30"
+        }
+      ],
+      "reconciliation_note": "Волна 2: вычисление и версия расчёта доказаны на кандидате. Волна 4: измерение на копии прод-БД подтвердило реальные веса и полный вход chat scope. Выкладка 2.58.169 @ b2fed707: та же сборка выполнена производственным кодом на живой прод-БД — 5 active-сборок, 33 499 членств, 4 163 сообщества, error=None, полный chat scope (не экранный срез). Распределение провенанса (99.87 % legacy) — дефект источника данных, а не поведение сборщика; он же объясняет 1 proven из 4 163."
     },
     {
       "source_id": "M-MEM-07.3",
@@ -1040,7 +1762,36 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e",
+          "type": "review",
+          "ref": "MEM-07.3: job в существующем memory_maintenance, гейт на каждом тике, OFF без SQL (код кандидата + тесты волны)",
+          "observation": "pm-code: JOB_COMMUNITIES_ID=memory_communities_build добавляется в существующий AsyncIOScheduler обслуживания, IntervalTrigger 3600 с, max_instances=1, coalesce=True; _tick_communities сначала читает env-половину гейта и только потом делает SQL, per-chat гейт перед каждой сборкой; сборщик вызывается только из этого тика (структурный тест недостижимости из direct_chat_service/mca_retrieval_context/memory_agi/cognitive_map/menu). tests/test_memory_communities_maintenance.py: регистрация job, no-op OFF без запросов к БД, ON без рестарта, реестр флага default OFF.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+          "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356",
+          "produced_on": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e"
+        },
+        {
+          "candidate_commit": "ea9a71415dfbeb9f5363363ab4461e4e2a2a0d2f",
+          "type": "production",
+          "ref": "MEM-07.3: job зарегистрирован на проде 2.58.168, тик при OFF не делает SQL (выкладка ea9a7141)",
+          "observation": "APScheduler в журнале: Added job MemoryMaintenanceService._tick_communities; env_flag_enabled=False, code_default=False, каталожный ключ flags.memory_communities_enabled присутствует (category=flags, REGISTRY=598); тик при OFF не сделал ни одного SQL (подставной объект с падающим .db не затронут); mca_community_builds/mca_community_members 0/0; строк memory07|community в журнале 0; схема user_version 44 без миграций.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+          "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356",
+          "produced_on": "ea9a71415dfbeb9f5363363ab4461e4e2a2a0d2f"
+        },
+        {
+          "candidate_commit": "b2fed7077e3dac5b5904fc5d999c69bc4363de30",
+          "type": "production",
+          "ref": "MEM-07.3: job memory_communities_build зарегистрирован на проде 2.58.169 (3600 c, max_instances=1, coalesce=True)",
+          "observation": "APScheduler после рестарта 2.58.169: Added job MemoryMaintenanceService._tick_communities, interval 3600 c, max_instances=1, coalesce=True; гейт резолвится на каждом тике, effective ON. Тот же код успешно построил сообщества на живой БД (5 active-сборок, 33 499 членств), т.е. рабочий путь тика подтверждён. НЕ доказано: (1) автоматический часовой тик по расписанию не наблюдался — сборка запускалась вручную тем же кодом; (2) изменение-ориентированного инкрементального запуска по-прежнему нет (пересборка идёт по всем чатам). Поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-mem08-production-measurement-b2fed707.md",
+          "artifact_sha256": "4cff524e9f9eee69ef6879ed9ded2ed4e4166ce9b3cd0c29e2f0c21cb44ea5b7",
+          "produced_on": "b2fed7077e3dac5b5904fc5d999c69bc4363de30"
+        }
+      ],
+      "reconciliation_note": "PENDING. Периодическая часть доказана: job memory_communities_build в существующем планировщике, интервал 1 ч, max_instances=1/coalesce, гейт на каждом тике; на проде 2.58.168 при OFF — 0 SQL, на проде 2.58.169 job зарегистрирован при effective ON и тот же код построил 5 active-сборок на живой БД. Не реализовано/не наблюдалось: (1) изменение-ориентированный инкрементальный запуск и проверка затронутых компонентов — пересборка идёт по всем чатам; (2) сам автоматический часовой тик по расписанию не наблюдался (в обоих релизах сборка запускалась вручную тем же кодом). Стоимость ограничена (в измерении волн 3–4 p95 7 054 мс на крупнейшем чате раз в час, вне горячего пути), поэтому остаток — оптимизация и естественное наблюдение, а не риск. Работа по причине качества возвращена исполнителю; выключение флага её не закрывает."
     },
     {
       "source_id": "M-MEM-07.4",
@@ -1051,11 +1802,49 @@
       "reason": "",
       "req_id": "MEM-07.4",
       "slice": "MEMORY-07",
-      "acceptance": "Приёмка: соблюдено требование источника «**MEM-07.4.** Подпись сообщества формировать из действительно известных топ-сущностей и тем с источниками. Название типа `«Обсуждение GregTe» — подтверждается целевым тестом/доказательством и независимым ревью.",
+      "acceptance": "Подпись формируется из реально доминирующей сущности с источником либо нейтральная «Сообщество N» с основанием; LLM-наименования на горячем пути нет; метрики (узлы, подтверждённые и cooccurrence-связи, последняя активность, внутренние темы, плотность) — из настоящих данных, неизвестное = «Неизвестно».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4cfe02a4918c1a1a59b9df1fde152c201cf34c9d",
+          "type": "review",
+          "ref": "MEM-07.4: подписи и метрики из настоящих данных без LLM; Reviewer Approved на 4cfe02a4",
+          "observation": "community_label/community_stats: доля внутреннего веса ≥0.5 даёт имя доминирующей сущности с источником, иначе нейтральное «Сообщество N» с basis-объяснением; LLM на горячем пути отсутствует. Социальный хаб из 30 эпизодов дал одно сообщество 31 узел с нейтральной подписью (выдуманного «Обсуждение X» нет). Подтверждённые, tentative и cooccurrence-связи считаются раздельно, неизвестные значения отдаются как «Неизвестно».",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave2-communities-4cfe02a4.md",
+          "artifact_sha256": "928046d44679eb97094e158803c365fc10cf4ead7c594b3da363388ccbe3c5e5",
+          "produced_on": "4cfe02a4918c1a1a59b9df1fde152c201cf34c9d"
+        },
+        {
+          "candidate_commit": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e",
+          "type": "measurement",
+          "ref": "MEM-07.4: подписи на реальных данных — все нейтральные, с честным basis (измерение на копии прод-БД)",
+          "observation": "Все проверенные подписи во всех пяти чатах нейтральные — «Сообщество N», dominant_names=[], basis «сформировано по реальным связям чата: узлов N, связей подтверждённых …»; ни одного «Обсуждение X», LLM не участвует. Причина не в правиле: доминирование требует confirmed/tentative связи и ≥0.5 внутреннего веса, а таких связей на проде 86 из 64 432 (0.13 %). Метрики (узлы, подтверждённые/tentative/cooccurrence-связи, плотность, последняя активность) считаются из настоящих строк mca_community_members, неизвестное отдаётся как «Неизвестно».",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+          "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356",
+          "produced_on": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e"
+        },
+        {
+          "candidate_commit": "e3ae13ae98d84dd8b0f3e8460043b8d54631d55c",
+          "type": "review",
+          "ref": "MEM-07.4: neutral-подпись не является категорией; custom-статус PROVEN/WEAK считается по реальным метрикам",
+          "observation": "pm-code: services/memory_communities.py:970 classify_community_status (единственное место правила) — PROVEN ⇔ size>=3 И S>=1.0 И S/T>=0.5, S=confirmed*1.0+tentative*0.5, T=S+legacy*0.25+cooccurrence*0.1; _EPS=1e-9 только на двоичную запись долей. :997 community_quality пишет статус/метрики в существующий change_summary_json без DDL (user_version 44, тест test_build_stores_proven_ids_without_ddl); label пишется только не-нейтральный, нейтральное «Сообщество N» остаётся диагностикой сборки и не выводится как категория (CommunityLabel.is_neutral). Read-модель и тематический канал не отдают WEAK вовсе: tests/test_mem08_search_read_model.py::test_weak_community_never_surfaces_a_label, test_neutral_label_never_surfaces_in_search; tests/test_memory_communities_retrieval.py::test_weak_community_excluded_from_thematic_channel. PM повторно прогнал 10/10 тестов tests/test_memory_quality_contract_07.py и 42/42 tests/test_mem08_search_read_model.py в изолированном checkout кандидата. Граница: качество подписей на реальных прод-данных после исправления провенанса не измерено.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-quality-and-mem08-readmodel-e3ae13ae.md",
+          "artifact_sha256": "35064a475ef61f4f666b0c29c8c1300a5f8347e597909c1c984b792abe43ce46",
+          "produced_on": "e3ae13ae98d84dd8b0f3e8460043b8d54631d55c"
+        },
+        {
+          "candidate_commit": "b2fed7077e3dac5b5904fc5d999c69bc4363de30",
+          "type": "measurement",
+          "ref": "MEM-07.4: на проде впервые именованная подпись proven-сообщества, нейтральные наружу не выходят",
+          "observation": "Единственное proven-сообщество c76861 (size 5) получило именованную подпись «Сообщество: леха и вдовин» по реально доминирующей сущности; нейтральных proven-сообществ 0, label_kind в выдаче = ['named']. 4 162 weak-сообщества наружу не выводятся (read-модель отдаёт только proven, WEAK-id не персистятся — в change_summary_json только счётчик). Ранее (волны 3–4) все проверенные подписи были нейтральными — на прод-данных механизм впервые дал именованный результат.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-mem08-production-measurement-b2fed707.md",
+          "artifact_sha256": "4cff524e9f9eee69ef6879ed9ded2ed4e4166ce9b3cd0c29e2f0c21cb44ea5b7",
+          "produced_on": "b2fed7077e3dac5b5904fc5d999c69bc4363de30"
+        }
+      ],
+      "reconciliation_note": "Волна 2: механизм подписи и метрик доказан. Волна 4: на реальных данных все проверенные подписи были нейтральными (86 из 64 432 связей confirmed/tentative). Выкладка 2.58.169: на проде появилось первое именованное proven-сообщество c76861 (size 5) — «Сообщество: леха и вдовин», label_kind=named; нейтральных proven 0, и наружу нейтральные подписи не выводятся (read-модель отдаёт только proven). Правило доминирования работает как задумано: подпись берётся из реально доминирующей сущности, LLM не участвует."
     },
     {
       "source_id": "M-MEM-07.5",
@@ -1066,11 +1855,31 @@
       "reason": "",
       "req_id": "MEM-07.5",
       "slice": "MEMORY-07",
-      "acceptance": "Приёмка: соблюдено требование источника «**MEM-07.5.** Структура и идентификатор сообщества стабильны между обычными перезагрузками/незначительными изменениями, насколько это позвол» — подтверждается целевым тестом/доказательством и независимым ревью.",
+      "acceptance": "Повторная сборка без изменений сохраняет community_id (26 сообществ переиспользованы с теми же id) при новом build_id; split/merge описываются в change_summary_json с mapping и причинами; entity_id не меняется из-за смены раскладки; детерминизм: 3 независимых экземпляра с одинаковым посевом (80 узлов/200 рёбер) дают один sha256.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4cfe02a4918c1a1a59b9df1fde152c201cf34c9d",
+          "type": "review",
+          "ref": "MEM-07.5: стабильность community_id, split/merge, неизменность entity_id; Reviewer Approved на 4cfe02a4",
+          "observation": "map_community_ids переносит id по пересечению ≥0.5 от меньшего состава, иначе создаёт новый и пишет split/merge/created/dropped с mapping в change_summary_json; 26 сообществ переиспользованы с идентичными id на неизменной пересборке; retry после сбоя — новый build_id при стабильных community_id. Членство хранит канонические nodes.id: схлопнутая сущность появляется ровно один раз, UID и «merged node» в сообществе отсутствуют; entity_id от раскладки не зависит. Детерминизм: 3 экземпляра×80/200 → один sha256.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave2-communities-4cfe02a4.md",
+          "artifact_sha256": "928046d44679eb97094e158803c365fc10cf4ead7c594b3da363388ccbe3c5e5",
+          "produced_on": "4cfe02a4918c1a1a59b9df1fde152c201cf34c9d"
+        },
+        {
+          "candidate_commit": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e",
+          "type": "measurement",
+          "ref": "MEM-07.5: 100 % reuse community_id на реальных чатах, 0 created/dropped (две пересборки на копии прод-БД)",
+          "observation": "Две последовательные пересборки без изменения данных: переиспользовано 3 613 / 428 / 111 / 5 / 1 community_id, created 0, dropped 0, split/merge не было (change_summary_json без split/merge), аномалий 0. Повторный прогон даёт новый build_id при стабильных community_id; membership хранит канонические nodes.id.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+          "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356",
+          "produced_on": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e"
+        }
+      ],
+      "reconciliation_note": "Волна 2: стабильность и mapping доказаны на синтетике. Волна 4: на копии прод-БД две последовательные пересборки переиспользовали 3 613/428/111/5/1 community_id, created 0, dropped 0, split/merge не было, аномалий 0. Показ split/merge пользователю не реализован (потребитель — MEMORY-08)."
     },
     {
       "source_id": "M-MEM-07.6",
@@ -1081,11 +1890,58 @@
       "reason": "",
       "req_id": "MEM-07.6",
       "slice": "MEMORY-07",
-      "acceptance": "Приёмка: соблюдено требование источника «**MEM-07.6.** Ассоциативный поиск по связям допускает «похожие темы / общие эпизоды / shared sources» как гипотезу для поиска, но не перевод» — подтверждается целевым тестом/доказательством и независимым ревью.",
+      "acceptance": "Связь из mca_associations остаётся классом cooccurrence 0.1 даже при подтверждённых концах и status='accepted': она не повышается до подтверждённой, учитывается отдельно и не превращается в «друзья/родственники/причинно вызвало».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4cfe02a4918c1a1a59b9df1fde152c201cf34c9d",
+          "type": "review",
+          "ref": "MEM-07.6: ассоциация не повышается до подтверждённой связи; Reviewer Approved на 4cfe02a4",
+          "observation": "Пара только из mca_associations взвешивается 0.1 и остаётся cooccurrence при подтверждённых концах и при status='accepted' (test_cooccurrence_never_becomes_confirmed плюс независимый probe). Внутри сообщества подтверждённые и cooccurrence-связи считаются раздельными метриками, подпись строится по подтверждённому весу, поэтому гипотеза не выдаётся за доказанное отношение. Повышение статуса возможно только через существующий factcheck/provenance-контур, не здесь.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave2-communities-4cfe02a4.md",
+          "artifact_sha256": "928046d44679eb97094e158803c365fc10cf4ead7c594b3da363388ccbe3c5e5",
+          "produced_on": "4cfe02a4918c1a1a59b9df1fde152c201cf34c9d"
+        },
+        {
+          "candidate_commit": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e",
+          "type": "review",
+          "ref": "MEM-07.6: канал читает только active-сборку и только thematic; класс связи не повышается (код + тесты волны)",
+          "observation": "pm-code: _community_candidates делает join с mca_community_builds по b.status='active' и не читает building/superseded/failed; вызывается только при mode=='thematic' и при включённом per-chat гейте; при отсутствии таблиц/сборки возвращает пусто; member_weight документирован как внутренний вес ребра и в ранг/score не подмешивается. tests/test_memory_communities_retrieval.py: active-only, superseded/failed/building не читаются, OFF и нетематические режимы пусты, вес ребра не влияет на ранг.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+          "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356",
+          "produced_on": "f09ba143256925f7ce00b1ceae04f2878f7d3c5e"
+        },
+        {
+          "candidate_commit": "ea9a71415dfbeb9f5363363ab4461e4e2a2a0d2f",
+          "type": "production",
+          "ref": "MEM-07.6: паритет обычного retrieval на копии прод-БД 34/34 во всех не-ON-thematic режимах (выкладка ea9a7141)",
+          "observation": "34 запроса × режимы: OFF без сборок = базовая линия прода; OFF→ON без сборок 34/34 идентичны по составу и порядку в specific и thematic; ON со сборками — specific 34/34; OFF со сборками — 34/34 в обоих режимах; отличается только thematic при ON и наличии active-сборки (9/34 идентичны, 25 отличий — заявленный вклад канала, 0.10→0.88 мс). На проде флаг OFF, канал инертен, served /web/app.js побайтово идентичен checkout.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+          "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356",
+          "produced_on": "ea9a71415dfbeb9f5363363ab4461e4e2a2a0d2f"
+        },
+        {
+          "candidate_commit": "e3ae13ae98d84dd8b0f3e8460043b8d54631d55c",
+          "type": "review",
+          "ref": "MEM-07.6: WEAK-сообщество исключено из канала целиком, provenance_backed выводится из статуса, а не из константы",
+          "observation": "pm-code: services/mca_retrieval_context.py:1914 _community_candidates читает proven-набор активной сборки (:1868 _active_community_quality, ключи proven_community_ids/proven_communities), фильтрует членство по нему и не читает building/superseded/failed; :1983 _community_candidate выставляет provenance_backed = (status == 'proven') вместо прежней константы True, метрики кладёт в CommunityMeta, нейтральную подпись не выводит (label=None). Основной канал тематический, при отсутствии proven-набора отдаёт пусто. Тесты (прогнаны PM, 11/11): test_weak_community_excluded_from_thematic_channel, test_provenance_backed_is_derived_not_hardcoded, test_build_without_proven_set_is_not_served, test_neutral_label_never_surfaces_in_search. Граница: последующее повышение статуса возможно только существующим factcheck/provenance-контуром — здесь не реализуется и не проверялось.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-quality-and-mem08-readmodel-e3ae13ae.md",
+          "artifact_sha256": "35064a475ef61f4f666b0c29c8c1300a5f8347e597909c1c984b792abe43ce46",
+          "produced_on": "e3ae13ae98d84dd8b0f3e8460043b8d54631d55c"
+        },
+        {
+          "candidate_commit": "b2fed7077e3dac5b5904fc5d999c69bc4363de30",
+          "type": "measurement",
+          "ref": "MEM-07.6: потребление в thematic на реальной ON-сборке — только proven, provenance_backed из статуса",
+          "observation": "Прогон community-канала (_community_candidates → _community_candidate) services/mca_retrieval_context.py на активной прод-сборке: 5 кандидатов, все status='proven', provenance_backed=True у всех (выводится из статуса, не константа), ids ⊆ proven, weak_present=0, нейтральных подписей в выдаче 0; остальные четыре чата — 0 кандидатов. WEAK-идентификаторы структурно не могут утечь: в change_summary_json активной сборки хранится только счётчик weak_communities, списка id нет; сборка без ключа читается как «proven нет». Этим закрыт последний открытый пункт note — прод-измерение вклада канала при реальной ON-сборке.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-mem08-production-measurement-b2fed707.md",
+          "artifact_sha256": "4cff524e9f9eee69ef6879ed9ded2ed4e4166ce9b3cd0c29e2f0c21cb44ea5b7",
+          "produced_on": "b2fed7077e3dac5b5904fc5d999c69bc4363de30"
+        }
+      ],
+      "reconciliation_note": "Волна 2: запрет повышения класса доказан на уровне сборки. Волна 4: канал читает только status='active' сборку и только в режиме thematic, OFF-паритет 34/34. Кандидат e3ae13ae: proven-фильтр перенесён внутрь канала (WEAK исключён целиком), provenance_backed выведен из статуса. Выкладка 2.58.169: прод-измерение вклада канала при реальной ON-сборке выполнено — 5 кандидатов, все proven, ids ⊆ proven, weak_present=0, нейтральных подписей 0; WEAK-id не персистятся вовсе (только счётчик), т.е. утечка исключена и на записи, и на чтении. Последний открытый пункт note закрыт."
     },
     {
       "source_id": "M-MEMORY-08",
@@ -1100,7 +1956,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "reconciliation_note": "PENDING. Контейнер §9 — экран исследования памяти. Выкладка 2.58.169 дала только backend-часть: read-модель сообществ и роут /api/memory/search (MEM-08-S1 закрыт, S2 частично). Клиентских файлов (web/*.js, web/index.html) в релизе нет, визуальный рендер сообществ, единое поле ввода, LOD, инспектор и состояния экрана не реализованы и не проверялись. Строки MEM-08.1…MEM-08.28, S3…S5 остаются PENDING; отдельно зарегистрирован пробел классификации MEM-08.1…08.13 в plans/backlog.md."
     },
     {
       "source_id": "M-MEM-08.14",
@@ -1160,7 +2017,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "reconciliation_note": "Кандидат e3ae13ae закрывает backend-клаузу: поиск идёт через существующий services/mca_retrieval_context.py::retrieve (тест test_adapter_calls_shared_retrieve_once), своего SQL/второго поисковика у адаптера нет (test_adapter_has_no_own_search_sql), вторая embedding-модель и re-embed не вводятся, векторный канал выполняется на живом MemoryManager (test_endpoint_hands_same_manager_and_vector_channel_runs). Строка остаётся PENDING: клиентская часть требования — debounce/cache query embedding, запрет вызова на каждый keystroke и регистрация гейта MCA_MEMORY_SEARCH_ENABLED — относится к S3 (в кандидате нет ни одного UI-файла)."
     },
     {
       "source_id": "M-MEM-08.18",
@@ -1250,7 +2108,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "reconciliation_note": "Кандидат e3ae13ae даёт backend-часть честного различения исходов: no_rights ≠ no_matches ≠ error (tests/test_mem08_search_read_model.py::test_no_rights_is_not_no_matches, test_empty_result_is_no_matches, test_retrieval_error_is_error_not_empty, test_legacy_only_state), а отсутствие менеджера памяти даёт error/vector_unavailable вместо «ничего не найдено» (test_context_without_manager_is_degraded_not_no_matches). Строка остаётся PENDING: перечисленные в источнике состояния — пользовательские (пустой ввод, локальные совпадения, «сервер ищет», неоднозначность, частичный результат, нет прав) и реализуются в UI-срезе S3."
     },
     {
       "source_id": "M-MEM-08.24",
@@ -1310,7 +2169,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "reconciliation_note": "Кандидат e3ae13ae закрывает серверную клаузу: scope назначается сервером (chat_id параметра эндпоинта), доступ — существующий глобальный admin (403 до любого поиска: test_non_admin_is_403_before_any_search), поиск не запускает mutation/merge/recompute/backfill/LLM (тест test_adapter_has_no_own_search_sql и read-only retrieve-путь). Строка остаётся PENDING: ACL-проверка подсказок/превью/кэшей до ответа и запрет второго поля scope относятся к UI-срезу S3, которого в кандидате нет."
     },
     {
       "source_id": "M-MEM-08.28",
@@ -1669,8 +2529,19 @@
       "acceptance": "Приёмка: соблюдено требование источника «1. `MEM-08-S1` — аудит старой панели и existing API/retrieval, контракт одного `SearchResult` и карта сохранения функциональности старых фил» — подтверждается целевым тестом/доказательством и независимым ревью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "e3ae13ae98d84dd8b0f3e8460043b8d54631d55c",
+          "type": "review",
+          "ref": "MEM-08-S1: контракт одного SearchResult, карта сохранения старых фильтров и negative ACL-тесты",
+          "observation": "pm-code: plans/features/memory-cognitive-02/search-read-model.md (в кандидате, коммит 44a10e28) фиксирует аудит существующего API/retrieval, форму memory_contracts.SearchResponse/SearchItem без новых полей (§1), блок сообществ как аддитивную часть cog-map/1 (§2), три различаемых состояния сообществ (§3), матрицу исходов ACL/пустоты/ошибки (§4), курсор и устаревание ревизии (§5) и карту сохранения прежних фильтров (§6). Negative/permission-тесты в наборе кандидата: tests/test_mem08_search_read_model.py::test_non_admin_is_403_before_any_search, test_no_rights_is_not_no_matches, tests/test_evol_cog_map_api.py::{test_401_without_init_data, test_403_for_non_admin}. Reviewer APPROVED кандидат e3ae13ae после изолированной проверки. PM прогнал наборы в отдельном checkout: 42/42 read-model, 23/23 cog-map API.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-quality-and-mem08-readmodel-e3ae13ae.md",
+          "artifact_sha256": "35064a475ef61f4f666b0c29c8c1300a5f8347e597909c1c984b792abe43ce46",
+          "produced_on": "e3ae13ae98d84dd8b0f3e8460043b8d54631d55c"
+        }
+      ],
+      "reconciliation_note": "Срез S1 закрыт на кандидате e3ae13ae: аудит существующего retrieval/API, контракт одного поискового ответа, карта сохранения прежних фильтров и negative ACL-тесты присутствуют и проверены. Продуктовый UI этим срезом не менялся."
     },
     {
       "source_id": "M-MEM-08-S2",
@@ -1685,7 +2556,18 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "b2fed7077e3dac5b5904fc5d999c69bc4363de30",
+          "type": "production",
+          "ref": "MEM-08-S2: read-модель сообществ и роут поиска на проде 2.58.169 — честные состояния, живой MemoryManager",
+          "observation": "Роут /api/memory/search: 404 → 401 (опубликован, требует TMA-auth); /api/memory/cognitive-map: 401 (только идентичность и права не сломаны). Read-модель сообществ на прод-БД: крупный чат state=ok items=1 total=1 weak_in_items=0; остальные четыре state=ok reason_code=no_proven_communities items=[] — пустой набор отдаётся как честное «proven нет», а не как «все сообщества» и не как ошибка. Эндпоинт идёт через живой MemoryManager процесса (bot.py → create_app(memory=…) → app.state.memory), второго инстанса нет. НЕ доказано: авторизованное тело ответа поиска (нужен реальный TMA initData) и независимый quality/latency gold, который входит в acceptance S2. Поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-mem08-production-measurement-b2fed707.md",
+          "artifact_sha256": "4cff524e9f9eee69ef6879ed9ded2ed4e4166ce9b3cd0c29e2f0c21cb44ea5b7",
+          "produced_on": "b2fed7077e3dac5b5904fc5d999c69bc4363de30"
+        }
+      ],
+      "reconciliation_note": "PENDING (прод-факты добавлены). Доказано: read-модель сообществ на проде отдаёт только proven активной сборки (1 элемент в крупном чате; остальные — state=ok + reason_code=no_proven_communities + items=[]), роут /api/memory/search опубликован (401 вместо 404) и идёт через живой MemoryManager процесса, без менеджера — честная деградация. Прогоны PM в изолированном checkout: 42/42 test_mem08_search_read_model.py, 23/23 test_evol_cog_map_api.py, 11/11 test_memory_communities_retrieval.py. Не закрыто: авторизованное тело ответа поиска (нужен реальный TMA initData) и независимый quality/latency gold, входящий в acceptance S2; ambiguity/связки и full-scoped lookup проверены только на существующем retrieve. Поэтому статус остаётся PENDING, а не VERIFIED."
     },
     {
       "source_id": "M-MEM-08-S3",
@@ -2181,6 +3063,32 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": []
+    },
+    {
+      "source_id": "M-MEM-04.6-RUNTIME",
+      "source_line": 118,
+      "source_text_sha256": "289b0670e2c4c68bcc53189f1296017b7e301606daa2402d46be8abbeb273727",
+      "source_excerpt": "**MEM-04.6.** Старое, редкое, «забытое» воспоминание **не стирать** ради квот. Управлять hot-context вероятностью вызова по релевантности/времени, оставляя архивный поиск и явное историческое извлечение. Действующие пользовательские delete/",
+      "disposition": "required",
+      "reason": "Runtime-половина MEM-04.6: продуктовый контракт доказан кодом и тестами, но эффект на живых данных требует реального события вытеснения по квоте.",
+      "req_id": "MEM-04.6-RUNTIME",
+      "slice": "MEMORY-04",
+      "acceptance": "На проде наблюдается первое реальное вытеснение по квоте: строка graph_facts переходит в status='archived_fact' (тот же id/текст, строки факта/FTS/vec/provenance сохранены), в graph_fact_compressions появляется ровно одна новая запись reason='quota' с fact_after NULL, обычная выдача факт больше не отдаёт, историческое извлечение (include_archived=True) отдаёт, после рестарта состояние и доступность сохраняются; удаления строки факта не происходит.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "e4b97ce591703ee8d341fa1b1ba94e3cabc7ac17",
+          "type": "production",
+          "ref": "MEM-04.6-RUNTIME: развёртывание 2.58.163 подтверждено, событие вытеснения ещё не наступало — строка честно NOT_VERIFIED по живому поведению",
+          "observation": "На e4b97ce5 (2.58.163) журнал и БД read-only показывают: 0 строк status='archived_fact', 0 новых quota-строк после рестарта, 140 quota-строк относятся к прежнему разрушающему пути. Условие закрытия: первое реальное вытеснение по квоте с переходом в archived_fact, одной записью журнала reason='quota', сохранением FTS/vec/provenance, невидимостью в обычной выдаче и доступностью через историческое извлечение, в том числе после рестарта. До этого события строка остаётся READY_FOR_LIVE и не считается VERIFIED.",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/mem-audit-quota-archive-deploy-e4b97ce5.md",
+          "artifact_sha256": "730023edcc2687e334ac7479c5ce2f43d3d83b95ebdaa174b8a88d418be785bf",
+          "produced_on": "e4b97ce591703ee8d341fa1b1ba94e3cabc7ac17"
+        }
+      ],
+      "reconciliation_note": "READY_FOR_LIVE, не VERIFIED: деплой и код доказывают отсутствие разрушающего пути, но ни одного живого вытеснения по квоте на проде не было (0 archived_fact, 0 новых quota-строк). Закрывается только наблюдаемым событием по условию acceptance."
     }
   ],
   "items": [
@@ -4480,5 +5388,55 @@
       "evidence": []
     }
   ],
-  "binding_note": "MENU-01 is tracked by its own map plans/features/menu-01/requirements-map.json (single owner per map); this map references it only."
+  "binding_note": "MEMORY-01 bound to 5666c0a4 (types, inert). MEMORY-03 bound to 640cd818 after the approved merge: edge evidence with multi-source support, uid-corroborated authorship and honest class separation. MEMORY-04 still needs the destructive episode-merge rewrite before it can start; MEM-08-S3 needs the client-side corrections; MEMORY-02 (identity, schema v43) is the next implementation slice.",
+  "engineering_decisions": [
+    {
+      "id": "ED-MEMORY-07-COMMUNITIES-2026-11-09",
+      "date": "2026-11-09",
+      "scope": "MEMORY-07 / MCA_MEMORY_COMMUNITIES_ENABLED (release 2.58.168 @ ea9a7141)",
+      "kind": "engineering_decision",
+      "human_gate": false,
+      "decision": "Флаг MCA_MEMORY_COMMUNITIES_ENABLED остаётся OFF в выкладке 2.58.168: временный hold на время исправления причины вырожденных подписей и до появления пользовательского потребителя. OFF не является постоянным режимом и не закрывает дефект качества.",
+      "rationale": [
+        "Технически безопасно: OFF-паритет выдачи 34/34 по составу и порядку, OFF-тик без SQL, таблицы пусты, схема не менялась, откат — git revert.",
+        "Подписи вырождены: 99.87 % связей legacy (64 346 из 64 432), поэтому все проверенные подписи (все пять чатов) нейтральные «Сообщество N», dominant_names пуст.",
+        "Половина сообществ — пары узлов (медиана размера 2), показывать их как структуру нельзя.",
+        "Стоимость не нулевая: p95 сборки 7 054 мс на крупнейшем чате раз в час, вне горячего потока."
+      ],
+      "required_action": "Вернуть исполнителю исправление причины (поднять плотность confirmed/tentative существующим контуром: бэкфилл контракта §5.3 B3 / factcheck-provenance) и реализовать пользовательский потребитель (MEMORY-08). Выключение флага не считается исправлением.",
+      "not_permanent_off": true,
+      "policy_ref": "AGENTS.md (09.11.2026): готовая функция при первом production-деплое включается глобально по умолчанию; отключение флага не является способом закрыть дефект качества. Плюс PET_PROJECT (18.10.2026): без канареек и отдельных согласований на флаг.",
+      "revisit_trigger": {
+        "mode": "any_of",
+        "conditions": [
+          "Доля confirmed + tentative среди связей, использованных сборкой, материально выше текущих 0.13 % (86 из 64 432) — ожидаемо как результат обязательного исправления причины; практический ориентир: появляются непустые dominant_names хотя бы у части сообществ.",
+          "Визуальный граф (MEMORY-08: MEM-08.5/08.7/08.9) начинает требовать живые community-данные для отрисовки сообществ, подписей или счётчика «Сообщества: c»."
+        ],
+        "not_triggers": [
+          "рост числа узлов/рёбер сам по себе",
+          "наличие пустых таблиц или «фича уже выкачена»",
+          "аргумент «технически безопасно, значит включаем»"
+        ],
+        "procedure": "Свежее read-only измерение на копии прод-БД: sqlite backup API → сборка по чатам с гейтом, включённым только в процессе → время/размеры/провенанс/подписи/reuse id/аномалии → паритет retrieval 34 запроса в обоих режимах → сравнение с evidence/memory-07-wave34-measurement-ea9a7141.md.",
+        "exit": "Включение штатным релизом с заводским ON, если паритет OFF сохранён, подписи перестали быть поголовно нейтральными (или потребитель явно требует данные), p95 сборки в пределах часового периода."
+      },
+      "evidence_ref": {
+        "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-wave34-measurement-ea9a7141.md",
+        "artifact_sha256": "769bca5a5b9d502f9d50222f630d2ed9b0db164c564582793b1f32ab4dce2356"
+      },
+      "superseded": {
+        "date": "2026-11-09",
+        "by_commit": "fd198eb8819bb7ee624c14eabeb26a5692589e03",
+        "deployed_in": "2.58.169 @ b2fed7077e3dac5b5904fc5d999c69bc4363de30",
+        "effective_state": "флаг effective ON глобально и по всем 5 чатам (env не задан, заводской дефолт True, PG hot True); скрытого сохранённого false не было",
+        "reason": "Постоянное правило проекта (AGENTS.md, 09.11.2026): готовая и независимо проверенная функция при первом production-деплое включается заводским ON; OFF не может оставаться постоянным состоянием. Отдельного согласования владельца не требуется (PET_PROJECT).",
+        "still_required": "Причина качества остаётся возвращённой исполнителю и НЕ закрыта: провенанс в источнике исправлен только вперёд (c816e83c, без бэкфилла), поэтому доля proven — 1 из 4 163. Выключение флага по-прежнему не является способом закрыть дефект.",
+        "mitigation_in_place": "Наружу выходят только proven-сообщества (read-модель и thematic-канал), нейтральные подписи не показываются, WEAK-id не персистятся; пользовательский показ сообществ в релиз не входил.",
+        "evidence_ref": {
+          "artifact_path": "plans/features/memory-cognitive-02/evidence/memory-07-mem08-production-measurement-b2fed707.md",
+          "artifact_sha256": "4cff524e9f9eee69ef6879ed9ded2ed4e4166ce9b3cd0c29e2f0c21cb44ea5b7"
+        }
+      }
+    }
+  ]
 }

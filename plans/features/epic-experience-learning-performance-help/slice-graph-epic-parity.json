@@ -1,0 +1,254 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "epic-experience-learning-performance-help",
+  "source": "plans/features/epic-experience-learning-performance-help/source-2026-11-02-epic-and-parity.md",
+  "notes": "E и P могут идти параллельно только при непересекающихся write_scope. Внутри эпика пересечения сняты рёбрами зависимостей; пересечения с очередью (COG-MAP, FINAL v8) — в plan.md, вне этого графа. H — единственная финальная зависимость. Гейт паритета (дополнение владельца OI-2026-11-02-PERF-PARITY, коммиты b9ff8a7e/b0fce752/983c78b4, контракт docs/track-p-performance-parity.md) применяется к каждому пакету P отдельно: в acceptance шести P-пакетов добавлены части (a) метрика, (b) артефакт паритета, (c) сравниваемые состояния и вьюпорты; отсутствие или отклонение паритета аннулирует пакет независимо от метрик. Пять пунктов дополнения PAR-01..PAR-05 и опорные P-SPEC-PARITY/P-GENUINE принадлежат EP-P-ACCEPT. Источник карты и графа - консолидированный дословный снимок (эпик-вход + дополнение), исходные owner-файлы не редактировались.",
+  "slices": [
+    {
+      "id": "EP-GUARD",
+      "track": "E+P",
+      "depends_on": [],
+      "write_scope": [],
+      "risk": "R1",
+      "writer_mode": "read-only",
+      "acceptance": "Диф всех слайсов E/P не содержит второго хранилища/retrieval-стека/очереди/агента-судьи, смысловых решений по имени/regex/словарю фраз, нового LLM-вызова в горячем пути и искусственных отсекающих бюджетов; проверяется Reviewer по диффу."
+    },
+    {
+      "id": "EP-E-EXTRACT",
+      "track": "E",
+      "depends_on": [],
+      "write_scope": [
+        "services/mca_experience_jobs.py",
+        "services/database.py",
+        "tests/test_ep_e_extract.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-extract/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Существующий semantic batch отдаёт версионированный кандидат с refs/old_claim/revision/epistemic и честно отклоняет несуществующие refs; окно покрывает reply/участников/время; сбой не двигает cursor и не создаёт дублей (тесты + прогон на длинной беседе)."
+    },
+    {
+      "id": "EP-E-GATE",
+      "track": "E",
+      "depends_on": [
+        "EP-E-EXTRACT"
+      ],
+      "write_scope": [
+        "services/mca_experience_jobs.py",
+        "services/mca_experience.py",
+        "services/mca_retrieval_context.py",
+        "tests/test_ep_e_gate.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-gate/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Грубая содержательная поправка не теряется из-за маркеров агрессии/юмора; буквальное совпадение слова при другой теме не внедряет урок; отбор использует существующие retrieval-примитивы и embeddings-провайдера без второго retrieval-стека."
+    },
+    {
+      "id": "EP-E-LESSON",
+      "track": "E",
+      "depends_on": [
+        "EP-E-GATE"
+      ],
+      "write_scope": [
+        "services/mca_experience.py",
+        "services/database.py",
+        "web/api/memory_agi.py",
+        "web/index.html",
+        "web/app.js",
+        "tests/test_ep_e_lesson.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-lesson/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Смысловой урок создаётся без записи в Python-каталог, хранит principle/applies_when/do_not_apply_when/evidence/version в mca_lessons, операции ADD/REVISE/MERGE/SUSPEND/SUPERSEDE/NOOP работают поверх версий, инъекция не становится уроком, история и manual suspend доступны в панели."
+    },
+    {
+      "id": "EP-E-OUTCOME",
+      "track": "E",
+      "depends_on": [
+        "EP-E-LESSON"
+      ],
+      "write_scope": [
+        "web/api/oversight_router.py",
+        "web/api/memory_agi.py",
+        "web/index.html",
+        "web/app.js",
+        "services/mca_events.py",
+        "services/mca_experience.py",
+        "tests/test_ep_e_outcome.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-outcome/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Стадии selected/delivered/used/outcome_known различимы, outcome приходит из независимого сигнала, витрина раскрывает событие→утверждение→поправку→ревизию→применения→исходы, при отсутствии причинного доказательства показано «недостаточно данных»."
+    },
+    {
+      "id": "EP-E-DIALOGUE",
+      "track": "E",
+      "depends_on": [],
+      "write_scope": [
+        "services/direct_chat_service.py",
+        "handlers/direct_chat.py",
+        "services/prompt_composer.py",
+        "services/bot_output_ledger.py",
+        "tests/test_ep_e_dialogue.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-dialogue/"
+      ],
+      "risk": "R3",
+      "writer_mode": "writer",
+      "acceptance": "На новый вопрос о собственном недавнем утверждении бот восстанавливает свой output/ref, признаёт ошибку или обозначает сомнение в текущем ответе без дополнительного LLM-вызова; поправка третьего лица не приписывается боту; смежные контуры не регрессировали."
+    },
+    {
+      "id": "EP-E-ACCEPT",
+      "track": "E",
+      "depends_on": [
+        "EP-E-EXTRACT",
+        "EP-E-GATE",
+        "EP-E-LESSON",
+        "EP-E-OUTCOME",
+        "EP-E-DIALOGUE"
+      ],
+      "write_scope": [
+        "tests/test_ep_e_accept.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-accept/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Все 26 сценариев E-01..E-26 воспроизведены независимыми вариациями (другие имена/темы/чат/после restart), сквозной результат E наблюдаем на новых примерах, журнал версий и негативные кейсы приложены."
+    },
+    {
+      "id": "EP-P-MEASURE",
+      "track": "P",
+      "depends_on": [],
+      "write_scope": [
+        "tools/ui_ep_perf_baseline.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/perf/"
+      ],
+      "risk": "R1",
+      "writer_mode": "writer",
+      "acceptance": "Baseline и «после» сняты на одном SHA в идентичном окружении существующим инструментарием (Playwright + curl + EXPLAIN), сохранены сырые прогоны, p50/p95 и разделение network/server/JS/render; отсутствие Android WebView отмечено как «не проверено». Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: baseline B с cold/warm/desktop p50+p95 времени до полезного «Статуса», интерактивного первого экрана, отклика контрола, long tasks, frame drops, числа запросов, transfer bytes, доли 304, числа SQL/EXPLAIN, размера JSON; (b) артефакт паритета: UX Surface Manifest и матрица паритета, снятые для B тем же кодом, что снимет C, плюс калибровка детектора на одноразовой копии (один отключённый эффект обязан уронить счётчики манифеста и поднять метрики); (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], cold-первый кадр, полезный «Статус», каждая вкладка, смена чата/scope, `.more-sheet` closed/open, fullscreen normal/fullscreen, tier-ы стекла a/b/c/shell на стенде, reduced-motion. Без baseline паритета пакета нет."
+    },
+    {
+      "id": "EP-P-CACHE",
+      "track": "P",
+      "depends_on": [],
+      "write_scope": [
+        "web/app.py",
+        "config/settings.py",
+        "tests/test_ep_p_cache.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-cache/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Версионированные JS/CSS/vendor реально переиспользуются (304/memory, без no-store), HTML и приватные API не кешируются, версия в URL соответствует байтам, сжатие подтверждено на реальном proxy, CSP сохранён. Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: рост доли 304 на warm-входе, снижение transfer bytes и времени до полезного «Статуса», загрузка после релиза без принудительной чистки кеша; (b) артефакт паритета: распакованные байты JS/CSS/HTML идентичны baseline, 0-px геометрия, инвентарь контролов/DOM, паритет стекла/полигона/движения и данных равны, тест stale mixed assets (P-04) проходит; (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], повторный вход в том же релизе, новый релиз после деплоя, путь GET/HEAD/ETag/304. Пакет без этого артефакта паритета не принимается независимо от чисел."
+    },
+    {
+      "id": "EP-P-SCRIPTS",
+      "track": "P",
+      "depends_on": [
+        "EP-E-OUTCOME"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "tests/js/ep_p_scripts_test.js",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-scripts/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Порядок и способ подключения vendor-скриптов сохранён по зависимостям (Vue/DOMPurify/Telegram bridge/Chart/canvas), обязательный bootstrap краток, необязательное для первого экрана отложено, отказ необязательного не ломает вход. Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: число запросов до полезного экрана, убранные дублирующие GET, time-to-interactive, число мутаций при retry; (b) артефакт паритета: инвентарь состояний loading/error/empty/retry, INV-DATA и INV-DOM равны, отсутствие stale overwrite при быстрой смене чата (P-06), control конфликта ревизий на двух админах (P-13), отсутствие секретов/initData в браузерном хранилище; (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], быстрая смена чата, медленная сеть, отказ API, offline->online. Пакет без этого артефакта паритета не принимается независимо от чисел."
+    },
+    {
+      "id": "EP-P-BOOT",
+      "track": "P",
+      "depends_on": [
+        "EP-P-SCRIPTS"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "tests/js/ep_p_boot_test.js",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-boot/"
+      ],
+      "risk": "R3",
+      "writer_mode": "writer",
+      "acceptance": "Первый экран «Статус» не монтирует скрытые вкладки/графики/редакторы; deep link открывает нужную вкладку напрямую; стадии загрузки конечны (loaded/empty/error-retry/degraded); смена чата не даёт stale overwrite; визуальный контракт и мобильная геометрия не изменены. Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: main-thread parse/compile/mount, long tasks, время до полезного «Статуса», загрузка по deep link, отсутствие роста listeners/timers/canvas/heap при повторных переключениях вкладок; (b) артефакт паритета: идентичный DOM после загрузки на каждой вкладке и deep link, отсутствие новых промежуточных заглушек там, где контент раньше появлялся сразу, INV-DOM/INV-GLASS/INV-POLY/INV-MOTION/INV-ROUTE равны, сохранены клавиатурные/landscape/fullscreen/dropdown состояния; (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], каждая вкладка, deep link на вкладку, landscape 844x390, fullscreen, reduced-motion. Пакет без этого артефакта паритета не принимается независимо от чисел."
+    },
+    {
+      "id": "EP-P-ANIM",
+      "track": "P",
+      "depends_on": [],
+      "write_scope": [
+        "web/static/polygon-background.js",
+        "web/static/aurora-flow.js",
+        "web/static/glass.js",
+        "web/static/glass-probe.js",
+        "web/static/glass-refraction.js",
+        "tests/test_ep_p_anim.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-anim/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "На document.hidden/закрытой модалке/внеэкранных блоках непрерывной работы нет, при возврате геометрия восстанавливается без скачка, чтения геометрии сгруппированы с записями стилей, внешний вид идентичен на скриншотах при включённых эффектах. Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: frame drops, long tasks, idle CPU/GPU при hidden, число layout за кадр, отсутствие роста между циклами вкладок; (b) артефакт паритета: все 11 полей getDiagnostics() равны при фиксированном ?bgseed=, nodeCount в диапазоне 90-140 (desktop) / 45-75 (mobile), bloom+morphphase присутствуют, инвентарь INV-MOTION и сэмплы transform/opacity равны, INV-GLASS (tier/backdrop-filter/--glass-* токены) равен, 0 различающихся пикселей на детерминированных состояниях; (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], document.hidden round trip, закрытая модалка, скрытый overlay, fullscreen normal/fullscreen. Пакет без этого артефакта паритета не принимается независимо от чисел."
+    },
+    {
+      "id": "EP-P-API",
+      "track": "P",
+      "depends_on": [
+        "EP-E-OUTCOME",
+        "EP-E-LESSON"
+      ],
+      "write_scope": [
+        "web/api/routes.py",
+        "web/api/oversight_router.py",
+        "services/database.py",
+        "services/status_service.py",
+        "tests/test_ep_p_api.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-api/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "/config и тяжёлые read-path измерены и ускорены на доказанных участках (EXPLAIN + baseline), списки отдаются keyset/страницами, event loop остаётся отзывчивым, RBAC и единый param_catalog не нарушены. Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: p50/p95 эндпоинтов, число SQL, EXPLAIN самого дорогого SELECT до/после, байты JSON, event-loop lag; (b) артефакт паритета: равные количества отрисованных строк/полей/значений на фиксированном датасете, те же поля и достижимость в UI, единый param_catalog, неизменные RBAC/effective values и write-эндпоинты, отсутствие подстановки нулей при таймауте; (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], вкладки с большим числом записей, конкурентное редактирование двумя админами, граничные страницы пагинации. Пакет без этого артефакта паритета не принимается независимо от чисел."
+    },
+    {
+      "id": "EP-P-ACCEPT",
+      "track": "P",
+      "depends_on": [
+        "EP-P-MEASURE",
+        "EP-P-CACHE",
+        "EP-P-SCRIPTS",
+        "EP-P-BOOT",
+        "EP-P-ANIM",
+        "EP-P-API"
+      ],
+      "write_scope": [
+        "tests/test_ep_p_accept.py",
+        "tests/js/ep_p_accept_test.js",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-accept/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "P-01..P-16 проверены независимо: сопоставимые cold/warm traces до/после, реальный выигрыш медианы и отклика, функциональный regression, эквивалентные скриншоты при включённом стекле, отсутствие утечек/RBAC-обходов."
+    },
+    {
+      "id": "EP-H-HELP",
+      "track": "H",
+      "depends_on": [
+        "EP-E-ACCEPT",
+        "EP-P-ACCEPT",
+        "EP-GUARD"
+      ],
+      "write_scope": [
+        "services/info_service.py",
+        "info_text.md",
+        "plans/docs/intelligence_user_guide.md",
+        "tests/test_ep_h_help.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/h-help/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Оба гайда пересмотрены по фактически deployed системе и доставлены в PG/UI с версиями, backup и датой реального сохранения; в тексте нет pending-функций как существующих, запрещённых обещаний безошибочности и XSS; стиль и оба уровня читателя сохранены. Открывается только после PASS+deploy+live ВСЕХ предыдущих задач очереди, включая E и P и ранее добавленные AntiCliche/Memory/UI исправления; параллельно с ними не выполняется, до этого документацию не редактировать и не обновлять фиктивной датой."
+    }
+  ]
+}

@@ -1,0 +1,330 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108",
+  "source": "plans/features/epic-adminbot-corrective-ym-nost-20261108/source-2026-11-08.md",
+  "slices": [
+    {
+      "id": "MEM-AUDIT",
+      "depends_on": [],
+      "writer": "PM read-only -> Memory owner/Builder if C",
+      "write_scope": [
+        "plans/features/memory-cognitive-02/evidence/memory-retention-audit.json",
+        "services/summary_memory.py",
+        "services/database.py",
+        "services/worker_budget.py",
+        "services/pg_db.py",
+        "tests/test_memory_retention_audit.py",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/mem-audit-quota-archive-3bfd3b06.md"
+      ],
+      "outcome": "Quota and retention paths are classified A/B/C/D against real SQL and restart evidence.",
+      "acceptance": "A candidate-bound audit identifies every quota-related DELETE/UPDATE path and proves either retained evidence or a minimal protective fix without changing explicit forget/privacy deletion.",
+      "risk": "R3",
+      "next": "Memory owner/Architect"
+    },
+    {
+      "id": "XC-RECON",
+      "depends_on": [],
+      "writer": "PM",
+      "write_scope": [
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/requirements-map.json",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/slice-graph.json",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/source-2026-11-08.md",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/plan.md"
+      ],
+      "outcome": "All owner clauses have an existing owner, correction pointer, or new slice.",
+      "acceptance": "The crosswalk and reverse inventory identify every mandatory clause, prohibition, exclusion and external dependency without changing central state.",
+      "risk": "R1",
+      "next": "Architect"
+    },
+    {
+      "id": "REPLY-RCA",
+      "depends_on": [
+        "XC-RECON"
+      ],
+      "writer": "Reply owner -> Reviewer",
+      "write_scope": [
+        "plans/features/evol-reply-context-integrity/evidence/reply-forensic-trace.json",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/reply/trace.json"
+      ],
+      "outcome": "Reply and one-message transformations are compared through the existing L1/Writer path.",
+      "acceptance": "A redact-safe trace contains source, assembled context, plan, Writer input, raw completion, guards and delivered payload with lengths and reason codes.",
+      "risk": "R2",
+      "next": "Architect/Builder"
+    },
+    {
+      "id": "TIME-UX",
+      "depends_on": [
+        "XC-RECON"
+      ],
+      "writer": "Builder (existing time contract)",
+      "write_scope": [
+        "web/timezone_settings.js",
+        "web/timezone_settings.html",
+        "tests/test_timezone_ux.py",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/time/acceptance.json"
+      ],
+      "outcome": "Users select human-readable timezones while ChatClock remains the source of truth.",
+      "acceptance": "Desktop/mobile tests show search, inheritance, DELETE override, DST and honest 403/409/422/tzdata errors without saving unconfirmed selections.",
+      "risk": "R2",
+      "next": "Builder"
+    },
+    {
+      "id": "RBAC-PROJECTION",
+      "depends_on": [
+        "XC-RECON"
+      ],
+      "writer": "EVOL/RBAC owner -> Architect",
+      "write_scope": [
+        "web/api/analytics.py",
+        "web/api/analytics_viz.py",
+        "web/api/routes.py",
+        "web/api/access.py",
+        "tests/test_rbac_scoped_projection.py",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/rbac/projection.json"
+      ],
+      "outcome": "Status and Analytics expose safe current projections to authorized viewers and moderators.",
+      "acceptance": "Scoped read requests return real data or 'Нет данных'; prompts, secrets, PII and financial details remain absent for unauthorized roles.",
+      "risk": "R3",
+      "next": "Architect"
+    },
+    {
+      "id": "RBAC-ENFORCEMENT",
+      "depends_on": [
+        "RBAC-PROJECTION",
+        "TIME-UX"
+      ],
+      "writer": "EVOL/RBAC owner -> Reviewer",
+      "write_scope": [
+        "services/roles.py",
+        "services/access.py",
+        "web/api/deps.py",
+        "web/api/rbac_enforcement.py",
+        "tests/test_rbac_enforcement.py"
+      ],
+      "outcome": "Backend authorization remains authoritative across scope and stale-session changes.",
+      "acceptance": "Direct endpoint calls, client-role spoofing, altered X-Chat-Id, stale sessions and role changes cannot cross scope or mutate protected resources.",
+      "risk": "R3",
+      "next": "Reviewer"
+    },
+    {
+      "id": "VISION-MULTI",
+      "depends_on": [
+        "XC-RECON"
+      ],
+      "writer": "Vision owner -> Architect",
+      "write_scope": [
+        "services/mca_vision.py",
+        "services/media_readiness.py",
+        "services/mca_media_assets.py",
+        "tests/test_vision_multi_album.py",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/vision/multi.json"
+      ],
+      "outcome": "Collages, albums and sequential photos resolve with stable ordered assets and honest completeness.",
+      "acceptance": "Album scenarios report registered/analyzed/delivered counts, preserve target identity through Reply/restart/duplicate updates and never substitute neighboring media.",
+      "risk": "R3",
+      "next": "Architect"
+    },
+    {
+      "id": "VISION-OWN",
+      "depends_on": [
+        "VISION-MULTI"
+      ],
+      "writer": "Vision owner -> Builder",
+      "write_scope": [
+        "services/image_generation.py",
+        "services/postgen_vision.py",
+        "services/mca_media_assets.py",
+        "tests/test_vision_outgoing_provenance.py",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/vision-own/provenance.json"
+      ],
+      "outcome": "Bot-generated media is registered from the returned Telegram Message and reusable after restart.",
+      "acceptance": "A successful send stores outgoing message/file provenance; Reply reuses analysis without another generation, while failed send or failed analysis is reported honestly.",
+      "risk": "R3",
+      "next": "Builder"
+    },
+    {
+      "id": "PAY-ARCH",
+      "depends_on": [
+        "XC-RECON"
+      ],
+      "writer": "Architect -> Builder",
+      "write_scope": [
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/pay-arch/contract.json"
+      ],
+      "outcome": "One additive/reused payment contract is frozen before implementation.",
+      "acceptance": "The contract names one order/receipt/ledger/inbox/outbox identity model, rollback and feature-flag boundaries, and excludes Platega/Stars/crypto/15-minute TTL.",
+      "risk": "R3",
+      "next": "Architect"
+    },
+    {
+      "id": "PAY-BALANCE",
+      "depends_on": [
+        "PAY-ARCH",
+        "VISION-OWN",
+        "MEM-AUDIT"
+      ],
+      "writer": "Builder -> Reviewer",
+      "write_scope": [
+        "services/worker_budget.py",
+        "services/image_generation.py",
+        "services/pg_db.py",
+        "tests/test_pay_balance.py",
+        "tests/test_pay_quota_isolation.py"
+      ],
+      "outcome": "Free and paid image balances are isolated, atomic and auditable.",
+      "acceptance": "Bounded concurrent/restart tests prove chat-user isolation, free-first semantics, 0=unlimited only for the new setting, nonnegative ledger arithmetic and no double spend.",
+      "risk": "R3",
+      "next": "Builder"
+    },
+    {
+      "id": "PAY-ORDER",
+      "depends_on": [
+        "PAY-ARCH",
+        "PAY-BALANCE"
+      ],
+      "writer": "Builder -> Reviewer",
+      "write_scope": [
+        "web/payment_orders.js",
+        "services/payment_orders.py",
+        "tests/test_pay_orders.py"
+      ],
+      "outcome": "Orders and payment forms use opaque stable snapshots without mandatory expiration.",
+      "acceptance": "Repeated clicks reuse one intent, price/pack snapshots remain stable, gateway uses verified server fields and UI cleanup does not delete financial history.",
+      "risk": "R3",
+      "next": "Builder"
+    },
+    {
+      "id": "PAY-ADAPTER",
+      "depends_on": [
+        "PAY-ORDER"
+      ],
+      "writer": "Builder -> Reviewer",
+      "write_scope": [
+        "web/payment_notifications.js",
+        "services/payment_adapter.py",
+        "tests/test_pay_adapter.py"
+      ],
+      "outcome": "Signed notifications and optional history reconciliation credit exactly once.",
+      "acceptance": "HMAC-SHA256, receiver/label/currency/amount checks, durable inbox, unique operation_id and shared confirm_receipt reject invalid/replayed/test events.",
+      "risk": "R3",
+      "next": "Builder"
+    },
+    {
+      "id": "PAY-UX-EVENTS",
+      "depends_on": [
+        "PAY-BALANCE",
+        "PAY-ORDER"
+      ],
+      "writer": "Builder -> Reviewer",
+      "write_scope": [
+        "services/payment_events.py",
+        "services/speech.py",
+        "tests/test_pay_ux_events.py",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/pay-ux/events.json"
+      ],
+      "outcome": "Quota and credit events publish one bounded authorial message or exact fallback.",
+      "acceptance": "Each unique event makes at most one existing-model attempt; exact placeholders/fallback and buttons are verified, and LLM never determines financial facts.",
+      "risk": "R2",
+      "next": "Builder"
+    },
+    {
+      "id": "PAY-ADMIN",
+      "depends_on": [
+        "PAY-ARCH",
+        "RBAC-ENFORCEMENT",
+        "TIME-UX"
+      ],
+      "writer": "Builder -> Reviewer",
+      "write_scope": [
+        "services/param_catalog.py",
+        "web/api/payment_admin.py",
+        "web/payment_admin.js",
+        "web/payment_admin.html",
+        "tests/test_pay_admin_settings.py"
+      ],
+      "outcome": "Existing image-generation admin section edits effective payment/quota/event settings.",
+      "acceptance": "50->75, free, pack and event-version changes commit server-side, hot-apply to new orders, preserve old snapshots and survive restart; unauthorized writes fail.",
+      "risk": "R3",
+      "next": "Builder"
+    },
+    {
+      "id": "PAY-VERIFY",
+      "depends_on": [
+        "PAY-ADAPTER",
+        "PAY-UX-EVENTS",
+        "PAY-ADMIN"
+      ],
+      "writer": "Reviewer",
+      "write_scope": [
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/pay-verify/results.json",
+        "tests/test_pay_grouped_verification.py"
+      ],
+      "outcome": "PAY-01..PAY-58 are covered by bounded grouped simulations.",
+      "acceptance": "Unit, integration, fault-injection and bounded concurrency artifacts prove grouped quota, ledger, adapter, RBAC, settings and restart invariants without real payment URLs.",
+      "risk": "R3",
+      "next": "Reviewer"
+    },
+    {
+      "id": "PAY-LIVE-EXTERNAL",
+      "depends_on": [
+        "PAY-VERIFY"
+      ],
+      "writer": "DevOps/Owner external action",
+      "write_scope": [
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/pay-live/provider-readiness.json"
+      ],
+      "outcome": "Real provider readiness is separately classified without blocking OFF engineering delivery.",
+      "acceptance": "Evidence distinguishes DONE_BY_AGENTS, OWNER_ACTION_REQUIRED and UNVERIFIED; no payment is LIVE_VERIFIED without real receipt, provider conditions and permitted credentials.",
+      "risk": "R3",
+      "next": "DevOps/Owner"
+    },
+    {
+      "id": "NOST-P0",
+      "depends_on": [
+        "XC-RECON"
+      ],
+      "writer": "Nostalgia owner -> Builder",
+      "write_scope": [
+        "services/nostalgia_prompts.py",
+        "services/nostalgia_worker.py",
+        "tests/test_nostalgia_truncation.py"
+      ],
+      "outcome": "Nostalgia never publishes a mechanically truncated response.",
+      "acceptance": "Overlength/cutoff/envelope failures produce complete bounded text or honest unpublishable status, with no second LLM call or new hard word limit.",
+      "risk": "R2",
+      "next": "Builder"
+    },
+    {
+      "id": "NOST-EVIDENCE",
+      "depends_on": [
+        "NOST-P0",
+        "MEM-AUDIT"
+      ],
+      "writer": "Nostalgia/Memory owners -> Architect",
+      "write_scope": [
+        "services/nostalgia_evidence.py",
+        "tests/test_nostalgia_evidence_projection.py",
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/nostalgia/projection.json"
+      ],
+      "outcome": "Existing nostalgia worker supplies evidence-grounded temporary episode projections.",
+      "acceptance": "Candidate source refs, participant identity, chronology, uncertainty and current-context relation are preserved without a second memory or unrelated-story concatenation.",
+      "risk": "R3",
+      "next": "Architect"
+    },
+    {
+      "id": "NOST-QUALITY",
+      "depends_on": [
+        "NOST-EVIDENCE"
+      ],
+      "writer": "Reviewer",
+      "write_scope": [
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/nostalgia-review/quality.json",
+        "plans/features/p0-nostalgia-rework/evidence/quality.json"
+      ],
+      "outcome": "Real nostalgia cases are evaluated for coherence, attribution and relevance.",
+      "acceptance": "Both owner examples and a bounded real-run sample have source/payload/decision/delivery evidence and an independent baseline comparison; no prompt-only acceptance.",
+      "risk": "R3",
+      "next": "Reviewer"
+    }
+  ]
+}

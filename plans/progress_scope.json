@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-07T09:30:00+12:00",
+  "updated": "2026-11-10T03:30:36+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -327,13 +327,14 @@
     {
       "id": "evol-reply-context-integrity-01",
       "status": "BUILDING",
-      "source_path": "plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md",
-      "source_sha256": "A5FCC4194578458C97584CBED091B156C448AB927DF105B3D360D5A428429084",
+      "source_path": "plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md",
+      "source_sha256": "C6AA5CD87E8A61528CF53CE6DBA1A93F9DCC47456C29E1BDD2E69FFE182909D3",
       "maps": [
-        "plans/features/evol-reply-context-integrity/requirements-map.json"
+        "plans/features/evol-reply-context-integrity-01/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "Production Reply→FactCheck context-loss. Карта plans/features/evol-reply-context-integrity/requirements-map.json (5 строк, plan-gate errors=0). Кодовая потеря в ambiguity-ветке независимо подтверждена на HEAD 8bb2800f; реальные Telegram ID/трасса продакшена остаются PENDING_EXTERNAL."
+      "source_note": "Production Reply→FactCheck context-loss. Карта plans/features/evol-reply-context-integrity/requirements-map.json (5 строк, plan-gate errors=0). Кодовая потеря в ambiguity-ветке независимо подтверждена на HEAD 8bb2800f; реальные Telegram ID/трасса продакшена остаются PENDING_EXTERNAL.",
+      "updated": "2026-11-03"
     },
     {
       "id": "factcheck-clean-publication",
@@ -371,6 +372,16 @@
       "updated": "2026-11-09"
     },
     {
+      "id": "smart-module-semantic-routing-p0",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-10-smart-module-semantic-routing-p0.md",
+      "source_sha256": "2ECA66DA1825F85EBD0E9353E53A5281635297427510DE6274E9EF5E2AF48A8C",
+      "maps": [],
+      "coverage_complete": false,
+      "source_note": "P0 corrective of the existing Smart Module, not a new epic. Incident A: the manga question ('японцы рисуют или форматом страниц') hit the image generator and reported a daily image quota; cause named by the owner at services/direct_capabilities.py `_DRAW_VERB_STRONG` containing the stem 'рису', classified as INTENT_CREATE_IMAGE, after which `_image_capability_gate()` can end the turn before L1. Incident B: 'бот, что происходит в чате' was answered by analysing a participant's video, then asking which of two videos was meant. Owner forbids adding any lexeme, regex or trigger for such phrases: the model (L1) must decide, using the existing history/memory/search tools. Architectural invariant: the current user message is the task; reply target, quote, forward, recent history, transcript and tool results are evidence, never a substitute task. Explicit commands must survive unchanged: фактчек, чекап, 'Бот, нарисуй ...' with the full user prompt, 'Бот, найди ...' with its argument; 'Нарисуй кота' without the bot prefix goes through L1. Remove the semantic authority of `_DRAW_VERB_STRONG`, `_DRAW_VERB_PREFIXED`, `_CREATE_VERB_GENERIC`, `_IMAGE_OBJECT` and related lexical gates (detect_action_intent, _image_capability_gate, _image_pre_gate_block, _l1_capability_consistency, IMAGE_KEYWORD_RE, legacy/fallback planning, generate_image execution) leaving only the explicit command fast-path. No new LLM classifier, no second summary pipeline, no new user settings. P1 is a bounded revision of the named spots (direct answers, nostalgia pre-gate, search/factcheck markers, vision intent patterns, experience lexical filters, style/self-model). Trace both P0s end to end; do not pass DONE on unit tests alone, and verify negative scenarios independently.",
+      "updated": "2026-11-10"
+    },
+    {
       "id": "mod-acl-ux-01",
       "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-09-mod-acl-ux-01.md",
@@ -393,6 +404,191 @@
       "coverage_complete": true,
       "source_note": "Owner final spec revision 3 (2026-11-08), current_task.md lines 7420-8278. Crosswalk in plans/features/epic-adminbot-corrective-ym-nost-20261108/plan.md; strict map 177 required / 125 correction pointers / 134 context, inventory 419, unassigned 0; slice graph 19 slices; plan gate PASS (inventory=419 manual=17 scoped=0 errors=0). MEM-AUDIT urgent and confirmed destructive quota eviction (physical delete of graph_facts/FTS/vec) routed as correction to this epic's memory owner instead of a second MEMORY epic; fix 3bfd3b06 reviewed and DEPLOYED in 2.58.163 @ e4b97ce5. Live eviction observation still open. PAY-YM remains OFF; factory price 50 RUB / pack 3 is an owner decision, not an external blocker.",
       "updated": "2026-11-08"
+    },
+    {
+      "id": "asap-fc-voice-01",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-02-asap-fc-voice-01.md",
+      "source_sha256": "9CE180AD702588B4552CF97FBEAEE615EC9D3D67654D9369D29670C91B762C29",
+      "maps": [
+        "plans/features/asap-fc-voice-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Единая итоговая редакция владельца 02.11 (заменяет неотправленные черновики о стиле фактчека). P0 — исторический аргументативный голос в действующем Verbalizer + адаптивная подача без принудительных заголовков/списков/обрезок; P1 — общесистемный decision-profile L1 на существующих persona-сигналах, без второй личности и без полного Core в машинных стадиях. Карта требований и классификация 22 сценариев — PM; архитектурный контракт — Architect до Builder. Ближайший безопасный слот: после завершения текущего релиза 2.58.148; активных исполнителей не прерывать. Не дублировать ASAP-FC-EVIDENCE-STYLE-02 (поиск/provenance) и ASAP-EVIDENCE-ROUTING-01.",
+      "updated": "2026-11-02"
+    },
+    {
+      "id": "asap-evol-anticliche-memory-admin-ux",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-02-anticliche-memory-admin-ux-spec.md",
+      "source_sha256": "E2B3624CD0DEFC89B23A1FE82CCDD8120001A69ECF07043AEE081DCDA6CA3E16",
+      "maps": [
+        "plans/features/asap-evol-anticliche-memory-admin-ux/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Финальная спецификация владельца v8 (AntiCliche + смысловая память/само-референция + мобильная загрузка/логи/селектор чатов/модули/мем-инициатива). Приёмка по §16-§17 обязательна; не аудит. Карта требований, пакеты работ и зависимости - PM; интеграционные решения - Architect против текущего HEAD/deployed. Очередь: после текущих активных поручений (COG-MAP S2-S4).",
+      "updated": "2026-11-02"
+    },
+    {
+      "id": "epic-experience-learning-performance-help",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-02-experience-learning-performance-help.md",
+      "source_sha256": "CF854D614D77FAFBE7D04F9ABC597403930837E2677FFF5547FB8AA2A7594458",
+      "maps": [
+        "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+        "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Эпик E/P/H в конце current_task после FINAL v8. Исполнение: после завершения предшествующей очереди (COG-MAP, FINAL v8). PM декомпозирует E и P на пакеты, Architect сверяет с текущим HEAD/deployed. H открывается только после приёмки, деплоя и живой проверки ВСЕХ предшествующих задач. | Карта: 132 обязательных / 15 слайсов, зависимости и сериализация зафиксированы; H закрыт до приёмки+деплоя+живой проверки E и P.",
+      "updated": "2026-11-02"
+    },
+    {
+      "id": "p0-meme-image-only",
+      "status": "VERIFIED",
+      "source_path": "plans/owner_inputs/2026-11-02-meme-image-only-fix.md",
+      "source_sha256": "D1AFECC6962DC24B749893182E2727BDEC493823E87A4C898317CCF1C7E49C19",
+      "maps": [
+        "plans/features/p0-meme-image-only/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Прод 2.58.150 @ 345a2ed7 (ветка release/2.58.150). 11/11 обязательных строк VERIFIED, релизный гейт EXIT 0. Живое мем-событие NOT_OBSERVED: естественного мема в окне выкладки не было, тестовые сообщения в чаты не отправлялись; пассивная перепроверка при первом естественном меме (маркер '[direct] image delivered — text reply suppressed', единственный send_photo без caption). 2.58.150 несёт только дельту мема (5 файлов), остальная линия evol/impl не выложена.",
+      "updated": "2026-11-03"
+    },
+    {
+      "id": "meme-pipeline-refactor-01",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md",
+      "source_sha256": "D11119FEAA1772E9A96B5EF56B692CA8D9A3E0D731F071D172497CC95E31ED96",
+      "maps": [
+        "plans/features/meme-pipeline-refactor-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Приоритетная задача владельца. Пакеты: P1 MEME-PIPE-CORE (services, запускается сразу), P2 MEME-API-SCOPE, P3 MEME-MANUAL-CMD (+ автоудаление команды), P5 MEME-ANALYTICS-STAGES параллельно, P4 MEME-UI-FIELDS после освобождения web/app.js+index.html (держит COG-MAP S3). Порядок с UI-MEME линии FINAL v8: глобальный scope мем-настроек реализует эта задача, UI-MEME идёт после и переиспользует его. | 03.11.2026: P6 MEME-JOKE-SPEECH привязан на 76608fad (13/13 VERIFIED, review-гейт 0 ошибок); P7 3/4; остаются P4 MEME-UI-FIELDS (web), MEME-ACC-12 (аналитика этапов), INIT-COORDINATION/INIT-DIAG. | 03.11: решением владельца переоткрыты две строки (MEME-IIC-STALE-NO-SEND, MEME-IIC-POSTPONE-RECHECK) -> 162/164 VERIFIED; замещающие обязательства в карте hotfix (HMF-ACC-01..04).",
+      "updated": "2026-11-03"
+    },
+    {
+      "id": "hotfix-meme-publication-initiative-ui",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md",
+      "source_sha256": "0D54087FA77555B33CC37283666549264E751C8CD97FABC13B0467FA8A875268",
+      "maps": [
+        "plans/features/hotfix-meme-publication-initiative-ui/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Срочная корректировка 03.11: P0 ложная отмена готовых мемов + P0.5 пустой потолок = auto (отдельный кейс), P1 перекомпоновка страницы инициативы. 26 req_id / 60 обязательств, срезы P0-PUBLICATION, P0.5-CEILING-AUTO, P1-UI-INITIATIVE с явным графом (P0 и P0.5 выпускаются отдельными срезами, не дожидаясь P1). План-гейт: 0 ошибок. Кандидат P0 46edd36e на повторной приёмке; ни одна строка не VERIFIED до вердикта и выката.",
+      "updated": "2026-11-03"
+    },
+    {
+      "id": "epic-cm-visual-01",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-03-epic-cm-visual-01.md",
+      "source_sha256": "F46F021AB659FFA3DCD181D6BC204CD6A691BD1E9823094D97EF8B861C191D5F",
+      "maps": [
+        "plans/features/epic-cm-visual-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Полный редизайн визуализации когнитивной карты: 160 ID (139 CMV-* + 21 гейт §13), 183 обязательства, пакеты CMV-A..E, граф срезов с барьером P1 (web/app.js, web/index.html, web/static/app.css — serialize). План-гейт: 0 ошибок. Три пункта COG-MAP S4 переходят сюда. Старт возможен только после мержа P1.",
+      "updated": "2026-11-03"
+    },
+    {
+      "id": "epic-prompt-versioning-ux-01",
+      "status": "VERIFIED",
+      "source_path": "plans/owner_inputs/2026-11-04-epic-prompt-versioning-ux-01.md",
+      "source_sha256": "893621D84365CB201D41EC1EA1F4B63531075C4D19E05AFED78627654BFE3054",
+      "maps": [
+        "plans/features/epic-prompt-versioning-ux-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "58/58 обязательных строк VERIFIED, coverage_complete. Прод 2.58.155 @ f4a44167 (регистрация, атомарная запись, базовая версия, полная история, единый UI, стандарт и аудит); финальная приёмка S7 закрыта тестовой дельтой cd17ec91 поверх выложенного кода (код и CSS побайтово равны проду). Живые проверки на проде: каталог 112, /versions совпадает с БД, курсор без дублей, baseline никому не назначен, legacy-снимок снят, байты промптов владельца не изменены. Не наблюдались на проде (не блокеры): записи новых ревизий через спец-эндпоинты, история >50 версий на блок, pinned-поставка завода; реальный Telegram WebView — добровольное наблюдение владельца. Бэклог: метка «действует» в чатовой истории, тесты пишут в отслеживаемые evidence.",
+      "updated": "2026-11-04"
+    },
+    {
+      "id": "unified-reply",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
+      "source_sha256": "68EF29BE4AC838B80ADE0507E76C94EB1EC8046FB9B3BCA99D293AEFC121F25A",
+      "maps": [
+        "plans/features/unified-reply/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Карта PM f21644b4: 261 обязательная строка (UR-01..UR-30 + подтребования, §11 чеклисты A-Д как UR-ACC-*, §12 запреты UR-BAN-*), 9 срезов UR-A..UR-G + подпакеты времени UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28), 3 live-строки (UR-ACC-E9/UR-30.7 postdeploy, UR-08.2 preprod). План-гейт 0 ошибок. ARCHITECT_REQUIRED до Builder на UR-A/C/C-CLOCK/C-SCHED/D/F (контракт 4359b966). Размещение: UR-B и контекстная часть UR-C стартуют сейчас параллельно CMV-D/E (свободные backend-файлы); UR-A — после освобождения direct_chat_service.py остатком RC v5; UR-F — только после мержа CMV-D+E (один писатель на web/app.js, web/index.html, web/static/app.css). Статус: UR-18 (метаданные генерации) принят и влит (3ad5036e); UR-B в работе.",
+      "updated": "2026-11-05"
+    },
+    {
+      "id": "pvr-fc-corrective-01",
+      "ticket": "PVR-FC-CORRECTIVE-01",
+      "title": "Взрослый UX истории версий промптов + достоверный фактчек",
+      "status": "PENDING",
+      "blocked_by": [
+        "unified-reply"
+      ],
+      "queue_position": "immediately_after:unified-reply",
+      "source_path": "plans/owner_inputs/2026-11-05-pvr-fc-corrective-01.md",
+      "source_sha256": "671E6711CA9408501CAEB306AA5FEB37BB9F7C54D48C15410915567EAC8ED078",
+      "maps": [
+        "plans/features/pvr-fc-corrective-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Карта PM b38940c3: 154 строки (97 инвентарных + 57 прозаических/табличных), 128 обязательных, 26 context, 0 duplicate. PVR-01..06 + подтребования, FC-01..07 + подтребования, приёмка C1 (14 конфликтов), C3 (12 тестов), C4 (14 тестов), C5 (5 критериев DONE), запреты A3.1-A3.5. 8 срезов: UR-BARRIER (внешний барьер), PVR-BACKEND 34, PVR-UI 26, PVR-E2E 6, FC-BACKEND 42, FC-RENDER 10, FC-E2E 5, EPIC-CLOSE 5. Live-строки 3: C3.12/C4.14 preprod, C5.4 postdeploy. ARCHITECT_REQUIRED до Builder на PVR-BACKEND/PVR-UI/FC-BACKEND/FC-RENDER. План-гейт 0 ошибок. Параллельно безопасно: PVR-BACKEND || FC-BACKEND (services/prompt_registry.py закреплён за FC-*), PVR-UI || FC-RENDER, PVR-E2E || FC-E2E. Разработка не начата: ждёт завершения unified-reply.",
+      "updated": "2026-11-05"
+    },
+    {
+      "id": "goodmorning-quantum-media",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-05-goodmorning-quantum-media.md",
+      "source_sha256": "D5CD6E725AE82DD7569761BC19ED693D91DDF0EEBDCF35E9F3DFD6C3FCF4598F",
+      "maps": [
+        "plans/features/goodmorning-quantum-media/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "GoodMorning: причина «новые медиа не появляются» + квантовый выбор медиа и подписи через существующий контур mca_random_source. Карта 6 required (GM-01..06) + 3 context, 3 среза GM-DIAG -> GM-DRAW -> GM-COMPAT, план-гейт EXIT 0 @56b7b29f. Реализация 9e8e4381 на независимом ревью. Факт по коду: relay сканирует каталог на каждую отправку (кэша нет), пул подписей был константой; вероятная причина «новые медиа не видно» — файлы не доехали на сервер (8 из 14 untracked в репозитории), проверяется строкой scanned ... found N files на проде.",
+      "updated": "2026-11-05"
+    },
+    {
+      "id": "behavior-gates-simplification-01",
+      "ticket": "BEHAVIOR-GATES-SIMPLIFICATION-01",
+      "title": "Удалить поведенческие удавки, сохранить целостность системы",
+      "status": "BUILDING",
+      "priority": "urgent_parity:unified-reply,pvr-fc-corrective-01",
+      "queue_position": "urgent_tier_after:unified-reply",
+      "blocked_by": [
+        "unified-reply:UR-C",
+        "unified-reply:UR-D",
+        "unified-reply:UR-F",
+        "PVR UI"
+      ],
+      "source_path": "plans/owner_inputs/2026-11-05-behavior-gates-simplification.md",
+      "source_sha256": "4F5457440E958EFD20C50F8031AF97DA9C9D7A1D25E3094EA4EA75E607EC7284",
+      "maps": [
+        "plans/features/behavior-gates-simplification/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "BGS-01..08: 155 обязательных строк (143 строки экстрактора + 41 manual, 29 context), 8 срезов, план-гейт 0 ошибок. Живые линии: BGS-01-PRIVACY (ur/b-search @5adaa21b — поиск принят, остаётся снятие вычистки имён в фактчеке), BGS-03-SPEECH, BGS-04-GUARD-SCOPE, backend-дельта BGS-06-ADMIN. Сериализовано: BGS-02-EGRESS после BGS-01 (общий services/evidence_policy.py); BGS-05-BUDGET ждёт UR-C/UR-D; UI BGS-06 ждёт UR-F/PVR UI. Преемственность: BGS-01 заменил UR-06.2/07/07.1/08.2/ACC-B3/ACC-B5/BAN-01, BGS-04 уточнил UR-15/15.2 (старые тексты сохранены в superseded_text).",
+      "updated": "2026-11-05"
+    },
+    {
+      "id": "remove-legacy-rephrasing-01",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md",
+      "source_sha256": "8DC7751C893704B895B4FCFD8475B504E668294E6966688A278AB6E261BB3F22",
+      "maps": [
+        "plans/features/remove-legacy-rephrasing/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "blocked_by": [],
+      "updated": "2026-11-05",
+      "source_note": "REMOVE-LEGACY-REPHRASING v2.0: 162 обязательные строки (112 строк экстрактора + 77 manual, 27 context), 8 срезов, план-гейт 0 ошибок. Сериализация: RLR-01-ROUTE -> RLR-02-LEGACY -> RLR-03-FORMCONTRACT -> RLR-04-REROLL -> RLR-06-OBSERVABILITY, затем RLR-07-PROOF и RLR-08-DOD; независима только backend-часть RLR-05-ADMIN (UI после UR-F/PVR). Преемственность: UR-15 (post-L2 retry), свободные retry BGS-04 и детектор BGS-04.10 сужены до явных трансформаций; BGS-01/02/03 подтверждены без изменений."
+    },
+    {
+      "id": "reply-context-integrity-rci",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md",
+      "source_sha256": "A5FCC4194578458C97584CBED091B156C448AB927DF105B3D360D5A428429084",
+      "maps": [
+        "plans/features/evol-reply-context-integrity/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "ПОРТ master 571a5737 (id в master был `evol-reply-context-integrity-01`). Здесь id занят 285-строчным эпиком EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (plans/features/evol-reply-context-integrity-01/), поэтому срез RCI-01..05 зарегистрирован отдельным id. Привязку итогового id и учёт строк решает Orchestrator/PM. | Production Reply→FactCheck context-loss. Карта plans/features/evol-reply-context-integrity/requirements-map.json (5 строк, plan-gate errors=0). Кодовая потеря в ambiguity-ветке независимо подтверждена на HEAD 8bb2800f; реальные Telegram ID/трасса продакшена остаются PENDING_EXTERNAL. | Renamed from a near-collision with the pre-existing epic task `evol-reply-context-integrity-01` (285 rows, different deliverable)."
     }
   ],
   "owner_inputs": [
@@ -729,7 +925,7 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "Watchdog + hang protection for media jobs: unified lifecycle watchdog on existing durable jobs (lease/heartbeat/fencing/generation), bounded recovery with backoff/Retry-After, two limits (sync wait vs operation lifetime), async non-blocking wait, durable resume, delivery dedup, 5 new scenarios 21-25; no second watchdog/pipeline. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map."
+      "note": "Watchdog + hang protection for media jobs: unified lifecycle watchdog on existing durable jobs (lease/heartbeat/fencing/generation), bounded recovery with backoff/Retry-After, two limits (sync wait vs operation lifetime), async non-blocking wait, durable resume, delivery dedup, 5 new scenarios 21-25; no second watchdog/pipeline. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
     },
     {
       "id": "OI-2026-10-31-ASAP-FC-EVIDENCE-STYLE",
@@ -762,7 +958,7 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "ASAP-UI-02 unified design contract: matrix DONE_AND_VERIFIED/PARTIAL/MISSING/CONFLICTS/NOT_APPLICABLE vs HEAD; no bottom navbar/logo/tall header; topbar contract; ellipsis; tokens/system; cards/modals/overlay/forms; section order incl. cognitive map + 4 ribbons; health tint warning semantics; ribbons smooth; COG gestures/labels; global search; motion; keyboard/safe-area; 17 scenarios; strict Reviewer. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map."
+      "note": "ASAP-UI-02 unified design contract: matrix DONE_AND_VERIFIED/PARTIAL/MISSING/CONFLICTS/NOT_APPLICABLE vs HEAD; no bottom navbar/logo/tall header; topbar contract; ellipsis; tokens/system; cards/modals/overlay/forms; section order incl. cognitive map + 4 ribbons; health tint warning semantics; ribbons smooth; COG gestures/labels; global search; motion; keyboard/safe-area; 17 scenarios; strict Reviewer. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
     },
     {
       "id": "OI-2026-11-01-ASAP-EVIDENCE-ROUTING",
@@ -773,7 +969,7 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "v3 only (replaces v1/v2): mandatory external-factual evidence for Direct/Initiative own claims (regardless of L1 confidence/tool_policy), no web in Summary/Sleep/Memory/Dossier/GraphRAG, qualified claim-bound source reuse, dynamic evidence window via model_capacity, full limit audit A-E, prompt conflict audit, 46 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map."
+      "note": "v3 only (replaces v1/v2): mandatory external-factual evidence for Direct/Initiative own claims (regardless of L1 confidence/tool_policy), no web in Summary/Sleep/Memory/Dossier/GraphRAG, qualified claim-bound source reuse, dynamic evidence window via model_capacity, full limit audit A-E, prompt conflict audit, 46 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
     },
     {
       "id": "OI-2026-11-01-SUMMARY-COVER-INTEGRITY",
@@ -784,7 +980,7 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "v2.1 only (replaces v1/v2): P0 prompt history 500+versions, Cover Style prompt_limit(800)/bad_json/refs/timer, L2 Summary diagnostics; P1 Speech 5 tabs, ONE module toggle scoped by top selector (overrides EVOL-027/ASAP-UI-02 conflicting parts), mobile fullscreen instead of .../drawer safe areas, Status unified health block; P2 remove Favorites; 40 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map."
+      "note": "v2.1 only (replaces v1/v2): P0 prompt history 500+versions, Cover Style prompt_limit(800)/bad_json/refs/timer, L2 Summary diagnostics; P1 Speech 5 tabs, ONE module toggle scoped by top selector (overrides EVOL-027/ASAP-UI-02 conflicting parts), mobile fullscreen instead of .../drawer safe areas, Status unified health block; P2 remove Favorites; 40 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
     },
     {
       "id": "OI-2026-11-07-MEMORY-COGNITIVE-02",
@@ -954,11 +1150,25 @@
       "target_task_ids": [
         "mod-acl-ux-01"
       ],
-      "reconciled": false,
-      "note": "Live acceptance failure: the owner still cannot open the Vector Memory section after 2.58.173 that was supposed to fix exactly that false denial. Owner Telegram ID 5885953495 supplied, so production role rows and the real denied request can be read instead of assumed. M1 rows must not remain VERIFIED on unit tests alone while the real owner is denied; the reopening is a status correction, not a new epic. Diagnosis is split into read-only production facts (role rows, real 4xx paths, served bundle) and a code-side gate map; no impersonation, no new ACL, no widening for non-owners.",
+      "reconciled": true,
+      "note": "Reconciled: the access part is closed on the owner's own confirmation («раздел векторной памяти открылся»), recorded as M1 rows MAC-S0-05, MAC-S2-50, MAC-S4-158/159/160, MAC-S15-1-06 in plans/features/mod-acl-ux-01/evidence/m1/m1-owner-live-confirmation-2.58.175.md. The subsequent 'no settings' report was a SEPARATE front-end defect (infrastructure module without its own catalogue tab produced an empty descriptor and a false rights accusation), tracked as M4A rows, fixed at 6e175ced and released in 2.58.175 with a reproducible harness proving the defect on the base commit and its absence on the fix. Live Telegram ID 5885953495 supplied by the owner. Live acceptance failure: the owner still cannot open the Vector Memory section after 2.58.173 that was supposed to fix exactly that false denial. Owner Telegram ID 5885953495 supplied, so production role rows and the real denied request can be read instead of assumed. M1 rows must not remain VERIFIED on unit tests alone while the real owner is denied; the reopening is a status correction, not a new epic. Diagnosis is split into read-only production facts (role rows, real 4xx paths, served bundle) and a code-side gate map; no impersonation, no new ACL, no widening for non-owners.",
       "recorded_in": "",
       "origin": "root chat 2026-11-09",
       "received": "2026-11-09"
+    },
+    {
+      "id": "OI-2026-11-10-SMART-MODULE-SEMANTIC-ROUTING",
+      "source_path": "plans/owner_inputs/2026-11-10-smart-module-semantic-routing-p0.md",
+      "source_sha256": "2ECA66DA1825F85EBD0E9353E53A5281635297427510DE6274E9EF5E2AF48A8C",
+      "kind": "correction",
+      "target_task_ids": [
+        "smart-module-semantic-routing-p0"
+      ],
+      "reconciled": false,
+      "note": "P0 corrective: two live incidents (false image generation from an ordinary manga discussion; loss of the current question in favour of analysing a neighbouring video) plus a bounded P1 revision of the same class of defect. The owner forbids lexeme-level triggers for the affected phrasings and requires L1 to remain the single semantic authority, with the current user message taking priority over reply target, quote, forward, history, transcripts and tool results. Explicit commands must keep working with their arguments intact. Registered as its own task because it is a distinct deliverable with its own acceptance, while explicitly NOT a new epic or pipeline.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-10",
+      "received": "2026-11-10"
     },
     {
       "id": "OI-2026-11-02-PERF-PARITY",
@@ -969,8 +1179,248 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "Track P clarification: optimisation may change only internals (loading, rendering, requests, caching, architecture); any functionality/UI/animation/glass regression is a release blocker even if metrics improve. Recorded in docs/track-p-performance-parity.md and evol map rows.",
+      "note": "Track P clarification: optimisation may change only internals (loading, rendering, requests, caching, architecture); any functionality/UI/animation/glass regression is a release blocker even if metrics improve. Recorded in docs/track-p-performance-parity.md and evol map rows. | Порт: sha256 пересчитан по файлу этой линии (байты отличаются от master-регистрации).",
       "recorded_in": "docs/track-p-performance-parity.md"
+    },
+    {
+      "id": "OI-2026-11-02-LIMITS-DECISION",
+      "source_path": "plans/owner_inputs/2026-11-02-limits-economics-decision.md",
+      "source_sha256": "52930C48111CB1DBA657156342AD65DD742271D3896F2F593D1DD6796F703458",
+      "kind": "decision",
+      "target_task_ids": [
+        "evol"
+      ],
+      "reconciled": true,
+      "note": "Решение владельца 02.11 по ER-08: денежные caps OFF и не расширять; учёт расхода сохранить с price_known=false (не путать с нулевой стоимостью); L1 — устранять реальные потери данных через существующий Model Capacity Resolver и динамическое распределение контекста, а не механически поднимать числа; metered_calls = счётчик инструментов, не деньги; SLA 360 с не увеличивать, проверить рассогласование дедлайнов Direct Orchestrator и Tool Chain; без нового бюджетного движка; согласовать с ASAP-EVIDENCE-ROUTING-01 v3. | reconciled 02.11.2026: все 7 клауз привязаны к ER-08 (P0-строка L02025), граница reply-middle зарегистрирована как под-слайс ER-08-RC; доказательства в карте EVOL @ 98286b2b, план-гейт блокируется только дельтой нового источника ASAP-FC-VOICE-01, не этой привязкой."
+    },
+    {
+      "id": "OI-2026-11-02-ASAP-FC-VOICE-01",
+      "source_path": "plans/owner_inputs/2026-11-02-asap-fc-voice-01.md",
+      "source_sha256": "9CE180AD702588B4552CF97FBEAEE615EC9D3D67654D9369D29670C91B762C29",
+      "kind": "new_task",
+      "target_task_ids": [
+        "asap-fc-voice-01"
+      ],
+      "reconciled": true,
+      "note": "ASAP-FC-VOICE-01 (02.11, P0/P1): вернуть аргументативный голос исторического FactCheck (коммит 995cf83a588b) в современный Verbalizer, не откатывая L1/L2 и не добавляя стадий; адаптивная подача без хардкода форматирования (устранить принудительные группировки factcheck_renderer); общесистемный L1 decision-profile: характер как поведенческие данные, без полного Core/инструкций мата/примеров в машинных стадиях; сверить HEAD/deployed/effective revisions; 22 сценария приёмки; не дублировать ASAP-FC-EVIDENCE-STYLE-02 и ASAP-EVIDENCE-ROUTING-01; включить в ближайший безопасный слот, не прерывая текущих исполнителей. | reconciled 02.11.2026: карта plans/features/asap-fc-voice-01 (129 строк, 93 обязательных; классификация PARTIAL 40 / MISSING 21 / DONE_AND_VERIFIED 16 / CONFLICTS 15 / NOT_APPLICABLE 1), план-гейт EXIT 0, коммит 917bb98d; архитектурные контракты закоммичены 9808077b; preflight прода подтвердил активный двухстадийный маршрут и реальные точки правки."
+    },
+    {
+      "id": "OI-2026-11-02-NARROW-VIEWPORT",
+      "source_path": "plans/owner_inputs/2026-11-02-narrow-viewport-decision.md",
+      "source_sha256": "5EB5AED6DF024E7D53B1F0D88CD009E98145B2E31D6B6D3284FCEBEF10F00510",
+      "kind": "decision",
+      "target_task_ids": [
+        "evol"
+      ],
+      "reconciled": true,
+      "note": "Продуктовый контракт владельца по ширине и адаптивности: 320 CSS px — минимум полноценного мобильного интерфейса (без обрезаний/overflow/наложений/потери функций на 320/360/390); 200% текстового масштаба и узкий viewport обрабатываются адаптивным reflow, а не объявлением неподдерживаемым; допускается перенос второстепенных действий в существующий drawer, сокращение подписей и вертикальная прокрутка при доступности критических контролов; запрет постоянной двухрядной шапки, нижнего навбара и дублирующих меню; запрет уменьшать шрифты/тач-цели ради теста и заводить отдельные костыли под 195 px; различать page zoom, системный шрифт и Telegram WebView; Reviewer проверяет реальный reflow, доступность действий, отсутствие обрезаний и корректность fullscreen/drawer; повторно о breakpoints не спрашивать. | reconciled 02.11.2026: контракт внесён в карту EVOL (L00478/L00550/L00714/L01966/L01967/L01980 - только note, статусы не менялись; строки остаются PENDING до реализации и ревью), owner-input файл закоммичен @55739117, план-гейт EXIT 0; zoom 200% переведён из вопроса владельцу в implementation requirement."
+    },
+    {
+      "id": "OI-2026-11-02-ANTICLICHE-MEMORY-ADMIN-UX",
+      "source_path": "plans/owner_inputs/2026-11-02-anticliche-memory-admin-ux-spec.md",
+      "source_sha256": "E2B3624CD0DEFC89B23A1FE82CCDD8120001A69ECF07043AEE081DCDA6CA3E16",
+      "kind": "new_task",
+      "target_task_ids": [
+        "asap-evol-anticliche-memory-admin-ux"
+      ],
+      "reconciled": true,
+      "note": "FINAL v8 (02.11, 1124 строки, §1-§17): гибридный AntiCliche без перегенераций/scrub/reject, hints только через существующий Writer prompt path; смысловая память и корректная само-референция бота без литеральных имён/chat-id/фраз, без нового движка и per-turn LLM; мобильная загрузка, история логов с начала процесса, селектор чатов, согласованные module-контролы global/chat и мем-инициатива с наследованием; наблюдаемость источников/анализа/опубликованных правил; никаких фиктивных счётчиков. Исполнять после достижения в очереди; не прерывать активные поручения; PM делит на пакеты, Architect решает интеграцию, роли существующие. | reconciled 02.11.2026: карта plans/features/asap-evol-anticliche-memory-admin-ux (669 строк, 573 обязательных под 511 req_id, контекст 96; классификация существующего кода CONFLICTS 9 / PARTIAL 13 / MISSING 5 / DONE 3 / N_A 2), 17 пакетов работ с зависимостями, план-гейт EXIT 0 (@acb41717); архитектурные решения заморожены @4ce92a75. Исполнение - после текущей очереди COG-MAP."
+    },
+    {
+      "id": "OI-2026-11-02-EXPERIENCE-LEARNING-PERFORMANCE-HELP",
+      "source_path": "plans/owner_inputs/2026-11-02-experience-learning-performance-help.md",
+      "source_sha256": "CF854D614D77FAFBE7D04F9ABC597403930837E2677FFF5547FB8AA2A7594458",
+      "kind": "new_task",
+      "target_task_ids": [
+        "epic-experience-learning-performance-help"
+      ],
+      "reconciled": true,
+      "note": "FINAL эпик (02.11, 336 строк): трек E - реальное обучение на опыте (саморефлексия, semantic correction handling, пересмотр выводов, новые нехардкоженные уроки, контекстное переиспользование, независимо измеримые исходы; 26 сценариев E-01..E-26), без второго мозга/LLM-судьи на реплику/искусственных бюджетов; трек P - измеримое ускорение Mini App (кэширование ассетов, прогрессивная загрузка, рендер, взаимодействие, API/SQL) с воспроизводимыми before/after; трек H - СТРОГО последний: обновление обеих справок после приёмки/деплоя/живой проверки E и P, через существующий версионный канон/PG без потери ручных правок. Хардкод/заглушки/фальшивые статусы запрещены; техблокеры решают агенты. | reconciled 02.11.2026: карта эпика покрывает E1-E8 (включая E-01..E-26 отдельными строками), P (P-01..P-16 + гейты паритета) и H как зависимый узел с дословным условием открытия; 132 обязательных, план-гейт EXIT 0 (@dea39523). Обратный аудит охвата - в обычном проходе PM перед стартом реализации."
+    },
+    {
+      "id": "OI-2026-11-02-PERFORMANCE-PARITY",
+      "source_path": "plans/owner_inputs/2026-11-02-performance-parity-clarification.md",
+      "source_sha256": "CB1336C3F4EAF122BE2F77FD0715DFBD7F15013E895ABBFC5CDD9C6CAE549A24",
+      "kind": "amendment",
+      "target_task_ids": [
+        "epic-experience-learning-performance-help"
+      ],
+      "reconciled": true,
+      "note": "Дополнение к треку P: оптимизация только внутренняя (код, загрузка, рендеринг, запросы, кэширование, архитектура); запрещены изменения/упрощение/скрытие/отключение/урезание функционала, UI, анимаций, стеклянных и рефракционных эффектов, фона, компоновки и поведения. Никаких облегчённых режимов и silent fallback; допускается только полный визуальный и функциональный паритет. Любое отклонение = регрессия = блокер релиза, даже при улучшении метрик. Приёмка P обязана включать проверку паритета. | reconciled 02.11.2026: строки PAR-01..PAR-05, P-SPEC-PARITY, P-GENUINE и P-GATE-00..05 внесены в карту эпика (132 обязательных, 15 слайсов, гейт EXIT 0, @dea39523); каждый P-пакет обязан предъявить метрику + артефакт паритета + сравниваемые состояния/вьюпорты."
+    },
+    {
+      "id": "OI-2026-11-02-MEME-IMAGE-ONLY",
+      "source_path": "plans/owner_inputs/2026-11-02-meme-image-only-fix.md",
+      "source_sha256": "D1AFECC6962DC24B749893182E2727BDEC493823E87A4C898317CCF1C7E49C19",
+      "kind": "correction",
+      "target_task_ids": [
+        "p0-meme-image-only"
+      ],
+      "reconciled": true,
+      "note": "P0: при успешной генерации мема в чат уходит только изображение; любой текстовый follow-up (промпт, пересказ, панели, 'Создай мем с шрифтом impact', служебные комментарии) запрещён. При ошибке изображение не отправляется, допускается одно короткое сообщение. Внутренний текст остаётся внутренним; логи/аналитика/лимиты/инициатива не меняются; без хардкодов. | reconciled 03.11.2026: карта требований создана (11 обязательных строк) и привязана к 345a2ed7; обязательства зафиксированы задачей p0-meme-image-only и шестью пунктами инженерной трактовки в самом источнике; проверка - независимый Reviewer по 5 критериям приёмки."
+    },
+    {
+      "id": "OI-2026-11-03-MEME-PIPELINE-REFACTOR",
+      "source_path": "plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md",
+      "source_sha256": "D11119FEAA1772E9A96B5EF56B692CA8D9A3E0D731F071D172497CC95E31ED96",
+      "kind": "new_task",
+      "target_task_ids": [
+        "meme-pipeline-refactor-01"
+      ],
+      "reconciled": true,
+      "note": "MEME-PIPELINE-REFactor-01 (приоритет): три явных этапа - выжимка -> генерация прикола -> генерация изображения; с выжимки снят потолок длины; потолок перенесён на итоговый image prompt с авторасчётом бюджета прикола J=max(0, L-T) и явной инструкцией модели; два редактируемых промпта в админке (прикол и картинка), глобальные и чатовые переопределения; админская команда /meme вне квот/кулдаунов/автотриггеров; выдача результата - только изображение (действующее правило); этапы различимы в аналитике/логах. 13 критериев приёмки §8. Не дублировать pipeline, не ломать инициативу и настройки. | reconciled 03.11.2026: карта plans/features/meme-pipeline-refactor-01 (99 обязательных под 40 req_id, 13 критериев §8 отдельными строками), 5 пакетов (P1 core -> P2 api -> P3 cmd, P5 параллельно, P4 после освобождения web), план-гейт EXIT 0 @a6fc5575."
+    },
+    {
+      "id": "OI-2026-11-03-MEME-CMD-AUTODELETE",
+      "source_path": "plans/owner_inputs/2026-11-03-meme-command-autodelete.md",
+      "source_sha256": "00082D4524D436AA933A42DFC3F13FA5C324AED08694BC72FF09C2851575BC39",
+      "kind": "amendment",
+      "target_task_ids": [
+        "meme-pipeline-refactor-01"
+      ],
+      "reconciled": true,
+      "note": "Дополнение к задаче /meme: сообщение с самой командой автоматически удаляется ботом сразу после получения; при невозможности удаления пайплайн не деградирует, ошибка только в логах, без пользовательского шума; правило выдачи результата (только изображение) не меняется. | reconciled 03.11.2026: 5 строк добавлены в пакет MEME-MANUAL-CMD (delete-on-receipt, fail-open с одной WARNING, только админский путь, без обхода прав, без лишних сообщений), acceptance пакета дополнен тестом на фейковом клиенте @609a3c33."
+    },
+    {
+      "id": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
+      "source_path": "plans/owner_inputs/2026-11-03-meme-joke-speech-layers.md",
+      "source_sha256": "8941C8D1E2FC0848FDBA4D48E849777863A5626B464CAE17BDA7F9D2F45FAAEF",
+      "kind": "amendment",
+      "target_task_ids": [
+        "meme-pipeline-refactor-01"
+      ],
+      "reconciled": true,
+      "note": "Этап прикола должен идти через существующий единый Prompt Composer и наследовать Core, Identity/SelfModel, Expression, базовые инструкции юмора и Humor Craft (при включении); редактируемый промпт прикола - задание, не замена личности. Запрещены отдельный композер, новый агент, лишние LLM-вызовы и хардкод юмористических шаблонов; Humor Craft не привязывать к одному приёму. Диагностика показывает фактические ревизии Core/Expression/Humor и итоговый prompt manifest; Reviewer проверяет реальный payload модели. Отдельно - проверка обычной текстовой инициативы на фактическое прохождение Core/Expression/Style Policy без переделки архитектуры Direct Writer. | reconciled 03.11.2026: 18 обязательных строк разложены на пакеты P6 MEME-JOKE-SPEECH (13, зависит от P1) и P7 MEME-INITIATIVE-LAYERS (4, независим); веб-показ ревизий вынесен в P4 (MEME-JOKE-DIAG-UI); архитектурное решение заморожено @b8d96a06, план-гейт EXIT 0 @2aab3402. | bound 03.11.2026: код a1f0f9a0 + docs ae72735b, независимое ревью reports/w-joke-speech-review.md (APPROVED, блокером была только карта), объединено в evol/impl merge-коммитом 76608fad (кандидат привязки). P6 MEME-JOKE-SPEECH 13/13 VERIFIED; P7 MEME-INITIATIVE-LAYERS 3/4 VERIFIED, MEME-INIT-EXPRESSION-PASS PENDING (не проверен случай выключенной оси Expression на пути инициативы); MEME-JOKE-DIAG-UI остаётся PENDING в P4 (web/**). Гейт review по P6 = 0 ошибок."
+    },
+    {
+      "id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE",
+      "source_path": "plans/owner_inputs/2026-11-03-initiative-independence-coordination.md",
+      "source_sha256": "42D6EB804C7DDAB5601433FED7CA4A549F71F247CD1C4E6B8615D796C169E04B",
+      "kind": "amendment",
+      "target_task_ids": [
+        "meme-pipeline-refactor-01"
+      ],
+      "reconciled": true,
+      "note": "Обязательное дополнение: текстовая инициатива и мемы - независимые механизмы (свои расписания, триггеры, вероятности, кулдауны, квоты, статистика), общий RandomSourceService с независимыми draw и раздельной трассировкой, никаких вторых генераторов. Координация публикаций через существующие ledger/anti-flood/delivery: не одновременно и не подряд; атомарное разрешение при параллельных воркерах; один публикуется, второй откладывается с перепроверкой или отменяется с причиной; устаревшее не отправляется. Межтиповой интервал конфигурируемый. Настройки независимы. /meme приоритетен и координируется. Диагностика по каждому механизму. Запрещены sleep-паузы, хардкод таймингов, глобальные блокировки чатов и новые планировщики. | reconciled 03.11.2026: 41 обязательная строка разложена на пакеты P8 MEME-INIT-COORDINATION (36) и P9 MEME-INIT-DIAG (4) + одна web-строка в P4; архитектурное решение заморожено @77555550 (атомарный claim v41 chat_publish_claim, независимый ростер, конфигурируемый межтиповой интервал, приоритет /meme); карта/граф @760916e8, план-гейт EXIT 0. Найдены 8 текущих нарушений независимости (общий ростер, общий try, мем не в ledger, chat_enabled не передан, нет межтиповой проверки). | bound 03.11.2026: P8 MEME-INIT-COORDINATION 37/37 строк VERIFIED на кандидате f9d1cda9, ревью Approved (Re-review 2), пин слайса выставлен, review-гейт 0 ошибок; остаток: P9 MEME-INIT-DIAG (4 строки) и две строки показа диагностики в P4 (ждут web). Неблокирующие D1/D2 ждут решения Архитектора."
+    },
+    {
+      "id": "OI-2026-11-03-MEME-PUBLICATION-HOTFIX",
+      "source_path": "plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md",
+      "source_sha256": "0D54087FA77555B33CC37283666549264E751C8CD97FABC13B0467FA8A875268",
+      "kind": "correction",
+      "target_task_ids": [
+        "hotfix-meme-publication-initiative-ui"
+      ],
+      "reconciled": true,
+      "note": "P0: новые сообщения/смена latest_message_id/watermark во время генерации НЕ основание для publication_stale; ручной /meme доставляет готовое изображение при живой переписке; автоматический мем проверяет только реальные ограничения (права, активность модуля, дедуп, исходный контекст, коллизия с текстовой инициативой), при конфликте откладывает через ledger/durable без потери и перегенерации; только image без caption; каждая отмена с проверяемым reason code. P0.5: пустой потолок = auto сквозным образом (не 0/800/NaN), авто только из известных лимитов провайдера, фиксированный потолок считает бюджет по фактическому payload, ошибки до генерации, UI показывает Автоматически и честный лимит. P1: полная перекомпоновка страницы «Модули → Инициатива» на 5 вкладок с сохранением всей функциональности и стиля. | Карта создана (26 ID / 60 обязательств), план-гейт 0 ошибок, граф срезов для отдельного выпуска P0; переоткрыты 2 строки мем-карты."
+    },
+    {
+      "id": "OI-2026-11-03-EPIC-CM-VISUAL-01",
+      "source_path": "plans/owner_inputs/2026-11-03-epic-cm-visual-01.md",
+      "source_sha256": "F46F021AB659FFA3DCD181D6BC204CD6A691BD1E9823094D97EF8B861C191D5F",
+      "kind": "new_task",
+      "target_task_ids": [
+        "epic-cm-visual-01"
+      ],
+      "reconciled": true,
+      "note": "Новый отдельный UI/UX-пакет: полный редизайн визуализации когнитивной карты (виджет «Статус» + полноэкранный режим). Не менять данные и функциональность бота; существующий vis-network, существующий graph API, один владелец жизненного цикла графа; LOD/коллизии в экранных координатах относительно fitScale с гистерезисом; объективная визуальная приёмка на реальных 702/2400, реальные до/после снимки на одних данных, кадры/видео анимации, FPS, 20 циклов embedded↔fullscreen без утечек; мобильный fullscreen и bottom sheet; production-проверка с совпадающим SHA. | Карта 160 ID и slice-graph созданы, план-гейт 0 ошибок; барьер P1 зафиксирован в графе."
+    },
+    {
+      "id": "OI-2026-11-03-REPLY-CONTEXT-INTEGRITY-V5",
+      "source_path": "plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md",
+      "source_sha256": "C6AA5CD87E8A61528CF53CE6DBA1A93F9DCC47456C29E1BDD2E69FFE182909D3",
+      "kind": "new_task",
+      "target_task_ids": [
+        "evol-reply-context-integrity-01"
+      ],
+      "reconciled": true,
+      "note": "FINAL v5 (заменяет v1-v4): FactCheck target/claim адресация и семантика вне Reply, необязательные медиа (FC-MEDIA-OPTIONAL-01), честные технические статусы (FC-EVIDENCE-STATUS-01), глобальная граница чистой речи для всех пользовательских ответов (GLOBAL-OUTPUT-BOUNDARY-01), самокоррекция Direct (DIRECT-SELF-CORRECTION-01) и CONTEXT-FIDELITY-01: удаление служебных ID из речи НЕ должно снижать полноту контекстных связей для LLM-этапов. 120 обязательных сценариев приёмки; запрещены regex-чистка, новые LLM-агенты, дополнительные бюджеты и перегенерации. | reconciled 03.11.2026: карта plans/features/evol-reply-context-integrity-01 (312 инвентарных + 43 ручных строк = 285 обязательных; 120 сценариев §13 как RC-S001-S120; §3-§12, запреты и CONTEXT-FIDELITY отдельными обязательными строками; 0 неклассифицированных), slice-graph 8 срезов / 4 волны, план-гейт EXIT 0 @f370ec59. Переоткрыты 4 строки. Обратную сверку источника выполнял PM."
+    },
+    {
+      "id": "OI-2026-11-04-PROMPT-VERSIONING-UX",
+      "source_path": "plans/owner_inputs/2026-11-04-epic-prompt-versioning-ux-01.md",
+      "source_sha256": "893621D84365CB201D41EC1EA1F4B63531075C4D19E05AFED78627654BFE3054",
+      "kind": "new_task",
+      "target_task_ids": [
+        "epic-prompt-versioning-ux-01"
+      ],
+      "reconciled": true,
+      "note": "Единый UI/UX и атомарный бэкенд версионирования всех редактируемых промптов на существующих prompt_registry/prompt_release_policy/immutable revisions; закрыть обходы журнала (особенно POST /api/initiative/meme-settings); owner baseline как указатель на immutable-ревизию, отдельно от code factory; без изменения текстов действующих промптов; постоянное проектное правило: новый editable prompt без полного версионирования - блокер. | reconciled 04.11.2026: карта plans/features/epic-prompt-versioning-ux-01 (63 инвентарных + 13 прозаических = 57 обязательных строк, 8 срезов, план-гейт EXIT 0 @d86cd330). Зафиксированы 4 обхода журнала и 5 best-effort путей, рассинхрон scope мемных блоков, обрезание истории LIMIT 50 и вторая bounded-история Speech."
+    },
+    {
+      "id": "OI-2026-11-05-UNIFIED-REPLY",
+      "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
+      "source_sha256": "68EF29BE4AC838B80ADE0507E76C94EB1EC8046FB9B3BCA99D293AEFC121F25A",
+      "kind": "new_task",
+      "target_task_ids": [
+        "unified-reply"
+      ],
+      "reconciled": true,
+      "note": "Высокий приоритет без нарушения уже поставленной очереди. Единый контур L1 -> tools -> L2 для Direct и Initiative, Search-first с фактическим вызовом, единый динамический контекст и capacity, история собственных доставленных реплик без самоподражания, единый per-chat IANA timezone в «Модули -> Время», сквозной Chat_Time_Context во всех пользовательских LLM-пайплайнах (Direct, Initiative, Factcheck, Summary и их стадии/fallback), per-chat расписание саммари и Goodmorning, защита от обрывов, читаемый UI и инспектор. UR-01..UR-30 обязательны; сохранность памяти, промптов и их версий.",
+      "reconciled_scope": "plans/features/unified-reply/requirements-map.json (261 required), slice-graph.json (UR-A..UR-G)",
+      "reconciled_on": "2026-11-05",
+      "reconciled_by": "PM",
+      "reconciled_in_commit": "f21644b4"
+    },
+    {
+      "id": "OI-2026-11-05-PVR-FC-CORRECTIVE-01",
+      "source_path": "plans/owner_inputs/2026-11-05-pvr-fc-corrective-01.md",
+      "source_sha256": "671E6711CA9408501CAEB306AA5FEB37BB9F7C54D48C15410915567EAC8ED078",
+      "kind": "new_task",
+      "target_task_ids": [
+        "pvr-fc-corrective-01"
+      ],
+      "reconciled": true,
+      "note": "Один эпик из двух блоков: PVR (однозначная модель состояния версий, разделение revision и activation, идемпотентное сохранение, конкурентные правки, единый взрослый UI истории на всех редакторах, mobile) и FC (смысловая цель вместо OCR-ключей, semantic claim-evidence binding, отказ от off-topic ссылок, корректная модель вердиктов supported/refuted/mixed/insufficient, честные технические исходы, подача без монолога, provenance и безопасность). Переиспользовать существующий журнал и фактчек-пайплайн; не менять ручные промпты, историю и память. Зависимость: после UNIFIED-REPLY, интеграция с его актуальной версией (Web Search, ChatClock, L1/Tools/L2, context/capacity, prompt UX), а не с release/2.58.155.",
+      "reconciled_scope": "plans/features/pvr-fc-corrective-01/requirements-map.json (128 required), slice-graph.json (8 slices)",
+      "reconciled_on": "2026-11-05",
+      "reconciled_by": "PM",
+      "reconciled_in_commit": "b38940c3"
+    },
+    {
+      "id": "OI-2026-11-05-GOODMORNING-QUANTUM-MEDIA",
+      "source_path": "plans/owner_inputs/2026-11-05-goodmorning-quantum-media.md",
+      "source_sha256": "D5CD6E725AE82DD7569761BC19ED693D91DDF0EEBDCF35E9F3DFD6C3FCF4598F",
+      "kind": "amendment",
+      "target_task_ids": [
+        "goodmorning-quantum-media"
+      ],
+      "reconciled": true,
+      "note": "Проверить, почему новые медиафайлы не попадают в рассылку GoodMorning (выпадает или баг), и подключить существующий квантовый рандом (mca_random_source) к выбору медиа+подписи на каждую отправку. Без нового RandomSource."
+    },
+    {
+      "id": "OI-2026-11-05-BEHAVIOR-GATES-SIMPLIFICATION",
+      "source_path": "plans/owner_inputs/2026-11-05-behavior-gates-simplification.md",
+      "source_sha256": "4F5457440E958EFD20C50F8031AF97DA9C9D7A1D25E3094EA4EA75E607EC7284",
+      "kind": "new_task",
+      "target_task_ids": [
+        "behavior-gates-simplification-01"
+      ],
+      "reconciled": true,
+      "note": "Срочный эпик BGS-01..08: убрать privacy-вето на Web Search без замены новым классификатором; снять смысловую постцензуру Evidence Egress и Public Speech (только техническая очистка и наблюдение); убрать лишние retry и искусственные интеллектуальные потолки, согласовав бюджеты с UR; синхронизировать действующие и удалённые настройки в backend и админке; сохранить RBAC, секреты, SSRF/SafeFetcher, протокольную очистку, дедуп, лимиты API, доказательность фактчека, пользовательские промпты и характер. Конфликтная матрица: UR-06/07/08 (privacy) заменяются, UR-15 уточняется."
+    },
+    {
+      "id": "OI-2026-11-05-REMOVE-LEGACY-REPHRASING-V2",
+      "source_path": "plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md",
+      "source_sha256": "8DC7751C893704B895B4FCFD8475B504E668294E6966688A278AB6E261BB3F22",
+      "kind": "correction",
+      "target_task_ids": [
+        "remove-legacy-rephrasing-01"
+      ],
+      "reconciled": true,
+      "origin": "root chat message 2026-11-05; text is plans/current_task.md lines 6702-EOF (owner-owned, read-only)",
+      "received": "2026-11-05",
+      "note": "Убрать автоматическое перефразирование готовых ответов и зависимые механизмы повторной генерации/смыслового редактирования/скрытого отката; единый финальный Writer; обязательная админка/миграционный manifest/реальное доказательство LLM-вызовов."
+    },
+    {
+      "id": "OI-2026-11-01-CURRENT-TASK-SNAPSHOT-MISSING",
+      "kind": "decision",
+      "note": "Документ провенанса master о том, что снапшот current_task от 2026-11-01 утрачен и восстановлению не подлежит. На линии evol/impl файл plans/owner_inputs/2026-11-01-current_task-snapshot.md фактически существует (sha256 B69802BF...C72F62 совпадает с исходной регистрацией), поэтому запись остаётся только документацией линии master и не является заданием.",
+      "reconciled": true,
+      "recorded_in": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
+      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
+      "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
+      "target_task_ids": []
     }
   ]
 }

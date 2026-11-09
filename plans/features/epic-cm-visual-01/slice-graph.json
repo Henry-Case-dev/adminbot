@@ -1,0 +1,105 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "note": "EPIC-CM-VISUAL-01 (OI-2026-11-03-EPIC-CM-VISUAL-01, источник plans/owner_inputs/2026-11-03-epic-cm-visual-01.md). Человекочитаемый план и раскладка требований: plans/features/evol/arch/cm-visual-01-plan.md, карта: plans/features/epic-cm-visual-01/requirements-map.json. Три общих файла (web/app.js, web/index.html, web/static/app.css) имеют одного писателя: записи в них разрешены только после мержа P1 (страница «Модули → Инициатива») — это оформлено ребром зависимости CMV-P1-MERGE-BARRIER → CMV-A. Параллельность достигается только на непересекающихся файлах: CMV-C работает в web/static/cognitive-map.js и tests/js, CMV-E — в tools/ и evidence/.",
+  "p1_barrier": {
+    "rule": "Ни одна запись в web/app.js, web/index.html, web/static/app.css не начинается до мержа P1 (hotfix-meme-publication-initiative-ui / инициатива UI) в evol/impl.",
+    "recorded_in": "plans/features/epic-cm-visual-01/merge-barrier.md",
+    "applies_to": ["CMV-A-INTEGRATION", "CMV-B-SCENE-PHYSICS", "CMV-D-FULLSCREEN-INSPECTOR"],
+    "not_applicable_to": ["CMV-C-LOD-COLLISION", "CMV-E-TESTS-PRODUCTION"]
+  },
+  "slices": [
+    {
+      "id": "CMV-P1-MERGE-BARRIER",
+      "title": "Барьер: P1 «Инициатива» смержен; общие файлы админки освобождены",
+      "wave": "W0",
+      "depends_on": [],
+      "write_scope": ["plans/features/epic-cm-visual-01/merge-barrier.md"],
+      "acceptance": "В evol/impl зафиксирован мерж P1 (страница «Модули → Инициатива»); рабочее дерево чистое, конфликтов в web/app.js, web/index.html, web/static/app.css нет, факт мержа записан в merge-barrier.md; без этого ни одна полоса CM-VISUAL не пишет общие файлы.",
+      "risk": "R1",
+      "next_role": "Orchestrator",
+      "req_ids": []
+    },
+    {
+      "id": "CMV-A-INTEGRATION",
+      "title": "Интеграция и инварианты: единственный владелец кадра, fitScale, конфиг-слой, честные состояния",
+      "wave": "W1",
+      "depends_on": ["CMV-P1-MERGE-BARRIER"],
+      "write_scope": ["web/app.js", "web/static/cognitive-map.js"],
+      "acceptance": "Один cognitionNetwork и один декоративный драйвер на логический граф; fitScale снимается на fit()/stabilized и передаётся в LOD; визуальные константы собраны в одном конфиг-слое; инварианты семантики памяти и честности состояний подтверждены node- и pytest-прогонами без ослабления существующих проверок.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": ["CMV-INV-01", "CMV-INV-02", "CMV-INV-03", "CMV-INV-04", "CMV-INV-05", "CMV-INV-06", "CMV-INV-07", "CMV-INV-08", "CMV-INV-09", "CMV-INT-01", "CMV-INT-02", "CMV-INT-03", "CMV-INT-06", "CMV-INT-09", "CMV-NODE-05", "CMV-PHY-06", "CMV-AI-04", "CMV-AM-03", "CMV-LODB-04", "CMV-PERF-04", "CMV-PERF-05", "CMV-ERR-01", "CMV-ERR-02", "CMV-ERR-03", "CMV-ERR-04", "CMV-ERR-05", "CMV-ERR-06", "CMV-ERR-07", "CMV-ERR-08"]
+    },
+    {
+      "id": "CMV-B-SCENE-PHYSICS",
+      "title": "Визуальная сцена и физика: формы узлов, три слоя свечения, рёбра, подписи, стабильная камера",
+      "wave": "W2",
+      "depends_on": ["CMV-A-INTEGRATION"],
+      "write_scope": ["web/app.js", "web/static/app.css"],
+      "acceptance": "Пять типов узлов различимы формой и цветом по §4.1; три слоя свечения видны на обычном масштабе и кэшируются; рёбра 0.5–1.2 px без белого ковра; подписи светлые с контуром без плашек; «Сбросить вид» не сбрасывает фильтры и поиск; физика стабилизируется и останавливается.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": ["CMV-EMB-03", "CMV-EMB-04", "CMV-NODE-01", "CMV-NODE-02", "CMV-NODE-03", "CMV-NODE-04", "CMV-GLOW-01", "CMV-GLOW-02", "CMV-GLOW-03", "CMV-EDGE-01", "CMV-EDGE-02", "CMV-EDGE-03", "CMV-EDGE-04", "CMV-LBL-01", "CMV-LBL-03", "CMV-PHY-01", "CMV-PHY-02", "CMV-PHY-03", "CMV-PHY-04", "CMV-PHY-05", "CMV-ANI-01", "CMV-ANI-02", "CMV-ANI-03", "CMV-AI-01", "CMV-AI-02", "CMV-AI-03", "CMV-AM-01", "CMV-AM-02", "CMV-INT-05", "CMV-INT-08", "CMV-VIS-02", "CMV-VIS-03", "CMV-VIS-04", "CMV-VIS-06"]
+    },
+    {
+      "id": "CMV-C-LOD-COLLISION",
+      "title": "LOD и коллизии: уровни от fitScale, приоритеты подписей, визуальная агрегация",
+      "wave": "W2",
+      "depends_on": ["CMV-A-INTEGRATION"],
+      "write_scope": ["web/static/cognitive-map.js", "tests/js/evol_cognitive_map_test.js"],
+      "acceptance": "Уровни LOD считаются от fitScale с гистерезисом 10–15%; ноль пересечений подписей на детерминированных прогонах; выбранный и найденный узел подписаны всегда и не теряются при агрегировании; агрегат помечен как визуальное объединение с реальными счётчиками; бюджет подписей монотонен по площади и длине текста; новые агрегаты укладываются в остаток FPS-бюджета ~1-2 FPS от CMV-B (см. constraints.CMV-FPS-MARGIN); CMV-VIS-01 (несколько отделённых групп на fit) принадлежит этому срезу.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": ["CMV-LOD-01", "CMV-LOD-02", "CMV-LOD0-01", "CMV-LOD0-02", "CMV-LOD0-03", "CMV-LOD0-04", "CMV-LOD1-01", "CMV-LOD1-02", "CMV-LOD1-03", "CMV-LOD2-01", "CMV-LOD2-02", "CMV-LOD2-03", "CMV-LODB-01", "CMV-LODB-02", "CMV-LODB-03", "CMV-LODB-05", "CMV-LBL-02", "CMV-LBL-04", "CMV-LBL-05", "CMV-NAV-03", "CMV-INT-04", "CMV-INT-07", "CMV-VIS-08", "CMV-VIS-01"]
+    },
+    {
+      "id": "CMV-D-FULLSCREEN-INSPECTOR",
+      "title": "Fullscreen, инспектор и мобильный режим: шапка, колонка инспектора, bottom sheet, адаптив",
+      "wave": "W3",
+      "depends_on": ["CMV-B-SCENE-PHYSICS"],
+      "write_scope": ["web/index.html", "web/app.js", "web/static/app.css", "tests/test_evol_cog_map_widget.py"],
+      "acceptance": "Встроенная карта не ниже 400 px с шапкой в порядке §2.2 и подсказкой; fullscreen с панелью 56–64 px и инспектором-колонкой 300–360 px, который освобождает место без сброса камеры; мобильный bottom sheet 35–45%→75–85% со свайпом и safe-area; активные области ≥44 px; нет горизонтального скролла и обрезки кнопок; все прежние контролы сохранены.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": ["CMV-EMB-01", "CMV-EMB-02", "CMV-HDR-01", "CMV-HDR-02", "CMV-HDR-03", "CMV-HDR-04", "CMV-RESP-01", "CMV-RESP-02", "CMV-RESP-03", "CMV-FS-01", "CMV-FS-02", "CMV-FS-03", "CMV-FS-04", "CMV-FS-05", "CMV-FSM-01", "CMV-FSM-02", "CMV-FSM-03", "CMV-FSM-04", "CMV-CARD-01", "CMV-CARD-02", "CMV-CARD-03", "CMV-CARD-04", "CMV-CARD-05", "CMV-CARD-06", "CMV-CARD-07", "CMV-CARD-08", "CMV-CARD-09", "CMV-CARD-10", "CMV-NAV-01", "CMV-NAV-02", "CMV-NAV-04", "CMV-NAV-05", "CMV-NAV-06", "CMV-NAV-07", "CMV-NAV-08", "CMV-VIS-05", "CMV-VIS-07", "CMV-VIS-09", "CMV-VIS-10", "CMV-VIS-11", "CMV-VIS-12"]
+    },
+    {
+      "id": "CMV-E-TESTS-PRODUCTION",
+      "title": "Независимые тесты и production: фикстуры 10/100/702x2400, FPS, утечки, до/после, выкладка",
+      "wave": "W0",
+      "depends_on": [],
+      "write_scope": ["tools/**", "plans/features/evol/evidence/**", "plans/features/evol/audit/**"],
+      "acceptance": "Расширены существующие cog-фикстуры и e2e (tools/ui_evol_w15_composition_e2e.py, tools/ui_evol_w9_responsive_e2e.py, tools/ui_asap8_w2_fullscreen_e2e.py) до 10/100/702 узлов и 2400 рёбер; один и тот же payload проигран на deployed 2.58.151 и на кандидате для снимков до/после; измерены FPS и утечки после 20 циклов; приложены кадры анимации; после PASS приложен SHA и read-only проверка production; FPS и 20-цикловые счётчики снимаются после CMV-C в остатке бюджета ~1-2 FPS (см. constraints.CMV-FPS-MARGIN).",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": ["CMV-INV-10", "CMV-PERF-01", "CMV-PERF-02", "CMV-PERF-03", "CMV-PERF-06", "CMV-VIS-13", "CMV-VIS-14", "CMV-VIS-15", "CMV-REP-01", "CMV-REP-02", "CMV-REP-03", "CMV-GATE-01", "CMV-GATE-02", "CMV-GATE-03", "CMV-GATE-04", "CMV-GATE-05", "CMV-GATE-06", "CMV-GATE-07", "CMV-GATE-08", "CMV-GATE-09", "CMV-GATE-10", "CMV-GATE-11", "CMV-GATE-12", "CMV-GATE-13", "CMV-GATE-14", "CMV-GATE-15", "CMV-GATE-16", "CMV-GATE-17", "CMV-GATE-18", "CMV-GATE-19", "CMV-GATE-20", "CMV-GATE-21"]
+    }
+  ],
+  "reviews": [
+      {
+        "slice": "CMV-A-INTEGRATION",
+        "candidate_commit": "8ba6806f3a27e5fbbf96a73bbd23c6b7f8eb9c45",
+        "verdict": "Approved",
+        "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-a-review.md"
+      },
+      {
+        "slice": "CMV-B-SCENE-PHYSICS",
+        "candidate_commit": "0bf3eed2b2953fe0319794a2f95d6eb7a184aadd",
+        "verdict": "Approved (re-review)",
+        "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md"
+      }
+    ],
+    "constraints": [
+      {
+        "id": "CMV-FPS-MARGIN",
+        "measured": "медиана 45.9 FPS (44.8/46.0/45.9) при пороге 45; p95 кадра 42 fps; vis-only 55.2; до правки 54.9; cap 3.9 давал 40-43 FPS",
+        "applies_to": [
+          "CMV-C-LOD-COLLISION",
+          "CMV-D-FULLSCREEN-INSPECTOR",
+          "CMV-E-TESTS-PRODUCTION"
+        ],
+        "rule": "остаток бюджета ~1-2 FPS: L0-агрегаты и любые новые эффекты обязаны уложиться; после CMV-C обязателен повторный замер tools/ui_cmv_b_scene_fps.py; окончательный FPS на реальном payload - CMV-E",
+        "artifact_path": "plans/features/epic-cm-visual-01/reports/cmv-b-review.md"
+      }
+    ]
+}
