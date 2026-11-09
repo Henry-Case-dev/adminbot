@@ -1171,6 +1171,36 @@
       "received": "2026-11-10"
     },
     {
+      "id": "OI-2026-11-10-VMQ-MULTIYEAR-MEMORY-REGRESSION",
+      "source_path": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md",
+      "source_sha256": "5C2C88824AA25C0CA67F7C7FE76A8F31F5E7B02697FEC5B0C18BA173E1791F25",
+      "kind": "amendment",
+      "target_task_ids": [
+        "vmq-onto-01"
+      ],
+      "reconciled": true,
+      "coverage_refs": [
+        {
+          "task_id": "vmq-onto-01",
+          "map": "plans/features/vmq-onto-01/requirements-map.json",
+          "req_ids": [
+            "VMQ-MEM-01",
+            "VMQ-MEM-02",
+            "VMQ-MEM-03",
+            "VMQ-MEM-04",
+            "VMQ-MEM-05",
+            "VMQ-MEM-06",
+            "VMQ-MEM-07",
+            "VMQ-MEM-08"
+          ]
+        }
+      ],
+      "note": "Adds a real-world multi-year memory regression to the existing VMQ-ONTO-01 acceptance. Live observation from the owner: on the 2.07M-message history a humorous story about the chat's running jokes produces a coherent narrative spanning both recent and older events, while ordinary questions about participants' multi-year history often return random facts without a coherent reconstruction. The owner forbids treating a successful creative answer as evidence of retrieval quality. Acceptance must compare the SAME data across five formulation classes (humorous story, plain retelling, participant profile, reconstruction of a specific conflict, how relations or views changed over years), recording which episodes were actually retrieved, from which periods, with which sources and relations, and comparing coverage, chronological accuracy, relevance and invented links. Governing rule: a plain factual question must receive an evidence base no worse than a creative story; only form and style may differ. Must reuse existing GraphRAG, episodes, thematic lines and ONTO-01 with no separate summary pipeline, dictionary triggers or second memory system. Architect verifies the end-to-end retrieval path up to the Writer; Reviewer independently compares results on the real history. No new epic, no long research phase, no human gate.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-10",
+      "received": "2026-11-10"
+    },
+    {
       "id": "OI-2026-11-02-PERF-PARITY",
       "source_path": "plans/owner_inputs/2026-11-02-performance-parity-clarification.md",
       "source_sha256": "9F66BE9720084CE685FDB2E4B5244223523C2D4FFC0A59AABAC1853474FB823F",

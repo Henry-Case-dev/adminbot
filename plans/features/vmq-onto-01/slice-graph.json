@@ -5,7 +5,7 @@
   "queue_position": "VMQ-ONTO-01 стоит одним новым эпиком в конце исходной очереди (ТЗ §16.1-16.2). VMQ-V (voice P0 corrective) допускается раньше остальных слайсов эпика только при отсутствии Builder, правящего те же файлы; перестановка очереди фиксируется PM с причиной.",
   "lanes": {
     "L1": "foundation: VMQ-A (done by Architect) -> VMQ-V -> VMQ-ONTO-A -> VMQ-ONTO-B",
-    "L2": "memory: VMQ-M1 -> VMQ-M2 (ONTO-C/D внутри одного unified retrieval)",
+    "L2": "memory: VMQ-M1 -> VMQ-M2 (ONTO-C/D внутри одного unified retrieval) -> VMQ-MEM (сравнительная приёмка многолетней памяти по пяти формулировкам)",
     "L3": "quantum: VMQ-Q0 -> VMQ-Q0-IBM (изолированные файлы RandomSource/IBM)",
     "join": "VMQ-Q1 (нужны VMQ-M2 + VMQ-Q0-IBM) -> VMQ-O -> VMQ-U -> VMQ-R"
   },
@@ -132,6 +132,23 @@
       "coherence": "Один unified retrieval/Composer: ONTO-подсказка, coverage и evidence expansion дают один и тот же Writer bundle."
     },
     {
+      "id": "VMQ-MEM",
+      "title": "Многолетняя память: сравнительная приёмка одних и тех же данных по пяти формулировкам",
+      "owner_role": "Builder (матрица и метрики) + Architect (end-to-end путь до Writer) + Reviewer (независимое сравнение на реальном архиве)",
+      "depends_on": ["VMQ-M2"],
+      "write_scope": [
+        "services/mca_retrieval_context.py",
+        "tests/test_memory_multi_formulation_parity.py",
+        "plans/features/vmq-onto-01/evidence/vmq-mem/"
+      ],
+      "requirements": ["VMQ-MEM-01", "VMQ-MEM-02", "VMQ-MEM-03", "VMQ-MEM-04", "VMQ-MEM-05", "VMQ-MEM-06", "VMQ-MEM-07", "VMQ-MEM-08"],
+      "acceptance": "На одном и том же наборе реальной истории (~2,07 млн сообщений) пять классов формулировок дают извлекаемый след эпизодов/периодов/источников/связей, обычный фактический вопрос не хуже творческого по покрытию, хронологии и релевантности и не хуже по числу выдуманных связей; удачный рассказ не засчитывается как доказательство.",
+      "risk": "R2",
+      "next_role": "Architect",
+      "coherence": "Одна измеримая приёмка качества одной и той же истории: матрица прогонов, четыре метрики и паритет формулировок; второй пайплайн, вторая память и словарные триггеры явно запрещены.",
+      "note": "Правки в services/direct_context_composer.py не входят в write_scope: если дефект паритета лежит в композере, исправление возвращается в VMQ-M2 (её файл и её владелец), а VMQ-MEM только измеряет. Живой дефект владельца от 10.11.2026 (связный творческий рассказ при случайных фактах на обычных вопросах) записан в строках VMQ-MEM-01..04 как live_defect и не считается снятым до измерения."
+    },
+    {
       "id": "VMQ-Q0",
       "title": "RandomSource core: 4-provider registry, settings/secrets, live apply, health, QAN field",
       "owner_role": "Builder + Architect (политика/лимиты)",
@@ -230,7 +247,7 @@
       "id": "VMQ-R",
       "title": "Release gate: default-ON effective, baseline vs new, DevOps evidence, PM reconciliation",
       "owner_role": "Reviewer + DevOps + PM",
-      "depends_on": ["VMQ-V", "VMQ-M2", "VMQ-Q1", "VMQ-O", "VMQ-U"],
+      "depends_on": ["VMQ-V", "VMQ-M2", "VMQ-MEM", "VMQ-Q1", "VMQ-O", "VMQ-U"],
       "write_scope": [
         "plans/features/vmq-onto-01/evidence/",
         "plans/features/vmq-onto-01/reports/"

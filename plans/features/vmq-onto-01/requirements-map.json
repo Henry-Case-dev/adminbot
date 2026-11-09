@@ -10,7 +10,7 @@
   "created": "2026-11-09",
   "amendment_source": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md",
   "amendment_sha256": "b9ef7ac882064e08180d0aec10894cd13765bb82650123139885efc6fcad5597",
-  "binding_note": "Единственный владелец строки = req_id. MEMORY-06/07/08 не дублируются: они остаются в plans/features/memory-cognitive-02/requirements-map.json и подключены как внешние зависимости VMQ-M1/VMQ-M2; MEMORY-07 default-OFF/legacy-quality корректировка остаётся внутри MEMORY-эпика (ТЗ §12.4, static ED-MEMORY-07-COMMUNITIES-2026-11-09). Строки QM-01..QM-09 — поправка владельца от 09.11.2026 (provider management): source_line указывает на нормативную строку эпика, amendment_ref хранит точный адрес поправки (единый source_path у карты не позволяет валидировать второй файл). BLOCKED_EXTERNAL в схеме gate отсутствует: внешний блокер IBM выражен как status=PENDING + blocked_external=true + external_dependency и никогда не VERIFIED на симуляторе.",
+  "binding_note": "Единственный владелец строки = req_id. MEMORY-06/07/08 не дублируются: они остаются в plans/features/memory-cognitive-02/requirements-map.json и подключены как внешние зависимости VMQ-M1/VMQ-M2; MEMORY-07 default-OFF/legacy-quality корректировка остаётся внутри MEMORY-эпика (ТЗ §12.4, static ED-MEMORY-07-COMMUNITIES-2026-11-09). Строки QM-01..QM-09 — поправка владельца от 09.11.2026 (provider management): source_line указывает на нормативную строку эпика, amendment_ref хранит точный адрес поправки (единый source_path у карты не позволяет валидировать второй файл). BLOCKED_EXTERNAL в схеме gate отсутствует: внешний блокер IBM выражен как status=PENDING + blocked_external=true + external_dependency и никогда не VERIFIED на симуляторе. Поправка 10.11.2026 добавляет срез VMQ-MEM (8 строк) поверх существующего retrieval (M-01/M-02/M-04/O-04/R-02) без дублирования этих строк и без второго пайплайна: строки M-*/O-04/R-02 помечены extended_by и остаются единственными владельцами своего контракта.",
   "additional_requirements": [
     {
       "source_id": "MAN-V-01",
@@ -138,6 +138,9 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m1/episode-scope-verification.md",
           "description": "source verification эпизодов на размеченных ветках, включая ложные соседства за разные годы"
         }
+      ],
+      "extended_by": [
+        "VMQ-MEM-02"
       ]
     },
     {
@@ -160,6 +163,9 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m1/temporal-theme-golden.json",
           "description": "золотые примеры: многолетняя тема, противоположные свидетельства, coverage по годам"
         }
+      ],
+      "extended_by": [
+        "VMQ-MEM-03"
       ]
     },
     {
@@ -204,6 +210,13 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m2/person-overview-bundles.json",
           "description": "Writer bundles и recall на размеченных кейсах person_overview / temporal_change"
         }
+      ],
+      "extended_by": [
+        "VMQ-MEM-01",
+        "VMQ-MEM-04",
+        "VMQ-MEM-02",
+        "VMQ-MEM-06",
+        "VMQ-MEM-08"
       ]
     },
     {
@@ -314,6 +327,10 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m2/onto-single-retrieval-e2e.json",
           "description": "code mapping + e2e: один retrieve(), feedback/corrections, versioning терминов"
         }
+      ],
+      "extended_by": [
+        "VMQ-MEM-06",
+        "VMQ-MEM-08"
       ]
     },
     {
@@ -800,6 +817,10 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-r/baseline-vs-new.md",
           "description": "reviewer report: 30-50 memory cases + entropy runs, одинаковые источники"
         }
+      ],
+      "extended_by": [
+        "VMQ-MEM-07",
+        "VMQ-MEM-05"
       ]
     },
     {
@@ -844,7 +865,8 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-r/pm-reconciliation.md",
           "description": "PM reconciliation: сохранность внешних карт/очереди, отсутствие повторных MEMORY-строк"
         }
-      ]
+      ],
+      "amendment_note": "Поправка 10.11.2026 встроена как VMQ-MEM без нового эпика, без длительного ресерча и без human gate; существующие строки и счётчики эпика не переписаны."
     },
     {
       "source_id": "MAN-QM-01",
@@ -1063,6 +1085,257 @@
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md#L23",
       "amendment_excerpt": "отсутствие ключа конкретного провайдера должно честно отображаться как `unconfigured`, не блокируя остальные источники"
+    },
+    {
+      "source_id": "MAN-MEM-01",
+      "source_line": 22,
+      "source_text_sha256": "cf07f5f0c30ecd9869e3890b90fe7dc33daa5034ff168d544b82e3582735a88d",
+      "source_excerpt": "2. **Долгосрочная память.** Бот должен уметь описывать многолетнюю историю человека, темы и отношения, опираясь на связанную выборку из разных периодов, а не на первые несколько совпадений имени в векторном поиске. Эпизо",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-MEM-01",
+      "slice": "VMQ-MEM",
+      "acceptance": "На одном и том же историческом наборе (те же участники, темы, периоды и источник — реальный архив чата около 2,07 млн сообщений) прогоняются все пять классов формулировок: юмористический рассказ о шизах конфы (включая точный запрос владельца), обычный пересказ истории, характеристика участника, восстановление конкретного конфликта, изменение отношений или взглядов за годы. Каждый прогон зафиксирован в матрице отдельной строкой с классом, запросом и идентификатором набора данных, и ни один класс не подменяется другим набором фактов.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/formulation-class-matrix.json",
+          "description": "матрица 5 классов x прогоны на одном наборе: класс, запрос, dataset_ref, время, id прогона"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L11",
+      "amendment_excerpt": "Включить в приёмку VMQ-ONTO-01 сравнительные проверки одних и тех же исторических данных при разных формулировках: юмористический рассказ, обычный пересказ истории, характеристика участника, восстановление конкретного конфликта, изменение о",
+      "extends_req_ids": [
+        "M-04",
+        "M-01",
+        "M-02"
+      ],
+      "live_defect": {
+        "reported": "2026-11-10",
+        "source_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L7",
+        "observation": "На чате с историей около 2,07 млн сообщений запрос «напиши юмористический рассказ об основных шизах конфы» даёт связный рассказ с текущими и более старыми событиями, а обычные вопросы о многолетней истории участников часто выдают случайные факты без связной реконструкции.",
+        "state": "owner_reported_live_defect_unmeasured",
+        "note": "Живой дефект-репорт владельца, а не гипотеза: строка остаётся PENDING, пока parity не измерена на реальном архиве; удачный творческий ответ дефект не закрывает."
+      }
+    },
+    {
+      "source_id": "MAN-MEM-02",
+      "source_line": 474,
+      "source_text_sha256": "e361ad3d4b26fbe0bb2d87a7535e4adaa01e03bd795635df41d31e8a94776f3b",
+      "source_excerpt": "- Многолетний person overview включает несколько независимых временных областей, характерные эпизоды и контрпримеры; Writer не получает лишь top-k случайных совпадений.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-MEM-02",
+      "slice": "VMQ-MEM",
+      "acceptance": "Для каждого прогона каждого класса сохранён фактический retrieval-след: какие эпизоды реально извлечены (episode/source ref), из каких периодов (даты), с какими источниками (source refs и авторы) и связями (тип и направление отношения). След снят с существующего retrieve()/Writer bundle, а не восстановлен из текста ответа, и позволяет проверить каждое фактическое утверждение по оригиналу в том же чате.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/run-retrieval-trace.json",
+          "description": "per-run след: episodes[], periods[], sources[], relations[], привязка к run_id и классу формулировки"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L13",
+      "amendment_excerpt": "Проверять, какие эпизоды действительно извлекались из долговременной памяти, из каких периодов, с какими источниками и связями. Сравнить фактическое покрытие, хронологическую точность, релевантность и количество выдуманных связей.",
+      "extends_req_ids": [
+        "M-04",
+        "M-01"
+      ],
+      "live_defect": {
+        "reported": "2026-11-10",
+        "source_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L7",
+        "observation": "На чате с историей около 2,07 млн сообщений запрос «напиши юмористический рассказ об основных шизах конфы» даёт связный рассказ с текущими и более старыми событиями, а обычные вопросы о многолетней истории участников часто выдают случайные факты без связной реконструкции.",
+        "state": "owner_reported_live_defect_unmeasured",
+        "note": "Живой дефект-репорт владельца, а не гипотеза: строка остаётся PENDING, пока parity не измерена на реальном архиве; удачный творческий ответ дефект не закрывает."
+      }
+    },
+    {
+      "source_id": "MAN-MEM-03",
+      "source_line": 42,
+      "source_text_sha256": "ca615811b4b68aff5342f617d8b12b321f58f7624bab72f59766ce0c3ed80c38",
+      "source_excerpt": "- «Добавили top-k / увеличили окно контекста» — нет: требуются временное и тематическое покрытие, эпизодность и доказательная связность.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-MEM-03",
+      "slice": "VMQ-MEM",
+      "acceptance": "По матрице прогонов посчитаны и сравнены между классами четыре величины: покрытие (сколько релевантных периодов и эпизодов реально попало в основу ответа относительно размеченного эталона), хронологическая точность (совпадение дат и порядка событий с источником), релевантность (доля извлечённого, подтверждённого источником по данному запросу) и число выдуманных связей (утверждения без подтверждающего source ref). Методика подсчёта и знаменатели зафиксированы, значения воспроизводимы из следа прогонов.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/metrics-comparison.json",
+          "description": "coverage / chronological_accuracy / relevance / invented_links по классам, с знаменателями и методикой"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L13",
+      "amendment_excerpt": "Проверять, какие эпизоды действительно извлекались из долговременной памяти, из каких периодов, с какими источниками и связями. Сравнить фактическое покрытие, хронологическую точность, релевантность и количество выдуманных связей.",
+      "extends_req_ids": [
+        "M-02",
+        "M-04"
+      ],
+      "live_defect": {
+        "reported": "2026-11-10",
+        "source_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L7",
+        "observation": "На чате с историей около 2,07 млн сообщений запрос «напиши юмористический рассказ об основных шизах конфы» даёт связный рассказ с текущими и более старыми событиями, а обычные вопросы о многолетней истории участников часто выдают случайные факты без связной реконструкции.",
+        "state": "owner_reported_live_defect_unmeasured",
+        "note": "Живой дефект-репорт владельца, а не гипотеза: строка остаётся PENDING, пока parity не измерена на реальном архиве; удачный творческий ответ дефект не закрывает."
+      }
+    },
+    {
+      "source_id": "MAN-MEM-04",
+      "source_line": 108,
+      "source_text_sha256": "a865ff676edf6717b4e7ceb8af4256225979152cc3052040ca37b5be03b9dc7b",
+      "source_excerpt": "- Предпочтение полноты релевантной evidence над декоративной необычностью. Прямой ответ не деградирует из-за field-building; его основная семантическая выборка и Writer сохраняют приоритет.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-MEM-04",
+      "slice": "VMQ-MEM",
+      "acceptance": "Обычный фактический вопрос получает доказательную основу не хуже творческого рассказа на том же наборе данных: покрытие периодов, хронологическая точность и релевантность не ниже, а число выдуманных связей не выше, чем у юмористического рассказа о тех же событиях. Различаться могут только форма и стиль ответа. Паритет подтверждён числами матрицы, а не впечатлением от текста ответа.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/parity-report.md",
+          "description": "парное сравнение plain/creative по четырём метрикам с вердиктом «не хуже» и контрпримером при провале"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L15",
+      "amendment_excerpt": "Важнейшее требование: обычный фактический вопрос должен получать не менее качественную доказательную основу, чем творческий рассказ. Различаться должны форма и стиль ответа, а не способность находить историю.",
+      "extends_req_ids": [
+        "M-04"
+      ],
+      "live_defect": {
+        "reported": "2026-11-10",
+        "source_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L7",
+        "observation": "На чате с историей около 2,07 млн сообщений запрос «напиши юмористический рассказ об основных шизах конфы» даёт связный рассказ с текущими и более старыми событиями, а обычные вопросы о многолетней истории участников часто выдают случайные факты без связной реконструкции.",
+        "state": "owner_reported_live_defect_unmeasured",
+        "note": "Живой дефект-репорт владельца, а не гипотеза: строка остаётся PENDING, пока parity не измерена на реальном архиве; удачный творческий ответ дефект не закрывает."
+      }
+    },
+    {
+      "source_id": "MAN-MEM-05",
+      "source_line": 41,
+      "source_text_sha256": "544b5b9d642c70dbd6efd377f688bea5eac3fb737dabd6c639203c61343d1904",
+      "source_excerpt": "- «Сделали 20 unit-тестов и HTTP 200, значит голосовые работают» — нет: проверяется реальная доставка содержимого в Writer.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-MEM-05",
+      "slice": "VMQ-MEM",
+      "acceptance": "Удачный творческий ответ не принимается как доказательство качества retrieval: на приёмке и ревью засчитывается только матрица реально извлечённых эпизодов, периодов, источников и связей с метриками; отчёт, где единственным свидетельством выступает связный рассказ или его правдоподобие, отклоняется без разбора остальных требований.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "test",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/creative-not-proof-guard.md",
+          "description": "протокол приёмки: какие артефакты засчитываются, пример отклонённого «красивого» ответа без следа retrieval"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L9",
+      "amendment_excerpt": "Не считать успешную творческую генерацию доказательством качественного retrieval.",
+      "extends_req_ids": [
+        "R-02",
+        "M-04"
+      ]
+    },
+    {
+      "source_id": "MAN-MEM-06",
+      "source_line": 476,
+      "source_text_sha256": "f55c338563e58fe1a51f96f8f2ee44999fd579cc7bdd5f6162d154536e054809",
+      "source_excerpt": "- Пошаговая трасса `question → resolution → semantic plan → candidate evidence → validation → Writer payload → answer` открывается в админке; source ref проверяем, ссылка ведёт к оригиналу в том же чате.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-MEM-06",
+      "slice": "VMQ-MEM",
+      "acceptance": "Architect прослеживает end-to-end путь до Writer на реальном коде: запрос → единый retrieve() (эпизоды, тематические линии, GraphRAG, ONTO-01) с coverage и evidence expansion → валидация source refs и chat scope → Writer payload. Для каждого из пяти классов показано, где именно теряются периоды и эпизоды у обычных вопросов и почему творческий запрос получает более широкий набор; второй роутер, отдельный summary-пайплайн и словарные триггеры формулировок в маршруте отсутствуют.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "test",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/architect-e2e-path.md",
+          "description": "трасса question → resolution → semantic plan → candidate evidence → validation → Writer payload по 5 классам, с точками потери покрытия"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L19",
+      "amendment_excerpt": "Architect должен проверить именно end-to-end retrieval до Writer, Reviewer — независимо сравнить результаты на реальной истории.",
+      "extends_req_ids": [
+        "O-04",
+        "M-04"
+      ]
+    },
+    {
+      "source_id": "MAN-MEM-07",
+      "source_line": 464,
+      "source_text_sha256": "50a7e0ecd7f994e08c69542e4f5396a89288fb56afdf7bf764c9e3f0a3bc8baf",
+      "source_excerpt": "6. `ONTO-R` **Reviewer + production evidence**: проверить реальные вопросы, Writer payload, корректные source refs, mobile UI, латентность и регрессии до и после на одном архиве. Блокеры возвращать на исправление, а не о",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-MEM-07",
+      "slice": "VMQ-MEM",
+      "acceptance": "Reviewer независимо от Builder воспроизводит сравнение пяти классов на реальной истории около 2,07 млн сообщений: собственные запросы, собственные retrieval-трейсы и собственный подсчёт покрытия, хронологической точности, релевантности и выдуманных связей. Расхождения с матрицей Builder зафиксированы, вердикт не опирается на артефакты Builder как на доказательство.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/reviewer-independent-comparison.md",
+          "description": "независимый прогон на реальном архиве: свои трейсы и метрики, сверка с матрицей Builder, найденный контрпример"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L19",
+      "amendment_excerpt": "Architect должен проверить именно end-to-end retrieval до Writer, Reviewer — независимо сравнить результаты на реальной истории.",
+      "extends_req_ids": [
+        "R-02"
+      ]
+    },
+    {
+      "source_id": "MAN-MEM-08",
+      "source_line": 995,
+      "source_text_sha256": "a6df5b80e116d0488725f500aab14367db53f2802bbb49e95bd15200eb411c05",
+      "source_excerpt": "4. `VMQ-M2 + ONTO-C/D` — **один** unified retrieval/Composer, coverage, evidence expansion, semantic grounding; интеграционные тесты обязательны. Важно: ONTO и MEMORY не пишут два конкурирующих маршрутизатора.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-MEM-08",
+      "slice": "VMQ-MEM",
+      "acceptance": "Измерение и исправления опираются на существующие GraphRAG, эпизоды, тематические линии и ONTO-01 (проверяемые ссылки на код и владельцев данных): не появляется отдельный summary-пайплайн, словарные триггеры под конкретные формулировки и вторая система памяти; маршрут retrieval остаётся один.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "test",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/reuse-inventory.md",
+          "description": "инвентаризация задействованных владельцев данных/кода и отрицательная проверка: нет второго пайплайна, триггеров, хранилища"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md#L17",
+      "amendment_excerpt": "Использовать существующие GraphRAG, эпизоды, тематические линии и ONTO-01. Не добавлять отдельный summary-пайплайн, словарные триггеры или новую систему памяти.",
+      "extends_req_ids": [
+        "O-04",
+        "M-04"
+      ]
     }
   ],
   "items": [
@@ -6773,5 +7046,8 @@
       "status": "PENDING",
       "evidence": []
     }
-  ]
+  ],
+  "amendment_2_source": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md",
+  "amendment_2_sha256": "5c2c88824aa25c0ca67f7c7fe76a8f31f5e7b02697fec5b0c18ba173e1791f25",
+  "amendment_2_note": "Поправка владельца 10.11.2026 (регрессия многолетней памяти): 8 строк VMQ-MEM-01..08 в новом срезе VMQ-MEM. У карты один source_path, поэтому source_line каждой MEM-строки указывает на нормативную строку эпика, а точный адрес поправки и её текст — в amendment_ref/amendment_excerpt; sha256 файла поправки зафиксирован здесь. Живой дефект владельца (связный творческий рассказ при случайных фактах на обычных вопросах) записан полем live_defect, а не как гипотетический риск."
 }
