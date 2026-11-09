@@ -1376,10 +1376,54 @@ class TestImageGenDirectAdmin:
 
     @pytest.mark.asyncio
     async def test_c08_clarify_once_not_repeated(self, db, monkeypatch):
-        """§25.8 уточнение требований: ambiguous-поручение («нарисуй
-        что-нибудь красивое») → ровно один clarify; повтор в пределах TTL —
-        обычный ход (вопрос не повторяется)."""
+        """§25.8 уточнение требований: СТРУКТУРНО неоднозначное поручение
+        (intent ``ambiguous``, например от плана) → ровно один clarify; повтор
+        в пределах TTL — обычный ход (вопрос не повторяется).
+
+        P0-A (2026-11-10): словесная двусмысленность больше НЕ порождает
+        clarify — такая реплика идёт обычным путём (см. следующий тест), а
+        механизм уточнения проверяется на структурном интенте."""
         _patch_image_sources(monkeypatch)
+        from services import direct_capabilities as dcap
+        from services.direct_chat_service import _CLARIFY_TS
+        _CLARIFY_TS.clear()
+        svc = _direct_service(db)
+
+        class _GateBot:
+            def __init__(self):
+                self.sent = []
+
+            async def send_message(self, chat_id, text, **kw):
+                self.sent.append(str(text))
+                return MagicMock()
+
+        ambiguous = dcap.ActionIntent(
+            intent=dcap.INTENT_CREATE_IMAGE, capability="image_generation",
+            confidence=dcap.CONFIDENCE_AMBIGUOUS,
+            reason=dcap.REASON_CREATE_DEICTIC)
+        monkeypatch.setattr(
+            dcap, "detect_action_intent",
+            lambda *a, **k: ambiguous)
+        bot = _GateBot()
+        text = "Бот, сделай это"
+        msg = _user_message(210, text=text)
+        handled1, _i1 = await svc._image_capability_gate(CHAT, text, msg, bot)
+        assert handled1 is True and len(bot.sent) == 1
+        handled2, _i2 = await svc._image_capability_gate(CHAT, text, msg, bot)
+        assert handled2 is False            # clarify подавлен — обычный ход
+        assert len(bot.sent) == 1
+        # TTL истёк → вопрос снова возможен (не «навсегда заглушен»)
+        _CLARIFY_TS[int(CHAT)] = time.monotonic() - 601.0
+        handled3, _i3 = await svc._image_capability_gate(CHAT, text, msg, bot)
+        assert handled3 is True and len(bot.sent) == 2
+
+    @pytest.mark.asyncio
+    async def test_c08b_lexical_ambiguity_no_longer_clarifies(self, db,
+                                                              monkeypatch):
+        """P0-A: «Бот, сделай это» — обычная реплика: ни уточняющего вопроса,
+        ни генерации; решение за L1 (словесный словарь удалён)."""
+        _patch_image_sources(monkeypatch)
+        from services import direct_capabilities as dcap
         from services.direct_chat_service import _CLARIFY_TS
         _CLARIFY_TS.clear()
         svc = _direct_service(db)
@@ -1394,19 +1438,13 @@ class TestImageGenDirectAdmin:
 
         bot = _GateBot()
         text = "Бот, сделай это"
-        msg = _user_message(210, text=text)
+        msg = _user_message(211, text=text)
         intent = dcap.detect_action_intent(text, addressed=True)
-        assert intent.intent == dcap.INTENT_CREATE_IMAGE
-        assert intent.confidence == dcap.CONFIDENCE_AMBIGUOUS
-        handled1, _i1 = await svc._image_capability_gate(CHAT, text, msg, bot)
-        assert handled1 is True and len(bot.sent) == 1
-        handled2, _i2 = await svc._image_capability_gate(CHAT, text, msg, bot)
-        assert handled2 is False            # clarify подавлен — обычный ход
-        assert len(bot.sent) == 1
-        # TTL истёк → вопрос снова возможен (не «навсегда заглушен»)
-        _CLARIFY_TS[int(CHAT)] = time.monotonic() - 601.0
-        handled3, _i3 = await svc._image_capability_gate(CHAT, text, msg, bot)
-        assert handled3 is True and len(bot.sent) == 2
+        assert intent.actionable is False
+        assert intent.confidence != dcap.CONFIDENCE_AMBIGUOUS
+        handled, _i = await svc._image_capability_gate(CHAT, text, msg, bot)
+        assert handled is False
+        assert bot.sent == []
 
     @pytest.mark.asyncio
     async def test_c09_source_preserved_between_messages(self, db):

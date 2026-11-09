@@ -588,8 +588,13 @@ class TestBoundsA3:
         # hard ceiling — safety fuse, не первый механизм смерти). Провайдер-
         # канон (`_generate_post`/`_generate_get`, payload `{prompt, model,
         # n:1}`) и R17-классы причин НЕ меняются — исключаем обе функции из
-        # byte-identity по прецеденту A5; `generate_image`/`extract_prompt`/
-        # `is_image_keyword` — по-прежнему байт-в-байт.
+        # byte-identity по прецеденту A5.
+        # NOTE (P0-A, owner corrective 2026-11-10): `is_image_keyword` и
+        # `extract_prompt` ИСКЛЮЧЕНЫ из пина санкционированно — это и есть
+        # командный контракт «Бот, нарисуй <промпт>» (единственный
+        # детерминированный fast-path): добавлена проверка явной отмены,
+        # `сгенерируй/создай` требуют объекта изображения, пустой аргумент
+        # даёт пустой промпт. Платный вызов провайдера по-прежнему pinned.
         rel = "services/image_generation.py"
         old_src = self._baseline_file(rel)
         new_src = (self._root() / rel).read_text(encoding="utf-8")
@@ -599,6 +604,9 @@ class TestBoundsA3:
         # См. NOTE выше: ASAP-3.2 санкционировал policy-перевод этих двух.
         names.discard("generate")
         names.discard("generate_image_verbose")
+        # P0-A: командный контракт явно изменён (см. NOTE выше).
+        names.discard("extract_prompt")
+        names.discard("is_image_keyword")
         old_fns = self._fn_dump(old_src, names)
         new_fns = self._fn_dump(new_src, names)
         assert set(old_fns) == set(new_fns), old_fns.keys()

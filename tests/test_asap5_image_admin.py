@@ -374,12 +374,9 @@ def test_edit_intent_not_word_derived():
 
 
 def test_edit_phrasing_does_not_misroute_into_create():
-    """COR-02: edit-формулировка без create-поручений не даёт
-    actionable-поручения генерации (fast-path генерации не стреляет).
-    Фразы с need-маркером («можешь изменить мем») детектор W10 классифицирует
-    как create-интент — edit/generate развязывает АВТОРИТЕТНЫЙ L1-план
-    (см. test_word_intent_create_does_not_override_plan_edit: routing-fix
-    план с edit генерацией не подменяет)."""
+    """COR-02 + P0-A: edit-формулировка не даёт actionable-поручения генерации
+    (fast-path генерации не стреляет). Решение «редактировать/создавать»
+    принимает АВТОРИТЕТНЫЙ L1-план; словесных словарей в детекторе нет."""
     intent = dc.detect_action_intent("бот, измени текст на картинке",
                                      addressed=True)
     assert intent.actionable is False
@@ -398,14 +395,22 @@ def test_negated_create_still_suppressed():
     assert intent.actionable is False
 
 
-def test_create_regressions_stay_create():
-    """Регресс W10: прежние create-поручения не ушли в edit."""
+def test_create_intent_only_from_explicit_command():
+    """P0-A (2026-11-10): create-интент даёт ТОЛЬКО явная команда
+    «Бот, нарисуй …»; свободные формулировки («перерисуй мем», «сделай мем с
+    текстом») — обычные реплики, их намерение определяет L1 (словесных
+    словарей поручения в детекторе больше нет)."""
+    command = dc.detect_action_intent("Бот, нарисуй кота в шляпе",
+                                      addressed=True)
+    assert command.actionable is True
+    assert command.intent == dc.INTENT_CREATE_IMAGE
+    assert command.reason == dc.REASON_CREATE_COMMAND
     for text in ("Бот, перерисуй мем про двачеров",
-                 "Бот, нарисуй кота в шляпе",
-                 "Бот, сделай мем с текстом"):
+                 "Бот, сделай мем с текстом",
+                 "Бот, надо сделать мем про двачеров"):
         intent = dc.detect_action_intent(text, addressed=True)
-        assert intent.actionable is True, text
-        assert intent.intent == dc.INTENT_CREATE_IMAGE, text
+        assert intent.actionable is False, text
+        assert intent.intent != dc.INTENT_CREATE_IMAGE, text
 
 
 def test_intent_blockers_cover_edit_capability_status():

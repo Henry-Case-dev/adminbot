@@ -259,15 +259,18 @@ def test_checkup_group_stays_functional_for_direct_yield():
 
 
 @pytest.mark.asyncio
-async def test_free_form_draw_reaches_single_image_workflow(monkeypatch):
-    """«Бот, надо нарисовать X» — смысловая дверь (не регекс): ровно одна
-    генерация, ровно один L1-вызов, через существующий image-контур."""
+async def test_free_form_draw_is_decided_by_l1(monkeypatch):
+    """P0-A (2026-11-10): «Бот, надо нарисовать X» — НЕ детерминированная
+    команда. Словесных словарей поручения нет (дверь `intent.actionable` их не
+    видит), поэтому запуска генерации до L1 не происходит: решение принимает
+    L1/модель, инструмент остаётся объявленным."""
     from tests.test_soul1_capability_intent import _drive, _run
     text = "Бот, надо нарисовать мем про котов"
     intent = dc.detect_action_intent(text, addressed=True)
-    assert intent.actionable is True
-    assert ig.is_image_keyword(text) is False    # не регекс-быстрый путь
-    svc, llm, bot, msg, user, gen_calls, _tools = _drive(monkeypatch, text)
+    assert intent.actionable is False
+    assert ig.is_image_keyword(text) is False
+    svc, llm, bot, msg, user, gen_calls, announced = _drive(monkeypatch, text)
     await _run(svc, bot, msg, user)
-    assert len(gen_calls) == 1
+    assert gen_calls == [], "свободная форма не запускает платный вызов"
     assert llm.steps().count("l1_planner") == 1
+    assert announced and announced[0][0] is True

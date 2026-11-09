@@ -195,8 +195,10 @@ async def test_module_off_replies_disabled_template(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_no_key_replies_not_configured_template(monkeypatch):
+    # P0-A: честный технический отказ выдаётся по ПОДТВЕРЖДЁННОМУ намерению —
+    # явной команде (у свободной формы «сделай мем» решения нет: оно за L1).
     svc, llm, bot, msg, user, gen_calls = _drive(
-        monkeypatch, "Бот, сделай мем про двачеров",
+        monkeypatch, "Бот, нарисуй мем про двачеров",
         config=dict(READY, **{"keys.image_api_key": ""}))
     await _run(svc, bot, msg, user)
     assert gen_calls == [] and llm.calls == []

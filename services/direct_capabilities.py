@@ -225,62 +225,29 @@ REASON_FACTCHECK = "factcheck_request"
 REASON_MEMORY = "memory_request"
 REASON_NONE = "no_action_intent"
 
-# Лексика (стемы, регистр не важен): НЕ одна регулярка «нарисуй» — смысл
-# собирается из пары «действие + объект»/«потребность + объект», отдельно
-# различаются «создать» и «придумать». Стем матчится по НАЧАЛУ слова
-# (граница слова), а не подстрокой: «арт» внутри квартир*/карт*/март*/
-# стартап*, «мем» внутри мемориальн*/мембран* — НЕ объект изображения.
-# Ложное срабатывание (платная генерация) дороже пропуска.
-_DRAW_VERB_STRONG = ("нарису", "рисуй", "рису", "сгенер", "изобраз",
-                     "намалю", "забабах", "сварган", "накида", "нафигач",
-                     "намути", "замути")
-#: Приставочные глаголы рисования («перерисуй мем») — поручение ТОЛЬКО с
-#: объектом изображения: «перерисуй схему в отчёте» картинку не заказывает.
-_DRAW_VERB_PREFIXED = ("перерису", "дорису", "подрису", "зарису")
-#: «Создать/сделать» — общие глаголы: поручение только с объектом изображения
-#: («сделай уборку»/«создай план»/«сделай план на март» картинку не заказывают).
-_CREATE_VERB_GENERIC = ("созда", "сдела", "сделай")
-_IMAGE_OBJECT = ("мем", "картин", "изображен", "инфографик", "комикс", "арт",
-                 "иллюстрац", "постер", "скетч", "пикч", "визуализ", "баннер",
-                 "рисун", "фотореализ", "коллаж", "аватарк", "фотож")
-#: Слова, которые НАЧИНАЮТСЯ как стем, но объектом/действием не являются
-#: (явные исключения вместо сырой подстроки — «квартира»/«март»/«мемориальный»).
-_STEM_EXCLUSIONS: dict[str, tuple[str, ...]] = {
-    "арт": ("артефакт", "артери", "артрит", "артист", "артикул", "артел",
-            "артподготовк"),
-    "мем": ("мемориал", "меморандум", "мембран", "мембер"),
-    "рису": ("рисун",),          # «рисунок» — объект изображения, не действие
-    "спор": ("спорт", "спортивн"),   # «мем про спорт» ≠ «давай поспорим»
-    "текст": ("текстил",),           # «мем про текстиль» ≠ просьба придумать
-    "подпис": ("подписк", "подписчик"),
-}
-_NEED_MARKER = ("нужн", "нужен", "надо", "хочу", "давай", "можешь", "можно")
-# ASAP5 §20 / COR-02 (p0-nostalgia corrective): edit-интент НЕ определяется
-# детерминированным пре-гейтом по словарям слов (_EDIT_VERB/_EDIT_REMOVE/
-# _EDIT_LOCATIVE_RE удалены; запрещено расширять словники под очередные фразы).
-# Семантическое решение «редактировать существующее / создать новое» — за
-# L1-планом (структурные поля `capabilities_needed`/intent); честность
-# edit-capability обеспечивает `_l1_capability_consistency` по плану
-# (`services/direct_chat_service.py`). Пре-гейт не ветоирует и не инжектирует
-# edit по совпадению слов: план отсутствует → default non-edit handling без
-# edit-специфичных действий. Константы INTENT_EDIT_IMAGE/REASON_EDIT_REQUEST
-# и `edit_actionable` сохранены как структурный контракт этого пути.
-_CONCEIVE = ("придума", "концепт", "идея", "идею", "идеи", "идей", "сценар",
-             "сюжет", "текст", "подпис", "шутк", "вариант", "предложи",
-             "назван", "заголовк", "описан")
-#: Инструментальная форма («мем С текстом», «с подписью») — это ТЗ на картинку,
-#: а не просьба придумать текст (иначе «сделай мем с текстом» терял бы
-#: поручение создать изображение).
-_CONCEIVE_INSTRUMENTAL_RE = re.compile(
-    r"(?:с\s+текстом)|(?:с\s+подпис)|(?:и\s+текст)|(?:подпис\s+снизу)"
-    r"|(?:с\s+назван)",
-    re.IGNORECASE)
-_DEICTIC = ("это", "этот", "эту", "эти", "то", "что-нибудь", "что-то",
-            "чтото", "как-нибудь", "какнибудь", "красиво", "покруче",
-            "получше")
-#: Обсуждение/разговор про мемы ≠ поручение нарисовать («давай обсудим мемы»).
-_DISCUSS = ("обсуд", "поговор", "пошути", "расскаж", "вспомн", "объясн",
-            "поясн", "перескаж", "разбер", "обсужд", "спор")
+# ── P0-A (2026-11-10, owner corrective) ─────────────────────────────────────
+# У лексики НЕТ семантического авторитета для генерации изображений.
+# Словари `_DRAW_VERB_STRONG` / `_DRAW_VERB_PREFIXED` / `_CREATE_VERB_GENERIC` /
+# `_IMAGE_OBJECT` и все производные условия («действие+объект», «потребность+
+# объект», conceive/negation/deictic/reported/self-attribution) УДАЛЕНЫ.
+#
+# Причина — реальный инцидент: в вопросе «чем отличается манга от не манги?
+# тем что её японцы рисуют…» стем «рису» классифицировал реплику как поручение
+# и ход заканчивался сообщением о квоте изображений вместо ответа по смыслу.
+# Частное исключение для слова «рисуют» запрещено (P0-A §1/§7): устранён
+# механизм, а не слово.
+#
+# Единственный детерминированный путь пользовательской генерации — явная
+# команда «Бот, нарисуй <промпт>» (`services/image_generation.IMAGE_KEYWORD_RE`:
+# обращение + императив; там же снятие обёртки и штатные параметры). Любой
+# другой запрос решает L1 — его план (`capabilities_needed`/выбор инструмента)
+# и есть семантический авторитет для `generate_image`. Второй LLM-классификатор,
+# новые словари и новые настройки не вводятся (P0-A §5/§7).
+#
+# Поэтому `detect_action_intent` ниже возвращает image-интент ТОЛЬКО для самой
+# команды (зеркалит `image_generation.is_image_keyword`, чтобы существующие
+# двери пре-гейта/готовности оставались согласованными) и продолжает
+# детектировать НЕ-image действия (поиск/фактчек/память).
 _WORD_RE = re.compile(r"[а-яёa-z0-9\-]+")
 
 _SEARCH_MARKERS = ("поищи", "поиск", "найди", "найти", "загугли", "погугли",
@@ -290,92 +257,28 @@ _FACTCHECK_MARKERS = ("фактчек", "факт-чек", "проверь фа�
 _MEMORY_MARKERS = ("что я говорил", "что я писал", "напомни", "вспомни",
                    "что было в чате", "помнишь")
 
-# «Создавать» ≠ «придумывать»: отрицание/запрет рисовать снимает поручение
-# (SOUL-AMD.5.9 — «придумай концепт мема, рисовать не надо»). Отмена/«не надо»
-# без явного «рису» — тоже отказ (ложный платный вызов дороже пропуска).
-_NEGATED_CREATE_RE = re.compile(
-    r"(?:\bне\s+(?:рису|нарису|созда|сгенер|изобраз|малю|дела))"
-    r"|(?:\bне\s+(?:меня|меняй|измен|редактир|поменя|трогай|убирай|удал|исправ))"
-    r"|(?:рисовать\s+не\s+надо)|(?:не\s+надо\s+рисов)"
-    r"|(?:без\s+(?:картин|изображен|рисунк|мем|арт))"
-    r"|(?:только\s+текст)|(?:только\s+текстом)|(?:текстом\s+обойд)"
-    r"|(?:словами\s+без)"
-    r"|(?:\bне\s+(?:надо|нужно|нужен|нужна|стоит)\b)"
-    r"|(?:(?<!не )\b(?:забудь|отмен\w*|отбой))",
-    re.IGNORECASE)
-
-#: Пересылка/цитата: чужая просьба — не поручение пользователя. Атрибуция
-#: («сказал», «просил», «написал», «цитата») имеет вес только ДО слов поручения:
-#: «нарисуй мем про то, что Петя сказал» — наша просьба, не цитата.
-_ATTRIBUTION_RE = re.compile(
-    r"(?:сказал(?:а|и)?|говорил(?:а|и)?|говорит|просил(?:а|и)?|просит|"
-    r"написал(?:а|и)?|пишет|передал(?:а|и)?|переда[её]т|цитат\w*|"
-    r"цитиру\w*|спрашивал(?:а|и)?|спросил(?:а|и)?)",
-    re.IGNORECASE)
-
-#: «Я сам(а) нарисую» / «мне нужно нарисовать» — пользователь сделает это сам:
-#: генерация не наша (глагол в 1-м лице или «сам»/«мне нужно» рядом с
-#: действием, не любое «сам»).
-_SELF_ACTION_RE = re.compile(
-    r"(?:\bя\s+сам[аи]?\s+(?:нарис|рис|сдела|созда|сгенер|изобраз|намалю|"
-    r"замут|намут)\w*)"
-    r"|(?:\b(?:нарисую|сделаю|создам|сгенерю|намалюю)\s+сам[аи]?\b)"
-    r"|(?:\bмне\s+(?:нужно|надо|хочется)\s+(?:нарис|рис|сдела|созда|сгенер|"
-    r"изобраз|намалю)\w*)",
-    re.IGNORECASE)
-
-#: Код-блоки/инлайн-код — пример кода, а не поручение боту.
+#: Код-блоки/инлайн-код — пример кода, а не реплика пользователя.
 _FENCED_CODE_RE = re.compile(r"```.*?```|~~~.*?~~~", re.DOTALL)
 _INLINE_CODE_RE = re.compile(r"`[^`]*`")
 
 
 def _without_code(text: str) -> str:
-    """Текст без код-блоков и инлайн-кода (пример кода ≠ поручение)."""
+    """Текст без код-блоков и инлайн-кода (пример кода ≠ реплика)."""
     return _INLINE_CODE_RE.sub(" ", _FENCED_CODE_RE.sub(" ", str(text or "")))
 
 
-def _stem_hits_word(word: str, stem: str) -> bool:
-    """Стем совпадает с НАЧАЛОМ слова и не входит в явные исключения."""
-    if not word.startswith(stem):
-        return False
-    for blocked in _STEM_EXCLUSIONS.get(stem, ()):
-        if word.startswith(blocked):
-            return False
-    return True
-
-
 def _has_stem(text: str, stems) -> bool:
-    """Смысловой матч по СЛОВАМ (граница слова), а не по подстроке:
-    «арт» не матчит «квартира»/«март», «мем» — «мемориальный»."""
+    """Матч маркера по СЛОВАМ (граница слова), а не по подстроке:
+    фразовый маркер («в интернете») ищется как подстрока, стем — только как
+    начало слова. Не-image маркеры (поиск/фактчек/память) — форма запроса."""
     tokens = _WORD_RE.findall(text)
     for stem in stems:
-        if " " in stem or "-" in stem:      # фразовый маркер («в интернете»)
+        if " " in stem or "-" in stem:      # фразовый маркер
             if stem in text:
                 return True
-        elif any(_stem_hits_word(word, stem) for word in tokens):
+        elif any(word.startswith(stem) for word in tokens):
             return True
     return False
-
-
-def _is_intent_word(word: str) -> bool:
-    """Слово — признак поручения (действие рисования/создания или объект)."""
-    return (_has_stem(word, _DRAW_VERB_STRONG)
-            or _has_stem(word, _DRAW_VERB_PREFIXED)
-            or _has_stem(word, _CREATE_VERB_GENERIC)
-            or _has_stem(word, _IMAGE_OBJECT))
-
-
-def _reported_speech(body: str) -> bool:
-    """Чужая просьба: атрибуция стоит ДО слов поручения."""
-    match = _ATTRIBUTION_RE.search(body)
-    if match is None:
-        return False
-    for word in _WORD_RE.finditer(body):
-        if word.start() > match.start():
-            break
-        if _is_intent_word(word.group(0)):
-            return False
-    return True
 
 
 def _normalize(text: str) -> str:
@@ -503,11 +406,17 @@ def is_explicit_factcheck_request(text) -> bool:
 class ActionIntent:
     """§5.1: смысловое намерение действия (дет., без LLM).
 
-    ``intent`` — смысл («create_image»/…); ``capability`` — capability из
-    ``CAPABILITY_TOOLS``; ``confidence`` — ``high`` (действовать можно),
-    ``ambiguous`` (нужен ОДИН уточняющий вопрос), ``none`` (действия нет).
-    ``reason``/``evidence`` — наблюдаемая причина и слова-основание (R17:
-    только слова запроса, без инфраструктуры)."""
+    ``intent`` — смысл («web_search»/«fact_check»/…); ``capability`` —
+    capability из ``CAPABILITY_TOOLS``; ``confidence`` — ``high`` (действовать
+    можно), ``ambiguous`` (нужен ОДИН уточняющий вопрос), ``none`` (действия
+    нет). ``reason``/``evidence`` — наблюдаемая причина и слова-основание (R17:
+    только слова запроса, без инфраструктуры).
+
+    P0-A (2026-11-10): ``INTENT_CREATE_IMAGE`` детектором НЕ выдаётся — у
+    лексики нет семантического авторитета для пользовательской генерации.
+    Поля/свойства сохранены как СТРУКТУРНЫЙ контракт существующих потребителей
+    (``_l1_capability_consistency``, ``intent_blockers``): сконструированный
+    intent по плану L1 остаётся валидным, а словесный — больше не создаётся."""
 
     intent: str = INTENT_NONE
     capability: str = ""
@@ -518,7 +427,10 @@ class ActionIntent:
 
     @property
     def actionable(self) -> bool:
-        """Однозначное поручение создать изображение (можно действовать)."""
+        """Однозначное поручение создать изображение (можно действовать).
+
+        P0-A: детектор такое поручение больше не выставляет — решение о
+        генерации за явной командой «Бот, нарисуй …» либо за планом L1."""
         return (self.intent == INTENT_CREATE_IMAGE
                 and self.confidence == CONFIDENCE_HIGH)
 
@@ -533,120 +445,63 @@ class ActionIntent:
                 and self.confidence == CONFIDENCE_HIGH)
 
 
+def _is_explicit_image_command(body: str) -> bool:
+    """Реплика — явная команда «Бот, нарисуй <промпт>» (единственный
+    словесный вход к генерации; определение команды живёт в одном месте —
+    ``services/image_generation.is_image_keyword``). Никогда не бросает."""
+    try:
+        from services import image_generation as _ig
+        return bool(_ig.is_image_keyword(body))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def detect_action_intent(text, *, reply_text: str = "",
                          addressed: bool = False,
                          forwarded: bool = False) -> ActionIntent:
-    """Смысловой детектор поручения действия (SOUL-AMD.5.1/5.2/5.9/5.10).
+    """Детектор действий: явная команда генерации + не-image намерения.
 
-    Регекс остаётся быстрым путём очевидных команд; этот детектор — вторая,
-    смысловая дверь: «сделай мем», «нужна инфографика», «давай изобразим это
-    в виде комикса», «сделай картинку из этой ситуации» распознаются по паре
-    «действие/потребность + объект изображения». Просьба ПРИДУМАТЬ идею/
-    текст/сценарий и явное отрицание рисования генерацию НЕ запускают;
-    неоднозначное поручение («сделай это») помечается ``ambiguous``.
+    P0-A (2026-11-10, owner corrective): у лексики больше НЕТ семантического
+    авторитета для пользовательской генерации. Стем «рису» в обычном вопросе
+    («чем отличается манга… тем что её японцы рисуют?») давал
+    ``INTENT_CREATE_IMAGE`` с высокой уверенностью, после чего ход завершался
+    сообщением о квоте изображений вместо ответа по смыслу. Словари
+    ``_DRAW_VERB_*``/``_CREATE_VERB_GENERIC``/``_IMAGE_OBJECT`` и производные
+    эвристики (conceive/negation/deictic/reported/self) удалены и не
+    восстанавливаются — ни здесь, ни в соседних слоях.
 
-    COR-02: edit-интент этот детектор НЕ классифицирует (словесные словари
-    удалены) — семантическое решение «редактировать существующее» принимает
-    L1-план; здесь план отсутствует → любое поручение детектируется только
-    как create/none, edit-специфичных действий нет.
+    Единственные два авторитета генерации:
+      * явная команда «Бот, нарисуй <промпт>» — детерминированный fast-path
+        (``image_generation.IMAGE_KEYWORD_RE`` + отмена в той же реплике);
+      * план L1 (``capabilities_needed``/выбор инструмента модели).
+    Этот детектор только ЗЕРКАЛИТ команду (чтобы существующие двери
+    пре-гейта/готовности оставались согласованными), новых формулировок не
+    добавляет.
 
-    Не поручение (0 генераций) и наблюдаемая причина:
+    Прочие намерения (поиск/фактчек/память) — форма существующего маршрута,
+    не доказательство генерации.
 
-    * ``forwarded=True`` (пересланное сообщение) — чужие слова;
-    * чужая просьба («Петя сказал: нарисуй мем») — атрибуция ДО поручения;
-    * пользователь нарисует сам («я сам нарисую мем»);
-    * пример кода (код-блок/инлайн-код) — текст внутри кода не команда;
-    * стем только как начало слова: «квартира»/«март»/«мемориальный» —
-      не объект изображения.
+    Аргументы ``reply_text``/``addressed`` сохранены для совместимости
+    вызывающих; ``forwarded=True`` (чужие слова) команду не исполняет.
 
     Никогда не бросает; без LLM-вызовов и I/O."""
     try:
-        raw = str(text or "")
-        body = _without_code(_normalize(raw))
-        evidence: list[str] = []
+        body = _without_code(_normalize(text))
         if not body:
             return ActionIntent()
-        reply_body = _without_code(_normalize(reply_text))
-        negated = bool(_NEGATED_CREATE_RE.search(body))
-        explicit_draw = _has_stem(body, _DRAW_VERB_STRONG)
-        prefixed_draw = _has_stem(body, _DRAW_VERB_PREFIXED)
-        generic_create = _has_stem(body, _CREATE_VERB_GENERIC)
-        verb = explicit_draw or prefixed_draw or generic_create
-        obj = _has_stem(body, _IMAGE_OBJECT)
-        conceive = _has_stem(body, _CONCEIVE) and not bool(
-            _CONCEIVE_INSTRUMENTAL_RE.search(body))
-        need = _has_stem(body, _NEED_MARKER)
-        for flag, name in ((verb, "verb"), (obj, "image_object"),
-                           (conceive, "conceive"), (need, "need"),
-                           (negated, "negated")):
-            if flag:
-                evidence.append(name)
-        # 0. Пересылка: текст чужого сообщения — не поручение пользователя.
-        if forwarded and (verb or obj):
-            evidence.append("forwarded")
-            return ActionIntent(confidence=CONFIDENCE_NONE,
-                                reason=REASON_CREATE_FORWARDED,
-                                evidence=tuple(evidence))
-        # 1. Чужая просьба («Петя сказал: нарисуй мем») — адресат не бот/не
-        #    пользователь: генерации нет (обычный ход).
-        if (verb or obj) and _reported_speech(body):
-            evidence.append("reported")
-            return ActionIntent(confidence=CONFIDENCE_NONE,
-                                reason=REASON_CREATE_REPORTED,
-                                evidence=tuple(evidence))
-        # 2. «Я сам нарисую» — пользователь делает это сам, не поручает боту.
-        if (verb or obj) and _SELF_ACTION_RE.search(body):
-            evidence.append("self")
-            return ActionIntent(confidence=CONFIDENCE_NONE,
-                                reason=REASON_CREATE_SELF,
-                                evidence=tuple(evidence))
-        # 3. Запрет/отказ рисовать сильнее поручения (придумать ≠ нарисовать).
-        if negated and (verb or obj):
-            return ActionIntent(
-                confidence=CONFIDENCE_NONE,
-                reason=(REASON_CREATE_CONCEIVE if conceive
-                        else REASON_CREATE_NEGATED),
-                evidence=tuple(evidence), conceive_only=bool(conceive))
-        # (COR-02: словесная edit-ветка удалена — edit-решение за L1-планом.)
-        # 4. Объект изображения + действие/потребность → поручение создать.
-        if obj and (verb or need):
-            if _has_stem(body, _DISCUSS) and not explicit_draw:
-                # «давай обсудим мемы» / «расскажи про мемы» — разговор, не ТЗ.
-                return ActionIntent(evidence=tuple(evidence))
-            if conceive and not explicit_draw:
-                # «сделай текст мема»/«нужен концепт мема» — просьба придумать.
-                return ActionIntent(
-                    confidence=CONFIDENCE_NONE, reason=REASON_CREATE_CONCEIVE,
-                    evidence=tuple(evidence), conceive_only=True)
-            return ActionIntent(
-                intent=INTENT_CREATE_IMAGE,
-                capability=INTENT_CAPABILITY[INTENT_CREATE_IMAGE],
-                confidence=CONFIDENCE_HIGH,
-                reason=(REASON_CREATE_COMMAND if verb
-                        else REASON_CREATE_NEED),
-                evidence=tuple(evidence))
-        # 5. Явная команда рисовать без объекта («Бот, нарисуй») — действие.
-        #    «Сделай/создай» без объекта сюда НЕ попадают: «сделай уборку»,
-        #    «создай план на март» — не поручение картинки.
-        if explicit_draw and not conceive:
+        if _is_explicit_image_command(body):
+            if forwarded:
+                # Пересланная команда — чужие слова, не поручение пользователя.
+                return ActionIntent(confidence=CONFIDENCE_NONE,
+                                    reason=REASON_CREATE_FORWARDED,
+                                    evidence=("explicit_command", "forwarded"))
             return ActionIntent(
                 intent=INTENT_CREATE_IMAGE,
                 capability=INTENT_CAPABILITY[INTENT_CREATE_IMAGE],
                 confidence=CONFIDENCE_HIGH, reason=REASON_CREATE_COMMAND,
-                evidence=tuple(evidence))
-        # 6. Слабое «сделай/создай/перерисуй» + указатель без объекта —
-        #    существенная неоднозначность: один короткий уточняющий вопрос.
-        if (generic_create or prefixed_draw) and not conceive and not negated:
-            tokens = set(_WORD_RE.findall(body))
-            deictic = bool(tokens & set(_DEICTIC))
-            if deictic and (addressed or bool(reply_body)):
-                return ActionIntent(
-                    intent=INTENT_CREATE_IMAGE,
-                    capability=INTENT_CAPABILITY[INTENT_CREATE_IMAGE],
-                    confidence=CONFIDENCE_AMBIGUOUS,
-                    reason=REASON_CREATE_DEICTIC, evidence=tuple(evidence))
-            return ActionIntent()
-        # 7. Прочие действия (паритет §5.18): поиск/фактчек/память.
+                evidence=("explicit_command",))
+        # Прочие действия (паритет §5.18): поиск/фактчек/память. Маркер здесь —
+        # ФОРМА запроса существующего маршрута, а не доказательство генерации.
         for markers, intent, reason in (
                 (_FACTCHECK_MARKERS, INTENT_FACT_CHECK, REASON_FACTCHECK),
                 (_SEARCH_MARKERS, INTENT_WEB_SEARCH, REASON_SEARCH),
@@ -656,7 +511,7 @@ def detect_action_intent(text, *, reply_text: str = "",
                     intent=intent, capability=INTENT_CAPABILITY[intent],
                     confidence=CONFIDENCE_HIGH, reason=reason,
                     evidence=(intent,))
-        return ActionIntent(evidence=tuple(evidence))
+        return ActionIntent()
     except Exception:      # pragma: no cover - защитная ветка
         return ActionIntent()
 
