@@ -104,10 +104,12 @@ def _event_names() -> set[str]:
 async def test_schema_v46_additive_idempotent_and_after_v45(tmp_path):
     assert 46 > 45  # deployed v45 voice_transcript, next free = 46
     steps = [s.version for s in DatabaseService.migration_steps()]
-    assert max(steps) == 46
+    # QND-NONDET (10.11.2026): хвост цепочки — v47 `semantic_schedule`.
+    # Шаг v46 (уроки) и его DDL не менялись; пины хвоста переизданы.
+    assert max(steps) == 47
     db = await _db(tmp_path)
     try:
-        assert await _version(db) == 46
+        assert await _version(db) == 47
         cols = await _columns(db, "mca_lessons")
         for name in ("confirmation_count", "independent_sources",
                      "origin_kind", "semantic_rule_key",
@@ -128,7 +130,7 @@ async def test_schema_v46_additive_idempotent_and_after_v45(tmp_path):
     again = DatabaseService(str(tmp_path / "lesson_contract.db"))
     await again.initialize()
     try:
-        assert await _version(again) == 46
+        assert await _version(again) == 47
         cursor = await again.db.execute(
             "SELECT COUNT(*) AS c FROM mca_lessons_semantic_templates")
         assert int((await cursor.fetchone())["c"]) == len(
