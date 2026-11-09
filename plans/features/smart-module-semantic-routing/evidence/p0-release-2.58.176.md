@@ -137,8 +137,11 @@ video_intent.mentions_video(text)` — источник обоих симпто�
 | `/healthz` локально | `{"status":"ok","version":"2.58.176"}` |
 | `/healthz` публично | `{"status":"ok","version":"2.58.176"}` |
 | Сервис | `SubState=running`, `MainPID=3466895`, `ExecMainStatus=0`, **`NRestarts=0`** |
-| Журнал с рестарта | 195 строк, `Traceback=0`, `ERROR=0`, `CRITICAL=0`, unit-фейлов 0 |
+| Журнал с рестарта (повторная сверка через ~9 мин) | 447 строк, `Traceback=0`, `CRITICAL=0`, `ERROR=2` |
+| `ERROR`-строки после рестарта | обе — `services.anticliche_worker`: `pipeline_step step=fetch status=error reason=sources_unavailable` / `reason=wikipedia` (внешний источник недоступен; кода anticliche в дельте релиза нет → не связано с выкатом) |
+| Traceback в старом процессе до выклада (16:03, PID 3439455) | 4× `[meme] attempt journal failed` / `sqlite3.OperationalError: database is locked` — ДО рестарта, кода мем-инициативы в дельте нет → не связано с выкатом |
 | Канон справки на старте | `[config_cache] info canon migrated \| v=9→10` |
+| Канон в PG (read-back на живом процессе) | `canon_version=10`, `canon_delivered_version=10`, html 12 663 символа, `canon_drift=False` |
 | `/web/app.js` отданный | sha256 `f91ce8ec1ec6446a6fa9daf034a5df93750b8e31c1401ba5fd930b7b69dcca91` |
 | `/web/app.js` в checkout | тот же sha256 — **совпадает** |
 | `/web/app.js` в 2.58.175 | тот же sha256 `f91ce8ec…` — **не отличается**, потому что релиз не меняет `web/` (0 файлов): фронтенд байт-в-байт прежний |
@@ -162,6 +165,7 @@ video_intent.mentions_video(text)` — источник обоих симпто�
 | Реестр `youtube` | `["транскрипт", "че за видос"]` — ровно две |
 | `matches_group('о чем видео' / 'поясни за видос' / 'че по видосу' / 'выжимка из видео')` | все `False` |
 | `INFO_CANON_VERSION` | `10` |
+| Доставленный канон в PG (`content.info_how_it_works.html`, read-back) | `canon_version=10`, `canon_delivered_version=10`, 12 663 символа, `canon_drift=False` |
 | Канон содержит «о чем видео» / «поясни за видос» / «че по видосу» / «выжимка из видео» | все `False` |
 | Канон содержит «транскрипт» / «че за видос» | `True` / `True` |
 | «Бот, что происходит в чате?» → `_triggered_body` / `_handle_unclassified` | `None` / `UNHANDLED` |
