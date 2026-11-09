@@ -3883,9 +3883,23 @@ class MemoryManager:
 
     async def vector_search(self, chat_id: int, query: str, limit: int) -> list[str]:
         await self._ensure_vec_retry()          # Epic 46 (55.8): deferred-реактивация
+        # MOD-ACL-UX-01 M2 (MAC-S10-15/08): CHAT-настройка «использовать
+        # поиск/память в этом чате» (`flags.memory_search_enabled`, единый
+        # `mca_gates.memory_search_enabled`) отключает ВЕКТОРНЫЙ lookup только
+        # этого чата. Общий индекс, пул эмбеддингов и backlog других чатов не
+        # затрагиваются: OFF — это `False` для своего чата, а не состояние
+        # сервиса. Выдача честно уходит в FTS-путь (штатный фолбэк), а не
+        # «пусто».
+        vector_allowed = True
+        try:
+            from services import mca_gates
+            vector_allowed = await mca_gates.memory_search_enabled(int(chat_id))
+        except Exception:      # pragma: no cover — fail-open как остальные гейты
+            vector_allowed = True
         # MCA-07 D4/A06: несовпадающее поколение индекса → не обслуживаем
         # старые векторы (FTS-only до перестройки mca-04b).
-        if self._vec_available and await self._index_generation_ok("smart_archive"):
+        if vector_allowed and self._vec_available \
+                and await self._index_generation_ok("smart_archive"):
             try:
                 # ASAP-4 (T-4406): query-embed = P0 (online retrieval).
                 vectors = await self._embed([query], priority=_PRIO_QUERY)

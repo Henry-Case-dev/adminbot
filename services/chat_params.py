@@ -311,6 +311,37 @@ class ChatParamsCache:
         root, _updated_at, ok = await self._load(chat_id)
         return root, ok
 
+    async def get_chat_params_fresh(self, chat_id: int
+                                    ) -> tuple[dict, str | None, bool]:
+        """(root, updated_at, ok) — чтение ПРОФИЛЯ БЕЗ TTL-кэша.
+
+        Нужно ровно одному сценарию: проверка capability непосредственно
+        перед пользовательским side effect (MOD-ACL-UX-01 M2 §2.5). TTL 120 с
+        и NOTIFY-инвалидация нормальны для горячего пути, но «уже
+        запланированная отправка» обязана увидеть OFF, даже если NOTIFY
+        потерялся. Источник тот же (`SELECT_PROFILE_SQL`), второго хранилища
+        нет; успешное чтение обновляет кэш (одна копия данных).
+        ``ok=False`` ⇔ chat-слой недоступен (нет пула/ошибка PG)."""
+        pool = self._pool()
+        if pool is None:
+            return {}, None, False
+        try:
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
+        except Exception:
+            logger.warning(
+                "[chat_params] fresh read failed | chat=%s", chat_id,
+                exc_info=True)
+            return {}, None, False
+        root: dict = {}
+        updated_at = None
+        if row is not None:
+            root = _load_chat_params(row.get("chat_params"))
+            updated_at = _iso(row.get("updated_at"))
+        async with self._lock:
+            self._items[int(chat_id)] = (time.monotonic(), root, updated_at)
+        return root, updated_at, True
+
 
 async def invalidate_chat_from_notify(payload) -> None:
     """F7 (T-1764, ADR-1018-7 D6): обработчик payload канала
@@ -1046,6 +1077,52 @@ def read_global(key: str, default=None) -> tuple[object, str]:
     return default, SOURCE_DEFAULT
 
 
+def read_override_sync(chat_id, key: str,
+                       default=None) -> tuple[object, bool]:
+    """(значение, True) из УЖЕ прогретого in-memory слоя чата, без I/O.
+
+    Единственная синхронная точка чтения override: сюда сведены потребители,
+    которым нельзя ждать (`meme_initiative.resolve_timezone`,
+    `worker_budget._chat_tz_name`, диагностический
+    `worker_settings.setting_source`). Раньше каждый лез в приватные
+    `ChatParamsCache._items` — три копии знания о внутреннем лейауте кэша.
+    Семантика ровно прежняя: значение из `overrides` без TTL-обновления;
+    непрогретый чат/мусор → ``(default, False)``."""
+    cache = _chat_params_cache
+    items = getattr(cache, "_items", None) if cache is not None else None
+    if chat_id is None or not isinstance(items, dict):
+        return default, False
+    entry = items.get(int(chat_id))
+    root = entry[1] if entry is not None and len(entry) >= 2 else None
+    if not isinstance(root, dict):
+        return default, False
+    overrides = root.get("overrides") or {}
+    if not isinstance(overrides, dict) or key not in overrides:
+        return default, False
+    try:
+        value = normalize_value(key, overrides[key])
+    except Exception:
+        return default, False
+    spec = get_by_pg_key(key)
+    if spec is not None and not _cast_type_ok(spec.type, value):
+        return default, False
+    return value, True
+
+
+def blocks_side_effect(state: "CapabilityState | None") -> str | None:
+    """Код причины, если capability НЕЛЬЗЯ применять (side effect запрещён).
+
+    None — можно. Это единственное правило «перед публикацией/отправкой»:
+    ``effective_runtime`` уже включает emergency-ось и техническую
+    готовность; ``reason_code`` даёт машиночитаемую причину отказа вместо
+    молчаливого пропуска (§2.2/§2.5)."""
+    if state is None:
+        return None
+    if state.effective_runtime:
+        return None
+    return state.reason_code or REASON_CAPABILITY_OFF
+
+
 def global_flag_value(key: str, default=None) -> tuple[bool, str]:
     """Глобальный слой параметра: hot/ConfigCache → ``default``.
 
@@ -1197,14 +1274,27 @@ async def _root_for(chat_id: int | None) -> dict:
     return root
 
 
-async def _root_and_version(chat_id: int | None) -> tuple[dict, str | None]:
-    """(root, optimistic-версия профиля) одним чтением кэша (§2.4-6)."""
+async def _root_and_version(chat_id: int | None,
+                            *, fresh: bool = False
+                            ) -> tuple[dict, str | None]:
+    """(root, optimistic-версия профиля) одним чтением кэша (§2.4-6).
+
+    ``fresh=True`` (MOD-ACL-UX-01 M2 §2.5): профиль перечитывается из PG БЕЗ
+    TTL-кэша — это путь проверки непосредственно перед пользовательским side
+    effect. Резолвер остаётся тем же; «свежесть» — свойство ЧТЕНИЯ, а не
+    вторая семантика. Недоступный слой → обычный кэш/hot-путь (fail-open)."""
     if chat_id is None:
         return {}, None
     cache = _chat_params_cache
     if cache is None:
         return {}, None
     try:
+        if fresh:
+            fresh_loader = getattr(cache, "get_chat_params_fresh", None)
+            if callable(fresh_loader):
+                root, updated_at, ok = await fresh_loader(int(chat_id))
+                if ok:
+                    return root or {}, updated_at
         loader = getattr(cache, "get_chat_params_full", None)
         if callable(loader):
             root, updated_at = await loader(int(chat_id))
@@ -1229,16 +1319,18 @@ async def resolve_param_capability(chat_id: int | None, key: str, *,
                                    can_read: bool | None = None,
                                    can_edit: bool | None = None,
                                    with_observation: bool = False,
+                                   fresh: bool = False,
                                    ) -> CapabilityState:
     """Capability из ``chat_params.overrides`` (каталоговый параметр).
 
     GLOBAL-слой — существующий ``hot.get(key, default)`` этого же модуля;
     второй копии чтения нет. ``with_observation=True`` добавляет
     observed_at/last_activity_at/version (для API/UI; горячие пути воркеров
-    остаются без этих чтений)."""
+    остаются без этих чтений). ``fresh=True`` — профиль читается из PG без
+    TTL-кэша (проверка перед side effect, §2.5)."""
     version = None
     if root is None:
-        root, version = await _root_and_version(chat_id)
+        root, version = await _root_and_version(chat_id, fresh=fresh)
     value, source = global_flag_value(key, default)
     cap = capability or key
     observed_at = last_activity = None
@@ -1272,14 +1364,16 @@ async def resolve_gate_capability(chat_id: int | None, feature: str, *,
                                    can_edit: bool | None = None,
                                    authorized: bool | None = None,
                                    with_observation: bool = False,
+                                   fresh: bool = False,
                                    ) -> CapabilityState:
     """Capability из ``chat_params.gates`` (домен feature_gates).
 
     GLOBAL-слой передаёт владелец маппинга флагов (``feature_gates``):
-    резолвер отвечает только за три-состояние и приоритет §2.1."""
+    резолвер отвечает только за три-состояние и приоритет §2.1.
+    ``fresh=True`` — профиль без TTL-кэша (проверка перед side effect)."""
     version = None
     if root is None:
-        root, version = await _root_and_version(chat_id)
+        root, version = await _root_and_version(chat_id, fresh=fresh)
     observed_at = last_activity = None
     if with_observation:
         observed_at = _now_iso()
@@ -1307,6 +1401,7 @@ async def resolve_module_capability(chat_id: int | None, module_id: str, *,
                                     can_read: bool | None = None,
                                     can_edit: bool | None = None,
                                     with_observation: bool = False,
+                                    fresh: bool = False,
                                     ) -> CapabilityState | None:
     """Состояние продуктового модуля реестра (``module_registry``).
 
@@ -1331,5 +1426,5 @@ async def resolve_module_capability(chat_id: int | None, module_id: str, *,
         root=root, emergency_block=emergency, ready=ready,
         authorized=authorized, observed=observed,
         prerequisites=prerequisites, can_read=can_read, can_edit=can_edit,
-        with_observation=with_observation)
+        with_observation=with_observation, fresh=fresh)
 

@@ -206,7 +206,15 @@ ROUTES_SHA256_F11 = (
     # новых @router-маршрутов нет).
     # Хэш ниже — фактический sha256 web/api/routes.py линии evol/impl на
     # 2c1af33e (осознанное переутверждение, L-F11S-1).
-    "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1")
+    # MOD-ACL-UX-01 M2 (09.11.2026, L-F11S-1 conscious requalification):
+    # контентная Δ в СУЩЕСТВУЮЩЕМ POST /api/config — режим записи
+    # `mode="inherit"` (снять ТОЛЬКО chat-override своего ключа; null не
+    # пишется, промптам отказано 422) и `removed`-набор в retry-merge; в
+    # GET /api/config — аддитивные `chat_state` у элемента и `modules[]` из
+    # канонического резолвера (`resolve_module_capability`). Новых
+    # @router-маршрутов НЕТ (Δ routes=0), RBAC/маскировка/DDL не менялись,
+    # f8_baseline не переиздавался. Хэш переутверждён осознанно.
+    "1a7d0d4e89c9203b3047700fd4c46e5d0372a03385f88af224811db5749d46f4")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

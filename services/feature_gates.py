@@ -226,7 +226,8 @@ def _global_flag_sourced(feature: str) -> tuple[bool, str]:
 async def gate_state(chat_id: int, feature: str, root: dict | None = None, *,
                      fallback: bool | None = None, ctx=None,
                      opt_in: bool | None = None, with_readiness: bool = False,
-                     prerequisites=None, with_observation: bool = False):
+                     prerequisites=None, with_observation: bool = False,
+                     fresh: bool = False):
     """Каноническое состояние гейта (все оси) или ``None`` вне домена.
 
     Возвращает `chat_params.CapabilityState`: chat_state (INHERIT/ON/OFF),
@@ -240,11 +241,16 @@ async def gate_state(chat_id: int, feature: str, root: dict | None = None, *,
     Включается только на state/API-поверхности: горячий путь воркера
     передаёт `ready=None` («не оценивалось»), иначе снимок UI начал бы
     управлять реальным исполнением (§2.2: оси не схлопываются).
+
+    ``fresh`` — профиль чата читается из PG без TTL-кэша. Используется
+    ТОЛЬКО проверкой перед пользовательским side effect (§2.5): уже
+    запланированная публикация обязана увидеть OFF даже при потерянном
+    NOTIFY.
     """
     if feature not in ALL_GATED_FEATURES:
         return None
     from services import chat_params as cp
-    if root is None:
+    if root is None and not fresh:
         try:
             from services.chat_params import get_all_chat_params
             root = await get_all_chat_params(chat_id)
@@ -275,7 +281,30 @@ async def gate_state(chat_id: int, feature: str, root: dict | None = None, *,
         chat_alias_key=COMPAT_OVERRIDE_KEYS.get(feature),
         prerequisites=prerequisites, consent=consent,
         can_read=can_read, can_edit=can_edit,
-        with_observation=with_observation)
+        with_observation=with_observation, fresh=fresh)
+
+
+async def gate_blocks_publication(chat_id: int, feature: str) -> str | None:
+    """Код причины, если публикацию этого чата публиковать НЕЛЬЗЯ (§2.5).
+
+    Единственная финальная проверка для отправляющих путей домена `gates`
+    (nostalgia и др.): состояние чата перечитывается СВЕЖИМ (без TTL-кэша)
+    непосредственно перед сетевым вызовом. ``None`` — можно отправлять.
+
+    Сюда НЕ входит координация публикаций (бронь) — она остаётся у своего
+    владельца; эта функция отвечает только на вопрос пользовательской
+    настройки/аварийной оси чата.
+    """
+    if feature not in ALL_GATED_FEATURES:
+        return None
+    try:
+        state = await gate_state(chat_id, feature, fresh=True)
+    except Exception:
+        logger.warning("[gates] pre-publish check failed — allow | chat=%s | "
+                       "feature=%s", chat_id, feature, exc_info=True)
+        return None
+    from services import chat_params as cp
+    return cp.blocks_side_effect(state)
 
 
 async def gates_enabled(chat_id: int, feature: str,

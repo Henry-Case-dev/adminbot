@@ -898,17 +898,14 @@ def resolve_timezone(chat_id: int | None, *,
         chosen = global_tz
         source = "global" if global_tz else ""
         if chat_id is not None:
+            # MOD-ACL-UX-01 M2 (E-инвентарь): override читается единой
+            # синхронной точкой `chat_params.read_override_sync`, а не
+            # приватным `ChatParamsCache._items` этого модуля.
             try:
-                from services.chat_params import get_chat_params_cache
-                cache = get_chat_params_cache()
-                items = getattr(cache, "_items", None) if cache is not None \
-                    else None
-                entry = items.get(int(chat_id)) if isinstance(items, dict) \
-                    else None
-                root = entry[1] if entry is not None else None
-                override = (root or {}).get("overrides", {}).get(
-                    "limits.chat_timezone")
-                if override:
+                from services import chat_params as _cp
+                override, found = _cp.read_override_sync(
+                    int(chat_id), "limits.chat_timezone")
+                if found and override:
                     chosen = str(override)
                     source = "chat"
             except Exception:
@@ -2118,16 +2115,15 @@ async def _deliver_deferred_row(db, row: dict, *, cfg: MemeSettings,
                                job_status=JOB_FAILED)
 
     # (3)-(5) Содержательные и правовые условия на момент РЕАЛЬНОЙ отправки.
-    module_now = _as_bool(
-        await _param(int(chat_id), KEY_ENABLED, cfg.enabled), cfg.enabled)
-    if not module_now:
-        return await _terminal(SKIP_DISABLED, detail="module_disabled")
-    if initiative_enabled is not None and not initiative_enabled():
-        return await _terminal(SKIP_INITIATIVE_DISABLED,
-                               detail="initiative_disabled")
-    if chat_enabled is not None and not await chat_enabled(int(chat_id)):
-        return await _terminal(SKIP_INITIATIVE_DISABLED,
-                              detail="chat_gate_disabled")
+    # MOD-ACL-UX-01 M2 §2.5: тот же порядок осей, что и перед сетевым
+    # вызовом ниже (`_final_gate_reason`) — второй копии правил нет.
+    block = await _final_gate_reason(
+        db, int(chat_id), cfg, chat_enabled=chat_enabled,
+        initiative_enabled=initiative_enabled)
+    if block:
+        return await _terminal(
+            block, detail=("chat_gate_disabled" if block ==
+                           SKIP_INITIATIVE_DISABLED else "module_disabled"))
     check_rights = rights_check or (
         lambda cid: _default_rights_check(db, int(cid)))
     rights_ok, rights_code, rights_detail = await check_rights(int(chat_id))
@@ -2238,6 +2234,21 @@ async def _deliver_deferred_row(db, row: dict, *, cfg: MemeSettings,
                 if sending.reason == "publication_in_flight"
                 else SKIP_PUBLICATION_EXPIRED)
         return await _wait(code, str(sending.detail or ""))
+    # §2.5 M2: ПОСЛЕДНЯЯ проверка чата перед первым side effect — слот
+    # отправки мог ждаться, а чат выключили уже после брони.
+    block = await _final_gate_reason(
+        db, int(chat_id), cfg, chat_enabled=chat_enabled,
+        initiative_enabled=initiative_enabled)
+    if block:
+        await coordinator.release(int(chat_id), claim.claim_id,
+                                  published=False, holder_kind=OUTPUT_KIND,
+                                  holder_ref=run_id, now=ts)
+        # Терминально: байты отложенного результата удаляются, строка закрыта
+        # причиной OFF. Так повторное включение не даёт replay/backfill
+        # (MAC-S2-115): старый результат не «догоняет» чат задним числом.
+        return await _terminal(
+            block, detail=("chat_gate_disabled" if block ==
+                           SKIP_INITIATIVE_DISABLED else "module_disabled"))
     try:
         message = await sender(int(chat_id), content, "")
     except Exception:
@@ -2260,6 +2271,42 @@ async def _deliver_deferred_row(db, row: dict, *, cfg: MemeSettings,
     return await _terminal("sent", detail=f"tg:{tg_message_id}",
                            event=EVENT_PUBLICATION_SENT, delivered=True,
                            delivery="sent", job_status=JOB_COMPLETED)
+
+
+async def _final_gate_reason(db, chat_id: int, cfg: MemeSettings, *,
+                            chat_enabled=None, initiative_enabled=None) -> str | None:
+    """Код причины, если публиковать мем в этот чат НЕЛЬЗЯ (§2.5 M2).
+
+    Вызывается НЕПОСРЕДСТВЕННО перед сетевым вызовом отправки: генерация
+    изображения занимает минуты, и чат могли выключить, пока она шла. Порядок
+    осей фиксирован: аварийный/мастер инициативы → чатовый гейт инициативы →
+    продуктовый тумблер мемов чата. ``None`` — можно отправлять.
+
+    Проверки дешёвые (кэш настроек) и идемпотентные: повтор не пишет ни
+    строк журнала, ни квоты.
+    """
+    if initiative_enabled is not None:
+        try:
+            if not initiative_enabled():
+                return SKIP_INITIATIVE_DISABLED
+        except Exception:
+            logger.warning("[meme] initiative gate read failed — allow | "
+                           "chat=%s", chat_id, exc_info=True)
+    if chat_enabled is not None:
+        try:
+            if not await chat_enabled(int(chat_id)):
+                return SKIP_INITIATIVE_DISABLED
+        except Exception:
+            logger.warning("[meme] chat gate read failed — allow | chat=%s",
+                           chat_id, exc_info=True)
+    try:
+        module_now = _as_bool(
+            await _param(int(chat_id), KEY_ENABLED, cfg.enabled), cfg.enabled)
+    except Exception:
+        module_now = bool(cfg.enabled)
+    if not module_now:
+        return SKIP_DISABLED
+    return None
 
 
 async def _default_publish_gate(db, chat_id: int, now_ts: int):
@@ -2877,6 +2924,24 @@ async def consider_chat(
                                         reason_event=EVENT_PUBLICATION_FAILED)
         blocked.outcome = "blocked"
         return blocked
+    # ── §2.5 M2: финальная проверка ЧАТА перед первым side effect. Картинка
+    # уже сгенерирована (минуты), поэтому OFF, выставленный в полёте, обязан
+    # отменить публикацию: результат — ровно один терминальный исход с
+    # причиной, без второй доставки. Ручной `/meme` — диагностика и не
+    # гейтится пользовательским тумблером (прежнее поведение).
+    # В отложенную очередь результат НЕ кладётся: это «догрузка» после
+    # включения, то есть неконтролируемый replay/backfill (MAC-S2-115).
+    if not manual:
+        block = await _final_gate_reason(
+            db, int(chat_id), cfg, chat_enabled=chat_enabled,
+            initiative_enabled=initiative_enabled)
+        if block:
+            facts.setdefault(STAGE_PUBLISH, {})["capability"] = str(block)
+            dropped = await _drop_claim(
+                block, detail="chat_gate_disabled"
+                if block == SKIP_INITIATIVE_DISABLED else "module_disabled")
+            dropped.outcome = "blocked"
+            return dropped
     # ── `claimed → sending` — единственное разрешение звать sender ─────────
     sending = await coordinator.begin_sending(int(chat_id), claim.claim_id,
                                               now=ts, manual=bool(manual))

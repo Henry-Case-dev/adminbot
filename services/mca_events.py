@@ -397,6 +397,16 @@ REASON_CODES = frozenset({
     # `invalid_limit` / `limit_not_allowed` (невалидный ui_search-запрос).
     "ambiguous_subject", "subject_mismatch", "invalid_purpose",
     "invalid_limit", "limit_not_allowed",
+    # MOD-ACL-UX-01 M2 (§2.2 ТЗ, единый словарь): машинные коды состояния
+    # capability. Эмитятся проверкой перед side effect (`capability_off` —
+    # пользовательский выбор чата выключен; `emergency_block` — аварийная
+    # env-ось; `permission_denied` — нет права читать; `consent_required` —
+    # чат не подтвердил участие в opt-in; `not_ready` — предпосылки не
+    # выполнены без конкретной группы). `<group>_missing:<name>` и
+    # `gate_conflict:<x>` остаются динамическими и попадают в словарь через
+    # свои точные литералы там, где реально эмитятся, а не как шаблон.
+    "capability_off", "emergency_block", "permission_denied",
+    "consent_required", "not_ready",
 })
 
 # FC-OBSERVABILITY-01: whitelist-miss больше НЕ теряет причину. Неизвестный код

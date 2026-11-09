@@ -450,12 +450,71 @@ async def chat_observer_enabled(chat_id) -> bool:
     наблюдатель — про групповые чаты)."""
     if chat_id is None or int(chat_id) >= 0:
         return False
+    state = await chat_capability_state(int(chat_id))
+    return bool(state is not None and state.effective_runtime)
+
+
+async def chat_capability_state(chat_id, *, fresh: bool = False):
+    """Состояние чатового гейта инициативы через ЕДИНЫЙ резолвер.
+
+    Ключ `initiative.enabled` (каталоговый bool, per-chat) резолвится
+    `chat_params.resolve_param_capability`: явный выбор чата → глобальный
+    дефолт → заводской. Аварийная env-ось (`MCA_INTENTS_ENABLED`) передаётся
+    отдельным `emergency_block` и НЕ смешивается с пользовательской
+    настройкой (§2.3 ТЗ).
+
+    ``fresh=True`` — профиль читается из PG без TTL-кэша: только для
+    проверки перед пользовательским side effect (§2.5).
+    """
     try:
         from config.settings import settings
         default = getattr(settings, "INITIATIVE_ENABLED", True)
-    except Exception:
+    except Exception:      # pragma: no cover — защитная ветка
         default = True
-    return bool(await _param(int(chat_id), KEY_CHAT_ENABLED, default))
+    emergency = False
+    try:
+        from services import mca_gates
+        emergency = not mca_gates.intents_enabled()
+    except Exception:      # pragma: no cover — защитная ветка
+        emergency = False
+    try:
+        from services import chat_params
+        return await chat_params.resolve_param_capability(
+            int(chat_id), KEY_CHAT_ENABLED, capability="initiative",
+            default=default, emergency_block=emergency, fresh=fresh)
+    except Exception:      # pragma: no cover — защитная ветка
+        logger.warning("[b01] chat capability resolve failed — allow | "
+                       "chat=%s", chat_id, exc_info=True)
+        return None
+
+
+async def initiative_publish_block_reason(chat_id) -> str | None:
+    """Причина, по которой инициативную реплику НЕЛЬЗЯ отправлять (§2.5).
+
+    Финальная проверка непосредственно перед отправкой для ВСЕХ текстовых
+    путей инициативы (наблюдатель, отложенное намерение heartbeat,
+    делегированный кандидат nostalgia):
+
+    * мастер (`observer_enabled`: K1 + `flags.initiative_observer_enabled`) —
+      продуктовая ось выключена глобально;
+    * чатовый гейт `initiative.enabled` — СВЕЖИЙ профиль, а не снимок,
+      сделанный при создании задания (§2.5: OFF из устаревшего снимка не
+      публикует инициативу).
+
+    ``None`` — отправлять можно. Никогда не бросает (недоступность слоя не
+    выдумывает запрет: fail-open, как и остальные продуктовые гейты)."""
+    if chat_id is None or int(chat_id) >= 0:
+        return "capability_off"      # инициатива живёт только в группах
+    try:
+        if not observer_enabled():
+            return "capability_off"
+    except Exception:      # pragma: no cover — защитная ветка
+        pass
+    state = await chat_capability_state(int(chat_id), fresh=True)
+    if state is None:
+        return None
+    from services import chat_params
+    return chat_params.blocks_side_effect(state)
 
 
 async def frequency_profile(chat_id) -> dict:
@@ -2320,7 +2379,22 @@ class InitiativeObserverRunner:
             """`claimed → sending` ровно перед отправкой (решает, не объясняет).
 
             Возвращает код причины при отказе; ``None`` — разрешено отправлять.
+
+            MOD-ACL-UX-01 M2 §2.5: ПЕРВЫМ делом — свежая проверка настройки
+            конкретного чата (мастер + `initiative.enabled` без TTL-кэша).
+            Задание могло быть создано при ON, а чат выключили, пока шли
+            LLM/генерация: OFF из устаревшего снимка публикацию не делает.
+            Своя бронь при этом освобождается вызывающим `finally` как
+            неопубликованная — дубля и второй доставки нет.
             """
+            block = await initiative_publish_block_reason(chat_id)
+            if block:
+                counters["capability_blocked"] = int(
+                    counters.get("capability_blocked") or 0) + 1
+                self._emit("initiative_publication_cancelled", outcome="skipped",
+                           stage="capability:off", chat_id=chat_id,
+                           reason_code=block)
+                return block
             decision = await publication.begin_sending(
                 chat_id, claim.claim_id, now=int(time.time()))
             if decision.granted:

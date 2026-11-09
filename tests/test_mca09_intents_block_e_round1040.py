@@ -242,8 +242,25 @@ def test_nostalgia_delegation_gate_and_legacy_parity(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_nostalgia_delegate_initiative_sent(tmp_path):
+    """T-5038: делегированный кандидат отправляется ПРИ включённом гейте.
+
+    MOD-ACL-UX-01 M2 §2.5: перед отправкой `_delegate_initiative` повторно
+    проверяет чатовый гейт `nostalgia` (OFF в полёте = публикации нет).
+    Поэтому предусловие метода — чат, где гейт разрешён: это ровно то
+    состояние, в котором `_process_chat` вызывает делегирование.
+    """
+    from services import chat_params
     from services import nostalgia_worker as nw
     db = await _db(tmp_path)
+
+    class _Cache:
+        async def get_chat_params(self, chat_id):
+            return {"overrides": {}, "gates": {"nostalgia": True}}
+
+        async def get_chat_params_full(self, chat_id):
+            return await self.get_chat_params(chat_id), None
+
+    chat_params.set_chat_params_cache(_Cache())
     try:
         worker = nw.NostalgiaWorker(db=db, bot=_FakeBot())
         result = await worker._delegate_initiative(
@@ -253,6 +270,34 @@ async def test_nostalgia_delegate_initiative_sent(tmp_path):
         # source/trigger делегирования — nostalgia/ nostalgia_due
         assert result["delivery_kind"] == mi.DELIVERY_TEXT
     finally:
+        chat_params.set_chat_params_cache(None)
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_nostalgia_delegate_refused_when_gate_off(tmp_path):
+    """MOD-ACL-UX-01 M2 §2.5: гейт чата OFF → делегированная публикации нет."""
+    from services import chat_params
+    from services import nostalgia_worker as nw
+    db = await _db(tmp_path)
+
+    class _Cache:
+        async def get_chat_params(self, chat_id):
+            return {"overrides": {}, "gates": {"nostalgia": False}}
+
+        async def get_chat_params_full(self, chat_id):
+            return await self.get_chat_params(chat_id), None
+
+    chat_params.set_chat_params_cache(_Cache())
+    try:
+        worker = nw.NostalgiaWorker(db=db, bot=_FakeBot())
+        result = await worker._delegate_initiative(
+            CHAT, "кстати, год назад…", {"kind": "year_back", "fact_id": 8})
+        assert result["status"] == "cancelled"
+        assert result["reason_code"] == "capability_off"
+        assert worker.bot.sent == []
+    finally:
+        chat_params.set_chat_params_cache(None)
         await db.close()
 
 

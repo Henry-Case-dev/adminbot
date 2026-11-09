@@ -774,10 +774,29 @@ class MemoryMaintenanceService:
                         "chat=%s", chat_id)
                     return
                 situation = await situation_builder(self.db, chat_id, row)
+
+                async def _guarded() -> str | None:
+                    """Свежая проверка чата перед отправкой (§2.5, MAC-S10-20).
+
+                    Отложенный результат старой задачи (due-намерение) не
+                    публикуется в чат, который выключили, пока намерение
+                    ждало своего хода. Проверка — ПЕРВОЙ, до брони
+                    `claimed → sending`; отказ = намерение остаётся
+                    `pending`/`deferred` и перепроверяется существующим
+                    планированием, второго текста нет."""
+                    from services import initiative_observer as _obs
+                    block = await _obs.initiative_publish_block_reason(chat_id)
+                    if block:
+                        logger.info(
+                            "[f6] initiative chat off — no send | chat=%s | "
+                            "reason=%s", chat_id, block)
+                        return block
+                    return await publication.guard()
+
                 result = await initiative_entry(
                     bot=self.bot, chat_id=chat_id, situation=situation,
                     candidates=[candidate], db=self.db, writer_service=service,
-                    publish_guard=publication.guard)
+                    publish_guard=_guarded)
                 status = str((result or {}).get("status") or "error")
                 logger.info(
                     "[mca09] initiative candidate | chat=%s | status=%s",

@@ -593,17 +593,14 @@ def _chat_tz_name(chat_id: int | None) -> str:
                             getattr(settings, "CHAT_TIMEZONE", "")) or "")
     tz = global_tz
     if chat_id is not None:
+        # MOD-ACL-UX-01 M2 (E-инвентарь): единая синхронная точка чтения
+        # override — `chat_params.read_override_sync` (приватный `_items`
+        # больше не читается из потребителей).
         try:
-            from services.chat_params import get_chat_params_cache
-            cache = get_chat_params_cache()
-            items = getattr(cache, "_items", None) if cache is not None \
-                else None
-            entry = items.get(int(chat_id)) if isinstance(items, dict) \
-                else None
-            root = entry[1] if entry is not None else None
-            override = (root or {}).get("overrides", {}).get(
-                "limits.chat_timezone")
-            if override:
+            from services import chat_params as _cp
+            override, found = _cp.read_override_sync(
+                int(chat_id), "limits.chat_timezone")
+            if found and override:
                 tz = str(override)
         except Exception:
             tz = global_tz

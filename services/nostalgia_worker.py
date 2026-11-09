@@ -1133,10 +1133,26 @@ class NostalgiaWorker:
                 return {"status": "disabled"}
             situation = _mi.InitiativeSituation(
                 trigger_kind="nostalgia_due", chat_id=chat_id)
+
+            async def _guarded():
+                """Свежая проверка чата перед отправкой (§2.5).
+
+                Текст уже сгенерирован, но «Ностальгию» в этом чате могли
+                выключить, пока шла генерация: OFF из снимка создания не
+                публикует. Причина отказа — машиночитаемый код канонического
+                резолвера; кандидат при этом не «рассказан» (остаётся в пуле).
+                """
+                from services.feature_gates import gate_blocks_publication
+                block = await gate_blocks_publication(int(chat_id),
+                                                      "nostalgia")
+                if block:
+                    return block
+                return await publication.guard()
+
             result = await handle_initiative(
                 bot=self.bot, chat_id=chat_id, situation=situation,
                 candidates=[cand], prepared_text=text, db=self.db,
-                publish_guard=publication.guard)
+                publish_guard=_guarded)
             status = str((result or {}).get("status") or "error")
             return result
         except Exception:

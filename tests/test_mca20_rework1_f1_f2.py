@@ -380,6 +380,8 @@ class TestValidatorStage:
         # MEMORY-06 (72cf7cf4, единый retrieval §4.4/§7.1): 320 → 325 (+5:
         # ambiguous_subject/subject_mismatch/invalid_purpose/invalid_limit/
         # limit_not_allowed — вне validator-стадии).
-        assert len(mca_events.REASON_CODES) == 325
+        # MOD-ACL-UX-01 M2 (§2.2, 09.11.2026): 325 → 330 (+5 capability-кодов,
+        # тоже вне validator-стадии).
+        assert len(mca_events.REASON_CODES) == 330
         assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
         assert tf.TEMPORAL_VALIDATOR_SYSTEM

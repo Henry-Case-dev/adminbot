@@ -194,7 +194,12 @@ def test_reason_codes_269():
     # unsafe_or_unavailable_target / unified_retrieval / speech_guard_flagged).
     # MEMORY-06 (72cf7cf4, единый retrieval §4.4/§7.1): 320 → 325 (+5: ambiguous_subject /
     # subject_mismatch / invalid_purpose / invalid_limit / limit_not_allowed).
-    assert len(mca_events.REASON_CODES) == 325       # 309 → 311 → 314 → 320 → 325
+    # MOD-ACL-UX-01 M2 (§2.2 ТЗ, 09.11.2026): 325 → 330 (+5 машинных кодов
+    # состояния capability: capability_off / emergency_block /
+    # permission_denied / consent_required / not_ready). Причина: проверка
+    # перед пользовательским side effect обязана отдавать точный код
+    # блокировки, а не «unmapped», иначе §2.5-диагностика теряет причину.
+    assert len(mca_events.REASON_CODES) == 330       # 309 → 311 → 314 → 320 → 325 → 330
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды

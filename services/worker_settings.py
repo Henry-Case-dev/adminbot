@@ -137,17 +137,14 @@ def setting_source(key: str, *, chat_id: int | None = None) -> str:
 
     НАЗНАЧЕНИЕ: дешёвая диагностика (лог/health/ассерты), когда значение НЕ
     нужно. НЕ decision-path: смотрит только уже прогретые in-memory слои
-    (overrides из `ChatParamsCache._items`, затем `ConfigCache`); непрогретый
-    слой → 'default'. Если нужно И значение, И источник — использовать
-    `resolve_setting_with_source`."""
+    (override — через `chat_params.read_override_sync`, затем `ConfigCache`);
+    непрогретый слой → 'default'. Если нужно И значение, И источник —
+    использовать `resolve_setting_with_source`."""
     from services import hot_config as hot
     if chat_id is not None:
         from services import chat_params as cp
-        cache = cp.get_chat_params_cache()
-        items = getattr(cache, "_items", None) if cache is not None else None
-        entry = items.get(int(chat_id)) if isinstance(items, dict) else None
-        root = entry[1] if entry is not None else None
-        if key in ((root or {}).get("overrides") or {}):
+        _value, found = cp.read_override_sync(int(chat_id), key)
+        if found:
             return "chat"
     if hot.get(key, _SENTINEL) is not _SENTINEL:
         return "global"

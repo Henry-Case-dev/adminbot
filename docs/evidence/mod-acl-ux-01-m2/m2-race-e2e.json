@@ -1,0 +1,96 @@
+{
+  "ok": true,
+  "checks": {
+    "stale_race": {
+      "active_chat": -1007000003,
+      "value": false,
+      "samples": 40,
+      "late_overwrites": 0,
+      "config_requests": [
+        "-1001234567890",
+        "-1007000001",
+        "-1007000002",
+        "-1007000003"
+      ]
+    },
+    "double_click": {
+      "posts": 1,
+      "bodies": [
+        "{\"items\":[{\"key\":\"flags.dream_enabled\",\"value\":false}],\"updated_at\":\"2026-11-09T10:00:00Z\",\"operation_id\":\"op-1\"}"
+      ]
+    }
+  },
+  "requests": [],
+  "console": [
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_set_header_color {color_key: bg_color}"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_set_bottom_bar_color {color: #ffffff}"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_theme "
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_viewport "
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_safe_area "
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_content_safe_area "
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_ready "
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_expand "
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] Header color is not supported in version 6.0"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] Background color is not supported in version 6.0"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] Bottom bar color is not supported in version 6.0"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0"
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x41cc00423e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x41cc00423e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x41cc00423e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x41cc00423e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+    }
+  ],
+  "ok_race": true,
+  "ok_double_click": true
+}
