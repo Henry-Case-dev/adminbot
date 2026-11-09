@@ -60,18 +60,23 @@ def _source_bucket(source: str) -> str:
 
 
 def _histogram(delays: list[int], *, buckets: int = 6) -> list[dict]:
-    """Гистограмма интервалов из фактических draw (пусто — пусто)."""
+    """Гистограмма интервалов из фактических draw (пусто — пусто).
+
+    Границы строятся по фактическим значениям; сумма `count` ВСЕГДА равна
+    числу розыгрышей с положительным интервалом (никакой бакет не теряется —
+    поэтому срез `[-N:]` в сборке окна не применяется).
+    """
     values = sorted(int(d) for d in delays if int(d) > 0)
     if not values:
         return []
     lo, hi = values[0], values[-1]
     if lo == hi:
         return [{"from": lo, "to": hi, "count": len(values)}]
-    width = max(1, (hi - lo + buckets - 1) // buckets)
+    width = max(1, -(-(hi - lo + 1) // max(1, int(buckets))))
     out = []
     edge = lo
     while edge <= hi:
-        upper = edge + width - 1
+        upper = min(hi, edge + width - 1)
         count = len([v for v in values if edge <= v <= upper])
         if count:
             out.append({"from": edge, "to": upper, "count": count})
@@ -143,6 +148,10 @@ async def _mechanism_block(db, mechanism: str, *, chat_id, since: int,
     signals: dict[str, int] = {}
     for row in events:
         payload = _load(row.get("usage_json"))
+        # `ts` живёт в КОЛОНКЕ события, а не в usage_json: переносим его в
+        # разобранный payload, иначе `last_draw.ts`/`intervals[].ts` всегда
+        # пустые (мёртвое поле в витрине).
+        payload["ts"] = _int(row.get("ts"))
         name = str(row.get("event_name") or "")
         if name == "quantum_schedule_draw":
             draws.append(payload)
@@ -225,7 +234,7 @@ async def _mechanism_block(db, mechanism: str, *, chat_id, since: int,
         "draws_quantum": draws_quantum,
         "draws_total": len(draws),
         "interval_histogram": _histogram(
-            [_int(d.get("delay_seconds")) for d in draws])[-6:],
+            [_int(d.get("delay_seconds")) for d in draws]),
         "intervals": [
             {"ts": d.get("ts"), "delay_seconds": d.get("delay_seconds"),
              "u": d.get("u"), "source": d.get("source")}

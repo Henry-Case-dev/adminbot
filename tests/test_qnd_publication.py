@@ -297,3 +297,80 @@ async def test_llm_veto_without_veto_reason_is_semantic_parse_error(db):
     assert payload["counters"].get("silent_decisions") == 1
     assert source.count() == 0
     assert await _decisions(db) == []
+
+
+async def test_silent_reasons_get_their_own_outcome_codes(db, monkeypatch):
+    """B3: `dedup` пишется ТОЛЬКО за реальную дедупликацию.
+
+    На 0cebea92 молчащий исход отображался как `dedup` для любой причины,
+    кроме recheck: `l1_silent`, `l1_unavailable`, `delivery_not_text`,
+    `l1_react` выглядели «повтором», хотя это семантический отказ. Владелец
+    такой выдуманный показатель прямо запретил.
+    """
+    import time as _time
+
+    from services import direct_chat_service as dcs
+    from services import initiative_observer as obs
+
+    # 1) Контракт маппинга: у каждой причины свой код, `dedup` — только повтор.
+    assert qp.publication_result_outcome("l1_silent") == "semantic_silent"
+    assert qp.publication_result_outcome("l1_unavailable") \
+        == "semantic_unavailable"
+    assert qp.publication_result_outcome("delivery_not_text") == "not_text"
+    assert qp.publication_result_outcome("l1_react") == "reacted"
+    assert qp.publication_result_outcome("recheck_demoted") == "send_recheck"
+    assert qp.publication_result_outcome("context_duplicate") == "dedup"
+    assert qp.publication_result_outcome("direct_update_dedup_hit") == "dedup"
+    assert qp.publication_result_outcome("какой-то-новый-код") \
+        == "silent_other"
+    for reason in ("l1_silent", "l1_unavailable", "delivery_not_text",
+                   "l1_react"):
+        assert qp.publication_result_outcome(reason) != "dedup"
+
+    # 2) Интеграция: реальный проход Observer пишет код причины, не `dedup`.
+    _caches()
+    stamp = int(_time.time())
+    await db.save_smart_message(USER, CHAT, "разговор о старом событии",
+                                None, stamp - 120, "text", "Вася")
+    await db.save_smart_message(USER, CHAT, "обсуждение продолжается",
+                                None, stamp - 60, "text", "Вася")
+
+    async def _silent(**kwargs):
+        return {"status": "silent", "reason_code": "l1_silent",
+                "decision": None}
+
+    monkeypatch.setattr(dcs, "handle_initiative", _silent)
+
+    class _VerdictLLM:
+        """Оценщик Observer: валидный JSON-вердикт «есть повод сказать»."""
+
+        async def generate(self, messages, **kwargs):
+            return json.dumps({
+                "opportunity": True, "kind": "development", "action": "say",
+                "horizon": "now", "goal": "участники обсуждают старое",
+                "topic_key": "tema", "relevance": 0.9, "significance": 0.9,
+                "rationale": "есть повод"}, ensure_ascii=False)
+
+    runner = obs.InitiativeObserverRunner(
+        db, bot=_FakeBot(), writer_service=object(), llm=_VerdictLLM(),
+        trigger="event")
+    runner._only_chat = CHAT
+    runner._random = FakeQuantumSource(default=0.0)
+    payload = {"counters": obs.default_counters(),
+               "chats": {str(CHAT): {"pending": 2, "last_eval_ts": 0,
+                                     "recent_hashes": [], "topics": {},
+                                     "eval_day": stamp // 86400,
+                                     "eval_day_count": 0}},
+               "day": {}}
+    await runner._evaluate_phase(payload, "job-b3")
+    await mca_events.flush_events(db)
+
+    cursor = await db.db.execute(
+        "SELECT usage_json FROM mca_events WHERE event_name = ? ORDER BY id",
+        (sched.EVENT_RESULT,))
+    outcomes = []
+    for row in await cursor.fetchall():
+        outcomes.append(json.loads(row["usage_json"] or "{}").get("outcome"))
+    assert outcomes, "durable quantum_publication_result не записан"
+    assert "semantic_silent" in outcomes
+    assert "dedup" not in outcomes

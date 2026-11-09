@@ -105,10 +105,64 @@ PUBLICATION_PARAMS: dict[str, tuple[str, str]] = {
 KEY_TRIGGER_PROBABILITY = "initiative.trigger_probability"
 
 #: Результаты публикации (§5 `quantum_publication_result.outcome`).
+#: ВАЖНО (B3): `dedup` — ТОЛЬКО реальная дедупликация. Любое иное молчание
+#: получает свой код, иначе витрина показывает выдуманную причину.
 RESULT_DELIVERED = "delivered"
 RESULT_DEDUP = "dedup"
 RESULT_SEND_RECHECK = "send_recheck"
 RESULT_CAP = "cap"
+#: Семантический отказ модели/решения (содержательного повода нет).
+RESULT_SEMANTIC_SILENT = "semantic_silent"
+#: Смысловой слой недоступен (L1 не ответил / план не построен).
+RESULT_SEMANTIC_UNAVAILABLE = "semantic_unavailable"
+#: Решение было не «текст» (react/tool в текстовом контексте) — молчание.
+RESULT_NOT_TEXT = "not_text"
+#: Реакция выполнена (участие без текста).
+RESULT_REACTED = "reacted"
+#: Молчание с нераспознанной причиной — честный «прочее», а не `dedup`.
+RESULT_SILENT_OTHER = "silent_other"
+
+#: Причины, которые ДЕЙСТВИТЕЛЬНО означают дедупликацию.
+DEDUP_REASONS = frozenset({
+    "dedup", "context_duplicate", "direct_update_dedup_hit",
+    "already_answered", "already_sent", "duplicate",
+})
+UNKNOWN_REASONS = frozenset({"", "silent", "unknown", "error"})
+
+
+def publication_result_outcome(reason_code: str, *,
+                               action: str = "",
+                               decision_reason: str = "") -> str:
+    """Код исхода для `quantum_publication_result` (B3).
+
+    Маппинг ЯВНЫЙ и узкий: `dedup` отдаётся только реальным дедупликациям.
+    Семантические отказы, недоступность смыслового слоя, «не текст» и реакция
+    имеют собственные коды — иначе durable-витрина показывала бы выдуманную
+    причину молчания (владелец это прямо запретил).
+    """
+    reason = str(reason_code or "").strip().lower()
+    act = str(action or "").strip().lower()
+    decided = str(decision_reason or "").strip().lower()
+    if act == "react" or reason == "l1_react" or "react" in reason:
+        return RESULT_REACTED
+    if "recheck" in reason:
+        return RESULT_SEND_RECHECK
+    if reason in DEDUP_REASONS or decided in DEDUP_REASONS:
+        return RESULT_DEDUP
+    if reason == "delivery_not_text" or "not_text" in reason:
+        return RESULT_NOT_TEXT
+    if reason in ("l1_unavailable", "planner_outage") \
+            or "unavailable" in reason:
+        return RESULT_SEMANTIC_UNAVAILABLE
+    if "cap" == reason or reason.startswith("cap_"):
+        return RESULT_CAP
+    if reason in ("l1_silent", "no_substance", "not_appropriate",
+                  "addressed_elsewhere", "wrong_moment", "recent_reply",
+                  "semantic_none"):
+        return RESULT_SEMANTIC_SILENT
+    if reason in UNKNOWN_REASONS:
+        return RESULT_SEMANTIC_SILENT
+    return RESULT_SILENT_OTHER
 
 
 @dataclass

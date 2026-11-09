@@ -77,7 +77,8 @@ from services import publication_coordination as _pubmod
 #: QND-NONDET §3: закрытый набор обоснований семантического молчания.
 #: `quantum_publication` зависит только от `semantic_schedule`, поэтому
 #: импорт на уровне модуля цикла не создаёт.
-from services.quantum_publication import VETO_REASONS
+from services.quantum_publication import (VETO_REASONS,
+                                          publication_result_outcome)
 
 logger = logging.getLogger(__name__)
 
@@ -3090,15 +3091,21 @@ class InitiativeObserverRunner:
         elif status == "silent":
             reason = str((result or {}).get("reason_code") or "silent")
             decision = (result or {}).get("decision")
-            if "react" in reason or \
-                    getattr(decision, "action", "") == "react":
+            action = str(getattr(decision, "action", "") or "")
+            decision_reason = str(getattr(decision, "reason_code", "") or "")
+            if "react" in reason or action == "react":
                 counters["react_decisions"] = int(
                     counters.get("react_decisions") or 0) + 1
             counters["silent_decisions"] = int(
                 counters.get("silent_decisions") or 0) + 1
+            # B3: у КАЖДОЙ причины молчания свой durable-код. `dedup` — только
+            # реальная дедупликация; `l1_silent`/`l1_unavailable`/
+            # `delivery_not_text`/`l1_react` больше не выдаются за повтор.
             self._record_result(
                 chat_id,
-                outcome=("send_recheck" if "recheck" in reason else "dedup"),
+                outcome=publication_result_outcome(
+                    reason, action=action,
+                    decision_reason=decision_reason),
                 reason_code=reason)
         elif status == "writer_failed":
             counters["writer_unavailable"] = int(

@@ -128,7 +128,10 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # (prompts.meme_joke / prompts.meme_image) → 597+header=598.
     # MOD-ACL-UX-01 amendment (09.11.2026): +11 PG-only ключей уроков →
     # 606+header=607.
-    assert len(tsv) == 607
+    # QND-NONDET (10.11.2026): +32 ключа квантового расписания и вероятности
+    # публикации (31 `limits.qnd_*` + compat `initiative.trigger_probability`)
+    # → 638+header=639.
+    assert len(tsv) == 639
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
@@ -138,7 +141,9 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # подачи фактчека: флаг раздела + директива «Критического разноса»).
     # MOD-ACL-UX-01 amendment (09.11.2026): reissue под 606/205 (+11
     # PG-only ключей семантического контракта уроков).
-    assert "606" in meta and "411" in meta and "205" in meta
+    # QND-NONDET (10.11.2026): reissue под 638/237 (+32 ключа квантового
+    # расписания/публикации; артефакты F8 переэмитированы этой же волной).
+    assert "638" in meta and "411" in meta and "237" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────
@@ -199,7 +204,12 @@ def test_reason_codes_269():
     # permission_denied / consent_required / not_ready). Причина: проверка
     # перед пользовательским side effect обязана отдавать точный код
     # блокировки, а не «unmapped», иначе §2.5-диагностика теряет причину.
-    assert len(mca_events.REASON_CODES) == 330       # 309 → 311 → 314 → 320 → 325 → 330
+    # QND-NONDET (10.11.2026): 330 → 341 (+11 кодов состояния расписания,
+    # событийного пути и случайного исхода: no_state, stale_deadline,
+    # lease_held, settings_rescaled, event_dropped_busy,
+    # event_dropped_debounce, event_deferred_floor, random_miss,
+    # random_unavailable, semantic_none, module_off; §17.2 расширяемый).
+    assert len(mca_events.REASON_CODES) == 341       # 309 → 311 → 314 → 320 → 325 → 330 → 341
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды

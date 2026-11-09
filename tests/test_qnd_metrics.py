@@ -140,6 +140,9 @@ async def test_interval_histogram_and_silence_shares_from_events(db):
     block = await qnd.collect_quantum(db, now=stamp + 10)
     part = block["mechanisms"]["nostalgia"]
     assert part["draws_total"] == 3
+    # `ts` берётся из КОЛОНКИ события, а не из usage_json (иначе поле мёртвое).
+    assert part["last_draw"]["ts"], part["last_draw"]
+    assert part["last_draw"]["source"] == "quantum"
     histogram = part["interval_histogram"]
     assert histogram and sum(h["count"] for h in histogram) == 3
     assert part["publications"]["published"] == 1

@@ -779,14 +779,19 @@ async def request_event(db, chat_id, *, reason: str = "live_message",
                         dispatch: bool = True) -> dict:
     """Событийный сигнал (§2): durable-метка + немедленная диспетчеризация.
 
-    Метка ставится ОБОИМ механизмам: расписание обязано увидеть событие, а
-    решение принимает существующий Observer. Немедленный запуск — через
-    `TaskSupervisor` в существующий `observe_tick(trigger="event",
-    only_chat=…)`; второго Observer/пайплайна нет.
+    Метка ставится ТОЛЬКО механизму инициативы. По контракту §2 событийный
+    путь — это путь Observer: живое сообщение будит `observe_tick(trigger=
+    "event", only_chat=…)`, и там есть свои границы (`event_gate`: занятый
+    чат/дебаунс/пол между платными оценками). У ностальгии такого пути нет:
+    её живое воспоминание идёт через `recall_in_conversation` того же
+    Observer'а, а собственная смысловая частота — ТОЛЬКО нарисованный срок
+    расписания. Ставить ностальгии `scan_requested_at` значило бы исполнять
+    платную проверку вне интервала (наблюдалось: срок +19620 с, пришли четыре
+    сообщения за 90 с → два LLM-вызова при дебаунсе 90 с) и тем самым
+    уничтожать смысл розыгрыша. Поэтому ностальгия здесь не отмечается.
     """
     stamp = _now(now)
-    for mechanism in MECHANISMS:
-        await _insert_scan_request(db, mechanism, chat_id, now=stamp)
+    await _insert_scan_request(db, MECH_INITIATIVE, chat_id, now=stamp)
     out = {"requested": True, "reason": str(reason or ""), "dispatch": None}
     if dispatch:
         try:

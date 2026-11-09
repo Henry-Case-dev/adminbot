@@ -22,6 +22,7 @@ from services import nostalgia_worker as nw
 from services.database import DatabaseService
 from services.nostalgia_prompts import NOSTALGIA_PROMPT
 from services.summary_memory import MemoryManager
+from tests.qnd_fakes import FakeQuantumSource
 
 CHAT_ID = -1002661910336
 BOT_ID = 12345
@@ -637,11 +638,21 @@ class TestLLMAndSend:
 
     @pytest.mark.asyncio
     async def test_one_llm_call_one_send(self, db, monkeypatch):
+        """B4: один вызов модели и одна отправка — при УПРАВЛЯЕМОМ источнике.
+
+        Публикация теперь действительно разыгрывается (§3), поэтому тест
+        обязан подставлять `FakeQuantumSource`, а не надеяться на «повезёт»:
+        иначе релизный гейт зависел бы от броска монеты (1 падение из 25
+        изолированных прогонов на 0cebea92).
+        """
         _patch_time(monkeypatch)
         await self._candidate_setup(db)
         llm = _FakeLLM()
         bot = _FakeBot()
         w = _worker(db, llm, monkeypatch=monkeypatch, bot=bot)
+        # u=0.0 → публикуем (p_min > 0); направление/интервал тоже от этого
+        # источника — второго генератора случайности в тесте нет.
+        w._random = FakeQuantumSource(default=0.0, indices=[0])
         await w._process_chat(CHAT_ID, NOW, manual=True)
         assert len(llm.calls) == 1          # максимум 1 LLM-вызов на чат
         assert len(bot.calls) == 1          # и 1 отправка

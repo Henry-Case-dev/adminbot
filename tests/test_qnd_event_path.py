@@ -149,8 +149,11 @@ async def test_live_message_signal_starts_evaluation_with_trigger_event(
     assert captured and captured[0]["trigger"] == "event"
     assert captured[0]["only_chat"] == CHAT
     # durable-метка поставлена ОБОИМ механизмам: расписание тоже увидит событие
+    # durable-метка ставится ТОЛЬКО инициативе: событийный путь — путь
+    # Observer (§2). Ностальгия живёт своим нарисованным сроком; событие его
+    # не сдвигает (иначе платная проверка вне интервала — см. регрессию ниже).
     assert int((await _row(db, sched.MECH_INITIATIVE))["scan_requested_at"]) == NOW
-    assert int((await _row(db, sched.MECH_NOSTALGIA))["scan_requested_at"]) == NOW
+    assert await _row(db, sched.MECH_NOSTALGIA) == {}
 
     # Тот же путь публикует СВОИМ транспортом: событийный прогон помечает
     # durable-событие `trigger="event"`, а не «schedule».
@@ -166,6 +169,77 @@ async def test_live_message_signal_starts_evaluation_with_trigger_event(
                 for r in await cursor.fetchall()]
     assert payloads and payloads[0]["trigger"] == "event"
     assert payloads[0]["executed"] is True
+
+
+async def test_four_live_messages_in_90s_do_not_break_nostalgia_deadline(
+        db, monkeypatch):
+    """РЕГРЕССИЯ B2: событие не сдвигает нарисованный срок ностальгии.
+
+    Наблюдалось на 0cebea92: срок +19620 с, за 90 с пришли четыре живых
+    сообщения → `due=True`, heartbeat сделал ПЛАТНЫЙ смысловой разбор и
+    перерисовал срок (два LLM-вызова при дебаунсе 90 с и поле 1800 с).
+    Причина — `request_event` ставил `scan_requested_at` и ностальгии, а у
+    `NostalgiaWorker._run_chat` нет событийного гейта (он есть только в
+    `initiative_observer.event_gate`). Теперь событийный путь принадлежит
+    Observer (§2): ностальгия живёт ТОЛЬКО своим сроком.
+    """
+    from services import nostalgia_worker as nw
+
+    _caches({"memory.nostalgia_enabled": True,
+             "flags.nostalgia_enabled": True,
+             "limits.qnd_nostalgia_min_seconds": 1800,
+             "limits.qnd_nostalgia_max_seconds": 21600,
+             "memory.nostalgia_quiet_start_hour": 24,
+             "memory.nostalgia_quiet_end_hour": 0})
+    monkeypatch.setattr(nw, "_now_ts", lambda: NOW)
+
+    drawn = await sched.draw_next(db, sched.MECH_NOSTALGIA, CHAT, now=NOW,
+                                  source=FakeQuantumSource([0.999]),
+                                  trigger=sched.TRIGGER_SCHEDULE)
+    planned = int(drawn["next_due_ts"])
+    assert planned > NOW + 60                 # срок не «сейчас»
+
+    dispatched: list[int] = []
+
+    async def _capture(db_, *, chat_id, reason="", now=None):
+        dispatched.append(int(now or 0))
+        return "dispatched"
+
+    monkeypatch.setattr(obs, "dispatch_event", _capture)
+
+    llm_calls = {"n": 0}
+
+    class _NostalgiaLLM:
+        async def generate(self, messages, **kwargs):
+            llm_calls["n"] += 1
+            return "кстати, помню"
+
+        async def generate_worker(self, role, messages, **kwargs):
+            return await self.generate(messages, **kwargs)
+
+    # Четыре живых сообщения за 90 секунд — ровно наблюдённый сценарий.
+    for offset in (0, 30, 60, 90):
+        result = await sched.request_event(db, chat_id=CHAT,
+                                           reason="live_message",
+                                           now=NOW + offset)
+        assert result["dispatch"] == "dispatched"
+    assert dispatched == [NOW, NOW + 30, NOW + 60, NOW + 90]
+
+    # Ностальгия событием НЕ отмечена — только инициатива.
+    assert (await _row(db, sched.MECH_NOSTALGIA)).get("scan_requested_at") is None
+    assert int((await _row(db, sched.MECH_INITIATIVE))["scan_requested_at"]) \
+        == NOW + 90
+
+    bot = _FakeBot()
+    worker = nw.NostalgiaWorker(db, store=None, llm=_NostalgiaLLM(),
+                                bot=bot, bot_id=BOT_ID)
+    out = await worker._run_chat(CHAT, NOW + 90, manual=False)
+
+    assert out == {"candidates": 0, "sent": 0, "skipped": 0, "errors": 0}
+    assert llm_calls["n"] == 0        # ноль платных вызовов вне интервала
+    assert bot.sent == []
+    after = await _row(db, sched.MECH_NOSTALGIA)
+    assert int(after["next_due_ts"]) == planned      # срок не перерисован
 
 
 async def test_event_dropped_when_chat_busy_and_per_chat_debounce(

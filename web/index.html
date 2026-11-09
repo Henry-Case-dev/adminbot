@@ -14277,7 +14277,10 @@
                         <span v-else> · нет данных для доли</span>
                       </div>
                       <div class="text-gray-500">
-                        оценки: плановые {{ m.scheduleEvals }} · событийные {{ m.eventEvals }}
+                        решения о публикации: плановые {{ m.scheduleEvals }} ·
+                        событийные {{ m.eventEvals }}
+                        <span class="text-gray-600">(это вызовы решения, а не
+                          оценок: отказ модели до розыгрыша здесь не виден)</span>
                         · доставок {{ m.deliveries }}
                       </div>
                       <div v-if="m.histogram.length" class="mt-1">
@@ -14906,7 +14909,10 @@
                     доставлено: <b>{{ m.deliveries }}</b>
                   </div>
                   <div class="mt-1 text-gray-500">
-                    Оценки: плановые {{ m.scheduleEvals }} · событийные {{ m.eventEvals }}
+                    Решения о публикации: плановые {{ m.scheduleEvals }} ·
+                    событийные {{ m.eventEvals }} — это вызовы решения
+                    (розыгрыш вероятности), а не оценки смысла: отказ модели
+                    до розыгрыша здесь не считается
                   </div>
                   <div v-if="m.causes.length" class="mt-1 text-gray-400">
                     Молчания: <span v-for="c in m.causes" :key="c.label" class="ml-1">{{ c.label }} — {{ c.count }}</span>
