@@ -674,43 +674,16 @@ def _classify_video_request_raw(message: types.Message) -> _VideoRequest | None:
 
 # ── EVOL §4: единое разрешение намерения/источника ───────────────────
 
-#: Видео-лексикон выжимки/расшифровки — единственный признак «просьбы об
-#: анализе» без обращения: (а) предмет, однозначно видео-квалифицированный
-#: («краткое содержание видео», «пересказ/суть/смысл/текст ролика»);
-#: (б) просьба (императив/желание) + предмет-выжимка («сделай выжимку»,
-#: «дай транскрипт»); (в) голая выжимка/транскрипт в начале сообщения.
-#: Общие императивы БЕЗ видео-предмета (дай/покажи/скинь/хочу/нужн/
-#: «перескажи кратко») сюда НЕ входят: в личке они перехватывали обычную
-#: речь («Перескажи кратко», «Хочу понять суть», «Дай краткое содержание») —
-#: сообщение потреблялось без ответа, а после TTL бот просил ролик (review F3).
-_VIDEO_WORD_RX = r"(?:видео|видос|ролик|клип|кружок)"
-_REQUEST_VERB_RX = (r"(?:сделай|сделайте|дай|дайте|покажи|покажите|скинь|"
-                    r"скиньте|пришли|пришлите|нужн[аоы]|хочу|перескажи|"
-                    r"перескажите|расшифруй|расшифруйте)")
-_SUMMARY_OBJECT_RX = r"(?:выжимк\w*|транскрипт\w*|расшифровк\w*)"
-_VIDEO_SUMMARY_LEXICON_RE = re.compile(
-    # (а) видео-квалифицированный предмет
-    r"(?:краткое\s+содерж\w*|переска[жз]\w*|сут[ьи]\w*|смысл\w*|"
-    r"транскрипт\w*|расшифровк\w*|текст\w*)\s+" + _VIDEO_WORD_RX + r"|"
-    # (б) просьба + предмет-выжимка (без слова «видео»)
-    + _REQUEST_VERB_RX + r"[^.!?\n]{0,40}?" + _SUMMARY_OBJECT_RX + r"|"
-    # (в) голая выжимка/транскрипт в начале сообщения. Стем доопределён
-    # ``\w*``: иначе «Выжимка»/«Расшифровка»/«Краткое содержание» не ловились
-    # (после усечённого стема граница ``(?![0-9a-zа-яё])`` видела букву
-    # окончания) и просьба уходила в обычный LLM-ответ (review-fix3).
-    r"^\s*(?:выжимк\w*|транскрипт\w*|расшифровк\w*|краткое\s+содерж\w*)"
-    r"(?![0-9a-zа-яё])",
-    re.IGNORECASE)
-
 
 def _addressed_to_bot(message: types.Message) -> bool:
-    """Осознанное обращение к боту: префикс («Бот,/Имя,»), reply на бота или —
-    в ЛИЧНОМ чате — прямая ВИДЕО-просьба об анализе (видео-лексикон).
+    """Осознанное обращение к боту: префикс («Бот,/Имя,»), reply на бота,
+    упоминание/имя, либо — в ЛИЧНОМ чате — прямое упоминание видео-объекта.
 
-    §4.5 #1 буквально: «Сделай выжимку» (без слова «видео» и без «Бот,») в
-    личке адресована боту — он единственный собеседник. Обычная речь, вопросы
-    («в чём суть?») и общие императивы без видео-предмета («Перескажи кратко»,
-    «Дай краткое содержание», «Хочу понять суть») не перехватываются."""
+    P0-B (source 2026-11-10 §2/§7): раньше личная ветка строилась на
+    видео-лексиконе («выжимка/транскрипт/суть»), то есть стем сам назначал
+    задачу. Здесь остаётся только адресация: кто говорит с ботом; какой
+    объект назван — отдельное условие (`video_intent.mentions_video`).
+    """
     text = str(message.text or message.caption or "")
     if command_prefix.split_prefix(text)[0] is not None:
         return True
@@ -722,7 +695,7 @@ def _addressed_to_bot(message: types.Message) -> bool:
         return True
     chat_type = getattr(getattr(message, "chat", None), "type", None)
     if chat_type == "private":
-        return bool(_VIDEO_SUMMARY_LEXICON_RE.search(text))
+        return video_intent.mentions_video(text)
     return False
 
 
@@ -821,64 +794,75 @@ async def _run_bound_intent(bot, entry) -> None:
 
 
 async def _handle_unclassified(bot, message: types.Message):
-    """Запрос без канонического youtube-триггера: намерение + окно/ожидание.
+    """Видео-задача, НАЗВАННАЯ в текущем сообщении, — детерминированно.
 
-    Возвращает UNHANDLED, если сообщение не наше (обычная речь, чужие
-    воркеры), ``None`` — если потреблено (анализ/ожидание/уточнение)."""
+    Возвращает UNHANDLED, если сообщение не наше, ``None`` — если потреблено
+    (анализ/ожидание/уточнение).
+
+    P0-B (source 2026-11-10 smart-module-semantic-routing §2/§3.2/§7):
+    детерминированный разбор допустим только там, где текущее сообщение само
+    называет видео-задачу — явная команда (``_triggered_body``) либо слово-
+    объект/видео-ссылка в тексте («видео/видос/ролик/клип/кружок»,
+    ``video_intent.mentions_video``). Всё остальное решает смысл на L1:
+    инструменты истории/памяти/поиска и медиа-инструменты объявлены ходу, а
+    reply/своё медиа остаются свидетельством, не задачей.
+
+    Прежнее поведение: лексический ``detect_intent`` + окно соседних медиа
+    превращали обычный вопрос в задачу анализа ролика. «Бот, что происходит
+    в чате» ловилось подстрокой «что происходит»
+    (``video_intent._DESCRIBE_RE``), объект брался из окна («последнее видео
+    рядом»), при двух кандидатах отдавался ``AMBIGUOUS``-вопрос «какой из
+    двух роликов» — ровно оба симптома инцидента. Так же страдал reply на
+    видео с общим вопросом о разговоре: reply-объект сам становился
+    поручением.
+    """
     text = str(message.text or message.caption or "")
+    canonical = _triggered_body(message) is not None
     intent = video_intent.detect_intent(text)
     if intent == video_intent.DOWNLOAD:
         # «скачай» — отдельная просьба о файле (4e), НЕ анализ (§4.4).
         return UNHANDLED
-    canonical = _triggered_body(message) is not None
-    addressed = canonical or _addressed_to_bot(message)
-    # Окно соседства применяем при видео-контексте запроса ЛИБО когда в тексте
-    # НЕТ чужой веб-ссылки: §4.5 #1 — ролик уже лежит в чате, и «Сделай
-    # выжимку» без слова «видео» относится именно к нему. Раньше такой запрос
-    # окно не смотрел: уходил в ожидание и после TTL просил ролик, который уже
-    # был в чате (review-fix3). Веб-гейт цел: статья/обычная страница — цель
-    # 0f, окно для неё не открываем (иначе «Бот, выжимка <статья>» привязалось
-    # бы к чужому ролику из истории).
-    video_context = (canonical or video_intent.mentions_video(text)
-                     or not _has_foreign_url(text))
-    if intent in video_intent.ANALYSIS_INTENTS and addressed:
-        vintent = video_intent.resolve_request(message, intent,
-                                               allow_window=video_context)
-        if vintent.resolution == video_intent.RESOLVED:
-            video_intent.emit_for(vintent, "request_seen", vintent.reason_code)
-            video_intent.emit_for(vintent, "media_matched", vintent.reason_code)
-            request = _request_from_intent(vintent, message)
-            return await _dispatch_video_request(bot, message, request,
-                                                 request_user_id=vintent.request_user_id)
-        if vintent.resolution == video_intent.AMBIGUOUS:
-            video_intent.emit_for(vintent, "request_seen")
-            video_intent.emit_for(vintent, "media_ambiguous",
-                                  vintent.reason_code)
+    if intent not in video_intent.ANALYSIS_INTENTS:
+        if canonical:
+            # Явная команда без цели и без видео-намерения — прежний
+            # нейтральный ответ (не уходит в LLM обычного ответа).
             await _reply(bot, message.chat.id,
-                         random.choice(VIDEO_INTENT_AMBIGUOUS_PHRASES),
+                         random.choice(COMMAND_NO_TARGET_PHRASES),
                          message.message_id)
             return None
-        # WAITING: не отвечаем мгновенно «видео нет» (§4.3). Ожидание — только
-        # для ПРОСЬБЫ об анализе (канонический триггер либо видео-лексикон
-        # «выжимку/транскрипт/краткое содержание видео») БЕЗ другой цели.
-        # Обычная речь со словом-триггером («Олег, помнишь транскрипт того
-        # созвона?»), общий императив без видео-предмета («Бот, перескажи
-        # кратко») и веб-ссылка (статья — цель 0f) не перехватываются.
-        if _has_foreign_url(text):
-            return UNHANDLED
-        if not canonical and not _VIDEO_SUMMARY_LEXICON_RE.search(text):
-            return UNHANDLED
+        return UNHANDLED
+    # Объект задачи обязан быть назван ЗДЕСЬ (команда, видео-слово или
+    # видео-ссылка) И сообщение должно быть адресовано боту. Reply/соседнее
+    # медиа без такого указания — свидетельство для L1, а не поручение
+    # разобрать ролик (§2 «никогда не угадывать объект по принципу „последнее
+    # видео рядом“»).
+    if not (canonical or video_intent.mentions_video(text)
+            or _has_video_target(text)):
+        return UNHANDLED
+    if not _addressed_to_bot(message):
+        return UNHANDLED
+    vintent = video_intent.resolve_request(message, intent, allow_window=True)
+    if vintent.resolution == video_intent.RESOLVED:
         video_intent.emit_for(vintent, "request_seen", vintent.reason_code)
-        video_intent.register_pending(vintent, notify=_pending_notifier(bot))
-        return None
-    if canonical:
-        # Канонический триггер без цели и без видео-намерения — прежний
-        # нейтральный ответ (не уходит в LLM обычного ответа).
+        video_intent.emit_for(vintent, "media_matched", vintent.reason_code)
+        request = _request_from_intent(vintent, message)
+        return await _dispatch_video_request(bot, message, request,
+                                             request_user_id=vintent.request_user_id)
+    if vintent.resolution == video_intent.AMBIGUOUS:
+        video_intent.emit_for(vintent, "request_seen")
+        video_intent.emit_for(vintent, "media_ambiguous", vintent.reason_code)
         await _reply(bot, message.chat.id,
-                     random.choice(COMMAND_NO_TARGET_PHRASES),
+                     random.choice(VIDEO_INTENT_AMBIGUOUS_PHRASES),
                      message.message_id)
         return None
-    return UNHANDLED
+    if _has_foreign_url(text):
+        # Ссылка-статья — цель 0f, не видео (§4.5 #3).
+        return UNHANDLED
+    # WAITING: не отвечаем мгновенно «видео нет» (§4.3) — задача названа
+    # текущим сообщением, объект придёт отдельным.
+    video_intent.emit_for(vintent, "request_seen", vintent.reason_code)
+    video_intent.register_pending(vintent, notify=_pending_notifier(bot))
+    return None
 
 
 # ── Раунд 3 (3.5, T-692): STT-хелперы ────────────────────────────────

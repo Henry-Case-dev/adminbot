@@ -249,7 +249,8 @@ class TestReplyPriority:
             file_id="a300", file_unique_id="ua300")))
         target = _msg(message_id=302, video=_media(file_id="b302",
                                                    file_unique_id="ub302"))
-        request = _msg(text="Бот, сделай выжимку", message_id=303,
+        # P0-B: видео-задача названа текущим сообщением («выжимку видео»).
+        request = _msg(text="Бот, сделай выжимку видео", message_id=303,
                        reply_to_message=target)
         assert await yt.youtube_handler(request, bot=bot) is None
         assert env.svc.summarize_media_url.await_count == 1
@@ -275,7 +276,7 @@ class TestSingleFlight:
         bot = _bot()
         target = _msg(message_id=400, video=_media(file_id="same",
                                                    file_unique_id="usame"))
-        first = _msg(text="Бот, сделай выжимку", message_id=401,
+        first = _msg(text="Бот, сделай выжимку видео", message_id=401,
                      user_id=USER_A, reply_to_message=target)
         second = _msg(text="Бот, че за видос", message_id=402,
                       user_id=USER_B, reply_to_message=target)
@@ -321,7 +322,8 @@ class TestOperations:
         bot = _bot()
         target = _msg(message_id=600, video=_media(file_id="v600",
                                                    file_unique_id="u600"))
-        request = _msg(text="Бот, сделай выжимку", message_id=601,
+        # P0-B: видео-задача названа текущим сообщением.
+        request = _msg(text="Бот, сделай выжимку видео", message_id=601,
                        reply_to_message=target)
         assert await yt.youtube_handler(request, bot=bot) is None
         assert bot.send_message.await_count == 1
@@ -405,7 +407,7 @@ class TestSourceClassification:
         bot = _bot()
         note = _msg(message_id=700, video_note=_media(file_id="n700",
                                                       file_unique_id="un700"))
-        request = _msg(text="Бот, сделай выжимку", message_id=701,
+        request = _msg(text="Бот, сделай выжимку видео", message_id=701,
                        reply_to_message=note)
         assert await yt.youtube_handler(request, bot=bot) is None
         assert env.transcriber.transcribe_voice.await_count == 1
@@ -495,46 +497,37 @@ class TestPendingExpiry:
 # ── 9. Review-fix: ожидание без слова «видео» и «чужая цель» ──────────
 
 class TestWaitingWithoutVideoWord:
-    """§4.5 #1 буквально: «Сделай выжимку» (без слова «видео») → ролик.
+    """P0-B (source 2026-11-10 §2/§7): голое «сделай выжимку» без объекта.
 
-    Раньше ожидание регистрировалось только при слове «видео/видос/ролик»
-    (или при уже активном ожидании) — формулировка из ТЗ уходила в LLM, а
-    присланный следом ролик не привязывался (0 анализов, 0 ответов)."""
+    Прежнее поведение (Review-fix3): лексикон «выжимка/транскрипт» сам
+    назначал задачу анализа, объект брался из окна соседних медиа
+    («последнее видео рядом»), а при отсутствии — регистрировалось ожидание.
+    Это и есть принудительный tool call по стему: «Бот, что происходит в
+    чате» разбиралось как анализ чужого ролика. Теперь такую речь решает L1
+    (инструменты истории/памяти/поиска и медиа-инструменты ему объявлены),
+    а 0e не потребляет сообщение.
+    """
 
     @pytest.mark.asyncio
-    async def test_literal_request_without_video_word_then_forwarded_video(
-            self, env):
+    async def test_literal_request_without_video_word_unhandled(self, env):
         bot = _bot()
         request = _msg(text="Сделай выжимку", message_id=900,
                        chat_type="private")
 
-        assert await yt.youtube_handler(request, bot=bot) is None
-        assert bot.send_message.await_count == 0        # «видео нет» не отвечаем
-        corr = _corr_of_pending()
-
-        forwarded = _msg(message_id=901, chat_type="private",
-                         video=_media(file_id="fwd9", file_unique_id="fwd9u"),
-                         forward_origin=SimpleNamespace(type="channel"))
-        assert await yt.youtube_handler(forwarded, bot=bot) is None
-
-        assert env.svc.summarize_media_url.await_count == 1
-        assert bot.send_message.await_count == 1         # РОВНО один ответ
-        assert bot.send_message.await_args.kwargs.get(
-            "reply_to_message_id") == 901
+        assert await yt.youtube_handler(request, bot=bot) is UNHANDLED
+        assert bot.send_message.await_count == 0
         assert not video_intent.has_pending(CHAT_ID)
-        names = [e["event"] for e in video_intent.recent_events()
-                 if e["correlation_id"] == corr]
-        assert names[0] == "request_seen"
-        assert "waiting_for_media" in names and "media_matched" in names
+        assert env.svc.summarize_media_url.await_count == 0
 
     @pytest.mark.asyncio
-    async def test_prefixed_request_without_video_word_waits(self, env):
-        """«Бот, сделай выжимку» — тоже ожидание, без слова «видео»."""
+    async def test_prefixed_request_without_video_word_unhandled(self, env):
+        """«Бот, сделай выжимку» — тоже не назначение видео-задачи."""
         bot = _bot()
         assert await yt.youtube_handler(
-            _msg(text="Бот, сделай выжимку", message_id=910), bot=bot) is None
+            _msg(text="Бот, сделай выжимку", message_id=910),
+            bot=bot) is UNHANDLED
         assert bot.send_message.await_count == 0
-        assert video_intent.has_pending(CHAT_ID)
+        assert not video_intent.has_pending(CHAT_ID)
 
     @pytest.mark.asyncio
     async def test_private_chat_question_is_not_hijacked(self, env):
@@ -595,7 +588,7 @@ class TestAudioOnlyReplyHonesty:
         bot = _bot()
         note = _msg(message_id=730, video_note=_media(file_id="n730",
                                                       file_unique_id="un730"))
-        request = _msg(text="Бот, сделай выжимку", message_id=731,
+        request = _msg(text="Бот, сделай выжимку видео", message_id=731,
                        reply_to_message=note)
 
         assert await yt.youtube_handler(request, bot=bot) is None
@@ -615,7 +608,7 @@ class TestAudioOnlyReplyHonesty:
         bot = _bot()
         target = _msg(message_id=740, video=_media(file_id="v740",
                                                    file_unique_id="u740"))
-        request = _msg(text="Бот, сделай выжимку", message_id=741,
+        request = _msg(text="Бот, сделай выжимку видео", message_id=741,
                        reply_to_message=target)
 
         assert await yt.youtube_handler(request, bot=bot) is None
@@ -668,13 +661,12 @@ class TestPrivateChatOrdinarySpeechNotHijacked:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("text", [
-        "Сделай выжимку",
         "Дай краткое содержание видео",
         "Перескажи видео кратко",
-        "Сделай транскрипт",
+        "Сделай выжимку видео",
     ])
     async def test_video_lexicon_still_waits(self, env, text):
-        """Видео-лексикон (выжимка/транскрипт/«краткое содержание видео») — ждём."""
+        """Видео НАЗВАНО в сообщении — ожидание ролика сохранено."""
         bot = _bot()
         msg = _msg(text=text, message_id=962, chat_type="private")
 
@@ -682,18 +674,35 @@ class TestPrivateChatOrdinarySpeechNotHijacked:
         assert bot.send_message.await_count == 0
         assert video_intent.has_pending(CHAT_ID)
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", [
+        "Сделай выжимку",
+        "Сделай транскрипт",
+    ])
+    async def test_bare_lexicon_without_named_video_unhandled(self, env, text):
+        """P0-B: стем «выжимк/транскрипт» без названного объекта — к L1."""
+        bot = _bot()
+        msg = _msg(text=text, message_id=963, chat_type="private")
+
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert not video_intent.has_pending(CHAT_ID)
+        assert bot.send_message.await_count == 0
+        assert env.svc.summarize_media_url.await_count == 0
+
 
 # ── 11. Review-fix3: ролик уже в чате + голый лексикон ────────────────
 
 class TestExistingVideoInWindow:
-    """§4.5 #1: ролик УЖЕ в чате, просьба без слова «видео» — анализ сразу.
+    """P0-B (source 2026-11-10 §2): «последнее видео рядом» — не объект.
 
-    Раньше окно соседства смотрели только при «видео/видос/ролик» в тексте:
-    «Сделай выжимку» уходило в ожидание и после TTL просило прислать ролик,
-    который уже был в этом чате."""
+    Прежнее поведение (§4.5 #1): «Сделай выжимку» без слова «видео»
+    немедленно анализировало ролик из окна. Это и есть угадывание объекта,
+    из-за которого обычный вопрос о чате разбирался как анализ чужого видео.
+    Теперь окно открывается только когда видео-задача названа в самом
+    сообщении (слово-объект/видео-ссылка/явная команда)."""
 
     @pytest.mark.asyncio
-    async def test_literal_summary_request_uses_existing_video(self, env):
+    async def test_literal_summary_request_unhandled(self, env):
         bot = _bot()
         video = _msg(message_id=1000, chat_type="private",
                      video=_media(file_id="w1000", file_unique_id="wu1000"))
@@ -702,29 +711,41 @@ class TestExistingVideoInWindow:
 
         request = _msg(text="Сделай выжимку", message_id=1001,
                        chat_type="private")
-        assert await yt.youtube_handler(request, bot=bot) is None
+        assert await yt.youtube_handler(request, bot=bot) is UNHANDLED
 
-        assert env.svc.summarize_media_url.await_count == 1   # РОВНО один анализ
-        assert bot.send_message.await_count == 1              # РОВНО один ответ
-        assert bot.send_message.await_args.kwargs.get(
-            "reply_to_message_id") == 1000
-        assert not video_intent.has_pending(CHAT_ID)           # ожидания нет
-        assert not _events("waiting_for_media")
-        matched = _events("media_matched")
-        assert matched and matched[-1]["reason_code"] == "window_before_request"
+        assert env.svc.summarize_media_url.await_count == 0    # окно не угадываем
+        assert bot.send_message.await_count == 0
+        assert not video_intent.has_pending(CHAT_ID)
+        assert not _events("media_matched")
 
     @pytest.mark.asyncio
-    async def test_prefixed_summary_request_uses_existing_video(self, env):
+    async def test_prefixed_summary_request_unhandled(self, env):
         bot = _bot()
         video = _msg(message_id=1010, video=_media(file_id="w1010",
                                                    file_unique_id="wu1010"))
         assert await yt.youtube_handler(video, bot=bot) is UNHANDLED
 
         request = _msg(text="Бот, сделай выжимку", message_id=1011)
+        assert await yt.youtube_handler(request, bot=bot) is UNHANDLED
+        assert env.svc.summarize_media_url.await_count == 0
+        assert bot.send_message.await_count == 0
+        assert not video_intent.has_pending(CHAT_ID)
+
+    @pytest.mark.asyncio
+    async def test_named_video_request_uses_existing_video(self, env):
+        """Видео НАЗВАНО — окно снова работает (объект разрешён законно)."""
+        bot = _bot()
+        video = _msg(message_id=1015, video=_media(file_id="w1015",
+                                                   file_unique_id="wu1015"))
+        assert await yt.youtube_handler(video, bot=bot) is UNHANDLED
+
+        request = _msg(text="Бот, сделай выжимку видео", message_id=1016)
         assert await yt.youtube_handler(request, bot=bot) is None
         assert env.svc.summarize_media_url.await_count == 1
         assert bot.send_message.await_count == 1
         assert not video_intent.has_pending(CHAT_ID)
+        assert _events("media_matched")[-1]["reason_code"] == \
+            "window_before_request"
 
     @pytest.mark.asyncio
     async def test_web_link_still_wins_over_existing_video(self, env):
@@ -743,11 +764,12 @@ class TestExistingVideoInWindow:
 
 
 class TestBareLexiconForms:
-    """Review-fix3: «Выжимка», «Расшифровка», «Краткое содержание» — просьбы.
+    """P0-B (source 2026-11-10 §2/§7): голая форма без объекта — не задача.
 
-    Стем в правиле (в) был усечён, а граница ``(?![0-9a-zа-яё])`` видела букву
-    окончания: работали только «Транскрипт»/«Выжимк». Остальные формы уходили
-    в обычный LLM-ответ без ожидания."""
+    «Выжимка»/«Расшифровка»/«Краткое содержание» без названного видео —
+    обычная речь: что именно выжимать, решает смысл (L1), а не стем слова.
+    «Транскрипт» и «Краткое содержание видео» остаются командами/названной
+    задачей и работают как раньше."""
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("text", [
@@ -757,21 +779,33 @@ class TestBareLexiconForms:
         "Транскрипт",
         "Выжимку",
         "Расшифровку",
-        "Краткое содержание видео",
     ])
-    async def test_bare_lexicon_waits_for_video(self, env, text):
+    async def test_bare_lexicon_without_object_unhandled(self, env, text):
         bot = _bot()
         msg = _msg(text=text, message_id=1030, chat_type="private")
+
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert bot.send_message.await_count == 0
+        assert not video_intent.has_pending(CHAT_ID)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", [
+        "Бот, транскрипт",
+        "Краткое содержание видео",
+    ])
+    async def test_named_or_command_form_waits(self, env, text):
+        bot = _bot()
+        msg = _msg(text=text, message_id=1031, chat_type="private")
 
         assert await yt.youtube_handler(msg, bot=bot) is None
         assert bot.send_message.await_count == 0
         assert video_intent.has_pending(CHAT_ID)
 
     @pytest.mark.asyncio
-    async def test_bare_lexicon_waits_then_binds_forwarded_video(self, env):
+    async def test_named_lexicon_waits_then_binds_forwarded_video(self, env):
         bot = _bot()
         assert await yt.youtube_handler(
-            _msg(text="Краткое содержание", message_id=1040,
+            _msg(text="Краткое содержание видео", message_id=1040,
                  chat_type="private"), bot=bot) is None
         forwarded = _msg(message_id=1041, chat_type="private",
                          video=_media(file_id="w1041", file_unique_id="wu1041"),
