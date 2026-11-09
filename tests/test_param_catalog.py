@@ -688,9 +688,12 @@ class TestGroups8424:
         # SELF-DIAG-01 D1 (09.11.2026): −3 models / −2 keys / −2 GROUPS —
         # checkup-only Better Stack SQL и старый CHECKUP_JOURNALCTL_CMD
         # удалены, вместо них 2 env-only инфра-ключа (CHECKUP_LOG_*).
+        # MOD-ACL-UX-01 amendment (09.11.2026): +11 PG-only порогов/бюджетов
+        # семантического контракта уроков (группа memory_experience) →
+        # memory 59.
         assert counts == {"prompts": 28, "models": 74, "keys": 33,
                           "limits": 232, "flags": 108, "reactions": 39,
-                          "content": 5, "memory": 48, "temporal": 2}
+                          "content": 5, "memory": 59, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

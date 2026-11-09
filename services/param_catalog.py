@@ -2783,6 +2783,98 @@ _MEMORY: list[tuple] = [
 ]
 
 
+# ── MOD-ACL-UX-01 amendment (09.11.2026): настраиваемые пороги/бюджеты
+# семантического контракта уроков. PG-only (Settings-поля нет, прецедент
+# `memory.random_enabled`): значения читаются hot через chat_params →
+# hot_config, рестарт не нужен; заводские дефолты — код-константы
+# `mca_experience.LESSON_MIN_*` / `mca_experience_jobs.*`.
+_EXPERIENCE_SEMANTIC: list[ParamSpec] = [
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Уроки: мин. подтверждений (локальный)", "int",
+              pg_id="memory.experience_lesson_min_local_confirmations",
+              group="memory_experience",
+              description="Сколько независимых наблюдений нужно для "
+                          "повторяющегося локального паттерна. По умолчанию 2.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Уроки: мин. подтверждений (явный запрос)", "int",
+              pg_id="memory.experience_lesson_min_explicit_confirmations",
+              group="memory_experience",
+              description="Минимум для явной просьбы участника. По умолчанию 1: "
+                          "явное указание не требует статистики.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Уроки: мин. подтверждений (техническая ошибка)", "int",
+              pg_id="memory.experience_lesson_min_technical_confirmations",
+              group="memory_experience",
+              description="Минимум для проверяемой технической ошибки "
+                          "(воспроизведение + успешный контрольный пример). "
+                          "По умолчанию 1.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Уроки: мин. подтверждений (глобальный)", "int",
+              pg_id="memory.experience_lesson_min_global_confirmations",
+              group="memory_experience",
+              description="Минимум для статистических уроков с scope=global. "
+                          "По умолчанию 3 — глобальное усвоение строже "
+                          "локального.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Опыт и уроки: строк на чат за проход", "int",
+              pg_id="memory.experience_semantic_per_chat_max",
+              group="memory_experience",
+              description="Сколько строк одного чата разбирает семантический "
+                          "экстрактор за один проход. По умолчанию 50.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Опыт и уроки: чатов за проход", "int",
+              pg_id="memory.experience_semantic_chats_per_pass",
+              group="memory_experience",
+              description="Сколько чатов обрабатывается за один проход "
+                          "(справедливость между чатами). По умолчанию 6.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Опыт и уроки: строк архива за прогон", "int",
+              pg_id="memory.experience_archive_per_run_max",
+              group="memory_experience",
+              description="Бюджет архивного прохода: сколько исторических "
+                          "строк разбирается за один запуск после свежего "
+                          "потока. По умолчанию 200.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Опыт и уроки: свежий хвост строк", "int",
+              pg_id="memory.experience_fresh_tail_rows",
+              group="memory_experience",
+              description="При первом подключении чата последние N строк "
+                          "считаются свежим потоком, более старые — архивом с "
+                          "отдельным курсором. По умолчанию 5000.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Опыт и уроки: порог предупреждения о лаге", "int",
+              pg_id="memory.experience_fresh_stream_lag_warn_threshold",
+              group="memory_experience",
+              description="Необработанных строк, после которого пишется "
+                          "событие о лаге свежего потока. По умолчанию 500.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Опыт и уроки: давность архивной области, дней", "int",
+              pg_id="memory.experience_archive_staleness_days",
+              group="memory_experience",
+              description="Базовая давность для веса направления архивного "
+                          "исследования, если область ещё не сканировалась. "
+                          "По умолчанию 365.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_MEMORY,
+              "Опыт и уроки: окно повторного визита, дней", "int",
+              pg_id="memory.experience_archive_revisit_window_days",
+              group="memory_experience",
+              description="Через сколько дней счётчик недавних обращений к "
+                          "архивной области сбрасывается (анти-повтор). "
+                          "По умолчанию 30.",
+              progressive_level="advanced"),
+]
+
+
 # ── Раунд 10.44 (MCA-20, ADR-1028-20 D13/§7.2): категория temporal —
 # ровно 4 ParamSpec группы temporal_factcheck (вкладка mod_factcheck).
 # select-опции режима — канон enum D7; knowable_at_time доступен в списке,
@@ -3604,6 +3696,10 @@ def _build_registry() -> dict[str, ParamSpec]:
                       group=group, description=desc,
                       pg_id=f"{CATEGORY_MEMORY}.{field.lower()}",
                       progressive_level=level))
+    # MOD-ACL-UX-01 amendment: PG-only пороги/бюджеты семантического
+    # контракта уроков (группа memory_experience, per-chat, advanced).
+    for spec in _EXPERIENCE_SEMANTIC:
+        add(spec)
     # Раунд 10.44 (MCA-20, ADR-1028-20 D13/§7.2): +4 ключа категории
     # temporal (группа temporal_factcheck, вкладка mod_factcheck; per-chat
     # НЕ разрешён — глобальные настройки владельца).

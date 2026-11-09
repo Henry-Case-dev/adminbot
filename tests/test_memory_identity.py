@@ -161,7 +161,7 @@ def test_migration_v43_is_additive_and_idempotent(env):
     cursor = run(loop, db.db.execute("PRAGMA user_version"))
     # Свежая БД доезжает до головы схемы: v43 (эта полоса) + v44 (MEMORY-07)
     # + v45 (VMQ-V, версия расшифровки голосового source-ref).
-    assert int(run(loop, cursor.fetchone())[0]) == 45
+    assert int(run(loop, cursor.fetchone())[0]) == 46
 
     cursor = run(loop, db.db.execute(
         "SELECT name, type, sql FROM sqlite_master WHERE "
@@ -226,7 +226,7 @@ def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
 
     Baseline фиксируется ДО миграции: счётчики строк и DDL
     `nodes`/`edges`/`graph_facts`. После стартовой миграции — те же данные,
-    `user_version=45`, `integrity_check=ok`, добавлены только новые объекты
+    `user_version=46`, `integrity_check=ok`, добавлены только новые объекты
     (шаги v43, v44 и v45), повторный запуск — no-op.
     """
     path = tmp_path / "v42.db"
@@ -284,7 +284,7 @@ def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
     try:
         cursor = loop.run_until_complete(upgraded.db.execute(
             "PRAGMA user_version"))
-        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 45
+        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 46
         cursor = loop.run_until_complete(upgraded.db.execute(
             "PRAGMA integrity_check"))
         assert loop.run_until_complete(cursor.fetchone())[0] == "ok"
@@ -326,7 +326,7 @@ def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
     try:
         cursor = loop.run_until_complete(reopened.db.execute(
             "PRAGMA user_version"))
-        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 45
+        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 46
         cursor = loop.run_until_complete(reopened.db.execute(
             "SELECT COUNT(*) AS n FROM schema_migrations"))
         assert int(loop.run_until_complete(cursor.fetchone())["n"]) == book_after

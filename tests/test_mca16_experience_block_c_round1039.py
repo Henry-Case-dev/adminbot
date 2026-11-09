@@ -183,28 +183,31 @@ async def test_technical_fix_requires_reproduction_control_invariants(
 
 
 @pytest.mark.asyncio
-async def test_generalization_requires_three_independent_episodes(tmp_path):
+async def test_generalization_requires_local_threshold_episodes(tmp_path):
+    """MOD-ACL-UX-01 amendment §2.1: локальный повторяющийся паттерн
+    подтверждается 2 независимыми наблюдениями (прежние 3 — избыточны)."""
     db = await _db(tmp_path)
     try:
         svc = me.get_service(db)
+        thresholds = await me.lesson_confirmation_thresholds(-100)
+        assert thresholds["local"] == 2
+        assert thresholds["local"] <= thresholds["global"] == 3
         lid, _ = await _propose(svc)
-        two = await svc.lesson.validate(
+        assert not await svc.lesson.validate(
             lid, evidence=me.ValidationEvidence(
                 kind="generalization",
-                independent_episode_ids=("e1", "e2")))
-        assert not two
+                independent_episode_ids=("e1",)))
         # дубликаты одного первичного события — один эпизод
         dup = await svc.lesson.validate(
             lid, evidence=me.ValidationEvidence(
                 kind="generalization",
-                independent_episode_ids=("e1", "e1", "e1", "e2")))
+                independent_episode_ids=("e1", "e1", "e1")))
         assert not dup
         assert await svc.lesson.validate(
             lid, evidence=me.ValidationEvidence(
                 kind="generalization",
-                independent_episode_ids=("e1", "e2", "e3")))
+                independent_episode_ids=("e1", "e2")))
         assert (await svc.get_lesson(lid))["status"] == "validated"
-        assert mca_gates.lesson_min_independent_episodes() == 3
     finally:
         await db.close()
 

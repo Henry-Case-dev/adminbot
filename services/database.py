@@ -1834,6 +1834,15 @@ _VOICE_TRANSCRIPT_COLUMNS: tuple[tuple[str, str], ...] = (
     ("transcript_reason", "TEXT NOT NULL DEFAULT ''"),
 )
 
+# MOD-ACL-UX-01 amendment (09.11.2026): v46 — семантический контракт уроков.
+# Аддитивные nullable/default-колонки `mca_lessons` (source refs, scope,
+# origin, confidence, contradictions, temporal applicability) + таблица
+# сервер-канонических шаблонов + сид из закрытого каталога. Backfill нет:
+# старые уроки = origin_kind NULL / confirmation_count 0 / rank 1.0; старый
+# код новые поля не читает (cold-совместимо). DDL — в модуле-владельце
+# `services.mca_experience`, шаг его только применяет. Повтор — no-op.
+_SCHEMA_VERSION_LESSON_SEMANTIC = 46
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -3124,6 +3133,16 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_VOICE_TRANSCRIPT,
                           "voice_transcript_v45",
                           lambda svc: svc._migrate_voice_transcript_v45()),
+            # MOD-ACL-UX-01 amendment (09.11.2026): v46 — семантический
+            # контракт уроков: аддитивные колонки `mca_lessons` +
+            # `mca_lessons_semantic_templates` + сид сервер-канонических
+            # формулировок. DDL — в модуле-владельце
+            # (`services.mca_experience`), шаг его только применяет.
+            # Идемпотентно (guard PRAGMA table_info / CREATE IF NOT EXISTS /
+            # INSERT OR IGNORE), backfill нет, PG — no-op.
+            MigrationStep(_SCHEMA_VERSION_LESSON_SEMANTIC,
+                          "lesson_semantic_v46",
+                          lambda svc: svc._migrate_lesson_semantic_v46()),
         ]
 
     @staticmethod
@@ -3650,6 +3669,48 @@ class DatabaseService:
                     "columns (added=%s)", added or "-")
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_VOICE_TRANSCRIPT}")
+        await self.db.commit()
+
+    async def _migrate_lesson_semantic_v46(self) -> None:
+        """v46 (MOD-ACL-UX-01 amendment, 09.11.2026): семантический контракт.
+
+        Аддитивно к `mca_lessons`: confirmation_count, independent_sources,
+        origin_kind, semantic_rule_key, semantic_scope_key, temporal_rank,
+        superseded_at, semantic_confidence, contradiction_count,
+        applicability_version. Плюс таблица
+        `mca_lessons_semantic_templates` с сидом закрытого каталога.
+
+        Идемпотентно: `ALTER ADD COLUMN` под guard `PRAGMA table_info`,
+        `CREATE TABLE IF NOT EXISTS`, `INSERT OR IGNORE` по UNIQUE
+        (lesson_type, rule_key). Backfill НЕТ: старые уроки получают
+        origin_kind=NULL / rank=1.0 / 0 подтверждений — честное «источник
+        неизвестен», а не выдуманная семантика. Повтор — no-op, PG — no-op
+        (память SQLite-only). Откат — cold git revert (поля инертны)."""
+        from services import mca_experience as experience
+        cursor = await self.db.execute("PRAGMA table_info(mca_lessons)")
+        cols = {r["name"] for r in await cursor.fetchall()}
+        added: list[str] = []
+        if cols:
+            for name, decl in experience._LESSON_SEMANTIC_COLUMNS:
+                if name in cols:
+                    continue
+                await self.db.execute(
+                    f"ALTER TABLE mca_lessons ADD COLUMN {name} {decl}")
+                added.append(name)
+        await self.db.execute(experience.LESSON_SEMANTIC_TEMPLATES_DDL)
+        seeded = 0
+        for row in experience.canonical_template_seed_rows(int(time.time())):
+            cursor = await self.db.execute(
+                "INSERT OR IGNORE INTO mca_lessons_semantic_templates "
+                "(template_id, lesson_type, rule_key, template_text, "
+                "scope_pattern, origin_kinds, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)", tuple(row))
+            seeded += int(cursor.rowcount or 0)
+        await self.db.commit()
+        logger.info("[database] migration v46: lesson semantic columns "
+                    "(added=%s, templates_seeded=%d)", added or "-", seeded)
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_LESSON_SEMANTIC}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:

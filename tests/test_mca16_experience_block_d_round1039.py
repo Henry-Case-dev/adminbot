@@ -219,8 +219,12 @@ async def test_preference_signal_scoped_user_in_chat(tmp_path):
             signal={"preference": "short_answers", "user_id": 7})
         assert await mj.tick_experience_review(db) == "completed"
         lessons = await svc.list_lessons(chat_id=-100)
-        assert len(lessons) == 1
-        lesson = lessons[0]
+        # Одна явная поправка теперь усваивается сразу (порог explicit=1):
+        # кроме preference-урока появляется общий failure_pattern. Проверяем
+        # именно preference-урок и его область.
+        prefs = [x for x in lessons if x["type"] == "social_preference"]
+        assert len(prefs) == 1
+        lesson = prefs[0]
         assert lesson["type"] == "social_preference"
         assert lesson["scope"] == "user_in_chat"
         assert lesson["scope_user_id"] == 7
@@ -315,9 +319,13 @@ async def test_randomness_boundary_existing_journal_observation_only(tmp_path):
             "mca_experience_episodes") == 0
         assert await me.get_service(db).store.count("mca_lessons") == 0
         src = _jobs_src()
-        # второго RandomSource/процента нет; истинность/успех не рандомизируются
+        # второго RandomSource/процента нет; истинность/успех не рандомизируются.
+        # MOD-ACL-UX-01 amendment §4.3: направление архивного исследования
+        # выбирает ЕДИНСТВЕННЫЙ существующий RandomSourceService (draw_index),
+        # поэтому импорт `mca_random_source` разрешён; собственный генератор,
+        # `random.choice(s)` и вероятностные константы — по-прежнему запрещены.
         assert "import random" not in src
-        assert "mca_random_source" not in src
+        assert "random.Random" not in src
         assert "random.choice" not in src
         assert "randint" not in src
         assert "PROBABILITY" not in src

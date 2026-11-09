@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
 - **APP_VERSION:** `2.58.170`
-- **HEAD (short):** `33707364`
+- **HEAD (short):** `2779059b`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **595** / GROUPS **119** / `_TAB_BY_GROUP` **117** / TAB_RULES **22**.
-- **Реестр:** 595 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **606** / GROUPS **119** / `_TAB_BY_GROUP` **117** / TAB_RULES **22**.
+- **Реестр:** 606 строк == REGISTRY.
 - **inventory.tsv (10.14):** 401 baseline-ключей.
-- **Дельта 411 → 595 = 194** новых ключей (`status=new`).
+- **Дельта 411 → 606 = 205** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 595 = 194 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 606 = 205 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -149,8 +149,19 @@
 - `log_ring_max_entries`
 - `logtail_source_token`
 - `media_base`
+- `memory.experience_archive_per_run_max`
+- `memory.experience_archive_revisit_window_days`
+- `memory.experience_archive_staleness_days`
+- `memory.experience_fresh_stream_lag_warn_threshold`
+- `memory.experience_fresh_tail_rows`
 - `memory.experience_learning_enabled`
+- `memory.experience_lesson_min_explicit_confirmations`
+- `memory.experience_lesson_min_global_confirmations`
+- `memory.experience_lesson_min_local_confirmations`
+- `memory.experience_lesson_min_technical_confirmations`
 - `memory.experience_review_cadence`
+- `memory.experience_semantic_chats_per_pass`
+- `memory.experience_semantic_per_chat_max`
 - `memory.nostalgia_history_depth_years`
 - `memory.random_enabled`
 - `memory.random_exploration_probability`

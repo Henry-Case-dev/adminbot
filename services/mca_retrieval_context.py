@@ -196,6 +196,9 @@ class LessonRef:
     applicability: str = ""
     recommendation: str = ""
     exceptions: str = ""
+    # MOD-ACL-UX-01 amendment: адаптивный временной ранг урока (1.0 старт,
+    # cap 2.0). Только для выдачи/сортировки; текст в prompt не добавляется.
+    temporal_rank: float = 1.0
 
 
 @dataclasses.dataclass(frozen=True)

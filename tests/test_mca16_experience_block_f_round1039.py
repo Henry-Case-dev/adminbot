@@ -167,7 +167,8 @@ async def test_preference_scope_correct_and_foreign_chat_isolated(tmp_path):
             ref_type="message", ref_id=1,
             signal={"preference": "short_answers", "user_id": 7})
         assert await _run_review(db) == "completed"
-        lesson = (await svc.list_lessons(chat_id=-100))[0]
+        lessons = await svc.list_lessons(chat_id=-100)
+        lesson = [x for x in lessons if x["type"] == "social_preference"][0]
         assert lesson["scope"] == "user_in_chat"
         assert lesson["scope_user_id"] == 7
         # верный адресат видит, чужой участник/чужой чат — нет

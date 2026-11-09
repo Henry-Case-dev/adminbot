@@ -130,16 +130,37 @@ SEMANTIC_STATE_VERSION_KEY = "semantic_state_version"
 SEMANTIC_STATE_VERSION = 2
 RESUME_CURSOR_KEY = "resume_cursor"                     # EXP-FIX-07
 
-#: Покрытие (B02.3, 2k–5k сообщений/сутки): тик 900с × (4 чата × 10 строк) ≈
-#: 5.7k сообщений/сутки ёмкости; лаг курсора виден счётчиками/событием.
-#: EXP-FIX-02: это ЗАВОДСКИЕ пределы одного прохода (объём дренажа), их можно
-#: менять hot-параметрами без рестарта; продуктовый интервал ревью задаётся
-#: отдельно каденцией (`memory.experience_review_cadence`).
+#: Покрытие (MOD-ACL-UX-01 amendment, 09.11.2026): свежий поток больше не
+#: отстаёт от поступления. Тик 900с × (6 чатов × 50 строк) ≈ 28.8k
+#: сообщений/сутки против наблюдаемых ~1.66k/сутки. Заводские пределы одного
+#: прохода меняются hot-параметрами (`experience.semantic_*`) без рестарта;
+#: продуктовый интервал ревью задаётся отдельно каденцией.
 SEMANTIC_DISCOVERY_LIMIT = 500     # строк discovery за проход (дёшево)
-SEMANTIC_CHATS_PER_PASS = 4        # справедливость: ≤4 чатов за проход
-SEMANTIC_PER_CHAT_MAX = 10         # ≤10 строк одного чата в батче
+SEMANTIC_CHATS_PER_PASS = 6        # справедливость: ≤6 чатов за проход
+SEMANTIC_PER_CHAT_MAX = 50         # ≤50 строк одного чата в батче
 SEMANTIC_MSG_TEXT_CAP = 300        # кап текста реплики в user-контенте
 SEMANTIC_BATCH_MAX_TOKENS = 1500
+
+# ── Гибридное расписание: свежий поток + архив (контракт §4) ─────────────────
+#: Durable per-chat курсор архива (в payload job, переживает рестарт).
+ARCHIVE_CURSOR_PREFIX = "archive_cursor:"        # {"rowid","last_ts","coverage_year"}
+ARCHIVE_START_PREFIX = "archive_start:"          # граница свежего хвоста
+ARCHIVE_WATERMARK_KEY = "archive_watermark"      # min по per-chat курсорам
+ARCHIVE_STATS_KEY = "archive_stats"              # "<chat>:<year>" → coverage
+ARCHIVE_VISITS_KEY = "archive_visits"            # "<chat>:<year>" → visits
+ARCHIVE_PER_RUN_MAX = 200                        # строк архива за прогон
+FRESH_TAIL_ROWS = 5000                           # свежий хвост при первом чате
+FRESH_STREAM_LAG_WARN_ROWS = 500                 # порог события о лаге
+ARCHIVE_STALENESS_DAYS = 365                     # давность новой области
+ARCHIVE_REVISIT_WINDOW_DAYS = 30                 # окно анти-повтора
+#: Накопительная аналитика (переживает job'ы; contract §5).
+ANALYTICS_KEY = "analytics"
+
+#: Plug-in точка VMQ (QN): единственный RandomSource выбирает направление
+#: исследования. Пока используется существующий RandomSourceService
+#: (квантовый буфер с честным откатом на PRNG); после VMQ меняется только
+#: инициализация источника, контракт `_pick_archive_direction` не меняется.
+ARCHIVE_PURPOSE = "archive_sample"
 
 #: EXP-FIX-10: индекс необработанных чатов bounded; при переполнении
 #: discovery останавливается (backpressure) — watermark НЕ уезжает за пределы
@@ -616,12 +637,81 @@ def default_counters() -> dict:
         "semantic_pending_reconciled": 0,
         "semantic_discovery_backpressure": 0, "semantic_throughput_rows": 0,
         "semantic_parse_reasons": {},
+        # MOD-ACL-UX-01 amendment §4/§5: свежий лаг, архив, analog-воронка.
+        "fresh_stream_lag_rows": 0, "archive_rows_scanned": 0,
+        "archive_directions": 0, "archive_skipped_fresh_backlog": 0,
+        "archive_write_failures": 0, "archive_llm_unavailable": 0,
+        "lesson_candidates": 0, "lessons_activated": 0,
+        "lesson_rejections": 0, "lesson_reject_reasons": {},
+        "contradictions_found": 0, "stale_beliefs_flagged": 0,
+        "reconfirmations": 0,
         # W4 (SOUL-08): окно реакций на шутку — счётчики того же прохода.
         "humor_sends_scanned": 0, "humor_signals": 0, "humor_unknown": 0,
         "humor_windows_closed": 0, "humor_lessons_applied": 0,
         "humor_hypotheses": 0, "humor_skipped_disabled": 0,
         "humor_evaluator_unavailable": 0, "humor_write_failures": 0,
     }
+
+
+def default_analytics() -> dict:
+    """Накопительные счётчики контракта §5 (durable, переживают job'ы)."""
+    return {
+        "fresh_rows_scanned": 0, "archive_rows_scanned": 0,
+        "archive_directions": 0, "fresh_stream_lag_rows": 0,
+        "candidates_total": 0, "lessons_activated": 0,
+        "lessons_rejected_by_reason": {}, "contradictions_found": 0,
+        "reconfirmations": 0, "stale_beliefs_flagged": 0,
+    }
+
+
+def merge_analytics(data: dict, prev: dict | None) -> None:
+    """max/сумма-merge накопительной аналитики прошлого терминального job'а."""
+    target = data.setdefault(ANALYTICS_KEY, default_analytics())
+    if not isinstance(target, dict):
+        target = data[ANALYTICS_KEY] = default_analytics()
+    for key, value in default_analytics().items():
+        target.setdefault(key, value)
+    if not isinstance(prev, dict):
+        return
+    for key, value in (prev.get(ANALYTICS_KEY) or {}).items():
+        if key not in target:
+            continue
+        if isinstance(target[key], dict):
+            if not isinstance(value, dict):
+                continue
+            for reason, count in value.items():
+                try:
+                    target[key][str(reason)] = int(
+                        target[key].get(str(reason)) or 0) + int(count or 0)
+                except (TypeError, ValueError):
+                    continue
+        else:
+            try:
+                target[key] = int(target[key] or 0) + int(value or 0)
+            except (TypeError, ValueError):
+                continue
+
+
+def bump_analytics(payload: dict, key: str, amount: int = 1) -> None:
+    """Увеличить durable-счётчик аналитики (fail-open)."""
+    analytics = payload.setdefault(ANALYTICS_KEY, default_analytics())
+    try:
+        analytics[key] = int(analytics.get(key) or 0) + int(amount)
+    except (TypeError, ValueError):
+        analytics[key] = int(amount)
+
+
+def bump_analytics_reason(payload: dict, key: str, reason: str) -> None:
+    """Увеличить разбивку причин (rejections) в durable-аналитике."""
+    analytics = payload.setdefault(ANALYTICS_KEY, default_analytics())
+    bucket = analytics.setdefault(key, {})
+    if not isinstance(bucket, dict):
+        bucket = analytics[key] = {}
+    code = str(reason or "unknown")[:64]
+    try:
+        bucket[code] = int(bucket.get(code) or 0) + 1
+    except (TypeError, ValueError):
+        bucket[code] = 1
 
 
 def review_status_from_job(row: dict | None) -> str | None:
@@ -712,20 +802,73 @@ def _hot_int(key: str, default: int, lo: int, hi: int) -> int:
     return max(int(lo), min(int(hi), value))
 
 
+def _hot_int_first(keys, default: int, lo: int, hi: int) -> int:
+    """Hot-int: первый существующий ключ (новая настройка → legacy → дефолт)."""
+    for key in keys:
+        try:
+            from services import hot_config as hot
+            value = hot.get(key, None)
+        except Exception:
+            value = None
+        if value is None:
+            continue
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            continue
+        return max(int(lo), min(int(hi), number))
+    return max(int(lo), min(int(hi), int(default)))
+
+
 def semantic_drain_limits() -> tuple[int, int]:
-    """Пределы ОДНОГО прохода дренажа бэклога (EXP-FIX-02).
+    """Пределы ОДНОГО прохода дренажа бэклога (EXP-FIX-02 / §4.1).
 
     Продуктовый интервал ревью задаётся каденцией (`review_cadence`), а
     скорость разбора накопленного бэклога — этими пределами: сколько чатов
-    за проход и сколько строк одного чата. Разделение позволяет дренировать
-    бэклог чаще планового ревью, не меняя продуктовый интервал и не заводя
-    второго воркера/планировщика.
+    за проход и сколько строк одного чата. Заводские значения подняты до
+    6/50 (≈28.8k строк/сутки) и остаются hot-настраиваемыми; legacy-ключи
+    дренажа читаются как fallback, чтобы прежние настройки не игнорировались.
     """
-    chats = _hot_int("memory.experience_drain_chats_per_pass",
-                     SEMANTIC_CHATS_PER_PASS, 1, 16)
-    per_chat = _hot_int("memory.experience_drain_per_chat_max",
-                        SEMANTIC_PER_CHAT_MAX, 1, 50)
+    chats = _hot_int_first(
+        ("memory.experience_semantic_chats_per_pass",
+         "memory.experience_drain_chats_per_pass"),
+        SEMANTIC_CHATS_PER_PASS, 1, 16)
+    per_chat = _hot_int_first(
+        ("memory.experience_semantic_per_chat_max",
+         "memory.experience_drain_per_chat_max"),
+        SEMANTIC_PER_CHAT_MAX, 1, 50)
     return chats, per_chat
+
+
+def archive_per_run_max() -> int:
+    """Бюджет строк архива за прогон (§4.2; default 200)."""
+    return _hot_int_first(("memory.experience_archive_per_run_max",),
+                          ARCHIVE_PER_RUN_MAX, 1, 5000)
+
+
+def fresh_tail_rows() -> int:
+    """Размер свежего хвоста при первом подключении чата (§4.1)."""
+    return _hot_int_first(("memory.experience_fresh_tail_rows",),
+                          FRESH_TAIL_ROWS, 0, 1_000_000)
+
+
+def fresh_lag_warn_rows() -> int:
+    """Порог события о лаге свежего потока (§5)."""
+    return _hot_int_first(
+        ("memory.experience_fresh_stream_lag_warn_threshold",),
+        FRESH_STREAM_LAG_WARN_ROWS, 1, 1_000_000)
+
+
+def archive_staleness_days() -> int:
+    """Базовая давность направления архива (§4.3; default 365)."""
+    return _hot_int_first(("memory.experience_archive_staleness_days",),
+                          ARCHIVE_STALENESS_DAYS, 1, 36500)
+
+
+def archive_revisit_window_days() -> int:
+    """Окно сброса счётчика недавних обращений к области (§4.3)."""
+    return _hot_int_first(("memory.experience_archive_revisit_window_days",),
+                          ARCHIVE_REVISIT_WINDOW_DAYS, 1, 3650)
 
 
 def semantic_pending_chat_cap() -> int:
@@ -1001,12 +1144,15 @@ class ExperienceReviewRunner:
     Ошибка шага → честный `failed` (никогда ложный `completed`); отмена →
     `interrupted`."""
 
-    def __init__(self, db, llm=None, *, cancel_cb=None) -> None:
+    def __init__(self, db, llm=None, *, cancel_cb=None,
+                 random_source=None) -> None:
         self._db = db
         self._llm = llm
         self._store = TaskJobStore(db)
         self._service = me.get_service(db)
         self._cancel_cb = cancel_cb
+        self._random_source = random_source
+        self._analytics_inherited: set[str] = set()
 
     # ── payload/checkpoint (durable курсор) ───────────────────────────────
 
@@ -1026,6 +1172,9 @@ class ExperienceReviewRunner:
         data.setdefault(SEMANTIC_WATERMARK_KEY, 0)
         data.setdefault(SEMANTIC_PENDING_KEY, {})
         data.setdefault(SEMANTIC_LAST_TS_KEY, {})
+        data.setdefault(ARCHIVE_STATS_KEY, {})
+        data.setdefault(ARCHIVE_VISITS_KEY, {})
+        data.setdefault(ANALYTICS_KEY, default_analytics())
         counters = data.setdefault("counters", default_counters())
         for key, value in default_counters().items():
             counters.setdefault(key, value)
@@ -1036,7 +1185,7 @@ class ExperienceReviewRunner:
         # feedback/event/detector), поэтому новый job не начинает semantic
         # pass с нуля. Наследование — max/min-merge: повторное применение
         # идемпотентно и НИКОГДА не откатывает уже пройденные позиции.
-        await self._inherit_cursor(data)
+        await self._inherit_cursor(data, job_id)
         self._normalize_semantic_state(data)
         return data
 
@@ -1093,7 +1242,7 @@ class ExperienceReviewRunner:
                 int(data[SEMANTIC_WATERMARK_KEY] or 0), max(positions))
         data[SEMANTIC_STATE_VERSION_KEY] = SEMANTIC_STATE_VERSION
 
-    async def _inherit_cursor(self, data: dict) -> None:
+    async def _inherit_cursor(self, data: dict, job_id: str = "") -> None:
         """EXP-FIX-01: наследовать полный durable checkpoint прошлого job'а.
 
         Копируются feedback/event/detector/link курсоры, discovery-watermark,
@@ -1173,6 +1322,55 @@ class ExperienceReviewRunner:
             if not data.get(RESUME_CURSOR_KEY) \
                     and isinstance(prev.get(RESUME_CURSOR_KEY), dict):
                 data[RESUME_CURSOR_KEY] = dict(prev[RESUME_CURSOR_KEY])
+            # ── архивный checkpoint (§4.2): durable per-chat курсоры ─────
+            for chat_key, value in list(prev.items()):
+                if str(chat_key).startswith(ARCHIVE_CURSOR_PREFIX) \
+                        and isinstance(value, dict):
+                    current = data.get(chat_key)
+                    if not isinstance(current, dict):
+                        data[chat_key] = dict(value)
+                    else:
+                        data[chat_key] = {
+                            "rowid": max(int(current.get("rowid") or 0),
+                                         int(value.get("rowid") or 0)),
+                            "last_ts": max(int(current.get("last_ts") or 0),
+                                           int(value.get("last_ts") or 0)),
+                            "coverage_year": (current.get("coverage_year")
+                                              or value.get("coverage_year")),
+                        }
+                elif str(chat_key).startswith(ARCHIVE_START_PREFIX):
+                    try:
+                        data[chat_key] = max(int(data.get(chat_key) or 0),
+                                             int(value or 0))
+                    except (TypeError, ValueError):
+                        continue
+            stats = data.setdefault(ARCHIVE_STATS_KEY, {})
+            for key, value in (prev.get(ARCHIVE_STATS_KEY) or {}).items():
+                if not isinstance(value, dict):
+                    continue
+                current = stats.get(key) if isinstance(
+                    stats.get(key), dict) else {}
+                stats[key] = {
+                    "scanned": max(int(current.get("scanned") or 0),
+                                   int(value.get("scanned") or 0)),
+                    "total": max(int(current.get("total") or 0),
+                                 int(value.get("total") or 0)),
+                    "last_ts": max(int(current.get("last_ts") or 0),
+                                   int(value.get("last_ts") or 0)),
+                    "exhausted": bool(current.get("exhausted")
+                                      or value.get("exhausted")),
+                }
+            visits = data.setdefault(ARCHIVE_VISITS_KEY, {})
+            for key, value in (prev.get(ARCHIVE_VISITS_KEY) or {}).items():
+                if not isinstance(value, dict) or str(key) in visits:
+                    continue
+                visits[str(key)] = {"count": int(value.get("count") or 0),
+                                    "since": int(value.get("since") or 0)}
+            # Накопительная аналитика наследуется ОДИН раз на job: повторное
+            # чтение payload (тесты/ретрай) не должно удваивать счётчики.
+            if job_id and job_id not in self._analytics_inherited:
+                merge_analytics(data, prev)
+                self._analytics_inherited.add(job_id)
         except Exception:
             logger.warning("[mca16] review cursor inherit failed — from zero",
                            exc_info=True)
@@ -1225,10 +1423,23 @@ class ExperienceReviewRunner:
             # асинхронных батчах по bounded окнам, per-chat fairness,
             # provenance); детектор выше — дешёвый high-confidence вход.
             await self._semantic_extract(payload)
+            self._note_fresh_lag(payload)
+            bump_analytics(payload, "fresh_rows_scanned",
+                           int(counters.get("semantic_rows_read") or 0))
             # EXP-FIX-01: durable checkpoint сразу после семантической стадии
             # — падение процесса между durable вставкой и финальным finish не
             # откатывает уже пройденные позиции (повтор идемпотентен по
             # dedup_key).
+            await self._checkpoint(job_id, payload)
+            # Архивный шаг — ТОЛЬКО после свежего и только при остатке
+            # бюджета: свежий поток приоритетен (§4.2).
+            archive = await self._archive_pass(payload, now=int(time.time()))
+            counters["archive_rows_scanned"] = int(
+                counters.get("archive_rows_scanned") or 0) + int(
+                archive.get("scanned") or 0)
+            counters["archive_directions"] = int(
+                counters.get("archive_directions") or 0) + int(
+                archive.get("directions") or 0)
             await self._checkpoint(job_id, payload)
             counters["captured_feedback"] += await self._capture_feedback(
                 payload)
@@ -1249,13 +1460,27 @@ class ExperienceReviewRunner:
             resolved = await self._resolve_recheck()
             counters["recheck_resolved"] += int(resolved.get("resolved") or 0)
             counters["recheck_suspended"] += int(resolved.get("suspended") or 0)
-            batch = await self._propose_batch()
+            # §5: помечать потерявшие ранг убеждения (не удаляя их).
+            counters["stale_beliefs_flagged"] += await self._flag_stale_beliefs()
+            batch = await self._propose_batch(payload)
             counters["proposed"] += int(batch.get("proposed") or 0)
+            counters["lesson_candidates"] += int(batch.get("proposed") or 0)
+            bump_analytics(payload, "candidates_total",
+                           int(batch.get("proposed") or 0))
             counters["skipped_existing"] += int(batch.get("skipped") or 0)
             outcome = await self._validate_and_activate(
-                batch.get("candidates") or ())
+                batch.get("candidates") or (), payload)
             counters["validated"] += int(outcome.get("validated") or 0)
             counters["activated"] += int(outcome.get("activated") or 0)
+            counters["lessons_activated"] += int(outcome.get("activated") or 0)
+            bump_analytics(payload, "lessons_activated",
+                           int(outcome.get("activated") or 0))
+            counters["contradictions_found"] += int(
+                outcome.get("contradictions") or 0)
+            bump_analytics(payload, "contradictions_found",
+                           int(outcome.get("contradictions") or 0))
+            bump_analytics(payload, "reconfirmations",
+                           int(counters.get("reconfirmations") or 0))
             counters["suspended"] += await self._suspend_contradicted()
             linked = await self._link_outcomes(payload)
             counters["outcomes_linked"] += int(linked.get("linked") or 0)
@@ -1857,6 +2082,12 @@ class ExperienceReviewRunner:
                 payload[SEMANTIC_WATERMARK_KEY] = int(row["id"])
                 continue
             key = str(int(chat_id))
+            cursor_key = f"{SEMANTIC_CURSOR_PREFIX}{int(chat_id)}"
+            if cursor_key not in payload:
+                # Первое подключение чата: свежий хвост обрабатывается
+                # непрерывно, более старые строки — архив с отдельным
+                # durable-курсором (старый непройденный архив не теряется).
+                await self._init_chat_stream(payload, int(chat_id), now=now)
             if key not in pending and len(pending) >= cap:
                 # Backpressure: строка остаётся ЗА watermark и будет
                 # обнаружена следующим проходом (не потеряна).
@@ -1874,6 +2105,29 @@ class ExperienceReviewRunner:
         counters["semantic_scanned"] = int(
             counters.get("semantic_scanned") or 0) + discovered
         return discovered
+
+    async def _init_chat_stream(self, payload: dict, chat_id: int, *,
+                                now: int) -> None:
+        """Свежий хвост + архивная граница при первом подключении чата (§4.1).
+
+        Последние `fresh_tail_rows` строк считаются свежим потоком (курсор
+        стартует у их начала), всё, что старше, — архив. На маленькой БД
+        граница = 0, поэтому поведение прежнее. Архивный курсор durable в
+        payload, рестарт его не сбрасывает."""
+        cid = int(chat_id)
+        try:
+            cursor = await self._db.db.execute(
+                "SELECT MAX(id) AS max_id FROM smart_messages WHERE chat_id = ?",
+                (cid,))
+            row = await cursor.fetchone()
+            max_id = int((row["max_id"] if row is not None else 0) or 0)
+        except Exception:
+            max_id = 0
+        floor = max(0, max_id - fresh_tail_rows())
+        payload[f"{SEMANTIC_CURSOR_PREFIX}{cid}"] = floor
+        payload[f"{ARCHIVE_START_PREFIX}{cid}"] = floor
+        payload.setdefault(f"{ARCHIVE_CURSOR_PREFIX}{cid}", {
+            "rowid": 0, "last_ts": 0, "coverage_year": None})
 
     async def _semantic_window(self, payload: dict, chat_id: int, *,
                                limit: int | None = None) -> dict:
@@ -2004,6 +2258,9 @@ class ExperienceReviewRunner:
             "msg_ids": [int(x) for x in candidate["msg_ids"][:6]],
             "kind": kind,
         }
+        topic_token = _clean_topic(candidate.get("topic"))
+        if topic_token:
+            signal["topic"] = topic_token
         if klass == "preference":
             token = normalize_pref_token(candidate.get("pref_token"))
             if token is None:
@@ -2077,6 +2334,294 @@ class ExperienceReviewRunner:
                 return True
         return False
 
+    # ── шаг 1b: архив (гибридное расписание, контракт §4) ──────────────────
+
+    async def _archive_candidates(self, payload: dict, *,
+                                  now: int) -> list[dict]:
+        """Области (chat, year) с непройденными историческими строками.
+
+        Вес = давность × информативность / недавние обращения (§4.3).
+        Кандидаты — только реально непрочитанный диапазон между архивным
+        курсором и началом свежего хвоста."""
+        staleness_default = archive_staleness_days()
+        revisit_window = archive_revisit_window_days() * 86400
+        visits = payload.setdefault(ARCHIVE_VISITS_KEY, {})
+        stats = payload.setdefault(ARCHIVE_STATS_KEY, {})
+        max_batch = archive_per_run_max()
+        candidates: list[dict] = []
+        for key, start in list(payload.items()):
+            if not str(key).startswith(ARCHIVE_START_PREFIX):
+                continue
+            try:
+                chat_id = int(str(key)[len(ARCHIVE_START_PREFIX):])
+                stop = int(start or 0)
+            except (TypeError, ValueError):
+                continue
+            cursor_key = f"{ARCHIVE_CURSOR_PREFIX}{chat_id}"
+            position = payload.get(cursor_key)
+            if not isinstance(position, dict):
+                position = {"rowid": 0, "last_ts": 0, "coverage_year": None}
+                payload[cursor_key] = position
+            rowid = int(position.get("rowid") or 0)
+            if stop <= 0 or rowid >= stop:
+                continue
+            try:
+                cursor = await self._db.db.execute(
+                    "SELECT COALESCE(strftime('%Y', timestamp, 'unixepoch'),"
+                    "'0') AS yr, COUNT(*) AS c FROM smart_messages "
+                    "WHERE chat_id = ? AND id > ? AND id < ? GROUP BY yr",
+                    (chat_id, rowid, stop))
+                grouped = [dict(r) for r in await cursor.fetchall()]
+            except Exception:
+                logger.warning("[mca16] archive candidates read failed | "
+                               "chat=%s", chat_id, exc_info=True)
+                continue
+            for row in grouped:
+                try:
+                    year = int(row.get("yr") or 0)
+                    remaining = int(row.get("c") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if remaining <= 0:
+                    continue
+                stat = stats.get(f"{chat_id}:{year}") or {}
+                if stat.get("exhausted"):
+                    continue                       # пустой диапазон года
+                last_ts = int(stat.get("last_ts") or 0) or int(
+                    position.get("last_ts") or 0)
+                if last_ts:
+                    days = max(0.1, (int(now) - last_ts) / 86400.0)
+                else:
+                    days = float(staleness_default)
+                days = min(days, float(staleness_default) * 4.0)
+                informative = min(1.0, max(
+                    0.1, remaining / max(1, max_batch)))
+                visit = visits.get(f"{chat_id}:{year}")
+                if not isinstance(visit, dict):
+                    visit = {"count": 0, "since": int(now)}
+                    visits[f"{chat_id}:{year}"] = visit
+                if int(now) - int(visit.get("since") or 0) > revisit_window:
+                    visit = {"count": 0, "since": int(now)}
+                    visits[f"{chat_id}:{year}"] = visit
+                weight = days * informative / max(
+                    1, int(visit.get("count") or 0))
+                candidates.append({
+                    "chat_id": chat_id, "year": year,
+                    "weight": round(float(weight), 6),
+                    "rows": remaining, "rowid": rowid, "stop": stop,
+                })
+        candidates.sort(key=lambda c: (-c["weight"], c["chat_id"], c["year"]))
+        return candidates[:50]
+
+    async def _pick_archive_direction(self, payload: dict,
+                                      candidates: list[dict]) -> dict | None:
+        """Взвешенный выбор направления через ЕДИНСТВЕННЫЙ RandomSource.
+
+        VMQ-совместимая plug-in точка: используется существующий
+        `RandomSourceService.draw_index` (квантовый буфер + честный откат на
+        PRNG). Взвешенность реализована раскладкой весов в диапазон
+        [0, total_weight) и одним равномерным draw — второго генератора нет.
+        При недоступности draw → детерминированно самый тяжёлый кандидат
+        (честная деградация, не скрытая случайность)."""
+        if not candidates:
+            return None
+        weights = [max(1, int(round(float(c.get("weight") or 0) * 1000)))
+                   for c in candidates]
+        total = sum(weights)
+        index: int | None = None
+        selector = "random"
+        source = getattr(self, "_random_source", None)
+        try:
+            if source is None:
+                from services.mca_random_source import RandomSourceService
+                source = RandomSourceService(self._db, auto_refill=False)
+                self._random_source = source
+            result = await source.draw_index(
+                total, chat_id=candidates[0]["chat_id"],
+                purpose=ARCHIVE_PURPOSE)
+            if getattr(result, "index", None) is not None:
+                index = int(result.index) % total
+            try:
+                from services.mca_random_source import MODE_QUANTUM
+                if str(getattr(result, "source", "")) == MODE_QUANTUM:
+                    selector = "qn"
+            except Exception:
+                selector = "random"
+        except Exception:
+            logger.warning("[mca16] archive direction draw failed — "
+                           "deterministic fallback", exc_info=True)
+        if index is None:
+            index = max(range(len(candidates)),
+                        key=lambda i: weights[i])
+            selector = "random_unavailable"
+        chosen = None
+        running = 0
+        for candidate, weight in zip(candidates, weights):
+            running += weight
+            if index < running:
+                chosen = candidate
+                break
+        if chosen is None:
+            chosen = candidates[-1]
+        key = f"{chosen['chat_id']}:{chosen['year']}"
+        visits = payload.setdefault(ARCHIVE_VISITS_KEY, {})
+        visit = visits.get(key) if isinstance(visits.get(key), dict) \
+            else {"count": 0, "since": int(time.time())}
+        visit["count"] = int(visit.get("count") or 0) + 1
+        visits[key] = visit
+        counters = payload.get("counters") or {}
+        counters["archive_directions"] = int(
+            counters.get("archive_directions") or 0) + 1
+        bump_analytics(payload, "archive_directions")
+        _emit("experience.archive_direction_selected", outcome="success",
+              reason_code="archive_direction", usage_json={
+                  "chat_id": int(chosen["chat_id"]),
+                  "year": int(chosen["year"]),
+                  "weight": float(chosen["weight"]),
+                  "selector": selector})
+        return chosen
+
+    async def _archive_window(self, direction: dict, *, limit: int) -> dict:
+        """Bounded окно строк выбранного года выше архивного курсора."""
+        try:
+            cursor = await self._db.db.execute(
+                "SELECT id, chat_id, user_id, text, author_name, timestamp, "
+                "reply_to_id, media_type, is_forward FROM smart_messages "
+                "WHERE chat_id = ? AND id > ? AND id < ? "
+                "AND COALESCE(strftime('%Y', timestamp, 'unixepoch'), '0') = ? "
+                "ORDER BY id LIMIT ?",
+                (int(direction["chat_id"]), int(direction["rowid"]),
+                 int(direction["stop"]), str(int(direction["year"])),
+                 max(1, int(limit))))
+            return {"state": "ok", "rows": [dict(r) for r in
+                                            await cursor.fetchall()]}
+        except Exception:
+            logger.warning("[mca16] archive window read failed | chat=%s",
+                           direction.get("chat_id"), exc_info=True)
+            return {"state": "error", "rows": []}
+
+    def _book_archive_window(self, payload: dict, direction: dict, *,
+                             advanced_to: int, scanned: int,
+                             total_rows: int, now: int) -> None:
+        """Durable сдвиг архивного курсора и coverage-статистика (§4.2/§5)."""
+        chat_id = int(direction["chat_id"])
+        year = int(direction["year"])
+        key = f"{ARCHIVE_CURSOR_PREFIX}{chat_id}"
+        position = payload.get(key)
+        if not isinstance(position, dict):
+            position = {"rowid": 0, "last_ts": 0, "coverage_year": None}
+        position["rowid"] = max(int(position.get("rowid") or 0),
+                                int(advanced_to or 0))
+        position["last_ts"] = int(now)
+        position["coverage_year"] = year
+        payload[key] = position
+        stats = payload.setdefault(ARCHIVE_STATS_KEY, {})
+        stat = stats.get(f"{chat_id}:{year}") if isinstance(
+            stats.get(f"{chat_id}:{year}"), dict) else {}
+        stats[f"{chat_id}:{year}"] = {
+            "scanned": int(stat.get("scanned") or 0) + max(0, int(scanned)),
+            "total": max(int(stat.get("total") or 0), int(total_rows or 0)),
+            "last_ts": int(now),
+            # Пустой диапазон года помечается, чтобы взвешенный выбор не
+            # возвращался к нему каждый прогон (позиция при этом не едет).
+            "exhausted": bool(not scanned),
+        }
+        payload[ARCHIVE_WATERMARK_KEY] = self._archive_watermark(payload)
+
+    @staticmethod
+    def _archive_watermark(payload: dict) -> int:
+        positions: list[int] = []
+        for key, value in payload.items():
+            if not str(key).startswith(ARCHIVE_CURSOR_PREFIX):
+                continue
+            if isinstance(value, dict):
+                positions.append(int(value.get("rowid") or 0))
+        return min(positions) if positions else 0
+
+    async def _archive_pass(self, payload: dict, *, now: int) -> dict:
+        """Архивный шаг после свежего: bounded бюджет, durable курсор.
+
+        Выполняется ТОЛЬКО если у свежего потока нет actionable-бэклога
+        (свежесть приоритетна, §4.2). Ошибки LLM/разбора оставляют курсор на
+        месте — исторические строки не теряются и не считаются пройденными."""
+        counters = payload["counters"]
+        result = {"scanned": 0, "directions": 0}
+        progress = payload.get(SEMANTIC_PROGRESS_KEY) or {}
+        if int(progress.get("actionable_rows") or 0) > 0:
+            counters["archive_skipped_fresh_backlog"] = int(
+                counters.get("archive_skipped_fresh_backlog") or 0) + 1
+            return result
+        if self._llm is None:
+            counters["archive_llm_unavailable"] = int(
+                counters.get("archive_llm_unavailable") or 0) + 1
+            return result
+        budget = archive_per_run_max()
+        candidates = await self._archive_candidates(payload, now=now)
+        if not candidates:
+            return result
+        direction = await self._pick_archive_direction(payload, candidates)
+        if direction is None:
+            return result
+        result["directions"] = 1
+        processed = 0
+        chunk_rows = 40
+        while processed < budget:
+            window = await self._archive_window(
+                direction, limit=min(budget - processed, chunk_rows))
+            if window.get("state") == "error":
+                counters["archive_write_failures"] = int(
+                    counters.get("archive_write_failures") or 0) + 1
+                break
+            rows = window.get("rows") or []
+            if not rows:
+                # Пустое окно не двигает позицию: иначе можно перепрыгнуть
+                # непройденные строки другого года. Достаточно отметить
+                # время обращения (анти-повтор/давность).
+                self._book_archive_window(
+                    payload, direction,
+                    advanced_to=int(direction.get("rowid") or 0),
+                    scanned=0, total_rows=int(direction.get("rows") or 0),
+                    now=now)
+                break
+            counters["semantic_rows_read"] = int(
+                counters.get("semantic_rows_read") or 0) + len(rows)
+            raw = await self._semantic_llm_batch(rows)
+            if raw is None:
+                counters["archive_llm_unavailable"] = int(
+                    counters.get("archive_llm_unavailable") or 0) + 1
+                break                              # курсор на месте (retry)
+            parsed = parse_semantic_candidates_typed(raw)
+            if str(parsed.get("outcome") or "") == SEMANTIC_PARSE_INVALID:
+                counters["semantic_parse_invalid"] = int(
+                    counters.get("semantic_parse_invalid") or 0) + 1
+                break                              # позиция не двигается
+            rows_index = {int(r["id"]): r for r in rows}
+            for candidate in parsed.get("candidates") or ():
+                rejection = semantic_rejection(candidate)
+                if rejection is not None:
+                    self._reject_semantic(counters, rejection)
+                    continue
+                await self._write_semantic_candidate(
+                    candidate, rows_index, counters)
+            last_id = int(rows[-1]["id"])
+            self._book_archive_window(
+                payload, direction, advanced_to=last_id,
+                scanned=len(rows), total_rows=int(direction.get("rows") or 0),
+                now=now)
+            bump_analytics(payload, "archive_rows_scanned", len(rows))
+            result["scanned"] += len(rows)
+            processed += len(rows)
+            direction = dict(direction, rowid=last_id)
+        _emit("experience.archive_coverage", outcome="success",
+              reason_code="archive_coverage", usage_json={
+                  "chat_id": int(direction["chat_id"]),
+                  "year": int(direction["year"]),
+                  "scanned_rows": int(result["scanned"]),
+                  "total_rows": int(direction.get("rows") or 0),
+                  "last_ts": int(now)})
+        counters["archive_stats"] = payload.get(ARCHIVE_STATS_KEY)
+        return result
+
     # ── шаг 1c: D05 resume (§18E.5; crash после create/verify) ────────────
 
     async def _resume_incomplete(self, payload: dict) -> dict:
@@ -2105,7 +2650,8 @@ class ExperienceReviewRunner:
         cursor = await self._db.db.execute(
             "SELECT l.lesson_id, l.version, l.type, l.scope, "
             "l.scope_chat_id, l.scope_user_id, l.applicability, l.status, "
-            "l.source_ref_id, l.created_at FROM mca_lessons l WHERE "
+            "l.source_ref_id, l.created_at, l.origin_kind, "
+            "l.independent_sources FROM mca_lessons l WHERE "
             "l.version = (SELECT MAX(x.version) FROM mca_lessons x WHERE "
             "x.lesson_id = l.lesson_id) AND l.status IN "
             "('candidate','validated') AND (l.created_at > ? OR "
@@ -2143,14 +2689,26 @@ class ExperienceReviewRunner:
                 episode_ids = await self._lesson_episode_evidence(row)
                 independent = tuple(dict.fromkeys(
                     str(x) for x in episode_ids if x))
-                if len(independent) < me.ExperiencePolicy \
-                        .min_independent_episodes():
+                try:
+                    stored_sources = tuple(me.safe_tokens(json.loads(
+                        row.get("independent_sources") or "[]")))
+                except (TypeError, ValueError):
+                    stored_sources = ()
+                need = await self._service.lesson.required_confirmations(row)
+                if need is None or len(set(independent) | set(stored_sources)) \
+                        < max(1, int(need)):
                     rejected += 1             # semantic rejection: остаётся
+                    self._note_rejection(
+                        "insufficient_independent_episodes", payload)
                     continue
                 evidence = me.ValidationEvidence(
-                    kind="generalization", independent_episode_ids=independent)
+                    kind="generalization",
+                    independent_episode_ids=independent,
+                    independent_source_ids=stored_sources,
+                    origin_kind=row.get("origin_kind"))
             if evidence is None:
                 rejected += 1                 # semantic rejection: остаётся
+                self._note_rejection("no_evidence", payload)
                 continue
             if await self._service.lesson.validate(lesson_id, version,
                                                    evidence=evidence):
@@ -2229,15 +2787,26 @@ class ExperienceReviewRunner:
 
     # ── шаг 2: propose (детерминированные канонические правила) ──────────
 
-    async def _propose_batch(self) -> dict:
+    async def _propose_batch(self, payload=None) -> dict:
         """Кандидаты из повторяющихся типизированных наблюдений (без LLM).
 
         Дедуп: открытый (не superseded) урок с тем же каноном/scope → skip
-        (повторный запуск не плодит дубликаты)."""
+        (повторный запуск не плодит дубликаты). Пороги — по классу урока
+        (§2.1): техническая ошибка/явная коррекция = 1, повторяющийся
+        локальный паттерн = 2 (настраивается), глобальный = 3."""
         limit = me.ExperiencePolicy.review_batch_max()
-        need = me.ExperiencePolicy.min_independent_episodes()
+        counters = (payload or {}).get("counters") \
+            if isinstance(payload, dict) else None
         candidates: list[dict] = []
         skipped = 0
+        thresholds_by_chat: dict = {}
+
+        async def _thresholds(chat_id):
+            key = str(chat_id)
+            if key not in thresholds_by_chat:
+                thresholds_by_chat[key] = \
+                    await me.lesson_confirmation_thresholds(chat_id)
+            return thresholds_by_chat[key]
 
         # P1: ≥need независимых технических неудач по инструменту в чате.
         # Учитываются только эпизоды, записанные под ТЕКУЩИЕ tool schema и
@@ -2265,6 +2834,7 @@ class ExperienceReviewRunner:
                         str(row["episode_id"]))
         for (chat_id, tool), episode_ids in sorted(by_tool.items()):
             unique = list(dict.fromkeys(episode_ids))
+            need = (await _thresholds(chat_id))["technical"]
             if len(unique) < need:
                 continue
             if await self._lesson_exists(type=PROPOSAL_RULE_TOOL_FAILURES[0],
@@ -2272,18 +2842,27 @@ class ExperienceReviewRunner:
                                          rule_key=PROPOSAL_RULE_TOOL_FAILURES[1],
                                          applicability=f"tool:{tool}"):
                 skipped += 1
+                await self._reconfirm_existing(
+                    type=PROPOSAL_RULE_TOOL_FAILURES[0], scope="chat",
+                    scope_chat_id=chat_id,
+                    rule_key=PROPOSAL_RULE_TOOL_FAILURES[1],
+                    applicability=f"tool:{tool}",
+                    source_ids=unique, counters=counters)
                 continue
             created = await self._service.lesson.propose(
                 type=PROPOSAL_RULE_TOOL_FAILURES[0], scope="chat",
                 rule_key=PROPOSAL_RULE_TOOL_FAILURES[1],
                 applicability=f"tool:{tool}", scope_chat_id=chat_id,
-                episode_ids=tuple(unique))
+                episode_ids=tuple(unique), origin_kind="technical",
+                independent_sources=tuple(unique))
             if created is None:
                 continue
             candidates.append({
                 "lesson_id": created[0], "version": created[1],
                 "kind": "generalization",
                 "episode_ids": tuple(unique[:need * 4]),
+                "source_refs": tuple(unique[:need * 4]),
+                "origin_kind": "technical",
             })
 
         # P2: ≥need независимых явных коррекций в чате → failure_pattern.
@@ -2301,23 +2880,32 @@ class ExperienceReviewRunner:
             by_chat.setdefault(int(chat_id), []).append(str(row["episode_id"]))
         for chat_id, episode_ids in sorted(by_chat.items()):
             unique = list(dict.fromkeys(episode_ids))
+            need = (await _thresholds(chat_id))["explicit"]
             if len(unique) < need:
                 continue
             if await self._lesson_exists(type=PROPOSAL_RULE_CORRECTIONS[0],
                                          scope="chat", scope_chat_id=chat_id,
                                          rule_key=PROPOSAL_RULE_CORRECTIONS[1]):
                 skipped += 1
+                await self._reconfirm_existing(
+                    type=PROPOSAL_RULE_CORRECTIONS[0], scope="chat",
+                    scope_chat_id=chat_id,
+                    rule_key=PROPOSAL_RULE_CORRECTIONS[1],
+                    source_ids=unique, counters=counters)
                 continue
             created = await self._service.lesson.propose(
                 type=PROPOSAL_RULE_CORRECTIONS[0], scope="chat",
                 rule_key=PROPOSAL_RULE_CORRECTIONS[1],
-                scope_chat_id=chat_id, episode_ids=tuple(unique))
+                scope_chat_id=chat_id, episode_ids=tuple(unique),
+                origin_kind="explicit", independent_sources=tuple(unique))
             if created is None:
                 continue
             candidates.append({
                 "lesson_id": created[0], "version": created[1],
                 "kind": "generalization",
                 "episode_ids": tuple(unique[:need * 4]),
+                "source_refs": tuple(unique[:need * 4]),
+                "origin_kind": "explicit",
             })
 
         # P3: типизированное явное предпочтение участника (self-report):
@@ -2362,6 +2950,12 @@ class ExperienceReviewRunner:
                 superseded_signals += 1
                 continue
             seen_pref[(int(chat_id), user_id, pref_key)] = applicability
+            message_source = ()
+            try:
+                msg_id = int(signal.get("msg"))
+                message_source = (f"message:{msg_id}",)
+            except (TypeError, ValueError):
+                message_source = ()
             if await self._lesson_exists(type=PROPOSAL_RULE_PREFERENCE[0],
                                          scope="user_in_chat",
                                          scope_chat_id=int(chat_id),
@@ -2369,11 +2963,18 @@ class ExperienceReviewRunner:
                                          scope_user_id=user_id,
                                          applicability=applicability):
                 skipped += 1                   # идемпотентный повтор события
+                await self._reconfirm_existing(
+                    type=PROPOSAL_RULE_PREFERENCE[0], scope="user_in_chat",
+                    scope_chat_id=int(chat_id), scope_user_id=user_id,
+                    rule_key=PROPOSAL_RULE_PREFERENCE[1],
+                    applicability=applicability, source_ids=message_source,
+                    counters=counters)
                 continue
             created = await self._propose_preference(
                 chat_id=int(chat_id), user_id=user_id,
                 applicability=applicability, pref_token=pref_token,
-                signal_ts=int(row.get("ts") or 0))
+                signal_ts=int(row.get("ts") or 0),
+                independent_sources=message_source)
             if created is None:
                 continue
             lesson_id, version = created
@@ -2381,11 +2982,79 @@ class ExperienceReviewRunner:
                 "lesson_id": lesson_id, "version": version,
                 "kind": "explicit_preference",
                 "episode_ids": (),
+                "source_refs": message_source,
+                "origin_kind": "explicit",
                 "pref_msg": signal.get("msg"),
                 "pref_chat_id": chat_id,
             }
             candidates.append(candidate)
             await self._link_message_provenance(candidate)
+
+        # P4: повторяющийся локальный смысловой паттерн из РЕАЛЬНОГО опыта.
+        # Свободный (не каталожный) урок: identity — R17-safe токен
+        # наблюдённого носителя (тема/вид коррекции), текст — серверный
+        # шаблон (§1.2). Требуется ≥ local независимых сообщений; сырые
+        # реплики в рекомендацию не попадают и в контекст не передаются.
+        cursor = await self._db.db.execute(
+            "SELECT chat_id, signal_json FROM mca_experience_feedback "
+            "WHERE status = 'active' AND source_kind IN "
+            "('owner_correction','participant_correction') "
+            "AND signal_json IS NOT NULL ORDER BY rowid DESC LIMIT ?",
+            (limit * 2,))
+        patterns: dict[tuple, dict] = {}
+        for row in await cursor.fetchall():
+            row = dict(row)
+            signal = _parse_json_dict(row.get("signal_json"))
+            if not signal.get("semantic"):
+                continue                       # только семантический опыт
+            kind = str(signal.get("kind") or "")
+            if kind not in SEMANTIC_KINDS:
+                continue
+            carrier = _clean_topic(signal.get("topic"))
+            if not carrier:
+                carrier = str(signal.get("pref_key") or "")[:24]
+            if not carrier or not re.fullmatch(r"[a-z0-9_-]{2,24}", carrier):
+                continue
+            chat_id = row.get("chat_id")
+            if chat_id is None:
+                continue
+            key = (int(chat_id), kind, carrier)
+            entry = patterns.setdefault(key, {"sources": []})
+            msg_id = signal.get("msg")
+            if msg_id is not None:
+                entry["sources"].append(f"message:{int(msg_id)}")
+        for (chat_id, kind, carrier), entry in sorted(patterns.items()):
+            sources = tuple(dict.fromkeys(entry["sources"]))
+            need = (await _thresholds(chat_id))["local"]
+            if len(sources) < max(1, int(need)):
+                continue
+            lesson_type = ("failure_pattern"
+                           if kind in ("correction", "strategy_failure")
+                           else "context")
+            rule_key = f"sem_{kind}_{carrier}"
+            applicability = f"area:{carrier}"
+            if not me.is_safe_token(rule_key):
+                continue
+            if await self._lesson_exists(
+                    type=lesson_type, scope="chat", scope_chat_id=chat_id,
+                    rule_key=rule_key, applicability=applicability):
+                skipped += 1
+                await self._reconfirm_existing(
+                    type=lesson_type, scope="chat", scope_chat_id=chat_id,
+                    rule_key=rule_key, applicability=applicability,
+                    source_ids=sources, counters=counters)
+                continue
+            created = await self._service.lesson.propose(
+                type=lesson_type, scope="chat", rule_key=rule_key,
+                applicability=applicability, scope_chat_id=chat_id,
+                origin_kind="semantic", independent_sources=sources)
+            if created is None:
+                continue
+            candidates.append({
+                "lesson_id": created[0], "version": created[1],
+                "kind": "generalization", "episode_ids": (),
+                "source_refs": sources, "origin_kind": "semantic",
+            })
 
         return {"candidates": candidates, "proposed": len(candidates),
                 "skipped": skipped,
@@ -2393,7 +3062,9 @@ class ExperienceReviewRunner:
 
     async def _propose_preference(self, *, chat_id: int, user_id: int,
                                   applicability: str, pref_token: str,
-                                  signal_ts: int = 0) -> tuple[str, int] | None:
+                                  signal_ts: int = 0,
+                                  independent_sources=()
+                                  ) -> tuple[str, int] | None:
         """Preference-кандидат: fresh propose ИЛИ supersede при явной замене.
 
         X3: открытый урок с тем же pref-ключом и ДРУГИМ значением — явная
@@ -2419,7 +3090,8 @@ class ExperienceReviewRunner:
             type=PROPOSAL_RULE_PREFERENCE[0], scope="user_in_chat",
             rule_key=PROPOSAL_RULE_PREFERENCE[1],
             scope_chat_id=chat_id, scope_user_id=user_id,
-            applicability=applicability)
+            applicability=applicability, origin_kind="explicit",
+            independent_sources=tuple(independent_sources or ()))
 
     async def _open_preference_lesson(self, *, chat_id: int, user_id: int,
                                       pref_key: str) -> dict | None:
@@ -2468,6 +3140,46 @@ class ExperienceReviewRunner:
             logger.warning("[mca16] message provenance link failed",
                            exc_info=True)
 
+    async def _reconfirm_existing(self, *, type: str, scope: str,
+                                  rule_key: str, applicability=None,
+                                  scope_chat_id=None, scope_user_id=None,
+                                  source_ids=(), counters=None) -> dict | None:
+        """Повторное независимое подтверждение открытого урока (§4.4).
+
+        Добавляет только НОВЫЕ source refs (идемпотентно) и повышает
+        temporal_rank на +0.1 (cap 2.0). Само по себе повторение одного и
+        того же источника ранг не меняет."""
+        sources = tuple(str(x) for x in (source_ids or ()) if str(x))
+        if not sources:
+            return None
+        applicability = "" if applicability is None else str(applicability)
+        try:
+            cursor = await self._db.db.execute(
+                "SELECT lesson_id, version, status FROM mca_lessons "
+                "WHERE status != 'superseded' "
+                "AND NOT (status = 'suspended' AND recheck_required = 1) "
+                "AND type = ? AND scope = ? AND semantic_rule_key = ? "
+                "AND (scope_chat_id IS ? OR scope_chat_id = ?) "
+                "AND (scope_user_id IS ? OR scope_user_id = ?) "
+                "AND ((applicability IS NULL AND ? = '') "
+                "     OR applicability = ?) "
+                "ORDER BY version DESC LIMIT 1",
+                (str(type), str(scope), str(rule_key), scope_chat_id,
+                 scope_chat_id, scope_user_id, scope_user_id,
+                 applicability, applicability))
+            row = await cursor.fetchone()
+        except Exception:
+            return None
+        if row is None:
+            return None
+        result = await self._service.store.reconfirm_lesson(
+            str(row["lesson_id"]), int(row["version"]), sources)
+        if isinstance(result, dict) and result.get("added")\
+                and isinstance(counters, dict):
+            counters["reconfirmations"] = int(
+                counters.get("reconfirmations") or 0) + 1
+        return result
+
     async def _lesson_exists(self, *, type: str, scope: str, rule_key: str,
                              scope_chat_id=None, scope_user_id=None,
                              applicability=None) -> bool:
@@ -2484,11 +3196,29 @@ class ExperienceReviewRunner:
         же правилу. Такой урок остаётся в истории (не удаляется), но его
         место в открытом множестве свободно."""
         canonical = me.CANONICAL_RECOMMENDATIONS.get((type, rule_key))
-        if canonical is None:
-            return True
         # Схема хранит applicability как "" (не NULL); None → "" (P2-уроки
         # без subject), чтобы NULL-паттерн не прятал существующий урок.
         applicability = "" if applicability is None else str(applicability)
+        if canonical is None:
+            # Свободный смысловой урок (§1.2): identity — semantic_rule_key
+            # + scope + subject, а не текст закрытого каталога.
+            try:
+                cursor = await self._db.db.execute(
+                    "SELECT COUNT(*) AS c FROM mca_lessons WHERE status != "
+                    "'superseded' AND NOT (status = 'suspended' AND "
+                    "recheck_required = 1) AND type = ? AND scope = ? AND "
+                    "semantic_rule_key = ? "
+                    "AND (scope_chat_id IS ? OR scope_chat_id = ?) "
+                    "AND (scope_user_id IS ? OR scope_user_id = ?) "
+                    "AND ((applicability IS NULL AND ? = '') "
+                    "     OR applicability = ?)",
+                    (str(type), str(scope), str(rule_key), scope_chat_id,
+                     scope_chat_id, scope_user_id, scope_user_id,
+                     applicability, applicability))
+                row = await cursor.fetchone()
+                return bool(row is not None and int(row["c"]) > 0)
+            except Exception:
+                return True                    # fail-closed: не плодим дубли
         try:
             cursor = await self._db.db.execute(
                 "SELECT COUNT(*) AS c FROM mca_lessons WHERE status != "
@@ -2508,37 +3238,69 @@ class ExperienceReviewRunner:
 
     # ── шаг 3: validate + activate (детерминированные основания) ─────────
 
-    async def _validate_and_activate(self, candidates) -> dict:
+    async def _validate_and_activate(self, candidates, payload=None) -> dict:
         validated = 0
         activated = 0
+        rejected = 0
+        contradictions = 0
         for candidate in tuple(candidates or ()):
             lesson_id = str(candidate.get("lesson_id") or "")
             version = int(candidate.get("version") or 0)
             if not lesson_id or version <= 0:
                 continue
             kind = str(candidate.get("kind") or "generalization")
+            origin = str(candidate.get("origin_kind") or "")
+            source_refs = tuple(dict.fromkeys(
+                str(x) for x in (candidate.get("source_refs")
+                                 or candidate.get("episode_ids") or ())
+                if x))
             if kind == "explicit_preference":
                 lesson = await self._service.get_lesson(lesson_id, version)
                 conflict_free = not await self._has_verified_contradiction(
                     lesson) if lesson is not None else False
                 evidence = me.ValidationEvidence(
                     kind="explicit_preference", permission_granted=True,
-                    conflict_free=conflict_free)
+                    conflict_free=conflict_free,
+                    independent_source_ids=source_refs,
+                    origin_kind=origin or "explicit")
             else:
                 independent = tuple(dict.fromkeys(
                     str(x) for x in candidate.get("episode_ids") or () if x))
-                if len(independent) < me.ExperiencePolicy \
-                        .min_independent_episodes():
-                    continue
                 evidence = me.ValidationEvidence(
                     kind="generalization",
-                    independent_episode_ids=independent)
-            if await self._service.lesson.validate(
-                    lesson_id, version, evidence=evidence):
-                validated += 1
-                if await self._service.lesson.activate(lesson_id, version):
-                    activated += 1
-        return {"validated": validated, "activated": activated}
+                    independent_episode_ids=independent,
+                    independent_source_ids=source_refs,
+                    origin_kind=origin)
+            passed = await self._service.lesson.validate(
+                lesson_id, version, evidence=evidence)
+            if not passed:
+                rejected += 1
+                reasons = await self._service.lesson.validation_reasons(
+                    lesson_id, version, evidence=evidence)
+                code = str((reasons or ["unknown"])[0])
+                self._note_rejection(code, payload)
+                continue
+            validated += 1
+            report = await self._service.lesson.activate_with_report(
+                lesson_id, version)
+            if report.get("activated"):
+                activated += 1
+            contradictions += int(report.get("contradictions") or 0)
+        return {"validated": validated, "activated": activated,
+                "rejected": rejected, "contradictions": contradictions}
+
+    @staticmethod
+    def _note_rejection(reason: str, payload=None) -> None:
+        """Учесть причину отказа (payload counters + durable analytics)."""
+        code = str(reason or "unknown")[:64]
+        if not isinstance(payload, dict):
+            return
+        counters = payload.setdefault("counters", {})
+        counters["lesson_rejections"] = int(
+            counters.get("lesson_rejections") or 0) + 1
+        bucket = counters.setdefault("lesson_reject_reasons", {})
+        bucket[code] = int(bucket.get(code) or 0) + 1
+        bump_analytics_reason(payload, "lessons_rejected_by_reason", code)
 
     async def _has_verified_contradiction(self, lesson: dict) -> bool:
         """Проверенное противоречие уроку (mca-04a evidence links; read-only)."""
@@ -2556,6 +3318,74 @@ class ExperienceReviewRunner:
             return True                        # fail-closed: не активируем
 
     # ── шаг 4: suspend (сильное противоречие — не спор) ──────────────────
+
+    def _note_fresh_lag(self, payload: dict) -> None:
+        """Событие о лаге свежего потока (§5) при превышении порога.
+
+        Лаг = размер actionable-бэклога самого отстающего чата. Порог
+        настраиваемый (`experience.fresh_stream_lag_warn_threshold`); событие
+        только числа/коды (R17), содержимое сообщений не отдаётся."""
+        counters = payload.get("counters") or {}
+        pending = payload.get(SEMANTIC_PENDING_KEY)
+        if not isinstance(pending, dict):
+            return
+        worst_chat, worst_rows = None, 0
+        for key, value in pending.items():
+            try:
+                rows = int(value or 0)
+                chat_id = int(key)
+            except (TypeError, ValueError):
+                continue
+            if rows > worst_rows:
+                worst_chat, worst_rows = chat_id, rows
+        counters["fresh_stream_lag_rows"] = worst_rows
+        if worst_rows > 0:
+            analytics = payload.setdefault(ANALYTICS_KEY, default_analytics())
+            try:
+                analytics["fresh_stream_lag_rows"] = max(
+                    int(analytics.get("fresh_stream_lag_rows") or 0),
+                    int(worst_rows))
+            except (TypeError, ValueError):
+                analytics["fresh_stream_lag_rows"] = int(worst_rows)
+        warn = fresh_lag_warn_rows()
+        if worst_rows <= warn or worst_chat is None:
+            return
+        _emit("experience.fresh_stream_lag", outcome="skipped",
+              reason_code="fresh_stream_lag", level="WARN",
+              chat_id=worst_chat, usage_json={
+                  "chat_id": worst_chat, "lag_rows": worst_rows,
+                  "cursor_rowid": int(
+                      payload.get(f"{SEMANTIC_CURSOR_PREFIX}{worst_chat}")
+                      or 0),
+                  "threshold": int(warn)})
+
+    async def _flag_stale_beliefs(self) -> int:
+        """Активные уроки с понижённым рангом → событие §5 (не удаление)."""
+        try:
+            limit = me.ExperiencePolicy.review_batch_max()
+            cursor = await self._db.db.execute(
+                "SELECT lesson_id, version, temporal_rank, "
+                "last_validated_at FROM mca_lessons WHERE status = 'active' "
+                "AND temporal_rank < 1.0 ORDER BY temporal_rank, lesson_id "
+                "LIMIT ?", (max(1, min(20, int(limit))),))
+            rows = [dict(r) for r in await cursor.fetchall()]
+        except Exception:
+            logger.warning("[mca16] stale belief scan failed", exc_info=True)
+            return 0
+        now = int(time.time())
+        flagged = 0
+        for row in rows:
+            last = int(row.get("last_validated_at") or 0)
+            days = int((now - last) / 86400) if last else 0
+            _emit("experience.stale_belief_flagged", outcome="skipped",
+                  reason_code="stale_belief", level="WARN",
+                  entity_ids=[str(row["lesson_id"])],
+                  usage_json={"lesson_id": str(row["lesson_id"]),
+                              "temporal_rank": float(
+                                  row.get("temporal_rank") or 0.0),
+                              "days_since_confirmed": days})
+            flagged += 1
+        return flagged
 
     async def _suspend_contradicted(self) -> int:
         cursor = await self._db.db.execute(

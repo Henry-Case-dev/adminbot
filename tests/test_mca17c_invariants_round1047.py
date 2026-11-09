@@ -108,11 +108,13 @@ def test_no_ddl_catalog_ks_tools_delta():
         # `mca_community_builds`/`mca_community_members` (DDL у владельца
         # services/memory_communities.py, PG no-op). Санкционированный хвост
         # был = 44; VMQ-V (09.11.2026): v45 (voice_transcript_v45) — аддитивные
-        # колонки версии расшифровки в `smart_messages` (PG no-op), хвост = 45.
+        # колонки версии расшифровки в `smart_messages` (PG no-op), хвост = 45;
+        # MOD-ACL-UX-01 amendment (09.11.2026): v46 (lesson_semantic_v46) —
+        # аддитивные поля уроков + таблица шаблонов (PG no-op), хвост = 46.
         # Δ каталога/KS/тулов по-прежнему нулевой.
         # Точное равенство сохранено; второй assert ловит расхождение
         # реестра шагов и фактического `user_version` свежей БД.
-        assert int(row[0]) == 45
+        assert int(row[0]) == 46
         assert int(row[0]) == max(
             s.version for s in DatabaseService.migration_steps())
     finally:
@@ -133,7 +135,9 @@ def test_no_ddl_catalog_ks_tools_delta():
     # TEMPORAL_FRESHNESS_*, кеш готовых вердиктов удалён W1).
     # EVOL-031 (28d55bd1, 30.10.2026): 586 → 581 (−5 answer-cache ключей
     # SMART_CACHE_*/CHAT_DEDUP, replay готовых ответов удалён).
-    assert len(pc.REGISTRY) == 595
+    # MOD-ACL-UX-01 amendment (09.11.2026): 595 → 606 (+11 PG-only порогов/
+    # бюджетов семантического контракта уроков, группа memory_experience).
+    assert len(pc.REGISTRY) == 606
 
 
 def test_registry_47_no_new_widgets():

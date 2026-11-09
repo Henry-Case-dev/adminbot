@@ -169,6 +169,83 @@ _SAFE_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,64}$")
 _QUOTE_MARKERS = ("«", "»", "\"", "'", "“", "”", "„", "“")
 _LONG_DIGITS_RE = re.compile(r"(?<!\d)\d{5,}(?!\d)")
 
+# ═══════════════════════════════════════════════════════════════════════════
+# MOD-ACL-UX-01 amendment (2026-11-09): семантический контракт уроков.
+#
+# Схема v46 (после deployed v45 voice_transcript): аддитивные поля
+# `mca_lessons` + таблица сервер-канонических шаблонов. Никакого backfill:
+# старые уроки получают origin_kind=NULL (честное «источник неизвестен»),
+# confirmation_count=0, temporal_rank=1.0.
+# ═══════════════════════════════════════════════════════════════════════════
+LESSON_SEMANTIC_MIGRATION_STEP_NAME = "lesson_semantic_v46"
+LESSON_SEMANTIC_TEMPLATES_DDL = (
+    "CREATE TABLE IF NOT EXISTS mca_lessons_semantic_templates ("
+    "template_id TEXT PRIMARY KEY, "
+    "lesson_type TEXT NOT NULL, "
+    "rule_key TEXT NOT NULL, "
+    "template_text TEXT NOT NULL, "
+    "scope_pattern TEXT NOT NULL DEFAULT 'any', "
+    "origin_kinds TEXT NOT NULL, "
+    "created_at INTEGER NOT NULL, "
+    "UNIQUE(lesson_type, rule_key))"
+)
+_LESSON_SEMANTIC_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("confirmation_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("independent_sources", "TEXT"),
+    ("origin_kind", "TEXT"),
+    ("semantic_rule_key", "TEXT"),
+    ("semantic_scope_key", "TEXT"),
+    ("temporal_rank", "REAL NOT NULL DEFAULT 1.0"),
+    ("superseded_at", "INTEGER"),
+    # Расширение §1.1 контракта: уверенность/противоречия/версия области
+    # применимости хранятся явными типизированными полями (не в свободном
+    # тексте applicability).
+    ("semantic_confidence", "REAL NOT NULL DEFAULT 0.0"),
+    ("contradiction_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("applicability_version", "INTEGER NOT NULL DEFAULT 1"),
+)
+
+#: Классы источника урока (контракт §1.1/§2.1).
+LESSON_ORIGIN_KINDS = frozenset({
+    "semantic", "detector", "technical", "explicit", "llm_hypothesis",
+})
+#: Классы, которые могут быть подтверждены автоматически.
+LESSON_AUTO_CONFIRMABLE = frozenset({
+    "semantic", "detector", "technical", "explicit",
+})
+
+#: Заводские пороги подтверждения (контракт §2.1 / LESSONS CONTRACT FROZEN).
+LESSON_MIN_LOCAL_CONFIRMATIONS = 2
+LESSON_MIN_EXPLICIT_CONFIRMATIONS = 1
+LESSON_MIN_TECHNICAL_CONFIRMATIONS = 1
+LESSON_MIN_GLOBAL_CONFIRMATIONS = 3
+
+#: Границы адаптивного временного ранга (контракт §4.4).
+TEMPORAL_RANK_INITIAL = 1.0
+TEMPORAL_RANK_CAP = 2.0
+TEMPORAL_RANK_CONTRADICTION_FACTOR = 0.5
+TEMPORAL_RANK_INCREMENT = 0.1
+
+#: Пороги/лимиты семантического контракта (hot; pg-ключи memory.experience_*).
+PG_KEY_LESSON_MIN_LOCAL = "memory.experience_lesson_min_local_confirmations"
+PG_KEY_LESSON_MIN_EXPLICIT = "memory.experience_lesson_min_explicit_confirmations"
+PG_KEY_LESSON_MIN_TECHNICAL = "memory.experience_lesson_min_technical_confirmations"
+PG_KEY_LESSON_MIN_GLOBAL = "memory.experience_lesson_min_global_confirmations"
+
+#: Сервер-канонические фразы для свободных (не каталожных) смысловых уроков.
+#: Текст рекомендации собирается ТОЛЬКО из этих фраз + R17-safe токена
+#: наблюдённого паттерна; реплики пользователя сюда не попадают.
+SEMANTIC_TYPE_PHRASES: dict[str, str] = {
+    "tool_usage": "Учитывать повторяющийся технический приём в этой области",
+    "retrieval": "Учитывать повторяющийся приём поиска в этой области",
+    "context": "Учитывать повторяющийся контекстный паттерн в этой области",
+    "social_preference": (
+        "Учитывать повторяющееся предпочтение участников в этой области"),
+    "failure_pattern": (
+        "Учитывать повторяющийся сбой и его условие в этой области"),
+}
+SEMANTIC_SCOPE_PATTERNS = frozenset({"chat", "user", "global", "any"})
+
 # ── Колонки (порядок INSERT; R17-safe) ───────────────────────────────────────
 _EPISODE_COLS = (
     "episode_id", "idempotency_key", "created_at", "updated_at", "scope",
@@ -192,6 +269,11 @@ _LESSON_COLS = (
     "last_validated_at", "counters_success", "counters_failure",
     "counters_unknown", "applications_count", "policy_version",
     "proposal_version", "validator_version", "created_at", "updated_at",
+    # MOD-ACL-UX-01 amendment: семантический контракт урока (v46).
+    "confirmation_count", "independent_sources", "origin_kind",
+    "semantic_rule_key", "semantic_scope_key", "temporal_rank",
+    "superseded_at", "semantic_confidence", "contradiction_count",
+    "applicability_version",
 )
 _APPLICATION_COLS = (
     "dedup_key", "lesson_id", "lesson_version", "application_ref", "trace_id",
@@ -245,6 +327,16 @@ def _safe_tokens(value) -> list[str]:
         if _SAFE_TOKEN_RE.match(text):
             out.append(text)
     return out
+
+
+def is_safe_token(value) -> bool:
+    """Публичная проверка R17-safe токена (для владельцев контракта)."""
+    return bool(_SAFE_TOKEN_RE.match(str(value or "")))
+
+
+def safe_tokens(value) -> list[str]:
+    """Публичный R17-safe фильтр токенов."""
+    return _safe_tokens(value)
 
 
 def sanitize_typed_json(value) -> dict | None:
@@ -306,18 +398,24 @@ def authorize_preference(*, subject_user_id, author_user_id,
 
 def anonymity_violations(*, recommendation: str, applicability: str = "",
                          exceptions: str = "", chat_id=None,
-                         user_id=None) -> list[str]:
+                         user_id=None,
+                         known_templates=()) -> list[str]:
     """Проверка обезличивания `global`-урока (spec §3/§5).
 
-    Только канонический технический текст: без имён/цитат/фактов/ID
-    исходного чата/участника и без свободного текста."""
+    Допустимы сервер-канонические формулировки: закрытый каталог
+    `CANONICAL_RECOMMENDATIONS` и строки `mca_lessons_semantic_templates`
+    (передаются вызывающим как `known_templates`). Всё остальное —
+    `non_canonical`: свободный пользовательский текст в рекомендацию не
+    попадает."""
     violations: list[str] = []
     text = " ".join(str(x or "") for x in
                     (recommendation, applicability, exceptions)).strip()
     if not text:
         violations.append("empty")
         return violations
-    if str(recommendation or "") not in CANONICAL_RECOMMENDATIONS.values():
+    allowed = set(CANONICAL_RECOMMENDATIONS.values())
+    allowed.update(str(x) for x in (known_templates or ()) if x)
+    if str(recommendation or "") not in allowed:
         violations.append("non_canonical")
     if any(marker in text for marker in _QUOTE_MARKERS):
         violations.append("quote")
@@ -338,6 +436,141 @@ def anonymity_violations(*, recommendation: str, applicability: str = "",
     if exceptions and not _SAFE_TOKEN_RE.match(str(exceptions)):
         violations.append("exceptions_text")
     return violations
+
+
+def normalize_origin_kind(value) -> str:
+    """Нормализовать класс источника урока (неизвестное → `semantic`)."""
+    text = str(value or "").strip().lower()
+    return text if text in LESSON_ORIGIN_KINDS else "semantic"
+
+
+def semantic_scope_key(scope, chat_id=None, user_id=None) -> str:
+    """Ключ области применимости семантического контракта (§1.1).
+
+    `global` | `chat:<id>` | `user:<id>`; неизвестная область → `scope`."""
+    scope = str(scope or "")
+    if scope == "global":
+        return "global"
+    if scope == "user_in_chat" and user_id is not None:
+        return f"user:{int(user_id)}"
+    if chat_id is not None:
+        return f"chat:{int(chat_id)}"
+    return scope or "global"
+
+
+def _clamp_confirmations(value, default: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return int(default)
+    return max(1, min(10, number))
+
+
+async def _threshold_setting(chat_id, key: str, default: int) -> int:
+    """Hot-порог: per-chat override → глобальная настройка → заводской дефолт."""
+    try:
+        from services import chat_params
+        if chat_id is not None:
+            value = await chat_params.get_chat_param(int(chat_id), key, default)
+        else:
+            from services import hot_config as hot
+            value = hot.get(key, default)
+    except Exception:
+        return int(default)
+    return _clamp_confirmations(value, default)
+
+
+async def lesson_confirmation_thresholds(chat_id=None) -> dict:
+    """Действующие пороги подтверждения (контракт §2.1).
+
+    Инвариант: локальное усвоение не строже глобального
+    (`local <= global`); при ошибочной настройке локальный порог
+    понижается до глобального, а не наоборот. Значения читаются hot —
+    рестарт не нужен."""
+    local = await _threshold_setting(
+        chat_id, PG_KEY_LESSON_MIN_LOCAL, LESSON_MIN_LOCAL_CONFIRMATIONS)
+    explicit = await _threshold_setting(
+        chat_id, PG_KEY_LESSON_MIN_EXPLICIT,
+        LESSON_MIN_EXPLICIT_CONFIRMATIONS)
+    technical = await _threshold_setting(
+        chat_id, PG_KEY_LESSON_MIN_TECHNICAL,
+        LESSON_MIN_TECHNICAL_CONFIRMATIONS)
+    global_ = await _threshold_setting(
+        chat_id, PG_KEY_LESSON_MIN_GLOBAL, LESSON_MIN_GLOBAL_CONFIRMATIONS)
+    local = min(local, global_)
+    explicit = min(explicit, global_)
+    technical = min(technical, global_)
+    return {"local": local, "explicit": explicit,
+            "technical": technical, "global": global_}
+
+
+async def lesson_min_confirmations(*, origin_kind, scope,
+                                   chat_id=None) -> int | None:
+    """Сколько независимых свидетельств нужно для `validated`.
+
+    `None` → автоматическая проверка запрещена (LLM-гипотеза никогда не
+    становится правилом без явного сигнала, контракт §2.1)."""
+    origin = normalize_origin_kind(origin_kind)
+    if origin not in LESSON_AUTO_CONFIRMABLE:
+        return None
+    thresholds = await lesson_confirmation_thresholds(chat_id)
+    if origin in ("explicit", "technical"):
+        # Детерминированное свидетельство (явная просьба участника /
+        # воспроизведённая проверяемая ошибка) — не статистический вывод:
+        # один случай достаточен, глобальный порог к нему не применяется.
+        # Глобальное распространение статистических уроков (semantic/detector)
+        # остаётся строже локального (контракт §2.1).
+        return int(thresholds[origin])
+    by_class = thresholds["local"]
+    if str(scope) == "global":
+        return max(int(by_class), int(thresholds["global"]))
+    return int(by_class)
+
+
+def semantic_template_text(lesson_type, rule_key) -> str | None:
+    """Сервер-канонический текст свободного смыслового урока (§1.2/§3).
+
+    Собирается из закрытой фразы типа + нормализованного R17-safe токена
+    наблюдённого паттерна. Сырые реплики/инструкции пользователя сюда не
+    передаются и не могут попасть."""
+    lesson_type = str(lesson_type or "")
+    rule_key = str(rule_key or "")
+    if lesson_type not in LESSON_TYPES or not _SAFE_TOKEN_RE.match(rule_key):
+        return None
+    phrase = SEMANTIC_TYPE_PHRASES.get(lesson_type)
+    if not phrase:
+        return None
+    words = re.sub(r"[._:\-]+", " ", rule_key).strip().lower()
+    if not words or len(words) > 96:
+        return None
+    return f"{phrase}: {words}."
+
+
+def semantic_template_scope_pattern(lesson_type, rule_key) -> str:
+    """Область, в которой допустим шаблон (chat|user|global|any)."""
+    key = str(rule_key or "")
+    if key.startswith("humor_") or key == "narrow_scope_preference":
+        return "chat"
+    if (str(lesson_type), key) == ("social_preference",
+                                   "explicit_user_preference"):
+        return "user"
+    return "any"
+
+
+def canonical_template_seed_rows(now: int) -> list[tuple]:
+    """Строки сида `mca_lessons_semantic_templates` из закрытого каталога.
+
+    Существующий каталог переносится без переформулировок; `origin_kinds`
+    отражает текущие источники канона (детектор/технический/явный)."""
+    origin_kinds = json.dumps(["detector", "technical", "explicit"])
+    rows: list[tuple] = []
+    for (lesson_type, rule_key), text in CANONICAL_RECOMMENDATIONS.items():
+        rows.append((
+            f"{lesson_type}.{rule_key}", str(lesson_type), str(rule_key),
+            str(text), semantic_template_scope_pattern(lesson_type, rule_key),
+            origin_kinds, int(now)))
+    return rows
+
 
 
 def _forbidden_effects(recommendation: str, applicability: str = "") -> bool:
@@ -474,6 +707,18 @@ class ValidationEvidence:
     independent_episode_ids: tuple[str, ...] = ()
     fresh_context_verified: bool = False
     identity_resolved: bool = False
+    # MOD-ACL-UX-01 amendment: независимые source refs (сообщения/эпизоды/
+    # технические события). Счёт подтверждений — только по различимым
+    # источникам; дубль одного source_ref не подтверждает урок.
+    independent_source_ids: tuple[str, ...] = ()
+    #: Класс источника урока; пусто → берётся из записи `origin_kind`.
+    origin_kind: str = ""
+
+    def evidence_sources(self) -> set[str]:
+        return {str(x) for x in
+                (tuple(self.independent_episode_ids or ())
+                 + tuple(self.independent_source_ids or ())) if str(x)}
+
 
 
 @dataclass(frozen=True)
@@ -680,6 +925,7 @@ class ExperienceStore:
         allowed = {
             "mca_experience_episodes", "mca_experience_feedback",
             "mca_lessons", "mca_lesson_applications",
+            "mca_lessons_semantic_templates",
         }
         if table not in allowed:
             return 0
@@ -687,6 +933,132 @@ class ExperienceStore:
             f"SELECT COUNT(*) AS c FROM {table}")
         row = await cursor.fetchone()
         return int(row["c"] if row is not None else 0)
+
+    # ── semantics v46: шаблоны сервер-канонических формулировок ─────────────
+    async def get_semantic_template(self, lesson_type: str,
+                                    rule_key: str) -> dict | None:
+        cursor = await self._db.db.execute(
+            "SELECT * FROM mca_lessons_semantic_templates "
+            "WHERE lesson_type = ? AND rule_key = ?",
+            (str(lesson_type), str(rule_key)))
+        return _row_dict(await cursor.fetchone())
+
+    async def list_semantic_templates(self, lesson_type: str) -> list[dict]:
+        cursor = await self._db.db.execute(
+            "SELECT * FROM mca_lessons_semantic_templates "
+            "WHERE lesson_type = ? ORDER BY rule_key", (str(lesson_type),))
+        return [_row_dict(r) for r in await cursor.fetchall()]
+
+    async def ensure_semantic_template(self, lesson_type: str, rule_key: str,
+                                       *, origin_kind: str) -> str | None:
+        """Вернуть сервер-канонический текст, создав шаблон при необходимости.
+
+        `template_text` строится ТОЛЬКО детерминированной серверной фразой
+        (`semantic_template_text`); пользовательский текст сюда не попадает.
+        Повторный вызов идемпотентен (UNIQUE lesson_type+rule_key)."""
+        existing = await self.get_semantic_template(lesson_type, rule_key)
+        if existing is not None:
+            return str(existing.get("template_text") or "") or None
+        text = semantic_template_text(lesson_type, rule_key)
+        if text is None:
+            return None
+        origin = normalize_origin_kind(origin_kind)
+        rows = json.dumps([origin])
+        now = _now()
+
+        async def _body(conn):
+            await conn.execute(
+                "INSERT OR IGNORE INTO mca_lessons_semantic_templates "
+                "(template_id, lesson_type, rule_key, template_text, "
+                "scope_pattern, origin_kinds, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (f"{lesson_type}.{rule_key}", str(lesson_type),
+                 str(rule_key), text,
+                 semantic_template_scope_pattern(lesson_type, rule_key),
+                 rows, now))
+            return 1
+
+        await self._db.write_transaction(
+            _body, op_name="mca16_semantic_template")
+        return text
+
+    # ── semantics v46: адаптивный временной ранг / повторное подтверждение ──
+    async def reconfirm_lesson(self, lesson_id: str, version: int,
+                               source_ids) -> dict | None:
+        """Добавить независимое подтверждение (idempotent by source id).
+
+        `confirmation_count` растёт только при НОВОМ `source_ref`; каждое
+        новое подтверждение повышает `temporal_rank` на +0.1 (cap 2.0).
+        Возврат: {"added": bool, "confirmation_count": int,
+        "temporal_rank": float} | None."""
+        lesson = await self.get_lesson(lesson_id, version)
+        if lesson is None or str(lesson.get("status")) == "superseded":
+            return None
+        try:
+            sources = [str(x) for x in
+                       json.loads(lesson.get("independent_sources") or "[]")]
+        except (TypeError, ValueError):
+            sources = []
+        added = 0
+        for source in source_ids or ():
+            text = str(source or "")
+            if text and text not in sources:
+                sources.append(text)
+                added += 1
+        if not added:
+            return {"added": False,
+                    "confirmation_count": int(
+                        lesson.get("confirmation_count") or 0),
+                    "temporal_rank": float(lesson.get("temporal_rank") or 1.0)}
+        count = int(lesson.get("confirmation_count") or 0) + added
+        rank = min(TEMPORAL_RANK_CAP,
+                   float(lesson.get("temporal_rank") or TEMPORAL_RANK_INITIAL)
+                   + TEMPORAL_RANK_INCREMENT * added)
+        now = _now()
+
+        async def _body(conn):
+            await conn.execute(
+                "UPDATE mca_lessons SET confirmation_count = ?, "
+                "independent_sources = ?, temporal_rank = ?, "
+                "last_validated_at = ?, updated_at = ? "
+                "WHERE lesson_id = ? AND version = ?",
+                (count, json.dumps(sources), rank, now, now,
+                 str(lesson_id), int(version)))
+            return 1
+
+        await self._db.write_transaction(
+            _body, op_name="mca16_lesson_reconfirm")
+        return {"added": True, "confirmation_count": count,
+                "temporal_rank": rank}
+
+    async def demote_contradicted(self, lesson_id: str, version: int,
+                                  *, factor: float = None) -> dict | None:
+        """Противоречие: `temporal_rank *= factor`, статус НЕ меняется.
+
+        Запись не удаляется, `superseded_at` не выставляется — история
+        сохраняется; `recheck_required=1` помечает необходимость проверки."""
+        lesson = await self.get_lesson(lesson_id, version)
+        if lesson is None:
+            return None
+        factor = (TEMPORAL_RANK_CONTRADICTION_FACTOR if factor is None
+                  else float(factor))
+        rank = max(0.0, float(lesson.get("temporal_rank") or
+                              TEMPORAL_RANK_INITIAL) * factor)
+        count = int(lesson.get("contradiction_count") or 0) + 1
+        now = _now()
+
+        async def _body(conn):
+            await conn.execute(
+                "UPDATE mca_lessons SET temporal_rank = ?, "
+                "contradiction_count = ?, recheck_required = 1, "
+                "updated_at = ? WHERE lesson_id = ? AND version = ?",
+                (rank, count, now, str(lesson_id), int(version)))
+            return 1
+
+        await self._db.write_transaction(
+            _body, op_name="mca16_lesson_demote")
+        return {"temporal_rank": rank, "contradiction_count": count}
+
 
     # ── writes (одна короткая транзакция через mca-01) ──────────────────────
     async def insert_episode(self, record: dict) -> tuple[str, bool]:
@@ -808,8 +1180,9 @@ class ExperienceStore:
             if supersede_previous:
                 await conn.execute(
                     "UPDATE mca_lessons SET status = 'superseded', "
-                    "updated_at = ? WHERE lesson_id = ? AND status != "
-                    "'superseded'", (_now(), lesson_id))
+                    "superseded_at = ?, updated_at = ? WHERE lesson_id = ? "
+                    "AND status != 'superseded'",
+                    (_now(), _now(), lesson_id))
             await conn.execute(
                 "INSERT INTO mca_lessons (" + ",".join(_LESSON_COLS)
                 + ") VALUES (" + ",".join("?" for _ in _LESSON_COLS) + ")",
@@ -826,6 +1199,9 @@ class ExperienceStore:
             return False
         sets = ["status = ?", "updated_at = ?"]
         params: list = [str(status), _now()]
+        if str(status) == "superseded" and "superseded_at" not in fields:
+            sets.append("superseded_at = ?")
+            params.append(_now())
         for key, value in fields.items():
             if key not in _LESSON_COLS:
                 continue
@@ -1009,12 +1385,20 @@ class LessonService:
                       applicability: str = "", exceptions: str = "",
                       scope_chat_id=None, scope_user_id=None,
                       episode_ids=(), historical: bool = False,
-                      recommendation: str | None = None
+                      recommendation: str | None = None,
+                      origin_kind: str | None = None,
+                      independent_sources=(),
+                      semantic_confidence: float = 0.0,
+                      applicability_version: int = 1
                       ) -> tuple[str, int] | None:
-        """Новый урок v1 (candidate). Рекомендация — только из канона (R17).
+        """Новый урок v1 (candidate). Рекомендация — только сервер-канон.
 
-        Свободный текст/injection в рекомендацию не попадает: неизвестный
-        `rule_key`/неканонический текст → no-op."""
+        Канон = закрытый `CANONICAL_RECOMMENDATIONS` ИЛИ сервер-каноническая
+        строка `mca_lessons_semantic_templates` (свободный смысловой урок из
+        реального опыта). Свободный текст/injection в рекомендацию не
+        попадает: неизвестный `rule_key`/неканонический текст → no-op.
+        `origin_kind='llm_hypothesis'` не создаёт урок: гипотеза без явного
+        сигнала автоматически не усваивается (контракт §2.1)."""
         if not (mca_gates.experience_lessons_enabled()
                 and mca_gates.experience_review_enabled()):
             return None
@@ -1022,7 +1406,13 @@ class LessonService:
             return None
         if type not in LESSON_TYPES or scope not in SCOPES:
             return None
+        origin = normalize_origin_kind(origin_kind)
+        if origin not in LESSON_AUTO_CONFIRMABLE:
+            return None                            # LLM-гипотеза — не правило
         canonical = CANONICAL_RECOMMENDATIONS.get((type, rule_key))
+        if canonical is None:
+            canonical = await self._store.ensure_semantic_template(
+                type, rule_key, origin_kind=origin)
         if canonical is None:
             return None
         if recommendation is not None and recommendation != canonical:
@@ -1030,15 +1420,22 @@ class LessonService:
         if scope == "global" and anonymity_violations(
                 recommendation=canonical, applicability=applicability,
                 exceptions=exceptions, chat_id=scope_chat_id,
-                user_id=scope_user_id):
+                user_id=scope_user_id, known_templates=(canonical,)):
             return None
         if scope in ("chat", "user_in_chat", "task") \
                 and scope_chat_id is None:
             return None
         if scope == "user_in_chat" and scope_user_id is None:
             return None
+        sources = tuple(dict.fromkeys(
+            str(x) for x in (tuple(independent_sources or ())
+                             + tuple(episode_ids or ())) if str(x)))
         now = _now()
         lesson_id = uuid.uuid4().hex
+        try:
+            confidence = max(0.0, min(1.0, float(semantic_confidence or 0)))
+        except (TypeError, ValueError):
+            confidence = 0.0
         record = {
             "lesson_id": lesson_id, "version": 1, "type": str(type),
             "scope": str(scope), "scope_chat_id": scope_chat_id,
@@ -1055,6 +1452,17 @@ class LessonService:
             "policy_version": EXPERIENCE_POLICY_VERSION,
             "proposal_version": PROPOSAL_VERSION,
             "validator_version": None, "created_at": now, "updated_at": now,
+            "confirmation_count": len(sources),
+            "independent_sources": json.dumps(sources),
+            "origin_kind": origin,
+            "semantic_rule_key": str(rule_key),
+            "semantic_scope_key": semantic_scope_key(
+                scope, scope_chat_id, scope_user_id),
+            "temporal_rank": TEMPORAL_RANK_INITIAL,
+            "superseded_at": None,
+            "semantic_confidence": confidence,
+            "contradiction_count": 0,
+            "applicability_version": max(1, int(applicability_version or 1)),
         }
         created = await self._store.create_lesson_version(record)
         if created is None:
@@ -1071,18 +1479,37 @@ class LessonService:
         _emit("lesson_proposed", outcome="success",
               reason_code="lesson_proposed", entity_ids=[lesson_id],
               chat_id=scope_chat_id)
+        _emit("experience.lesson_candidate", outcome="success",
+              reason_code="lesson_proposed", entity_ids=[lesson_id],
+              chat_id=scope_chat_id,
+              usage_json={"lesson_type": str(type), "origin_kind": origin,
+                          "scope": str(scope),
+                          "confirmation_count": len(sources)})
         return lesson_id, version
 
     @staticmethod
     def _validation_failures(lesson: dict,
-                             ev: "ValidationEvidence") -> list[str]:
+                             ev: "ValidationEvidence",
+                             *, required_confirmations: int = 0,
+                             known_templates=()) -> list[str]:
         """Правила проверки урока (spec §5) — ЕДИНЫЙ путь validate/recheck.
 
         Возврат пустого списка = свидетельства достаточны. Один и тот же
         набор правил применяется и к `candidate` (validate), и к повторной
         проверке уже активного урока (resolve_recheck): второго, «мягкого»
-        пути проверки не существует."""
+        пути проверки не существует.
+
+        MOD-ACL-UX-01 amendment: порог подтверждений зависит от класса урока
+        (`required_confirmations`), но ни один класс не принимается без
+        свидетельства: пустой набор независимых источников — всегда провал.
+        Дубли одного `source_ref` не считаются независимыми."""
         failures: list[str] = []
+        origin = normalize_origin_kind(
+            ev.origin_kind or lesson.get("origin_kind"))
+        if origin not in LESSON_AUTO_CONFIRMABLE:
+            failures.append("llm_hypothesis_never_auto")
+        sources = ev.evidence_sources()
+        need = max(1, int(required_confirmations or 0))
         if ev.kind not in VALIDATION_KINDS:
             failures.append("unknown_kind")
         if _forbidden_effects(str(lesson.get("recommendation") or ""),
@@ -1094,7 +1521,8 @@ class LessonService:
                     applicability=str(lesson.get("applicability") or ""),
                     exceptions=str(lesson.get("exceptions") or ""),
                     chat_id=lesson.get("scope_chat_id"),
-                    user_id=lesson.get("scope_user_id")):
+                    user_id=lesson.get("scope_user_id"),
+                    known_templates=tuple(known_templates or ())):
                 failures.append("not_anonymized")
         if ev.kind == "explicit_preference":
             if str(lesson.get("type")) != "social_preference":
@@ -1124,13 +1552,8 @@ class LessonService:
                 failures.append("permission_denied")
             if not ev.conflict_free:
                 failures.append("conflict_with_invariants")
-            if not (ev.independent_episode_ids or ()):
-                failures.append("no_episode_evidence")
         else:  # generalization (неявные сигналы)
-            independent = {str(e) for e in ev.independent_episode_ids or ()
-                           if str(e)}
-            need = ExperiencePolicy.min_independent_episodes()
-            if len(independent) < need:
+            if len(sources) < need:
                 failures.append("insufficient_independent_episodes")
             if lesson.get("historical") and not ev.identity_resolved \
                     and str(lesson.get("scope")) == "user_in_chat":
@@ -1140,6 +1563,43 @@ class LessonService:
         if lesson.get("historical") and not ev.fresh_context_verified:
             failures.append("no_fresh_context")
         return failures
+
+    async def template_texts(self, lesson: dict) -> tuple[str, ...]:
+        """Сервер-канонические шаблоны, допустимые для этого урока (§1.2)."""
+        try:
+            lesson_type = str(lesson.get("type") or "")
+            texts = [str(row.get("template_text") or "")
+                     for row in await self._store.list_semantic_templates(
+                         lesson_type)]
+        except Exception:
+            return ()
+        return tuple(text for text in texts if text)
+
+    async def required_confirmations(self, lesson: dict,
+                                     ev: "ValidationEvidence" = None
+                                     ) -> int | None:
+        """Порог подтверждения для конкретного урока (§2.1); None — запрет."""
+        ev = ev or ValidationEvidence()
+        origin = ev.origin_kind or lesson.get("origin_kind")
+        return await lesson_min_confirmations(
+            origin_kind=origin, scope=lesson.get("scope"),
+            chat_id=lesson.get("scope_chat_id"))
+
+    async def validation_reasons(self, lesson_id: str,
+                                 version: int | None = None, *,
+                                 evidence: "ValidationEvidence | None" = None
+                                 ) -> list[str]:
+        """Причины, по которым урок не прошёл бы проверку (read-only)."""
+        lesson = await self._store.get_lesson(lesson_id, version)
+        if lesson is None:
+            return ["lesson_missing"]
+        ev = evidence or ValidationEvidence()
+        required = await self.required_confirmations(lesson, ev)
+        if required is None:
+            return ["llm_hypothesis_never_auto"]
+        return self._validation_failures(
+            lesson, ev, required_confirmations=required,
+            known_templates=await self.template_texts(lesson))
 
     async def validate(self, lesson_id: str, version: int | None = None,
                        evidence: ValidationEvidence | None = None) -> bool:
@@ -1152,16 +1612,35 @@ class LessonService:
         if lesson is None or str(lesson["status"]) != "candidate":
             return False
         version = int(lesson["version"])
-        failures = self._validation_failures(lesson, ev)
+        required = await self.required_confirmations(lesson, ev)
+        known = await self.template_texts(lesson)
+        failures = (["llm_hypothesis_never_auto"] if required is None else
+                    self._validation_failures(
+                        lesson, ev, required_confirmations=required,
+                        known_templates=known))
         if failures:
             _emit("validation_failed", outcome="failed",
                   reason_code="validation_failed", level="WARN",
                   entity_ids=[str(lesson_id)],
                   chat_id=lesson.get("scope_chat_id"))
+            _emit("experience.lesson_rejected", outcome="failed",
+                  reason_code="validation_failed", level="WARN",
+                  entity_ids=[str(lesson_id)],
+                  chat_id=lesson.get("scope_chat_id"),
+                  usage_json={
+                      "reason_code": str(failures[0])[:64],
+                      "lesson_type": str(lesson.get("type") or ""),
+                      "origin_kind": normalize_origin_kind(
+                          ev.origin_kind or lesson.get("origin_kind")),
+                  })
             return False
+        count = len(ev.evidence_sources())
         updated = await self._store.set_lesson_status(
             lesson_id, version, "validated", last_validated_at=_now(),
-            validator_version=VALIDATOR_VERSION)
+            validator_version=VALIDATOR_VERSION,
+            confirmation_count=max(count, int(
+                lesson.get("confirmation_count") or 0)),
+            independent_sources=json.dumps(sorted(ev.evidence_sources())))
         if updated:
             _emit("validation_passed", outcome="success",
                   reason_code="validation_passed", entity_ids=[str(lesson_id)],
@@ -1205,44 +1684,130 @@ class LessonService:
 
     async def activate(self, lesson_id: str, version: int | None = None
                        ) -> bool:
-        """validated → active: compat текущая + нет противоречий + anonymity.
+        """validated → active: compat + нет противоречий + anonymity."""
+        report = await self.activate_with_report(lesson_id, version)
+        return bool(report.get("activated"))
 
-        Включение сразу, без Human Gate (валидация — обычная операция)."""
+    async def activate_with_report(self, lesson_id: str,
+                                   version: int | None = None) -> dict:
+        """Активировать урок и вернуть отчёт (для аналитики/счётчиков).
+
+        Включение сразу, без Human Gate (валидация — обычная операция).
+        При активации проверяются пересекающиеся активные уроки: старый
+        получает `temporal_rank *= 0.5`, `recheck_required=1`, статус НЕ
+        меняется и запись не удаляется (контракт §3.2/§4.4)."""
+        report: dict = {"activated": False, "contradictions": 0,
+                        "contradicted": []}
         if not (mca_gates.experience_lessons_enabled()
                 and mca_gates.experience_review_enabled()):
-            return False
+            return report
         lesson = await self._store.get_lesson(lesson_id, version)
         if lesson is None or str(lesson["status"]) != "validated":
-            return False
+            return report
         version = int(lesson["version"])
         if _forbidden_effects(str(lesson.get("recommendation") or ""),
                               str(lesson.get("applicability") or "")):
-            return False
+            return report
+        known = await self.template_texts(lesson)
         if str(lesson.get("scope")) == "global" and anonymity_violations(
                 recommendation=str(lesson.get("recommendation") or ""),
                 applicability=str(lesson.get("applicability") or ""),
                 exceptions=str(lesson.get("exceptions") or ""),
                 chat_id=lesson.get("scope_chat_id"),
-                user_id=lesson.get("scope_user_id")):
-            return False
+                user_id=lesson.get("scope_user_id"),
+                known_templates=known):
+            return report
         if await self._has_verified_contradiction(
                 lesson_id, version, lesson.get("source_ref_id")):
             _emit("validation_failed", outcome="failed",
                   reason_code="contradictory_evidence", level="WARN",
                   entity_ids=[str(lesson_id)],
                   chat_id=lesson.get("scope_chat_id"))
-            return False
+            return report
         updated = await self._store.set_lesson_status(
             lesson_id, version, "active",
             compat_tool_schema_hash=current_tool_schema_hash(),
             compat_model_fingerprint=current_model_fingerprint(),
             compat_config_version=current_config_version(),
             recheck_required=0, unverified=0)
-        if updated:
-            _emit("activated", outcome="success", reason_code="activated",
-                  entity_ids=[str(lesson_id)],
-                  chat_id=lesson.get("scope_chat_id"))
-        return updated
+        if not updated:
+            return report
+        report["activated"] = True
+        demoted = await self._demote_contradictions(lesson_id, version, lesson)
+        report["contradictions"] = len(demoted)
+        report["contradicted"] = list(demoted)
+        rank = float(lesson.get("temporal_rank") or TEMPORAL_RANK_INITIAL)
+        _emit("activated", outcome="success", reason_code="activated",
+              entity_ids=[str(lesson_id)],
+              chat_id=lesson.get("scope_chat_id"))
+        _emit("experience.lesson_activated", outcome="success",
+              reason_code="activated", entity_ids=[str(lesson_id)],
+              chat_id=lesson.get("scope_chat_id"),
+              usage_json={"lesson_type": str(lesson.get("type") or ""),
+                          "origin_kind": normalize_origin_kind(
+                              lesson.get("origin_kind")),
+                          "scope": str(lesson.get("scope") or ""),
+                          "temporal_rank": rank,
+                          "contradictions": len(demoted)})
+        return report
+
+    async def _demote_contradictions(self, lesson_id: str, version: int,
+                                     lesson: dict) -> list[str]:
+        """Снизить ранг пересекающихся активных уроков (без удаления)."""
+        scope_key = str(lesson.get("semantic_scope_key") or
+                        semantic_scope_key(lesson.get("scope"),
+                                           lesson.get("scope_chat_id"),
+                                           lesson.get("scope_user_id")))
+        applicability = str(lesson.get("applicability") or "")
+        try:
+            cursor = await self._db.db.execute(
+                "SELECT lesson_id, version, semantic_scope_key, "
+                "semantic_rule_key, applicability, temporal_rank "
+                "FROM mca_lessons WHERE status = 'active' "
+                "AND type = ? AND lesson_id != ? "
+                "AND (scope_chat_id IS ? OR scope_chat_id = ?) "
+                "AND (scope_user_id IS ? OR scope_user_id = ?)",
+                (str(lesson.get("type") or ""), str(lesson_id),
+                 lesson.get("scope_chat_id"), lesson.get("scope_chat_id"),
+                 lesson.get("scope_user_id"), lesson.get("scope_user_id")))
+            rows = [dict(r) for r in await cursor.fetchall()]
+        except Exception:
+            logger.warning("[mca16] contradiction scan failed", exc_info=True)
+            return []
+        demoted: list[str] = []
+        for row in rows:
+            other_key = str(row.get("semantic_scope_key") or
+                            semantic_scope_key(row.get("scope") if
+                                               row.get("scope") else "chat",
+                                               row.get("scope_chat_id"),
+                                               row.get("scope_user_id")))
+            # Конфликт — это разные убеждения об ОДНОМ предмете. Одинаковый
+            # scope без общего subject (пустая applicability) не делает уроки
+            # противоречащими: дубли одного правила решаются identity/дедупом,
+            # а не снижением ранга.
+            if not applicability \
+                    or str(row.get("applicability") or "") != applicability:
+                continue
+            if not (other_key == scope_key or scope_key == "global"
+                    or other_key == "global"):
+                continue
+            result = await self._store.demote_contradicted(
+                str(row["lesson_id"]), int(row["version"]))
+            if not result:
+                continue
+            demoted.append(str(row["lesson_id"]))
+            _emit("experience.lesson_contradiction", outcome="skipped",
+                  reason_code="lesson_contradiction", level="WARN",
+                  entity_ids=[str(row["lesson_id"]), str(lesson_id)],
+                  chat_id=lesson.get("scope_chat_id"),
+                  usage_json={
+                      "lesson_id_old": str(row["lesson_id"]),
+                      "lesson_id_new": str(lesson_id),
+                      "scope_key": scope_key,
+                      "temporal_rank": float(
+                          result.get("temporal_rank") or 0.0),
+                  })
+        return demoted
 
     async def suspend(self, lesson_id: str, *, reason_code: str,
                       version: int | None = None) -> bool:
@@ -1333,7 +1898,12 @@ class LessonService:
         version = int(lesson["version"])
         status = str(lesson["status"])
         ev = evidence or ValidationEvidence()
-        if self._validation_failures(lesson, ev):
+        required = await self.required_confirmations(lesson, ev)
+        failures = (["llm_hypothesis_never_auto"] if required is None else
+                    self._validation_failures(
+                        lesson, ev, required_confirmations=required,
+                        known_templates=await self.template_texts(lesson)))
+        if failures:
             await self._store.set_lesson_status(
                 lesson_id, version, "suspended", recheck_required=1)
             _emit("suspended", outcome="skipped", reason_code="suspended",
@@ -1574,16 +2144,22 @@ class LessonService:
                                  "reason_code": "no_relevant_memory",
                                  "estimated_tokens": 0})
                 continue
-            scored.append((utility_score(lesson), score,
+            scored.append((float(lesson.get("temporal_rank") or 1.0),
+                           int(lesson.get("last_validated_at") or 0),
+                           utility_score(lesson), score,
                            int(lesson.get("updated_at") or 0), lesson_id,
                            lesson))
-        scored.sort(key=lambda item: (-item[0], -item[1], -item[2], item[3]))
+        # Контракт §4.4: сначала адаптивный ранг (свежие/повторно
+        # подтверждённые выше), затем последняя проверка, и только потом
+        # полезность/релевантность. Возраст сам по себе ранг не снижает.
+        scored.sort(key=lambda item: (-item[0], -item[1], -item[2],
+                                      -item[3], -item[4], item[5]))
         refs: list = []
         used_tokens = 0
         max_items = ExperiencePolicy.block_max_items()
         max_tokens = ExperiencePolicy.block_max_tokens()
-        for position, (_utility, _score, _updated, lesson_id,
-                       lesson) in enumerate(scored):
+        for position, (_rank, _validated, _utility, _score, _updated,
+                       lesson_id, lesson) in enumerate(scored):
             if len(refs) >= max_items:
                 excluded.append({"ref": lesson_id, "position": position,
                                  "reason_code": "budget_exceeded",
@@ -1684,7 +2260,8 @@ def _lesson_ref(lesson: dict):
         scope=str(lesson.get("scope") or ""),
         applicability=str(lesson.get("applicability") or ""),
         recommendation=str(lesson.get("recommendation") or ""),
-        exceptions=str(lesson.get("exceptions") or ""))
+        exceptions=str(lesson.get("exceptions") or ""),
+        temporal_rank=float(lesson.get("temporal_rank") or 1.0))
 
 
 def render_lessons_block(lessons) -> str:

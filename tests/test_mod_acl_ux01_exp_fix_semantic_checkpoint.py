@@ -149,6 +149,10 @@ def _msg_ids_in_batch(llm: _FakeLLM) -> set[int]:
 
 @pytest.mark.asyncio
 async def test_a_two_consecutive_jobs_take_different_next_messages(tmp_path):
+    hot_config.set_config_cache(_FakeHot({
+        "memory.experience_drain_chats_per_pass": 4,
+        "memory.experience_drain_per_chat_max": 10,
+    }))
     db = await _db(tmp_path, "a.db")
     try:
         ids = [await _msg(db, user_id=42, ts=1000 + i,
@@ -159,8 +163,8 @@ async def test_a_two_consecutive_jobs_take_different_next_messages(tmp_path):
         first = _msg_ids_in_batch(llm1)
         payload1 = await _payload_of(db)
         cursor1 = payload1[f"{mj.SEMANTIC_CURSOR_PREFIX}-100"]
-        # проход ограничен пределом дренажа (≤10 строк одного чата)
-        assert len(first) == mj.SEMANTIC_PER_CHAT_MAX
+        # проход ограничен пределом дренажа (≤10 строк одного чата в тесте)
+        assert len(first) == 10
         assert first == set(ids[:10])
         await _next_pass(db)
         llm2 = _FakeLLM()
@@ -178,6 +182,7 @@ async def test_a_two_consecutive_jobs_take_different_next_messages(tmp_path):
         assert payload1["counters"]["semantic_selected"] == 10
         assert payload2["counters"]["semantic_selected"] == 10
     finally:
+        hot_config.set_config_cache(None)
         await db.close()
 
 
@@ -530,6 +535,10 @@ async def test_h_llm_unavailable_stalls_position_honestly(tmp_path):
 
 @pytest.mark.asyncio
 async def test_i_backlog_larger_than_one_pass_drains_by_portions(tmp_path):
+    hot_config.set_config_cache(_FakeHot({
+        "memory.experience_drain_chats_per_pass": 4,
+        "memory.experience_drain_per_chat_max": 10,
+    }))
     db = await _db(tmp_path, "i.db")
     try:
         all_ids: set[int] = set()
@@ -544,8 +553,8 @@ async def test_i_backlog_larger_than_one_pass_drains_by_portions(tmp_path):
         first = _msg_ids_in_batch(llm1)
         seen |= first
         payload = await _payload_of(db)
-        # один проход ограничен (4 чата × 10 строк), бэклог остаётся видимым
-        assert len(first) == 3 * mj.SEMANTIC_PER_CHAT_MAX
+        # один проход ограничен (тестовый предел 4 чата × 10 строк)
+        assert len(first) == 3 * 10
         assert payload["semantic_progress"]["backlog_rows"] == 3 * 5
         assert payload["semantic_progress"]["backlog_chats"] == 3
         assert payload["semantic_progress"]["lag_seconds"] > 0
@@ -566,6 +575,7 @@ async def test_i_backlog_larger_than_one_pass_drains_by_portions(tmp_path):
         assert seen == all_ids
         assert payload["counters"]["semantic_duplicates"] == 0
     finally:
+        hot_config.set_config_cache(None)
         await db.close()
 
 
@@ -707,6 +717,10 @@ async def test_exp09_two_preferences_one_message_distinct_carriers(tmp_path):
 
 @pytest.mark.asyncio
 async def test_exp01_new_job_inherits_full_semantic_checkpoint(tmp_path):
+    hot_config.set_config_cache(_FakeHot({
+        "memory.experience_drain_chats_per_pass": 4,
+        "memory.experience_drain_per_chat_max": 10,
+    }))
     db = await _db(tmp_path, "e01.db")
     try:
         ids = [await _msg(db, chat_id=-100, user_id=42, ts=1000 + i,
@@ -734,6 +748,7 @@ async def test_exp01_new_job_inherits_full_semantic_checkpoint(tmp_path):
         assert loaded2[f"{mj.SEMANTIC_CURSOR_PREFIX}-100"] == ids[-1]
         assert loaded1["semantic_watermark"] == loaded2["semantic_watermark"]
     finally:
+        hot_config.set_config_cache(None)
         await db.close()
 
 
@@ -827,6 +842,10 @@ async def test_exp10_many_chats_backpressure_no_message_lost(tmp_path,
 
 @pytest.mark.asyncio
 async def test_exp10b_more_than_64_chats_no_pending_key_dropped(tmp_path):
+    hot_config.set_config_cache(_FakeHot({
+        "memory.experience_drain_chats_per_pass": 4,
+        "memory.experience_drain_per_chat_max": 10,
+    }))
     db = await _db(tmp_path, "e10b.db")
     try:
         chats = [-(1000 + i) for i in range(80)]
@@ -861,6 +880,7 @@ async def test_exp10b_more_than_64_chats_no_pending_key_dropped(tmp_path):
         assert payload["semantic_pending"] == {}
         assert payload["counters"]["semantic_duplicates"] == 0
     finally:
+        hot_config.set_config_cache(None)
         await db.close()
 
 

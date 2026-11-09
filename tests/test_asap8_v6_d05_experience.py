@@ -101,8 +101,11 @@ async def test_e2e_preference_correction_to_applied_lesson(tmp_path):
         assert signal["preference"] == "reply_length.short"
         assert signal["user_id"] == 42
         assert int(signal["msg"]) >= 1
-        # урок: scoped, verified/active, нормализованная конкретная форма
-        lessons = await svc.list_lessons(chat_id=-100)
+        # урок: scoped, verified/active, нормализованная конкретная форма.
+        # Явная поправка теперь усваивается сразу (explicit=1), поэтому в чате
+        # есть и общий failure_pattern; проверяем именно preference-урок.
+        lessons = [x for x in await svc.list_lessons(chat_id=-100)
+                   if x["type"] == "social_preference"]
         assert len(lessons) == 1
         lesson = lessons[0]
         assert lesson["type"] == "social_preference"
@@ -314,7 +317,8 @@ async def test_x3_preference_replacement_supersedes_old(tmp_path):
         await _msg(db, user_id=7, text="отвечай короче", ts=1000)
         assert await mj.tick_experience_review(db) == "completed"
         svc = me.get_service(db)
-        lessons = await svc.list_lessons(chat_id=-100)
+        lessons = [x for x in await svc.list_lessons(chat_id=-100)
+                   if x["type"] == "social_preference"]
         assert len(lessons) == 1
         v1 = lessons[0]
         assert v1["applicability"] == "user:7 pref:reply_length.short"
@@ -330,17 +334,20 @@ async def test_x3_preference_replacement_supersedes_old(tmp_path):
         latest = versions[max(versions)]
         assert latest["status"] == "active"
         assert latest["applicability"] == "user:7 pref:reply_length.long"
-        # старая не инжектируется; отбор возвращает только актуальную
+        # старая не инжектируется; отбор возвращает только актуальную форму
         sel = await svc.lesson.select_for_context(
             chat_id=-100, user_id=7,
             query="явное предпочтение формы ответа участника")
-        assert len(sel.lessons) == 1
-        assert sel.lessons[0].version == max(versions)
+        pref_refs = [r for r in sel.lessons if r.type == "social_preference"]
+        assert len(pref_refs) == 1
+        assert pref_refs[0].version == max(versions)
         # старый сигнал в новом проходе не откатывает замену (анти-ping-pong)
         await _next_pass(db)
         assert await mj.tick_experience_review(db) == "completed"
         lessons = await svc.list_lessons(chat_id=-100)
-        assert len(lessons) == 2
+        pref_lessons = [l for l in lessons
+                        if l["type"] == "social_preference"]
+        assert len(pref_lessons) == 2          # v1 (superseded) + v2 (active)
         assert all(l["applicability"] != "user:7 pref:reply_length.short"
                    or l["status"] == "superseded" for l in lessons)
     finally:
@@ -400,7 +407,7 @@ async def test_x4_semantic_rejection_stays_candidate_until_evidence(tmp_path):
     try:
         svc = me.get_service(db)
         episode_ids = []
-        for i in range(2):                     # < min_independent_episodes
+        for i in range(1):                     # < local threshold (2)
             episode_ids.append(await svc.capture_episode(
                 chat_id=-100, trace_id=f"e-{i}", outcome_kind="failure",
                 outcome_source="technical", ts=1000 + i))

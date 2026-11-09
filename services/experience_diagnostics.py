@@ -881,6 +881,95 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
                      "lesson_counters": counters_sums,
                      "applications_total": len(application_rows),
                      "lessons_out_of_chat_scope": out_of_scope},
+        # MOD-ACL-UX-01 amendment §5: свежий лаг, покрытие архива по
+        # году/чату, кандидаты/уроки/отказы с причинами, stale vs confirmed.
+        "learning_analytics": await _learning_analytics(
+            db, chat_id=chat_id),
+    }
+
+
+async def _learning_analytics(db, *, chat_id: int | None = None) -> dict:
+    """Аналитика семантического контракта (read-only; §5).
+
+    Источники: durable payload последнего review-job (накопительные
+    счётчики + курсоры/coverage) и `mca_lessons` (confirmed/stale).
+    Отсутствие данных — честные нули/пустые словари, не выдумка."""
+    where = " WHERE scope_chat_id = ?" if chat_id is not None else ""
+    params = (int(chat_id),) if chat_id is not None else ()
+    payload: dict = {}
+    try:
+        row = await _fetch_one(
+            db, "SELECT payload FROM task_jobs WHERE kind = "
+            "'experience.review' ORDER BY finished_at DESC, created_at DESC, "
+            "rowid DESC LIMIT 1")
+        payload = _json_payload(row.get("payload")) if row else {}
+    except Exception:
+        logger.debug("[exp_diag] review payload unavailable", exc_info=True)
+    durable = payload.get("analytics") if isinstance(
+        payload.get("analytics"), dict) else {}
+    progress = payload.get("semantic_progress") if isinstance(
+        payload.get("semantic_progress"), dict) else {}
+    stats = payload.get("archive_stats") if isinstance(
+        payload.get("archive_stats"), dict) else {}
+    lesson_rows: list[dict] = []
+    try:
+        lesson_rows = await _fetch_all(
+            db,
+            "SELECT status, temporal_rank, confirmation_count, origin_kind, "
+            "last_validated_at FROM mca_lessons" + where, params)
+    except Exception:
+        lesson_rows = []
+    confirmed = stale = 0
+    by_origin: dict[str, int] = {}
+    for row in lesson_rows:
+        if str(row.get("status") or "") != "active":
+            continue
+        origin = str(row.get("origin_kind") or "unknown")
+        by_origin[origin] = by_origin.get(origin, 0) + 1
+        try:
+            rank = float(row.get("temporal_rank") or 1.0)
+        except (TypeError, ValueError):
+            rank = 1.0
+        if rank >= 1.0:
+            confirmed += 1
+        else:
+            stale += 1
+    coverage = []
+    for key, value in sorted(stats.items()):
+        if not isinstance(value, dict):
+            continue
+        chat_part, _, year_part = str(key).partition(":")
+        coverage.append({
+            "chat_id": _int(chat_part), "year": _int(year_part),
+            "scanned_rows": _int(value.get("scanned")),
+            "total_rows": _int(value.get("total")),
+            "last_ts": _opt_ts(value.get("last_ts")),
+        })
+    return {
+        "fresh_lag": {
+            "lag_rows": _int(progress.get("backlog_rows")),
+            "actionable_rows": _int(progress.get("actionable_rows")),
+            "lag_seconds": _int(progress.get("lag_seconds")),
+            "max_observed_rows": _int(durable.get("fresh_stream_lag_rows")),
+        },
+        "archive": {
+            "watermark": _int(payload.get("archive_watermark")),
+            "coverage_by_chat_year": coverage[:200],
+        },
+        "lessons": {"confirmed": confirmed, "stale": stale,
+                    "by_origin": by_origin},
+        "counters": {
+            "candidates_total": _int(durable.get("candidates_total")),
+            "lessons_activated": _int(durable.get("lessons_activated")),
+            "lessons_rejected_by_reason": dict(
+                durable.get("lessons_rejected_by_reason") or {}),
+            "fresh_rows_scanned": _int(durable.get("fresh_rows_scanned")),
+            "archive_rows_scanned": _int(durable.get("archive_rows_scanned")),
+            "contradictions_found": _int(durable.get("contradictions_found")),
+            "reconfirmations": _int(durable.get("reconfirmations")),
+            "stale_beliefs_flagged": _int(
+                durable.get("stale_beliefs_flagged")),
+        },
     }
 
 
