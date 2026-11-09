@@ -1978,6 +1978,21 @@
       "received": "2026-11-10"
     },
     {
+      "id": "OI-2026-11-10-NOSTALGIA-PROACTIVE",
+      "source_path": "plans/owner_inputs/2026-11-10-nostalgia-proactive-correction.md",
+      "source_sha256": "BC384C000D7A7D9E0B9DF8869CB03948D8D689532132F88DCD9EE12C1312531B",
+      "kind": "correction",
+      "target_task_ids": [
+        "smart-module-semantic-routing-p0",
+        "vmq-onto-01"
+      ],
+      "reconciled": false,
+      "note": "Corrects a conflation in the P1 report: the user's historical question (decided by L1) and proactive nostalgia (initiated by the bot) are two different mechanisms. Removing the lexical pre-gate must not disable proactive nostalgia nor reduce it to a query-only feature. Required: in a live conversation the model itself detects a semantic link between the current topic, participants, events and long-term memory and may recall an episode when genuinely relevant, with no word triggers or topic dictionaries; the autonomous NostalgiaWorker tick keeps exploring old history, not limited to recent messages or to events exactly one year old; publication stays with the existing initiative mechanism using relevance, context, freshness, repetition and the user's settings, never to fill a tick; silence is a valid outcome; Quantum Navigation from VMQ-ONTO-01 later joins the weighted selection of periods and episodes as direction only, never truth or obligation, with no second generator. `_pick_candidate()`'s preference for ~year-old events and golden facts keyed by words of the latest messages is explicitly rejected as link detection. Acceptance requires three independent scenarios (spontaneous in-conversation recall, autonomous initiation, a plain past question without keywords) plus the ability to stay silent, checked against real memory sources with no invented links and no repeats.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-10",
+      "received": "2026-11-10"
+    },
+    {
       "id": "OI-2026-11-02-PERF-PARITY",
       "source_path": "plans/owner_inputs/2026-11-02-performance-parity-clarification.md",
       "source_sha256": "9F66BE9720084CE685FDB2E4B5244223523C2D4FFC0A59AABAC1853474FB823F",
