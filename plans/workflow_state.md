@@ -21,7 +21,7 @@ Last verified: P1 COMMITTED at 9f862b0f (parent 6fec18d2, 16 files). Demotions: 
 Next unlocks: P1 verdict -> release -> live check of the three demotions; owner runs the six P0 scenarios; static 4 rows at the deployed SHA
 Next execution: awaiting_children
 Review: approved (468ee956 P0-A, 67063aa5 P0-B, 53c78594, 78a4e017, ebc5a23b); P1 in review
-Deployment: verified (2.58.176 @ 2b7e9c7f, schema 46, no DDL)
+Deployment: verified (2.58.177 @ 1a4a9b1b, schema 46, no DDL)
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh — aggregate certified at 3954/6238 requirements, 293/514 stages, 13/49 tasks
 Updated: 2026-11-10T10:00:00+12:00
