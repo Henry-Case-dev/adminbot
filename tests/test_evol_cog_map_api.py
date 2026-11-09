@@ -537,7 +537,7 @@ class TestEndpoint:
 
     def test_403_for_non_admin(self, client, monkeypatch):
         from web.api import memory_agi
-        monkeypatch.setattr(memory_agi, "_is_global_admin",
+        monkeypatch.setattr(memory_agi, "user_is_global_admin",
                             lambda cache, tid: tid != MODERATOR_ID)
         resp = client.get("/api/memory/cognitive-map", headers=_hdr(MODERATOR_ID))
         assert resp.status_code == 403
@@ -565,7 +565,7 @@ class TestEndpoint:
     @pytest.mark.asyncio
     async def test_endpoint_requires_global_admin(self, db, monkeypatch):
         from web.api import memory_agi
-        monkeypatch.setattr(memory_agi, "_is_global_admin",
+        monkeypatch.setattr(memory_agi, "user_is_global_admin",
                             lambda cache, tid: False)
         monkeypatch.setattr(cm, "_db_or_503", lambda: db)
         fake_request = types.SimpleNamespace(

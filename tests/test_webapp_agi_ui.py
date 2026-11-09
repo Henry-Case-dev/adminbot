@@ -130,10 +130,11 @@ class TestMemoryFrontAudit:
 
     def test_memory_only_global_admin(self):
         """§3.6.2: ручной запуск/удаление/GET-логи — только глобальный
-        admin (паттерн chat_lore remap: роль admin/wildcard/ADMIN_USER_ID)."""
+        admin (MOD-ACL-UX-01 M1: канон web/api/deps.user_is_global_admin —
+        role_type global_admin / legacy admin / wildcard / ADMIN_USER_ID)."""
         src = self._memory_api_py()
         assert "role admin" in src or "роль admin" in src
-        assert "_is_global_admin" in src
+        assert "user_is_global_admin" in src
         assert "settings.ADMIN_USER_ID" in src
         assert 'status_code=403, detail="permission denied"' in src
         assert "_require_global_admin(request, user)" in src

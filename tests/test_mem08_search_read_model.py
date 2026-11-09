@@ -882,7 +882,7 @@ class TestSearchEndpointAccess:
         from fastapi import HTTPException
         from web.api import memory_agi
 
-        monkeypatch.setattr(memory_agi, "_is_global_admin",
+        monkeypatch.setattr(memory_agi, "user_is_global_admin",
                             lambda cache, tid: False)
         monkeypatch.setattr(cm, "_db_or_503", lambda: db)
         request = __import__("types").SimpleNamespace(

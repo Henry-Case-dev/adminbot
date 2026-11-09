@@ -140,7 +140,7 @@ class TestExpiredOverview:
         # читает cache; без ролей модератор-статус не выдаётся → проверяем
         # явную подмену _require_global_admin-источника прав.
         from web.api import memory_agi
-        monkeypatch.setattr(memory_agi, "_is_global_admin",
+        monkeypatch.setattr(memory_agi, "user_is_global_admin",
                             lambda cache, tid: tid != MODERATOR_ID)
         resp = client.get("/api/memory/expired-overview",
                           headers=_hdr(MODERATOR_ID))

@@ -6,9 +6,10 @@ APIRouter (prefix="/api"): эндпоинты аудита и ручного з�
 установлен → 503, fail-open NFR-4).
 
 Права (spec §3.6.2, консервативно): ручной запуск/мягкое удаление/protect —
-ТОЛЬКО глобальный admin (роль admin / wildcard / ADMIN_USER_ID — паттерн
-`_is_global_admin` web/api/chat_lore.py); GET-логи/списки — глобальный
-admin (moderator-выдачи НЕ расширяем, известные роли не трогаем).
+ТОЛЬКО глобальный admin; GET-логи/списки — глобальный admin
+(moderator-выдачи НЕ расширяем, известные роли не трогаем). MOD-ACL-UX-01
+(M1): проверка — канонная `web/api/deps.user_is_global_admin` (role_type
+`global_admin` / legacy-роль admin / wildcard), а не локальная копия.
 
 Коды по конвенции 84.5: 401 (нет initData) / 403 / 404 (belief нет/не
 kind='belief') / 409 (already_running — воркер уже бежит) / 422
@@ -50,7 +51,7 @@ from services.worker_settings import (
     resolve_setting_cached,
     resolve_setting_with_source,
 )
-from web.api.deps import get_cache, get_tma_user
+from web.api.deps import get_cache, get_tma_user, user_is_global_admin
 
 logger = logging.getLogger(__name__)
 
@@ -163,28 +164,23 @@ class DreamRunRequest(BaseModel):
 
 # ── helpers: права и компоненты ─────────────────────────────────────────────
 
-def _user_permissions(cache, telegram_id: int):
-    perms = cache.get_permissions_by_telegram_id(telegram_id)
-    if perms is None:
-        role = cache.get_permissions("user")
-        return role if role is not None else type(perms)()
-    return perms
-
-
-def _is_global_admin(cache, telegram_id: int) -> bool:
-    """Глобальный admin: роль admin / wildcard / settings.ADMIN_USER_ID
-    (паттерн web/api/chat_lore.py — единая матрица доступа)."""
-    if telegram_id == settings.ADMIN_USER_ID:
-        return True
-    perms = _user_permissions(cache, telegram_id)
-    if getattr(perms, "wildcard", False):
-        return True
-    return cache.get_role(telegram_id) == "admin"
-
-
 def _require_global_admin(request: Request, user: WebAppUser) -> None:
-    """403 — юзер не глобальный admin (spec §3.6.2: только admin)."""
-    if not _is_global_admin(get_cache(request), user.id):
+    """403 — юзер не глобальный admin (spec §3.6.2: только admin).
+
+    MOD-ACL-UX-01 (M1): единственный источник истины — канонная проверка
+    `web/api/deps.user_is_global_admin` (role_type `global_admin`,
+    legacy-роль `admin`, wildcard). Локальная копия сравнивала только имя
+    роли и отдавала 403 пользователю с `role_type=global_admin` без строки
+    `admin` (false-403 владельца на Vector Memory / Embeddings).
+
+    Shortcut `settings.ADMIN_USER_ID` сохранён как сервисное правило
+    (services/chat_access.is_admin: владелец — админ всегда, в т.ч. когда
+    кэш ролей не инициализирован); выдачи не сужаем.
+    """
+    tid = getattr(user, "id", None)
+    if tid is not None and int(tid) == int(settings.ADMIN_USER_ID):
+        return
+    if not user_is_global_admin(get_cache(request), tid):
         raise HTTPException(status_code=403, detail="permission denied")
 
 

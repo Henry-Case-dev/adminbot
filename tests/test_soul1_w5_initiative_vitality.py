@@ -762,7 +762,7 @@ def test_api_vitality_and_check_are_admin_only_and_honest(tmp_path,
                     assert payload["mock_send"]["published"] is False
                     assert payload["llm_calls"] == 0
                     from web.api import memory_agi
-                    monkeypatch.setattr(memory_agi, "_is_global_admin",
+                    monkeypatch.setattr(memory_agi, "user_is_global_admin",
                                         lambda cache, tid: tid != MODERATOR_ID)
                     denied = tc.get("/api/memory/initiative-vitality",
                                     headers=_hdr(MODERATOR_ID))

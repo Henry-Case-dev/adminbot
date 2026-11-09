@@ -11,8 +11,8 @@ chat_profiles.relations), PUT/DELETE ручной пометки юзера (opt
 APIRouter (включение в web/app.py рядом с api_router, prefix="/api"); ВСЕ
 эндпоинты под `Depends(get_tma_user)` + матрица доступа Q6 (spec §3.8):
 
-  * глобальный admin (роль admin/wildcard/ADMIN_USER_ID) — все чаты и все
-    операции (включая remap и CRUD chat_admins);
+  * глобальный admin (role_type global_admin / legacy-роль admin / wildcard /
+    ADMIN_USER_ID) — все чаты и все операции (включая remap и CRUD chat_admins);
   * остальные — чат доступен ТОЛЬКО при строке (telegram_id, chat_id) в
     chat_admins (moderator/custom с секцией chat_lore — тоже только свои
     строки; секция на сервере не расширяет список);
@@ -42,11 +42,10 @@ from services import chat_params, lore_runtime
 from services import dossier_rebuild_jobs as drj
 from services.chat_lore_store import ChatLoreConflict, ChatLorePgUnavailable
 from services.database import row_get
-from services.permissions import Permissions
 from services import summary_aliases
 from services.dossier_prompts import format_dossier_block
 from services.summary_aliases import AliasResolver
-from web.api.deps import get_cache, get_tma_user
+from web.api.deps import get_cache, get_tma_user, user_is_global_admin
 # UI-полировка TMA: RAM-кэши обогащения (title/фото чата, username/фото
 # участника) — те же TTL-словари, что у аватар-прокси (web/api/avatars.py).
 from web.api.avatars import chat_display_info, user_display_info
@@ -157,23 +156,17 @@ class ChatAdminAdd(BaseModel):
 
 # ── helpers: права и компоненты ─────────────────────────────────────────────
 
-def _user_permissions(cache, telegram_id: int) -> Permissions:
-    """Права юзера; неизвестный ID → пустые (прецедент web/api/deps.py)."""
-    perms = cache.get_permissions_by_telegram_id(telegram_id)
-    if perms is None:
-        role = cache.get_permissions("user")
-        return role if role is not None else Permissions.from_dict({})
-    return perms
-
-
 def _is_global_admin(cache, telegram_id: int) -> bool:
-    """Глобальный admin: роль admin / wildcard / settings.ADMIN_USER_ID."""
+    """Глобальный admin: канон web/api/deps.user_is_global_admin
+    (role_type `global_admin` / legacy-роль admin / wildcard) + прежний
+    shortcut settings.ADMIN_USER_ID (services/chat_access.is_admin).
+
+    MOD-ACL-UX-01 (M1): раньше здесь была вторая копия проверки по имени
+    роли — пользователь с role_type=global_admin получал отказ.
+    """
     if telegram_id == settings.ADMIN_USER_ID:
         return True
-    perms = _user_permissions(cache, telegram_id)
-    if perms.wildcard:
-        return True
-    return cache.get_role(telegram_id) == "admin"
+    return user_is_global_admin(cache, telegram_id)
 
 
 async def can_access_chat(cache, store, telegram_id: int,
