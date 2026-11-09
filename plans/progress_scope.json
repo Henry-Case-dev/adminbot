@@ -376,8 +376,10 @@
       "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-11-10-smart-module-semantic-routing-p0.md",
       "source_sha256": "2ECA66DA1825F85EBD0E9353E53A5281635297427510DE6274E9EF5E2AF48A8C",
-      "maps": [],
-      "coverage_complete": false,
+      "maps": [
+        "plans/features/smart-module-semantic-routing/requirements-map.json"
+      ],
+      "coverage_complete": true,
       "source_note": "P0 corrective of the existing Smart Module, not a new epic. Incident A: the manga question ('японцы рисуют или форматом страниц') hit the image generator and reported a daily image quota; cause named by the owner at services/direct_capabilities.py `_DRAW_VERB_STRONG` containing the stem 'рису', classified as INTENT_CREATE_IMAGE, after which `_image_capability_gate()` can end the turn before L1. Incident B: 'бот, что происходит в чате' was answered by analysing a participant's video, then asking which of two videos was meant. Owner forbids adding any lexeme, regex or trigger for such phrases: the model (L1) must decide, using the existing history/memory/search tools. Architectural invariant: the current user message is the task; reply target, quote, forward, recent history, transcript and tool results are evidence, never a substitute task. Explicit commands must survive unchanged: фактчек, чекап, 'Бот, нарисуй ...' with the full user prompt, 'Бот, найди ...' with its argument; 'Нарисуй кота' without the bot prefix goes through L1. Remove the semantic authority of `_DRAW_VERB_STRONG`, `_DRAW_VERB_PREFIXED`, `_CREATE_VERB_GENERIC`, `_IMAGE_OBJECT` and related lexical gates (detect_action_intent, _image_capability_gate, _image_pre_gate_block, _l1_capability_consistency, IMAGE_KEYWORD_RE, legacy/fallback planning, generate_image execution) leaving only the explicit command fast-path. No new LLM classifier, no second summary pipeline, no new user settings. P1 is a bounded revision of the named spots (direct answers, nostalgia pre-gate, search/factcheck markers, vision intent patterns, experience lexical filters, style/self-model). Trace both P0s end to end; do not pass DONE on unit tests alone, and verify negative scenarios independently.",
       "updated": "2026-11-10"
     },
@@ -604,7 +606,23 @@
       "note": "Исходная P0-корректива 25.10 (L1/harness, алиасы, Core, lore). Карта 130 строк, plan-gate EXIT 0.",
       "recorded_in": "",
       "origin": "root chat 25.10.2026",
-      "received": "2026-10-25"
+      "received": "2026-10-25",
+      "coverage_refs": [
+        {
+          "task_id": "asap-speech-arch",
+          "map": "plans/features/asap-speech-arch/requirements-map-p0-corrective.json",
+          "req_ids": [
+            "L1-ROUTING-REPAIR",
+            "MEMORY-LORE-AUDIT",
+            "L1-ROOT-CAUSE",
+            "L1-NO-FORCED-MODE",
+            "L1-HISTORY-DEEP",
+            "L1-DEPTH-NOT-LENGTH",
+            "L1-NO-HARDCODED",
+            "L1-TWO-SCENARIOS"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-25-REPORT-FORMAT",
@@ -619,7 +637,31 @@
       "note": "Требование к финальному отчёту: подробно, простым языком, без терминов, по алиасам и остальным задачам. Сдаётся в финальном отчёте. | mapped: PM 68a70d9d; план-гейты EXIT 0.",
       "recorded_in": "",
       "origin": "root chat 25.10.2026",
-      "received": "2026-10-25"
+      "received": "2026-10-25",
+      "coverage_refs": [
+        {
+          "task_id": "asap-speech-arch",
+          "map": "plans/features/asap-speech-arch/requirements-map-p0-corrective.json",
+          "req_ids": [
+            "REPORT-PLAIN-LANGUAGE",
+            "REPORT-WHY-STOPPED",
+            "REPORT-VERSION",
+            "REPORT-RESIDUAL",
+            "REPORT-PROD-13"
+          ]
+        },
+        {
+          "task_id": "p0-factcheck-media",
+          "map": "plans/features/p0-factcheck-media/requirements-map.json",
+          "req_ids": [
+            "FC-QUEUE-09",
+            "FC-QUEUE-08",
+            "FC-QUEUE-01",
+            "FC-QUEUE-05",
+            "FC-CTX-02"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-25-P0-FACTCHECK",
@@ -633,7 +675,23 @@
       "note": "Корректива Fact-check (фото/альбомы/пересылка). Карта 137 required, plan-gate EXIT 0, a0cafb38.",
       "recorded_in": "",
       "origin": "root chat 25.10.2026",
-      "received": "2026-10-25"
+      "received": "2026-10-25",
+      "coverage_refs": [
+        {
+          "task_id": "p0-factcheck-media",
+          "map": "plans/features/p0-factcheck-media/requirements-map.json",
+          "req_ids": [
+            "FC-QUEUE-08",
+            "FC-QUEUE-01",
+            "FC-QUEUE-09",
+            "FC-QUEUE-02",
+            "FC-QUEUE-03",
+            "FC-QUEUE-04",
+            "FC-QUEUE-05",
+            "FC-QUEUE-06"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-25-FC-WHOLE-POST",
@@ -647,7 +705,20 @@
       "note": "Reply на фото альбома = точка входа в публикацию; проверять весь пост (текст + все фото). В реализации у Builder. | mapped: PM 68a70d9d; план-гейты EXIT 0.",
       "recorded_in": "",
       "origin": "root chat 25.10.2026",
-      "received": "2026-10-25"
+      "received": "2026-10-25",
+      "coverage_refs": [
+        {
+          "task_id": "p0-factcheck-media",
+          "map": "plans/features/p0-factcheck-media/requirements-map.json",
+          "req_ids": [
+            "FC-WHOLE-01",
+            "FC-WHOLE-03",
+            "FC-WHOLE-02",
+            "FC-AUDIT-04",
+            "REQ-FC-09-08"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-25-FC-CONTEXT-WINDOW",
@@ -661,7 +732,20 @@
       "note": "Цель вне контекста: проверять окружение и reply-цепочку, окно до 200–300 сообщений, до этого не говорить «нечего проверять». | mapped: PM 68a70d9d; план-гейты EXIT 0.",
       "recorded_in": "",
       "origin": "root chat 25.10.2026",
-      "received": "2026-10-25"
+      "received": "2026-10-25",
+      "coverage_refs": [
+        {
+          "task_id": "p0-factcheck-media",
+          "map": "plans/features/p0-factcheck-media/requirements-map.json",
+          "req_ids": [
+            "REQ-FC-09-12",
+            "FC-WIDE-05",
+            "FC-VISION-05",
+            "FC-VISION-04",
+            "FC-CTX-01"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-25-FC-WIDE-DEFAULT",
@@ -675,7 +759,20 @@
       "note": "Широкий контекст фактчека включён по умолчанию; тумблер в Модули→Фактчек; миграция false→true. | mapped: PM 68a70d9d; план-гейты EXIT 0.",
       "recorded_in": "",
       "origin": "root chat 25.10.2026",
-      "received": "2026-10-25"
+      "received": "2026-10-25",
+      "coverage_refs": [
+        {
+          "task_id": "p0-factcheck-media",
+          "map": "plans/features/p0-factcheck-media/requirements-map.json",
+          "req_ids": [
+            "FC-WIDE-02",
+            "FC-WIDE-05",
+            "FC-WIDE-01",
+            "FC-CTX-02",
+            "FC-WIDE-03"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-25-PLANS-RECONCILE",
@@ -702,7 +799,30 @@
       "note": "Однократная сверка intake: регистрация ранее не учтённых поручений без пересоздания карт.",
       "recorded_in": "",
       "origin": "root chat 25.10.2026",
-      "received": "2026-10-25"
+      "received": "2026-10-25",
+      "coverage_refs": [
+        {
+          "task_id": "asap-speech-arch",
+          "map": "plans/features/asap-speech-arch/requirements-map.json",
+          "req_ids": [
+            "REQ-REPLY-OPT",
+            "P0G-PARSER",
+            "ADD2-PRESERVE",
+            "ADD2-PERSONA-FULL",
+            "ADD2-KEEP-FULL"
+          ]
+        },
+        {
+          "task_id": "p0-factcheck-media",
+          "map": "plans/features/p0-factcheck-media/requirements-map.json",
+          "req_ids": [
+            "FC-QUEUE-10",
+            "FC-QUEUE-09",
+            "FC-QUEUE-08",
+            "FC-QUEUE-01"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-26-P0-DELTA",
@@ -716,7 +836,31 @@
       "reconciled": true,
       "note": "Корректива P0 DELTA: не шаблонизировать речь; различать разговорный и исторический анализ; проверить L1/инструменты памяти/субъект/lore; без нового инструмента без доказанной необходимости. | mapped: 36c8f1ab (133 required).",
       "origin": "root chat 26.10.2026",
-      "received": "2026-10-26"
+      "received": "2026-10-26",
+      "coverage_refs": [
+        {
+          "task_id": "p0-delta-analysis",
+          "map": "plans/features/p0-delta-analysis/requirements-map.json",
+          "req_ids": [
+            "REQ-DELTA-06-NEW-TOOL-PROOF",
+            "REQ-DELTA-DONE-NO-UNIVERSAL-TEMPLATE",
+            "REQ-DELTA-12-HL-MULTIYEAR-SUBJECT",
+            "REQ-DELTA-12-02",
+            "REQ-DELTA-03-EIGHT-DISTINCTIONS"
+          ]
+        },
+        {
+          "task_id": "asap-speech-arch",
+          "map": "plans/features/asap-speech-arch/requirements-map.json",
+          "req_ids": [
+            "UI-P2",
+            "P0G-MODELONLY",
+            "P0F-MATRIX",
+            "P0A-RISK",
+            "MIGR-NORETURN"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-26-NO-META-SCOPE",
@@ -730,7 +874,31 @@
       "reconciled": true,
       "note": "NO_META запрещает только служебные вступления/анонсы/метакомментарии; убрать «сразу вывод»; проверить остальные инструкции на скрытые шаблоны. Выполнить после активного Builder, без нового эпика. | mapped: 36c8f1ab (133 required).",
       "origin": "root chat 26.10.2026",
-      "received": "2026-10-26"
+      "received": "2026-10-26",
+      "coverage_refs": [
+        {
+          "task_id": "p0-delta-analysis",
+          "map": "plans/features/p0-delta-analysis/requirements-map.json",
+          "req_ids": [
+            "REQ-DELTA-11-NO-NEW-LAYER",
+            "REQ-DELTA-11-NO-MANDATORY-STRUCTURES",
+            "REQ-DELTA-03-NO-JUDGE-BY-PLAUSIBLE-ANSWER",
+            "REQ-DELTA-DONE-PRESERVE-CORE",
+            "REQ-DELTA-14-SAFE-DEPLOY"
+          ]
+        },
+        {
+          "task_id": "asap-speech-arch",
+          "map": "plans/features/asap-speech-arch/requirements-map-p0-hotfix.json",
+          "req_ids": [
+            "GOAL-NATURAL-SPEECH",
+            "CORE-ACTIVE-SNAPSHOT",
+            "TRACE-NO-BLAME-MODEL",
+            "REVIEW-RAW-ANSWERS",
+            "REVIEW-PAYLOAD-PROVENANCE"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-26-ASAP5-QUEUED",
@@ -743,7 +911,18 @@
       "reconciled": true,
       "note": "ASAP 5 поставлен в конец очереди (после всех задач, зарегистрированных ранее). Реализация не начинается до завершения текущего релиза и оставшихся задач; перед стартом — сверка против готовых исправлений. | Intake согласован: зарегистрировано в конец очереди (asap5-multimodal, PENDING), карта будет создана при старте задачи.",
       "origin": "root chat 26.10.2026 (регистрация задания из plans/current_task.md)",
-      "received": "2026-10-26"
+      "received": "2026-10-26",
+      "coverage_refs": [
+        {
+          "task_id": "asap5-multimodal",
+          "map": "plans/features/asap5-multimodal/requirements-map.json",
+          "req_ids": [
+            "REQ-QUEUE-LAST",
+            "REQ-QUEUE-DEDUP",
+            "REQ-VIS-RACE"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-27-POST-ASAP5",
@@ -756,7 +935,20 @@
       "reconciled": true,
       "note": "Задача зарегистрирована в САМЫЙ КОНЕЦ очереди (после asap5-multimodal). Порядок: текущий релиз-цикл → P0 DELTA → остатки → asap5-multimodal → post-asap5-corrective. Реализация не начинается; карта при старте. | Intake согласован: pre-start карта 27 секций, гейт EXIT 0 (6f81adf9).",
       "origin": "root chat 27.10.2026 (задание добавлено владельцем в plans/current_task.md L5026)",
-      "received": "2026-10-27"
+      "received": "2026-10-27",
+      "coverage_refs": [
+        {
+          "task_id": "post-asap5-corrective",
+          "map": "plans/features/post-asap5-corrective/requirements-map.json",
+          "req_ids": [
+            "PA5-QUEUE",
+            "PA5-S9-ALIGN",
+            "PA5-S12-DELIVERY",
+            "PA5-S4-MODEL",
+            "PA5-S10-4"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-27-NOSTALGIA-REWORK",
@@ -769,7 +961,25 @@
       "reconciled": true,
       "note": "Задача зарегистрирована ПОСЛЕ post-asap5-corrective (последняя в очереди): полная переработка ностальгии (NOST-01..12, приёмка NOST-13..18) + дефекты POST-ASAP5 (COR-01..06) + дисциплина (DEV-01..05). Реализация не начинается; детальная карта при старте. Внимание: пересечение с ASAP5-NOSTALGIA (wave W1) — при старте сверить и не дублировать. | Intake согласован: pre-start карта 29 секций, гейт EXIT 0 (0d8b6a5f).",
       "origin": "root chat 27.10.2026 (задание добавлено владельцем в plans/current_task.md L5771)",
-      "received": "2026-10-27"
+      "received": "2026-10-27",
+      "coverage_refs": [
+        {
+          "task_id": "p0-nostalgia-rework",
+          "map": "plans/features/p0-nostalgia-rework/requirements-map.json",
+          "req_ids": [
+            "NOST-01",
+            "NOST-02",
+            "NOST-03",
+            "NOST-04",
+            "NOST-05",
+            "NOST-06",
+            "NOST-07",
+            "NOST-08",
+            "NOST-09",
+            "NOST-10"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-28-FACTCHECK-POST-RELEASE",
@@ -782,7 +992,20 @@
       "reconciled": true,
       "note": "Обязательная корректива Fact-check: поиск — необязательный инструмент, не условие работы; empty evidence ≠ insufficient; continue analysis без выдумок (честная неопределённость); ПОЛНОЕ удаление verdict-cache (handlers legacy, orchestrator envelope/legacy, temporal cache, mca_gates gate, скрытые пути); taxonomy причин поиска; частичные доказательства сохраняются; вербализация без сочинительства; директива аналитика §8; F1-F30 регрессии. Заменяет предыдущую версию коррективы.",
       "origin": "root chat 28.10.2026",
-      "received": "2026-10-28"
+      "received": "2026-10-28",
+      "coverage_refs": [
+        {
+          "task_id": "p0-factcheck-post-release",
+          "map": "plans/features/p0-factcheck-post-release/requirements-map.json",
+          "req_ids": [
+            "FC-06A",
+            "FC-11",
+            "FC-04D",
+            "FC-02D",
+            "FC-02A"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-28-ADMIN-CACHE-TOGGLE-SAVE",
@@ -795,7 +1018,20 @@
       "reconciled": true,
       "note": "Баг: сохранение рубильника Exact Match Cache падает («Сохранено 0 из 1»). Требование: исправить + аудит остальных параметров/рубильников админки. ЗАКРЫТО 28.10.2026: фикс a602aa61 (review Approved) задеплоен как 2.58.140 @ 5c8bf35d; live-зонд: chat-scope toggle ON/OFF → 200, readback оба направления, SmartCache get_hit/get_miss; аудит: Builder 106/106, независимое воспроизведение ревьюера 107/107 PASS; карта strict plan/review EXIT 0; карта p0-admin-cache-toggle-save/requirements-map.json.",
       "origin": "root chat 28.10.2026 + скриншот владельца",
-      "received": "2026-10-28"
+      "received": "2026-10-28",
+      "coverage_refs": [
+        {
+          "task_id": "p0-admin-cache-toggle-save",
+          "map": "plans/features/p0-admin-cache-toggle-save/requirements-map.json",
+          "req_ids": [
+            "TOG-1",
+            "TOG-2",
+            "TOG-4",
+            "TOG-3",
+            "TOG-5"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-28-LOCAL-WORKSPACE-CLEANUP",
@@ -832,7 +1068,20 @@
       "reconciled": true,
       "note": "P0 CORRECTIVE 29.10: динамический get_recent_history (без потолка 150 и обрезки 3500), постраничное/сегментное исследование больших выборок, фиксация границы выборки, изоляция диапазона от старой памяти, анти-гиперфикс на старых темах без хардкодов, регрессии H1-H32, инцидент-аудит, деплой. Зарегистрировано в очередь после ранее принятых обязательных задач. | Сверено 29.10: карта 125 required покрывает все части директивы (Части I-VIII, H1-H32, запреты §20, DONE §21, отчёт §22), план-гейт EXIT 0; дельта против P0 DELTA/Direct Chat/NOST сверена PM, конфликтов нет.",
       "origin": "root chat 29.10.2026",
-      "received": "2026-10-29"
+      "received": "2026-10-29",
+      "coverage_refs": [
+        {
+          "task_id": "p0-history-analysis",
+          "map": "plans/features/p0-history-analysis/requirements-map.json",
+          "req_ids": [
+            "REQ-HA-DEPLOY-QUEUE",
+            "REQ-HA-DEPLOY-POSTCHECK",
+            "REQ-HA-SAMPLE-NO-MEMORY-COPY",
+            "REQ-HA-PAGES-CONTINUATION",
+            "REQ-HA-STAGE-A"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-29-RELEASE-THEN-MIGRATE",
@@ -846,7 +1095,34 @@
       "reconciled": true,
       "note": "P0 RELEASE-THEN-MIGRATE 29.10: строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS -> (C) приёмка на старом production -> (D) подготовка/миграция на новый VPS -> (E) полная post-migration приёмка (§7.1). | Сверено 29.10: фазы A-C закрыты (релиз 2.58.141 @ 5346ee76 на старом production, приёмка, отчёт владельцу); карта release-then-migrate 78 required, план-гейт EXIT 0; фаза D (инвентаризация) запущена. Секреты не в код/логи/git; старый VPS — fallback.",
       "origin": "root chat 29.10.2026",
-      "received": "2026-10-29"
+      "received": "2026-10-29",
+      "coverage_refs": [
+        {
+          "task_id": "release-then-migrate",
+          "map": "plans/features/release-then-migrate/requirements-map.json",
+          "req_ids": [
+            "REQ-RM-PREP-NO-REKEY",
+            "REQ-RM-ORDER-A2E",
+            "REQ-RM-MIGRATE-NOW",
+            "REQ-RM-SECRETS-DEPLOY",
+            "REQ-RM-PROHIB-DATA",
+            "REQ-RM-PROHIB-DUAL",
+            "REQ-RM-PROHIB-DUALUPGRADE",
+            "REQ-RM-PROHIB-REIMPORT"
+          ]
+        },
+        {
+          "task_id": "p0-history-analysis",
+          "map": "plans/features/p0-history-analysis/requirements-map.json",
+          "req_ids": [
+            "REQ-HA-OWNER-REPORT",
+            "REQ-HA-STAGE-A",
+            "REQ-HA-SEG-DETERMINISTIC",
+            "REQ-HA-SEG-DEGRADE",
+            "REQ-HA-SAMPLE-STABLE"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-29-FINAL-DECOMMISSION",
@@ -859,7 +1135,20 @@
       "reconciled": true,
       "note": "FINAL VPS ACCEPTANCE & OLD SERVER DECOMMISSION 29.10: порядок 1-7 исполнен полностью. Фаза 1-2 GO (новый prod принят; независимый бэкап на машине владельца верифицирован). Фазы 3-5: декомиссия COMPLETE (≈8,7 ГБ освобождено, только bot-specific, чужое не тронуто, sweep чист). Фаза 6: новый prod здоров, зависимостей от старого IP нет. Reviewer ACCEPT. Задача VERIFIED; AGENTS.md и deploy_commands.txt обновлены (старый VPS больше не резерв). | folded 01.11.2026 into release-then-migrate (decommission evidence: plans/features/release-then-migrate/evidence/decommission-old-vps.md, decommission-review.md)",
       "origin": "root chat 29.10.2026",
-      "received": "2026-10-29"
+      "received": "2026-10-29",
+      "coverage_refs": [
+        {
+          "task_id": "release-then-migrate",
+          "map": "plans/features/release-then-migrate/requirements-map.json",
+          "req_ids": [
+            "REQ-RM-SECRETS-DEPLOY",
+            "REQ-RM-SWITCH-REPORT",
+            "REQ-RM-RELEASE-GATE",
+            "REQ-RM-CUT-STEP6",
+            "REQ-RM-ROLLBACK-POST"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-29-EVOL-LAUNCH",
@@ -870,7 +1159,19 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "Epic EVOL launch: all 45 tasks EVOL-001..045 mandatory; document = plans/current_task.md sha 54454df5...; audit->backend fixes->full UI/UX->EVOL-014 memes->release; no ritual gates; owner live checks not blocking. | reconciled 2026-10-30: map plans/features/evol/requirements-map.json (46/46, plan gate EXIT 0), base evol/impl created, stale rows reconciled."
+      "note": "Epic EVOL launch: all 45 tasks EVOL-001..045 mandatory; document = plans/current_task.md sha 54454df5...; audit->backend fixes->full UI/UX->EVOL-014 memes->release; no ritual gates; owner live checks not blocking. | reconciled 2026-10-30: map plans/features/evol/requirements-map.json (46/46, plan gate EXIT 0), base evol/impl created, stale rows reconciled.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "EVOL-001",
+            "EVOL-010",
+            "EVOL-045",
+            "EVOL-014"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-31-EVOL-ADDENDUM",
@@ -881,7 +1182,16 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "4 deltas: social turn frame (0 LLM), video intent linking+single-flight, critical factcheck section with guard, glass seam fix in EVOL-032; no new agents/pipelines/live sends."
+      "note": "4 deltas: social turn frame (0 LLM), video intent linking+single-flight, critical factcheck section with guard, glass seam fix in EVOL-032; no new agents/pipelines/live sends.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "EVOL-032"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-31-EVOL-SRC-COG",
@@ -892,7 +1202,20 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "Source Code Reader (EVOL-SRC-*) + Cognitive Map (EVOL-COG-*); owner-ordered LAST in queue after main EVOL completion."
+      "note": "Source Code Reader (EVOL-SRC-*) + Cognitive Map (EVOL-COG-*); owner-ordered LAST in queue after main EVOL completion.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "ER-S44",
+            "ER-S03",
+            "ER-61",
+            "ER-50",
+            "ER-22"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-31-ASAP-FC-ADMISSION",
@@ -903,7 +1226,17 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "ASAP P0 factcheck admission + cooldown; queued strictly after active factcheck lanes and their Reviewer acceptance."
+      "note": "ASAP P0 factcheck admission + cooldown; queued strictly after active factcheck lanes and their Reviewer acceptance.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "ASAP-VISION-SYNC-ADMIN-01",
+            "ASAP-VISION-SYNC-01"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-31-ASAP-VISION-SYNC",
@@ -914,7 +1247,16 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "P0 project-wide media readiness contract; all consumers (Direct/FactCheck/search/initiative/summary/memory); 20 scenarios; Vision output contract fix."
+      "note": "P0 project-wide media readiness contract; all consumers (Direct/FactCheck/search/initiative/summary/memory); 20 scenarios; Vision output contract fix.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "ASAP-FC-ADMISSION-01"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-31-ASAP-VISION-SYNC-WATCHDOG",
@@ -925,7 +1267,17 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "Watchdog + hang protection for media jobs: unified lifecycle watchdog on existing durable jobs (lease/heartbeat/fencing/generation), bounded recovery with backoff/Retry-After, two limits (sync wait vs operation lifetime), async non-blocking wait, durable resume, delivery dedup, 5 new scenarios 21-25; no second watchdog/pipeline. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
+      "note": "Watchdog + hang protection for media jobs: unified lifecycle watchdog on existing durable jobs (lease/heartbeat/fencing/generation), bounded recovery with backoff/Retry-After, two limits (sync wait vs operation lifetime), async non-blocking wait, durable resume, delivery dedup, 5 new scenarios 21-25; no second watchdog/pipeline. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "SC-16",
+            "ASAP-VISION-SYNC-ADMIN-01"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-31-ASAP-FC-EVIDENCE-STYLE",
@@ -936,7 +1288,16 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "QUEUED strictly after all factcheck correctives get Reviewer PASS (critical section, ASAP-FC-ADMISSION-01, Vision factcheck integration). Per-claim retrieval coverage, adaptive deadline, source-claim relevance, honest statuses, live style in structure; 12 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence."
+      "note": "QUEUED strictly after all factcheck correctives get Reviewer PASS (critical section, ASAP-FC-ADMISSION-01, Vision factcheck integration). Per-claim retrieval coverage, adaptive deadline, source-claim relevance, honest statuses, live style in structure; 12 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "ASAP-FC-ADMISSION-01"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-31-NAV-CONTRACT",
@@ -947,7 +1308,16 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "No bottom navbar ever; remove Adminbot visual logo; premium compact topbar (nav, section, chat scope, avatar+role badge, ghost fullscreen); ellipsis more; fixed as docs/ui-navigation-contract.md + AGENTS.md. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence."
+      "note": "No bottom navbar ever; remove Adminbot visual logo; premium compact topbar (nav, section, chat scope, avatar+role badge, ghost fullscreen); ellipsis more; fixed as docs/ui-navigation-contract.md + AGENTS.md. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "EVOL-023"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-10-31-ASAP-UI-02",
@@ -958,7 +1328,16 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "ASAP-UI-02 unified design contract: matrix DONE_AND_VERIFIED/PARTIAL/MISSING/CONFLICTS/NOT_APPLICABLE vs HEAD; no bottom navbar/logo/tall header; topbar contract; ellipsis; tokens/system; cards/modals/overlay/forms; section order incl. cognitive map + 4 ribbons; health tint warning semantics; ribbons smooth; COG gestures/labels; global search; motion; keyboard/safe-area; 17 scenarios; strict Reviewer. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
+      "note": "ASAP-UI-02 unified design contract: matrix DONE_AND_VERIFIED/PARTIAL/MISSING/CONFLICTS/NOT_APPLICABLE vs HEAD; no bottom navbar/logo/tall header; topbar contract; ellipsis; tokens/system; cards/modals/overlay/forms; section order incl. cognitive map + 4 ribbons; health tint warning semantics; ribbons smooth; COG gestures/labels; global search; motion; keyboard/safe-area; 17 scenarios; strict Reviewer. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "ASAP-UI-02-00"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-01-ASAP-EVIDENCE-ROUTING",
@@ -969,7 +1348,20 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "v3 only (replaces v1/v2): mandatory external-factual evidence for Direct/Initiative own claims (regardless of L1 confidence/tool_policy), no web in Summary/Sleep/Memory/Dossier/GraphRAG, qualified claim-bound source reuse, dynamic evidence window via model_capacity, full limit audit A-E, prompt conflict audit, 46 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
+      "note": "v3 only (replaces v1/v2): mandatory external-factual evidence for Direct/Initiative own claims (regardless of L1 confidence/tool_policy), no web in Summary/Sleep/Memory/Dossier/GraphRAG, qualified claim-bound source reuse, dynamic evidence window via model_capacity, full limit audit A-E, prompt conflict audit, 46 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "ER-66",
+            "ER-74",
+            "ER-02",
+            "EVOL-DoD",
+            "ER-62"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-01-SUMMARY-COVER-INTEGRITY",
@@ -980,7 +1372,16 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "v2.1 only (replaces v1/v2): P0 prompt history 500+versions, Cover Style prompt_limit(800)/bad_json/refs/timer, L2 Summary diagnostics; P1 Speech 5 tabs, ONE module toggle scoped by top selector (overrides EVOL-027/ASAP-UI-02 conflicting parts), mobile fullscreen instead of .../drawer safe areas, Status unified health block; P2 remove Favorites; 40 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу."
+      "note": "v2.1 only (replaces v1/v2): P0 prompt history 500+versions, Cover Style prompt_limit(800)/bad_json/refs/timer, L2 Summary diagnostics; P1 Speech 5 tabs, ONE module toggle scoped by top selector (overrides EVOL-027/ASAP-UI-02 conflicting parts), mobile fullscreen instead of .../drawer safe areas, Status unified health block; P2 remove Favorites; 40 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence. | 2026-11-07 accounting repair: the original snapshot file is absent and its bytes cannot be reconstructed; provenance is recorded in 2026-11-01-current_task-snapshot-MISSING.md, which is an agent record, not recovered owner text. Acceptance proof lives in the evol requirement map. | Порт: снапшот в этой линии существует (plans/owner_inputs/2026-11-01-current_task-snapshot.md), провенанс восстановлен по фактическому файлу.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "EVOL-027"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-07-MEMORY-COGNITIVE-02",
@@ -992,7 +1393,36 @@
         "menu-01"
       ],
       "reconciled": true,
-      "note": "Full MEMORY-01..09 plus independent MENU-01; obligations decomposed into the memory epic map (145 rows) and the MENU-01 map (10 rows); plan gates errors=0. MEMORY-00 audit recorded; contracts freeze required before implementation. MENU-01 registration is owner-confirmed present, so its remaining gap is runtime launch evidence, not an external owner action."
+      "note": "Full MEMORY-01..09 plus independent MENU-01; obligations decomposed into the memory epic map (145 rows) and the MENU-01 map (10 rows); plan gates errors=0. MEMORY-00 audit recorded; contracts freeze required before implementation. MENU-01 registration is owner-confirmed present, so its remaining gap is runtime launch evidence, not an external owner action.",
+      "coverage_refs": [
+        {
+          "task_id": "epic-memory-cognitive-02",
+          "map": "plans/features/memory-cognitive-02/requirements-map.json",
+          "req_ids": [
+            "MEM-02.1",
+            "MEM-02.2",
+            "MEM-02.3",
+            "MEM-02.4",
+            "MEM-02.5",
+            "MEM-02.6",
+            "MEM-02.7",
+            "MEM-02.8",
+            "MEM-03.1",
+            "MEM-03.2"
+          ]
+        },
+        {
+          "task_id": "menu-01",
+          "map": "plans/features/menu-01/requirements-map.json",
+          "req_ids": [
+            "MENU-01.8",
+            "MENU-01.9",
+            "MENU-01.7",
+            "MENU-01.6",
+            "MENU-01.5"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-07-CONTEXT-INTEGRITY-FACTCHECK",
@@ -1004,7 +1434,33 @@
         "factcheck-clean-publication"
       ],
       "reconciled": true,
-      "note": "Production Reply context-loss plus clean FactCheck publication. Obligations decomposed into plans/features/evol-reply-context-integrity/requirements-map.json (5 rows) and plans/features/factcheck-clean-publication/requirements-map.json (7 rows), both plan gates errors=0. Code-level loss in the FactCheck ambiguous branch independently verified at 8bb2800f. Real production Telegram IDs/trace remain PENDING_EXTERNAL; no row is VERIFIED yet."
+      "note": "Production Reply context-loss plus clean FactCheck publication. Obligations decomposed into plans/features/evol-reply-context-integrity/requirements-map.json (5 rows) and plans/features/factcheck-clean-publication/requirements-map.json (7 rows), both plan gates errors=0. Code-level loss in the FactCheck ambiguous branch independently verified at 8bb2800f. Real production Telegram IDs/trace remain PENDING_EXTERNAL; no row is VERIFIED yet.",
+      "coverage_refs": [
+        {
+          "task_id": "factcheck-clean-publication",
+          "map": "plans/features/factcheck-clean-publication/requirements-map.json",
+          "req_ids": [
+            "FCP-01",
+            "FCP-02",
+            "FCP-03",
+            "FCP-04",
+            "FCP-05",
+            "FCP-06",
+            "FCP-07"
+          ]
+        },
+        {
+          "task_id": "evol-reply-context-integrity-01",
+          "map": "plans/features/evol-reply-context-integrity-01/requirements-map.json",
+          "req_ids": [
+            "RC-TGT-NO-FABRICATED-ID",
+            "RC-TGT-EXPLICIT-STORED",
+            "RC-TGT-EXPLICIT-REPLY",
+            "RC-S109",
+            "RC-S100"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-08-EPIC-ADMINBOT-CORRECTIVE-YM-NOST",
@@ -1022,10 +1478,88 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "Final owner spec revision 3 registered and reconciled through plans/features/epic-adminbot-corrective-ym-nost-20261108/plan.md crosswalk plus strict requirements map (177 required, 125 correction pointers, 134 context, unassigned 0) and 19-slice graph; plan gate PASS (inventory=419 manual=17 scoped=0 errors=0). MEM-AUDIT stays a correction inside the existing memory owner, not a second MEMORY epic. ЮMoney remains OFF pending external provider credentials/verification; factory price 50 RUB / pack 3 needs no owner question.",
+      "note": "Final owner spec revision 3 registered and reconciled through plans/features/epic-adminbot-corrective-ym-nost-20261108/plan.md crosswalk plus strict requirements map (177 required, 125 correction pointers, 134 context, unassigned 0) and 19-slice graph; plan gate PASS (inventory=419 manual=17 scoped=0 errors=0). MEM-AUDIT stays a correction inside the existing memory owner, not a second MEMORY epic. ЮMoney remains OFF pending external provider credentials/verification; factory price 50 RUB / pack 3 needs no owner question. Reconcile note 2026-11-10: the factcheck-clean-publication slice is bound through FCP-01..07 because the earlier fragment listed ids that do not exist in that map.",
       "recorded_in": "",
       "origin": "root chat 2026-11-08 / current_task.md L7420-L8278",
-      "received": "2026-11-08"
+      "received": "2026-11-08",
+      "coverage_refs": [
+        {
+          "task_id": "epic-memory-cognitive-02",
+          "map": "plans/features/memory-cognitive-02/requirements-map.json",
+          "req_ids": [
+            "MEM-04.6"
+          ]
+        },
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "ASAP-VISION-SYNC-01"
+          ]
+        },
+        {
+          "task_id": "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108",
+          "map": "plans/features/epic-adminbot-corrective-ym-nost-20261108/requirements-map.json",
+          "req_ids": [
+            "SRC-0631",
+            "SRC-0332",
+            "PAY-YM-SIGNATURE",
+            "NOST-EVIDENCE-FRAME",
+            "VISION-OWN-PROVENANCE"
+          ]
+        },
+        {
+          "task_id": "evol-reply-context-integrity-01",
+          "map": "plans/features/evol-reply-context-integrity-01/requirements-map.json",
+          "req_ids": [
+            "RC-S070",
+            "RC-S068",
+            "RC-S057",
+            "RC-S045",
+            "RC-S044"
+          ]
+        },
+        {
+          "task_id": "p0-vision-universal",
+          "map": "plans/features/p0-vision-universal/requirements-map.json",
+          "req_ids": [
+            "P0V-TEST-MATRIX",
+            "P0V-PROBE-CACHE",
+            "P0V-ARCH-SWITCH",
+            "P0V-ARCH-SPLIT"
+          ]
+        },
+        {
+          "task_id": "asap5-multimodal",
+          "map": "plans/features/asap5-multimodal/requirements-map.json",
+          "req_ids": [
+            "REQ-QUEUE-DEDUP",
+            "REQ-CLOSE-ARCH-PRESERVE"
+          ]
+        },
+        {
+          "task_id": "p0-nostalgia-rework",
+          "map": "plans/features/p0-nostalgia-rework/requirements-map.json",
+          "req_ids": [
+            "NOST-18",
+            "DEV-04",
+            "COR-04"
+          ]
+        },
+        {
+          "task_id": "factcheck-clean-publication",
+          "map": "plans/features/factcheck-clean-publication/requirements-map.json",
+          "req_ids": [
+            "FCP-01",
+            "FCP-02",
+            "FCP-03",
+            "FCP-04",
+            "FCP-05",
+            "FCP-06",
+            "FCP-07"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-08-MEMORY-07-REVIEW-DISCIPLINE",
@@ -1053,7 +1587,20 @@
       "note": "Reconciled into plans/features/memory-cognitive-02/requirements-map.json (153 items plus 147 additional rows) and the project rule in AGENTS.md; MEMORY-07 progress and quality work deployed through 2.58.169-2.58.173. Rows still PENDING there reflect unverified acceptance (scheduled tick observation, user-facing proven-only display), not missing mapping. Owner correction: shipping MEMORY-07 with MCA_MEMORY_COMMUNITIES_ENABLED default-off is wrong. Project-wide rule recorded in AGENTS.md: a ready feature is globally enabled by default at its first production deploy; shadow/deferred activation must not become permanent; existing user overrides are preserved. MEMORY-07 must be enabled, a real community build run, and thematic retrieval consumption verified. Simultaneously fix quality: with 99.87% legacy edges, weak communities must be filtered or demoted and never presented as proven; neutral labels must not pollute search or the visual graph; provenance is fixed at its source. Disabling the flag is not an acceptable closure.",
       "recorded_in": "AGENTS.md",
       "origin": "root chat 2026-11-09",
-      "received": "2026-11-09"
+      "received": "2026-11-09",
+      "coverage_refs": [
+        {
+          "task_id": "epic-memory-cognitive-02",
+          "map": "plans/features/memory-cognitive-02/requirements-map.json",
+          "req_ids": [
+            "MEM-07.2",
+            "MEMORY-00",
+            "MEM-08-S1",
+            "MEM-07.5",
+            "SC-30"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-09-VMQ-ONTO-01",
@@ -1068,7 +1615,34 @@
       "note": "VMQ-ONTO-01 FINAL 1.0 registered as one new epic at the end of the owner queue and reconciled into plans/features/vmq-onto-01/requirements-map.json (47 required rows: 37 from the epic's acceptance ledger plus 9 provider-management rows plus 1 mapping row), 12 slices, slice-graph and plan.md; plan gate errors=0 (inventory=380 manual=46 scoped=0). Architect mapping artifact restored at plans/features/vmq-onto-01/audit-head.md (sha256 88B22C2A…C67D). Queue position unchanged; VMQ-V voice is the first executable slice when its files are free; IBM hardware verification stays blocked_external without faking. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
       "recorded_in": "",
       "origin": "root chat 2026-11-09 / current_task.md L8282-L9482",
-      "received": "2026-11-09"
+      "received": "2026-11-09",
+      "coverage_refs": [
+        {
+          "task_id": "vmq-onto-01",
+          "map": "plans/features/vmq-onto-01/requirements-map.json",
+          "req_ids": [
+            "QM-01",
+            "QM-06",
+            "QM-02",
+            "QM-08",
+            "QM-09",
+            "QM-04",
+            "QM-03",
+            "QM-07"
+          ]
+        },
+        {
+          "task_id": "epic-memory-cognitive-02",
+          "map": "plans/features/memory-cognitive-02/requirements-map.json",
+          "req_ids": [
+            "MEM-07.5",
+            "SC-20",
+            "MENU-01.9",
+            "MEMORY-07",
+            "MEMORY-00"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-09-VMQ-QRNG-PROVIDER-MANAGEMENT",
@@ -1082,7 +1656,20 @@
       "note": "Provider-management amendment integrated into the VMQ ledger as 9 explicit rows (dynamic per-provider admin fields, masked secrets without overwrite, live apply and restart, honest diagnostics with a real check button, official-doc verification, owner credential request protocol, real-request acceptance including IBM job/queue/pool, unconfigured must not block other providers). Merged into VMQ-Q0 and VMQ-U scope; no parallel settings or secrets module; plan gate errors=0.",
       "recorded_in": "",
       "origin": "root chat 2026-11-09",
-      "received": "2026-11-09"
+      "received": "2026-11-09",
+      "coverage_refs": [
+        {
+          "task_id": "vmq-onto-01",
+          "map": "plans/features/vmq-onto-01/requirements-map.json",
+          "req_ids": [
+            "QM-02",
+            "Q-08",
+            "Q-02",
+            "Q-01",
+            "U-01"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-09-SELF-DIAG-01",
@@ -1096,7 +1683,23 @@
       "note": "Reconciled into plans/features/self-diag-01/requirements-map.json (183 items, 53 additional rows, stages D0-D7, plan gate errors=0) with the D0 discovery artifact; D1 is implemented and deployed inside 2.58.173. SELF-DIAG-01 FINAL v2.0 registered as its own epic at the end of the owner queue. Requires D0 discovery against HEAD before any implementation, and a decision on whether D1 (portable local log backend plus checkup-only Better Stack removal) can run as an independent P0 corrective ahead of the epic body. Must not duplicate tools, observability, ACL or prompt versioning; 'чекап' stays the only explicit command; the checkup prompt and character stay byte-identical; new functions ON by default.",
       "recorded_in": "",
       "origin": "root chat 2026-11-09 / current_task.md L9484-L10013",
-      "received": "2026-11-09"
+      "received": "2026-11-09",
+      "coverage_refs": [
+        {
+          "task_id": "self-diag-01",
+          "map": "plans/features/self-diag-01/requirements-map.json",
+          "req_ids": [
+            "SD1-GRAL-01",
+            "SD1-D1-14",
+            "SD1-GRAL-02",
+            "SD1-GRAL-03",
+            "SD1-EVD-01",
+            "SD1-EVD-02",
+            "SD1-D3-01",
+            "SD1-D4-01"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-09-SELF-DIAG-ACCESS-MATRIX",
@@ -1110,7 +1713,20 @@
       "note": "Reconciled as additional requirement rows inside plans/features/self-diag-01/requirements-map.json (no second ACL and no separate access store); the access-policy stage D2 owns implementation. Adds an access-management subsection inside the existing Access admin surface, enforced by the existing authorization layer (no parallel ACL). Categories: bot/server state, detailed metrics, logs and traceback, source code and GitHub, commit history, non-secret configuration, memory and service analytics, prompts, deep diagnostics, each with view/run actions where meaningful. Roles: ordinary member, admin of the specific Telegram chat (verified through the Telegram API by numeric ID), project owner; chat scope and current settings respected; text claims, nicknames, forwards and replies are never trusted. Prompts: read default denied for members, allowed for the chat's admin by explicit request including in-group; global vs chat-overridden prompts distinguished; read and edit separated. Secret values remain a non-configurable denial enforced in backend, tool results and final delivery, unaffected by any toggle. Admin UI shows an understandable matrix with inheritance and an explanation of why a user was allowed or denied; changes persist across restart and affect real tool calls. Audit covers diagnostic calls, role checks, decisions and denials, policy changes and effective state, never secrets or full protected prompt text. Acceptance includes member/admin/owner, admin status change, revocation during a session, cross-chat, DM, live setting change, concurrent requests, bypass attempts through indirect tools or LLM paraphrase, and revocation applying to already-running checks before publication. Applies to ALL entry points: чекап, get_bot_health, read_source_code, inspect_runtime, ordinary Tool Calling, API and admin UI.",
       "recorded_in": "",
       "origin": "root chat 2026-11-09",
-      "received": "2026-11-09"
+      "received": "2026-11-09",
+      "coverage_refs": [
+        {
+          "task_id": "self-diag-01",
+          "map": "plans/features/self-diag-01/requirements-map.json",
+          "req_ids": [
+            "SD1-AC-14",
+            "SD1-D5-02",
+            "SD1-AMX-09",
+            "SD1-AMX-05",
+            "SD1-SEM-11"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-09-MOD-ACL-UX-01",
@@ -1124,7 +1740,23 @@
       "note": "MOD-ACL-UX-01 FINAL v1.0 registered and reconciled into plans/features/mod-acl-ux-01/requirements-map.json (274 required rows, 11 stages, slice-graph, plan.md; plan gate inventory=279 manual=88 scoped=0 errors=0) with the M0 baseline at plans/features/mod-acl-ux-01/m0-baseline.md (sha256 42C0103F…3706). Queue position: last, after SELF-DIAG-01 and VMQ-ONTO-01; two independent critical fixes may run earlier (ACL false 403 in memory_agi.py; EXP-FIX correctives) subject to file availability. M0 rejected an initial artifact that renamed the owner's EXP-FIX-01..10 list; the corrected version keeps the owner's exact semantics with per-item verdicts. Mandatory native question after the correctives and the bounded production proof stays recorded as an owner gate, not a text substitute.",
       "recorded_in": "",
       "origin": "root chat 2026-11-09 / current_task.md L10016-L10747",
-      "received": "2026-11-09"
+      "received": "2026-11-09",
+      "coverage_refs": [
+        {
+          "task_id": "mod-acl-ux-01",
+          "map": "plans/features/mod-acl-ux-01/requirements-map.json",
+          "req_ids": [
+            "MAC-S0-01",
+            "MAC-S0-02",
+            "MAC-S0-03",
+            "MAC-S0-04",
+            "MAC-S0-05",
+            "MAC-S0-06",
+            "MAC-S0-07",
+            "MAC-S0-08"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-09-LESSON-STRATEGY-HUMAN-GATE",
@@ -1154,7 +1786,23 @@
       "note": "Reconciled: the access part is closed on the owner's own confirmation («раздел векторной памяти открылся»), recorded as M1 rows MAC-S0-05, MAC-S2-50, MAC-S4-158/159/160, MAC-S15-1-06 in plans/features/mod-acl-ux-01/evidence/m1/m1-owner-live-confirmation-2.58.175.md. The subsequent 'no settings' report was a SEPARATE front-end defect (infrastructure module without its own catalogue tab produced an empty descriptor and a false rights accusation), tracked as M4A rows, fixed at 6e175ced and released in 2.58.175 with a reproducible harness proving the defect on the base commit and its absence on the fix. Live Telegram ID 5885953495 supplied by the owner. Live acceptance failure: the owner still cannot open the Vector Memory section after 2.58.173 that was supposed to fix exactly that false denial. Owner Telegram ID 5885953495 supplied, so production role rows and the real denied request can be read instead of assumed. M1 rows must not remain VERIFIED on unit tests alone while the real owner is denied; the reopening is a status correction, not a new epic. Diagnosis is split into read-only production facts (role rows, real 4xx paths, served bundle) and a code-side gate map; no impersonation, no new ACL, no widening for non-owners.",
       "recorded_in": "",
       "origin": "root chat 2026-11-09",
-      "received": "2026-11-09"
+      "received": "2026-11-09",
+      "coverage_refs": [
+        {
+          "task_id": "mod-acl-ux-01",
+          "map": "plans/features/mod-acl-ux-01/requirements-map.json",
+          "req_ids": [
+            "MAC-S0-05",
+            "MAC-S2-50",
+            "MAC-S4-157",
+            "MAC-S4-158",
+            "MAC-S4-159",
+            "MAC-S4-160",
+            "MAC-S4-161",
+            "MAC-S4-169"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-10-SMART-MODULE-SEMANTIC-ROUTING",
@@ -1164,11 +1812,140 @@
       "target_task_ids": [
         "smart-module-semantic-routing-p0"
       ],
-      "reconciled": false,
+      "reconciled": true,
       "note": "P0 corrective: two live incidents (false image generation from an ordinary manga discussion; loss of the current question in favour of analysing a neighbouring video) plus a bounded P1 revision of the same class of defect. The owner forbids lexeme-level triggers for the affected phrasings and requires L1 to remain the single semantic authority, with the current user message taking priority over reply target, quote, forward, history, transcripts and tool results. Explicit commands must keep working with their arguments intact. Registered as its own task because it is a distinct deliverable with its own acceptance, while explicitly NOT a new epic or pipeline.",
       "recorded_in": "",
       "origin": "root chat 2026-11-10",
-      "received": "2026-11-10"
+      "received": "2026-11-10",
+      "coverage_refs": [
+        {
+          "task_id": "smart-module-semantic-routing-p0",
+          "map": "plans/features/smart-module-semantic-routing/requirements-map.json",
+          "req_ids": [
+            "SMR-INV-01",
+            "SMR-INV-02",
+            "SMR-INV-03",
+            "SMR-INV-04",
+            "SMR-INV-05",
+            "SMR-INV-06",
+            "SMR-INV-16",
+            "SMR-INV-21",
+            "SMR-INV-30",
+            "SMR-IMG-04",
+            "SMR-IMG-05",
+            "SMR-IMG-06",
+            "SMR-POL-04",
+            "SMR-POL-05",
+            "SMR-POL-06",
+            "SMR-POL-07",
+            "SMR-POL-08",
+            "SMR-POL-09",
+            "SMR-SCEN-B5",
+            "SMR-OBS-01",
+            "SMR-POL-13",
+            "SMR-DONE-01",
+            "SMR-DONE-02",
+            "SMR-DONE-03",
+            "SMR-DONE-04",
+            "SMR-DONE-05",
+            "SMR-DONE-06",
+            "SMR-DONE-07",
+            "SMR-DONE-08",
+            "SMR-POL-11",
+            "SMR-POL-01",
+            "SMR-IMG-01",
+            "SMR-INV-33",
+            "SMR-INV-34",
+            "SMR-TRACE-02",
+            "SMR-INV-07",
+            "SMR-INV-08",
+            "SMR-INV-09",
+            "SMR-INV-10",
+            "SMR-INV-11",
+            "SMR-INV-12",
+            "SMR-TRACE-01",
+            "SMR-INV-13",
+            "SMR-INV-14",
+            "SMR-INV-15",
+            "SMR-INV-17",
+            "SMR-INV-18",
+            "SMR-INV-19",
+            "SMR-INV-20",
+            "SMR-INV-22",
+            "SMR-INV-23",
+            "SMR-INV-24",
+            "SMR-INV-25",
+            "SMR-INV-26",
+            "SMR-INV-27",
+            "SMR-INV-28",
+            "SMR-INV-29",
+            "SMR-INV-31",
+            "SMR-INV-32",
+            "SMR-CMD-16",
+            "SMR-CMD-01",
+            "SMR-CMD-02",
+            "SMR-CMD-03",
+            "SMR-CMD-04",
+            "SMR-CMD-06",
+            "SMR-CMD-08",
+            "SMR-CMD-09",
+            "SMR-CMD-10",
+            "SMR-CMD-11",
+            "SMR-CMD-12",
+            "SMR-CMD-13",
+            "SMR-CMD-14",
+            "SMR-HELP-01",
+            "SMR-IMG-02",
+            "SMR-IMG-03",
+            "SMR-IMG-07",
+            "SMR-IMG-08",
+            "SMR-IMG-09",
+            "SMR-IMG-10",
+            "SMR-IMG-11",
+            "SMR-POL-12",
+            "SMR-P1-01",
+            "SMR-POL-18",
+            "SMR-P1-02",
+            "SMR-P1-03",
+            "SMR-P1-04",
+            "SMR-P1-05",
+            "SMR-P1-06",
+            "SMR-P1-07",
+            "SMR-P1-08",
+            "SMR-P1-09",
+            "SMR-P1-10",
+            "SMR-P1-11",
+            "SMR-P1-12",
+            "SMR-P1-13",
+            "SMR-POL-02",
+            "SMR-POL-03",
+            "SMR-POL-10",
+            "SMR-SCEN-A1",
+            "SMR-SCEN-A2",
+            "SMR-SCEN-B1",
+            "SMR-SCEN-B2",
+            "SMR-SCEN-B3",
+            "SMR-SCEN-B4",
+            "SMR-SCEN-B6",
+            "SMR-SCEN-C",
+            "SMR-SCEN-C-L1",
+            "SMR-SCEN-D1",
+            "SMR-SCEN-D2",
+            "SMR-SCEN-D3",
+            "SMR-SCEN-D4",
+            "SMR-SCEN-D5",
+            "SMR-SCEN-E1",
+            "SMR-SCEN-E2",
+            "SMR-OBS-02",
+            "SMR-OBS-03",
+            "SMR-POL-14",
+            "SMR-POL-15",
+            "SMR-POL-16",
+            "SMR-POL-17",
+            "SMR-DONE-09"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-10-VMQ-MULTIYEAR-MEMORY-REGRESSION",
@@ -1210,7 +1987,20 @@
       ],
       "reconciled": true,
       "note": "Track P clarification: optimisation may change only internals (loading, rendering, requests, caching, architecture); any functionality/UI/animation/glass regression is a release blocker even if metrics improve. Recorded in docs/track-p-performance-parity.md and evol map rows. | Порт: sha256 пересчитан по файлу этой линии (байты отличаются от master-регистрации).",
-      "recorded_in": "docs/track-p-performance-parity.md"
+      "recorded_in": "docs/track-p-performance-parity.md",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "ASAP-UI-02-06",
+            "SC-40",
+            "SC-25",
+            "SC-03",
+            "EVOL-SRC-READER-S3"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-02-LIMITS-DECISION",
@@ -1221,7 +2011,17 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "Решение владельца 02.11 по ER-08: денежные caps OFF и не расширять; учёт расхода сохранить с price_known=false (не путать с нулевой стоимостью); L1 — устранять реальные потери данных через существующий Model Capacity Resolver и динамическое распределение контекста, а не механически поднимать числа; metered_calls = счётчик инструментов, не деньги; SLA 360 с не увеличивать, проверить рассогласование дедлайнов Direct Orchestrator и Tool Chain; без нового бюджетного движка; согласовать с ASAP-EVIDENCE-ROUTING-01 v3. | reconciled 02.11.2026: все 7 клауз привязаны к ER-08 (P0-строка L02025), граница reply-middle зарегистрирована как под-слайс ER-08-RC; доказательства в карте EVOL @ 98286b2b, план-гейт блокируется только дельтой нового источника ASAP-FC-VOICE-01, не этой привязкой."
+      "note": "Решение владельца 02.11 по ER-08: денежные caps OFF и не расширять; учёт расхода сохранить с price_known=false (не путать с нулевой стоимостью); L1 — устранять реальные потери данных через существующий Model Capacity Resolver и динамическое распределение контекста, а не механически поднимать числа; metered_calls = счётчик инструментов, не деньги; SLA 360 с не увеличивать, проверить рассогласование дедлайнов Direct Orchestrator и Tool Chain; без нового бюджетного движка; согласовать с ASAP-EVIDENCE-ROUTING-01 v3. | reconciled 02.11.2026: все 7 клауз привязаны к ER-08 (P0-строка L02025), граница reply-middle зарегистрирована как под-слайс ER-08-RC; доказательства в карте EVOL @ 98286b2b, план-гейт блокируется только дельтой нового источника ASAP-FC-VOICE-01, не этой привязкой.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "ER-08",
+            "ER-24"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-02-ASAP-FC-VOICE-01",
@@ -1232,7 +2032,23 @@
         "asap-fc-voice-01"
       ],
       "reconciled": true,
-      "note": "ASAP-FC-VOICE-01 (02.11, P0/P1): вернуть аргументативный голос исторического FactCheck (коммит 995cf83a588b) в современный Verbalizer, не откатывая L1/L2 и не добавляя стадий; адаптивная подача без хардкода форматирования (устранить принудительные группировки factcheck_renderer); общесистемный L1 decision-profile: характер как поведенческие данные, без полного Core/инструкций мата/примеров в машинных стадиях; сверить HEAD/deployed/effective revisions; 22 сценария приёмки; не дублировать ASAP-FC-EVIDENCE-STYLE-02 и ASAP-EVIDENCE-ROUTING-01; включить в ближайший безопасный слот, не прерывая текущих исполнителей. | reconciled 02.11.2026: карта plans/features/asap-fc-voice-01 (129 строк, 93 обязательных; классификация PARTIAL 40 / MISSING 21 / DONE_AND_VERIFIED 16 / CONFLICTS 15 / NOT_APPLICABLE 1), план-гейт EXIT 0, коммит 917bb98d; архитектурные контракты закоммичены 9808077b; preflight прода подтвердил активный двухстадийный маршрут и реальные точки правки."
+      "note": "ASAP-FC-VOICE-01 (02.11, P0/P1): вернуть аргументативный голос исторического FactCheck (коммит 995cf83a588b) в современный Verbalizer, не откатывая L1/L2 и не добавляя стадий; адаптивная подача без хардкода форматирования (устранить принудительные группировки factcheck_renderer); общесистемный L1 decision-profile: характер как поведенческие данные, без полного Core/инструкций мата/примеров в машинных стадиях; сверить HEAD/deployed/effective revisions; 22 сценария приёмки; не дублировать ASAP-FC-EVIDENCE-STYLE-02 и ASAP-EVIDENCE-ROUTING-01; включить в ближайший безопасный слот, не прерывая текущих исполнителей. | reconciled 02.11.2026: карта plans/features/asap-fc-voice-01 (129 строк, 93 обязательных; классификация PARTIAL 40 / MISSING 21 / DONE_AND_VERIFIED 16 / CONFLICTS 15 / NOT_APPLICABLE 1), план-гейт EXIT 0, коммит 917bb98d; архитектурные контракты закоммичены 9808077b; preflight прода подтвердил активный двухстадийный маршрут и реальные точки правки.",
+      "coverage_refs": [
+        {
+          "task_id": "asap-fc-voice-01",
+          "map": "plans/features/asap-fc-voice-01/requirements-map.json",
+          "req_ids": [
+            "FCV-ORD-09",
+            "FCV-ORD-07",
+            "FCV-PRE-01",
+            "FCV-VOICE-01",
+            "FCV-PRO-05",
+            "FCV-PRO-03",
+            "FCV-PRO-06",
+            "FCV-PRO-02"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-02-NARROW-VIEWPORT",
@@ -1243,7 +2059,18 @@
         "evol"
       ],
       "reconciled": true,
-      "note": "Продуктовый контракт владельца по ширине и адаптивности: 320 CSS px — минимум полноценного мобильного интерфейса (без обрезаний/overflow/наложений/потери функций на 320/360/390); 200% текстового масштаба и узкий viewport обрабатываются адаптивным reflow, а не объявлением неподдерживаемым; допускается перенос второстепенных действий в существующий drawer, сокращение подписей и вертикальная прокрутка при доступности критических контролов; запрет постоянной двухрядной шапки, нижнего навбара и дублирующих меню; запрет уменьшать шрифты/тач-цели ради теста и заводить отдельные костыли под 195 px; различать page zoom, системный шрифт и Telegram WebView; Reviewer проверяет реальный reflow, доступность действий, отсутствие обрезаний и корректность fullscreen/drawer; повторно о breakpoints не спрашивать. | reconciled 02.11.2026: контракт внесён в карту EVOL (L00478/L00550/L00714/L01966/L01967/L01980 - только note, статусы не менялись; строки остаются PENDING до реализации и ревью), owner-input файл закоммичен @55739117, план-гейт EXIT 0; zoom 200% переведён из вопроса владельцу в implementation requirement."
+      "note": "Продуктовый контракт владельца по ширине и адаптивности: 320 CSS px — минимум полноценного мобильного интерфейса (без обрезаний/overflow/наложений/потери функций на 320/360/390); 200% текстового масштаба и узкий viewport обрабатываются адаптивным reflow, а не объявлением неподдерживаемым; допускается перенос второстепенных действий в существующий drawer, сокращение подписей и вертикальная прокрутка при доступности критических контролов; запрет постоянной двухрядной шапки, нижнего навбара и дублирующих меню; запрет уменьшать шрифты/тач-цели ради теста и заводить отдельные костыли под 195 px; различать page zoom, системный шрифт и Telegram WebView; Reviewer проверяет реальный reflow, доступность действий, отсутствие обрезаний и корректность fullscreen/drawer; повторно о breakpoints не спрашивать. | reconciled 02.11.2026: контракт внесён в карту EVOL (L00478/L00550/L00714/L01966/L01967/L01980 - только note, статусы не менялись; строки остаются PENDING до реализации и ревью), owner-input файл закоммичен @55739117, план-гейт EXIT 0; zoom 200% переведён из вопроса владельцу в implementation requirement.",
+      "coverage_refs": [
+        {
+          "task_id": "evol",
+          "map": "plans/features/evol/requirements-map.json",
+          "req_ids": [
+            "ASAP-UI-02-18",
+            "ASAP-UI-02-05",
+            "ASAP-VISION-SYNC-01"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-02-ANTICLICHE-MEMORY-ADMIN-UX",
@@ -1254,7 +2081,23 @@
         "asap-evol-anticliche-memory-admin-ux"
       ],
       "reconciled": true,
-      "note": "FINAL v8 (02.11, 1124 строки, §1-§17): гибридный AntiCliche без перегенераций/scrub/reject, hints только через существующий Writer prompt path; смысловая память и корректная само-референция бота без литеральных имён/chat-id/фраз, без нового движка и per-turn LLM; мобильная загрузка, история логов с начала процесса, селектор чатов, согласованные module-контролы global/chat и мем-инициатива с наследованием; наблюдаемость источников/анализа/опубликованных правил; никаких фиктивных счётчиков. Исполнять после достижения в очереди; не прерывать активные поручения; PM делит на пакеты, Architect решает интеграцию, роли существующие. | reconciled 02.11.2026: карта plans/features/asap-evol-anticliche-memory-admin-ux (669 строк, 573 обязательных под 511 req_id, контекст 96; классификация существующего кода CONFLICTS 9 / PARTIAL 13 / MISSING 5 / DONE 3 / N_A 2), 17 пакетов работ с зависимостями, план-гейт EXIT 0 (@acb41717); архитектурные решения заморожены @4ce92a75. Исполнение - после текущей очереди COG-MAP."
+      "note": "FINAL v8 (02.11, 1124 строки, §1-§17): гибридный AntiCliche без перегенераций/scrub/reject, hints только через существующий Writer prompt path; смысловая память и корректная само-референция бота без литеральных имён/chat-id/фраз, без нового движка и per-turn LLM; мобильная загрузка, история логов с начала процесса, селектор чатов, согласованные module-контролы global/chat и мем-инициатива с наследованием; наблюдаемость источников/анализа/опубликованных правил; никаких фиктивных счётчиков. Исполнять после достижения в очереди; не прерывать активные поручения; PM делит на пакеты, Architect решает интеграцию, роли существующие. | reconciled 02.11.2026: карта plans/features/asap-evol-anticliche-memory-admin-ux (669 строк, 573 обязательных под 511 req_id, контекст 96; классификация существующего кода CONFLICTS 9 / PARTIAL 13 / MISSING 5 / DONE 3 / N_A 2), 17 пакетов работ с зависимостями, план-гейт EXIT 0 (@acb41717); архитектурные решения заморожены @4ce92a75. Исполнение - после текущей очереди COG-MAP.",
+      "coverage_refs": [
+        {
+          "task_id": "asap-evol-anticliche-memory-admin-ux",
+          "map": "plans/features/asap-evol-anticliche-memory-admin-ux/requirements-map.json",
+          "req_ids": [
+            "GLOBAL-CONFLICT-PRIORITY",
+            "GLOBAL-EXEC-CONTRACT",
+            "AC-INV-01",
+            "AC-INV-02",
+            "AC-INV-03",
+            "AC-INV-04",
+            "AC-INV-05",
+            "AC-INV-06"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-02-EXPERIENCE-LEARNING-PERFORMANCE-HELP",
@@ -1265,18 +2108,56 @@
         "epic-experience-learning-performance-help"
       ],
       "reconciled": true,
-      "note": "FINAL эпик (02.11, 336 строк): трек E - реальное обучение на опыте (саморефлексия, semantic correction handling, пересмотр выводов, новые нехардкоженные уроки, контекстное переиспользование, независимо измеримые исходы; 26 сценариев E-01..E-26), без второго мозга/LLM-судьи на реплику/искусственных бюджетов; трек P - измеримое ускорение Mini App (кэширование ассетов, прогрессивная загрузка, рендер, взаимодействие, API/SQL) с воспроизводимыми before/after; трек H - СТРОГО последний: обновление обеих справок после приёмки/деплоя/живой проверки E и P, через существующий версионный канон/PG без потери ручных правок. Хардкод/заглушки/фальшивые статусы запрещены; техблокеры решают агенты. | reconciled 02.11.2026: карта эпика покрывает E1-E8 (включая E-01..E-26 отдельными строками), P (P-01..P-16 + гейты паритета) и H как зависимый узел с дословным условием открытия; 132 обязательных, план-гейт EXIT 0 (@dea39523). Обратный аудит охвата - в обычном проходе PM перед стартом реализации."
+      "note": "FINAL эпик (02.11, 336 строк): трек E - реальное обучение на опыте (саморефлексия, semantic correction handling, пересмотр выводов, новые нехардкоженные уроки, контекстное переиспользование, независимо измеримые исходы; 26 сценариев E-01..E-26), без второго мозга/LLM-судьи на реплику/искусственных бюджетов; трек P - измеримое ускорение Mini App (кэширование ассетов, прогрессивная загрузка, рендер, взаимодействие, API/SQL) с воспроизводимыми before/after; трек H - СТРОГО последний: обновление обеих справок после приёмки/деплоя/живой проверки E и P, через существующий версионный канон/PG без потери ручных правок. Хардкод/заглушки/фальшивые статусы запрещены; техблокеры решают агенты. | reconciled 02.11.2026: карта эпика покрывает E1-E8 (включая E-01..E-26 отдельными строками), P (P-01..P-16 + гейты паритета) и H как зависимый узел с дословным условием открытия; 132 обязательных, план-гейт EXIT 0 (@dea39523). Обратный аудит охвата - в обычном проходе PM перед стартом реализации.",
+      "coverage_refs": [
+        {
+          "task_id": "epic-experience-learning-performance-help",
+          "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+          "req_ids": [
+            "P-01",
+            "P-02",
+            "P-03",
+            "P-04",
+            "P-05",
+            "P-06",
+            "P-07",
+            "P-08",
+            "P-09",
+            "P-10"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-02-PERFORMANCE-PARITY",
       "source_path": "plans/owner_inputs/2026-11-02-performance-parity-clarification.md",
-      "source_sha256": "CB1336C3F4EAF122BE2F77FD0715DFBD7F15013E895ABBFC5CDD9C6CAE549A24",
+      "source_sha256": "9F66BE9720084CE685FDB2E4B5244223523C2D4FFC0A59AABAC1853474FB823F",
       "kind": "amendment",
       "target_task_ids": [
         "epic-experience-learning-performance-help"
       ],
       "reconciled": true,
-      "note": "Дополнение к треку P: оптимизация только внутренняя (код, загрузка, рендеринг, запросы, кэширование, архитектура); запрещены изменения/упрощение/скрытие/отключение/урезание функционала, UI, анимаций, стеклянных и рефракционных эффектов, фона, компоновки и поведения. Никаких облегчённых режимов и silent fallback; допускается только полный визуальный и функциональный паритет. Любое отклонение = регрессия = блокер релиза, даже при улучшении метрик. Приёмка P обязана включать проверку паритета. | reconciled 02.11.2026: строки PAR-01..PAR-05, P-SPEC-PARITY, P-GENUINE и P-GATE-00..05 внесены в карту эпика (132 обязательных, 15 слайсов, гейт EXIT 0, @dea39523); каждый P-пакет обязан предъявить метрику + артефакт паритета + сравниваемые состояния/вьюпорты."
+      "note": "Дополнение к треку P: оптимизация только внутренняя (код, загрузка, рендеринг, запросы, кэширование, архитектура); запрещены изменения/упрощение/скрытие/отключение/урезание функционала, UI, анимаций, стеклянных и рефракционных эффектов, фона, компоновки и поведения. Никаких облегчённых режимов и silent fallback; допускается только полный визуальный и функциональный паритет. Любое отклонение = регрессия = блокер релиза, даже при улучшении метрик. Приёмка P обязана включать проверку паритета. | reconciled 02.11.2026: строки PAR-01..PAR-05, P-SPEC-PARITY, P-GENUINE и P-GATE-00..05 внесены в карту эпика (132 обязательных, 15 слайсов, гейт EXIT 0, @dea39523); каждый P-пакет обязан предъявить метрику + артефакт паритета + сравниваемые состояния/вьюпорты. Provenance correction 2026-11-10: the recorded hash CB1336C3F4EAF122BE2F77FD0715DFBD7F15013E895ABBFC5CDD9C6CAE549A24 did not match the file; the file has a single Git commit (bab15d68) and was never edited afterwards, so the registration hash was wrong. Current verified hash 9F66BE9720084CE685FDB2E4B5244223523C2D4FFC0A59AABAC1853474FB823F.",
+      "coverage_refs": [
+        {
+          "task_id": "epic-experience-learning-performance-help",
+          "map": "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+          "req_ids": [
+            "P-SPEC-PARITY"
+          ]
+        },
+        {
+          "task_id": "epic-experience-learning-performance-help",
+          "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+          "req_ids": [
+            "P-01",
+            "P-12",
+            "P-16",
+            "P-SPEC-PARITY",
+            "P-GENUINE"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-02-MEME-IMAGE-ONLY",
@@ -1287,7 +2168,23 @@
         "p0-meme-image-only"
       ],
       "reconciled": true,
-      "note": "P0: при успешной генерации мема в чат уходит только изображение; любой текстовый follow-up (промпт, пересказ, панели, 'Создай мем с шрифтом impact', служебные комментарии) запрещён. При ошибке изображение не отправляется, допускается одно короткое сообщение. Внутренний текст остаётся внутренним; логи/аналитика/лимиты/инициатива не меняются; без хардкодов. | reconciled 03.11.2026: карта требований создана (11 обязательных строк) и привязана к 345a2ed7; обязательства зафиксированы задачей p0-meme-image-only и шестью пунктами инженерной трактовки в самом источнике; проверка - независимый Reviewer по 5 критериям приёмки."
+      "note": "P0: при успешной генерации мема в чат уходит только изображение; любой текстовый follow-up (промпт, пересказ, панели, 'Создай мем с шрифтом impact', служебные комментарии) запрещён. При ошибке изображение не отправляется, допускается одно короткое сообщение. Внутренний текст остаётся внутренним; логи/аналитика/лимиты/инициатива не меняются; без хардкодов. | reconciled 03.11.2026: карта требований создана (11 обязательных строк) и привязана к 345a2ed7; обязательства зафиксированы задачей p0-meme-image-only и шестью пунктами инженерной трактовки в самом источнике; проверка - независимый Reviewer по 5 критериям приёмки.",
+      "coverage_refs": [
+        {
+          "task_id": "p0-meme-image-only",
+          "map": "plans/features/p0-meme-image-only/requirements-map.json",
+          "req_ids": [
+            "MEME-ACC-01",
+            "MEME-ACC-02",
+            "MEME-ACC-03",
+            "MEME-ACC-04",
+            "MEME-ACC-05",
+            "MEME-RULE-01",
+            "MEME-RULE-02",
+            "MEME-RULE-03"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-03-MEME-PIPELINE-REFACTOR",
@@ -1298,7 +2195,23 @@
         "meme-pipeline-refactor-01"
       ],
       "reconciled": true,
-      "note": "MEME-PIPELINE-REFactor-01 (приоритет): три явных этапа - выжимка -> генерация прикола -> генерация изображения; с выжимки снят потолок длины; потолок перенесён на итоговый image prompt с авторасчётом бюджета прикола J=max(0, L-T) и явной инструкцией модели; два редактируемых промпта в админке (прикол и картинка), глобальные и чатовые переопределения; админская команда /meme вне квот/кулдаунов/автотриггеров; выдача результата - только изображение (действующее правило); этапы различимы в аналитике/логах. 13 критериев приёмки §8. Не дублировать pipeline, не ломать инициативу и настройки. | reconciled 03.11.2026: карта plans/features/meme-pipeline-refactor-01 (99 обязательных под 40 req_id, 13 критериев §8 отдельными строками), 5 пакетов (P1 core -> P2 api -> P3 cmd, P5 параллельно, P4 после освобождения web), план-гейт EXIT 0 @a6fc5575."
+      "note": "MEME-PIPELINE-REFactor-01 (приоритет): три явных этапа - выжимка -> генерация прикола -> генерация изображения; с выжимки снят потолок длины; потолок перенесён на итоговый image prompt с авторасчётом бюджета прикола J=max(0, L-T) и явной инструкцией модели; два редактируемых промпта в админке (прикол и картинка), глобальные и чатовые переопределения; админская команда /meme вне квот/кулдаунов/автотриггеров; выдача результата - только изображение (действующее правило); этапы различимы в аналитике/логах. 13 критериев приёмки §8. Не дублировать pipeline, не ломать инициативу и настройки. | reconciled 03.11.2026: карта plans/features/meme-pipeline-refactor-01 (99 обязательных под 40 req_id, 13 критериев §8 отдельными строками), 5 пакетов (P1 core -> P2 api -> P3 cmd, P5 параллельно, P4 после освобождения web), план-гейт EXIT 0 @a6fc5575.",
+      "coverage_refs": [
+        {
+          "task_id": "meme-pipeline-refactor-01",
+          "map": "plans/features/meme-pipeline-refactor-01/requirements-map.json",
+          "req_ids": [
+            "MEME-PIPE-THREE-STAGES",
+            "MEME-PROHIB-NO-DUP-PIPELINE",
+            "MEME-STAGE-A-NO-CEILING",
+            "MEME-STAGE-B-JOKE-CALL",
+            "MEME-PROMPT-JOKE-DEFAULT",
+            "MEME-PROMPT-JOKE-FIELD",
+            "MEME-STAGE-C-IMAGE-PROMPT",
+            "MEME-LEN-J-BUDGET"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-03-MEME-CMD-AUTODELETE",
@@ -1309,7 +2222,20 @@
         "meme-pipeline-refactor-01"
       ],
       "reconciled": true,
-      "note": "Дополнение к задаче /meme: сообщение с самой командой автоматически удаляется ботом сразу после получения; при невозможности удаления пайплайн не деградирует, ошибка только в логах, без пользовательского шума; правило выдачи результата (только изображение) не меняется. | reconciled 03.11.2026: 5 строк добавлены в пакет MEME-MANUAL-CMD (delete-on-receipt, fail-open с одной WARNING, только админский путь, без обхода прав, без лишних сообщений), acceptance пакета дополнен тестом на фейковом клиенте @609a3c33."
+      "note": "Дополнение к задаче /meme: сообщение с самой командой автоматически удаляется ботом сразу после получения; при невозможности удаления пайплайн не деградирует, ошибка только в логах, без пользовательского шума; правило выдачи результата (только изображение) не меняется. | reconciled 03.11.2026: 5 строк добавлены в пакет MEME-MANUAL-CMD (delete-on-receipt, fail-open с одной WARNING, только админский путь, без обхода прав, без лишних сообщений), acceptance пакета дополнен тестом на фейковом клиенте @609a3c33.",
+      "coverage_refs": [
+        {
+          "task_id": "meme-pipeline-refactor-01",
+          "map": "plans/features/meme-pipeline-refactor-01/requirements-map.json",
+          "req_ids": [
+            "MEME-CMD-DELETE-ON-RECEIPT",
+            "MEME-CMD-DELETE-NO-NOISE",
+            "MEME-CMD-DELETE-FAILOPEN",
+            "MEME-CMD-DELETE-ADMIN",
+            "MEME-IIC-STALE-NO-SEND"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
@@ -1320,7 +2246,20 @@
         "meme-pipeline-refactor-01"
       ],
       "reconciled": true,
-      "note": "Этап прикола должен идти через существующий единый Prompt Composer и наследовать Core, Identity/SelfModel, Expression, базовые инструкции юмора и Humor Craft (при включении); редактируемый промпт прикола - задание, не замена личности. Запрещены отдельный композер, новый агент, лишние LLM-вызовы и хардкод юмористических шаблонов; Humor Craft не привязывать к одному приёму. Диагностика показывает фактические ревизии Core/Expression/Humor и итоговый prompt manifest; Reviewer проверяет реальный payload модели. Отдельно - проверка обычной текстовой инициативы на фактическое прохождение Core/Expression/Style Policy без переделки архитектуры Direct Writer. | reconciled 03.11.2026: 18 обязательных строк разложены на пакеты P6 MEME-JOKE-SPEECH (13, зависит от P1) и P7 MEME-INITIATIVE-LAYERS (4, независим); веб-показ ревизий вынесен в P4 (MEME-JOKE-DIAG-UI); архитектурное решение заморожено @b8d96a06, план-гейт EXIT 0 @2aab3402. | bound 03.11.2026: код a1f0f9a0 + docs ae72735b, независимое ревью reports/w-joke-speech-review.md (APPROVED, блокером была только карта), объединено в evol/impl merge-коммитом 76608fad (кандидат привязки). P6 MEME-JOKE-SPEECH 13/13 VERIFIED; P7 MEME-INITIATIVE-LAYERS 3/4 VERIFIED, MEME-INIT-EXPRESSION-PASS PENDING (не проверен случай выключенной оси Expression на пути инициативы); MEME-JOKE-DIAG-UI остаётся PENDING в P4 (web/**). Гейт review по P6 = 0 ошибок."
+      "note": "Этап прикола должен идти через существующий единый Prompt Composer и наследовать Core, Identity/SelfModel, Expression, базовые инструкции юмора и Humor Craft (при включении); редактируемый промпт прикола - задание, не замена личности. Запрещены отдельный композер, новый агент, лишние LLM-вызовы и хардкод юмористических шаблонов; Humor Craft не привязывать к одному приёму. Диагностика показывает фактические ревизии Core/Expression/Humor и итоговый prompt manifest; Reviewer проверяет реальный payload модели. Отдельно - проверка обычной текстовой инициативы на фактическое прохождение Core/Expression/Style Policy без переделки архитектуры Direct Writer. | reconciled 03.11.2026: 18 обязательных строк разложены на пакеты P6 MEME-JOKE-SPEECH (13, зависит от P1) и P7 MEME-INITIATIVE-LAYERS (4, независим); веб-показ ревизий вынесен в P4 (MEME-JOKE-DIAG-UI); архитектурное решение заморожено @b8d96a06, план-гейт EXIT 0 @2aab3402. | bound 03.11.2026: код a1f0f9a0 + docs ae72735b, независимое ревью reports/w-joke-speech-review.md (APPROVED, блокером была только карта), объединено в evol/impl merge-коммитом 76608fad (кандидат привязки). P6 MEME-JOKE-SPEECH 13/13 VERIFIED; P7 MEME-INITIATIVE-LAYERS 3/4 VERIFIED, MEME-INIT-EXPRESSION-PASS PENDING (не проверен случай выключенной оси Expression на пути инициативы); MEME-JOKE-DIAG-UI остаётся PENDING в P4 (web/**). Гейт review по P6 = 0 ошибок.",
+      "coverage_refs": [
+        {
+          "task_id": "meme-pipeline-refactor-01",
+          "map": "plans/features/meme-pipeline-refactor-01/requirements-map.json",
+          "req_ids": [
+            "MEME-JOKE-DIAG-REVISIONS",
+            "MEME-JOKE-REAL-PAYLOAD-REVIEW",
+            "MEME-JOKE-SUMMARY-UNCHANGED",
+            "MEME-JOKE-TASK-ONLY",
+            "MEME-JOKE-DIAG-UI"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE",
@@ -1331,7 +2270,20 @@
         "meme-pipeline-refactor-01"
       ],
       "reconciled": true,
-      "note": "Обязательное дополнение: текстовая инициатива и мемы - независимые механизмы (свои расписания, триггеры, вероятности, кулдауны, квоты, статистика), общий RandomSourceService с независимыми draw и раздельной трассировкой, никаких вторых генераторов. Координация публикаций через существующие ledger/anti-flood/delivery: не одновременно и не подряд; атомарное разрешение при параллельных воркерах; один публикуется, второй откладывается с перепроверкой или отменяется с причиной; устаревшее не отправляется. Межтиповой интервал конфигурируемый. Настройки независимы. /meme приоритетен и координируется. Диагностика по каждому механизму. Запрещены sleep-паузы, хардкод таймингов, глобальные блокировки чатов и новые планировщики. | reconciled 03.11.2026: 41 обязательная строка разложена на пакеты P8 MEME-INIT-COORDINATION (36) и P9 MEME-INIT-DIAG (4) + одна web-строка в P4; архитектурное решение заморожено @77555550 (атомарный claim v41 chat_publish_claim, независимый ростер, конфигурируемый межтиповой интервал, приоритет /meme); карта/граф @760916e8, план-гейт EXIT 0. Найдены 8 текущих нарушений независимости (общий ростер, общий try, мем не в ledger, chat_enabled не передан, нет межтиповой проверки). | bound 03.11.2026: P8 MEME-INIT-COORDINATION 37/37 строк VERIFIED на кандидате f9d1cda9, ревью Approved (Re-review 2), пин слайса выставлен, review-гейт 0 ошибок; остаток: P9 MEME-INIT-DIAG (4 строки) и две строки показа диагностики в P4 (ждут web). Неблокирующие D1/D2 ждут решения Архитектора."
+      "note": "Обязательное дополнение: текстовая инициатива и мемы - независимые механизмы (свои расписания, триггеры, вероятности, кулдауны, квоты, статистика), общий RandomSourceService с независимыми draw и раздельной трассировкой, никаких вторых генераторов. Координация публикаций через существующие ledger/anti-flood/delivery: не одновременно и не подряд; атомарное разрешение при параллельных воркерах; один публикуется, второй откладывается с перепроверкой или отменяется с причиной; устаревшее не отправляется. Межтиповой интервал конфигурируемый. Настройки независимы. /meme приоритетен и координируется. Диагностика по каждому механизму. Запрещены sleep-паузы, хардкод таймингов, глобальные блокировки чатов и новые планировщики. | reconciled 03.11.2026: 41 обязательная строка разложена на пакеты P8 MEME-INIT-COORDINATION (36) и P9 MEME-INIT-DIAG (4) + одна web-строка в P4; архитектурное решение заморожено @77555550 (атомарный claim v41 chat_publish_claim, независимый ростер, конфигурируемый межтиповой интервал, приоритет /meme); карта/граф @760916e8, план-гейт EXIT 0. Найдены 8 текущих нарушений независимости (общий ростер, общий try, мем не в ledger, chat_enabled не передан, нет межтиповой проверки). | bound 03.11.2026: P8 MEME-INIT-COORDINATION 37/37 строк VERIFIED на кандидате f9d1cda9, ревью Approved (Re-review 2), пин слайса выставлен, review-гейт 0 ошибок; остаток: P9 MEME-INIT-DIAG (4 строки) и две строки показа диагностики в P4 (ждут web). Неблокирующие D1/D2 ждут решения Архитектора.",
+      "coverage_refs": [
+        {
+          "task_id": "meme-pipeline-refactor-01",
+          "map": "plans/features/meme-pipeline-refactor-01/requirements-map.json",
+          "req_ids": [
+            "MEME-IIC-ATOMIC-ONE-PUBLISHES",
+            "MEME-IIC-STALE-NO-SEND",
+            "MEME-IIC-POSTPONE-RECHECK",
+            "MEME-IIC-MANUAL-PRIORITY",
+            "MEME-IIC-INTERVAL-NOT-REPLACE"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-03-MEME-PUBLICATION-HOTFIX",
@@ -1342,7 +2294,23 @@
         "hotfix-meme-publication-initiative-ui"
       ],
       "reconciled": true,
-      "note": "P0: новые сообщения/смена latest_message_id/watermark во время генерации НЕ основание для publication_stale; ручной /meme доставляет готовое изображение при живой переписке; автоматический мем проверяет только реальные ограничения (права, активность модуля, дедуп, исходный контекст, коллизия с текстовой инициативой), при конфликте откладывает через ledger/durable без потери и перегенерации; только image без caption; каждая отмена с проверяемым reason code. P0.5: пустой потолок = auto сквозным образом (не 0/800/NaN), авто только из известных лимитов провайдера, фиксированный потолок считает бюджет по фактическому payload, ошибки до генерации, UI показывает Автоматически и честный лимит. P1: полная перекомпоновка страницы «Модули → Инициатива» на 5 вкладок с сохранением всей функциональности и стиля. | Карта создана (26 ID / 60 обязательств), план-гейт 0 ошибок, граф срезов для отдельного выпуска P0; переоткрыты 2 строки мем-карты."
+      "note": "P0: новые сообщения/смена latest_message_id/watermark во время генерации НЕ основание для publication_stale; ручной /meme доставляет готовое изображение при живой переписке; автоматический мем проверяет только реальные ограничения (права, активность модуля, дедуп, исходный контекст, коллизия с текстовой инициативой), при конфликте откладывает через ledger/durable без потери и перегенерации; только image без caption; каждая отмена с проверяемым reason code. P0.5: пустой потолок = auto сквозным образом (не 0/800/NaN), авто только из известных лимитов провайдера, фиксированный потолок считает бюджет по фактическому payload, ошибки до генерации, UI показывает Автоматически и честный лимит. P1: полная перекомпоновка страницы «Модули → Инициатива» на 5 вкладок с сохранением всей функциональности и стиля. | Карта создана (26 ID / 60 обязательств), план-гейт 0 ошибок, граф срезов для отдельного выпуска P0; переоткрыты 2 строки мем-карты.",
+      "coverage_refs": [
+        {
+          "task_id": "hotfix-meme-publication-initiative-ui",
+          "map": "plans/features/hotfix-meme-publication-initiative-ui/requirements-map.json",
+          "req_ids": [
+            "HMF-ACC-01",
+            "HMF-ACC-02",
+            "HMF-ACC-04",
+            "HMF-ACC-03",
+            "HMF-ACC-05",
+            "HMF-ACC-08",
+            "HMF-LEN-01",
+            "HMF-LEN-02"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-03-EPIC-CM-VISUAL-01",
@@ -1353,7 +2321,23 @@
         "epic-cm-visual-01"
       ],
       "reconciled": true,
-      "note": "Новый отдельный UI/UX-пакет: полный редизайн визуализации когнитивной карты (виджет «Статус» + полноэкранный режим). Не менять данные и функциональность бота; существующий vis-network, существующий graph API, один владелец жизненного цикла графа; LOD/коллизии в экранных координатах относительно fitScale с гистерезисом; объективная визуальная приёмка на реальных 702/2400, реальные до/после снимки на одних данных, кадры/видео анимации, FPS, 20 циклов embedded↔fullscreen без утечек; мобильный fullscreen и bottom sheet; production-проверка с совпадающим SHA. | Карта 160 ID и slice-graph созданы, план-гейт 0 ошибок; барьер P1 зафиксирован в графе."
+      "note": "Новый отдельный UI/UX-пакет: полный редизайн визуализации когнитивной карты (виджет «Статус» + полноэкранный режим). Не менять данные и функциональность бота; существующий vis-network, существующий graph API, один владелец жизненного цикла графа; LOD/коллизии в экранных координатах относительно fitScale с гистерезисом; объективная визуальная приёмка на реальных 702/2400, реальные до/после снимки на одних данных, кадры/видео анимации, FPS, 20 циклов embedded↔fullscreen без утечек; мобильный fullscreen и bottom sheet; production-проверка с совпадающим SHA. | Карта 160 ID и slice-graph созданы, план-гейт 0 ошибок; барьер P1 зафиксирован в графе.",
+      "coverage_refs": [
+        {
+          "task_id": "epic-cm-visual-01",
+          "map": "plans/features/epic-cm-visual-01/requirements-map.json",
+          "req_ids": [
+            "CMV-PERF-01",
+            "CMV-INT-01",
+            "CMV-NODE-01",
+            "CMV-EDGE-01",
+            "CMV-ANI-01",
+            "CMV-LOD-01",
+            "CMV-LODB-02",
+            "CMV-INV-01"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-03-REPLY-CONTEXT-INTEGRITY-V5",
@@ -1364,7 +2348,23 @@
         "evol-reply-context-integrity-01"
       ],
       "reconciled": true,
-      "note": "FINAL v5 (заменяет v1-v4): FactCheck target/claim адресация и семантика вне Reply, необязательные медиа (FC-MEDIA-OPTIONAL-01), честные технические статусы (FC-EVIDENCE-STATUS-01), глобальная граница чистой речи для всех пользовательских ответов (GLOBAL-OUTPUT-BOUNDARY-01), самокоррекция Direct (DIRECT-SELF-CORRECTION-01) и CONTEXT-FIDELITY-01: удаление служебных ID из речи НЕ должно снижать полноту контекстных связей для LLM-этапов. 120 обязательных сценариев приёмки; запрещены regex-чистка, новые LLM-агенты, дополнительные бюджеты и перегенерации. | reconciled 03.11.2026: карта plans/features/evol-reply-context-integrity-01 (312 инвентарных + 43 ручных строк = 285 обязательных; 120 сценариев §13 как RC-S001-S120; §3-§12, запреты и CONTEXT-FIDELITY отдельными обязательными строками; 0 неклассифицированных), slice-graph 8 срезов / 4 волны, план-гейт EXIT 0 @f370ec59. Переоткрыты 4 строки. Обратную сверку источника выполнял PM."
+      "note": "FINAL v5 (заменяет v1-v4): FactCheck target/claim адресация и семантика вне Reply, необязательные медиа (FC-MEDIA-OPTIONAL-01), честные технические статусы (FC-EVIDENCE-STATUS-01), глобальная граница чистой речи для всех пользовательских ответов (GLOBAL-OUTPUT-BOUNDARY-01), самокоррекция Direct (DIRECT-SELF-CORRECTION-01) и CONTEXT-FIDELITY-01: удаление служебных ID из речи НЕ должно снижать полноту контекстных связей для LLM-этапов. 120 обязательных сценариев приёмки; запрещены regex-чистка, новые LLM-агенты, дополнительные бюджеты и перегенерации. | reconciled 03.11.2026: карта plans/features/evol-reply-context-integrity-01 (312 инвентарных + 43 ручных строк = 285 обязательных; 120 сценариев §13 как RC-S001-S120; §3-§12, запреты и CONTEXT-FIDELITY отдельными обязательными строками; 0 неклассифицированных), slice-graph 8 срезов / 4 волны, план-гейт EXIT 0 @f370ec59. Переоткрыты 4 строки. Обратную сверку источника выполнял PM.",
+      "coverage_refs": [
+        {
+          "task_id": "evol-reply-context-integrity-01",
+          "map": "plans/features/evol-reply-context-integrity-01/requirements-map.json",
+          "req_ids": [
+            "RC-CF-PRIORITY",
+            "RC-TGT-INVARIANT",
+            "RC-FIN-NO-AUDIT-ONLY",
+            "RC-TGT-NO-FABRICATED-ID",
+            "RC-DSC-INTERVENTION",
+            "RC-FIN-RECONCILE-HEAD",
+            "RC-DEF-TRIGGER",
+            "RC-DEF-TARGET"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-04-PROMPT-VERSIONING-UX",
@@ -1375,7 +2375,23 @@
         "epic-prompt-versioning-ux-01"
       ],
       "reconciled": true,
-      "note": "Единый UI/UX и атомарный бэкенд версионирования всех редактируемых промптов на существующих prompt_registry/prompt_release_policy/immutable revisions; закрыть обходы журнала (особенно POST /api/initiative/meme-settings); owner baseline как указатель на immutable-ревизию, отдельно от code factory; без изменения текстов действующих промптов; постоянное проектное правило: новый editable prompt без полного версионирования - блокер. | reconciled 04.11.2026: карта plans/features/epic-prompt-versioning-ux-01 (63 инвентарных + 13 прозаических = 57 обязательных строк, 8 срезов, план-гейт EXIT 0 @d86cd330). Зафиксированы 4 обхода журнала и 5 best-effort путей, рассинхрон scope мемных блоков, обрезание истории LIMIT 50 и вторая bounded-история Speech."
+      "note": "Единый UI/UX и атомарный бэкенд версионирования всех редактируемых промптов на существующих prompt_registry/prompt_release_policy/immutable revisions; закрыть обходы журнала (особенно POST /api/initiative/meme-settings); owner baseline как указатель на immutable-ревизию, отдельно от code factory; без изменения текстов действующих промптов; постоянное проектное правило: новый editable prompt без полного версионирования - блокер. | reconciled 04.11.2026: карта plans/features/epic-prompt-versioning-ux-01 (63 инвентарных + 13 прозаических = 57 обязательных строк, 8 срезов, план-гейт EXIT 0 @d86cd330). Зафиксированы 4 обхода журнала и 5 best-effort путей, рассинхрон scope мемных блоков, обрезание истории LIMIT 50 и вторая bounded-история Speech.",
+      "coverage_refs": [
+        {
+          "task_id": "epic-prompt-versioning-ux-01",
+          "map": "plans/features/epic-prompt-versioning-ux-01/requirements-map.json",
+          "req_ids": [
+            "PVR-BYTES-01",
+            "PVR-HEAD-01",
+            "PVR-GOAL-01",
+            "PVR-INV-01",
+            "PVR-INV-02",
+            "PVR-INV-03",
+            "PVR-INV-04",
+            "PVR-INV-05"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-05-UNIFIED-REPLY",
@@ -1390,7 +2406,25 @@
       "reconciled_scope": "plans/features/unified-reply/requirements-map.json (261 required), slice-graph.json (UR-A..UR-G)",
       "reconciled_on": "2026-11-05",
       "reconciled_by": "PM",
-      "reconciled_in_commit": "f21644b4"
+      "reconciled_in_commit": "f21644b4",
+      "coverage_refs": [
+        {
+          "task_id": "unified-reply",
+          "map": "plans/features/unified-reply/requirements-map.json",
+          "req_ids": [
+            "UR-01",
+            "UR-02",
+            "UR-03",
+            "UR-04",
+            "UR-05",
+            "UR-06",
+            "UR-07",
+            "UR-08",
+            "UR-09",
+            "UR-10"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-05-PVR-FC-CORRECTIVE-01",
@@ -1405,7 +2439,21 @@
       "reconciled_scope": "plans/features/pvr-fc-corrective-01/requirements-map.json (128 required), slice-graph.json (8 slices)",
       "reconciled_on": "2026-11-05",
       "reconciled_by": "PM",
-      "reconciled_in_commit": "b38940c3"
+      "reconciled_in_commit": "b38940c3",
+      "coverage_refs": [
+        {
+          "task_id": "pvr-fc-corrective-01",
+          "map": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+          "req_ids": [
+            "PVR-01",
+            "PVR-02",
+            "PVR-03",
+            "PVR-04",
+            "PVR-05",
+            "PVR-06"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-05-GOODMORNING-QUANTUM-MEDIA",
@@ -1416,7 +2464,21 @@
         "goodmorning-quantum-media"
       ],
       "reconciled": true,
-      "note": "Проверить, почему новые медиафайлы не попадают в рассылку GoodMorning (выпадает или баг), и подключить существующий квантовый рандом (mca_random_source) к выбору медиа+подписи на каждую отправку. Без нового RandomSource."
+      "note": "Проверить, почему новые медиафайлы не попадают в рассылку GoodMorning (выпадает или баг), и подключить существующий квантовый рандом (mca_random_source) к выбору медиа+подписи на каждую отправку. Без нового RandomSource.",
+      "coverage_refs": [
+        {
+          "task_id": "goodmorning-quantum-media",
+          "map": "plans/features/goodmorning-quantum-media/requirements-map.json",
+          "req_ids": [
+            "GM-01",
+            "GM-02",
+            "GM-03",
+            "GM-04",
+            "GM-05",
+            "GM-06"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-05-BEHAVIOR-GATES-SIMPLIFICATION",
@@ -1427,7 +2489,23 @@
         "behavior-gates-simplification-01"
       ],
       "reconciled": true,
-      "note": "Срочный эпик BGS-01..08: убрать privacy-вето на Web Search без замены новым классификатором; снять смысловую постцензуру Evidence Egress и Public Speech (только техническая очистка и наблюдение); убрать лишние retry и искусственные интеллектуальные потолки, согласовав бюджеты с UR; синхронизировать действующие и удалённые настройки в backend и админке; сохранить RBAC, секреты, SSRF/SafeFetcher, протокольную очистку, дедуп, лимиты API, доказательность фактчека, пользовательские промпты и характер. Конфликтная матрица: UR-06/07/08 (privacy) заменяются, UR-15 уточняется."
+      "note": "Срочный эпик BGS-01..08: убрать privacy-вето на Web Search без замены новым классификатором; снять смысловую постцензуру Evidence Egress и Public Speech (только техническая очистка и наблюдение); убрать лишние retry и искусственные интеллектуальные потолки, согласовав бюджеты с UR; синхронизировать действующие и удалённые настройки в backend и админке; сохранить RBAC, секреты, SSRF/SafeFetcher, протокольную очистку, дедуп, лимиты API, доказательность фактчека, пользовательские промпты и характер. Конфликтная матрица: UR-06/07/08 (privacy) заменяются, UR-15 уточняется.",
+      "coverage_refs": [
+        {
+          "task_id": "behavior-gates-simplification-01",
+          "map": "plans/features/behavior-gates-simplification/requirements-map.json",
+          "req_ids": [
+            "BGS-01",
+            "BGS-02",
+            "BGS-03",
+            "BGS-04",
+            "BGS-05",
+            "BGS-06",
+            "BGS-07",
+            "BGS-08"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-05-REMOVE-LEGACY-REPHRASING-V2",
@@ -1440,7 +2518,23 @@
       "reconciled": true,
       "origin": "root chat message 2026-11-05; text is plans/current_task.md lines 6702-EOF (owner-owned, read-only)",
       "received": "2026-11-05",
-      "note": "Убрать автоматическое перефразирование готовых ответов и зависимые механизмы повторной генерации/смыслового редактирования/скрытого отката; единый финальный Writer; обязательная админка/миграционный manifest/реальное доказательство LLM-вызовов."
+      "note": "Убрать автоматическое перефразирование готовых ответов и зависимые механизмы повторной генерации/смыслового редактирования/скрытого отката; единый финальный Writer; обязательная админка/миграционный manifest/реальное доказательство LLM-вызовов.",
+      "coverage_refs": [
+        {
+          "task_id": "remove-legacy-rephrasing-01",
+          "map": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+          "req_ids": [
+            "R-PROC.0",
+            "R-PROC.9",
+            "R-DEF.AREA",
+            "R-DEF.ROOT",
+            "R-DEF.MAINRULE",
+            "R-PROC.10",
+            "R-00.1",
+            "R-00.2"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-01-CURRENT-TASK-SNAPSHOT-MISSING",
@@ -1451,6 +2545,988 @@
       "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
       "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
       "target_task_ids": []
+    },
+    {
+      "id": "OI-2026-11-10-VIDEO-COMMANDS-FINAL-CONTRACT",
+      "source_path": "plans/owner_inputs/2026-11-10-video-commands-final-contract.md",
+      "source_sha256": "456FE1CD40444194D7F694FE0E97F458161B55411B52D7273F6DB7CBB10F82FB",
+      "kind": "correction",
+      "target_task_ids": [
+        "smart-module-semantic-routing-p0"
+      ],
+      "reconciled": true,
+      "coverage_refs": [
+        {
+          "task_id": "smart-module-semantic-routing-p0",
+          "map": "plans/features/smart-module-semantic-routing/requirements-map.json",
+          "req_ids": [
+            "SMR-VC-15",
+            "SMR-VC-06",
+            "SMR-VC-07",
+            "SMR-VC-05",
+            "SMR-VC-10",
+            "SMR-CMD-15",
+            "SMR-VC-01",
+            "SMR-VC-02",
+            "SMR-VC-03",
+            "SMR-VC-04",
+            "SMR-VC-08",
+            "SMR-VC-09",
+            "SMR-VC-11",
+            "SMR-CMD-03",
+            "SMR-CMD-06",
+            "SMR-CMD-04",
+            "SMR-CMD-09",
+            "SMR-VC-12",
+            "SMR-VC-13",
+            "SMR-VC-14",
+            "SMR-POL-13",
+            "SMR-POL-14",
+            "SMR-POL-01",
+            "SMR-POL-17"
+          ]
+        }
+      ],
+      "note": "Final video-command contract, replaces the earlier video correction: keeps «транскрипт» and «че за видос» deterministic, removes «о чем видео» and «поясни за видос» to L1, requires standalone command recognition, reply-target priority, no-target message and persona-name addressing, and forbids new synonyms or regex.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-10",
+      "received": "2026-11-10"
+    },
+    {
+      "id": "OI-2026-11-10-VECTOR-MEMORY-NO-SETTINGS",
+      "source_path": "plans/owner_inputs/2026-11-10-vector-memory-no-settings.md",
+      "source_sha256": "14054D9DC846255D213F1B8E8E768A99BB80C0A22C086DD79C6F3A3BC1AC567C",
+      "kind": "correction",
+      "target_task_ids": [
+        "mod-acl-ux-01"
+      ],
+      "reconciled": true,
+      "coverage_refs": [
+        {
+          "task_id": "mod-acl-ux-01",
+          "map": "plans/features/mod-acl-ux-01/requirements-map.json",
+          "req_ids": [
+            "MAC-S0-06",
+            "MAC-S5-289",
+            "MAC-S5-290",
+            "MAC-S5-291",
+            "MAC-S10-16",
+            "MAC-S15-14"
+          ]
+        }
+      ],
+      "note": "Owner reported that Vector Memory opened but showed no settings and blamed rights. Reconciled as an M4A front-end defect: the infrastructure module had no own catalogue tab, so the derived descriptor was empty; fixed at 6e175ced and released in 2.58.175 with a reproducible harness proving the defect on the base and its absence on the fix.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-10",
+      "received": "2026-11-10"
     }
-  ]
+  ],
+  "source_inventory": {
+    "source_path": "plans/current_task.md",
+    "heading_level": 1,
+    "sections": [
+      {
+        "id": "H1:ca92cc639234:1",
+        "sha256": "afb089fa075a08fc58fc5bcab9a1ac072fa17618da68a8a0194802e0bc792a09",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol"
+        ],
+        "coverage_refs": [
+          "plans/features/evol/requirements-map.json"
+        ],
+        "reason": "Раздел 'EVOL — Adminbot Evolution' (стр. 1-910) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+        "requirement_refs": [
+          {
+            "task_id": "evol",
+            "map": "plans/features/evol/requirements-map.json",
+            "req_ids": [
+              "EVOL-DoD",
+              "EVOL-045",
+              "EVOL-044",
+              "EVOL-043",
+              "EVOL-042",
+              "EVOL-041",
+              "EVOL-040",
+              "EVOL-039"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:8f44c90f6ae8:1",
+        "sha256": "50233fbc626fb4d1efd58b380d3aff6a202019f4b3cbd1fff2a69faffc52dadc",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol"
+        ],
+        "coverage_refs": [
+          "plans/features/evol/requirements-map.json"
+        ],
+        "reason": "Раздел 'EVOL — дополнительная корректирующая директива: социальный контекст, в' (стр. 911-1157) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+        "requirement_refs": [
+          {
+            "task_id": "evol",
+            "map": "plans/features/evol/requirements-map.json",
+            "req_ids": [
+              "EVOL-VIDEO-INTENT",
+              "EVOL-SOCIAL-FRAME",
+              "EVOL-GLASS-SEAM",
+              "EVOL-FACTCHECK-CRITICAL"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:28dc3f9a79d2:1",
+        "sha256": "cf9cb59f119d5f1122f5d7ce01cdeff6204c141c714a7d076f119dfbe4136bce",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol"
+        ],
+        "coverage_refs": [
+          "plans/features/evol/requirements-map.json"
+        ],
+        "reason": "Раздел 'EVOL — дополнительное поручение: Source Code Reader и Когнитивная карт' (стр. 1158-1362) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+        "requirement_refs": [
+          {
+            "task_id": "evol",
+            "map": "plans/features/evol/requirements-map.json",
+            "req_ids": [
+              "EVOL-SRC-READER-S7",
+              "EVOL-SRC-READER-S6",
+              "EVOL-SRC-READER-S5",
+              "EVOL-SRC-READER-S4",
+              "EVOL-SRC-READER-S3",
+              "EVOL-SRC-READER-S2",
+              "EVOL-SRC-READER-S1",
+              "EVOL-SRC-READER-R2"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:37c56011b12a:1",
+        "sha256": "94dd4816bcd20cfd14a4d2b6752c3a489af6bd31f80529d8cacde45e6dfa8ad7",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol"
+        ],
+        "coverage_refs": [
+          "plans/features/evol/requirements-map.json"
+        ],
+        "reason": "Раздел 'ASAP-FC-ADMISSION-01 — ложный отказ фактчека при наличии проверяемого ' (стр. 1363-1432) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+        "requirement_refs": [
+          {
+            "task_id": "evol",
+            "map": "plans/features/evol/requirements-map.json",
+            "req_ids": [
+              "ASAP-FC-ADMISSION-01",
+              "ASAP-VISION-SYNC-01",
+              "ASAP-VISION-SYNC-ADMIN-01"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:dc451b1c05f5:1",
+        "sha256": "a7d5c21a9603b72706e06174c8ff3a56f38aa9421c94c7123d44c587d7b0c5e6",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol"
+        ],
+        "coverage_refs": [
+          "plans/features/evol/requirements-map.json"
+        ],
+        "reason": "Раздел 'ASAP-VISION-SYNC-01 — Глобальная синхронизация медиаанализа и потребит' (стр. 1433-1616) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+        "requirement_refs": [
+          {
+            "task_id": "evol",
+            "map": "plans/features/evol/requirements-map.json",
+            "req_ids": [
+              "ASAP-VISION-SYNC-ADMIN-01",
+              "ASAP-VISION-SYNC-01",
+              "EVOL-DoD"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:dc0ddb5851ec:1",
+        "sha256": "7ad59e226b888739a8206865c9e9ce28b8d6a018d7ce6ff132fbe3838326081c",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol"
+        ],
+        "coverage_refs": [
+          "plans/features/evol/requirements-map.json"
+        ],
+        "reason": "Раздел 'ASAP-FC-EVIDENCE-STYLE-02 — полнота поиска, релевантность доказательст' (стр. 1617-1750) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+        "requirement_refs": [
+          {
+            "task_id": "evol",
+            "map": "plans/features/evol/requirements-map.json",
+            "req_ids": [
+              "ASAP-FC-ES-TELEMETRY",
+              "ASAP-FC-ES-STYLE",
+              "ASAP-FC-ES-STATUS",
+              "ASAP-FC-ES-SOURCES",
+              "ASAP-FC-ES-PLANNER",
+              "ASAP-FC-ES-CLAIM",
+              "ASAP-FC-ES-BOUND",
+              "ASAP-FC-ES-ACCEPT"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:762ec4718ed3:1",
+        "sha256": "f6ffd239dad91978710997d4cd28d6fad92597f01d4ec060c3c169d3ea333430",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol"
+        ],
+        "coverage_refs": [
+          "plans/features/evol/requirements-map.json"
+        ],
+        "reason": "Раздел 'ASAP-UI-02 — единый дизайн-контракт, навигация и устранение неоднознач' (стр. 1751-2007) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+        "requirement_refs": [
+          {
+            "task_id": "evol",
+            "map": "plans/features/evol/requirements-map.json",
+            "req_ids": [
+              "ASAP-UI-02-DOD",
+              "ASAP-UI-02-18",
+              "ASAP-UI-02-17B",
+              "ASAP-UI-02-17",
+              "ASAP-UI-02-16T",
+              "ASAP-UI-02-16",
+              "ASAP-UI-02-15",
+              "ASAP-UI-02-14"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:1b7d3c4e3d47:1",
+        "sha256": "d1e90477baa207e52352b46354cde956e1c9a49101e9be741c422a7a8d76d2f4",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol"
+        ],
+        "coverage_refs": [
+          "plans/features/evol/requirements-map.json"
+        ],
+        "reason": "Раздел 'ASAP-EVIDENCE-ROUTING-01 v3 — Evidence-first без лишнего веб-поиска, д' (стр. 2008-2442) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+        "requirement_refs": [
+          {
+            "task_id": "evol",
+            "map": "plans/features/evol/requirements-map.json",
+            "req_ids": [
+              "ER-S46",
+              "ER-S45",
+              "ER-S44",
+              "ER-S43",
+              "ER-S42",
+              "ER-S41",
+              "ER-S40",
+              "ER-S39"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:43030e9e80ce:1",
+        "sha256": "8433cac3b4f979e0bde258900245f71c1d67304b74f61ce71d5c62cba368bd56",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol"
+        ],
+        "coverage_refs": [
+          "plans/features/evol/requirements-map.json"
+        ],
+        "reason": "Раздел 'ASAP-SUMMARY-COVER-INTEGRITY-01 v2.1 — восстановление Summary/Cover, и' (стр. 2443-2731) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+        "requirement_refs": [
+          {
+            "task_id": "evol",
+            "map": "plans/features/evol/requirements-map.json",
+            "req_ids": [
+              "SC-44",
+              "SC-43",
+              "SC-42",
+              "SC-41",
+              "SC-40",
+              "SC-39",
+              "SC-38",
+              "SC-37"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:489ce9539a87:1",
+        "sha256": "34c6971e5012dc28dd7e2e7030afbc826b07e666e6d3c0f995b3e9540b0f8e7c",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol"
+        ],
+        "coverage_refs": [
+          "plans/features/evol/requirements-map.json"
+        ],
+        "reason": "Раздел 'ASAP-FC-VOICE-01 — восстановить аргументативный голос старого FactChec' (стр. 2732-2901) реализуется задачей evol; строки требований взяты из её карты по точному диапазону source_line (карта построена из current_task.md).",
+        "requirement_refs": [
+          {
+            "task_id": "evol",
+            "map": "plans/features/evol/requirements-map.json",
+            "req_ids": [
+              "ASAP-VISION-SYNC-01",
+              "ASAP-VISION-SYNC-ADMIN-01",
+              "EVOL-FACTCHECK-CRITICAL",
+              "EVOL-DoD",
+              "EVOL-COG-MAP",
+              "EVOL-034",
+              "EVOL-014",
+              "EVOL-016"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:2a03350e28c8:1",
+        "sha256": "1c84db58d6bdd88da0fd2d915ecedc42d162adcf6414d1bd12cd2fe93b31a695",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "asap-evol-anticliche-memory-admin-ux"
+        ],
+        "coverage_refs": [
+          "plans/features/asap-evol-anticliche-memory-admin-ux/requirements-map.json"
+        ],
+        "reason": "Раздел 'ASAP-EVOL-ANTICLICHE-MEMORY-ADMIN-UX-2026-11-02 — ЧИСТОВОЕ ТЗ НА РЕАЛИ' (стр. 2902-4029) реализуется задачей asap-evol-anticliche-memory-admin-ux; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "asap-evol-anticliche-memory-admin-ux",
+            "map": "plans/features/asap-evol-anticliche-memory-admin-ux/requirements-map.json",
+            "req_ids": [
+              "MEM-ACC-SEMANTIC",
+              "MEM-ACC-TOOLS",
+              "UI-MEME-GLOBAL",
+              "UI-MODULES-EXISTING-ASSETS",
+              "MEM-TRACE-FIELDS",
+              "MEM-ACC-RECONSTRUCTION",
+              "AC-GROUPING-RULES",
+              "AC-FINAL-REVIEWER"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:4af314834201:1",
+        "sha256": "ea6827d1426c6044b395fee750408b32ba57e1500508d33ae8d08c906b9ec56d",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "epic-experience-learning-performance-help"
+        ],
+        "coverage_refs": [
+          "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+          "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json"
+        ],
+        "reason": "Раздел 'EPIC-EXPERIENCE-LEARNING-ADMIN-PERFORMANCE-HELP — FINAL IMPLEMENTATION' (стр. 4030-4077) реализуется задачей epic-experience-learning-performance-help; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "epic-experience-learning-performance-help",
+            "map": "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+            "req_ids": [
+              "P-SPEC-PARITY",
+              "PAR-01",
+              "P-DELIV-04"
+            ]
+          },
+          {
+            "task_id": "epic-experience-learning-performance-help",
+            "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+            "req_ids": [
+              "EP-GUARD-ARCH",
+              "P-SPEC-PARITY",
+              "EP-H-HELP"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:2ec78366aceb:1",
+        "sha256": "4cb535856234306899f80d8b17e1f0532b2e30ac9998dfea986439a0dbca0a86",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "epic-experience-learning-performance-help"
+        ],
+        "coverage_refs": [
+          "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+          "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json"
+        ],
+        "reason": "Раздел 'E. Полноценное самообучение: опыт, саморефлексия, пересмотр и перенос ' (стр. 4078-4197) реализуется задачей epic-experience-learning-performance-help; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "epic-experience-learning-performance-help",
+            "map": "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+            "req_ids": [
+              "P-BOOT-05",
+              "P-API-03",
+              "P-GATE-00",
+              "P-FE-01",
+              "P-BOOT-04",
+              "P-BOOT-01",
+              "P-MEAS-05",
+              "P-MEAS-04"
+            ]
+          },
+          {
+            "task_id": "epic-experience-learning-performance-help",
+            "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+            "req_ids": [
+              "EP-E7-6",
+              "EP-E5-1",
+              "EP-E4-1",
+              "EP-E3-4",
+              "EP-E4-3",
+              "EP-E3-1",
+              "EP-E8-DOD",
+              "EP-E7-5"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:b1fecc90827c:1",
+        "sha256": "c867bc31cce0bf379e1dad3b6f957d4b52acd8c4a474090b0cd1a00538ab418c",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "epic-experience-learning-performance-help"
+        ],
+        "coverage_refs": [
+          "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+          "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json"
+        ],
+        "reason": "Раздел 'P. Ускорение загрузки и работы админки (Telegram Mini App + desktop)' (стр. 4198-4281) реализуется задачей epic-experience-learning-performance-help; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "epic-experience-learning-performance-help",
+            "map": "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+            "req_ids": [
+              "P-GATE-00",
+              "P-GOAL-01",
+              "P-MEAS-02",
+              "P-DELIV-04",
+              "P-BOOT-01",
+              "P-MEAS-01",
+              "P-VER-15",
+              "P-DELIV-02"
+            ]
+          },
+          {
+            "task_id": "epic-experience-learning-performance-help",
+            "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+            "req_ids": [
+              "P-GENUINE",
+              "EP-P3-4-16",
+              "EP-P3-1-2",
+              "EP-P3-1-4",
+              "EP-P3-3-10",
+              "EP-P3-5-20",
+              "P-GATE-00",
+              "EP-P3-2-6"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:d1d447b20691:1",
+        "sha256": "6998cefe6630eb3b83a1d74180069e0056c3489ee944559e78424a00abc2b3db",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "epic-experience-learning-performance-help"
+        ],
+        "coverage_refs": [
+          "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+          "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json"
+        ],
+        "reason": "Раздел 'H. ПОСЛЕДНЯЯ ОТДЕЛЬНАЯ ЗАДАЧА: актуализировать «Справку» целиком' (стр. 4282-4336) реализуется задачей epic-experience-learning-performance-help; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "epic-experience-learning-performance-help",
+            "map": "plans/features/epic-experience-learning-performance-help/requirements-map.json",
+            "req_ids": [
+              "P-DELIV-04",
+              "P-BOOT-04",
+              "P-BOOT-03"
+            ]
+          },
+          {
+            "task_id": "epic-experience-learning-performance-help",
+            "map": "plans/features/epic-experience-learning-performance-help/requirements-map-epic-parity.json",
+            "req_ids": [
+              "EP-H-HELP",
+              "EP-E7-5",
+              "EP-E3-5"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:93cdf4a3b5a5:1",
+        "sha256": "92650bc6691f23a79db96ad9fba67b69a6f08c5217dbe4f7dcfc1f2f7026d809",
+        "disposition": "context",
+        "target_task_ids": [],
+        "coverage_refs": [],
+        "reason": "Организационный раздел о порядке исполнения и составе доказательств: он не содержит отдельного продуктового требования, а задаёт процедуру. Исполнение отслеживается статусами задач и гейтами требований, собственных строк требований у раздела нет."
+      },
+      {
+        "id": "H1:19c61df17031:1",
+        "sha256": "e09e74e2434f86f58e5a27ce29909474a05223c168b4f71fd47299017918d570",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "hotfix-meme-publication-initiative-ui"
+        ],
+        "coverage_refs": [
+          "plans/features/hotfix-meme-publication-initiative-ui/requirements-map.json"
+        ],
+        "reason": "Раздел 'HOTFIX-MEME-PUBLICATION-AND-INITIATIVE-UI — обязательное корректирующе' (стр. 4579-4707) реализуется задачей hotfix-meme-publication-initiative-ui; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "hotfix-meme-publication-initiative-ui",
+            "map": "plans/features/hotfix-meme-publication-initiative-ui/requirements-map.json",
+            "req_ids": [
+              "HMF-ACC-02",
+              "HMF-UI-07",
+              "HMF-ACC-03",
+              "HMF-UI-06",
+              "HMF-UI-05",
+              "HMF-UI-02",
+              "HMF-ACC-10",
+              "HMF-UI-04"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:c57173d91b1a:1",
+        "sha256": "b5452b9791a5687ce0bbd410a4c8c57ab86e15882ff69d9a5a730a61bfbb6328",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "epic-cm-visual-01"
+        ],
+        "coverage_refs": [
+          "plans/features/epic-cm-visual-01/requirements-map.json"
+        ],
+        "reason": "Раздел 'EPIC-CM-VISUAL-01 — Полный редизайн визуализации когнитивной карты Adm' (стр. 4708-5022) реализуется задачей epic-cm-visual-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "epic-cm-visual-01",
+            "map": "plans/features/epic-cm-visual-01/requirements-map.json",
+            "req_ids": [
+              "CMV-VIS-14",
+              "CMV-REP-02",
+              "CMV-NODE-01",
+              "CMV-HDR-02",
+              "CMV-INV-02",
+              "CMV-INT-01",
+              "CMV-PERF-04",
+              "CMV-HDR-01"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:ac88ff5fff8a:1",
+        "sha256": "667abf0f8971dab02d5cb4a457030fb9ec0b61371d2bd5212190d075e06dff1b",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "evol-reply-context-integrity-01"
+        ],
+        "coverage_refs": [
+          "plans/features/evol-reply-context-integrity-01/requirements-map.json"
+        ],
+        "reason": "Раздел 'EVOL-REPLY-CONTEXT-INTEGRITY-01 — Цель, контекст, чистая речь и честны' (стр. 5023-5534) реализуется задачей evol-reply-context-integrity-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "evol-reply-context-integrity-01",
+            "map": "plans/features/evol-reply-context-integrity-01/requirements-map.json",
+            "req_ids": [
+              "RC-FIN-DOD",
+              "RC-FIN-REVIEWER-DUTY",
+              "RC-CF-REVIEWER-MATCH",
+              "RC-GSB-KEYS-VS-RELATIONS",
+              "RC-S118",
+              "RC-MED-LINKED",
+              "RC-CF-RULE",
+              "RC-MED-TEXTONLY"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:355abdc2a506:1",
+        "sha256": "1c82ac9d2187e9a9f2c05cd4cd148137f1880eb883637d3ea7baf311714e6921",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "epic-prompt-versioning-ux-01"
+        ],
+        "coverage_refs": [
+          "plans/features/epic-prompt-versioning-ux-01/requirements-map.json"
+        ],
+        "reason": "Раздел 'EPIC-PROMPT-VERSIONING-UX-01 — единый контроль версий промптов и UX ре' (стр. 5535-5650) реализуется задачей epic-prompt-versioning-ux-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "epic-prompt-versioning-ux-01",
+            "map": "plans/features/epic-prompt-versioning-ux-01/requirements-map.json",
+            "req_ids": [
+              "PVR-REV-01",
+              "PVR-EXEC-01",
+              "PVR-BASE-07",
+              "PVR-REV-04",
+              "PVR-REV-03",
+              "PVR-INV-02",
+              "PVR-GOAL-01",
+              "PVR-INV-01"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:017f4d8bdead:1",
+        "sha256": "f014399b0af5989aed4c83f599c9f5251b575ac843be3dd40e9a25cf37c2d02b",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "unified-reply"
+        ],
+        "coverage_refs": [
+          "plans/features/unified-reply/requirements-map.json"
+        ],
+        "reason": "Раздел 'UNIFIED-REPLY — единый интеллект ответа, поиск, контекст и интерфейс' (стр. 5651-6156) реализуется задачей unified-reply; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "unified-reply",
+            "map": "plans/features/unified-reply/requirements-map.json",
+            "req_ids": [
+              "UR-RES-02",
+              "UR-30.2",
+              "UR-07.1",
+              "UR-28.5",
+              "UR-23.2",
+              "UR-28.2",
+              "UR-RES-04",
+              "UR-30.3"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:6ae9fb3ea272:1",
+        "sha256": "84e1d451c929163c9784126337a1fd7015216aadc3f0564b4ed5d9c9ab6b0d80",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "pvr-fc-corrective-01"
+        ],
+        "coverage_refs": [
+          "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        ],
+        "reason": "Раздел 'Adminbot — PVR-FC-CORRECTIVE-01' (стр. 6157-6202) реализуется задачей pvr-fc-corrective-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "pvr-fc-corrective-01",
+            "map": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+            "req_ids": [
+              "A3.2",
+              "A3.5",
+              "A3.1",
+              "A3.4",
+              "FC-02.1",
+              "A3",
+              "FC-04.6",
+              "PVR-01.6"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:1ef222405562:1",
+        "sha256": "463b169b6b537829d54d9918d8bc8e186629f9dce7e805c410113b02927e3035",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "pvr-fc-corrective-01"
+        ],
+        "coverage_refs": [
+          "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        ],
+        "reason": "Раздел 'Блок PVR. Версионирование и UI' (стр. 6203-6279) реализуется задачей pvr-fc-corrective-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "pvr-fc-corrective-01",
+            "map": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+            "req_ids": [
+              "PVR-03.1",
+              "PVR-06.1",
+              "PVR-05.1",
+              "PVR-04.2.1",
+              "PVR-04.3.1",
+              "PVR-04.2.4",
+              "PVR-04.0",
+              "PVR-03.2"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:086c1fe6323e:1",
+        "sha256": "06731a7d358bd940a52c3c28386a27a7d2bd9deb36a0f8637c612df1e01788bb",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "pvr-fc-corrective-01"
+        ],
+        "coverage_refs": [
+          "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        ],
+        "reason": "Раздел 'Блок FC. Качество фактчека, источников и вывода' (стр. 6280-6347) реализуется задачей pvr-fc-corrective-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "pvr-fc-corrective-01",
+            "map": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+            "req_ids": [
+              "FC-06.2",
+              "FC-07.1",
+              "FC-02.2",
+              "FC-02.3",
+              "FC-01.1",
+              "FC-04.6",
+              "FC-03.4",
+              "FC-04.7"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:893888fa6f18:1",
+        "sha256": "9668190add95d4e74ad133b3c282bbc093545315fdcb0f39397e61cd60555c77",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "pvr-fc-corrective-01"
+        ],
+        "coverage_refs": [
+          "plans/features/pvr-fc-corrective-01/requirements-map.json"
+        ],
+        "reason": "Раздел 'Совместимость, реализация и приёмка' (стр. 6348-6435) реализуется задачей pvr-fc-corrective-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "pvr-fc-corrective-01",
+            "map": "plans/features/pvr-fc-corrective-01/requirements-map.json",
+            "req_ids": [
+              "C5.4",
+              "C4.10",
+              "C5.3",
+              "C1.9",
+              "C1.1",
+              "FC-04.1",
+              "C4.14",
+              "C4.11"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:b3f52760d609:1",
+        "sha256": "56182f6c584071310dcfb743d382a926f1efd5a777ed9445b6610ea90ccc11d9",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "behavior-gates-simplification-01"
+        ],
+        "coverage_refs": [
+          "plans/features/behavior-gates-simplification/requirements-map.json"
+        ],
+        "reason": "Раздел 'Adminbot — BEHAVIOR-GATES-SIMPLIFICATION-01' (стр. 6436-6701) реализуется задачей behavior-gates-simplification-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "behavior-gates-simplification-01",
+            "map": "plans/features/behavior-gates-simplification/requirements-map.json",
+            "req_ids": [
+              "BGS-03.4",
+              "BGS-04.10",
+              "BGS-04.3",
+              "BGS-00.6",
+              "BGS-00.5",
+              "BGS-00.3",
+              "BGS-00.2",
+              "BGS-06.3"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:6d28e34e049c:1",
+        "sha256": "51e07b4fb9ea7bd23bb799474f8ea6408944737e40989e7274f6835f60614624",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "remove-legacy-rephrasing-01"
+        ],
+        "coverage_refs": [
+          "plans/features/remove-legacy-rephrasing/requirements-map.json"
+        ],
+        "reason": "Раздел 'ADMINBOT — REMOVE-LEGACY-REPHRASING / FINAL CORRECTIVE v2.0' (стр. 6702-6945) реализуется задачей remove-legacy-rephrasing-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "remove-legacy-rephrasing-01",
+            "map": "plans/features/remove-legacy-rephrasing/requirements-map.json",
+            "req_ids": [
+              "R-DEF.BAN",
+              "R-ADM.5",
+              "R-OPS.ALLOWED",
+              "R-06.1",
+              "R-01.2",
+              "R-02.3",
+              "R-FAIL.6",
+              "R-CONF.13"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:49e5a2e07849:1",
+        "sha256": "55bcedd747a642206786ce0c36db71bdb11e2321d6be3e58c7609988f003e2fa",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "epic-memory-cognitive-02"
+        ],
+        "coverage_refs": [
+          "plans/features/memory-cognitive-02/requirements-map.json"
+        ],
+        "reason": "Раздел 'EPIC-MEMORY-COGNITIVE-02 — Человекоподобная память, качественный Graph' (стр. 6946-7419) реализуется задачей epic-memory-cognitive-02; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "epic-memory-cognitive-02",
+            "map": "plans/features/memory-cognitive-02/requirements-map.json",
+            "req_ids": [
+              "MEM-04.6-RUNTIME",
+              "MEM-06-RUNTIME",
+              "SC-21",
+              "MEM-06.9",
+              "MEM-07.5",
+              "MEM-05.5",
+              "MEM-07.4",
+              "INV-04"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:ef18301c21ed:1",
+        "sha256": "fe64739ed5267ba1e26f060ec613ee131ff9b285d8088913c3331173404888ee",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108"
+        ],
+        "coverage_refs": [
+          "plans/features/epic-adminbot-corrective-ym-nost-20261108/requirements-map.json"
+        ],
+        "reason": "Раздел 'ADMINBOT — CLEAN FINAL OWNER SPEC: TIME / REPLY / VISION / RBAC / YOOM' (стр. 7420-8281) реализуется задачей EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108",
+            "map": "plans/features/epic-adminbot-corrective-ym-nost-20261108/requirements-map.json",
+            "req_ids": [
+              "SRC-0384",
+              "PAY-YM-SIGNATURE",
+              "NOST-LIVE-QUALITY",
+              "SRC-0642",
+              "SRC-0790",
+              "SRC-0522",
+              "VISION-OWN-PROVENANCE",
+              "SRC-0460"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:be6ffcafab13:1",
+        "sha256": "8282f6e243a073ab4fb0b32398b644d422f50e381721998e7f48c12be3d28e9e",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "vmq-onto-01"
+        ],
+        "coverage_refs": [
+          "plans/features/vmq-onto-01/requirements-map.json"
+        ],
+        "reason": "Раздел 'ADMINBOT — VMQ-ONTO-01: интеграция голосового контекста, продольной па' (стр. 8282-9483) реализуется задачей vmq-onto-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "vmq-onto-01",
+            "map": "plans/features/vmq-onto-01/requirements-map.json",
+            "req_ids": [
+              "QM-04",
+              "QM-01",
+              "QM-03",
+              "QM-08",
+              "QM-09",
+              "QM-07",
+              "Q-04",
+              "Q-03"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:0edabc2e7db4:1",
+        "sha256": "f6bdf61ae292af29372c2136b60eb41938b6133d1f0ad2287d2f4ffc311b8620",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "self-diag-01"
+        ],
+        "coverage_refs": [
+          "plans/features/self-diag-01/requirements-map.json"
+        ],
+        "reason": "Раздел 'ADMINBOT — SELF-DIAG-01' (стр. 9484-10015) реализуется задачей self-diag-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "self-diag-01",
+            "map": "plans/features/self-diag-01/requirements-map.json",
+            "req_ids": [
+              "SD1-D7-02",
+              "SD1-D5-12",
+              "SD1-AC-23",
+              "SD1-AC-11",
+              "SD1-GRAL-04",
+              "SD1-D6-07",
+              "SD1-AC-09",
+              "SD1-D2-31"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:cac772d10e52:1",
+        "sha256": "f18505df35d43469a9ead4da653e1b2faa0cc42679614d54da94e3fa617aad0f",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "mod-acl-ux-01"
+        ],
+        "coverage_refs": [
+          "plans/features/mod-acl-ux-01/requirements-map.json"
+        ],
+        "reason": "Раздел 'ADMINBOT — MOD-ACL-UX-01' (стр. 10016-10747) реализуется задачей mod-acl-ux-01; строки требований взяты из её карты по совпадению текста раздела и приёмки строк.",
+        "requirement_refs": [
+          {
+            "task_id": "mod-acl-ux-01",
+            "map": "plans/features/mod-acl-ux-01/requirements-map.json",
+            "req_ids": [
+              "MAC-LSN-10",
+              "MAC-LSN-04",
+              "MAC-LSN-02",
+              "MAC-LSN-01",
+              "MAC-LSN-11",
+              "MAC-LSN-07",
+              "MAC-LSN-03",
+              "MAC-LSN-06"
+            ]
+          }
+        ]
+      }
+    ]
+  }
 }

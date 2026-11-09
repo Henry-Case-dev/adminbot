@@ -1,0 +1,129 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "smart-module-semantic-routing-p0",
+  "notes": "P0-A and P0-B are independent writers (disjoint files) and are both blocking. Everything else joins after them. Write scopes list only files the slice may actually change; verification-only slices declare no product scope.",
+  "slices": [
+    {
+      "id": "P0-A",
+      "title": "Снятие словесного авторитета генерации изображений",
+      "depends_on": [],
+      "write_scope": [
+        "services/direct_capabilities.py",
+        "services/image_generation.py",
+        "services/direct_chat_service.py",
+        "tests/test_soul1_capability_intent.py",
+        "tests/test_soul1_capability_fallbacks.py",
+        "tests/test_asap5_image_admin.py",
+        "tests/test_asap5_integration_w3.py",
+        "tests/test_unified_image_request_round1026.py",
+        "tests/test_image_generation_round1023.py",
+        "tests/test_addtr_tools_minifix.py"
+      ],
+      "acceptance": "Вопрос о манге даёт текстовый ответ без обращения к генератору; единственный детерминированный путь генерации — явная команда «Бот, нарисуй ...»; словесные пути к генерации отсутствуют.",
+      "risk": "R2",
+      "next_role": "Reviewer (residual: SMR-IMG-06 tool calling)"
+    },
+    {
+      "id": "P0-B",
+      "title": "Приоритет текущего запроса и окончательный контракт видео-команд",
+      "depends_on": [],
+      "write_scope": [
+        "services/command_registry.py",
+        "services/command_prefix.py",
+        "services/video_intent.py",
+        "handlers/youtube.py",
+        "handlers/direct_chat.py",
+        "tests/test_p0b_current_question_priority.py",
+        "tests/test_evol_video_intent.py",
+        "tests/test_command_registry_round1015.py",
+        "tests/test_youtube_handlers.py",
+        "tests/test_video_router.py",
+        "tests/test_youtube_video_media.py",
+        "tests/test_epic37_router_isolation.py",
+        "tests/test_smoke_round1016_fixes.py"
+      ],
+      "acceptance": "«Бот, что происходит в чате» уходит в L1 и получает сводку разговора; детерминированными остаются только «че за видос» и «транскрипт»; команда распознаётся как самостоятельное сообщение, Reply-цель приоритетна, без цели случайный ролик не выбирается.",
+      "risk": "R2",
+      "next_role": "Reviewer (verdict pending for 67063aa5)"
+    },
+    {
+      "id": "SMR-COMMANDS",
+      "title": "Сохранение и проверка явных команд",
+      "depends_on": ["P0-A", "P0-B"],
+      "write_scope": [],
+      "acceptance": "Все четыре названные команды исполняются на реальных путях с передачей аргументов; «Нарисуй кота» и «Бот, что происходит в этом видео» определяет L1; различия регистра и пунктуации сохранены.",
+      "risk": "R1",
+      "next_role": "Reviewer"
+    },
+    {
+      "id": "SMR-HELP",
+      "title": "Синхронизация справки с реестром команд",
+      "depends_on": ["P0-B"],
+      "write_scope": [
+        "services/info_service.py",
+        "info_text.md",
+        "README.md",
+        "tests/test_help_ui_round1020.py",
+        "tests/test_help_ui_round1022.py",
+        "tests/test_help_ui_round1023.py",
+        "tests/test_info_service.py",
+        "tests/test_info_handlers.py",
+        "tests/test_asap7_f9_help_resync.py",
+        "tests/test_asap8_v6_d14_help_sync.py",
+        "tests/test_mca21_guides_content.py",
+        "tests/test_mca23_guides_content.py"
+      ],
+      "acceptance": "Справка и README не рекламируют удалённые видео-команды и совпадают с фактическим реестром.",
+      "risk": "R0",
+      "next_role": "Reviewer (verdict pending for 6fec18d2)"
+    },
+    {
+      "id": "SMR-TRACE",
+      "title": "Трассы обоих P0 и причинный след",
+      "depends_on": ["P0-A", "P0-B"],
+      "write_scope": ["plans/features/smart-module-semantic-routing/evidence/"],
+      "acceptance": "Для каждого P0 существует трасса от Telegram message ID до доставленного ответа с проверкой десяти пунктов §9, и причинная связь с расшифровками либо доказана, либо честно опровергнута.",
+      "risk": "R1",
+      "next_role": "Builder (evidence) → Reviewer"
+    },
+    {
+      "id": "P1",
+      "title": "Ограниченная ревизия соседних конфликтов маршрутизации",
+      "depends_on": ["P0-A", "P0-B"],
+      "write_scope": [
+        "services/direct_l1.py",
+        "services/direct_execution.py",
+        "services/response_extent.py",
+        "services/mca_vision.py",
+        "services/mca_experience_jobs.py",
+        "services/mca_style_scope.py",
+        "services/mca_self_model.py",
+        "services/mca_humor_feedback.py",
+        "services/public_speech_guard.py",
+        "services/factcheck_suitability.py",
+        "services/temporal_factcheck.py"
+      ],
+      "acceptance": "Названные участки P1 пересмотрены: слова текста не переопределяют модельное понимание задачи, а существующая функциональность (dig_into_lore, медиа-реестр, уроки, права и TTL стиля) сохранена.",
+      "risk": "R2",
+      "next_role": "Builder → Reviewer"
+    },
+    {
+      "id": "SMR-POLICY",
+      "title": "Политика регулярок и организация исправлений",
+      "depends_on": ["P0-A", "P0-B", "P1"],
+      "write_scope": [],
+      "acceptance": "Ни один лексический маршрут не выдаёт окончательного семантического решения; новых агентов, пайплайнов, классификаторов, OFF/SHADOW и настроек нет; Architect и Reviewer дали независимые заключения по негативным сценариям и деградации без L1.",
+      "risk": "R1",
+      "next_role": "Architect → Reviewer"
+    },
+    {
+      "id": "SMR-DONE",
+      "title": "Критерий DONE, выкат и реальные сценарии",
+      "depends_on": ["P0-A", "P0-B", "SMR-COMMANDS", "SMR-HELP", "SMR-TRACE", "P1", "SMR-POLICY"],
+      "write_scope": [],
+      "acceptance": "Все восемь критериев DONE подтверждены на выкаченной версии реальными Telegram-сценариями, включая доказательство отсутствия повторного перехвата текущего намерения.",
+      "risk": "R2",
+      "next_role": "DevOps → Reviewer"
+    }
+  ]
+}
