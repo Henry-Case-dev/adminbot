@@ -158,6 +158,16 @@ async def memory_initiative_vitality(
         db, chat_id=chat_id, hours=hours, liveness=liveness,
         llm_available=llm is not None, writer_available=service is not None)
     payload["funnel"] = await _funnel_block(db, chat_id)
+    # QND-NONDET §5 («Аналитика» — «почему и как менялось»): интервалы
+    # расписания, плановые/событийные оценки, кандидаты с p/u/исходом, доли
+    # молчания по причине, quantum/fallback share. Правило честности — внутри
+    # блока; фиктивных метрик нет.
+    try:
+        from services import qnd_diagnostics as _qnd
+        payload["quantum"] = await _qnd.collect_quantum(
+            db, chat_id=chat_id, hours=hours)
+    except Exception:
+        payload["quantum"] = {"enabled": False, "mechanisms": {}}
     payload["engine"] = {
         "writer": "direct_l2" if service is not None else "",
         "llm_available": llm is not None,

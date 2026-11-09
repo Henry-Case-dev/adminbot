@@ -201,7 +201,8 @@ _COVERAGE_BONUS = 0.2          # незвучавший недавно пери�
 _USAGE_BONUS = 0.1             # давно не рассказывалось (mca usage)
 _FALLBACK_TOPICAL_REL = 0.45   # FTS/тематика — слабый сигнал, не решатель
 _FALLBACK_OTHER_REL = 0.15
-_DIRECTION_BAND = 0.999        # полоса равно допустимых для квантового выбора
+# QND-NONDET §6(a): «полоса равно допустимых» (`_DIRECTION_BAND`) ОТМЕНЕНА —
+# направление выбирается взвешенным inverse-CDF по всем кандидатам.
 _MEMORY_SUMMARY_CHARS = 160    # кап summary в подсказке памяти
 _MEMORY_HINT_TOTAL = 3         # подсказок Observer за окно
 _MEMORY_QUERY_CAP = 400        # запрос retrieval из текущей беседы
@@ -227,6 +228,10 @@ def _intent_delegation_enabled() -> bool:
 # ── MCA-17 (группа «Фоновые воркеры сна/памяти»): событие nostalgia.run ─────
 _NOSTALGIA_COMPONENT = "nostalgia.run"
 
+# ── QND-NONDET §2: провенанс запуска (schedule | event) ────────────────────
+_TRIGGER_SCHEDULE = "schedule"
+_TRIGGER_EVENT = "event"
+
 
 def _emit(event_name: str, outcome: str, *, level: str = "INFO",
           **fields) -> None:
@@ -237,6 +242,21 @@ def _emit(event_name: str, outcome: str, *, level: str = "INFO",
         from services.mca_events import emit_mca_event
         emit_mca_event(event_name, outcome=outcome, level=level, **fields)
     except Exception:      # контракт не рвёт поток воркера
+        pass
+
+
+_RESULT_DELIVERED = "delivered"
+_RESULT_SEND_RECHECK = "send_recheck"
+
+
+def _record_result(chat_id, *, outcome: str, reason_code: str = "",
+                   trigger: str = _TRIGGER_SCHEDULE) -> None:
+    """Durable `quantum_publication_result` (fail-open, без текста)."""
+    try:
+        from services import quantum_publication as qp
+        qp.record_result(qp.MECH_NOSTALGIA, chat_id, outcome=outcome,
+                         reason_code=reason_code, trigger=trigger)
+    except Exception:
         pass
 
 
@@ -875,39 +895,41 @@ class NostalgiaWorker:
     # ── планировщик ───────────────────────────────────────────────
 
     def start(self) -> None:
-        """Регистрирует джоб nostalgia_tick ВСЕГДА (P0-followup §2,
-        18.10.2026): рубильник проверяется на КАЖДОМ тике и на каждом чате,
-        поэтому hot-включение memory.nostalgia_enabled начинает работать без
-        рестарта бота. OFF → тик — дешёвый no-op (honest skipped/disabled).
+        """Регистрирует ТЕХНИЧЕСКИЙ heartbeat джоба nostalgia_tick.
+
+        QND-NONDET §1/§6(c) (owner corrective 2026-11-10): периодичность тика
+        больше НЕ определяет смысловую частоту — это технический поллер
+        (`limits.qnd_heartbeat_seconds`), который лишь ИСПОЛНЯЕТ наступившие
+        события пер-чатового расписания (`services.semantic_schedule`).
+        PRNG-jitter старта (`random.randint(0, worker_budget.jitter_safe(...))`)
+        УДАЛЁН: он был псевдослучайной частотой, а не квантовой недетерминистикой.
+
+        Рубильник проверяется на КАЖДОМ тике и на каждом чате, поэтому
+        hot-включение memory.nostalgia_enabled работает без рестарта бота.
         Повторный start идемпотентен (replace_existing)."""
         enabled_now = self._flag("enabled", settings.NOSTALGIA_ENABLED)
-        # Раунд 10 (F-10 §5.2): jitter тика (случайный сдвиг ≤ интервал/3);
-        # 0 — если jitter явно не задан (тесты/конфиг без ключа).
-        base_minutes = int(self._limit("tick_minutes",
-                                       settings.NOSTALGIA_TICK_MINUTES) or 60)
-        import random
-        try:
-            from services import worker_budget
-            tick_minutes = base_minutes + (
-                random.randint(0, worker_budget.jitter_safe(base_minutes))
-                if worker_budget.jitter_active() else 0)
-        except Exception:
-            tick_minutes = base_minutes
+        # Технический поллер: `limits.qnd_heartbeat_seconds` (редактируемый
+        # параметр), а не фиксированный интервал смысловых решений.
+        import services.semantic_schedule as _sched
+        heartbeat = int(hot.get("limits.qnd_heartbeat_seconds",
+                                _sched.PARAM_DEFAULTS[
+                                    "limits.qnd_heartbeat_seconds"]) or 0)
+        heartbeat = max(10, heartbeat)
         self._scheduler.add_job(
             self._tick,
             IntervalTrigger(
-                minutes=tick_minutes,
+                seconds=heartbeat,
                 timezone=self._tz_name),
             id=self.JOB_NOSTALGIA_ID, replace_existing=True,
             max_instances=1, coalesce=True)
         if not self._scheduler.running:
             self._scheduler.start()
         logger.info(
-            "NostalgiaWorker %s (tick=%smin, silence=%smin, "
+            "NostalgiaWorker %s (heartbeat=%ss, silence=%smin, "
             "max_per_day=%s, aggressiveness=%s, flag=%s)",
             "started" if enabled_now
             else "registered (флаг off — ждёт hot-включения)",
-            self._limit("tick_minutes", settings.NOSTALGIA_TICK_MINUTES),
+            heartbeat,
             self._limit("min_silence_minutes",
                         settings.NOSTALGIA_MIN_SILENCE_MINUTES),
             self._limit("max_per_day", settings.NOSTALGIA_MAX_PER_DAY),
@@ -927,13 +949,15 @@ class NostalgiaWorker:
     # ── точки входа ───────────────────────────────────────────────
 
     async def _tick(self) -> None:
-        """Scheduler-джоб: полный тик по активным PG-чатам. Анти-рейс с
-        ручным run_once — _run_lock (одновременно не отправляем)."""
+        """Scheduler-heartbeat: исполняет ТОЛЬКО наступившие события
+        расписания (QND-NONDET §1). Частоту смысловых решений задаёт
+        `semantic_schedule`, а не этот тик. Анти-рейс с ручным run_once —
+        `_run_lock` (одновременно не отправляем)."""
         if self._run_lock.locked():
             return
         async with self._run_lock:
             try:
-                await self._run(manual=False)
+                await self._run(manual=False, trigger=_TRIGGER_SCHEDULE)
             except Exception:
                 logger.warning(
                     "[nostalgia] tick failed — fail-open", exc_info=True)
@@ -949,7 +973,8 @@ class NostalgiaWorker:
             return {"status": "already_running"}
         async with self._run_lock:
             try:
-                stats = await self._run(manual=True, only_chat=chat_id)
+                stats = await self._run(manual=True, only_chat=chat_id,
+                                        trigger=_TRIGGER_SCHEDULE)
             except Exception:
                 logger.warning("[nostalgia] run_once failed — fail-open",
                                exc_info=True)
@@ -959,14 +984,16 @@ class NostalgiaWorker:
     # ── тик ───────────────────────────────────────────────────────
 
     async def _run(self, *, manual: bool,
-                   only_chat: int | None = None) -> dict:
+                   only_chat: int | None = None,
+                   trigger: str = _TRIGGER_SCHEDULE) -> dict:
         """Тик ностальгии (MCA-17 `nostalgia.run`): событие start +
         ОДИН терминальный outcome на прогон (не на каждый чат/гейт).
         R17: только счётчики/коды. Тело — `_run_tick` (без изменений)."""
         started = time.monotonic()
         _emit("nostalgia_run", "start", component=_NOSTALGIA_COMPONENT)
         try:
-            stats = await self._run_tick(manual=manual, only_chat=only_chat)
+            stats = await self._run_tick(manual=manual, only_chat=only_chat,
+                                         trigger=trigger)
         except Exception:
             _emit("nostalgia_run", "failed",
                   component=_NOSTALGIA_COMPONENT,
@@ -984,7 +1011,8 @@ class NostalgiaWorker:
         return stats
 
     async def _run_tick(self, *, manual: bool,
-                        only_chat: int | None = None) -> dict:
+                        only_chat: int | None = None,
+                        trigger: str = _TRIGGER_SCHEDULE) -> dict:
         now = _now_ts()
         stats = {"chats": 0, "candidates": 0, "sent": 0, "skipped": 0,
                  "errors": 0}
@@ -1016,7 +1044,8 @@ class NostalgiaWorker:
                 stats["_no_op"] = "no_chats"
                 return stats
         for chat_id in chats:
-            result = await self._process_chat(chat_id, now, manual=manual)
+            result = await self._run_chat(chat_id, now, manual=manual,
+                                          trigger=trigger)
             stats["chats"] += 1
             stats["candidates"] += result["candidates"]
             stats["sent"] += result["sent"]
@@ -1024,10 +1053,111 @@ class NostalgiaWorker:
             stats["errors"] += result["errors"]
         return stats
 
+    # ── расписание (QND-NONDET §1) ────────────────────────────────
+
+    async def _module_on(self, chat_id: int) -> bool:
+        """Дешёвый гейт модуля ДО draw: OFF → ни одного значения не тратим.
+
+        Тот же канонический резолвер, что в `_process_chat` (`gates_enabled`:
+        чатовый выбор → глобальный дефолт). Ошибка — fail-open (как и там).
+        """
+        try:
+            from services.feature_gates import gates_enabled
+            return bool(await gates_enabled(int(chat_id), "nostalgia"))
+        except Exception:
+            logger.warning("[nostalgia] gate check failed — fail-open | "
+                           "chat=%s", chat_id, exc_info=True)
+            return True
+
+    async def _run_chat(self, chat_id: int, now: int, *, manual: bool,
+                        trigger: str = _TRIGGER_SCHEDULE) -> dict:
+        """Исполнить расписание одного чата: не более ОДНОГО исполнения.
+
+        Порядок (§1): гейт модуля (без draw при OFF) → durable-строка
+        (`ensure`: отсутствие = один draw `no_state`) → наступил ли срок →
+        атомарная аренда → устарел ли срок. Устаревший срок НЕ исполняется:
+        только новый draw и `missed_count += 1` — очереди задолженностей нет.
+        После исполнения ВСЕГДА новый draw (никакого фиксированного интервала).
+        """
+        out = {"candidates": 0, "sent": 0, "skipped": 0, "errors": 0}
+        if not await self._module_on(chat_id):
+            logger.debug("[nostalgia] heartbeat skip: module off | chat=%s",
+                         chat_id)
+            return out
+        from services import semantic_schedule as sched
+        try:
+            row = await sched.ensure(self.db, sched.MECH_NOSTALGIA, chat_id,
+                                     now=now)
+        except Exception:
+            logger.warning("[nostalgia] schedule ensure failed | chat=%s",
+                           chat_id, exc_info=True)
+            return out
+        if row is None:
+            return out
+        if not manual and not await sched.due(
+                self.db, sched.MECH_NOSTALGIA, chat_id, now=now):
+            return out
+        if not await sched.claim(self.db, sched.MECH_NOSTALGIA, chat_id,
+                                 now=now, owner=f"nostalgia:{chat_id}"):
+            logger.info("[nostalgia] skip | chat=%s | reason=lease_held",
+                        chat_id)
+            return out
+        planned = int(row.get("next_due_ts") or now)
+        lateness = max(0, now - planned)
+        missed = int(row.get("missed_count") or 0)
+        stale = int(sched.PARAM_DEFAULTS["limits.qnd_stale_seconds"])
+        try:
+            stale = int(round(float(await sched._param(
+                chat_id, "limits.qnd_stale_seconds", stale))))
+        except (TypeError, ValueError):
+            pass
+        if not manual and lateness > max(0, stale):
+            await sched.mark_missed(self.db, sched.MECH_NOSTALGIA, chat_id,
+                                   now=now, missed_count=missed + 1)
+            sched.emit_due(sched.MECH_NOSTALGIA, chat_id, planned_at=planned,
+                           executed_at=now, lateness_seconds=lateness,
+                           missed_count=missed + 1, executed=False,
+                           trigger=trigger,
+                           reason_code=sched.REASON_STALE)
+            logger.info("[nostalgia] stale deadline — только новый draw | "
+                        "chat=%s | late=%ss", chat_id, lateness)
+            await sched.draw_next(self.db, sched.MECH_NOSTALGIA, chat_id,
+                                  now=now, source=self._random_source(),
+                                  trigger=trigger, reason=sched.REASON_STALE)
+            return out
+        try:
+            out = await self._process_chat(chat_id, now, manual=manual,
+                                           trigger=trigger)
+        finally:
+            # Одно исполнение фиксируется ВРЕМЕНЕМ ПРОГОНА (`now`): тесты и
+            # повторные heartbeat'ы видят ту же детерминированную ось, что и
+            # расчёт опоздания.
+            missed_after = (missed + 1) if lateness > 0 else 0
+            await sched.mark_executed(
+                self.db, sched.MECH_NOSTALGIA, chat_id, now=now,
+                trigger=trigger, lateness_seconds=lateness,
+                missed_count=missed_after)
+            sched.emit_due(sched.MECH_NOSTALGIA, chat_id, planned_at=planned,
+                           executed_at=now, lateness_seconds=lateness,
+                           missed_count=missed_after, executed=True,
+                           trigger=trigger)
+            await sched.draw_next(self.db, sched.MECH_NOSTALGIA, chat_id,
+                                  now=now, source=self._random_source(),
+                                  trigger=trigger)
+        return out
+
+    def _random_source(self):
+        """Единственный контур случайности; здесь только DI-крючок для тестов."""
+        injected = getattr(self, "_random", None)
+        if injected is not None:
+            return injected
+        return None
+
     # ── обработка чата ────────────────────────────────────────────
 
     async def _process_chat(self, chat_id: int, now: int, *,
-                            manual: bool) -> dict:
+                            manual: bool,
+                            trigger: str = _TRIGGER_SCHEDULE) -> dict:
         """Тик одного чата: гейты → кандидаты → порог → LLM → отправка →
         аудит nostalgia_log. Возвращает счётчики; fail-open (NFR-4)."""
         out = {"candidates": 0, "sent": 0, "skipped": 0, "errors": 0}
@@ -1107,7 +1237,8 @@ class NostalgiaWorker:
                     chat_id)
                 return out
             # ── дорогие шаги: кандидаты → порог → LLM → отправка ─────
-            await self._candidate_llm_send(chat_id, now, out, active=active)
+            await self._candidate_llm_send(chat_id, now, out, active=active,
+                                           trigger=trigger)
         except Exception:
             logger.warning(
                 "[nostalgia] chat tick failed — WARNING, тик жив | "
@@ -1163,7 +1294,8 @@ class NostalgiaWorker:
                                   out: dict, *,
                                   active: bool = False,
                                   candidate: dict | None = None,
-                                  pick_info: dict | None = None) -> None:
+                                  pick_info: dict | None = None,
+                                  trigger: str = _TRIGGER_SCHEDULE) -> None:
         """Дорогой шаг тика (§3.5.2–3.5.4): кандидат, порог агрессивности,
         1 облачный LLM-вызов, отправка. Все исходы — строка в nostalgia_log
         (status sent/skipped/error). Никогда не бросает (fail-open).
@@ -1194,25 +1326,10 @@ class NostalgiaWorker:
             return
         out["candidates"] += 1
         candidate["_pool_info"] = dict(pick_info or {})
-        threshold = self._threshold()
-        # NOST-05: порог агрессивности — технический предварительный отбор
-        # ТОЛЬКО слабых «золотых» фактов; исторический пул (годовщины/
-        # тематические) не гейтится фиксированной арифметикой происхождения —
-        # содержательную пригодность решает типизированный вердикт LLM
-        # (NOST-01) в том же вызове.
-        if candidate["kind"] != "year_back" \
-                and candidate["weight"] < threshold:
-            await self._log(chat_id, now, candidate["kind"],
-                            candidate.get("fact_id"), _STATUS_SKIPPED,
-                            {**self._candidate_meta(candidate),
-                             "reason": "threshold",
-                             "weight": round(candidate["weight"], 3),
-                             "threshold": round(threshold, 3)})
-            logger.info(
-                "[nostalgia] skip | chat=%s | reason=threshold "
-                "(weight=%.2f < %.2f)", chat_id, candidate["weight"],
-                threshold)
-            return
+        # QND-NONDET §3/§6(b) (owner corrective 2026-11-10): порог
+        # агрессивности как ОТДЕЛЬНЫЙ молчаливый гейт УДАЛЁН — вес кандидата
+        # теперь ФАКТОР вероятности публикации (`decide()`), а не отдельный
+        # запрет. Содержательную уместность решает модель; частоту — draw.
         # Раунд 10 (F-10 §5): consume до LLM-вызова генерации (global +
         # chat:<id>); False → nostalgia_log status='budget_skip'.
         if not await self._nostalgia_budget_ok(chat_id, candidate["text"]):
@@ -1244,11 +1361,15 @@ class NostalgiaWorker:
         if chosen_slot is not None:
             candidate["_chosen_slot"] = chosen_slot
         if verdict == "unchanged":
+            # Семантический отказ модели: содержательного повода нет —
+            # `silence_cause=semantic_none`, draw НЕ делается (§3).
             await self._log(chat_id, now, candidate["kind"],
                             candidate.get("fact_id"), _STATUS_SKIPPED,
                             {**self._candidate_meta(candidate),
                              "reason": "unchanged", "llm_skipped": True,
-                             "protocol": verdict})
+                             "protocol": verdict,
+                             "silence_cause": "semantic_none",
+                             "trigger": trigger})
             out["skipped"] += 1
             logger.info(
                 "[nostalgia] LLM UNCHANGED — skip | chat=%s | kind=%s",
@@ -1283,6 +1404,29 @@ class NostalgiaWorker:
             return
         meta = {**self._candidate_meta(candidate), "reason": "sent",
                 "protocol": verdict}
+        # ── QND-NONDET §3: ЕДИНСТВЕННОЕ вероятностное решение публикации ──
+        # Всё, что могло запретить, уже проверено ВЫШЕ (модуль/права, дневной
+        # лимит, cooldown/Q14, бюджет, семантический вердикт). После draw нет
+        # второго «тихого» гейта: publish=True — кандидат публикуется
+        # существующим транспортом (SendRecheck остаётся проверкой свежести).
+        decision = await self._publication_decision(
+            int(chat_id), now, candidate, trigger=trigger)
+        if decision is None or not decision.publish:
+            from services import quantum_publication as _qp
+            cause = str(getattr(decision, "silence_cause", "") or
+                        _qp.SILENCE_RANDOM_UNAVAILABLE)
+            await self._log(chat_id, now, candidate["kind"],
+                            candidate.get("fact_id"), _STATUS_SKIPPED,
+                            {**self._candidate_meta(candidate),
+                             "reason": cause, "trigger": trigger,
+                             "random": (decision.as_dict()
+                                        if decision is not None else {})})
+            out["skipped"] += 1
+            logger.info(
+                "[nostalgia] publication random decision — skip | chat=%s | "
+                "cause=%s | trigger=%s", chat_id, cause, trigger)
+            return
+        meta.update({"trigger": trigger, "random": decision.as_dict()})
         # MCA-09 (T-5038, ADR-1028-16 D6): K1+K3 ON → готовый кандидат
         # делегируется в ЕДИНЫЙ Decision/транспорт (source=nostalgia,
         # trigger_kind=nostalgia_due, prepared_text_ref); решение может
@@ -1298,6 +1442,9 @@ class NostalgiaWorker:
                                 {**meta, "path": "initiative"})
                 out["sent"] += 1
                 await self._mark_memory_used(chat_id, candidate)
+                _record_result(chat_id, outcome=_RESULT_DELIVERED,
+                               reason_code="initiative_sent",
+                               trigger=trigger)
             elif status == "error":
                 # сбой единственного транспорта — честный error (не skip)
                 await self._log(
@@ -1311,8 +1458,12 @@ class NostalgiaWorker:
                     chat_id, now, candidate["kind"],
                     candidate.get("fact_id"), _STATUS_SKIPPED,
                     {**self._candidate_meta(candidate),
-                     "reason": f"initiative_{status}"})
+                     "reason": f"initiative_{status}",
+                     "trigger": trigger,
+                     "silence_cause": _RESULT_SEND_RECHECK})
                 out["skipped"] += 1
+                _record_result(chat_id, outcome=_RESULT_SEND_RECHECK,
+                               reason_code=str(status), trigger=trigger)
                 logger.info(
                     "[nostalgia] initiative path | chat=%s | status=%s",
                     chat_id, status)
@@ -1368,9 +1519,88 @@ class NostalgiaWorker:
                         {**meta, "coordination": publication.coordination})
         out["sent"] += 1
         await self._mark_memory_used(chat_id, candidate)
+        _record_result(chat_id, outcome=_RESULT_DELIVERED,
+                       reason_code="nostalgia_sent", trigger=trigger)
         logger.info(
             "[nostalgia] sent | chat=%s | kind=%s | chars=%d",
             chat_id, candidate["kind"], len(text))
+
+    async def _publication_factors(self, chat_id: int, now: int,
+                                   candidate: dict) -> dict:
+        """Факторы §3 из ФАКТИЧЕСКИХ данных кандидата (без выдуманных чисел).
+
+        r — смысловая релевантность (единый retrieval / ранжированный вес);
+        s — значимость кандидата (его вес, не «оценка ценности»);
+        a — соответствие активности беседы; t — свежесть источника;
+        q — качество памяти (только при реальном memory-доказательстве,
+            иначе фактор выпадает и веса перенормируются);
+        n — недавние инициативы относительно дневного лимита.
+        """
+        from services import quantum_publication as qp
+        episodes = [ep for ep in (candidate.get("episodes") or ())
+                    if isinstance(ep, dict)]
+        relevance = None
+        for ep in episodes:
+            try:
+                relevance = float(ep.get("relevance"))
+                break
+            except (TypeError, ValueError):
+                continue
+        if relevance is None and episodes:
+            relevance = max((float(ep.get("weight_score") or 0.0)
+                             for ep in episodes), default=0.0)
+        if relevance is None:
+            try:
+                relevance = float(candidate.get("weight") or 0.0)
+            except (TypeError, ValueError):
+                relevance = None
+        significance = candidate.get("weight")
+        activity = await qp.activity_factor_for(self.db, chat_id, now=now)
+        horizon = await qp._num(
+            chat_id, "limits.qnd_freshness_horizon_seconds",
+            qp._FRESHNESS_DEFAULT, minimum=1.0)
+        newest = max((int(ep.get("end_ts") or 0) for ep in episodes),
+                     default=0)
+        freshness = None
+        if newest:
+            freshness = qp.freshness_factor(max(0, now - newest), horizon)
+        quality = None
+        if any(ep.get("memory_ref") for ep in episodes):
+            reference = await qp._num(
+                chat_id, "limits.qnd_memory_quality_reference",
+                qp.DEFAULT_MEMORY_REFERENCE, minimum=1e-6)
+            top = max((float(ep.get("relevance") or 0.0) for ep in episodes),
+                      default=0.0)
+            quality = qp.memory_quality_factor(top, reference)
+        recent = None
+        try:
+            day_start = _day_start_ts(now, self._tz_name)
+            sent_today = await self.db.count_nostalgia_sent_since(
+                int(chat_id), day_start)
+            max_day = int(self._limit("max_per_day",
+                                      settings.NOSTALGIA_MAX_PER_DAY) or 0)
+            recent = qp.recent_factor(sent_today, max_day)
+        except Exception:
+            recent = None
+        return {"r": relevance, "s": significance, "a": activity,
+                "t": freshness, "q": quality, "n": recent}
+
+    async def _publication_decision(self, chat_id: int, now: int,
+                                    candidate: dict, *, trigger: str):
+        """Один `decide()` (§3) — единственное решение о публикации."""
+        from services import quantum_publication as qp
+        try:
+            factors = await self._publication_factors(chat_id, now, candidate)
+        except Exception:
+            logger.warning("[nostalgia] publication factors failed | chat=%s",
+                           chat_id, exc_info=True)
+            factors = {}
+        ref = "%s:%s" % (str(candidate.get("kind") or ""),
+                         str(candidate.get("fact_id") or ""))
+        return await qp.decide(
+            self.db, mechanism=qp.MECH_NOSTALGIA, chat_id=int(chat_id),
+            factors=factors, candidate_ref=ref,
+            source=self._random_source(), trigger=trigger, now=now)
 
     async def _mark_memory_used(self, chat_id: int, candidate: dict) -> None:
         """Отметить ФАКТ доставки записи памяти (mca usage: `last_used_in_chat_at`).
@@ -1494,9 +1724,12 @@ class NostalgiaWorker:
         }
         out = {"candidates": 0, "sent": 0, "skipped": 0, "errors": 0}
         out["candidates"] += 1
+        # Провенанс: воспоминание в ЖИВОМ разговоре — событийный путь (§2),
+        # даже если окно оценил плановый проход (повод найден в беседе, а не
+        # heartbeat-ом). Должно быть видно в журнале/событии.
         await self._candidate_llm_send(
             int(chat_id), stamp, out, active=True, candidate=candidate,
-            pick_info=candidate["_pool_info"])
+            pick_info=candidate["_pool_info"], trigger=_TRIGGER_EVENT)
         if out["sent"]:
             return {"status": "sent"}
         if out["errors"]:
@@ -1677,27 +1910,32 @@ class NostalgiaWorker:
 
     async def _direction_pick(self, chat_id: int, ordered: list[int],
                               info: dict) -> int | None:
-        """Единственная точка квантового направления (VMQ-ONTO-01) — §3
-        контракта `plans/features/smart-module-semantic-routing/
-        nostalgia-seam-contract.md` (NOSTALGIA SEAM RECONCILED).
+        """Направление исследования памяти — ВЗВЕШЕННЫЙ квантовый выбор.
 
-        Контракт по существу (owner corrective 2026-11-10): случайность
-        (`RandomSourceService`, purpose `memory_recall`) решает ТОЛЬКО, какой
-        из равно допустимых по весу эпизодов займёт граничный слот
-        предъявления — направление исследования. Достоверность воспоминания
-        (источник — реальные сообщения) и обязанность публикации (вердикт
-        модели + общий Decision) не затрагиваются: подмена источника на
-        детерминированный меняет только распределение, не результат-истину.
-        Нет полосы равенства/источник недоступен → None (детерминированный
-        порядок).
+        QND-NONDET §6(a) (owner corrective 2026-11-10): прежняя «полоса
+        равно допустимых» (`_DIRECTION_BAND` от `_EPISODES_MAX-1`) ОТМЕНЕНА —
+        квантовое значение выбирает направление среди ВСЕХ допустимых
+        кандидатов с весами `0.65*relevance + 0.2*coverage + 0.1*usage`
+        (те же компоненты, что у `_episode_weight`).
+
+        Одно значение `u ∈ [0,1)` от единственного `RandomSourceService`
+        (purpose `memory_recall`) → inverse-CDF по накопленным весам: без
+        псевдослучайности и без смещения. Достоверность воспоминания
+        (реальные сообщения) и обязанность публикации (вердикт модели +
+        §3 `decide()`) не затрагиваются.
         """
-        if len(ordered) <= _EPISODES_MAX:
+        if len(ordered) < 2:
             return None
-        pivot = ordered[_EPISODES_MAX - 1]
-        band = [i for i in range(_EPISODES_MAX - 1, len(ordered))
-                if ordered[i].get("weight_score", 0.0) + 1e-9
-                >= pivot.get("weight_score", 0.0) * _DIRECTION_BAND]
-        if len(band) < 2:
+        weights: list[float] = []
+        for ep in ordered:
+            try:
+                # Мягкий минимум: нулевой вес не делает эпизод недостижимым
+                # (иначе «вес 0» стал бы молчаливым запретом).
+                weights.append(max(1e-6, float(ep.get("weight_score") or 0.0)))
+            except (TypeError, ValueError):
+                weights.append(1e-6)
+        total = sum(weights)
+        if total <= 0:
             return None
         try:
             from services import mca_exploration as me
@@ -1705,27 +1943,39 @@ class NostalgiaWorker:
                 self.db, me.PURPOSE_MEMORY_RECALL, chat_id)
             if not allowed:
                 return None
-            source = me.get_source(self.db)
-            result = await source.draw_index(
-                len(band), chat_id=chat_id, purpose=me.PURPOSE_MEMORY_RECALL,
-                candidates=[str(i) for i in band])
+            source = self._random_source() or me.get_source(self.db)
+            result = await source.draw_probability(
+                chat_id=chat_id, purpose=me.PURPOSE_MEMORY_RECALL)
         except Exception:
             logger.warning("[nostalgia] direction draw failed — порядок "
                            "детерминированный | chat_id=%s", chat_id)
             return None
-        if result is None or getattr(result, "deferred", False):
-            info["direction"] = {"deferred": True,
-                                 "reason": str(getattr(result, "reason", "")
-                                               or "deferred")}
+        if result is None or getattr(result, "deferred", False) or \
+                getattr(result, "value", None) is None:
+            info["direction"] = {
+                "deferred": True,
+                "reason": str(getattr(result, "reason", "") or "deferred")}
             return None
-        index = getattr(result, "index", None)
-        if not isinstance(index, int) or not 0 <= index < len(band):
+        try:
+            u = min(0.999999999, max(0.0, float(result.value)))
+        except (TypeError, ValueError):
             return None
+        target = u * total
+        index = len(weights) - 1
+        consumed = 0.0
+        for pos, weight in enumerate(weights):
+            consumed += weight
+            if target < consumed:
+                index = pos
+                break
         info["direction"] = {
-            "band": len(band), "index": index,
+            "candidates": len(weights),
+            "index": index,
+            "u": round(u, 9),
             "source": str(getattr(result, "source", "") or ""),
+            "draw_id": getattr(result, "draw_id", None),
             "purpose": me.PURPOSE_MEMORY_RECALL}
-        return band[index]
+        return index
 
     async def _pick_candidate(self, chat_id: int, now: int
                               ) -> tuple[dict | None, dict]:

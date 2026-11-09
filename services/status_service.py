@@ -1205,6 +1205,12 @@ class StatusService:
             "random": await self.random_source_snapshot(
                 chat_id=chat_id, is_global_admin=is_global_admin,
                 chat_scope_allowed=chat_scope_allowed),
+            # QND-NONDET §5 (owner corrective 2026-11-10): блок фактической
+            # недетерминистики по механизмам — последняя/следующая смысловая
+            # проверка, источник последнего draw, решения/молчания/доставки.
+            # Правило честности внутри: без квантовых значений слово
+            # «работает» не появляется (`honesty.status_word_allowed`).
+            "quantum": await self._quantum_snapshot(chat_id=chat_id),
             # Раунд 10.39 (MCA-16, ADR-1028-15 D9/T-5006): читающий блок
             # «Опыт» — реальные уроки/применения, БЕЗ внешних вызовов;
             # unknown-исходы не выдаются за улучшение (A57). K1 OFF → disabled.
@@ -1229,6 +1235,28 @@ class StatusService:
                 "generated_at": now.isoformat(),
             },
         }
+
+    async def _quantum_snapshot(self, *, chat_id: int | None = None) -> dict:
+        """QND-NONDET §5: фактические данные расписания/публикации.
+
+        Читающий блок: только durable-строки и durable-события, без внешних
+        вызовов. Ошибка сбора не роняет «Статус» (`enabled=False` +
+        честная причина), ноль данных показывается нулём.
+        """
+        try:
+            from services import lore_runtime
+            from services import qnd_diagnostics as qnd
+            db = lore_runtime.get_lore_db()
+            if db is None:
+                return {"enabled": False, "reason": "db_unavailable",
+                        "mechanisms": {}}
+            return {"enabled": True,
+                    **await qnd.collect_quantum(db, chat_id=chat_id)}
+        except Exception:      # pragma: no cover - defensive
+            logger.warning("[status] quantum snapshot unavailable",
+                           exc_info=True)
+            return {"enabled": False, "reason": "unavailable",
+                    "mechanisms": {}}
 
     async def _build_llm_card(self, provider: dict, *,
                               is_global_admin: bool = False) -> dict:

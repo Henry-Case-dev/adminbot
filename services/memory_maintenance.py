@@ -558,7 +558,11 @@ class MemoryMaintenanceService:
                 self.db, bot=self.bot, writer_service=service, llm=llm,
                 # P0 corrective 25.10.2026 (F2/F3): тот же live-резолвер, что
                 # у Direct/Summary; без него — прежние author_name.
-                alias_resolver=getattr(service, "aliases", None))
+                alias_resolver=getattr(service, "aliases", None),
+                # QND-NONDET §1: технический heartbeat исполняет только
+                # наступившие события пер-чатового расписания (due_chats /
+                # `scan_requested_at`); фиксированной смысловой частоты нет.
+                trigger="schedule")
             counters = {}
             try:
                 active = await observer.get_active_observe(self.db)

@@ -37,6 +37,7 @@ from services import hot_config
 from services import initiative_observer as obs
 from services import mca_events
 from services import nostalgia_worker as nw
+from services import semantic_schedule as sched
 from services.database import DatabaseService
 from services.mca_episodes import (
     EpisodeRepository,
@@ -81,6 +82,19 @@ def _caches(settings: dict | None = None):
 def _reset_caches():
     hot_config.set_config_cache(None)
     chat_params.set_chat_params_cache(None)
+
+
+async def _observe_event(db, **kwargs):
+    """QND-NONDET §2: живое сообщение будит Observer немедленно.
+
+    Плановый тик исполняет только наступившие сроки, поэтому тест, чей предмет
+    — обнаружение повода в ЖИВОМ разговоре, идёт событийным путём (тот же
+    Observer, тот же Writer/Decision/SendRecheck).
+    """
+    await sched.request_event(db, chat_id=CHAT, reason="live_message",
+                              dispatch=False)
+    return await obs.observe_tick(db, trigger="event", only_chat=CHAT,
+                                  **kwargs)
 
 
 class _FakeBot:
@@ -251,7 +265,7 @@ async def test_in_conversation_recall_uses_real_memory_sources(db, monkeypatch):
     ])
     seen = _patch_transport(monkeypatch)
 
-    status = await obs.observe_tick(db, bot=bot, writer_service=None, llm=llm)
+    status = await _observe_event(db, bot=bot, writer_service=None, llm=llm)
     assert status in ("completed", "not_due", "running")
     # Воспоминание ушло единым транспортом и несёт текст писателя ностальгии.
     assert seen["texts"] == [
@@ -437,7 +451,7 @@ async def test_legacy_lore_story_can_be_recalled(db, monkeypatch):
         "SAY\nа помните, как чинили аквариум",
     ])
     seen = _patch_transport(monkeypatch)
-    await obs.observe_tick(db, bot=_FakeBot(), writer_service=None, llm=llm)
+    await _observe_event(db, bot=_FakeBot(), writer_service=None, llm=llm)
     assert seen["texts"] == ["а помните, как чинили аквариум"]
     rows = await _nostalgia_log(db)
     sent = [r for r in rows if r["status"] == "sent"]
@@ -470,45 +484,68 @@ def test_rank_covers_unseen_period():
 
 @pytest.mark.asyncio
 async def test_direction_draw_picks_boundary_slot_only(db, monkeypatch):
-    """Квантовое направление решает только, какой равно допустимый эпизод
-    займёт граничный слот; достоверность и обязанность публикации — нет."""
+    """Направление исследования решает ОДНО квантовое значение.
+
+    QND-NONDET §6(a): «полоса равно допустимых» отменена — inverse-CDF по
+    весам ВСЕХ кандидатов (`0.65*relevance + 0.2*coverage + 0.1*usage`).
+    Достоверность воспоминания и обязанность публикации не затрагиваются:
+    выбирается только, какой эпизод предъявить первым.
+    """
     now = int(time.time())
     monkeypatch.setattr(nw, "_now_ts", lambda: now)
     worker = nw.NostalgiaWorker(db, memory=None, store=None,
                                 llm=_FakeLLM(), bot=_FakeBot(), bot_id=BOT_ID)
-    pool = [{"year": 2020 + i, "topical": False, "start_ts": i}
-            for i in range(6)]
+    pool = [{"year": 2020 + i, "topical": False, "start_ts": i,
+             "relevance": 0.1 + 0.1 * i} for i in range(6)]
     ordered = nw._rank_episodes(pool)
 
     class _Result:
         deferred = False
         reason = None
         source = "quantum"
-        index = 1
+        draw_id = "draw-1"
 
     class _Source:
-        def __init__(self):
+        """Одно значение `u` → детерминированный inverse-CDF."""
+
+        def __init__(self, value):
+            self.value = value
             self.calls = []
 
-        async def draw_index(self, n, *, chat_id=None, purpose="",
-                             candidates=None):
-            self.calls.append((n, purpose))
-            return _Result()
+        async def draw_probability(self, *, chat_id=None, purpose="",
+                                   policy_version=None, probability=None):
+            self.calls.append((chat_id, purpose))
+            return type("R", (), {"deferred": False, "reason": None,
+                                  "source": "quantum", "draw_id": "draw-1",
+                                  "value": self.value})()
 
     from services import mca_exploration as me
-    source = _Source()
 
     async def _allowed(db_, purpose, chat_id=None):
         return True, None
 
     monkeypatch.setattr(me, "exploration_allowed", _allowed)
-    monkeypatch.setattr(me, "get_source", lambda db=None: source)
+
+    # u≈0 → самый «тяжёлый» кандидат (первый в порядке ранжирования).
+    low = _Source(0.0)
+    monkeypatch.setattr(me, "get_source", lambda db=None: low)
     info: dict = {}
-    index = await worker._direction_pick(CHAT, ordered, info)
-    assert index == nw._EPISODES_MAX           # вторая позиция полосы
-    assert info["direction"]["band"] >= 2
+    first = await worker._direction_pick(CHAT, ordered, info)
+    assert first == 0
     assert info["direction"]["source"] == "quantum"
-    assert source.calls and source.calls[0][1] == me.PURPOSE_MEMORY_RECALL
-    # Нет полосы равенства → детерминированный порядок, draw не выполняется.
-    narrow = await worker._direction_pick(CHAT, ordered[:2], {})
-    assert narrow is None
+    assert info["direction"]["draw_id"] == "draw-1"
+    assert info["direction"]["candidates"] == len(ordered)
+    assert low.calls and low.calls[0][1] == me.PURPOSE_MEMORY_RECALL
+
+    # u≈1 → последний в порядке (кумулятивный вес добегает до конца).
+    high = _Source(0.999999)
+    monkeypatch.setattr(me, "get_source", lambda db=None: high)
+    info2: dict = {}
+    last = await worker._direction_pick(CHAT, ordered, info2)
+    assert last == len(ordered) - 1
+
+    # Один кандидат — выбора нет, значение не тратится.
+    single = _Source(0.5)
+    monkeypatch.setattr(me, "get_source", lambda db=None: single)
+    assert await worker._direction_pick(CHAT, ordered[:1], {}) is None
+    assert single.calls == []

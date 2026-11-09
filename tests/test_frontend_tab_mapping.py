@@ -190,9 +190,16 @@ class TestTabMappingAudit:
         # SMART_CACHE_TTL_SECONDS/SMART_CACHE_MAX_ROWS/CHAT_DEDUP_ENABLED/
         # CHAT_DEDUP_TTL_SECONDS), −2 GROUPS (limits_smart_cache/
         # flags_smart_cache), −2 mapped → фактические 581/119/117.
-        assert len(pc._TAB_BY_GROUP) == 117
-        assert len(GROUPS) == 119
-        assert len(pc.REGISTRY) == 606
+        # QND-NONDET (10.11.2026): +32 REGISTRY (квантовое расписание и
+        # вероятность публикации: `limits.qnd_*` + compat-мэппинг
+        # `initiative.trigger_probability`), +2 GROUPS
+        # (limits_qnd/limits_qnd_nostalgia — одна группа = одна вкладка),
+        # +2 mapped (mod_initiative/mod_nostalgia) → 613/121/119.
+        # ФАКТ после фиксации счётчиков: REGISTRY=638 (до этого пин 606 уже
+        # дрейфовал от фактического значения — см. комментарий выше).
+        assert len(pc._TAB_BY_GROUP) == 119
+        assert len(GROUPS) == 121
+        assert len(pc.REGISTRY) == 638
 
 
 class TestModuleTabs:
@@ -310,7 +317,10 @@ class TestModuleTabs:
         # MCA-10a (ADR-1028-14 D8, ТЗ §14.4): на «Сне» — memory_dream +
         # memory_random («Случайность»; TAB_RULES in-place).
         assert tab_group_ids(TAB_MOD_SLEEP) == {"memory_dream", "memory_random"}
-        assert tab_group_ids(TAB_MOD_NOSTALGIA) == {"memory_nostalgia"}
+        # QND-NONDET (10.11.2026): на вкладке «Ностальгия» появилась группа
+        # квантового расписания/вероятности публикации (in-place).
+        assert tab_group_ids(TAB_MOD_NOSTALGIA) == {
+            "memory_nostalgia", "limits_qnd_nostalgia"}
 
 
 class TestAiTabs:

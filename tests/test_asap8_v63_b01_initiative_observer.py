@@ -38,9 +38,28 @@ BOT_ID = 999
 
 @pytest.fixture(autouse=True)
 def _clean_event_buffer():
-    mca_events.reset_pending()
     yield
     mca_events.reset_pending()
+
+
+@pytest.fixture(autouse=True)
+def _qnd_schedule_due(monkeypatch):
+    """QND-NONDET §1 (2026-11-10): предмет этих тестов — решения Observer
+    (гейты, дедуп, воронка), а не расписание. Событие расписания считается
+    наступившим для каждого чата с сообщениями; сами сроки/аренда/розыгрыши
+    покрыты `tests/test_qnd_schedule.py`."""
+    from services import semantic_schedule as _sched
+
+    async def _due(db, mechanism, chat_id, *, now=None):
+        return True
+
+    async def _due_chats(db, mechanism, *, now=None):
+        cursor = await db.db.execute(
+            "SELECT DISTINCT chat_id FROM smart_messages")
+        return [int(r["chat_id"]) for r in await cursor.fetchall()]
+
+    monkeypatch.setattr(_sched, "due", _due)
+    monkeypatch.setattr(_sched, "due_chats", _due_chats)
 
 
 @pytest.fixture(autouse=True)
@@ -111,6 +130,10 @@ def _verdict(**kw) -> str:
             "topic_key": "games", "goal": "участники обсуждают игры",
             "rationale": "живая тема, есть что добавить"}
     base.update(kw)
+    # QND-NONDET §3: `action=silent` обязан нести обоснование из закрытого
+    # набора (иначе это невалидный вердикт, а не «тихий отказ»).
+    if base.get("action") == "silent" and not base.get("veto_reason"):
+        base["veto_reason"] = "no_substance"
     return json.dumps(base, ensure_ascii=False)
 
 

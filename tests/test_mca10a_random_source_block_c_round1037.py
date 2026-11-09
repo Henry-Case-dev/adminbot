@@ -82,9 +82,13 @@ class TestCatalogContract:
         # Санкция §13.2: +13/+2/+2, TAB_RULES 21 in-place.
         # ASAP 7 (F3, §3.2): +9 REGISTRY / +2 GROUPS / +2 mapped /
         # TAB_RULES 23 (+mod_initiative) — см. test_param_catalog/frontend.
-        assert len(pc.REGISTRY) == 606
-        assert len(pc.GROUPS) == 119
-        assert len(pc._TAB_BY_GROUP) == 117
+        # QND-NONDET (10.11.2026): +32 REGISTRY (limits.qnd_* + compat
+        # initiative.trigger_probability), +2 GROUPS (limits_qnd /
+        # limits_qnd_nostalgia), +2 mapped (mod_initiative/mod_nostalgia);
+        # TAB_RULES 22 без роста (группы — на существующих вкладках).
+        assert len(pc.REGISTRY) == 638
+        assert len(pc.GROUPS) == 121
+        assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
 
     def test_per_chat_vs_global(self):

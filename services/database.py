@@ -1843,6 +1843,20 @@ _VOICE_TRANSCRIPT_COLUMNS: tuple[tuple[str, str], ...] = (
 # `services.mca_experience`, шаг его только применяет. Повтор — no-op.
 _SCHEMA_VERSION_LESSON_SEMANTIC = 46
 
+# QND-NONDET (owner corrective 2026-11-10; contract
+# `smart-module-semantic-routing/quantum-nondeterminism-contract.md` §1): v47 —
+# ровно одна аддитивная таблица `semantic_schedule` (PK chat_id+mechanism):
+# durable-момент следующей СМЫСЛОВОЙ проверки, параметры/значение последнего
+# draw, lease конкурентных прогонов, `scan_requested_at` событийного сигнала.
+# DDL — в модуле-владельце механизма (`services.semantic_schedule.
+# SEMANTIC_SCHEDULE_DDL_SQLITE`, IF NOT EXISTS + индекс); шаг только применяет
+# его. Backfill НЕТ: пустая таблица = «расписания ещё нет», первый heartbeat
+# делает единственный draw (`reason="no_state"`). Повтор — no-op, PG — no-op
+# (расписание живёт в операционной SQLite рядом с задачами/слотами).
+# Обратимость поведенческая: старый код таблицу не читает — cold git revert,
+# down-миграции нет (таблица остаётся инертной).
+_SCHEMA_VERSION_SEMANTIC_SCHEDULE = 47
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -3143,6 +3157,14 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_LESSON_SEMANTIC,
                           "lesson_semantic_v46",
                           lambda svc: svc._migrate_lesson_semantic_v46()),
+            # QND-NONDET (owner corrective 2026-11-10): v47 — аддитивная
+            # таблица пер-чатового квантового расписания смысловой проверки
+            # `semantic_schedule`. DDL — дословно в модуле-владельце
+            # (`services.semantic_schedule`), здесь только применение.
+            # Идемпотентно (CREATE IF NOT EXISTS), backfill нет, PG — no-op.
+            MigrationStep(_SCHEMA_VERSION_SEMANTIC_SCHEDULE,
+                          "semantic_schedule_v47",
+                          lambda svc: svc._migrate_semantic_schedule_v47()),
         ]
 
     @staticmethod
@@ -3711,6 +3733,25 @@ class DatabaseService:
                     "(added=%s, templates_seeded=%d)", added or "-", seeded)
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_LESSON_SEMANTIC}")
+        await self.db.commit()
+
+    async def _migrate_semantic_schedule_v47(self) -> None:
+        """v47 (QND-NONDET §1): durable пер-чатовое расписание проверки.
+
+        Одна аддитивная таблица `semantic_schedule` (DDL — в модуле-владельце,
+        `CREATE TABLE IF NOT EXISTS` + индекс) и ничего больше: существующие
+        таблицы не меняются, ни одного UPDATE/DELETE/backfill.
+
+        Идемпотентно (повтор — no-op), PG — no-op (операционная SQLite).
+        Откат поведенческий: старый код таблицу не читает."""
+        from services import semantic_schedule
+        await self.db.execute(semantic_schedule.SEMANTIC_SCHEDULE_DDL_SQLITE)
+        for statement in semantic_schedule.SEMANTIC_SCHEDULE_INDEX_DDL:
+            await self.db.execute(statement)
+        await self.db.commit()
+        logger.info("[database] migration v47: semantic_schedule table ready")
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_SEMANTIC_SCHEDULE}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:

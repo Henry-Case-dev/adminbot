@@ -136,6 +136,19 @@ async def _log_rows(db, status=None):
     return await cur.fetchall()
 
 
+async def _make_nostalgia_due(db, due_ts: int, *, chat_id: int = CHAT_ID):
+    """QND-NONDET §1: сделать наступившим срок расписания ностальгии чата.
+
+    Это ровно то, что происходит в проде само: пер-чатовый draw назначил срок,
+    и он прошёл. Тест не ждёт часов — двигает durable-строку.
+    """
+    await db.db.execute(
+        "UPDATE semantic_schedule SET next_due_ts = ?, lease_until = 0 "
+        "WHERE chat_id = ? AND mechanism = 'nostalgia'",
+        (int(due_ts), int(chat_id)))
+    await db.db.commit()
+
+
 def _user_message(llm, index=0) -> str:
     messages = llm.calls[index][0]
     return next(m["content"] for m in messages if m["role"] == "user")
@@ -169,6 +182,13 @@ class TestHotEnable:
             result = await w.run_once(CHAT_ID)      # kill-switch держит ручные
             assert result["sent"] == 0 and llm.calls == []
             h.values["memory.nostalgia_enabled"] = True   # hot-включение
+            # QND-NONDET §1: первый heartbeat после включения только СОЗДАЁТ
+            # durable-расписание (один draw, срок в будущем) — смысловой
+            # проверки ещё не было.
+            stats = await w._run(manual=False)
+            assert stats["sent"] == 0 and bot.calls == []
+            # Срок наступил → ровно одно исполнение без рестарта бота.
+            await _make_nostalgia_due(db, NOW - 60)
             stats = await w._run(manual=False)      # без рестарта бота
             assert stats["chats"] == 1 and stats["sent"] == 1
             assert bot.calls == [(CHAT_ID, "кстати, помню сочи")]

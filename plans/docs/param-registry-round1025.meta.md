@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.178`
-- **HEAD (short):** `2779059b`
+- **APP_VERSION:** `2.58.172`
+- **HEAD (short):** `6674811f`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **606** / GROUPS **119** / `_TAB_BY_GROUP` **117** / TAB_RULES **22**.
-- **Реестр:** 606 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **638** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **22**.
+- **Реестр:** 638 строк == REGISTRY.
 - **inventory.tsv (10.14):** 401 baseline-ключей.
-- **Дельта 411 → 606 = 205** новых ключей (`status=new`).
+- **Дельта 411 → 638 = 237** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 606 = 205 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 638 = 237 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -91,6 +91,7 @@
 - `initiative.min_gap_seconds`
 - `initiative.observation_target_interval_seconds`
 - `initiative.soft_target_replies_per_day`
+- `initiative.trigger_probability`
 - `keys.direct_l1_api_key`
 - `keys.embedding_quota_group_labels`
 - `keys.image_api_key`
@@ -126,6 +127,37 @@
 - `limits.intent_heartbeat_batch_max`
 - `limits.intent_max_attempts`
 - `limits.intent_retention_days`
+- `limits.qnd_activity_max_factor`
+- `limits.qnd_activity_min_factor`
+- `limits.qnd_activity_target_mps`
+- `limits.qnd_budget_factor`
+- `limits.qnd_cadence_floor_seconds`
+- `limits.qnd_cadence_shape`
+- `limits.qnd_event_debounce_seconds`
+- `limits.qnd_event_min_interval_seconds`
+- `limits.qnd_freshness_horizon_seconds`
+- `limits.qnd_heartbeat_seconds`
+- `limits.qnd_initiative_max_seconds`
+- `limits.qnd_initiative_min_seconds`
+- `limits.qnd_initiative_publication_max`
+- `limits.qnd_initiative_publication_min`
+- `limits.qnd_lease_seconds`
+- `limits.qnd_memory_quality_reference`
+- `limits.qnd_nostalgia_max_seconds`
+- `limits.qnd_nostalgia_min_seconds`
+- `limits.qnd_nostalgia_publication_max`
+- `limits.qnd_nostalgia_publication_min`
+- `limits.qnd_publication_tau`
+- `limits.qnd_publication_theta`
+- `limits.qnd_silence_factor`
+- `limits.qnd_silence_hours`
+- `limits.qnd_stale_seconds`
+- `limits.qnd_w_activity`
+- `limits.qnd_w_freshness`
+- `limits.qnd_w_memory`
+- `limits.qnd_w_recent`
+- `limits.qnd_w_relevance`
+- `limits.qnd_w_significance`
 - `limits.summary_hybrid_context_chars`
 - `limits.summary_hybrid_context_tokens`
 - `limits.summary_hybrid_max_chars`

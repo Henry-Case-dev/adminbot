@@ -390,7 +390,19 @@ function writes(ctx) {
     assert.strictEqual(ini.tab, 'mod_initiative', 'B01.4: tab модуля');
     const iniTab = TABS.filter(function (t) { return t.id === 'mod_initiative'; })[0];
     const cats = {};
-    (iniTab.sources || []).forEach(function (s) { cats[s.category] = s; });
+    (iniTab.sources || []).forEach(function (s) {
+      // QND-NONDET (10.11.2026): у вкладки теперь ДВА limits-источника
+      // (limits_intent + limits_qnd) — группы одного счёта объединяются,
+      // иначе проверка видела только последний источник.
+      if (!cats[s.category]) {
+        cats[s.category] = { category: s.category, groups: [] };
+      }
+      (s.groups || []).forEach(function (g) {
+        if (cats[s.category].groups.indexOf(g) < 0) {
+          cats[s.category].groups.push(g);
+        }
+      });
+    });
     assert.ok(cats.flags && cats.flags.groups.indexOf('flags_intent') >= 0,
       'B01.4: flags_intent на карте модуля (per-chat гейт)');
     assert.ok(cats.limits && cats.limits.groups.indexOf('limits_intent') >= 0,

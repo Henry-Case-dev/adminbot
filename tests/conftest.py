@@ -24,6 +24,26 @@ def prompt_journal(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _qnd_deterministic_source():
+    """QND-NONDET (2026-11-10): управляемый источник по умолчанию для тестов.
+
+    Расписание и решение о публикации теперь требуют РЕАЛЬНОГО значения
+    (контракт §3/§4). Тесты, чей предмет — не случайность (дедуп, лимиты,
+    Writer, доставка), получают детерминированное значение `0.0`: это ровно
+    прежняя семантика «LLM сказал SAY → публикуем», без обращения к
+    ANU/сети и без флаки. Тесты самой недетерминистики подставляют свой
+    источник (`tests/qnd_fakes.py`).
+    """
+    from services import semantic_schedule
+    from tests.qnd_fakes import FakeQuantumSource
+    semantic_schedule.set_source(FakeQuantumSource(default=0.0))
+    try:
+        yield
+    finally:
+        semantic_schedule.reset_source()
+
+
+@pytest.fixture(autouse=True)
 def _reset_global_persona_name():
     """Изоляция sync-кэша глобального имени персоны (раунд 10.15, F6).
 

@@ -64,8 +64,10 @@ class TestCatalogParity:
         # EVOL-031 (30.10.2026): −5 REGISTRY (smart cache ×3 + chat dedup ×2),
         # −2 GROUPS (Умный кэш удалена); пин 588 дрейфовал на базе W1
         # (факт 586) — учтено → 581/119.
-        assert len(REGISTRY) == 606, len(REGISTRY)
-        assert len(GROUPS) == 119
+        # QND-NONDET (10.11.2026): +32 REGISTRY / +2 GROUPS (квантовое
+        # расписание и вероятность публикации на существующих вкладках).
+        assert len(REGISTRY) == 638, len(REGISTRY)
+        assert len(GROUPS) == 121
         from config.settings import Settings
         import dataclasses
         # NOST-REWORK W2 (28.10.2026, NOST-12): +1 поле Settings

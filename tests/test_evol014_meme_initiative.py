@@ -1022,7 +1022,7 @@ async def test_fresh_db_migrates_to_v41_with_quota_and_claim_tables(tmp_path):
         # голосового source-ref в smart_messages, аддитивно, PG no-op).
         # MOD-ACL-UX-01 amendment (09.11.2026): хвост 45 -> 46 (семантический
         # контракт уроков, аддитивно, PG no-op).
-        assert (await cur.fetchone())[0] == latest == 46
+        assert (await cur.fetchone())[0] == latest == 47
         assert _SCHEMA_VERSION_PUBLISH_CLAIM == 41
         book = await svc.db.execute(
             "SELECT name, checksum FROM schema_migrations WHERE version = 40")
@@ -1096,7 +1096,7 @@ async def test_v39_db_upgrades_to_v40_without_data_loss(tmp_path):
         # VMQ-V (09.11.2026): хвост 44 -> 45 (версия расшифровки голоса).
         # MOD-ACL-UX-01 amendment (09.11.2026): хвост 45 -> 46 (семантический
         # контракт уроков, аддитивно, PG no-op).
-        assert (await cur.fetchone())[0] == latest == 46
+        assert (await cur.fetchone())[0] == latest == 47
         cur = await svc.db.execute(
             "SELECT checksum FROM schema_migrations WHERE version = 39")
         assert (await cur.fetchone())["checksum"] == checksum_39

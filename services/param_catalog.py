@@ -606,6 +606,24 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Размер батча heartbeat-скана, попыток на намерение, кандидатов "
               "на решение, срок хранения архива и пауза после «не тот момент».",
               37),
+    # limits (39; QND-NONDET, owner corrective 2026-11-10): пер-чатовое
+    # квантовое расписание смысловой проверки и вероятность публикации.
+    # Показывается в СУЩЕСТВУЮЩИХ вкладках «Инициатива» и «Ностальгия»
+    # (новой страницы/вкладки нет — правило in-place).
+    GroupSpec("limits_qnd", "limits", "Квантовая недетерминистика",
+              "Границы интервалов следующей смысловой проверки (ностальгия и "
+              "инициатива), поправки на активность/тишину/бюджет и веса "
+              "вероятности публикации. Каждое значение — реальный параметр: "
+              "сам момент проверки выбирает квантовое значение, а не "
+              "фиксированный интервал.", 39),
+    # limits (40; QND-NONDET): те же квантовые параметры, но на вкладке
+    # «Ностальгия» — группа-рендер (одна группа = одна вкладка в правилах
+    # TAB_RULES; pg_id остаются `limits.qnd_*`).
+    GroupSpec("limits_qnd_nostalgia", "limits",
+              "Квантовое расписание ностальгии",
+              "Границы интервала до следующей самостоятельной проверки "
+              "ностальгии и допустимая вероятность публикации. Момент "
+              "выбирает квантовое значение в этих границах.", 40),
     # ── ASAP 7 (F2, §1.6): лимиты L1 Planner (вкладка mod_direct) —
     # температура/таймаут/JSON-бюджет/кап контекста. Прецедент
     # limits_summary_hybrid (отдельная группа лимитов своего контура).
@@ -3213,6 +3231,224 @@ _INTENT: list[ParamSpec] = [
                           "10 минут, порог сообщений не ниже 4, выше лимитов "
                           "профиля частоты не поднимается. Молчание остаётся "
                           "легальным исходом. 0 = цель не задана."),
+    # ── QND-NONDET (owner corrective 2026-11-10; contract
+    # `smart-module-semantic-routing/quantum-nondeterminism-contract.md` §1/§3):
+    # пер-чатовое квантовое расписание смысловой проверки и вероятность
+    # публикации. ВСЕ границы/коэффициенты/веса — здесь, в существующей
+    # вкладке «Инициатива»/«Ностальгия» (новой страницы нет); код-дефолты —
+    # `services.semantic_schedule.PARAM_DEFAULTS` и
+    # `services.quantum_publication`. Ни одного «зашитого» интервала в
+    # потребителях.
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание ностальгии: минимум, с", "int",
+              pg_id="limits.qnd_nostalgia_min_seconds",
+              group="limits_qnd_nostalgia",
+              description="Нижняя граница интервала до следующей смысловой "
+                          "проверки ностальгии, секунд (1800). Фактический "
+                          "интервал — одно квантовое значение в этих "
+                          "границах с поправками на активность/тишину/бюджет.",
+              progressive_level="basic"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание ностальгии: максимум, с", "int",
+              pg_id="limits.qnd_nostalgia_max_seconds",
+              group="limits_qnd_nostalgia",
+              description="Верхняя граница интервала проверки ностальгии, "
+                          "секунд (21600). Антифлуд может поднять нижнюю "
+                          "границу, но верхнюю не уменьшает.",
+              progressive_level="basic"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание инициативы: минимум, с", "int",
+              pg_id="limits.qnd_initiative_min_seconds", group="limits_qnd",
+              description="Нижняя граница интервала проверки обычной "
+                          "инициативы, секунд (600).",
+              progressive_level="basic"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание инициативы: максимум, с", "int",
+              pg_id="limits.qnd_initiative_max_seconds", group="limits_qnd",
+              description="Верхняя граница интервала проверки инициативы, "
+                          "секунд (7200).",
+              progressive_level="basic"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание: нижний пол, с", "int",
+              pg_id="limits.qnd_cadence_floor_seconds", group="limits_qnd",
+              description="Абсолютный минимум интервала проверки, секунд "
+                          "(300): никакая поправка не делает проверку чаще.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание: форма распределения", "float",
+              pg_id="limits.qnd_cadence_shape", group="limits_qnd",
+              description="1.0 — равномерно; >1 — чаще короткие интервалы, "
+                          "редко длинные (детерминированное преобразование "
+                          "того же значения, без второго draw).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание: активность — минимум", "float",
+              pg_id="limits.qnd_activity_min_factor", group="limits_qnd",
+              description="Во сколько раз проверки могут участиться в живом "
+                          "чате (0.35 = не чаще чем в 3 раза).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание: активность — максимум", "float",
+              pg_id="limits.qnd_activity_max_factor", group="limits_qnd",
+              description="Во сколько раз проверки могут замедлиться в тихом "
+                          "чате по фактору активности (3.0).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание: целевой темп, сообщений/с", "float",
+              pg_id="limits.qnd_activity_target_mps", group="limits_qnd",
+              description="Темп чата, который считается «активным» "
+                          "(0.02 ≈ 72 сообщения в час). Отношение "
+                          "фактического темпа к целевому — поправка "
+                          "интервала.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание: тишина, часов", "int",
+              pg_id="limits.qnd_silence_hours", group="limits_qnd",
+              description="После стольких часов без сообщений участников "
+                          "интервал умножается на коэффициент тишины (24).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание: коэффициент тишины", "float",
+              pg_id="limits.qnd_silence_factor", group="limits_qnd",
+              description="Множитель интервала в затихшем чате (1.5) — "
+                          "«иногда вспомнить» вместо навязчивости.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание: коэффициент тесного бюджета", "float",
+              pg_id="limits.qnd_budget_factor", group="limits_qnd",
+              description="Множитель интервала, когда осталось меньше 20% "
+                          "дневного бюджета фона (2.0).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание: устаревший срок, с", "int",
+              pg_id="limits.qnd_stale_seconds", group="limits_qnd",
+              description="Если срок просрочен сильнее — проверка НЕ "
+                          "исполняется: только новый розыгрыш (21600). "
+                          "Задолженности не накапливаются, массовой отправки "
+                          "нет.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовое расписание: аренда строки, с", "int",
+              pg_id="limits.qnd_lease_seconds", group="limits_qnd",
+              description="Срок аренды расписания чата: второй прогон не "
+                          "исполняет то же событие (300).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Квантовый heartbeat, с", "int",
+              pg_id="limits.qnd_heartbeat_seconds", group="limits_qnd",
+              description="Технический поллер: как часто проверяется, не "
+                          "наступило ли событие расписания (60). Это НЕ "
+                          "частота смысловых решений — её задаёт розыгрыш.",
+              progressive_level="basic"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Событийный путь: дебаунс, с", "int",
+              pg_id="limits.qnd_event_debounce_seconds", group="limits_qnd",
+              description="Минимальный зазор между событийными проверками "
+                          "чата (90): сигналы не превращаются в шторм "
+                          "оценок.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Событийный путь: минимум между оценками, с", "int",
+              pg_id="limits.qnd_event_min_interval_seconds",
+              group="limits_qnd",
+              description="Минимум между платными смысловыми оценками по "
+                          "событию (1800). Плановый путь сохраняет свой "
+                          "профильный интервал.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Свежесть для решения о публикации, с", "int",
+              pg_id="limits.qnd_freshness_horizon_seconds", group="limits_qnd",
+              description="Горизонт, за которым тема считается несвежей "
+                          "(86400). Используется как фактор вероятности.",
+              progressive_level="advanced"),
+    # ── веса факторов вероятности публикации (§3) ─────────────────────────
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Публикация: вес релевантности", "float",
+              pg_id="limits.qnd_w_relevance", group="limits_qnd",
+              description="Вес смысловой релевантности кандидата (1.0).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Публикация: вес значимости", "float",
+              pg_id="limits.qnd_w_significance", group="limits_qnd",
+              description="Вес значимости кандидата (0.8).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Публикация: вес активности беседы", "float",
+              pg_id="limits.qnd_w_activity", group="limits_qnd",
+              description="Вес соответствия активности чата (0.6).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Публикация: вес свежести", "float",
+              pg_id="limits.qnd_w_freshness", group="limits_qnd",
+              description="Вес свежести темы (0.5).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Публикация: вес качества памяти", "float",
+              pg_id="limits.qnd_w_memory", group="limits_qnd",
+              description="Вес качества памяти (0.7). У кандидатов без "
+                          "памяти фактор выпадает, веса перенормируются.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Публикация: вес недавних инициатив", "float",
+              pg_id="limits.qnd_w_recent", group="limits_qnd",
+              description="Вес недавней активности бота (0.4): чем ближе к "
+                          "дневному лимиту, тем меньше шанс новой реплики.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Публикация: порог логистики (θ)", "float",
+              pg_id="limits.qnd_publication_theta", group="limits_qnd",
+              description="Точка, где вероятность равна середине диапазона "
+                          "(0.5). Сдвиг вверх — реже, вниз — чаще.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Публикация: крутизна логистики (τ)", "float",
+              pg_id="limits.qnd_publication_tau", group="limits_qnd",
+              description="Насколько резко вероятность растёт у порога "
+                          "(0.18). Меньше — резче, больше — плавнее.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Публикация: опорное качество памяти", "float",
+              pg_id="limits.qnd_memory_quality_reference", group="limits_qnd",
+              description="Ретрив-оценка, считающаяся «полным качеством» "
+                          "(0.6): нормирует фактор памяти.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Ностальгия: вероятность публикации — минимум", "float",
+              pg_id="limits.qnd_nostalgia_publication_min",
+              group="limits_qnd_nostalgia",
+              description="Минимальная вероятность публикации (0.05): даже "
+                          "слабый, но допустимый кандидат иногда проходит.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Ностальгия: вероятность публикации — максимум", "float",
+              pg_id="limits.qnd_nostalgia_publication_max",
+              group="limits_qnd_nostalgia",
+              description="Максимум вероятности (0.85): даже сильный кандидат "
+                          "не публикуется всегда — спонтанность сохраняется.",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Инициатива: вероятность публикации — минимум", "float",
+              pg_id="limits.qnd_initiative_publication_min", group="limits_qnd",
+              description="Минимальная вероятность публикации инициативы "
+                          "(0.05).",
+              progressive_level="advanced"),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Инициатива: вероятность публикации — максимум", "float",
+              pg_id="limits.qnd_initiative_publication_max", group="limits_qnd",
+              description="Максимум вероятности публикации инициативы (0.75).",
+              progressive_level="advanced"),
+    # §3: прежний бинарный гейт стал ВЕРХНЕЙ границей вероятности (compat).
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Инициатива: прежняя вероятность попытки", "float",
+              pg_id="initiative.trigger_probability", group="limits_qnd",
+              description="Совместимость: явно заданное значение теперь "
+                          "ограничивает СВЕРХУ вероятность публикации (p_max), "
+                          "а не решает «пробовать ли». Дефолт 1.0 больше не "
+                          "гейт и не показывается.",
+              progressive_level="advanced", hidden=True,
+              migration_class="deprecated_compat",
+              migration_consumer="services.quantum_publication",
+              migration_ui="скрыт: заменён limits.qnd_*_publication_max"),
     ParamSpec(None, "INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED", CATEGORY_FLAGS,
               "Разрешить реальную отправку из проверки", "bool",
               pg_id="flags.initiative_diagnostics_publish_enabled",
@@ -4145,6 +4381,9 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     )),
     (TAB_MOD_NOSTALGIA, (
         (CATEGORY_MEMORY, frozenset({"memory_nostalgia"})),
+        # QND-NONDET: квантовое расписание/вероятность ностальгии — на ТОЙ ЖЕ
+        # вкладке (in-place; новых вкладок нет).
+        (CATEGORY_LIMITS, frozenset({"limits_qnd_nostalgia"})),
     )),
     # F3 (10.19, ADR-1019-3 D1): «Бюджеты» — оба контура + лимит контекста.
     # F21 (10.24, ADR-1024-22 D1): +master-группа флагов на ТОЙ ЖЕ вкладке
@@ -4175,7 +4414,7 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     # и 5 лимитов (limits_intent); env K1–K4 — аварийные (AND-гейт).
     (TAB_MOD_INITIATIVE, (
         (CATEGORY_FLAGS, frozenset({"flags_intent"})),
-        (CATEGORY_LIMITS, frozenset({"limits_intent"})),
+        (CATEGORY_LIMITS, frozenset({"limits_intent", "limits_qnd"})),
     )),
     # ── Настройки AI (7 подразделов) ───────────────────────────────────────
     # A8: keys_youtube → М6. SELF-DIAG-01 D1: checkup-only Better Stack

@@ -268,9 +268,11 @@ def test_blockE_catalog_random_uses_keys():
     # EVOL-031 (30.10.2026): 586 → 581 (−5 ключей Exact Match Cache /
     # direct_dedup, replay готовых ответов удалён; вкладка smart_cache
     # снята) → 581/119/117/22.
-    assert len(pc.REGISTRY) == 606
-    assert len(pc.GROUPS) == 119
-    assert len(pc._TAB_BY_GROUP) == 117
+    # QND-NONDET (10.11.2026): +32 REGISTRY / +2 GROUPS / +2 mapped (группы
+    # limits_qnd|limits_qnd_nostalgia на существующих вкладках), TAB_RULES 22.
+    assert len(pc.REGISTRY) == 638
+    assert len(pc.GROUPS) == 121
+    assert len(pc._TAB_BY_GROUP) == 119
     assert len(pc.TAB_RULES) == 22
     uses = [f"memory.random_uses_{u}" for u in sorted(mx.USES)]
     assert len(uses) == 6
@@ -314,12 +316,14 @@ def test_blockE_f8_check_green_and_baselines():
     # сообществ flags.memory_communities_enabled).
     # MOD-ACL-UX-01 amendment (09.11.2026): 598 … 606 (+11 PG-only ключей
     # семантического контракта уроков).
-    assert "606" in res.stdout
+    # QND-NONDET (10.11.2026): 606 → 638 (+32: limits.qnd_* и compat-мэппинг
+    # initiative.trigger_probability).
+    assert "638" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 606
-    assert fx["counts"]["GROUPS"] == 119
-    assert fx["counts"]["TAB_BY_GROUP"] == 117
+    assert fx["counts"]["REGISTRY"] == 638
+    assert fx["counts"]["GROUPS"] == 121
+    assert fx["counts"]["TAB_BY_GROUP"] == 119
     assert fx["counts"]["TAB_RULES"] == 22
     # v6.3 B01 (W1-CHAT-INTEL): delta 150→160 (+10 INITIATIVE_*, все new).
     # SOUL-1 mobile-prompts (2026-10-16): delta 160→161 (+1 L1 Planner).
@@ -327,10 +331,10 @@ def test_blockE_f8_check_green_and_baselines():
     # распознавания: предел ответа/режимы модели + границы ожидания и жизни
     # медиа-задачи). FC-06C/EVOL-031 сняли ключи исторически — набор не
     # пересчитывался.
-    assert fx["counts"]["delta"] == 205
+    assert fx["counts"]["delta"] == 237
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 606
+    assert len(cb["registry_keys"]) == 638
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

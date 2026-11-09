@@ -107,7 +107,9 @@ async def test_v44_registered_as_next_step_after_v43():
     assert steps[43] == er.ENTITY_CANONICAL_MIGRATION_STEP_NAME   # v43 не тронут
     assert steps[44] == mcomm.COMMUNITIES_MIGRATION_STEP_NAME
     # Голова схемы выше v44 (v45 = VMQ-V voice transcript); пиним точно.
-    assert max(steps) == 46
+    # QND-NONDET (10.11.2026): v47 - semantic_schedule; шаг v44 остаётся
+    # зарегистрированным и идемпотентным.
+    assert max(steps) == 47
     assert callable(DatabaseService._migrate_communities_v44)
 
 
@@ -118,8 +120,8 @@ async def test_v44_fresh_db_creates_contract_tables_and_columns(tmp_path):
     svc = DatabaseService(str(tmp_path / "v44_fresh.db"))
     await svc.initialize()
     try:
-        assert await _user_version(svc) == 46
-        assert 46 == max(s.version for s in DatabaseService.migration_steps())
+        assert await _user_version(svc) == 47
+        assert 47 == max(s.version for s in DatabaseService.migration_steps())
 
         objects = await _schema_objects(svc, mcomm.COMMUNITY_BUILDS_TABLE)
         assert objects.get(mcomm.COMMUNITY_BUILDS_TABLE) == "table"
@@ -201,7 +203,7 @@ async def test_v44_repeat_run_is_noop_and_keeps_rows(tmp_path):
     reopened = DatabaseService(str(tmp_path / "v44_noop.db"))
     await reopened.initialize()
     try:
-        assert await _user_version(reopened) == 46
+        assert await _user_version(reopened) == 47
         assert await _row_count(reopened, "schema_migrations") == book_before
         assert await _row_count(reopened, mcomm.COMMUNITY_BUILDS_TABLE) == 1
     finally:
@@ -246,7 +248,7 @@ async def test_v44_upgrades_v43_db_without_touching_v43_data(tmp_path):
     upgraded = DatabaseService(str(path))
     await upgraded.initialize()
     try:
-        assert await _user_version(upgraded) == 46
+        assert await _user_version(upgraded) == 47
         # Данные v43 и графа не тронуты (ни ALTER, ни UPDATE/DELETE).
         assert await _v43_row(upgraded, papa) == v43_row_before
         assert await _row_count(upgraded, "nodes") == nodes_before
@@ -266,7 +268,7 @@ async def test_v44_upgrades_v43_db_without_touching_v43_data(tmp_path):
     reopened = DatabaseService(str(path))
     await reopened.initialize()
     try:
-        assert await _user_version(reopened) == 46
+        assert await _user_version(reopened) == 47
         assert await _v43_row(reopened, papa) == v43_row_before
     finally:
         await reopened.close()

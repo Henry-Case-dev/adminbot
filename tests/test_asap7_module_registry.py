@@ -99,7 +99,8 @@ def test_m4_initiative_tab_and_groups_wired():
     assert pc.CONFIG_TAB_TITLES.get("mod_initiative") == "Инициатива"
     assert pc.tab_nav("mod_initiative") == pc.NAV_MODULES
     assert pc.tab_group_ids("mod_initiative") == {"flags_intent",
-                                                  "limits_intent"}
+                                                  "limits_intent",
+                                                  "limits_qnd"}
     for gid in spec.settings_groups:
         assert pc.group_tab(gid) == "mod_initiative"
 

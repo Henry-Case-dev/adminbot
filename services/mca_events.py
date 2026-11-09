@@ -69,6 +69,12 @@ REASON_CODES = frozenset({
     "delivery_unknown", "financial_limit_disabled", "financial_limit_reached",
     "context_compacted", "archive_checkpoint_saved",
     "cleanup_deferred_dependency_unverified",
+    # расширение QND-NONDET/10.11.2026 (расписание и вероятность публикации:
+    # коды состояний расписания/событийного пути/случайного исхода; §17.2 —
+    # словарь расширяемый, имена стабильные).
+    "no_state", "stale_deadline", "lease_held", "settings_rescaled",
+    "event_dropped_busy", "event_dropped_debounce", "event_deferred_floor",
+    "random_miss", "random_unavailable", "semantic_none", "module_off",
     # дополнительные коды, используемые кодом волны 0 (расширение разрешено).
     "worker_lost", "lock_exhausted", "rollback_failed",
     "connection_unrecoverable", "queue_rejected",

@@ -91,11 +91,22 @@ PURPOSE_ASSOCIATION_PAIR = "association_pair"
 # контура потребитель фиксирует как random_unavailable, без локального
 # Math.random / random.Random.
 PURPOSE_MEME_TRIGGER = "meme_trigger"
-# INIT-COORD (03.11.2026): независимый draw ТЕКСТОВОЙ инициативы. Второго
-# клиента/генератора нет — тот же `RandomSourceService`, свой purpose и своя
-# трассировка; probability-ключ здесь отсутствует (порог задаёт настройка
-# `initiative.trigger_probability`, а не карта exploration).
-PURPOSE_INITIATIVE_TRIGGER = "initiative_trigger"
+# QND-NONDET §4 (owner corrective 2026-11-10): санкционированное расширение
+# закрытого набора — четыре purpose квантовой недетерминистики. Два
+# расписания смысловой проверки (`<механизм>_schedule`) и два решения о
+# публикации (`<механизм>_publication`). Второго клиента/генератора нет —
+# тот же `RandomSourceService`; probability-ключей карты exploration здесь нет
+# (порог задаёт модель §3 контракта / `limits.qnd_*`).
+PURPOSE_NOSTALGIA_SCHEDULE = "nostalgia_schedule"
+PURPOSE_INITIATIVE_SCHEDULE = "initiative_schedule"
+PURPOSE_NOSTALGIA_PUBLICATION = "nostalgia_publication"
+PURPOSE_INITIATIVE_PUBLICATION = "initiative_publication"
+# INIT-COORD `initiative_trigger` ВЫВЕДЕН (контракт §4/§6(e)): вероятностный
+# гейт ПЕРЕД оценкой заменён решением после оценки (§3). Имя оставлено
+# импорт-совместимым, но НЕ санкционировано: draw с этим purpose больше не
+# делается ни одним потребителем.
+PURPOSE_INITIATIVE_TRIGGER_RETIRED = "initiative_trigger"
+PURPOSE_INITIATIVE_TRIGGER = PURPOSE_INITIATIVE_TRIGGER_RETIRED
 
 # purpose → ключ вероятности (одна карта в одном месте; D6).
 EXPLORATION_PROBABILITY_KEYS = {
@@ -110,10 +121,16 @@ EXPLORATION_PROBABILITY_KEYS = {
 EXPLORATION_PURPOSES = frozenset(EXPLORATION_PROBABILITY_KEYS)
 INTERNAL_PURPOSES = frozenset({PURPOSE_ACTIVATION_SELFCHECK})
 # Draw-purpose, которые контур принимает как санкционированные. Мем-триггер
-# здесь, но не в карте exploration: это не выбор альтернативы.
+# здесь, но не в карте exploration: это не выбор альтернативы. QND-NONDET
+# (§4): расписание/публикация обоих механизмов — тоже draw-purpose, но не
+# выбор альтернативы (поэтому не в EXPLORATION_PURPOSES).
 SANCTIONED_DRAW_PURPOSES = (
     EXPLORATION_PURPOSES | INTERNAL_PURPOSES
-    | frozenset({PURPOSE_MEME_TRIGGER, PURPOSE_INITIATIVE_TRIGGER})
+    | frozenset({
+        PURPOSE_MEME_TRIGGER,
+        PURPOSE_NOSTALGIA_SCHEDULE, PURPOSE_INITIATIVE_SCHEDULE,
+        PURPOSE_NOSTALGIA_PUBLICATION, PURPOSE_INITIATIVE_PUBLICATION,
+    })
 )
 
 

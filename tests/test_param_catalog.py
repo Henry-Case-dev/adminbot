@@ -528,7 +528,7 @@ class TestGroups8424:
         # ASAP 7 (F3, §3.2): +2 — flags_intent (mod_initiative),
         # limits_intent (mod_initiative) → GROUPS 115.
         # EVOL-031 (30.10.2026): −2 группы (smart_cache flags/limits) → 119.
-        assert len(GROUPS) == 119
+        assert len(GROUPS) == 121
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -692,7 +692,7 @@ class TestGroups8424:
         # семантического контракта уроков (группа memory_experience) →
         # memory 59.
         assert counts == {"prompts": 28, "models": 74, "keys": 33,
-                          "limits": 232, "flags": 108, "reactions": 39,
+                          "limits": 264, "flags": 108, "reactions": 39,
                           "content": 5, "memory": 59, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

@@ -511,10 +511,12 @@ class TestCandidatesAndThreshold:
     @pytest.mark.asyncio
     async def test_aggressiveness_gates_weak_golden_fact(
             self, db, monkeypatch):
-        """Порог агрессивности сохранён для слабых «золотых» фактов
-        (технический предварительный отбор): важность 5 → вес 0.55 < порога
-        0.8 (агрессивность 1.0) → threshold-skip до LLM (настроение
-        владельца соблюдено)."""
+        """QND-NONDET §3/§6(b): слабый «золотой» факт больше НЕ отсекается
+        молчаливым порогом — он доходит до модели, а частоту публикации решает
+        ОДНО квантовое значение (вес кандидата — фактор, а не вето).
+
+        Прежняя семантика «importance 5 → вес 0.55 < порога 0.8 → skip без
+        LLM» отменена владельцем: это был двойной гейт."""
         _patch_time(monkeypatch)
         _hot_cache(monkeypatch, {"memory.nostalgia_aggressiveness": 1.0,
                                  "memory.nostalgia_enabled": True})
@@ -528,12 +530,16 @@ class TestCandidatesAndThreshold:
         w = _worker(db, llm, monkeypatch=monkeypatch, bot=bot,
                     memory=memory)
         out = await w._process_chat(CHAT_ID, NOW, manual=True)
-        assert len(llm.calls) == 0             # слабый факт отсеян порогом
-        assert out["sent"] == 0 and bot.calls == []
+        # Кандидат дошёл до модели: порог-вето исчез.
+        assert len(llm.calls) == 1
         rows = await _log_rows(db)
         assert rows and rows[-1]["kind"] == "golden"
         meta = json.loads(rows[-1]["meta"])
-        assert meta["reason"] == "threshold"
+        assert meta["reason"] != "threshold"
+        # Решение вероятностное и записано с фактическим источником значения.
+        assert meta.get("random", {}).get("source") == "quantum"
+        assert meta.get("random", {}).get("probability") is not None
+        assert out["candidates"] == 1
 
     @pytest.mark.asyncio
     async def test_no_candidates_anywhere_logged_none(self, db,
@@ -645,6 +651,8 @@ class TestLLMAndSend:
 class TestTickFlow:
     @pytest.mark.asyncio
     async def test_tick_processes_store_chats(self, db, monkeypatch):
+        """QND-NONDET §1: heartbeat создаёт пер-чатовое расписание (один draw
+        на чат) и исполняет ТОЛЬКО наступившее событие."""
         _patch_time(monkeypatch)
         _hot_cache(monkeypatch, {"memory.nostalgia_enabled": True})
         await _add_user_msg(db, "тишина", ts=NOW - 30 * 3600)
@@ -655,6 +663,19 @@ class TestTickFlow:
         w = _worker(db, monkeypatch=monkeypatch, store=store, bot=bot)
         stats = await w._run(manual=False)
         assert stats["chats"] == 2
+        # Наступивших событий ещё нет — смысловой проверки не было.
+        assert stats["sent"] == 0 and bot.calls == []
+        cur = await db.db.execute(
+            "SELECT chat_id FROM semantic_schedule WHERE mechanism = ?",
+            ("nostalgia",))
+        assert {int(r["chat_id"]) for r in await cur.fetchall()} == {
+            CHAT_ID, -1002222}
+        # Срок первого чата наступил → ровно одно исполнение и одна отправка.
+        await db.db.execute(
+            "UPDATE semantic_schedule SET next_due_ts = ? WHERE chat_id = ? "
+            "AND mechanism = ?", (NOW - 60, CHAT_ID, "nostalgia"))
+        await db.db.commit()
+        stats = await w._run(manual=False)
         assert stats["sent"] == 1           # второй чат пуст — кандидатов нет
         assert len(bot.calls) == 1
 

@@ -513,8 +513,19 @@ def test_two_purposes_one_service_and_one_trace_format():
     assert mrs.PURPOSE_MEME_TRIGGER == "meme_trigger"
     assert mrs.PURPOSE_INITIATIVE_TRIGGER == "initiative_trigger"
     assert mrs.PURPOSE_MEME_TRIGGER != mrs.PURPOSE_INITIATIVE_TRIGGER
-    for purpose in (mrs.PURPOSE_MEME_TRIGGER, mrs.PURPOSE_INITIATIVE_TRIGGER):
+    # QND-NONDET §4/§6(e): purpose текстового гейта ВЫВЕДЕН из закрытого
+    # набора (вероятностный гейт перед оценкой заменён решением после неё).
+    assert mrs.purpose_sanctioned(mrs.PURPOSE_MEME_TRIGGER)
+    assert not mrs.purpose_sanctioned(mrs.PURPOSE_INITIATIVE_TRIGGER)
+    # Новые QND-purpose санкционированы и не являются exploration-выбором.
+    for purpose in (mrs.PURPOSE_NOSTALGIA_SCHEDULE,
+                    mrs.PURPOSE_INITIATIVE_SCHEDULE,
+                    mrs.PURPOSE_NOSTALGIA_PUBLICATION,
+                    mrs.PURPOSE_INITIATIVE_PUBLICATION):
         assert mrs.purpose_sanctioned(purpose)
+        assert purpose not in mrs.EXPLORATION_PURPOSES
+    for purpose in (mrs.PURPOSE_MEME_TRIGGER,
+                    mrs.PURPOSE_INITIATIVE_TRIGGER):
         assert purpose not in mrs.EXPLORATION_PURPOSES
         assert purpose not in mrs.EXPLORATION_PROBABILITY_KEYS
     meme_trace = obs.build_draw_trace(None, purpose="meme_trigger",
@@ -539,11 +550,13 @@ def test_real_random_source_reports_actual_source(monkeypatch):
 
     monkeypatch.setattr(mrs, "_read_memory_setting", _setting)
     service = mrs.RandomSourceService(None)
+    # QND-NONDET §4: `initiative_trigger` выведен; тот же контур проверяется
+    # санкционированным purpose мема (второго клиента/генератора нет).
     decision = asyncio.run(obs.random_trigger(
-        service, chat_id=CHAT, purpose=mrs.PURPOSE_INITIATIVE_TRIGGER,
+        service, chat_id=CHAT, purpose=mrs.PURPOSE_MEME_TRIGGER,
         probability=0.5))
     trace = decision.trace
-    assert trace["purpose"] == "initiative_trigger"
+    assert trace["purpose"] == "meme_trigger"
     assert trace["source"] == "pseudorandom"
     assert trace["provider"] == mrs.PROVIDER_PRNG
     assert trace["source_impl"] == mrs.SOURCE_IMPL_PRNG
@@ -555,7 +568,7 @@ def test_real_random_source_reports_actual_source(monkeypatch):
 def test_deferred_source_is_unavailable_not_a_silent_fallback():
     decision = asyncio.run(obs.random_trigger(
         _Hit(deferred=True), chat_id=CHAT,
-        purpose=mrs.PURPOSE_INITIATIVE_TRIGGER, probability=0.5))
+        purpose=mrs.PURPOSE_MEME_TRIGGER, probability=0.5))
     assert decision.ok is False
     assert decision.reason == obs.SKIP_RANDOM_UNAVAILABLE
     assert decision.trace["deferred"] is True
@@ -565,7 +578,7 @@ def test_fallback_value_is_a_real_decision_in_both_mechanisms():
     """Fallback-значение — валидное решение, а не «контур недоступен» (§2)."""
     text = asyncio.run(obs.random_trigger(
         _Hit(0.01, fallback="provider_unavailable"), chat_id=CHAT,
-        purpose=mrs.PURPOSE_INITIATIVE_TRIGGER, probability=0.5))
+        purpose=mrs.PURPOSE_MEME_TRIGGER, probability=0.5))
     assert text.ok is True
     assert text.trace["source"] == "pseudorandom"
     assert text.trace["fallback_reason"] == "provider_unavailable"
@@ -577,16 +590,20 @@ def test_fallback_value_is_a_real_decision_in_both_mechanisms():
 
 
 def test_separate_draws_have_separate_traces():
-    """Два механизма делают РАЗНЫЕ draw под своими purposes."""
+    """Один сервис, разные purposes: мем-триггер делает СВОЙ draw, а
+    выведенный `initiative_trigger` (QND-NONDET §4) не тратит значения."""
     meme_source = _Hit(0.0)
     text_source = _Hit(0.0)
     asyncio.run(meme.draw_trigger(meme_source, chat_id=CHAT, probability=0.05))
-    asyncio.run(obs.random_trigger(text_source, chat_id=CHAT,
-                                  purpose=mrs.PURPOSE_INITIATIVE_TRIGGER,
-                                  probability=0.5))
-    assert meme_source.calls == 1 and text_source.calls == 1
+    retired = asyncio.run(obs.random_trigger(
+        text_source, chat_id=CHAT, purpose=obs.PURPOSE_INITIATIVE_TRIGGER,
+        probability=0.5))
+    assert meme_source.calls == 1
     assert meme_source.kwargs["purpose"] == mrs.PURPOSE_MEME_TRIGGER
-    assert text_source.kwargs["purpose"] == mrs.PURPOSE_INITIATIVE_TRIGGER
+    # Purpose выведен из закрытого набора: значения не тратятся вовсе.
+    assert text_source.calls == 0
+    assert retired.ok is False
+    assert retired.trace["reason"] == "purpose_not_sanctioned"
     assert meme_source is not text_source
 
 

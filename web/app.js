@@ -204,6 +204,9 @@
       type: 'config', menu: 'modules',
       sources: [
         { category: 'memory', groups: ['memory_nostalgia'] },
+        // QND-NONDET (2026-11-10): квантовое расписание/вероятность
+        // ностальгии — та же вкладка (зеркало TAB_RULES, без новых вкладок).
+        { category: 'limits', groups: ['limits_qnd_nostalgia'] },
       ] },
     // F3 (10.19, ADR-1019-3 D1): «Бюджеты» — оба контура (ключ чата + фон)
     // и лимит контекста; тумблер безлимита — в спец-блоке (index.html).
@@ -250,6 +253,9 @@
       sources: [
         { category: 'flags', groups: ['flags_intent'] },
         { category: 'limits', groups: ['limits_intent'] },
+        // QND-NONDET (2026-11-10): квантовое расписание / вероятность
+        // публикации — та же вкладка (зеркало TAB_RULES).
+        { category: 'limits', groups: ['limits_qnd'] },
       ],
       // P1 (2026-11-03): единственная generic-вкладка модуля — «Текстовая
       // инициатива». Свои лимиты стоят рядом со своим механизмом, поэтому
@@ -257,7 +263,7 @@
       // измерения вместо отдельной разрозненной вкладки «Лимиты».
       sections: [
         { id: 'text-limits', title: 'Частота и лимиты',
-          category: null, groups: ['limits_intent'] },
+          category: null, groups: ['limits_intent', 'limits_qnd'] },
       ] },
     // UR-F (UR-29.1/UR-24.2): «Модули → Время» — ЕДИНСТВЕННАЯ поверхность
     // пояса чата (limits.chat_timezone скрыт из общего каталога): полный
@@ -8722,6 +8728,43 @@
       randomSleepView: function () {
         return this._randomSourceView(this.randomSleepState);
       },
+      // QND-NONDET §5 (2026-11-10): «Квантовая недетерминистика» — read-only
+      // проекция аддитивного /api/status.quantum. Честность: при отсутствии
+      // квантовых значений слово «работает» не появляется вовсе
+      // (`honesty.status_word_allowed` вычислен на сервере из событий).
+      quantumRitm: function () {
+        return this._quantumRitmView(
+          (this.statusData && this.statusData.quantum) || null);
+      },
+      // QND-NONDET §5 «Аналитика»: тот же блок из vitality, но с гистограммой
+      // и таблицей кандидатов. Процент квантовых показывается ТОЛЬКО при
+      // ненулевом знаменателе (иначе «нет данных»).
+      quantumAnalytics: function () {
+        var v = this.initiativeVitality || null;
+        var q = (v && v.quantum) || null;
+        if (!q || !q.enabled) return { ready: false, mechanisms: [] };
+        var base = this._quantumRitmView(q);
+        var self = this;
+        var mechs = (base.mechanisms || []).map(function (m) {
+          var backend = ((q.mechanisms || {})[m.id]) || {};
+          var shares = backend.source_shares || {};
+          var total = (shares.quantum || 0) + (shares.fallback || 0)
+            + (shares.unavailable || 0);
+          return Object.assign({}, m, {
+            histogram: backend.interval_histogram || [],
+            candidates: backend.candidates || [],
+            headline: (backend.honesty || {}).headline || 'нет данных',
+            quantumShare: {
+              quantum: shares.quantum || 0,
+              fallback: shares.fallback || 0,
+              unavailable: shares.unavailable || 0,
+              percent: total
+                ? Math.round((shares.quantum || 0) * 100 / total) : null,
+            },
+          });
+        });
+        return { ready: true, hours: q.hours || 24, mechanisms: mechs };
+      },
       // Раунд 10.41 (MCA-10b, ADR-1028-17 D11/T-5060): живая лента
       // применений — read-only проекция random.uses. Bounded history (20)
       // дедуплицируется по `key` (event cursor); OFF → лента скрыта,
@@ -11900,6 +11943,71 @@
       // Маппинг /api/status.random → витрина (общий для «Статуса» и точки
       // входа на «Сне»; инвариант 10.37 — quantum-подпись только при
       // фактическом quantum).
+      // QND-NONDET §5 (2026-11-10): проекция `quantum` блока /api/status и
+      // vitality. Никаких подстановок: нет данных — null/«нет данных»;
+      // «работает» появляется ТОЛЬКО когда сервер подтвердил квантовые
+      // значения (`honesty.status_word_allowed`).
+      _quantumRitmView: function (q) {
+        if (!q) return { ready: false, enabled: false, mechanisms: [] };
+        if (!q.enabled) {
+          return { ready: true, enabled: false, mechanisms: [],
+                   note: 'данных нет' };
+        }
+        var sourceRu = {
+          quantum: 'квантовый',
+          pseudorandom: 'псевдослучайный (fallback)',
+          unavailable: 'недоступен',
+          '': 'нет данных',
+        };
+        var causeRu = {
+          semantic_none: 'нет повода (семантика)',
+          limits: 'лимиты/кап',
+          dedup: 'повтор',
+          send_recheck: 'проверка перед отправкой',
+          random_miss: 'случайный исход (молчание)',
+          random_unavailable: 'источник недоступен',
+          module_off: 'модуль выключен',
+        };
+        var mechRu = { nostalgia: 'Ностальгия', initiative: 'Инициатива' };
+        var self = this;
+        var mechs = [];
+        ['nostalgia', 'initiative'].forEach(function (id) {
+          var m = ((q.mechanisms || {})[id]) || null;
+          if (!m) return;
+          var honesty = m.honesty || {};
+          var pubs = m.publications || {};
+          var causes = [];
+          Object.keys(pubs.silence_by_cause || {}).forEach(function (key) {
+            causes.push({ label: causeRu[key] || key,
+                          count: pubs.silence_by_cause[key] });
+          });
+          mechs.push({
+            id: id,
+            title: mechRu[id] || id,
+            allowed: !!honesty.status_word_allowed,
+            headline: honesty.headline || 'нет данных',
+            lastCheck: m.last_check_ts ? self.fmtTs(m.last_check_ts) : '—',
+            nextDue: m.next_due_ts ? self.fmtTs(m.next_due_ts) : '—',
+            nextIn: (m.next_due_in_seconds == null)
+              ? '—' : self.fmtDuration(m.next_due_in_seconds),
+            source: sourceRu[(m.last_draw && m.last_draw.source) || ''] ||
+              'нет данных',
+            quantumDraws: m.draws_quantum || 0,
+            published: pubs.published || 0,
+            silent: pubs.silent || 0,
+            deferred: pubs.deferred || 0,
+            deliveries: pubs.deliveries || 0,
+            scheduleEvals: (m.evaluations || {}).schedule || 0,
+            eventEvals: (m.evaluations || {}).event || 0,
+            causes: causes,
+            histogram: m.interval_histogram || [],
+            candidates: m.candidates || [],
+            chats: m.chats || 0,
+          });
+        });
+        return { ready: true, enabled: true, mechanisms: mechs,
+                 hours: q.hours || null };
+      },
       _randomSourceView: function (r) {
         if (!r) return { ready: false, enabled: false, quantum: false };
         if (!r.enabled) {
@@ -26774,6 +26882,20 @@
         var ms = _tsNormalizeMs(ts);
         if (ms == null) return '—';
         return this.fmtLogTs(ms);
+      },
+      // QND-NONDET §5: компактный обратный отсчёт до следующей смысловой
+      // проверки (секунды → «2 ч 5 мин»). Ноль/мусор → «—» (без выдумок).
+      fmtDuration: function (seconds) {
+        var total = Math.floor(Number(seconds));
+        if (!isFinite(total) || total < 0) return '—';
+        if (total < 60) return total + ' с';
+        var minutes = Math.floor(total / 60);
+        if (minutes < 60) return minutes + ' мин';
+        var hours = Math.floor(minutes / 60);
+        var restMin = minutes % 60;
+        var days = Math.floor(hours / 24);
+        if (days > 0) return days + ' д ' + (hours % 24) + ' ч';
+        return hours + ' ч' + (restMin ? ' ' + restMin + ' мин' : '');
       },
       // Раунд 9: русская подпись стадии отношений (спец. зеркало STAGE_RU)
       stageRu: function (stage) {

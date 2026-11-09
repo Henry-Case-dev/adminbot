@@ -74,6 +74,10 @@ from services.task_supervisor import (
 #: INIT-COORD: координатор публикаций. Модуль не импортирует этот файл на
 #: уровне модуля (только внутри функций), поэтому цикла импорта нет.
 from services import publication_coordination as _pubmod
+#: QND-NONDET §3: закрытый набор обоснований семантического молчания.
+#: `quantum_publication` зависит только от `semantic_schedule`, поэтому
+#: импорт на уровне модуля цикла не создаёт.
+from services.quantum_publication import VETO_REASONS
 
 logger = logging.getLogger(__name__)
 
@@ -967,7 +971,20 @@ OBSERVER_EVAL_SYSTEM_PROMPT = (
     'или null, "memory_slot": число или null, "topic_key": '
     '"короткий-токен-темы-латиницей", "goal": '
     '"суть повода одной фразой до 200 символов", "rationale": "краткое '
-    'обоснование до 200 символов"}.')
+    'обоснование до 200 символов", "veto_reason": '
+    '"no_substance|not_appropriate|unsafe|direct_request|addressed_elsewhere" '
+    'или null}. '
+    # QND-NONDET §3 (owner corrective 2026-11-10): молчание должно быть
+    # ОБОСНОВАНО. `action="silent"` без `veto_reason` из закрытого набора —
+    # не «тихий отказ», а невалидный вердикт (`semantic_parse_error`):
+    # иначе модель могла бы глушить инициативу без причины, а вероятность
+    # публикации (§3) так и не вступала бы в силу.
+    "Если action=\"silent\" — обязательно укажи veto_reason из списка: "
+    "no_substance (нет содержательного повода), not_appropriate (неуместно "
+    "сейчас), unsafe (небезопасно), direct_request (к боту обратились — это "
+    "не инициатива), addressed_elsewhere (уже отвечено другими). Если повод "
+    "есть, action=silent не ставь: вероятность публикации решает отдельный "
+    "механизм, а не ты.")
 
 OBSERVER_DIGEST_SYSTEM_PROMPT = (
     "Ты — внутренний сжиматель ПРОПУЩЕННОГО интервала группового чата. По "
@@ -1139,6 +1156,11 @@ def parse_verdict(raw) -> dict | None:
     data["topic_key"] = _clean_topic_key(data.get("topic_key"))
     data["goal"] = _canonical_goal(data.get("goal"))
     data["rationale"] = _canonical_goal(data.get("rationale"))
+    # QND-NONDET §3: обоснование молчания из закрытого набора. Пустое/чужое
+    # значение = отсутствие обоснования (валидируется потребителем).
+    veto = data.get("veto_reason")
+    data["veto_reason"] = (str(veto) if isinstance(veto, str) and
+                           str(veto) in VETO_REASONS else "")
     return data
 
 
@@ -1184,15 +1206,30 @@ async def get_active_observe(db) -> dict | None:
 
 
 async def observe_tick(db, *, bot=None, writer_service=None, llm=None,
-                       alias_resolver=None, now: int | None = None) -> str:
-    """Один тик планировщика обслуживания. Возврат — честный статус job
-    либо ``disabled``/``running``. Никогда не бросает.
+                       alias_resolver=None, now: int | None = None,
+                       trigger: str = "schedule",
+                       only_chat: int | None = None) -> str:
+    """Один тик обслуживания. Возврат — честный статус job либо
+    ``disabled``/``running``/``not_due``. Никогда не бросает.
 
     ``alias_resolver`` (P0 corrective 25.10.2026, F2) — optional единый
-    резолвер имён; без него промпты наблюдателя байт-в-байт прежние."""
+    резолвер имён; без него промпты наблюдателя байт-в-байт прежние.
+
+    QND-NONDET §1/§2 (owner corrective 2026-11-10): технический heartbeat
+    исполняет ТОЛЬКО наступившие события пер-чатового расписания
+    (`services.semantic_schedule`) — если ни один чат не due и нет
+    событийного сигнала, проход не создаётся вовсе. ``only_chat`` +
+    ``trigger="event"`` — немедленный событийный путь (тот же Observer,
+    тот же Writer/Decision/SendRecheck; второго пайплайна нет).
+    """
     if not observer_enabled():
         return "disabled"
     now = _now(now)
+    event_trigger = str(trigger or "schedule") == "event"
+    if only_chat is None:
+        due = await _due_chats(db, now=now)
+        if not due and not event_trigger:
+            return "not_due"
     try:
         active = await get_active_observe(db)
     except Exception:
@@ -1213,7 +1250,148 @@ async def observe_tick(db, *, bot=None, writer_service=None, llm=None,
             return "disabled"
     return await InitiativeObserverRunner(
         db, bot=bot, writer_service=writer_service, llm=llm,
-        alias_resolver=alias_resolver).run(job_id)
+        alias_resolver=alias_resolver, trigger=trigger).run(
+            job_id, only_chat=only_chat)
+
+
+#: Событийный сигнал: single-flight ключ один на чат (§2 «per-chat
+#: single-flight»: занятый чат = сигнал ОТБРОШЕН, а не поставлен в очередь).
+EVENT_OWNER = "qnd.event"
+EVENT_KIND = "initiative.event"
+
+
+def event_coalesce_key(chat_id) -> str:
+    return f"initiative.event:{int(chat_id)}"
+
+
+async def _event_busy(db, chat_id) -> bool:
+    """Занят ли чат прямо сейчас (durable `task_jobs`, статусы queued/running)."""
+    try:
+        cursor = await db.db.execute(
+            "SELECT 1 FROM task_jobs WHERE coalesce_key = ? AND status IN "
+            "(?, ?) LIMIT 1",
+            (event_coalesce_key(chat_id), JOB_QUEUED, JOB_RUNNING))
+        return await cursor.fetchone() is not None
+    except Exception:
+        return False
+
+
+async def _due_chats(db, *, now: int) -> list[int]:
+    """Чаты с наступившим расписанием инициативы или событийным сигналом."""
+    try:
+        from services import semantic_schedule as sched
+        return await sched.due_chats(db, sched.MECH_INITIATIVE, now=now)
+    except Exception:
+        logger.warning("[b01] due chats read failed", exc_info=True)
+        return []
+
+
+async def event_gate(db, chat_id, *, now: int | None = None) -> tuple[bool, str]:
+    """Дешёвые границы событийного пути (§2: анти-шторм, без очереди).
+
+    * занятый чат → сигнал ОТБРАСЫВАЕТСЯ (`event_dropped_busy`);
+    * `limits.qnd_event_debounce_seconds` между событийными проверками;
+    * `limits.qnd_event_min_interval_seconds` между платными оценками.
+
+    Основание — `last_check_ts` расписания инициативы (когда был последний
+    СМЫСЛОВОЙ разбор чата), т.е. фактические данные, а не догадка.
+    """
+    stamp = _now(now)
+    if await _event_busy(db, chat_id):
+        return False, "event_dropped_busy"
+    try:
+        from services import semantic_schedule as sched
+        row = await sched.ensure(db, sched.MECH_INITIATIVE, chat_id,
+                                 now=stamp) or {}
+    except Exception:
+        return True, ""
+    last = int(row.get("last_check_ts") or 0)
+    if last:
+        debounce = int(round(float(await sched._param(
+            chat_id, "limits.qnd_event_debounce_seconds",
+            sched.PARAM_DEFAULTS["limits.qnd_event_debounce_seconds"]) or 0)))
+        floor = int(round(float(await sched._param(
+            chat_id, "limits.qnd_event_min_interval_seconds",
+            sched.PARAM_DEFAULTS["limits.qnd_event_min_interval_seconds"])
+            or 0)))
+        if stamp - last < max(0, debounce):
+            return False, "event_dropped_debounce"
+        if stamp - last < max(0, floor):
+            # Сигнал НЕ теряется: он остаётся durable-меткой расписания и
+            # будет обслужен ближайшим heartbeat/событием после пола.
+            return False, "event_deferred_floor"
+    return True, ""
+
+
+async def dispatch_event(db, *, chat_id, reason: str = "live_message",
+                         now: int | None = None) -> str:
+    """Немедленный запуск существующего Observer на событие (§2).
+
+    Не второй Observer и не сканер: тот же `observe_tick`, тот же Writer,
+    Decision, SendRecheck, дедуп и учёт отправок. Занятый чат/дебаунс →
+    сигнал ОТБРАСЫВАЕТСЯ (не копится).
+    """
+    stamp = _now(now)
+    ok, code = await event_gate(db, chat_id, now=stamp)
+    if not ok:
+        _emit_event_signal(chat_id, reason=reason, code=code)
+        return code
+    try:
+        from services.task_supervisor import (TaskSupervisor, TaskJobStore,
+                                             get_task_supervisor)
+        supervisor = get_task_supervisor()
+        store = TaskJobStore(db)
+
+        async def _job():
+            return await observe_tick(
+                db, bot=_service_attr("bot"), writer_service=_service(),
+                llm=_service_attr("llm"),
+                alias_resolver=_service_attr("aliases"),
+                now=stamp, trigger="event", only_chat=int(chat_id))
+
+        await supervisor.run(
+            _job, owner=EVENT_OWNER, kind=EVENT_KIND,
+            coalesce_key=event_coalesce_key(chat_id),
+            job_store=store, emit_event=False)
+    except Exception:
+        logger.warning("[b01] event dispatch failed | chat=%s", chat_id,
+                       exc_info=True)
+        return "error"
+    _emit_event_signal(chat_id, reason=reason, code="dispatched")
+    return "dispatched"
+
+
+def _service():
+    """Singleton DirectChatService (DI из bot.py → handlers.direct_chat).
+
+    Новый экземпляр не создаётся: событийный путь обязан идти тем же
+    Writer/Decision, что и плановый (иначе это второй пайплайн)."""
+    try:
+        from handlers import direct_chat as _dc
+        return getattr(_dc, "_service", None)
+    except Exception:
+        return None
+
+
+def _service_attr(name: str):
+    service = _service()
+    return getattr(service, name, None) if service is not None else None
+
+
+def _emit_event_signal(chat_id, *, reason: str, code: str) -> None:
+    """Диагностика событийного сигнала (R17: коды, без текста сообщений)."""
+    try:
+        from services import mca_events
+        mca_events.emit_mca_event(
+            "initiative_event_signal",
+            outcome=("success" if code == "dispatched" else "skipped"),
+            component="qnd", chat_id=int(chat_id),
+            reason_code=(None if code == "dispatched" else code),
+            usage_json={"chat_id": int(chat_id), "reason": str(reason or ""),
+                        "mechanism": "initiative",
+                        "decision": str(code or "")})
+    except Exception:
+        pass
 
 
 # ── Контекст эфемерного повода: ОДИН производитель ─────────────────────────
@@ -1280,7 +1458,8 @@ class InitiativeObserverRunner:
     не пере-оценивает те же окна и не теряет позицию)."""
 
     def __init__(self, db, *, bot=None, writer_service=None, llm=None,
-                 cancel_cb=None, alias_resolver=None) -> None:
+                 cancel_cb=None, alias_resolver=None,
+                 trigger: str = "schedule") -> None:
         self._db = db
         self._store = TaskJobStore(db)
         self._bot = bot
@@ -1297,6 +1476,12 @@ class InitiativeObserverRunner:
         # для текущего окна чата (тот же проход их и предъявляет оценщику, и
         # передаёт писателю ностальгии — второго поиска нет).
         self._related: dict[int, tuple] = {}
+        # QND-NONDET §2: провенанс прохода и (для события) единственный чат.
+        self._trigger = (str(trigger or "schedule")
+                         if str(trigger or "") in ("schedule", "event")
+                         else "schedule")
+        self._only_chat: int | None = None
+        self._schedule_state: dict[int, dict] = {}
         self._nostalgia = None
 
     # ── координация публикаций (INIT-COORD §3) ────────────────────────────
@@ -1372,13 +1557,208 @@ class InitiativeObserverRunner:
         entry["last_decision"] = decision
         return decision
 
-    def _next_check_ts(self, entry: dict, profile: dict, now: int) -> int:
-        """Когда механизм проверит чат снова (диагностика, не обещание)."""
-        last = int(entry.get("last_eval_ts") or 0)
-        interval = int(profile.get("eval_min_interval_seconds") or 0)
-        if not last:
-            return now
-        return last + max(0, interval)
+    async def _next_check_ts(self, chat_id: int, now: int) -> int:
+        """Когда механизм проверит чат снова — ФАКТИЧЕСКИЙ срок расписания.
+
+        QND-NONDET §6(f): прежняя «обещанная» величина
+        `last_eval_ts + profile.eval_min_interval_seconds` больше не
+        отдаётся — она выдавала фиксированный интервал за план. Теперь это
+        `semantic_schedule.next_due_ts` (свой draw у каждого чата). Нет строки
+        → `now` (срок ещё не назначен, а не выдуманное число).
+        """
+        try:
+            from services import semantic_schedule as sched
+            value = await sched.next_due_ts(self._db, sched.MECH_INITIATIVE,
+                                           int(chat_id))
+        except Exception:
+            value = None
+        return int(value) if value else int(now)
+
+    # ── расписание инициативы (QND-NONDET §1) ──────────────────────────────
+
+    @property
+    def _event_path(self) -> bool:
+        return getattr(self, "_only_chat", None) is not None
+
+    async def _schedule_source(self):
+        """Единственный контур случайности для QND-решений (§4).
+
+        Порядок: явная инъекция (`self._random`, DI тестов/вызывающего) →
+        `semantic_schedule._default_source` (тот же `RandomSourceService`).
+        Второго генератора нет; при недоступности провайдера значение просто
+        не выдаётся и это честно видно в решении.
+        """
+        injected = getattr(self, "_random", None)
+        if injected is not None:
+            return injected
+        try:
+            from services import semantic_schedule as sched
+            return sched._default_source(self._db)
+        except Exception:
+            return None
+
+    async def _schedule_due(self, chat_id: int, now: int) -> str:
+        """``ok|not_due|lease_held|stale|fail_open`` для одного чата.
+
+        Плановый heartbeat исполняет только наступивший срок; событийный
+        заход приходит по сигналу. Аренда строки — «не более одного
+        исполнения» на `(чат, механизм)`. Устаревший срок не исполняется
+        (только новый draw): очереди задолженностей нет.
+        """
+        from services import semantic_schedule as sched
+        try:
+            row = await sched.ensure(self._db, sched.MECH_INITIATIVE,
+                                    int(chat_id), now=now)
+        except Exception:
+            logger.warning("[b01] schedule ensure failed | chat=%s", chat_id,
+                           exc_info=True)
+            return "fail_open"
+        if row is None:
+            return "fail_open"
+        if not self._event_path and not await sched.due(
+                self._db, sched.MECH_INITIATIVE, int(chat_id), now=now):
+            return "not_due"
+        if not await sched.claim(self._db, sched.MECH_INITIATIVE,
+                                 int(chat_id), now=now,
+                                 owner=f"initiative:{chat_id}"):
+            return "lease_held"
+        planned = int(row.get("next_due_ts") or now)
+        missed = int(row.get("missed_count") or 0)
+        lateness = max(0, int(now) - planned)
+        missed_next = (missed + 1) if lateness > 0 else 0
+        self._schedule_state[int(chat_id)] = {"planned": planned,
+                                              "lateness": lateness,
+                                              "missed": missed_next}
+        try:
+            stale = int(round(float(await sched._param(
+                chat_id, "limits.qnd_stale_seconds",
+                sched.PARAM_DEFAULTS["limits.qnd_stale_seconds"]) or 0)))
+        except (TypeError, ValueError):
+            stale = int(sched.PARAM_DEFAULTS["limits.qnd_stale_seconds"])
+        if not self._event_path and lateness > max(0, stale):
+            await sched.mark_missed(
+                self._db, sched.MECH_INITIATIVE, int(chat_id), now=now,
+                missed_count=missed + 1)
+            sched.emit_due(sched.MECH_INITIATIVE, int(chat_id),
+                           planned_at=planned, executed_at=now,
+                           lateness_seconds=lateness,
+                           missed_count=missed + 1, executed=False,
+                           trigger=self._trigger,
+                           reason_code=sched.REASON_STALE)
+            await sched.draw_next(
+                self._db, sched.MECH_INITIATIVE, int(chat_id), now=now,
+                source=await self._schedule_source(),
+                trigger=self._trigger, reason=sched.REASON_STALE)
+            return "stale"
+        return "ok"
+
+    async def _publication_factors(self, chat_id: int, now: int, verdict: dict,
+                                   rows: list[dict], *, entry: dict) -> dict:
+        """Факторы §3 из фактических данных окна и памяти (без выдумок)."""
+        from services import quantum_publication as qp
+        factors: dict = {
+            "r": qp.clamp01(verdict.get("relevance")),
+            "s": qp.clamp01(verdict.get("significance")),
+            "a": await qp.activity_factor_for(self._db, chat_id, now=now),
+        }
+        horizon = await qp._num(
+            chat_id, "limits.qnd_freshness_horizon_seconds",
+            qp._FRESHNESS_DEFAULT, minimum=1.0)
+        newest = max((int(r.get("timestamp") or 0) for r in rows), default=0)
+        factors["t"] = (qp.freshness_factor(max(0, now - newest), horizon)
+                        if newest else None)
+        hints = list((getattr(self, "_related", None) or {}).get(
+            int(chat_id)) or ())
+        scores: list[float] = []
+        for hint in hints:
+            if not isinstance(hint, dict):
+                continue
+            try:
+                scores.append(float(hint.get("score")))
+            except (TypeError, ValueError):
+                continue
+        if scores:
+            reference = await qp._num(
+                chat_id, "limits.qnd_memory_quality_reference",
+                qp.DEFAULT_MEMORY_REFERENCE, minimum=1e-6)
+            factors["q"] = qp.memory_quality_factor(max(scores), reference)
+        else:
+            factors["q"] = None
+        try:
+            profile = await effective_limits(self._db, chat_id, entry=entry,
+                                             now=now)
+            window = int(profile.get("day_window_seconds") or 86400)
+            sent = _sent_in_window_static(entry or {}, now, window)
+            factors["n"] = qp.recent_factor(
+                sent, profile.get("max_replies_per_day"))
+        except Exception:
+            factors["n"] = None
+        return factors
+
+    async def _publication_decision(self, chat_id: int, now: int,
+                                    verdict: dict, rows: list[dict], *,
+                                    kind: str = "",
+                                    factors: dict | None = None):
+        """Один `decide()` (§3): решение о публикации для инициативы."""
+        from services import quantum_publication as qp
+        entry = self._entry_for(chat_id)
+        if factors is None:
+            try:
+                factors = await self._publication_factors(
+                    chat_id, now, verdict, rows, entry=entry)
+            except Exception:
+                logger.warning("[b01] publication factors failed | chat=%s",
+                               chat_id, exc_info=True)
+                factors = {}
+        ref = f"opportunity:{str(kind or verdict.get('kind') or '')}"
+        return await qp.decide(
+            self._db, mechanism=qp.MECH_INITIATIVE, chat_id=int(chat_id),
+            factors=factors, candidate_ref=ref,
+            source=await self._schedule_source(),
+            trigger=str(getattr(self, "_trigger", "schedule") or "schedule"),
+            now=now)
+
+    def _entry_for(self, chat_id: int) -> dict:
+        payload = getattr(self, "_payload", None) or {}
+        chats = payload.get("chats") if isinstance(payload, dict) else {}
+        return dict((chats or {}).get(str(int(chat_id))) or {})
+
+    def _record_result(self, chat_id: int, *, outcome: str,
+                       reason_code: str = "") -> None:
+        try:
+            from services import quantum_publication as qp
+            qp.record_result(
+                qp.MECH_INITIATIVE, chat_id, outcome=outcome,
+                reason_code=reason_code,
+                trigger=str(getattr(self, "_trigger", "schedule")
+                            or "schedule"))
+        except Exception:
+            pass
+
+    async def _complete_schedule(self, chat_id: int) -> None:
+        from services import semantic_schedule as sched
+        state = (getattr(self, "_schedule_state", {}) or {}).get(
+            int(chat_id)) or {}
+        stamp = int(time.time())
+        planned = int(state.get("planned") or stamp)
+        lateness = int(state.get("lateness") or 0)
+        missed = int(state.get("missed") or 0)
+        try:
+            await sched.mark_executed(
+                self._db, sched.MECH_INITIATIVE, int(chat_id), now=stamp,
+                trigger=self._trigger, lateness_seconds=lateness,
+                missed_count=missed)
+            sched.emit_due(sched.MECH_INITIATIVE, int(chat_id),
+                           planned_at=planned, executed_at=stamp,
+                           lateness_seconds=lateness, missed_count=missed,
+                           executed=True, trigger=self._trigger)
+            await sched.draw_next(
+                self._db, sched.MECH_INITIATIVE, int(chat_id), now=stamp,
+                source=await self._schedule_source(),
+                trigger=self._trigger)
+        except Exception:
+            logger.warning("[b01] schedule complete failed | chat=%s",
+                           chat_id, exc_info=True)
 
     # ── payload/checkpoint ────────────────────────────────────────────────
 
@@ -1515,12 +1895,18 @@ class InitiativeObserverRunner:
 
     # ── главный цикл ──────────────────────────────────────────────────────
 
-    async def run(self, job_id: str) -> str:
+    async def run(self, job_id: str, *, only_chat: int | None = None) -> str:
         if not observer_enabled():
             await self._finish(job_id, status=JOB_CANCELLED,
                                reason_code="cancelled")
             return JOB_CANCELLED
+        # QND-NONDET §2: событийный заход ограничен ОДНИМ чатом (прецедент
+        # `NostalgiaWorker.run_once(chat_id=…)`); плановый — все due-чаты.
+        self._only_chat = (int(only_chat) if only_chat is not None else None)
         payload = await self._load_payload(job_id)
+        # QND-NONDET §3: факторы публикации читают фактическую статистику
+        # окна чата из того же payload (второго состояния нет).
+        self._payload = payload
         started = await self._store.mark_running(job_id)
         if not started:
             row = await self._store.get(job_id)
@@ -1863,8 +2249,9 @@ class InitiativeObserverRunner:
         decision["skip_reason"] = str(reason)
         decision["skip_label"] = reason_label(reason)
         decision["ts"] = int(time.time())
-        if eval_due:
-            decision["next_check_ts"] = int(entry.get("last_eval_ts") or 0)
+        # QND-NONDET §2: провенанс каждого решения — schedule|event.
+        decision["trigger"] = str(getattr(self, "_trigger", "") or
+                                  "schedule")
         entry["last_decision"] = decision
 
     async def _last_bot_output_age(self, chat_id: int, *,
@@ -1985,11 +2372,15 @@ class InitiativeObserverRunner:
         counters = payload["counters"]
         now = int(time.time())
         chats = payload["chats"]
-        candidates = [int(cid) for cid, entry in chats.items()
-                      if int((entry or {}).get("pending") or 0) > 0]
-        # справедливость: чат, дольше всех без оценки, идёт первым
-        candidates.sort(key=lambda cid: int(
-            (chats.get(str(cid)) or {}).get("last_eval_ts") or 0))
+        # QND-NONDET §2: событийный заход — ровно один чат (сигнал события).
+        if getattr(self, "_only_chat", None) is not None:
+            candidates = [int(self._only_chat)]
+        else:
+            candidates = [int(cid) for cid, entry in chats.items()
+                          if int((entry or {}).get("pending") or 0) > 0]
+            # справедливость: чат, дольше всех без оценки, идёт первым
+            candidates.sort(key=lambda cid: int(
+                (chats.get(str(cid)) or {}).get("last_eval_ts") or 0))
         evals = 0
         eval_reported = False
         for chat_id in candidates[:MAX_CHATS_PER_PASS]:
@@ -2012,6 +2403,23 @@ class InitiativeObserverRunner:
             })
             if not await chat_observer_enabled(chat_id):
                 self._skip_eval(payload, chat_id, SKIP_CHAT_DISABLED)
+                continue
+            # ── QND-NONDET §1: наступило ли СОБЫТИЕ расписания этого чата ──
+            # Плановый heartbeat исполняет только наступившие сроки; событийный
+            # заход (§2) приходит по сигналу и чат уже выбран. Аренда строки
+            # даёт «не более одного исполнения» даже при двух прогонах.
+            schedule_state = await self._schedule_due(chat_id, now)
+            if schedule_state == "not_due":
+                self._skip_eval(payload, chat_id, SKIP_EVAL_NOT_DUE,
+                                eval_due=False)
+                continue
+            if schedule_state == "lease_held":
+                self._skip_eval(payload, chat_id, "lease_held",
+                                eval_due=False)
+                continue
+            if schedule_state == "stale":
+                self._skip_eval(payload, chat_id, "stale_deadline",
+                                eval_due=False)
                 continue
             # W5 (SOUL-18.4): действующие лимиты = профиль + мягкие цели
             # владельца (0/0 → ровно профиль, паритет). Жёсткие защиты
@@ -2105,21 +2513,12 @@ class InitiativeObserverRunner:
                     int(profile["eval_llm_budget_per_day"]):
                 self._skip_eval(payload, chat_id, SKIP_EVAL_BUDGET)
                 continue
-            # ── INIT-COORD §2: НЕЗАВИСИМОЕ случайное решение текстовой
-            # инициативы. Тот же `RandomSourceService`, свой purpose и своя
-            # трассировка; дефолт p=1.0 ⇒ draw не выполняется (паритет).
-            trigger = await random_trigger(
-                await self._random_source(), chat_id=chat_id,
-                purpose=PURPOSE_INITIATIVE_TRIGGER,
-                probability=await trigger_probability(chat_id), now=now)
-            self._note_decision(payload, chat_id, now=now,
-                                random_trace=trigger.trace)
-            if not trigger.ok:
-                counters["random_skips"] = int(
-                    counters.get("random_skips") or 0) + 1
-                self._skip_eval(payload, chat_id, trigger.reason,
-                                eval_due=False)
-                continue
+            # ── QND-NONDET §3/§6(e) (owner corrective 2026-11-10): гейт
+            # «вероятность ПЕРЕД оценкой» (INIT-COORD §2, `random_trigger` с
+            # purpose `initiative_trigger`) УДАЛЁН. Случайность теперь решает
+            # ПОСЛЕ содержательной оценки — это `quantum_publication.decide()`
+            # в `_act_on_opportunity`/`_act_on_memory_recall`. Здесь оценки не
+            # выбрасываются монеткой до того, как модель увидела окно.
             if self._llm is None:
                 if not eval_reported:
                     self._emit("initiative_observer_diagnostic",
@@ -2148,14 +2547,18 @@ class InitiativeObserverRunner:
                 int(entry.get("last_eval_msg_id") or 0),
                 int(entry.get("last_seen_msg_id") or 0),
                 max(int(r["id"]) for r in rows))
+            # QND-NONDET §1: смысловая проверка состоялась — фиксируем ОДНО
+            # исполнение и ВСЕГДА делаем новый draw следующего момента.
+            await self._complete_schedule(chat_id)
             if verdict is None:
                 counters_skips = counters.setdefault("eval_skips", {})
                 counters_skips[SKIP_EVAL_UNAVAILABLE] = int(
                     counters_skips.get(SKIP_EVAL_UNAVAILABLE) or 0) + 1
-                self._note_decision(payload, chat_id, now=now,
-                                    skip_reason=SKIP_EVAL_UNAVAILABLE,
-                                    extra={"next_check_ts": self._next_check_ts(
-                                        entry, profile, now)})
+                self._note_decision(
+                    payload, chat_id, now=now,
+                    skip_reason=SKIP_EVAL_UNAVAILABLE,
+                    extra={"next_check_ts": await self._next_check_ts(
+                        chat_id, now), "trigger": self._trigger})
                 continue
             if not verdict.get("opportunity"):
                 skips = counters.setdefault("eval_skips", {})
@@ -2165,8 +2568,8 @@ class InitiativeObserverRunner:
                     payload, chat_id, now=now, skip_reason=SKIP_NO_OPPORTUNITY,
                     conditions={"evaluated": True,
                                 "opportunity": False},
-                    extra={"next_check_ts": self._next_check_ts(
-                        entry, profile, now)})
+                    extra={"next_check_ts": await self._next_check_ts(
+                        chat_id, now), "trigger": self._trigger})
                 self._emit("initiative_opportunity", outcome="skipped",
                            stage="opportunity:none", chat_id=chat_id)
                 continue
@@ -2175,8 +2578,8 @@ class InitiativeObserverRunner:
                 conditions={"evaluated": True, "opportunity": True,
                             "kind": str(verdict.get("kind") or ""),
                             "action": str(verdict.get("action") or "")},
-                extra={"next_check_ts": self._next_check_ts(
-                    entry, profile, now)})
+                extra={"next_check_ts": await self._next_check_ts(
+                    chat_id, now), "trigger": self._trigger})
             counters["opportunities"] = int(
                 counters.get("opportunities") or 0) + 1
             day = payload["day"]
@@ -2449,15 +2852,34 @@ class InitiativeObserverRunner:
 
     async def _act_on_opportunity(self, payload: dict, job_id: str,
                                   chat_id: int, verdict: dict,
-                                  rows: list[dict]) -> None:
+                                  rows: list[dict],
+                                  factors: dict | None = None) -> None:
         """B01.2/B01.3: разделение ephemeral / durable intent и вызов
         СУЩЕСТВУЮЩЕГО единого входа инициативы. Никогда не бросает."""
         counters = payload["counters"]
         entry = payload["chats"].setdefault(str(chat_id), {})
         action = str(verdict.get("action") or "silent")
         if action == "silent":
+            # QND-NONDET §3: молчание обязано иметь обоснование из закрытого
+            # набора. Есть — `semantic_none`, вердикт полноценный, draw НЕ
+            # делается. Нет — вердикт невалиден (не «тихий отказ»): иначе
+            # модель глушила бы инициативу без причины, а §3 не вступал бы.
+            veto = str(verdict.get("veto_reason") or "")
+            if veto not in VETO_REASONS:
+                counters[SKIP_PARSE_ERROR] = int(
+                    counters.get(SKIP_PARSE_ERROR) or 0) + 1
+                self._skip_eval(payload, chat_id, SKIP_PARSE_ERROR)
+                self._emit("initiative_opportunity", outcome="failed",
+                           stage="opportunity:veto_missing", chat_id=chat_id,
+                           reason_code="parse_error")
+                return
             counters["silent_decisions"] = int(
                 counters.get("silent_decisions") or 0) + 1
+            self._note_decision(
+                payload, chat_id, now=int(time.time()), skip_reason="",
+                publication={"silence_cause": "semantic_none",
+                             "veto_reason": veto,
+                             "trigger": self._trigger})
             return
         goal = str(verdict.get("goal") or "")
         kind = str(verdict.get("kind") or "development")
@@ -2497,6 +2919,28 @@ class InitiativeObserverRunner:
                 return
         from services import mca_intents as _mi
         from services.direct_chat_service import handle_initiative
+        # ── QND-NONDET §3: ОДНО вероятностное решение ПУБЛИКАЦИИ ─────────
+        # Всё, что могло запретить, уже проверено ВЫШЕ (модуль/права, дневной
+        # лимит, min_gap/антифлуд, дедуп контекста, лимит темы, бюджет оценок,
+        # бронь-пречек, семантический вердикт). Дальше — draw и, при
+        # публикации, существующий Writer/Decision/SendRecheck без повторного
+        # «решения об уместности».
+        decision = await self._publication_decision(
+            chat_id, now, verdict, rows, kind=kind, factors=factors)
+        self._note_decision(
+            payload, chat_id, now=now,
+            skip_reason=("" if decision.publish
+                         else str(decision.silence_cause or "")),
+            publication=decision.as_dict())
+        if not decision.publish:
+            counters["random_skips"] = int(
+                counters.get("random_skips") or 0) + 1
+            self._emit("initiative_opportunity", outcome="skipped",
+                       stage=("opportunity:random_miss"
+                              if decision.silence_cause == "random_miss"
+                              else "opportunity:random_unavailable"),
+                       chat_id=chat_id)
+            return
         trigger = "new_message"
         intent_kind = ("open_dispute" if kind == "dispute"
                        else "topic_interest")
@@ -2618,6 +3062,8 @@ class InitiativeObserverRunner:
             self._emit("initiative_sent", outcome="success",
                        stage=f"observer:{kind}", chat_id=chat_id,
                        entity_id=str(correlation_id))
+            self._record_result(chat_id, outcome="delivered",
+                                reason_code="initiative_sent")
         elif status == "reacted":
             # L1D (22.10.2026): реакция — полноценная форма участия; тот же
             # анти-спам учёт (окно/тема), свой счётчик и честное событие.
@@ -2626,6 +3072,8 @@ class InitiativeObserverRunner:
             self._emit("initiative_reacted", outcome="success",
                        stage=f"observer:{kind}", chat_id=chat_id,
                        entity_id=str(correlation_id))
+            self._record_result(chat_id, outcome="delivered",
+                                reason_code="initiative_reacted")
         if status in ("sent", "reacted"):
             stamps = [int(ts) for ts in (entry.get("sent_stamps") or [])]
             stamps.append(now)
@@ -2648,6 +3096,10 @@ class InitiativeObserverRunner:
                     counters.get("react_decisions") or 0) + 1
             counters["silent_decisions"] = int(
                 counters.get("silent_decisions") or 0) + 1
+            self._record_result(
+                chat_id,
+                outcome=("send_recheck" if "recheck" in reason else "dedup"),
+                reason_code=reason)
         elif status == "writer_failed":
             counters["writer_unavailable"] = int(
                 counters.get("writer_unavailable") or 0) + 1

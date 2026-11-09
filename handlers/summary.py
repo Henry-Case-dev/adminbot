@@ -590,6 +590,20 @@ async def summary_observer(message: types.Message):
                 "ingestion_live", "success",
                 chat_id=message.chat.id, message_id=message.message_id,
                 duration_ms=int((time.monotonic() - persist_started) * 1000))
+            # QND-NONDET §2 (owner corrective 2026-11-10): событийный сигнал
+            # ТОЧКИ ЖИВОГО СООБЩЕНИЯ. Это не сканер текста и не второй
+            # Observer: durable-метка `scan_requested_at` + немедленный запуск
+            # СУЩЕСТВУЮЩЕГО observe_tick(trigger="event", only_chat=…).
+            # Fail-open: приём сообщений не зависит от инициативы.
+            try:
+                from services import semantic_schedule as _sched
+                await _sched.request_event(
+                    _db, chat_id=message.chat.id, reason="live_message",
+                    now=ingested_at)
+            except Exception:
+                logger.warning(
+                    "SmartModule observer: event signal failed | chat=%s",
+                    message.chat.id, exc_info=True)
         # MCA-19 (блок A): канонический реестр активов входящих изображений
         # (фото/документ-изображение/стикер; альбом — каждый item + общая
         # media_group_id). Гейт — env-мастер K1; fail-open (не роняет приём).

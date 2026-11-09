@@ -14249,6 +14249,58 @@
                       </div>
                     </div>
                   </template>
+                  <!-- QND-NONDET §5 (owner corrective 2026-11-10): «Аналитика» —
+                       «почему и как менялось». Только durable-события:
+                       распределение интервалов, плановые vs событийные оценки,
+                       таблица кандидатов с p/u/исходом, доли молчания по
+                       причине, quantum/fallback и реальные доставки. Нет
+                       событий — нет чисел (проценты без знаменателя не
+                       рисуются); слово «работает» без квантовых значений не
+                       появляется. -->
+                  <div v-if="quantumAnalytics.ready" class="mt-2"
+                       data-quantum-analytics>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-xs font-bold">Квантовая недетерминистика</span>
+                      <span class="text-gray-500 text-xs">окно {{ quantumAnalytics.hours }} ч</span>
+                    </div>
+                    <div v-for="m in quantumAnalytics.mechanisms"
+                         :key="'qa-' + m.id"
+                         :data-quantum-analytics-mechanism="m.id" class="mt-1">
+                      <div class="text-gray-400">
+                        <b>{{ m.title }}</b> · {{ m.headline }}
+                      </div>
+                      <div class="text-gray-500">
+                        квантовых {{ m.quantumShare.quantum }} · fallback
+                        {{ m.quantumShare.fallback }} · недоступно
+                        {{ m.quantumShare.unavailable }}
+                        <span v-if="m.quantumShare.percent != null"> (квантовых {{ m.quantumShare.percent }}%)</span>
+                        <span v-else> · нет данных для доли</span>
+                      </div>
+                      <div class="text-gray-500">
+                        оценки: плановые {{ m.scheduleEvals }} · событийные {{ m.eventEvals }}
+                        · доставок {{ m.deliveries }}
+                      </div>
+                      <div v-if="m.histogram.length" class="mt-1">
+                        <span class="text-gray-500">Интервалы:</span>
+                        <div v-for="(h, i) in m.histogram"
+                             :key="'qh-' + m.id + i" class="text-gray-400">
+                          · {{ h.from }}–{{ h.to }} с — {{ h.count }}
+                        </div>
+                      </div>
+                      <div v-else class="text-gray-600 mt-1">
+                        Интервалов в окне нет — гистограмма не рисуется.
+                      </div>
+                      <div v-if="m.candidates.length" class="mt-1">
+                        <span class="text-gray-500">Кандидаты:</span>
+                        <div v-for="(c, i) in m.candidates"
+                             :key="'qc-' + m.id + i" class="text-gray-400">
+                          · p={{ c.p }} · u={{ c.u }} · {{ c.outcome || '—' }}
+                          <span v-if="c.silence_cause" class="text-gray-600">({{ c.silence_cause }})</span>
+                          <span class="text-gray-600"> · {{ c.trigger || '—' }} · {{ c.source || '—' }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -14810,6 +14862,57 @@
                 </div>
                 </details><!-- /Wave 2: техно-детали случайности -->
               </template>
+            </div>
+
+            <!-- QND-NONDET §5 (owner corrective 2026-11-10): блок фактической
+                 недетерминистики по механизмам — врезка в существующий
+                 «Статус» («быстро увидеть, что происходит»). Данные —
+                 аддитивное поле `quantum` из GET /api/status: последняя и
+                 следующая смысловая проверка (абсолютное время + отсчёт),
+                 источник последнего розыгрыша, разрешено/отложено/отклонено
+                 и доставки за окно. Честность: если квантовых значений не
+                 было, слово «работает» не появляется (серверная проверка по
+                 durable-событиям), а доля без знаменателя не рисуется. -->
+            <div class="card p-4 sg-12" data-quantum-ritm>
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span> Квантовая недетерминистика</div>
+                <span class="text-xs text-gray-500">расписание смысловых проверок и вероятность публикации</span>
+              </div>
+              <div v-if="!quantumRitm.ready" class="spinner my-2"></div>
+              <div v-else-if="!quantumRitm.enabled" class="text-xs text-gray-500">
+                Данных нет — расписание ещё не создавалось.
+              </div>
+              <div v-else class="space-y-3 text-xs" data-quantum-mechanisms>
+                <div v-for="m in quantumRitm.mechanisms" :key="m.id"
+                     :data-quantum-mechanism="m.id" class="rounded-lg bg-white/5 px-2 py-2">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <b>{{ m.title }}</b>
+                    <span class="badge" :class="m.allowed ? 'badge-ok' : 'badge-muted'">{{ m.headline }}</span>
+                    <span class="text-gray-500">чатов: {{ m.chats }}</span>
+                  </div>
+                  <div class="mt-1">
+                    Последняя проверка: <b>{{ m.lastCheck }}</b> ·
+                    следующая: <b>{{ m.nextDue }}</b>
+                    <span class="text-gray-500">(через {{ m.nextIn }})</span>
+                  </div>
+                  <div class="mt-1">
+                    Источник последнего розыгрыша: <b>{{ m.source }}</b>
+                    <span class="text-gray-500">· квантовых значений: {{ m.quantumDraws }}</span>
+                  </div>
+                  <div class="mt-1">
+                    Разрешено к публикации: <b>{{ m.published }}</b> ·
+                    молчание: <b>{{ m.silent }}</b> ·
+                    отложено: <b>{{ m.deferred }}</b> ·
+                    доставлено: <b>{{ m.deliveries }}</b>
+                  </div>
+                  <div class="mt-1 text-gray-500">
+                    Оценки: плановые {{ m.scheduleEvals }} · событийные {{ m.eventEvals }}
+                  </div>
+                  <div v-if="m.causes.length" class="mt-1 text-gray-400">
+                    Молчания: <span v-for="c in m.causes" :key="c.label" class="ml-1">{{ c.label }} — {{ c.count }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Раунд 10.39 (MCA-16, ADR-1028-15 D9/T-5006): компактная лента
