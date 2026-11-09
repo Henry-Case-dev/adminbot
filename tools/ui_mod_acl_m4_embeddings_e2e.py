@@ -97,6 +97,7 @@ MODULES_USER_ME = {"telegram_id": 7711771, "username": "u", "first_name": "U",
 # ── сервер ────────────────────────────────────────────────────────────────
 class _Handler(SimpleHTTPRequestHandler):
     root = REPO
+    api_payload = None
 
     def translate_path(self, path):  # noqa: N802
         p = path.split("?")[0].split("#")[0]
@@ -117,9 +118,30 @@ class _Handler(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
+    def do_GET(self):  # noqa: N802
+        """`/api/*` — стабы (нужны и `--serve-only` для ручного осмотра)."""
+        path = self.path.split("?")[0]
+        if self.api_payload is not None and path.startswith("/api/"):
+            if path.endswith("/api/config"):
+                body = self.api_payload
+            elif path.endswith("/api/me"):
+                body = M.ME_JSON
+            elif path.endswith("/api/access/me"):
+                body = GLOBAL_ME_ACCESS
+            else:
+                body = M._stub_for(self.path)
+            raw = json.dumps(body).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+            return
+        super().do_GET()
 
-def _serve(root, port):
-    cls = type("H", (_Handler,), {"root": root})
+
+def _serve(root, port, payload=None):
+    cls = type("H", (_Handler,), {"root": root, "api_payload": payload})
     httpd = ThreadingHTTPServer(("127.0.0.1", port), cls)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd
@@ -241,7 +263,7 @@ def main() -> int:
 
     if args.serve_only:
         payload = _config_payload()
-        httpd = _serve(REPO, 8871)
+        httpd = _serve(REPO, 8871, payload)
         print("стенд: http://127.0.0.1:8871/web/index.html%s" % ROUTE)
         print("без TMA-стаба страница покажет «Миниапп открыт без "
               "Telegram-контекста» — в консоли браузера выполните:\n%s"
@@ -283,8 +305,8 @@ def main() -> int:
     with zipfile.ZipFile(zip_path) as zf:
         zf.extractall(base_tree)
 
-    srv_head = _serve(REPO, 8871)
-    srv_base = _serve(base_tree, 8872)
+    srv_head = _serve(REPO, 8871, payload)
+    srv_base = _serve(base_tree, 8872, payload)
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(args=["--disable-lcd-text"])
