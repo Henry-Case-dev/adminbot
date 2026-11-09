@@ -48,9 +48,9 @@ class TestCatalogInvariant106:
         # (VIDEO_INTENT_PENDING_TTL_SECONDS / _WINDOW_MESSAGES /
         # _WINDOW_MAX_AGE_SECONDS); REGISTRY/GROUPS/TAB_RULES не растут
         # (hot.get с settings-дефолтом, ΔDDL = 0) → Settings 465→468.
-        assert len(pc.REGISTRY) == 606
-        assert len(pc.GROUPS) == 119
-        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.REGISTRY) == 638
+        assert len(pc.GROUPS) == 121
+        assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
         # Settings-поля: EVOL-031 все 5 smart/dedup-ключей СОХРАЕНЫ (no-op) —
         # дрейф 466→465 внешний (закоммиченный EVOL-016/012), не этой задачи.

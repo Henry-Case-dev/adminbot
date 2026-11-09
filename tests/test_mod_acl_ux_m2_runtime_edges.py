@@ -63,6 +63,24 @@ class _Hot:
         return self.values.get(key, default)
 
 
+@pytest.fixture(autouse=True)
+def _qnd_schedule_due(monkeypatch):
+    """QND-NONDET §1 (2026-11-10): предмет — runtime-края ACL, не расписание.
+    Событие Observer считается наступившим для каждого чата с сообщениями."""
+    from services import semantic_schedule as _sched
+
+    async def _due(db, mechanism, chat_id, *, now=None):
+        return True
+
+    async def _due_chats(db, mechanism, *, now=None):
+        cursor = await db.db.execute(
+            "SELECT DISTINCT chat_id FROM smart_messages")
+        return [int(r["chat_id"]) for r in await cursor.fetchall()]
+
+    monkeypatch.setattr(_sched, "due", _due)
+    monkeypatch.setattr(_sched, "due_chats", _due_chats)
+
+
 @pytest.fixture
 def world(monkeypatch):
     state = {"globals": {"flags.memory_search_enabled": True},

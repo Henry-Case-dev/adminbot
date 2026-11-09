@@ -56,7 +56,7 @@ async def test_fresh_db_migrates_0_to_39(tmp_path):
         # слотов расписания) + v43 (MEMORY-02, mca_entity_canonical) +
         # v44 (MEMORY-07, mca_community_*) + v45 (VMQ-V, transcript revision) —
         # соседние аддитивные шаги, v39 они не отменяют.
-        assert (await cur.fetchone())[0] == 46
+        assert (await cur.fetchone())[0] == 47
         book = await svc.db.execute(
             "SELECT name, checksum FROM schema_migrations WHERE version = 39")
         row = await book.fetchone()
@@ -97,7 +97,7 @@ async def test_v39_restart_is_true_noop(tmp_path, caplog):
         # v43 (MEMORY-02, mca_entity_canonical): хвост схемы не изменился.
         # v44 (MEMORY-07, mca_community_*): рестарт поднимает до того же хвоста.
         # v45 (VMQ-V, transcript revision): хвост 44 -> 45.
-        assert (await cur.fetchone())[0] == 46
+        assert (await cur.fetchone())[0] == 47
         cur = await svc2.db.execute(
             "SELECT COUNT(*) AS c FROM schema_migrations WHERE version = 39")
         assert (await cur.fetchone())["c"] == 1
@@ -145,7 +145,7 @@ async def test_v38_db_upgrades_to_v39_without_data_loss(tmp_path):
         # v43 (MEMORY-02, mca_entity_canonical): хвост -> 43.
         # v44 (MEMORY-07, mca_community_*): хвост -> 44.
         # v45 (VMQ-V, transcript revision): хвост -> 45.
-        assert (await cur.fetchone())[0] == 46
+        assert (await cur.fetchone())[0] == 47
         book = await svc.db.execute(
             "SELECT name FROM schema_migrations WHERE version = 39")
         row = await book.fetchone()

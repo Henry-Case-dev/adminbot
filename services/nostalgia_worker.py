@@ -873,11 +873,19 @@ class NostalgiaWorker:
         # W2: флаги последнего построения пула (честная диагностика NOST-12;
         # воркер однопоточен по _run_lock — состояние не гоняется).
         self._pool_flags: dict = {}
+        # QND-NONDET §2: провенанс текущего прогона (schedule|event).
+        self._trigger = _TRIGGER_SCHEDULE
 
     # ── ключи (hot с фолбэком settings; категория memory, spec §3.6.4) ──
 
     def _key(self, name: str, default):
         return hot.get(f"memory.nostalgia_{name}", default)
+
+    def _trigger_name(self) -> str:
+        """Провенанс текущего прогона: schedule|event (§2 контракта)."""
+        value = str(getattr(self, "_trigger", _TRIGGER_SCHEDULE) or "")
+        return value if value in (_TRIGGER_SCHEDULE, _TRIGGER_EVENT) \
+            else _TRIGGER_SCHEDULE
 
     def _limit(self, name: str, default) -> int:
         return int(self._key(name, default) or 0)
@@ -990,10 +998,15 @@ class NostalgiaWorker:
         ОДИН терминальный outcome на прогон (не на каждый чат/гейт).
         R17: только счётчики/коды. Тело — `_run_tick` (без изменений)."""
         started = time.monotonic()
+        # QND-NONDET §2: провенанс прогона хранится на инстансе — воркер
+        # однопоточен по `_run_lock`, а подпись `_run_tick` остаётся прежней
+        # (внешние потребители/тесты не ломаются).
+        self._trigger = (trigger if trigger in (_TRIGGER_SCHEDULE,
+                                                _TRIGGER_EVENT)
+                         else _TRIGGER_SCHEDULE)
         _emit("nostalgia_run", "start", component=_NOSTALGIA_COMPONENT)
         try:
-            stats = await self._run_tick(manual=manual, only_chat=only_chat,
-                                         trigger=trigger)
+            stats = await self._run_tick(manual=manual, only_chat=only_chat)
         except Exception:
             _emit("nostalgia_run", "failed",
                   component=_NOSTALGIA_COMPONENT,
@@ -1011,8 +1024,7 @@ class NostalgiaWorker:
         return stats
 
     async def _run_tick(self, *, manual: bool,
-                        only_chat: int | None = None,
-                        trigger: str = _TRIGGER_SCHEDULE) -> dict:
+                        only_chat: int | None = None) -> dict:
         now = _now_ts()
         stats = {"chats": 0, "candidates": 0, "sent": 0, "skipped": 0,
                  "errors": 0}
@@ -1044,8 +1056,7 @@ class NostalgiaWorker:
                 stats["_no_op"] = "no_chats"
                 return stats
         for chat_id in chats:
-            result = await self._run_chat(chat_id, now, manual=manual,
-                                          trigger=trigger)
+            result = await self._run_chat(chat_id, now, manual=manual)
             stats["chats"] += 1
             stats["candidates"] += result["candidates"]
             stats["sent"] += result["sent"]
@@ -1069,8 +1080,7 @@ class NostalgiaWorker:
                            "chat=%s", chat_id, exc_info=True)
             return True
 
-    async def _run_chat(self, chat_id: int, now: int, *, manual: bool,
-                        trigger: str = _TRIGGER_SCHEDULE) -> dict:
+    async def _run_chat(self, chat_id: int, now: int, *, manual: bool) -> dict:
         """Исполнить расписание одного чата: не более ОДНОГО исполнения.
 
         Порядок (§1): гейт модуля (без draw при OFF) → durable-строка
@@ -1080,6 +1090,7 @@ class NostalgiaWorker:
         После исполнения ВСЕГДА новый draw (никакого фиксированного интервала).
         """
         out = {"candidates": 0, "sent": 0, "skipped": 0, "errors": 0}
+        trigger = self._trigger_name()
         if not await self._module_on(chat_id):
             logger.debug("[nostalgia] heartbeat skip: module off | chat=%s",
                          chat_id)
@@ -1126,8 +1137,7 @@ class NostalgiaWorker:
                                   trigger=trigger, reason=sched.REASON_STALE)
             return out
         try:
-            out = await self._process_chat(chat_id, now, manual=manual,
-                                           trigger=trigger)
+            out = await self._process_chat(chat_id, now, manual=manual)
         finally:
             # Одно исполнение фиксируется ВРЕМЕНЕМ ПРОГОНА (`now`): тесты и
             # повторные heartbeat'ы видят ту же детерминированную ось, что и
@@ -1156,8 +1166,7 @@ class NostalgiaWorker:
     # ── обработка чата ────────────────────────────────────────────
 
     async def _process_chat(self, chat_id: int, now: int, *,
-                            manual: bool,
-                            trigger: str = _TRIGGER_SCHEDULE) -> dict:
+                            manual: bool) -> dict:
         """Тик одного чата: гейты → кандидаты → порог → LLM → отправка →
         аудит nostalgia_log. Возвращает счётчики; fail-open (NFR-4)."""
         out = {"candidates": 0, "sent": 0, "skipped": 0, "errors": 0}
@@ -1237,8 +1246,7 @@ class NostalgiaWorker:
                     chat_id)
                 return out
             # ── дорогие шаги: кандидаты → порог → LLM → отправка ─────
-            await self._candidate_llm_send(chat_id, now, out, active=active,
-                                           trigger=trigger)
+            await self._candidate_llm_send(chat_id, now, out, active=active)
         except Exception:
             logger.warning(
                 "[nostalgia] chat tick failed — WARNING, тик жив | "
@@ -1295,7 +1303,7 @@ class NostalgiaWorker:
                                   active: bool = False,
                                   candidate: dict | None = None,
                                   pick_info: dict | None = None,
-                                  trigger: str = _TRIGGER_SCHEDULE) -> None:
+                                  trigger: str | None = None) -> None:
         """Дорогой шаг тика (§3.5.2–3.5.4): кандидат, порог агрессивности,
         1 облачный LLM-вызов, отправка. Все исходы — строка в nostalgia_log
         (status sent/skipped/error). Никогда не бросает (fail-open).
@@ -1305,6 +1313,7 @@ class NostalgiaWorker:
         живого разговора (`recall_in_conversation`): решение о связи уже
         принято общим Observer/Decision, а маршрут (порог, budget, единый
         Writer/SendRecheck, журнал) остаётся ОДИН и тот же."""
+        trigger = str(trigger or self._trigger_name())
         if candidate is None:
             candidate, pick_info = await self._pick_candidate(chat_id, now)
         if candidate is None:
@@ -2049,7 +2058,12 @@ class NostalgiaWorker:
         if fresh:
             ordered = _rank_episodes(fresh, told_years=told_years)
             chosen_index = await self._direction_pick(chat_id, ordered, info)
-            if chosen_index is not None:
+            # Перестановка имеет смысл только когда пул БОЛЬШЕ капа показа:
+            # квантовое направление выбирает, какой эпизод попадёт в
+            # предъявляемую часть. Если весь пул и так показан, порядок
+            # остаётся ранжированным (решение о направлении всё равно
+            # записано в `info["direction"]`).
+            if chosen_index is not None and len(ordered) > _EPISODES_MAX:
                 chosen = ordered[chosen_index]
                 rest = [e for e in ordered if e is not chosen]
                 ordered = rest[:_EPISODES_MAX - 1] + [chosen] \

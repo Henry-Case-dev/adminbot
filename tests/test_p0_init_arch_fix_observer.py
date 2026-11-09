@@ -193,6 +193,25 @@ def _window_lines(prompt: str) -> list:
 
 
 @pytest.fixture(autouse=True)
+def _qnd_schedule_due(monkeypatch):
+    """QND-NONDET §1 (2026-11-10): предмет этих тестов — окно/промпт/дедуп
+    Observer, а не расписание. Событие считается наступившим для каждого чата
+    с сообщениями (срок/аренда/розыгрыши покрыты `tests/test_qnd_schedule.py`)."""
+    from services import semantic_schedule as _sched
+
+    async def _due(db, mechanism, chat_id, *, now=None):
+        return True
+
+    async def _due_chats(db, mechanism, *, now=None):
+        cursor = await db.db.execute(
+            "SELECT DISTINCT chat_id FROM smart_messages")
+        return [int(r["chat_id"]) for r in await cursor.fetchall()]
+
+    monkeypatch.setattr(_sched, "due", _due)
+    monkeypatch.setattr(_sched, "due_chats", _due_chats)
+
+
+@pytest.fixture(autouse=True)
 def _clean():
     # Гигиена сессии pytest: `mca_random_source` — модульный singleton,
     # связываемый с БД первого теста, дошедшего до `handle_initiative`

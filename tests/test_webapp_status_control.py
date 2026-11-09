@@ -131,9 +131,11 @@ class TestStatusEndpoint:
             # MCA-16 (10.39) / MCA-09+12 (10.40): + experience / intents
             # (читающие блоки; пин ДОГНАЛ фактический контракт status_service —
             # на HEAD 08a8849 ключи уже были, тест был RED до ASAP 7).
+            # QND-NONDET (10.11.2026): + аддитивное quantum (расписание и
+            # вероятность публикации; честность внутри блока).
             assert set(body) == {"bot", "server", "llm", "uptime", "permsoc",
                                  "context", "llm_stats", "random",
-                                 "experience", "intents"}
+                                 "experience", "intents", "quantum"}
             # ASAP 7 (F3, §3.2): intents.module — аддитивный гейт-блок
             # Initiative (requested/effective/source + heartbeat).
             module_block = (body.get("intents") or {}).get("module")

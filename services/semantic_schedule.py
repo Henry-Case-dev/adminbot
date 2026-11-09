@@ -104,6 +104,14 @@ DEFAULT_MAX_SECONDS: dict[str, float] = {
     MECH_NOSTALGIA: 21600.0,     # 6 часов
     MECH_INITIATIVE: 7200.0,     # 2 часа
 }
+#: Явные ключи границ по механизмам (литералы, а не сборка строки): это и
+#: читаемо, и проверяемо аудитом каталога (каждая ручка каталога видна в коде).
+CADENCE_PARAMS: dict[str, tuple[str, str]] = {
+    MECH_NOSTALGIA: ("limits.qnd_nostalgia_min_seconds",
+                     "limits.qnd_nostalgia_max_seconds"),
+    MECH_INITIATIVE: ("limits.qnd_initiative_min_seconds",
+                      "limits.qnd_initiative_max_seconds"),
+}
 PARAM_DEFAULTS: dict[str, float] = {
     "limits.qnd_cadence_floor_seconds": 300.0,
     "limits.qnd_cadence_shape": 1.0,          # 1.0 = равномерное
@@ -272,9 +280,10 @@ async def resolve_cadence(db, mechanism: str, chat_id, *,
     Ноль зашитых интервалов/вероятностей в потребителях.
     """
     stamp = _now(now)
-    lo = await _num(chat_id, f"limits.qnd_{mechanism}_min_seconds",
+    lo_key, hi_key = CADENCE_PARAMS[mechanism]
+    lo = await _num(chat_id, lo_key,
                     DEFAULT_MIN_SECONDS[mechanism], minimum=1.0)
-    hi = await _num(chat_id, f"limits.qnd_{mechanism}_max_seconds",
+    hi = await _num(chat_id, hi_key,
                     DEFAULT_MAX_SECONDS[mechanism], minimum=1.0)
     hi = max(hi, lo)
     floor = await _num(chat_id, "limits.qnd_cadence_floor_seconds",

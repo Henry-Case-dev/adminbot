@@ -375,6 +375,18 @@ LEGACY_REPHRASING_MIGRATION: tuple[MigrationRow, ...] = (
         ui="нет переключателя",
         former_control="SYSTEM2_VALIDATOR_LOOP_ENABLED",
         note="RLR-04: наблюдение не меняет текст"),
+    MigrationRow(
+        "initiative.trigger_probability", "catalog",
+        MIGRATION_DEPRECATED_COMPAT,
+        consumer="QND-NONDET (10.11.2026): читается только как ВЕРХНЯЯ "
+                 "граница вероятности публикации (p_max) в "
+                 "services.quantum_publication._explicit_trigger_probability; "
+                 "бинарного гейта «пробовать ли» больше нет",
+        ui="скрыт из каталога (hidden): заменён параметрами "
+           "limits.qnd_initiative_publication_min/max; явный пользовательский "
+           "override продолжает учитываться как p_max",
+        note="заводской 1.0 больше не гейт; значение не удаляется и не "
+             "переписывается"),
 )
 
 
@@ -2663,7 +2675,10 @@ _MEMORY: list[tuple] = [
 
     ("NOSTALGIA_TICK_MINUTES", "Ностальгия: период тика, минут", "int",
      "memory_nostalgia",
-     "Как часто воркер проверяет чаты на тишину и кандидатов (60).",
+     "Устарело: ручка НЕ влияет на частоту смысловых проверок — её задаёт "
+     "квантовое расписание (limits.qnd_nostalgia_min/max_seconds), а "
+     "технический поллер идёт по limits.qnd_heartbeat_seconds. Значение "
+     "остаётся читаемым и не перезаписывается.",
      "advanced"),
 
     ("NOSTALGIA_MIN_SILENCE_MINUTES", "Ностальгия: тишина, минут", "int",

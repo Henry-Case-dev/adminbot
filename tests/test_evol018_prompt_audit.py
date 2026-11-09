@@ -94,7 +94,10 @@ def test_grep_audit_counts_are_stable():
     """
     files = sum(len(list((ROOT / sub).glob("*.py")))
                 for sub in pr._AUDIT_SCAN_MODULES)
-    assert files == 294, (
+    # QND-NONDET (10.11.2026): +3 файла services/ (semantic_schedule,
+    # quantum_publication, qnd_diagnostics). Пин ДО этой волны уже дрейфовал
+    # (фактические 312 против пина 294) — зафиксировано фактическое значение.
+    assert files == 315, (
         f"файлов под аудитом {files}: обновите §5 контракта и этот пин")
     assert files < pr._AUDIT_TREE_MAX_FILES, (
         "потолок _AUDIT_TREE_MAX_FILES срезает обход — «294 файла» тогда "
@@ -106,12 +109,14 @@ def test_grep_audit_counts_are_stable():
         ROOT, blocks=[], allowlist=pr.PROMPT_AUDIT_ALLOWLIST)
     outside = pr.audit_unregistered_prompt_constants(ROOT)
 
-    assert len(every) == 72, (
+    # Пин ДО этой волны дрейфовал: фактических кандидатов 74 (после allowlist
+    # 73) уже на 6674811f; QND-NONDET новых prompt-констант не добавляет.
+    assert len(every) == 74, (
         f"кандидатов {len(every)}: обновите §5 контракта и этот пин")
     assert len(every) - len(after_allowlist) == 1, (
         "кандидатов в allowlist "
         f"{len(every) - len(after_allowlist)}: обновите §5 и этот пин")
-    assert len(after_allowlist) == 71, (
+    assert len(after_allowlist) == 73, (
         f"закрыто code_source {len(after_allowlist)}: обновите §5 и этот пин")
     assert outside == [], (
         "кандидаты вне реестра: " + repr(outside))

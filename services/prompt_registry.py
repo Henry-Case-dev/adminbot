@@ -293,7 +293,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "internal.dossier.layer_b": "dossier-layer-b",
     "internal.vision.analysis": "vision-analysis",
     "internal.self_reflection": "self-reflection",
-    "internal.initiative_observer": "initiative-observer-memory-recall",
+    "internal.initiative_observer": "initiative-observer-qnd-veto",
     "internal.direct_orchestrator": "direct-orchestrator",
     "internal.anticliche.extract": "anticliche-extract",
     # Слои стиля/идентичности (W2/W3 владельцы)
@@ -448,8 +448,8 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "internal.dossier.layer_b": ("dossier-layer-b", "e6f035eeb5b9"),
     "internal.vision.analysis": ("vision-analysis", "e3e4efb23349"),
     "internal.self_reflection": ("self-reflection", "a1d2a21721a3"),
-    "internal.initiative_observer": ("initiative-observer-memory-recall",
-                                     "108f277a466f"),
+    "internal.initiative_observer": ("initiative-observer-qnd-veto",
+                                     "4bb33535bad5"),
     "internal.direct_orchestrator": ("direct-orchestrator", "f05c11426a49"),
     "internal.anticliche.extract": ("anticliche-extract", "f8e60639b708"),
     "identity.no_ai_disclosure": ("no-ai-disclosure", "fad1b64a2f0c"),
@@ -2933,7 +2933,7 @@ def factory_set_fingerprint() -> str:
 #: §2, метка ``initiative-observer-memory-recall``, печать ``108f277a466f``).
 #: Прочие 110 канонов, включая пользовательские тексты, байт-в-байт.
 #: Было ``b4e8b3569ab2``, стало ``011c83dfac95``.
-FACTORY_SET_SHA256_12 = "011c83dfac95"
+FACTORY_SET_SHA256_12 = "1532c9480cd5"
 
 
 

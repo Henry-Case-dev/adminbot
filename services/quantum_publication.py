@@ -92,6 +92,13 @@ DEFAULT_PUBLICATION_MIN: dict[str, float] = {
 DEFAULT_PUBLICATION_MAX: dict[str, float] = {
     MECH_NOSTALGIA: 0.85, MECH_INITIATIVE: 0.75,
 }
+#: Явные ключи границ вероятности по механизмам (см. CADENCE_PARAMS).
+PUBLICATION_PARAMS: dict[str, tuple[str, str]] = {
+    MECH_NOSTALGIA: ("limits.qnd_nostalgia_publication_min",
+                     "limits.qnd_nostalgia_publication_max"),
+    MECH_INITIATIVE: ("limits.qnd_initiative_publication_min",
+                      "limits.qnd_initiative_publication_max"),
+}
 
 #: Per-chat `initiative.trigger_probability` — compat-мэппинг в `p_max`
 #: (`migration_class=deprecated_compat`): дефолт 1.0 больше НЕ гейт.
@@ -244,9 +251,10 @@ async def resolve_settings(chat_id) -> dict:
 
 async def publication_bounds(chat_id, mechanism: str) -> tuple[float, float]:
     """`(p_min, p_max)` механизма; явный per-chat override → `p_max`."""
-    p_min = await _num(chat_id, f"limits.qnd_{mechanism}_publication_min",
+    min_key, max_key = PUBLICATION_PARAMS[mechanism]
+    p_min = await _num(chat_id, min_key,
                        DEFAULT_PUBLICATION_MIN[mechanism], minimum=0.0)
-    p_max = await _num(chat_id, f"limits.qnd_{mechanism}_publication_max",
+    p_max = await _num(chat_id, max_key,
                        DEFAULT_PUBLICATION_MAX[mechanism], minimum=0.0)
     p_min = min(1.0, p_min)
     p_max = min(1.0, max(p_min, p_max))

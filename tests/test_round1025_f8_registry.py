@@ -356,7 +356,7 @@ PG_DB_SHA256_B07 = (
 # Better Stack SQL-ключи + CHECKUP_JOURNALCTL_CMD, добавлены 2 env-only
 # ключа локального backend'а. Артефакты переэмитированы, `--check` → OK.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "8737ae65ee6eedc0aa6d78cb500d0751757149d92830d3e9799660aeea79d32e")
+    "844175634a9f86e06f0594b6b010f95c51b1a72aa7555986ef0588441bb2d35d")
 
 
 def _sha256(path: Path) -> str:
@@ -471,9 +471,10 @@ class TestFrozenInvariants:
         # EVOL-031 (30.10.2026): −5 ключей Exact Match Cache / direct_dedup
         # (replay готовых ответов удалён; вкладка smart_cache снята) →
         # 581/119/117/22 (см. PARAM_CATALOG_SHA256_FOLLOWUP выше).
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 606
-        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 119
-        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 117
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 638
+        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 121
+        assert len(pc._TAB_BY_GROUP) == \
+            FIXTURE["counts"]["TAB_BY_GROUP"] == 119
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 22
 
     def test_registry_keys_match_catalog_baseline(self):
@@ -526,7 +527,7 @@ class TestRegistry:
         # SOUL-1 mobile-prompts (2026-10-16): +1 (L1 Planner) → 572.
         # P0-FACTCHECK §6.3 (FC-06C): −2 (TEMPORAL_FRESHNESS_*) → 586.
         # EVOL-031 (30.10.2026): −5 (Exact Match Cache / direct_dedup) → 581.
-        assert len(rows) == 606
+        assert len(rows) == 638
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -548,7 +549,7 @@ class TestRegistry:
         # EVOL-031 (30.10.2026): снятые 5 ключей — исторические (Epic 51,
         # до инвентаря round1014), в delta-набор не входили → дельта 175
         # без изменений (FIXTURE см. tools/_evol031_reissue_f8.py).
-        assert len(delta) == FIXTURE["counts"]["delta"] == 205
+        assert len(delta) == FIXTURE["counts"]["delta"] == 237
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -584,11 +585,15 @@ class TestRegistry:
         # реестре/правах сохранена (значение читаемо, DML/миграций нет).
         # Артефакт F8 переэмитирован той же волной (TSV/screen-map), поэтому
         # счётчик ниже — фактическое состояние каталога, а не дрейф.
-        assert len(hidden) == 15
+        # QND-NONDET (10.11.2026): +1 hidden — initiative.trigger_probability
+        # (прежний бинарный гейт стал верхней границей вероятности; значение
+        # читается как p_max) → 16.
+        assert len(hidden) == 16
         hidden_keys = {r["internal_key"] for r in hidden}
         assert hidden_keys == {
             "flags.chat_mood_enabled",
             "flags.chat_style_anchors_enabled",
+            "initiative.trigger_probability",
             "limits.chat_budget_anchors_ratio",
             "limits.chat_budget_response_ratio",
             "limits.chat_lock_max_entries",
@@ -629,7 +634,7 @@ class TestRegistry:
         # (+2 ключа подачи фактчека).
         # MOD-ACL-UX-01 amendment (09.11.2026): reissue под 606/205
         # (+11 PG-only порогов/бюджетов уроков).
-        assert "606" in meta and "411" in meta and "205" in meta
+        assert "638" in meta and "411" in meta and "237" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -649,7 +654,7 @@ class TestScreenMap:
         # SOUL-1 mobile-prompts (2026-10-16): санкционированная Δ +1 → 572.
         # P0-FACTCHECK §6.3 (FC-06C): санкционированная Δ −2 → 586.
         # EVOL-031 (30.10.2026): санкционированная Δ −5 → 581.
-        assert len(keys) == 606
+        assert len(keys) == 638
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

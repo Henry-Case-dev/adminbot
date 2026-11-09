@@ -57,10 +57,13 @@ class TestCatalogFrozen:
         # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → REGISTRY 581,
         # GROUPS 119, _TAB_BY_GROUP 117, TAB_RULES 22 (вкладка smart_cache
         # удалена; BASELINE переиздан tools/_evol031_reissue_f8.py).
-        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 606
-        assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 119
-        # ASAP 7 F2: +3 группы L1 Planner (mod_direct); F4 in-flight — факт.
-        assert len(pc._TAB_BY_GROUP) == BASELINE["counts"]["_TAB_BY_GROUP"] == 117
+        # QND-NONDET (10.11.2026): +32 REGISTRY / +2 GROUPS / +2 mapped
+        # (limits_qnd|limits_qnd_nostalgia на существующих вкладках) →
+        # 638/121/119/22; BASELINE переиздан вместе с каталогом.
+        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 638
+        assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 121
+        assert len(pc._TAB_BY_GROUP) == \
+            BASELINE["counts"]["_TAB_BY_GROUP"] == 119
         assert len(pc.TAB_RULES) == BASELINE["counts"]["TAB_RULES"] == 22
 
 

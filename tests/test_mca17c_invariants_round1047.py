@@ -48,7 +48,9 @@ def test_reason_280_single_delta():
     # MEMORY-06 (72cf7cf4, единый retrieval §4.4/§7.1): 320 → 325 (+5 честных
     # исходов расширенного запроса и гейтов уместности: ambiguous_subject,
     # subject_mismatch, invalid_purpose, invalid_limit, limit_not_allowed).
-    assert len(mca_events.REASON_CODES) == 325
+    # QND-NONDET (10.11.2026): +11 кодов расписания/событийного пути/исхода;
+    # фактическое значение ДО волны уже было 330 (пин 325 дрейфовал) → 341.
+    assert len(mca_events.REASON_CODES) == 341
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     assert "oversight_job_action" in mca_events.REASON_CODES
     # другие контрольные коды в словаре отсутствуют (grep-факт T-5179)
@@ -114,7 +116,7 @@ def test_no_ddl_catalog_ks_tools_delta():
         # Δ каталога/KS/тулов по-прежнему нулевой.
         # Точное равенство сохранено; второй assert ловит расхождение
         # реестра шагов и фактического `user_version` свежей БД.
-        assert int(row[0]) == 46
+        assert int(row[0]) == 47
         assert int(row[0]) == max(
             s.version for s in DatabaseService.migration_steps())
     finally:
@@ -137,7 +139,7 @@ def test_no_ddl_catalog_ks_tools_delta():
     # SMART_CACHE_*/CHAT_DEDUP, replay готовых ответов удалён).
     # MOD-ACL-UX-01 amendment (09.11.2026): 595 → 606 (+11 PG-only порогов/
     # бюджетов семантического контракта уроков, группа memory_experience).
-    assert len(pc.REGISTRY) == 606
+    assert len(pc.REGISTRY) == 638
 
 
 def test_registry_47_no_new_widgets():

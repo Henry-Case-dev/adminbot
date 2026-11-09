@@ -169,6 +169,16 @@
       "former_control": "",
       "note": "",
       "current_state": ""
+    },
+    {
+      "name": "initiative.trigger_probability",
+      "kind": "catalog",
+      "migration_class": "deprecated_compat",
+      "consumer": "QND-NONDET (10.11.2026): читается только как ВЕРХНЯЯ граница вероятности публикации (p_max) в services.quantum_publication._explicit_trigger_probability; бинарного гейта «пробовать ли» больше нет",
+      "ui": "скрыт из каталога (hidden): заменён параметрами limits.qnd_initiative_publication_min/max; явный пользовательский override продолжает учитываться как p_max",
+      "former_control": "",
+      "note": "заводской 1.0 больше не гейт; значение не удаляется и не переписывается",
+      "current_state": ""
     }
   ],
   "behaviours": [

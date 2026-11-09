@@ -46,9 +46,9 @@ def test_catalog_counts_sanctioned():
     # TTL-ключа TEMPORAL_FRESHNESS_*, кеш вердиктов удалён W1).
     # EVOL-031 (28d55bd1, 30.10.2026): 586→581, 121→119, 119→117, 23→22 —
     # удаление answer-cache ключей/группы/tab (SMART_CACHE_*, CHAT_DEDUP).
-    assert len(pc.REGISTRY) == 606          # 510 → 519 (+9) → 586 → 581
-    assert len(pc.GROUPS) == 119            # 108 → 112 (+4) → 121 → 119
-    assert len(pc._TAB_BY_GROUP) == 117     # 106 → 110 → 119 → 117
+    assert len(pc.REGISTRY) == 638          # 510 → 519 (+9) → 586 → 581
+    assert len(pc.GROUPS) == 121            # 108 → 112 (+4) → 121 → 119
+    assert len(pc._TAB_BY_GROUP) == 119     # 106 → 110 → 119 → 117
     assert len(pc.TAB_RULES) == 22          # 21 → 22 (mod_vision)
     # ASAP 7 (F3, §3.2): +mod_initiative (TAB_NAV/CONFIG_TAB_TITLES 22→23);
     # EVOL-031: tab smart_cache удалён → 22.

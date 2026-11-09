@@ -78,6 +78,12 @@ DEAD_KNOBS = {
         "UR-16: словари mood-ярлыка не читаются",
     "reactions.chat_mood_negative_words":
         "UR-16: словари mood-ярлыка не читаются",
+    # QND-NONDET (10.11.2026): период фиксированного тика больше не определяет
+    # смысловую частоту — её задаёт квантовое расписание; ручка оставлена
+    # читаемой (значение владельца не перезаписывается), но не влияет.
+    "memory.nostalgia_tick_minutes":
+        "ручка не влияет: частоту выбирает квантовое расписание "
+        "(limits.qnd_nostalgia_*/limits.qnd_heartbeat_seconds)",
 }
 
 # Маркеры честной витрины (CFG-03.6) — хотя бы один в описании.
@@ -407,9 +413,15 @@ class TestCatalogConsistency:
         # рантайм-читателя и legacy timezone-поля выведены из UI/params-meta;
         # запись в реестре/правах сохранена, значение читаемо. Все коммиты
         # уже в release/2.58.161.
+        # QND-NONDET (10.11.2026): + initiative.trigger_probability — прежний
+        # бинарный гейт стал верхней границей вероятности (deprecated_compat),
+        # карточка скрыта, значение владельца читается как p_max;
+        # + memory.nostalgia_tick_minutes — период тика больше не влияет на
+        # смысловую частоту (её задаёт квантовое расписание), значение читаемо.
         assert hidden == {
             "flags.chat_mood_enabled",
             "flags.chat_style_anchors_enabled",
+            "initiative.trigger_probability",
             "limits.chat_budget_anchors_ratio",
             "limits.chat_budget_response_ratio",
             "limits.chat_lock_max_entries",
@@ -498,13 +510,14 @@ class TestClassNegatives:
 
 class TestPins:
     def test_counts_and_artifacts(self):
-        assert len(pc.REGISTRY) == 606
-        assert len(pc.GROUPS) == 119
-        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.REGISTRY) == 638
+        assert len(pc.GROUPS) == 121
+        assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
         tsv = (ROOT / "plans/docs/param-registry-round1025.tsv").read_text(
             encoding="utf-8").splitlines()
-        assert len(tsv) - 1 == 606
+        # QND-NONDET (10.11.2026): +32 ключа limits.qnd_*/compat → 638.
+        assert len(tsv) - 1 == 638
         screen_keys = set()
         for line in (ROOT / "plans/docs/screen-map-round1025.md").read_text(
                 encoding="utf-8").splitlines():

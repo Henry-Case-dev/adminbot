@@ -149,7 +149,12 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # и поле вердикта memory_slot (метка initiative-observer-memory-recall,
     # sha12 108f277a466f); прочие каноны байт-в-байт.
     # Было b4e8b3569ab2, стало 011c83dfac95.
-    assert pr.FACTORY_SET_SHA256_12 == "011c83dfac95"
+    # QND-NONDET (10.11.2026, контракт quantum-nondeterminism-contract.md §3):
+    # changed = 1 — internal.initiative_observer теперь требует обоснование
+    # молчания (veto_reason), ревизия initiative-observer-qnd-veto,
+    # sha12 4bb33535bad5; прочие блоки байт-в-байт.
+    # Было b4e8b3569ab2 → 011c83dfac95, стало 1532c9480cd5.
+    assert pr.FACTORY_SET_SHA256_12 == "1532c9480cd5"
 
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"

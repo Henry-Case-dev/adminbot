@@ -341,7 +341,7 @@ async def test_build_stores_proven_ids_without_ddl(tmp_path):
         # Голова схемы = 46 (v46 — семантический контракт уроков; шаг
         # аддитивный и на сообщества/сборку не влияет).
         assert max(step.version
-                   for step in DatabaseService.migration_steps()) == 46
+                   for step in DatabaseService.migration_steps()) == 47
         tables = {row["name"] for row in await _rows(
             db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
         assert "mca_community_builds" in tables

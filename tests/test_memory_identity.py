@@ -161,7 +161,7 @@ def test_migration_v43_is_additive_and_idempotent(env):
     cursor = run(loop, db.db.execute("PRAGMA user_version"))
     # Свежая БД доезжает до головы схемы: v43 (эта полоса) + v44 (MEMORY-07)
     # + v45 (VMQ-V, версия расшифровки голосового source-ref).
-    assert int(run(loop, cursor.fetchone())[0]) == 46
+    assert int(run(loop, cursor.fetchone())[0]) == 47
 
     cursor = run(loop, db.db.execute(
         "SELECT name, type, sql FROM sqlite_master WHERE "
@@ -284,7 +284,7 @@ def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
     try:
         cursor = loop.run_until_complete(upgraded.db.execute(
             "PRAGMA user_version"))
-        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 46
+        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 47
         cursor = loop.run_until_complete(upgraded.db.execute(
             "PRAGMA integrity_check"))
         assert loop.run_until_complete(cursor.fetchone())[0] == "ok"
@@ -326,7 +326,7 @@ def test_migration_v43_upgrades_v42_database_on_disk(tmp_path):
     try:
         cursor = loop.run_until_complete(reopened.db.execute(
             "PRAGMA user_version"))
-        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 46
+        assert int(loop.run_until_complete(cursor.fetchone())[0]) == 47
         cursor = loop.run_until_complete(reopened.db.execute(
             "SELECT COUNT(*) AS n FROM schema_migrations"))
         assert int(loop.run_until_complete(cursor.fetchone())["n"]) == book_after
