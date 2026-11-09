@@ -359,7 +359,7 @@ class TestMediaOutput:
         memory = MagicMock()
         memory.memorize_facts = AsyncMock()
         svc, transcriber = _setup(db=db, memory=memory)
-        msg = _make_media_msg(text="Бот, транскрипт", message_id=11,
+        msg = _make_media_msg(text=None, caption="Бот, транскрипт", message_id=11,
                               video=_media(file_id="f"),
                               forward_origin=origin)
         bot = _make_bot()

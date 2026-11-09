@@ -75,14 +75,16 @@ def _enable_flag(monkeypatch, key: str, value: bool) -> None:
 # ── 1. Канонический реестр ───────────────────────────────────────────
 
 class TestCommandRegistry:
-    def test_exactly_17_prefixed_triggers(self):
-        assert len(reg.ALL_TRIGGERS) == 17
-        assert len(set(reg.ALL_TRIGGERS)) == 17
+    def test_exactly_15_prefixed_triggers(self):
+        assert len(reg.ALL_TRIGGERS) == 15
+        assert len(set(reg.ALL_TRIGGERS)) == 15
 
     def test_canon_groups(self):
         assert reg.FUNCTIONAL_COMMANDS["search"] == ("найди", "поищи", "загугли")
+        # FINAL CONTRACT (owner 2026-11-10): в youtube остались только явные
+        # команды; «о чем видео» и «поясни за видос» — естественная речь (L1).
         assert reg.FUNCTIONAL_COMMANDS["youtube"] == (
-            "транскрипт", "че за видос", "о чем видео", "поясни за видос")
+            "транскрипт", "че за видос")
         assert reg.FUNCTIONAL_COMMANDS["web"] == (
             "поясни за ссылку", "че по ссылке", "о чем статья", "выжимка")
         assert reg.FUNCTIONAL_COMMANDS["checkup"] == (
@@ -99,7 +101,9 @@ class TestCommandRegistry:
     def test_f6u1_removed_aliases_not_matched(self):
         for alias in ("перескажи видос", "че в видосе", "поясни за статью",
                       "че на сайте", "перескажи статью", "живой собака",
-                      "пульс бота", "как сервак", "спизди", "скачать"):
+                      "пульс бота", "как сервак", "спизди", "скачать",
+                      # FINAL CONTRACT: разговорные формулировки сняты с реестра.
+                      "о чем видео", "о чём видео", "поясни за видос"):
             assert reg.group_of(alias) is None, alias
 
     def test_matches_group(self):
@@ -194,21 +198,21 @@ class TestSearch:
 
 class TestYoutubeWeb:
     def test_youtube_parses_with_name(self, oleg_name):
-        msg = _msg(text=f"Олег, поясни за видос {YT_URL}")
+        msg = _msg(text=f"Олег, че за видос {YT_URL}")
         target, video_id = youtube_mod._parse(msg)
         assert target is msg and video_id == "dQw4w9WgXcQ"
 
     @pytest.mark.asyncio
     async def test_youtube_trigger_without_target_awaits_media(self, oleg_name):
-        """EVOL §4.3: канонический триггер без цели НЕ отвечает мгновенно
-        «видео нет» — создаёт короткое ожидание и отвечает РОВНО один раз по
-        истечении TTL (контракт §4.3 заменил прежнюю нейтральную фразу)."""
+        """EVOL §4.3: команда без цели НЕ отвечает мгновенно «видео нет» —
+        создаёт короткое ожидание и отвечает РОВНО один раз по истечении TTL
+        (существующий ответ «нет цели» заменил прежнюю нейтральную фразу)."""
         from services import video_intent
         old = youtube_mod._service
         youtube_mod._service = MagicMock()
         try:
             bot = AsyncMock()
-            msg = _msg(text="Олег, поясни за видос")
+            msg = _msg(text="Олег, че за видос")
             result = await youtube_mod.youtube_handler(msg, bot=bot)
             assert result is None                 # консьюм: в LLM не уходит
             assert bot.send_message.await_count == 0
@@ -226,7 +230,7 @@ class TestYoutubeWeb:
         youtube_mod._service = MagicMock()
         try:
             bot = AsyncMock()
-            msg = _msg(text="поясни за видос")
+            msg = _msg(text="че за видос")
             assert await youtube_mod.youtube_handler(msg, bot=bot) is UNHANDLED
         finally:
             youtube_mod._service = old
@@ -236,13 +240,6 @@ class TestYoutubeWeb:
         target, url = web_mod._parse(msg)
         assert target is msg and url == WEB_URL
 
-    # Follow-up R10.15-1: «ссылка-первой» из гайда F7 §3/§4 (URL до обращения).
-    def test_youtube_link_first_parses(self, oleg_name):
-        msg = _msg(text=f"{YT_URL} Олег, поясни за видос")
-        assert youtube_mod._triggered_body(msg) is not None
-        target, video_id = youtube_mod._parse(msg)
-        assert target is msg and video_id == "dQw4w9WgXcQ"
-
     def test_web_link_first_parses(self, oleg_name):
         msg = _msg(text=f"{WEB_URL} Олег, выжимка")
         assert web_mod._triggered_body(msg) is not None
@@ -251,14 +248,36 @@ class TestYoutubeWeb:
 
     def test_link_first_requires_url_before_prefix(self, oleg_name):
         # Без URL до обращения — не команда (обычная речь → LLM).
-        assert youtube_mod._triggered_body(
-            _msg(text="эй Олег, поясни за видос")) is None
         assert web_mod._triggered_body(_msg(text="эй Олег, выжимка")) is None
 
-    def test_youtube_trigger_anywhere_with_direct_url(self, oleg_name):
-        # D126: URL+триггер в любом порядке, цель — прямая медиа-ссылка.
+    # FINAL CONTRACT (owner 2026-11-10): youtube-команда — самостоятельное
+    # сообщение после обращения. «Ссылка-первой» и «триггер внутри прозы»
+    # больше не команда: иначе слова в тексте выполняли бы обработчик.
+    def test_youtube_link_first_is_not_a_command(self, oleg_name):
+        msg = _msg(text=f"{YT_URL} Олег, че за видос")
+        assert youtube_mod._triggered_body(msg) is None
+
+    def test_youtube_trigger_inside_prose_not_a_command(self, oleg_name):
         msg = _msg(text="Олег, скинь https://cdn.example.com/v.mp4 транскрипт")
-        assert youtube_mod._triggered_body(msg) is not None
+        assert youtube_mod._triggered_body(msg) is None
+
+    @pytest.mark.parametrize("text", [
+        "Олег, поясни за видос",
+        "Олег, о чем видео",
+        "Олег, о чём видео",
+    ])
+    @pytest.mark.asyncio
+    async def test_removed_conversational_phrases_reach_l1(self, oleg_name,
+                                                           text):
+        old = youtube_mod._service
+        youtube_mod._service = MagicMock()
+        try:
+            bot = AsyncMock()
+            msg = _msg(text=text)
+            assert await youtube_mod.youtube_handler(msg, bot=bot) is UNHANDLED
+            bot.send_message.assert_not_awaited()
+        finally:
+            youtube_mod._service = old
 
     # Follow-up R10.15-3: речь со словом-триггером вне команды НЕ консьюмится.
     @pytest.mark.asyncio
@@ -287,7 +306,7 @@ class TestYoutubeWeb:
 
     # Review-fix M1: подстроки-двойники не триггерят.
     def test_false_positives_not_trigger(self, empty_name):
-        assert youtube_mod._has_trigger("транскриптер") is False
+        assert reg.has_trigger_word("youtube", "транскриптер") is False
         assert youtube_mod._triggered_body(_msg(text="Бот, транскриптер")) is None
         assert web_mod._has_trigger("выжимкалка") is False
         assert web_mod._triggered_body(_msg(text="Бот, выжимкалка")) is None

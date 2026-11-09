@@ -31,6 +31,7 @@ from handlers import direct_chat as dc
 from handlers import youtube as yt
 from services import direct_capabilities as dcap
 from services import video_intent
+from services.smartmodule_phrases import VIDEO_INTENT_EXPIRED_PHRASES
 from services.direct_chat_service import DirectChatService
 from services.direct_execution import derive_simple_steps
 from services.direct_l1 import L1Plan, build_l1_context
@@ -282,24 +283,321 @@ class TestChatSummaryIsNotAVideoTask:
         assert not _events("media_ambiguous")
 
 
-class TestVideoWordStillNeedsAddressing:
-    """Видео-слово в чужой речи не делает ход видео-задачей (§2/§7)."""
+class TestMediaWordsAndLinksAreNotATask:
+    """Owner correction: «видео»/«ролик»/ссылка НЕ подтверждают намерение."""
 
     @pytest.mark.asyncio
-    async def test_group_unaddressed_video_talk_unhandled(self, env):
+    async def test_video_question_without_reply_reaches_l1(self, env):
+        """«Бот, что происходит в этом видео?» без reply → L1, ноль вызовов."""
         bot = _bot()
-        msg = _msg(text="поясни за видос", message_id=850, user_id=USER_B)
+        msg = _msg(text="Бот, что происходит в этом видео?", message_id=850)
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert env.svc.summarize_media_url.await_count == 0
+        assert env.svc.summarize_transcript.await_count == 0
+        assert bot.send_message.await_count == 0
+        assert not video_intent.has_pending(CHAT_ID)
+
+    @pytest.mark.asyncio
+    async def test_look_at_this_video_reaches_l1(self, env):
+        bot = _bot()
+        msg = _msg(text="Бот, посмотри это видео", message_id=852)
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert env.svc.summarize_media_url.await_count == 0
+        assert bot.send_message.await_count == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", [
+        "https://youtu.be/dQw4w9WgXcQ",
+        "Бот, https://youtu.be/dQw4w9WgXcQ",
+        "Бот, вот https://www.tiktok.com/@x/video/1",
+    ])
+    async def test_bare_video_link_reaches_l1(self, env, text):
+        bot = _bot()
+        msg = _msg(text=text, message_id=853)
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert env.svc.summarize_media_url.await_count == 0
+        assert bot.send_message.await_count == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", [
+        "поясни за видос",
+        "Бот, а я вчера смотрел ролик про поезда",
+        "Бот, видео из отпуска получилось смешным",
+        "смотрели видео вчера, прикольно",
+    ])
+    async def test_video_word_in_unrelated_sentence_reaches_l1(self, env, text):
+        bot = _bot()
+        msg = _msg(text=text, message_id=854, user_id=USER_B)
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert env.svc.summarize_media_url.await_count == 0
+        assert bot.send_message.await_count == 0
+        assert not video_intent.has_pending(CHAT_ID)
+
+
+class TestRegisteredCommandsStillWork:
+    """Реестр команд сохраняется: «транскрипт» и «че за видос»."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("command", ["транскрипт", "че за видос"])
+    async def test_command_with_default_botword(self, env, command):
+        """Имя персоны не задано → работает «Бот, …»."""
+        from services import bot_persona
+        bot_persona.set_global_name_cache("")
+        bot = _bot()
+        msg = _msg(text=f"Бот, {command}", message_id=860)
+        assert await yt.youtube_handler(msg, bot=bot) is None
+        assert video_intent.has_pending(CHAT_ID)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("address", ["Олег,", "Олега,", "Олег:"])
+    @pytest.mark.parametrize("command", ["транскрипт", "че за видос"])
+    async def test_command_with_configured_persona_name(self, env, address,
+                                                        command):
+        """Обращение по имени персоны (со склонениями) работает как «Бот»."""
+        from services import bot_persona
+        bot_persona.set_global_name_cache("Олег")
+        try:
+            bot = _bot()
+            msg = _msg(text=f"{address} {command}", message_id=861)
+            assert await yt.youtube_handler(msg, bot=bot) is None
+            assert video_intent.has_pending(CHAT_ID)
+        finally:
+            bot_persona.set_global_name_cache("")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", [
+        "Бот, о чем видео",
+        "Бот, о чём видео",
+        "Бот, поясни за видос",
+    ])
+    async def test_removed_phrases_reach_l1_without_video_calls(self, env,
+                                                                text):
+        bot = _bot()
+        msg = _msg(text=text, message_id=863)
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert env.svc.summarize_media_url.await_count == 0
+        assert env.svc.summarize_transcript.await_count == 0
+        assert bot.send_message.await_count == 0
+        assert not video_intent.has_pending(CHAT_ID)
+
+    @pytest.mark.asyncio
+    async def test_forwarded_command_text_is_not_executed(self, env):
+        """Пересланное сообщение с текстом команды — чужая речь."""
+        bot = _bot()
+        msg = _msg(text="Бот, че за видос", message_id=864,
+                   forward_origin=SimpleNamespace(type="channel"))
         assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
         assert bot.send_message.await_count == 0
         assert not video_intent.has_pending(CHAT_ID)
 
     @pytest.mark.asyncio
-    async def test_group_addressed_video_request_is_a_command(self, env):
+    async def test_quoted_command_text_is_not_executed(self, env):
+        """Цитата чужой команды внутри своего вопроса — данные, не команда."""
         bot = _bot()
-        msg = _msg(text="Бот, поясни за видос", message_id=851)
+        video = _observe_video(865)
+        msg = _msg(text="Бот, что это значит?", message_id=866,
+                   reply_to_message=video,
+                   quote=SimpleNamespace(text="Бот, че за видос"))
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert env.svc.summarize_media_url.await_count == 0
+        assert bot.send_message.await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_registered_command_with_reply_analyses_that_video(self, env):
+        bot = _bot()
+        target = _observe_video(861)
+        msg = _msg(text="Бот, транскрипт", message_id=862,
+                   reply_to_message=target)
         assert await yt.youtube_handler(msg, bot=bot) is None
+        assert bot.send_message.await_count == 1
+        assert bot.send_message.await_args.kwargs.get(
+            "reply_to_message_id") == 861
+
+
+class TestReplyTargetResolution:
+    """Reply задаёт ОБЪЕКТ команды; соседний ролик не подставляется."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("command", ["транскрипт", "че за видос"])
+    async def test_reply_to_video_targets_that_message(self, env, command):
+        bot = _bot()
+        target = _observe_video(1100)
+        msg = _msg(text=f"Бот, {command}", message_id=1101,
+                   reply_to_message=target)
+        assert await yt.youtube_handler(msg, bot=bot) is None
+        assert bot.send_message.await_count == 1
+        assert bot.send_message.await_args.kwargs[
+            "reply_to_message_id"] == 1100
+
+    @pytest.mark.asyncio
+    async def test_reply_target_wins_over_newer_history_video(self, env):
+        """Два видео в истории: цель — именно replied, не более свежий."""
+        bot = _bot()
+        older = _observe_video(1110)
+        await yt.youtube_handler(_observe_video(1111), bot=bot)
+        msg = _msg(text="Бот, че за видос", message_id=1112,
+                   reply_to_message=older)
+        assert await yt.youtube_handler(msg, bot=bot) is None
+        assert bot.send_message.await_args.kwargs[
+            "reply_to_message_id"] == 1110
+
+    @pytest.mark.asyncio
+    async def test_reply_to_forwarded_video_targets_that_message(self, env):
+        bot = _bot()
+        target = _msg(message_id=1120, video=_media(
+            file_id="f1120", file_unique_id="u1120"),
+            forward_origin=SimpleNamespace(type="channel"))
+        msg = _msg(text="Бот, че за видос", message_id=1121,
+                   reply_to_message=target)
+        assert await yt.youtube_handler(msg, bot=bot) is None
+        assert bot.send_message.await_args.kwargs[
+            "reply_to_message_id"] == 1120
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("kind", ["voice", "video_note"])
+    async def test_reply_to_voice_and_note_goes_to_transcript_path(self, env,
+                                                                   kind):
+        """Reply на голосовое/кружочек + «транскрипт» — свой путь 0e."""
+        bot = _bot()
+        target = _msg(message_id=1130, voice=_media(
+            file_id="f1130", file_unique_id="u1130"),
+            video_note=(_media(file_id="f1130", file_unique_id="u1130")
+                        if kind == "video_note" else None))
+        msg = _msg(text="Бот, транскрипт", message_id=1131,
+                   reply_to_message=target)
+        request = yt._classify_video_request(msg)
+        assert request is not None and request.kind == "voice"
+        assert request.source is target          # цель — replied, не сосед
+        assert await yt.youtube_handler(msg, bot=bot) is None
+        assert bot.send_message.await_count >= 1  # транскрипт отправлен
+
+    @pytest.mark.asyncio
+    async def test_reply_to_text_message_uses_no_target_answer(self, env):
+        """Reply на текст без медиа — цели нет: существующий ответ по TTL."""
+        bot = _bot()
+        plain = _msg(text="просто текст", message_id=1140)
+        msg = _msg(text="Бот, че за видос", message_id=1141,
+                   reply_to_message=plain)
+        assert await yt.youtube_handler(msg, bot=bot) is None
+        assert env.svc.summarize_media_url.await_count == 0
         assert bot.send_message.await_count == 0
         assert video_intent.has_pending(CHAT_ID)
+
+        await video_intent.expire(now=time.monotonic() + 10_000)
+        assert bot.send_message.await_count == 1
+        assert (bot.send_message.await_args.args[1]
+                in VIDEO_INTENT_EXPIRED_PHRASES)
+
+
+class TestEarlyHandlersDoNotSwallowNaturalLanguage:
+    """Аудит порядка роутеров: ни один ранний обработчик не ест обычную речь.
+
+    Ранние роутеры bot.py: summary_observer(903), summary(906),
+    factcheck(909), search(912), youtube(915), web(918), checkup(921) — до
+    Direct Chat(925). Условия приёма у всех, кроме 0e, — зарегистрированные
+    команды (см. отчёт в коммите); здесь это проверяется вызовом обработчиков
+    с «заряженным» DI.
+    """
+
+    TEXTS = (
+        "Бот, что происходит в чате",
+        "Бот, что нового?",
+        "Бот, о чём сейчас спорят?",
+        "Бот, что происходит в этом видео?",
+        "Бот, посмотри это видео",
+        "Бот, о чем видео",
+        "Бот, поясни за видос",
+        "Бот, вчера смотрел ролик, смешно",
+        "Бот, вот https://youtu.be/dQw4w9WgXcQ",
+        "https://youtu.be/dQw4w9WgXcQ",
+    )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", TEXTS)
+    async def test_factcheck_handler_does_not_consume(self, env, text):
+        from handlers import factcheck as fc
+        fc.setup_factcheck(MagicMock(), db=None)
+        try:
+            bot = _bot()
+            assert await fc.factcheck_handler(_msg(text=text, message_id=1300),
+                                              bot=bot) is UNHANDLED
+            assert bot.send_message.await_count == 0
+        finally:
+            fc.setup_factcheck(None)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", TEXTS)
+    async def test_search_handler_does_not_consume(self, env, text):
+        from handlers import search as sm
+        sm.setup_search(MagicMock(), db=None)
+        try:
+            bot = _bot()
+            assert await sm.smartsearch_handler(
+                _msg(text=text, message_id=1301), bot=bot) is UNHANDLED
+            assert bot.send_message.await_count == 0
+        finally:
+            sm.setup_search(None)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", TEXTS)
+    async def test_web_handler_does_not_consume(self, env, text):
+        from handlers import web as wm
+        wm.setup_web(MagicMock(), db=None)
+        try:
+            bot = _bot()
+            assert await wm.web_handler(
+                _msg(text=text, message_id=1302), bot=bot) is UNHANDLED
+            assert bot.send_message.await_count == 0
+        finally:
+            wm.setup_web(None)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", TEXTS)
+    async def test_checkup_handler_does_not_consume(self, env, text):
+        from handlers import checkup as cm
+        cm.setup_checkup(MagicMock(), MagicMock(), db=None)
+        try:
+            bot = _bot()
+            assert await cm.checkup_handler(
+                _msg(text=text, message_id=1303), bot=bot) is UNHANDLED
+            assert bot.send_message.await_count == 0
+        finally:
+            cm.setup_checkup(None, None)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", TEXTS)
+    async def test_summary_observer_does_not_consume(self, env, text):
+        from handlers import summary as sm
+        sm.setup_summary(MagicMock(), db=None, aliases=None, bot_id=None)
+        try:
+            bot = _bot()
+            assert await sm.summary_observer(
+                _msg(text=text, message_id=1304)) is UNHANDLED
+            assert bot.send_message.await_count == 0
+        finally:
+            sm.setup_summary(None)
+
+
+class TestRoutingTable:
+    """Таблица маршрутизации: команда → детерминированный воркер, иначе L1."""
+
+    def test_functional_group_values(self):
+        from services import bot_persona
+        from services.command_prefix import functional_group
+        bot_persona.set_global_name_cache("")
+        assert functional_group("Бот, транскрипт") == "youtube"
+        assert functional_group("Бот, че за видос") == "youtube"
+        assert functional_group("Бот, о чем видео") is None
+        assert functional_group("Бот, поясни за видос") is None
+        assert functional_group("Бот, что происходит в чате") is None
+        assert functional_group("Бот, что происходит в этом видео?") is None
+        assert functional_group("Бот, найди курс биткоина") == "search"
+        assert functional_group("Бот, скачай https://youtu.be/x") == "download"
+        assert functional_group("Бот, ты в порядке") == "checkup"
+        # «чекап»/«фактчек» — bare-команды реестра (BARE_COMMANDS), не группы.
+        assert functional_group("чекап") is None
+        # «нарисуй» — отдельная команда внутри Direct Chat, не ранний воркер.
+        assert functional_group("Бот, нарисуй кота") is None
 
 
 # ── 2. L1 получает и вопрос, и инструменты истории ───────────────────────
@@ -362,29 +660,37 @@ class TestReplyObjectIsEvidenceNotTask:
         assert bot.send_message.await_count == 0
 
     @pytest.mark.asyncio
-    async def test_reply_to_video_with_video_question_is_analysed(self, env):
-        """«Что в этом видео?» — видео-объект назван, анализ исполняется."""
+    async def test_reply_to_video_with_video_question_reaches_l1(self, env):
+        """Reply на реальное видео + вопрос о видео → L1 (выбор за моделью).
+
+        Проверяем ПУТЬ: 0e не потребляет сообщение, а медиа-объект остаётся
+        доступен инструментам (ctx.native_media из reply).
+        """
         bot = _bot()
         video = _observe_video(960)
         request = _msg(text="Бот, что происходит в этом видео?",
                        message_id=961, reply_to_message=video)
 
-        assert await yt.youtube_handler(request, bot=bot) is None
-        assert env.svc.summarize_media_url.await_count == 1
-        assert bot.send_message.await_count == 1
-        assert bot.send_message.await_args.kwargs.get(
-            "reply_to_message_id") == 960
+        assert await yt.youtube_handler(request, bot=bot) is UNHANDLED
+        assert env.svc.summarize_media_url.await_count == 0
+        assert bot.send_message.await_count == 0
+
+        from services import native_media
+        resolved = native_media.resolve_reply_video(request)
+        assert resolved is not None and resolved.kind == "video"
+        assert resolved.source is video
 
     @pytest.mark.asyncio
-    async def test_reply_to_video_with_command_is_analysed(self, env):
+    async def test_unregistered_video_wording_reaches_l1(self, env):
+        """«Бот, сделай выжимку видео» — не команда реестра (выжимка — web)."""
         bot = _bot()
         video = _observe_video(970)
         request = _msg(text="Бот, сделай выжимку видео", message_id=971,
                        reply_to_message=video)
 
-        assert await yt.youtube_handler(request, bot=bot) is None
-        assert env.svc.summarize_media_url.await_count == 1
-        assert bot.send_message.await_count == 1
+        assert await yt.youtube_handler(request, bot=bot) is UNHANDLED
+        assert env.svc.summarize_media_url.await_count == 0
+        assert bot.send_message.await_count == 0
 
 
 # ── 4. Текущий вопрос в блоке <Current_Question> ─────────────────────────
@@ -518,7 +824,79 @@ class TestVoiceTranscriptIsDataNotTask:
         assert "что происходит в чате" in result[1]
 
 
-# ── 6. Исполнитель не подменяет решение L1 ───────────────────────────────
+# ── 6. Сквозной путь: сообщение → Direct Chat → L1 → инструменты → Writer ──
+
+class TestFullPathChatSummary:
+    """Реальный pipeline DirectChatService с подменёнными I/O и LLM.
+
+    Проверяется не возврат роутера, а весь ход: сообщение доходит до L1 с
+    текстом вопроса дословно и инструментами истории/памяти, L1 выбирает
+    инструменты, исполнитель не добавляет медиа-шаг, Writer отвечает.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", [
+        "Бот, что происходит в чате",
+        "Бот, что нового?",
+    ])
+    async def test_chat_summary_plan_reaches_history_tools(self, monkeypatch,
+                                                           text):
+        from tests.test_asap7_direct_l1 import (
+            _FakeLLM, _FakeRouter, _drive, _plan_json)
+
+        router = _FakeRouter(outputs={
+            "get_recent_history": "хроника чата",
+            "query_chat_memory": "факты из памяти",
+        })
+        llm = _FakeLLM(
+            l1=_plan_json(tool_policy="auto",
+                          capabilities_needed=["chat_history", "chat_memory"]),
+            l2="короткая сводка обсуждения")
+        svc, _react, bot, msg, user = _drive(
+            monkeypatch, text, tool_router=router, llm=llm)
+
+        await svc.handle(bot, msg, user)
+
+        # 1. L1 реально вызван и получил вопрос дословно + инструменты истории.
+        l1_msgs = llm.last_messages("l1_planner")
+        assert l1_msgs, "L1 не вызывался"
+        payload = "\n".join(str(m.get("content") or "") for m in l1_msgs)
+        assert text.split(", ", 1)[1] in payload
+        assert "chat_history" in payload and "chat_memory" in payload
+
+        # 2. Инструменты выбраны L1: история/память, никаких медиа-шагов.
+        tools = [d["tool"] for d in router.dispatched]
+        assert "get_recent_history" in tools
+        assert "query_chat_memory" in tools
+        assert "summarize_video" not in tools
+        assert "transcribe_video" not in tools
+
+        # 3. Ответ доставлен Writer'ом.
+        svc._send_direct_answer.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_reply_to_video_does_not_add_media_step(self, monkeypatch):
+        """Reply на видео + вопрос о чате: медиа-шага у исполнителя нет."""
+        from tests.test_asap7_direct_l1 import (
+            _FakeLLM, _FakeRouter, _drive, _plan_json)
+
+        router = _FakeRouter(outputs={"get_recent_history": "хроника чата"})
+        llm = _FakeLLM(
+            l1=_plan_json(tool_policy="auto",
+                          capabilities_needed=["chat_history"]),
+            l2="что обсуждали")
+        svc, _react, bot, msg, user = _drive(
+            monkeypatch, "Бот, что происходит в чате",
+            reply=_observe_video(1200), tool_router=router, llm=llm)
+
+        await svc.handle(bot, msg, user)
+
+        tools = [d["tool"] for d in router.dispatched]
+        assert tools == ["get_recent_history"]
+        svc._send_direct_answer.assert_awaited_once()
+
+
+# ── 7. Исполнитель не подменяет решение L1 ───────────────────────────────
 
 class TestNoDownstreamMediaSubstitution:
     def test_conversation_plan_has_no_media_steps(self):

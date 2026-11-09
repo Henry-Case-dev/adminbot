@@ -216,7 +216,7 @@ class TestClassification:
 
     def test_direct_url_in_reply(self, yv_cleanup):
         target = _msg(text="https://cdn.example.com/трейлер.mov", message_id=5)
-        msg = _msg(text="Бот, поясни за видос", reply_to_message=target)
+        msg = _msg(text="Бот, че за видос", reply_to_message=target)
         req = yt._classify_video_request(msg)
         assert req.kind == "direct_url"
         assert req.url == "https://cdn.example.com/трейлер.mov"
@@ -242,7 +242,7 @@ class TestClassification:
         assert req.kind == "youtube"            # URL выше native (FR-2)
 
     def test_trigger_without_url_or_media_unhandled(self, yv_cleanup):
-        assert yt._classify_video_request(_msg(text="поясни за видос")) is None
+        assert yt._classify_video_request(_msg(text="че за видос")) is None
 
     def test_voice_video_note_not_classified(self, yv_cleanup):
         for attr in ("voice", "video_note"):
@@ -673,7 +673,7 @@ class TestRouterIsolation:
     @pytest.mark.asyncio
     async def test_no_media_or_url_unhandled_propagation(self, env, yv_cleanup):
         bot = _bot()
-        msg = _msg(text="поясни за видос")
+        msg = _msg(text="че за видос")
         assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
         bot.send_message.assert_not_called()
 

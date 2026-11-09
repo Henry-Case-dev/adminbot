@@ -339,12 +339,6 @@ def setup_youtube_video_media(transcriber, db=None, aliases=None,
     set_media_aliases(aliases)
 
 
-def _has_trigger(text: str) -> bool:
-    """Триггер youtube как ОТДЕЛЬНОЕ слово (Review-fix M1: правая граница —
-    «транскриптер» больше не матчится, в отличие от старого substring)."""
-    return command_registry.has_trigger_word("youtube", text)
-
-
 def _has_video_target(text: str) -> bool:
     """URL, реально обслуживаемый видео-ветками (R10.15-11): YouTube-URL /
     прямая медиа-ссылка / известная платформа (тот же набор, что у
@@ -373,37 +367,34 @@ def _command_body(message: types.Message) -> str | None:
 
 
 def _triggered_body(message: types.Message) -> str | None:
-    """Триггер youtube при валидной цели; иначе None (НЕ консьюм).
+    """САМОСТОЯТЕЛЬНАЯ youtube-команда; иначе None (НЕ консьюм).
 
-    Раунд 10.15 (F6/F7 + follow-up R10.15-1/-3):
-    * префикс в начале + триггер в начале остатка → явная команда (может быть
-      без цели → консьюм нейтральной фразой, spec §5);
-    * префикс в начале + триггер в любом месте + ВАЛИДНАЯ видео-цель
-      (YouTube/direct-media/платформа) → команда (D126, R10.15-11);
-    * «ссылка-первой» (URL до обращения) + префиксный триггер в начале
-      остатка → команда (гайд F7 §3, R10.15-1);
-    * иначе None: обычная речь со словом-триггером («Олег, помнишь
-      транскрипт…») уходит в обычную обработку/LLM (R10.15-3)."""
-    text = (message.text or message.caption or "").strip()
+    FINAL CONTRACT (owner, 2026-11-10): команда — это ВСЁ сообщение после
+    обращения: обращение в начале + канонический триггер реестра в начале
+    остатка (реестр уже сужен до ``транскрипт`` / ``че за видос``). Аргумент
+    после триггера — ссылка (существующий путь ``_parse``).
+
+    Удалены прежние послабления: триггер «в любом месте остатка» и
+    «ссылка-первой» с обращением в середине строки. Они позволяли словам
+    внутри прозы/цитаты выполнять команду, а наличие ссылки — запускать
+    обработчик без явного поручения. Обычная речь с этими словами уходит в
+    L1 (R10.15-3, P0-B §2/§7)."""
+    # Пересланное/цитируемое — ЧУЖАЯ речь: тело пересланного сообщения не
+    # выполняет команду (FINAL CONTRACT: «никогда как слова внутри прозы,
+    # цитаты или пересланного сообщения»). Собственная ПОДПИСЬ к пересланному
+    # медиа — слова отправителя, поэтому она командой остаётся.
+    # `type` проверяется как строка: у настоящего forward_origin это литерал
+    # ("channel"/"user"/…), а не произвольный объект-двойник.
+    origin = getattr(message, "forward_origin", None)
+    if isinstance(getattr(origin, "type", None), str) \
+            and str(message.text or "").strip():
+        return None
     body = _command_body(message)
-    if body is not None:
-        if command_registry.matches_group("youtube", body):
-            return body
-        if _has_trigger(body) and _has_video_target(body):
-            return body
+    if body is None:
         return None
-    # Ссылка-первой (гайд F7 §3): обращение ПОСЛЕ URL. R10.15-10: при
-    # повторном обращении берём то, перед которым стоит валидная цель.
-    tok, rest, at = command_prefix.split_prefix_anywhere(
-        text, url_before=_has_video_target)
-    if tok is None or at < 0:
-        return None
-    if not _has_video_target(text[:at]):
-        return None                       # URL обязан стоять ДО обращения
-    if not command_registry.matches_group("youtube", rest):
-        return None
-    # body сохраняет URL (нужен `_parse`/`_classify_video_request`).
-    return (text[:at].rstrip() + " " + rest).strip()
+    if command_registry.matches_group("youtube", body):
+        return body
+    return None
 
 
 def _make_retry_notifier(bot, chat_id, target_message_id):
@@ -675,30 +666,6 @@ def _classify_video_request_raw(message: types.Message) -> _VideoRequest | None:
 # ── EVOL §4: единое разрешение намерения/источника ───────────────────
 
 
-def _addressed_to_bot(message: types.Message) -> bool:
-    """Осознанное обращение к боту: префикс («Бот,/Имя,»), reply на бота,
-    упоминание/имя, либо — в ЛИЧНОМ чате — прямое упоминание видео-объекта.
-
-    P0-B (source 2026-11-10 §2/§7): раньше личная ветка строилась на
-    видео-лексиконе («выжимка/транскрипт/суть»), то есть стем сам назначал
-    задачу. Здесь остаётся только адресация: кто говорит с ботом; какой
-    объект назван — отдельное условие (`video_intent.mentions_video`).
-    """
-    text = str(message.text or message.caption or "")
-    if command_prefix.split_prefix(text)[0] is not None:
-        return True
-    reply = getattr(message, "reply_to_message", None)
-    author = getattr(reply, "from_user", None) if reply is not None else None
-    author_id = getattr(author, "id", None)
-    if (_media_bot_id is not None and isinstance(author_id, int)
-            and author_id == _media_bot_id):
-        return True
-    chat_type = getattr(getattr(message, "chat", None), "type", None)
-    if chat_type == "private":
-        return video_intent.mentions_video(text)
-    return False
-
-
 def _has_foreign_url(text: str) -> bool:
     """Есть ссылка, но НИ ОДНА не видео-цель (статья/обычная веб-страница).
 
@@ -794,54 +761,52 @@ async def _run_bound_intent(bot, entry) -> None:
 
 
 async def _handle_unclassified(bot, message: types.Message):
-    """Видео-задача, НАЗВАННАЯ в текущем сообщении, — детерминированно.
+    """Только зарегистрированная команда; обычная речь — к L1.
 
     Возвращает UNHANDLED, если сообщение не наше, ``None`` — если потреблено
     (анализ/ожидание/уточнение).
 
-    P0-B (source 2026-11-10 smart-module-semantic-routing §2/§3.2/§7):
-    детерминированный разбор допустим только там, где текущее сообщение само
-    называет видео-задачу — явная команда (``_triggered_body``) либо слово-
-    объект/видео-ссылка в тексте («видео/видос/ролик/клип/кружок»,
-    ``video_intent.mentions_video``). Всё остальное решает смысл на L1:
-    инструменты истории/памяти/поиска и медиа-инструменты объявлены ходу, а
-    reply/своё медиа остаются свидетельством, не задачей.
+    P0-B (FINAL CONTRACT, owner 2026-11-10): единственное основание
+    детерминированного разбора — САМОСТОЯТЕЛЬНАЯ зарегистрированная команда
+    (``_triggered_body`` → ``services.command_registry`` /
+    ``services.command_prefix``). В youtube-группе остались только
+    ``транскрипт`` и ``че за видос``; разговорные «о чем видео» и «поясни за
+    видос» из реестра удалены. Упоминание «видео/ролика» или ссылка НЕ
+    является подтверждённым намерением: задачу выбирает L1, а reply/своё
+    медиа остаются свидетельством.
+
+    Объект команды: reply/своё медиа/ссылка в самой команде; окно соседних
+    медиа НЕ используется. Без цели — существующее ограниченное ожидание
+    (``register_pending``), чей TTL-ответ и есть существующее «нет цели».
 
     Прежнее поведение: лексический ``detect_intent`` + окно соседних медиа
     превращали обычный вопрос в задачу анализа ролика. «Бот, что происходит
     в чате» ловилось подстрокой «что происходит»
     (``video_intent._DESCRIBE_RE``), объект брался из окна («последнее видео
     рядом»), при двух кандидатах отдавался ``AMBIGUOUS``-вопрос «какой из
-    двух роликов» — ровно оба симптома инцидента. Так же страдал reply на
-    видео с общим вопросом о разговоре: reply-объект сам становился
-    поручением.
+    двух роликов» — ровно оба симптома инцидента.
     """
+    if _triggered_body(message) is None:
+        # Не команда → не наша ветка: смысл решает L1 (direct chat 0h).
+        return UNHANDLED
     text = str(message.text or message.caption or "")
-    canonical = _triggered_body(message) is not None
     intent = video_intent.detect_intent(text)
     if intent == video_intent.DOWNLOAD:
         # «скачай» — отдельная просьба о файле (4e), НЕ анализ (§4.4).
         return UNHANDLED
     if intent not in video_intent.ANALYSIS_INTENTS:
-        if canonical:
-            # Явная команда без цели и без видео-намерения — прежний
-            # нейтральный ответ (не уходит в LLM обычного ответа).
-            await _reply(bot, message.chat.id,
-                         random.choice(COMMAND_NO_TARGET_PHRASES),
-                         message.message_id)
-            return None
-        return UNHANDLED
-    # Объект задачи обязан быть назван ЗДЕСЬ (команда, видео-слово или
-    # видео-ссылка) И сообщение должно быть адресовано боту. Reply/соседнее
-    # медиа без такого указания — свидетельство для L1, а не поручение
-    # разобрать ролик (§2 «никогда не угадывать объект по принципу „последнее
-    # видео рядом“»).
-    if not (canonical or video_intent.mentions_video(text)
-            or _has_video_target(text)):
-        return UNHANDLED
-    if not _addressed_to_bot(message):
-        return UNHANDLED
-    vintent = video_intent.resolve_request(message, intent, allow_window=True)
+        # Команда без цели и без видео-намерения — прежний нейтральный ответ
+        # (не уходит в LLM обычного ответа).
+        await _reply(bot, message.chat.id,
+                     random.choice(COMMAND_NO_TARGET_PHRASES),
+                     message.message_id)
+        return None
+    # Объект для ЯВНОЙ команды: reply/своё медиа/ссылка в самой команде.
+    # Окно соседних медиа НЕ используется (FINAL CONTRACT: «не выбирать
+    # соседний ролик»); два кандидата сразу в команде → один уточняющий
+    # вопрос (случайная подстановка запрещена §4.2), иначе — существующее
+    # ограниченное ожидание присланного ролика.
+    vintent = video_intent.resolve_request(message, intent, allow_window=False)
     if vintent.resolution == video_intent.RESOLVED:
         video_intent.emit_for(vintent, "request_seen", vintent.reason_code)
         video_intent.emit_for(vintent, "media_matched", vintent.reason_code)

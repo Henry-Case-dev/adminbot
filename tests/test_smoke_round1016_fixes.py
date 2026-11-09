@@ -176,15 +176,15 @@ class TestLinkFirstOccurrence:
         m.video_note = None
         return m
 
-    def test_second_occurrence_after_url_chosen(self, oleg_name):
-        text = f"эй Олег, смотри {YT_URL} Олег, поясни за видос"
-        body = youtube_mod._triggered_body(self._msg(text))
-        assert body is not None
-        target, video_id = youtube_mod._parse(self._msg(text))
-        assert video_id == "dQw4w9WgXcQ"
+    def test_second_occurrence_after_url_is_not_a_command(self, oleg_name):
+        """FINAL CONTRACT: обращение в середине строки + слова команды в прозе
+        команду не выполняют (речь → L1)."""
+        text = f"эй Олег, смотри {YT_URL} Олег, че за видос"
+        assert youtube_mod._triggered_body(self._msg(text)) is None
+        assert youtube_mod._parse(self._msg(text)) == (None, None)
 
     def test_no_url_before_any_occurrence_is_none(self, oleg_name):
-        text = "эй Олег, поясни за видос"
+        text = "эй Олег, че за видос"
         assert youtube_mod._triggered_body(self._msg(text)) is None
 
     def test_web_second_occurrence_after_url(self, oleg_name):
@@ -221,12 +221,18 @@ class TestValidVideoTargetOnly:
         m = self._msg("Олег, глянь https://habr.com/x — там транскрипт обсуждают")
         assert youtube_mod._triggered_body(m) is None
 
-    def test_youtube_target_consumed(self, oleg_name):
+    def test_youtube_target_in_prose_not_consumed(self, oleg_name):
+        """FINAL CONTRACT: слова команды внутри прозы не выполняют команду."""
         m = self._msg(f"Олег, глянь {YT_URL} — там транскрипт обсуждают")
-        assert youtube_mod._triggered_body(m) is not None
+        assert youtube_mod._triggered_body(m) is None
 
-    def test_direct_media_target_consumed(self, oleg_name):
+    def test_direct_media_target_in_prose_not_consumed(self, oleg_name):
         m = self._msg("Олег, скинь https://cdn.example.com/v.mp4 транскрипт")
+        assert youtube_mod._triggered_body(m) is None
+
+    def test_standalone_command_with_direct_media_url(self, oleg_name):
+        """Команда — самостоятельное сообщение; ссылка в ней — цель."""
+        m = self._msg("Олег, транскрипт https://cdn.example.com/v.mp4")
         assert youtube_mod._triggered_body(m) is not None
 
     def test_web_ignores_youtube_url(self, oleg_name):

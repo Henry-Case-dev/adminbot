@@ -165,7 +165,7 @@ class TestLateVideo:
     @pytest.mark.asyncio
     async def test_request_then_forwarded_video_one_analysis_one_reply(self, env):
         bot = _bot()
-        request = _msg(text="Бот, сделай выжимку видео", message_id=100)
+        request = _msg(text="Бот, че за видос", message_id=100)
 
         result = await yt.youtube_handler(request, bot=bot)
         assert result is None                      # консьюм: в LLM не уходит
@@ -195,7 +195,7 @@ class TestLateVideo:
     async def test_no_raw_refs_in_events(self, env):
         bot = _bot()
         await yt.youtube_handler(
-            _msg(text="Бот, сделай выжимку видео", message_id=100), bot=bot)
+            _msg(text="Бот, че за видос", message_id=100), bot=bot)
         await yt.youtube_handler(
             _msg(message_id=101, video=_media(file_id="secret_file_id",
                                               file_unique_id="secret_uid")),
@@ -210,7 +210,8 @@ class TestLateVideo:
 
 class TestMediaBeforeRequest:
     @pytest.mark.asyncio
-    async def test_video_before_request_binds_from_window(self, env):
+    async def test_video_before_request_is_not_picked(self, env):
+        """FINAL CONTRACT: соседний ролик НЕ выбирается — только ожидание."""
         bot = _bot()
         video = _msg(message_id=200, video=_media(file_id="v200",
                                                   file_unique_id="u200"))
@@ -219,11 +220,13 @@ class TestMediaBeforeRequest:
 
         request = _msg(text="Бот, че за видос", message_id=201)
         assert await yt.youtube_handler(request, bot=bot) is None
-        assert env.svc.summarize_media_url.await_count == 1
+        assert env.svc.summarize_media_url.await_count == 0   # ролик НЕ взят
+        assert bot.send_message.await_count == 0              # и уточнения нет
+        assert not _events("media_matched")                   # соседа не привязали
+        assert video_intent.has_pending(CHAT_ID)              # ждём присланный
+
+        await video_intent.expire(now=time.monotonic() + 10_000)
         assert bot.send_message.await_count == 1
-        assert bot.send_message.await_args.kwargs.get("reply_to_message_id") == 200
-        matched = _events("media_matched")
-        assert matched and matched[-1]["reason_code"] == "window_before_request"
 
 
 # ── 3. Прямой reply на видео приоритетнее соседей ─────────────────────
@@ -250,7 +253,7 @@ class TestReplyPriority:
         target = _msg(message_id=302, video=_media(file_id="b302",
                                                    file_unique_id="ub302"))
         # P0-B: видео-задача названа текущим сообщением («выжимку видео»).
-        request = _msg(text="Бот, сделай выжимку видео", message_id=303,
+        request = _msg(text="Бот, че за видос", message_id=303,
                        reply_to_message=target)
         assert await yt.youtube_handler(request, bot=bot) is None
         assert env.svc.summarize_media_url.await_count == 1
@@ -276,7 +279,7 @@ class TestSingleFlight:
         bot = _bot()
         target = _msg(message_id=400, video=_media(file_id="same",
                                                    file_unique_id="usame"))
-        first = _msg(text="Бот, сделай выжимку видео", message_id=401,
+        first = _msg(text="Бот, че за видос", message_id=401,
                      user_id=USER_A, reply_to_message=target)
         second = _msg(text="Бот, че за видос", message_id=402,
                       user_id=USER_B, reply_to_message=target)
@@ -297,21 +300,44 @@ class TestSingleFlight:
 
 class TestAmbiguous:
     @pytest.mark.asyncio
-    async def test_two_videos_ambiguous_no_random_pick(self, env):
+    async def test_two_videos_in_history_no_random_pick(self, env):
+        """FINAL CONTRACT: два ролика в истории → ни одного не берём и не
+        спрашиваем «какой из двух»; команда ждёт присланный ролик."""
         bot = _bot()
         video_intent.observe(_msg(message_id=500, video=_media(
             file_id="v500", file_unique_id="u500")))
         video_intent.observe(_msg(message_id=501, video=_media(
             file_id="v501", file_unique_id="u501")))
 
-        request = _msg(text="Бот, сделай выжимку видео", message_id=502)
+        request = _msg(text="Бот, че за видос", message_id=502)
         assert await yt.youtube_handler(request, bot=bot) is None
         assert env.svc.summarize_media_url.await_count == 0
         assert env.transcriber.transcribe_voice.await_count == 0
+        assert bot.send_message.await_count == 0            # уточнения нет
+        assert not _events("media_ambiguous")
+        assert video_intent.has_pending(CHAT_ID)
+
+    @pytest.mark.asyncio
+    async def test_two_videos_sent_after_request_one_analysis_only(self, env):
+        """Два ролика пришли после команды → ровно один анализ (первый),
+        второй не подставляет и не дублирует ответ."""
+        bot = _bot()
+        request = _msg(text="Бот, че за видос", message_id=510)
+        assert await yt.youtube_handler(request, bot=bot) is None
+        assert video_intent.has_pending(CHAT_ID)
+
+        first = _msg(message_id=511, video=_media(
+            file_id="f511", file_unique_id="u511"))
+        assert await yt.youtube_handler(first, bot=bot) is None
+        second = _msg(message_id=512, video=_media(
+            file_id="f512", file_unique_id="u512"))
+        assert await yt.youtube_handler(second, bot=bot) is UNHANDLED
+
+        assert env.svc.summarize_media_url.await_count == 1
         assert bot.send_message.await_count == 1
-        assert (bot.send_message.await_args.args[1]
-                in VIDEO_INTENT_AMBIGUOUS_PHRASES)
-        assert _events("media_ambiguous")
+        assert bot.send_message.await_args.kwargs[
+            "reply_to_message_id"] == 511
+        assert not video_intent.has_pending(CHAT_ID)
 
 
 # ── 6. «Скачай» ≠ «сделай выжимку» ────────────────────────────────────
@@ -323,7 +349,7 @@ class TestOperations:
         target = _msg(message_id=600, video=_media(file_id="v600",
                                                    file_unique_id="u600"))
         # P0-B: видео-задача названа текущим сообщением.
-        request = _msg(text="Бот, сделай выжимку видео", message_id=601,
+        request = _msg(text="Бот, че за видос", message_id=601,
                        reply_to_message=target)
         assert await yt.youtube_handler(request, bot=bot) is None
         assert bot.send_message.await_count == 1
@@ -365,7 +391,7 @@ class TestOperations:
 
 class TestSourceClassification:
     def test_detect_intent_matrix(self):
-        assert video_intent.detect_intent("Бот, сделай выжимку видео") == "summary"
+        assert video_intent.detect_intent("Бот, краткое содержание видео") == "summary"
         assert video_intent.detect_intent("Бот, перескажи ролик") == "summary"
         assert video_intent.detect_intent("Бот, транскрипт") == "transcript"
         assert video_intent.detect_intent("Бот, че за видос") == "describe"
@@ -407,7 +433,7 @@ class TestSourceClassification:
         bot = _bot()
         note = _msg(message_id=700, video_note=_media(file_id="n700",
                                                       file_unique_id="un700"))
-        request = _msg(text="Бот, сделай выжимку видео", message_id=701,
+        request = _msg(text="Бот, че за видос", message_id=701,
                        reply_to_message=note)
         assert await yt.youtube_handler(request, bot=bot) is None
         assert env.transcriber.transcribe_voice.await_count == 1
@@ -434,7 +460,7 @@ class TestSourceClassification:
     @pytest.mark.asyncio
     async def test_no_media_request_waits_instead_of_instant_refusal(self, env):
         bot = _bot()
-        msg = _msg(text="Бот, сделай выжимку видео", message_id=720)
+        msg = _msg(text="Бот, че за видос", message_id=720)
         assert await yt.youtube_handler(msg, bot=bot) is None
         assert bot.send_message.await_count == 0
         assert video_intent.has_pending(CHAT_ID)
@@ -447,7 +473,7 @@ class TestPendingExpiry:
     async def test_expiry_sends_exactly_one_fallback(self, env):
         bot = _bot()
         await yt.youtube_handler(
-            _msg(text="Бот, сделай выжимку видео", message_id=800), bot=bot)
+            _msg(text="Бот, че за видос", message_id=800), bot=bot)
         assert bot.send_message.await_count == 0
 
         await video_intent.expire(now=time.monotonic() + 10_000)
@@ -464,7 +490,7 @@ class TestPendingExpiry:
     async def test_media_in_other_chat_does_not_bind(self, env):
         bot = _bot()
         await yt.youtube_handler(
-            _msg(text="Бот, сделай выжимку видео", message_id=810), bot=bot)
+            _msg(text="Бот, че за видос", message_id=810), bot=bot)
         corr = _corr_of_pending()
 
         foreign = _msg(message_id=811, chat_id=OTHER_CHAT,
@@ -482,7 +508,7 @@ class TestPendingExpiry:
     async def test_video_after_expiry_is_new_request_not_retroactive(self, env):
         bot = _bot()
         await yt.youtube_handler(
-            _msg(text="Бот, сделай выжимку видео", message_id=820), bot=bot)
+            _msg(text="Бот, че за видос", message_id=820), bot=bot)
         await video_intent.expire(now=time.monotonic() + 10_000)
         assert bot.send_message.await_count == 1
 
@@ -545,7 +571,7 @@ class TestOtherTargetNotConsumed:
     async def test_web_summary_not_consumed_while_pending_active(self, env):
         bot = _bot()
         await yt.youtube_handler(
-            _msg(text="Бот, сделай выжимку видео", message_id=920), bot=bot)
+            _msg(text="Бот, че за видос", message_id=920), bot=bot)
         assert len(video_intent.pending_for(CHAT_ID)) == 1
         corr = _corr_of_pending()
         events_before = len(video_intent.recent_events())
@@ -572,7 +598,7 @@ class TestOtherTargetNotConsumed:
     async def test_video_url_still_analyzed(self, env):
         """Видео-URL — своя цель: как и раньше уходит в анализ."""
         bot = _bot()
-        msg = _msg(text="Бот, сделай выжимку https://www.tiktok.com/@x/video/1",
+        msg = _msg(text="Бот, че за видос https://www.tiktok.com/@x/video/1",
                    message_id=950)
         assert await yt.youtube_handler(msg, bot=bot) is None
         assert not video_intent.has_pending(CHAT_ID)
@@ -588,7 +614,7 @@ class TestAudioOnlyReplyHonesty:
         bot = _bot()
         note = _msg(message_id=730, video_note=_media(file_id="n730",
                                                       file_unique_id="un730"))
-        request = _msg(text="Бот, сделай выжимку видео", message_id=731,
+        request = _msg(text="Бот, че за видос", message_id=731,
                        reply_to_message=note)
 
         assert await yt.youtube_handler(request, bot=bot) is None
@@ -608,7 +634,7 @@ class TestAudioOnlyReplyHonesty:
         bot = _bot()
         target = _msg(message_id=740, video=_media(file_id="v740",
                                                    file_unique_id="u740"))
-        request = _msg(text="Бот, сделай выжимку видео", message_id=741,
+        request = _msg(text="Бот, че за видос", message_id=741,
                        reply_to_message=target)
 
         assert await yt.youtube_handler(request, bot=bot) is None
@@ -661,18 +687,35 @@ class TestPrivateChatOrdinarySpeechNotHijacked:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("text", [
-        "Дай краткое содержание видео",
-        "Перескажи видео кратко",
-        "Сделай выжимку видео",
+        "Бот, транскрипт",
+        "Бот, че за видос",
     ])
-    async def test_video_lexicon_still_waits(self, env, text):
-        """Видео НАЗВАНО в сообщении — ожидание ролика сохранено."""
+    async def test_registered_video_command_waits(self, env, text):
+        """Зарегистрированная команда (реестр) — штатное ожидание ролика."""
         bot = _bot()
         msg = _msg(text=text, message_id=962, chat_type="private")
 
         assert await yt.youtube_handler(msg, bot=bot) is None
         assert bot.send_message.await_count == 0
         assert video_intent.has_pending(CHAT_ID)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", [
+        "Сделай выжимку",
+        "Сделай транскрипт",
+        "Дай краткое содержание видео",
+        "Перескажи видео кратко",
+        "Сделай выжимку видео",
+    ])
+    async def test_unregistered_video_wording_unhandled(self, env, text):
+        """Не команда реестра — даже со словом «видео» решает L1."""
+        bot = _bot()
+        msg = _msg(text=text, message_id=963, chat_type="private")
+
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert bot.send_message.await_count == 0
+        assert not video_intent.has_pending(CHAT_ID)
+        assert env.svc.summarize_media_url.await_count == 0
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("text", [
@@ -732,20 +775,18 @@ class TestExistingVideoInWindow:
         assert not video_intent.has_pending(CHAT_ID)
 
     @pytest.mark.asyncio
-    async def test_named_video_request_uses_existing_video(self, env):
-        """Видео НАЗВАНО — окно снова работает (объект разрешён законно)."""
+    async def test_named_video_request_does_not_use_existing_video(self, env):
+        """Соседний ролик НЕ цель: команда без reply ждёт присланный."""
         bot = _bot()
         video = _msg(message_id=1015, video=_media(file_id="w1015",
                                                    file_unique_id="wu1015"))
         assert await yt.youtube_handler(video, bot=bot) is UNHANDLED
 
-        request = _msg(text="Бот, сделай выжимку видео", message_id=1016)
+        request = _msg(text="Бот, че за видос", message_id=1016)
         assert await yt.youtube_handler(request, bot=bot) is None
-        assert env.svc.summarize_media_url.await_count == 1
-        assert bot.send_message.await_count == 1
-        assert not video_intent.has_pending(CHAT_ID)
-        assert _events("media_matched")[-1]["reason_code"] == \
-            "window_before_request"
+        assert env.svc.summarize_media_url.await_count == 0
+        assert bot.send_message.await_count == 0
+        assert video_intent.has_pending(CHAT_ID)
 
     @pytest.mark.asyncio
     async def test_web_link_still_wins_over_existing_video(self, env):
@@ -764,12 +805,11 @@ class TestExistingVideoInWindow:
 
 
 class TestBareLexiconForms:
-    """P0-B (source 2026-11-10 §2/§7): голая форма без объекта — не задача.
+    """P0-B: любая формулировка вне реестра команд решается смыслом (L1).
 
-    «Выжимка»/«Расшифровка»/«Краткое содержание» без названного видео —
-    обычная речь: что именно выжимать, решает смысл (L1), а не стем слова.
-    «Транскрипт» и «Краткое содержание видео» остаются командами/названной
-    задачей и работают как раньше."""
+    «Выжимка»/«Расшифровка»/«Краткое содержание [видео]» — не команды
+    `services.command_registry` (там «выжимка» относится к группе web и
+    требует префикса), поэтому 0e их не потребляет."""
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("text", [
@@ -779,6 +819,7 @@ class TestBareLexiconForms:
         "Транскрипт",
         "Выжимку",
         "Расшифровку",
+        "Краткое содержание видео",
     ])
     async def test_bare_lexicon_without_object_unhandled(self, env, text):
         bot = _bot()
@@ -791,9 +832,9 @@ class TestBareLexiconForms:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("text", [
         "Бот, транскрипт",
-        "Краткое содержание видео",
+        "Бот, че за видос",
     ])
-    async def test_named_or_command_form_waits(self, env, text):
+    async def test_registered_command_form_waits(self, env, text):
         bot = _bot()
         msg = _msg(text=text, message_id=1031, chat_type="private")
 
@@ -802,10 +843,10 @@ class TestBareLexiconForms:
         assert video_intent.has_pending(CHAT_ID)
 
     @pytest.mark.asyncio
-    async def test_named_lexicon_waits_then_binds_forwarded_video(self, env):
+    async def test_registered_command_waits_then_binds_forwarded_video(self, env):
         bot = _bot()
         assert await yt.youtube_handler(
-            _msg(text="Краткое содержание видео", message_id=1040,
+            _msg(text="Бот, че за видос", message_id=1040,
                  chat_type="private"), bot=bot) is None
         forwarded = _msg(message_id=1041, chat_type="private",
                          video=_media(file_id="w1041", file_unique_id="wu1041"),
