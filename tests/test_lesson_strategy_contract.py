@@ -167,6 +167,41 @@ async def test_thresholds_per_class_and_local_le_global(tmp_path, monkeypatch):
     assert clamped["local"] == 3 <= clamped["global"] == 3
 
 
+@pytest.mark.asyncio
+async def test_threshold_classes_govern_acceptance(tmp_path, monkeypatch):
+    """Каждый класс порога реально решает судьбу урока (§2.1)."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot({}).get)
+    db = await _db(tmp_path, "classes.db")
+    try:
+        svc = me.get_service(db)
+
+        async def _accepted(scope, origin, sources):
+            lid, ver = await svc.lesson.propose(
+                type="context", scope=scope, rule_key="bounded_block",
+                scope_chat_id=None if scope == "global" else CHAT,
+                origin_kind=origin, independent_sources=sources)
+            assert lid
+            return await svc.lesson.validate(
+                lid, ver, evidence=me.ValidationEvidence(
+                    kind="generalization",
+                    independent_episode_ids=tuple(sources)))
+
+        # technical: достаточно одного проверяемого случая
+        assert await _accepted("chat", "technical", ("ep:t1",))
+        # explicit: достаточно одной явной просьбы
+        assert await _accepted("chat", "explicit", ("message:1",))
+        # локальный паттерн: одного наблюдения мало, двух — достаточно
+        assert not await _accepted("chat", "semantic", ("ep:s1",))
+        assert await _accepted("chat", "semantic", ("ep:s1", "ep:s2"))
+        # глобальный статистический урок строже: 2 мало, 3 — норма
+        assert not await _accepted("global", "semantic",
+                                   ("ep:g1", "ep:g2"))
+        assert await _accepted("global", "semantic",
+                               ("ep:g1", "ep:g2", "ep:g3"))
+    finally:
+        await db.close()
+
+
 # ═══ 3. Неявные наблюдения не обходят доказательства ════════════════════════
 
 @pytest.mark.asyncio
@@ -280,9 +315,12 @@ async def test_fresh_throughput_keeps_up_in_simulated_day(tmp_path,
     db = await _db(tmp_path, "throughput.db")
     try:
         total = 1661
+        max_ids: dict[int, int] = {}
         for i in range(total):
-            await _msg(db, chat_id=-1 - (i % 6), user_id=42,
-                       text=f"рабочая реплика {i}")
+            chat_id = -1 - (i % 6)
+            msg_id = await _msg(db, chat_id=chat_id, user_id=42,
+                                text=f"рабочая реплика {i}")
+            max_ids[chat_id] = msg_id
         llm = _FakeLLM()
         passes = 0
         while passes < ticks_per_day:
@@ -298,6 +336,11 @@ async def test_fresh_throughput_keeps_up_in_simulated_day(tmp_path,
         progress = payload.get("semantic_progress") or {}
         assert int(progress.get("backlog_rows") or 0) == 0
         assert int(progress.get("actionable_rows") or 0) == 0
+        # Ни одна реплика суток не осталась за свежим курсором.
+        for chat_id, msg_id in max_ids.items():
+            assert int(payload.get(
+                f"{mj.SEMANTIC_CURSOR_PREFIX}{chat_id}") or 0) >= msg_id
+        assert int(payload["counters"]["semantic_throughput_rows"]) > 0
     finally:
         await db.close()
 
