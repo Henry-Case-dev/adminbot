@@ -14566,29 +14566,33 @@
             self.modules.push(card);
           }
         }, this);
-        // F4: холодный deep-link на подкарточку реестра — boot-applyRoute
-        // отработал ДО loadConfig («Модуль не найден» → #/modules); после
-        // merge переприменяем актуальный hash (один раз, только если
-        // маршрут указывает на добавленную запись реестра).
-        if (!self.workspaceModule) {
-          var h = String(window.location.hash || '');
-          if (h.indexOf('#/modules/') === 0) {
-            var deep = h.slice('#/modules/'.length).split('/')[0];
-            if (deep && this._f4Registry[deep]) self.applyRoute(h);
-          }
-        }
-        // MOD-ACL-UX-01 M3: тот же холодный старт, но адрес уже заменён на
-        // витрину (`#/modules`) первым applyRoute — восстанавливаем заявленный
-        // маршрут модуля реестра один раз, иначе F5-догрузка его не увидит.
+        // MOD-ACL-UX-01 M3: холодный старт — boot-applyRoute отработал ДО
+        // loadConfig, поэтому адрес модуля реестра им только отложен
+        // (`_pendingModuleRoute`), без ложного «Модуль не найден». После merge
+        // адрес разрешается РОВНО ОДИН раз обычным гейтом (одно честное
+        // сообщение вместо «не найден» + «нет доступа»).
         var pending = this._pendingModuleRoute;
         if (pending) {
           this._pendingModuleRoute = null;
           var pws = parseWorkspaceRoute(pending);
           if (pws && this._f4Registry[pws.slug]) {
-            // hash вернулся на витрину первым applyRoute — возвращаем адрес
-            // модуля, чтобы URL и состояние страницы совпадали.
+            // Адрес модуля не менялся на витрину — состояние страницы всё
+            // равно нужно пересобрать после merge.
             try { history.replaceState(null, '', pending); } catch (e) { /* file:// */ }
             self.applyRoute(pending);
+          } else if (pws) {
+            // Реестр уже загружен, а модуля с таким slug нет — теперь это
+            // ДЕЙСТВИТЕЛЬНО неизвестный адрес: честное сообщение и витрина.
+            self.toast('Модуль не найден', 'warn');
+            self.applyRoute('#/modules');
+          }
+        } else if (!self.workspaceModule) {
+          // Прежний путь: hash уже указывает на запись реестра (например,
+          // адрес проставлен вручную) — переприменяем один раз.
+          var h = String(window.location.hash || '');
+          if (h.indexOf('#/modules/') === 0) {
+            var deep = h.slice('#/modules/'.length).split('/')[0];
+            if (deep && this._f4Registry[deep]) self.applyRoute(h);
           }
         }
       },
@@ -15457,12 +15461,16 @@
             && this.moduleBySlug(wsParsed.slug))
             || _wsModuleById(wsParsed.slug);
           if (!wsm) {
-            // MOD-ACL-UX-01 M3: реестр модулей приходит в `loadConfig`
-            // (асинхронно), поэтому на холодной загрузке адрес модуля реестра
-            // ещё не резолвится. Запоминаем заявленный адрес: после merge
-            // (f3ApplyModuleRegistry) он переприменяется, иначе обновление
-            // страницы модуля выбрасывало бы в витрину.
-            this._pendingModuleRoute = route;
+            if (!this._f3RegistryApplied) {
+              // MOD-ACL-UX-01 M3: реестр модулей приходит в `loadConfig`
+              // (асинхронно). Пока merge не выполнен, адрес вида
+              // `#/modules/<slug>` может принадлежать РЕАЛЬНОМУ модулю реестра,
+              // поэтому «Модуль не найден» здесь был бы ложной причиной.
+              // Адрес держим, ничего не сообщаем и не переписываем: после merge
+              // он разрешается обычным гейтом (см. f3ApplyModuleRegistry).
+              this._pendingModuleRoute = route;
+              return;
+            }
             this.toast('Модуль не найден', 'warn');
             route = '#/modules';
             try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }

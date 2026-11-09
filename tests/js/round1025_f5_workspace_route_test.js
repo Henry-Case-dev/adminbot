@@ -67,6 +67,10 @@ function mkCtx(overrides) {
     route: '#/', iaV2: true, me: { role_name: 'admin' },
     activeTab: 'status', accessOpen: null, tabs: TABS,
     modules: MODULES,
+    // MOD-ACL-UX-01 M3: контракты этого блока проверяются в состоянии
+    // «реестр модулей уже долит» (production после loadConfig). Пока merge
+    // нет, applyRoute держит адрес модуля и НЕ объявляет его неизвестным.
+    _f3RegistryApplied: true,
     canViewTab() { return true; },
     _flagTabHidden: methods._flagTabHidden,
     toast(m, k) { toasts.push([m, k]); },

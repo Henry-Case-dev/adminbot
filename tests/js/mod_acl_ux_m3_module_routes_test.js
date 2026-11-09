@@ -78,6 +78,9 @@ assert.ok(Array.isArray(specs) && specs.length >= 9,
 
 // Реестр доливается в тот же список модулей, что и в проде (loadConfig).
 // Мутация глобального списка — как в production-коде (data.modules === MODULES).
+// Снимок ДО merge нужен для холодного старта (адрес модуля реестра приходит
+// раньше, чем `loadConfig` доливает реестр).
+const PRE_MERGE = JSON.parse(JSON.stringify(MODULES));
 methods.f3ApplyModuleRegistry.call({
   modules: MODULES, _f4Registry: {}, workspaceModule: null,
 }, specs);
@@ -94,6 +97,9 @@ function mkCtx(me) {
     activeChatId: null,
     chatLoreChats: [],
     _toasts: [],
+    // Production-состояние после `loadConfig`: реестр уже долит.
+    _f3RegistryApplied: true,
+    _f4Registry: {},
   };
   ctx.toast = function (m, k) { ctx._toasts.push([m, k]); };
   ctx.syncBackButton = function () {};
@@ -107,6 +113,10 @@ function mkCtx(me) {
   ctx.moduleByTab = methods.moduleByTab;
   ctx._isModuleTab = methods._isModuleTab;
   ctx._tabDescriptorFor = methods._tabDescriptorFor;
+  ctx.applyRoute = function (h) { return methods.applyRoute.call(ctx, h); };
+  ctx.f3ApplyModuleRegistry = function (mods) {
+    return methods.f3ApplyModuleRegistry.call(ctx, mods);
+  };
   Object.defineProperty(ctx, 'permissions', {
     get: function () { return computed.permissions.call(this); },
   });
@@ -180,6 +190,82 @@ function rendersAsConfig(ctx) {
     eq(rendersAsConfig(ctx), true,
       'admin: страница модуля «' + spec.id + '» рендерится как config');
   });
+}
+
+// ── (1c) ХОЛОДНЫЙ deep-link: адрес модуля реестра до merge ────────────────
+// Реестр приходит асинхронно (loadConfig). Пока merge нет, адрес
+// `#/modules/<slug>` НЕ считается неизвестным: никакого «Модуль не найден»,
+// адрес держится и разрешается после merge обычным гейтом.
+// `_wsModuleById` читает ОДИН общий список модулей (как в проде), поэтому
+// холодный старт воспроизводится возвратом списка к состоянию до merge.
+function resetModulesToPreMerge() {
+  MODULES.length = 0;
+  PRE_MERGE.forEach(function (m) { MODULES.push(JSON.parse(JSON.stringify(m))); });
+}
+function coldCtx(me) {
+  const ctx = mkCtx(me);
+  ctx.route = '#/';
+  delete ctx._f3RegistryApplied;      // реестр ещё не долит (как на boot)
+  ctx._f4Registry = {};
+  return ctx;
+}
+{
+  // (1c-1) глобальный админ: страница открывается, тостов НЕТ
+  resetModulesToPreMerge();
+  const coldAdmin = coldCtx(ADMIN);
+  methods.applyRoute.call(coldAdmin, '#/modules/embeddings');
+  eq(coldAdmin._toasts.length, 0,
+    'cold admin: до merge нет ложного «Модуль не найден»');
+  eq(coldAdmin._pendingModuleRoute, '#/modules/embeddings',
+    'cold admin: заявленный адрес модуля сохранён до merge');
+  eq(coldAdmin.route, '#/',
+    'cold admin: до merge адрес не переписывается на витрину');
+  coldAdmin.f3ApplyModuleRegistry(specs);
+  eq(coldAdmin.route, '#/modules/embeddings',
+    'cold admin: после merge страница модуля открыта');
+  eq(coldAdmin.activeTab, 'mod_embeddings',
+    'cold admin: активная вкладка — страница модуля');
+  eq(rendersAsConfig(coldAdmin), true,
+    'cold admin: страница модуля рендерится');
+  eq(coldAdmin._toasts.length, 0,
+    'cold admin: ни одного тоста за всю холодную загрузку');
+  eq(coldAdmin._pendingModuleRoute, null,
+    'cold admin: отложенный адрес снят после разрешения');
+
+  // (1c-2) пользователь без раздела «Модули»: ровно один честный отказ
+  resetModulesToPreMerge();
+  const coldPlain = coldCtx(PLAIN);
+  methods.applyRoute.call(coldPlain, '#/modules/embeddings');
+  eq(coldPlain._toasts.length, 0,
+    'cold plain: до merge нет ложного «Модуль не найден»');
+  eq(coldPlain._pendingModuleRoute, '#/modules/embeddings',
+    'cold plain: адрес держится до merge');
+  coldPlain.f3ApplyModuleRegistry(specs);
+  eq(coldPlain._toasts.length, 1,
+    'cold plain: ровно ОДИН тост (без дубля «не найден» + «нет доступа»)');
+  eq(coldPlain._toasts[0][0], 'Нет доступа к разделу',
+    'cold plain: сообщение — честный отказ прав');
+  eq(coldPlain.route, '#/',
+    'cold plain: конечный адрес — #/');
+
+  // (1c-3) действительно неизвестный адрес ПОСЛЕ merge остаётся неизвестным
+  resetModulesToPreMerge();
+  const coldTypo = coldCtx(ADMIN);
+  methods.applyRoute.call(coldTypo, '#/modules/нет_такого_модуля_x');
+  eq(coldTypo._toasts.length, 0, 'cold typo: до merge молчим');
+  coldTypo.f3ApplyModuleRegistry(specs);
+  eq(coldTypo._toasts.length, 1,
+    'cold typo: после merge — один честный «Модуль не найден»');
+  eq(coldTypo._toasts[0][0], 'Модуль не найден',
+    'cold typo: именно «Модуль не найден»');
+  eq(coldTypo.route, '#/modules',
+    'cold typo: неизвестный адрес → витрина «Модули»');
+
+  // production-состояние для остальных блоков: реестр долит
+  resetModulesToPreMerge();
+  methods.f3ApplyModuleRegistry.call({
+    modules: MODULES, _f4Registry: {}, workspaceModule: null,
+  }, specs);
 }
 
 // ── (1b) админ без wildcard: новый путь «модуль без своей config-вкладки» ──
