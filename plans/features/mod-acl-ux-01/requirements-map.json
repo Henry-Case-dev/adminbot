@@ -4,20 +4,51 @@
   "created": "2026-11-09",
   "source_path": "plans/owner_inputs/2026-11-09-mod-acl-ux-01.md",
   "source_sha256": "ba6cf3d68b9e4babd181c2ac0439cc80a8e127341a48ad76200bb2bde6ff92a7",
-  "candidate_commit": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
-  "deployed_commit": "bee14188f5d554021813db332ab35abea2ecbff5",
+  "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+  "deployed_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "baseline_artifact": "plans/features/mod-acl-ux-01/m0-baseline.md",
   "baseline_sha256": "42C0103FEAF229F4176641D192157F75D32A519E1E1B7F1A3C551A55B5E03706",
   "deployment_evidence": {
-    "version": "2.58.172",
-    "deployed_commit": "bee14188f5d554021813db332ab35abea2ecbff5",
-    "candidate_commit": "c51933d0f29bd70d746b15529504cb4b8a645fc5",
-    "release_candidate": "bee14188f5d554021813db332ab35abea2ecbff5",
-    "artifact_path": "plans/features/mod-acl-ux-01/evidence/m5l/lessons-deploy-2.58.172.md",
-    "artifact_sha256": "1d55faa5a4e7dcd3efef70ca7839106b1a90d3da32bdf17b1e494967496e1e77",
-    "note": "Развёрнутый SHA — релизный bump поверх одобренного кандидата c51933d0: продуктовый код идентичен (git diff --name-only c51933d0 bee14188 -- services handlers web пуст), менялись только APP_VERSION, README и version-пины тестов. Предыдущий прод 2.58.171 @ 4f7428e6. Миграция v45→v46 аддитивная, backfill нет. Строки M5A сохраняют собственную привязку к 4e07817e — map-level candidate указывает на последнего ревьюированного кандидата."
+    "version": "2.58.175",
+    "deployed_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+    "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+    "release_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+    "previous_deployment": "2.58.174 @ ac943f40a661c7397b23d23b1f3a1b0c2b578e9e",
+    "release_branch": "release/2.58.175",
+    "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+    "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40",
+    "cherry_picks": [
+      "97cfdef1",
+      "3b1ba3b2",
+      "dd52cbf9",
+      "0833035a",
+      "7faa9d7c",
+      "827d4a3b",
+      "6e175ced"
+    ],
+    "excluded": "98bc424e (SELF-DIAG-01 D2) — Needs Fixes; в выкате отсутствуют services/diagnostic_policy.py, services/output_projection.py, services/telegram_role_check.py, tests/test_diagnostic_policy.py, а services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py равны блобам 2.58.174.",
+    "live_facts": {
+      "healthz": "ok 2.58.175 локально и публично",
+      "unit": "active, NRestarts=0, 0 tracebacks, 0 err-записей",
+      "app_js_sha256": "f91ce8ec1ec6446a6fa9daf034a5df93750b8e31c1401ba5fd930b7b69dcca91",
+      "app_js_previous": "a47d09d44de013605c25b754e97d978dbfbd9a9a1f67df9a6d085850b588ff9e (2.58.174)",
+      "index_version": "?v=2.58.175",
+      "schema": "user_version=46, schema_migrations=35, без DDL",
+      "snapshot": "backups/predeploy-258175.db, read-back verified",
+      "m2_probe_chat": "-1002661910336"
+    },
+    "note": "Релизный коммит = отобранное содержимое + version-пины: git diff df7b6351 34213999 — 26 файлов, только APP_VERSION/README/F8-мета/version-пины тестов. Код и тесты M2 в выкате байт-идентичны кандидату dd52cbf9, поэтому строки M2 сохраняют силу и дополнительно привязаны к 34213999 (основание — в observation каждой строки). Строки M1/M4A привязаны к тому же SHA с тем же основанием (guard-код M1 не изменился: в дельте ac943f40..34213999 по memory_agi/deps/chat_lore только 4 строки комментариев). Предыдущая выкладка M5L (2.58.172) сохраняется в previous_deployment.",
+    "previous": {
+      "version": "2.58.172",
+      "deployed_commit": "bee14188f5d554021813db332ab35abea2ecbff5",
+      "candidate_commit": "c51933d0f29bd70d746b15529504cb4b8a645fc5",
+      "release_candidate": "bee14188f5d554021813db332ab35abea2ecbff5",
+      "artifact_path": "plans/features/mod-acl-ux-01/evidence/m5l/lessons-deploy-2.58.172.md",
+      "artifact_sha256": "1d55faa5a4e7dcd3efef70ca7839106b1a90d3da32bdf17b1e494967496e1e77",
+      "note": "Развёрнутый SHA — релизный bump поверх одобренного кандидата c51933d0: продуктовый код идентичен (git diff --name-only c51933d0 bee14188 -- services handlers web пуст), менялись только APP_VERSION, README и version-пины тестов. Предыдущий прод 2.58.171 @ 4f7428e6. Миграция v45→v46 аддитивная, backfill нет. Строки M5A сохраняют собственную привязку к 4e07817e — map-level candidate указывает на последнего ревьюированного кандидата."
+    }
   },
   "queue_position": "MOD-ACL-UX-01 стоит в конце действующей очереди после SELF-DIAG-01 и VMQ-ONTO-01; полный Builder стартует после освобождения шести файлов MEMORY-08 S3. Две независимые критические правки (M1 ACL false-403 и M5A EXP-FIX correctives) допускаются раньше остального эпика при доступности своих файлов.",
   "binding_note": "Единственный владелец строки = req_id; owning stage ровно один (M0…M6, включая под-срезы M4A/M4B/M4C и M5A/M5B/M5C, потому что один M4 и один M5 — слишком крупные неделимые outcomes). Строки L*-AC-* §12 и M0…M6 §11 — нормативный источник; manual-строки MAC-S2-TT-*, MAC-S2-AX-*, MAC-EXP-* и MAC-AMD-* ссылаются на нормативные строки таблиц/prose, потому что gate инвентаризует только заголовки и списки. Наблюдения §1 и адреса файлов §14 классифицированы как context с указанием несущей нормы; §16 дублирует §5–§8 и AC-*. Статусы PENDING до фактических доказательств; live/ui-строки требуют живого интерфейса, а не отчёта Builder. Поправка уроков 09.11.2026 добавлена двумя срезами: M5L (MAC-LSN-01…06 — реализация и выкат 2.58.172, доказано) и M5L-OBS (MAC-LSN-07…11 — живые наблюдения после дренажа свежего бэклога, первого противоречия, повторного подтверждения, применения в ответе и оставшихся событий аналитики). Источник поправки — plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md и замороженный план plans/features/mod-acl-ux-01/lesson-strategy-contract.md. Поправка 09.11.2026 (M2, clerical): MAC-S2-106, MAC-S10-10, MAC-S2-105 привязаны к production impact report plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md (sha256 f18dc7dc…, коммит 74f8f342 на release/2.58.173; read-only прогон кандидата 97cfdef1 по реальной базе 2.58.173 @ 17c3a05e: 3 профиля x 16 capability, 0 изменённых пар). Одиннадцать строк каталога/UI (MAC-S0-04, MAC-S2-49, MAC-S2-89, MAC-S2-90, MAC-S2-82, MAC-S2-83, MAC-S3-CAT-01, MAC-S3-TYPES-01, MAC-S3-SHARED-01, MAC-AC-01, MAC-AC-05) переназначены из M2 в M3/M4A по решению координатора 2026-11-09 (поле reassignment_rationale у каждой строки; acceptance не менялся). Пятнадцать live-строк M2 остаются PENDING с условием «живое наблюдение на задеплоенном SHA после выката M2» — это postdeploy-обязательства, а не блокеры ревью.",
@@ -34,16 +65,24 @@
       "acceptance": "GLOBAL ON + CHAT INHERIT → ON: чат исполняет функцию по глобальному значению.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "production",
+          "ref": "Живая проба на выкате 2.58.175: GLOBAL ON + CHAT INHERIT исполняется",
+          "observation": "Чат -1002661910336, только SELECT интерпретатором юнита: dream, lore_auto, nostalgia имеют chat_state=inherit, desired=true, source=global, global_value=true, effective_runtime=true, ready=true, reason_code=null. То есть при GLOBAL ON чат без override исполняет функцию по глобальному значению, и это observed на задеплоенном SHA.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-tt-1.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-1"
         }
-      ],
-      "pending_condition": "живое исполнение пары GLOBAL ON + CHAT INHERIT на задеплоенном SHA; на уровне контракта строка доказана test_six_case_table_*"
+      ]
     },
     {
       "source_id": "MAC-TT-2",
@@ -66,7 +105,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-2"
         }
       ],
-      "pending_condition": "живое исполнение пары GLOBAL OFF + CHAT INHERIT на задеплоенном SHA; на уровне контракта строка доказана test_six_case_table_*"
+      "pending_condition": "Не наблюдалось: нужен чат с capability в INHERIT при GLOBAL OFF (все gated-capability чата -1002661910336 либо inherit при GLOBAL ON, либо имеют явный chat ON). Условие: пара GLOBAL OFF + INHERIT на задеплоенном SHA."
     },
     {
       "source_id": "MAC-TT-3",
@@ -89,7 +128,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-3"
         }
       ],
-      "pending_condition": "живое исполнение пары GLOBAL ON + CHAT ON на задеплоенном SHA; на уровне контракта строка доказана test_six_case_table_*"
+      "pending_condition": "Не наблюдалось: нужен чат с явным chat ON при GLOBAL ON, чтобы увидеть source=chat_override на этом фоне. Условие: живая пара GLOBAL ON + CHAT ON."
     },
     {
       "source_id": "MAC-TT-4",
@@ -103,16 +142,24 @@
       "acceptance": "GLOBAL OFF + CHAT ON → ON: глобальное OFF не блокирует явное включение в чате.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "production",
+          "ref": "Живая проба на выкате 2.58.175: GLOBAL OFF + CHAT ON остаётся ON",
+          "observation": "Чат -1002661910336: у permsoc есть явная запись chat_params.gates['permsoc']=true, глобальное значение flags.permsoc_enabled=false, и ответ даёт chat_state=on, desired=true, source=chat, global_value=false, effective_runtime=true. Глобальный OFF не блокирует явное включение в чате; path через резолвер, не через UI-флаг.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-s2-tt-4.md",
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-4"
         }
-      ],
-      "pending_condition": "живое исполнение пары GLOBAL OFF + CHAT ON на задеплоенном SHA; на уровне контракта строка доказана test_six_case_table_*"
+      ]
     },
     {
       "source_id": "MAC-TT-5",
@@ -135,7 +182,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-5"
         }
       ],
-      "pending_condition": "живое исполнение пары GLOBAL ON + CHAT OFF на задеплоенном SHA; на уровне контракта строка доказана test_six_case_table_*"
+      "pending_condition": "Не наблюдалось: нужен явный chat OFF при GLOBAL ON. Условие: живая пара GLOBAL ON + CHAT OFF."
     },
     {
       "source_id": "MAC-TT-6",
@@ -158,7 +205,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-6"
         }
       ],
-      "pending_condition": "живое исполнение пары GLOBAL OFF + CHAT OFF на задеплоенном SHA; на уровне контракта строка доказана test_six_case_table_*"
+      "pending_condition": "Не наблюдалось: нужен явный chat OFF при GLOBAL OFF. Условие: живая пара GLOBAL OFF + CHAT OFF."
     },
     {
       "source_id": "MAC-AX-1",
@@ -182,6 +229,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-AX-01: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -214,6 +269,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-AX-02: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -246,6 +309,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-AX-03: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -278,6 +349,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-AX-04: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -309,7 +388,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S2-AX-05"
         }
       ],
-      "pending_condition": "ось observed должна подтверждаться последними реальными событиями провайдера активности, а не выводиться из effective_runtime: нужен живой источник событий (wiring провайдера доказан test_activity_provider_*)"
+      "pending_condition": "Живая проба показала observed=null (событий по capability не было), поэтому «observed подтверждается последними реальными событиями» не доказано. Условие: реальное событие capability (сон/лора/память) с последующим non-null observed."
     },
     {
       "source_id": "MAC-SHARED",
@@ -332,7 +411,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S2-SHARED-01"
         }
       ],
-      "pending_condition": "живой shared scheduler при GLOBAL OFF и наличии chat ON: тик выбирает только разрешённые чаты и повторяет проверку перед дорогим действием и отправкой"
+      "pending_condition": "Условие: наблюдение, что GLOBAL OFF не останавливает shared scheduler и регистрацию при наличии chat ON; тик выбирает только чаты с ON."
     },
     {
       "source_id": "MAC-GATE",
@@ -356,6 +435,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-GATE-01: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -461,7 +548,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-rpt-01.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-RPT-01"
         }
-      ]
+      ],
+      "pending_condition": "Отчёта аудита как файла не существует (его никто не создавал). Условие: тот же ограниченный аудит M1 должен выпустить отчёт с ошибочными 401/403, причиной, штатными отказами, исправлениями guard и frontend, API-трассой."
     },
     {
       "source_id": "MAC-S5-NAV",
@@ -571,7 +659,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m4a/mac-s5-tab-02.md",
           "description": "наблюдаемый артефакт проверки MAC-S5-TAB-02"
         }
-      ]
+      ],
+      "pending_condition": "Доказано стендом на выкаченном дереве: живые поля каталога, сгруппированные по смыслу (keys_llm «Основная нейросеть» 9 + models_embeddings «Отпечатки текста и длина» 16 = 25), и поиск по названию/ключу (запрос embedding_dim сужает до 1). НЕ доказано: явное сохранение, effective-source, 409 — это MAC-S5-SAVE-01. Условие закрытия: владелец/агент открывает «Основные настройки» на 2.58.175 в живом Mini App и видит 25 параметров (evidence/m4a/m4-module-settings-2.58.175.md §3, §5.2)."
     },
     {
       "source_id": "MAC-S5-TAB3",
@@ -703,7 +792,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m4a/mac-s5-empty-01.md",
           "description": "наблюдаемый артефакт проверки MAC-S5-EMPTY-01"
         }
-      ]
+      ],
+      "pending_condition": "Доказано стендом: четыре честные причины пустоты (no-data/scope/filtered/none) выбираются по фактическому состоянию, упоминание прав только в filtered, пустая вкладка не показывается вместо содержимого. Условие закрытия: живой взгляд на 2.58.175 после выката (сейчас наблюдение — стенд с синтетической TMA-идентичностью)."
     },
     {
       "source_id": "MAC-S5-WF",
@@ -1583,7 +1673,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-m1-01.md",
           "description": "наблюдаемый артефакт проверки MAC-M1-01"
         }
-      ]
+      ],
+      "pending_condition": "Веха M1: доступ и предикат доказаны, но строки 169/170/171/172/173/174/157/161/AC-06/RPT-01 открыты, поэтому веха не может быть VERIFIED."
     },
     {
       "source_id": "MAC-M2",
@@ -1606,7 +1697,7 @@
           "description": "наблюдаемый артефакт проверки MAC-M2-01"
         }
       ],
-      "pending_condition": "сводная строка среза: закрывается только после всех строк M2, включая повторный impact report на 3b1ba3b2 (MAC-S2-105/106, MAC-S10-10) и живые наблюдения"
+      "pending_condition": "Сводная веха среза: пока открыты живые пары truth table, observed, shared scheduler и строки, требующие реального события чата, веха не может быть VERIFIED. Условие — закрытие списка выше."
     },
     {
       "source_id": "MAC-M3",
@@ -2479,6 +2570,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S0-01: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -2511,6 +2610,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S0-02: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -2543,6 +2650,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-deploy-surface-dd52cbf9.md",
           "artifact_sha256": "868e1e3e7c0416c5ef8ebfc767fa993a8a3a88866548a5581d3a9af36dca13e8",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S0-03: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -2590,8 +2705,17 @@
       "acceptance": "Владелец с действующим global_admin открывает Embeddings и общую аналитику; его статус не понижается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "live",
+          "ref": "Владелец с global_admin открыл раздел на выкаченной сборке (дословно: «раздел векторной памяти открылся»)",
+          "observation": "Живое наблюдение владельца на реальном аккаунте: раздел «Векторная память (Embeddings/GraphRAG)» открылся; на снимке шапки — бейдж GLOBAL, статус «Работает», пользователь admin/global_admin, то есть действующий global_admin не понижается. Наблюдение сделано на 2.58.174 (ac943f40), после M3-фикса маршрута; guard-код M1 в 2.58.175 не менялся (в дельте ac943f40..34213999 по web/api/memory_agi.py, web/api/deps.py, web/api/chat_lore.py — только 4 строки комментариев), поэтому подтверждение относится и к выкаченному SHA. До этого фикса M1 не был подтверждён: 09.11 владелец сообщал об отказе, M1 переоткрывался.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/m1-owner-live-confirmation-2.58.175.md",
+          "artifact_sha256": "79a3361dfbe65cd05a2f6ad850fced6b8319910ee45ecf270f80bd724748e094"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -2612,8 +2736,17 @@
       "acceptance": "Вкладки Обзор/Основные/Промпты/Модели/Лимиты/История остаются раздельными и открываются в полноценное содержимое.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "ui",
+          "ref": "Вкладки модуля остаются раздельными и открываются в полноценное содержимое",
+          "observation": "Стенд на настоящих web/index.html + web/app.js, база dd52cbf9 против выкаченного дерева: до фикса вкладка одна (['overview']) и содержимое — ложная пустота; после — две вкладки (['overview','settings']), «Обзор» отдаёт состояние из реестра и журнал событий, «Основные настройки» — 25 реальных параметров каталога. Вкладки соседних модулей (Промпты/Модели/Лимиты/История) — предмет своих строк MAC-S5-TAB-03…06 и здесь не заявляются.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m4a/m4-module-settings-2.58.175.md",
+          "artifact_sha256": "cb6ffe8b12f81ee252b8866a5383786724f13bd7e10127e5cc2f19917da75182"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -2666,6 +2799,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S0-08: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -2981,6 +3122,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-48: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3028,8 +3177,17 @@
       "acceptance": "Причина ложного 403 в memory_agi подтверждена на запущенной версии и устранена общим predicate с учётом role_type.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "Причина ложного 403 подтверждена на запущенной версии и устранена общим предикатом",
+          "observation": "Регресс-набор tests/test_mod_acl_ux_01_m1_acl_false_403.py: на кандидате adfd0d0c 17 passed, на родителе bee14188 4 failed / 13 passed с assert 403 == 200 — то есть ложный отказ воспроизводился именно тем же путём. На 2.58.173 живые пробы прода: /api/memory/stats и /api/memory/embeddings без initData -> 401; с битым X-Telegram-Init-Data -> 401 (не 403); несуществующий маршрут -> 404. Единая проверка web/api/deps.user_is_global_admin вместо двух локальных копий.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/m1-owner-live-confirmation-2.58.175.md",
+          "artifact_sha256": "79a3361dfbe65cd05a2f6ad850fced6b8319910ee45ecf270f80bd724748e094"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3164,7 +3322,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S2-81"
         }
       ],
-      "pending_condition": "живое наблюдение на задеплоенном SHA: экран должен показывать «включён · работа не подтверждена» при desired ON и ready true без живого сигнала; композиция экрана — срез M4B, backend-оси доказаны"
+      "pending_condition": "В живом ответе ready=true при observed=null и reason_code=null присутствует (desired ON без живого сигнала). Отображение строки «включён · работа не подтверждена» — UI (M3/M4A). Условие: живой экран после выката."
     },
     {
       "source_id": "L00082",
@@ -3260,6 +3418,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-85: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3357,6 +3523,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-91: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3389,6 +3563,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-92: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3451,6 +3633,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-consumers-dd52cbf9.md",
           "artifact_sha256": "57c1f6b87de3279de2c639a8a962e2b2ef1fc54f3dc7d2c41ecf349b3c90e082",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-102: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3483,6 +3673,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-103: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3515,6 +3713,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-104: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3547,6 +3753,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-impact-3b1ba3b2.md",
           "artifact_sha256": "1227f1ce0856cea230d59fe7b9c47e5326b336df713cf35a2afa012e8d34e0d1",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-105: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3579,6 +3793,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-impact-3b1ba3b2.md",
           "artifact_sha256": "1227f1ce0856cea230d59fe7b9c47e5326b336df713cf35a2afa012e8d34e0d1",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-106: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3611,6 +3833,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-107: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3643,6 +3873,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-108: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3712,6 +3950,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
           "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-113: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3744,6 +3990,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
           "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-114: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3776,6 +4030,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
           "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-115: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3808,6 +4070,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S2-116: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -3883,7 +4153,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-157.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-157"
         }
-      ]
+      ],
+      "pending_condition": "Отказ 09.11 оказался следствием маршрута (M3), а не предиката, поэтому записи уровня запроса по реальному отказу владельца (request id, endpoint, effective role, scope, HTTP status) не существует. Условие: снять такую запись при следующем отказе или закрыть строку явным решением координатора как неприменимую."
     },
     {
       "source_id": "L00158",
@@ -3897,8 +4168,17 @@
       "acceptance": "ADMIN_USER_ID, bot_admins, bot_roles, role_type и wildcard сверены; вывод о правах не делается по одному legacy guard.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "Источники роли сверены: role_type, legacy-роль, wildcard, shortcut ADMIN_USER_ID",
+          "observation": "Канонический предикат deps.user_is_global_admin учитывает role_type=global_admin, legacy-роль admin и wildcard; shortcut settings.ADMIN_USER_ID сохранён. Тесты на кандидате: test_role_type_global_admin_gets_200, test_legacy_admin_role_still_gets_200, test_wildcard_role_still_gets_200 — 200; test_403_for_local_admin_and_user — 403. Вывод о правах не делается по одной legacy-строке.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/m1-owner-live-confirmation-2.58.175.md",
+          "artifact_sha256": "79a3361dfbe65cd05a2f6ad850fced6b8319910ee45ecf270f80bd724748e094"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3919,8 +4199,17 @@
       "acceptance": "Локальная копия проверки в memory_agi заменена общим predicate; role_type=global_admin обрабатывается одинаково, wildcard не расширяется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "Локальная копия проверки заменена общим предикатом",
+          "observation": "test_memory_module_has_single_canonical_guard подтверждает, что в memory_agi не осталось локальной копии _is_global_admin; diff ac943f40..34213999 по web/api/memory_agi.py — 4 строки комментариев, логика и число вызовов guard те же; web/api/deps.py в дельте релиза не менялся.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/m1-owner-live-confirmation-2.58.175.md",
+          "artifact_sha256": "79a3361dfbe65cd05a2f6ad850fced6b8319910ee45ecf270f80bd724748e094"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3941,8 +4230,17 @@
       "acceptance": "UI-роль и backend-роль совпадают при валидной сессии; при расхождении исправлен источник роли без перерегистрации и сброса прав.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "live",
+          "ref": "UI-роль и backend-роль совпали на живой сессии владельца",
+          "observation": "На снимках владельца идентичность показывает admin/global_admin и статус «Работает», а раздел отдан backend-ом в той же сессии — расхождения UI-роли и backend-роли нет; перерегистрации роли для этого не потребовалось (наблюдение на 2.58.174, guard-код тот же в 2.58.175).",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/m1-owner-live-confirmation-2.58.175.md",
+          "artifact_sha256": "79a3361dfbe65cd05a2f6ad850fced6b8319910ee45ecf270f80bd724748e094"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3971,7 +4269,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-161.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-161"
         }
-      ]
+      ],
+      "pending_condition": "Embeddings открываются у владельца (живое подтверждение). Общеботовая аналитика идёт другим механизмом (requires_permission, не user_is_global_admin) и на этом релизе не наблюдалась. Условие: живое открытие аналитики с ролью global_admin."
     },
     {
       "source_id": "L00163",
@@ -4008,7 +4307,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-169.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-169"
         }
-      ]
+      ],
+      "pending_condition": "Инвентарь ACL (GLOBAL/CHAT x роли x операции) как артефакт не создавался. Условие: ограниченное аудиторское задание M1 — собрать инвентарь и привязать файлом."
     },
     {
       "source_id": "L00170",
@@ -4030,7 +4330,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-170.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-170"
         }
-      ]
+      ],
+      "pending_condition": "Разделение read/write/side-effect по операциям покрыто только точечно (test_403_on_mutating_endpoint). Условие: тот же аудит-инвентарь с разметкой операций."
     },
     {
       "source_id": "L00171",
@@ -4052,7 +4353,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-171.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-171"
         }
-      ]
+      ],
+      "pending_condition": "Backend-различение доказано: 401 (нет/битый initData), 403 (негативная матрица), 404 (несуществующий маршрут). UI-различение 503/stale не наблюдалось. Условие: живой экран с искусственным 503 и stale."
     },
     {
       "source_id": "L00172",
@@ -4074,7 +4376,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-172.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-172"
         }
-      ]
+      ],
+      "pending_condition": "Сплошной проверки секретов (ответы, HTML, логи, telemetry) нет. Условие: аудит-проверка секретов с привязанным артефактом."
     },
     {
       "source_id": "L00173",
@@ -4096,7 +4399,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-173.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-173"
         }
-      ]
+      ],
+      "pending_condition": "Права на промпты по resource-based матрице зависят от SELF-DIAG-01; на этом релизе не проверялись. Условие: после решения SELF-DIAG-01 либо явная привязка к действующей матрице."
     },
     {
       "source_id": "L00174",
@@ -4118,7 +4422,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-174.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-174"
         }
-      ]
+      ],
+      "pending_condition": "Паритет прав API/фоновых задач/tool calls/websocket не проверялся: доказана только HTTP-часть памяти. Условие: проверка остальных путей на той же семантике."
     },
     {
       "source_id": "L00175",
@@ -4546,8 +4851,17 @@
       "acceptance": "Пустой Обзор не заменяется свалкой всех форм, промптов и лимитов внизу страницы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "ui",
+          "ref": "Пустой Обзор не заменяется свалкой всех форм, промптов и лимитов",
+          "observation": "После фикса на «Обзоре» нет ни блока всех форм, ни промптов, ни лимитов: только состояние модуля, строка «Последних действий в журнале нет», «События →» и кнопка перехода в настройки. Проверено по DOM-тексту прогона и по снимку m4-embeddings-1280x900-head-overview.png.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m4a/m4-module-settings-2.58.175.md",
+          "artifact_sha256": "cb6ffe8b12f81ee252b8866a5383786724f13bd7e10127e5cc2f19917da75182"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -4568,8 +4882,17 @@
       "acceptance": "Пустой Обзор не переименовывается в «новый»: он либо наполнен живыми данными, либо не показывается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "ui",
+          "ref": "Пустой Обзор не переименовывается в «новый»: показывает живое состояние, а не подделку",
+          "observation": "«Обзор» показывает реальное состояние из реестра модулей («Работает», source: env + тумблер включены, §4.3) и честную строку об отсутствии последних действий; переименования пустого раздела в «новый» и подстановки декоративных блоков нет.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m4a/m4-module-settings-2.58.175.md",
+          "artifact_sha256": "cb6ffe8b12f81ee252b8866a5383786724f13bd7e10127e5cc2f19917da75182"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -4590,8 +4913,17 @@
       "acceptance": "Каждый таб ведёт к собственному содержимому, а не к той же форме или декоративным блокам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "ui",
+          "ref": "Каждый таб ведёт к собственному содержимому, а не к той же форме",
+          "observation": "«Обзор» и «Основные настройки» в прогоне содержат разное содержимое: Обзор — состояние/события, Основные настройки — группы keys_llm (9) и models_embeddings (16), 25 параметров, поиск. Общей формы-заглушки на двух вкладках нет.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m4a/m4-module-settings-2.58.175.md",
+          "artifact_sha256": "cb6ffe8b12f81ee252b8866a5383786724f13bd7e10127e5cc2f19917da75182"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -6385,7 +6717,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S10-01"
         }
       ],
-      "pending_condition": "живое наблюдение на задеплоенном SHA: GLOBAL ON/OFF с CHAT inherit и оба явных override, а также сохранение явного chat ON после смены GLOBAL; на уровне контракта таблица доказана тестами"
+      "pending_condition": "Частично доказано живой пробой: inherit -> global (dream/lore_auto/nostalgia) и явный chat ON при GLOBAL OFF (permsoc). Явного чатового OFF среди gated-capability нет. Условие: живая пара GLOBAL ON/OFF с явным chat OFF."
     },
     {
       "source_id": "L00571",
@@ -6409,6 +6741,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-02: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6441,6 +6781,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-race-e2e-dd52cbf9.json",
           "artifact_sha256": "f1499c4af8217f2e2651f51dbeae91ecc34ccb2dbf9ca30502e73c069d103c5d",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-03: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6472,7 +6820,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S10-04"
         }
       ],
-      "pending_condition": "m2-race-e2e-dd52cbf9.json покрывает строку (4 запроса конфигурации при трёх сменах чата, 40 замеров, 0 поздних перезаписей), но в явный список одобренных ревьюером строк она не входила — нужна отдельная строка вердикта (и, желательно, именованный pytest вместо E2E)"
+      "pending_condition": "E2E-гонка m2-race-e2e-dd52cbf9.json покрывает строку (4 запроса конфигурации при трёх сменах чата, 40 замеров, 0 поздних перезаписей), но отдельной строки вердикта ревьюера нет. Условие закрытия: живой UI-прогон трёх смен чата на задеплоенном SHA (или явная строка вердикта ревьюера на этот E2E)."
     },
     {
       "source_id": "L00574",
@@ -6496,6 +6844,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
           "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-05: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6528,6 +6884,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-06: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6560,6 +6924,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
           "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-07: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6592,6 +6964,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
           "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-08: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6624,6 +7004,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
           "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-09: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6656,6 +7044,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/reports/m2-impact-3b1ba3b2.md",
           "artifact_sha256": "1227f1ce0856cea230d59fe7b9c47e5326b336df713cf35a2afa012e8d34e0d1",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-10: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6686,7 +7082,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s10-11.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-11"
         }
-      ]
+      ],
+      "pending_condition": "Доказаны role_type=global_admin, legacy admin и wildcard. Custom role, состояние «после миграции» и stale TMA не проверялись. Условие: матрица ролей после миграции + stale-сессия."
     },
     {
       "source_id": "L00581",
@@ -6708,7 +7105,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s10-12.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-12"
         }
-      ]
+      ],
+      "pending_condition": "Нужен живой негативный прогон (local admin не получает глобальный API подменой селектора или X-Chat-Id). Имперсонация запрещена, поэтому закрывается только владельцем/вторым аккаунтом."
     },
     {
       "source_id": "L00582",
@@ -6730,7 +7128,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s10-13.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-13"
         }
-      ]
+      ],
+      "pending_condition": "Секреты в ответах/HTML/логах и права на промпты — см. MAC-S4-172/173; отдельного артефакта нет."
     },
     {
       "source_id": "L00583",
@@ -6754,6 +7153,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
           "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-14: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6786,6 +7193,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
           "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-15: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6816,7 +7231,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m4a/mac-s10-16.md",
           "description": "наблюдаемый артефакт проверки MAC-S10-16"
         }
-      ]
+      ],
+      "pending_condition": "Стенд различает четыре причины пустоты (no-data/scope/filtered/none). Требование строки шире: 0 событий, 403, 503, stale и disabled должны выглядеть по-разному. Условие закрытия: живой прогон с искусственным 403/503/stale на задеплоенном SHA."
     },
     {
       "source_id": "L00586",
@@ -6884,6 +7300,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-dd52cbf9.md",
           "artifact_sha256": "3db3766153eedf093cb42647b6ab3d782f747ba096134d4f3b1e4916988f8cfd",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S10-19: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -6915,7 +7339,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S10-20"
         }
       ],
-      "pending_condition": "test_deferred_meme_not_published_after_chat_off покрывает строку (отложенная строка при OFF закрывается терминально, отправки нет, байты удалены), но в явный список одобренных строк она не входила — нужна отдельная строка вердикта"
+      "pending_condition": "Условие закрытия: реальное событие — отложенная задача, запрошенная до выключения, при OFF закрывается терминально без публикации в выключенный чат. Тест test_deferred_meme_not_published_after_chat_off покрывает путь, живой прогон не проводился."
     },
     {
       "source_id": "L00593",
@@ -6993,7 +7417,7 @@
           "description": "наблюдаемый артефакт проверки MAC-AC-02"
         }
       ],
-      "pending_condition": "живой runtime: truth table G/C включая GLOBAL OFF + CHAT ON и видимость чатового контрола при глобальном OFF; на уровне контракта доказано тестами"
+      "pending_condition": "Разрешение в живом runtime доказано (TT-1, TT-4). Вторая половина строки — «глобальное OFF не скрывает чатовый control» — свойство UI и на этом релизе не наблюдалась. Условие: живой экран карточки при GLOBAL OFF + CHAT ON."
     },
     {
       "source_id": "L00617",
@@ -7007,16 +7431,24 @@
       "acceptance": "Сохранённые global/chat значения, промпты, ключи, custom roles и история версий не изменены и пережили деплой; migration diff подтверждён.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "production",
+          "ref": "Живая проба на выкате 2.58.175: сохранённые значения и история пережили деплой",
+          "observation": "После выката 2.58.175: PRAGMA user_version=46 (46 до и после), schema_migrations=35, DDL не выполнялся; chat_profiles.updated_at для чата -1002661910336 = 2026-11-09 09:54:11.484800+00:00 не изменился; chat_lore_history 234 -> 234 строк; gates-записи (permsoc=true) на месте, opt_in=true совпадает с chat_profiles.gates_opt_in.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/mac-ac-03.md",
           "description": "наблюдаемый артефакт проверки MAC-AC-03"
         }
-      ],
-      "pending_condition": "сохранность global/chat значений, промптов, ключей, custom roles и истории версий после деплоя и migration diff — нужен выкат кандидата"
+      ]
     },
     {
       "source_id": "L00618",
@@ -7039,7 +7471,7 @@
           "description": "наблюдаемый артефакт проверки MAC-AC-04"
         }
       ],
-      "pending_condition": "живое поведение: чатовое выключение прекращает вызов и публикацию в этом чате и не затрагивает другие"
+      "pending_condition": "Условие закрытия: реальное событие чата — чатовое выключение прекращает вызов и публикацию функции в этом чате и не затрагивает другие. Тестовый путь есть, живого события на 2.58.175 нет."
     },
     {
       "source_id": "L00619",
@@ -7086,7 +7518,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-ac-06.md",
           "description": "наблюдаемый артефакт проверки MAC-AC-06"
         }
-      ]
+      ],
+      "pending_condition": "Живое подтверждение покрывает Embeddings; «правдивые 503» и общая аналитика не наблюдались. Условие: живой прогон аналитики и различения 503."
     },
     {
       "source_id": "L00621",
@@ -7787,7 +8220,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s15-10.md",
           "description": "наблюдаемый артефакт проверки MAC-S15-10"
         }
-      ]
+      ],
+      "pending_condition": "Wildcard и global admin имеют одинаковый доступ (тесты), но «без обхода прав чужого личного чата» живым прогоном не проверялось. Условие: живой негативный прогон по чужому DM."
     },
     {
       "source_id": "L00677",
@@ -7832,7 +8266,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S15-12"
         }
       ],
-      "pending_condition": "живая матрица после GLOBAL OFF->ON: саммари, сон, память, инициатива и multimodal при собственном OFF и при explicit ON"
+      "pending_condition": "Условие закрытия: реальная смена флага GLOBAL OFF->ON на 2.58.175 — чат со своим OFF остаётся OFF, с explicit ON — ON; проверить саммари, сон, память, инициативу и multimodal."
     },
     {
       "source_id": "L00679",
@@ -7876,7 +8310,8 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m4a/mac-s15-14.md",
           "description": "наблюдаемый артефакт проверки MAC-S15-14"
         }
-      ]
+      ],
+      "pending_condition": "Для «Векторной памяти» стенд показывает 2 реальные вкладки вместо пяти пустых (до фикса была одна вкладка с ложной пустотой). Вторая половина строки («модуль с пятью реальными не схлопывается в одну форму») на этом релизе не наблюдалась. Условие: живое открытие после 2.58.175."
     },
     {
       "source_id": "L00681",
@@ -7936,7 +8371,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S15-1-01"
         }
       ],
-      "pending_condition": "живой экран: enabled=true без job/событий показывается как «включено, выполнение не подтверждено»; 403 чужого scope не равен глобальному OFF; отозванное право скрывает кэш"
+      "pending_condition": "Условие закрытия: живой экран на 2.58.175 — «включено, выполнение не подтверждено» при enabled=true без job/событий; 403 чужого scope не равен глобальному OFF; отозванное право скрывает кэш. Сейчас доказана только backend-часть (ready/reason в ответе)."
     },
     {
       "source_id": "L00686",
@@ -7960,6 +8395,14 @@
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-evidence-3b1ba3b2.md",
           "produced_on": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
           "artifact_sha256": "595636146477d9012eb8d36a5bd17d396c31b97f1a022aeeb870f4df3cfced13"
+        },
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "MAC-S15-1-02: привязка к выкату 2.58.175 (@34213999)",
+          "observation": "Привязка к выкаченному коммиту: M2-код и M2-тесты в 34213999 байт-идентичны проверенному кандидату dd52cbf9 (git rev-parse <sha>:<path> совпадает: services/chat_params.py 02bc7bed, services/feature_gates.py 2c4fe6dd, services/permsoc.py 2272038c, web/api/gates.py 11e801af, tests/test_mod_acl_ux_m2_resolver/capability_state/consumers/inflight/runtime_edges/tristate_write — те же блобы), дельта релиза 34213999 к df7b6351 — только version-пины (26 файлов), D2-файлы в выкате отсутствуют, а существующие файлы, которые правил D2 (services/access.py, services/tool_router.py, handlers/checkup.py, web/api/access.py), равны 2.58.174 по блобу. Продуктовое поведение строки на выкаченном SHA то же, что на проверенном кандидате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m2/m2-deploy-2.58.175.md",
+          "artifact_sha256": "777827c231effd8a3129d2652dec1999c365578e9ccfe2cc0dc98e45d949ac40"
         }
       ],
       "expected_evidence": [
@@ -8048,8 +8491,17 @@
       "acceptance": "Global admin — действующая роль backend плюс валидная TMA-сессия; chat Telegram admin не становится global admin, права не поднимаются всем.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
+          "type": "test",
+          "ref": "Global admin = backend-роль + валидная TMA-сессия; чатовый админ не становится глобальным",
+          "observation": "Тесты: test_missing_init_data_is_401, test_broken_signature_is_401, test_broken_query_init_data_is_401 (валидная TMA-сессия обязательна); test_403_for_local_admin_and_user и test_guard_follows_role_type — local admin/модератор получают 403, то есть Telegram-админ чата не превращается в глобального администратора.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/m1-owner-live-confirmation-2.58.175.md",
+          "artifact_sha256": "79a3361dfbe65cd05a2f6ad850fced6b8319910ee45ecf270f80bd724748e094"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8258,10 +8710,11 @@
       ]
     }
   ],
-  "candidate_note": "Map-level candidate_commit указывает на кандидата привязываемого среза M2 (dd52cbf9, родитель 98bc424e; база M2 3b1ba3b2 — его ancestor). Доказательства M5A/M5L сохраняют собственные привязки (4e07817e / c51933d0 -> bee14188) в своих строках и в deployment_evidence; смена map-level значения их не переписывает. deployed_commit относится к релизу M5L (2.58.172) и для M2 не применяется. Строки, доказанные на 3b1ba3b2, перепривязаны к dd52cbf9 на проверенном основании: файлы M2-тестов в dd52cbf9 не изменены (тот же блоб), ядро resolve_capability и приоритет не правились, изменения dd52cbf9 аддитивны (fresh-чтение перед side effect, read_override_sync, blocks_side_effect), поэтому effective-state на тех же сохранённых данных не меняется и impact report reports/m2-impact-3b1ba3b2.md остаётся валидным. Для M2 действуют артефакты: evidence/m2/m2-evidence-dd52cbf9.md (поведенческие строки dd52cbf9), evidence/m2/m2-evidence-3b1ba3b2.md (код и состояние), reports/m2-impact-3b1ba3b2.md (impact report), reports/m2-consumers-dd52cbf9.md и reports/m2-deploy-surface-dd52cbf9.md (инвентарь и поверхность деплоя). Колонка OLD impact report — реконструкция домигрированной семантики: прод 2.58.174 (@ac943f40) не содержит chat_params.resolve_capability.",
+  "candidate_note": "Map-level candidate_commit = deployed_commit = 34213999 (2.58.175) — это коммит, против которого сверяется леджер сейчас. Его содержимое = отобранные коммиты M2 (97cfdef1, 3b1ba3b2, dd52cbf9) и M4 (0833035a, 7faa9d7c, 827d4a3b, 6e175ced) плюс version-пины; D2 (98bc424e) исключён. Перенос строк с прежних кандидатов сделан на проверенном основании, а не «на веру»: блобы M2-кода и M2-тестов в 34213999 равны dd52cbf9, guard-код M1 не менялся, изменений D2 в общих файлах нет — всё перечислено в observation каждой строки и в evidence/m2/m2-deploy-2.58.175.md §2–§3. Прежние привязки строк (dd52cbf9) сохранены без изменений; строки M5A/M5L сохраняют собственные привязки (4e07817e / c51933d0 -> bee14188) и к 2.58.175 не переносятся.",
   "slice_candidates": {
-    "M2": "dd52cbf93837b0a578a6aee84ffe9767d69870e3",
+    "M2": "dd52cbf93837b0a578a6aee84ffe9767d69870e3 (проверенный кандидат; в выкате 2.58.175 @34213999 M2-код и тесты байт-идентичны, строки привязаны к выкаченному SHA)",
     "M5A": "4e07817e9a4836a6e68837bbb815aa3ffdfe3dc8",
-    "M5L": "c51933d0f29bd70d746b15529504cb4b8a645fc5 (deployed bee14188f5d554021813db332ab35abea2ecbff5)"
+    "M5L": "c51933d0f29bd70d746b15529504cb4b8a645fc5 (deployed bee14188f5d554021813db332ab35abea2ecbff5)",
+    "M4A": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e (содержимое 0833035a, 7faa9d7c, 827d4a3b, 6e175ced; стенд и JS/pytest — в этом же коммите)"
   }
 }
