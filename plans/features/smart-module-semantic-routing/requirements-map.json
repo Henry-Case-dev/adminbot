@@ -406,8 +406,19 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Цитаты по handlers/direct_chat.py точны: файл идентичен выкаченному (blob 0bcc917039), _is_direct_trigger 226-272 и direct_chat_handler 551-586 проверены верно. Не покрыта вторая половина приёмки — «связанные обработчики». В этой проверке порядок роутеров и гейты соседей разобраны (evidence/internal-audit-v2-verification-2026-11-10.md §8): до direct_chat_router (bot.py 925) стоят summary_observer 903, summary 906, factcheck 909, search 912, youtube 915, web 918, checkup 921; шесть из них — командные/триггерные гейты либо не потребляющий observer, обычный текст они не перехватывают. Открыт ровно один пункт: youtube_handler 1758-1785, ветка _handle_unclassified (1785) может назначить видео-задачу без канонического триггера — это класс, который чинил P0-B. (a) статически разобрать _classify_video_request, _observe_and_bind_pending и _handle_unclassified в редакции 2b7e9c7f и подтвердить гарантию P0-B (видео-задача только от текущего сообщения); проба не требуется.",
-      "kind": "requirement"
+      "kind": "requirement",
+      "rejected_evidence": [
+        {
+          "candidate_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+          "ref": "plans/features/smart-module-semantic-routing/evidence/internal-static-4rows-2026-11-10.md :: SMR-INV-13",
+          "observation": "_classify_video_request (handlers/youtube.py:600, blob c1a4f78) вызывается первой (1763-1785). _handle_unclassified (763) вызывается только если classify вернул None И _observe_and_bind_pending (717) вернул False. Без канонического триггера реестра видео не назначается.",
+          "type": "code",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/internal-static-4rows-2026-11-10.md",
+          "artifact_sha256": "c0c16d16deda87a31ba2636c3a1b5c5f7cf62a0cebc15dba0b36ef3c8ad99cc4",
+          "produced_on": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418"
+        }
+      ],
+      "blocked_reason": "Rejected evidence 2026-11-10: internal-static-4rows-2026-11-10.md cannot support VERIFIED. (1) the recorded artifact_sha256 c0c16d16 does not match the file hash 54AB9200374D2574CDCABA37DFFA9A097E8FCA258D3FCC62519DA77840E3197B. (2) it mixes coordinates: _render_current_question 9954 and _l1_reply_block 5963 match the deployed commit, but build_l1_context 1309 (real 1606), _cap_context 1476 (real 1706), composer_on 109 (real 137) and media_marker 8 (real 106) do not, and the blob prefixes it prints do not match the real blobs. Anchors recorded in anchors_2b7e9c7f. Re-inspection must use git show 2b7e9c7f:<path> and cite the blob read."
     },
     {
       "source_id": "M00095-SMR-INV-14",
@@ -569,8 +580,19 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Механизм хранения описан неверно для выкаченного кода: там расшифровка пишется как версия содержимого — `set_smart_message_transcript(..., status=\"ready\", text=...)` (`handlers/voice_transcription.py` 200-201) с `transcript_revision` и статусами 254-256/288/307/318/326; `update_smart_message_text` не вызывается, `_resolve_transcript_author` — вызов на 297. (a) перечитать выкаченный файл по существу: 122-128 (`is_reply_to_transcription`), 144-175 (идемпотентность и caption), 178-222 (`_inject_memory`, `memorize_facts` 221, `source_type=\"voice_transcript\"`), 225-241 (`_reply_media`, `reply_to_id`), 263-422 (транскрипция, повтор, handler 407). Проба не нужна.",
-      "kind": "requirement"
+      "kind": "requirement",
+      "rejected_evidence": [
+        {
+          "candidate_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+          "ref": "plans/features/smart-module-semantic-routing/evidence/internal-static-4rows-2026-11-10.md :: SMR-INV-24",
+          "observation": "_inject_memory (voice_transcription.py:200-201, blob 93e026d) вызывает set_smart_message_transcript(status='ready', text=text) с монотонным revision. _mark_transcript_status (254-256, 288, 307) ставит статусы pending/unavailable. update_smart_message_text не используется в файле.",
+          "type": "code",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/internal-static-4rows-2026-11-10.md",
+          "artifact_sha256": "c0c16d16deda87a31ba2636c3a1b5c5f7cf62a0cebc15dba0b36ef3c8ad99cc4",
+          "produced_on": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418"
+        }
+      ],
+      "blocked_reason": "Rejected evidence 2026-11-10: internal-static-4rows-2026-11-10.md cannot support VERIFIED. (1) the recorded artifact_sha256 c0c16d16 does not match the file hash 54AB9200374D2574CDCABA37DFFA9A097E8FCA258D3FCC62519DA77840E3197B. (2) it mixes coordinates: _render_current_question 9954 and _l1_reply_block 5963 match the deployed commit, but build_l1_context 1309 (real 1606), _cap_context 1476 (real 1706), composer_on 109 (real 137) and media_marker 8 (real 106) do not, and the blob prefixes it prints do not match the real blobs. Anchors recorded in anchors_2b7e9c7f. Re-inspection must use git show 2b7e9c7f:<path> and cite the blob read."
     },
     {
       "source_id": "M00134-SMR-INV-25",
@@ -3736,13 +3758,24 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Половина списка приёмки не открывалась — сам аудит пишет «`_l1_reply_block` (существование подтверждено, детали видны в других чтениях)»; `_cap_context`, `direct_context_composer` и `media_marker` не инспектировались. (a) читать тела, а не заголовки, по выкаченным координатам: `direct_chat_service.py` `_render_current_question` 9954, `_build_user_content` 8413, `_l1_reply_block` 5963, `_plan_direct_l1` 6371 (вызов `build_l1_context` 6516); `direct_l1.build_l1_context` 1606 и `_cap_context` 1706; `direct_context_composer.composer_on` 137; `media_marker.media_marker` 106. Проба не требуется.",
       "kind": "requirement",
       "merged_source_ids": [
         "L00104",
         "L00105",
         "L00106"
-      ]
+      ],
+      "rejected_evidence": [
+        {
+          "candidate_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+          "ref": "plans/features/smart-module-semantic-routing/evidence/internal-static-4rows-2026-11-10.md :: SMR-INV-16",
+          "observation": "_render_current_question (direct_chat_service.py:9954, blob e4ab406) → _build_user_content → _l1_reply_block (5963) → _plan_direct_l1 (6371) → build_l1_context (direct_l1.py:1309, blob a6e2b16) → composer_on (direct_context_composer.py:109, blob 83cf703) + _cap_context (direct_l1.py:1476); media_marker (media_marker.py:8, blob c04fc5a) присутствует, вызов проверен через _l1_reply_block.",
+          "type": "code",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/internal-static-4rows-2026-11-10.md",
+          "artifact_sha256": "c0c16d16deda87a31ba2636c3a1b5c5f7cf62a0cebc15dba0b36ef3c8ad99cc4",
+          "produced_on": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418"
+        }
+      ],
+      "blocked_reason": "Rejected evidence 2026-11-10: internal-static-4rows-2026-11-10.md cannot support VERIFIED. (1) the recorded artifact_sha256 c0c16d16 does not match the file hash 54AB9200374D2574CDCABA37DFFA9A097E8FCA258D3FCC62519DA77840E3197B. (2) it mixes coordinates: _render_current_question 9954 and _l1_reply_block 5963 match the deployed commit, but build_l1_context 1309 (real 1606), _cap_context 1476 (real 1706), composer_on 109 (real 137) and media_marker 8 (real 106) do not, and the blob prefixes it prints do not match the real blobs. Anchors recorded in anchors_2b7e9c7f. Re-inspection must use git show 2b7e9c7f:<path> and cite the blob read."
     },
     {
       "source_id": "L00104",
@@ -3827,14 +3860,25 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "blocked_reason": "Аудит v2 отклонён как доказательство (plans/features/smart-module-semantic-routing/evidence/internal-audit-v2-verification-2026-11-10.md): его цитаты сняты с рабочего каталога 2.58.111, а не с выкаченного 2b7e9c7f. Аудит сам признаёт, что контракты `summarize_video/transcribe_video/get_recent_history/query_chat_memory` не инспектировал, и при этом отнёс строку к «runtime-пробам»; в выкаченном коде проверено только существование модулей. (a) чисто статическая задача: `direct_execution.py` 362/461/887/1110/2546, `direct_capabilities.py` `CAPABILITY_TOOLS` 28 / `available_capabilities` 131 / `detect_action_intent` 459, `tool_router.py` и `tool_loop.py` целиком по существу, `tool_schemas.active_tools` 1099 и схемы четырёх инструментов. Проба не нужна.",
       "kind": "requirement",
       "merged_source_ids": [
         "L00121",
         "L00122",
         "L00123",
         "L00124"
-      ]
+      ],
+      "rejected_evidence": [
+        {
+          "candidate_commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+          "ref": "plans/features/smart-module-semantic-routing/evidence/internal-static-4rows-2026-11-10.md :: SMR-INV-21",
+          "observation": "TOOL_CALLING_TOOLS (tool_schemas.py:8-21, blob 0e5d13f): 13 инструментов + image/edit за флагом. active_tools() (353) фильтрует по env-флагам YOUTUBE_ENABLED/IMAGE_GENERATION_ENABLED/IMAGE_EDIT_ENABLED. tool_choice не форсируется (комментарий 368: backlog §16 п.2).",
+          "type": "code",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/internal-static-4rows-2026-11-10.md",
+          "artifact_sha256": "c0c16d16deda87a31ba2636c3a1b5c5f7cf62a0cebc15dba0b36ef3c8ad99cc4",
+          "produced_on": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418"
+        }
+      ],
+      "blocked_reason": "Rejected evidence 2026-11-10: internal-static-4rows-2026-11-10.md cannot support VERIFIED. (1) the recorded artifact_sha256 c0c16d16 does not match the file hash 54AB9200374D2574CDCABA37DFFA9A097E8FCA258D3FCC62519DA77840E3197B. (2) it mixes coordinates: _render_current_question 9954 and _l1_reply_block 5963 match the deployed commit, but build_l1_context 1309 (real 1606), _cap_context 1476 (real 1706), composer_on 109 (real 137) and media_marker 8 (real 106) do not, and the blob prefixes it prints do not match the real blobs. Anchors recorded in anchors_2b7e9c7f. Re-inspection must use git show 2b7e9c7f:<path> and cite the blob read."
     },
     {
       "source_id": "L00121",
@@ -5576,5 +5620,45 @@
     "health": "/healthz локально и публично 2.58.176; NRestarts=0; ExecMainStatus=0; tracebacks=0 (две ERROR-строки — anticliche worker, wikipedia source, кода в дельте нет)",
     "bound_by_pm": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
     "binding_record": "plans/features/smart-module-semantic-routing/evidence/p0-binding-2.58.176.md"
+  },
+  "anchors_2b7e9c7f": {
+    "commit": "2b7e9c7f1915b6e3221f9a4fff49483a671b2418",
+    "version": "2.58.176",
+    "method": "measured with `git show 2b7e9c7f:<path>`; any future inspection must cite the blob it actually read",
+    "files": {
+      "services/direct_chat_service.py": {
+        "blob": "0d6c15fdbd8699156053393e44318eb0341e5d37",
+        "anchors": {
+          "_render_current_question": 9954,
+          "_build_user_content": 8413,
+          "_l1_reply_block": 5963
+        }
+      },
+      "services/direct_l1.py": {
+        "blob": "459a9d94f22a4352e458513858130f82a29aed61",
+        "anchors": {
+          "build_l1_context": 1606,
+          "_cap_context": 1706
+        }
+      },
+      "services/direct_context_composer.py": {
+        "anchors": {
+          "composer_on": 137
+        }
+      },
+      "services/media_marker.py": {
+        "blob": "1e8349f7942168cf3f27c53325a88e5f33f5d657",
+        "anchors": {
+          "media_marker": 106
+        }
+      },
+      "services/direct_execution.py": {
+        "anchors": {
+          "run_simple_tools": 887,
+          "run_adaptive_chain": 1110
+        }
+      }
+    },
+    "correction": "An earlier verification claimed the deployed _render_current_question was at 7692 and the working tree at 9954; that is inverted. The deployed file has it at 9954, the working tree at 7692."
   }
 }
