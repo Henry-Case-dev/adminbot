@@ -1,7 +1,7 @@
 {
   "schema": "openworkflow-slices-v1",
   "epic": "smart-module-semantic-routing-p0",
-  "notes": "P0-A and P0-B are independent writers (disjoint files) and are both blocking. Everything else joins after them. Write scopes list only files the slice may actually change; verification-only slices declare no product scope. NOST-PROACTIVE is the owner's 2026-11-10 nostalgia correction: it joins after P1 (pre-gate removal) and is mapped in requirements-map-nostalgia-correction.json; it does not reopen P0/P1 evidence.",
+  "notes": "P0-A and P0-B are independent writers (disjoint files) and are both blocking. Everything else joins after them. Write scopes list only files the slice may actually change; verification-only slices declare no product scope. NOST-PROACTIVE is the owner's 2026-11-10 nostalgia correction: it joins after P1 (pre-gate removal) and is mapped in requirements-map-nostalgia-correction.json; it does not reopen P0/P1 evidence. NOST-PROACTIVE deployed as 2.58.178 at af84b6c6 (branch release/2.58.178, previous 1a4a9b1b, schema 46 unchanged, no DDL); its write scope was corrected to the files actually written (services/prompt_registry.py and config/settings.py were changed, services/direct_chat_service.py was planned but never touched). Evidence binding lives in evidence/nost-pro-01-binding-2.58.178.md; the slice reopens with the quantum non-determinism corrective (per-chat schedule, event wakeup, publication probability, single RandomSource) whose rows are added separately.",
   "slices": [
     {
       "id": "P0-A",
@@ -132,13 +132,26 @@
       "write_scope": [
         "services/nostalgia_worker.py",
         "services/initiative_observer.py",
-        "services/direct_chat_service.py",
+        "services/prompt_registry.py",
+        "config/settings.py",
+        "plans/docs/param-registry-round1025.meta.md",
+        "tests/test_nostalgia_proactive_recall.py",
         "tests/test_nostalgia_worker.py",
-        "tests/test_nostalgia_proactive_recall.py"
+        "tests/test_p0_followup_nostalgia_ab.py",
+        "tests/test_p0_prompts_core.py",
+        "tests/test_expression_isolation_followup.py",
+        "tests/test_mca10b_random_applications_block_a_round1041.py"
       ],
       "acceptance": "В живом разговоре бот сам вспоминает уместный эпизод (без слов-триггеров), автономный тик продолжает искать старую историю вне последних сообщений и ровно годичного окна, вопрос о прошлом остаётся за L1; публикацию решает существующий initiative-механизм, молчание — допустимый исход, выдуманных связей и повторов нет.",
       "risk": "R2",
-      "next_role": "Architect (RandomSource contract + proactive seam) → Builder → Reviewer"
+      "status": "DEPLOYED",
+      "deployed_version": "2.58.178",
+      "deployed_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+      "previous_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+      "verified_rows": 11,
+      "pending_rows": 8,
+      "pending_amendment": "OI-2026-11-10-QUANTUM-NONDETERMINISM",
+      "next_role": "Live-slice verification (NOST-PRO-01/14/15/16/17) + quantum corrective (07/12/13)"
     }
   ]
 }

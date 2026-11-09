@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-10-nostalgia-proactive-correction.md",
   "source_sha256": "bc384c000d7a7d9e0b9df8869cb03948d8d689532132f88dcd9ee12c1312531b",
-  "candidate_commit": "",
-  "deployed_commit": "",
+  "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+  "deployed_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -20,9 +20,20 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "NOST-PRO-01: Механизм смыслового воспоминания без слов-триггеров",
+          "observation": "Шов recall_in_conversation и блок <Related_Memory> с реальными записями памяти существуют; на сфабрикованных ссылках путь молчит (skipped/no_relevant_memory, 0 отправок, 0 LLM-вызовов), словарей и слов-триггеров нет. Наблюдаемое обнаружение смысловой связи в живом диалоге не доказано - это сценарий NOST-PRO-14.",
+          "type": "code",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
-      "expected_evidence": "На живом диалоге бот вспоминает релевантный исторический эпизод, не опираясь на слово-триггер: убрав из реплики все «помнишь/год назад/раньше», поведение не меняется; никакой словарь тем или regex не участвует в решении о воспоминании."
+      "expected_evidence": "На живом диалоге бот вспоминает релевантный исторический эпизод, не опираясь на слово-триггер: убрав из реплики все «помнишь/год назад/раньше», поведение не меняется; никакой словарь тем или regex не участвует в решении о воспоминании.",
+      "deferred_reason": "Живой диалог: модель сама замечает смысловую связь и вспоминает эпизод; закрывается сценарием NOST-PRO-14."
     },
     {
       "source_id": "MAN-NOST-PRO-02",
@@ -36,10 +47,22 @@
       "acceptance": "Проактивное воспоминание доступно прямо во время живого обсуждения (существующий Observer/Decision), а не только на следующем плановом тике.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-02: Проактивное воспоминание в живом обсуждении, без ожидания тика",
+          "observation": "Observer обрабатывает kind=memory_recall через _act_on_memory_recall и шов recall_in_conversation; расписание nostalgia_tick при этом не менялось и не является единственным путём. Ветка покрыта 9 тестами нового файла test_nostalgia_proactive_recall.py.",
+          "type": "runtime",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
-      "expected_evidence": "При удачной исторической параллели в текущем разговоре воспоминание может появиться до наступления следующего nostalgia_tick; отсутствие ожидания тика наблюдаемо на одном и том же диалоге."
+      "expected_evidence": "При удачной исторической параллели в текущем разговоре воспоминание может появиться до наступления следующего nostalgia_tick; отсутствие ожидания тика наблюдаемо на одном и том же диалоге.",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+      "reopen_on": "OI-2026-11-10-QUANTUM-NONDETERMINISM"
     },
     {
       "source_id": "MAN-NOST-PRO-03",
@@ -53,10 +76,22 @@
       "acceptance": "Автономный периодический запуск сохраняется и продолжает исследовать старую историю; он не ограничен последними сообщениями и событиями ровно годичной давности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-03: Автономный тик сохранён и ищет вне последних реплик и вне окна «ровно год назад»",
+          "observation": "nostalgia_tick зарегистрирован (IntervalTrigger 60 мин, max_instances=1, coalesce=True), воркер запущен при включённом флаге; ranking-тесты test_rank_prefers_relevance_over_recent_year и test_rank_covers_unseen_period подтверждают отбор вне последних сообщений и вне ровно годичного окна.",
+          "type": "runtime",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
-      "expected_evidence": "Автономный nostalgia_tick продолжает работать и выдаёт кандидатов из периодов старше года и вне окна последних сообщений; отбор не сводится к «ровно год назад» и к словам последних реплик."
+      "expected_evidence": "Автономный nostalgia_tick продолжает работать и выдаёт кандидатов из периодов старше года и вне окна последних сообщений; отбор не сводится к «ровно год назад» и к словам последних реплик.",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+      "reopen_on": "OI-2026-11-10-QUANTUM-NONDETERMINISM"
     },
     {
       "source_id": "MAN-NOST-PRO-04",
@@ -70,10 +105,21 @@
       "acceptance": "Путь «пользователь спросил о прошлом» остаётся за существующим L1 и является отдельным сценарием, который не заменяет инициативную ностальгию.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-04: Вопрос о прошлом остаётся у L1 как отдельный сценарий",
+          "observation": "Дельта не содержит direct_l1/direct_execution/direct_chat_service; DIG_PRE_GATE_ENABLED без потребителей в services; тест сценария (c) подтверждает путь «вопрос о прошлом -> L1 -> dig_into_lore» отдельно от проактивного шва.",
+          "type": "test",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
-      "expected_evidence": "Обычный вопрос о прошлом без ключевых слов обслуживается L1 (исторический поиск выбирает он), при этом проактивная ностальгия сохраняется как отдельный механизм; отключение одного не отключает другой."
+      "expected_evidence": "Обычный вопрос о прошлом без ключевых слов обслуживается L1 (исторический поиск выбирает он), при этом проактивная ностальгия сохраняется как отдельный механизм; отключение одного не отключает другой.",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d"
     },
     {
       "source_id": "MAN-NOST-PRO-05",
@@ -87,10 +133,22 @@
       "acceptance": "Публикацию решает существующий механизм инициативы по релевантности, контексту, свежести обсуждения, повторам и действующим пользовательским настройкам; ностальгия не генерируется ради заполнения тика.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-05: Публикацию решает существующий initiative-механизм",
+          "observation": "Публикация проходит через существующий initiative-путь (ветка kind=memory_recall, счётчики memory_recall_sent/memory_recall_silent/memory_recall_unavailable); нерелевантный повод даёт skipped без отправки и без LLM-вызова, то есть тик не «заполняется» сообщением.",
+          "type": "runtime",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
-      "expected_evidence": "Решение о публикации принимает существующий initiative-механизм: при нерелевантном/несвежем/повторном эпизоде или выключенной пользовательской настройке отправки нет, даже если тик наступил; «пустой» тик не порождает сообщение."
+      "expected_evidence": "Решение о публикации принимает существующий initiative-механизм: при нерелевантном/несвежем/повторном эпизоде или выключенной пользовательской настройке отправки нет, даже если тик наступил; «пустой» тик не порождает сообщение.",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+      "reopen_on": "OI-2026-11-10-QUANTUM-NONDETERMINISM"
     },
     {
       "source_id": "MAN-NOST-PRO-06",
@@ -104,10 +162,21 @@
       "acceptance": "Молчание — допустимый исход: если интересной связи нет, бот ничего не говорит.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-06: Молчание при отсутствии релевантной связи",
+          "observation": "На сфабрикованные ссылки памяти ответ {\"status\":\"skipped\",\"reason_code\":\"no_relevant_memory\"}: 0 отправок, 0 LLM-вызовов, инкремент memory_recall_silent - молчание с честной причиной.",
+          "type": "runtime",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
-      "expected_evidence": "На разговоре без подходящей исторической связи бот молчит: ноль отправок и честная запись в журнале причины (skip), без вымученного «воспоминания»."
+      "expected_evidence": "На разговоре без подходящей исторической связи бот молчит: ноль отправок и честная запись в журнале причины (skip), без вымученного «воспоминания».",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d"
     },
     {
       "source_id": "MAN-NOST-PRO-07",
@@ -126,7 +195,9 @@
       "kind": "requirement",
       "expected_evidence": "Квантовый источник влияет только на распределение выбора периодов/эпизодов: при одном и том же квантовом направлении достоверность (проверяемость источника) и решение о публикации не меняются; подмена источника (детерминированный/фиксированный RandomSource) не меняет ни достоверность, ни обязанность отправить.",
       "constrains_map": "VMQ-ONTO-01",
-      "constraint_note": "Корректировка ограничивает VMQ-ONTO-01: квантовый источник только направляет исследование (распределение выбора периодов и эпизодов), не определяет достоверность воспоминания и не создаёт обязанность публикации; второй генератор/пайплайн не появляется."
+      "constraint_note": "Корректировка ограничивает VMQ-ONTO-01: квантовый источник только направляет исследование (распределение выбора периодов и эпизодов), не определяет достоверность воспоминания и не создаёт обязанность публикации; второй генератор/пайплайн не появляется.",
+      "deferred_reason": "Квантовое направление отбора не реализовано: ожидает корректировки OI-2026-11-10-QUANTUM-NONDETERMINISM (пер-чатовое расписание, пробуждение по событию, вероятность публикации).",
+      "reopen_on": "OI-2026-11-10-QUANTUM-NONDETERMINISM"
     },
     {
       "source_id": "MAN-NOST-PRO-08",
@@ -140,12 +211,24 @@
       "acceptance": "Сейчас не создаётся второй генератор ностальгии или независимый пайплайн под квантовый источник.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-08: Второй генератор или пайплайн не создан",
+          "observation": "Дельта 1a4a9b1b -> af84b6c6 (35 файлов) не добавляет модулей, воркеров или сервисов: ностальгия остаётся одним генератором (services/nostalgia_worker.py) и одной точкой доставки (services/initiative_observer.py); квантовый источник ещё не подключён.",
+          "type": "code",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
       "expected_evidence": "В коде остаётся один генератор и один путь доставки: квантовый источник подключён точкой расширения выбора, а не параллельным модулем/сервисом/воркером.",
       "constrains_map": "VMQ-ONTO-01",
-      "constraint_note": "Корректировка ограничивает VMQ-ONTO-01: квантовый источник только направляет исследование (распределение выбора периодов и эпизодов), не определяет достоверность воспоминания и не создаёт обязанность публикации; второй генератор/пайплайн не появляется."
+      "constraint_note": "Корректировка ограничивает VMQ-ONTO-01: квантовый источник только направляет исследование (распределение выбора периодов и эпизодов), не определяет достоверность воспоминания и не создаёт обязанность публикации; второй генератор/пайплайн не появляется.",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+      "reopen_on": "OI-2026-11-10-QUANTUM-NONDETERMINISM"
     },
     {
       "source_id": "MAN-NOST-PRO-09",
@@ -159,10 +242,21 @@
       "acceptance": "Переиспользовать существующие NostalgiaWorker, GraphRAG, долговременную память и общий механизм инициативы; дублирование исключено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-09: Переиспользование существующих механизмов без дублирования",
+          "observation": "Использованы существующие NostalgiaWorker, долговременная память (memory_refs/context_rows) и общий initiative-путь; новых retrieval- или send-пайплайнов в дельте нет, новых словарных триггеров нет.",
+          "type": "code",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
-      "expected_evidence": "Реализация вызывает существующие NostalgiaWorker/GraphRAG/долговременную память и общий initiative-путь; новых параллельных retrieval- или send-пайплайнов не появляется."
+      "expected_evidence": "Реализация вызывает существующие NostalgiaWorker/GraphRAG/долговременную память и общий initiative-путь; новых параллельных retrieval- или send-пайплайнов не появляется.",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d"
     },
     {
       "source_id": "MAN-NOST-PRO-10",
@@ -176,10 +270,21 @@
       "acceptance": "Не переписывать пользовательские промпты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-10: Пользовательские промпты не переписаны",
+          "observation": "Изменён ровно 1 блок из 112 - internal.initiative_observer (внутренний машинный промпт, code_only, не персона); печать f1169884093b -> 108f277a466f, отпечаток набора b4e8b3569ab2 -> 011c83dfac95; остальные 111 канонов и все 12 legacy-персон байт-в-байт, пины переизданы осознанно.",
+          "type": "test",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
-      "expected_evidence": "Пользовательские промпты и Personality Core остаются без изменений в дельте корректировки (проверяется по составу изменённых файлов и их содержимому)."
+      "expected_evidence": "Пользовательские промпты и Personality Core остаются без изменений в дельте корректировки (проверяется по составу изменённых файлов и их содержимому).",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d"
     },
     {
       "source_id": "MAN-NOST-PRO-11",
@@ -193,10 +298,21 @@
       "acceptance": "Не отключать новые функции по умолчанию.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-11: Функции не выключены по умолчанию, настройки не сброшены",
+          "observation": "Живые настройки после выката: memory.nostalgia_enabled=true, layer_a=true, тик 60 мин, тишина 45 мин, 3 в день, тихие часы 23-8; чатовых OFF-переопределений нет.",
+          "type": "production",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
-      "expected_evidence": "Заводское значение новых флагов корректировки — включено; теневое/выключенное состояние не становится постоянным (правило проекта 09.11.2026), пользовательские настройки не сбрасываются."
+      "expected_evidence": "Заводское значение новых флагов корректировки — включено; теневое/выключенное состояние не становится постоянным (правило проекта 09.11.2026), пользовательские настройки не сбрасываются.",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d"
     },
     {
       "source_id": "MAN-NOST-PRO-12",
@@ -211,11 +327,23 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "NOST-PRO-12: Взвешенный отбор и единая точка RandomSource",
+          "observation": "Смысловой отбор и разнообразие периодов появились (test_rank_prefers_relevance_over_recent_year, test_rank_covers_unseen_period), но единая точка подключения RandomSource для квантового направления не реализована.",
+          "type": "test",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
       "expected_evidence": "Отбор кандидатов опирается на смысловую релевантность и разнообразие периодов/эпизодов, а не на «год назад» и слова последних сообщений; единственная точка подключения случайности — один RandomSource, при его подмене меняется только распределение выбора.",
       "constrains_map": "VMQ-ONTO-01",
-      "constraint_note": "Корректировка ограничивает VMQ-ONTO-01: квантовый источник только направляет исследование (распределение выбора периодов и эпизодов), не определяет достоверность воспоминания и не создаёт обязанность публикации; второй генератор/пайплайн не появляется."
+      "constraint_note": "Корректировка ограничивает VMQ-ONTO-01: квантовый источник только направляет исследование (распределение выбора периодов и эпизодов), не определяет достоверность воспоминания и не создаёт обязанность публикации; второй генератор/пайплайн не появляется.",
+      "deferred_reason": "Закрывается вместе с квантовой корректировкой: один RandomSource как единственная точка случайности.",
+      "reopen_on": "OI-2026-11-10-QUANTUM-NONDETERMINISM"
     },
     {
       "source_id": "MAN-NOST-PRO-13",
@@ -232,7 +360,9 @@
       "status": "PENDING",
       "evidence": [],
       "kind": "requirement",
-      "expected_evidence": "Приёмка не принимает работающий `_pick_candidate()` старого вида как выполнение корректировки: должны быть показаны смысловая связь и разнообразие выбора, а не воспроизведение прежней эвристики."
+      "expected_evidence": "Приёмка не принимает работающий `_pick_candidate()` старого вида как выполнение корректировки: должны быть показаны смысловая связь и разнообразие выбора, а не воспроизведение прежней эвристики.",
+      "deferred_reason": "Приёмка опирается на NOST-PRO-12: без взвешенного отбора и квантовой точки RandomSource строку закрывать нечем.",
+      "reopen_on": "OI-2026-11-10-QUANTUM-NONDETERMINISM"
     },
     {
       "source_id": "MAN-NOST-PRO-14",
@@ -249,7 +379,8 @@
       "status": "PENDING",
       "evidence": [],
       "kind": "requirement",
-      "expected_evidence": "В живом чате во время обсуждения темы бот сам возвращает уместный исторический эпизод, и это наблюдается как самостоятельное действие бота, без просьбы вспомнить."
+      "expected_evidence": "В живом чате во время обсуждения темы бот сам возвращает уместный исторический эпизод, и это наблюдается как самостоятельное действие бота, без просьбы вспомнить.",
+      "deferred_reason": "Нужен реальный чат: спонтанное воспоминание в живой дискуссии (postdeploy)."
     },
     {
       "source_id": "MAN-NOST-PRO-15",
@@ -266,7 +397,8 @@
       "status": "PENDING",
       "evidence": [],
       "kind": "requirement",
-      "expected_evidence": "Без текущего разговора бот сам инициирует воспоминание (автономный тик), сообщение уходит в чат и опирается на реальный источник памяти."
+      "expected_evidence": "Без текущего разговора бот сам инициирует воспоминание (автономный тик), сообщение уходит в чат и опирается на реальный источник памяти.",
+      "deferred_reason": "Нужен реальный чат: автономная инициатива воспоминания по тику (postdeploy)."
     },
     {
       "source_id": "MAN-NOST-PRO-16",
@@ -283,7 +415,8 @@
       "status": "PENDING",
       "evidence": [],
       "kind": "requirement",
-      "expected_evidence": "На обычный вопрос о прошлом без «помнишь»/«год назад» бот даёт релевантный ответ, при необходимости используя исторический поиск, выбранный L1."
+      "expected_evidence": "На обычный вопрос о прошлом без «помнишь»/«год назад» бот даёт релевантный ответ, при необходимости используя исторический поиск, выбранный L1.",
+      "deferred_reason": "Нужен реальный чат: вопрос о прошлом без ключевых слов и релевантный ответ (postdeploy)."
     },
     {
       "source_id": "MAN-NOST-PRO-17",
@@ -300,7 +433,8 @@
       "status": "PENDING",
       "evidence": [],
       "kind": "requirement",
-      "expected_evidence": "Каждое воспоминание трассируется к реальному эпизоду/факту в памяти (source ref проверяем), среди проверенных сценариев нет выдуманных связей и нет повторов ранее сказанного."
+      "expected_evidence": "Каждое воспоминание трассируется к реальному эпизоду/факту в памяти (source ref проверяем), среди проверенных сценариев нет выдуманных связей и нет повторов ранее сказанного.",
+      "deferred_reason": "Нужен реальный чат: проверка реальных источников памяти, отсутствия выдуманных связей и повторов (postdeploy)."
     },
     {
       "source_id": "MAN-NOST-PRO-18",
@@ -314,12 +448,23 @@
       "acceptance": "Не создавать новый эпик, отдельный пайплайн, новые словарные триггеры или human gate; продолжать выполнение workflow.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-18: Новый эпик, пайплайн, триггеры и human gate не созданы",
+          "observation": "Карта остаётся внутри эпика smart-module-semantic-routing; дельта не добавляет модулей, словарных триггеров и human gate; зависимость VMQ-ONTO-01 зафиксирована в cross_map_constraints и в frozen-контракте quantum-nondeterminism-contract.md.",
+          "type": "code",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
       "expected_evidence": "Корректировка выполнена внутри существующего контура: нет нового эпика/пайплайна/словарных триггеров/human gate; зависимость от VMQ-ONTO-01 учтена в архитектурных зависимостях.",
       "constrains_map": "VMQ-ONTO-01",
-      "constraint_note": "Корректировка ограничивает VMQ-ONTO-01: квантовый источник только направляет исследование (распределение выбора периодов и эпизодов), не определяет достоверность воспоминания и не создаёт обязанность публикации; второй генератор/пайплайн не появляется."
+      "constraint_note": "Корректировка ограничивает VMQ-ONTO-01: квантовый источник только направляет исследование (распределение выбора периодов и эпизодов), не определяет достоверность воспоминания и не создаёт обязанность публикации; второй генератор/пайплайн не появляется.",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d"
     },
     {
       "source_id": "MAN-NOST-PRO-19",
@@ -333,10 +478,22 @@
       "acceptance": "Удаление словарного pre-gate не должно отключать инициативную ностальгию и не должно превращать её в функцию, работающую только по запросу.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "NOST-PRO-19: Снятие пре-гейта не отключило проактивность",
+          "observation": "После снятия пре-гейта в 2.58.177 проактивность жива: nostalgia_tick зарегистрирован и воркер запущен, шов recall_in_conversation доступен, DIG_PRE_GATE_ENABLED не имеет потребителей - путь не свёлся к «только по запросу».",
+          "type": "runtime",
+          "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+          "deployed_version": "2.58.178",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+          "artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+        }
+      ],
       "kind": "requirement",
-      "expected_evidence": "После снятия pre-gate в 2.58.177 проактивная ностальгия по-прежнему инициируется сама (в разговоре и по тику), а не только по вопросу пользователя; регрессия «ностальгия теперь только по запросу» обнаруживается сценариями 1–2."
+      "expected_evidence": "После снятия pre-gate в 2.58.177 проактивная ностальгия по-прежнему инициируется сама (в разговоре и по тику), а не только по вопросу пользователя; регрессия «ностальгия теперь только по запросу» обнаруживается сценариями 1–2.",
+      "bound_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+      "reopen_on": "OI-2026-11-10-QUANTUM-NONDETERMINISM"
     },
     {
       "source_id": "MAN-CTX-005",
@@ -517,5 +674,41 @@
     "architect_scope": "Зафиксировать контракт RandomSource (кто вызывает, что возвращает, что НЕ решает), точку подключения VMQ-ONTO-01 без второго пайплайна и границу между проактивным воспоминанием, тиком и путём вопроса через L1.",
     "unaffected": "P0-A, P0-B, P1, SMR-* — уже выкачены/приняты, корректировка их не переписывает."
   },
-  "notes": "Корректировка владельца 10.11.2026 по проактивной ностальгии. 19 обязательных строк, все PENDING; 11 строк английского раздела «Binding points» классифицированы как duplicate (пересказ агента) и 3 прозаические строки — как context, чтобы обратный аудит источника был полным. Ограничение VMQ-ONTO-01 записано в cross_map_constraints и в строках NOST-PRO-07/08/12/18. До Builder нужен Architect: контракт RandomSource и шов проактивного воспоминания — новые общие интерфейсы внутри существующего контура, поэтому PM их не фиксирует сам."
+  "notes": "Корректировка владельца 10.11.2026 по проактивной ностальгии. 19 обязательных строк. На выкладке 2.58.178 (кандидат и deployed af84b6c6, ветка release/2.58.178) привязаны 11 строк VERIFIED, 2 строки PENDING с частично привязанным доказательством (01, 12) и 6 строк PENDING без доказательств (07, 13, 14, 15, 16, 17). PENDING-строки требуют либо реального чата (01, 14-17: спонтанное воспоминание, автономная инициатива, вопрос о прошлом без ключевых слов, реальные источники и повторы), либо квантовой части отбора (07, 12, 13). 11 строк английского раздела «Binding points» - duplicate (пересказ агента), 3 прозаические строки - context; обратный аудит источника полон. Ограничение VMQ-ONTO-01 записано в cross_map_constraints и в строках NOST-PRO-07/08/12/18. Квантовая корректировка (OI-2026-11-10-QUANTUM-NONDETERMINISM) изменит этот срез повторно - расписание тика, пробуждение по событию, вероятность публикации, единая точка RandomSource; строки добавляются отдельно, текущая привязка фиксирует состояние 2.58.178 и не отменяет будущих правок. Оговорка по отчётности: «сырой» git diff даёт около 18k вставок из-за CRLF-нормализации; семантическая дельта - 35 файлов.",
+  "per_slice_candidate_policy": "Каждый срез ведёт свой кандидат: NOST-PROACTIVE привязан к af84b6c6 (2.58.178), SMR P0/P1 остаются на своих кандидатах (2.58.176/2.58.177). Выкладка ностальгии НЕ объявляет доказательства P0/P1 байт-идентичными: дельта-проверка касалась только файлов ностальгии.",
+  "slice_candidates": [
+    {
+      "slice": "NOST-PROACTIVE",
+      "version": "2.58.178",
+      "candidate_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+      "deployed_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+      "branch": "release/2.58.178",
+      "previous_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+      "schema": 46,
+      "ddl": false,
+      "status": "DEPLOYED",
+      "deployed_evidence": "release/2.58.178:plans/features/smart-module-semantic-routing/evidence/nost-pro-01-release-2.58.178.md @ dc79e5e4",
+      "binding_artifact": "plans/features/smart-module-semantic-routing/evidence/nost-pro-01-binding-2.58.178.md",
+      "binding_artifact_sha256": "c7362a5d7b419d80696e25ef45be71f1350e6a79e826a9cdfcd31316c853e40f"
+    }
+  ],
+  "parent_candidate_note": "parent_candidate_commit=1a4a9b1b относится к P1 (2.58.177) и не переописывается этой выкладкой; доказательства P0 (2.58.176) и P1 не считаются байт-идентичными на af84b6c6.",
+  "pending_amendments": [
+    {
+      "input": "OI-2026-11-10-QUANTUM-NONDETERMINISM",
+      "source_path": "plans/owner_inputs/2026-11-10-quantum-nondeterminism-correction.md",
+      "effect": "Полная недетерминированность вместо QRNG-только-тай-брейк: пер-чатовое независимое стохастическое расписание, пробуждение по событию, вероятность публикации, durable-состояние и обработка пропущенных дедлайнов.",
+      "reopens_rows": [
+        "NOST-PRO-02",
+        "NOST-PRO-03",
+        "NOST-PRO-05",
+        "NOST-PRO-07",
+        "NOST-PRO-08",
+        "NOST-PRO-12",
+        "NOST-PRO-13",
+        "NOST-PRO-19"
+      ],
+      "status": "rows being added separately (not yet in this map)"
+    }
+  ]
 }
