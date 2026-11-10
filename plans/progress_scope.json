@@ -5,8 +5,8 @@
     {
       "id": "soul-1",
       "status": "READY_FOR_LIVE",
-      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
-      "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
+      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
+      "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "maps": [
         "plans/features/soul-1/requirements-map.json",
         "plans/features/soul-1/requirements-map-amendment.json"
@@ -18,8 +18,8 @@
     {
       "id": "asap8-v6.3",
       "status": "READY_FOR_LIVE",
-      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
-      "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
+      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
+      "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "maps": [
         "plans/features/asap8-v6-3-live-correction/requirements-map.json"
       ],
@@ -86,8 +86,8 @@
     {
       "id": "add-tr-2026-10-19",
       "status": "VERIFIED",
-      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
-      "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
+      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
+      "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "maps": [
         "plans/features/add-tr/requirements-map.json"
       ],
@@ -97,8 +97,8 @@
     {
       "id": "add-exp-2026-10-19",
       "status": "READY_FOR_LIVE",
-      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
-      "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
+      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
+      "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "maps": [
         "plans/features/add-exp/requirements-map.json"
       ],
@@ -326,14 +326,14 @@
     },
     {
       "id": "evol-reply-context-integrity-01",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md",
       "source_sha256": "C6AA5CD87E8A61528CF53CE6DBA1A93F9DCC47456C29E1BDD2E69FFE182909D3",
       "maps": [
         "plans/features/evol-reply-context-integrity-01/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "Production Reply→FactCheck context-loss. Карта plans/features/evol-reply-context-integrity/requirements-map.json (5 строк, plan-gate errors=0). Кодовая потеря в ambiguity-ветке независимо подтверждена на HEAD 8bb2800f; реальные Telegram ID/трасса продакшена остаются PENDING_EXTERNAL.",
+      "source_note": "Production Reply→FactCheck context-loss. Карта plans/features/evol-reply-context-integrity/requirements-map.json (5 строк, plan-gate errors=0). Кодовая потеря в ambiguity-ветке независимо подтверждена на HEAD 8bb2800f; реальные Telegram ID/трасса продакшена остаются PENDING_EXTERNAL. Reconciled 2026-11-11 from the production line: this task owns the 285-obligation map (148 verified / 137 pending). The short 5-line note in the working copy belongs to the separate reply-context-integrity-rci task and was a duplicate.",
       "updated": "2026-11-03"
     },
     {
@@ -1262,8 +1262,8 @@
     },
     {
       "id": "OI-2026-10-31-ASAP-VISION-SYNC-WATCHDOG",
-      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
-      "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
+      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
+      "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "kind": "amendment",
       "target_task_ids": [
         "evol"
@@ -1323,8 +1323,8 @@
     },
     {
       "id": "OI-2026-10-31-ASAP-UI-02",
-      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
-      "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
+      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
+      "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "kind": "amendment",
       "target_task_ids": [
         "evol"
@@ -1343,8 +1343,8 @@
     },
     {
       "id": "OI-2026-11-01-ASAP-EVIDENCE-ROUTING",
-      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
-      "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
+      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
+      "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "kind": "new_task",
       "target_task_ids": [
         "evol"
@@ -1367,8 +1367,8 @@
     },
     {
       "id": "OI-2026-11-01-SUMMARY-COVER-INTEGRITY",
-      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
-      "source_sha256": "5DAF17B849084CADB8942D4EC37B6415261D2E95ED42C5DA9D3DB8E135901530",
+      "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
+      "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "kind": "new_task",
       "target_task_ids": [
         "evol"
@@ -2034,7 +2034,7 @@
     {
       "id": "OI-2026-11-02-PERF-PARITY",
       "source_path": "plans/owner_inputs/2026-11-02-performance-parity-clarification.md",
-      "source_sha256": "9F66BE9720084CE685FDB2E4B5244223523C2D4FFC0A59AABAC1853474FB823F",
+      "source_sha256": "CB1336C3F4EAF122BE2F77FD0715DFBD7F15013E895ABBFC5CDD9C6CAE549A24",
       "kind": "amendment",
       "target_task_ids": [
         "evol"
@@ -2185,7 +2185,7 @@
     {
       "id": "OI-2026-11-02-PERFORMANCE-PARITY",
       "source_path": "plans/owner_inputs/2026-11-02-performance-parity-clarification.md",
-      "source_sha256": "9F66BE9720084CE685FDB2E4B5244223523C2D4FFC0A59AABAC1853474FB823F",
+      "source_sha256": "CB1336C3F4EAF122BE2F77FD0715DFBD7F15013E895ABBFC5CDD9C6CAE549A24",
       "kind": "amendment",
       "target_task_ids": [
         "epic-experience-learning-performance-help"
@@ -2593,7 +2593,7 @@
     {
       "id": "OI-2026-11-01-CURRENT-TASK-SNAPSHOT-MISSING",
       "kind": "decision",
-      "note": "Документ провенанса master о том, что снапшот current_task от 2026-11-01 утрачен и восстановлению не подлежит. На линии evol/impl файл plans/owner_inputs/2026-11-01-current_task-snapshot.md фактически существует (sha256 B69802BF...C72F62 совпадает с исходной регистрацией), поэтому запись остаётся только документацией линии master и не является заданием.",
+      "note": "Документ провенанса master о том, что снапшот current_task от 2026-11-01 утрачен и восстановлению не подлежит. На линии evol/impl файл plans/owner_inputs/2026-11-01-current_task-snapshot.md фактически существует (sha256 B69802BF...C72F62 совпадает с исходной регистрацией), поэтому запись остаётся только документацией линии master и не является заданием. Superseded 2026-11-11: the snapshot was never lost — it exists in Git on the release line and has been restored to plans/owner_inputs/2026-11-01-current_task-snapshot.md (sha256 B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62, 721647 bytes). The four tasks and four inputs now point at the restored file.",
       "reconciled": true,
       "recorded_in": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",
       "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot-MISSING.md",

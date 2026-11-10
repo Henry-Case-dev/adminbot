@@ -2,8 +2,140 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
   "source_sha256": "11fd732fed30e5ea2b78b1951d2e8df8b483ff55fea92285f6da57fcc7637cd0",
-  "candidate_commit": "",
-  "deployed_commit": "",
+  "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+  "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+  "deployment_evidence": {
+    "version": "2.58.180",
+    "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+    "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+    "release_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+    "release_tree": "9b2706ae4aeb914b50b6ae25f4853c29730e6189",
+    "release_branch": "release/2.58.180",
+    "base_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+    "base_version": "2.58.179",
+    "previous_deployment": "2.58.179 @ 32e018b9 (прод-линия release/2.58.179), а не integ/unify-release (merge-base adfd0d0c, 34 коммита только в проде)",
+    "cherry_pick": "1f792d85 (содержимое одобренного 7bc8545a, tree 89c5ffbc) на 32e018b9 без конфликтов; tool_router слился автоматически",
+    "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/deployment-2.58.180.md",
+    "artifact_sha256": "e6fc4da5a46c270752bbd0120d916a369e145b449ccf85e08fc70fbd4767224a",
+    "devops_release_record": {
+      "path": "plans/features/vmq-onto-01/evidence/vmq-q1/release-2.58.180.md",
+      "commit": "e63eb64c",
+      "branch": "release/2.58.180",
+      "sha256": "e71a7bf7c04f459ac41281972296cd4224fb611eecf3564dbd527e0403df65c0",
+      "note": "Запись DevOps существует только на релизной ветке, не на master; её содержимое проверяемо по адресу и хешу."
+    },
+    "delta": {
+      "files": 33,
+      "insertions": 682,
+      "deletions": 66,
+      "product_files": [
+        "services/database.py",
+        "services/direct_chat_service.py",
+        "services/direct_context_composer.py",
+        "services/mca_retrieval_context.py",
+        "services/summary_memory.py",
+        "services/tool_router.py"
+      ],
+      "new_test": "tests/test_vmq_mem_retrieval_fixes.py",
+      "version_pins": "config/settings.py (APP_VERSION 2.58.179 -> 2.58.180 + релизная запись), plans/docs/param-registry-round1025.meta.md, 24 тестовых файла с однострочными пинами",
+      "candidate_identity": "5 из 6 продуктовых файлов байт-идентичны одобренному 7bc8545a (database e6d34fe7, direct_chat_service 8d47b7c4, direct_context_composer 0af4bfb5, mca_retrieval_context ea45a331, summary_memory c1fb286d); tool_router отличается (45868c4b -> bb2c87d4) — на прод-линии более старый execute_tool, SELF-DIAG-01 D2 не входит, к retrieval/dig не относится",
+      "database_delta": "аддитивные keyword-only параметры target_row_id в get_messages_around и anchor_row_id в compute_episode_span; в диффе дельты нет CREATE/ALTER/DROP TABLE, CREATE INDEX, PRAGMA user_version",
+      "schema": "user_version=47, schema_migrations=36 строк до и после, шага миграции не было"
+    },
+    "tests_on_release_tree": {
+      "battery": "494 passed / 0 failed (запрошенная батарея на дереве 721bab10)",
+      "version_pins": "630 passed / 2 failed; оба падения воспроизводятся на базе 32e018b9 (предсуществующие, релизом не привнесены)"
+    },
+    "health": {
+      "healthz": "2.58.180 публично и через loopback",
+      "unit": "NRestarts=0, ноль traceback",
+      "rollback": "32e018b9 + снапшот predeploy-258180.db (read-back, sha256)"
+    },
+    "live_facts": {
+      "mode": "read-only in-process проверки DevOps на проде; guard на запись сработал, сообщений в живые данные не отправлялось",
+      "old_episode_block": "<Old_Episode> непустой на реальном чате: 3 144 симв., 2 эпизода, 31 сообщение; повторный прогон 6 120 симв. / 2 / 58; годы содержимого 2026",
+      "anchors": "оба якоря работают: hit=tg:1208683 … reason=gap+reply_links+cap_applied и hit=tg:None hit_row=534 … rows=6 (принят якорь msg:<row>)",
+      "msg_row_payload": "msg:528 дошёл до payload с реальной датой 15.08.2026 21:34 и разрешённым автором",
+      "dig_year_window": "dig_into_lore(year=2023) через реальный ToolRouter: 0.385 с, status=ok, coverage.sampling=window_scan_by_time, truncated=true, messages_total=31 213, окно 2023-01-01..2023-12-31; до фикса тот же вызов не завершался (таймаут 300 с, второй прогон ~1 223 с)"
+    },
+    "defect_bindings": [
+      {
+        "defect": "D1 — <Old_Episode> пуст во всех пяти классах (срез истории целиком занимали эпизоды, вербатим-потребитель берёт только message)",
+        "ref": "Живой блок непустой (3 144 / 6 120 симв., 2 эпизода, 31 / 58 сообщений), оба якоря в логе; на копии архива 0 из 5 -> 4 из 5 классов, 15 923 симв. / 7 блоков / 172 сообщения",
+        "observation": "Фикс выкачен и наблюдается; полный паритет классов этим не достигается (профиль C остался пуст из-за ёмкости среза, RAG-факты 2026x10)",
+        "type": "production",
+        "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+        "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/deployment-2.58.180.md",
+        "artifact_sha256": "e6fc4da5a46c270752bbd0120d916a369e145b449ccf85e08fc70fbd4767224a",
+        "unblocks_req_ids": ["VMQ-MEM-01", "VMQ-MEM-02", "VMQ-MEM-03", "VMQ-TIME-04"],
+        "closes_req_ids": []
+      },
+      {
+        "defect": "D2 — 6 из 7 дошедших message-кандидатов отбрасывались как 'tg id unresolved' (ссылка msg:<smart_messages.id> у импортированной истории)",
+        "ref": "msg:528 в payload с датой 15.08.2026 21:34 и автором; на кандидате 7 из 7 принято при top_k=8, нерезолвимых 0 из 56 при top_k=40",
+        "observation": "Аддитивный якорь по строке корпуса работает в живом пути; tg-путь сохранён",
+        "type": "production",
+        "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+        "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/deployment-2.58.180.md",
+        "artifact_sha256": "e6fc4da5a46c270752bbd0120d916a369e145b449ccf85e08fc70fbd4767224a",
+        "unblocks_req_ids": ["VMQ-MEM-02", "VMQ-MEM-03"],
+        "closes_req_ids": []
+      },
+      {
+        "defect": "D3 — dig_into_lore(year=...) не завершался: rank-план FTS читает content-таблицу на каждое совпадение корпуса",
+        "ref": "Живой вызов: 0.385 с, status=ok, sampling=window_scan_by_time, truncated=true, messages_total=31 213, окно 2023-01-01..2023-12-31",
+        "observation": "Год-окно возвращает результат и честно подписывает усечение; внутреннего таймаута у dig по-прежнему нет",
+        "type": "production",
+        "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+        "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/deployment-2.58.180.md",
+        "artifact_sha256": "e6fc4da5a46c270752bbd0120d916a369e145b449ccf85e08fc70fbd4767224a",
+        "unblocks_req_ids": ["VMQ-MEM-03", "VMQ-TIME-03", "VMQ-TIME-07"],
+        "closes_req_ids": []
+      }
+    ],
+    "honest_boundaries": [
+      {
+        "ref": "Живой дефект НЕ наблюдался в трафике: счётчик direct_old_episode_empty_total = 0 и до, и после (272 успешных retrieval исторически), строка 'direct: old episode empty' в живом трафике не появлялась, потому что путь tg: обрабатывал эти случаи",
+        "consequence": "Для D1 живое подтверждение ограничено: сам дефект доказан контролируемым read-only измерением на копии архива, а не трафиком. Нулевой счётчик доказательством исправления не считается.",
+        "applies_to": "D1"
+      },
+      {
+        "ref": "messages_total живого прогона dig (31 213) не совпадает с измерением кандидата (129 482) — другой срез вопроса; сниппеты dig в payload не попадают из-за dig_max_symbols",
+        "consequence": "Принадлежность окну на проде доказана только first_seen/last_seen и счётчиком; сравнивать цифры между прогонами без уточнения набора нельзя.",
+        "applies_to": "D3"
+      },
+      {
+        "ref": "Паритет и временнóй охват не изменились: пересказ (B) даёт 2026, профиль (C) пуст по ёмкости среза, RAG-факты 2026x10, VMQ-TIME-01..09 не реализованы",
+        "consequence": "Ни одна строка VMQ-MEM-01..08 и VMQ-TIME-01..09 этими фактами не закрывается; статусы остаются PENDING.",
+        "applies_to": "VMQ-MEM, VMQ-MEM-TIME"
+      }
+    ],
+    "not_proven": [
+      "VMQ-MEM-01: нет formulation-class-matrix.json (5 классов x прогоны x dataset_ref)",
+      "VMQ-MEM-02: нет run-retrieval-trace.json с эпизодами/периодами/источниками/связями по прогонам",
+      "VMQ-MEM-03: нет metrics-comparison.json; хронологическая точность, релевантность и число выдуманных связей не посчитаны",
+      "VMQ-MEM-04: паритет не достигнут (пересказ 2026, профиль пуст, RAG 2026x10)",
+      "VMQ-MEM-05: нет протокола приёмки creative-not-proof-guard.md",
+      "VMQ-MEM-06: architect-e2e-path.md снят на 32e018b9 (до фикса) и не обновлён после изменения пула истории и год-окна",
+      "VMQ-MEM-07: независимое сравнение Reviewer на реальном архиве не выполнено",
+      "VMQ-MEM-08: отрицательный контроль (нет второго пайплайна, маркеров, хранилища) выполнен на кандидате 7bc8545a, но acceptance строки включает ONTO-01, которого в выкате нет",
+      "VMQ-TIME-01..09: временнóй охват не реализован и по контракту time/fix-contract.md не мог быть реализован этим выкатом"
+    ],
+    "open_findings": [
+      "У dig нет внутреннего таймаута: незавершение возможно на другом плане запроса",
+      "План запроса зависит от статистики БД (на малой выборке он другой)",
+      "Тест формы плана держится только на крошечной БД",
+      "CHAT_EPISODE_MAX_COUNT=2 обрывает цикл: у класса D не рассмотрено 28 из 40 кандидатов"
+    ],
+    "coverage_effect": "0 строк переведено в VERIFIED. Выкат — P0-корректив трёх дефектов внутри линии VMQ-MEM; в карте у дефектов нет собственных строк (сверены все 380 инвентарных и 63 ручные строки). Привязка сделана на уровне карты, чтобы следующее измерение VMQ-MEM опиралось на реальный baseline «после»."
+  },
+  "next_executable": {
+    "slice": "VMQ-MEM",
+    "owner": "Builder (матрица и след) + Architect (обновить e2e после изменения пула/год-окна) + Reviewer (независимое сравнение)",
+    "action": "Снять baseline «после» на дереве 2.58.180 тем же read-only способом и оформить три отсутствующих артефакта: formulation-class-matrix.json (5 классов x прогоны), run-retrieval-trace.json (эпизоды/периоды/источники/связи), metrics-comparison.json (coverage, хронологическая точность, релевантность, выдуманные связи). Только они закрывают VMQ-MEM-01..03; паритет VMQ-MEM-04 остаётся условием (пересказ 2026, профиль пуст по ёмкости среза, RAG 2026x10).",
+    "blocked_by": "нет (P0-корректив выкачен); строго не смешивать с VMQ-MEM-TIME"
+  },
+  "deployment_note": "Почему строки не закрыты: строки VMQ-MEM-01..08 требуют матрицы пяти классов, следа retrieve(), четырёх метрик, паритета «факт не хуже рассказа», e2e Architect и независимого сравнения Reviewer — выкат доказывает только три исправленных дефекта; строки VMQ-TIME-01..09 требуют реализованного временнóго охвата по time/fix-contract.md. Три дефекта и три честные границы зафиксированы в deployment_evidence.defect_bindings/honest_boundaries с unblocks_req_ids и closes_req_ids=[]; отдельные строки под дефекты не создаются, потому что дефекты найдены измерением 2.58.179, а не сформулированы владельцем, и выдумывать им source_line нельзя.",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "epic": "VMQ-ONTO-01",
