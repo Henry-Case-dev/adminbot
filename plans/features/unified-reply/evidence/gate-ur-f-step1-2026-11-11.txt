@@ -1,0 +1,111 @@
+# Гейты требований — UR-F шаг 1 (c9ef6e72)
+
+Записано PM при фиксации закрытия шага 1. Команды выполнены из корня проекта `C:\Code\Python\adminbot`
+(`<OPENCODE_CONFIG>` = `C:\Users\main\.config\opencode`).
+
+```
+python C:\Users\main\.config\opencode\tools\requirements_gate.py check \
+  --map plans/features/unified-reply/requirements-map.json --stage plan --repo .
+```
+
+```
+stage=plan inventory=206 manual=140 scoped=0 errors=0
+```
+
+```
+python C:\Users\main\.config\opencode\tools\requirements_gate.py check \
+  --map plans/features/unified-reply/requirements-map.json --stage review \
+  --slice UR-F --candidate c9ef6e7281fe8cbdfdb4039af66f56fc6c4673da --repo .
+```
+
+```
+FAIL: UR-RES-07: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.7: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.8: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-22: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-21: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-29: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-BAN-08: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.1: no evidence bound to reviewed candidate
+FAIL: UR-20.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-20.2: no evidence bound to reviewed candidate
+FAIL: UR-20.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-20.3: no evidence bound to reviewed candidate
+FAIL: UR-20.3: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-20.9: no evidence bound to reviewed candidate
+FAIL: UR-20.9: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.01: no evidence bound to reviewed candidate
+FAIL: UR-21.01: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.15: no evidence bound to reviewed candidate
+FAIL: UR-21.15: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.17: no evidence bound to reviewed candidate
+FAIL: UR-21.17: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.19: no evidence bound to reviewed candidate
+FAIL: UR-21.19: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.20: no evidence bound to reviewed candidate
+FAIL: UR-21.20: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.21: no evidence bound to reviewed candidate
+FAIL: UR-21.21: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.22: no evidence bound to reviewed candidate
+FAIL: UR-21.22: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.23: no evidence bound to reviewed candidate
+FAIL: UR-21.23: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.24: no evidence bound to reviewed candidate
+FAIL: UR-21.24: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-22.1: no evidence bound to reviewed candidate
+FAIL: UR-22.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-22.2: no evidence bound to reviewed candidate
+FAIL: UR-22.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-29.1: no evidence bound to reviewed candidate
+FAIL: UR-29.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-29.2: no evidence bound to reviewed candidate
+FAIL: UR-29.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-29.3: no evidence bound to reviewed candidate
+FAIL: UR-29.3: no candidate-bound evidence points to an existing repo artifact
+stage=review inventory=206 manual=140 scoped=29 errors=47
+```
+
+## Разбор: почему review-гейт среза красный, и что из этого НЕ дефект шага 1
+
+`scoped=29` — гейт на стадии review оценивает весь срез UR-F, а не только шаг 1.
+
+1. **11 строк PENDING (`mandatory not ['VERIFIED']`)** — это открытая часть среза, а не регресс:
+   `UR-20`, `UR-20.4`–`UR-20.8` (шаги 2–3 не сделаны; шаг 1 закрыт только на уровне событий),
+   `UR-RES-07`, `UR-21`, `UR-22`, `UR-29`, `UR-BAN-08` (свои открытые критерии, см. причины в карте).
+   Для `UR-20.4`–`UR-20.8` в карте явно записано `partially_satisfied: events_layer` и точный остаток.
+2. **36 строк (18 × 2) у ранее принятых строк среза** — `no evidence bound to reviewed candidate` и
+   `no candidate-bound evidence points to an existing repo artifact`. Эти строки привязаны к своим
+   кандидатам (`7edcb2b4`, `4dca6439`, `57349e6d`, `95e5815d` и др.). Гейт требует, чтобы доказательство
+   было привязано к проверяемому кандидату `c9ef6e72`, то есть фактически требует повторного
+   slice-wide ревью уже принятых строк. Шаг 1 такого ревью не заявляет и не отменяет прежние привязки.
+3. **Ошибки `candidate mismatch` нет** — верхнеуровневый `candidate_commit` карты равен `c9ef6e72`.
+
+## Дополнительная проверка: разрешимость артефактов
+
+Тот же review-гейт, запущенный с `--repo` = рабочее дерево ветки `ur/f-inspector-step1`
+(`...\WorkspaceData\worktrees\c742e4de9e92c489\unified-reply-41500c30aca7-fdfa4344`, HEAD `c9ef6e72`),
+даёт тот же результат: `scoped=29 errors=47`. Ни одной новой ошибки не появляется, потому что строки
+`UR-20.4`–`UR-20.8` на стадии review останавливаются на статусе PENDING до проверки артефактов.
+
+Прямая проверка содержимого (sha256):
+
+| артефакт | master (3a33e46f) | дерево кандидата c9ef6e72 | sha256 |
+|---|---|---|---|
+| `tests/test_ur_f_inspector_step1.py` | отсутствует | есть, sha совпадает | `e061176b3dc79f39a75fe3012f02c2568f304004b21f3ace849959e67565ae34` |
+| `evidence/ur-f-inspector-contract.md` | есть, sha совпадает | отсутствует | `ba3a3d44a33499c629ddc56f5ee26db2cfe2fa868b129f15189219dfbe06023a` |
+| `evidence/ur-f-step1-delivery-snapshot.md` | есть, sha совпадает | отсутствует | `05bc72901f01ede21078e64c7cf722ecc2481eea459bf7def862e61f19645111` |
+
+Следствие, которое нельзя скрывать: пока шаг 1 не влит в интеграционную линию, ни один checkout не
+содержит одновременно тест среза и контрактные документы. Это состояние переноса, а не отсутствие
+доказательства; после слияния оба sha256 совпадут в одном дереве.
+
+## Что должно стать зелёным и когда
+
+- Шаг 2 (проекция API): строки `UR-20.4`–`UR-20.8` получают API-часть.
+- Шаг 3 (UI): строки получают UI-часть и live/UI-доказательства.
+- Только после этого допустим `--stage review --slice UR-F` с кандидатом, включающим шаги 2–3, и
+  повторная привязка уже принятых строк среза к этому кандидату.
