@@ -2524,9 +2524,12 @@ def _rag_rows_with_ranks(rows: list) -> tuple[list, dict]:
 # UR-F (шаг 1): данные события `direct_turn_selection` (UR-20.4…20.7)
 # ════════════════════════════════════════════════════════════════════════════
 
-#: Жёсткий лимит id на блок — тот же, что нормирует `turn_trace`
-#: (`SELECTION_SOURCE_IDS_MAX`): сборщик не накапливает больше, чем поедет.
-_MAX_SELECTION_IDS = _ttrace.SELECTION_SOURCE_IDS_MAX
+#: Жёсткий лимит id, который сборщик передаёт в трассу: ровно столько,
+#: сколько читает нормизатор `turn_trace` (`SELECTION_SOURCE_IDS_MAX * 4`).
+#: 8 — это контрактный размер СПИСКА в событии; передача «с запасом» нужна,
+#: чтобы `turn_trace` увидел реальное ПЕРЕПОЛНЕНИЕ и поставил `truncated`,
+#: а не получил уже срезанный список (иначе кап был бы невидим).
+_MAX_SELECTION_IDS = _ttrace.SELECTION_SOURCE_IDS_MAX * 4
 
 
 def _sel_int(value):
@@ -2569,13 +2572,29 @@ def _sel_row_ref(row, *, bot_user_id=None) -> tuple:
         return ("", None, 0)
 
 
+def _sel_row_ids(rows, *, bot_user_id=None, limit: int | None = None) -> list:
+    """`source_id` строк (формула композера) — БЕЗ контрактного среза по
+    умолчанию. Нужен, чтобы `counts.included_messages` считался по
+    ФАКТИЧЕСКИ вошедшим сообщениям, а не по обрезанному списку ссылок
+    (иначе 25 вошедших читались бы как 8)."""
+    ids: list = []
+    for row in list(rows or ()):
+        if limit is not None and len(ids) >= int(limit):
+            break
+        source_id, _tg, _ts = _sel_row_ref(row, bot_user_id=bot_user_id)
+        if source_id and source_id not in ids:
+            ids.append(source_id)
+    return ids
+
+
 def _sel_block(*, kind: str, role: str, rendered: bool, skip_reason: str = "",
                rows=(), tokens: int = 0, bot_user_id=None) -> dict:
     """Блок контекста хода: kind/role/rendered/ids/даты/токены (без текста).
 
     `source_ids`/`first_ts`/`last_ts` берутся из РЕАЛЬНЫХ строк, попавших в
     блок (или из готовых спанов эпизодов); выдумывать «что было в блоке»
-    запрещено (UR-23.7)."""
+    запрещено (UR-23.7). `source_ids` здесь может быть длиннее контрактных 8:
+    контрактный срез и признак усечения делает `turn_trace`."""
     ids: list = []
     stamps: list = []
     for row in list(rows or ()):
@@ -9745,6 +9764,12 @@ class DirectChatService:
             # (`p0`…`p3`), НЕ авторская роль участника: P0 не вытесняется,
             # P3 режется первым. Так видно, чем блок держался в запросе.
             _role_of = {0: "p0", 1: "p1", 2: "p2", 3: "p3"}
+            _bot_id = _sel_int(getattr(self, "bot_id", None))
+            # Полные (несрезанные) наборы id по видам блоков: по ним считается
+            # `counts.included_messages`. Срез ссылок до контрактных 8 в
+            # событии — отдельная операция `turn_trace`, и он не должен влиять
+            # на счётчик (иначе «вошло 25» читалось бы как «вошло 8»).
+            _full_ids: dict = {}
             _sel_blocks: list = []
             for _piece in sorted(allocation.pieces,
                                  key=lambda p: getattr(p, "position", 99)):
@@ -9769,14 +9794,17 @@ class DirectChatService:
                     rendered=bool(_text.strip()),
                     skip_reason=_skip_reason, rows=_rows,
                     tokens=count_tokens(_text),
-                    bot_user_id=getattr(self, "bot_id", None))
+                    bot_user_id=_bot_id)
+                if _kind in ("global_tail", "global_middle"):
+                    _full_ids[_kind] = _sel_row_ids(_rows, bot_user_id=_bot_id)
                 if _kind == "rag" and isinstance(rag_memory, dict):
                     # Факты памяти: id/даты считает сам `_build_rag_block`
                     # (после дедупа/реранка/сортировки).
-                    _block["source_ids"] = list(
-                        (rag_memory.get("source_ids") or ())[:_MAX_SELECTION_IDS])
+                    _rag_ids = list(rag_memory.get("source_ids") or ())
+                    _block["source_ids"] = _rag_ids[:_MAX_SELECTION_IDS]
                     _block["first_ts"] = int(rag_memory.get("first_ts") or 0)
                     _block["last_ts"] = int(rag_memory.get("last_ts") or 0)
+                    _full_ids[_kind] = _rag_ids
                 elif _kind == "episode":
                     # Спаны фактически вошедших эпизодов (без текста строк).
                     _ids: list = []
@@ -9790,6 +9818,7 @@ class DirectChatService:
                     _block["source_ids"] = _ids[:_MAX_SELECTION_IDS]
                     _block["first_ts"] = min(_stamps) if _stamps else 0
                     _block["last_ts"] = max(_stamps) if _stamps else 0
+                    _full_ids[_kind] = _ids
                 elif _kind == "thread":
                     # Ветка ответов: id/даты — из тех же `ChainItem`, что
                     # рендерились в блок (формула id композера).
@@ -9799,7 +9828,7 @@ class DirectChatService:
                         try:
                             _frag = _composer.chain_item_to_fragment(
                                 _item, role=_composer.ROLE_THREAD,
-                                bot_user_id=getattr(self, "bot_id", None))
+                                bot_user_id=_bot_id)
                         except Exception:      # pragma: no cover - защита
                             continue
                         _sid = str(getattr(_frag, "source_id", "") or "")
@@ -9811,13 +9840,15 @@ class DirectChatService:
                     _block["source_ids"] = _ids[:_MAX_SELECTION_IDS]
                     _block["first_ts"] = min(_stamps) if _stamps else 0
                     _block["last_ts"] = max(_stamps) if _stamps else 0
+                    _full_ids[_kind] = _ids
                 _sel_blocks.append(_block)
             # Счётчики: «доступно» — то, что композер реально мог взять в этом
-            # ходе; «вошло» — уникальные сообщения в ВИДИМЫХ блоках.
+            # ходе; «вошло» — уникальные сообщения в ВИДИМЫХ блоках, считанные
+            # по ПОЛНЫМ наборам (срез ссылок до 8 к счётчику не относится).
             _included_ids: set = set()
             for _block in _sel_blocks:
                 if _block.get("rendered"):
-                    _included_ids.update(_block.get("source_ids") or ())
+                    _included_ids.update(_full_ids.get(_block.get("kind")) or ())
             _counts = {
                 "available_messages": (len(global_parts["tail_rows"])
                                        + len(middle_rows) + len(list(chain
@@ -9830,7 +9861,6 @@ class DirectChatService:
             # Свои реплики в истории хода (UR-14: не образец стиля) — строки
             # ОКНА, реально вошедшие в payload и написанные ботом.
             _self_outputs: list = []
-            _bot_id = _sel_int(getattr(self, "bot_id", None))
             if _bot_id is not None:
                 for _row in _tail_present + _middle_present:
                     _uid = _sel_int(_row.get("user_id")) \

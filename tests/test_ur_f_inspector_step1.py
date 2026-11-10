@@ -437,6 +437,63 @@ def test_selection_list_limits_are_enforced_not_silently_dropped(events):
     assert clean.get("truncated") is True, "9 своих реплик → 6 (кап сработал)"
 
 
+def _plain_rows(count, *, start=1):
+    """Строки окна БЕЗ реплик бота (для счётчиков «вошло/доступно»)."""
+    return [{
+        "id": i, "tg_message_id": 600 + i, "user_id": 10,
+        "author_name": "Вася", "text": "строка окна %d" % i,
+        "timestamp": 1_700_000_000 + i, "reply_to_id": None,
+        "media_type": "text",
+    } for i in range(start, start + count)]
+
+
+@pytest.mark.asyncio
+async def test_real_turn_counts_entered_messages_not_capped_ids(
+        monkeypatch, events):
+    """РЕАЛЬНЫЙ ход с окном 25 сообщений: `included_messages` == 25.
+
+    Регресс, который поймал ревьюер: счётчик считался по УЖЕ срезанным до 8
+    `source_ids`, поэтому Inspector утверждал «вошло 8» при 25 реально
+    вошедших сообщениях (противоречие UR-20.4 по смыслу). Срез списка ссылок
+    обязан быть видимым (`truncated`), но не менять счётчик."""
+    rows = _plain_rows(25)
+
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=rows)
+    await svc.handle(bot, msg, user)
+
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    counts = payload.get("counts") or {}
+    assert counts.get("window_messages") == 25
+    assert counts.get("included_messages") == 25, \
+        "счётчик обязан считать ВОШЕДШИЕ сообщения, а не срез ссылок"
+    assert counts.get("available_messages") == 25
+
+    tail = next(b for b in payload["blocks"] if b.get("kind") == "global_tail")
+    assert len(tail["source_ids"]) == 8, "контрактный размер списка — 8"
+    assert payload.get("truncated") is True, \
+        "срез 25 → 8 обязан быть видимым, а не молчаливым"
+
+
+@pytest.mark.asyncio
+async def test_real_turn_within_cap_counts_equal_and_not_truncated(
+        monkeypatch, events):
+    """Ход в пределах капа: `included_messages` == числу вошедших, флага нет."""
+    rows = _plain_rows(4)
+
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=rows)
+    await svc.handle(bot, msg, user)
+
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    counts = payload.get("counts") or {}
+    assert counts.get("window_messages") == 4
+    assert counts.get("included_messages") == 4
+    assert counts.get("included_messages") == counts.get("available_messages")
+
+    tail = next(b for b in payload["blocks"] if b.get("kind") == "global_tail")
+    assert len(tail["source_ids"]) == 4
+    assert "truncated" not in payload
+
+
 def test_selection_within_limits_is_not_flagged_truncated():
     """Полный, не урезанный payload не помечается `truncated` (флаг — факт,
     а не постоянный шум)."""
