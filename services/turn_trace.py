@@ -51,6 +51,29 @@ logger = logging.getLogger(__name__)
 EVENT_CONTEXT = "direct_turn_context"      # trigger/chat/clock/L1/tools
 EVENT_WRITER = "direct_turn_writer"        # манифест запроса + завершение L2
 EVENT_DELIVERY = "direct_turn_delivery"    # операции доставки + digest + итог
+#: UR-F (unified-reply, шаг 1): ЧТО именно попало в запрос L2 — счётчики,
+#: бюджет, блоки с датами/ссылками, потерянное и собственные реплики бота.
+#: Эмитится `note_selection` БЕЗ in-memory `TurnTrace` (см. ниже).
+EVENT_SELECTION = "direct_turn_selection"
+
+#: Жёсткие лимиты списков события выбора (UR-F §7 R1): payload обязан
+#: оставаться в пределах `usage_json`, иначе `_pack` начнёт вытеснять
+#: содержательные поля. Переполнение режется ДЕТЕРМИНИРОВАННО и видно
+#: (`truncated` у события или усечённый список), а не молча теряется.
+SELECTION_BLOCKS_MAX = 16
+SELECTION_SOURCE_IDS_MAX = 8
+SELECTION_DROPPED_MAX = 8
+SELECTION_SELF_OUTPUTS_MAX = 6
+#: Ссылки выдачи (`source_links`) живут в отдельном JSON-слое
+#: `source_ref_json`, который `mca_events` ограничивает 2000 символами.
+SOURCE_LINKS_MAX = 6
+SOURCE_LINK_JSON_LIMIT = 2000
+#: Пределы значений allow-ветки ссылок (UR-F §3 R4).
+SOURCE_URL_MAX = 300
+SOURCE_TITLE_MAX = 120
+#: ЕДИНСТВЕННОЕ ослабление текстовой защиты: публичный адрес выдачи.
+#: Не текст чата, но длинный — поэтому `_scrub` превратил бы его в digest.
+SOURCE_URL_RE = re.compile(r"^https?://\S{4,%d}$" % SOURCE_URL_MAX)
 
 #: Логическая семья хода (§7 «trigger `direct|initiative|factcheck|...`»):
 #: конкретное значение матрицы триггеров едет отдельно (`trigger`), а семья —
@@ -155,7 +178,9 @@ class TurnTrace:
         "correlation_id", "chat_id", "trigger", "flow", "source_message_id",
         "source_author_id", "idempotency_key", "clock", "clock_source",
         "clock_ts", "clock_timezone", "clock_as_of_utc",
-        "clock_config_version", "clock_timezone_source",
+        "clock_config_version", "clock_timezone_source", "clock_stages",
+        "reply_to_message_id", "reply_to_author_id", "source_message_ts",
+        "alias_source_author", "alias_reply_parent",
         "l1", "tools", "tool_rounds", "tool_degraded",
         "tool_reason", "coverage", "llm_calls", "manifest", "request",
         "completion", "semantic_rewrite_count", "raw_final_digest",
@@ -167,7 +192,10 @@ class TurnTrace:
 
     def __init__(self, correlation_id: str, *, chat_id=None, trigger: str = "",
                  flow: str = FLOW_DIRECT, source_message_id=None,
-                 source_author_id=None, idempotency_key: str = ""):
+                 source_author_id=None, idempotency_key: str = "",
+                 reply_to_message_id=None, reply_to_author_id=None,
+                 source_message_ts=None, alias_source_author: str = "",
+                 alias_reply_parent: str = ""):
         self.correlation_id = str(correlation_id)
         self.chat_id = int(chat_id) if chat_id is not None else None
         self.trigger = _code(trigger, 32)
@@ -175,6 +203,13 @@ class TurnTrace:
         self.source_message_id = source_message_id
         self.source_author_id = source_author_id
         self.idempotency_key = _code(idempotency_key, 96)
+        # UR-20.4 (UR-F шаг 1): источник хода и родитель ответа. Только
+        # id/дата и ДВА пер-ходовых алиаса (§3): полный ростер не пишется.
+        self.reply_to_message_id = reply_to_message_id
+        self.reply_to_author_id = reply_to_author_id
+        self.source_message_ts = source_message_ts
+        self.alias_source_author = alias(alias_source_author)
+        self.alias_reply_parent = alias(alias_reply_parent)
         # UR-C-CLOCK (UR-26.7): структурированные поля ChatClock (аддитивно).
         self.clock_timezone = ""
         self.clock_as_of_utc = ""
@@ -183,6 +218,8 @@ class TurnTrace:
         self.clock = ""
         self.clock_source = ""
         self.clock_ts = None
+        #: UR-20.8: стадии, реально получившие TimeContext (`l1`/`tool`/`l2`).
+        self.clock_stages: list = []
         self.l1: dict = {}
         self.tools: list = []
         self.tool_rounds = 0
@@ -272,6 +309,20 @@ class TurnTrace:
             "llm_calls": dict(self.llm_calls),
             "idempotency_key": self.idempotency_key,
         }
+        # UR-20.4/UR-20.8 (UR-F шаг 1, аддитивно): источник хода и родитель
+        # ответа (id/дата/два алиаса) + стадии, реально получившие TimeContext.
+        # Ключи появляются только при реальном значении — старая трасса не
+        # получает `null`-заглушек (§2 «честная пустота»).
+        for key, value in (
+                ("reply_to_message_id", self.reply_to_message_id),
+                ("reply_to_author_id", self.reply_to_author_id),
+                ("source_message_ts", self.source_message_ts),
+                ("alias_source_author", self.alias_source_author),
+                ("alias_reply_parent", self.alias_reply_parent)):
+            if value not in (None, "", 0):
+                payload[key] = value
+        if self.clock_stages:
+            payload["clock_stages"] = list(self.clock_stages)
         if self.stop_reason:
             payload["stop_reason"] = self.stop_reason
         return payload
@@ -314,6 +365,11 @@ _TEXT_KEYS = frozenset({
 _MAX_FIELD_CHARS = 64
 #: Форма кода/enum/id: без пробелов и произвольной пунктуации.
 _CODE_RE = re.compile(r"^[A-Za-z0-9_.:/+@()\-]{1,96}$")
+#: Ключи, которым разрешено остаться строкой вопреки `_MAX_FIELD_CHARS`:
+#: публичный адрес выдачи (только `^https?://…`, иначе "") и заголовок
+#: страницы (≤120). Единственное место, где защита от текста ослаблена
+#: (UR-F §3 R4) — покрыто негативным тестом «текст чата в `source_url`».
+_LINK_KEYS = frozenset({"source_url"})
 
 
 def _code(value, limit: int = 32) -> str:
@@ -327,14 +383,45 @@ def _code(value, limit: int = 32) -> str:
     return text[:limit]
 
 
+def alias(value) -> str:
+    """Алиас участника хода (≤48): имя/ник, `@` срезается.
+
+    UR-F §3: полный ростер `_turn_aliases_snapshot()` в трассу НЕ пишется —
+    ровно два значения на ход (`alias_source_author`/`alias_reply_parent`).
+    Не-строка (двойник/`MagicMock`) → "" — выдуманное значение не пишем.
+    """
+    if not isinstance(value, str):
+        return ""
+    text = " ".join(value.split())
+    text = text.lstrip("@").strip()
+    return text[:48]
+
+
+def trace_code(value, limit: int = 32) -> str:
+    """Публичный нормализатор кода/enum/id для трассы (тот же, что `_code`).
+
+    Нужен продюсерам вне этого модуля (`direct_execution.source_links`),
+    чтобы «что считается кодом» определялось в ОДНОМ месте."""
+    return _code(value, limit)
+
+
 def _scrub(value, *, key: str = ""):
     """Рекурсивно убрать текст из payload'а: text-ключи и длинные строки →
-    digest + длина. Всё, что похоже на код/enum/id, остаётся как есть."""
+    digest + длина. Всё, что похоже на код/enum/id, остаётся как есть.
+
+    Два ИМЕНОВАННЫХ исключения (UR-F §3, R4) — и только они:
+    `source_url` (публичный адрес выдачи, строго `^https?://\\S{4,300}$`,
+    иначе "") и `source_title` (≤120 символов). Любой другой ключ, включая
+    `source_url` с текстом чата внутри, проходит обычную защиту."""
     if isinstance(value, dict):
         return {str(k): _scrub(v, key=str(k)) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [_scrub(item, key=key) for item in value]
     if isinstance(value, str):
+        if key in _LINK_KEYS:
+            return value if SOURCE_URL_RE.match(value) else ""
+        if key == "source_title":
+            return value.strip()[:SOURCE_TITLE_MAX]
         if key in _TEXT_KEYS or len(value) > _MAX_FIELD_CHARS:
             return {"digest": text_digest(value), "chars": len(value)}
         return value
@@ -355,7 +442,17 @@ def _pack(payload: dict) -> dict:
     try:
         if len(json.dumps(data, ensure_ascii=False)) <= _PAYLOAD_LIMIT:
             return data
-        for key in ("tools", "ops", "blocks", "revisions", "fallback_chain"):
+        # Порядок вытеснения: сначала то, что не несёт смысла при переполнении
+        # (собственные реплики / потерянные блоки), затем крупные списки.
+        for key in ("self_outputs", "dropped"):
+            value = data.get(key)
+            if isinstance(value, list) and value:
+                data[key] = value[:3]
+        if len(json.dumps(data, ensure_ascii=False)) <= _PAYLOAD_LIMIT:
+            data["truncated"] = True
+            return data
+        for key in ("tools", "ops", "blocks", "revisions", "fallback_chain",
+                    "source_links"):
             value = data.get(key)
             if isinstance(value, list) and value:
                 data[key] = value[:6]
@@ -375,17 +472,28 @@ def _pack(payload: dict) -> dict:
     return data
 
 
-def _emit(trace: TurnTrace, event_name: str, *, stage: str, outcome: str,
-          payload: dict):
-    """Эмитировать событие трассы через существующий контракт mca-13."""
+def _emit_raw(event_name: str, *, chat_id, trace_id, stage: str,
+              outcome: str, payload: dict):
+    """Эмитировать событие трассы через существующий контракт mca-13.
+
+    Отделено от `TurnTrace`, потому что часть событий (`direct_turn_selection`)
+    обязана записываться и без in-memory трассы (`begin()` не состоялся)."""
     try:
         from services import mca_events as _me
         return _me.emit_mca_event(
             event_name, outcome=outcome, component="direct_chat",
-            stage=stage, chat_id=trace.chat_id,
-            trace_id=trace.correlation_id, usage_json=_pack(payload))
+            stage=stage, chat_id=chat_id, trace_id=trace_id,
+            usage_json=_pack(payload))
     except Exception:      # pragma: no cover — трасса не рвёт ход
         return None
+
+
+def _emit(trace: TurnTrace, event_name: str, *, stage: str, outcome: str,
+          payload: dict):
+    """Эмитировать событие трассы через существующий контракт mca-13."""
+    return _emit_raw(event_name, chat_id=trace.chat_id,
+                     trace_id=trace.correlation_id, stage=stage,
+                     outcome=outcome, payload=payload)
 
 
 def emit_context(trace: TurnTrace, *, outcome: str = "success") -> None:
@@ -419,7 +527,10 @@ def emit_delivery(trace: TurnTrace, *, outcome: str = "success") -> None:
 def begin(correlation_id, *, chat_id=None, trigger: str = "",
           flow: str = FLOW_DIRECT, source_message_id=None,
           source_author_id=None,
-          idempotency_key: str = "") -> "TurnTrace | None":
+          idempotency_key: str = "",
+          reply_to_message_id=None, reply_to_author_id=None,
+          source_message_ts=None, alias_source_author: str = "",
+          alias_reply_parent: str = "") -> "TurnTrace | None":
     """Начать трассу хода. Нет `correlation_id` → трассы нет (fail-open)."""
     if not correlation_id:
         return None
@@ -428,7 +539,12 @@ def begin(correlation_id, *, chat_id=None, trigger: str = "",
             str(correlation_id), chat_id=chat_id, trigger=trigger, flow=flow,
             source_message_id=source_message_id,
             source_author_id=source_author_id,
-            idempotency_key=idempotency_key)
+            idempotency_key=idempotency_key,
+            reply_to_message_id=reply_to_message_id,
+            reply_to_author_id=reply_to_author_id,
+            source_message_ts=source_message_ts,
+            alias_source_author=alias_source_author,
+            alias_reply_parent=alias_reply_parent)
         with _lock:
             _turns[str(correlation_id)] = trace
             while len(_turns) > _MAX_TURNS:
@@ -499,6 +615,32 @@ def note_clock(correlation_id, *, line: str = "", source: str = "",
         if str(timezone_source or "").strip():
             trace.clock_timezone_source = _code(timezone_source, 32)
     except Exception:      # pragma: no cover
+        pass
+
+
+#: Порядок стадий хода для `clock_stages` (UR-20.8): кто реально подал
+#: TimeContext. Порядок канонический, чтобы одно и то же множество стадий
+#: давало одинаковый payload независимо от порядка вызовов.
+CLOCK_STAGE_ORDER = ("l1", "tool", "l2")
+
+
+def note_clock_stage(correlation_id, stage: str) -> None:
+    """Отметить стадию хода, которая РЕАЛЬНО получила TimeContext (UR-20.8).
+
+    Вызывается там, где строка часов действительно попала в payload стадии
+    (`l1` — планировщик, `tool` — tool-фаза, `l2` — Writer). Пустая строка
+    часов стадию не отмечает: «часы не поданы» — факт, а не догадка.
+    """
+    trace = get(correlation_id)
+    if trace is None or stage not in CLOCK_STAGE_ORDER:
+        return
+    try:
+        if stage not in trace.clock_stages:
+            trace.clock_stages.append(stage)
+            trace.clock_stages.sort(
+                key=lambda item: CLOCK_STAGE_ORDER.index(item)
+                if item in CLOCK_STAGE_ORDER else len(CLOCK_STAGE_ORDER))
+    except Exception:      # pragma: no cover — трасса не рвёт ход
         pass
 
 
@@ -591,6 +733,206 @@ def note_tools(correlation_id, *, tool_results=None, rounds: int = 0,
         trace.coverage = coverage
     except Exception:      # pragma: no cover — трасса не рвёт ход
         pass
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# UR-F (шаг 1): выбор контекста хода — durable БЕЗ in-memory трассы
+# ════════════════════════════════════════════════════════════════════════════
+
+STAGE_SELECTION = "turn_selection"
+_COUNT_KEYS = ("available_messages", "included_messages", "window_messages")
+_BUDGET_INT_KEYS = ("window", "output_reserve", "available", "budget",
+                    "payload_tokens", "fallback_window")
+_BUDGET_CODE_KEYS = ("slot", "window_source", "policy_mode")
+
+
+def _sel_int(value):
+    """Целое из свободного значения; всё остальное → None (не выдумываем)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
+
+
+def _sel_items(value, limit: int) -> list:
+    """Bounded-список без падения на неожиданном типе."""
+    try:
+        return list(value or ())[:int(limit)]
+    except Exception:      # pragma: no cover — защитная ветка
+        return []
+
+
+def _json_size(value) -> int:
+    """Размер JSON в символах (лимит `usage_json` считается так же)."""
+    try:
+        return len(json.dumps(value, ensure_ascii=False))
+    except Exception:      # pragma: no cover — защитная ветка
+        return 0
+
+
+def _sel_block(item) -> dict | None:
+    """Один блок контекста: kind/role/rendered/даты/ссылки/токены (без текста)."""
+    if not isinstance(item, dict):
+        return None
+    kind = _code(item.get("kind"), 32)
+    if not kind:
+        return None
+    row: dict = {"kind": kind, "rendered": bool(item.get("rendered"))}
+    role = _code(item.get("role"), 16)
+    if role:
+        row["role"] = role
+    skip = _code(item.get("skip_reason"), 32)
+    if skip:
+        row["skip_reason"] = skip
+    ids = [_code(ref, 48) for ref in
+           _sel_items(item.get("source_ids"), SELECTION_SOURCE_IDS_MAX)]
+    ids = [ref for ref in ids if ref]
+    if ids:
+        row["source_ids"] = ids
+    first_ts = _sel_int(item.get("first_ts"))
+    last_ts = _sel_int(item.get("last_ts"))
+    if first_ts:
+        row["first_ts"] = first_ts
+    if last_ts:
+        row["last_ts"] = last_ts
+    tokens = _sel_int(item.get("tokens"))
+    if tokens is not None:
+        row["tokens"] = tokens
+    return row
+
+
+def _sel_dropped(items) -> list:
+    """Потерянное на аллокации: агрегат по (reason_code, kind) — ≤8 строк.
+
+    Вход агрегируется ЦЕЛИКОМ (счётчики не теряются), усекается только число
+    строк словаря: при >8 различных парах остаются самые весомые, факт
+    усечения виден в логе (payload не расширяем полем вне контракта)."""
+    grouped: dict = {}
+    for item in _sel_items(items, 256):
+        if not isinstance(item, dict):
+            continue
+        reason = _code(item.get("reason_code"), 40)
+        kind = _code(item.get("kind"), 32)
+        if not reason and not kind:
+            continue
+        count = _sel_int(item.get("count"))
+        if count is None:
+            count = 1
+        key = (reason, kind)
+        grouped[key] = grouped.get(key, 0) + max(0, count)
+    rows = [{"reason_code": reason, "kind": kind, "count": count}
+            for (reason, kind), count in grouped.items()]
+    rows.sort(key=lambda row: (-row["count"], row["reason_code"],
+                               row["kind"]))
+    if len(rows) > SELECTION_DROPPED_MAX:
+        logger.info("[turn_trace] selection dropped groups truncated | "
+                    "groups=%d kept=%d", len(rows), SELECTION_DROPPED_MAX)
+        rows = rows[:SELECTION_DROPPED_MAX]
+    return rows
+
+
+def _sel_self_outputs(items) -> list:
+    """Свои реплики в истории хода: source_id/tg id/дата (≤6, без текста)."""
+    rows: list = []
+    for item in _sel_items(items, SELECTION_SELF_OUTPUTS_MAX):
+        if not isinstance(item, dict):
+            continue
+        row: dict = {}
+        source_id = _code(item.get("source_id"), 48)
+        if source_id:
+            row["source_id"] = source_id
+        tg_id = _sel_int(item.get("tg_message_id"))
+        if tg_id:
+            row["tg_message_id"] = tg_id
+        ts = _sel_int(item.get("ts"))
+        if ts:
+            row["ts"] = ts
+        if row:
+            rows.append(row)
+    return rows
+
+
+def _selection_payload(raw) -> dict:
+    """Нормализовать payload события выбора: лимиты списков и только коды.
+
+    Применяется ДО `_pack`, поэтому лимиты (блоки ≤16, id ≤8, потерянное ≤8,
+    собственные реплики ≤6) — жёсткие, а не «сколько влезло в JSON»."""
+    data = raw if isinstance(raw, dict) else {}
+    payload: dict = {}
+    counts = data.get("counts")
+    if isinstance(counts, dict):
+        clean = {key: _sel_int(counts.get(key)) for key in _COUNT_KEYS}
+        clean = {key: value for key, value in clean.items()
+                 if value is not None}
+        if clean:
+            payload["counts"] = clean
+    budget = data.get("budget")
+    if isinstance(budget, dict):
+        clean_budget: dict = {}
+        for key in _BUDGET_CODE_KEYS:
+            code = _code(budget.get(key), 32)
+            if code:
+                clean_budget[key] = code
+        for key in _BUDGET_INT_KEYS:
+            value = _sel_int(budget.get(key))
+            if key == "fallback_window":
+                # Контракт типизирует поле как `int|None`: None = «fallback-
+                # окна не было» — это факт, а не отсутствие данных.
+                clean_budget[key] = value
+                continue
+            if value is not None:
+                clean_budget[key] = value
+        if clean_budget:
+            payload["budget"] = clean_budget
+    blocks = [row for row in
+              (_sel_block(item) for item in
+               _sel_items(data.get("blocks"), SELECTION_BLOCKS_MAX))
+              if row]
+    if blocks:
+        payload["blocks"] = blocks
+    dropped = _sel_dropped(data.get("dropped"))
+    if dropped:
+        payload["dropped"] = dropped
+    self_outputs = _sel_self_outputs(data.get("self_outputs"))
+    if self_outputs:
+        payload["self_outputs"] = self_outputs
+    policy_version = _code(data.get("policy_version"), 32)
+    if policy_version:
+        payload["policy_version"] = policy_version
+    # Если payload не влезает в `usage_json`, сначала сокращаются ВТОРОСТЕПЕННЫЕ
+    # списки (свои реплики → потерянное), затем блоки с КОНЦА. Списки остаются
+    # списками (а не `{"count": N}` при упаковке), факт усечения помечен
+    # `truncated`. Приоритет: «что видел ответ» важнее производных списков.
+    if _json_size(payload) > _PAYLOAD_LIMIT \
+            and len(payload.get("self_outputs") or ()) > 3:
+        payload["self_outputs"] = payload["self_outputs"][:3]
+        payload["truncated"] = True
+    if _json_size(payload) > _PAYLOAD_LIMIT \
+            and len(payload.get("dropped") or ()) > 4:
+        payload["dropped"] = payload["dropped"][:4]
+        payload["truncated"] = True
+    while len(payload.get("blocks") or ()) > 1 \
+            and _json_size(payload) > _PAYLOAD_LIMIT:
+        payload["blocks"] = payload["blocks"][:-1]
+        payload["truncated"] = True
+    return payload
+
+
+def note_selection(correlation_id, *, chat_id=None, payload=None) -> None:
+    """Записать ЧТО попало в запрос L2 (UR-20.5/20.6/20.7) — БЕЗ трассы в RAM.
+
+    Отдельная от `begin()` точка эмиссии: событие обязано появиться, даже
+    если in-memory `TurnTrace` не создан (`begin()` не вызывался) или уже
+    вытеснен LRU. Текста чата здесь нет по построению: только счётчики,
+    бюджет, kind/role/даты/ссылки блоков, потерянное и свои реплики.
+    Никогда не бросает — ход важнее трассы (§7 R3)."""
+    if not correlation_id:
+        return
+    try:
+        _emit_raw(EVENT_SELECTION, chat_id=chat_id,
+                  trace_id=str(correlation_id), stage=STAGE_SELECTION,
+                  outcome="success", payload=_selection_payload(payload))
+    except Exception:      # pragma: no cover — трасса не рвёт ход
+        logger.debug("[turn_trace] selection note failed", exc_info=True)
 
 
 def _block_labels(parts) -> list:

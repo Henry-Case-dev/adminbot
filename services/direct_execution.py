@@ -1797,8 +1797,54 @@ class ToolEvidence:
                     else "claim_forbidden_no_evidence")
         return "claim_forbidden_no_evidence"
 
+    def source_links(self) -> list[dict]:
+        """Публичные адреса выдачи для трассы хода (UR-20.7).
+
+        Только `source_id`/`source_url`/`source_title`/`published_at` — НЕ
+        `snippet`/`content` (чужая выдача и тексты страниц остаются вне
+        трассы). Список ограничен и по числу (≤6), и по объёму: слой
+        `source_ref_json` в `mca_events` обрезается на 2000 символах, поэтому
+        переполнение отсекается здесь, а не обрезком JSON. Даты публикации
+        поиск не сообщает → поле пустое (UR-23.7: дата не выдумывается).
+        Никогда не бросает."""
+        from services import turn_trace as _tt
+        links: list[dict] = []
+        try:
+            for src in tuple(self.sources or ())[:64]:
+                if len(links) >= _tt.SOURCE_LINKS_MAX:
+                    break
+                url = str(getattr(src, "url", "") or "")
+                title = str(getattr(src, "title", "") or "")
+                if not url and not title:
+                    continue        # нечего показать — строка не нужна
+                if url and not _tt.SOURCE_URL_RE.match(url):
+                    # Схема/длина не те: такой адрес `_scrub` всё равно
+                    # отбросил бы (allow-ветка), поэтому ссылка не пишется —
+                    # заголовок без адреса не выдаётся за ссылку.
+                    continue
+                row = {
+                    "source_id": _tt.trace_code(
+                        getattr(src, "source_id", ""), 48),
+                    "source_url": url,
+                    "source_title": title.strip()[: _tt.SOURCE_TITLE_MAX],
+                    "published_at": _tt.trace_code(
+                        getattr(src, "published_at", ""), 32),
+                }
+                candidate = links + [row]
+                if len(json.dumps(candidate, ensure_ascii=False)) \
+                        > _tt.SOURCE_LINK_JSON_LIMIT - 100:
+                    break
+                links = candidate
+        except Exception:      # pragma: no cover - защитная ветка
+            return links
+        return links
+
     def trace_fields(self) -> dict:
-        """R17-safe трасса хода (UR-08): только enum/числа/id-ссылки."""
+        """R17-safe трасса хода (UR-08): только enum/числа/id-ссылки.
+
+        UR-F шаг 1 (UR-20.7): добавлен `source_links` (адрес/заголовок/дата) —
+        единственное место, где в трассу попадает не digest; защита ослаблена
+        ровно для ключей `source_url`/`source_title` в `turn_trace._scrub`."""
         return {
             "search_intent": str(self.search_intent or ""),
             "search_called": bool(self.search_called),
@@ -1807,6 +1853,7 @@ class ToolEvidence:
             "source_count": int(self.source_count),
             "search_skip_reason": str(self.search_skip_reason or ""),
             "evidence_used": bool(self.evidence_used),
+            "source_links": self.source_links(),
         }
 
 

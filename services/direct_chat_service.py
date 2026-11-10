@@ -2520,6 +2520,101 @@ def _rag_rows_with_ranks(rows: list) -> tuple[list, dict]:
     return facts, ranks
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# UR-F (шаг 1): данные события `direct_turn_selection` (UR-20.4…20.7)
+# ════════════════════════════════════════════════════════════════════════════
+
+#: Жёсткий лимит id на блок — тот же, что нормирует `turn_trace`
+#: (`SELECTION_SOURCE_IDS_MAX`): сборщик не накапливает больше, чем поедет.
+_MAX_SELECTION_IDS = _ttrace.SELECTION_SOURCE_IDS_MAX
+
+
+def _sel_int(value):
+    """Целое из значения (Telegram id/дата/счётчик); иное → None.
+
+    Двойник/`MagicMock` не должен превращаться в «1» через `__int__`:
+    принимаются только реальные int/float, остальное — честное «неизвестно»."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
+
+
+def _sel_ts(value):
+    """unix-время из числа/`datetime`; иное (в т.ч. двойник) → None."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return int(value)
+    stamp = getattr(value, "timestamp", None)
+    if not callable(stamp):
+        return None
+    try:
+        raw = stamp()
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return None
+    return int(raw)
+
+
+def _sel_row_ref(row, *, bot_user_id=None) -> tuple:
+    """`(source_id, tg_message_id, ts)` строки окна — та же формула id, что у
+    композера (`row_to_fragment`), чтобы Inspector и payload ссылались на одно
+    сообщение одинаково. Текст строки никуда не передаётся."""
+    try:
+        fragment = _composer.row_to_fragment(
+            row, role=_composer.ROLE_FRESH_NEIGHBOUR, bot_user_id=bot_user_id)
+        return (str(getattr(fragment, "source_id", "") or ""),
+                _sel_int(getattr(fragment, "tg_message_id", None)),
+                _sel_int(getattr(fragment, "timestamp_utc", 0)) or 0)
+    except Exception:      # pragma: no cover - защитная ветка
+        return ("", None, 0)
+
+
+def _sel_block(*, kind: str, role: str, rendered: bool, skip_reason: str = "",
+               rows=(), tokens: int = 0, bot_user_id=None) -> dict:
+    """Блок контекста хода: kind/role/rendered/ids/даты/токены (без текста).
+
+    `source_ids`/`first_ts`/`last_ts` берутся из РЕАЛЬНЫХ строк, попавших в
+    блок (или из готовых спанов эпизодов); выдумывать «что было в блоке»
+    запрещено (UR-23.7)."""
+    ids: list = []
+    stamps: list = []
+    for row in list(rows or ()):
+        if len(ids) >= _MAX_SELECTION_IDS:
+            break
+        source_id, _tg, ts = _sel_row_ref(row, bot_user_id=bot_user_id)
+        if source_id and source_id not in ids:
+            ids.append(source_id)
+        if ts:
+            stamps.append(ts)
+    return {
+        "kind": str(kind or ""),
+        "role": str(role or ""),
+        "rendered": bool(rendered),
+        "skip_reason": str(skip_reason or ""),
+        "source_ids": ids,
+        "first_ts": (min(stamps) if stamps else 0),
+        "last_ts": (max(stamps) if stamps else 0),
+        "tokens": int(tokens or 0),
+    }
+
+
+def _sel_piece_line_keys(piece) -> set:
+    """Ключи строк, ФАКТИЧЕСКИ оставшихся в piece после аллокации.
+
+    Ключ строки (`_context_line_dedup_key`) биективен структурному ref'у
+    сообщения, поэтому «строка в piece» = «сообщение в payload»: блок в трассе
+    не может показать id, которого нет в запросе, и наоборот."""
+    text = str(getattr(piece, "text", "") or "")
+    if not text:
+        return set()
+    keys: set = set()
+    for line in text.split("\n"):
+        key = _context_line_dedup_key(line)
+        if key:
+            keys.add(key)
+    return keys
+
+
 async def _social_frame_for_turn(chat_id, message=None, *, bundle=None,
                                  window=None, opportunity=None,
                                  requester_user_id=None):
@@ -4027,7 +4122,8 @@ class DirectChatService:
                 style_directives=style_directives,
                 extra_media_markers=_extra_media_markers,
                 history_sample=history_sample,
-                projection=_speech_projection)
+                projection=_speech_projection,
+                correlation_id=correlation_id)
             # Медиа-свидетельство актуальной ревизии — отдельным блоком payload
             # (данные, не инструкции); без связанного медиа блок не создаётся.
             user_blocks = self._insert_media_evidence(
@@ -4154,10 +4250,36 @@ class DirectChatService:
             # ChatClock, L1, инструменты, Writer и операции доставки —
             # по мере их фактического выполнения. Никаких сырых текстов:
             # только id/коды/числа/digest'ы.
+            # UR-F (UR-20.4, шаг 1): источник хода и родитель ответа —
+            # `reply_to_message_id`/`reply_to_author_id`/`source_message_ts`
+            # и ровно ДВА пер-ходовых алиаса (§3: полный ростер участников в
+            # трассу не пишется).
+            _trace_reply_tg = None
+            _trace_reply_uid = None
+            _trace_alias_parent = ""
+            if _reply_obj is not None:
+                _trace_reply_tg = _sel_int(getattr(_reply_obj, "message_id",
+                                                   None))
+                _trace_reply_from = getattr(_reply_obj, "from_user", None)
+                _trace_reply_uid = _sel_int(getattr(_trace_reply_from, "id",
+                                                    None))
+                _trace_alias_parent = self._trace_alias(
+                    _trace_reply_uid,
+                    getattr(_trace_reply_from, "first_name", None),
+                    getattr(_trace_reply_from, "username", None))
+            _trace_from_user = getattr(message, "from_user", None)
             _ttrace.begin(
                 correlation_id, chat_id=chat_id, trigger=_trigger_type,
                 source_message_id=_trigger_id,
                 source_author_id=(user_id or None),
+                reply_to_message_id=_trace_reply_tg,
+                reply_to_author_id=_trace_reply_uid,
+                source_message_ts=_sel_ts(getattr(message, "date", None)),
+                alias_source_author=self._trace_alias(
+                    (user_id or None),
+                    getattr(_trace_from_user, "first_name", None),
+                    getattr(_trace_from_user, "username", None)),
+                alias_reply_parent=_trace_alias_parent,
                 idempotency_key=_ttrace.idempotency_key(
                     chat_id=chat_id, tg_message_id=_trigger_id,
                     revision=1, user_id=(user_id or None)))
@@ -4845,6 +4967,10 @@ class DirectChatService:
                                    "%Y-%m-%dT%H:%M:%S+00:00"),
                                config_version=_turn_snap.config_version,
                                timezone_source=_turn_snap.timezone_source)
+            # UR-20.8 (UR-F шаг 1): стадии, РЕАЛЬНО получившие TimeContext.
+            # Writer получает `time_line` в payload (ниже) — отметка стоит на
+            # фактической доставке; инструменты отмечаются в `_l1_tool_phase`,
+            # планировщик — в `_plan_direct_l1`.
             # ASAP-VISION-SYNC-01 §4.4: финальная сборка payload перечитывает
             # медиа-состояние БЕЗ ожидания — если анализ завершился после L1,
             # Writer получает актуальную ревизию (старый pending-снимок
@@ -4859,6 +4985,10 @@ class DirectChatService:
                 _voice_bundle, user_blocks)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
+            # UR-20.8 (UR-F шаг 1): Writer реально подал строку часов —
+            # отмечаем стадию `l2` в трассе хода (пустая строка — не подана).
+            if str(time_line or "").strip():
+                _ttrace.note_clock_stage(correlation_id, "l2")
             # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
             # или дефолт. Другие пайплайны — без temperature (65.8).
             temperature = settings.tone_temperature(
@@ -5777,7 +5907,10 @@ class DirectChatService:
                 answer, chat_id=chat_id, plan=response_plan,
                 context="regular",
                 explicit_form=str(getattr(l1_plan, "form_override", "") or ""),
-                emit_events=True, stage="direct_pre_send")
+                emit_events=True, stage="direct_pre_send",
+                # UR-F шаг 1 (UR-20.8): событие `style_policy` привязывается к
+                # трассе хода (`trace_id`) и несёт сработавшие правила.
+                correlation_id=correlation_id)
             if _style_outcome.applied and str(_style_outcome.text or ""):
                 if _style_outcome.text != answer:
                     logger.info(
@@ -6138,6 +6271,21 @@ class DirectChatService:
             except (TypeError, ValueError):
                 continue
         return snapshot
+
+    def _trace_alias(self, user_id, name=None, username=None) -> str:
+        """Алиас участника для трассы хода (UR-20.4, ≤48): `@` срезан.
+
+        Резолюция — тем же `self.aliases`, что и у окна (второй резолвер
+        запрещён). Двойник без алиасов/не-строка → "" (выдуманное имя в
+        трассу не пишем). За ход пишутся РОВНО два алиаса (§3)."""
+        try:
+            resolver = getattr(self, "aliases", None)
+            if resolver is None:
+                return _ttrace.alias(name)
+            resolved = resolver.resolve(user_id, name, username)
+        except Exception:      # pragma: no cover - fail-open
+            return ""
+        return _ttrace.alias(resolved)
 
     def _build_reply_parent_ref(self, message):
         """Reply/quote-родитель хода как ссылочный объект (UR-01.3)."""
@@ -6556,6 +6704,11 @@ class DirectChatService:
         meta["l1_profile_chars"] = int(len(_decision_profile))
         # UR-C-CLOCK (UR-25.2/26.2): L1 видит время на начало планирования —
         # тот же план-снапшот хода (создан выше, до TurnRequest).
+        _l1_time_context = _cclock.render_chat_time_context(
+            snap_plan, phase=_cclock.PHASE_PLAN)
+        # UR-20.8 (UR-F шаг 1): планировщик реально получил TimeContext.
+        if str(_l1_time_context or "").strip():
+            _ttrace.note_clock_stage(correlation_id, "l1")
         context_text = _l1.build_l1_context(
             query=query,
             current_question=self._render_current_question(
@@ -6576,8 +6729,7 @@ class DirectChatService:
             history_partial=history_partial,
             alias_resolver=self.aliases,
             budget_tokens=_l1_budget,
-            time_context=_cclock.render_chat_time_context(
-                snap_plan, phase=_cclock.PHASE_PLAN))
+            time_context=_l1_time_context)
         input_chars = len(context_text)
         meta["l1_context_chars"] = int(input_chars)
         # ER-08-RC (§3): фактическая доставка цитаты в СОБРАННОМ пакете —
@@ -7135,6 +7287,10 @@ class DirectChatService:
             return None
         if getattr(plan, "needs_clarification", False) or not tool_schemas:
             return None
+        # UR-20.8 (UR-F шаг 1): tool-фаза реально получает TimeContext —
+        # стадия `tool` отмечается на фактической доставке, не «на всякий».
+        if str(time_line or "").strip():
+            _ttrace.note_clock_stage(correlation_id, "tool")
         result = await _dx.run_tool_phase(
             plan=plan, router=self.tool_router, ctx=tool_ctx, query=query,
             chat_id=chat_id, correlation_id=correlation_id,
@@ -8461,7 +8617,8 @@ class DirectChatService:
                                   style_directives: str = "",
                                   extra_media_markers: tuple = (),
                                   history_sample: dict | None = None,
-                                  projection=None
+                                  projection=None,
+                                  correlation_id: str | None = None
                                   ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
@@ -8533,9 +8690,10 @@ class DirectChatService:
         # P0-HA ISOLATION (§3): при активной выборке RAG-память (включая
         # граф-активацию/golden/self-echo) — дополнение вне диапазона,
         # помечается баннером (источник не выключается, метки остаются).
+        _rag_out: dict = {}
         rag_block, nostalgia_hint = await self._build_rag_block(
             chat_id, message, global_ctx, history_sample=history_sample,
-            projection=projection)
+            projection=projection, out_memory=_rag_out)
         if rag_block:
             blocks.append(("rag", rag_block))
         if composer_mode:
@@ -8672,7 +8830,8 @@ class DirectChatService:
                 trigger_message_id=trigger_message_id,
                 out_excluded=out_excluded, out_fallback=out_fallback,
                 style_directives=style_directives,
-                history_sample=history_sample, projection=projection)
+                history_sample=history_sample, projection=projection,
+                correlation_id=correlation_id, rag_memory=_rag_out)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
@@ -8912,7 +9071,10 @@ class DirectChatService:
         помеченное дополнение, piece P2) — второй поиск по корпусу не
         выполняется. `history_sample is None` → прежний `mode="history"`
         без границ, байт-паритет (H24)."""
-        stats = {"count": 0, "messages": 0, "tokens": 0, "hits": 0}
+        stats = {"count": 0, "messages": 0, "tokens": 0, "hits": 0,
+                 # UR-F шаг 1 (UR-20.5): спаны фактически вошедших эпизодов
+                 # (source_ids + первая/последняя дата) — без текста строк.
+                 "spans": []}
         if not mca_gates.retrieval_context_enabled():
             return "", stats
         text = str(query or "").strip()
@@ -9049,6 +9211,20 @@ class DirectChatService:
             episode_lines.extend(lines)
             stats["count"] += 1
             stats["messages"] += len(lines)
+            # UR-F шаг 1 (UR-20.5): спан эпизода — какие сообщения реально
+            # вошли (ids и даты), без текста. Ровно то, что видно в логе ниже.
+            try:
+                _span = _sel_block(
+                    kind="episode", role="span", rendered=True,
+                    rows=span_rows,
+                    bot_user_id=getattr(self, "bot_id", None))
+                stats["spans"].append({
+                    "source_ids": list(_span["source_ids"]),
+                    "first_ts": _span["first_ts"],
+                    "last_ts": _span["last_ts"],
+                })
+            except Exception:      # pragma: no cover - наблюдение не рвёт сборку
+                pass
             logger.info(
                 "direct: old episode | chat=%s hit=tg:%s hit_row=%s "
                 "span=%s..%s rows=%d reason=%s", chat_id, hit_tg, hit_row,
@@ -9095,7 +9271,9 @@ class DirectChatService:
             out_fallback: dict | None = None,
             style_directives: str = "",
             history_sample: dict | None = None,
-            projection=None) -> list[str]:
+            projection=None,
+            correlation_id: str | None = None,
+            rag_memory: dict | None = None) -> list[str]:
         """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
 
         Конвейер §6 ТЗ: candidates (существующие билдеры, global/thread без
@@ -9106,7 +9284,12 @@ class DirectChatService:
         деградация §3.9. Observability: CONTEXT_CAPACITY/SELECT/PRESSURE/
         PHYSICAL_OVERFLOW + счётчики §46 + diagnostics-снапшот (miniapp §34).
         Ошибки аллокации → fail-open: legacy `_apply_context_budget` на
-        собранных кандидатах."""
+        собранных кандидатах.
+
+        UR-F шаг 1 (UR-20.5/20.6): здесь же измеряется, ЧТО реально вошло в
+        запрос L2 (`counts`/`budget`/`blocks`/`dropped`/`self_outputs`) и
+        отдаётся в `turn_trace.note_selection` — durable-событие, невидимое
+        для ответа и не влияющее на него (fail-open)."""
         query = _message_user_text(message)
         try:
             episode_block, episode_stats = await self._build_old_episodes(
@@ -9126,8 +9309,11 @@ class DirectChatService:
         candidates: list[tuple[str, str]] = [
             (kind, text) for kind, text in blocks
             if kind != "thread" and text]
-        middle_lines = self._compose_middle_lines(
+        middle_lines, middle_rows = self._compose_middle_lines(
             global_parts, query, chain, roster, projection)
+        # Пары «строка ↔ исходная строка окна» нужны трассе хода: после
+        # аллокации/дедупа восстановить принадлежность по тексту нельзя.
+        _middle_pairs = list(zip(middle_rows, middle_lines))
         candidates.append(("episode", episode_block))
         # P0-HA ISOLATION (§3): вне-диапазонная память (хиты за краями
         # выборки + продолжения эпизодов за краем) — ТОЛЬКО явно помеченным
@@ -9536,19 +9722,165 @@ class DirectChatService:
             "physical_overflow": bool(allocation.physical_overflow),
             "updated_at": int(time.time()),
         })
+        # ── UR-F шаг 1 (UR-20.5/20.6/20.7): ЧТО реально вошло в запрос L2 ───
+        # Собирается из УЖЕ посчитанных значений прогона (окно/tail_rows/
+        # middle-отбор/chain/спаны эпизодов/факты памяти/бюджет) — второго
+        # прохода по данным нет. Текст чата не пишется: только счётчики,
+        # id/даты, kind/role и потерянное. Fail-open: сбой сбора не влияет на
+        # возвращаемый payload (ход важнее трассы, §7 R3).
+        try:
+            _tail_pairs = list(zip(global_parts["tail_rows"],
+                                   global_parts["tail_lines"]))
+            _tail_piece = next((p for p in allocation.pieces
+                                if p.kind == "global_tail"), None)
+            _middle_piece = next((p for p in allocation.pieces
+                                  if p.kind == "global_middle"), None)
+            _tail_keys = _sel_piece_line_keys(_tail_piece)
+            _middle_keys = _sel_piece_line_keys(_middle_piece)
+            _tail_present = [row for row, line in _tail_pairs
+                             if _context_line_dedup_key(line) in _tail_keys]
+            _middle_present = [row for row, line in _middle_pairs
+                               if _context_line_dedup_key(line) in _middle_keys]
+            _role_of = {0: "p0", 1: "p1", 2: "p2", 3: "p3"}
+            _sel_blocks: list = []
+            for _piece in sorted(allocation.pieces,
+                                 key=lambda p: getattr(p, "position", 99)):
+                _kind = str(getattr(_piece, "kind", "") or "")
+                if not _kind:
+                    continue
+                _text = str(getattr(_piece, "text", "") or "")
+                _skip_reason = ""
+                for _drop in allocation.excluded:
+                    if _drop.get("kind") == _kind:
+                        _skip_reason = str(_drop.get("reason_code") or "")
+                        break
+                _rows: list = []
+                if _kind == "global_tail":
+                    _rows = _tail_present
+                elif _kind == "global_middle":
+                    _rows = _middle_present
+                _block = _sel_block(
+                    kind=_kind,
+                    role=_role_of.get(int(getattr(_piece, "priority",
+                                                  _composer.P2)), "p2"),
+                    rendered=bool(_text.strip()),
+                    skip_reason=_skip_reason, rows=_rows,
+                    tokens=count_tokens(_text),
+                    bot_user_id=getattr(self, "bot_id", None))
+                if _kind == "rag" and isinstance(rag_memory, dict):
+                    # Факты памяти: id/даты считает сам `_build_rag_block`
+                    # (после дедупа/реранка/сортировки).
+                    _block["source_ids"] = list(
+                        (rag_memory.get("source_ids") or ())[:_MAX_SELECTION_IDS])
+                    _block["first_ts"] = int(rag_memory.get("first_ts") or 0)
+                    _block["last_ts"] = int(rag_memory.get("last_ts") or 0)
+                elif _kind == "episode":
+                    # Спаны фактически вошедших эпизодов (без текста строк).
+                    _ids: list = []
+                    _stamps: list = []
+                    for _span in (episode_stats.get("spans") or ()):
+                        _ids.extend(list(_span.get("source_ids") or ()))
+                        if int(_span.get("first_ts") or 0):
+                            _stamps.append(int(_span["first_ts"]))
+                        if int(_span.get("last_ts") or 0):
+                            _stamps.append(int(_span["last_ts"]))
+                    _block["source_ids"] = _ids[:_MAX_SELECTION_IDS]
+                    _block["first_ts"] = min(_stamps) if _stamps else 0
+                    _block["last_ts"] = max(_stamps) if _stamps else 0
+                elif _kind == "thread":
+                    # Ветка ответов: id/даты — из тех же `ChainItem`, что
+                    # рендерились в блок (формула id композера).
+                    _ids = []
+                    _stamps = []
+                    for _item in list(chain or ()):
+                        try:
+                            _frag = _composer.chain_item_to_fragment(
+                                _item, role=_composer.ROLE_THREAD,
+                                bot_user_id=getattr(self, "bot_id", None))
+                        except Exception:      # pragma: no cover - защита
+                            continue
+                        _sid = str(getattr(_frag, "source_id", "") or "")
+                        if _sid and _sid not in _ids:
+                            _ids.append(_sid)
+                        _ts = _sel_int(getattr(_frag, "timestamp_utc", 0)) or 0
+                        if _ts:
+                            _stamps.append(_ts)
+                    _block["source_ids"] = _ids[:_MAX_SELECTION_IDS]
+                    _block["first_ts"] = min(_stamps) if _stamps else 0
+                    _block["last_ts"] = max(_stamps) if _stamps else 0
+                _sel_blocks.append(_block)
+            # Счётчики: «доступно» — то, что композер реально мог взять в этом
+            # ходе; «вошло» — уникальные сообщения в ВИДИМЫХ блоках.
+            _included_ids: set = set()
+            for _block in _sel_blocks:
+                if _block.get("rendered"):
+                    _included_ids.update(_block.get("source_ids") or ())
+            _counts = {
+                "available_messages": (len(global_parts["tail_rows"])
+                                       + len(middle_rows) + len(list(chain
+                                                                    or ()))
+                                       + int(episode_stats.get("messages")
+                                             or 0)),
+                "included_messages": len(_included_ids),
+                "window_messages": len(list(window or ())),
+            }
+            # Свои реплики в истории хода (UR-14: не образец стиля) — строки
+            # ОКНА, реально вошедшие в payload и написанные ботом.
+            _self_outputs: list = []
+            _bot_id = _sel_int(getattr(self, "bot_id", None))
+            if _bot_id is not None:
+                for _row in _tail_present + _middle_present:
+                    _uid = _sel_int(_row.get("user_id")) \
+                        if hasattr(_row, "get") else None
+                    if _uid is None or _uid != _bot_id:
+                        continue
+                    _sid, _tg, _ts = _sel_row_ref(_row, bot_user_id=_bot_id)
+                    if _sid:
+                        _self_outputs.append({"source_id": _sid,
+                                              "tg_message_id": _tg,
+                                              "ts": _ts})
+            _ttrace.note_selection(
+                correlation_id, chat_id=chat_id,
+                payload={
+                    "counts": _counts,
+                    "budget": {
+                        "slot": "direct.primary",
+                        "window": int(model_window),
+                        "window_source": str(window_source),
+                        "output_reserve": int(output_reserve),
+                        "available": int(available),
+                        "budget": int(budget),
+                        "policy_mode": str(policy_mode),
+                        "payload_tokens": int(used_tokens),
+                        "fallback_window": (int(fallback_recompose_budget)
+                                            if fallback_recompose_budget
+                                            else None),
+                    },
+                    "blocks": _sel_blocks,
+                    "dropped": [dict(item) for item in allocation.excluded],
+                    "self_outputs": _self_outputs,
+                    "policy_version": _composer.COMPOSER_POLICY_VERSION,
+                })
+        except Exception:      # pragma: no cover - трасса не рвёт ход
+            logger.warning("direct: selection trace failed | chat=%s",
+                           chat_id, exc_info=True)
         return final_texts
 
     def _compose_middle_lines(self, global_parts: dict, query: str,
                               chain: list, roster: list,
-                              projection=None) -> list[str]:
+                              projection=None) -> tuple[list[str], list]:
         """D5: importance-aware top-K выбор unsummarized middle (bounded
         `CHAT_MIDDLE_MAX_MESSAGES`) из диапазона, не покрытого гарантированным
         floor'ом хвоста (candidates уже = post_rows[:-tail_min], см. parts).
         Хронологический ASC (детерминизм). Дедуп против ФАКТИЧЕСКИ вошедшего
-        tail выполняется после аллокации (см. _compose_user_content)."""
+        tail выполняется после аллокации (см. _compose_user_content).
+
+        Возвращает `(строки, выбранные строки)` — второе нужно трассе хода
+        (UR-20.5: source id/даты блока `global_middle`), и это ТОТ ЖЕ отбор,
+        а не второй проход."""
         middle_rows = list(global_parts.get("middle_rows") or [])
         if not middle_rows:
-            return []
+            return [], []
         top_k = _composer.middle_max_messages()
         chain_tg: set[int] = set()
         for item in chain or []:
@@ -9576,13 +9908,15 @@ class DirectChatService:
                 if projection is not None and speech_projection_enabled()
                 else {})
         lines = []
+        rendered_rows = []
         for row in selected:
             if not (row["text"] or ""):
                 continue
             lines.append(self._context_row_line(row, {}, None,
                                                 projection=projection,
                                                 window_items=refs))
-        return lines
+            rendered_rows.append(row)
+        return lines, rendered_rows
 
     async def _summary_revision(self, chat_id: int) -> str | None:
         """M-MCA07-1: revision источников сводки (`window_end_ts:raw_count`).
@@ -12207,7 +12541,8 @@ class DirectChatService:
     async def _build_rag_block(self, chat_id: int, message,
                                global_ctx: str,
                                history_sample: dict | None = None,
-                               projection=None
+                               projection=None,
+                               out_memory: dict | None = None
                                ) -> tuple[str, str]:
         """Блок `<RAG_Memory>` direct-пути (F1-F4):
         F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
@@ -12354,6 +12689,32 @@ class DirectChatService:
                            cap, chat_id)
             content = content[:cap]
         logger.info("direct: rag block | facts=%d | chat=%s", len(kept), chat_id)
+        # UR-F шаг 1 (UR-20.5/20.7): какие ИМЕННО факты памяти вошли в блок —
+        # id и даты (текст факта не копируется). Out-параметр, потому что
+        # второй проход по фактам после рендера запрещён (порядок/метки уже
+        # применены).
+        if out_memory is not None:
+            try:
+                ids: list = []
+                stamps: list = []
+                for item in order_rag_facts_asc(kept):
+                    try:
+                        item_id = item[4]
+                    except (TypeError, IndexError):
+                        item_id = None
+                    if item_id and str(item_id) not in ids:
+                        ids.append(str(item_id))
+                    try:
+                        stamp = int(item[2] or 0)
+                    except (TypeError, ValueError):
+                        stamp = 0
+                    if stamp:
+                        stamps.append(stamp)
+                out_memory["source_ids"] = ids
+                out_memory["first_ts"] = min(stamps) if stamps else 0
+                out_memory["last_ts"] = max(stamps) if stamps else 0
+            except Exception:      # pragma: no cover - наблюдение не рвёт блок
+                pass
         return f"<RAG_Memory>\n{content}\n</RAG_Memory>", hint
 
     # ── Раунд 9 (AGI Memory, E1/T-826, spec §3.5.1): маркер «золотых» ──

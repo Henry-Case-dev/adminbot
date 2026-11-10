@@ -1,0 +1,570 @@
+"""UR-F «Полнота инспектора хода» — ШАГ 1 (контракт данных, без UI).
+
+Источник: `plans/features/unified-reply/evidence/ur-f-inspector-contract.md`
+(§2 — новое событие `direct_turn_selection`, §3 — приватность/allow-ветка
+ссылок, §6 шаг 1). Покрывается именно контракт записи:
+
+* `direct_turn_selection` эмитится для РЕАЛЬНОГО хода с полями
+  `counts/budget/blocks/dropped/self_outputs/policy_version` и связан с
+  трассой хода тем же `trace_id`;
+* событие пишется БЕЗ in-memory `TurnTrace` (иначе теряется, когда
+  `begin()` не состоялся) — это прямое требование контракта;
+* жёсткие лимиты списков (блоки ≤16, id ≤8, потерянное ≤8, свои реплики ≤6):
+  переполнение усекается детерминированно и видно (`truncated`), а не
+  исчезает молча;
+* `_scrub` принимает ровно `source_url` вида `^https?://…` (остальное — ""),
+  `source_title` ≤120, любой другой длинный текст по-прежнему digest;
+* сбой сборки выбора НЕ ломает ответ (fail-open, §7 R3);
+* `style_policy` получает `trace_id` и СРАБОТАВШИЕ правила (id/причина) без
+  текста правил и без `RuleOutcome.detail`.
+
+TEST-LIFECYCLE: CONTRACT owner=UR-F (`ur-f-inspector-contract.md`, шаг 1).
+"""
+import json
+
+import pytest
+
+from services import direct_chat_service
+from services import mca_events
+from services import style_policy as _sp
+from services import turn_trace
+from services.llm_client import LLMCompletion
+
+pytestmark = [pytest.mark.system2, pytest.mark.asap3]
+
+CHAT_ID = -1009876543210
+BOT_ID = 12345
+#: Сентinel-строки: их НЕ должно быть ни в одном payload'е новой трассы.
+SECRET_QUERY = "СЕКРЕТНЫЙ_ВОПРОС_URF_123456"
+SECRET_ANSWER = "УНИКАЛЬНЫЙ_ОТВЕТ_URF_987654"
+
+
+@pytest.fixture(autouse=True)
+def _clean_trace():
+    turn_trace.reset()
+    yield
+    turn_trace.reset()
+
+
+@pytest.fixture
+def events(monkeypatch):
+    """Перехват единственной точки эмиссии (`mca_events.emit_mca_event`)."""
+    seen: list = []
+
+    def spy(event_name, *, outcome, **fields):
+        seen.append({"event_name": event_name, "outcome": outcome, **fields})
+        return {"event_name": event_name, "outcome": outcome, **fields}
+
+    monkeypatch.setattr(mca_events, "emit_mca_event", spy)
+    return seen
+
+
+def _event(seen, name):
+    for item in seen:
+        if item.get("event_name") == name:
+            return item
+    raise AssertionError("нет события %r; есть %r"
+                         % (name, [e.get("event_name") for e in seen]))
+
+
+def _payload(seen, name):
+    return dict(_event(seen, name).get("usage_json") or {})
+
+
+def _payload_of(seen, name, trace_id):
+    """Payload КОНКРЕТНОГО события (по `trace_id`) — списки могут повторяться."""
+    for item in seen:
+        if item.get("event_name") == name \
+                and item.get("trace_id") == trace_id:
+            return dict(item.get("usage_json") or {})
+    raise AssertionError("нет события %r для trace_id=%r"
+                         % (name, trace_id))
+
+
+# ── ход целиком (тот же харнесс, что у RLR-06-OBSERVABILITY) ────────────────
+
+def _rows(count=6):
+    """Строки окна чата: часть — реплики БОТА (для `self_outputs`)."""
+    rows = []
+    for i in range(1, count + 1):
+        is_bot = (i % 3 == 0)
+        rows.append({
+            "id": i, "tg_message_id": 500 + i,
+            "user_id": BOT_ID if is_bot else 10,
+            "author_name": "бот" if is_bot else "Вася",
+            "text": "строка окна %d" % i,
+            "timestamp": 1_700_000_000 + i,
+            "reply_to_id": None, "media_type": "text",
+        })
+    return rows
+
+
+class _StagedLLM:
+    """L1-план + финальный Writer с метаданными (как в проде)."""
+
+    def __init__(self, *, plan=None):
+        self.l1_reply = plan if plan is not None else _plan()
+        self.calls: list = []
+        self._chat_model = "chat-model-x"
+        self._base_url = "https://api.test/v1"
+        self._fallback_model = "fb-model"
+
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       module=None, step=None, correlation_id=None, **kwargs):
+        self.calls.append(step)
+        if step == "l1_planner":
+            return self.l1_reply
+        return SECRET_ANSWER
+
+    async def generate_with_metadata(self, messages, temperature=None,
+                                     chat_id=None, module=None, step=None,
+                                     correlation_id=None, **kwargs):
+        self.calls.append(step)
+        if step == "l1_planner":
+            return _completion(self.l1_reply, "stop", correlation_id)
+        return _completion(SECRET_ANSWER, "stop", correlation_id)
+
+
+def _plan():
+    from tests.test_asap7_direct_l1 import _plan_json
+    return _plan_json()
+
+
+def _completion(text, finish_reason, correlation_id=None):
+    return LLMCompletion(
+        text=text, finish_reason=finish_reason, provider="test-provider",
+        model="test-model", usage={"prompt_tokens": 11, "completion_tokens": 7,
+                                   "total_tokens": 18},
+        max_output_tokens_sent=1000, attempt=1,
+        correlation_id=correlation_id)
+
+
+def _drive(monkeypatch, llm, *, text="бот, как дела?", window=None):
+    """Продовый ход Direct (композер ON) с РЕАЛЬНОЙ доставкой."""
+    from config.settings import Settings
+    from tests.test_direct_chat import FakeMemory, _bot, _make_service, \
+        _message, _user
+
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", True)
+    monkeypatch.setattr(Settings, "DIRECT_DECISION_MAKING_ENABLED", True)
+    monkeypatch.setattr(Settings, "PERSONA_ENABLED", False)
+    memory = FakeMemory(window=list(window or ()))
+    svc = _make_service(memory=memory, llm=llm)
+    bot = _bot()
+    msg = _message(text=text, message_id=4242, chat_id=CHAT_ID)
+    return svc, bot, msg, _user()
+
+
+def _turn_events(seen, name):
+    """События одного хода по `trace_id` его контекстного события."""
+    correlation_id = _event(seen, turn_trace.EVENT_CONTEXT).get("trace_id")
+    assert correlation_id
+    return correlation_id, [e for e in seen
+                            if e.get("trace_id") == correlation_id]
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 1. Событие выбора для реального хода: форма payload'а и связь с трассой
+# ════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_real_turn_emits_selection_event_with_contract_shape(
+        monkeypatch, events):
+    """Реальный ход: `direct_turn_selection` с тем же `trace_id`, что трасса.
+
+    Проверяются ФАКТИЧЕСКИЕ значения: блоки ссылаются на сообщения окна
+    (source_id/даты), свои реплики бота видны отдельным списком, счётчики
+    описывают реальное окно, бюджет — посчитанный ходом."""
+    from services import direct_context_composer as _composer
+
+    rows = _rows(6)
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=rows)
+    await svc.handle(bot, msg, user)
+
+    correlation_id, turn = _turn_events(events, turn_trace.EVENT_SELECTION)
+    selection = [e for e in turn
+                 if e.get("event_name") == turn_trace.EVENT_SELECTION]
+    assert len(selection) == 1, "событие выбора должно быть ровно одно"
+    event = selection[0]
+    payload = dict(event.get("usage_json") or {})
+
+    # ── привязка к трассе хода и стадия
+    assert event.get("trace_id") == correlation_id
+    assert event.get("stage") == "turn_selection"
+    assert event.get("component") == "direct_chat"
+    assert event.get("chat_id") == CHAT_ID
+
+    # ── версия политики: без неё «0» в счётчиках не честен (§2 контракта)
+    assert payload.get("policy_version") == \
+        _composer.COMPOSER_POLICY_VERSION
+
+    # ── счётчики: реальное окно хода
+    counts = payload.get("counts") or {}
+    assert counts.get("window_messages") == len(rows)
+    assert counts.get("available_messages") >= len(rows)
+    assert counts.get("included_messages") >= 1
+
+    # ── бюджет: посчитанные ходом числа (а не заглушки)
+    budget = payload.get("budget") or {}
+    assert budget.get("slot") == "direct.primary"
+    assert isinstance(budget.get("window"), int) and budget["window"] > 0
+    assert isinstance(budget.get("budget"), int) and budget["budget"] > 0
+    assert budget.get("policy_mode")
+    assert isinstance(budget.get("payload_tokens"), int)
+
+    # ── блоки: свежий хвост окна с РЕАЛЬНЫМИ source_id и датами
+    blocks = payload.get("blocks") or []
+    assert blocks, "блоки контекста не записаны"
+    tail = [b for b in blocks if b.get("kind") == "global_tail"]
+    assert tail, "нет блока свежего хвоста: %r" % [b.get("kind")
+                                                   for b in blocks]
+    tail_ids = list(tail[0].get("source_ids") or ())
+    assert tail_ids, "у блока хвоста нет source_ids"
+    assert len(tail_ids) <= turn_trace.SELECTION_SOURCE_IDS_MAX
+    # id — по формуле композера (msg:/bot_output_tg:), не выдуманные
+    assert all(ref.split(":", 1)[0] in ("msg", "bot_output_tg", "row")
+               for ref in tail_ids), tail_ids
+    expected_tg = {str(row["tg_message_id"]) for row in rows}
+    assert {ref.split(":", 1)[1] for ref in tail_ids} <= expected_tg
+    assert tail[0].get("first_ts") and tail[0].get("last_ts")
+    assert tail[0]["first_ts"] <= tail[0]["last_ts"]
+    assert isinstance(tail[0].get("tokens"), int)
+
+    # ── свои реплики в истории: реальные бот-строки окна
+    self_outputs = payload.get("self_outputs") or []
+    assert self_outputs, "свои реплики бота не записаны"
+    bot_tgs = {row["tg_message_id"] for row in rows
+               if row["user_id"] == BOT_ID}
+    assert {row.get("tg_message_id") for row in self_outputs} <= bot_tgs
+    assert all(str(row.get("source_id", "")).startswith("bot_output_tg:")
+               for row in self_outputs), self_outputs
+
+    # ── приватность: ни вопроса, ни ответа, ни текста строк окна
+    blob = json.dumps(event, ensure_ascii=False)
+    for forbidden in (SECRET_QUERY, SECRET_ANSWER, "строка окна"):
+        assert forbidden not in blob, "текст попал в событие выбора: %s" % \
+            forbidden
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 2. Событие пишется БЕЗ in-memory трассы (`begin()` не состоялся)
+# ════════════════════════════════════════════════════════════════════════════
+
+def test_selection_is_recorded_without_in_memory_trace(events):
+    """`begin()` не вызывался → события всё равно есть (требование §2).
+
+    Иначе ровно тот случай, ради которого событие вводилось (нет/вытеснена
+    трасса), терял бы данные о том, что вошло в запрос."""
+    assert turn_trace.get("cid-no-trace") is None
+
+    turn_trace.note_selection(
+        "cid-no-trace", chat_id=CHAT_ID,
+        payload={
+            "counts": {"available_messages": 3, "included_messages": 2,
+                       "window_messages": 4},
+            "budget": {"slot": "direct.primary", "window": 8000,
+                       "window_source": "model_capacity", "output_reserve": 500,
+                       "available": 7000, "budget": 6000,
+                       "policy_mode": "dynamic", "payload_tokens": 1200,
+                       "fallback_window": None},
+            "blocks": [{"kind": "global_tail", "role": "p1", "rendered": True,
+                        "source_ids": ["msg:501"], "first_ts": 1700000001,
+                        "last_ts": 1700000001, "tokens": 12}],
+            "dropped": [{"reason_code": "budget_exceeded",
+                         "kind": "global_middle", "count": 2}],
+            "self_outputs": [{"source_id": "bot_output_tg:503",
+                              "tg_message_id": 503, "ts": 1700000003}],
+            "policy_version": "asap3-composer-1",
+        })
+
+    event = _event(events, turn_trace.EVENT_SELECTION)
+    assert event.get("trace_id") == "cid-no-trace"
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    assert payload["counts"]["window_messages"] == 4
+    assert payload["budget"]["fallback_window"] is None
+    assert payload["dropped"] == [{"reason_code": "budget_exceeded",
+                                   "kind": "global_middle", "count": 2}]
+    assert payload["self_outputs"][0]["tg_message_id"] == 503
+    # трассы в памяти так и не появилось — событие не зависело от неё
+    assert turn_trace.get("cid-no-trace") is None
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 2. UR-20.4/UR-20.8: аддитивные поля контекстного события
+# ════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_context_event_carries_source_reply_parent_and_clock_stages(
+        monkeypatch, events):
+    """`context_payload`: источник хода, родитель ответа, дата и РОВНО два
+    пер-ходовых алиаса (не ростер), плюс стадии, реально получившие часы."""
+    import datetime
+
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=_rows(3))
+    from tests.test_direct_chat import _message, _user as _chat_user
+    parent = _message(text="вопрос родителя", message_id=400,
+                      user=_chat_user(user_id=11, first_name="Петя",
+                                      username="petya"))
+    msg.reply_to_message = parent
+    stamp = datetime.datetime(2026, 11, 10, 12, 0, 0,
+                              tzinfo=datetime.timezone.utc)
+    msg.date = stamp
+    await svc.handle(bot, msg, user)
+
+    ctx = _payload(events, turn_trace.EVENT_CONTEXT)
+    assert ctx["source_message_id"] == 4242
+    assert ctx["source_author_id"] == 10
+    assert ctx["reply_to_message_id"] == 400
+    assert ctx["reply_to_author_id"] == 11
+    assert ctx["source_message_ts"] == int(stamp.timestamp())
+    # алиасы — два значения на ход (полный ростер участников не пишется)
+    alias_keys = {key for key in ctx if key.startswith("alias_")}
+    assert alias_keys == {"alias_source_author", "alias_reply_parent"}
+    assert ctx["alias_source_author"] == "Вася"
+    assert ctx["alias_reply_parent"] == "Петя"
+    assert "@" not in ctx["alias_source_author"]
+    # стадии, реально получившие TimeContext (tool-фазы в этом ходе нет)
+    assert ctx["clock_stages"] == ["l1", "l2"], ctx.get("clock_stages")
+
+
+def test_clock_stage_marks_are_canonical_and_deduplicated():
+    """Порядок стадий фиксирован (l1→tool→l2), повторный маркер — не дубль."""
+    turn_trace.begin("cid-clock", chat_id=CHAT_ID)
+    turn_trace.note_clock_stage("cid-clock", "l2")
+    turn_trace.note_clock_stage("cid-clock", "l1")
+    turn_trace.note_clock_stage("cid-clock", "l2")
+    turn_trace.note_clock_stage("cid-clock", "bogus")
+    payload = turn_trace.get("cid-clock").context_payload()
+    assert payload["clock_stages"] == ["l1", "l2"]
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 3. Жёсткие лимиты списков: усечение видно, а не молчаливая потеря
+# ════════════════════════════════════════════════════════════════════════════
+
+def _oversized_selection(*, ids_per_block: int = 12,
+                         minimal_blocks: bool = False) -> dict:
+    if minimal_blocks:
+        blocks = [{"kind": "k%d" % i, "role": "p1", "rendered": True}
+                  for i in range(25)]
+        dropped = [{"reason_code": "budget_exceeded", "kind": "k",
+                    "count": 1}]
+        self_outputs = [{"source_id": "bot_output_tg:1",
+                         "tg_message_id": 1, "ts": 1700000000}]
+    else:
+        blocks = [{"kind": "k%d" % i, "role": "p1", "rendered": True,
+                   "source_ids": ["msg:%d" % (i * 100 + n)
+                                  for n in range(ids_per_block)],
+                   "first_ts": 1700000000 + i, "last_ts": 1700000000 + i,
+                   "tokens": 10} for i in range(25)]
+        dropped = [{"reason_code": "budget_exceeded",
+                    "kind": "kind%d" % (i % 3), "count": 1} for i in range(20)]
+        self_outputs = [{"source_id": "bot_output_tg:%d" % i,
+                         "tg_message_id": i, "ts": 1700000000 + i}
+                        for i in range(9)]
+    return {
+        "counts": {"available_messages": 25, "included_messages": 25,
+                   "window_messages": 25},
+        "budget": {"slot": "direct.primary", "window": 8000,
+                   "window_source": "model_capacity", "output_reserve": 500,
+                   "available": 7000, "budget": 6000,
+                   "policy_mode": "dynamic", "payload_tokens": 1200,
+                   "fallback_window": None},
+        "blocks": blocks,
+        "dropped": dropped,
+        "self_outputs": self_outputs,
+        "policy_version": "asap3-composer-1",
+    }
+
+
+def test_selection_list_limits_are_enforced_not_silently_dropped(events):
+    """Переполнение режется ДЕТЕРМИНИРОВАННО: блоки ≤16 (первые), id ≤8,
+    потерянное ≤8, свои реплики ≤6 — и это видно в самом событии.
+
+    Списки остаются СПИСКАМИ (не `{"count": N}`), а усечение помечается
+    `truncated: true` — молчаливой потери нет."""
+    # 1) компактные блоки: жёсткий кап 16 срабатывает и payload влезает
+    turn_trace.note_selection("cid-cap", chat_id=CHAT_ID,
+                              payload=_oversized_selection(minimal_blocks=True))
+    compact = _payload_of(events, turn_trace.EVENT_SELECTION, "cid-cap")
+    compact_blocks = compact.get("blocks") or []
+    assert len(compact_blocks) == turn_trace.SELECTION_BLOCKS_MAX
+    assert [b["kind"] for b in compact_blocks] == \
+        ["k%d" % i for i in range(turn_trace.SELECTION_BLOCKS_MAX)]
+    assert not compact.get("truncated"), "влезло — усечения быть не должно"
+
+    # 2) блоки с 12 id каждый: id режутся до 8, объём — усечением С КОНЦА
+    turn_trace.note_selection("cid-fat", chat_id=CHAT_ID,
+                              payload=_oversized_selection())
+    fat = _payload_of(events, turn_trace.EVENT_SELECTION, "cid-fat")
+    fat_blocks = fat.get("blocks") or []
+    assert isinstance(fat_blocks, list), "блоки обязаны остаться списком"
+    assert 0 < len(fat_blocks) <= turn_trace.SELECTION_BLOCKS_MAX
+    assert fat.get("truncated") is True
+    assert [b["kind"] for b in fat_blocks] == \
+        ["k%d" % i for i in range(len(fat_blocks))]
+    assert all(len(b.get("source_ids") or ()) <=
+               turn_trace.SELECTION_SOURCE_IDS_MAX for b in fat_blocks)
+    assert all(len(b["source_ids"]) == turn_trace.SELECTION_SOURCE_IDS_MAX
+               for b in fat_blocks)
+    assert len(fat.get("dropped") or ()) <= \
+        turn_trace.SELECTION_DROPPED_MAX
+    assert len(fat.get("self_outputs") or ()) <= \
+        turn_trace.SELECTION_SELF_OUTPUTS_MAX
+
+    # 3) счётчики потерянного агрегируются по (причина, блок), а не теряются
+    aggregate_src = _oversized_selection()
+    aggregate_src["blocks"] = []      # без блоков payload влезает целиком
+    clean = turn_trace._selection_payload(aggregate_src)
+    assert len(clean["dropped"]) == 3, "группы (причина, kind), а не записи"
+    assert sum(row["count"] for row in clean["dropped"]) == \
+        sum(row["count"] for row in aggregate_src["dropped"]) == 20
+    assert len(clean["self_outputs"]) == \
+        turn_trace.SELECTION_SELF_OUTPUTS_MAX
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 4. `_scrub`: единственная allow-ветка (source_url) и её негативный тест
+# ════════════════════════════════════════════════════════════════════════════
+
+def test_scrub_allows_only_public_source_url_and_title():
+    """URL выдачи остаётся, текст чата в `source_url` — отброшен, любой
+    другой длинный текст по-прежнему digest (UR-F §3 R4)."""
+    url = "https://example.com/news/2026/11/10" + "a" * 200
+    payload = {"source_links": [{
+        "source_id": "web:abc123",
+        "source_url": url,
+        "source_title": "Заголовок страницы " * 20,
+        "published_at": "",
+    }]}
+    packed = turn_trace._pack(payload)
+    link = packed["source_links"][0]
+    assert link["source_url"] == url, "публичный адрес не должен становиться digest"
+    assert len(link["source_title"]) <= turn_trace.SOURCE_TITLE_MAX
+    assert link["source_id"] == "web:abc123"
+
+    # негатив: текст чата в source_url — значение отброшено, не сохранено
+    chat_text = "привет, это текст сообщения из чата, а не адрес"
+    broken = turn_trace._pack({"source_links": [
+        {"source_url": chat_text},
+        {"source_url": "javascript:alert(1)"},
+        {"source_url": "https://ok.example/x"},
+    ]})["source_links"]
+    assert broken[0]["source_url"] == ""
+    assert broken[1]["source_url"] == ""
+    assert broken[2]["source_url"] == "https://ok.example/x"
+
+    # любой ДРУГОЙ длинный ключ — как раньше: digest + длина
+    other = turn_trace._pack({"something_else": "x" * 100})["something_else"]
+    assert other == {"digest": turn_trace.text_digest("x" * 100), "chars": 100}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 5. Fail-open: сбой сборки выбора не ломает ответ
+# ════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_selection_build_failure_does_not_break_the_turn(
+        monkeypatch, events):
+    """Исключение внутри сборки выбора → ответ всё равно доставляется.
+
+    Ломаем РЕАЛЬНЫЙ участник сборки (`_sel_block`, вызывается из
+    `_compose_user_content`), а не границу: проверяется именно fail-open
+    нового кода на пути записи (§7 R3: «ход важнее трассы»)."""
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("selection build exploded")
+
+    monkeypatch.setattr(direct_chat_service, "_sel_block", _boom)
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=_rows(4))
+    await svc.handle(bot, msg, user)
+
+    # ответ доставлен обычным путём
+    assert bot.send_message.await_count >= 1
+    sent = bot.send_message.await_args.args[1]
+    assert sent.strip()
+    # и трасса хода в остальном цела (контекст/доставка эмитированы)
+    names = [e.get("event_name") for e in events]
+    assert turn_trace.EVENT_CONTEXT in names
+    assert turn_trace.EVENT_DELIVERY in names
+
+
+def test_note_selection_failure_is_fail_open(monkeypatch, events):
+    """Сбой внутри `note_selection` не пробрасывается наружу (никогда)."""
+    def _boom(*args, **kwargs):
+        raise RuntimeError("payload build exploded")
+
+    monkeypatch.setattr(turn_trace, "_selection_payload", _boom)
+    turn_trace.note_selection("cid-broken", chat_id=CHAT_ID, payload={})
+    assert [e.get("event_name") for e in events] == []
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 6. `style_policy`: trace_id + сработавшие правила без текста правил
+# ════════════════════════════════════════════════════════════════════════════
+
+def _line_breaks_policy():
+    rule = _sp.StyleRule(
+        id="owner.line_breaks", kind="line_breaks", strictness="hard",
+        params={"max_breaks": 1},
+        reason="правило владельца: не больше одной пустой строки")
+    return _sp.EffectiveStylePolicy(
+        context="regular", rules=(_sp.ResolvedRule(rule=rule),),
+        source="global", revision="7")
+
+
+@pytest.mark.asyncio
+async def test_style_event_carries_trace_id_and_fired_rules(monkeypatch,
+                                                            events):
+    """Сработавшее правило видно (id/kind/причина), текст правила — нет."""
+    from services import mca_gates
+    monkeypatch.setattr(mca_gates, "speech_style_policy_enabled",
+                        lambda: True)
+    outcome = await _sp.apply_style_policy(
+        "раз\nдва\nтри\nчетыре", chat_id=CHAT_ID,
+        policy=_line_breaks_policy(), context="regular",
+        emit_events=True, stage="direct_pre_send",
+        correlation_id="cid-style", record=False)
+
+    assert outcome.results, "правило не проверялось"
+    assert not outcome.styled, "конфликт правила должен быть виден"
+    assert outcome.failed or outcome.conflicts
+
+    event = _event(events, "style_policy")
+    assert event.get("trace_id") == "cid-style"
+    payload = dict(event.get("usage_json") or {})
+    rules = payload.get("rules") or []
+    assert rules, "сработавшие правила не записаны"
+    assert all(set(row) <= {"rule_id", "kind", "status", "reason", "source"}
+               for row in rules), rules
+    assert [row["rule_id"] for row in rules] == ["owner.line_breaks"]
+    assert rules[0]["status"] in _sp.FIRED_STATUSES
+    assert rules[0]["kind"] == "line_breaks"
+    assert rules[0]["reason"] == "line_breaks_exceeded"
+    # текст правила владельца в событие не попадает
+    blob = json.dumps(event, ensure_ascii=False)
+    assert "не больше одной пустой строки" not in blob
+
+
+def test_fired_rules_skip_pass_and_drop_free_text_reason():
+    """`rules` — только сработавшие: pass/not_applicable не едут, а
+    описательная причина правила не выдаётся за код."""
+    outcome = _sp.StyleOutcome(results=[
+        _sp.RuleOutcome(rule_id="dash", kind="dash", status=_sp.STATUS_PASS),
+        _sp.RuleOutcome(rule_id="quotes", kind="quotation_marks",
+                        status=_sp.STATUS_NA, reason="soft_habit_writer_only"),
+        _sp.RuleOutcome(rule_id="one_word", kind="one_word",
+                        status=_sp.STATUS_CONFLICT,
+                        reason="owner_rule_vs_task",
+                        detail=(("fragment", "ТЕКСТ_ЧАТА_XYZ"),)),
+        _sp.RuleOutcome(rule_id="emoji", kind="emoji",
+                        status=_sp.STATUS_REPAIRED,
+                        reason="заводское правило: срезать эмодзи"),
+    ])
+    fired = _sp.fired_rules(outcome)
+    assert [row["rule_id"] for row in fired] == ["one_word", "emoji"]
+    assert fired[0]["reason"] == "owner_rule_vs_task"
+    assert fired[1]["reason"] == "", "описательная причина не является кодом"
+    blob = json.dumps(fired, ensure_ascii=False)
+    assert "ТЕКСТ_ЧАТА_XYZ" not in blob, "detail правила попал в трассу"
+    assert "заводское правило" not in blob

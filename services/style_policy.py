@@ -105,6 +105,13 @@ STATUSES = (STATUS_PASS, STATUS_REPAIRED, STATUS_EXEMPTED, STATUS_CONFLICT,
             STATUS_FAILED, STATUS_DENIED, STATUS_NA)
 #: Исходы, при которых НЕЛЬЗЯ объявлять ``styled=true`` (SOUL-15.7).
 BLOCKING_STATUSES = frozenset({STATUS_CONFLICT, STATUS_FAILED, STATUS_DENIED})
+#: UR-F шаг 1 (UR-20.8): исходы, при которых правило РЕАЛЬНО сработало —
+#: изменило текст или воспрепятствовало выдаче. `pass`/`not_applicable` —
+#: «проверено, ничего не произошло» и в `rules` события НЕ едут.
+FIRED_STATUSES = (STATUS_REPAIRED, STATUS_CONFLICT, STATUS_FAILED, STATUS_DENIED)
+#: Пределы списка сработавших правил в событии `style_policy`
+#: (`usage_json` ≤2000 символов — обрезка не должна ломать JSON).
+STYLE_RULES_MAX = 12
 
 #: Приоритет (SOUL-16.4.2): безопасность/факты/каналы > дословность и явная
 #: задача пользователя > owner-правила обычной речи > chat-scoped правила >
@@ -2305,9 +2312,62 @@ def _emit_extent_metric(outcome: StyleOutcome, *, chat_id: int, stage: str
                        exc_info=True)
 
 
-def _emit_style_event(outcome: StyleOutcome, *, chat_id: int, stage: str
-                      ) -> None:
-    """Notable-событие о непроходном исходе (fail-open, R17-safe)."""
+#: Причина/вид правила в событии — машинный код, не фраза: владельческий
+#: `reason` иногда описательный («заводское правило: …») и как «код» не
+#: выдаётся (иначе описание правила утекает в трассу текстом).
+_CODEISH = re.compile(r"^[A-Za-z0-9_.:/\-]{1,48}$")
+
+
+def _style_code(value, limit: int = 48) -> str:
+    """Код/enum/id правила: не-код (свободная фраза) → ""."""
+    text = str(value if value is not None else "").strip()
+    if not text or not _CODEISH.match(text):
+        return ""
+    return text[:limit]
+
+
+def fired_rules(outcome: StyleOutcome, *, limit: int = STYLE_RULES_MAX) -> list:
+    """СРАБОТАВШИЕ правила прохода: id/kind/status/причина, БЕЗ текста правил.
+
+    UR-20.8: Inspector обязан показать «сработало правило: <имя> · причина
+    <код>», поэтому едут только машинные поля `RuleOutcome`. `detail` (в нём
+    бывают фрагменты проверяемого текста), `repetition` и сам текст ответа не
+    пишутся; описательный `reason` отбрасывается. Никогда не бросает."""
+    rows: list = []
+    try:
+        for row in list(outcome.results or ()):
+            status = str(getattr(row, "status", "") or "")
+            if status not in FIRED_STATUSES:
+                continue
+            if len(rows) >= max(1, int(limit)):
+                break
+            rule_id = re.sub(r"\s+", "_",
+                             str(getattr(row, "rule_id", "") or "").strip())[:64]
+            if not rule_id:
+                continue
+            item = {
+                "rule_id": rule_id,
+                "kind": _style_code(getattr(row, "kind", ""), 24),
+                "status": status,
+                "reason": _style_code(getattr(row, "reason", ""), 48),
+            }
+            source = _style_code(getattr(row, "source", ""), 24)
+            if source:
+                item["source"] = source
+            rows.append(item)
+    except Exception:      # pragma: no cover - наблюдение не роняет проход
+        return rows
+    return rows
+
+
+def _emit_style_event(outcome: StyleOutcome, *, chat_id: int, stage: str,
+                      correlation_id: str | None = None) -> None:
+    """Notable-событие о непроходном исходе (fail-open, R17-safe).
+
+    UR-F шаг 1 (UR-20.8): событие получает `trace_id` (тот же, что у трассы
+    хода) и `rules` — СРАБОТАВШИЕ правила (id/kind/status/причина). Текст
+    правил и `RuleOutcome.detail` не пишутся: Inspector показывает «какое
+    правило и почему», не содержимое политики."""
     try:
         if outcome.styled and not outcome.repetition:
             return
@@ -2315,12 +2375,17 @@ def _emit_style_event(outcome: StyleOutcome, *, chat_id: int, stage: str
         status = "failed" if (outcome.failed or outcome.denied) else "skipped"
         if outcome.styled and outcome.repetition:
             status = "success"
+        payload = outcome.as_dict()
+        fired = fired_rules(outcome)
+        if fired:
+            payload["rules"] = fired
         _events.emit_mca_event(
             "style_policy", outcome=status, level="WARN",
             component="style_policy", stage=stage, chat_id=int(chat_id or 0),
+            trace_id=(str(correlation_id) if correlation_id else None),
             duration_ms=round(float(outcome.elapsed_ms), 3),
             style_revision=_revision_int(outcome.policy_revision),
-            usage_json=outcome.as_dict())
+            usage_json=payload)
     except Exception:      # pragma: no cover - событие не роняет ответ
         logger.warning("[style_policy] event emit failed", exc_info=True)
 
@@ -2333,13 +2398,16 @@ async def apply_style_policy(text: Any, *, chat_id: int = 0, plan=None,
                              extra_protected: Iterable[str] = (),
                              repair=None, repair_allowed: bool = False,
                              record: bool = True, emit_events: bool = False,
-                             stage: str = "pre_send") -> StyleOutcome:
+                             stage: str = "pre_send",
+                             correlation_id: str | None = None) -> StyleOutcome:
     """Единый проход: extent check → правила формы → антизалипание.
 
     Порядок фиксирован (design-composer-contract §6). Вызывается ДО
     сериализации/отправки; проверка доставленного payload — отдельно
     (:func:`verify_outbound_payload`). Ноль LLM-вызовов; смысловой ремонт —
     не более ОДНОГО и только по переданному ``repair`` (SOUL-16.4.5).
+    ``correlation_id`` (UR-F шаг 1, аддитивно) связывает событие `style_policy`
+    с трассой хода и добавляет в него сработавшие правила.
     Никогда не бросает."""
     started = time.perf_counter()
     source = str(text or "")
@@ -2444,7 +2512,8 @@ async def apply_style_policy(text: Any, *, chat_id: int = 0, plan=None,
         result.skip_reason = "pass_error"
     result.elapsed_ms = (time.perf_counter() - started) * 1000.0
     if emit_events and chat_id:
-        _emit_style_event(result, chat_id=chat_id, stage=stage)
+        _emit_style_event(result, chat_id=chat_id, stage=stage,
+                          correlation_id=correlation_id)
         # SOUL-14.2: метрика extent (распределение/one_word) — на каждый
         # проход с выполненным extent-check, не только notable-исходы.
         _emit_extent_metric(result, chat_id=chat_id, stage=stage)

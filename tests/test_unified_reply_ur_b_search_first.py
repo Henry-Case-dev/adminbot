@@ -677,12 +677,19 @@ class TestEvidenceAndTrace:
                             emit_trace=True)
         evidence = result.evidence
         trace = evidence.trace_fields()
+        # UR-F шаг 1 (UR-20.7): `source_links` — публичные адреса выдачи
+        # (единственная allow-ветка `_scrub`), поэтому ключ обязателен.
         assert set(trace) == {"search_intent", "search_called", "search_status",
                               "source_ids", "source_count", "search_skip_reason",
-                              "evidence_used"}
+                              "evidence_used", "source_links"}
         assert trace["search_called"] is True
         assert trace["source_count"] == evidence.source_count == 1
         assert trace["evidence_used"] is True
+        links = trace["source_links"]
+        assert len(links) == 1
+        assert links[0]["source_url"] == "https://example.com/a"
+        assert links[0]["source_id"].startswith("web:")
+        assert "snippet" not in links[0] and "content" not in links[0]
         assert captured.get("event_name") == "reply_search_evidence"
         payload = json.dumps(captured.get("fields") or {}, ensure_ascii=False)
         for forbidden in ("79991234567", "вася", "vasya", "проверь курс"):
