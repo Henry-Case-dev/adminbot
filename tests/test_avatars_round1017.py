@@ -329,7 +329,10 @@ class TestAvatarCodeMarkers1017:
         assert "_cache_put(_avatar_cache, key, data)" in src
         assert "_cache_put(_chat_info_cache, chat_id, dict(info))" in src
         assert 'media_type="image/jpeg"' in src
-        assert "public, max-age=86400" in src
+        # avatar-scope: кэш персонального ответа private (TTL тот же) +
+        # Vary по заголовку аутентификации; байтовый RAM-кэш не тронут.
+        assert "private, max-age=86400" in src
+        assert '"Vary": "X-Telegram-Init-Data"' in src
         assert "raise HTTPException(status_code=404" in src
 
 

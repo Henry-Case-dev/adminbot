@@ -18,7 +18,11 @@ getUserProfilePhotos / getChat) и аватар любого чата бота.
     (chat_admins) чата, доступного запросившему; иначе 403;
   * без initData — 401 (не изменилось);
   * отказ — ДО Bot API (чужой аватар не тянется вообще) и без записи
-    негатива в кэш байтов; форма ответа и Cache-Control прежние.
+    негатива в кэш байтов; форма ответа прежняя (image/jpeg), а кэш ответа
+    сужен до клиентского: `Cache-Control: private, max-age=86400` +
+    `Vary: X-Telegram-Init-Data` (персональный гейт: shared-кэш не должен
+    отдавать разрешённую одному картинку другому в обход 403); байтовый
+    RAM-кэш и его TTL не изменены.
 
 Тесты — поведенческие: реальный `create_app` + `TestClient`, подписанный
 initData (HMAC как у Telegram), стаб Bot API, стабы лора/кэша. Никаких
@@ -282,12 +286,13 @@ def client():
 
 class TestSelfAlwaysAllowed:
     def test_plain_user_gets_own_avatar(self, client, bot, lore):
-        """Роль `user` без грантов: свой аватар — 200, форма прежняя."""
+        """Роль `user` без грантов: свой аватар — 200, форма ответа прежняя."""
         r = client.get(f"/api/avatar/user/{USER_ID}", headers=hdr(USER_ID))
         assert r.status_code == 200
         assert r.headers["content-type"] == "image/jpeg"
         assert r.content == JPEG
-        assert "max-age=86400" in r.headers["cache-control"]
+        assert r.headers["cache-control"] == "private, max-age=86400"
+        assert r.headers["vary"].lower() == "x-telegram-init-data"
 
     def test_plain_user_self_ignores_broken_lore(self, client, bot):
         """Self работает даже без лора (нет store): правило self первое."""
@@ -318,6 +323,30 @@ class TestSharedChatAllowed:
         assert r.status_code == 200
         assert r.content == JPEG
         assert ("get_chat", CHAT_A) in bot.calls
+
+
+# ═══ кэш ответа: персональный, shared-кэш не должен отдавать чужое ═════════
+
+class TestResponseCacheScope:
+    def test_authorized_response_is_private_and_varies_by_auth(self, client,
+                                                              bot, lore):
+        """`public` при персональном гейте позволял бы прокси/CDN отдать
+        разрешённую одному юзеру картинку другому в обход 403. Контракт:
+        private (кэш только у клиента) + Vary по механизму аутентификации;
+        TTL не изменился (сутки)."""
+        r = client.get(f"/api/avatar/user/{PEER_A}", headers=hdr(LOCAL_ID))
+        assert r.status_code == 200
+        assert r.headers["cache-control"] == "private, max-age=86400"
+        assert "public" not in r.headers["cache-control"]
+        assert r.headers["vary"].lower() == "x-telegram-init-data"
+
+    def test_denied_response_carries_no_permissive_cache(self, client, bot,
+                                                         lore):
+        """403 не должен объявлять себя кэшируемым для посредников."""
+        r = client.get(f"/api/avatar/user/{PEER_B}", headers=hdr(LOCAL_ID))
+        assert r.status_code == 403
+        assert "public" not in (r.headers.get("cache-control") or "")
+        assert bot.calls == []
 
 
 # ═══ чужие — отказ ══════════════════════════════════════════════════════════

@@ -9,7 +9,7 @@ Depends(get_tma_user) (как все /api-роуты, кроме /health):
            фото;
   * скачивание: bot.get_file(file_id) → download в память (BytesIO);
   * ответ: Response(content, media_type='image/jpeg',
-    Cache-Control: public, max-age=86400);
+    Cache-Control: private, max-age=86400 + Vary: X-Telegram-Init-Data);
   * RAM-TTL-кэш {(kind, tid): (ts, bytes|None)} — 1 час, максимум
     _MAX_CACHE_ENTRIES записей (в т.ч. негативный результат: юзер/чат без
     фото или ошибка Bot API → кэшируем None, чтобы фронт с onerror не
@@ -30,7 +30,8 @@ username/фото участника): общие с аватарами, что�
 маршрутах); юзер — глобальный админ ЛИБО участник/админ чата, доступного
 запросившему (авторитетный список участников — users_meta + гранты
 chat_admins). Отказ — 403 permission_denied ДО Bot API (кэш байтов не
-трогаем; Cache-Control/форма ответа прежние).
+трогаем). Кэш ответа — `private` (персональный гейт: shared-кэш не должен
+отдавать чужую картинку) + `Vary: X-Telegram-Init-Data`; TTL прежний.
 """
 import io
 import logging
@@ -475,9 +476,10 @@ async def avatar_proxy(
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
-    """Прокси аватара: image/jpeg + Cache-Control public,max-age=86400;
-    нет фото/бота/ошибки → 404 (негатив кэшируется на 1ч); чужой аватар
-    (нет доступа к чату/общего чата) → 403 permission_denied ДО Bot API."""
+    """Прокси аватара: image/jpeg + Cache-Control private,max-age=86400
+    (+ Vary по заголовку аутентификации); нет фото/бота/ошибки → 404
+    (негатив кэшируется на 1ч); чужой аватар (нет доступа к чату/общего
+    чата) → 403 permission_denied ДО Bot API."""
     if not await _avatar_allowed(request, user, kind, tid):
         request.state.tma_deny_reason = "permission_denied"
         logger.info("[avatar] denied | kind=%s tid=%s by=%s",
@@ -489,5 +491,15 @@ async def avatar_proxy(
     return Response(
         content=data,
         media_type="image/jpeg",
-        headers={"Cache-Control": "public, max-age=86400"},
+        headers={
+            # Картинка персональная (гейт доступа выше): shared-кэш
+            # (proxy/CDN/общий профиль браузера) не должен отдавать её
+            # другому пользователю в обход 403. private — кэш только у
+            # запросившего клиента; TTL прежний (сутки).
+            "Cache-Control": "private, max-age=86400",
+            # Ответ зависит от личности запросившего; механизм
+            # аутентификации /api — заголовок X-Telegram-Init-Data
+            # (фронт: avatarUrl передаёт его же) → ключ кэша посредников.
+            "Vary": "X-Telegram-Init-Data",
+        },
     )

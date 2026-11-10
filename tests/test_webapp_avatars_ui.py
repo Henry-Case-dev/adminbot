@@ -95,7 +95,11 @@ class TestAvatarBackendAudit:
         assert "io.BytesIO()" in src
         assert "media_type=\"image/jpeg\"" in src
         assert "Cache-Control" in src
-        assert "public, max-age=86400" in src
+        # avatar-scope: кэш персонального ответа — только у клиента
+        # (private), TTL прежний; shared-кэш не должен отдавать чужую
+        # картинку в обход 403. Vary — заголовок аутентификации /api.
+        assert "private, max-age=86400" in src
+        assert '"Vary": "X-Telegram-Init-Data"' in src
 
     def test_avatar_ram_ttl_cache_constants(self):
         src = _Static.read("web/api/avatars.py")
