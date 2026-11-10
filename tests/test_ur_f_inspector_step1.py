@@ -1247,6 +1247,223 @@ async def test_quote_event_is_correlated_with_turn(monkeypatch, events):
     assert quote_ev.get("trace_id"), "trace_id не должен быть пустым"
 
 
+#: Инвентаризация исходящих вызовов модели в пути хода (`_handle_turn`).
+#: Ключ — (файл, функция, вызов, step). Значение — как учтена доставка цитаты:
+#: ``marked`` — сразу после вызова стоит `_mark_quote_delivery_used`;
+#: ``covered`` — вызов вложен в помеченный вызов вызывающего;
+#: ``no_chain`` — контекст хода (блок цепочки с цитатой) в payload не попадает;
+#: ``other_entry`` — другой вход (не `_handle_turn`).
+OUTBOUND_CONTEXT_CALLS = {
+    ("services/direct_chat_service.py", "_handle_turn",
+     "self._l2_write_answer", None): "marked:l2_writer",
+    ("services/direct_chat_service.py", "_handle_turn",
+     "self.llm.generate", "react"): "marked:react",
+    ("services/direct_chat_service.py", "_handle_turn",
+     "chat_with_tools", None): "marked:tools",
+    ("services/direct_chat_service.py", "_handle_turn",
+     "self.llm.generate", "single"): "marked:single",
+    # L1-планировщик планирует БЕЗ собранного user-контекста (окно + вопрос +
+    # reply-блок): блока цепочки и аннотации цитаты в его payload нет.
+    ("services/direct_chat_service.py", "_call",
+     "self.llm.generate", "l1_planner"): "no_chain:planner",
+    ("services/direct_chat_service.py", "_call",
+     "_l1.dedicated_generate", None): "no_chain:planner",
+    # Tool-фаза: оркестратор получает query+tools+время, не блоки цепочки.
+    ("services/direct_chat_service.py", "_l1_tool_phase",
+     "_dx.run_tool_phase", None): "no_chain:orchestrator",
+    # Сегменты выборки истории — отдельные окна, не контекст хода.
+    ("services/direct_chat_service.py", "_flush",
+     "self.llm.generate", "history_segment"): "no_chain:history_sample",
+    # Финальный писатель: доставка учтена маркером у вызывающего
+    # `_l2_write_answer` (обе стадии — первый вызов и продолжение — идут
+    # через `_call_l2`, а тот через `self.llm.generate`).
+    ("services/direct_chat_service.py", "_call_l2",
+     "self.llm.generate", None): "covered:l2_writer",
+    ("services/direct_chat_service.py", "_generate",
+     "_call_l2", "l2_writer"): "covered:l2_writer",
+    ("services/direct_chat_service.py", "_generate",
+     "_call_l2", "l2_continuation"): "covered:l2_writer",
+    ("services/direct_chat_service.py", "generate_initiative_reply",
+     "self._l2_write_answer", None): "other_entry:initiative",
+    ("services/direct_execution.py", "run_adaptive_chain",
+     "llm.generate", "orchestrator"): "no_chain:orchestrator",
+    ("services/tool_loop.py", "chat_with_tools",
+     "llm.generate_chat", None): "covered:tools",
+    ("services/tool_loop.py", "chat_with_tools",
+     "llm.generate", "single"): "covered:tools",
+}
+
+
+def _callee_name(node) -> str:
+    parts = []
+    while isinstance(getattr(node, "attr", None), str):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, __import__("ast").Name):
+        parts.append(node.id)
+    return ".".join(reversed(parts))
+
+
+def _outbound_sites(rel_path: str) -> list:
+    """Все вызовы модели в файле: (функция, вызов, step, end_lineno).
+
+    Функция-владелец — САМАЯ ГЛУБОКАЯ объемлющая (вложенные замыкания не
+    маскируются внешней функцией)."""
+    import ast
+
+    source = open(rel_path, encoding="utf-8").read()
+    tree = ast.parse(source)
+    targets = ("self.llm.generate", "llm.generate", "llm.generate_chat",
+               "self.llm.generate_chat", "self.llm.generate_with_metadata",
+               "chat_with_tools", "self._l2_write_answer",
+               "_dx.run_tool_phase", "_call_l2", "_l1.dedicated_generate")
+    funcs = [(node.lineno, node.end_lineno, node.name)
+             for node in ast.walk(tree)
+             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    sites: list = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = _callee_name(node.func)
+        if name not in targets:
+            continue
+        step = None
+        for kw in node.keywords:
+            if kw.arg == "step" and isinstance(kw.value, ast.Constant):
+                step = kw.value.value
+        owner, best = "<module>", -1
+        for start, end, fname in funcs:
+            if start <= node.lineno <= end and start > best:
+                owner, best = fname, start
+        sites.append((owner, name, step, node.end_lineno))
+    return sites, source.splitlines()
+
+
+def test_outbound_model_calls_inventory_is_classified():
+    """Страж: КАЖДЫЙ исходящий вызов модели в пути хода учтён явно.
+
+    Событие `quote_delivered_to_context` эмитится только после вызова,
+    получившего собранный контекст. Новый такой вызов, добавленный без
+    маркера и без записи в инвентаре, обязан уронить тест — иначе появится
+    пятый путь, где цитата «доставлена» без доказательства (репро ревью:
+    `step="react"`).
+    """
+    found = set()
+    for rel in ("services/direct_chat_service.py",
+                "services/direct_execution.py", "services/tool_loop.py"):
+        sites, lines = _outbound_sites(rel)
+        for owner, name, step, end_line in sites:
+            key = (rel, owner, name, step)
+            found.add(key)
+            assert key in OUTBOUND_CONTEXT_CALLS, (
+                "новый исходящий вызов модели не классифицирован: %r "
+                "(функция %s, step=%r). Реши: контекст хода с цепочкой в "
+                "payload? Тогда `_mark_quote_delivery_used` сразу после "
+                "вызова и запись 'marked:…'; иначе — запись "
+                "'no_chain:<причина>'." % (key, owner, step))
+            kind = OUTBOUND_CONTEXT_CALLS[key]
+            if kind.startswith("marked:"):
+                after = "\n".join(lines[end_line:end_line + 8])
+                assert "_mark_quote_delivery_used" in after, (
+                    "у вызова %r нет маркера доставки цитаты после него" % (
+                        key,))
+
+    missing = set(OUTBOUND_CONTEXT_CALLS) - found
+    assert not missing, "инвентарь ссылается на исчезнувшие вызовы: %r" % (
+        sorted(missing),)
+
+
+def _force_react_path(monkeypatch):
+    """Включить legacy-REACT-путь (LLM выбирает emoji) — ветка репро ревью.
+
+    `DIRECT_L1_ENABLED=false` + решение REACT (без Decision Task) + гейт
+    выбора реакции ON: ровно тот маршрут, где контекст хода уходит модели
+    вызовом `step="react"`."""
+    from config.settings import Settings
+
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+    monkeypatch.setattr(direct_chat_service._l1, "direct_l1_enabled",
+                        lambda: False)
+    monkeypatch.setattr(direct_chat_service._llm_react,
+                        "llm_decision_enabled", lambda reactions: False)
+    monkeypatch.setattr(direct_chat_service._llm_react,
+                        "llm_reaction_enabled", lambda reactions: True)
+    monkeypatch.setattr(
+        direct_chat_service, "_decision_pre_action",
+        lambda **kwargs: (direct_chat_service.ACTION_REACT, "repro", "👍",
+                          4242))
+
+
+@pytest.mark.asyncio
+async def test_react_path_emits_one_quote_event_with_correlation(
+        monkeypatch, events):
+    """Цитата доехала вызовом `step="react"` — одно событие с корреляцией.
+
+    РЕПРО ревью: legacy-REACT-путь (`DIRECT_L1_ENABLED=false`) отправляет
+    модели payload с собранным контекстом (и цитатой в нём), но маркер
+    доставки там отсутствовал — `calls=['react']`, ответ модели есть, а
+    события нет. Теперь маркер стоит сразу после успешного вызова."""
+    llm = _StagedLLM()
+    # без бот-слова в тексте: иначе включается FORCE DIRECT (всегда REPLY) и
+    # REACT-ветка недостижима
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
+                                 text="как дела?")
+    _force_react_path(monkeypatch)
+    chain = _quoted_chain(40, quoted_item_id="tg:701", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    assert llm.calls == ["react"], \
+        "ожидался один исходящий вызов хода: %r" % (llm.calls,)
+    blob = _payload_text(llm)
+    assert blob.count(QUOTED_DROP_SENTINEL) == 1, \
+        "цитата обязана быть в payload react-вызова"
+
+    assert _delivered_ids(events) == [701], \
+        "цитата доехала — ровно одно событие: %r" % _delivered_ids(events)
+    context_ev = _event(events, turn_trace.EVENT_CONTEXT)
+    quote_ev = next(e for e in events
+                    if e.get("event_name") == "quote"
+                    and e.get("stage") == "quote_delivered_to_context")
+    assert quote_ev.get("chat_id") == context_ev.get("chat_id")
+    assert quote_ev.get("trace_id") == context_ev.get("trace_id")
+    assert quote_ev.get("trace_id"), "trace_id не должен быть пустым"
+
+
+@pytest.mark.asyncio
+async def test_react_call_failure_emits_no_quote_event(monkeypatch, events):
+    """Сбой вызова `step="react"` — контекст до модели не дошёл: 0 событий."""
+    from services.llm_client import LLMError
+
+    class _ReactFails(_StagedLLM):
+        async def generate(self, messages, **kwargs):
+            if kwargs.get("step") == "react":
+                self.calls.append("react")      # вызов СОСТОЯЛСЯ, но отказ
+                raise LLMError("react provider down")
+            return await super().generate(messages, **kwargs)
+
+    llm = _ReactFails()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
+                                 text="как дела?")
+    _force_react_path(monkeypatch)
+    chain = _quoted_chain(40, quoted_item_id="tg:701", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    assert llm.calls == ["react"], "вызов был, но провайдер отказал"
+    assert _delivered_ids(events) == [], \
+        "ответа модели нет — события доставки быть не должно: %r" % \
+        _delivered_ids(events)
+
+
 @pytest.mark.asyncio
 async def test_empty_window_reports_zero_messages(monkeypatch, events):
     """Пустое окно: `{0, 0, 0}` — честные нули, без «неизвестно»."""

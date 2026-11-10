@@ -5366,6 +5366,9 @@ class DirectChatService:
                             temperature=temperature, chat_id=chat_id,
                             module="direct_chat", step="react",
                             correlation_id=correlation_id)
+                    # EVOL-015: исходящий вызов модели (`react`) с тем же
+                    # контекстом хода состоялся — цитата из payload доехала.
+                    _mark_quote_delivery_used(_quote_delivery)
                     llm_reaction = _llm_react.extract_llm_reaction(raw_react)
                     if llm_reaction is None:
                         # Матрица — владелец action; LLM не ответила валидно →
