@@ -321,6 +321,17 @@ class TurnTrace:
                 ("alias_reply_parent", self.alias_reply_parent)):
             if value not in (None, "", 0):
                 payload[key] = value
+        # UR-29.3/UR-20.8 (UR-F шаг 2): структурированные поля ChatClock
+        # (`note_clock` их уже принимает и хранит, но в событие они не ехали —
+        # Inspector читал пустые строки). Те же правила «честной пустоты»:
+        # ключ есть только при реальном значении.
+        for key, value in (
+                ("clock_timezone", self.clock_timezone),
+                ("clock_as_of_utc", self.clock_as_of_utc),
+                ("clock_config_version", self.clock_config_version),
+                ("clock_timezone_source", self.clock_timezone_source)):
+            if value not in (None, ""):
+                payload[key] = value
         if self.clock_stages:
             payload["clock_stages"] = list(self.clock_stages)
         if self.stop_reason:

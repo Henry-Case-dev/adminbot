@@ -1325,10 +1325,27 @@ async def direct_context_diagnostics(
 #   direct_turn_context (L1 + tools + clock + llm_calls),
 #   direct_turn_writer  (манифест + completion + honest checks),
 #   direct_turn_delivery (ops + digest + divergence + итог).
+# UR-F шаг 2 к ним добавлены ДЕТАЛИ (см. `_TURN_DETAIL_EVENTS`): снимок выбора,
+# факты поиска, tool-фаза и правила стиля.
 # Нового стора нет; сырых текстов чата нет (turn_trace уже шёл на digest'ы).
 _TURN_STAGE_EVENTS = frozenset({
     "direct_turn_context", "direct_turn_writer", "direct_turn_delivery",
 })
+
+#: UR-F шаг 2: события-ДЕТАЛИ хода. Их строки приклеиваются к уже
+#: существующей цепочке по `trace_id` и НОВЫХ цепочек не создают (иначе
+#: `style_policy`/`tool_phase` без контекста фабриковали бы «ходы»).
+_TURN_DETAIL_EVENTS = frozenset({
+    "direct_turn_selection",     # turn_trace.EVENT_SELECTION (снимок выбора)
+    "reply_search_evidence",     # direct_execution.emit_search_trace
+    "tool_phase",                # turn_payload_events.STAGE_TOOL_PHASE
+    "style_policy",              # style_policy: проекция снимка хода
+})
+
+#: Предел окна чтения телеметрии чата (bounded, как и раньше).
+_TURN_ROW_LIMIT = 400
+#: Предел оригинального текста в `include_text=1` (контракт §4).
+_TURN_TEXT_MAX = 600
 
 
 async def mca_events_query(db, **kwargs) -> list[dict]:
@@ -1337,32 +1354,338 @@ async def mca_events_query(db, **kwargs) -> list[dict]:
     return await _me.query_events(db, **kwargs)
 
 
-def _turn_usage_json(row: dict) -> dict:
-    """Безопасно разобрать usage_json события (строка JSON или dict)."""
-    raw = row.get("usage_json")
+def _turn_json_obj(raw) -> dict:
+    """Разобрать JSON-слой события (строка или готовый dict).
+
+    Неразбираемое/пустое/битое → {} — «нет данных», а не 500: слой мог быть
+    обрезан лимитом хранилища или записан старой версией кода."""
     if isinstance(raw, dict):
         return raw
     if isinstance(raw, str) and raw.strip():
         try:
             data = json.loads(raw)
-            if isinstance(data, dict):
-                return data
         except Exception:
             return {}
+        return data if isinstance(data, dict) else {}
     return {}
+
+
+def _turn_usage_json(row: dict) -> dict:
+    """Безопасно разобрать usage_json события (строка JSON или dict)."""
+    return _turn_json_obj(row.get("usage_json"))
+
+
+def _turn_source_ref(row: dict) -> dict:
+    """Безопасно разобрать source_ref_json (слой `reply_search_evidence`)."""
+    return _turn_json_obj(row.get("source_ref_json"))
+
+
+def _turn_int(value):
+    """Целое из события; всё остальное → None (неизвестно ≠ ноль)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
+
+
+def _turn_code(value, limit: int = 64) -> str:
+    """Короткий код/enum/id из события (обрезка, не подстановка значения)."""
+    text = str(value if value is not None else "").strip()
+    return text[:limit] if text else ""
+
+
+def _turn_ids(values) -> list[str]:
+    """Стабильные id в исходном порядке, БЕЗ повторов.
+
+    Повтор положительного факта (тот же id цитаты/источника, приехавший
+    вторым событием того же хода) не должен рендериться дважды."""
+    out: list[str] = []
+    for value in (values or ()):
+        text = _turn_code(value, 64)
+        if text and text not in out:
+            out.append(text)
+    return out
+
+
+def _turn_plain_map(value) -> dict | None:
+    """Плоская карта скаляров из события (деньги/токены/окна — без вложенности).
+
+    ``None`` остаётся ``None``: `budget.fallback_window = null` означает
+    «fallback-окна не было» (это факт), а не пропущенное поле."""
+    if not isinstance(value, dict):
+        return None
+    out: dict = {}
+    for key, item in value.items():
+        name = str(key)[:40]
+        if isinstance(item, bool) or isinstance(item, (int, float, str)) \
+                or item is None:
+            out[name] = item
+    return out or None
+
+
+def _turn_clock_view(payload: dict) -> dict:
+    """Часы хода + стадии, которые РЕАЛЬНО получили TimeContext (UR-20.8).
+
+    ``stages = null`` — «неизвестно» (трасса старше слайса): пустой список
+    означал бы «ни одна стадия часов не получила», чего мы не знаем."""
+    stages = payload.get("clock_stages")
+    return {
+        "timezone": payload.get("clock_timezone") or "",
+        "as_of_utc": payload.get("clock_as_of_utc") or "",
+        "timezone_source": payload.get("clock_timezone_source") or "",
+        "config_version": payload.get("clock_config_version") or "",
+        "stages": ([str(item) for item in stages]
+                   if isinstance(stages, list) else None),
+    }
+
+
+def _turn_source_view(payload: dict) -> dict:
+    """UR-20.4: кто/когда/в ответ на что — только id, дата и два алиаса."""
+    return {
+        "message_id": _turn_int(payload.get("source_message_id")),
+        "author_id": _turn_int(payload.get("source_author_id")),
+        "author_alias": _turn_code(payload.get("alias_source_author"), 48)
+                        or None,
+        "message_ts": _turn_int(payload.get("source_message_ts")),
+        "reply_to_id": _turn_int(payload.get("reply_to_message_id")),
+        "reply_to_author_id": _turn_int(payload.get("reply_to_author_id")),
+        "reply_to_alias": _turn_code(payload.get("alias_reply_parent"), 48)
+                          or None,
+    }
+
+
+def _turn_block_view(row) -> dict | None:
+    """Один блок контекста: kind/role/rendered/ссылки/даты/токены.
+
+    ``role`` здесь — ПРИОРИТЕТ ВЫТЕСНЕНИЯ piece'а в аллокации композера
+    (`p0`…`p3`: P0 не вытесняется, P3 режется первым), а НЕ авторская роль
+    участника. Это разные сущности, и UI обязан подписывать его как
+    приоритет."""
+    if not isinstance(row, dict):
+        return None
+    kind = _turn_code(row.get("kind"), 32)
+    if not kind:
+        return None
+    source_ids = _turn_ids(row.get("source_ids"))
+    return {
+        "kind": kind,
+        "role": _turn_code(row.get("role"), 16) or None,
+        "rendered": bool(row.get("rendered")),
+        "skip_reason": _turn_code(row.get("skip_reason"), 32) or None,
+        "source_ids": source_ids or None,
+        "first_ts": _turn_int(row.get("first_ts")),
+        "last_ts": _turn_int(row.get("last_ts")),
+        "tokens": _turn_int(row.get("tokens")),
+    }
+
+
+def _turn_dropped_views(rows) -> list[dict] | None:
+    """Потерянное на аллокации: агрегат по (reason_code, kind) без повторов."""
+    if not isinstance(rows, list):
+        return None
+    out: list[dict] = []
+    seen: set = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        reason = _turn_code(row.get("reason_code"), 40)
+        kind = _turn_code(row.get("kind"), 32)
+        if not reason and not kind:
+            continue
+        key = (reason, kind)
+        if key in seen:      # тот же агрегат повторно — считаем один раз
+            continue
+        seen.add(key)
+        out.append({"reason_code": reason or None, "kind": kind or None,
+                    "count": _turn_int(row.get("count"))})
+    return out or None
+
+
+def _turn_self_output_views(rows) -> list[dict] | None:
+    """Свои реплики в истории: source_id/tg id/дата, без текста и повторов."""
+    if not isinstance(rows, list):
+        return None
+    out: list[dict] = []
+    seen: set = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        source_id = _turn_code(row.get("source_id"), 48) or None
+        tg_id = _turn_int(row.get("tg_message_id"))
+        if source_id is None and tg_id is None:
+            continue
+        key = (source_id, tg_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"source_id": source_id, "tg_message_id": tg_id,
+                    "ts": _turn_int(row.get("ts"))})
+    return out or None
+
+
+def _turn_selection_view(payload: dict) -> dict:
+    """UR-20.5/20.6: что именно попало в запрос L2 (снимок выбора).
+
+    Секция существует ровно потому, что событие есть; отсутствующие внутри
+    поля — ``null`` («не зафиксировано»), а не 0."""
+    counts = _turn_plain_map(payload.get("counts"))
+    budget = _turn_plain_map(payload.get("budget"))
+    blocks = payload.get("blocks")
+    view: dict = {
+        "policy_version": _turn_code(payload.get("policy_version"), 32) or None,
+        "counts": counts,
+        "budget": budget,
+        "blocks": ([row for row in (_turn_block_view(item)
+                                    for item in blocks
+                                    if isinstance(item, dict)) if row]
+                   if isinstance(blocks, list) else None),
+        "dropped": _turn_dropped_views(payload.get("dropped")),
+        "self_outputs": _turn_self_output_views(payload.get("self_outputs")),
+    }
+    if not view["blocks"]:
+        view["blocks"] = None
+    # Честность срезов (UR-23.7): срез виден как срез, а полный итог потерь
+    # не теряется при сокращении строк `dropped`.
+    dropped_total = _turn_int(payload.get("dropped_total"))
+    if dropped_total is not None:
+        view["dropped_total"] = dropped_total
+    if payload.get("truncated") is True:
+        view["truncated"] = True
+    return view
+
+
+def _turn_search_view(rows: list[dict], coverage: dict) -> dict | None:
+    """UR-20.7: решение о поиске + что реально сделано + ссылки выдачи.
+
+    Скаляры берутся из ПОСЛЕДНЕГО события хода (финальное состояние), а
+    положительные списки (`source_ids`, `links`) объединяются без повторов:
+    повторный факт того же источника не рендерится дважды. `evidence_class`/
+    `required` берутся из `coverage` контекст-события (там живёт решение
+    политики), а не придумываются."""
+    if not rows:
+        return None
+    last: dict = {}
+    source_ids: list[str] = []
+    links: list[dict] = []
+    for row in sorted(rows, key=_turn_row_order):
+        payload = _turn_source_ref(row)
+        if not payload:
+            continue
+        last = payload
+        source_ids.extend(_turn_ids(payload.get("source_ids")))
+        raw_links = payload.get("source_links")
+        for link in (raw_links if isinstance(raw_links, list) else ()):
+            if not isinstance(link, dict):
+                continue
+            url = _turn_code(link.get("source_url"), 300)
+            source_id = _turn_code(link.get("source_id"), 48)
+            title = _turn_code(link.get("source_title"), 120)
+            published = _turn_code(link.get("published_at"), 32)
+            if not url and not title:
+                continue
+            key = (source_id, url)
+            if any((item.get("source_id"), item.get("source_url")) == key
+                   for item in links):
+                continue
+            links.append({"source_id": source_id or None,
+                          "source_url": url or None,
+                          "source_title": title or None,
+                          "published_at": published or None})
+    coverage = coverage if isinstance(coverage, dict) else {}
+    called = last.get("search_called")
+    required = coverage.get("required")
+    return {
+        # Код решения политики (`required`/`beneficial`/`not_applicable`).
+        "decision": _turn_code(last.get("search_intent"), 32) or None,
+        "called": called if isinstance(called, bool) else None,
+        "status": _turn_code(last.get("search_status"), 32) or None,
+        "skip_reason": _turn_code(last.get("search_skip_reason"), 40) or None,
+        "evidence_class": _turn_code(coverage.get("evidence_class"), 32)
+                          or None,
+        "required": required if isinstance(required, bool) else None,
+        "source_count": _turn_int(last.get("source_count")),
+        "source_ids": _turn_ids(source_ids) or None,
+        "links": links or None,
+    }
+
+
+def _turn_style_view(rows: list[dict]) -> dict | None:
+    """UR-20.8: сработавшие правила стиля (id/kind/status/причина, без текста).
+
+    Правила объединяются по всем событиям хода с дедупом `(rule_id,status)`:
+    один и тот же факт «правило сработало» не повторяется."""
+    if not rows:
+        return None
+    last: dict = {}
+    revision = None
+    rules: list[dict] = []
+    seen: set = set()
+    for row in sorted(rows, key=_turn_row_order):
+        payload = _turn_usage_json(row)
+        if payload:
+            last = payload
+        revision = _turn_code(payload.get("policy_revision"), 32) or revision
+        if revision is None:
+            revision = _turn_int(row.get("style_revision"))
+        for rule in (payload.get("rules") or ()):
+            if not isinstance(rule, dict):
+                continue
+            rule_id = _turn_code(rule.get("rule_id"), 64)
+            if not rule_id:
+                continue
+            status = _turn_code(rule.get("status"), 24)
+            key = (rule_id, status)
+            if key in seen:
+                continue
+            seen.add(key)
+            item = {"rule_id": rule_id,
+                    "kind": _turn_code(rule.get("kind"), 24) or None,
+                    "status": status or None,
+                    "reason": _turn_code(rule.get("reason"), 48) or None}
+            source = _turn_code(rule.get("source"), 24)
+            if source:
+                item["source"] = source
+            rules.append(item)
+    applied = last.get("applied")
+    return {
+        "revision": revision,
+        "source": _turn_code(last.get("policy_source"), 32) or None,
+        "applied": applied if isinstance(applied, bool) else None,
+        "counts": _turn_plain_map(last.get("counts")),
+        "rules": rules or None,
+    }
 
 
 def _turn_chain_view(rows: list[dict]) -> dict:
     """Собрать L1 → tools → Writer → ops → delivery из событий одной трассы.
 
     Отдаёт только коды/числа (R17). Отсутствующая стадия — честное
-    «нет данных» (None), не выдуманный успех."""
+    «нет данных» (None), не выдуманный успех.
+
+    UR-F шаг 2: `_TURN_STAGE_EVENTS` остаётся ЯКОРЕМ цепочки (3 события), а
+    детали (`_TURN_DETAIL_EVENTS`) только дополняют уже существующую
+    цепочку. Старая трасса поэтому остаётся валидной: `selection/search/style
+    = None`, `stages.* = false`, `available: true` не меняется."""
     context: dict | None = None
+    context_payload: dict = {}
     writer: dict | None = None
     delivery: dict | None = None
     first_ts = 0
+    selection_rows: list[dict] = []
+    search_rows: list[dict] = []
+    tool_rows: list[dict] = []
+    style_rows: list[dict] = []
     for row in rows:
         name = str(row.get("event_name") or "")
+        if name in _TURN_DETAIL_EVENTS:
+            if name == "direct_turn_selection":
+                selection_rows.append(row)
+            elif name == "reply_search_evidence":
+                search_rows.append(row)
+            elif name == "tool_phase":
+                tool_rows.append(row)
+            else:
+                style_rows.append(row)
+            continue
         if name not in _TURN_STAGE_EVENTS:
             continue
         payload = _turn_usage_json(row)
@@ -1370,6 +1693,7 @@ def _turn_chain_view(rows: list[dict]) -> dict:
         if first_ts == 0 or (ts and ts < first_ts):
             first_ts = ts or first_ts
         if name == "direct_turn_context" and context is None:
+            context_payload = payload
             context = {
                 "outcome": row.get("outcome") or "",
                 "ts": ts,
@@ -1383,15 +1707,9 @@ def _turn_chain_view(rows: list[dict]) -> dict:
                 "coverage": payload.get("coverage") or {},
                 "llm_calls": payload.get("llm_calls") or {},
                 "idempotency_key": payload.get("idempotency_key") or "",
-                # UR-29.3: фактическое время хода (ChatClock снапшот).
-                "clock": {
-                    "timezone": payload.get("clock_timezone") or "",
-                    "as_of_utc": payload.get("clock_as_of_utc") or "",
-                    "timezone_source": payload.get(
-                        "clock_timezone_source") or "",
-                    "config_version": payload.get("clock_config_version")
-                        or "",
-                },
+                # UR-29.3: фактическое время хода (ChatClock снапшот) +
+                # UR-20.8: стадии, реально получившие TimeContext.
+                "clock": _turn_clock_view(payload),
                 "stop_reason": payload.get("stop_reason") or "",
             }
         elif name == "direct_turn_writer" and writer is None:
@@ -1419,8 +1737,154 @@ def _turn_chain_view(rows: list[dict]) -> dict:
                     payload.get("semantic_rewrite_count") or 0),
                 "delivery": payload.get("delivery") or {},
             }
-    return {"context": context, "writer": writer, "delivery": delivery,
-            "ts": first_ts}
+    return {
+        "context": context, "writer": writer, "delivery": delivery,
+        "ts": first_ts,
+        # Присутствие стадии (bool) — UI не угадывает по пустым объектам.
+        "stages": {
+            "context": context is not None,
+            "writer": writer is not None,
+            "delivery": delivery is not None,
+            "selection": bool(selection_rows),
+            "search": bool(search_rows),
+            "tool_phase": bool(tool_rows),
+            "style": bool(style_rows),
+        },
+        # UR-20.4: источник хода (id/дата/два алиаса).
+        "source": _turn_source_view(context_payload) if context else None,
+        # UR-29.3+UR-20.8 (расширение существующего `context.clock`).
+        "clock": _turn_clock_view(context_payload) if context else None,
+        # UR-20.5/20.6: снимок выбора — один на ход (повтор не дублируется).
+        "selection": (_turn_selection_view(
+            _turn_usage_json(_latest_row(selection_rows)))
+            if selection_rows else None),
+        # UR-20.7: решение/факты поиска + ссылки выдачи.
+        "search": _turn_search_view(
+            search_rows, (context_payload.get("coverage") or {})),
+        # UR-20.8: сработавшие правила стиля.
+        "style": _turn_style_view(style_rows),
+    }
+
+
+def _turn_row_order(row: dict) -> tuple:
+    """Порядок рядов трассы: время, затем id вставки (детерминизм в секунде)."""
+    return (int(row.get("ts") or 0), int(row.get("id") or 0))
+
+
+def _latest_row(rows: list[dict]) -> dict:
+    """Последний по времени ряд детали (финальное состояние хода).
+
+    Порядок детерминированный (`ts`, затем `id`): повтор того же снимка в
+    трассе не создаёт второй раздел — положительный факт рендерится один раз."""
+    ordered = sorted(rows, key=_turn_row_order)
+    return ordered[-1] if ordered else {}
+
+
+def _turn_text_slice(raw) -> dict:
+    """Оригинальный текст из существующего хранилища: ≤600 + флаг усечения."""
+    text = str(raw or "").strip()
+    if not text:
+        return {"text": None, "truncated": False}
+    return {"text": text[:_TURN_TEXT_MAX],
+            "truncated": len(text) > _TURN_TEXT_MAX}
+
+
+async def _turn_source_text(db, chat_id: int, tg_message_id):
+    """Текст сообщения по (chat_id, tg_message_id) — строго в этом чате.
+
+    Каждое чтение ограничено `chat_id`, а строка проверяется на тот же чат:
+    сообщение другого чата не отдаётся даже при совпадении tg id. Текст не
+    логируется и не кэшируется."""
+    if not tg_message_id:
+        return None
+    try:
+        row = await db.get_smart_message_by_tg_id(int(chat_id),
+                                                  int(tg_message_id))
+    except Exception:
+        logger.warning("[turn-diagnostics] text lookup failed", exc_info=True)
+        return None
+    if row is None:
+        return None
+    try:
+        if _turn_int(row["chat_id"]) != int(chat_id):
+            return None
+        return row["text"] or row["caption"]
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+
+
+async def _turn_reply_parent_text(db, chat_id: int, tg_message_id):
+    """Текст сообщения, на которое отвечали, — только точный anchor чата.
+
+    `get_messages_around(before=0, after=0)` откатывается к «последним
+    сообщениям», если якоря нет; поэтому берётся ТОЛЬКО строка с нужным
+    `tg_message_id` (иначе вернулся бы текст постороннего сообщения)."""
+    if not tg_message_id:
+        return None
+    try:
+        rows = await db.get_messages_around(int(chat_id), int(tg_message_id),
+                                            before=0, after=0)
+    except Exception:
+        logger.warning("[turn-diagnostics] reply lookup failed", exc_info=True)
+        return None
+    for row in (rows or ()):
+        try:
+            if _turn_int(row["tg_message_id"]) != int(tg_message_id):
+                continue
+            if _turn_int(row["chat_id"]) != int(chat_id):
+                continue
+            return row["text"] or row["caption"]
+        except Exception:      # pragma: no cover - защитная ветка
+            continue
+    return None
+
+
+async def _turn_self_output_text(db, chat_id: int, tg_message_id):
+    """Текст собственной реплики бота по (chat_id, tg_message_id)."""
+    if not tg_message_id:
+        return None
+    try:
+        row = await db.get_bot_output_by_tg(int(chat_id), int(tg_message_id))
+    except Exception:
+        logger.warning("[turn-diagnostics] own output lookup failed",
+                       exc_info=True)
+        return None
+    if not isinstance(row, dict):
+        return None
+    try:
+        if _turn_int(row.get("chat_id")) != int(chat_id):
+            return None
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+    return row.get("content_text")
+
+
+async def _turn_attach_text(db, chat_id: int, view: dict, *, ctx) -> None:
+    """UR-F §3/§4: `include_text=1` — оригинальный текст из СУЩЕСТВУЮЩИХ
+    хранилищ (в `mca_events` текста нет и не будет).
+
+    Предикат доступа проверяется ЗДЕСЬ, на границе чтения текста и на ТОМ ЖЕ
+    `chat_id`, что в пути (без него — 403, а не пустая строка). Дальше каждое
+    чтение ограничено `chat_id`, каждая строка проверена на этот чат; текст не
+    логируется и не кэшируется."""
+    if not access_srv.can_access_chat(ctx, chat_id):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    source = view.get("source")
+    if isinstance(source, dict):
+        source.update(_turn_text_slice(
+            await _turn_source_text(db, chat_id, source.get("message_id"))))
+        reply_to_id = source.get("reply_to_id")
+        if reply_to_id:
+            parent = _turn_text_slice(
+                await _turn_reply_parent_text(db, chat_id, reply_to_id))
+            source["reply_parent"] = {"message_id": reply_to_id, **parent}
+    selection = view.get("selection")
+    rows = selection.get("self_outputs") if isinstance(selection, dict) else None
+    for row in (rows or ()):
+        if not isinstance(row, dict):
+            continue
+        row.update(_turn_text_slice(
+            await _turn_self_output_text(db, chat_id, row.get("tg_message_id"))))
 
 
 @api_router.get("/direct/turn-diagnostics")
@@ -1430,19 +1894,26 @@ async def direct_turn_diagnostics(
     chat_id: int = Query(...),
     trace_id: str | None = Query(default=None),
     turn: int = Query(default=1, ge=1, le=8),
+    include_text: int = Query(default=0, ge=0, le=1),
 ):
     """R-ADM.5/UR-20.3: диагностика ОДНОГО ответа — L1 → tools → Writer →
     фактические deterministic ops → delivery, из существующей трассы
     ``turn_trace`` (mca_events, trace_id = correlation_id хода).
 
+    UR-F шаг 2: цепочка строится только по ``_TURN_STAGE_EVENTS`` (якорь), а
+    события-детали (`direct_turn_selection`, `reply_search_evidence`,
+    `tool_phase`, `style_policy`) приклеиваются к ней по ``trace_id``.
     Выбор хода: явный ``trace_id`` либо N-я (``turn``) из последних цепочек
     чата. R17: только коды/числа/digest'ы — сырых текстов нет (их нет и в
-    самих событиях). Отсутствие данных — честное ``available: false`` с
-    причиной; никаких фейковых успехов. RBAC — как /api/config на чат."""
+    самих событиях); ``include_text=1`` (по умолчанию 0 — полная обратная
+    совместимость) добавляет текст из существующих хранилищ под предикатом
+    доступа к этому же чату. Отсутствие данных — честное ``available: false``
+    с причиной; никаких фейковых успехов. RBAC — как /api/config на чат."""
     cache: ConfigCache = get_cache(request)
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
     if not access_srv.can_access_chat(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к чату")
+    want_text = bool(include_text)
     from services import lore_runtime
     db = lore_runtime.get_lore_db()
     out: dict = {"chat_id": chat_id, "available": False, "turns": []}
@@ -1450,26 +1921,43 @@ async def direct_turn_diagnostics(
         out["reason"] = "telemetry_unavailable"
         return out
     try:
-        rows = await mca_events_query(db, chat_id=chat_id, limit=400)
+        rows = await mca_events_query(db, chat_id=chat_id,
+                                     limit=_TURN_ROW_LIMIT)
     except Exception:
         logger.warning("[turn-diagnostics] query failed", exc_info=True)
         rows = []
+    # §3: каждый ряд проверен по чату (фильтр запроса — единственная защита
+    # от смешивания чатов, его нельзя ослаблять).
+    rows = [row for row in rows
+            if _turn_int(row.get("chat_id")) == int(chat_id)]
     chains: dict[str, list[dict]] = {}
     order: list[str] = []
+    details: list[dict] = []
     for row in rows:
         tid = str(row.get("trace_id") or "")
-        if not tid or str(row.get("event_name") or "") \
-                not in _TURN_STAGE_EVENTS:
+        if not tid:
             continue
-        chains.setdefault(tid, []).append(row)
-        if tid not in order:
-            order.append(tid)
+        name = str(row.get("event_name") or "")
+        if name in _TURN_STAGE_EVENTS:
+            chains.setdefault(tid, []).append(row)
+            if tid not in order:
+                order.append(tid)
+        elif name in _TURN_DETAIL_EVENTS:
+            details.append(row)
+    # Детали НЕ создают цепочек: строка приклеивается только к уже
+    # существующему ходу того же `trace_id` (и того же чата).
+    for row in details:
+        bucket = chains.get(str(row.get("trace_id") or ""))
+        if bucket is not None:
+            bucket.append(row)
     if not chains:
         out["reason"] = "no_turn_traces"
         return out
-    # Новые цепочки — первыми (по максимальному ts события).
+    # Новые цепочки — первыми (по максимальному ts ЯКОРНОГО события).
     def _chain_max_ts(tid: str) -> int:
-        return max((int(r.get("ts") or 0) for r in chains[tid]), default=0)
+        return max((int(r.get("ts") or 0) for r in chains[tid]
+                    if str(r.get("event_name") or "") in _TURN_STAGE_EVENTS),
+                   default=0)
     ordered = sorted(order, key=_chain_max_ts, reverse=True)
     out["turns"] = [{"trace_id": tid,
                      "ts": _chain_max_ts(tid),
@@ -1494,6 +1982,8 @@ async def direct_turn_diagnostics(
     out["available"] = True
     out["trace_id"] = selected_id
     out.update(view)
+    if want_text:
+        await _turn_attach_text(db, chat_id, out, ctx=ctx)
     return out
 
 
