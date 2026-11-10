@@ -697,6 +697,57 @@ async def test_available_is_union_of_pools_not_their_sum(monkeypatch, events):
 
 
 @pytest.mark.asyncio
+async def test_one_quoted_thread_item_emits_single_delivery_event(
+        monkeypatch, events):
+    """РЕГРЕСС шага 1: измерение выживших звеньев НЕ перерендеривает строку.
+
+    Счётчики считают выживание по строкам piece'а, но ключ строки нельзя
+    добывать повторным `_chain_line`: у рендера есть побочный эффект
+    (EVOL-015, «render = delivery») — событие `quote_delivered_to_context`.
+    Второй вызов ради измерения объявлял одну и ту же цитату доставленной
+    ДВАЖДЫ (репро ревью: 1 событие на базе → 2 на шаге 1).
+
+    Проверяется фактическая телеметрия одного хода: ровно одно событие
+    доставки, с id именно цитирующего звена, при том что звено реально
+    посчитано вошедшим (измерение работает, а не отключено)."""
+    from services.thread_chain import ChainItem
+
+    quoted = ChainItem(uid=11, name="Петя", is_bot=False,
+                       text="реплика с цитатой", ts=1_700_000_003,
+                       item_id="tg:703", quote_text="выделенный фрагмент",
+                       quote_author_id=10, quote_position=0,
+                       quote_is_manual=1, quote_original_available=True)
+    chain = [quoted] + _chain_items(2, item_id_base=700)
+
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    delivered = [e for e in events
+                 if e.get("event_name") == "quote"
+                 and e.get("stage") == "quote_delivered_to_context"]
+    assert len(delivered) == 1, \
+        "одна цитата в ветке — ровно одно событие доставки, а не %d" % \
+        len(delivered)
+    assert delivered[0].get("message_id") == 703, delivered[0]
+    assert delivered[0].get("component") == "context"
+
+    # …и это измерение, а не отказ от него: звено посчитано вошедшим.
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    counts = payload.get("counts") or {}
+    assert counts.get("included_messages") == 6, counts       # 3 окна + 3 ветки
+    assert counts.get("available_messages") == 6, counts
+    thread_block = next(b for b in payload["blocks"]
+                        if b.get("kind") == "thread")
+    assert "msg:703" in thread_block["source_ids"], thread_block
+
+
+@pytest.mark.asyncio
 async def test_empty_window_reports_zero_messages(monkeypatch, events):
     """Пустое окно: `{0, 0, 0}` — честные нули, без «неизвестно»."""
     svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=[])

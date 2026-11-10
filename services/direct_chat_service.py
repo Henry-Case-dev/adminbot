@@ -2641,6 +2641,36 @@ def _sel_piece_line_keys(piece) -> set:
     return keys
 
 
+def _sel_chain_line_key(item, thread_keys, projection=None) -> str:
+    """Ключ дедупа звена ветки — БЕЗ повторного рендера строки.
+
+    Рендер строки тождествен доставке (EVOL-015): у `_chain_line` →
+    `render_speech_line`/`format_chain_line` побочный эффект — событие
+    `quote_delivered_to_context`. Измерение обязано быть наблюдательным:
+    второй вызов ради ключа объявлял бы в телеметрии цитату доставленной
+    дважды (регресс шага 1, репро ревью: 1 событие на базе → 2 после).
+
+    Ключ берётся из ТОГО ЖЕ структурного ref'а, что печатается в заголовке
+    уже отрендеренной строки: `tg:…`/`msg:…` в сыром виде либо метка прогона
+    (`M3`) в речевой проекции — обратная карта `SpeechProjection` только
+    читается (новых меток не выдаёт). Совпадение с `thread_keys` (строками
+    piece'а) и решает вопрос выживания, поэтому рубильник проекции здесь не
+    перепроверяется: биекция «метка ↔ ref» — в рамках прогона."""
+    raw = str(getattr(item, "item_id", "") or "").strip()
+    if not raw:
+        return ""
+    if projection is not None:
+        try:
+            label = str(projection.label_of_item(raw) or "")
+        except Exception:            # pragma: no cover - защита
+            label = ""
+        if label and label in thread_keys:
+            return label
+    if raw.startswith("tg:") or raw.startswith("msg:"):
+        return raw
+    return ""
+
+
 async def _social_frame_for_turn(chat_id, message=None, *, bundle=None,
                                  window=None, opportunity=None,
                                  requester_user_id=None):
@@ -9863,9 +9893,10 @@ class DirectChatService:
                             _all_chain_ids.append(_sid)
                         _line_key = ""
                         try:
-                            _line_key = _context_line_dedup_key(self._chain_line(
-                                _item, suffix_map, trigger_message_id,
-                                projection))
+                            # Ключ — из УЖЕ отрендеренной строки: повторный
+                            # рендер = второе событие «цитата доставлена».
+                            _line_key = _sel_chain_line_key(
+                                _item, _thread_keys, projection)
                         except Exception:      # pragma: no cover - защита
                             _line_key = ""
                         if not _line_key or _line_key not in _thread_keys:
