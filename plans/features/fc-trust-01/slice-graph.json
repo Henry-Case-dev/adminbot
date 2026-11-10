@@ -1,0 +1,178 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "task_id": "fc-trust-01",
+  "ticket": "FC-TRUST-01",
+  "queue_position": "after:vmq-onto-01+self-diag-01",
+  "external_barriers": [
+    {
+      "task": "vmq-onto-01",
+      "scope": "whole epic",
+      "why": "binding owner order: strictly after quantum randomness"
+    },
+    {
+      "task": "self-diag-01",
+      "scope": "whole epic",
+      "why": "binding owner order: strictly after extended self-diagnostics"
+    }
+  ],
+  "slices": [
+    {
+      "id": "FCT-S0-CAUSE",
+      "title": "Адресная сверка: deployed SHA, effective настройки, карты и один реальный trace инцидента",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/fc-trust-01/analysis/**",
+        "tools/factcheck_incident_probe.py",
+        "tests/fixtures/fc_trust_incident/**"
+      ],
+      "acceptance": "Выдана таблица установленной причины с файлами/строками и планом изменений; зафиксированы deployed SHA, effective flags (PG/hot/env/per-chat), версии промптов, сверка карт PVR-FC/FCP/ASAP-FC/EVOL и один реальный trace инцидента либо явное признание его утраты с воспроизведением на обезличенном оригинале.",
+      "external_depends_on": [
+        "task:vmq-onto-01",
+        "task:self-diag-01"
+      ],
+      "next_role": "Architect"
+    },
+    {
+      "id": "FCT-S1-CONTRACT",
+      "title": "Замороженный контракт цели, claim, доказательства и вердикта",
+      "depends_on": [
+        "FCT-S0-CAUSE"
+      ],
+      "write_scope": [
+        "plans/features/fc-trust-01/contract/**"
+      ],
+      "acceptance": "Зафиксирован один согласованный контракт: поля ClaimUnit с provenance, три уровня Candidate/Evidence/Verdict basis, отдельные coverage и execution_status, выбор способа планирования внутри существующего Analyst/tool-loop; контракт подтверждён Architect'ом и запрещает новые сущности из §«Запрещённые новые сущности».",
+      "external_depends_on": [],
+      "next_role": "Architect"
+    },
+    {
+      "id": "FCT-S2-TARGET",
+      "title": "Цель, Reply/forward/media-провенанс и граница chat vs external",
+      "depends_on": [
+        "FCT-S1-CONTRACT"
+      ],
+      "write_scope": [
+        "handlers/factcheck.py",
+        "services/factcheck_context.py",
+        "services/factcheck_suitability.py",
+        "services/factcheck_orchestrator.py",
+        "tests/test_fc_trust_target.py"
+      ],
+      "acceptance": "На реальных Telegram-входах цель разрешается по якорям конкретной публикации (включая Reply на намёк, forward+caption, альбом), участник чата сопоставляется по UID, и данные чата не становятся внешним доказательством.",
+      "external_depends_on": [
+        "pvr-fc-corrective-01:FC-BACKEND"
+      ],
+      "next_role": "Builder"
+    },
+    {
+      "id": "FCT-S3-RETRIEVAL",
+      "title": "Поиск, чтение источников и доказательная фильтрация",
+      "depends_on": [
+        "FCT-S1-CONTRACT"
+      ],
+      "write_scope": [
+        "services/factcheck_planner.py",
+        "services/search_aggregator.py",
+        "services/safe_fetch.py",
+        "services/factcheck_attribution.py",
+        "tests/test_fc_trust_retrieval.py"
+      ],
+      "acceptance": "Кандидаты оцениваются по смыслу, отвергнутые не получают доказательной власти, даты провайдера доходят структурно, объём работы выбирается по claim coverage и реальным ресурсам, а достигнутый лимит маркируется как ограничение.",
+      "external_depends_on": [
+        "unified-reply:UR-SRC-DATE"
+      ],
+      "next_role": "Builder"
+    },
+    {
+      "id": "FCT-S4-EVIDENCE-VERDICT",
+      "title": "EvidenceMap, вердикт, coverage и execution status",
+      "depends_on": [
+        "FCT-S2-TARGET",
+        "FCT-S3-RETRIEVAL"
+      ],
+      "write_scope": [
+        "services/factcheck_service.py",
+        "services/factcheck_prompts.py",
+        "services/evidence_policy.py",
+        "services/relation_evidence.py",
+        "tests/test_fc_trust_verdict.py"
+      ],
+      "acceptance": "Вердикт выводится только из относящегося evidence, technical/partial/непроверенное различимы во всех стадиях, ложный mixed и повышение unsupported невозможны, а chat RAG не служит источником публичной новости.",
+      "external_depends_on": [
+        "pvr-fc-corrective-01:FC-BACKEND",
+        "asap-fc-voice-01:FC-VOICE-CONTRACT"
+      ],
+      "next_role": "Builder"
+    },
+    {
+      "id": "FCT-S5-RENDER",
+      "title": "Payload Writer и публикация",
+      "depends_on": [
+        "FCT-S4-EVIDENCE-VERDICT"
+      ],
+      "write_scope": [
+        "services/factcheck_renderer.py",
+        "services/system2_handoff.py",
+        "tests/test_fc_trust_render.py"
+      ],
+      "acceptance": "Writer получает только подтверждённую структуру, публичный текст отвечает по существу без технического мусора и повторных объяснений, ссылки только из EvidenceMap, длинный ответ доставляется без обрезки в середине утверждения.",
+      "external_depends_on": [
+        "pvr-fc-corrective-01:FC-RENDER",
+        "asap-fc-voice-01:FC-RENDERER"
+      ],
+      "next_role": "Builder"
+    },
+    {
+      "id": "FCT-S6-OBSERVABILITY",
+      "title": "Эффективные настройки, трасса и счётчики",
+      "depends_on": [
+        "FCT-S5-RENDER"
+      ],
+      "write_scope": [
+        "services/usage_events.py",
+        "services/pipeline_analytics.py",
+        "services/param_catalog.py",
+        "web/api/routes.py",
+        "web/app.js",
+        "tests/test_fc_trust_observability.py"
+      ],
+      "acceptance": "В существующих Статусе/Аналитике видны фактические прогоны и агрегаты, трасса прослеживается до отправленного текста, счётчики наполняются только реальными событиями, а настройки показывают effective runtime значение и источник наследования.",
+      "external_depends_on": [
+        "unified-reply:UR-20.4",
+        "unified-reply:UR-20.5",
+        "unified-reply:UR-20.6",
+        "unified-reply:UR-20.7",
+        "unified-reply:UR-20.8"
+      ],
+      "next_role": "Builder"
+    },
+    {
+      "id": "FCT-S7-ACCEPT",
+      "title": "Независимая приёмка по §5",
+      "depends_on": [
+        "FCT-S6-OBSERVABILITY"
+      ],
+      "write_scope": [
+        "tests/test_fc_trust_acceptance.py",
+        "tests/fixtures/fc_trust/**",
+        "plans/features/fc-trust-01/acceptance/**"
+      ],
+      "acceptance": "Все 30 сценариев §5 воспроизведены на свежем кандидате через настоящие входы и реальные провайдеры, включая мутационную проверку Reviewer'а, с trace и текстом выхода; регресс direct/vision/summary/search отсутствует.",
+      "external_depends_on": [],
+      "next_role": "Reviewer"
+    },
+    {
+      "id": "FCT-S8-RELEASE",
+      "title": "Релиз, закрытие старых карт и DONE-контроль",
+      "depends_on": [
+        "FCT-S7-ACCEPT"
+      ],
+      "write_scope": [
+        "plans/features/fc-trust-01/reports/**"
+      ],
+      "acceptance": "Стандартные merge/review/deploy/health проверки выполнены, release SHA и версия подтверждены, настройки владельца сохранены, старые FC/FCP-строки сверены с deployed SHA и закрыты только с доказательствами, отчёт содержит причину и до/после.",
+      "external_depends_on": [],
+      "next_role": "DevOps"
+    }
+  ]
+}
