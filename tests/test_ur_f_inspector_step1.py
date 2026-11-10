@@ -2183,3 +2183,598 @@ def test_fired_rules_skip_pass_and_drop_free_text_reason():
     blob = json.dumps(fired, ensure_ascii=False)
     assert "ТЕКСТ_ЧАТА_XYZ" not in blob, "detail правила попал в трассу"
     assert "заводское правило" not in blob
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 7. Полный ход (`_handle_turn`): снимок описывает ОТПРАВЛЕННОЕ тело
+#
+# Подменяется только ТРАНСПОРТ (или — где указано — маршрутизатор моделей).
+# Держатель `_delivery`, `_remember_receipt`, `_settle_delivered_turn`,
+# проектор и фоллбэк-адаптеры — продовые: тесты доказывают проводку
+# receipt→prepared→снимок, а не свою собственную сборку prepared вручную.
+# ════════════════════════════════════════════════════════════════════════════
+
+import services.tool_loop as _tool_loop
+from services import auto_budget as _auto_budget
+from services.llm_client import LLMChatResult, LLMToolCall
+
+PRIMARY_WINDOW = 8000      # primary-окно (в репро: budget=8000)
+FALLBACK_WINDOW = 300      # окно fallback-модели (в репро: fallback_window=300)
+TURN_ROWS = 12
+
+
+def _plan_json(**over):
+    """План L1 из общего фикстура (`tests.test_asap7_direct_l1`)."""
+    from tests.test_asap7_direct_l1 import _plan_json as _base
+    return _base(**over)
+
+
+def _stage_result(stage: str, window: int, policy_mode: str = "dynamic"):
+    return _auto_budget.BudgetResult(
+        stage=stage, model="m", context_window=int(window),
+        mandatory_tokens=0, output_reserve=0, safety_reserve=0,
+        auto_input_budget=int(window), policy_mode=str(policy_mode),
+        manual_cap=None, effective_input_budget=int(window),
+        source="runtime")
+
+
+def _force_fallback_capacity(monkeypatch, *, primary=PRIMARY_WINDOW,
+                            fallback=FALLBACK_WINDOW):
+    """Резолвер бюджетов: primary 8000 / fallback 300 (числа репро).
+
+    При fallback < primary сервис обязан выдать НАСТОЯЩИЙ fallback-адаптер
+    рекомпоза (`_fallback_adapter_factory`), поэтому тест идёт по живому
+    fallback-соглашению, а не по подставленному prepared."""
+    async def _resolve(stage, **kwargs):
+        return _stage_result(stage,
+                             fallback if stage == "direct.fallback"
+                             else primary)
+
+    monkeypatch.setattr(dcs._auto_budget, "resolve_stage_budget", _resolve)
+    monkeypatch.setattr(dcs._auto_budget, "auto_budget_enabled", lambda: True)
+    monkeypatch.setattr(dcs._model_capacity, "capacity_resolver_enabled",
+                        lambda: True)
+
+    async def _window(base_url, model, slot=None):
+        return (int(primary), "runtime")
+
+    monkeypatch.setattr(dcs._model_capacity, "resolve_stage_window", _window)
+
+
+def _drive_with_db(monkeypatch, llm, *, window=None, db=None):
+    """Тот же продовый ход, что `_drive`, но с двойником БД (конспект)."""
+    from config.settings import Settings
+    from tests.test_direct_chat import FakeMemory, _bot, _make_service, \
+        _message, _user
+
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", True)
+    monkeypatch.setattr(Settings, "DIRECT_DECISION_MAKING_ENABLED", True)
+    monkeypatch.setattr(Settings, "PERSONA_ENABLED", False)
+    memory = FakeMemory(window=list(window or ()))
+    svc = _make_service(memory=memory, llm=llm, db=db)
+    bot = _bot()
+    msg = _message(text="бот, как дела?", message_id=4242, chat_id=CHAT_ID)
+    return svc, bot, msg, _user()
+
+
+class _Response:
+    def __init__(self, content):
+        self._content = content
+
+    def json(self):
+        return {"choices": [{"message": {"content": self._content},
+                             "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 10}}
+
+
+class _FallbackClient(_llm_client.LLMClient):
+    """НАСТОЯЩИЙ LLMClient: план L1 отдаётся локально, primary падает.
+
+    Подменён только транспорт (`_post`/`_fallback_with_retries`) — так же,
+    как в `test_direct_fallback_recompose_asap32`. Адаптер рекомпоза,
+    `sent_body` и receipt — продовые."""
+
+    def __init__(self, plan, *, answer="ответ FB"):
+        super().__init__(
+            "https://api.test/v1", "k", "chat-model-x", "emb-model",
+            fallback_base_url="https://api.fb/v1",
+            fallback_model="fb-model", fallback_api_key="fk")
+        assert self._fallback_active
+        self.plan = plan
+        self.answer = answer
+        self.calls: list = []
+        self.last: list = []
+        self.primary_payload: dict | None = None
+        self.fallback_payload: dict | None = None
+
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       **kwargs):
+        self.calls.append(kwargs.get("step"))
+        self.last = list(messages or ())
+        if kwargs.get("step") == "l1_planner":
+            return self.plan
+        return await super().generate(messages, temperature, chat_id,
+                                      **kwargs)
+
+
+def _wire_failing_primary(client) -> None:
+    """Primary-нога транспорта падает, fallback-нога возвращает ответ."""
+    async def _down(*args, **kwargs):
+        captured = kwargs.get("payload")
+        if captured is None and len(args) > 1:
+            captured = args[1]
+        client.primary_payload = captured
+        raise _llm_client.LLMTransportError("primary down")
+
+    async def _fallback(payload, *, sent=None):
+        client.fallback_payload = payload
+        return _Response(client.answer)
+
+    client._post = _down
+    client._fallback_with_retries = _fallback
+
+
+class _ToolsRejectedLLM:
+    """Клиент, у которого провайдер не умеет tools.
+
+    `generate_chat` отказывает, plain-ответ обязан прийти metadata-вариантом
+    (`generate` в этом случае вызываться не должен — у него нет receipt)."""
+
+    _chat_model = "chat-model-x"
+    _base_url = "https://api.test/v1"
+    _fallback_model = ""
+    _fallback_base_url = ""
+
+    def __init__(self, answer="простой ответ"):
+        self.answer = answer
+        self.tool_calls = 0
+        self.plain_generate_called = False
+        self.plain_body: dict | None = None
+
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       **kwargs):
+        self.plain_generate_called = True
+        return self.answer
+
+    async def generate_chat(self, messages, **kwargs):
+        self.tool_calls += 1
+        raise _llm_client.LLMError("provider rejects tools")
+
+    async def generate_with_metadata(self, messages, temperature=None,
+                                     chat_id=None, **kwargs):
+        sent = {"model": self._chat_model,
+                "messages": [dict(m or {}) for m in (messages or ())]}
+        self.plain_body = sent
+        return _completion(self.answer, "stop", kwargs.get("correlation_id"),
+                           sent)
+
+
+class _MultiRoundLLM:
+    """Клиент многорaундового tool-цикла: нога задаётся по раундам.
+
+    ``legs`` — "fallback" (primary падает → адаптер рекомпоза заменяет body
+    и этот body уходит модели) либо "primary" (успех без замены payload).
+    Последний раунд возвращает финальный текст без tool_calls."""
+
+    _chat_model = "chat-model-x"
+    _base_url = "https://api.test/v1"
+    _fallback_model = "fb-model"
+    _fallback_base_url = "https://api.fb/v1"
+
+    def __init__(self, legs, *, answer="финальный ответ"):
+        self.legs = list(legs)
+        self.answer = answer
+        self.round = 0
+        self.bodies: list = []
+
+    async def generate(self, messages, **kwargs):
+        return self.answer
+
+    def _body(self, messages):
+        return {"model": self._chat_model,
+                "messages": [dict(m or {}) for m in (messages or ())]}
+
+    async def generate_chat(self, messages, *, tools=None,
+                            fallback_payload_adapter=None, **kwargs):
+        leg = self.legs[self.round]
+        self.round += 1
+        final = self.round >= len(self.legs)
+        payload = self._body(messages)
+        if leg == "fallback":
+            assert fallback_payload_adapter is not None, \
+                "fallback-нога без адаптера рекомпоза"
+            out = fallback_payload_adapter(dict(payload))
+            body = out[0] if isinstance(out, tuple) else out
+            assert body.get("messages") and body["messages"] != payload["messages"], (
+                "рекомпоз обязан заменить messages: %r" % (body,))
+        else:
+            body = payload
+        self.bodies.append(body)
+        return LLMChatResult(
+            content=(None if not final else self.answer),
+            tool_calls=(None if final else
+                        [LLMToolCall(id="call-%d" % self.round,
+                                     name="chat_history",
+                                     arguments='{"limit": 3}')]),
+            finish_reason="stop", sent_body=body)
+
+
+def _body_rows(body) -> set:
+    return _payload_row_keys_from_body(body)
+
+
+def _long_rows(count):
+    """Окно с длинными строками: пол-хвоста не съедает весь fallback-бюджет."""
+    return [{
+        "id": i, "tg_message_id": 600 + i, "user_id": 10,
+        "author_name": "Вася",
+        "text": ("строка окна %d " % i) + ("содержательный текст " * 10),
+        "timestamp": 1_700_000_000 + i, "reply_to_id": None,
+        "media_type": "text",
+    } for i in range(1, count + 1)]
+
+
+def _tools_turn(monkeypatch, llm, *, rows):
+    """Ход по tool-пути с ЖИВЫМ циклом (подменён только транспорт модели)."""
+    monkeypatch.setattr(dcs._l1, "direct_l1_enabled", lambda: False)
+    # пол свежего хвоста: при дефолтных 20 строках хвост не вытесняется вовсе
+    monkeypatch.setenv("CHAT_FRESH_TAIL_MIN_MESSAGES", "3")
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=rows)
+    svc.tool_router = object()
+
+    async def _real_tools(*args, **kwargs):
+        return await _tool_loop.chat_with_tools(*args, **kwargs)
+
+    monkeypatch.setattr(dcs, "chat_with_tools", _real_tools)
+    return svc, bot, msg, user
+
+
+#: Бюджеты tool-хода: fallback-окно меньше primary, но больше резерва
+#: tool-схем (иначе рекомпоз честно упирается в 1 токен и ничего не меняет).
+TOOLS_PRIMARY_WINDOW = 200_000
+TOOLS_FALLBACK_WINDOW = 7_000
+TOOLS_ROWS = 40
+
+
+@pytest.mark.asyncio
+async def test_l2_fallback_full_turn_describes_adapted_body(monkeypatch, events):
+    """РЕПРО: primary упал → ушло адаптированное тело, а событие описывало
+    первичную сборку (`policy_mode=dynamic`, `budget=8000`,
+    `fallback_window=300`, `included_messages=0`).
+
+    Ход целиком (`svc.handle`): receipt/flat/проектор — продовые, подменён
+    только транспорт LLMClient. Снимок обязан нести бюджет, окно и счётчики
+    ТОГО варианта, который реально ушёл модели."""
+    _force_fallback_capacity(monkeypatch)
+    client = _FallbackClient(T._plan())
+    _wire_failing_primary(client)
+    svc, bot, msg, user = _drive(monkeypatch, client,
+                                 window=_plain_rows(TURN_ROWS))
+    await svc.handle(bot, msg, user)
+
+    assert client.fallback_payload is not None, "fallback-нога не вызывалась"
+    adapted_rows = _body_rows(client.fallback_payload)
+    primary_rows = _body_rows(client.primary_payload)
+    assert len(primary_rows) == TURN_ROWS, sorted(primary_rows)
+    # Рекомпоз ужал контекст: адаптированное тело короче первичного, поэтому
+    # варианты различимы по счётчикам (иначе проверка была бы тавтологией).
+    assert len(adapted_rows) < len(primary_rows), (
+        "адаптированное тело обязано быть не полным: %r"
+        % (sorted(adapted_rows),))
+
+    correlation_id, turn = _turn_events(events, turn_trace.EVENT_CONTEXT)
+    selection = [e for e in turn
+                 if e.get("event_name") == turn_trace.EVENT_SELECTION]
+    assert len(selection) == 1, "снимок хода ровно один: %d" % len(selection)
+    event = selection[0]
+    assert event.get("trace_id") == correlation_id
+    payload = dict(event.get("usage_json") or {})
+    budget = payload.get("budget") or {}
+    counts = payload.get("counts") or {}
+
+    # бюджет — FALLBACK-варианта (адаптированное тело), не первичный:
+    # у первичного были `window`/`payload_tokens`/`window_source`.
+    assert budget.get("policy_mode") == "fallback_recompose", budget
+    assert budget.get("budget") == FALLBACK_WINDOW, budget
+    assert "window" not in budget, budget
+    assert "payload_tokens" not in budget, budget
+    assert "window_source" not in budget, budget
+
+    # счётчики — про строки, реально доехавшие в отправленном теле
+    assert counts.get("included_messages") == len(adapted_rows), counts
+    assert counts.get("included_messages") != len(primary_rows), counts
+
+
+@pytest.mark.asyncio
+async def test_tools_rejected_turn_plain_answer_has_receipt(monkeypatch,
+                                                           events):
+    """REPRO: провайдер отказал в tools → plain-ответ доставлен, но
+    `ToolLoopResult.sent_body=None` и снимка хода нет вовсе.
+
+    Теперь plain-фолбэк идёт metadata-вариантом: `sent_body` есть, и
+    коррелированный `direct_turn_selection` описывает именно это тело."""
+    monkeypatch.setattr(dcs._l1, "direct_l1_enabled", lambda: False)
+    rows = _plain_rows(3)
+    llm = _ToolsRejectedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=rows)
+    svc.tool_router = object()          # включает ветку chat_with_tools
+    captured = {}
+
+    async def _real_tools(*args, **kwargs):
+        result = await _tool_loop.chat_with_tools(*args, **kwargs)
+        captured["result"] = result
+        return result
+
+    monkeypatch.setattr(dcs, "chat_with_tools", _real_tools)
+    await svc.handle(bot, msg, user)
+
+    assert llm.tool_calls == 1, "tools-вызов обязан состояться"
+    assert llm.plain_generate_called is False, (
+        "plain-фолбэк обязан использовать metadata-вариант: у generate() "
+        "нет receipt")
+    sent = llm.plain_body
+    assert sent and sent.get("messages")
+    result = captured["result"]
+    assert isinstance(getattr(result, "sent_body", None), dict), (
+        "ToolLoopResult без sent_body — доставка не доказана")
+    assert result.sent_body.get("messages") == sent["messages"]
+
+    correlation_id, turn = _turn_events(events, turn_trace.EVENT_CONTEXT)
+    selection = [e for e in turn
+                 if e.get("event_name") == turn_trace.EVENT_SELECTION]
+    assert len(selection) == 1, "снимок хода ровно один: %d" % len(selection)
+    assert selection[0].get("trace_id") == correlation_id
+    counts = dict(selection[0].get("usage_json") or {}).get("counts") or {}
+    assert counts.get("included_messages") == len(_body_rows(sent)), counts
+
+
+@pytest.mark.asyncio
+async def test_multi_round_tools_fallback_first_describes_final_primary(
+        monkeypatch, events):
+    """Раунд 1 — fallback (адаптированное тело), раунд 2 — primary.
+
+    Отвечает ПОСЛЕДНИЙ вызов, значит снимок обязан описывать его (primary)
+    бюджет и счётчики, а не ранний fallback-вариант. Снимок ровно один."""
+    _force_fallback_capacity(monkeypatch, primary=TOOLS_PRIMARY_WINDOW,
+                            fallback=TOOLS_FALLBACK_WINDOW)
+    llm = _MultiRoundLLM(["fallback", "primary"])
+    svc, bot, msg, user = _tools_turn(monkeypatch, llm,
+                                      rows=_long_rows(TOOLS_ROWS))
+    await svc.handle(bot, msg, user)
+
+    assert llm.round == 2, "ожидалось два tool-раунда: %r" % (llm.round,)
+    final_rows = _body_rows(llm.bodies[-1])
+    early_rows = _body_rows(llm.bodies[0])
+    assert len(final_rows) == TOOLS_ROWS, sorted(final_rows)
+    assert len(early_rows) < len(final_rows), (
+        "ранний раунд обязан быть адаптированным: %r" % (sorted(early_rows),))
+
+    correlation_id, turn = _turn_events(events, turn_trace.EVENT_CONTEXT)
+    selection = [e for e in turn
+                 if e.get("event_name") == turn_trace.EVENT_SELECTION]
+    assert len(selection) == 1, "снимок хода ровно один: %d" % len(selection)
+    assert selection[0].get("trace_id") == correlation_id
+    payload = dict(selection[0].get("usage_json") or {})
+    budget = payload.get("budget") or {}
+    counts = payload.get("counts") or {}
+    assert budget.get("policy_mode") != "fallback_recompose", (
+        "отвечал primary — отчёт не может описывать fallback-вариант: %r"
+        % (budget,))
+    assert budget.get("budget") == TOOLS_PRIMARY_WINDOW, budget
+    assert counts.get("included_messages") == len(final_rows), counts
+
+
+@pytest.mark.asyncio
+async def test_multi_round_tools_fallback_last_describes_adapted_body(
+        monkeypatch, events):
+    """Раунд 1 — primary, раунд 2 — fallback (адаптированное тело).
+
+    Отвечал fallback-вызов: снимок обязан дать бюджет/счётчики
+    адаптированного тела. Снимок ровно один."""
+    _force_fallback_capacity(monkeypatch, primary=TOOLS_PRIMARY_WINDOW,
+                            fallback=TOOLS_FALLBACK_WINDOW)
+    llm = _MultiRoundLLM(["primary", "fallback"])
+    svc, bot, msg, user = _tools_turn(monkeypatch, llm,
+                                      rows=_long_rows(TOOLS_ROWS))
+    await svc.handle(bot, msg, user)
+
+    assert llm.round == 2, "ожидалось два tool-раунда: %r" % (llm.round,)
+    final_rows = _body_rows(llm.bodies[-1])
+    early_rows = _body_rows(llm.bodies[0])
+    assert len(early_rows) == TOOLS_ROWS, sorted(early_rows)
+    assert 0 < len(final_rows) < len(early_rows), (
+        "финальный раунд обязан быть адаптированным: %r" % (sorted(final_rows),))
+
+    correlation_id, turn = _turn_events(events, turn_trace.EVENT_CONTEXT)
+    selection = [e for e in turn
+                 if e.get("event_name") == turn_trace.EVENT_SELECTION]
+    assert len(selection) == 1, "снимок хода ровно один: %d" % len(selection)
+    assert selection[0].get("trace_id") == correlation_id
+    payload = dict(selection[0].get("usage_json") or {})
+    budget = payload.get("budget") or {}
+    counts = payload.get("counts") or {}
+    assert budget.get("policy_mode") == "fallback_recompose", budget
+    assert counts.get("included_messages") == len(final_rows), counts
+
+
+SUMMARY_TEXT = "конспект: обсуждали дроны и отчёты за прошлую неделю"
+SUMMARY_END_TS = 1_700_000_003
+SUMMARY_POST_ROWS = 5
+
+
+def _summary_window():
+    return _plain_rows(SUMMARY_POST_ROWS + 3)
+
+
+def _summary_db():
+    """FakeDB + РЕАЛЬНЫЙ бегущий конспект (метка объёма и watermark)."""
+    from tests.test_direct_chat import FakeDB
+
+    class _DB(FakeDB):
+        async def get_running_summary(self, chat_id, now):
+            return {"summary": SUMMARY_TEXT, "window_end_ts": SUMMARY_END_TS,
+                    "raw_count": 3}
+
+        async def get_summary_level(self, chat_id, level):
+            return None
+
+        async def get_smart_raw(self, chat_id, **kwargs):
+            return []
+
+    return _DB()
+
+
+@pytest.mark.asyncio
+async def test_summary_turn_composer_on_and_off_agree_on_counts(
+        monkeypatch, events):
+    """Один и тот же конспект+хвост через композер ON и legacy OFF.
+
+    Счётчики вошедших сообщений обязаны совпадать (конспект — не сообщения),
+    а вид блока честно различает роли: `global_head` = конспект,
+    `global_tail` = дословные строки. Legacy-блок «конспект+хвост» НЕ
+    переименовывается в `global_tail`: иначе конспект выдавался бы за свежие
+    дословные сообщения."""
+    window = _summary_window()
+
+    # ── композер ON
+    on_llm = _StagedLLM()
+    svc, bot, msg, user = _drive_with_db(monkeypatch, on_llm, window=window,
+                                         db=_summary_db())
+    await svc.handle(bot, msg, user)
+    on_payload = _payload(events, turn_trace.EVENT_SELECTION)
+    on_body = {"messages": [dict(m or {}) for m in (on_llm.last or ())]}
+    on_blocks = {b.get("kind"): b for b in (on_payload.get("blocks") or ())}
+    assert "global_head" in on_blocks, sorted(on_blocks)
+    assert "global_tail" in on_blocks, sorted(on_blocks)
+    # конспект — в head, дословные строки — в tail: head не несёт сообщений
+    assert not (on_blocks["global_head"].get("source_ids") or ()), \
+        on_blocks["global_head"]
+    assert len(on_blocks["global_tail"].get("source_ids") or ()) == \
+        min(SUMMARY_POST_ROWS, turn_trace.SELECTION_SOURCE_IDS_MAX)
+
+    # ── тот же контент, композер OFF (legacy-бюджет)
+    events.clear()
+    monkeypatch.setattr(dcs._composer, "composer_on", lambda: False)
+    off_llm = _StagedLLM()
+    svc2, bot2, msg2, user2 = _drive_with_db(monkeypatch, off_llm,
+                                             window=window,
+                                             db=_summary_db())
+    await svc2.handle(bot2, msg2, user2)
+    off_payload = _payload(events, turn_trace.EVENT_SELECTION)
+    off_body = {"messages": [dict(m or {}) for m in (off_llm.last or ())]}
+    off_blocks = list(off_payload.get("blocks") or ())
+    off_global = [b for b in off_blocks if b.get("kind") == "global"]
+    assert len(off_global) == 1, [b.get("kind") for b in off_blocks]
+    assert not [b for b in off_blocks
+                if b.get("kind") in ("global_tail", "global_head")], (
+        "legacy-блок «конспект+хвост» выдан за %r"
+        % ([b.get("kind") for b in off_blocks],))
+    assert off_global[0].get("kind") not in dcs._MESSAGE_BLOCK_KINDS, (
+        "конспект нельзя выдавать за дословные сообщения")
+
+    assert off_payload["counts"]["included_messages"] == \
+        on_payload["counts"]["included_messages"], (off_payload["counts"],
+                                                    on_payload["counts"])
+    assert off_payload["counts"]["window_messages"] == \
+        on_payload["counts"]["window_messages"]
+    assert off_payload["counts"]["included_messages"] == SUMMARY_POST_ROWS, \
+        off_payload["counts"]
+
+    # Блок ДЕЙСТВИТЕЛЬНО смешанный: конспект и дословные строки в одном
+    # тексте — поэтому переименование в `global_tail` было бы ложью.
+    on_global = T._block_text(
+        "\n".join(str(m.get("content") or "") for m in on_body["messages"]),
+        "Global_Context")
+    off_global_text = T._block_text(
+        "\n".join(str(m.get("content") or "") for m in off_body["messages"]),
+        "Global_Context")
+    assert SUMMARY_TEXT in on_global and SUMMARY_TEXT in off_global_text
+    assert "строка окна %d" % len(window) in off_global_text
+    assert on_global.count(SUMMARY_TEXT) == 1
+    assert off_global_text.count(SUMMARY_TEXT) == 1
+
+
+DASH_ANSWER = "Да — конечно"
+
+
+class _DashAnswerLLM(_StagedLLM):
+    """Отвечает текстом с длинным тире — срабатывает правило владельца."""
+
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       module=None, step=None, correlation_id=None, **kwargs):
+        if step == "l1_planner":
+            return await super().generate(
+                messages, temperature, chat_id, module=module, step=step,
+                correlation_id=correlation_id, **kwargs)
+        self.calls.append(step)
+        self.last = list(messages or ())
+        return DASH_ANSWER
+
+    async def generate_with_metadata(self, messages, temperature=None,
+                                     chat_id=None, module=None, step=None,
+                                     correlation_id=None, **kwargs):
+        self.calls.append(step)
+        self.last = list(messages or ())
+        sent = {"model": "chat-model-x",
+                "messages": [dict(m or {}) for m in (messages or ())]}
+        return _completion(DASH_ANSWER, "stop", correlation_id, sent)
+
+
+def _force_dash_policy(monkeypatch):
+    """Реальный документ политики (build_document) с правилом «тире»."""
+    from services import mca_gates
+
+    monkeypatch.setattr(mca_gates, "speech_style_policy_enabled", lambda: True)
+    doc = _sp.build_document(
+        rules=[{"id": "owner.dash", "kind": "dash", "strictness": "hard"}],
+        revision=3, owner=1, reason="test")
+
+    async def _layers(chat_id):
+        return (doc, None, True)
+
+    monkeypatch.setattr(_sp, "_read_layers", _layers)
+
+
+@pytest.mark.asyncio
+async def test_extent_planned_turn_emits_one_extent_metric_and_one_style_event(
+        monkeypatch, events):
+    """SOUL-14.2: extent-план хода → ровно одна КОРРЕЛИРОВАННАЯ метрика
+    `speech_extent` (значения прежние) и ровно одно событие `style_policy`.
+
+    Мутация «убрать проекцию extent из снимка» роняет этот тест: событие
+    выпускает ТОЛЬКО проектор (у прохода стиля `emit_events=False`)."""
+    _force_dash_policy(monkeypatch)
+    llm = _DashAnswerLLM(plan=_plan_json(extent="micro"))
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    await svc.handle(bot, msg, user)
+
+    # правило реально правило текст — иначе проверять нечего
+    delivered = bot.send_message.await_args.args[1]
+    assert "—" not in delivered and "-" in delivered, delivered
+
+    correlation_id, turn = _turn_events(events, turn_trace.EVENT_CONTEXT)
+    extent = [e for e in turn if e.get("event_name") == "speech_extent"]
+    styles = [e for e in turn if e.get("event_name") == "style_policy"]
+    assert len(extent) == 1, "метрика extent ровно одна на ход: %d" % len(extent)
+    assert len(styles) == 1, "событие стиля ровно одно на ход: %d" % len(styles)
+
+    event = extent[0]
+    assert event.get("trace_id") == correlation_id, (
+        "метрика extent обязана быть связана с трассой хода: %r"
+        % (event.get("trace_id"),))
+    assert event.get("chat_id") == CHAT_ID
+    assert event.get("component") == "style_policy"
+    assert event.get("stage") == "direct_pre_send"
+    assert event.get("outcome") == "success"
+    payload = dict(event.get("usage_json") or {})
+    assert payload.get("extent") == "micro", payload
+    assert payload.get("status") == "pass", payload
+    assert payload.get("one_word") == 0
+    assert payload.get("one_word_exact") == 0
+    assert payload.get("words") == 2, payload
+    assert payload.get("context") == "regular"
+
+    style = styles[0]
+    assert style.get("trace_id") == correlation_id
+    fired = (dict(style.get("usage_json") or {})).get("rules") or []
+    assert [row.get("rule_id") for row in fired] == ["owner.dash"], fired

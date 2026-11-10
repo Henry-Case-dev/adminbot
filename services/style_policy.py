@@ -2306,7 +2306,11 @@ def _emit_extent_metric(outcome: StyleOutcome, *, chat_id: int, stage: str,
         _events.emit_mca_event(
             "speech_extent", outcome=outcome_code, level=level,
             component="style_policy", stage=str(stage)[:60],
-            chat_id=int(chat_id or 0), usage_json=payload)
+            chat_id=int(chat_id or 0),
+            # UR-F шаг 1: метрика принадлежит ходу — тот же `trace_id`, что у
+            # остальных его событий (перенесённая проекция не теряет связь).
+            trace_id=(str(trace_id) if trace_id else None),
+            usage_json=payload)
     except Exception:      # pragma: no cover - метрика не роняет ответ
         logger.warning("[style_policy] extent metric emit failed",
                        exc_info=True)

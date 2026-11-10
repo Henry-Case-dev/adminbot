@@ -3052,21 +3052,29 @@ def _remember_receipt(holder, path: str, result, *, prepared=None,
     Receipt атомарен: тело + `PreparedTurnPayload` того же вызова. Вариант
     берётся у адаптера (`binding`, если он реально пересобрал payload) ЛИБО
     пересобирается из фактического тела (`_prepared_rebased`) — событие не
-    может описывать первичную сборку после замены payload."""
+    может описывать первичную сборку после замены payload.
+
+    `binding` применяется ТОЛЬКО к телу, которое он сам материализовал: у
+    многораундового tool-цикла ранний раунд мог уйти на fallback, а
+    отвечать — более поздний primary-вызов; вариант раннего раунда описывал
+    бы не то тело."""
     if holder is None or result is None:
         return
     body = getattr(result, "sent_body", None)
     if not isinstance(body, dict):
         return                          # доставка не доказана (двойник/str)
+    body_text = _sent_user_text(body)
     variant = prepared
     if variant is None and isinstance(binding, dict):
-        variant = binding.get("prepared")
+        candidate = binding.get("prepared")
+        if candidate is not None and binding.get("prepared_text") == body_text:
+            variant = candidate
     if variant is None:
         variant = getattr(result, "prepared", None)
     if variant is None:
         primary = holder.get("primary")
         if primary is not None:
-            variant = _prepared_rebased(primary, _sent_user_text(body))
+            variant = _prepared_rebased(primary, body_text)
     holder["receipt"] = SuccessfulOutboundReceipt(
         path=str(path or ""), sent_body=body, prepared=variant)
 
@@ -8885,6 +8893,7 @@ class DirectChatService:
                                 "policy_mode": "fallback_recompose",
                                 "fallback": True})
                 _l2_binding["prepared"] = prepared
+                _l2_binding["prepared_text"] = _sent_user_text(adapted)
                 return adapted, prepared
         if _l2_fb_adapter is not None and _expr_rendered:
             # §6: fallback-репак тоже обязан сохранить маркер — иначе класс.
@@ -10446,6 +10455,11 @@ class DirectChatService:
                             {"role": "user",
                              "content": "\n\n".join(blocks)},
                         ]
+                        if binding is not None:
+                            # Вариант привязан к ТЕЛУ, которое он описывает:
+                            # ранний раунд tool-цикла мог уйти на fallback, а
+                            # отвечать — более поздний primary-вызов.
+                            binding["prepared_text"] = _sent_user_text(adapted)
                         logger.info(
                             "direct: fallback recompose | chat=%s | "
                             "budget=%d | tools_reserve=%d | blocks=%d",
@@ -10466,6 +10480,7 @@ class DirectChatService:
                         primary = (out_prepared or {}).get("primary")
                         if binding is not None:
                             binding["prepared"] = primary
+                            binding["prepared_text"] = _sent_user_text(incoming)
                         return incoming, primary
                 return _adapt
             try:
