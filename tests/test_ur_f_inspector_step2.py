@@ -1113,6 +1113,46 @@ async def test_nested_sections_are_allowlisted_and_json_safe(tmp_path,
 # ── 11. Граница сериализации: непредусмотренное значение не ломает JSON ────
 
 
+def test_id_namespaces_match_the_emitters():
+    """Пространства имён id — ровно те, что эмитит код; мусор отбрасывается.
+
+    Положительные формы взяты из `direct_context_composer`,
+    `direct_chat_service` (`_sel_row_ref`/`_sel_row_ids`), `direct_execution`
+    (`_parse_search_sources`/`SourceRecord`) и `bot_output_ledger`."""
+    from web.api import routes as routes_mod
+
+    real = [
+        "msg:123", "tg:456", "row:78", "fact:9", "episode:0f3a-11bb",
+        "summary:-100123:2", "web:ab12cd", "src:0123abcd",
+        "source:ru-repo-a", "bot_output:12", "bot_output_tg:77",
+    ]
+    for value in real:
+        assert routes_mod._turn_id(value) == value, value
+    junk = [
+        "web:javascript:alert", "javascript:alert(1)", "msg:", ":123",
+        "unknown:1", "web:a b", "msg:1" + "x" * 60, "summary:a:b:c",
+        "web:javascript:alert(1)", 12345, {"id": "msg:1"}, None,
+    ]
+    for value in junk:
+        assert routes_mod._turn_id(value) == "", value
+    # Список id — только валидные элементы, без повторов.
+    assert routes_mod._turn_ids(
+        ["msg:1", "msg:1", "web:bad:colon", "tg:2", 5]) == ["msg:1", "tg:2"]
+
+
+def test_url_rejects_control_characters_and_wrong_scheme():
+    """Адрес: только http(s) без C0/DEL/C1; иначе пусто (и ссылки нет)."""
+    from web.api import routes as routes_mod
+
+    assert routes_mod._turn_url("https://example.test/ok") == \
+        "https://example.test/ok"
+    for value in ("javascript:alert(1)", "data:text/html,x",
+                  "https://example.test/a\x7f", "https://example.test/a\x80",
+                  "https://example.test/a\x00", "https://example.test/a b",
+                  "https://a", "ftp://example.test/x", 42, {"u": "x"}):
+        assert routes_mod._turn_url(value) == "", value
+
+
 def test_json_safe_boundary_replaces_non_finite_and_drops_unknown():
     """Последний рубеж (требование 2): даже НЕпредусмотренное значение в ответе
     не даёт 500 — non-finite float → null, объект не из JSON-типов отброшен."""

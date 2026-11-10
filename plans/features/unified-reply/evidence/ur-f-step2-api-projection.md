@@ -215,7 +215,7 @@ style{revision,source,applied,counts,rules[]}
 
 | набор | результат |
 |---|---|
-| `tests/test_ur_f_inspector_step2.py` (новый) | 15 passed |
+| `tests/test_ur_f_inspector_step2.py` (новый) | 17 passed |
 | `tests/test_ur_f_inspector_step1.py` | 53 passed (ожидалось 53) |
 | web/direct/memory API: `test_webapp_api`, `test_webapp_gates_api`, `test_webapp_analytics_api`, `test_webapp_oversight_api`, `test_webapp_memory_overview_api`, `test_chat_lore_api`, `test_direct_chat`, `test_direct_chat_handlers`, `test_direct_chat_prompts`, `test_direct_chat_concurrency` | 512 passed — идентично `92070d0e` (512 passed) |
 | `test_ur_ui_effective_config` + `test_ur_c_clock` + `test_rlr_observability` + `test_ur_d_writer` + `test_ur_e_speech` + `test_ur_turn_engine` | 78 passed |
