@@ -1,7 +1,7 @@
 {
   "schema": "openworkflow-slices-v1",
   "epic": "smart-module-semantic-routing-p0",
-  "notes": "P0-A and P0-B are independent writers (disjoint files) and are both blocking. Everything else joins after them. Write scopes list only files the slice may actually change; verification-only slices declare no product scope. NOST-PROACTIVE is the owner's 2026-11-10 nostalgia correction: it joins after P1 (pre-gate removal) and is mapped in requirements-map-nostalgia-correction.json; it does not reopen P0/P1 evidence. NOST-PROACTIVE deployed as 2.58.178 at af84b6c6 (branch release/2.58.178, previous 1a4a9b1b, schema 46 unchanged, no DDL); its write scope was corrected to the files actually written (services/prompt_registry.py and config/settings.py were changed, services/direct_chat_service.py was planned but never touched). Evidence binding lives in evidence/nost-pro-01-binding-2.58.178.md; the slice reopens with the quantum non-determinism corrective (per-chat schedule, event wakeup, publication probability, single RandomSource) whose rows are added separately.",
+  "notes": "P0-A and P0-B are independent writers (disjoint files) and are both blocking. Everything else joins after them. Write scopes list only files the slice may actually change; verification-only slices declare no product scope. NOST-PROACTIVE is the owner's 2026-11-10 nostalgia correction: it joins after P1 (pre-gate removal) and is mapped in requirements-map-nostalgia-correction.json; it does not reopen P0/P1 evidence. NOST-PROACTIVE deployed as 2.58.178 at af84b6c6 (branch release/2.58.178, previous 1a4a9b1b, schema 46 unchanged, no DDL); its write scope was corrected to the files actually written (services/prompt_registry.py and config/settings.py were changed, services/direct_chat_service.py was planned but never touched). Evidence binding lives in evidence/nost-pro-01-binding-2.58.178.md; the slice reopens with the quantum non-determinism corrective (per-chat schedule, event wakeup, publication probability, single RandomSource) whose rows are added separately. QND-NONDET is that corrective as its own serial slice: it joins after NOST-PROACTIVE (it rewrites the shipped nostalgia/initiative cadence and publication gate, so the two must never write concurrently), is mapped in requirements-map-qnd.json, and deployed as 2.58.179 at 32e018b9 (branch release/2.58.179, previous af84b6c6, schema 46 -> 47 with the additive semantic_schedule table). Its write scope lists the product/test files actually changed, not its evidence directory: that directory is owned by SMR-TRACE and no writer may overlap it.",
   "slices": [
     {
       "id": "P0-A",
@@ -150,8 +150,50 @@
       "previous_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
       "verified_rows": 11,
       "pending_rows": 8,
-      "pending_amendment": "OI-2026-11-10-QUANTUM-NONDETERMINISM",
-      "next_role": "Live-slice verification (NOST-PRO-01/14/15/16/17) + quantum corrective (07/12/13)"
+      "pending_amendment": "OI-2026-11-10-QUANTUM-NONDETERMINISM — registered as the QND-NONDET slice (rows QND-01..QND-24 in requirements-map-qnd.json); it reopens NOST-PRO-02/03/05/07/08/12/13/19 through that slice, not by rewriting this one",
+      "next_role": "Live-slice verification (NOST-PRO-01/14/15/16/17) + quantum corrective (07/12/13) through QND-NONDET"
+    },
+    {
+      "id": "QND-NONDET",
+      "title": "Квантовая недетерминированность: пер-чатовое расписание, событийное пробуждение, вероятность публикации, единый RandomSource",
+      "depends_on": ["NOST-PROACTIVE"],
+      "write_scope": [
+        "services/semantic_schedule.py",
+        "services/quantum_publication.py",
+        "services/qnd_diagnostics.py",
+        "services/nostalgia_worker.py",
+        "services/initiative_observer.py",
+        "services/memory_maintenance.py",
+        "services/mca_events.py",
+        "services/mca_random_source.py",
+        "services/param_catalog.py",
+        "services/prompt_registry.py",
+        "services/status_service.py",
+        "services/database.py",
+        "handlers/summary.py",
+        "web/api/initiative_vitality.py",
+        "web/app.js",
+        "web/index.html",
+        "config/settings.py",
+        "tests/test_qnd_schedule.py",
+        "tests/test_qnd_publication.py",
+        "tests/test_qnd_event_path.py",
+        "tests/test_qnd_metrics.py",
+        "tests/qnd_fakes.py"
+      ],
+      "acceptance": "Момент следующей смысловой проверки рисуется отдельно для каждого чата из одного квантового значения и живёт в durable-строке (v47), переживает рестарт, не копится в просроченные задания; живое сообщение немедленно поднимает существующий Observer с trigger=event в пределах дебаунса/пола/занятости; публикацию решает одна вероятность p и один draw (без двойного гейта и без пост-розыгрышного SILENT), причём одинаковая ситуация с разными u даёт разные исходы; случайность берётся только из RandomSource с записанным источником; витрины показывают реальные значения и никогда не заявляют «работает» без квантовых розыгрышей.",
+      "risk": "R2",
+      "status": "DEPLOYED",
+      "deployed_version": "2.58.179",
+      "deployed_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+      "previous_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+      "approved_review_candidate": "629743f9",
+      "schema": "46 -> 47 (additive semantic_schedule)",
+      "verified_rows": 19,
+      "pending_rows": 5,
+      "pending_conditions": "QND-20 строки initiative в проде под живыми сообщениями; QND-21 суточный ритм и независимость чатов во времени; QND-22 живое событие trigger=event в проде; QND-23 браузерная витрина Статус/Аналитика; QND-24 продуктовое ощущение частоты публикаций",
+      "evidence": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+      "next_role": "Live observation (QND-20..QND-22, QND-24) + browser verification (QND-23)"
     }
   ]
 }

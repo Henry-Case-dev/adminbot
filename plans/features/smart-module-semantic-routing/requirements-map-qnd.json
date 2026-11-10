@@ -1,0 +1,815 @@
+{
+  "schema": "openworkflow-coverage-v1",
+  "source_path": "plans/features/smart-module-semantic-routing/quantum-nondeterminism-contract.md",
+  "source_sha256": "dbf36b2f43037f93adf66dffb9b1c48ffbf62139f27240acc9d95614496c7720",
+  "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+  "deployed_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+  "strict_evidence": true,
+  "slice_graph_path": "slice-graph.json",
+  "feature": "smart-module-semantic-routing",
+  "slice": "QND-NONDET",
+  "created": "2026-11-10",
+  "parent_map": "plans/features/smart-module-semantic-routing/requirements-map.json",
+  "parent_candidate_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+  "owner_input": {
+    "id": "OI-2026-11-10-QUANTUM-NONDETERMINISM",
+    "source_path": "plans/owner_inputs/2026-11-10-quantum-nondeterminism-correction.md",
+    "source_sha256": "11118D955CB8FA5AC172C0D09D51BB9BBE6811A3A309FE7AC474B965679441AA",
+    "relation": "Контракт §1–§7 — замороженная инженерная форма этого входного требования владельца (tie-break-only отменён). Строки QND-01…QND-24 покрывают §1–§7; обратная сверка входного текста сделана по строкам 99–109 (Binding points) и пунктам 1–6."
+  },
+  "binding_note": "Отдельная карта среза внутри того же эпика (не новый эпик). Верхний уровень карты одноканален по candidate_commit/deployed_commit (так устроен requirements_gate.py), поэтому здесь стоит выкаченный артефакт 32e018b9, а одобренный ревью кандидат 629743f9 привязан через deployment_notes: продуктовые модули среза между 629743f9 и 32e018b9 байт-идентичны (git diff пуст).",
+  "deployment_notes": {
+    "version": "2.58.179",
+    "deployed_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+    "branch": "release/2.58.179",
+    "origin_tip": "04b0713a (только релизная запись, продуктовых файлов не касается)",
+    "previous_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
+    "previous_version": "2.58.178",
+    "approved_review_candidate": "629743f9",
+    "approved_candidate_carrier": "6674811f",
+    "cherry_pick": "bc62da05->b29a4a5b, 46cb550b->b8f5a689, 0cebea92->3bce90e5, 629743f9->0355ac5a, c99d64c7->dd47d81e (только evidence)",
+    "cherry_pick_conflicts": "Ровно 21 файл конфликтовал и только из-за CRLF/LF (plans/docs/param-registry-round1025.meta.md + 20 тестов: прод-линия CRLF, ветка кандидата LF), разрешено трёхсторонним слиянием по содержимому с сохранением CRLF прод-линии.",
+    "product_byte_identity": "Проверено независимо: `git diff 629743f9 32e018b9` по всем продуктовым модулям среза (semantic_schedule, quantum_publication, qnd_diagnostics, nostalgia_worker, initiative_observer, memory_maintenance, mca_events, mca_random_source, param_catalog, prompt_registry, status_service, database, handlers/summary, web/api/initiative_vitality, web/app.js, web/index.html) — пусто, то есть код в проде байт-идентичен одобренному кандидату.",
+    "full_suite_comparison": "Сравнение полного набора с базой af84b6c6 по отчёту DevOps на 32e018b9: 68 файлов, падающих на базе, дают тот же набор падений на релизе — 107 = 107, разница в обе стороны пустая. Цифра принята как заявление DevOps, привязанное к 32e018b9; повторный полный прогон в этой сессии не выполнялся.",
+    "migration": "46 -> 47: user_version 47, schema_migrations 35 -> 36 (47 semantic_schedule_v47), semantic_schedule 19 колонок PK (chat_id, mechanism), 2 строки без backfill, quick_check ok, smart_messages 2 077 014 / nodes 33 755 / edges 65 946 / graph_facts 24 202 без изменений",
+    "health": "2.58.179 публично и на loopback, NRestarts=0, traceback/CRITICAL нет",
+    "release_record": "release/2.58.179:plans/features/vmq-onto-01/evidence/vmq-q1/release-2.58.179.md @ 04b0713a",
+    "review_record": "release/2.58.179:plans/features/vmq-onto-01/evidence/vmq-q1/qnd-nondet-2026-11-10.md @ dd47d81e",
+    "binding_artifact": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+    "binding_artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+  },
+  "architecture_classification": "ARCH_REUSE_CONFIRMED: срез расширяет уже принятые контракты VMQ-ONTO-01 (один RandomSourceService, purposes, журнал) и существующий Decision/Writer/SendRecheck + publication_coordination; новых внешних интерфейсов, кроме аддитивной таблицы v47 и внутренних модулей services/semantic_schedule.py и services/quantum_publication.py, не вводит. Риск R2 (порядок розыгрыша и выживший двойной гейт) закрыт решающим тестом §7.",
+  "per_slice_candidate_policy": "NOST-PROACTIVE остаётся на af84b6c6 (2.58.178), SMR P0/P1 — на своих кандидатах (2.58.176/2.58.177), QND-NONDET — на 32e018b9 (2.58.179). Выкат QND не переиздаёт доказательства P0/P1/ностальгии.",
+  "notes": "19 строк закрыты выкатом 32e018b9 и одобренным кандидатом 629743f9; 5 строк (QND-20…QND-24) ждут живого трафика, суточного ритма, живого события, браузерной витрины и продуктового ощущения частоты. QND-15 проверена инспекцией кода (контракт §7 не задаёт для неё теста), QND-16 — каталогом и пинами, видимость ручек в браузере входит в QND-23. Срез не закрывает родительский эпик: полный VERIFIED QND-NONDET требует снятия QND-20…QND-24.",
+  "gate_runs": {
+    "plan": {
+      "command": "requirements_gate.py check --map plans/features/smart-module-semantic-routing/requirements-map-qnd.json --stage plan --repo .",
+      "result": "stage=plan inventory=12 manual=24 scoped=0 errors=0 (exit 0)"
+    },
+    "release_scoped": {
+      "command": "requirements_gate.py check --map plans/features/smart-module-semantic-routing/requirements-map-qnd.json --stage release --slice QND-NONDET --candidate 32e018b9 --deployed-commit 32e018b9 --repo .",
+      "result": "stage=release inventory=12 manual=24 scoped=24 errors=9 (exit 1)",
+      "categories": [
+        "1. Собственные незакрытые строки (5): QND-20…QND-24 — PENDING, ждут живого трафика/суток/живого события/браузера/ощущения частоты.",
+        "2. Закрытие зависимостей (4): гейт ищет обязательные строки зависимых срезов ТОЛЬКО в проверяемой карте, а P0-A/P0-B/P1/P0-B живут в родительской карте, NOST-PROACTIVE — в requirements-map-nostalgia-correction.json. Это ограничение инструмента при вынесенном срезе, но НЕ только оно: даже в одной карте замыкание не закрылось бы, потому что у предков есть незакрытые строки — NOST-PROACTIVE 11 VERIFIED / 8 PENDING, P1 7 / 9 (6 PENDING + 3 READY_FOR_LIVE), P0-B 29 / 27 (15 PENDING + 12 READY_FOR_LIVE).",
+        "Ни один из отказов не является провалом реализации: он означает, что срез QND-NONDET сейчас нельзя сертифицировать как независимый релиз, пока живая часть его самого и живые строки предков не закрыты."
+      ]
+    },
+    "note": "Прогоны выполнены из корня репозитория после создания этого файла и артефакта привязки; повторный прогон даёт тот же результат."
+  },
+  "items": [
+    {
+      "source_id": "L00006",
+      "source_line": 6,
+      "source_text_sha256": "8ae69388b958a63e94f224675e4a6a88cfce4f0a2ea678e8dc4008b6266ceac6",
+      "source_excerpt": "## 1. Per-chat stochastic scheduling of the semantic check",
+      "disposition": "context",
+      "reason": "Заголовок §1 «Per-chat stochastic scheduling» — структурная строка; обязательства перечислены в строках 7–31 и разложены в QND-01…QND-08.",
+      "kind": "section_heading"
+    },
+    {
+      "source_id": "L00033",
+      "source_line": 33,
+      "source_text_sha256": "96fef25126f1df7c02e3e15d293a9ac7ccca281d57ef262341bd5fe8870bf26e",
+      "source_excerpt": "## 2. Event-driven path — real wakeup, not a scanner",
+      "disposition": "context",
+      "reason": "Заголовок §2 «Event-driven path» — структурная строка; обязательства в строках 34–48 (QND-09…QND-11).",
+      "kind": "section_heading"
+    },
+    {
+      "source_id": "L00050",
+      "source_line": 50,
+      "source_text_sha256": "32d6a0f5e6e3c61831c0766e9100289d43a9f5cc80b95b896f77b9b2bcb20da5",
+      "source_excerpt": "## 3. Publication probability replaces the double gate",
+      "disposition": "context",
+      "reason": "Заголовок §3 «Publication probability replaces the double gate» — структурная строка; обязательства в строках 51–68 (QND-12, QND-13).",
+      "kind": "section_heading"
+    },
+    {
+      "source_id": "L00070",
+      "source_line": 70,
+      "source_text_sha256": "f63eaad2573db078bf5c5bcf938fee66790a81f4b067ddbbeb68f5819bccdf9e",
+      "source_excerpt": "## 4. Single source of randomness (no PRNG mixing)",
+      "disposition": "context",
+      "reason": "Заголовок §4 «Single source of randomness» — структурная строка; обязательства в строках 71–81 (QND-14).",
+      "kind": "section_heading"
+    },
+    {
+      "source_id": "L00083",
+      "source_line": 83,
+      "source_text_sha256": "c05c99e9ae9678b73a750953c3db5b80238fca7665ff615c6494b2812e60cf7c",
+      "source_excerpt": "## 5. Metrics and admin views",
+      "disposition": "context",
+      "reason": "Заголовок §5 «Metrics and admin views» — структурная строка; обязательства в строках 84–95 (QND-16, QND-17, QND-23).",
+      "kind": "section_heading"
+    },
+    {
+      "source_id": "L00097",
+      "source_line": 97,
+      "source_text_sha256": "fec0e7eaeda62f33ec5eb8190693f78b18b1129a156dc3c80cdd4de38c2461a3",
+      "source_excerpt": "## 6. Alignment and mandatory corrective to already-shipped proactive nostalgia",
+      "disposition": "context",
+      "reason": "Заголовок §6 «Alignment and mandatory corrective» — структурная строка; обязательства в строках 98–106 (QND-15, QND-18).",
+      "kind": "section_heading"
+    },
+    {
+      "source_id": "L00108",
+      "source_line": 108,
+      "source_text_sha256": "7f69315ea92b56afc6f9494840ab735c4916009cae5c8f2369acbe8275a53a19",
+      "source_excerpt": "## 7. Tests (exact names, controlled RandomSource, no wall-clock races)",
+      "disposition": "context",
+      "reason": "Заголовок §7 «Tests» — структурная строка; перечень тестов обслуживает строки QND-03…QND-19, отдельного продуктового обязательства не создаёт.",
+      "kind": "section_heading"
+    },
+    {
+      "source_id": "L00127",
+      "source_line": 127,
+      "source_text_sha256": "877cab97012dbbebd2ece97bb8129da073e25acb0da0ae89e0a0dc5e872403a8",
+      "source_excerpt": "## 8. Parallel safety, rollback, risk",
+      "disposition": "context",
+      "reason": "Заголовок §8 «Parallel safety, rollback, risk» — структурная строка процесса (порядок записи, откат, риск R2), не пользовательское обязательство; учтена в slice-graph.json (write_scope, risk).",
+      "kind": "section_heading"
+    },
+    {
+      "source_id": "L00136",
+      "source_line": 136,
+      "source_text_sha256": "e50eba2864576cc8cdbd5aed0360338995a1aa3f0e338f39fc8d8a2d307a0801",
+      "source_excerpt": "1. `services/semantic_schedule.py` + table `semantic_schedule` → `NostalgiaWorker.start/_tick/_run_tick`, `initiative_observer.observe_tick`/`InitiativeObserverRunner._evaluate_phase`, `MemoryMaintena",
+      "disposition": "duplicate",
+      "reason": "Точка интеграции 1 повторяет подключения, уже обязательные в §1–§2; владельцы — QND-01, QND-08, QND-09.",
+      "kind": "duplicate_source_line"
+    },
+    {
+      "source_id": "L00137",
+      "source_line": 137,
+      "source_text_sha256": "e597fb29932bc9cc1b46e600bb2cddfc60c9047c5917b4297a805b1bbbf1295e",
+      "source_excerpt": "2. `services/quantum_publication.py::decide` → `NostalgiaWorker._candidate_llm_send`, `InitiativeObserverRunner._act_on_opportunity`/`_act_on_memory_recall`.",
+      "disposition": "duplicate",
+      "reason": "Точка интеграции 2 повторяет подключение `decide()` из §3 и §6(b); владельцы — QND-12, QND-13.",
+      "kind": "duplicate_source_line"
+    },
+    {
+      "source_id": "L00138",
+      "source_line": 138,
+      "source_text_sha256": "5884c4aa24a786274be0114c6e29167c73c8f9d209e83b6859a1f1260b5b92dc",
+      "source_excerpt": "3. `services/mca_random_source.py` (purposes, journal, trace) + `services/param_catalog.py` and `web/app.js` (`limits.qnd_*` in existing module tabs).",
+      "disposition": "duplicate",
+      "reason": "Точка интеграции 3 повторяет purpose/журнал из §4 и админ-ручки из §1; владельцы — QND-14, QND-16.",
+      "kind": "duplicate_source_line"
+    },
+    {
+      "source_id": "L00139",
+      "source_line": 139,
+      "source_text_sha256": "85ba04a7cd2fd213bb404b581438fb2756b2470c41f82dcf2d720ae40c78f430",
+      "source_excerpt": "4. `web/api/initiative_vitality.py` + `web/api/initiative_publications.py` + `web/api/memory_agi.py` + `web/api/analytics_viz.py` (Status/Analytics blocks, honesty rules).",
+      "disposition": "duplicate",
+      "reason": "Точка интеграции 4 повторяет витрины и честность из §5; владельцы — QND-17, QND-23.",
+      "kind": "duplicate_source_line"
+    }
+  ],
+  "additional_requirements": [
+    {
+      "source_id": "MAN-QND-01",
+      "source_line": 11,
+      "source_text_sha256": "d64487b52cb8885341bbe53b592fc6a2ee6b742190eddd92754c01cf7de2c1ea",
+      "source_excerpt": "Durable record — table `semantic_schedule`, `_SCHEMA_VERSION_SEMANTIC_SCHEDULE = 47` in `services/database.py`, written through `DatabaseService.write_transaction`:",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-01",
+      "slice": "QND-NONDET",
+      "acceptance": "На проде после миграции существует durable-строка расписания на каждую пару (чат, механизм): версия схемы 47, таблица semantic_schedule с PK (chat_id, mechanism), строки созданы первым draw без backfill, quick_check ok.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "§1, §2 привязки",
+          "observation": "user_version 46->47; schema_migrations 35->36 (47 semantic_schedule_v47); таблица 19 колонок, PK (chat_id, mechanism); 2 строки только nostalgia; backfill нет; счётчики smart_messages/nodes/edges/graph_facts не изменились",
+          "type": "production",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-02",
+      "source_line": 18,
+      "source_text_sha256": "a6fd16ce159f8ecb5dd47282bb5886f4c70293447d1167c15f5e7170e5fa8ceb",
+      "source_excerpt": "One draw: `u = DrawResult.value` from `draw_probability(purpose=\"<m>_schedule\", chat_id=chat_id)`; `delay = lo_adj + (hi_adj-lo_adj) * u**shape`; `next_due_ts = now + round(delay)`;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-02",
+      "slice": "QND-NONDET",
+      "acceptance": "Момент следующей смысловой проверки рисуется отдельно для каждого чата из одного квантового значения: у двух живых чатов различный next_due_ts и различные интервалы при source=quantum.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "§3.1-3.2 привязки",
+          "observation": "nostalgia: next_due_ts 1794283692 (delay 13781 s, u=0.45703125) и 1794289072 (delay 19161 s, u=0.830596924); source=quantum, provider ANU Quantum Numbers, fallback_reason null",
+          "type": "production",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_schedule.py::test_per_chat_draws_use_quantum_and_differ_between_chats",
+          "observation": "тест на управляемом источнике утверждает различие розыгрышей между чатами и квантовое происхождение значения",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-03",
+      "source_line": 14,
+      "source_text_sha256": "2c93039aaac32257f7b819238f2c1662f2f69fd1c2b5fc44be5b09a956a590b9",
+      "source_excerpt": "`shape = limits.qnd_cadence_shape` (1.0 = uniform). Deterministic adaptive multipliers: `act = clamp(limits.qnd_activity_min_factor, limits.qnd_activity_max_factor,",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-03",
+      "slice": "QND-NONDET",
+      "acceptance": "Интервал остаётся внутри адаптивных границ [lo_adj, hi_adj]: множители активности/молчания/бюджета детерминированы, ни один профиль не зашит числом в код, 200 циклов дают задержки в границах без двух равных подряд.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "tests/test_qnd_schedule.py::test_long_run_200_cycles_matches_scripted_source_and_has_no_fixed_interval",
+          "observation": "200 циклов: точные next_due_ts, каждый delay внутри [lo_adj,hi_adj], две равные соседние задержки отсутствуют",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_schedule.py::test_inactive_chat_intervals_longer_within_bounds",
+          "observation": "неактивный чат даёт более длинные интервалы, оставаясь в границах профиля",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-04",
+      "source_line": 21,
+      "source_text_sha256": "d71aea61b7160c8947802be22200a19a26b99a37c268aa3c89cfd06de39be621",
+      "source_excerpt": "Restart: an existing row is authoritative (`next_due_ts` never re-derived from wall clock); missing row → one draw at the first heartbeat, `reason=\"no_state\"`.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-04",
+      "slice": "QND-NONDET",
+      "acceptance": "Рестарт не пересчитывает срок из настенных часов: существующая строка авторитетна, отсутствующая — получает ровно один draw на первом heartbeat с reason=no_state.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "§2 привязки",
+          "observation": "две строки расписания появились первым draw после рестарта при пустой таблице (no_state-путь), backfill не выполнялся",
+          "type": "production",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_schedule.py::test_restart_keeps_next_due_and_executes_once",
+          "observation": "после рестарта next_due_ts тот же, исполнение ровно одно",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-05",
+      "source_line": 22,
+      "source_text_sha256": "0b5a079e35f27dd6a4eb33281a939c5ece97822218cdd66e93336de1b6d62773",
+      "source_excerpt": "Missed deadline: at most ONE execution per `(chat, mechanism)` per claim — `lateness = now - next_due_ts`, execute once, then ALWAYS `draw_next` again;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-05",
+      "slice": "QND-NONDET",
+      "acceptance": "Пропущенный срок даёт максимум одно исполнение на пару (чат, механизм), после чего обязателен новый draw_next; missed_count растёт, очереди долгов не возникает.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "tests/test_qnd_schedule.py::test_missed_deadline_executes_once_then_redraws",
+          "observation": "одно исполнение, missed_count=1, затем перерозыгрыш",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-06",
+      "source_line": 23,
+      "source_text_sha256": "a6c074410c8b22d85a55dabf4dd9f607d6a47f4fe306a684aa8c426d170c3806",
+      "source_excerpt": "`lateness > limits.qnd_stale_seconds` → do not execute, only re-draw, `quantum_schedule_due{executed=false, reason_code=\"stale_deadline\"}`, `missed_count += 1`.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-06",
+      "slice": "QND-NONDET",
+      "acceptance": "Просрочка больше limits.qnd_stale_seconds не исполняется: только перерозыгрыш, quantum_schedule_due с executed=false и reason_code=stale_deadline, массовой отправки нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "tests/test_qnd_schedule.py::test_stale_deadline_redraws_without_mass_send",
+          "observation": "ноль отправок, executed=false, причина stale_deadline",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-07",
+      "source_line": 25,
+      "source_text_sha256": "582ed41b7caaed743be1395f31420c1ec62e5e1e141d88ac6ceda368843b282f",
+      "source_excerpt": "Concurrency: conditional `UPDATE … SET lease_until=?, lease_owner=? WHERE chat_id=? AND mechanism=? AND lease_until<=?` (rowcount 1 wins, TTL `limits.qnd_lease_seconds`) plus the",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-07",
+      "slice": "QND-NONDET",
+      "acceptance": "Конкурентный claim даёт ровно одно исполнение: проигравший получает lease_held и ничего не делает; аренда — условный UPDATE с TTL limits.qnd_lease_seconds.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "tests/test_qnd_schedule.py::test_concurrent_claim_yields_single_execution",
+          "observation": "второй claim -> lease_held, ровно одна отправка",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ],
+      "note": "Ограничение (в бэклоге): sched.release() не вызывается на тиковом пути инициативы, аренда снимается только mark_executed/mark_missed; при heartbeat 300 s и TTL 300 s это безопасно, при уменьшении периода ограничит частоту попыток. Контрактное требование единственного исполнения при конкуренции выполнено."
+    },
+    {
+      "source_id": "MAN-QND-08",
+      "source_line": 29,
+      "source_text_sha256": "fb6014255450f727bcd8fb973913c444f7575df8a6fe5bc67fb11cc1a769ce91",
+      "source_excerpt": "Periodic heartbeats remain and only execute due events: `nostalgia_tick` (`NostalgiaWorker.start`, becomes a ≤`limits.qnd_heartbeat_seconds` poller), `initiative_observer_tick`",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-08",
+      "slice": "QND-NONDET",
+      "acceptance": "Периодические heartbeat остаются, но только исполняют наступившие события: смысловая периодичность берётся из расписания, PRNG-jitter на старте удалён, живые сообщения не двигают разыгранный срок.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "§3.5 привязки",
+          "observation": "nostalgia_interval_preserved=true: request_event метит только механизм инициативы, next_due_ts ностальгии у обоих чатов не изменился",
+          "type": "production",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_nostalgia_proactive_recall.py::test_four_live_messages_in_90s_do_not_break_nostalgia_deadline",
+          "observation": "4 живых сообщения за 90 с -> 0 вызовов модели, next_due_ts не изменён",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-09",
+      "source_line": 35,
+      "source_text_sha256": "ea8cbfb391a136f377dc401459e05766cfae30c05665bbc48fe2de95a23ea06f",
+      "source_excerpt": "`await message_identity.save_live_message(...)` (line 547 at `1a4a9b1b`), call `semantic_schedule.request_event(db, chat_id=message.chat.id, reason=\"live_message\", now=ingested_at)`;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-09",
+      "slice": "QND-NONDET",
+      "acceptance": "Живое сообщение поднимает существующий Observer сразу, без ожидания тика: request_event после успешного save_live_message, немедленный dispatch с only_chat, второго Observer/пайплайна/словарных триггеров нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "§3.4 привязки (копия прод-данных)",
+          "observation": "request_event создал строку initiative только для целевого чата, второй чат не тронут, due_chats(initiative)=[-1004482340693], due=true",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_event_path.py::test_live_message_signal_starts_evaluation_with_trigger_event",
+          "observation": "сигнал живого сообщения запускает оценку с trigger=event через те же Decision/Writer/SendRecheck",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-10",
+      "source_line": 42,
+      "source_text_sha256": "ca74fc129290fa7b74b88300a926c160f5305f3e2232568299c0f0a0bc16839b",
+      "source_excerpt": "Bounding (no evaluation storm): per-chat single-flight — if a job for the chat is already `queued|running` the signal is DROPPED (`reason_code=\"event_dropped_busy\"`), not queued;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-10",
+      "slice": "QND-NONDET",
+      "acceptance": "Событие ограничено: single-flight (занятый чат -> event_dropped_busy, сигнал отбрасывается), дебаунс limits.qnd_event_debounce_seconds, событийный пол limits.qnd_event_min_interval_seconds, общий eval-бюджет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "§3.4 привязки (копия прод-данных)",
+          "observation": "порядок гейтов: event_dropped_debounce -> event_deferred_floor -> allowed",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_event_path.py::test_event_dropped_when_chat_busy_and_per_chat_debounce",
+          "observation": "занятый чат отбрасывает сигнал; дебаунс на чат соблюдается",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_event_path.py::test_event_path_respects_eval_budget_and_floor",
+          "observation": "событийный путь уважает бюджет и пол интервала",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-11",
+      "source_line": 48,
+      "source_text_sha256": "f23c7d6c3c57418ff0443d808e8aa0ca22fd4cc1d89142eb812fa4928dccbd79",
+      "source_excerpt": "Provenance: every evaluation carries `trigger=\"schedule|event\"` in `_note_decision`/`_skip_eval` and in the durable event, so a start reason is provable from logs.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-11",
+      "slice": "QND-NONDET",
+      "acceptance": "Каждая оценка несёт провенанс trigger=schedule|event в решении и в durable-событии, поэтому причина запуска доказуема по журналу.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "tests/test_qnd_event_path.py::test_live_message_signal_starts_evaluation_with_trigger_event",
+          "observation": "durable-событие содержит trigger=event",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_event_path.py::test_event_and_schedule_share_dedup_and_send_accounting",
+          "observation": "оба пути делят дедуп и учёт отправок: одна доставка, одна запись журнала",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-12",
+      "source_line": 58,
+      "source_text_sha256": "d9a7408c09ff353d5500a4a2de345e2d3601ea863af804a6a46cd77796193a87",
+      "source_excerpt": "`draw_probability(purpose=\"<m>_publication\")`, publish iff `not deferred and u < p` — this is the publication decision for every positive-enough candidate.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-12",
+      "slice": "QND-NONDET",
+      "acceptance": "Публикацию решает одна вероятность p из факторов и один квантовый draw: публикация тогда и только тогда, когда не deferred и u<p; предварительный бросок монеты удалён, второго SILENT-фильтра после розыгрыша нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "tests/test_qnd_publication.py",
+          "observation": "decide() реализует один draw на решение; p и u записываются в durable-строку; random_trigger на гейте оценки удалён",
+          "type": "review",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "планы: evidence ревью §5 (кандидат 629743f9)",
+          "observation": "ревью подтвердило отсутствие двойного гейта и что решение принимает decide(), а p одинаков в обеих строках решающего теста (p=0.266404)",
+          "type": "review",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-13",
+      "source_line": 61,
+      "source_text_sha256": "07082f94ca2d766cf4a38e7f27ec3fdca8d40c8238579596eada4e49ce022412",
+      "source_excerpt": "Ordering is frozen. BEFORE the draw: gates (`feature_gates.gates_enabled`/`gate_blocks_publication`), module/master OFF, rights/ACL, day caps, `min_gap`/anti-flood, topic cap,",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-13",
+      "slice": "QND-NONDET",
+      "acceptance": "Порядок заморожен: гейты фич, OFF модуля, права/ACL, суточные лимиты, min_gap/антифлуд, topic cap, дедуп, eval-бюджет и precheck идут ДО розыгрыша; SendRecheck после него только проверяет свежесть и не перерешает уместность, не перерисовывает и не применяет собственную вероятность.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "tests/test_qnd_publication.py::test_hard_limits_and_dedup_precede_the_draw",
+          "observation": "при исчерпанном лимите draw не вызывается",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_publication.py::test_sendrecheck_never_redraws_or_redecides",
+          "observation": "SendRecheck не перерисовывает и не перерешает",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_publication.py::test_llm_veto_without_veto_reason_is_semantic_parse_error",
+          "observation": "silent без veto_reason из закрытого набора — ошибка разбора, а не молчаливая публикация",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-14",
+      "source_line": 71,
+      "source_text_sha256": "b6ce425ed33d5442bb80f71152a83ca94f03c93f128b2458a8aca0b7f67491e3",
+      "source_excerpt": "Only `services/mca_random_source.RandomSourceService` (+ VMQ-ONTO-01 adapters). Purposes added to `SANCTIONED_DRAW_PURPOSES`: `nostalgia_schedule`, `initiative_schedule`,",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-14",
+      "slice": "QND-NONDET",
+      "acceptance": "Случайность берётся только из RandomSourceService: четыре новых purpose, initiative_trigger выведен, PRNG-вызовы (random/numpy/secrets/jitter) в этих путях запрещены и падают в тесте; фактический источник каждого решения виден в журнале.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "§3.2 привязки",
+          "observation": "живые розыгрыши: source=quantum, provider=ANU Quantum Numbers, u=0.45703125 и u=0.830596924, fallback_reason null, draw_id записаны",
+          "type": "production",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_schedule.py::test_no_pseudorandom_in_semantic_paths",
+          "observation": "random/numpy.random/secrets патчатся в исключение — путь проходит без них",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        },
+        {
+          "ref": "tests/test_qnd_schedule.py::test_provider_failure_is_honest_not_quantum",
+          "observation": "при deferred — random_unavailable, source != quantum, публикации нет",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-15",
+      "source_line": 100,
+      "source_text_sha256": "53aed5d185b5134e9452cf51febe3b5a48fcc310213f5875a8f840d9b19e40ae",
+      "source_excerpt": "Corrective to `6674811f`, mandatory in the same release, not deferred: (a) `NostalgiaWorker._direction_pick` stops being an equal-weight band choice (`_DIRECTION_BAND=0.999`, band from",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-15",
+      "slice": "QND-NONDET",
+      "acceptance": "_direction_pick больше не равновесная полоса: направление памяти выбирается взвешенным inverse-CDF по ОДНОМУ квантовому значению среди ВСЕХ подходящих кандидатов, с записью info[\"direction\"]{source,draw_id}.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "§1 привязки + чтение кода на 32e018b9",
+          "observation": "в выкаченном коде _direction_pick использует inverse-CDF по одному u с весами 0.65*relevance+0.2*coverage+0.1*usage и пишет source/draw_id; равновесная полоса _DIRECTION_BAND удалена. Отдельного теста контракт §7 не предусматривает — проверено чтением кода и одобрением кандидата 629743f9",
+          "type": "review",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ],
+      "note": "Проверено инспекцией кода, не отдельным тестом: контракт §7 не задаёт теста для _direction_pick."
+    },
+    {
+      "source_id": "MAN-QND-16",
+      "source_line": 19,
+      "source_text_sha256": "9cd2a27a653f3c6b6304f90f5538f0572a67f98bb0129c8db004c6d3a62180ea",
+      "source_excerpt": "quiet hours shift deterministically to the next allowed local hour (no second draw). Every bound/profile/weight is a `ParamSpec` in `services/param_catalog.py`",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-16",
+      "slice": "QND-NONDET",
+      "acceptance": "Границы, форма и веса — редактируемые ParamSpec в каталоге (category=limits, group limits_qnd/limits_qnd_nostalgia), отрисованы в существующих вкладках mod_initiative/memory_nostalgia; новых админ-страниц и числовых констант в коде нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "каталог/пины релизного дерева",
+          "observation": "31 запись limits.qnd_* + compat initiative.trigger_probability; счётчики каталога 638/121/119/22; пины каталога и tab-mapping переизданы под фактический артефакт; новых админ-страниц нет",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ],
+      "note": "Видимость ручек в браузере проверяется строкой QND-23; здесь доказано существование и отрисовка через существующие вкладки на уровне каталога и пинов."
+    },
+    {
+      "source_id": "MAN-QND-17",
+      "source_line": 94,
+      "source_text_sha256": "6d3f34493d2379cbed3ef826ab9db30f6c8d62479a1b60e91fcf03ed62332fd2",
+      "source_excerpt": "Honesty: `draws_quantum == 0` in the window → «квантовый источник не использовался»/«fallback» and the word «работает» is forbidden; a missing denominator shows «нет данных»,",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-17",
+      "slice": "QND-NONDET",
+      "acceptance": "Витрины происходят только из durable-событий и честны: при draws_quantum=0 показывается «нет данных»/«не использовался», слово «работает» не печатается, процента без знаменателя нет.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "§3.3 привязки",
+          "observation": "nostalgia draws_quantum=1 -> status_word_allowed=true, headline «квантовый источник используется»; initiative draws_quantum=0 -> status_word_allowed=false, headline «нет данных: розыгрышей в окне не было»; слово «работает» отсутствует в обоих случаях",
+          "type": "production",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-18",
+      "source_line": 106,
+      "source_text_sha256": "0a5c2a5ab37d7a8db1cd91010a47b6c7fd59e0c6aa8d77e5466e4d0c8822bd2d",
+      "source_excerpt": "Preserved: user settings, chat overrides, PET_PROJECT release rule, no OFF/SHADOW, no new agents, no human gate.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-18",
+      "slice": "QND-NONDET",
+      "acceptance": "Пользовательские промпты, настройки и чатовые override не переписаны; изменён только внутренний промпт Observer отдельной ревизией, factory-отпечаток переутверждён; новых агентов, пайплайнов, OFF/SHADOW и human gate нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "промпт-аудит и expression isolation",
+          "observation": "ревизия initiative-observer-qnd-veto (sha12 4bb33535bad5), FACTORY_SET_SHA256_12=1532c9480cd5 (1 блок из 112), пользовательские промпты не тронуты, число файлов под аудитом переиздано под прод-факт (312); канон чекапа v10 на работающей сборке",
+          "type": "review",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-19",
+      "source_line": 116,
+      "source_text_sha256": "1f3c5b5048b3fbd258971c04cb9b560a6239b93a91fd8e757a7940577adebb02",
+      "source_excerpt": "`tests/test_qnd_publication.py::test_same_semantic_situation_different_quantum_values_differ` — decisive: identical factors and gates, `u=0.02` → `outcome=delivered`,",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-19",
+      "slice": "QND-NONDET",
+      "acceptance": "Решающая приёмка: при одинаковой семантической ситуации и одинаковых гейтах разные допустимые квантовые значения дают разные решения о публикации.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "tests/test_qnd_publication.py::test_same_semantic_situation_different_quantum_values_differ",
+          "observation": "u=0.02 -> outcome=delivered; u=0.98 -> outcome=silent, silence_cause=random_miss; одинаковый p=0.266404 в обеих строках; PASS",
+          "type": "test",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-20",
+      "source_line": 7,
+      "source_text_sha256": "611c1ebbf92ce5c4825c85165b6fe9e7d49e842d803ac51ed3cd3784911a95b4",
+      "source_excerpt": "Module `services/semantic_schedule.py` (one module, both mechanisms: `MECH_NOSTALGIA=\"nostalgia\"`, `MECH_INITIATIVE=\"initiative\"`).",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-20",
+      "slice": "QND-NONDET",
+      "acceptance": "В проде под живыми сообщениями появляется строка расписания механизма initiative и первый розыгрыш: первое сообщение в чате создаёт строку, далее due -> claim -> draw с записанным источником.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": [],
+      "pending_conditions": "Первое живое сообщение в чате после рестарта 2.58.179 (00:21 UTC). С момента старта живого трафика не было; на копии прод-данных получено u=0.768508911, delay 5672 s, source=quantum, строка создаётся INSERT..ON CONFLICT."
+    },
+    {
+      "source_id": "MAN-QND-21",
+      "source_line": 18,
+      "source_text_sha256": "a6fd16ce159f8ecb5dd47282bb5886f4c70293447d1167c15f5e7170e5fa8ceb",
+      "source_excerpt": "One draw: `u = DrawResult.value` from `draw_probability(purpose=\"<m>_schedule\", chat_id=chat_id)`; `delay = lo_adj + (hi_adj-lo_adj) * u**shape`; `next_due_ts = now + round(delay)`;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-21",
+      "slice": "QND-NONDET",
+      "acceptance": "На реальном суточном горизонте: интервалы распределены, чаты независимы во времени, одновременных проверок и накопления просрочек нет.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": [],
+      "pending_conditions": "Не менее суток живых строк semantic_schedule по обоим чатам: сравнить распределение next_due_ts/last_draw_ts по чатам и убедиться, что проверки не совпадают и missed_count не растёт массово."
+    },
+    {
+      "source_id": "MAN-QND-22",
+      "source_line": 48,
+      "source_text_sha256": "f23c7d6c3c57418ff0443d808e8aa0ca22fd4cc1d89142eb812fa4928dccbd79",
+      "source_excerpt": "Provenance: every evaluation carries `trigger=\"schedule|event\"` in `_note_decision`/`_skip_eval` and in the durable event, so a start reason is provable from logs.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-22",
+      "slice": "QND-NONDET",
+      "acceptance": "На проде реальное сообщение даёт durable-событие с trigger=event (не только schedule) и не создаёт второй оценки в пределах дебаунса.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": [],
+      "pending_conditions": "Реальное сообщение в проде после 2.58.179 -> quantum_evaluation с trigger=event в журнале; сейчас событийный путь доказан на копии прод-данных и тестами, живых сообщений не было."
+    },
+    {
+      "source_id": "MAN-QND-23",
+      "source_line": 88,
+      "source_text_sha256": "608bfa5466727dd51657dbe5eb2423692b6adcb60250df3ab66d81998db758b3",
+      "source_excerpt": "Status (`GET /api/status`, existing \"Статус\" tab — «быстро увидеть, что происходит»), one block per mechanism: last and next semantic check (absolute + countdown), source of the",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-23",
+      "slice": "QND-NONDET",
+      "acceptance": "Новые блоки «Статус»/«Аналитика» для обоих механизмов отрисованы и читаемы в браузере на реальных данных: последняя/следующая проверка, источник розыгрыша, allowed/deferred/rejected, доставки, гистограмма интервалов, таблица кандидатов с p/u/outcome, доли молчания.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": [],
+      "pending_conditions": "Браузерная проверка (Playwright + Browser Use) на проде: desktop и mobile, числа совпадают с durable-событиями, при draws_quantum=0 нет слова «работает». В браузере блоки ни разу не проверялись."
+    },
+    {
+      "source_id": "MAN-QND-24",
+      "source_line": 55,
+      "source_text_sha256": "8e74274cdf6018d25d52579c310027a99e1c9c7199f4e99dbf1309e95dcb9172",
+      "source_excerpt": "`θ=limits.qnd_publication_theta`, `τ=limits.qnd_publication_tau`, `p_min/p_max = limits.qnd_<m>_publication_min|max`, clipped. An explicitly set per-chat `initiative.trigger_probability`",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-24",
+      "slice": "QND-NONDET",
+      "acceptance": "Продуктовое ощущение частоты: при текущих limits.qnd_* доля публикаций и частота инициативы выглядят разумно, молчание преобладает по понятным причинам (silence_cause).",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": [],
+      "pending_conditions": "Не менее суток реальных решений decide() в проде: соотношение delivered/отложено/молчание и причины; при необходимости править limits.qnd_* настройками, а не кодом."
+    }
+  ]
+}

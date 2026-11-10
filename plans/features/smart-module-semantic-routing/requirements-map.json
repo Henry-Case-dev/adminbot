@@ -5776,7 +5776,9 @@
     "slice_candidates_path": "slice_candidates (эта карта)",
     "note": "Продукт изменился между 2.58.176 и 2.58.177: дельта 2b7e9c7f..1a4a9b1b — 41 файл (10 продуктовых файлов P1, 6 тестовых файлов P1, 25 version-пинов), включая services/direct_chat_service.py и services/direct_capabilities.py, на которые опираются строки P0-A. Поэтому байтовую идентичность доказательств P0 на 1a4a9b1b НЕ утверждаем: строки P0-A/P0-B/SMR-HELP/SMR-COMMANDS остаются привязанными к 2b7e9c7f (см. slice_candidates), а карта в целом выкачена на 1a4a9b1b. Появление строки 'no evidence bound to reviewed candidate' на P0-срезе при прогоне с кандидатом 1a4a9b1b — учётная артефактика, не регрессия; строки не переиздаются.",
     "p1_binding_record": "plans/features/smart-module-semantic-routing/evidence/p1-binding-2.58.177.md",
-    "nostalgia_correction_map": "plans/features/smart-module-semantic-routing/requirements-map-nostalgia-correction.json"
+    "nostalgia_correction_map": "plans/features/smart-module-semantic-routing/requirements-map-nostalgia-correction.json",
+    "qnd_correction_map": "plans/features/smart-module-semantic-routing/requirements-map-qnd.json",
+    "qnd_note": "Квантовый срез QND-NONDET (выкат 2.58.179 @ 32e018b9, схема 46 -> 47) ведёт отдельная карта внутри этого же эпика: 24 строки QND-01..QND-24, из них 19 VERIFIED по выкату и одобренному кандидату 629743f9, 5 PENDING (живой трафик initiative, суточный ритм, живое событие trigger=event, браузерная витрина Статус/Аналитика, продуктовое ощущение частоты). Эта карта остаётся на своих кандидатах (2.58.176/2.58.177) и доказательства QND не переиздаёт; узел QND-NONDET добавлен в тот же slice-graph.json и зависит от NOST-PROACTIVE, так как переписывает его такт и гейт публикации (параллельная запись запрещена)."
   },
   "slice_candidates": {
     "P0-A": {

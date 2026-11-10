@@ -708,7 +708,7 @@
         "NOST-PRO-13",
         "NOST-PRO-19"
       ],
-      "status": "rows being added separately (not yet in this map)"
+      "status": "registered as the QND-NONDET slice in the same epic: rows QND-01..QND-24 in plans/features/smart-module-semantic-routing/requirements-map-qnd.json (deployed 2.58.179 @ 32e018b9); the reopened NOST-PRO rows above stay PENDING here until their live conditions are met and are answered by that map, not by rewriting them"
     }
   ]
 }
