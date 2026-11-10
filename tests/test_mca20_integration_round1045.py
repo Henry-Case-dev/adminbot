@@ -338,7 +338,11 @@ class TestObservabilityContract:
         # MOD-ACL-UX-01 M2 (§2.2, 09.11.2026): 325 → 330 (+5 capability-кодов:
         # capability_off/emergency_block/permission_denied/consent_required/
         # not_ready — точная причина блокировки перед side effect).
-        assert len(mca_events.REASON_CODES) == 330
+        # QND-NONDET (2.58.179, 10.11.2026): +11 кодов состояний
+        # расписания/событий/исхода (no_state, stale_deadline, lease_held,
+        # settings_rescaled, event_dropped_busy/debounce, event_deferred_floor,
+        # random_miss, random_unavailable, semantic_none, module_off) → 330→341.
+        assert len(mca_events.REASON_CODES) == 341
         assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
         # дата-ошибка ≠ дата-отсутствие (D15, `:1805`)
         assert {"temporal_date_extract_failed", "temporal_date_unknown"} \

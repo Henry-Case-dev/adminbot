@@ -71,7 +71,7 @@
     "whiteSpace": "pre-wrap",
     "overflowX": "auto",
     "maxHeight": "480px",
-    "bottom": 557,
+    "bottom": 619,
     "visibleH": 800,
     "insideEditor": true,
     "scrollable": false,
@@ -86,7 +86,7 @@
     "whiteSpace": "pre",
     "overflowX": "auto",
     "maxHeight": "480px",
-    "bottom": 557,
+    "bottom": 619,
     "visibleH": 800,
     "insideEditor": true,
     "scrollable": false,
@@ -104,19 +104,19 @@
     "vvH": "504px",
     "activeTag": "TEXTAREA",
     "hasEditorArea": true,
-    "fieldBottom": 492,
-    "fieldTop": 224,
+    "fieldBottom": 491,
+    "fieldTop": 223,
     "visibleH": 504,
-    "maxHeight": "384px",
+    "maxHeight": "268px",
     "stickyBottom": 488,
     "stickyPosition": "sticky",
     "hScrollPage": false
    },
    "scope": {
     "open": true,
-    "placement": "bottom",
-    "top": 54,
-    "bottom": 215,
+    "placement": "sheet",
+    "top": 334,
+    "bottom": 495,
     "visibleH": 504,
     "inside": true,
     "options": 2,
@@ -144,8 +144,8 @@
     "nowrap": "0",
     "whiteSpace": "pre-wrap",
     "overflowX": "auto",
-    "maxHeight": "520px",
-    "bottom": 602,
+    "maxHeight": "232px",
+    "bottom": 628,
     "visibleH": 640,
     "insideEditor": true,
     "scrollable": false,
@@ -163,29 +163,29 @@
    "doublesTotal": 0
   },
   "joints_modules": {
-   "surfaces": 15,
+   "surfaces": 16,
    "doubles": [],
    "doublesTotal": 0
   },
   "toggles_modules": {
-   "total": 21,
-   "tracks": 21,
+   "total": 6,
+   "tracks": 6,
    "orphans": 0,
-   "checked": 6,
+   "checked": 2,
    "backgrounds": [
-    "rgba(170, 182, 200, 0.22)",
-    "rgb(139, 111, 232)"
+    "rgb(139, 111, 232)",
+    "rgba(170, 182, 200, 0.22)"
    ],
    "states": [
-    "false",
-    "true"
+    "true",
+    "false"
    ],
    "items": [
     {
-     "checked": false,
+     "checked": true,
      "disabled": false,
-     "bg": "rgba(170, 182, 200, 0.22)",
-     "thumbOffset": 2,
+     "bg": "rgb(139, 111, 232)",
+     "thumbOffset": 22,
      "width": 44,
      "visible": true
     },
@@ -233,7 +233,7 @@
   },
   "toggle_flip_modules": {
    "found": true,
-   "was": false,
+   "was": true,
    "on": {
     "bg": "rgb(139, 111, 232)",
     "offset": 22,
@@ -251,7 +251,7 @@
    "total": 19,
    "tracks": 19,
    "orphans": 0,
-   "checked": 16,
+   "checked": 9,
    "backgrounds": [
     "rgba(170, 182, 200, 0.22)",
     "rgb(139, 111, 232)"
@@ -278,10 +278,10 @@
      "visible": true
     },
     {
-     "checked": true,
+     "checked": false,
      "disabled": false,
-     "bg": "rgb(139, 111, 232)",
-     "thumbOffset": 22,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
      "width": 44,
      "visible": true
     },
@@ -302,10 +302,10 @@
      "visible": true
     },
     {
-     "checked": true,
+     "checked": false,
      "disabled": false,
-     "bg": "rgb(139, 111, 232)",
-     "thumbOffset": 22,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
      "width": 44,
      "visible": true
     }
@@ -329,24 +329,24 @@
   },
   "module_toggle_posts": 1,
   "toggles_modules_after_click": {
-   "total": 21,
-   "tracks": 21,
+   "total": 6,
+   "tracks": 6,
    "orphans": 0,
-   "checked": 6,
+   "checked": 2,
    "backgrounds": [
-    "rgba(170, 182, 200, 0.22)",
-    "rgb(139, 111, 232)"
+    "rgb(139, 111, 232)",
+    "rgba(170, 182, 200, 0.22)"
    ],
    "states": [
-    "false",
-    "true"
+    "true",
+    "false"
    ],
    "items": [
     {
-     "checked": false,
+     "checked": true,
      "disabled": false,
-     "bg": "rgba(170, 182, 200, 0.22)",
-     "thumbOffset": 2,
+     "bg": "rgb(139, 111, 232)",
+     "thumbOffset": 22,
      "width": 44,
      "visible": true
     },
@@ -394,7 +394,7 @@
   },
   "toggle_flip_modules_after_click": {
    "found": true,
-   "was": false,
+   "was": true,
    "on": {
     "bg": "rgb(139, 111, 232)",
     "offset": 22,
@@ -477,24 +477,24 @@
   },
   "toggles_mobile_390": {
    "probe": {
-    "total": 21,
-    "tracks": 21,
+    "total": 6,
+    "tracks": 6,
     "orphans": 0,
-    "checked": 6,
+    "checked": 2,
     "backgrounds": [
-     "rgba(170, 182, 200, 0.22)",
-     "rgb(139, 111, 232)"
+     "rgb(139, 111, 232)",
+     "rgba(170, 182, 200, 0.22)"
     ],
     "states": [
-     "false",
-     "true"
+     "true",
+     "false"
     ],
     "items": [
      {
-      "checked": false,
+      "checked": true,
       "disabled": false,
-      "bg": "rgba(170, 182, 200, 0.22)",
-      "thumbOffset": 2,
+      "bg": "rgb(139, 111, 232)",
+      "thumbOffset": 22,
       "width": 44,
       "visible": true
      },

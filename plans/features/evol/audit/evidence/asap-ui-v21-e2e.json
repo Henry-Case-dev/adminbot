@@ -1,7 +1,7 @@
 {
  "checks": {
   "modules_initial": {
-   "cards": 15,
+   "cards": 16,
    "maxToggles": 1,
    "labels": [
     "В этом чате включён",
@@ -21,7 +21,7 @@
    "hScroll": false
   },
   "modules_global": {
-   "cards": 15,
+   "cards": 16,
    "maxToggles": 1,
    "labels": [
     "Глобально выключен",
@@ -47,7 +47,7 @@
    }
   ],
   "modules_chat": {
-   "cards": 15,
+   "cards": 16,
    "maxToggles": 1,
    "labels": [
     "В этом чате выключен",
@@ -129,7 +129,7 @@
     },
     {
      "w": 314,
-     "h": 157
+     "h": 133
     },
     {
      "w": 342,
@@ -150,7 +150,7 @@
    "fsLabel": "На весь экран",
    "headerH": 58,
    "hScroll": false,
-   "avatar": 1,
+   "avatar": 2,
    "role": 1
   },
   "status_390": {
@@ -171,7 +171,7 @@
     },
     {
      "w": 340,
-     "h": 154
+     "h": 130
     },
     {
      "w": 340,
@@ -203,7 +203,7 @@
    "fsLabel": "На весь экран",
    "headerH": 58,
    "hScroll": false,
-   "avatar": 1,
+   "avatar": 2,
    "role": 1
   }
  },

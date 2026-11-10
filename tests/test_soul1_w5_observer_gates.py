@@ -175,6 +175,55 @@ def _clean():
     _reset_caches()
 
 
+@pytest.fixture(autouse=True)
+def _qnd_schedule_due(monkeypatch):
+    """QND-NONDET (2.58.179, 10.11.2026): предмет этого файла — пер-чатовые
+    гейты Observer (порог, интервал проверок, дедуп контекста, min-gap,
+    суточный кап, выключенный чат), а не квантовое расписание и не розыгрыш
+    вероятности публикации. Оба квантовых предусловия фиксируются
+    управляемо (контракт §7 «controlled RandomSource, no wall-clock races»,
+    как в согласованных peer-файлах test_mod_acl_ux_m2_*, test_p0_initfix,
+    test_asap8_v63_b01):
+
+    * расписание считает событие наступившим для каждого чата с сообщениями
+      (само расписание покрыто tests/test_qnd_schedule.py +
+      tests/test_qnd_event_path.py);
+    * источник розыгрыша выдаёт 0.02 → решение публикации детерминированно
+      «состоялось», поэтому «порог достигнут ⇒ оценка обязана быть» остаётся
+      проверяемым контрактом, а не везением.
+    """
+    from services import semantic_schedule as _sched
+    from tests.qnd_fakes import FakeQuantumSource
+
+    async def _due(db, mechanism, chat_id, *, now=None):
+        return True
+
+    async def _due_chats(db, mechanism, *, now=None):
+        cursor = await db.db.execute(
+            "SELECT DISTINCT chat_id FROM smart_messages")
+        return [int(r["chat_id"]) for r in await cursor.fetchall()]
+
+    monkeypatch.setattr(_sched, "due", _due)
+    monkeypatch.setattr(_sched, "due_chats", _due_chats)
+
+    async def _claim(db, mechanism, chat_id, *, now=None, owner=""):
+        return True
+
+    async def _release(db, mechanism, chat_id, *, owner=""):
+        return None
+
+    # Тики здесь идут вплотную (один процесс, без wall-clock разрывов), а
+    # аренда строки живёт `limits.qnd_lease_seconds` (300 с при тике 300 с):
+    # без этого 4 подряд тика превращались бы в один, и предмет файла
+    # (пер-чатовые гейты) перестал бы проверяться. Сама аренда/конкурентность
+    # покрыта tests/test_qnd_schedule.py.
+    monkeypatch.setattr(_sched, "claim", _claim)
+    monkeypatch.setattr(_sched, "release", _release)
+    _sched.set_source(FakeQuantumSource(default=0.02))
+    yield
+    _sched.reset_source()
+
+
 # ═══ 1. Состояние окна: накопление не сбрасывается промежуточными тиками ════
 
 @pytest.mark.asyncio

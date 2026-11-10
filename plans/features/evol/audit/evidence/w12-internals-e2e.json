@@ -4,7 +4,7 @@
    "palette": {
     "open": true,
     "panelW": 720,
-    "panelH": 177,
+    "panelH": 156,
     "panelTop": 48,
     "vh": 900,
     "inputFocused": true,
@@ -68,7 +68,7 @@
    "bf": "none",
    "inputValue": "инициатива",
    "inputH": 40,
-   "rows": 12,
+   "rows": 14,
    "groups": [
     "module",
     "setting",
@@ -76,16 +76,18 @@
    ],
    "dests": [
     "#/modules/initiative",
-    "#/modules/initiative/limits",
+    "#/modules/initiative/diagnostics",
+    "#/modules/initiative/memes",
+    "#/modules/initiative/publications",
+    "#/modules/initiative/text",
     "#/modules/initiative/settings",
-    "#/modules/initiative/settings",
-    "#/modules/initiative/limits",
+    "#/modules/initiative/text",
+    "#/modules/initiative/text",
+    "#/modules/initiative/text",
     "#/modules",
-    "#/modules/initiative/limits",
+    "#/modules/initiative/text",
+    "#/modules/initiative/text",
     "#/modules/images/settings",
-    "#/modules/images/settings",
-    "#/modules/initiative/settings",
-    "#/memory/relations",
     "#/modules/direct/prompts/prompts.direct_l1_planner_system_prompt"
    ],
    "scopeLabel": "ЧАТ",
@@ -113,10 +115,10 @@
   "palette_navigation": {
    "picked": {
     "id": "setting:limits.intent_heartbeat_batch_max",
-    "dest": "#/modules/initiative/limits"
+    "dest": "#/modules/initiative/text"
    },
    "expected_focus": "limits.intent_heartbeat_batch_max",
-   "hash": "#/modules/initiative/limits?focus=limits.intent_heartbeat_batch_max",
+   "hash": "#/modules/initiative/text?focus=limits.intent_heartbeat_batch_max",
    "focused": "limits.intent_heartbeat_batch_max"
   },
   "palette_focus_routes": [
@@ -209,7 +211,7 @@
    "primary": true,
    "last": "Последних действий в журнале нет",
    "scope": "ЧАТ",
-   "tabs": 3
+   "tabs": 5
   }
  },
  "fails": []

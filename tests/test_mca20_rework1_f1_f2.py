@@ -382,6 +382,8 @@ class TestValidatorStage:
         # limit_not_allowed — вне validator-стадии).
         # MOD-ACL-UX-01 M2 (§2.2, 09.11.2026): 325 → 330 (+5 capability-кодов,
         # тоже вне validator-стадии).
-        assert len(mca_events.REASON_CODES) == 330
+        # QND-NONDET (2.58.179, 10.11.2026): +11 кодов состояний
+        # расписания/событий/исхода → 330→341; validator-коды не тронуты.
+        assert len(mca_events.REASON_CODES) == 341
         assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
         assert tf.TEMPORAL_VALIDATOR_SYSTEM

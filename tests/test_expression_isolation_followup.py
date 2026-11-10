@@ -212,5 +212,9 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # и поле вердикта memory_slot (метка initiative-observer-memory-recall,
     # sha12 108f277a466f); прочие каноны байт-в-байт.
     # Было b4e8b3569ab2, стало 011c83dfac95.
-    assert pr.FACTORY_SET_SHA256_12 == "011c83dfac95"
+    # QND-NONDET (2.58.179, 10.11.2026): 1 блок из 112 вновь изменён -
+    # internal.initiative_observer → initiative-observer-qnd-veto
+    # (sha12 4bb33535bad5): блок требует veto_reason. Было 011c83dfac95,
+    # стало 1532c9480cd5; прежние каноны байт-в-байт.
+    assert pr.FACTORY_SET_SHA256_12 == "1532c9480cd5"
 
