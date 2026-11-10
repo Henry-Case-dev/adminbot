@@ -5778,7 +5778,7 @@
     "p1_binding_record": "plans/features/smart-module-semantic-routing/evidence/p1-binding-2.58.177.md",
     "nostalgia_correction_map": "plans/features/smart-module-semantic-routing/requirements-map-nostalgia-correction.json",
     "qnd_correction_map": "plans/features/smart-module-semantic-routing/requirements-map-qnd.json",
-    "qnd_note": "Квантовый срез QND-NONDET (выкат 2.58.179 @ 32e018b9, схема 46 -> 47) ведёт отдельная карта внутри этого же эпика: 24 строки QND-01..QND-24, из них 19 VERIFIED по выкату и одобренному кандидату 629743f9, 5 PENDING (живой трафик initiative, суточный ритм, живое событие trigger=event, браузерная витрина Статус/Аналитика, продуктовое ощущение частоты). Эта карта остаётся на своих кандидатах (2.58.176/2.58.177) и доказательства QND не переиздаёт; узел QND-NONDET добавлен в тот же slice-graph.json и зависит от NOST-PROACTIVE, так как переписывает его такт и гейт публикации (параллельная запись запрещена)."
+    "qnd_note": "Квантовый срез QND-NONDET (выкат 2.58.179 @ 32e018b9, схема 46 -> 47) ведёт отдельная карта внутри этого же эпика: 26 строк QND-01..QND-26, из них 21 VERIFIED по выкату и одобренному кандидату 629743f9, 5 PENDING (живой трафик initiative, суточный ритм, живое событие trigger=event, браузерная витрина Статус/Аналитика, продуктовое ощущение частоты). Эта карта остаётся на своих кандидатах (2.58.176/2.58.177) и доказательства QND не переиздаёт; узел QND-NONDET добавлен в тот же slice-graph.json и зависит от NOST-PROACTIVE, так как переписывает его такт и гейт публикации (параллельная запись запрещена)."
   },
   "slice_candidates": {
     "P0-A": {

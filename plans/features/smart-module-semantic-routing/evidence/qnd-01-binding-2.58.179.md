@@ -1,7 +1,7 @@
 # QND-NONDET — привязка строк к выкату 2.58.179 (10.11.2026)
 
 **Срез:** `QND-NONDET` (умная маршрутизация / смарт-модуль, квантовая недетерминированность).
-**Карта:** `plans/features/smart-module-semantic-routing/requirements-map-qnd.json` (строки `QND-01`…`QND-24`).
+**Карта:** `plans/features/smart-module-semantic-routing/requirements-map-qnd.json` (строки `QND-01`…`QND-26`).
 **Контракт (заморожен, 139 строк):** `plans/features/smart-module-semantic-routing/quantum-nondeterminism-contract.md`
 (sha256 `dbf36b2f43037f93adf66dffb9b1c48ffbf62139f27240acc9d95614496c7720`).
 **Исходник владельца:** `plans/owner_inputs/2026-11-10-quantum-nondeterminism-correction.md`
@@ -126,6 +126,8 @@ youtube-загрузка, budget-меню, `flags.dig_pre_gate_enabled` в ау�
 | `QND-17` durable-метрики и правило честности | 5 типов событий (`quantum_schedule_draw/due/evaluation/publication_decision/result`), `services/qnd_diagnostics.py`, блок `quantum` в `/api/status`; §3.3 — живые headline и `status_word_allowed` на обоих механизмах, слово «работает» не печатается |
 | `QND-18` изоляция промптов и сохранение рамок | пользовательские промпты не переписаны; ревизия только внутреннего промпта Observer `initiative-observer-qnd-veto` (sha12 `4bb33535bad5`), factory-отпечаток переутверждён осознанно (`FACTORY_SET_SHA256_12=1532c9480cd5`); новых агентов/пайплайнов/OFF-SHADOW нет; канон v10; human gate не создавался |
 | `QND-19` решающая приёмка «та же ситуация — разные `u`» | `test_same_semantic_situation_different_quantum_values_differ`: одинаковые факторы и гейты, `u=0.02` → `delivered`, `u=0.98` → `silent`/`random_miss`, одинаковый `p`. Ревью подтвердило отдельно |
+| `QND-25` существующие связки QRNG со снами и памятью сохранены | дельта `af84b6c6→32e018b9` не содержит ни одного модуля снов/памяти-консьюмера (`services/dream_worker.py`, `services/mca_dream_random.py`, `services/mca_dream_history.py` не изменялись); правка `services/mca_random_source.py` — только константы purpose и санкционированный набор |
+| `QND-26` политика провайдеров не тронута | по диффу `services/mca_random_source.py` изменены только объявления purpose и `SANCTIONED_DRAW_PURPOSES`; `selected_mode`/`resolve_effective`/`fallback_enabled`/реестр ANU-LfDR-Lizaonair/таймауты/квоты и `AnuClient` не правились, других провайдерских файлов в дельте нет |
 
 ## 5. Что НЕ доказано и остаётся PENDING (точные условия)
 
@@ -150,4 +152,5 @@ youtube-загрузка, budget-меню, `flags.dig_pre_gate_enabled` в ау�
 ## 7. Что осталось до полного VERIFIED среза
 
 Пять строк `QND-20`…`QND-24` (живой трафик, сутки ритма, живое событие, браузерная витрина, ощущение
-частоты). Инженерная часть среза (19 строк) закрыта выкатом `32e018b9` и одобренным кандидатом `629743f9`.
+частоты). Инженерная часть среза (21 строка, включая `QND-25`/`QND-26`) закрыта выкатом `32e018b9` и
+одобренным кандидатом `629743f9`.

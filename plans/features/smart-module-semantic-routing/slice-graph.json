@@ -49,7 +49,10 @@
     {
       "id": "SMR-COMMANDS",
       "title": "Сохранение и проверка явных команд",
-      "depends_on": ["P0-A", "P0-B"],
+      "depends_on": [
+        "P0-A",
+        "P0-B"
+      ],
       "write_scope": [],
       "acceptance": "Все четыре названные команды исполняются на реальных путях с передачей аргументов; «Нарисуй кота» и «Бот, что происходит в этом видео» определяет L1; различия регистра и пунктуации сохранены.",
       "risk": "R1",
@@ -58,7 +61,9 @@
     {
       "id": "SMR-HELP",
       "title": "Синхронизация справки с реестром команд",
-      "depends_on": ["P0-B"],
+      "depends_on": [
+        "P0-B"
+      ],
       "write_scope": [
         "services/info_service.py",
         "info_text.md",
@@ -80,8 +85,13 @@
     {
       "id": "SMR-TRACE",
       "title": "Трассы обоих P0 и причинный след",
-      "depends_on": ["P0-A", "P0-B"],
-      "write_scope": ["plans/features/smart-module-semantic-routing/evidence/"],
+      "depends_on": [
+        "P0-A",
+        "P0-B"
+      ],
+      "write_scope": [
+        "plans/features/smart-module-semantic-routing/evidence/"
+      ],
       "acceptance": "Для каждого P0 существует трасса от Telegram message ID до доставленного ответа с проверкой десяти пунктов §9, и причинная связь с расшифровками либо доказана, либо честно опровергнута.",
       "risk": "R1",
       "next_role": "Builder (evidence) → Reviewer"
@@ -89,7 +99,10 @@
     {
       "id": "P1",
       "title": "Ограниченная ревизия соседних конфликтов маршрутизации",
-      "depends_on": ["P0-A", "P0-B"],
+      "depends_on": [
+        "P0-A",
+        "P0-B"
+      ],
       "write_scope": [
         "services/direct_l1.py",
         "services/direct_execution.py",
@@ -110,7 +123,11 @@
     {
       "id": "SMR-POLICY",
       "title": "Политика регулярок и организация исправлений",
-      "depends_on": ["P0-A", "P0-B", "P1"],
+      "depends_on": [
+        "P0-A",
+        "P0-B",
+        "P1"
+      ],
       "write_scope": [],
       "acceptance": "Ни один лексический маршрут не выдаёт окончательного семантического решения; новых агентов, пайплайнов, классификаторов, OFF/SHADOW и настроек нет; Architect и Reviewer дали независимые заключения по негативным сценариям и деградации без L1.",
       "risk": "R1",
@@ -119,7 +136,15 @@
     {
       "id": "SMR-DONE",
       "title": "Критерий DONE, выкат и реальные сценарии",
-      "depends_on": ["P0-A", "P0-B", "SMR-COMMANDS", "SMR-HELP", "SMR-TRACE", "P1", "SMR-POLICY"],
+      "depends_on": [
+        "P0-A",
+        "P0-B",
+        "SMR-COMMANDS",
+        "SMR-HELP",
+        "SMR-TRACE",
+        "P1",
+        "SMR-POLICY"
+      ],
       "write_scope": [],
       "acceptance": "Все восемь критериев DONE подтверждены на выкаченной версии реальными Telegram-сценариями, включая доказательство отсутствия повторного перехвата текущего намерения.",
       "risk": "R2",
@@ -128,7 +153,9 @@
     {
       "id": "NOST-PROACTIVE",
       "title": "Проактивная ностальгия: смысловое воспоминание в живом разговоре и автономный отбор",
-      "depends_on": ["P1"],
+      "depends_on": [
+        "P1"
+      ],
       "write_scope": [
         "services/nostalgia_worker.py",
         "services/initiative_observer.py",
@@ -156,7 +183,9 @@
     {
       "id": "QND-NONDET",
       "title": "Квантовая недетерминированность: пер-чатовое расписание, событийное пробуждение, вероятность публикации, единый RandomSource",
-      "depends_on": ["NOST-PROACTIVE"],
+      "depends_on": [
+        "NOST-PROACTIVE"
+      ],
       "write_scope": [
         "services/semantic_schedule.py",
         "services/quantum_publication.py",
@@ -189,7 +218,7 @@
       "previous_commit": "af84b6c68ae253d2f593df4123ff3ca7b72fe65d",
       "approved_review_candidate": "629743f9",
       "schema": "46 -> 47 (additive semantic_schedule)",
-      "verified_rows": 19,
+      "verified_rows": 21,
       "pending_rows": 5,
       "pending_conditions": "QND-20 строки initiative в проде под живыми сообщениями; QND-21 суточный ритм и независимость чатов во времени; QND-22 живое событие trigger=event в проде; QND-23 браузерная витрина Статус/Аналитика; QND-24 продуктовое ощущение частоты публикаций",
       "evidence": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",

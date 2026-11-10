@@ -36,26 +36,26 @@
     "release_record": "release/2.58.179:plans/features/vmq-onto-01/evidence/vmq-q1/release-2.58.179.md @ 04b0713a",
     "review_record": "release/2.58.179:plans/features/vmq-onto-01/evidence/vmq-q1/qnd-nondet-2026-11-10.md @ dd47d81e",
     "binding_artifact": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-    "binding_artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+    "binding_artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
   },
   "architecture_classification": "ARCH_REUSE_CONFIRMED: срез расширяет уже принятые контракты VMQ-ONTO-01 (один RandomSourceService, purposes, журнал) и существующий Decision/Writer/SendRecheck + publication_coordination; новых внешних интерфейсов, кроме аддитивной таблицы v47 и внутренних модулей services/semantic_schedule.py и services/quantum_publication.py, не вводит. Риск R2 (порядок розыгрыша и выживший двойной гейт) закрыт решающим тестом §7.",
   "per_slice_candidate_policy": "NOST-PROACTIVE остаётся на af84b6c6 (2.58.178), SMR P0/P1 — на своих кандидатах (2.58.176/2.58.177), QND-NONDET — на 32e018b9 (2.58.179). Выкат QND не переиздаёт доказательства P0/P1/ностальгии.",
-  "notes": "19 строк закрыты выкатом 32e018b9 и одобренным кандидатом 629743f9; 5 строк (QND-20…QND-24) ждут живого трафика, суточного ритма, живого события, браузерной витрины и продуктового ощущения частоты. QND-15 проверена инспекцией кода (контракт §7 не задаёт для неё теста), QND-16 — каталогом и пинами, видимость ручек в браузере входит в QND-23. Срез не закрывает родительский эпик: полный VERIFIED QND-NONDET требует снятия QND-20…QND-24.",
+  "notes": "21 строка закрыта выкатом 32e018b9 и одобренным кандидатом 629743f9; 5 строк (QND-20…QND-24) ждут живого трафика, суточного ритма, живого события, браузерной витрины и продуктового ощущения частоты. строки QND-25/QND-26 закрыты инспекцией дельты (сны/память не переписаны, политика провайдеров не тронута). QND-15 проверена инспекцией кода (контракт §7 не задаёт для неё теста), QND-16 — каталогом и пинами, видимость ручек в браузере входит в QND-23. Срез не закрывает родительский эпик: полный VERIFIED QND-NONDET требует снятия QND-20…QND-24.",
   "gate_runs": {
     "plan": {
       "command": "requirements_gate.py check --map plans/features/smart-module-semantic-routing/requirements-map-qnd.json --stage plan --repo .",
-      "result": "stage=plan inventory=12 manual=24 scoped=0 errors=0 (exit 0)"
+      "result": "stage=plan inventory=12 manual=26 scoped=0 errors=0 (exit 0)"
     },
     "release_scoped": {
       "command": "requirements_gate.py check --map plans/features/smart-module-semantic-routing/requirements-map-qnd.json --stage release --slice QND-NONDET --candidate 32e018b9 --deployed-commit 32e018b9 --repo .",
-      "result": "stage=release inventory=12 manual=24 scoped=24 errors=9 (exit 1)",
+      "result": "stage=release inventory=12 manual=26 scoped=26 errors=9 (exit 1)",
       "categories": [
-        "1. Собственные незакрытые строки (5): QND-20…QND-24 — PENDING, ждут живого трафика/суток/живого события/браузера/ощущения частоты.",
+        "1. Собственные незакрытые строки (5): QND-20…QND-24 — PENDING, ждут живого трафика initiative, суточного ритма, живого события trigger=event, браузерной витрины и продуктового ощущения частоты.",
         "2. Закрытие зависимостей (4): гейт ищет обязательные строки зависимых срезов ТОЛЬКО в проверяемой карте, а P0-A/P0-B/P1/P0-B живут в родительской карте, NOST-PROACTIVE — в requirements-map-nostalgia-correction.json. Это ограничение инструмента при вынесенном срезе, но НЕ только оно: даже в одной карте замыкание не закрылось бы, потому что у предков есть незакрытые строки — NOST-PROACTIVE 11 VERIFIED / 8 PENDING, P1 7 / 9 (6 PENDING + 3 READY_FOR_LIVE), P0-B 29 / 27 (15 PENDING + 12 READY_FOR_LIVE).",
         "Ни один из отказов не является провалом реализации: он означает, что срез QND-NONDET сейчас нельзя сертифицировать как независимый релиз, пока живая часть его самого и живые строки предков не закрыты."
       ]
     },
-    "note": "Прогоны выполнены из корня репозитория после создания этого файла и артефакта привязки; повторный прогон даёт тот же результат."
+    "note": "Прогоны выполнены из корня репозитория после создания этого файла и артефакта привязки; 21 VERIFIED-строка проходит strict-проверку (Git-объект 32e018b9 существует, artifact_sha256 совпадает), повторный прогон даёт тот же результат."
   },
   "items": [
     {
@@ -188,7 +188,7 @@
           "type": "production",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -212,7 +212,7 @@
           "type": "production",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_schedule.py::test_per_chat_draws_use_quantum_and_differ_between_chats",
@@ -220,7 +220,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -244,7 +244,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_schedule.py::test_inactive_chat_intervals_longer_within_bounds",
@@ -252,7 +252,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -276,7 +276,7 @@
           "type": "production",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_schedule.py::test_restart_keeps_next_due_and_executes_once",
@@ -284,7 +284,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -308,7 +308,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -332,7 +332,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -356,7 +356,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ],
       "note": "Ограничение (в бэклоге): sched.release() не вызывается на тиковом пути инициативы, аренда снимается только mark_executed/mark_missed; при heartbeat 300 s и TTL 300 s это безопасно, при уменьшении периода ограничит частоту попыток. Контрактное требование единственного исполнения при конкуренции выполнено."
@@ -381,7 +381,7 @@
           "type": "production",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_nostalgia_proactive_recall.py::test_four_live_messages_in_90s_do_not_break_nostalgia_deadline",
@@ -389,7 +389,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -413,7 +413,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_event_path.py::test_live_message_signal_starts_evaluation_with_trigger_event",
@@ -421,7 +421,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -445,7 +445,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_event_path.py::test_event_dropped_when_chat_busy_and_per_chat_debounce",
@@ -453,7 +453,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_event_path.py::test_event_path_respects_eval_budget_and_floor",
@@ -461,7 +461,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -485,7 +485,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_event_path.py::test_event_and_schedule_share_dedup_and_send_accounting",
@@ -493,7 +493,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -517,7 +517,7 @@
           "type": "review",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "планы: evidence ревью §5 (кандидат 629743f9)",
@@ -525,7 +525,7 @@
           "type": "review",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -549,7 +549,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_publication.py::test_sendrecheck_never_redraws_or_redecides",
@@ -557,7 +557,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_publication.py::test_llm_veto_without_veto_reason_is_semantic_parse_error",
@@ -565,7 +565,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -589,7 +589,7 @@
           "type": "production",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_schedule.py::test_no_pseudorandom_in_semantic_paths",
@@ -597,7 +597,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         },
         {
           "ref": "tests/test_qnd_schedule.py::test_provider_failure_is_honest_not_quantum",
@@ -605,7 +605,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -629,7 +629,7 @@
           "type": "review",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ],
       "note": "Проверено инспекцией кода, не отдельным тестом: контракт §7 не задаёт теста для _direction_pick."
@@ -654,7 +654,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ],
       "note": "Видимость ручек в браузере проверяется строкой QND-23; здесь доказано существование и отрисовка через существующие вкладки на уровне каталога и пинов."
@@ -679,7 +679,7 @@
           "type": "production",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -703,7 +703,7 @@
           "type": "review",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -727,7 +727,7 @@
           "type": "test",
           "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
           "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
-          "artifact_sha256": "29e34524a2b8d8744af7c86730cf368c693053a60ec64d0aafeed148bb394844"
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
         }
       ]
     },
@@ -810,6 +810,54 @@
       "status": "PENDING",
       "evidence": [],
       "pending_conditions": "Не менее суток реальных решений decide() в проде: соотношение delivered/отложено/молчание и причины; при необходимости править limits.qnd_* настройками, а не кодом."
+    },
+    {
+      "source_id": "MAN-QND-25",
+      "source_line": 99,
+      "source_text_sha256": "0b2f6bfbb74193a36adbf54dc3f0bd57667bd78959fe95dc0207a039b303f313",
+      "source_excerpt": "`Q-09` is satisfied by §7's decisive test; dreams/memory integrations stay unchanged.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-25",
+      "slice": "QND-NONDET",
+      "acceptance": "Ранее запланированные связки RandomSource со снами и памятью сохранены: срез не переписывает их потребителей и не меняет их поведение.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "дельта af84b6c6->32e018b9",
+          "observation": "в дельте нет ни одного модуля снов/памяти-консьюмера (dream_worker.py, mca_dream_random.py, mca_dream_history.py не изменялись); правка mca_random_source.py — только константы purpose и санкционированный набор",
+          "type": "review",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-QND-26",
+      "source_line": 76,
+      "source_text_sha256": "11fc462133a6822ff8f45923d7919265436c130f54083b574826c0018717dfb1",
+      "source_excerpt": "Provider policy untouched: `selected_mode`, `resolve_effective`, `fallback_enabled`, `mca_gates.random_source_enabled()`, ANU/LfDR/Lizaonair registry, IBM direct demand-first pool,",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "QND-26",
+      "slice": "QND-NONDET",
+      "acceptance": "Политика провайдеров не изменена: выбор режима, разрешение эффективного источника, fallback, реестр ANU/LfDR/Lizaonair, таймауты и квоты остались прежними; срез добавил только draw-purpose.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "дифф services/mca_random_source.py (af84b6c6 vs 32e018b9)",
+          "observation": "изменены только объявления purpose и SANCTIONED_DRAW_PURPOSES; selected_mode/resolve_effective/fallback_enabled/реестр/таймауты/квоты/AnuClient не правились, других провайдерских файлов в дельте нет",
+          "type": "review",
+          "candidate_commit": "32e018b939cd8ec453b23e07863fae3be4b683f6",
+          "artifact_path": "plans/features/smart-module-semantic-routing/evidence/qnd-01-binding-2.58.179.md",
+          "artifact_sha256": "54cd6e849d6dddbdfea415b4c8b3bc4a31e8556bd7a79d76f27cc235bd90f090"
+        }
+      ]
     }
   ]
 }
