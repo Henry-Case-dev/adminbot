@@ -21,6 +21,16 @@ Depends(get_tma_user) (как все /api-роуты, кроме /health):
 username/фото участника): общие с аватарами, чтобы каждый chat/юзер
 дёргал Bot API не чаще раза в час. Негативы (ошибка Bot API / нет фото)
 кэшируются ТАК ЖЕ, как у аватаров (fix-раунд ревью).
+
+Права на САМУ картинку (avatar-scope): аутентификации мало — без гейта
+любой валидный TMA-юзер (мини-апп открывается из /menu любому, кто написал
+боту) тянул бы фото любого Telegram-id и аватар любого чата бота. Правило
+(существующие хелперы, без нового ACL): self — всегда; чат — доступен
+запросившему (канон `access.can_access_chat`, как на всех chat-scoped
+маршрутах); юзер — глобальный админ ЛИБО участник/админ чата, доступного
+запросившему (авторитетный список участников — users_meta + гранты
+chat_admins). Отказ — 403 permission_denied ДО Bot API (кэш байтов не
+трогаем; Cache-Control/форма ответа прежние).
 """
 import io
 import logging
@@ -30,14 +40,17 @@ from typing import Annotated, Literal
 from aiogram.exceptions import TelegramNetworkError, TelegramRetryAfter, \
     TelegramBadRequest
 from aiogram.utils.web_app import WebAppUser
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
 from config.settings import settings
+from services import access as access_srv
 from services import hot_config as hot
+from services import lore_runtime
+from services import roles as roles_srv
 from services import web_runtime
 from services.media_download import read_host_file_bytes, read_local_file_bytes
-from web.api.deps import get_tma_user
+from web.api.deps import get_cache, get_tma_user
 
 logger = logging.getLogger(__name__)
 
@@ -378,16 +391,98 @@ async def global_user_display_info(user_id: int) -> dict:
     return info
 
 
+# ── авторизация картинки: кто вправе видеть этот аватар ─────────────────────
+# Privacy-фикс (avatar-scope): аутентификации TMA недостаточно — id в пути
+# приходит от клиента. Правило и хелперы — существующие (никакого нового ACL/
+# кэша/настройки): доступ к чату = `access.can_access_chat` (канон routes.py/
+# stories.py), «свой чат/свой профиль» — те же данные, что видит UI
+# (users_meta — авторитетный список участников, chat_admins — гранты).
+
+async def _chat_visible(cache, telegram_id: int, chat_id: int) -> bool:
+    """Доступ юзера к чату (Q3-семантика) через канон can_access_chat.
+    Сбой резолва ctx → False (fail-closed: лучше без аватара, чем чужой)."""
+    try:
+        ctx = await roles_srv.access_for(telegram_id, chat_id, cache=cache)
+    except Exception:
+        logger.warning("[avatar] access ctx failed — deny | user=%s chat=%s",
+                       telegram_id, chat_id, exc_info=True)
+        return False
+    return access_srv.can_access_chat(ctx, chat_id)
+
+
+async def _shares_chat_with(cache, telegram_id: int, target_id: int) -> bool:
+    """target — участник (users_meta) или админ (chat_admins) хотя бы одного
+    чата, доступного telegram_id. Чаты берём из существующего списка профилей
+    лора (источник UI, F-14: DM-строки там отсутствуют). Нет лора/сбой
+    источника → False (fail-closed)."""
+    store = lore_runtime.get_lore_store()
+    if store is None:
+        return False
+    try:
+        profiles = await store.list_profiles()
+    except Exception:
+        logger.warning("[avatar] profiles unavailable — deny | user=%s",
+                       telegram_id, exc_info=True)
+        return False
+    db = lore_runtime.get_lore_db()
+    for profile in profiles:
+        chat_id = int(profile.chat_id)
+        known = False
+        if db is not None:
+            try:
+                known = bool(await db.get_users_meta(chat_id, [target_id]))
+            except Exception:
+                known = False
+        if not known:
+            try:
+                known = bool(await store.is_chat_admin(target_id, chat_id))
+            except Exception:
+                known = False
+        if not known:
+            continue
+        if await _chat_visible(cache, telegram_id, chat_id):
+            return True
+    return False
+
+
+async def _avatar_allowed(request: Request, user: WebAppUser, kind: str,
+                          tid: int) -> bool:
+    """Правило видимости аватара: self — всегда; глобальный админ — всё;
+    kind=chat — только доступный чат; kind=user — только тот, с кем есть
+    общий (доступный запросившему) чат."""
+    if kind == "user" and tid == user.id:
+        return True
+    cache = get_cache(request)
+    try:
+        ctx = await roles_srv.access_for(user.id, cache=cache)
+    except Exception:
+        logger.warning("[avatar] access ctx failed — deny | user=%s",
+                       user.id, exc_info=True)
+        return False
+    if ctx.is_global_admin:
+        return True
+    if kind == "chat":
+        return await _chat_visible(cache, user.id, tid)
+    return await _shares_chat_with(cache, user.id, tid)
+
+
 # ── роут: GET /api/avatar/{kind}/{tid} ──────────────────────────────────────
 
 @avatar_router.get("/avatar/{kind}/{tid}")
 async def avatar_proxy(
     kind: Literal["chat", "user"],
     tid: int,
+    request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
     """Прокси аватара: image/jpeg + Cache-Control public,max-age=86400;
-    нет фото/бота/ошибки → 404 (негатив кэшируется на 1ч)."""
+    нет фото/бота/ошибки → 404 (негатив кэшируется на 1ч); чужой аватар
+    (нет доступа к чату/общего чата) → 403 permission_denied ДО Bot API."""
+    if not await _avatar_allowed(request, user, kind, tid):
+        request.state.tma_deny_reason = "permission_denied"
+        logger.info("[avatar] denied | kind=%s tid=%s by=%s",
+                    kind, tid, user.id)
+        raise HTTPException(status_code=403, detail="permission denied")
     data = await fetch_avatar_bytes(kind, tid)
     if not data:
         raise HTTPException(status_code=404, detail="avatar not found")
