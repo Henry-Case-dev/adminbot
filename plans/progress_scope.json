@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T01:29:29+12:00",
+  "updated": "2026-11-11T01:46:49+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -2803,8 +2803,33 @@
         "vmq-onto-01",
         "unified-reply"
       ],
-      "reconciled": false,
-      "note": "Owner freezes the VMQ-TIME candidate and forbids per-example patching: the slice must be judged by an independent review on a diverse set of real historical questions including events never used while developing; temporal diversity must not replace semantic relevance; the suffix-table stemming is provisional recall support and must not grow dictionaries or hand rules; the architect must re-check whether semantic recall over old periods is really impossible in the existing architecture (combined retrieval, timestamp metadata) without embedding rebuild or a new pipeline; new problems are recorded in existing tasks instead of expanding this slice; the inspector slice and the web-source-date defect are independent works with their own DONE criteria; no new human gates or owner checks. VMQ-MEM 2.58.180 stays released and must not be mixed with VMQ-TIME, the inspector or search defects."
+      "reconciled": true,
+      "note": "Owner freezes the VMQ-TIME candidate and forbids per-example patching: the slice must be judged by an independent review on a diverse set of real historical questions including events never used while developing; temporal diversity must not replace semantic relevance; the suffix-table stemming is provisional recall support and must not grow dictionaries or hand rules; the architect must re-check whether semantic recall over old periods is really impossible in the existing architecture (combined retrieval, timestamp metadata) without embedding rebuild or a new pipeline; new problems are recorded in existing tasks instead of expanding this slice; the inspector slice and the web-source-date defect are independent works with their own DONE criteria; no new human gates or owner checks. VMQ-MEM 2.58.180 stays released and must not be mixed with VMQ-TIME, the inspector or search defects. Reconciled 2026-11-11: VMQ-TIME-01..09 carry frozen_candidate 709865f6 and the diverse-sample criterion with the residual rule (next approved memory stage); the web-source-date defect was split out as UR-SRC-DATE with its own DONE, UR-07.3 keeps its remaining acceptance; the architect's re-check is recorded as the deferred next memory stage, and the earlier 'impossible' wording is marked wrong.",
+      "coverage_refs": [
+        {
+          "task_id": "vmq-onto-01",
+          "map": "plans/features/vmq-onto-01/requirements-map.json",
+          "req_ids": [
+            "VMQ-TIME-01",
+            "VMQ-TIME-02",
+            "VMQ-TIME-03",
+            "VMQ-TIME-04",
+            "VMQ-TIME-05",
+            "VMQ-TIME-06",
+            "VMQ-TIME-07",
+            "VMQ-TIME-08",
+            "VMQ-TIME-09"
+          ]
+        },
+        {
+          "task_id": "unified-reply",
+          "map": "plans/features/unified-reply/requirements-map.json",
+          "req_ids": [
+            "UR-SRC-DATE",
+            "UR-07.3"
+          ]
+        }
+      ]
     }
   ],
   "source_inventory": {

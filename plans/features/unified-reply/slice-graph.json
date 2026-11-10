@@ -5,6 +5,7 @@
   "release_order": [
     "UR-A",
     "UR-B",
+    "UR-SRC-DATE",
     "UR-C",
     "UR-C-CLOCK",
     "UR-C-SCHED",
@@ -19,6 +20,7 @@
     ],
     "W2": [
       "UR-B",
+      "UR-SRC-DATE",
       "UR-C"
     ],
     "W3": [
@@ -38,7 +40,7 @@
       "UR-G"
     ]
   },
-  "shared_file_note": "direct_chat_service.py, direct_l1.py, param_catalog.py и стадии саммари/фактчека имеют последовательных владельцев (A -> C -> CLOCK -> D -> E); параллельные полосы по этим файлам запрещены. web/app.js, web/index.html, web/static/app.css дополнительно сериализованы внешним пакетом EPIC-CM-VISUAL-01 (CMV-D/E).",
+  "shared_file_note": "direct_chat_service.py, direct_l1.py, param_catalog.py и стадии саммари/фактчека имеют последовательных владельцев (A -> C -> CLOCK -> D -> E); параллельные полосы по этим файлам запрещены. web/app.js, web/index.html, web/static/app.css дополнительно сериализованы внешним пакетом EPIC-CM-VISUAL-01 (CMV-D/E). Отдельная работа UR-SRC-DATE последовательно владеет services/search_aggregator.py, services/search_service.py, services/tool_router.py и services/direct_execution.py после UR-B и UR-C-CLOCK (оба влиты) и не пересекается с UR-D/E/F/G.",
   "architecture": "Контракт доставлен: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966, статус ARCHITECT_VALIDATED, checkpoint-1 «контракты сфризены»). Барьер UR-A СНЯТ 2026-11-05 и срез принят (ur/a-turn-engine @4cc99286 → merge dc296207): services/turn_types.py создан как единственный новый модуль контрактов (§2.1 TurnRequest + enums/таблица политик), единый исполнитель _execute_turn стоит на обеих трассах. Для UR-C-CLOCK, UR-C-SCHED, UR-D, UR-F записи сохранены как «срез не начат», новых архитектурных проходов не требуется: те же §3-§5 контракта их уже фиксируют.",
   "architecture_evidence": {
     "contract": "plans/features/unified-reply/arch/unified-reply-contract.md",
@@ -96,6 +98,35 @@
       "why_one_slice": "Один проверяемый результат — фактический поиск с честной трассой; отдельная ветка для инициативы запрещена источником.",
       "bgs01_note": "Acceptance приведён к решению владельца BGS-01 (2026-11-05): privacy-вето удалено, обязательное обезличивание запроса больше не требуется.",
       "status_note": "Влит: ur/b-search @5adaa21b -> merge da6299e9. Привязано 13/24 строк (см. evidence/ur-b-evidence.md). Открыто: run_tool_phase не вызывается живыми маршрутами, поля оси не запрашиваются промптом L1."
+    },
+    {
+      "id": "UR-SRC-DATE",
+      "title": "Дата публикации веб-источника в evidence-паке — отдельная работа со своим DONE",
+      "wave": "W2",
+      "depends_on": [
+        "UR-B",
+        "UR-C-CLOCK"
+      ],
+      "write_scope": [
+        "services/search_aggregator.py",
+        "services/search_service.py",
+        "services/tool_router.py",
+        "services/direct_execution.py",
+        "tests/test_ur_src_date.py",
+        "plans/features/unified-reply/evidence/ur-src-date/**"
+      ],
+      "acceptance": "Дата публикации от провайдера поиска доходит до evidence-пака и до структурного поля источника, а при её отсутствии пак явно говорит «дата не сообщается источником»; выдуманных дат нет и число сетевых вызовов на один и тот же вопрос не растёт.",
+      "can_parallel_with": [
+        "UR-D",
+        "UR-E",
+        "UR-F"
+      ],
+      "join_barrier": "нет: независимая работа, свой DONE; не ждёт VMQ-MEM-TIME и инспектора UR-F и не блокирует их",
+      "risk": "R1",
+      "next_role": "Builder -> Reviewer",
+      "why_one_slice": "Один проверяемый результат — поле даты существует как данные или пак честно заявляет об её отсутствии; дробление дало бы два конкурирующих представления одного и того же поля.",
+      "owner_input": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md (OI-2026-11-11-VMQ-TIME-FREEZE)",
+      "status_note": "Срез не начат: статус строки UR-SRC-DATE — PENDING, кандидата нет. Ветка создана (fix/search-source-dates), работа не смешивается с VMQ-TIME и UR-F."
     },
     {
       "id": "UR-C",

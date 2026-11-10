@@ -2782,6 +2782,36 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": []
+    },
+    {
+      "source_id": "MAN-UR-SRC-DATE",
+      "source_line": 139,
+      "source_text_sha256": "97a79c5ee93eef3ed3e248c29ec56e7b55a48bf828df883c92d95e1f3e9b0a83",
+      "source_excerpt": "- L2 получает структурированные результаты, источник/дату/ограничения и не должен приписывать поиску то, чего tool не вернул.",
+      "disposition": "required",
+      "reason": "Выделено из UR-07.3 отдельной работой по решению владельца 11.11.2026 (OI-2026-11-11-VMQ-TIME-FREEZE): дефект даты веб-источника имеет собственный критерий DONE и не ждёт ни VMQ-MEM-TIME, ни инспектора хода, ни остального объёма UR-B.",
+      "req_id": "UR-SRC-DATE",
+      "slice": "UR-SRC-DATE",
+      "acceptance": "DONE для этой строки: (1) если провайдер поиска вернул дату публикации, она доходит до evidence-пака и до структурного поля источника (published_at в SourceRecord/EvidenceSource) на всём пути aggregator -> source record -> pack, а не только по пути fetch_article; (2) если провайдер даты не вернул, пак явно сообщает «дата не сообщается источником» вместо пустой строки; (3) ни в одном сценарии нет выдуманной даты (даты без источника) и нет дополнительных сетевых вызовов на ход ради даты — число сетевых вызовов на один и тот же вопрос не растёт; (4) у каждого источника с датой дата привязана к нему самому, а не к блоку целиком.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "test",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-src-date/ur-src-date-evidence.md",
+          "description": "дата провайдера доходит до пака и до структурного поля, при отсутствии — явная пометка вместо пустой строки; нет выдуманных дат; число сетевых вызовов на ход не растёт (сравнение счёта вызовов до/после)"
+        }
+      ],
+      "split_from": "UR-07.3",
+      "date_defect": {
+        "observed_in": "UR-B evidence 2.58.181 (кандидат 6099cc17)",
+        "finding": "результаты поиска даты не несут: _parse_search_sources пишет published_at='' (докстрока «не выдумывать»), у EvidenceSource (services/direct_execution.py) нет поля даты, build_evidence_pack печатает заголовок без даты, SearchAggregator._format_hits отдаёт только title/snippet/url; дата доезжает лишь по пути fetch_article",
+        "current_behavior_is_correct": "пак не изобретает дату — это остаётся требованием и после исправления"
+      },
+      "independent_of": ["VMQ-MEM-TIME", "UR-F"],
+      "independence_note": "Собственный DONE; не блокируется VMQ-TIME (709865f6) и инспектором хода и не блокирует их. Новых human gate и проверок за владельцем не вводит."
     }
   ],
   "items": [
@@ -3598,12 +3628,24 @@
       "reason": "Не закрыто, дефект продукта (тестом не лечится): принятая формулировка требует источник, ДАТУ и ограничения, но результаты поиска даты не несут вообще. (1) _parse_search_sources создаёт SourceRecord с published_at='' (в докстроке прямо: «если публикации даты не сообщают — пустая строка, не выдумывать»); (2) у EvidenceSource (services/direct_execution.py:399) нет поля даты — вообще; (3) build_evidence_pack рендерит заголовок '[Источник N | tool | status]' без даты; (4) SearchAggregator._format_hits (services/search_aggregator.py:866) выдаёт только title/snippet/url. Дата доезжает лишь по пути fetch_article (web_content_extractor / tool_router / meta), это и фиксирует test_per_source_block_carries_source_date_and_limits: для веб-блока published_at=='', даты в паке нет. Нужен отдельный слайс: брать дату у провайдера поиска, если он её отдаёт, иначе явная пометка «дата не сообщается источником». Текущее корректное поведение пака — не изобретать дату.",
       "req_id": "UR-07.3",
       "slice": "UR-B",
-      "acceptance": "L2 получает структурированные результаты с источником, датой и ограничениями и не приписывает поиску то, чего tool не вернул; добор запроса идёт существующим adaptive executor с остановкой при отсутствии прироста доказательств.",
+      "acceptance": "L2 получает структурированные результаты с источником и ограничениями и не приписывает поиску то, чего tool не вернул; добор запроса идёт существующим adaptive executor с остановкой при отсутствии прироста доказательств. Дата веб-источника вынесена отдельной работой UR-SRC-DATE (строка с собственным критерием DONE) и этой строкой больше не предъявляется: разбиение зафиксировано владельцем 11.11.2026.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "Дата источника и остановка adaptive-добора при отсутствии прироста доказательств тестами не проверены"
+      "pending_reason": "Осталось доказать остановку adaptive-добора при отсутствии прироста доказательств; дата веб-источника выделена в отдельную строку UR-SRC-DATE и здесь не требуется",
+      "split_to": ["UR-SRC-DATE"],
+      "split_note": "Разбиение по решению владельца 11.11.2026 (OI-2026-11-11-VMQ-TIME-FREEZE): дефект даты веб-источника ведётся отдельной работой со своим DONE и не ждёт VMQ-TIME и инспектора. Прежняя формулировка сохранена в acceptance_history, req_id не менялся.",
+      "acceptance_history": [
+        {
+          "acceptance": "L2 получает структурированные результаты с источником, датой и ограничениями и не приписывает поиску то, чего tool не вернул; добор запроса идёт существующим adaptive executor с остановкой при отсутствии прироста доказательств.",
+          "superseded_on": "2026-11-11",
+          "superseded_by": "owner split OI-2026-11-11-VMQ-TIME-FREEZE (дата -> UR-SRC-DATE)",
+          "source_ref": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md",
+          "source_sha256": "95e5c7a13f3cbb1273ef4edd782fea980e169371c5d67ef9be9a69effb9ca056",
+          "reason": "Владелец разделил работы: дата веб-источника получает собственный критерий DONE и не блокирует остаточную приёмку этой строки."
+        }
+      ]
     },
     {
       "source_id": "L00140",
@@ -7881,5 +7923,35 @@
     "UR-E": "b2738117",
     "UR-C-SCHED": "5d8c8598"
   },
-  "architecture_note": "Барьер UR-A снят и реализован: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966) имеет статус ARCHITECT_VALIDATED и фиксирует контракт модулей (§2), карту владения файлами (§2.6) и checkpoint-1 «контракты сфризены». По этому контракту срезом UR-A создан ровно один новый файл — services/turn_types.py (фрозен-датаклассы/enums, без логики исполнения); файла services/turn_request.py в проекте никогда не существовало, имя в графе исправлено. Датаклассы §2.2/§2.3 намеренно не дублируются: ContextSelection/ContextFragment — services/direct_context_composer.py (UR-C), ToolEvidence/SourceRecord — services/direct_execution.py (UR-B)."
+  "architecture_note": "Барьер UR-A снят и реализован: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966) имеет статус ARCHITECT_VALIDATED и фиксирует контракт модулей (§2), карту владения файлами (§2.6) и checkpoint-1 «контракты сфризены». По этому контракту срезом UR-A создан ровно один новый файл — services/turn_types.py (фрозен-датаклассы/enums, без логики исполнения); файла services/turn_request.py в проекте никогда не существовало, имя в графе исправлено. Датаклассы §2.2/§2.3 намеренно не дублируются: ContextSelection/ContextFragment — services/direct_context_composer.py (UR-C), ToolEvidence/SourceRecord — services/direct_execution.py (UR-B).",
+  "amendment_2026_11_11": {
+    "id": "OI-2026-11-11-VMQ-TIME-FREEZE",
+    "owner_decision": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md",
+    "source_sha256": "95e5c7a13f3cbb1273ef4edd782fea980e169371c5d67ef9be9a69effb9ca056",
+    "kind": "amendment",
+    "effect": "дефект даты веб-источника выделен из UR-07.3 в отдельную строку UR-SRC-DATE со своим DONE; инспектор UR-F шаг 1 (65ed4f7d) и дата не блокируются VMQ-MEM-TIME и не блокируют его",
+    "rows": [
+      "UR-07.3",
+      "UR-SRC-DATE"
+    ],
+    "status_effect": "ни одна строка не помечена VERIFIED; UR-07.3 и UR-SRC-DATE остаются PENDING"
+  },
+  "independent_works_2026_11_11": {
+    "note": "Инспектор хода (UR-F, шаг 1 кандидат 65ed4f7d, шаги 2–3 ещё не начаты) и исправление дат веб-источников (UR-SRC-DATE) — независимые работы со своими критериями DONE. Ни одна из них не блокируется VMQ-MEM-TIME (709865f6) и не блокирует его; вердикт по VMQ-TIME не ждёт их завершения и наоборот.",
+    "blocked_by_vmq_time": false,
+    "items": [
+      {
+        "id": "UR-F-inspector-step1",
+        "candidate": "65ed4f7dee63d29e11495ed4c376185a0adba923",
+        "steps_pending": "2–3",
+        "own_done": true
+      },
+      {
+        "id": "UR-SRC-DATE",
+        "req_id": "UR-SRC-DATE",
+        "slice": "UR-SRC-DATE",
+        "own_done": true
+      }
+    ]
+  }
 }
