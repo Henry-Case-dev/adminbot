@@ -480,8 +480,9 @@ async def test_malformed_json_is_honest_not_500(tmp_path, monkeypatch):
 
     assert body["available"] is True
     # Контекст разобран как «нет данных»: ни выдуманного flow, ни нулей.
-    assert body["context"]["flow"] == ""
-    assert body["context"]["l1"] == {}
+    # Отсутствующий ключ — честнее подставленной пустой строки/объекта.
+    assert body["context"].get("flow") is None
+    assert body["context"].get("l1") is None
     assert body["source"]["message_id"] is None
     assert body["clock"]["stages"] is None
     # Секция выбора есть (событие есть), но поля — null, не 0.
@@ -750,7 +751,8 @@ def _polluted_search_json() -> str:
         "search_intent": "required",
         "search_called": True,
         "search_status": "ok",
-        "source_ids": ["web:a1", "javascript:alert(1)"],
+        "source_ids": ["web:a1", "javascript:alert(1)",
+                       "web:javascript:alert", "not_a_namespace:1"],
         "source_count": 2,
         "search_skip_reason": "",
         "evidence_used": True,
@@ -764,6 +766,11 @@ def _polluted_search_json() -> str:
             # Значение не строка вовсе.
             {"source_id": "web:obj", "source_url": {"x": CHAT_LEAK},
              "source_title": ["y"], "published_at": {}},
+            # Управляющие символы DEL/C1 внутри валидной на вид ссылки.
+            {"source_id": "web:del", "source_url": "https://example.test/d\x7f",
+             "source_title": "del", "published_at": ""},
+            {"source_id": "web:c1", "source_url": "https://example.test/c\u0080",
+             "source_title": "c1", "published_at": ""},
             # Валидная ссылка обязана остаться.
             {"source_id": "web:ok", "source_url": "https://example.test/ok",
              "source_title": "Нормальный заголовок", "published_at": "2026-11-01"},
@@ -825,14 +832,16 @@ async def test_polluted_durable_json_never_leaks_into_default_response(
     assert "note" not in body["selection"]["budget"]
     # Свободный текст в id-поле отброшен, валидный id остался.
     assert body["selection"]["blocks"][0]["source_ids"] == ["msg:1"]
-    # Невалидные ссылки не появились ни адресом, ни заголовком.
+    # Невалидные ссылки не появились ни адресом, ни заголовком: `javascript:`,
+    # текст чата, не-строка и адреса с DEL/C1 отброшены целиком.
     links = body["search"]["links"]
     assert [link["source_url"] for link in links] == \
         ["https://example.test/ok"]
     assert links[0]["source_title"] == "Нормальный заголовок"
     assert links[0]["published_at"] == "2026-11-01"
-    assert body["search"]["source_ids"] == ["web:a1"]
-    # Поля style: только код-ключи счётчиков и без текста правил.
+    # id: только объявленное пространство имён и чистый хвост —
+    # `web:javascript:alert` и чужой namespace не проходят.
+    assert body["search"]["source_ids"] == ["web:a1"]    # Поля style: только код-ключи счётчиков и без текста правил.
     assert "text" not in body["style"]["counts"]
     assert body["style"]["rules"][0]["reason"] == "cliche_removed"
     # Часы и алиасы: код/имя из контракта (алиас — объявленное текстовое поле).
@@ -954,7 +963,221 @@ async def test_valid_https_link_is_returned(tmp_path, monkeypatch):
                         "published_at": None}
 
 
-# ── 9. Права: оба предиката проверяются НА HTTP-уровне ─────────────────────
+# ── 10. Вложенные секции якорных событий: allowlist + NaN ──────────────────
+
+def _nested_context_json() -> str:
+    """Загрязнение ВНУТРИ `l1`/`tools[]`/`coverage`/`llm_calls` + NaN в числах."""
+    return json.dumps({
+        "flow": "direct", "trigger": "botword",
+        "source_message_id": 501, "source_author_id": 10,
+        "l1": {"action": "reply", "model": "test-model",
+               "secret": SECRET_MARKER, "note": CHAT_LEAK,
+               "text": CHAT_LEAK, "snippet": SECRET_MARKER,
+               "inner": {"text": CHAT_LEAK}},
+        "tools": [{"tool": "web_search", "status": "success", "refs": 2,
+                   "out_chars": 800, "text": CHAT_LEAK,
+                   "snippet": SECRET_MARKER, "detail": CHAT_LEAK}],
+        "coverage": {"sources": float("nan"), "delivered": 1,
+                     "text": CHAT_LEAK, "snippet": SECRET_MARKER},
+        "llm_calls": {"planning": 1, "note": {"text": CHAT_LEAK}},
+        "tool_rounds": float("nan"),
+        "tool_degraded": False,
+        "clock_timezone": "Europe/Moscow",
+        "clock_stages": ["l1"],
+    })
+
+
+def _nested_writer_json() -> str:
+    return json.dumps({
+        "manifest": {"writer": "l2_writer", "tokens_total": float("nan"),
+                     "blocks": [{"block": "l1:context", "rendered": True,
+                                 "skip": "", "text": CHAT_LEAK}],
+                     "revisions": {"prompt:a": "r1", "text": CHAT_LEAK}},
+        "request": {"provider": "test-provider", "model": "test-model",
+                    "secret": SECRET_MARKER},
+        "completion": {"finish_reason": "stop", "attempt": float("nan"),
+                       "fallback_used": False,
+                       "usage": {"prompt_tokens": float("nan"),
+                                 "completion_tokens": 5,
+                                 "text": CHAT_LEAK},
+                       "text": CHAT_LEAK, "snippet": SECRET_MARKER,
+                       "detail": CHAT_LEAK},
+        "semantic_rewrite_count": float("inf"),
+    })
+
+
+def _nested_delivery_json() -> str:
+    return json.dumps({
+        "ops": [{"op": "l2_scrubber", "chars": float("nan"),
+                 "changed": False, "content": CHAT_LEAK,
+                 "text": CHAT_LEAK}],
+        "raw_final_digest": "ab12", "delivered_digest": "ab12",
+        "digest_match": True,
+        "semantic_rewrite_count": float("nan"),
+        "delivery": {"outcome": "success", "channel": "reply",
+                     "tg_message_ids": [42, "x"],
+                     "reason": CHAT_LEAK, "text": SECRET_MARKER},
+    })
+
+
+@pytest.mark.asyncio
+async def test_nested_sections_are_allowlisted_and_json_safe(tmp_path,
+                                                            monkeypatch):
+    """Корень дефекта: вложенные объекты якорных событий тоже проходят схему.
+
+    Ни один свободный текст (`secret`/`note`/`text`/`snippet`/`content`/
+    `detail`) не появляется внутри `l1`, `tools[]`, `coverage`, `llm_calls`,
+    `manifest`, `request`, `completion`, `ops[]`, `delivery`, а `NaN`/`Infinity`
+    внутри них дают 200 с `null` (а не 500 на сериализации)."""
+    db = await _make_db(tmp_path)
+    monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: db)
+    _emit_chain("corr-nested")
+    await mca_events.flush_events(db)
+    rows, _ = await _rows_of(db, "corr-nested")
+    payloads = {"direct_turn_context": _nested_context_json(),
+                "direct_turn_writer": _nested_writer_json(),
+                "direct_turn_delivery": _nested_delivery_json()}
+    for row in rows:
+        blob = payloads.get(row["event_name"])
+        if blob is not None:
+            await db.db.execute(
+                "UPDATE mca_events SET usage_json = ? WHERE id = ?",
+                (blob, row["id"]))
+    await db.db.commit()
+
+    async with await _make_client(monkeypatch) as client:
+        resp = await _get(client, f"chat_id={CHAT_ID}&trace_id=corr-nested")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+    raw = json.dumps(body, ensure_ascii=False)
+    for marker in (SECRET_MARKER, CHAT_LEAK, "NaN", "Infinity"):
+        assert marker not in raw, "утечка/мусор в ответ: %r" % marker
+
+    context = body["context"]
+    # Ни одного лишнего ключа ни на одном уровне.
+    assert set(context["l1"]) <= {"action", "response_act", "structure",
+                                  "plan_source", "execution_mode",
+                                  "override", "model", "fallback"}
+    assert context["l1"]["action"] == "reply"
+    assert context["l1"]["model"] == "test-model"
+    assert set(context["tools"][0]) <= {"tool", "round", "status", "error",
+                                        "out_chars", "truncated", "attempt",
+                                        "refs"}
+    assert context["tools"][0]["tool"] == "web_search"
+    assert context["tools"][0]["out_chars"] == 800
+    assert set(context["coverage"]) <= {"sources", "delivered",
+                                        "capacity_chars", "delivered_chars",
+                                        "limits", "required_claims",
+                                        "evidence_class", "required"}
+    assert context["coverage"]["sources"] is None      # NaN → null, не 0
+    assert context["coverage"]["delivered"] == 1
+    assert context["llm_calls"] == {"planning": 1}
+    assert context["tool_rounds"] is None              # NaN → null, не 0
+
+    writer = body["writer"]
+    assert set(writer["manifest"]) <= {"manifest_id", "writer", "profile",
+                                      "composer", "context_representation",
+                                      "tokens_total", "blocks", "revisions"}
+    assert writer["manifest"]["tokens_total"] is None
+    assert set(writer["manifest"]["blocks"][0]) == {"block", "rendered", "skip"}
+    assert set(writer["manifest"]["revisions"]) == {"prompt:a"}
+    assert set(writer["request"]) <= {"provider", "model", "fallback_model",
+                                      "max_output_tokens"}
+    assert writer["request"]["model"] == "test-model"
+    assert set(writer["completion"]) <= {
+        "finish_reason", "finish_reason_raw", "metadata_available", "completed",
+        "is_truncated", "attempt", "fallback_used", "provider", "model",
+        "usage", "max_output_tokens_sent", "chars", "raw_final_digest",
+        "continuation_calls", "continuation_stop_reason", "text_source",
+        "refused", "refused_reason", "checks"}
+    assert writer["completion"]["attempt"] is None
+    assert set(writer["completion"]["usage"]) == {"prompt_tokens",
+                                                  "completion_tokens"}
+    assert writer["completion"]["usage"]["prompt_tokens"] is None
+    assert writer["completion"]["usage"]["completion_tokens"] == 5
+    assert writer["semantic_rewrite_count"] is None    # Infinity → null
+
+    delivery = body["delivery"]
+    assert set(delivery["ops"][0]) <= {"op", "digest", "chars", "changed",
+                                       "chunks"}
+    assert delivery["ops"][0]["op"] == "l2_scrubber"
+    assert delivery["ops"][0]["chars"] is None
+    assert set(delivery["delivery"]) <= {"outcome", "channel", "reason",
+                                         "chat_id", "tg_message_ids",
+                                         "idempotency_key"}
+    assert delivery["delivery"]["tg_message_ids"] == [42]
+    assert delivery["semantic_rewrite_count"] is None
+
+
+# ── 11. Граница сериализации: непредусмотренное значение не ломает JSON ────
+
+
+def test_json_safe_boundary_replaces_non_finite_and_drops_unknown():
+    """Последний рубеж (требование 2): даже НЕпредусмотренное значение в ответе
+    не даёт 500 — non-finite float → null, объект не из JSON-типов отброшен."""
+    from web.api import routes as routes_mod
+
+    class _Alien:
+        pass
+
+    out = routes_mod._turn_json_safe({
+        "ok": 1,
+        "flag": True,
+        "text": "строка",
+        "nan": float("nan"),
+        "inf": float("inf"),
+        "neg": float("-inf"),
+        "alien": _Alien(),
+        "bytes": b"\x00",
+        "nested": {"nan": float("nan"), "alien": _Alien(), "keep": 2},
+        "items": [1, float("nan"), _Alien(), "x"],
+        7: "не-строковый ключ",
+    })
+    assert out["nan"] is None and out["inf"] is None and out["neg"] is None
+    assert "alien" not in out and "bytes" not in out
+    assert out["nested"] == {"nan": None, "keep": 2}
+    assert out["items"] == [1, None, "x"]
+    assert 7 not in out
+    # Результат обязан пережить строгую сериализацию (без NaN/Infinity).
+    json.dumps(out, allow_nan=False)
+
+
+@pytest.mark.asyncio
+async def test_undeclared_rule_status_is_omitted(tmp_path, monkeypatch):
+    """Статус правила вне `style_policy.STATUSES` → правило не выводится."""
+    db = await _make_db(tmp_path)
+    monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: db)
+    _emit_chain("corr-status")
+    _emit_style("corr-status")
+    await mca_events.flush_events(db)
+    blob = json.dumps({
+        "applied": True, "policy_revision": "g3", "policy_source": "global",
+        "counts": {"repaired": 1, "not_declared_status": 5, "text": CHAT_LEAK},
+        "rules": [
+            {"rule_id": "no_cliche", "kind": "form", "status": "repaired",
+             "reason": "cliche_removed"},
+            {"rule_id": "ghost_rule", "kind": "form",
+             "status": "not_declared_status", "reason": "invented"},
+        ],
+    }, ensure_ascii=False)
+    rows, _ = await _rows_of(db, "corr-status")
+    for row in rows:
+        if row["event_name"] == "style_policy":
+            await db.db.execute(
+                "UPDATE mca_events SET usage_json = ? WHERE id = ?",
+                (blob, row["id"]))
+    await db.db.commit()
+
+    async with await _make_client(monkeypatch) as client:
+        resp = await _get(client, f"chat_id={CHAT_ID}&trace_id=corr-status")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+    style = body["style"]
+    assert [rule["rule_id"] for rule in style["rules"]] == ["no_cliche"]
+    assert "not_declared_status" not in json.dumps(style)
+    assert set(style["counts"]) == {"repaired"}
 
 
 @pytest.mark.asyncio
