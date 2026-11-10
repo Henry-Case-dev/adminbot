@@ -8,7 +8,9 @@ aiogram.utils.web_app.safe_parse_webapp_init_data (HMAC, ValueError → 401),
 
 requires_permission(required) — фабрика FastAPI-dependency: роль юзера из
 bot_admins (ConfigCache), матчинг services/permissions.py (84.14.2); нет
-права → 403. Неизвестный Telegram ID → роль по умолчанию «user» (пустые
+права → 403. MAC-DEF-01: глобальный админ (role_type `global_admin`,
+legacy-роль `admin` или wildcard) проходит любой такой гейт — тот же канон,
+что `user_is_global_admin`. Неизвестный Telegram ID → роль по умолчанию «user» (пустые
 права): для /api/me|/api/status — ОК, для POST — 403 (84.6).
 """
 import json
@@ -188,20 +190,40 @@ async def tma_context(
 
 
 def requires_permission(required: str):
-    """Фабрика FastAPI-dependency (84.6): нет права → 403."""
+    """Фабрика FastAPI-dependency (84.6): нет права → 403.
+
+    MAC-DEF-01: гейт спрашивает `user_has_permission` — тот же канон
+    «глобальный админ», что `user_is_global_admin` (role_type
+    `global_admin` / legacy-роль `admin` / wildcard). Иначе роль с
+    role_type=global_admin, но без wildcard получала 403 на /api/admins,
+    /api/roles, /api/cover/* и остальных гейтах секции `access`.
+    """
 
     async def dependency(
         request: Request,
         user: Annotated[WebAppUser, Depends(get_tma_user)],
     ) -> WebAppUser:
         cache: ConfigCache = get_cache(request)
-        perms = _user_permissions(cache, user.id)
-        if not match_permission(perms, required):
+        if not user_has_permission(cache, user.id, required):
             request.state.tma_deny_reason = "permission_denied"
             raise HTTPException(status_code=403, detail="permission denied")
         return user
 
     return dependency
+
+
+def _role_type_of_user(cache: ConfigCache, telegram_id: int) -> str:
+    """role_type роли юзера: колонка `bot_roles.role_type` → legacy `admin`
+    → custom (канон `services.roles.role_type_of`)."""
+    role = cache.get_role(telegram_id)
+    try:
+        role_data = cache.roles().get(role) if role else None
+    except Exception:
+        role_data = None
+    from services.roles import role_type_of
+    return role_type_of(
+        role, role_data,
+        (role_data or {}).get("role_type") if role_data else None)
 
 
 def user_is_global_admin(cache: ConfigCache, telegram_id: int) -> bool:
@@ -210,16 +232,21 @@ def user_is_global_admin(cache: ConfigCache, telegram_id: int) -> bool:
     Используется и как FastAPI-dependency, и для точечных проверок внутри
     маршрутов (seeded-стиль мутирует только админ)."""
     perms = _user_permissions(cache, telegram_id)
-    role = cache.get_role(telegram_id)
-    from services.roles import role_type_of
-    try:
-        role_data = cache.roles().get(role) if role else None
-    except Exception:
-        role_data = None
-    role_type = role_type_of(
-        role, role_data,
-        (role_data or {}).get("role_type") if role_data else None)
-    return bool(perms.wildcard or role_type == "global_admin" or role == "admin")
+    return bool(perms.wildcard
+                or _role_type_of_user(cache, telegram_id) == "global_admin"
+                or cache.get_role(telegram_id) == "admin")
+
+
+def user_has_permission(cache: ConfigCache, telegram_id: int,
+                        required: str) -> bool:
+    """MAC-DEF-01: право есть, если его даёт роль (матчинг 84.14.2 —
+    `match_permission` не меняется) ИЛИ юзер глобальный админ (тот же
+    `user_is_global_admin`: role_type `global_admin`, legacy `admin`,
+    wildcard). Глобальный админ проходит; custom-роль без конкретного права
+    и обычный юзер — нет."""
+    if match_permission(_user_permissions(cache, telegram_id), required):
+        return True
+    return user_is_global_admin(cache, telegram_id)
 
 
 def requires_global_admin():
