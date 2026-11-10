@@ -44,6 +44,10 @@ from dataclasses import dataclass, field, replace
 
 from config.settings import settings
 from services import tool_result
+from services.search_aggregator import (
+    PUBLISHED_LABEL as _SA_PUBLISHED_LABEL,
+    normalise_publication_date,
+)
 from services.tool_loop import (
     CHAIN_CALL_LIMIT_REASON,
     CHAIN_COST_LIMIT_REASON,
@@ -413,6 +417,15 @@ class EvidenceSource:
     #: В L2 идёт отобранный фрагмент, а маркер обрезки ссылается на ref —
     #: срез не выдаётся за полную статью.
     content_ref: str = ""
+    #: Дата публикации ЕДИНИЧНОГО источника (`YYYY-MM-DD`), которую СООБЩИЛ
+    #: инструмент: собственное поле инструмента (`fetch_article` →
+    #: `published_at` из метаданных страницы) либо дата единственной записи
+    #: выдачи. У многохитовой выдачи (`execute_web_search`) здесь ВСЕГДА пусто:
+    #: дата одного хита не приписывается всему источнику (review 82d21889,
+    #: DEFECT 2) — даты остаются в per-hit ``SourceRecord.published_at``, а
+    #: пакет печатает честную пометку. Пустое значение никогда не означает
+    #: «дата выдумана».
+    published_at: str = ""
 
 
 @dataclass
@@ -850,7 +863,8 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
             content=str(output or ""), total_chars=len(output or ""),
             truncated=bool(info.get("truncated")), delivered=False,
             round_index=round_index,
-            content_ref=_content_ref(name, str(output or ""))))
+            content_ref=_content_ref(name, str(output or "")),
+            published_at=_source_publication_date(name, str(output or ""))))
         if not ok:
             err = str(info.get("error_code") or info.get("error_type")
                       or "error")[:64]
@@ -880,7 +894,8 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
         tool=name, status=str(info.get("status") or "ok"),
         content=str(output or ""), total_chars=len(output or ""),
         delivered=False, round_index=round_index,
-        content_ref=_content_ref(name, str(output or ""))))
+        content_ref=_content_ref(name, str(output or "")),
+        published_at=_source_publication_date(name, str(output or ""))))
     logger.info(
         "[direct-exec] duplicate skipped | tool=%s | reason=%s", name,
         cached_reason)
@@ -1662,6 +1677,146 @@ def _search_blocks(content: str) -> list[str]:
     return [b.strip() for b in re.split(r"\n\s*\n", body) if b.strip()]
 
 
+#: Метка даты в блоке выдачи: ищем её в тексте блока, а не по номеру строки.
+#: Компактор tool_router (`_parse_hit_blocks`/`_render_hit_blocks`) держит дату
+#: отдельной строкой, но текст мог быть собран и иначе — поиск по метке
+#: устойчив; совпадает только нормализованный ISO-вид, который печатает
+#: `SearchAggregator._format_hits`.
+_PUBLISHED_MARK_RE = re.compile(
+    r"^\s*" + re.escape(_SA_PUBLISHED_LABEL) + r"\s*(.*?)\s*$", re.IGNORECASE)
+_PUBLISHED_INLINE_RE = re.compile(
+    re.escape(_SA_PUBLISHED_LABEL) + r"\s*(\d{4}-\d{2}-\d{2})",
+    re.IGNORECASE)
+
+
+def _split_publication_date(text: str) -> tuple[str, str]:
+    """(ISO-дата | "", текст без строки даты) — без догадок и додумываний.
+
+    Строка метки удаляется из сниппета (это метаданные, а не текст источника);
+    значение дополнительно проходит общий валидатор
+    (:func:`normalise_publication_date`), поэтому кривое значение НЕ
+    превращается в правдоподобную дату и НЕ остаётся в сниппете как «дата
+    публикации …» — downstream честно сообщит, что дата не установлена.
+    Никогда не бросает."""
+    body = str(text or "")
+    published = ""
+    kept: list[str] = []
+    for line in body.splitlines():
+        match = _PUBLISHED_MARK_RE.match(line)
+        if match:
+            if not published:
+                published = normalise_publication_date(match.group(1))
+            continue        # метка — наши метаданные, а не текст источника
+        kept.append(line)
+    cleaned = "\n".join(kept)
+    if not published:
+        # Строка могла быть склеена с текстом (старый сжатый вид) — метка
+        # ищется по всему блоку, значение идёт через тот же валидатор.
+        found = _PUBLISHED_INLINE_RE.search(cleaned)
+        if found:
+            published = normalise_publication_date(found.group(1))
+            if published:
+                cleaned = (cleaned[:found.start()]
+                           + cleaned[found.end():]).strip()
+    return published, cleaned
+
+
+def _publication_dates_in(text: str) -> list[str]:
+    """Все даты публикации (нормализованные) в порядке появления, без дублей."""
+    seen: list[str] = []
+    for raw in _PUBLISHED_INLINE_RE.findall(str(text or "")):
+        day = normalise_publication_date(raw)
+        if day and day not in seen:
+            seen.append(day)
+    return seen
+
+
+def _source_publication_date(tool: str, content: str) -> str:
+    """Дата публикации ЕДИНИЧНОГО источника, которую СООБЩИЛ инструмент
+    (``""`` — не сообщил либо источник не единичный).
+
+    Порядок честный и без сети: (1) собственное поле инструмента
+    (`fetch_article` возвращает ``published_at`` из метаданных страницы);
+    (2) поисковая выдача — дата берётся только когда запись выдачи ОДНА.
+    У многохитовой выдачи сводящей даты нет по определению: дата одного хита,
+    приписанная всему источнику, — ложное утверждение (review 82d21889,
+    DEFECT 2: per-hit ``["", "", "2025-03-11"]`` против агрегата
+    ``"2025-03-11"``). Даты хитов остаются в per-hit ``SourceRecord``, а пакет
+    печатает честную пометку. Никогда не бросает."""
+    body = str(content or "")
+    if tool != "execute_web_search":
+        try:
+            payload = json.loads(body)
+        except (TypeError, ValueError):
+            payload = None
+        if isinstance(payload, dict):
+            stamp = normalise_publication_date(payload.get("published_at"))
+            if stamp:
+                return stamp
+    blocks, _dated = _dated_blocks(body)
+    dates = _publication_dates_in(body)
+    if blocks <= 1 and len(dates) == 1:
+        return dates[0]
+    return ""
+
+
+#: Честные пометки вместо даты: реальная дата либо явное «источник не сообщил».
+PUBLISHED_UNKNOWN_NOTE = "дата публикации не сообщается источником"
+PUBLISHED_PER_ITEM_NOTE = "даты публикации — у каждого источника в блоке"
+
+
+def _dated_blocks(content: str) -> tuple[int, int]:
+    """(всего блоков выдачи, блоков с датой публикации).
+
+    Блок = запись выдачи (``_search_blocks``). Считается ровно то, что
+    разборщик потом положит в ``SourceRecord.published_at`` — та же
+    :func:`_split_publication_date` с тем же валидатором, поэтому мусорная
+    метка датой не считается. Никогда не бросает."""
+    try:
+        blocks = _search_blocks(content)
+        dated = sum(1 for block in blocks
+                    if _split_publication_date(block)[0])
+        return len(blocks), dated
+    except Exception:      # pragma: no cover - защитная ветка
+        return 0, 0
+
+
+def _publication_label(src) -> str:
+    """Хвост строки источника в evidence pack: реальная дата | честная пометка.
+
+    Только для внешних источников (:data:`EXTERNAL_EVIDENCE_TOOLS`) — у
+    локальных инструментов (память/лор) понятия «дата публикации» нет, и
+    строка остаётся прежней. Дату берём из ``published_at`` источника, а если
+    поле пустое — из самих блоков выдачи (одна дата) или честно говорим, что
+    источников несколько/дата не сообщена.
+
+    Review 791e4009 (BLOCKER 2): в смешанной выдаче дата ОДНОГО хита не
+    выдаётся за дату всего блока. Если даты есть не у всех записей многохитовой
+    выдачи (3 хита, дата только у первого → структурные поля честные
+    ``2025-03-11``, ``""``, ``""``), печатается построчная формулировка
+    :data:`PUBLISHED_PER_ITEM_NOTE`. Полностью бездатные записи (0 из N)
+    сохраняют прежнюю пометку :data:`PUBLISHED_UNKNOWN_NOTE`: дат нет ни у кого,
+    и «даты у каждого источника» было бы неправдой."""
+    try:
+        if str(getattr(src, "tool", "") or "") not in EXTERNAL_EVIDENCE_TOOLS:
+            return ""
+        content = str(getattr(src, "content", "") or "")
+        blocks, dated = _dated_blocks(content)
+        if 0 < dated < blocks:
+            return PUBLISHED_PER_ITEM_NOTE
+        date = normalise_publication_date(getattr(src, "published_at", ""))
+        if date:
+            return f"{_SA_PUBLISHED_LABEL} {date}"
+        dates = _publication_dates_in(content)
+        if len(dates) > 1:
+            return PUBLISHED_PER_ITEM_NOTE
+        if len(dates) == 1:
+            return f"{_SA_PUBLISHED_LABEL} {dates[0]}"
+        return PUBLISHED_UNKNOWN_NOTE
+    except Exception:      # pragma: no cover - защитная ветка
+        return ""
+
+
 def _parse_search_sources(content: str, *, tool: str,
                           content_sink: dict | None = None
                           ) -> list[SourceRecord]:
@@ -1669,12 +1824,15 @@ def _parse_search_sources(content: str, *, tool: str,
 
     ``SearchAggregator._format_hits`` даёт блоки ``title\\nsnippet\\nurl`` через
     пустую строку; префикс «Результаты поиска по запросу …:» отбрасывается.
-    Даты публикации поиск не возвращает — поле остаётся пустым (не выдумываем).
+    Даты публикации поиск берёт только из ответа провайдера (Exa
+    ``publishedDate`` / Tavily ``published_date``); нет даты — пустое поле, а
+    не подставленное значение.
     ``content_sink`` — карта ``content_ref → полный блок`` (полные тексты живут
     вне payload и доступны по ref). Никогда не бросает."""
     try:
         out: list[SourceRecord] = []
         for idx, block in enumerate(_search_blocks(content)):
+            published_at, block = _split_publication_date(block)
             rows = [row.strip() for row in block.splitlines() if row.strip()]
             if not rows:
                 continue
@@ -1689,7 +1847,8 @@ def _parse_search_sources(content: str, *, tool: str,
             suffix = ref.split(":", 1)[-1] if ref else str(idx)
             out.append(SourceRecord(
                 source_id=f"web:{suffix}", tool=tool, url=url,
-                title=title[:200], snippet=snippet[:600], content_ref=ref))
+                title=title[:200], snippet=snippet[:600], content_ref=ref,
+                published_at=published_at))
         return out
     except Exception:      # pragma: no cover - защитная ветка
         return []
@@ -1797,8 +1956,43 @@ class ToolEvidence:
                     else "claim_forbidden_no_evidence")
         return "claim_forbidden_no_evidence"
 
+    @property
+    def published_at_status(self) -> str:
+        """Честный статус даты публикации источников (машинный, R17-safe).
+
+        ``reported`` — хотя бы один внешний источник сообщил дату публикации;
+        ``not_reported`` — внешние источники есть, но дат нет (в пакете это
+        печатается как «дата публикации не сообщается источником»);
+        ``none`` — внешних источников не было."""
+        try:
+            external = [s for s in self.sources
+                        if str(getattr(s, "tool", "") or "")
+                        in _EXTERNAL_TOOLS]
+            if not external:
+                return "none"
+            if any(normalise_publication_date(getattr(s, "published_at", ""))
+                   for s in external):
+                return "reported"
+            return "not_reported"
+        except Exception:      # pragma: no cover - защитная ветка
+            return "none"
+
     def trace_fields(self) -> dict:
-        """R17-safe трасса хода (UR-08): только enum/числа/id-ссылки."""
+        """R17-safe трасса хода (UR-08): только enum/числа/id-ссылки.
+
+        Дата публикации едет теми же машинными осями: ``source_dates`` —
+        нормализованные даты, которые реально сообщили источники,
+        ``published_at_status`` — enum (:attr:`published_at_status`). Текстов
+        результатов здесь нет."""
+        dates: list[str] = []
+        try:
+            for src in self.sources:
+                day = normalise_publication_date(
+                    getattr(src, "published_at", ""))
+                if day and day not in dates:
+                    dates.append(day)
+        except Exception:      # pragma: no cover - защитная ветка
+            dates = []
         return {
             "search_intent": str(self.search_intent or ""),
             "search_called": bool(self.search_called),
@@ -1807,6 +2001,8 @@ class ToolEvidence:
             "source_count": int(self.source_count),
             "search_skip_reason": str(self.search_skip_reason or ""),
             "evidence_used": bool(self.evidence_used),
+            "source_dates": dates,
+            "published_at_status": self.published_at_status,
         }
 
 
@@ -1949,7 +2145,10 @@ def _tool_evidence_from(raw, *, axis, search_task: SearchTask,
             sources.append(SourceRecord(
                 source_id=f"src:{ref.split(':', 1)[-1]}", tool=tool, url=url,
                 title="", snippet=_boundary_cut(body, 600), content_ref=ref,
-                status=str(getattr(src, "status", "") or "ok")))
+                status=str(getattr(src, "status", "") or "ok"),
+                # Дата публикации — ровно та, что вернул инструмент
+                # (`fetch_article` → `published_at` из метаданных страницы).
+                published_at=_source_publication_date(tool, body)))
     if evidence.search_status == SEARCH_STATUS_OK and search_task.query:
         blocks: list[str] = []
         for src in (getattr(raw, "evidence_sources", []) or ()):
@@ -1975,6 +2174,7 @@ def _tool_evidence_from(raw, *, axis, search_task: SearchTask,
         sources.append(SourceRecord(
             source_id=f"src:{ref.split(':', 1)[-1]}", tool=tool,
             snippet=_boundary_cut(body, 600), content_ref=ref,
+            published_at=_source_publication_date(tool, body),
             status=str(getattr(src, "status", "") or "ok")))
     if reuse_used and not called:
         evidence.search_status = SEARCH_STATUS_OK
@@ -2668,8 +2868,14 @@ def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
                           f"симв.{ref_note}]")
                 limitations.append(
                     f"{src.tool}: результат обрезан ({floor}/{len(piece)})")
+            # Дата публикации в строке источника: реальная (если её сообщил
+            # инструмент) либо честная пометка об отсутствии. Для локальных
+            # инструментов хвоста нет — формат строки прежний.
+            published_label = _publication_label(src)
+            date_part = f" | {published_label}" if published_label else ""
             blocks.append(
-                f"[ИСТОЧНИК {len(blocks) + 1} | {src.tool} | {src.status}]\n"
+                f"[ИСТОЧНИК {len(blocks) + 1} | {src.tool} | "
+                f"{src.status}{date_part}]\n"
                 + delivered + marker)
             if not src.delivered:
                 limitations.append(

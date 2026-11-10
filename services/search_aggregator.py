@@ -5,6 +5,11 @@ close() в on_shutdown. Уровень пропускается, если API-к
 Любая ошибка уровня (timeout/HTTP/пустой результат) → следующий уровень.
 Все уровни упали → AllSearchEnginesFailedException.
 Результат — единый текстовый формат, обрезка до max_symbols.
+Дата публикации едет ТОЛЬКО из ответа провайдера: Exa ``results[].publishedDate``,
+Tavily ``results[].published_date`` — строкой ``дата публикации: YYYY-MM-DD``
+перед URL (см. :func:`normalise_publication_date`). DDG ``text()`` дату не
+отдаёт вовсе — блок остаётся прежним, а evidence pack честно пишет, что дата
+не сообщена. Дополнительных запросов за датой нет.
 
 DDG (уровень 3): duckduckgo-search 8.x — sync-only (AsyncDDGS удалён в PR#268),
 официальная рекомендация мейнтейнера — обёртка sync-вызова в executor
@@ -18,6 +23,7 @@ ASAP-VISION-SYNC-01 §4 (другие потребители): агрегато�
 """
 import asyncio
 import dataclasses
+import datetime
 import inspect
 import logging
 import re
@@ -40,6 +46,36 @@ logger = logging.getLogger(__name__)
 
 TAVILY_URL = "https://api.tavily.com/search"
 EXA_URL = "https://api.exa.ai/search"
+
+#: Метка даты публикации в блоке выдачи (`SearchAggregator._format_hits`).
+#: Один формат для всех уровней каскада: агрегатор его печатает, а downstream
+#: (`services.direct_execution._parse_search_sources`) разбирает в структурное
+#: поле источника. Дата едет ТОЛЬКО та, что сообщил провайдер.
+PUBLISHED_LABEL = "дата публикации:"
+
+
+def normalise_publication_date(value) -> str:
+    """Дата публикации провайдера → ``YYYY-MM-DD`` (UTC) | ``""``.
+
+    Принимает то, что реально приходит в выдаче: ISO 8601 (Exa
+    ``publishedDate``) и RFC 2822 (Tavily ``published_date``). Валидация и
+    sanity-границы — существующий парсер `temporal_factcheck._parse_date_value`
+    (второго парсера дат не заводим; импорт ленивый, чтобы не создать цикл
+    модулей). Неразбираемое значение → ``""``: пустая дата downstream
+    рендерится честной пометкой «дата публикации не сообщается источником», а
+    НЕ подставленным/обрезанным числом. Никогда не бросает."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        from services import temporal_factcheck as _tf
+        stamp = _tf._parse_date_value(text)
+        if stamp is None:
+            return ""
+        return datetime.datetime.fromtimestamp(
+            stamp, datetime.timezone.utc).strftime("%Y-%m-%d")
+    except Exception:      # pragma: no cover - защитная ветка
+        return ""
 
 
 class AllSearchEnginesFailedException(Exception):
@@ -389,6 +425,58 @@ def _numbers_in(text: str) -> set[str]:
     return out
 
 
+#: Значение даты, которое реально печатается после метки: наш нормализованный
+#: ISO-вид, RFC 2822 (Tavily ``published_date``), текстовый и точечный вид.
+#: Значение снимается ЦЕЛИКОМ: усечение до одного токена оставляло
+#: «11 Mar 2025 17:00:00 GMT», и цифры даты снова участвовали в сопоставлении с
+#: тезисом (review 82d21889, DEFECT 1). Последняя альтернатива — один токен:
+#: покрывает значение, которого нет в списке форм.
+_PUBLISHED_VALUE_RE = (
+    r"(?:"
+    r"\d{4}-\d{2}-\d{2}"                                  # ISO 8601 (дата)
+    r"(?:[T ]\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?Z?"
+    r"(?:[+-]\d{2}:?\d{2})?)?"                            # + время/зона
+    r"|(?:[A-Za-z]{3},?\s+)?\d{1,2}\s+"
+    r"[A-Za-zА-Яа-яЁё]{3,10}\.?"                          # RFC 2822 / «11 марта»
+    r"(?:\s+\d{4})?"
+    r"(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?"
+    r"(?:\s+(?:[+-]\d{4}|[A-Za-z]{1,5}))?"
+    r"|\d{1,2}\.\d{1,2}\.\d{2,4}"                         # 11.03.2025
+    r"(?:\s+\d{1,2}:\d{2})?"
+    r"|\S*"
+    r")"
+)
+
+#: Метка даты публикации вместе со значением (без перехода на новую строку:
+#: ``[^\S\n]`` — горизонтальные пробелы, чтобы метка не съела следующую строку
+#: выдачи, даже если значение отрезано).
+_PUBLISHED_LABEL_RE = re.compile(
+    re.escape(PUBLISHED_LABEL) + r"[^\S\n]*" + _PUBLISHED_VALUE_RE,
+    re.IGNORECASE)
+
+
+def strip_publication_labels(text: str) -> str:
+    """Текст без меток «дата публикации: <значение>».
+
+    Дата публикации — метаданные о времени публикации, а не утверждение
+    источника: её цифры (2025/03/11) не должны попадать в числовое и словарное
+    сопоставление с тезисом, иначе «день месяца» подтверждает заявленный
+    процент (review 791e4009, BLOCKER 1). Значение снимается В ЛЮБОЙ из форм,
+    которые печатают провайдеры — ISO 8601, RFC 2822 (Tavily
+    ``published_date``: «Tue, 11 Mar 2025 17:00:00 GMT»), текстовый и точечный
+    вид: частичное удаление оставляло «11 Mar 2025 …» и цифры даты снова
+    работали доказательством (review 82d21889, DEFECT 1). Тот же класс уже
+    отсечён на стороне тезиса (`factcheck_planner.build_claim_units`: числа
+    временного интервала не становятся метриками). Удаляется только метка со
+    СВОИМ значением — остальной текст строки сохраняется, а памятки без
+    значения («дата публикации не сообщается источником») не затрагиваются:
+    цифр в них нет. Никогда не бросает."""
+    try:
+        return _PUBLISHED_LABEL_RE.sub(" ", str(text or ""))
+    except Exception:      # pragma: no cover — защитная ветка
+        return str(text or "")
+
+
 def _directions(text: str) -> tuple[bool, bool]:
     """(есть_падение, есть_рост) по морфологии направления."""
     low = str(text or "").lower()
@@ -470,10 +558,19 @@ def claim_relevance(text: str, *, claim_text: str = "",
     при любом словесном пересечении; форум о датировке фотографий не
     становится «доказательством» биологической типологии.
 
+    Review 791e4009 (BLOCKER 1): метка даты публикации вырезается из тела
+    ДО числового/словарного сопоставления
+    (:func:`strip_publication_labels`) — это метаданные о КОГДА, а не
+    утверждение источника. Здесь, а не в одном вызывающем: тот же
+    ``claim_relevance`` — общий гейт для планировщика фактчека
+    (``factcheck_planner._relevance_for``), ``direct_execution._contradicts`` и
+    ``evidence_policy._supported``; вырезание upstream оставило бы два других
+    потребителя с тем же дефектом («11» из «2025-03-11» подтверждает «11 %»).
+
     Детерминированно, без LLM. Никогда не бросает.
     """
     try:
-        body = str(text or "")
+        body = strip_publication_labels(str(text or ""))
         body_low = body.lower()
         claim_low = str(claim_text or "").lower()
         if not body_low.strip():
@@ -787,6 +884,12 @@ class SearchAggregator:
                 str(item.get("title") or ""),
                 str(item.get("content") or ""),
                 str(item.get("url") or ""),
+                # Tavily: `results[].published_date` (RFC 2822-пример в доке:
+                # «Tue, 11 Mar 2025 17:00:00 GMT»). Отдаётся ТОЛЬКО когда
+                # запрошен `include_published_date` (у нас не запрошен) или
+                # `topic=news`; иначе поля нет вовсе. Поэтому дата читается
+                # «если пришла», а не заказывается отдельным запросом.
+                str(item.get("published_date") or ""),
             )
             for item in results
         ]
@@ -823,7 +926,12 @@ class SearchAggregator:
             highlights = item.get("highlights")
             summary = item.get("summary")
             snippet = text or (highlights[0] if highlights else None) or summary or ""
-            pairs.append((title, str(snippet), url))
+            pairs.append((title, str(snippet), url,
+                          # Exa: `results[].publishedDate` — ISO 8601 UTC
+                          # (`YYYY-MM-DDTHH:mm:ss.sssZ`); «оценка даты создания,
+                          # полученная разбором HTML». Поле есть по умолчанию,
+                          # параметров запроса не добавляем.
+                          str(item.get("publishedDate") or "")))
         return self._format_hits(pairs)
 
     def _run_ddg_text(self, query: str,
@@ -845,6 +953,10 @@ class SearchAggregator:
                                           timeout_budget)
         if not results:
             raise ValueError("ddg: empty results")
+        # DDG-уровень дату публикации не отдаёт вовсе: `DDGS().text()` возвращает
+        # только `title`/`href`/`body` (duckduckgo-search 8.x). Поэтому блока
+        # «дата публикации» здесь не будет — downstream честно пишет, что
+        # источник дату не сообщил. Дополнительных запросов за датой не делаем.
         pairs = [
             (
                 str(item.get("title") or ""),
@@ -858,11 +970,27 @@ class SearchAggregator:
     # ── Общий формат ──────────────────────────────────────────
 
     @staticmethod
-    def _format_hits(title_snippet_pairs: list[tuple[str, str, str]]) -> str:
-        """Блок f"{title}\n{snippet}\n{url}" на результат; блоки через \n\n."""
-        return "\n\n".join(
-            f"{title}\n{snippet}\n{url}" for title, snippet, url in title_snippet_pairs
-        )
+    def _format_hits(title_snippet_pairs: list[tuple[str, ...]]) -> str:
+        """Блок на результат; дата публикации (если провайдер её сообщил) —
+        отдельной строкой ПЕРЕД URL.
+
+        ``title`` → ``snippet`` → ``[дата публикации: YYYY-MM-DD]`` → ``url``;
+        URL остаётся последней строкой блока (на этом стоит существующий
+        разбор выдачи), а дата попадает и в модель, и в evidence pack.
+        Провайдер даты не отдал → строки нет: пустую дату не печатаем и
+        ничего не выдумываем."""
+        blocks: list[str] = []
+        for hit in title_snippet_pairs:
+            parts = list(hit) + ["", "", ""]
+            title, snippet, url = str(parts[0]), str(parts[1]), str(parts[2])
+            published = normalise_publication_date(
+                parts[3] if len(parts) > 3 else "")
+            lines = [title, snippet]
+            if published:
+                lines.append(f"{PUBLISHED_LABEL} {published}")
+            lines.append(url)
+            blocks.append("\n".join(lines))
+        return "\n\n".join(blocks)
 
     @staticmethod
     def _truncate(text: str, max_symbols: int) -> str:

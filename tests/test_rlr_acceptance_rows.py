@@ -200,7 +200,9 @@ async def test_r0802_search_evidence_then_single_l2_not_retold(monkeypatch):
     assert llm.steps() == ["l1_planner", "l2_writer"], llm.steps()
     payload = _writer_payload(llm)
     assert "<Tool_Evidence>" in payload
-    assert "[ИСТОЧНИК 1 | execute_web_search | ok]" in payload
+    assert "[ИСТОЧНИК 1 | execute_web_search | ok | " in payload
+    # Дата не выдумана: у мока выдачи даты нет — так и написано.
+    assert "дата публикации не сообщается источником" in payload
     assert "завтра дождь, 12 градусов" in payload
     delivered = _delivered(svc)
     assert delivered != tool_text                  # текст тула не опубликован

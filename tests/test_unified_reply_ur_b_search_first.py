@@ -679,10 +679,15 @@ class TestEvidenceAndTrace:
         trace = evidence.trace_fields()
         assert set(trace) == {"search_intent", "search_called", "search_status",
                               "source_ids", "source_count", "search_skip_reason",
-                              "evidence_used"}
+                              "evidence_used", "source_dates",
+                              "published_at_status"}
         assert trace["search_called"] is True
         assert trace["source_count"] == evidence.source_count == 1
         assert trace["evidence_used"] is True
+        # Дата публикации: у выдачи даты нет → честный машинный статус и
+        # пустой список дат (никакого подставленного значения).
+        assert trace["source_dates"] == []
+        assert trace["published_at_status"] == "not_reported"
         assert captured.get("event_name") == "reply_search_evidence"
         payload = json.dumps(captured.get("fields") or {}, ensure_ascii=False)
         for forbidden in ("79991234567", "вася", "vasya", "проверь курс"):

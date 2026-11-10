@@ -202,7 +202,8 @@ class TestToolFactsReachTheSingleWriter:
         assert "<Tool_Evidence>" in payload
         # Сама находка и её атрибуция (источник/статус) доехали до Writer'а.
         assert "завтра дождь, 12 градусов" in payload
-        assert "[ИСТОЧНИК 1 | execute_web_search | ok]" in payload
+        assert "[ИСТОЧНИК 1 | execute_web_search | ok | " in payload
+        assert "дата публикации не сообщается источником" in payload
         svc._send_direct_answer.assert_awaited_once()
         assert svc._send_direct_answer.await_args.args[2] == \
             "завтра дождь, бери зонт"

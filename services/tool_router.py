@@ -84,7 +84,11 @@ from services.persistent_throttling import (
     cooldown_remaining,
     cooldown_touch,
 )
-from services.search_aggregator import AllSearchEnginesFailedException
+from services.search_aggregator import (
+    PUBLISHED_LABEL as _SEARCH_PUBLISHED_LABEL,
+    AllSearchEnginesFailedException,
+    normalise_publication_date,
+)
 from services.smartmodule_urls import extract_urls, extract_youtube_video_id
 from services import auto_budget
 from services import source_reuse
@@ -811,14 +815,33 @@ def _truncate(text: str, limit: int) -> str:
 
 
 def _parse_hit_blocks(text: str) -> list[dict]:
-    """Разобрать выдачу поиска на кандидатов: ``{title, snippet, url}``.
+    """Разобрать выдачу поиска на кандидатов:
+    ``{title, snippet, url[, published_at]}``.
 
     Формат `SearchAggregator._format_hits`: блоки через ``\\n\\n``, внутри
-    ``title\\nsnippet\\nurl``. Незнакомый формат → пустой список (тогда
-    работает обычная текстовая обрезка)."""
+    ``title\\nsnippet\\n[дата публикации: YYYY-MM-DD\\n]url``. Строка даты
+    вынимается в ОТДЕЛЬНОЕ поле: иначе она попадала бы в сниппет и её срезало
+    бы сжатие сниппета (дата молча пропадала бы из выдачи). Незнакомый
+    формат → пустой список (тогда работает обычная текстовая обрезка)."""
     blocks: list[dict] = []
     for chunk in str(text or "").split("\n\n"):
         lines = [line for line in chunk.splitlines() if line.strip()]
+        if not lines:
+            continue
+        published_at = ""
+        kept: list[str] = []
+        for line in lines:
+            stripped = line.strip()
+            if stripped.lower().startswith(_SEARCH_PUBLISHED_LABEL):
+                if not published_at:
+                    published_at = normalise_publication_date(
+                        stripped[len(_SEARCH_PUBLISHED_LABEL):])
+                # Метка — метаданные источника, а не текст: в сниппет не идёт.
+                # Кривое значение отбрасывается (дата остаётся пустой, а не
+                # «правдоподобной»).
+                continue
+            kept.append(line)
+        lines = kept
         if not lines:
             continue
         url = ""
@@ -829,18 +852,24 @@ def _parse_hit_blocks(text: str) -> list[dict]:
         snippet = " ".join(line.strip() for line in lines[1:]).strip()
         if not url and not title:
             continue
-        blocks.append({"title": title, "snippet": snippet, "url": url})
+        block = {"title": title, "snippet": snippet, "url": url}
+        if published_at:
+            block["published_at"] = published_at
+        blocks.append(block)
     return blocks
 
 
 def _render_hit_blocks(blocks: list[dict]) -> str:
-    """Собрать кандидатов обратно в формат выдачи (без потери URL)."""
+    """Собрать кандидатов обратно в формат выдачи (без потери URL и даты)."""
     parts: list[str] = []
     for block in blocks:
         lines = [str(block.get("title") or "")]
         snippet = str(block.get("snippet") or "").strip()
         if snippet:
             lines.append(snippet)
+        published = normalise_publication_date(block.get("published_at"))
+        if published:
+            lines.append(f"{_SEARCH_PUBLISHED_LABEL} {published}")
         url = str(block.get("url") or "").strip()
         if url:
             lines.append(url)
@@ -883,8 +912,10 @@ def _compact_search_candidates(text: str, limit: int, *,
                           retrievable_remainder=max(0, total - len(cut)),
                           unit="chars")
     total_candidates = len(blocks)
-    # 1) Урезать сниппеты, сохранив каждый title+url.
-    skeleton = [{"title": b["title"], "snippet": "", "url": b["url"]}
+    # 1) Урезать сниппеты, сохранив каждый title+url (+дату публикации: это
+    #    метаданные источника, а не текст, сжимать её нельзя).
+    skeleton = [{"title": b["title"], "snippet": "", "url": b["url"],
+                 "published_at": b.get("published_at", "")}
                 for b in blocks]
     skeleton_len = len(_render_hit_blocks(skeleton))
     if skeleton_len <= cap:
@@ -899,14 +930,16 @@ def _compact_search_candidates(text: str, limit: int, *,
                 continue
             share = int(allowance * (length / raw_total)) if raw_total else 0
             if share < 40:
-                # Сниппет без полезной информации не несём: URL остаётся.
+                # Сниппет без полезной информации не несём: URL и дата остаются.
                 scaled.append({"title": block["title"], "snippet": "",
-                               "url": block["url"]})
+                               "url": block["url"],
+                               "published_at": block.get("published_at", "")})
                 continue
             scaled.append({
                 "title": block["title"],
                 "snippet": clip_at_boundary(block["snippet"], share),
-                "url": block["url"]})
+                "url": block["url"],
+                "published_at": block.get("published_at", "")})
         compacted = _render_hit_blocks(scaled)
         while len(compacted) > cap and any(b["snippet"] for b in scaled):
             # добор переполнения: самый длинный сниппет урезаем первым
@@ -1531,8 +1564,15 @@ class ToolRouter:
         for record in records:
             title = (record.snippet.splitlines()[0] if record.snippet else "")
             snippet = record.snippet[:600]
+            # Дата публикации уже прочитанного источника: reuse дату НЕ
+            # выдумывает и сети не делает — берёт сохранённое поле записи.
+            published = normalise_publication_date(
+                getattr(record, "published_at", ""))
             blocks.append("\n".join(part for part in
-                                    (title, snippet, record.url) if part))
+                                    (title, snippet,
+                                     (f"{_SEARCH_PUBLISHED_LABEL} {published}"
+                                      if published else ""),
+                                     record.url) if part))
         query = str(arguments.get("query") or getattr(ctx, "query", "") or "")
         lines = [source_reuse.reuse_line(record) for record in records]
         bucket = getattr(ctx, "evidence_limits", None)
