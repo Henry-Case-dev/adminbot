@@ -2360,23 +2360,99 @@ def fired_rules(outcome: StyleOutcome, *, limit: int = STYLE_RULES_MAX) -> list:
     return rows
 
 
+#: Предел JSON события `style_policy` (UR-F R1/блокер 2). `mca_events`
+#: хранит `sanitize(json.dumps(...))[:2000]`, поэтому payload обязан
+#: укладываться ЗАВЕДОМО ниже: иначе строка обрезается посреди JSON и
+#: `json.loads` в Inspector'е падает («нет данных» вместо «битая трасса»).
+STYLE_EVENT_JSON_LIMIT = 1900
+
+
+def _json_size(value) -> int:
+    """Размер JSON в символах (тот же счёт, что у лимита хранилища)."""
+    try:
+        return len(json.dumps(value, ensure_ascii=False))
+    except Exception:      # pragma: no cover - защитная ветка
+        return 0
+
+
+def bounded_style_payload(payload: Mapping[str, Any], *,
+                          limit: int = STYLE_EVENT_JSON_LIMIT) -> dict:
+    """Уложить payload события `style_policy` в лимит ХРАНИЛИЩА без порчи JSON.
+
+    Жертвуем диагностикой, а не структурой и не смыслом: сначала сокращается
+    список сработавших правил (с конца), затем `repetition`, затем тяжёлые
+    необязательные срезы (`extent`, `hint_excluded`, `notes`). Факт сокращения
+    виден (`truncated: true`), а сериализованный payload остаётся валидным
+    JSON — обрезка `[:2000]` в `mca_events` до него не достаёт.
+    Никогда не бросает."""
+    data = dict(payload or {})
+    try:
+        if _json_size(data) <= int(limit):
+            return data
+        # Порядок жертв: сначала НЕобязательная диагностика (`repetition`,
+        # `hint_excluded`, `extent`, `notes`), и только последней — `rules`:
+        # список сработавших правил и есть смысл события UR-20.8.
+        for key, empty in (("repetition", []), ("hint_excluded", []),
+                           ("notes", []), ("extent", {})):
+            if key not in data or _json_size(data) <= int(limit):
+                continue
+            value = data.get(key)
+            if isinstance(value, list) and value:
+                while value and _json_size(data) > int(limit):
+                    value = value[:-1]
+                    if value:
+                        data[key] = value
+                    else:
+                        data.pop(key, None)
+                    data["truncated"] = True
+            elif isinstance(value, dict) and value:
+                data[key] = empty
+                data["truncated"] = True
+            if _json_size(data) <= int(limit):
+                return data
+        rules = data.get("rules")
+        if isinstance(rules, list):
+            while rules and _json_size(data) > int(limit):
+                rules = rules[:-1]
+                if rules:
+                    data["rules"] = rules
+                else:
+                    data.pop("rules", None)
+                data["truncated"] = True
+        if _json_size(data) > int(limit):
+            # Последний рубеж: оставляем только машинные скаляры исхода —
+            # JSON обязан остаться разбираемым (лучше меньше, чем битый).
+            data = {key: value for key, value in data.items()
+                    if not isinstance(value, (list, dict))}
+            data["truncated"] = True
+    except Exception:      # pragma: no cover - упаковка не рвёт событие
+        return dict(payload or {})
+    return data
+
+
 def _emit_style_event(outcome: StyleOutcome, *, chat_id: int, stage: str,
                       correlation_id: str | None = None) -> None:
-    """Notable-событие о непроходном исходе (fail-open, R17-safe).
+    """Событие прохода правил стиля (fail-open, R17-safe).
 
     UR-F шаг 1 (UR-20.8): событие получает `trace_id` (тот же, что у трассы
     хода) и `rules` — СРАБОТАВШИЕ правила (id/kind/status/причина). Текст
     правил и `RuleOutcome.detail` не пишутся: Inspector показывает «какое
-    правило и почему», не содержимое политики."""
+    правило и почему», не содержимое политики.
+
+    Когда событие пишется (блокер 1): если правило РЕАЛЬНО сработало
+    (`fired_rules` непуст — починка/конфликт/провал/deny) либо есть
+    наблюдение повтора, либо проход непроходной. Чистый проход без правил,
+    как и раньше, события не создаёт — объём остаётся «одно событие на ход»
+    (не «на каждое правило»)."""
     try:
-        if outcome.styled and not outcome.repetition:
-            return
+        fired = fired_rules(outcome)
+        if outcome.styled and not outcome.repetition and not fired:
+            return          # чистый проход: сообщать нечего (прежнее поведение)
         from services import mca_events as _events
         status = "failed" if (outcome.failed or outcome.denied) else "skipped"
-        if outcome.styled and outcome.repetition:
+        if outcome.styled and (outcome.repetition or fired):
             status = "success"
         payload = outcome.as_dict()
-        fired = fired_rules(outcome)
         if fired:
             payload["rules"] = fired
         _events.emit_mca_event(
@@ -2385,7 +2461,7 @@ def _emit_style_event(outcome: StyleOutcome, *, chat_id: int, stage: str,
             trace_id=(str(correlation_id) if correlation_id else None),
             duration_ms=round(float(outcome.elapsed_ms), 3),
             style_revision=_revision_int(outcome.policy_revision),
-            usage_json=payload)
+            usage_json=bounded_style_payload(payload))
     except Exception:      # pragma: no cover - событие не роняет ответ
         logger.warning("[style_policy] event emit failed", exc_info=True)
 

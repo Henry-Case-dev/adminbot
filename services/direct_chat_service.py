@@ -9741,6 +9741,9 @@ class DirectChatService:
                              if _context_line_dedup_key(line) in _tail_keys]
             _middle_present = [row for row, line in _middle_pairs
                                if _context_line_dedup_key(line) in _middle_keys]
+            # `role` блока — приоритет вытеснения piece'а в аллокации
+            # (`p0`…`p3`), НЕ авторская роль участника: P0 не вытесняется,
+            # P3 режется первым. Так видно, чем блок держался в запросе.
             _role_of = {0: "p0", 1: "p1", 2: "p2", 3: "p3"}
             _sel_blocks: list = []
             for _piece in sorted(allocation.pieces,

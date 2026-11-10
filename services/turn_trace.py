@@ -769,8 +769,15 @@ def _json_size(value) -> int:
         return 0
 
 
-def _sel_block(item) -> dict | None:
-    """Один блок контекста: kind/role/rendered/даты/ссылки/токены (без текста)."""
+def _sel_block(item, *, cuts: dict | None = None) -> dict | None:
+    """Один блок контекста: kind/role/rendered/даты/ссылки/токены (без текста).
+
+    `role` — НЕ авторская роль участника: здесь лежит приоритет вытеснения
+    piece'а в аллокации композера (`p0`…`p3`: P0 не вытесняется, P3 режется
+    первым). Так Inspector видит, чем блок держался в запросе.
+
+    `cuts` (необязательный) — сборщик фактов усечения: если id в блоке больше
+    лимита, туда ставится отметка, и событие честно помечается `truncated`."""
     if not isinstance(item, dict):
         return None
     kind = _code(item.get("kind"), 32)
@@ -783,9 +790,12 @@ def _sel_block(item) -> dict | None:
     skip = _code(item.get("skip_reason"), 32)
     if skip:
         row["skip_reason"] = skip
-    ids = [_code(ref, 48) for ref in
-           _sel_items(item.get("source_ids"), SELECTION_SOURCE_IDS_MAX)]
-    ids = [ref for ref in ids if ref]
+    raw_ids = [_code(ref, 48) for ref in
+               _sel_items(item.get("source_ids"), SELECTION_SOURCE_IDS_MAX * 4)]
+    raw_ids = [ref for ref in raw_ids if ref]
+    if len(raw_ids) > SELECTION_SOURCE_IDS_MAX and cuts is not None:
+        cuts["source_ids"] = True
+    ids = raw_ids[:SELECTION_SOURCE_IDS_MAX]
     if ids:
         row["source_ids"] = ids
     first_ts = _sel_int(item.get("first_ts"))
@@ -800,12 +810,12 @@ def _sel_block(item) -> dict | None:
     return row
 
 
-def _sel_dropped(items) -> list:
+def _sel_dropped(items, *, cuts: dict | None = None) -> tuple[list, int]:
     """Потерянное на аллокации: агрегат по (reason_code, kind) — ≤8 строк.
 
-    Вход агрегируется ЦЕЛИКОМ (счётчики не теряются), усекается только число
-    строк словаря: при >8 различных парах остаются самые весомые, факт
-    усечения виден в логе (payload не расширяем полем вне контракта)."""
+    Вход агрегируется ЦЕЛИКОМ. Возвращает `(строки, всего_потерь)`:
+    счётчики сохраняются ВСЕГДА (`dropped_total`), а усечение числа строк
+    видно (`cuts["dropped"]` → `truncated`), а не теряется молча."""
     grouped: dict = {}
     for item in _sel_items(items, 256):
         if not isinstance(item, dict):
@@ -823,17 +833,21 @@ def _sel_dropped(items) -> list:
             for (reason, kind), count in grouped.items()]
     rows.sort(key=lambda row: (-row["count"], row["reason_code"],
                                row["kind"]))
+    total = sum(row["count"] for row in rows)
     if len(rows) > SELECTION_DROPPED_MAX:
         logger.info("[turn_trace] selection dropped groups truncated | "
                     "groups=%d kept=%d", len(rows), SELECTION_DROPPED_MAX)
         rows = rows[:SELECTION_DROPPED_MAX]
-    return rows
+        if cuts is not None:
+            cuts["dropped"] = True
+    return rows, total
 
 
-def _sel_self_outputs(items) -> list:
+def _sel_self_outputs(items, *, cuts: dict | None = None) -> list:
     """Свои реплики в истории хода: source_id/tg id/дата (≤6, без текста)."""
+    raw = _sel_items(items, SELECTION_SELF_OUTPUTS_MAX + 8)
     rows: list = []
-    for item in _sel_items(items, SELECTION_SELF_OUTPUTS_MAX):
+    for item in raw:
         if not isinstance(item, dict):
             continue
         row: dict = {}
@@ -848,6 +862,10 @@ def _sel_self_outputs(items) -> list:
             row["ts"] = ts
         if row:
             rows.append(row)
+    if len(rows) > SELECTION_SELF_OUTPUTS_MAX:
+        if cuts is not None:
+            cuts["self_outputs"] = True
+        rows = rows[:SELECTION_SELF_OUTPUTS_MAX]
     return rows
 
 
@@ -855,9 +873,14 @@ def _selection_payload(raw) -> dict:
     """Нормализовать payload события выбора: лимиты списков и только коды.
 
     Применяется ДО `_pack`, поэтому лимиты (блоки ≤16, id ≤8, потерянное ≤8,
-    собственные реплики ≤6) — жёсткие, а не «сколько влезло в JSON»."""
+    собственные реплики ≤6) — жёсткие, а не «сколько влезло в JSON».
+    Любое срабатывание такого лимита помечается `truncated: true`, а потери
+    сохраняют честный итог в `dropped_total` (даже если часть строк пришлось
+    сократить). Это единственный честный способ не выдавать срез за полноту
+    (UR-23.7: «неизвестно» ≠ ноль)."""
     data = raw if isinstance(raw, dict) else {}
     payload: dict = {}
+    cuts: dict = {}
     counts = data.get("counts")
     if isinstance(counts, dict):
         clean = {key: _sel_int(counts.get(key)) for key in _COUNT_KEYS}
@@ -883,21 +906,32 @@ def _selection_payload(raw) -> dict:
                 clean_budget[key] = value
         if clean_budget:
             payload["budget"] = clean_budget
+    raw_blocks = [item for item in
+                  _sel_items(data.get("blocks"), SELECTION_BLOCKS_MAX + 8)
+                  if isinstance(item, dict)]
+    if len(raw_blocks) > SELECTION_BLOCKS_MAX:
+        cuts["blocks"] = True
     blocks = [row for row in
-              (_sel_block(item) for item in
-               _sel_items(data.get("blocks"), SELECTION_BLOCKS_MAX))
+              (_sel_block(item, cuts=cuts)
+               for item in raw_blocks[:SELECTION_BLOCKS_MAX])
               if row]
     if blocks:
         payload["blocks"] = blocks
-    dropped = _sel_dropped(data.get("dropped"))
+    dropped, dropped_total = _sel_dropped(data.get("dropped"), cuts=cuts)
     if dropped:
         payload["dropped"] = dropped
-    self_outputs = _sel_self_outputs(data.get("self_outputs"))
+        if dropped_total != sum(row["count"] for row in dropped):
+            # Строки не покрывают все потери — итог обязателен, иначе
+            # «12 → 8» читается как «потеряно 8».
+            payload["dropped_total"] = dropped_total
+    self_outputs = _sel_self_outputs(data.get("self_outputs"), cuts=cuts)
     if self_outputs:
         payload["self_outputs"] = self_outputs
     policy_version = _code(data.get("policy_version"), 32)
     if policy_version:
         payload["policy_version"] = policy_version
+    if cuts:
+        payload["truncated"] = True
     # Если payload не влезает в `usage_json`, сначала сокращаются ВТОРОСТЕПЕННЫЕ
     # списки (свои реплики → потерянное), затем блоки с КОНЦА. Списки остаются
     # списками (а не `{"count": N}` при упаковке), факт усечения помечен
@@ -910,6 +944,8 @@ def _selection_payload(raw) -> dict:
             and len(payload.get("dropped") or ()) > 4:
         payload["dropped"] = payload["dropped"][:4]
         payload["truncated"] = True
+        if dropped_total:
+            payload["dropped_total"] = dropped_total
     while len(payload.get("blocks") or ()) > 1 \
             and _json_size(payload) > _PAYLOAD_LIMIT:
         payload["blocks"] = payload["blocks"][:-1]

@@ -378,49 +378,85 @@ def _oversized_selection(*, ids_per_block: int = 12,
 
 
 def test_selection_list_limits_are_enforced_not_silently_dropped(events):
-    """Переполнение режется ДЕТЕРМИНИРОВАННО: блоки ≤16 (первые), id ≤8,
-    потерянное ≤8, свои реплики ≤6 — и это видно в самом событии.
+    """Переполнение режется ДЕТЕРМИНИРОВАННО и ВИДИМО.
 
-    Списки остаются СПИСКАМИ (не `{"count": N}`), а усечение помечается
-    `truncated: true` — молчаливой потери нет."""
-    # 1) компактные блоки: жёсткий кап 16 срабатывает и payload влезает
+    Литералы лимитов закреплены здесь числами (16 блоков, 8 id, 8 строк
+    потерянного, 6 своих реплик): дрейф констант в модуле не пройдёт зелёным.
+    Срабатывание любого лимита ставит `truncated: true`, а потери сохраняют
+    честный итог (`dropped_total`), а не «сколько строк осталось»."""
+    blocks_max, ids_max = 16, 8
+    dropped_max, self_max = 8, 6
+
+    # 1) кап блоков: 25 → 16, порядок сохранён, усечение помечено
     turn_trace.note_selection("cid-cap", chat_id=CHAT_ID,
                               payload=_oversized_selection(minimal_blocks=True))
     compact = _payload_of(events, turn_trace.EVENT_SELECTION, "cid-cap")
     compact_blocks = compact.get("blocks") or []
-    assert len(compact_blocks) == turn_trace.SELECTION_BLOCKS_MAX
+    assert len(compact_blocks) == blocks_max
     assert [b["kind"] for b in compact_blocks] == \
-        ["k%d" % i for i in range(turn_trace.SELECTION_BLOCKS_MAX)]
-    assert not compact.get("truncated"), "влезло — усечения быть не должно"
+        ["k%d" % i for i in range(blocks_max)]
+    assert compact.get("truncated") is True, \
+        "кап блоков сработал — это обязано быть видно (не молчаливая потеря)"
 
-    # 2) блоки с 12 id каждый: id режутся до 8, объём — усечением С КОНЦА
+    # 2) блоки с 12 id: id → 8, объём режется блоками С КОНЦА
     turn_trace.note_selection("cid-fat", chat_id=CHAT_ID,
                               payload=_oversized_selection())
     fat = _payload_of(events, turn_trace.EVENT_SELECTION, "cid-fat")
     fat_blocks = fat.get("blocks") or []
     assert isinstance(fat_blocks, list), "блоки обязаны остаться списком"
-    assert 0 < len(fat_blocks) <= turn_trace.SELECTION_BLOCKS_MAX
+    assert 0 < len(fat_blocks) <= blocks_max
     assert fat.get("truncated") is True
     assert [b["kind"] for b in fat_blocks] == \
         ["k%d" % i for i in range(len(fat_blocks))]
-    assert all(len(b.get("source_ids") or ()) <=
-               turn_trace.SELECTION_SOURCE_IDS_MAX for b in fat_blocks)
-    assert all(len(b["source_ids"]) == turn_trace.SELECTION_SOURCE_IDS_MAX
-               for b in fat_blocks)
-    assert len(fat.get("dropped") or ()) <= \
-        turn_trace.SELECTION_DROPPED_MAX
-    assert len(fat.get("self_outputs") or ()) <= \
-        turn_trace.SELECTION_SELF_OUTPUTS_MAX
+    assert all(len(b.get("source_ids") or ()) <= ids_max for b in fat_blocks)
+    assert all(len(b["source_ids"]) == ids_max for b in fat_blocks)
+    assert len(fat.get("dropped") or ()) <= dropped_max
+    assert len(fat.get("self_outputs") or ()) <= self_max
 
-    # 3) счётчики потерянного агрегируются по (причина, блок), а не теряются
+    # 3) потери: строки ≤8, но ИТОГ честный (усечение строк не теряет счёт)
+    many_groups = {
+        "dropped": [{"reason_code": "budget_exceeded", "kind": "k%d" % i,
+                     "count": 1} for i in range(12)],
+        "policy_version": "asap3-composer-1",
+    }
+    dropped_only = turn_trace._selection_payload(many_groups)
+    assert len(dropped_only["dropped"]) == dropped_max, "12 групп → 8 строк"
+    assert dropped_only.get("truncated") is True
+    assert dropped_only.get("dropped_total") == 12, \
+        "«12 → 8» не должно читаться как «потеряно 8»"
+    assert sum(row["count"] for row in dropped_only["dropped"]) == 8
+
+    # 4) агрегат по (причина, блок) не теряет счётчики и не ставит флаг зря
     aggregate_src = _oversized_selection()
     aggregate_src["blocks"] = []      # без блоков payload влезает целиком
     clean = turn_trace._selection_payload(aggregate_src)
     assert len(clean["dropped"]) == 3, "группы (причина, kind), а не записи"
-    assert sum(row["count"] for row in clean["dropped"]) == \
-        sum(row["count"] for row in aggregate_src["dropped"]) == 20
-    assert len(clean["self_outputs"]) == \
-        turn_trace.SELECTION_SELF_OUTPUTS_MAX
+    assert sum(row["count"] for row in clean["dropped"]) == 20
+    assert "dropped_total" not in clean, "строки покрывают всё — итог не нужен"
+    assert len(clean["self_outputs"]) == self_max
+    assert clean.get("truncated") is True, "9 своих реплик → 6 (кап сработал)"
+
+
+def test_selection_within_limits_is_not_flagged_truncated():
+    """Полный, не урезанный payload не помечается `truncated` (флаг — факт,
+    а не постоянный шум)."""
+    payload = turn_trace._selection_payload({
+        "counts": {"available_messages": 3, "included_messages": 2,
+                   "window_messages": 4},
+        "blocks": [{"kind": "global_tail", "role": "p1", "rendered": True,
+                    "source_ids": ["msg:1", "msg:2"],
+                    "first_ts": 1700000001, "last_ts": 1700000002,
+                    "tokens": 12}],
+        "dropped": [{"reason_code": "budget_exceeded",
+                     "kind": "global_middle", "count": 1}],
+        "self_outputs": [{"source_id": "bot_output_tg:2",
+                          "tg_message_id": 2, "ts": 1700000002}],
+        "policy_version": "asap3-composer-1",
+    })
+    assert "truncated" not in payload
+    assert "dropped_total" not in payload
+    assert len(payload["blocks"]) == 1
+    assert payload["blocks"][0]["source_ids"] == ["msg:1", "msg:2"]
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -511,6 +547,134 @@ def _line_breaks_policy():
     return _sp.EffectiveStylePolicy(
         context="regular", rules=(_sp.ResolvedRule(rule=rule),),
         source="global", revision="7")
+
+
+def _dash_policy():
+    """Заводское правило тире: на «—» правило РЕАЛЬНО правит текст."""
+    rule = _sp.StyleRule(
+        id="owner.dash", kind="dash", strictness="hard",
+        reason="правило владельца: короткий дефис вместо длинного тире")
+    return _sp.EffectiveStylePolicy(
+        context="regular", rules=(_sp.ResolvedRule(rule=rule),),
+        source="global", revision="3")
+
+
+@pytest.mark.asyncio
+async def test_style_repair_only_outcome_is_recorded(monkeypatch, events):
+    """БЛОКЕР 1: починка (styled=True, без повтора) ОБЯЗАНА попасть в трассу.
+
+    Именно этот исход самый частый у владельческих правил: текст изменён,
+    значит Inspector не может показывать «правила не зафиксированы»."""
+    from services import mca_gates
+    monkeypatch.setattr(mca_gates, "speech_style_policy_enabled",
+                        lambda: True)
+    outcome = await _sp.apply_style_policy(
+        "привет — как дела", chat_id=CHAT_ID, policy=_dash_policy(),
+        context="regular", emit_events=True, stage="direct_pre_send",
+        correlation_id="cid-repair", record=False)
+
+    # исход действительно «починка», а не конфликт/повтор
+    assert outcome.styled is True
+    assert not outcome.repetition
+    assert outcome.repaired == 1
+    assert "-" in outcome.text and "—" not in outcome.text
+
+    event = _event(events, "style_policy")
+    assert event.get("trace_id") == "cid-repair"
+    # правка — это успешный проход, а не «пропущено»
+    assert event.get("outcome") == "success"
+    payload = dict(event.get("usage_json") or {})
+    rules = payload.get("rules") or []
+    assert [row["rule_id"] for row in rules] == ["owner.dash"]
+    assert rules[0]["status"] == _sp.STATUS_REPAIRED
+
+
+@pytest.mark.asyncio
+async def test_style_clean_pass_without_rules_emits_nothing(monkeypatch,
+                                                           events):
+    """Чистый проход без сработавших правил события не создаёт (как раньше):
+    иначе на каждый ход появлялся бы шум без информации."""
+    from services import mca_gates
+    monkeypatch.setattr(mca_gates, "speech_style_policy_enabled",
+                        lambda: True)
+    outcome = await _sp.apply_style_policy(
+        "привет - как дела", chat_id=CHAT_ID, policy=_dash_policy(),
+        context="regular", emit_events=True, stage="direct_pre_send",
+        correlation_id="cid-clean", record=False)
+
+    assert outcome.styled is True
+    assert outcome.repaired == 0 and not outcome.repetition
+    assert _sp.fired_rules(outcome) == []
+    assert [e.get("event_name") for e in events] == []
+
+
+def _max_rules_outcome(count: int) -> "_sp.StyleOutcome":
+    """Исход с МАКСИМАЛЬНЫМ числом сработавших правил (12 = потолок)."""
+    results = [
+        _sp.RuleOutcome(
+            rule_id="owner.rule_%02d_long_identifier" % i,
+            kind="line_breaks", status=_sp.STATUS_REPAIRED,
+            reason="blank_line_runs_collapsed", source="global")
+        for i in range(count)]
+    return _sp.StyleOutcome(
+        text="текст", context="regular", applied=True,
+        policy_revision="2026.11.11", policy_source="chat",
+        results=results,
+        repetition=tuple({"phrase_id": "p%d" % i, "count": 3}
+                         for i in range(6)),
+        extent=None, repair_used=1, elapsed_ms=12.5)
+
+
+def test_style_event_payload_survives_storage_truncation(events):
+    """БЛОКЕР 2: payload события укладывается в лимит хранилища, поэтому
+    `sanitize(json.dumps(...))[:2000]` НЕ режет его и JSON остаётся валидным.
+
+    Проверяется ровно то, что делает хранилище: `mca_events.build_event`
+    сериализует `usage_json` с обрезкой на 2000 символах."""
+    from services import mca_events
+
+    # (A) максимальный исход: 12 сработавших правил + повторы
+    outcome = _max_rules_outcome(_sp.STYLE_RULES_MAX)
+    _sp._emit_style_event(outcome, chat_id=CHAT_ID, stage="direct_pre_send",
+                          correlation_id="cid-max")
+    payload = dict(_event(events, "style_policy").get("usage_json") or {})
+
+    size = len(json.dumps(payload, ensure_ascii=False))
+    assert size <= 1900, "payload события обязан укладываться в 1900 символов"
+    assert payload.get("rules"), "правила обязаны остаться в payload"
+    assert len(payload["rules"]) <= _sp.STYLE_RULES_MAX
+    assert all(row.get("rule_id") for row in payload["rules"])
+    assert payload.get("truncated") is True, \
+        "сокращение ради лимита обязано быть видно"
+
+    # та же обрезка, что делает хранилище → строка остаётся JSON
+    event = mca_events.build_event("style_policy", outcome="success",
+                                   usage_json=payload)
+    assert event is not None and event.get("usage_json")
+    restored = json.loads(event["usage_json"])
+    assert isinstance(restored, dict)
+    assert restored.get("rules"), "правила обязаны выжить обрезку хранилища"
+
+    # (B) небольшой исход правил влезает ЦЕЛИКОМ и не помечается усечённым
+    small = _max_rules_outcome(3)
+    _sp._emit_style_event(small, chat_id=CHAT_ID, stage="direct_pre_send",
+                          correlation_id="cid-small")
+    small_payload = _payload_of(events, "style_policy", "cid-small")
+    assert len(small_payload["rules"]) == 3
+    assert "truncated" not in small_payload
+
+
+def test_bounded_style_payload_keeps_machine_scalars_when_extreme():
+    """Крайний случай: даже огромный payload остаётся разбираемым JSON."""
+    payload = {"applied": True, "context": "regular",
+               "rules": [{"rule_id": "r%d" % i, "kind": "dash",
+                          "status": "repaired", "reason": "x" * 48,
+                          "source": "global"} for i in range(200)],
+               "notes": ["n" * 200] * 50}
+    bounded = _sp.bounded_style_payload(payload)
+    assert len(json.dumps(bounded, ensure_ascii=False)) <= 1900
+    assert bounded.get("applied") is True
+    assert isinstance(json.loads(json.dumps(bounded)), dict)
 
 
 @pytest.mark.asyncio
