@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-10T03:30:36+12:00",
+  "updated": "2026-11-11T01:29:29+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -2793,6 +2793,18 @@
       "recorded_in": "",
       "origin": "root chat 2026-11-10",
       "received": "2026-11-10"
+    },
+    {
+      "id": "OI-2026-11-11-VMQ-TIME-FREEZE",
+      "source_path": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md",
+      "source_sha256": "95E5C7A13F3CBB1273EF4EDD782FEA980E169371C5D67EF9BE9A69EFFB9CA056",
+      "kind": "amendment",
+      "target_task_ids": [
+        "vmq-onto-01",
+        "unified-reply"
+      ],
+      "reconciled": false,
+      "note": "Owner freezes the VMQ-TIME candidate and forbids per-example patching: the slice must be judged by an independent review on a diverse set of real historical questions including events never used while developing; temporal diversity must not replace semantic relevance; the suffix-table stemming is provisional recall support and must not grow dictionaries or hand rules; the architect must re-check whether semantic recall over old periods is really impossible in the existing architecture (combined retrieval, timestamp metadata) without embedding rebuild or a new pipeline; new problems are recorded in existing tasks instead of expanding this slice; the inspector slice and the web-source-date defect are independent works with their own DONE criteria; no new human gates or owner checks. VMQ-MEM 2.58.180 stays released and must not be mixed with VMQ-TIME, the inspector or search defects."
     }
   ],
   "source_inventory": {
