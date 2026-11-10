@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T01:46:49+12:00",
+  "updated": "2026-11-11T02:54:53+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -593,6 +593,22 @@
       ],
       "coverage_complete": true,
       "source_note": "ПОРТ master 571a5737 (id в master был `evol-reply-context-integrity-01`). Здесь id занят 285-строчным эпиком EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (plans/features/evol-reply-context-integrity-01/), поэтому срез RCI-01..05 зарегистрирован отдельным id. Привязку итогового id и учёт строк решает Orchestrator/PM. | Production Reply→FactCheck context-loss. Карта plans/features/evol-reply-context-integrity/requirements-map.json (5 строк, plan-gate errors=0). Кодовая потеря в ambiguity-ветке независимо подтверждена на HEAD 8bb2800f; реальные Telegram ID/трасса продакшена остаются PENDING_EXTERNAL. | Renamed from a near-collision with the pre-existing epic task `evol-reply-context-integrity-01` (285 rows, different deliverable)."
+    },
+    {
+      "id": "fc-trust-01",
+      "ticket": "FC-TRUST-01",
+      "title": "Достоверный фактчек: семантический поиск, доказательства, вердикт и публикация",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-11-fc-trust-01-current-task-excerpt.md",
+      "source_sha256": "7E25F03E5DAC117659643144BDA18CA5E4984E781583142952C6B311E401F041",
+      "maps": [],
+      "coverage_complete": false,
+      "queue_position": "after:vmq-onto-01+self-diag-01",
+      "blocked_by": [
+        "vmq-onto-01",
+        "self-diag-01"
+      ],
+      "source_note": "Registered 2026-11-11 from the owner's appended section (current_task.md lines 10750-11043). Requires a PM requirements map and an explicit reuse analysis of PVR-FC-CORRECTIVE-01, FCP-01..07, ASAP-FC and EVOL before any implementation; prerequisite verification of HEAD, deployed SHA, active settings and existing artefacts is part of the first execution step, not an audit phase."
     }
   ],
   "owner_inputs": [
@@ -2830,6 +2846,17 @@
           ]
         }
       ]
+    },
+    {
+      "id": "OI-2026-11-11-FC-TRUST-01",
+      "source_path": "plans/owner_inputs/2026-11-11-fc-trust-01-current-task-excerpt.md",
+      "source_sha256": "7E25F03E5DAC117659643144BDA18CA5E4984E781583142952C6B311E401F041",
+      "kind": "new_task",
+      "target_task_ids": [
+        "fc-trust-01"
+      ],
+      "reconciled": false,
+      "note": "Owner appended FC-TRUST-01 to current_task.md at line 10750 and requires it registered in the durable queue strictly after BOTH the quantum-randomness epic (VMQ-ONTO-01 / QAN-01) and the extended self-diagnostics epic (SELF-DIAG-01), without interrupting started work or wedging new initiatives between them. Execution prerequisite from the source: verify actual HEAD, worktrees, local current_task, active settings and deployed SHA; reuse PVR-FC, FCP-01..07, ASAP-FC and EVOL artefacts instead of duplicating them; forbidden: a second FactCheck, an editor agent, a parallel SearchAggregator, new subagents, a new common LLM pipeline, OpenSpec/GitHub-as-queue, embedding rebuild, mass memory/prompt cleanup. Deliverable is a full product fix with independent review and real E2E, not an audit; user settings and prompts preserved; no extra human gates or owner live checks."
     }
   ],
   "source_inventory": {
