@@ -2733,6 +2733,35 @@
           ]
         }
       ]
+    },
+    {
+      "id": "OI-2026-11-10-MEMORY-MULTI-YEAR-COVERAGE",
+      "source_path": "plans/owner_inputs/2026-11-10-memory-multi-year-coverage.md",
+      "source_sha256": "DE96B2006625BA20186B6B50D842349CB09AF1D06EE7AFA8A6BFE0700CB6F9E4",
+      "kind": "new_task",
+      "target_task_ids": [
+        "vmq-onto-01"
+      ],
+      "reconciled": true,
+      "coverage_refs": [
+        {
+          "task_id": "vmq-onto-01",
+          "map": "plans/features/vmq-onto-01/requirements-map.json",
+          "req_ids": [
+            "VMQ-TIME-01",
+            "VMQ-TIME-02",
+            "VMQ-TIME-03",
+            "VMQ-TIME-04",
+            "VMQ-TIME-05",
+            "VMQ-TIME-06",
+            "VMQ-TIME-07"
+          ]
+        }
+      ],
+      "note": "Owner requires the whole multi-year history to be usable, with old messages retrieved by semantic relevance and without an artificial recency preference for history or person questions; root cause must be established across sources, time filters, ranking, participant profiles and context assembly before any fix; no new memory system and no embedding rebuild; year-less person questions must be able to surface 2023-2024 material when relevant. Registered as the VMQ-MEM-TIME slice with rows VMQ-TIME-01..07, which depend on the retrieval-fix slice but do not block its review or deployment.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-10",
+      "received": "2026-11-10"
     }
   ],
   "source_inventory": {

@@ -2,10 +2,10 @@
   "schema": "openworkflow-slices-v1",
   "epic": "VMQ-ONTO-01",
   "created": "2026-11-09",
-  "queue_position": "VMQ-ONTO-01 стоит одним новым эпиком в конце исходной очереди (ТЗ §16.1-16.2). VMQ-V (voice P0 corrective) допускается раньше остальных слайсов эпика только при отсутствии Builder, правящего те же файлы; перестановка очереди фиксируется PM с причиной.",
+  "queue_position": "VMQ-ONTO-01 стоит одним новым эпиком в конце исходной очереди (ТЗ §16.1-16.2). VMQ-V (voice P0 corrective) допускается раньше остальных слайсов эпика только при отсутствии Builder, правящего те же файлы; перестановка очереди фиксируется PM с причиной. 10.11.2026 в граф добавлен обязательный дефект VMQ-MEM-TIME (вопросы без года не достигают истории 2023-2024): он не переставляет очередь и не блокирует ревью/выкатку retrieval-фиксов VMQ-MEM (кандидат 7bc8545a), а лишь добавляет обязательный узел после них и в приёмку VMQ-R.",
   "lanes": {
     "L1": "foundation: VMQ-A (done by Architect) -> VMQ-V -> VMQ-ONTO-A -> VMQ-ONTO-B",
-    "L2": "memory: VMQ-M1 -> VMQ-M2 (ONTO-C/D внутри одного unified retrieval) -> VMQ-MEM (сравнительная приёмка многолетней памяти по пяти формулировкам)",
+    "L2": "memory: VMQ-M1 -> VMQ-M2 (ONTO-C/D внутри одного unified retrieval) -> VMQ-MEM (сравнительная приёмка многолетней памяти по пяти формулировкам) -> VMQ-MEM-TIME (обязательный дефект временнóго охвата: сначала измерение и подтверждённая первопричина, потом исправление)",
     "L3": "quantum: VMQ-Q0 -> VMQ-Q0-IBM (изолированные файлы RandomSource/IBM)",
     "join": "VMQ-Q1 (нужны VMQ-M2 + VMQ-Q0-IBM) -> VMQ-O -> VMQ-U -> VMQ-R"
   },
@@ -15,7 +15,8 @@
     "services/direct_context_composer.py — VMQ-V, затем VMQ-M2 (зависимость M2->V)",
     "web/app.js, web/index.html, handlers/web.py — VMQ-Q0 (настройки провайдеров), затем VMQ-U (Статус/Аналитика)",
     "services/mca_dream_random.py — VMQ-Q0, затем VMQ-Q1",
-    "plans/features/vmq-onto-01/* — VMQ-A владеет map/graph/plan/audit-head, VMQ-R владеет evidence/ и reports/"
+    "plans/features/vmq-onto-01/* — VMQ-A владеет map/graph/plan/audit-head, VMQ-R владеет evidence/ и reports/",
+    "plans/features/vmq-onto-01/evidence/vmq-mem/time/ — только VMQ-MEM-TIME (реестр дефекта, по-блочная видимость годов, повторное измерение); VMQ-MEM пишет в evidence/vmq-mem/ вне вложенного time/, файлы исправления переходят в write_scope VMQ-MEM-TIME только после подтверждённой первопричины"
   ],
   "external_blockers": [
     {
@@ -149,6 +150,23 @@
       "note": "Правки в services/direct_context_composer.py не входят в write_scope: если дефект паритета лежит в композере, исправление возвращается в VMQ-M2 (её файл и её владелец), а VMQ-MEM только измеряет. Живой дефект владельца от 10.11.2026 (связный творческий рассказ при случайных фактах на обычных вопросах) записан в строках VMQ-MEM-01..04 как live_defect и не считается снятым до измерения."
     },
     {
+      "id": "VMQ-MEM-TIME",
+      "title": "Обязательный дефект временнóго охвата: вопросы без года должны достигать истории 2023-2024",
+      "owner_role": "Architect (первопричина годового смещения) + Builder (исправление существующего механизма) + Reviewer (независимое повторное измерение на реальном обезличенном архиве)",
+      "depends_on": ["VMQ-MEM"],
+      "write_scope": [
+        "plans/features/vmq-onto-01/evidence/vmq-mem/time/",
+        "plans/features/vmq-onto-01/evidence/vmq-mem/year-bias-root-cause.md",
+        "plans/features/vmq-onto-01/evidence/vmq-mem/time-scope-remeasurement.md"
+      ],
+      "requirements": ["VMQ-TIME-01", "VMQ-TIME-02", "VMQ-TIME-03", "VMQ-TIME-04", "VMQ-TIME-05", "VMQ-TIME-06", "VMQ-TIME-07"],
+      "acceptance": "На реальном архиве 2 067 222 сообщений (2022-2026) вопрос о человеке и вопрос о событии БЕЗ указания года приводят в материал Writer подтверждённые источники 2023 или 2024 года там, где они релевантны; по каждому блоку видно, какие годы дошли, выдуманные связи и релевантность не хуже базового измерения 2.58.179, embeddings не перестроены и новая система памяти не появилась.",
+      "risk": "R2",
+      "next_role": "Architect",
+      "coherence": "Один наблюдаемый исход — многолетний охват на вопросе без года при существующем механизме; измерение, первопричина, исправление и повторное измерение относятся к одному дефекту и одному маршруту retrieve().",
+      "note": "Зависимость односторонняя и НЕ блокирует P0-корректив: ревью и выкатка retrieval-фиксов (кандидат 7bc8545a в VMQ-MEM) идут своим порядком, а VMQ-TIME не входит в их приёмку. До подтверждённой первопричины (year-bias-root-cause.md) по слайсу разрешены ТОЛЬКО измерение и анализ: write_scope кода намеренно пуст, файлы исправления добавляются в этот же узел после годного root cause и остаются сериализованы за VMQ-MEM. Родительская приёмка VMQ-R зависит и от VMQ-MEM, и от VMQ-MEM-TIME: многолетняя память не считается принятой при открытом дефекте временнóго охвата."
+    },
+    {
       "id": "VMQ-Q0",
       "title": "RandomSource core: 4-provider registry, settings/secrets, live apply, health, QAN field",
       "owner_role": "Builder + Architect (политика/лимиты)",
@@ -247,7 +265,7 @@
       "id": "VMQ-R",
       "title": "Release gate: default-ON effective, baseline vs new, DevOps evidence, PM reconciliation",
       "owner_role": "Reviewer + DevOps + PM",
-      "depends_on": ["VMQ-V", "VMQ-M2", "VMQ-MEM", "VMQ-Q1", "VMQ-O", "VMQ-U"],
+      "depends_on": ["VMQ-V", "VMQ-M2", "VMQ-MEM", "VMQ-MEM-TIME", "VMQ-Q1", "VMQ-O", "VMQ-U"],
       "write_scope": [
         "plans/features/vmq-onto-01/evidence/",
         "plans/features/vmq-onto-01/reports/"
