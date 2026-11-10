@@ -1,0 +1,329 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "web-search-quality-01",
+  "source_map": "requirements-map.json",
+  "queue_position": "строго сразу после полного завершения, ревью и production-деплоя fc-trust-01; позиции других эпиков не меняются",
+  "upstream_gates": [
+    {
+      "id": "FC-TRUST-01-PRODUCTION-DEPLOY",
+      "requires": "не только завершение и независимое ревью fc-trust-01, но и подтверждённый production-деплой: deployed SHA и живой прод-статус (release-запись fc-trust-01), т.е. принятый канон уже работает в проде",
+      "blocks": [
+        "WQ-S0-AUDIT",
+        "WQ-S1-PROVIDERS",
+        "WQ-S2-HITS-MERGE",
+        "WQ-S3-STRATEGY",
+        "WQ-S4-READ",
+        "WQ-S5-CONTRACT-MEMORY",
+        "WQ-S6-LIMITS",
+        "WQ-S7-ADMIN-API",
+        "WQ-S8-UI-WORKSPACE",
+        "WQ-S9-UI-PROMPT",
+        "WQ-S10-UI-ACCEPT",
+        "WQ-S11-BENCH",
+        "WQ-S12-RELEASE"
+      ],
+      "why_not_depends_on": "внешняя зависимость от другого эпика не является узлом этого графа: depends_on ссылается только на срезы эпика. Блокировка зафиксирована здесь и в external_depends_on у WQ-S0-AUDIT, чтобы runtime-аудит нельзя было начать по одному лишь статусу «завершено/отревьюено»",
+      "evidence": "deployed SHA fc-trust-01 + ссылка на его release/приёмочный артефакт в plans/features/fc-trust-01/**; без этого WQ-S0-AUDIT не стартует"
+    }
+  ],
+  "search_types_freeze": {
+    "id": "SEARCH-TYPES-FREEZE",
+    "before": ["WQ-S1-PROVIDERS", "WQ-S2-HITS-MERGE"],
+    "order": "обязательный шаг заморозки ДО параллельного старта двух писателей: SEARCH-TYPES-FREEZE → (WQ-S1-PROVIDERS ∥ WQ-S2-HITS-MERGE)",
+    "owner": "Architect",
+    "frozen_artifact": "services/search_hits.py — общий тип SearchHit/SearchBatch и его поля/инварианты (hit_id, seen_via, index_identity, independence_known, document_cluster_id, syndication_state, epistemic_state)",
+    "exit": "тип зафиксирован в architecture.md/карте до первой строки адаптеров и merge-кода; после заморозки WQ-S1 и WQ-S2 не меняют общие поля, только свои модули и тесты",
+    "not_general_parallel_claim": "параллельность WQ-S1 ∥ WQ-S2 не является безусловной: она разрешена только после этой заморозки и не распространяется на другие пары срезов",
+    "if_freeze_missing": "WQ-S1 и WQ-S2 исполняются последовательно (S0 → S1 → S2), параллельного старта нет"
+  },
+  "execution_order": [
+    "WQ-S0-AUDIT",
+    "SEARCH-TYPES-FREEZE (Architect) → WQ-S1-PROVIDERS || WQ-S2-HITS-MERGE",
+    "WQ-S3-STRATEGY",
+    "WQ-S4-READ || WQ-S6-LIMITS",
+    "WQ-S5-CONTRACT-MEMORY",
+    "WQ-S7-ADMIN-API",
+    "WQ-S8-UI-WORKSPACE",
+    "WQ-S9-UI-PROMPT",
+    "WQ-S10-UI-ACCEPT",
+    "WQ-S11-BENCH",
+    "WQ-S12-RELEASE"
+  ],
+  "refinement_gate": {
+    "id": "FC-TRUST-01-REFINEMENT-GATE",
+    "after": "подтверждённый production-деплой fc-trust-01",
+    "blocks": ["WQ-S1-PROVIDERS", "WQ-S2-HITS-MERGE", "WQ-S3-STRATEGY", "WQ-S7-ADMIN-API"],
+    "does_not_block": ["WQ-S0-AUDIT"],
+    "does_not_block_note": "WQ-S0-AUDIT не ждёт гейта уточнения, но сам блокируется production-деплоем fc-trust-01 (upstream_gates); запускать аудит до деплоя нельзя",
+    "single_pass": "одна сверка с принятым каноном покрывает все пять пунктов refine ниже (evidence-модель, truth/verdict + coverage, UR-SRC-DATE, UR-20.x inspector trace, пределы retrieval/бюджета фактчека); это не исследовательский цикл и не пять отдельных проходов",
+    "refine": [
+      "evidence-модель и границы Candidate/Evidence/Verdict basis (FCT-120..122)",
+      "truth/verdict status, coverage и execution_status (FCT-601..604)",
+      "контракт дат источника UR-SRC-DATE (FCT-502, FCT-168)",
+      "трасса inspector claim → query → candidate → passage → evidence → verdict → writer (FCT-902/903, UR-20.7)",
+      "пределы retrieval/бюджета фактчека после FC (FCT-302/303/306)"
+    ],
+    "exit": "обновлённые acceptance затронутых строк и список уточнённых полей со ссылками на принятые артефакты fc-trust-01"
+  },
+  "shared_file_arbitration": [
+    {
+      "file": "web/app.js, web/index.html, web/static/app.css",
+      "with": "mod-acl-ux-01 (M4A/M5A) и evol ASAP-UI-02",
+      "rule": "внутри этого эпика файл имеет ровно одного писателя на волну (WQ-S8 → WQ-S9 последовательно). С внешним эпиком — только через существующий интеграционный порядок: кто первым вошёл в общий shell, тот и owner файла; второй перебазирует свой search-specific фрагмент. Дублировать общий дизайн запрещено (WQ-D16)."
+    },
+    {
+      "file": "services/search_aggregator.py",
+      "with": "fc-trust-01 (FCT-S3-RETRIEVAL) и pvr-fc-corrective-01 (FC-02)",
+      "rule": "fc-trust-01 завершается и деплоится до старта эпика; повторное открытие этого файла внутри эпика — только WQ-S3 после WQ-S1/WQ-S2."
+    },
+    {
+      "file": "services/tool_router.py",
+      "with": "unified-reply (UR-B/UR-20), fc-trust-01",
+      "rule": "единственный писатель в этом эпике — WQ-S4-READ; контрактная часть fetch/tool не переписывается, только расширяется."
+    },
+    {
+      "file": "services/param_catalog.py, web/api/routes.py",
+      "with": "mod-acl-ux-01 (M4C параметры/ACL), self-diag-01",
+      "rule": "единственный писатель — WQ-S7-ADMIN-API; регистрация поисковых параметров и владельцев идёт в существующий реестр."
+    }
+  ],
+  "slices": [
+    {
+      "id": "WQ-S0-AUDIT",
+      "title": "Read-only аудит, baseline и матрица пересечений",
+      "depends_on": [],
+      "external_depends_on": [
+        "fc-trust-01: полное завершение + независимое ревью + ПОДТВЕРЖДЁННЫЙ production-деплой (deployed SHA, живой прод) — см. upstream_gates:FC-TRUST-01-PRODUCTION-DEPLOY"
+      ],
+      "write_scope": [
+        "plans/features/web-search-quality-01/analysis/**",
+        "tools/search_audit_probe.py",
+        "tests/fixtures/web_search_quality/**"
+      ],
+      "acceptance": "Аудит начат только после подтверждённого production-деплоя fc-trust-01 (deployed SHA зафиксирован в analysis) и ведётся по задеплоенному канону, а не по предрелизному коду: есть таблица реальных вызовов по всем маршрутам, baseline effective/persisted/factory для поисковых параметров и промпта, матрица «уже выполнено/частично/нет/конфликт» по MOD-ACL-UX-01 и ASAP-UI-02, статус каждой находки §2 (подтверждена/опровергнута) и подтверждение, что продукт-код не менялся.",
+      "parallel_safe_with": [],
+      "joins": ["WQ-S1-PROVIDERS", "WQ-S2-HITS-MERGE", "WQ-S3-STRATEGY"],
+      "risk": "R1",
+      "next_role": "Auditor/PM",
+      "why_one_slice": "Один результат: доказательная база перед изменениями; без неё невозможно отличить дефект от предположения."
+    },
+    {
+      "id": "WQ-S1-PROVIDERS",
+      "title": "Провайдер-адаптеры, keyless-capability и реестр ключей",
+      "depends_on": ["WQ-S0-AUDIT"],
+      "write_scope": [
+        "services/search_providers/**",
+        "services/capability_registry.py",
+        "requirements.txt",
+        "tests/test_search_providers.py"
+      ],
+      "acceptance": "Каждый адаптер (LangSearch, Diffbot, You.com free MCP, DDGS, опционально Parallel/Firecrawl keyless) возвращает нормализованный SearchHit и проходит тесты 401/403/429/timeout/empty/partial; web_search в capability доступен без Tavily/Exa; отсутствие ключа даёт not_configured только этому провайдеру; ни один платный endpoint не вызывается; реестр ключей и запрещённые источники зафиксированы.",
+      "parallel_safe_with": ["WQ-S2-HITS-MERGE"],
+      "parallel_requires": "SEARCH-TYPES-FREEZE (общий тип SearchHit/SearchBatch заморожен до старта; без заморозки — только последовательно после WQ-S2)",
+      "ordering_constraint": "WQ-S1 ∥ WQ-S2 разрешено ТОЛЬКО после шага SEARCH-TYPES-FREEZE (см. search_types_freeze); безусловной параллельности нет",
+      "joins": ["WQ-S3-STRATEGY"],
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Один проверяемый результат: набор free/keyless адаптеров с честными статусами. Сборка каскада и стратегия — отдельный срез."
+    },
+    {
+      "id": "WQ-S2-HITS-MERGE",
+      "title": "SearchHit/SearchBatch, канонизация, объединение и rerank по ID",
+      "depends_on": ["WQ-S0-AUDIT"],
+      "write_scope": [
+        "services/search_hits.py",
+        "services/search_ranking.py",
+        "services/search_service.py",
+        "tests/test_search_merge.py"
+      ],
+      "acceptance": "SearchHit/SearchBatch со всеми полями и стабильными id; канонизация URL проходит тесты на UTM/редиректы/якоря/агрегаторы и не сливает разные документы; объединение разных провайдеров даёт один ранжированный набор без мнимой независимости; rerank меняет только порядок/скоры по ID; legacy max_symbols не режет добычу и дедупликацию.",
+      "parallel_safe_with": ["WQ-S1-PROVIDERS"],
+      "parallel_requires": "SEARCH-TYPES-FREEZE (этот срез фиксирует общий тип и служит точкой заморозки; адаптеры WQ-S1 стартуют параллельно только после неё)",
+      "ordering_constraint": "WQ-S1 ∥ WQ-S2 разрешено ТОЛЬКО после шага SEARCH-TYPES-FREEZE (см. search_types_freeze); безусловной параллельности нет",
+      "joins": ["WQ-S3-STRATEGY"],
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Один результат: нормализованный и честно объединённый набор кандидатов как контракт для всех маршрутов."
+    },
+    {
+      "id": "WQ-S3-STRATEGY",
+      "title": "Единый каскад, стратегия запроса и политика продолжения/остановки",
+      "depends_on": ["WQ-S1-PROVIDERS", "WQ-S2-HITS-MERGE"],
+      "write_scope": [
+        "services/search_aggregator.py",
+        "services/search_strategy.py",
+        "services/direct_execution.py",
+        "services/direct_chat_service.py",
+        "services/factcheck_service.py",
+        "services/factcheck_planner.py",
+        "services/factcheck_orchestrator.py",
+        "services/temporal_factcheck.py",
+        "tests/test_search_cascade.py",
+        "tests/test_search_strategy.py"
+      ],
+      "factcheck_call_sites": [
+        "services/factcheck_service.py:445 — aggregator.search(target_text, max_symbols) в check_claim",
+        "services/factcheck_service.py:776-780 — aggregator.search_relevant / aggregator.search(q, 2500) при доборе доказательств",
+        "services/factcheck_planner.py:603 — aggregator.search(query.text, query.max_symbols) по сгенерированным запросам",
+        "services/factcheck_orchestrator.py:55 и services/temporal_factcheck.py:51 — импорт/потребители search_aggregator (AllSearchEnginesFailedException, classify_source_kind), которые обязаны остаться совместимы после перевода на typed API"
+      ],
+      "acceptance": "Один SearchAggregator использует адаптеры и SearchHit, не делает ранний возврат и показывает в трассе выбранные индексы и причину остановки; ключ из админки применяется без рестарта; реальные 429/Retry-After/timeout/circuit breaker соблюдены, искусственных квот нет; keyless-путь работает при пустых Tavily/Exa; второй поиск разрешён по обоснованию и уточняющий запрос находит первоисточник; стратегия выбирает индексы по классу вопроса; запрет пользователя и SafeFetch соблюдены; Initiative формулирует публичный запрос; ФАКТЧЕК переведён на тот же typed-результат в перечисленных фактических точках (factcheck_service.py:445 и 776-780, factcheck_planner.py:603) при сохранении его канона FC-TRUST-01, а не остаётся на старом text-wrapper; совместимость factcheck_orchestrator.py / temporal_factcheck.py проверена.",
+      "parallel_safe_with": [],
+      "joins": ["WQ-S4-READ", "WQ-S5-CONTRACT-MEMORY", "WQ-S6-LIMITS"],
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Каскад и политика продолжения — один исполняемый механизм: нельзя отдельно проверить «какие индексы выбраны» без фактического вызова и решения об остановке."
+    },
+    {
+      "id": "WQ-S4-READ",
+      "title": "Чтение первоисточников, уровни прочтения и fallback-экстракторы",
+      "depends_on": ["WQ-S2-HITS-MERGE", "WQ-S3-STRATEGY"],
+      "write_scope": [
+        "services/tool_router.py",
+        "services/search_read.py",
+        "services/safe_fetch.py",
+        "services/web_content_extractor.py",
+        "tests/test_search_read.py"
+      ],
+      "acceptance": "Выбор перспективных URL и чтение идут существующим путём с source pointers и секциями; fallback (Jina keyless, Firecrawl keyless, Parallel web_fetch) не обходит SafeFetch и provenance; уровни fetched/parsed/selected/snippet_only/failed и объём прочитанного фиксируются; даты публикации/события/индекса/запроса/обнаружения разделены; копии и зеркала не считаются независимыми источниками.",
+      "parallel_safe_with": ["WQ-S6-LIMITS"],
+      "joins": ["WQ-S5-CONTRACT-MEMORY", "WQ-S12-RELEASE"],
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Один результат: «страница реально прочитана» с честным уровнем и датой, на что опираются и L2, и бенчмарк."
+    },
+    {
+      "id": "WQ-S5-CONTRACT-MEMORY",
+      "title": "Единый результат, reuse источников и граница «выдача / источник / факт»",
+      "depends_on": ["WQ-S2-HITS-MERGE", "WQ-S4-READ"],
+      "write_scope": [
+        "services/summary_memory.py",
+        "services/search_memory.py",
+        "services/search_service.py",
+        "tests/test_search_contract.py"
+      ],
+      "acceptance": "Direct/Initiative/SmartSearch/FactCheck получают один типизированный результат и совместимый evidence pack (тест сравнения research() и execute_web_search на одном запросе); reuse возвращает только прочитанные свежие источники; search_fact не позволяет сниппету стать фактом о чате; финальный ответ пишет общий L2 без перефразирования и с честными ограничениями; сохранённые промпты не сброшены.",
+      "parallel_safe_with": ["WQ-S6-LIMITS"],
+      "joins": ["WQ-S7-ADMIN-API", "WQ-S11-BENCH"],
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Один результат: одинаковый смысл источника во всех маршрутах и в памяти; иначе исправления разъезжаются по потребителям."
+    },
+    {
+      "id": "WQ-S6-LIMITS",
+      "title": "Лимиты: семантика, адаптивные заводские режимы и миграция значений",
+      "depends_on": ["WQ-S3-STRATEGY"],
+      "write_scope": [
+        "services/search_limits.py",
+        "services/auto_budget.py",
+        "handlers/search.py",
+        "config/settings.py",
+        "tests/test_search_limits.py"
+      ],
+      "acceptance": "8000/300/6 имеют доказанные scope и provenance (factory/env/global/chat); заводские режимы становятся адаптивными (подробность, пауза, контекст, кандидаты, ёмкость, дедлайн); сохранённые значения и overrides не перезаписаны; Auto/own/none понимаются одинаково UI и backend; SmartSearch-настройки не влияют на Direct/Initiative; изменённые defaults не разрешают платные вызовы.",
+      "parallel_safe_with": ["WQ-S4-READ", "WQ-S5-CONTRACT-MEMORY", "WQ-S11-BENCH"],
+      "joins": ["WQ-S7-ADMIN-API"],
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Один результат: честная модель ограничений и её миграция; разнесение по полям без общей модели снова дало бы «мёртвые» тумблеры."
+    },
+    {
+      "id": "WQ-S7-ADMIN-API",
+      "title": "Серверная часть модуля «Поиск»: владельцы, probe, трасса, телеметрия",
+      "depends_on": ["WQ-S3-STRATEGY", "WQ-S5-CONTRACT-MEMORY", "WQ-S6-LIMITS"],
+      "write_scope": [
+        "services/search_admin.py",
+        "web/api/search_admin.py",
+        "services/param_catalog.py",
+        "web/api/routes.py",
+        "tests/test_search_admin.py"
+      ],
+      "acceptance": "Поисковые ключи зарегистрированы как собственность модуля «Поиск» с masked-контрактом и probe именно выбранного провайдера; сохранение применяется в runtime без рестарта или честно сообщает об обратном; трасса и телеметрия используют существующие tool_trace/Inspector/mca-events без второй БД; секреты и приватные тексты не попадают в ответы и метрики.",
+      "parallel_safe_with": [],
+      "joins": ["WQ-S8-UI-WORKSPACE"],
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Один результат: серверный контракт, на который опирается весь новый UI; без него экраны показывали бы фиктивные данные."
+    },
+    {
+      "id": "WQ-S8-UI-WORKSPACE",
+      "title": "Рабочее пространство «Модули → Поиск»: пять содержательных экранов",
+      "depends_on": ["WQ-S7-ADMIN-API"],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "web/static/search_module.css"
+      ],
+      "acceptance": "Экраны «Обзор», «Поисковики», «Стратегия и качество», «Контекст и ограничения», «Тестирование» показывают реальные данные и состояния loading/error/empty/partial; поисковые ключи доступны только здесь, промпт открывается кнопкой в библиотеку, master-switch остаётся в каталоге; deep-link ведут в реальные поля; desktop — две колонки, мобильно одна без horizontal overflow; тексты помощи соответствуют новой семантике.",
+      "parallel_safe_with": ["WQ-S11-BENCH"],
+      "joins": ["WQ-S9-UI-PROMPT", "WQ-S10-UI-ACCEPT"],
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Один результат: целостная рабочая страница модуля; пять экранов — части одной информационной архитектуры и одного файла-писателя."
+    },
+    {
+      "id": "WQ-S9-UI-PROMPT",
+      "title": "Промпт только в библиотеке: кнопка, фокус, роль, отсутствие второго редактора",
+      "depends_on": ["WQ-S8-UI-WORKSPACE"],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css"
+      ],
+      "acceptance": "Кнопка из модуля открывает #/ai/prompts/search с фокусом на prompts.search_system_prompt в актуальном редакторе, возврат сохраняет чат и место; старый #/modules/search/prompts перенаправляет адресно; второго редактора и дублей «поиска по параметрам» нет; ключ, текст, factory/active версии и история не изменены.",
+      "parallel_safe_with": [],
+      "joins": ["WQ-S10-UI-ACCEPT"],
+      "risk": "R1",
+      "next_role": "Builder",
+      "why_one_slice": "Один результат: навигационный перенос промпта без изменения содержания; требует того же файла, что WQ-S8, поэтому последователен."
+    },
+    {
+      "id": "WQ-S10-UI-ACCEPT",
+      "title": "Живая визуальная и функциональная приёмка desktop + Mini App",
+      "depends_on": ["WQ-S8-UI-WORKSPACE", "WQ-S9-UI-PROMPT"],
+      "write_scope": [
+        "tests/ui/**",
+        "plans/features/web-search-quality-01/evidence/**",
+        "tools/search_ui_probe.py"
+      ],
+      "acceptance": "Все восемь сценариев W6.9 подтверждены живыми скриншотами до/после и интеракциями: обзор, ключи Tavily/Exa без копии в «Моделях», промпт в библиотеке, честные 8000/300/6, живая стратегия и rerank по IDs, реальный тест с разными статусами ошибок, узкий Android и широкий desktop, разные роли/чаты, keyboard/focus, legacy deep-link, GLOBAL→CHAT и сохранение настроек.",
+      "parallel_safe_with": ["WQ-S11-BENCH"],
+      "joins": ["WQ-S12-RELEASE"],
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "why_one_slice": "Один результат: независимое доказательство, что UI работает для человека и для обещанных маршрутов, а не только отрисован."
+    },
+    {
+      "id": "WQ-S11-BENCH",
+      "title": "Независимый benchmark, метрики и мутационные проверки",
+      "depends_on": ["WQ-S3-STRATEGY", "WQ-S5-CONTRACT-MEMORY"],
+      "write_scope": [
+        "tests/benchmarks/**",
+        "tools/search_benchmark.py",
+        "plans/features/web-search-quality-01/bench/**"
+      ],
+      "acceptance": "Обезличенный набор кейсов покрывает все обязательные классы; метрики считаются по маршрутам и типам вопроса на одной выборке old vs new; мутационные тесты адресно ловят поломку независимости индекса, даты, source_id, fetch, второго шага и keyless; contract tests реальных API не тратят деньги; стоимость $0 подтверждена.",
+      "parallel_safe_with": ["WQ-S6-LIMITS", "WQ-S8-UI-WORKSPACE", "WQ-S10-UI-ACCEPT"],
+      "joins": ["WQ-S12-RELEASE"],
+      "risk": "R2",
+      "next_role": "Builder/Reviewer",
+      "why_one_slice": "Один результат: измеримое доказательство улучшения конечного ответа, отдельное от UI-приёмки."
+    },
+    {
+      "id": "WQ-S12-RELEASE",
+      "title": "Интеграция, релиз, заводские значения и честный отчёт",
+      "depends_on": ["WQ-S10-UI-ACCEPT", "WQ-S11-BENCH"],
+      "write_scope": [
+        "plans/features/web-search-quality-01/release/**"
+      ],
+      "acceptance": "Интеграция прошла штатные тесты, независимое ревью и живые UI/провайдерские проверки; прод-деплой выполнен, keyless и сохранённые Tavily/Exa проверены на живом окружении; на задеплоенном кандидате подтверждено, что фактические точки вызова FactCheck (factcheck_service.py:445, :776-780, factcheck_planner.py:603) работают через тот же typed-результат, а не через старый text-wrapper; пригодные функции включены заводски без перезаписи сохранённых настроек; очередь продолжена; финальный отчёт содержит реальные дефекты и состояние $0 без owner-QA шагов.",
+      "note": "Срез не переписывает продуктовые файлы сам: найденные на интеграции дефекты возвращаются в срез-владелец файла (WQ-S1…WQ-S9), здесь фиксируются только релизные артефакты и итоговая приёмка.",
+      "parallel_safe_with": [],
+      "joins": [],
+      "risk": "R3",
+      "next_role": "DevOps",
+      "why_one_slice": "Один результат: релиз и его честная приёмка; все запреты и DoD сходятся в одной точке, иначе они не проверяемы."
+    }
+  ]
+}

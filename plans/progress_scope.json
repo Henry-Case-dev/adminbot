@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T06:38:19+12:00",
+  "updated": "2026-11-11T07:33:06+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -619,13 +619,23 @@
       "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-11-web-search-quality-01-current-task-excerpt.md",
       "source_sha256": "9CD0B44A26163B0CE4C0DE5D8F055C4042870C54DEEE572A1504F1C30C1BD963",
-      "maps": [],
-      "coverage_complete": false,
+      "maps": [
+        "plans/features/web-search-quality-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
       "queue_position": "immediately_after:fc-trust-01",
       "blocked_by": [
         "fc-trust-01"
       ],
-      "queue_note": "Registered 2026-11-11 in QUEUE-ONLY mode. Execution starts automatically only after FC-TRUST-01 is complete, reviewed and deployed; no other epic order changes and current work is not interrupted. No new keys: Tavily and Exa are already configured; $0 constraint. Requirements mapping happens at execution start, not now."
+      "queue_note": "Registered 2026-11-11 in QUEUE-ONLY mode. Execution starts automatically only after FC-TRUST-01 is complete, reviewed and deployed; no other epic order changes and current work is not interrupted. No new keys: Tavily and Exa are already configured; $0 constraint. Requirements mapping happens at execution start, not now.",
+      "preparation": {
+        "pm_map": "plans/features/web-search-quality-01/requirements-map.json",
+        "architecture": "plans/features/web-search-quality-01/architecture.md",
+        "slices": 13,
+        "mandatory_rows": 198,
+        "status": "preparation_complete_implementation_not_started",
+        "note": "Requirements mapped and architecture designed; zero rows VERIFIED, no code/settings/DB/release touched. Execution gated on FC-TRUST-01 production deployment (upstream gate) plus the single refinement cross-check after it lands."
+      }
     }
   ],
   "owner_inputs": [
@@ -2907,8 +2917,24 @@
       "target_task_ids": [
         "web-search-quality-01"
       ],
-      "reconciled": false,
-      "note": "Owner appended WEB-SEARCH-QUALITY-01 (spec v1.1) to current_task.md at line 11045 and requires it queued strictly AFTER FC-TRUST-01 completes with review and production deployment; the text position at the end of the file does not define execution order and no other epic's order may change. Queue-only mode now: no architecture, audit, code, tests, provider experiments, config changes or deploy until the queue reaches it, and no extra human gate at that point. Cost constraint $0: no cards or paid tiers; Tavily and Exa keys already configured on production must not be requested again or overwritten. Mapping into a requirements map is deliberately deferred to the execution start, so the source section stays `unreviewed` in the inventory until then."
+      "reconciled": true,
+      "note": "Owner appended WEB-SEARCH-QUALITY-01 (spec v1.1) to current_task.md at line 11045 and requires it queued strictly AFTER FC-TRUST-01 completes with review and production deployment; the text position at the end of the file does not define execution order and no other epic's order may change. Queue-only mode now: no architecture, audit, code, tests, provider experiments, config changes or deploy until the queue reaches it, and no extra human gate at that point. Cost constraint $0: no cards or paid tiers; Tavily and Exa keys already configured on production must not be requested again or overwritten. Mapping into a requirements map is deliberately deferred to the execution start, so the source section stays `unreviewed` in the inventory until then. Reconciled 2026-11-11 for the PREPARATION stage only: 267-row map with 198 mandatory rows across 13 slices, reuse analysis through 64 covered_by references across fc-trust-01, mod-acl-ux-01, evol/ASAP-UI-02, unified-reply, RLR, PVR and asap-fc-voice-01, architecture document with delivery plan, an upstream gate on the FC-TRUST-01 production deployment and one refinement cross-check afterwards. Implementation has not started; all rows PENDING.",
+      "coverage_refs": [
+        {
+          "task_id": "web-search-quality-01",
+          "map": "plans/features/web-search-quality-01/requirements-map.json",
+          "req_ids": [
+            "WQ-S0-AUDIT",
+            "WQ-S1-PROVIDERS",
+            "WQ-S3-STRATEGY",
+            "WQ-S5-CONTRACT-MEMORY",
+            "WQ-S6-LIMITS",
+            "WQ-S8-UI-WORKSPACE",
+            "WQ-S9-UI-PROMPT",
+            "WQ-S12-RELEASE"
+          ]
+        }
+      ]
     }
   ],
   "source_inventory": {
@@ -3860,13 +3886,35 @@
       {
         "id": "H1:web-search-quality-01",
         "sha256": "4025f75aa9d16206fcc5f83ae80759d2546a81812f7d9e70d4d1abad371141ed",
-        "disposition": "unreviewed",
+        "disposition": "mapped",
         "target_task_ids": [
           "web-search-quality-01"
         ],
-        "coverage_refs": [],
-        "reason": "Зарегистрирован эпик WEB-SEARCH-QUALITY-01 (стр. 11045-EOF). По прямому указанию владельца сейчас выполняется только регистрация в очереди: разбор требований и карта создаются при старте исполнения после FC-TRUST-01. До этого раздел остаётся unreviewed и делает общий счёт требований предварительным (не ошибкой).",
-        "requirement_refs": []
+        "coverage_refs": [
+          "plans/features/web-search-quality-01/requirements-map.json"
+        ],
+        "reason": "Раздел WEB-SEARCH-QUALITY-01 (стр. 11045-EOF) разобран только по стадии подготовки: карта 267 строк (198 обязательных / 158 уникальных req_id), 13 срезов, архитектура в plans/features/web-search-quality-01/architecture.md; реализация не начиналась. Все обязательные строки PENDING, доказательств нет — анализ не засчитывается как выполненная реализация.",
+        "requirement_refs": [
+          {
+            "task_id": "web-search-quality-01",
+            "map": "plans/features/web-search-quality-01/requirements-map.json",
+            "req_ids": [
+              "WQ-S0-AUDIT",
+              "WQ-S1-PROVIDERS",
+              "WQ-S2-HITS-MERGE",
+              "WQ-S3-STRATEGY",
+              "WQ-S4-READ",
+              "WQ-S5-CONTRACT-MEMORY",
+              "WQ-S6-LIMITS",
+              "WQ-S7-ADMIN-API",
+              "WQ-S8-UI-WORKSPACE",
+              "WQ-S9-UI-PROMPT",
+              "WQ-S10-UI-ACCEPT",
+              "WQ-S11-BENCH",
+              "WQ-S12-RELEASE"
+            ]
+          }
+        ]
       }
     ]
   }
