@@ -747,6 +747,135 @@ async def test_one_quoted_thread_item_emits_single_delivery_event(
     assert "msg:703" in thread_block["source_ids"], thread_block
 
 
+QUOTED_DROP_SENTINEL = "QUOTED_DROP_SENTINEL_URF"
+
+
+def _quoted_chain(count, *, quoted_item_id, chars=0):
+    """Цепочка, у одного звена — цитата с маркером (иначе — обычные звенья)."""
+    return [item._replace(quote_text=QUOTED_DROP_SENTINEL + " фрагмент",
+                          quote_author_id=10, quote_position=0,
+                          quote_is_manual=1, quote_original_available=True)
+            if item.item_id == quoted_item_id else item
+            for item in _chain_items(count, chars=chars)]
+
+
+@pytest.mark.asyncio
+async def test_evicted_quoted_thread_line_reports_no_delivery(
+        monkeypatch, events):
+    """Событие цитаты — о ДОСТАВКЕ, а не о рендере: вытесненная строка молчит.
+
+    Рендер ветки идёт ДО аллокации. В сжатой ветке из 40 звеньев самое старое
+    звено (`tg:740`, несущее цитату) в payload не попадает: модель цитаты не
+    видит — значит `quote_delivered_to_context` не должно быть вовсе. Раньше
+    событие эмитилось на рендере, и телеметрия объявляла доставленной цитату,
+    которой в запросе нет (репро ревью)."""
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _quoted_chain(40, quoted_item_id="tg:740", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    # precondition: цитаты в payload НЕТ (иначе тест ничего не проверяет)
+    payload_text = "\n".join(str(m.get("content") or "")
+                             for m in (llm.last or ()))
+    assert QUOTED_DROP_SENTINEL not in payload_text, \
+        "звено должно было вытесниться — иначе репро пустое"
+
+    delivered = [e for e in events
+                 if e.get("event_name") == "quote"
+                 and e.get("stage") == "quote_delivered_to_context"]
+    assert delivered == [], \
+        "цитаты в запросе нет — событий доставки быть не должно: %r" % \
+        [e.get("message_id") for e in delivered]
+
+    # счётчики шага 1 не изменились (тот же ход, что в репро P)
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    counts = payload.get("counts") or {}
+    assert counts.get("available_messages") == 43, counts
+    assert counts.get("included_messages") == len(_payload_row_keys(llm))
+    assert counts.get("included_messages") == 23, counts
+    thread_dropped = [row for row in (payload.get("dropped") or [])
+                      if row.get("kind") == "thread"]
+    assert thread_dropped and thread_dropped[0]["count"] == 20, \
+        payload.get("dropped")
+
+
+@pytest.mark.asyncio
+async def test_surviving_quote_in_compressed_thread_reports_one_delivery(
+        monkeypatch, events):
+    """Тот же сжатый ход, но цитата в СВЕЖЕМ звене: ровно одно событие.
+
+    Контроль к предыдущему тесту: отличие только в том, какое звено цитирует,
+    поэтому «0 событий» там означает «не доставлено», а не «сломан эмиттер».
+    Цитата на самом деле лежит в payload."""
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _quoted_chain(40, quoted_item_id="tg:701", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    payload_text = "\n".join(str(m.get("content") or "")
+                             for m in (llm.last or ()))
+    assert QUOTED_DROP_SENTINEL in payload_text, \
+        "свежее звено обязано остаться в payload — иначе тест пустой"
+
+    delivered = [e for e in events
+                 if e.get("event_name") == "quote"
+                 and e.get("stage") == "quote_delivered_to_context"]
+    assert len(delivered) == 1, \
+        "одна доставленная цитата — ровно одно событие, а не %d" % \
+        len(delivered)
+    assert delivered[0].get("message_id") == 701, delivered[0]
+
+
+@pytest.mark.asyncio
+async def test_quote_in_branch_and_thread_reports_one_delivery(
+        monkeypatch, events):
+    """Цитата видна и в `<Conversation_Branch>`, и в треде — событие ОДНО.
+
+    Reply-триггер рендерит свежие звенья дважды (ветка P0 + тред), поэтому
+    проверка доставки обязана дедуплицировать: две копии одной цитаты в
+    payload — это одна доставленная цитата."""
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    parent = _reply_parent()
+    msg.reply_to_message = parent
+    chain = _quoted_chain(3, quoted_item_id="tg:701")
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    payload_text = "\n".join(str(m.get("content") or "")
+                             for m in (llm.last or ()))
+    assert "<Conversation_Branch>" in payload_text, \
+        "нужен reply-триггер: ветка рендерится в payload"
+    assert QUOTED_DROP_SENTINEL in payload_text
+
+    delivered = [e for e in events
+                 if e.get("event_name") == "quote"
+                 and e.get("stage") == "quote_delivered_to_context"]
+    assert len(delivered) == 1, \
+        "одна цитата в двух блоках — одно событие, а не %d" % len(delivered)
+    assert delivered[0].get("message_id") == 701, delivered[0]
+
+
+def _reply_parent():
+    from tests.test_direct_chat import _message, _user
+    return _message(text="вопрос родителя", message_id=400,
+                    user=_user(user_id=11, first_name="Петя"))
+
+
 @pytest.mark.asyncio
 async def test_empty_window_reports_zero_messages(monkeypatch, events):
     """Пустое окно: `{0, 0, 0}` — честные нули, без «неизвестно»."""

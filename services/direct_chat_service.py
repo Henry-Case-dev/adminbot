@@ -2641,7 +2641,7 @@ def _sel_piece_line_keys(piece) -> set:
     return keys
 
 
-def _sel_chain_line_key(item, thread_keys, projection=None) -> str:
+def _sel_chain_line_key(item, piece_keys, projection=None) -> str:
     """Ключ дедупа звена ветки — БЕЗ повторного рендера строки.
 
     Рендер строки тождествен доставке (EVOL-015): у `_chain_line` →
@@ -2653,9 +2653,10 @@ def _sel_chain_line_key(item, thread_keys, projection=None) -> str:
     Ключ берётся из ТОГО ЖЕ структурного ref'а, что печатается в заголовке
     уже отрендеренной строки: `tg:…`/`msg:…` в сыром виде либо метка прогона
     (`M3`) в речевой проекции — обратная карта `SpeechProjection` только
-    читается (новых меток не выдаёт). Совпадение с `thread_keys` (строками
-    piece'а) и решает вопрос выживания, поэтому рубильник проекции здесь не
-    перепроверяется: биекция «метка ↔ ref» — в рамках прогона."""
+    читается (новых меток не выдаёт). Совпадение с ключами piece'ей
+    (`piece_keys`: строки, реально оставшиеся в payload) и решает вопрос
+    выживания, поэтому рубильник проекции здесь не перепроверяется: биекция
+    «метка ↔ ref» — в рамках прогона."""
     raw = str(getattr(item, "item_id", "") or "").strip()
     if not raw:
         return ""
@@ -2664,11 +2665,61 @@ def _sel_chain_line_key(item, thread_keys, projection=None) -> str:
             label = str(projection.label_of_item(raw) or "")
         except Exception:            # pragma: no cover - защита
             label = ""
-        if label and label in thread_keys:
+        if label and label in piece_keys:
             return label
     if raw.startswith("tg:") or raw.startswith("msg:"):
         return raw
     return ""
+
+
+def _emit_delivered_quote_events(chain, allocation, projection=None,
+                                 *, trigger_message_id=None) -> None:
+    """EVOL-015: `quote_delivered_to_context` — только за ДОСТАВЛЕННУЮ цитату.
+
+    Рендер кандидата идёт ДО аллокации, поэтому событие на рендере — ложное:
+    строку с цитатой может вытеснить аллокатор или усечь truncator, и модель
+    цитаты не увидит. Здесь проверяется ФАКТИЧЕСКИЙ текст аллоцированных
+    piece'ей, несущих цепочку (`thread`, `branch`): цитата доставлена, если
+    её аннотация реально осталась в этом тексте. Одного заголовка строки мало —
+    `truncate_keep_header` держит заголовок, срезая хвост строки, где как раз
+    и стоит цитата.
+
+    Ровно одно событие на цитирующий ход: одна цитата, показанная и в ветке,
+    и в треде, — одно событие.
+
+    ``allocation is None`` — деградация (аллокатор упал, payload собрал
+    legacy-бюджет): выживание строк не измеримо, сохраняется прежнее
+    поведение «по рендеру». Телеметрия не рвёт ход (fail-open)."""
+    try:
+        quoted = [item for item in (chain or ())
+                  if str(getattr(item, "quote_text", "") or "").strip()]
+        if not quoted:
+            return
+        if allocation is None:
+            for item in quoted:
+                thread_chain.emit_quote_delivered(item)
+            return
+        delivered_text = "\n".join(
+            str(getattr(piece, "text", "") or "")
+            for piece in getattr(allocation, "pieces", ()) or ()
+            if str(getattr(piece, "kind", "") or "") in ("thread", "branch"))
+        if not delivered_text:
+            return                      # ни одна строка цепочки не доехала
+        seen: set = set()
+        for item in quoted:
+            fragment = thread_chain.quote_delivery_fragment(
+                item, projection, trigger_message_id)
+            if not fragment:
+                continue
+            if escape_xml_text(fragment) not in delivered_text:
+                continue                # строки/аннотации нет в payload
+            marker = thread_chain.quote_message_id(item) or fragment
+            if marker in seen:
+                continue
+            seen.add(marker)
+            thread_chain.emit_quote_delivered(item)
+    except Exception:                   # pragma: no cover - защита
+        pass
 
 
 async def _social_frame_for_turn(chat_id, message=None, *, bundle=None,
@@ -8723,8 +8774,11 @@ class DirectChatService:
         else:
             chain = await self._collect_thread_chain(chat_id, message)
         if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: в композер-режиме payload ещё не аллоцирован, поэтому
+            # событие «цитата доставлена» откладывается до аллокации.
             branch = self._render_branch(chain, suffix_map,
-                                         projection=projection)
+                                         projection=projection,
+                                         emit_quote=not composer_mode)
             if branch:
                 blocks.append(("branch", branch))
         # F2: global считается раньше RAG (тело фона — для словарного дедупа).
@@ -8764,9 +8818,12 @@ class DirectChatService:
             # не попадает.
             blocks.append(("global", global_ctx))
         if composer_mode:
+            # EVOL-015: кандидат рендерится без эмиссии — выживание строк
+            # решает аллокатор, событие цитаты эмитится после него.
             thread = self._render_thread(chain, suffix_map, None,
                                          trigger_message_id, truncate=False,
-                                         projection=projection)
+                                         projection=projection,
+                                         emit_quote=False)
         else:
             thread = self._render_thread(chain, suffix_map,
                                          await self._thread_limit(chat_id),
@@ -9535,6 +9592,11 @@ class DirectChatService:
             logger.warning(
                 "direct: composer allocation failed — legacy budget "
                 "| chat=%s", chat_id, exc_info=True)
+            # EVOL-015: кандидаты рендерились без эмиссии — выживание строк
+            # здесь не измеримо, поэтому событие цитаты остаётся прежним
+            # (по факту рендера) и не теряется молча.
+            _emit_delivered_quote_events(chain, None, projection,
+                                         trigger_message_id=trigger_message_id)
             legacy_blocks = [(kind, text) for kind, text in candidates if text]
             return self._apply_context_budget(
                 legacy_blocks, budgets_enabled, raw_budget,
@@ -9600,6 +9662,9 @@ class DirectChatService:
             return texts, kept_middle_lines
 
         final_texts, middle_lines = _finalize_allocation(allocation)
+        # EVOL-015: доставку цитаты решает АЛЛОКАЦИЯ, а не рендер кандидата.
+        _emit_delivered_quote_events(chain, allocation, projection,
+                                     trigger_message_id=trigger_message_id)
 
         # ── v6 D04 (§18C.4/§18C.2): реальные окна L2 для evidence capacity
         # (первичная модель) и L2 fallback-репака (fallback-модель) —
@@ -13429,7 +13494,8 @@ class DirectChatService:
                 getattr(self, "aliases", None)))
 
     def _chain_line(self, item, suffix_map: dict[int, str],
-                    trigger_message_id=None, projection=None) -> str:
+                    trigger_message_id=None, projection=None, *,
+                    emit_quote: bool = True) -> str:
         """10.20 (БЛОК 0, точка 3): каноническая строка хода цепочки (ярус A).
         F2 (10.23): делегат ``thread_chain.format_chain_line`` (единый рендер
         с фактчеком); F1: ход-триггер получает маркер.
@@ -13437,12 +13503,16 @@ class DirectChatService:
         EVOL v5 §4.2 п.2: ``projection`` → речевая строка хода
         (`thread_chain.render_speech_line`): метка прогона, `U`-метка автора
         (бот — «(бот)»), явные отношения «↳ Reply M…»/«по теме»/«родитель вне
-        окна», автор цитаты по имени. ``None``/OFF → прежний сырой канон."""
+        окна», автор цитаты по имени. ``None``/OFF → прежний сырой канон.
+
+        ``emit_quote=False``: строка — кандидат до аллокации, событие
+        «цитата доставлена» эмитится после неё (только за выжившие строки)."""
         if projection is not None and speech_projection_enabled():
             return thread_chain.render_speech_line(
-                item, projection, suffix_map, trigger_message_id)
+                item, projection, suffix_map, trigger_message_id,
+                emit_quote=emit_quote)
         return thread_chain.format_chain_line(
-            item, suffix_map, trigger_message_id)
+            item, suffix_map, trigger_message_id, emit_quote=emit_quote)
 
     async def _thread_limit(self, chat_id: int):
         """Раунд 10.4 (G-ремедиация): per-chat лимит треда (tokens/chars) —
@@ -13462,7 +13532,8 @@ class DirectChatService:
 
     def _render_thread(self, chain: list, suffix_map: dict[int, str],
                        thread_limit=None, trigger_message_id=None,
-                       truncate: bool = True, projection=None) -> str:
+                       truncate: bool = True, projection=None, *,
+                       emit_quote: bool = True) -> str:
         """Рендер полной цепочки сверху-вниз (лимиты 64.7, keep-end —
         verbatim-диалог не участвует в importance-удержании E1).
         10.23 (F1): ход-триггер получает маркер.
@@ -13472,7 +13543,7 @@ class DirectChatService:
         if not chain:
             return ""
         lines = [self._chain_line(item, suffix_map, trigger_message_id,
-                                  projection)
+                                  projection, emit_quote=emit_quote)
                  for item in reversed(chain)]
         body = "\n".join(lines)
         if not truncate:
@@ -13502,7 +13573,8 @@ class DirectChatService:
         return f"<Conversation_Thread>\n{escape_xml_text(body)}\n</Conversation_Thread>"
 
     def _render_branch(self, chain: list, suffix_map: dict[int, str],
-                       trigger_message_id=None, projection=None) -> str:
+                       trigger_message_id=None, projection=None, *,
+                       emit_quote: bool = True) -> str:
         """Раунд 8 (D4/T-801): <Conversation_Branch> — компактный итог
         reply-ветки: последние limits.chat_branch_context_hops (default 3)
         ходов уже собранной цепочки (без LLM, без повторного walk). Полный
@@ -13514,7 +13586,7 @@ class DirectChatService:
                            settings.CHAT_BRANCH_CONTEXT_HOPS) or 0) or 3
         fresh = list(reversed(chain[:max(1, hops)]))     # ASC: старое → новое
         lines = [self._chain_line(item, suffix_map, trigger_message_id,
-                                  projection)
+                                  projection, emit_quote=emit_quote)
                  for item in fresh]
         body = "\n".join(lines)
         return (f"<Conversation_Branch>\n"
