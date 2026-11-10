@@ -9,6 +9,8 @@ import datetime
 import asyncio
 import json
 import logging
+import math
+import re
 import time
 import zoneinfo
 from typing import Any, Annotated
@@ -1347,6 +1349,27 @@ _TURN_ROW_LIMIT = 400
 #: Предел оригинального текста в `include_text=1` (контракт §4).
 _TURN_TEXT_MAX = 600
 
+#: Форма кода/enum/id, допустимая в ответе: без пробелов, кириллицы и
+#: произвольной пунктуации. Всё, что не подходит, — не факт трассы (дефект 1).
+_TURN_CODE_RE = re.compile(r"^[A-Za-z0-9_.:/+@()\-]{1,96}$")
+#: Форма СТАБИЛЬНОГО id (`msg:1`, `tg:123`, `web:ab12`, `bot_output_tg:7`):
+#: без `()/@/+/пробелов` — ссылочная форма, а не произвольный токен.
+_TURN_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,64}$")
+#: Границы чисел: за ними значение — мусор, а не факт (дефект 2).
+_TURN_INT_MAX = 2 ** 53
+#: Ссылка выдачи — только публичный http(s)-адрес объявленной длины (§3).
+_TURN_URL_RE = re.compile(r"^https?://\S{4,300}$")
+_TURN_URL_MAX = 300
+_TURN_IDS_MAX = 16
+_TURN_STATUS_COUNT_MAX = 16
+#: Объявленные контрактом (§4) ключи бюджета/счётчиков выбора. Только они
+#: проходят в ответ — прочие ключи события не являются полями контракта.
+_TURN_BUDGET_INT_KEYS = ("window", "output_reserve", "available", "budget",
+                         "payload_tokens")
+_TURN_BUDGET_CODE_KEYS = ("slot", "window_source", "policy_mode")
+_TURN_COUNT_KEYS = ("available_messages", "included_messages",
+                    "window_messages")
+
 
 async def mca_events_query(db, **kwargs) -> list[dict]:
     """Тонкая обёртка над существующим mca_events.query_events (REUSE)."""
@@ -1381,44 +1404,151 @@ def _turn_source_ref(row: dict) -> dict:
 
 
 def _turn_int(value):
-    """Целое из события; всё остальное → None (неизвестно ≠ ноль)."""
+    """Конечное целое из события; всё остальное → None (неизвестно ≠ ноль).
+
+    `NaN`/`Infinity`/`1e400`/строки/структуры/Datetime — не число: подставлять
+    0 было бы ложью, а `int(nan)` — падением всей страницы (дефект 2)."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return int(value)
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):   # pragma: no cover - защита
+        return None
+    if not math.isfinite(number) or abs(number) > _TURN_INT_MAX:
+        return None
+    return int(number)
 
 
 def _turn_code(value, limit: int = 64) -> str:
-    """Короткий код/enum/id из события (обрезка, не подстановка значения)."""
-    text = str(value if value is not None else "").strip()
-    return text[:limit] if text else ""
+    """Код/enum/id из события: ТОЛЬКО строка объявленной формы.
+
+    Свободный текст, число, структура и мусор отбрасываются (дефект 1):
+    durable-слой мог быть засорён, а страница инспектора показывает только
+    коды контракта — не произвольные строки из события."""
+    if not isinstance(value, str):
+        return ""
+    text = value.strip()
+    if not text or len(text) > 96 or not _TURN_CODE_RE.match(text):
+        return ""
+    return text[:limit]
+
+
+def _turn_id(value, limit: int = 64) -> str:
+    """Стабильный id ссылки (`msg:1`, `tg:123`, `web:ab12`) или "".
+
+    Отличается от `_turn_code` ссылочной формой: `()`/`@`/`+`/`/` в id не
+    встречаются, поэтому URL-подобный мусор (`javascript:alert(1)`) в списки
+    id не попадает."""
+    if not isinstance(value, str):
+        return ""
+    text = value.strip()
+    if not text or not _TURN_ID_RE.match(text):
+        return ""
+    return text[:limit]
+
+
+def _turn_text(value, limit: int, *, required: bool = False) -> str:
+    """Свободный текст ТОЛЬКО объявленного текстового поля (алиас/заголовок).
+
+    Единственное место, где строка события остаётся строкой: снимаются
+    управляющие символы/переводы строк и длина ограничена `limit`."""
+    if not isinstance(value, str):
+        return ""
+    text = "".join(ch for ch in value if ch >= " " or ch == "\t")
+    text = " ".join(text.split())
+    return text[:int(limit)]
+
+
+def _turn_bool(value) -> bool | None:
+    """bool-поле: только настоящий bool (строка «false» — не факт)."""
+    return value if isinstance(value, bool) else None
+
+
+def _turn_url(value) -> str:
+    """Публичный адрес выдачи: ТОЛЬКО `^https?://\\S{4,300}$` (дефект 1).
+
+    Иначе пусто: `javascript:`/`data:`/текст чата в поле адреса не отдаются
+    никогда — ни целиком, ни «как есть»."""
+    if not isinstance(value, str):
+        return ""
+    text = value.strip()
+    if len(text) > _TURN_URL_MAX or not _TURN_URL_RE.match(text):
+        return ""
+    if any(ch < " " for ch in text):
+        return ""
+    return text
 
 
 def _turn_ids(values) -> list[str]:
     """Стабильные id в исходном порядке, БЕЗ повторов.
 
-    Повтор положительного факта (тот же id цитаты/источника, приехавший
-    вторым событием того же хода) не должен рендериться дважды."""
+    Только список/кортеж (строка `source_ids` — не список id, а мусор) и
+    только коды: повтор положительного факта не рендерится дважды."""
+    if not isinstance(values, (list, tuple)):
+        return []
     out: list[str] = []
-    for value in (values or ()):
-        text = _turn_code(value, 64)
+    for value in values[:_TURN_IDS_MAX]:
+        text = _turn_id(value)
         if text and text not in out:
             out.append(text)
-    return out
+    return out or []
 
 
-def _turn_plain_map(value) -> dict | None:
-    """Плоская карта скаляров из события (деньги/токены/окна — без вложенности).
+def _turn_budget_view(value) -> dict | None:
+    """Бюджет запроса: ТОЛЬКО объявленные контрактом ключи и типы (§4).
 
-    ``None`` остаётся ``None``: `budget.fallback_window = null` означает
-    «fallback-окна не было» (это факт), а не пропущенное поле."""
+    `fallback_window` типизирован `int|None`: явный `null` — факт «fallback-
+    окна не было», отсутствующий ключ — «неизвестно». Любой лишний ключ
+    (`secret`, `note`, …) не проходит."""
     if not isinstance(value, dict):
         return None
     out: dict = {}
-    for key, item in value.items():
-        name = str(key)[:40]
-        if isinstance(item, bool) or isinstance(item, (int, float, str)) \
-                or item is None:
-            out[name] = item
+    for key in _TURN_BUDGET_CODE_KEYS:
+        code = _turn_code(value.get(key), 32)
+        if code:
+            out[key] = code
+    for key in _TURN_BUDGET_INT_KEYS:
+        if key in value:
+            # Настоящее число — число; мусор (NaN/Infinity/строка) — `None`
+            # («неизвестно»), а не 0 и не подставленное значение.
+            out[key] = _turn_int(value.get(key))
+    if "fallback_window" in value:
+        out["fallback_window"] = _turn_int(value.get("fallback_window"))
+    return out or None
+
+
+def _turn_counts_view(value) -> dict | None:
+    """Счётчики выбора: ровно три объявленных целых (§4)."""
+    if not isinstance(value, dict):
+        return None
+    out: dict = {}
+    for key in _TURN_COUNT_KEYS:
+        if key in value:
+            out[key] = _turn_int(value.get(key))
+    return out or None
+
+
+def _turn_status_counts(value) -> dict | None:
+    """Счётчики статусов стиля: ТОЛЬКО известный статус → целое.
+
+    Ключ обязан быть статусом из закрытого набора `style_policy.STATUSES`:
+    произвольный «код» (`text`, `snippet`, `content`) полем контракта не
+    является и в ответ не проходит (дефект 1)."""
+    if not isinstance(value, dict):
+        return None
+    try:
+        from services.style_policy import STATUSES as _statuses
+    except Exception:      # pragma: no cover - защитная ветка
+        _statuses = ()
+    allowed = set(_statuses)
+    if not allowed:
+        return None
+    out: dict = {}
+    for key, item in list(value.items())[:_TURN_STATUS_COUNT_MAX]:
+        name = _turn_code(key, 32)
+        if name not in allowed:
+            continue
+        out[name] = _turn_int(item)     # None — «неизвестно», не 0
     return out or None
 
 
@@ -1426,15 +1556,16 @@ def _turn_clock_view(payload: dict) -> dict:
     """Часы хода + стадии, которые РЕАЛЬНО получили TimeContext (UR-20.8).
 
     ``stages = null`` — «неизвестно» (трасса старше слайса): пустой список
-    означал бы «ни одна стадия часов не получила», чего мы не знаем."""
+    означал бы «ни одна стадия часов не получила», чего мы не знаем.
+    Значения — только коды объявленной формы (свободный текст не проходит)."""
     stages = payload.get("clock_stages")
+    stage_codes = _turn_ids(stages)[:3]
     return {
-        "timezone": payload.get("clock_timezone") or "",
-        "as_of_utc": payload.get("clock_as_of_utc") or "",
-        "timezone_source": payload.get("clock_timezone_source") or "",
-        "config_version": payload.get("clock_config_version") or "",
-        "stages": ([str(item) for item in stages]
-                   if isinstance(stages, list) else None),
+        "timezone": _turn_code(payload.get("clock_timezone")),
+        "as_of_utc": _turn_code(payload.get("clock_as_of_utc"), 32),
+        "timezone_source": _turn_code(payload.get("clock_timezone_source"), 32),
+        "config_version": _turn_code(payload.get("clock_config_version")),
+        "stages": stage_codes if isinstance(stages, list) else None,
     }
 
 
@@ -1443,12 +1574,12 @@ def _turn_source_view(payload: dict) -> dict:
     return {
         "message_id": _turn_int(payload.get("source_message_id")),
         "author_id": _turn_int(payload.get("source_author_id")),
-        "author_alias": _turn_code(payload.get("alias_source_author"), 48)
+        "author_alias": _turn_text(payload.get("alias_source_author"), 48)
                         or None,
         "message_ts": _turn_int(payload.get("source_message_ts")),
         "reply_to_id": _turn_int(payload.get("reply_to_message_id")),
         "reply_to_author_id": _turn_int(payload.get("reply_to_author_id")),
-        "reply_to_alias": _turn_code(payload.get("alias_reply_parent"), 48)
+        "reply_to_alias": _turn_text(payload.get("alias_reply_parent"), 48)
                           or None,
     }
 
@@ -1465,13 +1596,12 @@ def _turn_block_view(row) -> dict | None:
     kind = _turn_code(row.get("kind"), 32)
     if not kind:
         return None
-    source_ids = _turn_ids(row.get("source_ids"))
     return {
         "kind": kind,
         "role": _turn_code(row.get("role"), 16) or None,
-        "rendered": bool(row.get("rendered")),
+        "rendered": _turn_bool(row.get("rendered")),
         "skip_reason": _turn_code(row.get("skip_reason"), 32) or None,
-        "source_ids": source_ids or None,
+        "source_ids": _turn_ids(row.get("source_ids")) or None,
         "first_ts": _turn_int(row.get("first_ts")),
         "last_ts": _turn_int(row.get("last_ts")),
         "tokens": _turn_int(row.get("tokens")),
@@ -1509,7 +1639,7 @@ def _turn_self_output_views(rows) -> list[dict] | None:
     for row in rows:
         if not isinstance(row, dict):
             continue
-        source_id = _turn_code(row.get("source_id"), 48) or None
+        source_id = _turn_id(row.get("source_id"), 48) or None
         tg_id = _turn_int(row.get("tg_message_id"))
         if source_id is None and tg_id is None:
             continue
@@ -1527,8 +1657,8 @@ def _turn_selection_view(payload: dict) -> dict:
 
     Секция существует ровно потому, что событие есть; отсутствующие внутри
     поля — ``null`` («не зафиксировано»), а не 0."""
-    counts = _turn_plain_map(payload.get("counts"))
-    budget = _turn_plain_map(payload.get("budget"))
+    counts = _turn_counts_view(payload.get("counts"))
+    budget = _turn_budget_view(payload.get("budget"))
     blocks = payload.get("blocks")
     view: dict = {
         "policy_version": _turn_code(payload.get("policy_version"), 32) or None,
@@ -1576,18 +1706,21 @@ def _turn_search_view(rows: list[dict], coverage: dict) -> dict | None:
         for link in (raw_links if isinstance(raw_links, list) else ()):
             if not isinstance(link, dict):
                 continue
-            url = _turn_code(link.get("source_url"), 300)
-            source_id = _turn_code(link.get("source_id"), 48)
-            title = _turn_code(link.get("source_title"), 120)
-            published = _turn_code(link.get("published_at"), 32)
-            if not url and not title:
+            # Ссылка без валидного публичного адреса не показывается вовсе:
+            # заголовок без адреса не выдаётся за ссылку, а `javascript:`/
+            # текст чата в поле адреса не проходят никогда (дефект 1).
+            url = _turn_url(link.get("source_url"))
+            if not url:
                 continue
+            source_id = _turn_id(link.get("source_id"), 48)
+            title = _turn_text(link.get("source_title"), 120)
+            published = _turn_code(link.get("published_at"), 32)
             key = (source_id, url)
             if any((item.get("source_id"), item.get("source_url")) == key
                    for item in links):
                 continue
             links.append({"source_id": source_id or None,
-                          "source_url": url or None,
+                          "source_url": url,
                           "source_title": title or None,
                           "published_at": published or None})
     coverage = coverage if isinstance(coverage, dict) else {}
@@ -1626,7 +1759,8 @@ def _turn_style_view(rows: list[dict]) -> dict | None:
         revision = _turn_code(payload.get("policy_revision"), 32) or revision
         if revision is None:
             revision = _turn_int(row.get("style_revision"))
-        for rule in (payload.get("rules") or ()):
+        raw_rules = payload.get("rules")
+        for rule in (raw_rules if isinstance(raw_rules, (list, tuple)) else ()):
             if not isinstance(rule, dict):
                 continue
             rule_id = _turn_code(rule.get("rule_id"), 64)
@@ -1650,7 +1784,7 @@ def _turn_style_view(rows: list[dict]) -> dict | None:
         "revision": revision,
         "source": _turn_code(last.get("policy_source"), 32) or None,
         "applied": applied if isinstance(applied, bool) else None,
-        "counts": _turn_plain_map(last.get("counts")),
+        "counts": _turn_status_counts(last.get("counts")),
         "rules": rules or None,
     }
 
@@ -1688,55 +1822,78 @@ def _turn_chain_view(rows: list[dict]) -> dict:
             continue
         if name not in _TURN_STAGE_EVENTS:
             continue
-        payload = _turn_usage_json(row)
-        ts = int(row.get("ts") or 0)
-        if first_ts == 0 or (ts and ts < first_ts):
-            first_ts = ts or first_ts
-        if name == "direct_turn_context" and context is None:
-            context_payload = payload
-            context = {
-                "outcome": row.get("outcome") or "",
-                "ts": ts,
-                "flow": payload.get("flow") or "",
-                "trigger": payload.get("trigger") or "",
-                "l1": payload.get("l1") or {},
-                "tool_rounds": payload.get("tool_rounds") or 0,
-                "tool_degraded": bool(payload.get("tool_degraded")),
-                "tool_reason": payload.get("tool_reason") or "",
-                "tools": payload.get("tools") or [],
-                "coverage": payload.get("coverage") or {},
-                "llm_calls": payload.get("llm_calls") or {},
-                "idempotency_key": payload.get("idempotency_key") or "",
-                # UR-29.3: фактическое время хода (ChatClock снапшот) +
-                # UR-20.8: стадии, реально получившие TimeContext.
-                "clock": _turn_clock_view(payload),
-                "stop_reason": payload.get("stop_reason") or "",
-            }
-        elif name == "direct_turn_writer" and writer is None:
-            completion = payload.get("completion") or {}
-            writer = {
-                "outcome": row.get("outcome") or "",
-                "ts": ts,
-                "manifest": payload.get("manifest") or {},
-                "request": payload.get("request") or {},
-                "completion": completion,
-                "semantic_rewrite_count": int(
-                    payload.get("semantic_rewrite_count") or 0),
-                "llm_calls": payload.get("llm_calls") or {},
-            }
-        elif name == "direct_turn_delivery" and delivery is None:
-            delivery = {
-                "outcome": row.get("outcome") or "",
-                "ts": ts,
-                "ops": payload.get("ops") or [],
-                "raw_final_digest": payload.get("raw_final_digest") or "",
-                "delivered_digest": payload.get("delivered_digest") or "",
-                "digest_match": payload.get("digest_match"),
-                "divergence_reason": payload.get("divergence_reason") or "",
-                "semantic_rewrite_count": int(
-                    payload.get("semantic_rewrite_count") or 0),
-                "delivery": payload.get("delivery") or {},
-            }
+        # Любое неразбираемое значение в событии не должно ронять страницу
+        # (дефект 2): сбой одного ряда = «нет данных» этого ряда.
+        try:
+            payload = _turn_usage_json(row)
+            ts = _turn_int(row.get("ts")) or 0
+            if first_ts == 0 or (ts and ts < first_ts):
+                first_ts = ts or first_ts
+            if name == "direct_turn_context" and context is None:
+                payload = payload if isinstance(payload, dict) else {}
+                context_payload = payload
+                context = {
+                    "outcome": _turn_code(row.get("outcome"), 32),
+                    "ts": ts,
+                    "flow": _turn_code(payload.get("flow"), 32),
+                    "trigger": _turn_code(payload.get("trigger"), 64),
+                    "l1": payload.get("l1") if isinstance(
+                        payload.get("l1"), dict) else {},
+                    "tool_rounds": _turn_int(payload.get("tool_rounds")) or 0,
+                    "tool_degraded": bool(_turn_bool(
+                        payload.get("tool_degraded"))),
+                    "tool_reason": _turn_code(payload.get("tool_reason"), 40),
+                    "tools": payload.get("tools") if isinstance(
+                        payload.get("tools"), list) else [],
+                    "coverage": payload.get("coverage") if isinstance(
+                        payload.get("coverage"), dict) else {},
+                    "llm_calls": payload.get("llm_calls") if isinstance(
+                        payload.get("llm_calls"), dict) else {},
+                    "idempotency_key": _turn_code(
+                        payload.get("idempotency_key"), 96),
+                    # UR-29.3: фактическое время хода (ChatClock снапшот) +
+                    # UR-20.8: стадии, реально получившие TimeContext.
+                    "clock": _turn_clock_view(payload),
+                    "stop_reason": _turn_code(payload.get("stop_reason"), 64),
+                }
+            elif name == "direct_turn_writer" and writer is None:
+                completion = payload.get("completion")
+                writer = {
+                    "outcome": _turn_code(row.get("outcome"), 32),
+                    "ts": ts,
+                    "manifest": payload.get("manifest") if isinstance(
+                        payload.get("manifest"), dict) else {},
+                    "request": payload.get("request") if isinstance(
+                        payload.get("request"), dict) else {},
+                    "completion": (completion if isinstance(completion, dict)
+                                   else {}),
+                    "semantic_rewrite_count": _turn_int(
+                        payload.get("semantic_rewrite_count")) or 0,
+                    "llm_calls": payload.get("llm_calls") if isinstance(
+                        payload.get("llm_calls"), dict) else {},
+                }
+            elif name == "direct_turn_delivery" and delivery is None:
+                delivery = {
+                    "outcome": _turn_code(row.get("outcome"), 32),
+                    "ts": ts,
+                    "ops": payload.get("ops") if isinstance(
+                        payload.get("ops"), list) else [],
+                    "raw_final_digest": _turn_code(
+                        payload.get("raw_final_digest"), 64),
+                    "delivered_digest": _turn_code(
+                        payload.get("delivered_digest"), 64),
+                    "digest_match": _turn_bool(payload.get("digest_match")),
+                    "divergence_reason": _turn_code(
+                        payload.get("divergence_reason"), 96),
+                    "semantic_rewrite_count": _turn_int(
+                        payload.get("semantic_rewrite_count")) or 0,
+                    "delivery": payload.get("delivery") if isinstance(
+                        payload.get("delivery"), dict) else {},
+                }
+        except Exception:      # pragma: no cover - защитная ветка (R3)
+            logger.warning("[turn-diagnostics] chain row unreadable | "
+                           "event=%s", name, exc_info=True)
+            continue
     return {
         "context": context, "writer": writer, "delivery": delivery,
         "ts": first_ts,
@@ -1768,7 +1925,7 @@ def _turn_chain_view(rows: list[dict]) -> dict:
 
 def _turn_row_order(row: dict) -> tuple:
     """Порядок рядов трассы: время, затем id вставки (детерминизм в секунде)."""
-    return (int(row.get("ts") or 0), int(row.get("id") or 0))
+    return (_turn_int(row.get("ts")) or 0, _turn_int(row.get("id")) or 0)
 
 
 def _latest_row(rows: list[dict]) -> dict:
@@ -1955,14 +2112,14 @@ async def direct_turn_diagnostics(
         return out
     # Новые цепочки — первыми (по максимальному ts ЯКОРНОГО события).
     def _chain_max_ts(tid: str) -> int:
-        return max((int(r.get("ts") or 0) for r in chains[tid]
+        return max((_turn_int(r.get("ts")) or 0 for r in chains[tid]
                     if str(r.get("event_name") or "") in _TURN_STAGE_EVENTS),
                    default=0)
     ordered = sorted(order, key=_chain_max_ts, reverse=True)
     out["turns"] = [{"trace_id": tid,
                      "ts": _chain_max_ts(tid),
                      "trigger": next((
-                         str(r.get("stage") or "") for r in chains[tid]
+                         _turn_code(r.get("stage"), 64) for r in chains[tid]
                          if r.get("event_name") == "direct_turn_context"),
                          "")}
                     for tid in ordered[:8]]

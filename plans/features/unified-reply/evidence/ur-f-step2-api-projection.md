@@ -8,11 +8,65 @@
 
 | файл | дельта |
 |---|---|
-| `web/api/routes.py` | `_turn_chain_view` + проекторы секций + `include_text` в существующем endpoint'е. Δ эндпоинтов = 0. |
+| `web/api/routes.py` | `_turn_chain_view` + проекторы секций + `include_text` в существующем endpoint'е. Δ эндпоинтов = 0. Строгая allowlist-проекция (см. «Allowlist»). |
 | `services/turn_trace.py` | `context_payload()` теперь сериализует уже собранные `clock_timezone`/`clock_as_of_utc`/`clock_config_version`/`clock_timezone_source` (см. «Найденный дефект»). |
-| `tests/test_ur_f_inspector_step2.py` | 8 тестов на реальном HTTP + реальных строках SQLite. |
+| `tests/test_ur_f_inspector_step2.py` | 12 тестов на реальном HTTP + реальных строках SQLite. |
 
 DDL = 0, миграций и backfill нет.
+
+## Allowlist проекции (после правки дефектов 1–2)
+
+Любое поле ответа — только объявленный ключ объявленного типа. Свободная
+строка из события не проходит нигде, кроме двух текстовых полей контракта.
+
+| группа | правило |
+|---|---|
+| коды/enum (`slot`, `window_source`, `policy_mode`, `status`, `decision`, `skip_reason`, `kind`, `role`, `reason`, `revision`, `timezone`, `as_of_utc`, `config_version`, …) | `^[A-Za-z0-9_.:/+@()\-]{1,96}$`, обрезка до объявленной длины; иначе поля нет |
+| стабильные id (`source_ids[]`, `blocks[].source_ids[]`, `self_outputs[].source_id`, `links[].source_id`) | `^[A-Za-z0-9_.:\-]{1,64}$`; URL-подобный мусор (`javascript:alert(1)`) не проходит |
+| числа (`counts`, `budget`, `blocks[].tokens/first_ts/last_ts`, `dropped[].count`, `self_outputs[].tg_message_id/ts`, `source.*_id/_ts`, `search.source_count`, `style.counts.*`) | только конечное число в `|x| ≤ 2^53`; `NaN`/`Infinity`/`1e400`/string → `null` (если ключ объявлен и присутствует) — **никогда 0** |
+| bool (`stages.*`, `blocks[].rendered`, `search.called/required`, `style.applied`, `digest_match`, …) | только настоящий `bool`, иначе `null` |
+| URL (`links[].source_url`) | только `^https?://\S{4,300}$` без управляющих символов; иначе **ссылка целиком не выводится** (заголовок без адреса за ссылку не выдаётся) |
+| свободный текст (`source.author_alias`, `reply_to_alias`, `links[].source_title`) | ≤48/≤120, управляющие символы и переводы строк сняты |
+| бюджеты/счётчики | **только** объявленные ключи: `slot,window,window_source,output_reserve,available,budget,policy_mode,payload_tokens,fallback_window` и `available_messages,included_messages,window_messages`; `style.counts` — только статусы закрытого набора `style_policy.STATUSES` |
+| `detail`, `repetition`, `content`, `quote_text`, `snippet`, `notes`, произвольные `secret`/`note` | не входят ни в одну секцию (проверяется тестом и мутацией) |
+
+## Дефект 1 — утечка в обычном ответе (исправлен)
+
+`_turn_plain_map` копировал ЛЮБУЮ строку из события, а ссылки не проверялись.
+До/после на одном и том же загрязнённом payload (проба вне репозитория):
+
+```
+BEFORE budget  = {..., "secret": "SECRET_BUDGET_LEAK_9f3a",
+                       "note": "текст чата в служебном поле"}
+       counts  = {..., "snippet": "SECRET_BUDGET_LEAK_9f3a", "text": "текст чата …"}
+       source_ids = ["msg:1", "текст чата в служебном поле"]
+       links   = [{"source_url": "javascript:alert(1)"},
+                  {"source_url": "текст чата в служебном поле"}]
+       style.counts = {"pass": 0, "repaired": 1, "text": "текст чата …"}
+AFTER  budget  = {slot, window, window_source, output_reserve, available,
+                  budget, policy_mode, payload_tokens, fallback_window}
+       counts  = {available_messages, included_messages, window_messages}
+       source_ids = ["msg:1"]
+       links   = [{"source_id": "web:ok",
+                   "source_url": "https://example.test/ok",
+                   "source_title": "Нормальный заголовок",
+                   "published_at": "2026-11-01"}]
+       style.counts = {"pass": 0, "repaired": 1}
+```
+
+## Дефект 2 — 500 на `NaN`/`Infinity` (исправлен)
+
+`_turn_int` делал `int(value)`: `NaN`/`Infinity` давали
+`ValueError: cannot convert float NaN to integer`, и вся страница хода падала
+(500). Теперь число принимается только конечное и в диапазоне; иначе — `null`
+для объявленного поля (не 0). Проба «до» на том же payload:
+`RAISED ValueError: cannot convert float NaN to integer`; «после»:
+`counts.available_messages = null`, `window_messages = 7`, `budget.window = null`,
+`blocks[0].tokens = null`, `first_ts/last_ts = null`. Дополнительно: каждая
+строка цепочки обрабатывается в `try/except` (сбой одного ряда = «нет данных»
+этого ряда, R3), а `int(...)`/`str(...)` над полями события заменены на
+безопасные нормализаторы (`ts`, `semantic_rewrite_count`, `stage`).
+
 
 ## Якорь и join
 
@@ -72,8 +126,10 @@ style{revision,source,applied,counts,rules[]}
 ## `include_text` (по умолчанию 0)
 
 * Предикат `access_srv.can_access_chat(ctx, chat_id)` проверяется на ТОМ ЖЕ
-  `chat_id`, что в пути, и на границе чтения текста (`_turn_attach_text`);
-  без права — 403 (не пустая строка).
+  `chat_id`, что в пути, и **на границе чтения текста** (`_turn_attach_text`);
+  без права — 403 (не пустая строка). Предикат на границе перепроверяется
+  реально (права могли измениться между чтением трассы и текстом) — это
+  покрыто HTTP-тестом с подменой предиката «первый вызов да, второй нет».
 * Источники текста — существующие хранилища: `get_smart_message_by_tg_id`,
   `get_messages_around(before=0, after=0)` (берётся ТОЛЬКО строка нужного
   `tg_message_id`+`chat_id`, т.к. метод откатывается к «последним сообщениям»),
@@ -97,10 +153,22 @@ style{revision,source,applied,counts,rules[]}
 
 | набор | результат |
 |---|---|
-| `tests/test_ur_f_inspector_step2.py` (новый) | 8 passed |
+| `tests/test_ur_f_inspector_step2.py` (новый) | 12 passed |
 | `tests/test_ur_f_inspector_step1.py` | 53 passed (ожидалось 53) |
 | web/direct/memory API: `test_webapp_api`, `test_webapp_gates_api`, `test_webapp_analytics_api`, `test_webapp_oversight_api`, `test_webapp_memory_overview_api`, `test_chat_lore_api`, `test_direct_chat`, `test_direct_chat_handlers`, `test_direct_chat_prompts`, `test_direct_chat_concurrency` | 512 passed — идентично `92070d0e` (512 passed) |
-| `test_ur_ui_effective_config`, `test_mca23_planned_vs_actual`, `test_ur_c_clock`, `test_rlr_observability`, `test_ur_d_writer`, `test_ur_e_speech`, `test_ur_turn_engine` | 103 passed, 1 failed — `test_mca23…::test_routes_pin_untouched` падает ОДИНАКОВО на `92070d0e` (устаревший пин sha256 `routes.py`) |
+| `test_ur_ui_effective_config` + `test_ur_c_clock` + `test_rlr_observability` + `test_ur_d_writer` + `test_ur_e_speech` + `test_ur_turn_engine` | 78 passed |
+| общий прогон кандидата (18 файлов, включая step-1/step-2) | 682 passed, 0 failed |
+| `test_mca23_planned_vs_actual` | 23 passed + 1 failed (`test_routes_pin_untouched`) — падает ОДИНАКОВО на `92070d0e` (устаревший пин sha256 `routes.py`) |
+
+Мутации (каждая проверена отдельно, файл восстановлен побайтово по sha256):
+
+| мутация | красный тест |
+|---|---|
+| удалён предикат на границе чтения текста (`_turn_attach_text`) | `test_permission_predicates_are_enforced_on_http` (`200 != 403`) |
+| удалён предикат страницы (`direct_turn_diagnostics`) | тот же тест (`200 != 403`) |
+| отключена проверка URL ссылки | `test_polluted_durable_json_never_leaks_into_default_response` |
+| убрана проверка конечности числа | `test_nan_and_infinity_numbers_are_unknown_not_500` |
+| снят allowlist статусов `style.counts` | `test_polluted_durable_json_never_leaks_into_default_response` |
 
 Собственных регрессий не найдено; семь предсуществующих падений, о которых
 сообщал Orchestrator, в перечисленных наборах не воспроизвелись (0 падений на

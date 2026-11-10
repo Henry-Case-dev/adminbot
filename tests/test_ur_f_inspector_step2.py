@@ -31,6 +31,7 @@ import urllib.parse
 import httpx
 import pytest
 
+from services import access as access_srv
 from services import direct_chat_service
 from services import direct_execution
 from services import lore_runtime
@@ -677,3 +678,320 @@ async def test_include_text_truncates_long_text(tmp_path, monkeypatch):
     assert body["source"]["truncated"] is True
     # Родителя ответа нет — секция не выдумывается.
     assert "reply_parent" not in body["source"]
+
+
+# ── 7. Загрязнённый durable JSON не протекает в ОБЫЧНЫЙ ответ ───────────────
+
+SECRET_MARKER = "SECRET_BUDGET_LEAK_9f3a"
+CHAT_LEAK = "текст чата в служебном поле"
+
+
+async def _pollute(db, trace_id, *, usage, source_ref=None):
+    """Перезаписать JSON-слой реального события «загрязнённой» строкой.
+
+    Так выглядит порча durable-слоя: лишние ключи, свободный текст, мусорные
+    значения. Страница инспектора обязана остаться валидной и без этих данных.
+    """
+    rows, _ = await _rows_of(db, trace_id)
+    for row in rows:
+        if row["event_name"] in ("direct_turn_selection", "direct_turn_writer",
+                                 "style_policy") and usage is not None:
+            await db.db.execute(
+                "UPDATE mca_events SET usage_json = ? WHERE id = ?",
+                (usage, row["id"]))
+        if row["event_name"] == "reply_search_evidence" and source_ref:
+            await db.db.execute(
+                "UPDATE mca_events SET source_ref_json = ? WHERE id = ?",
+                (source_ref, row["id"]))
+        if row["event_name"] == "direct_turn_context" and usage is not None:
+            await db.db.execute(
+                "UPDATE mca_events SET usage_json = ? WHERE id = ?",
+                (usage, row["id"]))
+    await db.db.commit()
+
+
+def _polluted_selection_json() -> str:
+    return json.dumps({
+        "counts": {"available_messages": 40, "included_messages": 12,
+                   "window_messages": 25, "text": CHAT_LEAK,
+                   "snippet": SECRET_MARKER},
+        "budget": {"slot": "l2_writer", "window": 128000,
+                   "window_source": "chat", "output_reserve": 4096,
+                   "available": 90000, "budget": 60000,
+                   "policy_mode": "adaptive", "payload_tokens": 41000,
+                   "fallback_window": None, "secret": SECRET_MARKER,
+                   "note": CHAT_LEAK},
+        "blocks": [{"kind": "global_tail", "role": "p1", "rendered": True,
+                    "source_ids": ["msg:1", CHAT_LEAK],
+                    "first_ts": 1_700_000_000, "last_ts": 1_700_000_100,
+                    "tokens": 900, "detail": CHAT_LEAK,
+                    "content": SECRET_MARKER}],
+        "dropped": [{"reason_code": "over_budget", "kind": "rag", "count": 3,
+                     "detail": SECRET_MARKER}],
+        "self_outputs": [{"source_id": "bot_output_tg:77",
+                          "tg_message_id": OWN_OUTPUT_TG_ID,
+                          "ts": 1_700_000_050, "content": CHAT_LEAK,
+                          "text": SECRET_MARKER}],
+        "policy_version": "alloc_v3",
+        # Загрязнение КОНТЕКСТНОГО события тем же слоем. Алиасы — объявленное
+        # текстовое поле контракта (имя участника), поэтому здесь нормальные
+        # значения: проверяется, что лишние ключи/счётчики не проходят.
+        "flow": "direct", "trigger": "botword",
+        "source_message_id": 501, "source_author_id": 10,
+        "alias_source_author": "Вася", "alias_reply_parent": "Петя",
+        "clock_timezone": "Europe/Moscow", "clock_stages": ["l1", "l2"],
+        "l1": {"action": "reply"}, "coverage": {},
+        "semantic_rewrite_count": 0,
+    }, ensure_ascii=False)
+
+
+def _polluted_search_json() -> str:
+    return json.dumps({
+        "search_intent": "required",
+        "search_called": True,
+        "search_status": "ok",
+        "source_ids": ["web:a1", "javascript:alert(1)"],
+        "source_count": 2,
+        "search_skip_reason": "",
+        "evidence_used": True,
+        "source_links": [
+            # Схема не та — ссылка не должна появиться ни адресом, ни текстом.
+            {"source_id": "web:js", "source_url": "javascript:alert(1)",
+             "source_title": "заголовок", "published_at": ""},
+            # Текст чата вместо адреса.
+            {"source_id": "web:chat", "source_url": CHAT_LEAK,
+             "source_title": SECRET_MARKER, "published_at": ""},
+            # Значение не строка вовсе.
+            {"source_id": "web:obj", "source_url": {"x": CHAT_LEAK},
+             "source_title": ["y"], "published_at": {}},
+            # Валидная ссылка обязана остаться.
+            {"source_id": "web:ok", "source_url": "https://example.test/ok",
+             "source_title": "Нормальный заголовок", "published_at": "2026-11-01"},
+        ],
+        "snippet": SECRET_MARKER,
+        "content": CHAT_LEAK,
+    }, ensure_ascii=False)
+
+
+def _polluted_style_json() -> str:
+    return json.dumps({
+        "applied": True, "policy_revision": "g3", "policy_source": "global",
+        "counts": {"pass": 0, "repaired": 1, "text": CHAT_LEAK},
+        "rules": [{"rule_id": "no_cliche", "kind": "form", "status": "repaired",
+                   "reason": "cliche_removed", "source": "global",
+                   "detail": CHAT_LEAK}],
+        "repetition": [{"text": CHAT_LEAK}],
+        "notes": [SECRET_MARKER],
+    }, ensure_ascii=False)
+
+
+@pytest.mark.asyncio
+async def test_polluted_durable_json_never_leaks_into_default_response(
+        tmp_path, monkeypatch):
+    """Дефект 1: строгая allowlist-проекция. Из событий не проходит ни один
+    свободный текст, ни один лишний ключ, ни одна невалидная ссылка."""
+    db = await _make_db(tmp_path)
+    monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: db)
+    _emit_full_turn("corr-dirty")
+    await mca_events.flush_events(db)
+    await _pollute(db, "corr-dirty", usage=_polluted_selection_json(),
+                   source_ref=_polluted_search_json())
+    # Стилевое событие — своя форма payload'а.
+    rows, _ = await _rows_of(db, "corr-dirty")
+    for row in rows:
+        if row["event_name"] == "style_policy":
+            await db.db.execute(
+                "UPDATE mca_events SET usage_json = ? WHERE id = ?",
+                (_polluted_style_json(), row["id"]))
+    await db.db.commit()
+
+    async with await _make_client(monkeypatch) as client:
+        resp = await _get(client, f"chat_id={CHAT_ID}&trace_id=corr-dirty")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+    raw = json.dumps(body, ensure_ascii=False)
+    for marker in (SECRET_MARKER, CHAT_LEAK, "javascript:", "snippet",
+                   "content", "detail"):
+        assert marker not in raw, "утечка в ответ: %r" % marker
+
+    # Ни одного лишнего ключа в бюджете/счётчиках.
+    assert set(body["selection"]["budget"]) <= {
+        "slot", "window", "window_source", "output_reserve", "available",
+        "budget", "policy_mode", "payload_tokens", "fallback_window"}
+    assert set(body["selection"]["counts"]) == {
+        "available_messages", "included_messages", "window_messages"}
+    assert "secret" not in body["selection"]["budget"]
+    assert "note" not in body["selection"]["budget"]
+    # Свободный текст в id-поле отброшен, валидный id остался.
+    assert body["selection"]["blocks"][0]["source_ids"] == ["msg:1"]
+    # Невалидные ссылки не появились ни адресом, ни заголовком.
+    links = body["search"]["links"]
+    assert [link["source_url"] for link in links] == \
+        ["https://example.test/ok"]
+    assert links[0]["source_title"] == "Нормальный заголовок"
+    assert links[0]["published_at"] == "2026-11-01"
+    assert body["search"]["source_ids"] == ["web:a1"]
+    # Поля style: только код-ключи счётчиков и без текста правил.
+    assert "text" not in body["style"]["counts"]
+    assert body["style"]["rules"][0]["reason"] == "cliche_removed"
+    # Часы и алиасы: код/имя из контракта (алиас — объявленное текстовое поле).
+    assert body["clock"]["timezone"] == "Europe/Moscow"
+    assert body["clock"]["stages"] == ["l1", "l2"]
+    assert body["source"]["author_alias"] == "Вася"
+    assert body["source"]["reply_to_alias"] == "Петя"
+
+
+# ── 8. NaN/Infinity в числах: 200 и «неизвестно», а не 500 ─────────────────
+
+
+def _nan_turn_json() -> str:
+    """Литералы NaN/Infinity в числовых полях (валидный Python-json.loads)."""
+    return ("{\"counts\": {\"available_messages\": NaN, "
+            "\"included_messages\": Infinity, \"window_messages\": 7}, "
+            "\"budget\": {\"slot\": \"l2_writer\", \"window\": Infinity, "
+            "\"output_reserve\": NaN, \"budget\": -Infinity, "
+            "\"fallback_window\": NaN}, "
+            "\"blocks\": [{\"kind\": \"global_tail\", \"rendered\": true, "
+            "\"tokens\": NaN, \"first_ts\": Infinity, \"last_ts\": 1e400, "
+            "\"source_ids\": [\"msg:1\"]}], "
+            "\"dropped\": [{\"reason_code\": \"over_budget\", \"kind\": \"rag\","
+            " \"count\": NaN}], "
+            "\"self_outputs\": [{\"source_id\": \"bot_output_tg:77\", "
+            "\"tg_message_id\": Infinity, \"ts\": NaN}], "
+            "\"policy_version\": \"alloc_v3\", "
+            "\"flow\": \"direct\", \"trigger\": \"botword\", "
+            "\"source_message_id\": NaN, \"source_message_ts\": Infinity, "
+            "\"semantic_rewrite_count\": NaN}")
+
+
+def _nan_search_json() -> str:
+    return ("{\"search_intent\": \"required\", \"search_called\": true, "
+            "\"search_status\": \"ok\", \"source_count\": NaN, "
+            "\"source_ids\": [\"web:a1\"], "
+            "\"source_links\": [{\"source_id\": \"web:a1\", "
+            "\"source_url\": \"https://example.test/a1\", "
+            "\"source_title\": \"t\", \"published_at\": \"\"}]}")
+
+
+def _nan_style_json() -> str:
+    return ("{\"applied\": true, \"policy_revision\": \"g3\", "
+            "\"policy_source\": \"global\", "
+            "\"counts\": {\"pass\": NaN, \"repaired\": Infinity}, "
+            "\"rules\": [{\"rule_id\": \"no_cliche\", \"kind\": \"form\", "
+            "\"status\": \"repaired\", \"reason\": \"cliche_removed\"}]}")
+
+
+@pytest.mark.asyncio
+async def test_nan_and_infinity_numbers_are_unknown_not_500(tmp_path,
+                                                            monkeypatch):
+    """Дефект 2: NaN/Infinity/1e400 в числах → `null` (неизвестно), не 500 и
+    не выдуманный 0."""
+    db = await _make_db(tmp_path)
+    monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: db)
+    _emit_full_turn("corr-nan")
+    await mca_events.flush_events(db)
+    await _pollute(db, "corr-nan", usage=_nan_turn_json(),
+                   source_ref=_nan_search_json())
+    rows, _ = await _rows_of(db, "corr-nan")
+    for row in rows:
+        if row["event_name"] == "style_policy":
+            await db.db.execute(
+                "UPDATE mca_events SET usage_json = ? WHERE id = ?",
+                (_nan_style_json(), row["id"]))
+    await db.db.commit()
+
+    async with await _make_client(monkeypatch) as client:
+        resp = await _get(client, f"chat_id={CHAT_ID}&trace_id=corr-nan")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+    assert body["available"] is True
+    selection = body["selection"]
+    assert selection["counts"]["available_messages"] is None
+    assert selection["counts"]["included_messages"] is None
+    assert selection["counts"]["window_messages"] == 7
+    assert selection["budget"]["window"] is None
+    assert selection["budget"]["output_reserve"] is None
+    assert selection["budget"]["budget"] is None
+    assert selection["budget"]["fallback_window"] is None
+    assert selection["blocks"][0]["tokens"] is None
+    assert selection["blocks"][0]["first_ts"] is None
+    assert selection["blocks"][0]["last_ts"] is None
+    assert selection["dropped"][0]["count"] is None
+    assert selection["self_outputs"][0]["tg_message_id"] is None
+    assert selection["self_outputs"][0]["ts"] is None
+    assert body["source"]["message_id"] is None
+    assert body["source"]["message_ts"] is None
+    assert body["search"]["source_count"] is None
+    assert body["search"]["links"][0]["source_url"] == \
+        "https://example.test/a1"
+    assert body["style"]["counts"]["pass"] is None or \
+        "pass" not in body["style"]["counts"]
+    # Ни одного NaN/Infinity в сериализованном ответе (это не валидный JSON).
+    raw = json.dumps(body)
+    assert "NaN" not in raw and "Infinity" not in raw
+
+
+@pytest.mark.asyncio
+async def test_valid_https_link_is_returned(tmp_path, monkeypatch):
+    """Валидная ссылка остаётся (allowlist не превращается в «ничего»)."""
+    db = await _make_db(tmp_path)
+    monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: db)
+    _emit_chain("corr-link")
+    _emit_search("corr-link")
+    await mca_events.flush_events(db)
+
+    async with await _make_client(monkeypatch) as client:
+        body = (await _get(client, f"chat_id={CHAT_ID}&trace_id=corr-link")
+                ).json()
+
+    links = body["search"]["links"]
+    assert len(links) == 2
+    assert links[0] == {"source_id": "web:a1",
+                        "source_url": "https://example.test/a1",
+                        "source_title": "Заголовок a1",
+                        "published_at": None}
+
+
+# ── 9. Права: оба предиката проверяются НА HTTP-уровне ─────────────────────
+
+
+@pytest.mark.asyncio
+async def test_permission_predicates_are_enforced_on_http(tmp_path, monkeypatch):
+    """Удаление любого из двух предикатов делает этот тест красным.
+
+    1) страницу без права на чат не отдаём даже БЕЗ `include_text`;
+    2) на границе чтения текста предикат перепроверяется по ТОМУ ЖЕ чату и его
+       отказ даёт 403 (права могли измениться между чтением трассы и текстом).
+    """
+    db = await _make_db(tmp_path)
+    monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: db)
+    await db.save_smart_message(
+        user_id=10, chat_id=CHAT_ID, text=SOURCE_TEXT, reply_to_id=None,
+        timestamp=1_700_000_100, media_type="text", author_name="Вася",
+        message_id=SOURCE_TG_ID)
+    _emit_chain("corr-perm", reply_to_message_id=None)
+    await mca_events.flush_events(db)
+
+    # 1) Предикат страницы (без include_text).
+    async with await _make_client(monkeypatch) as client:
+        page_denied = await _get(
+            client, f"chat_id={CHAT_ID}&trace_id=corr-perm",
+            user_id=STRANGER_ID)
+        assert page_denied.status_code == 403
+
+        # 2) Предикат на границе текста: первый вызов (страница) — «да»,
+        # второй (текст) — «нет».
+        calls: list = []
+
+        def _fake(ctx, chat_id=None):
+            calls.append(chat_id)
+            return len(calls) == 1
+
+        monkeypatch.setattr(access_srv, "can_access_chat", _fake)
+        resp = await _get(
+            client, f"chat_id={CHAT_ID}&trace_id=corr-perm&include_text=1")
+        assert resp.status_code == 403
+        assert calls == [CHAT_ID, CHAT_ID]
+        assert SOURCE_TEXT not in resp.text
