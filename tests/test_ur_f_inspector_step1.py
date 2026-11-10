@@ -27,6 +27,7 @@ import pytest
 from services import direct_chat_service
 from services import mca_events
 from services import style_policy as _sp
+from services import thread_chain
 from services import turn_trace
 from services.llm_client import LLMCompletion
 
@@ -874,6 +875,147 @@ def _reply_parent():
     from tests.test_direct_chat import _message, _user
     return _message(text="вопрос родителя", message_id=400,
                     user=_user(user_id=11, first_name="Петя"))
+
+
+def _same_quote(chain, *, source_id, target_id):
+    """Цитата звена `source_id` — ещё и звену `target_id` (ПОЛНАЯ копия:
+    текст и метаданные совпадают)."""
+    source = next(it for it in chain if it.item_id == source_id)
+    fields = {name: getattr(source, name) for name in
+              ("quote_text", "quote_author_id", "quote_position",
+               "quote_is_manual", "quote_original_available")}
+    return [it._replace(**fields) if it.item_id == target_id else it
+            for it in chain]
+
+
+def _payload_text(llm) -> str:
+    return "\n".join(str(m.get("content") or "") for m in (llm.last or ()))
+
+
+def _delivered_ids(seen) -> list:
+    return [e.get("message_id") for e in seen
+            if e.get("event_name") == "quote"
+            and e.get("stage") == "quote_delivered_to_context"]
+
+
+@pytest.mark.asyncio
+async def test_identical_quotes_credit_only_the_surviving_item(
+        monkeypatch, events):
+    """Одинаковый текст цитаты у ДВУХ звеньев: событие — только за выжившее.
+
+    РЕПРО ревью: `tg:701` и `tg:740` несут одну и ту же цитату (текст и
+    метаданные совпадают). Аллокатор оставляет в payload ровно одну
+    аннотацию — звена `tg:701`; звено `tg:740` вытеснено вместе со своей
+    строкой. Проверка «фрагмент встречается в общем тексте ветки» засчитывала
+    это выживание ОБОИМ звеньям (`[701, 740]`): доставку одного хода
+    приписывали другому. Атрибуция обязана идти по тождеству звена.
+
+    Тест падает, если атрибуция снова начнёт опираться на совпадение текста
+    (проверено мутацией): в payload одна аннотация, событий тоже одно."""
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _same_quote(_quoted_chain(40, quoted_item_id="tg:740", chars=800),
+                        source_id="tg:740", target_id="tg:701")
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    blob = _payload_text(llm)
+    # предусловия репро: аннотация в payload ровно одна, и она — выжившего
+    # звена (текст `tg:701` в запросе, текст `tg:740` — нет)
+    assert blob.count(QUOTED_DROP_SENTINEL) == 1, \
+        "в payload обязана остаться ровно одна такая аннотация"
+    assert "звено 1 " in blob, "свежее звено обязано остаться в payload"
+    assert "звено 40 " not in blob, \
+        "цитирующее звено должно было вытесниться — иначе репро пустое"
+    quote_line = next(ln for ln in blob.split("\n")
+                      if QUOTED_DROP_SENTINEL in ln)
+    assert "звено 1 " in quote_line, \
+        "аннотация обязана стоять в СТРОКЕ выжившего звена: %r" % \
+        quote_line[:160]
+
+    assert _delivered_ids(events) == [701], \
+        "событие обязано быть одно и только за выжившее звено: %r" % \
+        _delivered_ids(events)
+
+    # счётчики шага 1 не поехали: «вошло» = строки, реально лежащие в запросе
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    counts = payload.get("counts") or {}
+    assert counts.get("available_messages") == 43, counts
+    assert counts.get("included_messages") == len(_payload_row_keys(llm)), counts
+
+
+@pytest.mark.asyncio
+async def test_quote_on_cut_header_line_still_reports_delivery(
+        monkeypatch, events):
+    """Заголовок строки срезан, но текст цитаты доехал — событие ОДНО.
+
+    Усечение ветки держит весь текст как хвост тела и отдельно сохраняет
+    заголовок ПЕРВОЙ строки. Поэтому граница среза приходится ВНУТРЬ тела
+    одной из строк: её заголовок срезан, а хвост с аннотацией цитаты в
+    payload остался (`tg:720`, репро ревью). Доставка определяется позицией
+    аннотации в собственной строке, а не наличием заголовка, — иначе такой
+    ход молчал бы о реально доставленной цитате."""
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _quoted_chain(40, quoted_item_id="tg:720", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    blob = _payload_text(llm)
+    assert blob.count(QUOTED_DROP_SENTINEL) == 1, "цитата должна быть в payload"
+    quote_line = next(ln for ln in blob.split("\n")
+                      if QUOTED_DROP_SENTINEL in ln)
+    # предусловие: голова СВОЕЙ строки хода срезана вместе с заголовком —
+    # аннотация доехала «приклеенной» к заголовку другого звена
+    assert "звено 20 " not in quote_line, \
+        "предусловие: начало собственной строки обязано быть срезано: %r" % \
+        quote_line[:120]
+    assert quote_line.lstrip().startswith("["), \
+        "предусловие: выживший хвост стоит при заголовке другой строки: %r" % \
+        quote_line[:120]
+
+    assert _delivered_ids(events) == [720], \
+        "доставленная цитата = одно событие: %r" % _delivered_ids(events)
+
+
+@pytest.mark.asyncio
+async def test_raw_view_keeps_identity_attribution(monkeypatch, events):
+    """Сырой вид (речевая проекция OFF): та же атрибуция по тождеству.
+
+    Рубильник меняет только представление (`tg:`-ref'ы вместо меток прогона),
+    а не то, ЧЬЯ цитата доехала: две одинаковые цитаты, одно выжившее звено —
+    одно событие, и в payload остаются сырые ref'ы."""
+    monkeypatch.setattr(direct_chat_service, "speech_projection_enabled",
+                        lambda: False)
+    monkeypatch.setattr(thread_chain, "speech_projection_enabled",
+                        lambda: False)
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _same_quote(_quoted_chain(40, quoted_item_id="tg:740", chars=800),
+                        source_id="tg:740", target_id="tg:701")
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    blob = _payload_text(llm)
+    assert "| tg:701]" in blob, "сырой вид обязан оставить tg:-ref'ы"
+    assert "| M" not in blob, "меток прогона в сыром виде быть не должно"
+    assert blob.count(QUOTED_DROP_SENTINEL) == 1
+
+    assert _delivered_ids(events) == [701], \
+        "в сыром виде событие тоже только за выжившее звено: %r" % \
+        _delivered_ids(events)
 
 
 @pytest.mark.asyncio

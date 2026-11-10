@@ -2672,17 +2672,151 @@ def _sel_chain_line_key(item, piece_keys, projection=None) -> str:
     return ""
 
 
+#: piece'ы, несущие цепочку: kind → тег блока в payload.
+_CHAIN_BLOCK_TAGS = {"thread": "Conversation_Thread",
+                     "branch": "Conversation_Branch"}
+
+
+def _chain_block_body(text, tag: str) -> str:
+    """ТЕЛО блока ``<tag>…</tag>`` из ФАКТИЧЕСКОГО текста piece'а.
+
+    Возвращается ровно то, что осталось после аллокации/усечения (может быть
+    пустым — блок вытеснен целиком). Обёртка/теги — не часть цепочки, поэтому
+    их срезаем один раз здесь; добавленные после закрывающего тега
+    protected spans в тело не попадают."""
+    source = str(text or "")
+    close = source.find(f"</{tag}>")
+    if close < 0:
+        return ""
+    open_at = source.find(f"<{tag}>")
+    if open_at < 0 or open_at > close:
+        return ""
+    body = source[open_at + len(tag) + 2:close]
+    if body.startswith("\n"):
+        body = body[1:]
+    if body.endswith("\n"):
+        body = body[:-1]
+    return body
+
+
+def _chain_body_spans(candidate_body, surviving_body):
+    """Диапазоны тела КАНДИДАТА, реально доехавшие до payload.
+
+    Выживание — ПОЗИЦИОННОЕ свойство: и вытеснение piece'а, и усечение тела
+    работают сохранением хвоста (`truncate_to_tokens` с keep-end), а
+    `truncate_keep_header` дополнительно неприкосновенно держит заголовок
+    ПЕРВОЙ строки. Поэтому усечённое тело имеет ровно две формы:
+
+    * хвост кандидата (усечения без защиты заголовка);
+    * заголовок первой строки + хвост остатка.
+
+    Возврат: список ``[(start, end)]`` в координатах кандидата. ``None`` —
+    форма не выводится (текст правился чем-то ещё): доставку НЕ приписываем —
+    промолчать честнее, чем объявить чужую цитату доставленной."""
+    candidate = str(candidate_body or "")
+    kept = str(surviving_body or "")
+    if not kept:
+        return []                       # тело блока не доехало вовсе
+    if candidate.endswith(kept):
+        return [(len(candidate) - len(kept), len(candidate))]
+    header, rest = split_context_header(candidate)
+    if not header or not kept.startswith(header):
+        return None
+    tail = kept[len(header):]
+    if rest.endswith(tail):
+        return [(0, len(header)),
+                (len(header) + len(rest) - len(tail), len(candidate))]
+    # Хвост мог быть дополнен (protected spans): хвост контента — префикс
+    # оставшегося тела. Самый короткий подходящий суффикс остатка.
+    for cut in range(max(0, len(rest) - len(tail)), len(rest)):
+        if tail.startswith(rest[cut:]):
+            return [(0, len(header)),
+                    (len(header) + cut, len(candidate))]
+    return None
+
+
+def _chain_delivery_state(allocation, rendered) -> dict:
+    """Состояние доставки цепочки: ``{kind: (candidate, kept, spans)}``.
+
+    ``rendered`` — бухгалтерия рендера (``{kind: [(item_id, строка), …]}`` в
+    порядке вывода), которую ведёт сам рендер: она и есть ИСТОЧНИК ТОЖДЕСТВА
+    строки. ``spans`` — диапазоны ``(start, end, item_id)`` каждой строки в
+    теле кандидата. Аллокация здесь только читается."""
+    state: dict = {}
+    texts: dict = {}
+    for piece in getattr(allocation, "pieces", ()) or ():
+        kind = str(getattr(piece, "kind", "") or "")
+        if kind in _CHAIN_BLOCK_TAGS:
+            texts[kind] = str(getattr(piece, "text", "") or "")
+    for kind, lines in (rendered or {}).items():
+        tag = _CHAIN_BLOCK_TAGS.get(kind)
+        piece_text = texts.get(kind)
+        if not tag or not piece_text or not lines:
+            continue
+        body = _chain_block_body(piece_text, tag)
+        if not body:
+            continue                # piece вытеснен целиком
+        cursor = 0
+        parts: list = []
+        spans: list = []
+        for line_item_id, line in lines:
+            escaped = escape_xml_text(line)
+            spans.append((cursor, cursor + len(escaped),
+                          str(line_item_id or "")))
+            cursor += len(escaped) + 1          # + "\n" между строками
+            parts.append(escaped)
+        candidate = "\n".join(parts)
+        kept = _chain_body_spans(candidate, body)
+        if kept is None:
+            continue                # форма не выводится — не приписываем
+        state[kind] = (candidate, kept, spans)
+    return state
+
+
+def _quote_annotation_delivered(item_id, fragment, state) -> bool:
+    """Аннотация цитаты ХОДА доехала — по его СОБСТВЕННОЙ строке.
+
+    Проверяется позиция аннотации внутри диапазона своей строки (тождество
+    известно из рендера), а не наличие фрагмента в общем тексте: цитата
+    другого звена с ТЕМ ЖЕ текстом больше не засчитывается этому ходу.
+    Обратная сторона — усечение может срезать заголовок строки, оставив
+    саму аннотацию: тогда аннотация внутри выжившего диапазона и есть
+    доставка."""
+    ident = str(item_id or "")
+    if not ident or not fragment:
+        return False
+    for candidate, kept, spans in state.values():
+        for start, end, span_id in spans:
+            if span_id != ident:
+                continue            # чужая строка не решает за этот ход
+            own = candidate[start:end]
+            pos = own.rfind(fragment)
+            if pos < 0:
+                continue            # аннотации нет в собственной строке
+            quote_start = start + pos
+            quote_end = quote_start + len(fragment)
+            for low, high in kept:
+                if low <= quote_start and quote_end <= high:
+                    return True
+    return False
+
+
 def _emit_delivered_quote_events(chain, allocation, projection=None,
-                                 *, trigger_message_id=None) -> None:
+                                 *, trigger_message_id=None,
+                                 rendered=None) -> None:
     """EVOL-015: `quote_delivered_to_context` — только за ДОСТАВЛЕННУЮ цитату.
 
     Рендер кандидата идёт ДО аллокации, поэтому событие на рендере — ложное:
     строку с цитатой может вытеснить аллокатор или усечь truncator, и модель
-    цитаты не увидит. Здесь проверяется ФАКТИЧЕСКИЙ текст аллоцированных
-    piece'ей, несущих цепочку (`thread`, `branch`): цитата доставлена, если
-    её аннотация реально осталась в этом тексте. Одного заголовка строки мало —
-    `truncate_keep_header` держит заголовок, срезая хвост строки, где как раз
-    и стоит цитата.
+    цитаты не увидит.
+
+    Атрибуция — ПО ТОЖДЕСТВУ звена, а не по совпадению текста. ``rendered``
+    (бухгалтерия рендера: kind → [(item_id, строка)]) задаёт, какая строка
+    кандидата принадлежит какому ходу; аллокация задаёт, какие позиции
+    кандидата доехали. Два разных хода с ОДИНАКОВОЙ цитатой получают разные
+    диапазоны, поэтому выжившая аннотация засчитывается только своему ходу
+    (репро ревью: `tg:701` и `tg:740`, одна аннотация в payload — прежний
+    поиск фрагмента по общему тексту объявлял доставленными оба).
 
     Ровно одно событие на цитирующий ход: одна цитата, показанная и в ветке,
     и в треде, — одно событие.
@@ -2699,11 +2833,8 @@ def _emit_delivered_quote_events(chain, allocation, projection=None,
             for item in quoted:
                 thread_chain.emit_quote_delivered(item)
             return
-        delivered_text = "\n".join(
-            str(getattr(piece, "text", "") or "")
-            for piece in getattr(allocation, "pieces", ()) or ()
-            if str(getattr(piece, "kind", "") or "") in ("thread", "branch"))
-        if not delivered_text:
+        state = _chain_delivery_state(allocation, rendered)
+        if not state:
             return                      # ни одна строка цепочки не доехала
         seen: set = set()
         for item in quoted:
@@ -2711,11 +2842,13 @@ def _emit_delivered_quote_events(chain, allocation, projection=None,
                 item, projection, trigger_message_id)
             if not fragment:
                 continue
-            if escape_xml_text(fragment) not in delivered_text:
-                continue                # строки/аннотации нет в payload
             marker = thread_chain.quote_message_id(item) or fragment
             if marker in seen:
                 continue
+            if not _quote_annotation_delivered(
+                    getattr(item, "item_id", ""),
+                    escape_xml_text(fragment), state):
+                continue                # строка/аннотация этого хода не доехала
             seen.add(marker)
             thread_chain.emit_quote_delivered(item)
     except Exception:                   # pragma: no cover - защита
@@ -8773,12 +8906,18 @@ class DirectChatService:
                 chat_id, message, depth=_composer.thread_walk_max())
         else:
             chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (атрибуция по тождеству): бухгалтерия рендера цепочки —
+        # какая строка кандидата принадлежит какому ходу. Заполняется ТЕМ ЖЕ
+        # проходом рендера (перерендер сломал бы «render = delivery»).
+        _chain_rendered: dict = {}
         if self._is_reply_trigger(message) and len(chain) >= 2:
             # EVOL-015: в композер-режиме payload ещё не аллоцирован, поэтому
             # событие «цитата доставлена» откладывается до аллокации.
-            branch = self._render_branch(chain, suffix_map,
-                                         projection=projection,
-                                         emit_quote=not composer_mode)
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=not composer_mode,
+                out_lines=(_chain_rendered.setdefault("branch", [])
+                           if composer_mode else None))
             if branch:
                 blocks.append(("branch", branch))
         # F2: global считается раньше RAG (тело фона — для словарного дедупа).
@@ -8823,7 +8962,9 @@ class DirectChatService:
             thread = self._render_thread(chain, suffix_map, None,
                                          trigger_message_id, truncate=False,
                                          projection=projection,
-                                         emit_quote=False)
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
         else:
             thread = self._render_thread(chain, suffix_map,
                                          await self._thread_limit(chat_id),
@@ -8944,7 +9085,8 @@ class DirectChatService:
                 out_excluded=out_excluded, out_fallback=out_fallback,
                 style_directives=style_directives,
                 history_sample=history_sample, projection=projection,
-                correlation_id=correlation_id, rag_memory=_rag_out)
+                correlation_id=correlation_id, rag_memory=_rag_out,
+                chain_rendered=_chain_rendered)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
@@ -9390,7 +9532,8 @@ class DirectChatService:
             history_sample: dict | None = None,
             projection=None,
             correlation_id: str | None = None,
-            rag_memory: dict | None = None) -> list[str]:
+            rag_memory: dict | None = None,
+            chain_rendered: dict | None = None) -> list[str]:
         """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
 
         Конвейер §6 ТЗ: candidates (существующие билдеры, global/thread без
@@ -9662,9 +9805,11 @@ class DirectChatService:
             return texts, kept_middle_lines
 
         final_texts, middle_lines = _finalize_allocation(allocation)
-        # EVOL-015: доставку цитаты решает АЛЛОКАЦИЯ, а не рендер кандидата.
+        # EVOL-015: доставку цитаты решает АЛЛОКАЦИЯ, а не рендер кандидата;
+        # тождество строки берётся из бухгалтерии рендера (`_chain_rendered`).
         _emit_delivered_quote_events(chain, allocation, projection,
-                                     trigger_message_id=trigger_message_id)
+                                     trigger_message_id=trigger_message_id,
+                                     rendered=chain_rendered)
 
         # ── v6 D04 (§18C.4/§18C.2): реальные окна L2 для evidence capacity
         # (первичная модель) и L2 fallback-репака (fallback-модель) —
@@ -13533,18 +13678,29 @@ class DirectChatService:
     def _render_thread(self, chain: list, suffix_map: dict[int, str],
                        thread_limit=None, trigger_message_id=None,
                        truncate: bool = True, projection=None, *,
-                       emit_quote: bool = True) -> str:
+                       emit_quote: bool = True,
+                       out_lines: list | None = None) -> str:
         """Рендер полной цепочки сверху-вниз (лимиты 64.7, keep-end —
         verbatim-диалог не участвует в importance-удержании E1).
         10.23 (F1): ход-триггер получает маркер.
         ASAP-3 (ADR-1028-2 D3/D7): композер вызывает с truncate=False —
         полный кандидат (walk ≤ CHAT_THREAD_WALK_MAX), усечение — композером
-        (keep-end, без WARN `truncated`)."""
+        (keep-end, без WARN `truncated`).
+
+        ``out_lines`` — бухгалтерия рендера для атрибуции цитат: сюда
+        дописываются пары ``(item_id, строка)`` в порядке вывода. Тождество
+        строки известно только здесь, поэтому доставку цитаты после
+        аллокации определяет эта карта, а не поиск текста в payload."""
         if not chain:
             return ""
+        ordered = list(reversed(chain))
         lines = [self._chain_line(item, suffix_map, trigger_message_id,
                                   projection, emit_quote=emit_quote)
-                 for item in reversed(chain)]
+                 for item in ordered]
+        if out_lines is not None:
+            out_lines.extend(
+                (str(getattr(item, "item_id", "") or ""), line)
+                for item, line in zip(ordered, lines))
         body = "\n".join(lines)
         if not truncate:
             return (f"<Conversation_Thread>\n"
@@ -13574,12 +13730,17 @@ class DirectChatService:
 
     def _render_branch(self, chain: list, suffix_map: dict[int, str],
                        trigger_message_id=None, projection=None, *,
-                       emit_quote: bool = True) -> str:
+                       emit_quote: bool = True,
+                       out_lines: list | None = None) -> str:
         """Раунд 8 (D4/T-801): <Conversation_Branch> — компактный итог
         reply-ветки: последние limits.chat_branch_context_hops (default 3)
         ходов уже собранной цепочки (без LLM, без повторного walk). Полный
         <Conversation_Thread> рендерится ниже. Вызывается только для
-        reply-триггера и цепочки глубины ≥ 2."""
+        reply-триггера и цепочки глубины ≥ 2.
+
+        ``out_lines`` — та же бухгалтерия рендера, что у ``_render_thread``:
+        пары ``(item_id, строка)`` в порядке вывода (основание атрибуции
+        доставки цитаты после аллокации)."""
         if not chain:
             return ""
         hops = int(hot.get("limits.chat_branch_context_hops",
@@ -13588,6 +13749,10 @@ class DirectChatService:
         lines = [self._chain_line(item, suffix_map, trigger_message_id,
                                   projection, emit_quote=emit_quote)
                  for item in fresh]
+        if out_lines is not None:
+            out_lines.extend(
+                (str(getattr(item, "item_id", "") or ""), line)
+                for item, line in zip(fresh, lines))
         body = "\n".join(lines)
         return (f"<Conversation_Branch>\n"
                 f"{escape_xml_text(body)}\n</Conversation_Branch>")
