@@ -50,6 +50,69 @@
       "note": "Развёрнутый SHA — релизный bump поверх одобренного кандидата c51933d0: продуктовый код идентичен (git diff --name-only c51933d0 bee14188 -- services handlers web пуст), менялись только APP_VERSION, README и version-пины тестов. Предыдущий прод 2.58.171 @ 4f7428e6. Миграция v45→v46 аддитивная, backfill нет. Строки M5A сохраняют собственную привязку к 4e07817e — map-level candidate указывает на последнего ревьюированного кандидата."
     }
   },
+  "slice_releases": [
+    {
+      "slice": "M1",
+      "release": "2.58.181",
+      "deployed_commit": "92070d0eda83674fd386324d55ba12a28b5e3837",
+      "candidate_commit": "92070d0eda83674fd386324d55ba12a28b5e3837",
+      "release_branch": "release/2.58.181",
+      "base_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+      "base_version": "2.58.180",
+      "previous_deployment": "2.58.180 @ 721bab1000a36c55b59794c36b6aefa6322a367c",
+      "built_from": "721bab10 + четыре черри-пика. Соответствие «коммит ветки фикса → коммит релизной линии» проверено по блобам файлов, а не по названиям: у каждой пары совпадает git rev-parse <sha>:<path>.",
+      "cherry_picks": [
+        {"release_commit": "8a152118", "origin_commit": "a2721908", "subject": "fix(web): /api/avatar требует доступа к чату/общего чата (privacy, IDOR)", "row": "MAC-AVATAR-01"},
+        {"release_commit": "784dfae3", "origin_commit": "c2255690", "subject": "fix(web): кэш аватара — private + Vary по заголовку аутентификации", "row": "MAC-AVATAR-01"},
+        {"release_commit": "0b3ba8ca", "origin_commit": "fc641f6c", "subject": "test(web): изоляция ветки chat_admins + прогрев байтового кэша", "row": "MAC-AVATAR-01"},
+        {"release_commit": "1f2885e3", "origin_commit": "30cd8564", "subject": "fix(acl): role_type=global_admin проходит гейты requires_permission (MAC-DEF-01)", "row": "MAC-DEF-01"}
+      ],
+      "delta": "git diff --name-only 721bab10 92070d0e = 32 файла. Вне tests/ четыре пути: config/settings.py (версия), plans/docs/param-registry-round1025.meta.md и два продуктовых файла web/api/avatars.py и web/api/deps.py. Других продуктовых изменений в выкате нет.",
+      "byte_identity": [
+        {"path": "web/api/avatars.py", "deployed_blob": "3b8be940b539d608c92b8d145af47a23c186dd1d", "equals": "c2255690, fc641f6c, 784dfae3, 0b3ba8ca, 1f2885e3", "meaning": "код аватара в выкате байт-идентичен одобренному кандидату"},
+        {"path": "web/api/deps.py", "deployed_blob": "509b387d4894dda8575b6d36ab307e6fbb2a848c", "equals": "30cd8564, 1f2885e3", "meaning": "патч MAC-DEF-01 в выкате байт-идентичен одобренному кандидату"},
+        {"path": "services/permissions.py", "deployed_blob": "e20d46ebf1591bfa4f1c9df622d6babcb33d7ccb", "equals": "721bab10 (база), 30cd8564", "meaning": "матчер прав не ослаблен: файл в выкате равен базе"},
+        {"path": "tests/test_avatar_access_scope.py", "deployed_blob": "84d1f52a3c18e907d283bfd60a4185f2c7683aec", "equals": "fc641f6c, 0b3ba8ca", "meaning": "тест области доступа аватара тот же, что одобрен"},
+        {"path": "tests/test_acl_global_admin_role_permission_gate.py", "deployed_blob": "4f47afbdb7837b08327e3e841f42a2f674be0148", "equals": "30cd8564, 1f2885e3", "meaning": "контрактный тест permission-гейта тот же, что одобрен"}
+      ],
+      "schema": "47, шага миграции нет; DDL в дельте отсутствует (факт схемы — заявление DevOps по прод-базе, здесь не перепроверялся)",
+      "rollback": "git checkout 721bab10 (release/2.58.180) + restart; схема не менялась (47), откат БД не требуется; снапшот predeploy-258181.db снят до рестарта",
+      "live_facts": {
+        "avatar_authorized_200": "GET /api/avatar/user/<чужой id> с owner-initData → 200, 8 673 байта, Cache-Control: private, max-age=86400, Vary: X-Telegram-Init-Data; то же через публичный HTTPS (Caddy); GET /api/avatar/chat/-1002661910336 → 200, 83 144 байта, те же заголовки",
+        "unauthenticated_401": "GET /api/avatar/... и GET /api/admins без initData → 401; в журнале [api-status] method=GET path=/api/admins status=401 user=- reason=missing_init_data",
+        "owner_reads_200": "GET /api/admins и GET /api/roles с owner-сессией → 200",
+        "errors": "0 событий permission_denied и 0 записей ERROR/CRITICAL за 25 минут после рестарта; unit active, NRestarts=0",
+        "health": "/healthz → ok 2.58.181",
+        "schema": "user_version=47, новых шагов миграции не было"
+      },
+      "not_proven_live": "403 постороннему Mini App-пользователю и fail-closed без lore/PG на проде живыми запросами не воспроизводимы: реальных посторонних аккаунтов нет (3 записи bot_admins: 2 moderator, 1 admin/global_admin). Эти свойства доказаны контрактными тестами на байт-идентичном коде выката (TestStrangerDenied, TestResponseCacheScope, TestGlobalAdminAndAuth; для гейта — TestGlobalAdminRoleTypePasses, TestPermissionModelNotRelaxed, TestPlainUserDenied, TestAuthStatusCodes, TestLegacyAndExplicitAccessStillWork). Так это и записано в артефакте выката, раздел «Чего не проверял live».",
+      "rows_bound": ["MAC-AVATAR-01", "MAC-DEF-01"],
+      "rows_left_pending": ["MAC-DEF-02"],
+      "evidence_artifacts": [
+        {
+          "path": "plans/features/mod-acl-ux-01/evidence/m1/mac-avatar-01-deploy.md",
+          "sha256": "8560015678622f6b28778dc7eab8377f80af3ef795d26ca89e80883c60d15d28",
+          "provenance": "Создан 10.11.2026 в главном рабочем каталоге при живой проверке выката 2.58.181. В ветках release/2.58.181 и release/* этот путь отсутствует (git ls-tree по evidence/m1 пуст), то есть файл существовал только в рабочем дереве; в Git он добавляется вместе с этой правкой карты, содержимое не менялось."
+        },
+        {
+          "path": "plans/features/mod-acl-ux-01/evidence/m1/mac-def-02-prod-roles.md",
+          "sha256": "7d735db61a454685efe56f26972201a17766c6d7310b9fd9475102d03ea8f8d5",
+          "provenance": "Снято read-only по PostgreSQL на выкаченном 2.58.181 тем же прогоном DevOps; в ветках отсутствует (git ls-tree пуст), в Git добавляется этой правкой без изменения содержимого."
+        }
+      ]
+    }
+  ],
+  "gate_status": {
+    "plan_gate": "check --stage plan --repo . → stage=plan inventory=279 manual=102 scoped=0 errors=0 (после этой правки)",
+    "release_gate": "КРАСНЫЙ и остаётся красным по причинам, не связанным с двумя доказанными фиксами",
+    "release_gate_reasons": [
+      "эпик MOD-ACL-UX-01 = 279 инвентарных строк, 288 обязательных: 68 VERIFIED и 220 PENDING; --stage release требует VERIFIED по всем обязательным строкам (фактический прогон на map-level кандидате: errors=261, почти все — «mandatory not ['VERIFIED'] (got PENDING)»)",
+      "map-level candidate_commit/deployed_commit = 34213999 (2.58.175) устарел относительно прод-линии (2.58.180 @ 721bab10, затем 2.58.181 @ 92070d0e): release-гейт требует совпадения --candidate с map-level полем, поэтому на 92070d0e он красный по построению. Поле намеренно не переставлено: 92070d0e не ревьюировался как кандидат всего эпика",
+      "scoped release --slice M1 тоже красный: в M1 остаются PENDING MAC-M1-01, MAC-S4-157, MAC-S4-161, MAC-S4-171, MAC-S4-172, MAC-S4-173, MAC-S4-174, MAC-S10-11, MAC-S10-12, MAC-S10-13, MAC-AC-06, MAC-S15-10, MAC-S4-RPT-01, MAC-DEF-02"
+    ],
+    "basis_for_two_fixes": "MAC-AVATAR-01 и MAC-DEF-01 доказаны не гейтом, а тремя независимыми основаниями: (1) вердикт независимого Reviewer'а с воспроизведением дефекта на базе 721bab10 и проверкой кандидатов c2255690/30cd8564, включая доказательство отсутствия расширения прав; (2) живые проверки на выкаченном SHA 92070d0e (см. slice_releases[0].live_facts); (3) байт-идентичность продуктовых файлов и контрактных тестов между одобренными кандидатами и выкатом, проверенная по git-блобам.",
+    "must_not_be_read_as": "Эта привязка не закрывает эпик MOD-ACL-UX-01 и не делает map-level candidate актуальным: 220 обязательных строк остаются PENDING, релиз эпика не заявлен."
+  },
   "queue_position": "MOD-ACL-UX-01 стоит в конце действующей очереди после SELF-DIAG-01 и VMQ-ONTO-01; полный Builder стартует после освобождения шести файлов MEMORY-08 S3. Две независимые критические правки (M1 ACL false-403 и M5A EXP-FIX correctives) допускаются раньше остального эпика при доступности своих файлов.",
   "binding_note": "Единственный владелец строки = req_id; owning stage ровно один (M0…M6, включая под-срезы M4A/M4B/M4C и M5A/M5B/M5C, потому что один M4 и один M5 — слишком крупные неделимые outcomes). Строки L*-AC-* §12 и M0…M6 §11 — нормативный источник; manual-строки MAC-S2-TT-*, MAC-S2-AX-*, MAC-EXP-* и MAC-AMD-* ссылаются на нормативные строки таблиц/prose, потому что gate инвентаризует только заголовки и списки. Наблюдения §1 и адреса файлов §14 классифицированы как context с указанием несущей нормы; §16 дублирует §5–§8 и AC-*. Статусы PENDING до фактических доказательств; live/ui-строки требуют живого интерфейса, а не отчёта Builder. Поправка уроков 09.11.2026 добавлена двумя срезами: M5L (MAC-LSN-01…06 — реализация и выкат 2.58.172, доказано) и M5L-OBS (MAC-LSN-07…11 — живые наблюдения после дренажа свежего бэклога, первого противоречия, повторного подтверждения, применения в ответе и оставшихся событий аналитики). Источник поправки — plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md и замороженный план plans/features/mod-acl-ux-01/lesson-strategy-contract.md. Поправка 09.11.2026 (M2, clerical): MAC-S2-106, MAC-S10-10, MAC-S2-105 привязаны к production impact report plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md (sha256 f18dc7dc…, коммит 74f8f342 на release/2.58.173; read-only прогон кандидата 97cfdef1 по реальной базе 2.58.173 @ 17c3a05e: 3 профиля x 16 capability, 0 изменённых пар). Одиннадцать строк каталога/UI (MAC-S0-04, MAC-S2-49, MAC-S2-89, MAC-S2-90, MAC-S2-82, MAC-S2-83, MAC-S3-CAT-01, MAC-S3-TYPES-01, MAC-S3-SHARED-01, MAC-AC-01, MAC-AC-05) переназначены из M2 в M3/M4A по решению координатора 2026-11-09 (поле reassignment_rationale у каждой строки; acceptance не менялся). Пятнадцать live-строк M2 остаются PENDING с условием «живое наблюдение на задеплоенном SHA после выката M2» — это postdeploy-обязательства, а не блокеры ревью.",
   "additional_requirements": [
@@ -1674,7 +1737,7 @@
           "description": "наблюдаемый артефакт проверки MAC-M1-01"
         }
       ],
-      "pending_condition": "Веха M1: после аудита 2.58.180 закрыты MAC-S4-169/170 (инвентарь ACL и разделение операций), зарегистрирован обязательный дефект MAC-DEF-01 (`requires_permission` не смотрит `role_type`). Остаточный дефект MAC-DEF-02 (`can_view_key_value` и `can_edit_param` не смотрят `role_type`: global_admin без wildcard не сохраняет глобальные параметры и не активирует глобальные промпты) зарегистрирован там же. Открыты MAC-S4-157/161/171/172/173/174, MAC-S10-11/S10-12/S10-13/S15-10, MAC-S4-RPT-01, MAC-DEF-01 и MAC-DEF-02, поэтому веха VERIFIED быть не может."
+      "pending_condition": "Веха M1: после аудита 2.58.180 закрыты MAC-S4-169/170 (инвентарь ACL и разделение операций). Обязательный дефект MAC-DEF-01 (`requires_permission` не смотрел `role_type`) исправлен и выкачен 2.58.181 @ 92070d0e — строка VERIFIED. Остаточный дефект MAC-DEF-02 (`can_view_key_value` и `can_edit_param` не смотрят `role_type`) остаётся PENDING с низким приоритетом: инвентарь ролей прода на 2.58.181 показал 0 аккаунтов global_admin без wildcard. Открыты MAC-S4-157/161/171/172/173/174, MAC-S10-11/S10-12/S10-13/S15-10, MAC-S4-RPT-01 и MAC-DEF-02, поэтому веха VERIFIED быть не может."
     },
     {
       "source_id": "MAC-M2",
@@ -2528,8 +2591,25 @@
       "acceptance": "Роль с role_type=global_admin без wildcard проходит GET /api/admins, /api/roles и /api/cover/* с кодом 200, а custom-роль без права access по-прежнему получает 403; разделение чтение/изменение/side-effect сохраняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "92070d0eda83674fd386324d55ba12a28b5e3837",
+          "type": "production",
+          "ref": "Выкат 2.58.181 @ 92070d0e содержит байт-идентичный патч MAC-DEF-01; живая проверка на этом SHA",
+          "observation": "web/api/deps.py в 92070d0e имеет блоб 509b387d4894dda8575b6d36ab307e6fbb2a848c — тот же, что у одобренного кандидата 30cd8564 и у черри-пика 1f2885e3; services/permissions.py остаётся e20d46ebf1591bfa4f1c9df622d6babcb33d7ccb, то есть равен базе 721bab10 и матчер прав не ослаблен. Контрактный тест tests/test_acl_global_admin_role_permission_gate.py в выкате — блоб 4f47afbdb7837b08327e3e841f42a2f674be0148, тот же, что у 30cd8564: TestGlobalAdminRoleTypePasses (global_admin с пустыми правами → 200 на /api/admins, /api/roles, /api/cover/styles), TestPermissionModelNotRelaxed (матчер для той же роли по-прежнему False: проход даёт role_type, а не ослабленный матчинг), TestPlainUserDenied, TestAuthStatusCodes (401 без initData и при битой подписи), TestLegacyAndExplicitAccessStillWork. Живое на выкате: GET /api/admins и GET /api/roles с owner-сессией → 200; 0 событий permission_denied и 0 записей ERROR за 25 минут после рестарта; /healthz → ok 2.58.181. Честная граница: сам живой 200 ветку role_type не доказывает — единственная прод-роль global_admin несёт wildcard=true и проходила эти гейты и до фикса; ветку доказывает контрактный тест на байт-идентичном коде выката, а живой прогон доказывает, что выкат не сломал доступ и не породил ложных отказов.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-avatar-01-deploy.md",
+          "artifact_sha256": "8560015678622f6b28778dc7eab8377f80af3ef795d26ca89e80883c60d15d28"
+        },
+        {
+          "candidate_commit": "92070d0eda83674fd386324d55ba12a28b5e3837",
+          "type": "production",
+          "ref": "Инвентарь ролей прода на выкаченном SHA: реальный доступ владельца и отсутствие затронутых аккаунтов",
+          "observation": "Read-only PostgreSQL на 2.58.181 @ 92070d0e: 4 роли в bot_roles, 3 назначения в bot_admins, accounts_global_admin_without_wildcard = 0. Владелец (***3495) → роль admin, role_type=global_admin, wildcard=true, GET /api/admins и GET /api/roles → 200. Отсюда два следствия, зафиксированные без округления в пользу строки: фикс на проде латентен (наблюдаемое поведение существующих идентичностей не менялось), а наблюдаемый 200 объясняется wildcard-веткой. Аудиторская ценность записи — подтверждение, что изменение не расширило доступ никому, кто его не имел.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-def-02-prod-roles.md",
+          "artifact_sha256": "7d735db61a454685efe56f26972201a17766c6d7310b9fd9475102d03ea8f8d5"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -2537,7 +2617,16 @@
           "description": "наблюдаемый артефакт проверки MAC-DEF-01"
         }
       ],
-      "pending_condition": "Дефект подтверждён аудитом 2.58.180 §2: `requires_permission(s)` (`web/api/deps.py` 190–204) вычисляет `match_permission(perms, required)` и `role_type` не смотрит; около 33 эндпоинтов (`routes.py` 17: `/admins`, `/roles*`, `/info*`, `/control/*`, `/debug/config`; `cover_styles.py` 16) отказывают по permissions. Идентичность `role_type=global_admin` проходит только потому, что сид-роль `admin` несёт `{\"wildcard\": true}` (`services/pg_db.py` 630–632 `00c64133`). Владелец не затронут (сид = wildcard), но роль с `role_type=global_admin` без `wildcard`/`access` получит 403 на `/api/admins`, `/api/roles`, `/api/cover/*` — тот же класс, что M1, но на permission-фронте. Условие: сделать предикат role_type-aware по образцу `user_is_global_admin` без расширения wildcard и без смешения классов операций, затем тест: role_type=global_admin без wildcard → 200 на трёх поверхностях, custom без access → 403."
+      "review_reference": {
+        "candidate_commit": "30cd85641e64990b26bec793f9be9a137522f21c",
+        "deployed_commit": "1f2885e31ee2d018759840c549810dcfa080ea26",
+        "deployed_release_commit": "92070d0eda83674fd386324d55ba12a28b5e3837",
+        "base_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+        "branch": "fix/permission-role-type",
+        "status": "APPROVED. Отдельного repo-артефакта ревью нет: вердикт зафиксирован в plans/workflow_state.md (раздел «Permission gate: APPROVED (30cd8564)») и в сообщении коммита 1f2885e3; поэтому здесь он приведён как ссылка на вердикт, а не как машинно-проверяемое доказательство.",
+        "verified": "Ревьюер воспроизвёл 403 на базе 721bab10 для идентичности role_type=global_admin без wildcard и 200 на кандидате; доказал отсутствие расширения прав (custom-роль, обычный пользователь, moderator, local_admin, неизвестный id, варианты регистра и пробелов — 403; fail-closed при записи bot_admins без метаданных роли); подтвердил, что services/permissions.py байт-идентичен, то есть матчер не ослаблен."
+      },
+      "resolution": "Закрыто выкатом 2.58.181 @ 92070d0e: патч байт-идентичен одобренному 30cd8564, контрактный тест на выкате тот же, живая проверка владельца даёт 200 на /api/admins и /api/roles, журнал без permission_denied и без ERROR. Что этим не доказано и не заявляется: живой 403-кейс на проде невозможен — аккаунта global_admin без wildcard нет (инвентарь ролей), поэтому ветка role_type доказана контрактным тестом на байт-идентичном коде выката. Историческое условие строки (для аудита): role_type-aware предикат без расширения wildcard и без смешения классов операций плюс тест global_admin без wildcard → 200 на трёх поверхностях, custom без access → 403 — выполнено кандидатом 30cd8564 и воспроизведено на выкате блобами."
     },
     {
       "source_id": "MAC-DEF-02",
@@ -2566,7 +2655,17 @@
         }
       ],
       "open_decision": "Решается вместе с контрактом видимости секретов (MAC-S10-13, MAC-S4-172; docstring 84.12.4 в web/api/deps.py): либо can_view_key_value получает role_type-aware ветку («глобальный админ видит секреты»), либо остаётся строгим (только key.<cat>.<key> / секция keys / wildcard) и чинится только запись через can_edit_param. Это вопрос внутри строки, а не отдельный owner gate: владелец не затронут, сид-роль несёт wildcard. Ответ записывается здесь и в MAC-S10-13 до начала фикса, чтобы видимость секретов не расширилась молча.",
-      "priority_note": "Приоритет зависит от факта: есть ли в проде реальный аккаунт с role_type=global_admin без wildcard. DevOps выясняет это в текущем релизе и прикладывает инвентарь ролей (expected_evidence → mac-def-02-prod-roles.md). Пока ответа нет, строка остаётся PENDING без срочности; если такая роль в проде есть — переводится в очередь M1 сразу после слияния MAC-DEF-01.",
+      "priority": "low",
+      "priority_evidence": {
+        "question": "Есть ли в проде реальный аккаунт с role_type=global_admin без wildcard?",
+        "answer": "Нет. accounts_global_admin_without_wildcard = 0: 4 роли (admin/global_admin/wildcard=true, local_admin, moderator, user) и 3 назначения (2 × moderator, 1 × admin) на выкаченном 2.58.181 @ 92070d0e.",
+        "candidate_commit": "92070d0eda83674fd386324d55ba12a28b5e3837",
+        "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-def-02-prod-roles.md",
+        "artifact_sha256": "7d735db61a454685efe56f26972201a17766c6d7310b9fd9475102d03ea8f8d5",
+        "observation": "Живое следствие на выкате: GET /api/admins и GET /api/roles с owner-сессией → 200. Это не доказывает закрытие строки — 200 объясняется wildcard-веткой, а не role_type-веткой. Значение инвентаря только в приоритете: дефект сегодня недостижим, ни один аккаунт не затронут."
+      },
+      "priority_note": "Приоритет — НИЗКИЙ (решение по факту, 10.11.2026). Инвентарь ролей прода на 2.58.181 показал 0 аккаунтов с role_type=global_admin без wildcard, то есть оба предиката (can_view_key_value, can_edit_param) ни для кого не дают отказа: единственная global_admin-роль проходит по wildcard-ветке. Строка остаётся PENDING без срочности и без перевода в текущую очередь; срочность определяется фактом, а не удобством. Триггер переоценки: появление в bot_roles роли с role_type='global_admin' и wildcard=false либо назначение такой роли — тогда строка сразу переводится в очередь M1 и чинится тем же релизом. Проверка триггера — повторный read-only инвентарь ролей после каждого релиза, меняющего роли или миграции admin-таблиц.",
+      "closing_condition": "Строка закрывается только всеми четырьмя шагами: (1) зафиксировать open_decision о видимости секретов (остаётся can_view_key_value строгим, чинится только запись через can_edit_param, либо добавляется role_type-aware ветка) — запись в этой строке и в MAC-S10-13 до начала фикса; (2) сделать role_type-aware ветку в can_edit_param (и в can_view_key_value, если так решено) по канону user_is_global_admin/user_has_permission, без расширения wildcard и без смешения классов операций чтение/изменение/side-effect; (3) durable-тест: global_admin без wildcard → 200 на POST /api/config с глобальным параметром (новое значение видно в GET) и на активации глобального промпта при chat_id=None, полное значение секретного ключа при отсутствии key.* по-прежнему не отдаётся (маска сохранена), custom-роль без param.*/key.* → 403, различение 401/403/503 не размыто; (4) релиз, где продуктовые файлы и тест байт-идентичны проверенному кандидату, плюс фиксация на выкате: прогон теста на байт-идентичном коде и повторный инвентарь ролей. Пока шаг (1) не сделан, фикс не начинается — иначе видимость секретов может расшириться молча.",
       "pending_condition": "Подтверждено вызовом функций на кандидате 30cd8564 (ветка fix/permission-role-type), не чтением: web/api/deps.py 232–246 — can_view_key_value = match_permission(perms, key.<pg_key>), can_edit_param = match_permission(perms, param.<pg_key>); role_type в них не смотрится, патч MAC-DEF-01 их намеренно не менял. Следствия для identity global_admin без wildcard: POST /api/config (ветка routes.py 1914/1916; на master-HEAD 138461a5 те же два предиката в routes.py 1180/1182) и _prompt_require_edit при chat_id=None (ветка routes.py 3987) дают 403. Чтение проходит, потому что значения промптов не секреты и _prompt_require_view пускает любую роль для global. Владелец не затронут: сид-роль admin несёт {\"wildcard\": true} (services/pg_db.py 630–632). Условие: сначала зафиксировать open_decision, затем role_type-aware ветка в двух предикатах по канону user_is_global_admin/user_has_permission без расширения wildcard, плюс тест: global_admin без wildcard → 200 на сохранении глобального параметра и активации глобального промпта, маска секрета сохранена, custom без права → 403. Промпт-эндпоинтов нет в master-HEAD — активация проверяется на ветке или после слияния."
     },
     {
@@ -2581,8 +2680,17 @@
       "acceptance": "`GET /api/avatar/{kind}/{tid}`: посторонний авторизованный пользователь получает 403 `permission_denied` до любого вызова Bot API (включая прогретый байтовый кэш); self, участник доступного чата, участник любого доступного запросившему чата и глобальный админ получают 200; успешный ответ отдаётся как `private, max-age=86400` с `Vary: X-Telegram-Init-Data`; без lore-стора/при сбое источника правило закрыто (fail-closed, отказ, а не 200).",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "92070d0eda83674fd386324d55ba12a28b5e3837",
+          "type": "production",
+          "ref": "Живая проверка на выкаченном 92070d0e: правило доступа в силе, приватный кэш и Vary на месте",
+          "observation": "На 2.58.181 @ 92070d0e: GET /api/avatar/user/<чужой id> с owner-initData → 200 (8 673 байта) с Cache-Control: private, max-age=86400 и Vary: X-Telegram-Init-Data, то же через публичный HTTPS (via 1.1 Caddy); GET /api/avatar/chat/-1002661910336 → 200 (83 144 байта) с теми же заголовками; тот же запрос без initData → 401. Код в выкате байт-идентичен одобренному кандидату: web/api/avatars.py блоб 3b8be940b539d608c92b8d145af47a23c186dd1d (равен c2255690, fc641f6c, 784dfae3, 0b3ba8ca, 1f2885e3), тест tests/test_avatar_access_scope.py блоб 84d1f52a3c18e907d283bfd60a4185f2c7683aec (равен fc641f6c и 0b3ba8ca) с TestSelfAlwaysAllowed, TestSharedChatAllowed, TestResponseCacheScope, TestStrangerDenied, TestGlobalAdminAndAuth. 0 событий permission_denied и 0 ERROR за 25 минут после рестарта. Честная граница: 403 постороннему и fail-closed без lore/PG живыми запросами не проверялись — посторонних аккаунтов на проде нет; эти свойства доказаны контрактными тестами на байт-идентичном коде выката, что записано в артефакте отдельным разделом.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-avatar-01-deploy.md",
+          "artifact_sha256": "8560015678622f6b28778dc7eab8377f80af3ef795d26ca89e80883c60d15d28"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -2601,10 +2709,13 @@
         "branch": "fix/avatar-scope",
         "base_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
         "reviewer_session": "ses_e3b2c0e2effefC5Pc7klm558m1",
-        "status": "фикс проверен независимым ревьюером на кандидате, отдельного repo-артефакта ревью ещё нет",
+        "deployed_commit": "1f2885e31ee2d018759840c549810dcfa080ea26",
+        "deployed_release_commit": "92070d0eda83674fd386324d55ba12a28b5e3837",
+        "deployed_mapping": "релизная линия: 8a152118 (правило доступа) и 784dfae3 (private + Vary) — черри-пики a2721908 и c2255690; 0b3ba8ca — черри-пик test-only fc641f6c; блобы совпадают с кандидатом",
+        "status": "APPROVED и выкачено. Отдельного repo-артефакта ревью по-прежнему нет: вердикт зафиксирован в plans/workflow_state.md (раздел «Avatar scope: APPROVED») и в сообщении коммита 8a152118; в строке он используется как ссылка на вердикт, а машинно-проверяемым доказательством служат контрактные тесты на байт-идентичном коде выката и живые проверки в artifact_path",
         "verified": "На базе 721bab10 ревьюер воспроизвёл дыру: любой аутентифицированный пользователь Mini App получал чужой аватар, id уходил в Bot API. На кандидате c2255690 посторонний получает 403 до Bot API, прогретый байтовый кэш чужую картинку не отдаёт, self/участник общего чата/глобальный админ — 200, ответ private + Vary."
       },
-      "pending_condition": "Фикс лежит на ветке fix/avatar-scope (a2721908 — правило доступа, c2255690 — кэш) и проверен ревьюером; строка остаётся PENDING, потому что прод ещё не выкачен. Условие: выкат содержит байт-идентичный `web/api/avatars.py` и `tests/test_avatar_access_scope.py`, затем живая проверка на выкаченном SHA (403 до Bot API для постороннего при прогретом кэше, 200 для self/участника/глобального админа, `Cache-Control: private, max-age=86400` + `Vary: X-Telegram-Init-Data`, отказ без lore/PG)."
+      "resolution": "Закрыто выкатом 2.58.181 @ 92070d0e. Историческое условие строки (для аудита): выкат содержит байт-идентичные web/api/avatars.py и tests/test_avatar_access_scope.py, затем живая проверка на выкаченном SHA — 403 до Bot API для постороннего при прогретом кэше, 200 для self/участника/глобального админа, private, max-age=86400 и Vary: X-Telegram-Init-Data, отказ без lore/PG. Выполнено по коду и тестам байт-идентичностью с одобренным кандидатом (блобы в evidence), по живому поведению — 200 с нужными заголовками, 401 без initData, отсутствие ложных 403 и ошибок. Отдельно и без округления: живого 403-кейса на проде не было и быть не могло — посторонних аккаунтов нет; 403 и fail-closed доказаны контрактными тестами на том же коде, что выкачен."
     }
   ],
   "items": [
