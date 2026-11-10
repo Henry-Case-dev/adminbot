@@ -139,7 +139,8 @@ def _completion(text, finish_reason, correlation_id=None):
         correlation_id=correlation_id)
 
 
-def _drive(monkeypatch, llm, *, text="бот, как дела?", window=None):
+def _drive(monkeypatch, llm, *, text="бот, как дела?", window=None,
+           facts=None):
     """Продовый ход Direct (композер ON) с РЕАЛЬНОЙ доставкой."""
     from config.settings import Settings
     from tests.test_direct_chat import FakeMemory, _bot, _make_service, \
@@ -148,7 +149,8 @@ def _drive(monkeypatch, llm, *, text="бот, как дела?", window=None):
     monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", True)
     monkeypatch.setattr(Settings, "DIRECT_DECISION_MAKING_ENABLED", True)
     monkeypatch.setattr(Settings, "PERSONA_ENABLED", False)
-    memory = FakeMemory(window=list(window or ()))
+    memory = FakeMemory(window=list(window or ()),
+                        rag_facts=list(facts) if facts else None)
     svc = _make_service(memory=memory, llm=llm)
     bot = _bot()
     msg = _message(text=text, message_id=4242, chat_id=CHAT_ID)
@@ -472,6 +474,94 @@ async def test_real_turn_counts_entered_messages_not_capped_ids(
     assert len(tail["source_ids"]) == 8, "контрактный размер списка — 8"
     assert payload.get("truncated") is True, \
         "срез 25 → 8 обязан быть видимым, а не молчаливым"
+
+
+@pytest.mark.asyncio
+async def test_real_turn_window_40_counts_all_messages(monkeypatch, events):
+    """Окно 40: `included_messages` == 40 — больше 32.
+
+    Специально перешагивает «32» (лимит id, который сборщик передаёт в
+    трассу): если счётчик снова начнёт читать срезанный список, тест упадёт
+    (32 ≠ 40), тогда как окно 25 такую регрессию не заметило бы."""
+    rows = _plain_rows(40)
+
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=rows)
+    await svc.handle(bot, msg, user)
+
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    counts = payload.get("counts") or {}
+    assert counts.get("window_messages") == 40
+    assert counts.get("available_messages") == 40
+    assert counts.get("included_messages") == 40, \
+        "счётчик обязан считать все вошедшие сообщения (срез 32 — не предел)"
+    tail = next(b for b in payload["blocks"] if b.get("kind") == "global_tail")
+    assert len(tail["source_ids"]) == 8
+    assert payload.get("truncated") is True
+
+
+@pytest.mark.asyncio
+async def test_real_turn_memory_facts_do_not_inflate_message_count(
+        monkeypatch, events):
+    """Факты памяти — НЕ сообщения: 25 сообщений + 5 фактов → `{25, 25}`.
+
+    Прежний счётчик складывал `fact:…` в «вошло», и шаг 3 показал бы
+    невозможное «доступно 25 · вошло 30» (UR-20.4 по смыслу ломается)."""
+    facts = [{"id": i, "item_id": "fact:%d" % i, "origin": "user_memory",
+              "fact": "факт про дрожжи %d" % i, "rag_ts": 1_700_000_000 + i,
+              "status": "confirmed", "subject_ref_id": 1,
+              "speaker_author_id": 1} for i in range(1, 6)]
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=_plain_rows(25),
+                                 facts=facts)
+    await svc.handle(bot, msg, user)
+
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    counts = payload.get("counts") or {}
+    rag = next(b for b in payload["blocks"] if b.get("kind") == "rag")
+    assert len(rag["source_ids"]) == 5, "факты памяти не попали в блок"
+    assert all(ref.startswith("fact:") for ref in rag["source_ids"])
+
+    assert counts.get("available_messages") == 25
+    assert counts.get("included_messages") == 25, \
+        "факты памяти не должны попадать в счётчик СООБЩЕНИЙ"
+    assert counts["included_messages"] <= counts["available_messages"], \
+        "«вошло больше, чем доступно» — невозможное состояние"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("rows_count", [36, 40])
+async def test_episode_span_longer_than_32_counts_all_messages(
+        monkeypatch, rows_count):
+    """Спан эпизода длиннее 32 считается ЦЕЛИКОМ (36 и 40 строк).
+
+    `CHAT_EPISODE_MAX_MESSAGES` = 40, поэтому спан реально бывает > 32: срез
+    32 при построении спана терял бы 4 сообщения в счётчике."""
+    from services import mca_gates
+    from services import direct_chat_service as dcs
+    from tests.test_vmq_mem_retrieval_fixes import (
+        CHAT_ID as VMQ_CHAT_ID, _make_db, _seed_message, _service, _ts)
+
+    monkeypatch.setattr(mca_gates, "retrieval_context_enabled", lambda: True)
+    monkeypatch.setattr(mca_gates, "episodes_compiler_facade_enabled",
+                        lambda: False)
+    db = await _make_db()
+    try:
+        for i in range(rows_count):
+            await _seed_message(db, "дроны над дачей раз %d" % i,
+                                _ts(2023, 5, 1) + i * 60, tg_id=9000 + i)
+        block, stats = await _service(db)._build_old_episodes(
+            VMQ_CHAT_ID, "расскажи историю про дроны", [], {})
+    finally:
+        await db.close()
+
+    assert block.startswith("<Old_Episode>")
+    assert stats["count"] == 1 and stats["messages"] == rows_count
+    spans = stats["spans"]
+    assert len(spans) == 1, spans
+    assert len(spans[0]["source_ids"]) == rows_count, \
+        "спан %d строк: срез 32 не должен терять сообщения" % rows_count
+    assert spans[0]["first_ts"] and spans[0]["last_ts"]
+    # и это ровно тот набор, по которому считается included_messages
+    assert dcs._MESSAGE_BLOCK_KINDS and "episode" in dcs._MESSAGE_BLOCK_KINDS
 
 
 @pytest.mark.asyncio

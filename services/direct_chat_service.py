@@ -2531,6 +2531,13 @@ def _rag_rows_with_ranks(rows: list) -> tuple[list, dict]:
 #: а не получил уже срезанный список (иначе кап был бы невидим).
 _MAX_SELECTION_IDS = _ttrace.SELECTION_SOURCE_IDS_MAX * 4
 
+#: Виды блоков, которые содержат СООБЩЕНИЯ диалога. Только они питают
+#: `counts.included_messages`: факты памяти (`rag`) и служебные блоки
+#: (map/target/protected/current/sandwich…) сообщениями не являются, а
+#: `counts.available_messages` их не считает — иначе «вошло» превысило бы
+#: «доступно».
+_MESSAGE_BLOCK_KINDS = ("global_tail", "global_middle", "thread", "episode")
+
 
 def _sel_int(value):
     """Целое из значения (Telegram id/дата/счётчик); иное → None.
@@ -9231,14 +9238,18 @@ class DirectChatService:
             stats["count"] += 1
             stats["messages"] += len(lines)
             # UR-F шаг 1 (UR-20.5): спан эпизода — какие сообщения реально
-            # вошли (ids и даты), без текста. Ровно то, что видно в логе ниже.
+            # вошли (ids и даты), без текста. Список id хранится ПОЛНЫМ (без
+            # контрактного среза): по нему считается «вошло сообщений», а срез
+            # до 8 делает нормизатор трассы. Срез здесь терял бы сообщения
+            # длинного спана (`CHAT_EPISODE_MAX_MESSAGES` = 40 > 32).
             try:
+                _span_bot_id = getattr(self, "bot_id", None)
                 _span = _sel_block(
                     kind="episode", role="span", rendered=True,
-                    rows=span_rows,
-                    bot_user_id=getattr(self, "bot_id", None))
+                    rows=span_rows, bot_user_id=_span_bot_id)
                 stats["spans"].append({
-                    "source_ids": list(_span["source_ids"]),
+                    "source_ids": _sel_row_ids(span_rows,
+                                               bot_user_id=_span_bot_id),
                     "first_ts": _span["first_ts"],
                     "last_ts": _span["last_ts"],
                 })
@@ -9799,7 +9810,8 @@ class DirectChatService:
                     _full_ids[_kind] = _sel_row_ids(_rows, bot_user_id=_bot_id)
                 if _kind == "rag" and isinstance(rag_memory, dict):
                     # Факты памяти: id/даты считает сам `_build_rag_block`
-                    # (после дедупа/реранка/сортировки).
+                    # (после дедупа/реранка/сортировки). Это НЕ сообщения —
+                    # в счётчик `included_messages` они не идут (см. ниже).
                     _rag_ids = list(rag_memory.get("source_ids") or ())
                     _block["source_ids"] = _rag_ids[:_MAX_SELECTION_IDS]
                     _block["first_ts"] = int(rag_memory.get("first_ts") or 0)
@@ -9843,12 +9855,19 @@ class DirectChatService:
                     _full_ids[_kind] = _ids
                 _sel_blocks.append(_block)
             # Счётчики: «доступно» — то, что композер реально мог взять в этом
-            # ходе; «вошло» — уникальные сообщения в ВИДИМЫХ блоках, считанные
+            # ходе; «вошло» — уникальные СООБЩЕНИЯ в ВИДИМЫХ блоках, считанные
             # по ПОЛНЫМ наборам (срез ссылок до 8 к счётчику не относится).
+            # Считаются только блоки-носители сообщений: факты памяти (`rag`)
+            # — не сообщения, и `available_messages` их не учитывает, иначе
+            # получалось бы невозможное «вошло 30 из доступных 25».
             _included_ids: set = set()
             for _block in _sel_blocks:
-                if _block.get("rendered"):
-                    _included_ids.update(_full_ids.get(_block.get("kind")) or ())
+                if not _block.get("rendered"):
+                    continue
+                _block_kind = _block.get("kind")
+                if _block_kind not in _MESSAGE_BLOCK_KINDS:
+                    continue
+                _included_ids.update(_full_ids.get(_block_kind) or ())
             _counts = {
                 "available_messages": (len(global_parts["tail_rows"])
                                        + len(middle_rows) + len(list(chain
