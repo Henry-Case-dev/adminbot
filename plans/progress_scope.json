@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T03:08:49+12:00",
+  "updated": "2026-11-11T06:38:19+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -611,6 +611,21 @@
         "self-diag-01"
       ],
       "source_note": "Registered 2026-11-11 from the owner's appended section (current_task.md lines 10750-11043). Requires a PM requirements map and an explicit reuse analysis of PVR-FC-CORRECTIVE-01, FCP-01..07, ASAP-FC and EVOL before any implementation; prerequisite verification of HEAD, deployed SHA, active settings and existing artefacts is part of the first execution step, not an audit phase."
+    },
+    {
+      "id": "web-search-quality-01",
+      "ticket": "WEB-SEARCH-QUALITY-01",
+      "title": "Качественный веб-поиск всего SmartModule + реконструкция настроек модуля «Поиск»",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-11-web-search-quality-01-current-task-excerpt.md",
+      "source_sha256": "9CD0B44A26163B0CE4C0DE5D8F055C4042870C54DEEE572A1504F1C30C1BD963",
+      "maps": [],
+      "coverage_complete": false,
+      "queue_position": "immediately_after:fc-trust-01",
+      "blocked_by": [
+        "fc-trust-01"
+      ],
+      "queue_note": "Registered 2026-11-11 in QUEUE-ONLY mode. Execution starts automatically only after FC-TRUST-01 is complete, reviewed and deployed; no other epic order changes and current work is not interrupted. No new keys: Tavily and Exa are already configured; $0 constraint. Requirements mapping happens at execution start, not now."
     }
   ],
   "owner_inputs": [
@@ -2883,6 +2898,17 @@
           ]
         }
       ]
+    },
+    {
+      "id": "OI-2026-11-11-WEB-SEARCH-QUALITY-01",
+      "source_path": "plans/owner_inputs/2026-11-11-web-search-quality-01-current-task-excerpt.md",
+      "source_sha256": "9CD0B44A26163B0CE4C0DE5D8F055C4042870C54DEEE572A1504F1C30C1BD963",
+      "kind": "new_task",
+      "target_task_ids": [
+        "web-search-quality-01"
+      ],
+      "reconciled": false,
+      "note": "Owner appended WEB-SEARCH-QUALITY-01 (spec v1.1) to current_task.md at line 11045 and requires it queued strictly AFTER FC-TRUST-01 completes with review and production deployment; the text position at the end of the file does not define execution order and no other epic's order may change. Queue-only mode now: no architecture, audit, code, tests, provider experiments, config changes or deploy until the queue reaches it, and no extra human gate at that point. Cost constraint $0: no cards or paid tiers; Tavily and Exa keys already configured on production must not be requested again or overwritten. Mapping into a requirements map is deliberately deferred to the execution start, so the source section stays `unreviewed` in the inventory until then."
     }
   ],
   "source_inventory": {
@@ -3830,6 +3856,17 @@
             ]
           }
         ]
+      },
+      {
+        "id": "H1:web-search-quality-01",
+        "sha256": "4025f75aa9d16206fcc5f83ae80759d2546a81812f7d9e70d4d1abad371141ed",
+        "disposition": "unreviewed",
+        "target_task_ids": [
+          "web-search-quality-01"
+        ],
+        "coverage_refs": [],
+        "reason": "Зарегистрирован эпик WEB-SEARCH-QUALITY-01 (стр. 11045-EOF). По прямому указанию владельца сейчас выполняется только регистрация в очереди: разбор требований и карта создаются при старте исполнения после FC-TRUST-01. До этого раздел остаётся unreviewed и делает общий счёт требований предварительным (не ошибкой).",
+        "requirement_refs": []
       }
     ]
   }
