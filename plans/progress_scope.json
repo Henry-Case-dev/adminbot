@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T07:33:06+12:00",
+  "updated": "2026-11-11T07:33:56+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -2924,14 +2924,46 @@
           "task_id": "web-search-quality-01",
           "map": "plans/features/web-search-quality-01/requirements-map.json",
           "req_ids": [
-            "WQ-S0-AUDIT",
-            "WQ-S1-PROVIDERS",
-            "WQ-S3-STRATEGY",
-            "WQ-S5-CONTRACT-MEMORY",
-            "WQ-S6-LIMITS",
-            "WQ-S8-UI-WORKSPACE",
-            "WQ-S9-UI-PROMPT",
-            "WQ-S12-RELEASE"
+            "WQ-D7-ORDER-FC",
+            "WQ-D12-NO-CARD",
+            "WQ-S4-MULTI-INDEX",
+            "WQ-H3-MERGE-RRF",
+            "WQ-R3-LEVELS",
+            "WQ-S5-SECOND-SEARCH",
+            "WQ-C4-L2-HONEST",
+            "WQ-C3-MEMORY-SPLIT",
+            "WQ-P9-KEYLESS-WORKS",
+            "WQ-D9-NO-NEW-AGENTS",
+            "WQ-U-GOAL-WORKSPACE",
+            "WQ-U-GOAL-OWNERSHIP",
+            "WQ-U1-BOUNDARY",
+            "WQ-P10-SERP-RESERVE",
+            "WQ-P11-SPECIALIZED",
+            "WQ-P12-READER-EXTRA",
+            "WQ-P8-PROVIDER-POLICY",
+            "WQ-A2-AUDIT-MAP",
+            "WQ-A3-CALL-TABLE",
+            "WQ-A4-BASELINE-SNAPSHOT",
+            "WQ-P2-ONE-AGGREGATOR",
+            "WQ-P1-ADAPTERS",
+            "WQ-P6-MCP-IN-BOT",
+            "WQ-P7-DDGS",
+            "WQ-P4-KEYS-RUNTIME",
+            "WQ-P3-CAPABILITY-TRUTH",
+            "WQ-P5-REAL-LIMITS",
+            "WQ-H1-HIT-SCHEMA",
+            "WQ-H2-CANON",
+            "WQ-H4-RERANK-IDS",
+            "WQ-H5-NO-TRUNC",
+            "WQ-S1-INTENT",
+            "WQ-S2-SEARCH-FIRST",
+            "WQ-S3-LOCAL-FIRST",
+            "WQ-S6-USER-BAN",
+            "WQ-S7-INITIATIVE",
+            "WQ-S8-FC-CANON",
+            "WQ-R1-SELECT",
+            "WQ-R2-FALLBACK",
+            "WQ-R4-DATES"
           ]
         }
       ]
@@ -3817,7 +3849,7 @@
       },
       {
         "id": "H1:cac772d10e52:1",
-        "sha256": "f18505df35d43469a9ead4da653e1b2faa0cc42679614d54da94e3fa617aad0f",
+        "sha256": "07c2c40bbd9466c339976d83b29797231893800e3b47371c43f58b91cb570f26",
         "disposition": "mapped",
         "target_task_ids": [
           "mod-acl-ux-01"
@@ -3845,7 +3877,7 @@
       },
       {
         "id": "H1:e5565d3d1709:1",
-        "sha256": "4ebb1ac10e63a4b699fa5a58317f5b4a6ba6c1f714efcfd7d28357b16c786d4d",
+        "sha256": "6c1fcd0b142568d403359c6ce9fc63afcd49a2b37a981633960f3089a3989a80",
         "disposition": "mapped",
         "target_task_ids": [
           "fc-trust-01"
@@ -3884,7 +3916,7 @@
         ]
       },
       {
-        "id": "H1:web-search-quality-01",
+        "id": "H1:f503c10fd972:1",
         "sha256": "4025f75aa9d16206fcc5f83ae80759d2546a81812f7d9e70d4d1abad371141ed",
         "disposition": "mapped",
         "target_task_ids": [
@@ -3893,25 +3925,52 @@
         "coverage_refs": [
           "plans/features/web-search-quality-01/requirements-map.json"
         ],
-        "reason": "Раздел WEB-SEARCH-QUALITY-01 (стр. 11045-EOF) разобран только по стадии подготовки: карта 267 строк (198 обязательных / 158 уникальных req_id), 13 срезов, архитектура в plans/features/web-search-quality-01/architecture.md; реализация не начиналась. Все обязательные строки PENDING, доказательств нет — анализ не засчитывается как выполненная реализация.",
+        "reason": "Раздел WEB-SEARCH-QUALITY-01 (стр. 11045-EOF) разобран на стадии подготовки: карта 267 строк (198 обязательных, 158 уникальных req_id), 13 срезов, архитектура plans/features/web-search-quality-01/architecture.md. Реализация не начиналась: все обязательные строки PENDING, анализ не засчитывается как реализация. Старт заблокирован production-деплоем FC-TRUST-01 и одной сверкой канона после него.",
         "requirement_refs": [
           {
             "task_id": "web-search-quality-01",
             "map": "plans/features/web-search-quality-01/requirements-map.json",
             "req_ids": [
-              "WQ-S0-AUDIT",
-              "WQ-S1-PROVIDERS",
-              "WQ-S2-HITS-MERGE",
-              "WQ-S3-STRATEGY",
-              "WQ-S4-READ",
-              "WQ-S5-CONTRACT-MEMORY",
-              "WQ-S6-LIMITS",
-              "WQ-S7-ADMIN-API",
-              "WQ-S8-UI-WORKSPACE",
-              "WQ-S9-UI-PROMPT",
-              "WQ-S10-UI-ACCEPT",
-              "WQ-S11-BENCH",
-              "WQ-S12-RELEASE"
+              "WQ-D7-ORDER-FC",
+              "WQ-D12-NO-CARD",
+              "WQ-S4-MULTI-INDEX",
+              "WQ-H3-MERGE-RRF",
+              "WQ-R3-LEVELS",
+              "WQ-S5-SECOND-SEARCH",
+              "WQ-C4-L2-HONEST",
+              "WQ-C3-MEMORY-SPLIT",
+              "WQ-P9-KEYLESS-WORKS",
+              "WQ-D9-NO-NEW-AGENTS",
+              "WQ-U-GOAL-WORKSPACE",
+              "WQ-U-GOAL-OWNERSHIP",
+              "WQ-U1-BOUNDARY",
+              "WQ-P10-SERP-RESERVE",
+              "WQ-P11-SPECIALIZED",
+              "WQ-P12-READER-EXTRA",
+              "WQ-P8-PROVIDER-POLICY",
+              "WQ-A2-AUDIT-MAP",
+              "WQ-A3-CALL-TABLE",
+              "WQ-A4-BASELINE-SNAPSHOT",
+              "WQ-P2-ONE-AGGREGATOR",
+              "WQ-P1-ADAPTERS",
+              "WQ-P6-MCP-IN-BOT",
+              "WQ-P7-DDGS",
+              "WQ-P4-KEYS-RUNTIME",
+              "WQ-P3-CAPABILITY-TRUTH",
+              "WQ-P5-REAL-LIMITS",
+              "WQ-H1-HIT-SCHEMA",
+              "WQ-H2-CANON",
+              "WQ-H4-RERANK-IDS",
+              "WQ-H5-NO-TRUNC",
+              "WQ-S1-INTENT",
+              "WQ-S2-SEARCH-FIRST",
+              "WQ-S3-LOCAL-FIRST",
+              "WQ-S6-USER-BAN",
+              "WQ-S7-INITIATIVE",
+              "WQ-S8-FC-CANON",
+              "WQ-R1-SELECT",
+              "WQ-R2-FALLBACK",
+              "WQ-R4-DATES"
             ]
           }
         ]
