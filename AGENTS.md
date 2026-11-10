@@ -1,5 +1,19 @@
 # AGENTS.md — правила проекта (обязательны для всех агентов)
 
+## Обязательное включение новых функций при первом production-деплое (постоянное правило, 09.11.2026)
+
+Проект — пет-проект. Любая **готовая** функция (реализована, независимо проверена, обязательные технические проверки пройдены) при **первом production-деплое включается глобально по умолчанию**.
+
+Правила для всех агентов:
+
+1. Заводское значение флага готовой функции при первом выкате — **включено**. Теневой режим, выключенное по умолчанию состояние, «отложенная активация» и ожидание отдельного разрешения **не могут** становиться постоянным состоянием готовой функции.
+2. Существующие пользовательские настройки и чатовые override **не сбрасывать**; меняется только заводское значение и отсутствие явного пользовательского выбора.
+3. Отключение флага **не является** способом закрыть дефект качества. Если функция даёт негодный результат, чинится причина: фильтрация, понижение в ранжировании, исправление источника данных — но не повторное выключение.
+4. Технические проблемы и дефекты качества возвращаются на исправление ответственному исполнителю, а не оформляются как вопрос владельцу.
+5. После выката проверяется **effective-state** (что реально включено в проде), сформированные данные, влияние на поиск/UI и результаты реальных проверок — с честной фиксацией того, что осталось непроверенным.
+
+Это правило дополняет PET_PROJECT-политику (стоячее согласие на включение готовых функций) и не отменяет обязательных проверок, изоляции релиза и быстрого отката.
+
 ## Инфраструктура прод-сервера
 
 **PRODUCTION (с 29.10.2026, миграция завершена):** новый VPS `192.255.209.205` (SSH `root`, рабочий каталог `/var/www/admin_bot`; штатный деплой: `git pull --ff-only` + `systemctl restart admin_bot`). Старый VPS `198.46.175.136` полностью очищен от Adminbot 29.10.2026 (адресная декомиссия, Reviewer ACCEPT): установка, данные, unit, контейнеры, volumes и cron удалены; данные отката существуют ТОЛЬКО в независимом бэкапе на машине владельца (`WorkspaceData/backups/adminbot-postmigration-2026-10-29/`, манифест и суммы проверены). НЕ деплоить туда и не считать резервом.
@@ -51,3 +65,11 @@ Reviewer отклоняет новые искусственные квоты и�
 Create new workflow-owned temporary output only through the installed global `tools/workflow_housekeeping.py`. `allocate` writes under that config's `WorkspaceData/runs/`. New parallel Git worktrees use `worktree-path` (under `WorkspaceData/worktrees/`) and `git worktree add`, then `register-worktree`. Do not create sibling checkouts beside this repository. Do not hardcode a project path or a sibling worktree name pattern. Existing leftover checkouts must be classified against `git worktree list --porcelain`, cleanliness, commit reachability and active use before any `git worktree remove` (never `--force`, never delete the branch). Unknown or dirty trees stay.
 
 Server-side `backups/`, `pre_migration_*.db`, `local_database.db`, and live production assets are not temporary workspace trash. `plans/reports/disk-analysis-2026-10-28.md` documents the owner's preference to retain 1–2 usable recent backups; only apply targeted retention after checking actual backup provenance, recoverability, and the rollback requirement. Preserve project-specific SSH/fail2ban rules and PET_PROJECT release policy unchanged.
+
+## Owner is not mandatory QA (project rule, 2026-11-10)
+
+Agents own verification. Never assign the owner unit, integration, regression or end-to-end tests; production observation; log, API, metric or scheduler checks; Telegram scenario checks; before/after comparisons; or "tell me if the bug returns". In this project the agents can reach the production host, the database, the logs and the Mini App harnesses, so these checks belong to Builder, Reviewer and DevOps.
+
+`owner_live_checks` and similar pending items in this repository's maps, tickets and reports must be reclassified as: verified by agents with evidence; not verified due to a named technical unavailability; background observation the agents run themselves; or a genuine owner-only action. "The owner must run six P0 scenarios" and "the owner must watch the bot for a day" are not obligations and must not block DONE. Reassign them to the responsible agent or keep an honest internal status; never mark VERIFIED without proof and never delete a real unfinished check to raise a percentage.
+
+Ask the owner only for a material product/architecture fork, an inaccessible credential or permission, or an irreplaceable action. Ordinary QA, visual assessment or re-checking a fix is never a human gate. In reports omit the owner-action topic entirely when there is nothing genuinely blocking; do not write "Действие владельца: не требуется" and do not repeat stale checks.
