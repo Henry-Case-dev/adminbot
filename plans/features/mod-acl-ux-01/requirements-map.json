@@ -1674,7 +1674,7 @@
           "description": "наблюдаемый артефакт проверки MAC-M1-01"
         }
       ],
-      "pending_condition": "Веха M1: после аудита 2.58.180 закрыты MAC-S4-169/170 (инвентарь ACL и разделение операций), зарегистрирован обязательный дефект MAC-DEF-01 (`requires_permission` не смотрит `role_type`). Открыты MAC-S4-157/161/171/172/173/174, MAC-S10-11/S10-12/S10-13/S15-10, MAC-S4-RPT-01 и MAC-DEF-01, поэтому веха VERIFIED быть не может."
+      "pending_condition": "Веха M1: после аудита 2.58.180 закрыты MAC-S4-169/170 (инвентарь ACL и разделение операций), зарегистрирован обязательный дефект MAC-DEF-01 (`requires_permission` не смотрит `role_type`). Остаточный дефект MAC-DEF-02 (`can_view_key_value` и `can_edit_param` не смотрят `role_type`: global_admin без wildcard не сохраняет глобальные параметры и не активирует глобальные промпты) зарегистрирован там же. Открыты MAC-S4-157/161/171/172/173/174, MAC-S10-11/S10-12/S10-13/S15-10, MAC-S4-RPT-01, MAC-DEF-01 и MAC-DEF-02, поэтому веха VERIFIED быть не может."
     },
     {
       "source_id": "MAC-M2",
@@ -2538,6 +2538,36 @@
         }
       ],
       "pending_condition": "Дефект подтверждён аудитом 2.58.180 §2: `requires_permission(s)` (`web/api/deps.py` 190–204) вычисляет `match_permission(perms, required)` и `role_type` не смотрит; около 33 эндпоинтов (`routes.py` 17: `/admins`, `/roles*`, `/info*`, `/control/*`, `/debug/config`; `cover_styles.py` 16) отказывают по permissions. Идентичность `role_type=global_admin` проходит только потому, что сид-роль `admin` несёт `{\"wildcard\": true}` (`services/pg_db.py` 630–632 `00c64133`). Владелец не затронут (сид = wildcard), но роль с `role_type=global_admin` без `wildcard`/`access` получит 403 на `/api/admins`, `/api/roles`, `/api/cover/*` — тот же класс, что M1, но на permission-фронте. Условие: сделать предикат role_type-aware по образцу `user_is_global_admin` без расширения wildcard и без смешения классов операций, затем тест: role_type=global_admin без wildcard → 200 на трёх поверхностях, custom без access → 403."
+    },
+    {
+      "source_id": "MAC-DEF-02",
+      "source_line": 597,
+      "source_text_sha256": "17c5ceb3e52ee65649a34337baf5bf15d6254a824913251680396d73fafdb043",
+      "source_excerpt": "**M1. Срочный ACL corrective:** устранить false 403 global admin (особенно Embeddings), унифицировать роль/guards, различить 401/403/503 и пройти негативную матрицу разрешений. Независимо от сложного редизайна.",
+      "disposition": "required",
+      "reason": "Остаточный обязательный дефект того же класса, что MAC-DEF-01, найден ревью permission-гейта: identity с role_type=global_admin без wildcard не проходит ещё два предиката — видимость секретных значений и право редактирования параметра. Другой предикат и другой документированный контракт (84.12.4), поэтому в патч MAC-DEF-01 не входит.",
+      "req_id": "MAC-DEF-02",
+      "slice": "M1",
+      "acceptance": "Идентичность role_type=global_admin без wildcard сохраняет глобальный параметр через POST /api/config (200 и новое значение в GET) и активирует глобальный промпт при chat_id=None без 403; при этом полное значение секретного ключа (категория keys) ей по-прежнему не отдаётся при отсутствии права на конкретный ключ — маска сохраняется; custom-роль без param.*/key.* права получает 403; различение 401/403/503 не размывается.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "test",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-def-02.md",
+          "description": "наблюдаемый артефакт: global_admin без wildcard сохраняет глобальный параметр и активирует глобальный промпт, маска секрета сохранена, custom без права — 403"
+        },
+        {
+          "type": "production",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-def-02-prod-roles.md",
+          "description": "инвентарь реальных ролей прода (есть ли аккаунт global_admin без wildcard) — вход для приоритета, снимает DevOps в текущем релизе"
+        }
+      ],
+      "open_decision": "Решается вместе с контрактом видимости секретов (MAC-S10-13, MAC-S4-172; docstring 84.12.4 в web/api/deps.py): либо can_view_key_value получает role_type-aware ветку («глобальный админ видит секреты»), либо остаётся строгим (только key.<cat>.<key> / секция keys / wildcard) и чинится только запись через can_edit_param. Это вопрос внутри строки, а не отдельный owner gate: владелец не затронут, сид-роль несёт wildcard. Ответ записывается здесь и в MAC-S10-13 до начала фикса, чтобы видимость секретов не расширилась молча.",
+      "priority_note": "Приоритет зависит от факта: есть ли в проде реальный аккаунт с role_type=global_admin без wildcard. DevOps выясняет это в текущем релизе и прикладывает инвентарь ролей (expected_evidence → mac-def-02-prod-roles.md). Пока ответа нет, строка остаётся PENDING без срочности; если такая роль в проде есть — переводится в очередь M1 сразу после слияния MAC-DEF-01.",
+      "pending_condition": "Подтверждено вызовом функций на кандидате 30cd8564 (ветка fix/permission-role-type), не чтением: web/api/deps.py 232–246 — can_view_key_value = match_permission(perms, key.<pg_key>), can_edit_param = match_permission(perms, param.<pg_key>); role_type в них не смотрится, патч MAC-DEF-01 их намеренно не менял. Следствия для identity global_admin без wildcard: POST /api/config (ветка routes.py 1914/1916; на master-HEAD 138461a5 те же два предиката в routes.py 1180/1182) и _prompt_require_edit при chat_id=None (ветка routes.py 3987) дают 403. Чтение проходит, потому что значения промптов не секреты и _prompt_require_view пускает любую роль для global. Владелец не затронут: сид-роль admin несёт {\"wildcard\": true} (services/pg_db.py 630–632). Условие: сначала зафиксировать open_decision, затем role_type-aware ветка в двух предикатах по канону user_is_global_admin/user_has_permission без расширения wildcard, плюс тест: global_admin без wildcard → 200 на сохранении глобального параметра и активации глобального промпта, маска секрета сохранена, custom без права → 403. Промпт-эндпоинтов нет в master-HEAD — активация проверяется на ветке или после слияния."
     },
     {
       "source_id": "MAC-AVATAR-01",
