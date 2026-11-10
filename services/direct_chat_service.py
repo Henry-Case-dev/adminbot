@@ -2702,13 +2702,15 @@ def _chain_block_body(text, tag: str) -> str:
 def _chain_body_spans(candidate_body, surviving_body):
     """Диапазоны тела КАНДИДАТА, реально доехавшие до payload.
 
-    Выживание — ПОЗИЦИОННОЕ свойство: и вытеснение piece'а, и усечение тела
-    работают сохранением хвоста (`truncate_to_tokens` с keep-end), а
-    `truncate_keep_header` дополнительно неприкосновенно держит заголовок
-    ПЕРВОЙ строки. Поэтому усечённое тело имеет ровно две формы:
+    Выживание — ПОЗИЦИОННОЕ свойство: вытеснение piece'а и усечение тела
+    работают сохранением хвоста (`truncate_to_tokens`/keep-end) либо головы
+    (chars-режим legacy), а `truncate_keep_header` дополнительно
+    неприкосновенно держит заголовок ПЕРВОЙ строки. Поэтому усечённое тело
+    имеет одну из форм:
 
-    * хвост кандидата (усечения без защиты заголовка);
-    * заголовок первой строки + хвост остатка.
+    * хвост кандидата (усечения без защиты заголовка, keep-end);
+    * голова кандидата (chars-режим, keep-head);
+    * заголовок первой строки + хвост (или голова) остатка.
 
     Возврат: список ``[(start, end)]`` в координатах кандидата. ``None`` —
     форма не выводится (текст правился чем-то ещё): доставку НЕ приписываем —
@@ -2719,6 +2721,8 @@ def _chain_body_spans(candidate_body, surviving_body):
         return []                       # тело блока не доехало вовсе
     if candidate.endswith(kept):
         return [(len(candidate) - len(kept), len(candidate))]
+    if candidate.startswith(kept):
+        return [(0, len(kept))]
     header, rest = split_context_header(candidate)
     if not header or not kept.startswith(header):
         return None
@@ -2726,6 +2730,9 @@ def _chain_body_spans(candidate_body, surviving_body):
     if rest.endswith(tail):
         return [(0, len(header)),
                 (len(header) + len(rest) - len(tail), len(candidate))]
+    if rest.startswith(tail):
+        return [(0, len(header)),
+                (len(header), len(header) + len(tail))]
     # Хвост мог быть дополнен (protected spans): хвост контента — префикс
     # оставшегося тела. Самый короткий подходящий суффикс остатка.
     for cut in range(max(0, len(rest) - len(tail)), len(rest)):
@@ -2735,27 +2742,31 @@ def _chain_body_spans(candidate_body, surviving_body):
     return None
 
 
-def _chain_delivery_state(allocation, rendered) -> dict:
+def _chain_delivery_state(texts, rendered) -> dict:
     """Состояние доставки цепочки: ``{kind: (candidate, kept, spans)}``.
 
-    ``rendered`` — бухгалтерия рендера (``{kind: [(item_id, строка), …]}`` в
-    порядке вывода), которую ведёт сам рендер: она и есть ИСТОЧНИК ТОЖДЕСТВА
-    строки. ``spans`` — диапазоны ``(start, end, item_id)`` каждой строки в
-    теле кандидата. Аллокация здесь только читается."""
+    Считается по ФИНАЛЬНОМУ тексту контекста хода (``texts`` — ровно те
+    строки, что уходят в payload), а не по промежуточной аллокации:
+    доставку решает то, что модель реально получила. ``rendered`` —
+    бухгалтерия рендера (``{kind: [(item_id, строка), …]}`` в порядке
+    вывода), она и есть ИСТОЧНИК ТОЖДЕСТВА строки. ``spans`` — диапазоны
+    ``(start, end, item_id)`` каждой строки в теле кандидата."""
     state: dict = {}
-    texts: dict = {}
-    for piece in getattr(allocation, "pieces", ()) or ():
-        kind = str(getattr(piece, "kind", "") or "")
-        if kind in _CHAIN_BLOCK_TAGS:
-            texts[kind] = str(getattr(piece, "text", "") or "")
-    for kind, lines in (rendered or {}).items():
+    rendered = rendered or {}
+    blocks: dict = {}
+    for text in texts or ():
+        raw = str(text or "")
+        for kind, tag in _CHAIN_BLOCK_TAGS.items():
+            if kind not in blocks and f"<{tag}>" in raw:
+                blocks[kind] = raw
+    for kind, lines in rendered.items():
         tag = _CHAIN_BLOCK_TAGS.get(kind)
-        piece_text = texts.get(kind)
-        if not tag or not piece_text or not lines:
+        raw = blocks.get(kind)
+        if not tag or not raw or not lines:
             continue
-        body = _chain_block_body(piece_text, tag)
+        body = _chain_block_body(raw, tag)
         if not body:
-            continue                # piece вытеснен целиком
+            continue                # блок вытеснен целиком
         cursor = 0
         parts: list = []
         spans: list = []
@@ -2801,45 +2812,56 @@ def _quote_annotation_delivered(item_id, fragment, state) -> bool:
     return False
 
 
-def _emit_delivered_quote_events(chain, allocation, projection=None,
-                                 *, trigger_message_id=None,
-                                 rendered=None) -> None:
-    """EVOL-015: `quote_delivered_to_context` — только за ДОСТАВЛЕННУЮ цитату.
+def _quote_delivery_pending(chain, texts, projection=None,
+                            *, trigger_message_id=None,
+                            rendered=None) -> dict:
+    """Отложенное решение о доставке цитат (НЕ эмиссия).
 
-    Рендер кандидата идёт ДО аллокации, поэтому событие на рендере — ложное:
-    строку с цитатой может вытеснить аллокатор или усечь truncator, и модель
-    цитаты не увидит.
+    Событие `quote_delivered_to_context` описывает ФИНАЛЬНЫЙ payload хода,
+    поэтому оно эмитится не в момент сборки контекста, а там, где финальный
+    текст уже известен (`_settle_quote_delivery`): после аллокации, после
+    legacy-бюджета при отказе аллокатора и после fallback-рекомпоза, если он
+    заменил payload. Здесь только фиксируется вход: цепочка, бухгалтерия
+    рендера и текущий текст контекста."""
+    quoted = [item for item in (chain or ())
+              if str(getattr(item, "quote_text", "") or "").strip()]
+    if not quoted:
+        return {}
+    return {"quoted": quoted, "texts": [str(t or "") for t in (texts or ())],
+            "projection": projection, "trigger": trigger_message_id,
+            "rendered": dict(rendered or {}), "used": False, "settled": False}
 
-    Атрибуция — ПО ТОЖДЕСТВУ звена, а не по совпадению текста. ``rendered``
-    (бухгалтерия рендера: kind → [(item_id, строка)]) задаёт, какая строка
-    кандидата принадлежит какому ходу; аллокация задаёт, какие позиции
-    кандидата доехали. Два разных хода с ОДИНАКОВОЙ цитатой получают разные
-    диапазоны, поэтому выжившая аннотация засчитывается только своему ходу
-    (репро ревью: `tg:701` и `tg:740`, одна аннотация в payload — прежний
-    поиск фрагмента по общему тексту объявлял доставленными оба).
 
-    Ровно одно событие на цитирующий ход: одна цитата, показанная и в ветке,
-    и в треде, — одно событие.
+def _settle_quote_delivery(pending, texts=None) -> None:
+    """ЕДИНСТВЕННАЯ точка эмиссии `quote_delivered_to_context`.
 
-    ``allocation is None`` — деградация (аллокатор упал, payload собрал
-    legacy-бюджет): выживание строк не измеримо, сохраняется прежнее
-    поведение «по рендеру». Телеметрия не рвёт ход (fail-open)."""
+    Вызывается, когда финальный текст хода известен: контекст собран,
+    аллокация/legacy-бюджет отработали, fallback-рекомпоз (если был) заменил
+    payload. Решение по каждому цитирующему ходу — по его собственной
+    доставленной строке (тождество звена), а не по совпадению текста.
+
+    ``texts`` — фактический текст, ушедший в payload (перекрывает ранее
+    записанный). ``used`` ложно → контекст вообще не попадал в payload
+    (silence/react/сбой до сборки сообщений): событий нет — доставки не
+    было. Невыводимая форма на любом пути → молчим (осознанный недоучёт).
+
+    Повторный вызов безопасен: эмиссия одноразовая (``settled``)."""
+    if not pending or pending.get("settled"):
+        return
+    if texts is not None:
+        pending["texts"] = [str(t or "") for t in (texts or ())]
+    if not pending.get("used"):
+        pending["settled"] = True
+        return
     try:
-        quoted = [item for item in (chain or ())
-                  if str(getattr(item, "quote_text", "") or "").strip()]
-        if not quoted:
-            return
-        if allocation is None:
-            for item in quoted:
-                thread_chain.emit_quote_delivered(item)
-            return
-        state = _chain_delivery_state(allocation, rendered)
-        if not state:
-            return                      # ни одна строка цепочки не доехала
+        state = _chain_delivery_state(pending.get("texts"),
+                                      pending.get("rendered"))
         seen: set = set()
-        for item in quoted:
+        for item in pending.get("quoted") or ():
+            if not state:
+                break               # ни одна строка цепочки не доехала
             fragment = thread_chain.quote_delivery_fragment(
-                item, projection, trigger_message_id)
+                item, pending.get("projection"), pending.get("trigger"))
             if not fragment:
                 continue
             marker = thread_chain.quote_message_id(item) or fragment
@@ -2848,11 +2870,13 @@ def _emit_delivered_quote_events(chain, allocation, projection=None,
             if not _quote_annotation_delivered(
                     getattr(item, "item_id", ""),
                     escape_xml_text(fragment), state):
-                continue                # строка/аннотация этого хода не доехала
+                continue            # строка/аннотация этого хода не доехала
             seen.add(marker)
             thread_chain.emit_quote_delivered(item)
     except Exception:                   # pragma: no cover - защита
         pass
+    finally:
+        pending["settled"] = True
 
 
 async def _social_frame_for_turn(chat_id, message=None, *, bundle=None,
@@ -4301,6 +4325,12 @@ class DirectChatService:
         # присваивается ниже, в основном пути).
         _image_delivery: dict = {}
         tool_ctx = None
+        # ── EVOL-015 (UR-F шаг 1): отложенное решение о доставке цитат.
+        # Заполняется сборкой контекста (финальный текст её пути), уточняется
+        # fallback-рекомпозом (он ЗАМЕНЯЕТ payload) и эмитится РОВНО ОДИН раз
+        # в конце хода, когда финальный payload уже известен. Живёт вне `try`:
+        # `finally` обязан видеть переменную на всех выходах.
+        _quote_delivery: dict = {}
         # ── EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2 п.3/п.5): ОДНА проекция
         # прогона на весь payload хода (окно/ветка/тред/RAG/эпизоды/инструменты/
         # манифест). Метки выдаются по первому появлению, обратная карта живёт
@@ -4363,7 +4393,8 @@ class DirectChatService:
                 extra_media_markers=_extra_media_markers,
                 history_sample=history_sample,
                 projection=_speech_projection,
-                correlation_id=correlation_id)
+                correlation_id=correlation_id,
+                out_quote_delivery=_quote_delivery)
             # Медиа-свидетельство актуальной ревизии — отдельным блоком payload
             # (данные, не инструкции); без связанного медиа блок не создаётся.
             user_blocks = self._insert_media_evidence(
@@ -5225,6 +5256,11 @@ class DirectChatService:
                 _voice_bundle, user_blocks)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
+            # EVOL-015: контекст хода реально вошёл в payload запроса —
+            # решение о доставке цитат становится эмитируемым (содержимое
+            # уточнит fallback-рекомпоз, если он заменит payload).
+            if _quote_delivery.get("quoted"):
+                _quote_delivery["used"] = True
             # UR-20.8 (UR-F шаг 1): Writer реально подал строку часов —
             # отмечаем стадию `l2` в трассе хода (пустая строка — не подана).
             if str(time_line or "").strip():
@@ -6345,6 +6381,14 @@ class DirectChatService:
                 self._breaker.on_failure()
         finally:
             permit.release()   # раунд N (T-840): слот пула возвращён
+            # ── EVOL-015 (UR-F шаг 1): ЕДИНСТВЕННАЯ точка эмиссии
+            # `quote_delivered_to_context`. Здесь финальный payload хода уже
+            # известен: сборка отработала (аллокация ИЛИ legacy-бюджет при
+            # отказе аллокатора), fallback-рекомпоз — если был — заменил
+            # текст. Решение по каждому цитирующему ходу принимается по его
+            # собственной доставленной строке; контекст, не попавший в
+            # payload (silence/react/сбой до сборки сообщений), молчит.
+            _settle_quote_delivery(_quote_delivery)
             # ── RLR-06-OBSERVABILITY (§7): закрыть трассу хода. Если
             # текстовая доставка не состоялась (silence/react/картинка/
             # ошибка), событие доставки всё равно эмитится с исходом
@@ -8858,7 +8902,8 @@ class DirectChatService:
                                   extra_media_markers: tuple = (),
                                   history_sample: dict | None = None,
                                   projection=None,
-                                  correlation_id: str | None = None
+                                  correlation_id: str | None = None,
+                                  out_quote_delivery: dict | None = None
                                   ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
@@ -8911,13 +8956,13 @@ class DirectChatService:
         # проходом рендера (перерендер сломал бы «render = delivery»).
         _chain_rendered: dict = {}
         if self._is_reply_trigger(message) and len(chain) >= 2:
-            # EVOL-015: в композер-режиме payload ещё не аллоцирован, поэтому
-            # событие «цитата доставлена» откладывается до аллокации.
+            # EVOL-015: событие «цитата доставлена» откладывается до момента,
+            # когда финальный payload известен (один раз на ход) — рендер
+            # кандидата доставкой не является ни в одном режиме.
             branch = self._render_branch(
                 chain, suffix_map, projection=projection,
-                emit_quote=not composer_mode,
-                out_lines=(_chain_rendered.setdefault("branch", [])
-                           if composer_mode else None))
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
             if branch:
                 blocks.append(("branch", branch))
         # F2: global считается раньше RAG (тело фона — для словарного дедупа).
@@ -8958,7 +9003,7 @@ class DirectChatService:
             blocks.append(("global", global_ctx))
         if composer_mode:
             # EVOL-015: кандидат рендерится без эмиссии — выживание строк
-            # решает аллокатор, событие цитаты эмитится после него.
+            # решает финальный текст payload (эмиссия одна, в конце хода).
             thread = self._render_thread(chain, suffix_map, None,
                                          trigger_message_id, truncate=False,
                                          projection=projection,
@@ -8966,9 +9011,14 @@ class DirectChatService:
                                          out_lines=_chain_rendered.setdefault(
                                              "thread", []))
         else:
+            # Legacy (композер OFF): рендер сам усекает тело, но доставкой
+            # это не является — событие эмитится по финальному тексту.
             thread = self._render_thread(chain, suffix_map,
                                          await self._thread_limit(chat_id),
-                                         projection=projection)
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
         if thread:
             blocks.append(("thread", thread))
         # Раунд 8 (C5/T-796): блок адресата — канон + uid запросившего.
@@ -9086,7 +9136,8 @@ class DirectChatService:
                 style_directives=style_directives,
                 history_sample=history_sample, projection=projection,
                 correlation_id=correlation_id, rag_memory=_rag_out,
-                chain_rendered=_chain_rendered)
+                chain_rendered=_chain_rendered,
+                out_quote_delivery=out_quote_delivery)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
@@ -9130,12 +9181,20 @@ class DirectChatService:
             external_tokens, reserve_tokens, method = \
                 await self._estimate_external_payload_tokens(
                     chat_id, budget_tokens, extra_prompt_blocks=_extras)
-        return self._apply_context_budget(
+        legacy_texts = self._apply_context_budget(
             blocks, budgets_enabled, budget_tokens,
             external_tokens=(external_tokens or None),
             reserve_tokens=reserve_tokens,
             estimation_method=method,
             out_excluded=out_excluded)
+        # EVOL-015: legacy-путь тоже решает доставку по ФИНАЛЬНОМУ тексту
+        # (блоки усечены выше) — фиксируем отложенное решение.
+        if out_quote_delivery is not None:
+            out_quote_delivery.update(_quote_delivery_pending(
+                chain, legacy_texts, projection,
+                trigger_message_id=trigger_message_id,
+                rendered=_chain_rendered))
+        return legacy_texts
 
     # ── ASAP-3 (round 1028, ADR-1028-2 D3–D7): Direct Context Composer ────
 
@@ -9533,7 +9592,8 @@ class DirectChatService:
             projection=None,
             correlation_id: str | None = None,
             rag_memory: dict | None = None,
-            chain_rendered: dict | None = None) -> list[str]:
+            chain_rendered: dict | None = None,
+            out_quote_delivery: dict | None = None) -> list[str]:
         """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
 
         Конвейер §6 ТЗ: candidates (существующие билдеры, global/thread без
@@ -9735,15 +9795,20 @@ class DirectChatService:
             logger.warning(
                 "direct: composer allocation failed — legacy budget "
                 "| chat=%s", chat_id, exc_info=True)
-            # EVOL-015: кандидаты рендерились без эмиссии — выживание строк
-            # здесь не измеримо, поэтому событие цитаты остаётся прежним
-            # (по факту рендера) и не теряется молча.
-            _emit_delivered_quote_events(chain, None, projection,
-                                         trigger_message_id=trigger_message_id)
+            # EVOL-015: выживание строк решает ФИНАЛЬНЫЙ текст, а не рендер.
+            # Здесь payload собирает legacy-бюджет — решение считается по
+            # ЕГО результату (и эмитится в конце хода, когда финальный payload
+            # известен); «доставлено по факту рендера» больше не выдаётся.
             legacy_blocks = [(kind, text) for kind, text in candidates if text]
-            return self._apply_context_budget(
+            legacy_texts = self._apply_context_budget(
                 legacy_blocks, budgets_enabled, raw_budget,
                 out_excluded=out_excluded)
+            if out_quote_delivery is not None:
+                out_quote_delivery.update(_quote_delivery_pending(
+                    chain, legacy_texts, projection,
+                    trigger_message_id=trigger_message_id,
+                    rendered=chain_rendered))
+            return legacy_texts
 
         # ── Финализация (дедуп middle↔tail + materialize) ──────────────────
         # Факторизовано: тот же код используется fallback-recompose (§14).
@@ -9805,11 +9870,16 @@ class DirectChatService:
             return texts, kept_middle_lines
 
         final_texts, middle_lines = _finalize_allocation(allocation)
-        # EVOL-015: доставку цитаты решает АЛЛОКАЦИЯ, а не рендер кандидата;
-        # тождество строки берётся из бухгалтерии рендера (`_chain_rendered`).
-        _emit_delivered_quote_events(chain, allocation, projection,
-                                     trigger_message_id=trigger_message_id,
-                                     rendered=chain_rendered)
+        # EVOL-015: доставку цитаты решает ФИНАЛЬНЫЙ текст контекста, а не
+        # рендер кандидата и не промежуточная аллокация. Здесь только
+        # фиксируется отложенное решение (тождество строки — из бухгалтерии
+        # рендера `chain_rendered`); сама эмиссия — одна на ход, там, где
+        # финальный payload уже известен.
+        if out_quote_delivery is not None:
+            out_quote_delivery.update(_quote_delivery_pending(
+                chain, final_texts, projection,
+                trigger_message_id=trigger_message_id,
+                rendered=chain_rendered))
 
         # ── v6 D04 (§18C.4/§18C.2): реальные окна L2 для evidence capacity
         # (первичная модель) и L2 fallback-репака (fallback-модель) —
@@ -9845,6 +9915,12 @@ class DirectChatService:
                             _new_pieces(), _fb_budget,
                             truncator=self._composer_truncate)
                         fb_texts, _ = _finalize_allocation(fb_allocation)
+                        # EVOL-015: рекомпоз ЗАМЕНЯЕТ payload, который увидит
+                        # модель, — решение о доставке цитат пересчитывается по
+                        # его тексту (эмиссия остаётся одна: конец хода).
+                        if out_quote_delivery is not None:
+                            out_quote_delivery["texts"] = [
+                                str(t or "") for t in fb_texts]
                         blocks = ([time_line] if time_line else []) + fb_texts
                         messages = incoming.get("messages") or []
                         adapted = dict(incoming)

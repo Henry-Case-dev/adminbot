@@ -898,6 +898,30 @@ def _delivered_ids(seen) -> list:
             and e.get("stage") == "quote_delivered_to_context"]
 
 
+def _degrade_allocator(monkeypatch, *, budget):
+    """Деградация аллокатора: `allocate_budget` падает, payload собирает
+    legacy-бюджет с жёстким капом `budget` (ветка репро ревью)."""
+    from services import budget_gate, chat_params
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("allocator down")
+
+    async def _budgets_enabled(chat_id):
+        return True
+
+    async def _get_chat_param(chat_id, key, default=None):
+        if key == "limits.chat_context_budget_tokens":
+            return budget
+        if key == "flags.chat_context_budgets_enabled":
+            return True
+        return default
+
+    monkeypatch.setattr(direct_chat_service._composer, "allocate_budget",
+                        _boom)
+    monkeypatch.setattr(budget_gate, "budgets_enabled", _budgets_enabled)
+    monkeypatch.setattr(chat_params, "get_chat_param", _get_chat_param)
+
+
 @pytest.mark.asyncio
 async def test_identical_quotes_credit_only_the_surviving_item(
         monkeypatch, events):
@@ -1016,6 +1040,113 @@ async def test_raw_view_keeps_identity_attribution(monkeypatch, events):
     assert _delivered_ids(events) == [701], \
         "в сыром виде событие тоже только за выжившее звено: %r" % \
         _delivered_ids(events)
+
+
+@pytest.mark.asyncio
+async def test_allocator_failure_with_tight_budget_credits_no_quote(
+        monkeypatch, events):
+    """Аллокатор упал → payload собрал legacy-бюджет: цитаты нет — событий нет.
+
+    РЕПРО ревью (деградация): `_composer.allocate_budget` бросает, payload
+    собирается legacy-бюджетом, и вытесненное звено `tg:740` в запросе
+    отсутствует. Прежняя ветка «аллокатора нет» засчитывала доставку ВСЕМ
+    цитирующим звеням по факту рендера (`[740]`), хотя модель цитаты не
+    видела. Решение обязано считаться по ФИНАЛЬНОМУ тексту и на этом пути, а
+    эмиссия — стоять там, где финальный payload уже известен.
+
+    Тест падает, если вернуть зачёт «по умолчанию» на деградации (проверено
+    мутацией)."""
+    _degrade_allocator(monkeypatch, budget=1500)
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _quoted_chain(40, quoted_item_id="tg:740", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    blob = _payload_text(llm)
+    # ответ реально собран и отправлен на формулировку (путь деградации живой)
+    assert blob.strip(), "деградация не должна ломать ответ"
+    assert "<Current_Question>" in blob, "payload хода не собран"
+    # предусловие репро: цитаты в финальном запросе НЕТ
+    assert QUOTED_DROP_SENTINEL not in blob, \
+        "цитирующее звено должно было вытесниться — иначе репро пустое"
+
+    assert _delivered_ids(events) == [], \
+        "цитаты в запросе нет — событий доставки быть не должно: %r" % \
+        _delivered_ids(events)
+
+
+@pytest.mark.asyncio
+async def test_allocator_failure_credits_surviving_quote(monkeypatch, events):
+    """Тот же путь деградации, но цитата выжила: ровно одно событие.
+
+    Контроль к предыдущему тесту: отличие только в том, какое звено цитирует.
+    Значит «0 событий» там — это «не доставлено», а не «эмиттер отключён»."""
+    _degrade_allocator(monkeypatch, budget=1500)
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _quoted_chain(40, quoted_item_id="tg:701", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    blob = _payload_text(llm)
+    assert blob.strip() and "<Current_Question>" in blob
+    assert blob.count(QUOTED_DROP_SENTINEL) == 1, \
+        "свежее звено обязано остаться в payload — иначе контроль пустой"
+
+    assert _delivered_ids(events) == [701], \
+        "доставленная цитата = одно событие: %r" % _delivered_ids(events)
+
+
+@pytest.mark.asyncio
+async def test_unused_context_emits_no_quote_events(events):
+    """Контекст не попал в payload — событий нет (и есть контроль).
+
+    `used` ложно = ход не довёл контекст до payload запроса (silence/react,
+    сбой до сборки сообщений). Доставки не было, значит и события быть не
+    должно, даже если бы строка с цитатой в тексте присутствовала. Второй
+    блок — контроль: тот же пакет с `used=True` даёт ровно одно событие."""
+    from services.thread_chain import ChainItem
+
+    item = ChainItem(uid=10, name="Вася", is_bot=False, text="реплика",
+                     ts=1_700_000_001, item_id="tg:777",
+                     quote_text="выделенный фрагмент", quote_author_id=11,
+                     quote_position=0, quote_is_manual=1,
+                     quote_original_available=True)
+    line = thread_chain.format_chain_line(item, {}, emit_quote=False)
+    block = ("<Conversation_Thread>\n"
+             f"{direct_chat_service.escape_xml_text(line)}\n"
+             "</Conversation_Thread>")
+
+    def _pending():
+        return direct_chat_service._quote_delivery_pending(
+            [item], [block], None, trigger_message_id=None,
+            rendered={"thread": [(item.item_id, line)]})
+
+    idle = _pending()
+    assert idle["quoted"] and idle["used"] is False
+    direct_chat_service._settle_quote_delivery(idle)
+    assert _delivered_ids(events) == [], \
+        "контекст не уходил в payload — событий нет: %r" % \
+        _delivered_ids(events)
+
+    used = _pending()
+    used["used"] = True
+    direct_chat_service._settle_quote_delivery(used)
+    assert _delivered_ids(events) == [777], \
+        "доставленная цитата обязана дать одно событие: %r" % \
+        _delivered_ids(events)
+    # повторный settle — не второй эмит
+    direct_chat_service._settle_quote_delivery(used)
+    assert _delivered_ids(events) == [777]
 
 
 @pytest.mark.asyncio
