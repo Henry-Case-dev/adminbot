@@ -2762,6 +2762,37 @@
       "recorded_in": "",
       "origin": "root chat 2026-11-10",
       "received": "2026-11-10"
+    },
+    {
+      "id": "OI-2026-11-10-VMQ-TIME-REFINEMENT",
+      "source_path": "plans/owner_inputs/2026-11-10-vmq-time-refinement.md",
+      "source_sha256": "826BE7BC6F473CC4C0DADE946678B3F7FABED499296191D8378E65D774607577",
+      "kind": "amendment",
+      "target_task_ids": [
+        "vmq-onto-01"
+      ],
+      "reconciled": true,
+      "coverage_refs": [
+        {
+          "task_id": "vmq-onto-01",
+          "map": "plans/features/vmq-onto-01/requirements-map.json",
+          "req_ids": [
+            "VMQ-TIME-01",
+            "VMQ-TIME-02",
+            "VMQ-TIME-03",
+            "VMQ-TIME-04",
+            "VMQ-TIME-05",
+            "VMQ-TIME-06",
+            "VMQ-TIME-07",
+            "VMQ-TIME-08",
+            "VMQ-TIME-09"
+          ]
+        }
+      ],
+      "note": "Refines VMQ-TIME-01..09. Forbids mechanical fixes (raising the 50-fact quota, removing quotas, admitting archive with the same age penalty). The active quota is an operative working set only, never the boundary of history; archived facts participate fully when the query's meaning calls for it, decided by the existing L1 with no lexical triggers. Historical significance, factual reliability and current validity are separated; archived-by-quota does not mean false, stale or unconfirmed. GRAPH_TIME_DECAY_* and the freshness bonus must be revisited for historical and subject retrieval, while current-state questions keep the validity mechanism and never fall back to plain date ordering. The participant profile must build from several periods. Budgets stay as technical protection with adaptive evidence selection and no fixed fresh/archived share. Reviewer verifies on the real 2.07M archive; Status/Analytics must show year coverage and exclusion reasons from real durable events. No new epic, no human gate, and the current retrieval fixes finish independently.",
+      "recorded_in": "",
+      "origin": "root chat 2026-11-10",
+      "received": "2026-11-10"
     }
   ],
   "source_inventory": {
