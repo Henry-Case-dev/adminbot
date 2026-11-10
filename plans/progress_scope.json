@@ -378,7 +378,8 @@
       "source_sha256": "2ECA66DA1825F85EBD0E9353E53A5281635297427510DE6274E9EF5E2AF48A8C",
       "maps": [
         "plans/features/smart-module-semantic-routing/requirements-map.json",
-        "plans/features/smart-module-semantic-routing/requirements-map-nostalgia-correction.json"
+        "plans/features/smart-module-semantic-routing/requirements-map-nostalgia-correction.json",
+        "plans/features/smart-module-semantic-routing/requirements-map-qnd.json"
       ],
       "coverage_complete": true,
       "source_note": "P0 corrective of the existing Smart Module, not a new epic. Incident A: the manga question ('японцы рисуют или форматом страниц') hit the image generator and reported a daily image quota; cause named by the owner at services/direct_capabilities.py `_DRAW_VERB_STRONG` containing the stem 'рису', classified as INTENT_CREATE_IMAGE, after which `_image_capability_gate()` can end the turn before L1. Incident B: 'бот, что происходит в чате' was answered by analysing a participant's video, then asking which of two videos was meant. Owner forbids adding any lexeme, regex or trigger for such phrases: the model (L1) must decide, using the existing history/memory/search tools. Architectural invariant: the current user message is the task; reply target, quote, forward, recent history, transcript and tool results are evidence, never a substitute task. Explicit commands must survive unchanged: фактчек, чекап, 'Бот, нарисуй ...' with the full user prompt, 'Бот, найди ...' with its argument; 'Нарисуй кота' without the bot prefix goes through L1. Remove the semantic authority of `_DRAW_VERB_STRONG`, `_DRAW_VERB_PREFIXED`, `_CREATE_VERB_GENERIC`, `_IMAGE_OBJECT` and related lexical gates (detect_action_intent, _image_capability_gate, _image_pre_gate_block, _l1_capability_consistency, IMAGE_KEYWORD_RE, legacy/fallback planning, generate_image execution) leaving only the explicit command fast-path. No new LLM classifier, no second summary pipeline, no new user settings. P1 is a bounded revision of the named spots (direct answers, nostalgia pre-gate, search/factcheck markers, vision intent patterns, experience lexical filters, style/self-model). Trace both P0s end to end; do not pass DONE on unit tests alone, and verify negative scenarios independently.",
@@ -2682,11 +2683,56 @@
         "smart-module-semantic-routing-p0",
         "vmq-onto-01"
       ],
-      "reconciled": false,
+      "reconciled": true,
       "note": "Cancels the tie-break-only role of QRNG. Quantum values must govern the next semantic check moment (per-chat independent stochastic scheduling with a bounded adaptive distribution, durable per-chat state, restart and missed-deadline handling, no mass catch-up), the direction of memory exploration, weighted candidate choice, the publication probability (replacing the double gate where the LLM nearly always says SILENT), and other initiative situations already covered by contracts. Only the existing RandomSource and its VMQ extension; no mixing quantum and pseudo-random values inside one choice; every decision logs its actual source. Status/Analytics must show real non-determinism per mechanism and must not claim 'working' when QRNG was not used. Scope: proactive nostalgia and regular initiative at minimum, keeping the existing dreams/memory integrations. Acceptance includes the decisive check that the same semantic situation can yield different publication decisions under different allowed quantum values.",
       "recorded_in": "",
       "origin": "root chat 2026-11-10",
-      "received": "2026-11-10"
+      "received": "2026-11-10",
+      "coverage_refs": [
+        {
+          "task_id": "smart-module-semantic-routing-p0",
+          "map": "plans/features/smart-module-semantic-routing/requirements-map-qnd.json",
+          "req_ids": [
+            "QND-01",
+            "QND-02",
+            "QND-03",
+            "QND-04",
+            "QND-05",
+            "QND-06",
+            "QND-07",
+            "QND-08",
+            "QND-09",
+            "QND-10",
+            "QND-11",
+            "QND-12",
+            "QND-13",
+            "QND-14",
+            "QND-15",
+            "QND-16",
+            "QND-17",
+            "QND-18",
+            "QND-19",
+            "QND-20",
+            "QND-21",
+            "QND-22",
+            "QND-23",
+            "QND-24",
+            "QND-25",
+            "QND-26"
+          ]
+        },
+        {
+          "task_id": "vmq-onto-01",
+          "map": "plans/features/vmq-onto-01/requirements-map.json",
+          "req_ids": [
+            "Q-01",
+            "Q-02",
+            "Q-06",
+            "Q-09",
+            "QM-01"
+          ]
+        }
+      ]
     }
   ],
   "source_inventory": {
