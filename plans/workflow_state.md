@@ -14,6 +14,8 @@ Review: approved (retrieval 7bc8545a with independent numbers; P0-A, P0-B, P1, n
 Deployment: verified (2.58.180 @ 721bab10, schema 47)
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh — 71/71 owner inputs reconciled; aggregate 3993/6283 requirements (63%), 13/49 tasks
+Open detail: the preserved WIP commit f41c2c31 covers 22 files (9 service modules, settings, catalogue, four new suites, the reissue tool). Another 71 files under tests/fixtures and test pins are dirty in that worktree because the catalogue grew and the pins still need regeneration; they are derived artefacts and the finish lane regenerates them rather than keeping the dirty copies.
+
 Updated: 2026-11-10T20:30:00+12:00
 
 ## Stalled builder recovered (2026-11-11)
