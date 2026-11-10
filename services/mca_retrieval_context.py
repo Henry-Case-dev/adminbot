@@ -455,6 +455,15 @@ _INTENT_TO_MODE = {
     # `follow-up`/`auto` — без принудительного режима: существующая
     # эвристика `_HISTORY_MARKERS`, иначе обычная смешанная выдача.
 }
+#: VMQ-MEM (измерение 2.58.179 §5): эпизод — сжатый АГРЕГАТ по тому же
+#: корпусу (topic/story), а не независимый источник. Пока `history_bias` был
+#: первым ключом сортировки, эпизоды стояли ВЫШЕ любого другого канала, и на
+#: архиве 2 067 222 сообщений срез истории заполнялся ими целиком: 40/40
+#: слотов эпизодами при score 25 против 79-80 у корпусных message-хитов, из-за
+#: чего verbatim-потребитель (`<Old_Episode>`) получал 0 материала. Резерв:
+#: эпизоды по-прежнему первыми, но занимают не более 1/N среза, пока есть
+#: кандидаты других каналов (эпизоды-первыми НЕ отменяются — ADR-1027-7 D2).
+_HISTORY_EPISODE_SLICE_DIV = 2
 #: Максимальный «бонус свежести» в единицах типизированного ранга. Строго
 #: меньше разрыва между соседними каналами (20), поэтому близкая по времени
 #: запись не перебивает более сильный канал (§7.1/MEM-06.4).
@@ -1668,13 +1677,27 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 ordered, subject_entity_ids=prior_uids,
                 participant_ids=request.participants,
                 subject_node_ids=prior_nodes)
-    # Ограничение выдачи (эпизоды-первыми не вытесняются при истории).
+    # Ограничение выдачи (эпизоды-первыми не вытесняются при истории, но и не
+    # занимают срез целиком — см. `_HISTORY_EPISODE_SLICE_DIV`).
     if len(ordered) > limit:
         if not request.preserve_channel_order and mode in ("history",
                                                            "episodic"):
             eps = [c for c in ordered if c.channel == "episode"]
             rest = [c for c in ordered if c.channel != "episode"]
-            ordered = (eps + rest)[:limit]
+            if not rest:
+                ordered = eps[:limit]
+            else:
+                # Эпизоды — первыми (их порядок не меняется), но не более
+                # `1/_HISTORY_EPISODE_SLICE_DIV` среза: остаток гарантирован
+                # кандидатам других каналов, иначе более сильный корпусный хит
+                # не доходит до потребителя вообще (дефект 1 измерения 2.58.179).
+                eps_cap = max(1, limit // _HISTORY_EPISODE_SLICE_DIV)
+                head = eps[:eps_cap]
+                tail = rest[:limit - len(head)]
+                if len(head) + len(tail) < limit:
+                    # `rest` короче остатка — добираем эпизодами (не теряем срез)
+                    head = eps[:limit - len(tail)]
+                ordered = head + tail
         else:
             ordered = ordered[:limit]
 

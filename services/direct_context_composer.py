@@ -387,7 +387,8 @@ def _row_tg_id(row):
 def compute_episode_span(rows: list, anchor_tg_id: int | None, *,
                          gap_seconds: int = 300,
                          max_messages: int = 40,
-                         max_reply_depth: int = 6
+                         max_reply_depth: int = 6,
+                         anchor_row_id: int | None = None
                          ) -> tuple[int, int, str] | None:
     """Границы эпизода вокруг хита (чистая функция; идемпотентная).
 
@@ -397,15 +398,32 @@ def compute_episode_span(rows: list, anchor_tg_id: int | None, *,
     cycle-safe); (3) склейка непрерывного [start..end] («дырки» > gap →
     split, берётся сегмент с хитом); (4) кап ``max_messages`` (окно вокруг
     хита, приоритет «до хита» 3:1). Возвращает ``(start_idx, end_idx,
-    reason)`` включительно или None (якорь вне rows)."""
-    if not rows or anchor_tg_id is None:
+    reason)`` включительно или None (якорь вне rows).
+
+    VMQ-MEM (дефект 2 измерения 2.58.179): аддитивный ``anchor_row_id`` —
+    якорь по `smart_messages.id` для хитов без ``tg_message_id``
+    (импортированная история, ссылка ``msg:<row>``). Применяется ТОЛЬКО когда
+    tg-якоря нет или он не найден в rows; прежние вызовы без параметра
+    работают байт-в-байт."""
+    if not rows or (anchor_tg_id is None and anchor_row_id is None):
         return None
     tg_index: dict[int, int] = {}
     for idx, row in enumerate(rows):
         tg = _row_tg_id(row)
         if tg is not None and tg not in tg_index:
             tg_index[tg] = idx
-    anchor_idx = tg_index.get(int(anchor_tg_id))
+    anchor_idx = None
+    if anchor_tg_id is not None:
+        anchor_idx = tg_index.get(int(anchor_tg_id))
+    if anchor_idx is None and anchor_row_id is not None:
+        for idx, row in enumerate(rows):
+            try:
+                row_id = int(_row_get(row, "id") or 0)
+            except (TypeError, ValueError):
+                continue
+            if row_id == int(anchor_row_id):
+                anchor_idx = idx
+                break
     if anchor_idx is None:
         return None
     ts = [int(_row_get(row, "timestamp") or 0) for row in rows]
@@ -560,6 +578,9 @@ DIRECT_METRIC_NAMES = (
     "direct_silent_ack_success_total",
     "direct_silent_ack_failed_total",
     "direct_old_episode_retrieval_total",
+    # VMQ-MEM (измерение 2.58.179 §5): пул истории был непуст, но в
+    # `<Old_Episode>` не попало ни строки — честный счётчик пустого блока.
+    "direct_old_episode_empty_total",
     "direct_context_pressure_total",
     "direct_context_physical_overflow_total",
 )

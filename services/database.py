@@ -8672,13 +8672,20 @@ class DatabaseService:
 
 
     async def get_messages_around(self, chat_id: int, target_tg_message_id,
-                                  before: int, after: int) -> list:
+                                  before: int, after: int, *,
+                                  target_row_id: int | None = None) -> list:
         """Раунд 10.23 (F2, ADR-1023-2): двунаправленное окно вокруг целевого
         сообщения (anchor) — ``before`` старше якоря + сам якорь + ``after``
         новее, хронологически ASC (по ``id``). Каждое сообщение включается
         ровно один раз (якорь — из отдельного SELECT).
         Fail-open: пустой/нечисловой anchor, якорь не найден, ошибка БД →
-        legacy ``get_recent_messages(before + after)`` (прежнее поведение)."""
+        legacy ``get_recent_messages(before + after)`` (прежнее поведение).
+
+        VMQ-MEM (дефект 2 измерения 2.58.179): аддитивный keyword-only
+        ``target_row_id`` — якорь по `smart_messages.id`, когда у строки нет
+        ``tg_message_id`` (импортированная история; ID-политика ADR-1020-1 п.4
+        отдаёт её как ``msg:<row>``). ``target_row_id`` приоритетнее tg-якоря;
+        без него поведение байт-в-байт прежнее."""
         try:
             before = max(0, int(before or 0))
             after = max(0, int(after or 0))
@@ -8689,7 +8696,24 @@ class DatabaseService:
                    "forward_source, tg_message_id")
         try:
             anchor_id = None
-            if target_tg_message_id not in (None, "", 0):
+            # VMQ-MEM (дефект 2): якорь по строке корпуса (`msg:<row>`) —
+            # приоритетнее tg-якоря, т.к. у импортированных сообщений
+            # `tg_message_id` может не быть вовсе.
+            if target_row_id not in (None, "", 0):
+                try:
+                    row_anchor = int(target_row_id)
+                except (TypeError, ValueError):
+                    row_anchor = None
+                if row_anchor is not None:
+                    cursor = await self.db.execute(
+                        "SELECT id FROM smart_messages "
+                        "WHERE chat_id = ? AND id = ? LIMIT 1",
+                        (chat_id, row_anchor),
+                    )
+                    anchor_row = await cursor.fetchone()
+                    anchor_id = (anchor_row["id"]
+                                 if anchor_row is not None else None)
+            if anchor_id is None and target_tg_message_id not in (None, "", 0):
                 cursor = await self.db.execute(
                     "SELECT id FROM smart_messages "
                     "WHERE chat_id = ? AND tg_message_id = ? "
@@ -9377,7 +9401,8 @@ class DatabaseService:
                                   *, since_ts: int = 0, until_ts: int = 0,
                                   author_ids=None, source_kind: str = "any",
                                   quote_forward: str = "include",
-                                  max_id=None, after_id=None) -> list:
+                                  max_id=None, after_id=None,
+                                  order: str = "rank") -> list:
         """L2-RAG / фоллбек: FTS5 search over raw messages, ordered by rank.
 
         10.20 (БЛОК 2.8, ADR-1020-2): аддитивно отдаём `tg_message_id` —
@@ -9387,12 +9412,53 @@ class DatabaseService:
         измерения (`since/until/author_ids/source_kind/quote_forward/max_id`)
         — в SQL ДО LIMIT; `after_id` включает bounded keyset-скан
         (ORDER BY m.id) для occurrences. Дефолты → прежнее поведение
-        байт-в-байт."""
+        байт-в-байт.
+
+        VMQ-MEM (дефект 3 измерения 2.58.179): аддитивный ``order``.
+        ``order="rank"`` (дефолт) — прежний план: FTS5 стримит совпадения в
+        порядке bm25, а фильтры `chat_id`/`timestamp` живут в content-таблице,
+        поэтому строка `smart_messages` читается на КАЖДОЕ совпадение корпуса
+        (план «SCAN smart_messages_fts → SEARCH m USING INTEGER PRIMARY KEY»).
+        Стоимость такого плана — O(весь match-set), а не O(limit): на реальной
+        копии архива (1 928 453 строки) замерено 12,59 млн VM-шагов ради 40
+        строк выдачи — источник наблюдённого зависания год-окна на 2,07 млн
+        сообщений (измерение 2.58.179 §6.1).
+        ``order="time"`` включается ТОЛЬКО при заданном окне (`since_ts`/
+        `until_ts`) и ведёт запрос от `idx_smart_messages_chat_ts`: диапазон
+        окна + ОДИН проход doclist'ов FTS (rowid-множество материализуется
+        один раз), сортировка по времени; строки контента нужны только для
+        выдачи. Стоимость пропорциональна окну, а не корпусу (3,36 млн
+        VM-шагов в том же замере); порядок — по времени, а не по
+        релевантности, поэтому вызывающий обязан честно назвать sampling."""
         where, params = _message_measure_filters(
             since_ts=since_ts, until_ts=until_ts, author_ids=author_ids,
             source_kind=source_kind, quote_forward=quote_forward,
             max_id=max_id, after_id=after_id)
-        order = "m.id" if after_id is not None else "smart_messages_fts.rank"
+        if (order == "time" and after_id is None
+                and (since_ts or until_ts)):
+            # VMQ-MEM (дефект 3): bounded план, пропорциональный ОКНУ.
+            # Внутренний SELECT — один проход doclist'ов FTS (rowid-множество,
+            # материал читается один раз и кладётся в эфемерный индекс), а
+            # внешний — диапазон `idx_smart_messages_chat_ts`; строки контента
+            # читаются только для выдачи (`LIMIT`).
+            cursor = await self.db.execute(
+                "SELECT m.id, m.user_id, m.chat_id, m.text, m.reply_to_id, "
+                "m.timestamp, m.media_type, m.author_name, m.is_forward, "
+                "m.forward_source, m.tg_message_id "
+                "FROM smart_messages m "
+                "WHERE m.chat_id = ? AND m.id IN "
+                "(SELECT rowid FROM smart_messages_fts "
+                "WHERE smart_messages_fts MATCH ?)"
+                + where +
+                " ORDER BY m.timestamp DESC, m.id DESC LIMIT ?",
+                tuple([chat_id, match_query] + params + [limit]),
+            )
+            return await cursor.fetchall()
+        if order not in ("rank", "time"):
+            logger.warning("[database] search_messages_fts: unknown order — "
+                           "rank | order=%r", order)
+        order_sql = ("m.id" if after_id is not None
+                     else "smart_messages_fts.rank")
         cursor = await self.db.execute(
             "SELECT m.id, m.user_id, m.chat_id, m.text, m.reply_to_id, m.timestamp, "
             "m.media_type, m.author_name, m.is_forward, m.forward_source, "
@@ -9400,7 +9466,7 @@ class DatabaseService:
             "FROM smart_messages_fts JOIN smart_messages m ON m.id = smart_messages_fts.rowid "
             "WHERE smart_messages_fts MATCH ? AND m.chat_id = ?"
             + where +
-            f" ORDER BY {order} LIMIT ?",
+            f" ORDER BY {order_sql} LIMIT ?",
             tuple([match_query, chat_id] + params + [limit]),
         )
         return await cursor.fetchall()

@@ -906,6 +906,42 @@ def _tg_id_of_ref(ref: str) -> int | None:
     return None
 
 
+def _episode_anchor_of_ref(ref: str) -> tuple[int | None, int | None]:
+    """Якорь эпизода из канонической ссылки кандидата → ``(tg_id, row_id)``.
+
+    ID-политика ADR-1020-1 п.4: ``tg:<tg_message_id>`` → ``msg:<smart_messages.id>``
+    → ``fact:``. ADR-1028-12-прецедент `resolve_item_id`: ``msg:`` ставится,
+    когда у строки НЕТ ``tg_message_id`` (импортированная история). Потребитель
+    старого эпизода понимает ОБЕ формы: ``msg:<row>`` — это реальное сообщение
+    того же корпуса, его якорь — строка `smart_messages` (дефект 2 измерения
+    2.58.179: 6 из 7 дошедших message-кандидатов отбрасывались как
+    «tg id unresolved», хотя tg-id у них просто нет)."""
+    text = str(ref or "").strip()
+    if text.startswith("tg:"):
+        try:
+            return int(text[3:]), None
+        except ValueError:
+            return None, None
+    if text.startswith("msg:"):
+        try:
+            return None, int(text[4:])
+        except ValueError:
+            return None, None
+    return None, None
+
+
+def _row_id_of_row(row) -> int | None:
+    """`smart_messages.id` строки (int | None, fail-open)."""
+    try:
+        value = row_get(row, "id")
+    except Exception:
+        value = None
+    try:
+        return int(value) if value not in (None, "", 0) else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _inner_tag_text(block: str, tag: str) -> str:
     """Внутренний текст ``<tag>…</tag>`` (без тега); нет → ""."""
     match = re.search(rf"<{tag}\b[^>]*>(.*?)</{tag}>",
@@ -8854,8 +8890,11 @@ class DirectChatService:
         """ASAP-3 (ADR-1028-2 D4, §9–§11): old verbatim episode retrieval.
 
         Вход — хиты ЕДИНОГО retrieval-контракта mca-07 (`mode="history"`,
-        каналы exact/lexical; REUSE обязателен, второй движок запрещён).
-        Границы — детерминированная чистая функция
+        каналы exact/lexical/episode; REUSE обязателен, второй движок запрещён).
+        Ссылка кандидата принимается в ОБЕИХ канонических формах ID-политики
+        ADR-1020-1 п.4: ``tg:<tg_message_id>`` и ``msg:<smart_messages.id>``
+        (импортированная история без tg-id; VMQ-MEM, дефект 2 измерения
+        2.58.179). Границы — детерминированная чистая функция
         `_composer.compute_episode_span` (gap ≤ CHAT_EPISODE_GAP_SECONDS +
         reply-graph closure + склейка + капы), 0 LLM-вызовов, идемпотентно.
         Дедуп против fresh tail (пересечение → клип). Рендер — канонические
@@ -8909,12 +8948,19 @@ class DirectChatService:
             return "", stats
         tail_tg = {_tg_id_of_row(row) for row in tail_rows}
         tail_tg.discard(None)
+        tail_rows_ids = {_row_id_of_row(row) for row in tail_rows}
+        tail_rows_ids.discard(None)
         used_tg: set[int] = set(tail_tg)
+        used_rows: set[int] = set(tail_rows_ids)
         max_count = _composer.episode_max_count()
         max_msgs = _composer.episode_max_messages()
         gap_s = _composer.episode_gap_seconds()
         episode_lines: list[str] = []
         supplement_lines: list[str] = []
+        # VMQ-MEM (измерение 2.58.179 §5): учёт причин отказа — пустой блок при
+        # непустом пуле больше не выдаётся за «эпизоды использованы».
+        skipped = {"not_message": 0, "ref": 0, "seen": 0, "anchor": 0,
+                   "span": 0}
         if range_active:
             # Вне-диапазонный остаток ЕДИНСТВЕННОГО запроса хода — только
             # как помеченное дополнение (§3; не второй поиск по корпусу).
@@ -8924,21 +8970,48 @@ class DirectChatService:
             if stats["count"] >= max_count:
                 break
             if cand.entity_type != "message":
+                skipped["not_message"] += 1
                 continue
-            hit_tg = _tg_id_of_ref(cand.id)
-            if hit_tg is None or hit_tg in used_tg:
+            # VMQ-MEM (дефект 2): `msg:<row>` — полноценная ссылка на строку
+            # корпуса; выбрасывать её за отсутствие tg-формы нельзя.
+            hit_tg, hit_row = _episode_anchor_of_ref(cand.id)
+            if hit_tg is None and hit_row is None:
+                skipped["ref"] += 1
+                continue
+            if (hit_tg is not None and hit_tg in used_tg) or (
+                    hit_row is not None and hit_row in used_rows):
+                skipped["seen"] += 1
                 continue
             stats["hits"] += 1
             try:
-                rows = await self.db.get_messages_around(
-                    chat_id, hit_tg, before=120, after=60)
+                if hit_row is not None:
+                    # Ссылка `msg:<row>`: якорь — строка корпуса (у неё может
+                    # не быть tg-id вовсе), поэтому окно читается row-якорем.
+                    rows = await self.db.get_messages_around(
+                        chat_id, hit_tg, before=120, after=60,
+                        target_row_id=hit_row)
+                else:
+                    rows = await self.db.get_messages_around(
+                        chat_id, hit_tg, before=120, after=60)
             except Exception:
                 logger.warning("direct: episode rows read failed | chat=%s",
                                chat_id, exc_info=True)
                 continue
+            if hit_tg is None:
+                # Якорь известен только строкой: tg-id берём из самого окна
+                # (если он у строки есть — дальше идёт прежняя tg-логика).
+                for row in rows or ():
+                    if _row_id_of_row(row) == hit_row:
+                        hit_tg = _tg_id_of_row(row)
+                        break
+                if hit_tg is not None and hit_tg in used_tg:
+                    skipped["seen"] += 1
+                    continue
             span = _composer.compute_episode_span(
-                rows, hit_tg, gap_seconds=gap_s, max_messages=max_msgs)
+                rows, hit_tg, gap_seconds=gap_s, max_messages=max_msgs,
+                anchor_row_id=hit_row)
             if span is None:
+                skipped["span" if rows else "anchor"] += 1
                 continue
             start, end, reason = span
             if range_active:
@@ -8953,11 +9026,13 @@ class DirectChatService:
                         _ha_outside_span_line(outside, hit_tg))
                 span_rows = [row for row in span_rows_all
                              if _ha_row_in_window(row, win)
-                             and _tg_id_of_row(row) not in used_tg]
+                             and _tg_id_of_row(row) not in used_tg
+                             and _row_id_of_row(row) not in used_rows]
             else:
                 span_rows = [row for row in rows[start:end + 1]
                              if (row["text"] or "")
-                             and _tg_id_of_row(row) not in used_tg]
+                             and _tg_id_of_row(row) not in used_tg
+                             and _row_id_of_row(row) not in used_rows]
             if not span_rows:
                 continue
             lines = [self._context_row_line(row, suffix_map,
@@ -8968,12 +9043,15 @@ class DirectChatService:
                 tg = _tg_id_of_row(row)
                 if tg is not None:
                     used_tg.add(tg)
+                row_id = _row_id_of_row(row)
+                if row_id is not None:
+                    used_rows.add(row_id)
             episode_lines.extend(lines)
             stats["count"] += 1
             stats["messages"] += len(lines)
             logger.info(
-                "direct: old episode | chat=%s hit=tg:%s span=%s..%s "
-                "rows=%d reason=%s", chat_id, hit_tg,
+                "direct: old episode | chat=%s hit=tg:%s hit_row=%s "
+                "span=%s..%s rows=%d reason=%s", chat_id, hit_tg, hit_row,
                 _tg_id_of_row(rows[start]), _tg_id_of_row(rows[end]),
                 len(lines), reason)
         if range_active and supplement_lines:
@@ -8982,6 +9060,26 @@ class DirectChatService:
             # тексты не попадают (R17: только счётчики).
             stats["supplement_lines"] = supplement_lines
         if not episode_lines:
+            # VMQ-MEM (измерение 2.58.179 §5 п.5): пустой блок при НЕПУСТОМ
+            # пуле не выдаётся за использование эпизодов — причина честно
+            # фиксируется (счётчик + стадийное событие `retrieval_empty`),
+            # а не подтверждается чужим `episodes_used` из пула.
+            if result.candidates:
+                _composer.record_direct_metric(
+                    "direct_old_episode_empty_total")
+                try:
+                    _mca_rc.emit_stage_event(
+                        "retrieval", "silent", reason_code="retrieval_empty",
+                        chat_id=chat_id)
+                except Exception:
+                    logger.debug("direct: stage event emit failed",
+                                 exc_info=True)
+            logger.info(
+                "direct: old episode empty | chat=%s pool=%d "
+                "not_message=%d ref_unresolved=%d seen=%d anchor=%d span=%d",
+                chat_id, len(result.candidates), skipped["not_message"],
+                skipped["ref"], skipped["seen"], skipped["anchor"],
+                skipped["span"])
             return "", stats
         stats["tokens"] = count_tokens("\n".join(episode_lines))
         _composer.record_direct_metric("direct_old_episode_retrieval_total")

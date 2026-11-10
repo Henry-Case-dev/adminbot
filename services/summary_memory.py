@@ -3837,21 +3837,29 @@ class MemoryManager:
 
     async def search_long_term(self, chat_id: int, keywords: list[str], limit: int,
                                *, since_ts: int = 0, until_ts: int = 0,
-                               author_ids=None) -> list:
+                               author_ids=None, order: str = "rank") -> list:
         """L2-RAG / фоллбек: FTS5 по raw messages (top-N по rank).
 
         P0-DELTA (дефекты 2-3 аудита p0-delta-analysis): аддитивные
         keyword-only фильтры `since_ts/until_ts/author_ids` — В SQL ДО LIMIT
         (прецедент `db.search_messages_fts`, MCA-15 D1). Дефолты → прежнее
         поведение байт-в-байт: узкое окно больше не съедает top-40
-        пост-фильтром."""
+        пост-фильтром.
+
+        VMQ-MEM (дефект 3 измерения 2.58.179): аддитивный ``order`` —
+        проброс до `db.search_messages_fts`. ``order="rank"`` (дефолт) —
+        байт-паритет для всех прежних вызывающих. ``order="time"`` выбирает
+        bounded-план, пропорциональный ОКНУ вместо match-set корпуса
+        (год-окно на архиве 2,07 млн сообщений перестаёт быть full-corpus
+        сканом); цена — порядок по времени, а не по bm25, поэтому выбирать
+        его обязан вызывающий, который честно назовёт sampling."""
         query = build_fts_query(keywords)
         if not query:
             logger.info("SmartModule L2: no keywords — skipping RAG | chat_id=%s", chat_id)
             return []
         rows = await self.db.search_messages_fts(
             chat_id, query, limit, since_ts=since_ts, until_ts=until_ts,
-            author_ids=author_ids)
+            author_ids=author_ids, order=order)
         logger.info(
             "SmartModule L2: rag_hits=%d | chat_id=%s | query_len=%d",
             len(rows), chat_id, len(query),

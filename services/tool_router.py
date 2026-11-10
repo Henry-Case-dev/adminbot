@@ -2130,6 +2130,14 @@ class ToolRouter:
                 if bounds:
                     dig_search_kwargs["since_ts"] = bounds[0]
                     dig_search_kwargs["until_ts"] = bounds[1]
+                    # VMQ-MEM (дефект 3 измерения 2.58.179): окно периода
+                    # обслуживается bounded-планом (`order="time"`: диапазон
+                    # `idx_smart_messages_chat_ts` + один проход doclist'ов
+                    # FTS). Rank-план читал content-таблицу на КАЖДОЕ
+                    # совпадение корпуса и на 2,07 млн сообщений не
+                    # укладывался в бюджет запроса. Порядок тогда — по
+                    # времени; это названо в payload (`coverage.sampling`).
+                    dig_search_kwargs["order"] = "time"
                 if person_uid is not None:
                     dig_search_kwargs["author_ids"] = (person_uid,)
                 rows = await self.deps.memory.search_long_term(
@@ -2357,6 +2365,25 @@ class ToolRouter:
                 count_status = "error"
                 logger.warning("[tools] dig count failed | query=%r | "
                                "error=%s", query, type(exc).__name__)
+
+        def _dig_coverage() -> dict:
+            """Честное покрытие показа (VMQ-MEM, дефект 3): чем именно
+            сформирован срез сниппетов и обрезан ли он счётчиком периода."""
+            return {
+                "messages_total": int(total_mentions),
+                "messages_shown": len(msg_lines),
+                "facts_shown": len(fact_lines),
+                # Без периода сниппеты — верх по релевантности (bm25 FTS5).
+                # С периодом запрос идёт bounded-планом по времени
+                # (`search_messages_fts(order="time")`: стоимость ∝ окну, а не
+                # match-set корпуса) — порядок тогда «последние совпадения
+                # периода», и это названо, а не выдано за релевантность.
+                "sampling": ("window_scan_by_time" if bounds
+                             else "top_by_relevance"),
+                "truncated": bool(total_mentions
+                                  and len(msg_lines) < int(total_mentions)),
+            }
+
         if k1_stats:
             from services import chat_statistics as _cs
             if mode == "facts":
@@ -2422,12 +2449,7 @@ class ToolRouter:
                 # P0-DELTA (дефект 3): честное покрытие показа — счётчик
                 # корпус-полный, сниппеты/факты — верх по релевантности;
                 # показанное не выдаётся за весь корпус.
-                "coverage": {
-                    "messages_total": int(total_mentions),
-                    "messages_shown": len(msg_lines),
-                    "facts_shown": len(fact_lines),
-                    "sampling": "top_by_relevance",
-                },
+                "coverage": _dig_coverage(),
                 "snippets": msg_lines,
                 "facts": fact_lines,
             }
@@ -2443,12 +2465,7 @@ class ToolRouter:
             "first_seen": first_seen or None,
             "last_seen": last_seen or None,
             # P0-DELTA (дефект 3): честное покрытие показа (см. K1-ветку).
-            "coverage": {
-                "messages_total": int(total_mentions),
-                "messages_shown": len(msg_lines),
-                "facts_shown": len(fact_lines),
-                "sampling": "top_by_relevance",
-            },
+            "coverage": _dig_coverage(),
             "snippets": msg_lines,
             "facts": fact_lines,
         }
