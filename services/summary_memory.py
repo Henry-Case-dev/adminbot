@@ -61,6 +61,7 @@ from services.external_log import log_dropped, trace_step
 from services.llm_client import LLMError
 from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
 from services.summary_xml import escape_xml_text
+from services.text_morphology import stem_word
 
 logger = logging.getLogger(__name__)
 
@@ -1769,7 +1770,7 @@ def build_fts_query(keywords: list[str], mode: str = "prefix_or") -> str:
     ``exact_phrase`` (quoted-фраза), ``token`` (точный токен), ``prefix``
     (явный префикс ``"term"*``), ``all_terms`` (AND), ``any_terms`` (OR).
     VMQ-MEM-TIME (решение 11.11.2026) — ``prefix_or_stem``: те же префиксы
-    плюс префикс основы слова (``search_aggregator.stem_word``).
+    плюс префикс основы слова (``text_morphology.stem_word``).
     Один сборщик — второго FTS-механизма нет. ``prefix`` — совпадение по
     префиксу, НЕ морфологический анализ (unicode61 без стемминга).
 
@@ -1795,11 +1796,10 @@ def build_fts_query(keywords: list[str], mode: str = "prefix_or") -> str:
     if mode == "prefix_or_stem":
         # VMQ-MEM-TIME (решение 11.11.2026): прежние префиксы ПЛЮС префикс
         # основы слова по существующим таблицам словоизменения
-        # (`search_aggregator.stem_word`). Аддитивный режим: FTS5 без
+        # (`text_morphology.stem_word`). Аддитивный режим: FTS5 без
         # стемминга находил «колбас*», но не «колбасой»; здесь форма
         # запроса и форма в тексте сводятся к одной основе. Списков
         # годов/периодов нет — обобщаются обычные словоформы.
-        from services.search_aggregator import stem_word
         terms: list[str] = []
         for kw in cleaned:
             terms.append(f'"{kw}"*')

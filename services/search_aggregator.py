@@ -28,6 +28,8 @@ import httpx
 
 from config.settings import settings
 from services import hot_config as hot
+from services.text_morphology import (  # noqa: F401 — реэкспорт контракта
+    _EN_SUFFIXES, _RU_SUFFIXES, stem_word)
 
 try:
     from duckduckgo_search import DDGS
@@ -162,16 +164,9 @@ def content_terms(text: str, *, limit: "int | None" = 10,
 #: идёт по «ключу» слова (основа), поэтому «заболеваемости» и «заболевших»
 #: считаются одним термином, а «Claude» не становится доказательством
 #: темы «агенты Telegram».
-_RU_SUFFIXES = (
-    "иями", "ями", "ами", "ого", "его", "ому", "ему", "ыми", "ими",
-    "ать", "ять", "ить", "еть", "ешь", "ете", "иях", "ией", "ов", "ев",
-    "ий", "ый", "ой", "ая", "яя", "ое", "ее", "ые", "ие", "ам", "ям",
-    "ах", "ях", "ом", "ем", "ую", "юю", "ут", "ют", "ал", "ял", "ил",
-    "ел", "ла", "ло", "ли", "их", "ых", "а", "я", "о", "е", "ы", "и",
-    "у", "ю", "ь",
-)
-_EN_SUFFIXES = ("ations", "ation", "ings", "ing", "ers", "er", "ed", "es",
-                "s")
+#: Таблицы и `stem_word` перенесены в нейтральный `text_morphology`:
+#: ADR-1019 запрещает фоновым модулям (summary_memory и др.) импортировать
+#: этот контур — здесь httpx. Реэкспорт выше сохраняет прежние импорты.
 
 
 def term_key(word: str) -> str:
@@ -197,37 +192,6 @@ def term_key(word: str) -> str:
     if len(stem) <= 5:
         return stem
     return stem[:6]
-
-
-def stem_word(word: str) -> str:
-    """Основа слова для FTS-префикса (VMQ-MEM-TIME, решение 11.11.2026).
-
-    Та же детерминированная «лёгкая морфология», что у `term_key`, но БЕЗ
-    клипа до 6 символов: клип — контракт сравнения терминов factcheck, а для
-    префиксного FTS он обрезал бы основу непредсказуемо. Отдаётся вся снятая
-    основа, минимум 4 символа (короче — слово не усекается вообще, иначе
-    префикс стал бы слишком широким).
-
-    Это снятие СЛОВОИЗМЕНЕНИЯ по существующим таблицам суффиксов: никаких
-    списков тем, времён или годов здесь нет.
-    """
-    low = str(word or "").lower()
-    if len(low) < 4:
-        return low
-    suffix = ""
-    for cand in _RU_SUFFIXES:
-        if len(low) - len(cand) >= 4 and low.endswith(cand):
-            suffix = cand
-            break
-    if not suffix:
-        for cand in _EN_SUFFIXES:
-            if len(low) - len(cand) >= 4 and low.endswith(cand):
-                suffix = cand
-                break
-    if not suffix:
-        return low
-    stem = low[: len(low) - len(suffix)]
-    return stem if len(stem) >= 4 else low
 
 
 def _term_keys(text: str) -> set[str]:
