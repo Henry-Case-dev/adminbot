@@ -1409,19 +1409,24 @@ def _turn_source_ref(row: dict) -> dict:
 
 
 def _turn_int(value):
-    """Конечное целое из события; всё остальное → None (неизвестно ≠ ноль).
+    """Целое из события; всё остальное → None (неизвестно ≠ ноль).
 
-    `NaN`/`Infinity`/`1e400`/строки/структуры/Datetime — не число: подставлять
-    0 было бы ложью, а `int(nan)` — падением всей страницы (дефект 2)."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return None
-    try:
-        number = float(value)
-    except (TypeError, ValueError, OverflowError):   # pragma: no cover - защита
-        return None
-    if not math.isfinite(number) or abs(number) > _TURN_INT_MAX:
-        return None
-    return int(number)
+    Точный предикат (никаких «почти целых»): bool — не число; int — только
+    ``|value| ≤ 2**53``; float — только конечный, ЦЕЛЫЙ (``is_integer()``) и в
+    том же диапазоне; иначе ``None``. Дробное `501.9` раньше превращалось в
+    чужое значение `501` (и `include_text` читал сообщение 501 по уже
+    спроецированному id) — это ложь, а не округление."""
+    if isinstance(value, bool):
+        return None                      # True/False — не числа
+    if isinstance(value, int):
+        return value if abs(value) <= _TURN_INT_MAX else None
+    if isinstance(value, float):
+        if not math.isfinite(value) or not value.is_integer():
+            return None
+        if abs(value) > _TURN_INT_MAX:
+            return None
+        return int(value)
+    return None
 
 
 def _turn_code(value, limit: int = 64) -> str:

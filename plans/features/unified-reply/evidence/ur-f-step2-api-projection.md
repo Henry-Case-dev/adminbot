@@ -48,7 +48,7 @@ DDL = 0, миграций и backfill нет.
 |---|---|
 | коды/enum (`slot`, `window_source`, `policy_mode`, `status`, `decision`, `skip_reason`, `kind`, `role`, `reason`, `revision`, `timezone`, `as_of_utc`, `config_version`, …) | `^[A-Za-z0-9_.:/+@()\-]{1,96}$`, обрезка до объявленной длины; иначе поля нет |
 | стабильные id (`source_ids[]`, `blocks[].source_ids[]`, `self_outputs[].source_id`, `links[].source_id`) | объявленный namespace (`msg,tg,row,fact,episode,summary,web,src,source,bot_output,bot_output_tg`) + хвост `[A-Za-z0-9_.-]{1,48}`; два сегмента — только `summary:<chat>:<level>`. `web:javascript:alert` и чужие namespace не проходят |
-| числа (включая вложенные `coverage.*`, `tools[].refs`, `completion.attempt`, `manifest.tokens_total`, `ops[].chars`, `usage.*`) | только конечное число в `|x| ≤ 2^53`; `NaN`/`Infinity`/`1e400`/string → `null` — **никогда 0** |
+| числа (включая вложенные `coverage.*`, `tools[].refs`, `completion.attempt`, `manifest.tokens_total`, `ops[].chars`, `usage.*`) | только ТОЧНОЕ целое: `int` при `|x| ≤ 2^53`; `float` — конечный и `is_integer()` в том же диапазоне (`1.0 → 1`); `bool` — не число; `NaN`/`Infinity`/дробное (`501.9`)/вне диапазона (`2^53+1`)/строка → `null` — **никогда 0 и никогда «почти целое»** |
 | bool (`stages.*`, `blocks[].rendered`, `search.called/required`, `style.applied`, `digest_match`, `completion.*`, `tools[].truncated`) | только настоящий `bool`, иначе `null` |
 | URL (`links[].source_url`) | только `^https?://\S{4,300}$` и НИ ОДНОГО символа `[\x00-\x1f\x7f-\x9f]` (C0/DEL/C1); иначе ссылка целиком не выводится |
 | свободный текст (`source.author_alias`, `review_to_alias`, `links[].source_title`) | ≤48/≤120, управляющие символы C0/DEL/C1 и переводы строк сняты |
@@ -215,7 +215,7 @@ style{revision,source,applied,counts,rules[]}
 
 | набор | результат |
 |---|---|
-| `tests/test_ur_f_inspector_step2.py` (новый) | 17 passed |
+| `tests/test_ur_f_inspector_step2.py` (новый) | 19 passed |
 | `tests/test_ur_f_inspector_step1.py` | 53 passed (ожидалось 53) |
 | web/direct/memory API: `test_webapp_api`, `test_webapp_gates_api`, `test_webapp_analytics_api`, `test_webapp_oversight_api`, `test_webapp_memory_overview_api`, `test_chat_lore_api`, `test_direct_chat`, `test_direct_chat_handlers`, `test_direct_chat_prompts`, `test_direct_chat_concurrency` | 512 passed — идентично `92070d0e` (512 passed) |
 | `test_ur_ui_effective_config` + `test_ur_c_clock` + `test_rlr_observability` + `test_ur_d_writer` + `test_ur_e_speech` + `test_ur_turn_engine` | 78 passed |

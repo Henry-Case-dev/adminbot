@@ -942,6 +942,76 @@ async def test_nan_and_infinity_numbers_are_unknown_not_500(tmp_path,
     assert "NaN" not in raw and "Infinity" not in raw
 
 
+def test_turn_int_accepts_only_exact_integers():
+    """Предикат числа: «почти целое» — не число. Дробное `501.9` раньше
+    превращалось в чужое `501`, `2**53+1` — в `9007199254740992`."""
+    from web.api import routes as routes_mod
+
+    limit = 2 ** 53
+    rejected = [0.9, 1.9, -0.9, 501.9, -501.9, float("nan"), float("inf"),
+                float("-inf"), 1e400, limit + 1, -limit - 1,
+                True, False, "42", None, [], {}, "501"]
+    for value in rejected:
+        assert routes_mod._turn_int(value) is None, value
+    accepted = {42: 42, 0: 0, -7: -7, 1.0: 1, -1.0: -1, limit: limit,
+                -limit: -limit, float(limit): limit}
+    for value, expected in accepted.items():
+        assert routes_mod._turn_int(value) == expected, value
+
+
+@pytest.mark.asyncio
+async def test_fractional_id_does_not_read_a_neighbour_message(
+        tmp_path, monkeypatch):
+    """Дробный id — не id: текст соседнего сообщения (501) не читается.
+
+    `include_text` берёт `source.message_id` уже из проекции; если бы `501.9`
+    округлялось до 501, инспектор выдал бы текст ЧУЖОГО сообщения как текст
+    источника хода."""
+    db = await _make_db(tmp_path)
+    monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: db)
+    await db.save_smart_message(
+        user_id=10, chat_id=CHAT_ID, text=SOURCE_TEXT, reply_to_id=None,
+        timestamp=1_700_000_100, media_type="text", author_name="Вася",
+        message_id=SOURCE_TG_ID)
+    await db.save_smart_message(
+        user_id=11, chat_id=CHAT_ID, text=REPLY_PARENT_TEXT, reply_to_id=None,
+        timestamp=1_700_000_000, media_type="text", author_name="Петя",
+        message_id=REPLY_PARENT_TG_ID)
+    _emit_chain("corr-frac")
+    await mca_events.flush_events(db)
+    blob = json.dumps({
+        "flow": "direct", "trigger": "botword",
+        "source_message_id": SOURCE_TG_ID + 0.9,      # 501.9
+        "source_author_id": 10, "source_message_ts": 1_700_000_100,
+        "reply_to_message_id": REPLY_PARENT_TG_ID + 0.9,
+    })
+    rows, _ = await _rows_of(db, "corr-frac")
+    for row in rows:
+        if row["event_name"] == "direct_turn_context":
+            await db.db.execute(
+                "UPDATE mca_events SET usage_json = ? WHERE id = ?",
+                (blob, row["id"]))
+    await db.db.commit()
+
+    async with await _make_client(monkeypatch) as client:
+        plain = (await _get(client, f"chat_id={CHAT_ID}&trace_id=corr-frac")
+                 ).json()
+        allowed = (await _get(
+            client,
+            f"chat_id={CHAT_ID}&trace_id=corr-frac&include_text=1")).json()
+
+    # Дробные id не стали соседними целыми.
+    assert plain["source"]["message_id"] is None
+    assert plain["source"]["reply_to_id"] is None
+    # И текст соседнего сообщения (501 / 500) не подставлен.
+    assert allowed["source"]["text"] is None
+    assert "reply_parent" not in allowed["source"]
+    assert SOURCE_TEXT not in json.dumps(allowed, ensure_ascii=False)
+    assert REPLY_PARENT_TEXT not in json.dumps(allowed, ensure_ascii=False)
+    # Легитимный целый id (ts) по-прежнему читается.
+    assert allowed["source"]["message_ts"] == 1_700_000_100
+
+
 @pytest.mark.asyncio
 async def test_valid_https_link_is_returned(tmp_path, monkeypatch):
     """Валидная ссылка остаётся (allowlist не превращается в «ничего»)."""
