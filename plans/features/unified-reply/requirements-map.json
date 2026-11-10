@@ -2,8 +2,9 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
-  "candidate_commit": "6099cc17",
+  "candidate_commit": "7cf8e1699d2a689c5a4249da9478ac4215e5701d",
   "deployed_commit": "",
+  "candidate_note": "candidate_commit — последний проверенный кандидат среза UR-SRC-DATE: 7cf8e1699d2a689c5a4249da9478ac4215e5701d (ветка fix/search-source-dates, родитель 82d21889, база 92070d0e), ревью Approved с DONE на уровне строки UR-SRC-DATE. deployed_commit намеренно пуст: выкладка этого среза поставлена в очередь ПОСЛЕ идущего сейчас хотфикса, поэтому SHA развёртывания появится только после релиза — выкладка не заявлена и не предполагается.",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-unified-reply",
@@ -2795,13 +2796,23 @@
       "acceptance": "DONE для этой строки: (1) если провайдер поиска вернул дату публикации, она доходит до evidence-пака и до структурного поля источника (published_at в SourceRecord/EvidenceSource) на всём пути aggregator -> source record -> pack, а не только по пути fetch_article; (2) если провайдер даты не вернул, пак явно сообщает «дата не сообщается источником» вместо пустой строки; (3) ни в одном сценарии нет выдуманной даты (даты без источника) и нет дополнительных сетевых вызовов на ход ради даты — число сетевых вызовов на один и тот же вопрос не растёт; (4) у каждого источника с датой дата привязана к нему самому, а не к блоку целиком.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Дата — данные, а не догадка: метка снимается целиком, мульти-хит не подставляет чужую дату, лишних вызовов нет",
+          "observation": "Кандидат 7cf8e169 (ветка fix/search-source-dates, родитель 82d21889, база 92070d0e), независимое ревью Approved с DONE на уровне строки. Проверено на tests/test_search_source_dates.py (35 тестов среза, sha256 файла в candidate-блобе): стриппер метки публикации снимает целиком VALUE для ISO, ISO+time с +03:00, RFC 2822 с днём недели и без, «11 марта 2025», «11.03.2025», двух меток в одном тексте, метки внутри сниппета и метки в конце — после этого числа дают {4}, role=qualifies, number_hits=0, mismatch=True, strong_binding=False; тот же паритет на factcheck_planner._relevance_for и evidence_policy._supported. Мульти-хит фид несёт агрегатный EvidenceSource.published_at=\"\" при сохранённых датах отдельных SourceRecord; одиночный хит сохраняет конкретную дату; полностью без дат пак сообщает «дата публикации не сообщается источником»; в каждом сценарии ровно один поисковый вызов (счёт сетевых вызовов на вопрос не растёт). Сьют: 947 passed / 5 pre-existing падений и на кандидате, и на базе 92070d0e; мутация старого однозначного регекса валит 6 тестов. Дефект, датированный в этой строке как исходный (published_at='' без поля даты у EvidenceSource, заголовок пака без даты), закрыт по всем четырём пунктам acceptance.",
+          "type": "test",
+          "artifact_path": "tests/test_search_source_dates.py",
+          "artifact_sha256": "fa3e3cae73561a1e2c0f4061651483827e3dc6587699c5df2df613153002e2b7",
+          "candidate_commit": "7cf8e1699d2a689c5a4249da9478ac4215e5701d"
+        }
+      ],
+      "design_boundary": "Сознательная граница среза: дата публикации, записанная в тексте источника БЕЗ распознанной метки-префикса, остаётся обычным текстом и по-прежнему может участвовать в проверке чисел. Это не дефект и не незакрытый пункт — см. notes.",
       "expected_evidence": [
         {
           "type": "test",
-          "artifact_path": "plans/features/unified-reply/evidence/ur-src-date/ur-src-date-evidence.md",
-          "description": "дата провайдера доходит до пака и до структурного поля, при отсутствии — явная пометка вместо пустой строки; нет выдуманных дат; число сетевых вызовов на ход не растёт (сравнение счёта вызовов до/после)"
+          "artifact_path": "tests/test_search_source_dates.py",
+          "description": "дата провайдера доходит до пака и до структурного поля, при отсутствии — явная пометка вместо пустой строки; нет выдуманных дат; число сетевых вызовов на ход не растёт (сравнение счёта вызовов до/после). Фактически предъявлено этим файлом и привязано в evidence; отдельный отчёт не требовался."
         }
       ],
       "split_from": "UR-07.3",
@@ -7921,8 +7932,38 @@
     "UR-D": "6374eedc",
     "UR-C-CLOCK": "7632fdb6",
     "UR-E": "b2738117",
-    "UR-C-SCHED": "5d8c8598"
+    "UR-C-SCHED": "5d8c8598",
+    "UR-SRC-DATE": "7cf8e1699d2a689c5a4249da9478ac4215e5701d"
   },
+  "notes": [
+    {
+      "id": "NOTE-2026-11-11-SRC-DATE-LABEL-BOUNDARY",
+      "slice": "UR-SRC-DATE",
+      "candidate_commit": "7cf8e1699d2a689c5a4249da9478ac4215e5701d",
+      "boundary": "Сознательная граница поведения: дата публикации, написанная в тексте источника БЕЗ распознанной метки-префикса (ISO, RFC 2822, «11 марта 2025», «11.03.2025» и их варианты), остаётся обычным текстом источника и может по-прежнему участвовать в проверке чисел/совпадений. Срезается только распознанная метка публикации вместе со своим значением.",
+      "why_intended": "Срез не выдумывает дату и не переписывает тело источника: он убирает служебную метку публикации из числа, с которым сравнивается факт. Дата, написанная как часть содержания, — это содержание, и её нельзя молча выбрасывать.",
+      "classification": "by_design_not_defect",
+      "source": "Независимое ревью кандидата 7cf8e169 (Approved, UR-SRC-DATE DONE на уровне строки)"
+    }
+  ],
+  "review_evidence": [
+    {
+      "slice": "UR-SRC-DATE",
+      "candidate_commit": "7cf8e1699d2a689c5a4249da9478ac4215e5701d",
+      "branch": "fix/search-source-dates",
+      "parent_commit": "82d21889e811fe90cdf5178f6845bd41334cfac0",
+      "base_commit": "92070d0e",
+      "verdict": "Approved",
+      "row_verdict": "UR-SRC-DATE: DONE на уровне строки",
+      "reviewed_artifact": {
+        "path": "tests/test_search_source_dates.py",
+        "blob": "ec83e22a86d6ad3a7fd337dab97663a07c336810",
+        "sha256": "fa3e3cae73561a1e2c0f4061651483827e3dc6587699c5df2df613153002e2b7"
+      },
+      "verified_scope": "Полное снятие VALUE распознанной метки публикации (ISO, ISO+time с +03:00, RFC 2822 с днём недели и без, «11 марта 2025», «11.03.2025», две метки, метка внутри сниппета, метка в конце) с исходом {4} / role=qualifies / number_hits=0 / mismatch=True / strong_binding=False и паритетом на factcheck_planner._relevance_for и evidence_policy._supported; мульти-хит агрегат published_at=\"\" при целых датах SourceRecord, одиночный хит — своя дата, полностью без дат — «дата публикации не сообщается источником»; ровно один поисковый вызов во всех сценариях; 35 тестов в файле среза, 947 passed / 5 pre-existing падений и на кандидате, и на 92070d0e; мутация старого однозначного регекса валит 6 тестов.",
+      "not_claimed": "Выкладка не заявляется: деплой среза стоит в очереди после текущего хотфикса, deployed_commit пуст."
+    }
+  ],
   "architecture_note": "Барьер UR-A снят и реализован: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966) имеет статус ARCHITECT_VALIDATED и фиксирует контракт модулей (§2), карту владения файлами (§2.6) и checkpoint-1 «контракты сфризены». По этому контракту срезом UR-A создан ровно один новый файл — services/turn_types.py (фрозен-датаклассы/enums, без логики исполнения); файла services/turn_request.py в проекте никогда не существовало, имя в графе исправлено. Датаклассы §2.2/§2.3 намеренно не дублируются: ContextSelection/ContextFragment — services/direct_context_composer.py (UR-C), ToolEvidence/SourceRecord — services/direct_execution.py (UR-B).",
   "amendment_2026_11_11": {
     "id": "OI-2026-11-11-VMQ-TIME-FREEZE",
@@ -7934,7 +7975,8 @@
       "UR-07.3",
       "UR-SRC-DATE"
     ],
-    "status_effect": "ни одна строка не помечена VERIFIED; UR-07.3 и UR-SRC-DATE остаются PENDING"
+    "status_effect": "ни одна строка не помечена VERIFIED; UR-07.3 и UR-SRC-DATE остаются PENDING",
+    "status_effect_after_binding_2026_11_11": "Позже в тот же день UR-SRC-DATE привязана как VERIFIED к кандидату 7cf8e1699d2a689c5a4249da9478ac4215e5701d (ревью Approved, DONE на уровне строки, деплой ещё не выполнен). UR-07.3 остаётся PENDING: её остаточный критерий — остановка adaptive-добора при отсутствии прироста доказательств — этой привязкой не закрывается и не отменяется."
   },
   "independent_works_2026_11_11": {
     "note": "Инспектор хода (UR-F, шаг 1 кандидат 65ed4f7d, шаги 2–3 ещё не начаты) и исправление дат веб-источников (UR-SRC-DATE) — независимые работы со своими критериями DONE. Ни одна из них не блокируется VMQ-MEM-TIME (709865f6) и не блокирует его; вердикт по VMQ-TIME не ждёт их завершения и наоборот.",
@@ -7950,6 +7992,8 @@
         "id": "UR-SRC-DATE",
         "req_id": "UR-SRC-DATE",
         "slice": "UR-SRC-DATE",
+        "candidate": "7cf8e1699d2a689c5a4249da9478ac4215e5701d",
+        "row_status": "VERIFIED (ревью Approved, DONE на уровне строки; выкладка в очереди после хотфикса)",
         "own_done": true
       }
     ]

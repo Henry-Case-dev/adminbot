@@ -112,7 +112,7 @@
         "services/search_service.py",
         "services/tool_router.py",
         "services/direct_execution.py",
-        "tests/test_ur_src_date.py",
+        "tests/test_search_source_dates.py",
         "plans/features/unified-reply/evidence/ur-src-date/**"
       ],
       "acceptance": "Дата публикации от провайдера поиска доходит до evidence-пака и до структурного поля источника, а при её отсутствии пак явно говорит «дата не сообщается источником»; выдуманных дат нет и число сетевых вызовов на один и тот же вопрос не растёт.",
@@ -126,7 +126,7 @@
       "next_role": "Builder -> Reviewer",
       "why_one_slice": "Один проверяемый результат — поле даты существует как данные или пак честно заявляет об её отсутствии; дробление дало бы два конкурирующих представления одного и того же поля.",
       "owner_input": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md (OI-2026-11-11-VMQ-TIME-FREEZE)",
-      "status_note": "Срез не начат: статус строки UR-SRC-DATE — PENDING, кандидата нет. Ветка создана (fix/search-source-dates), работа не смешивается с VMQ-TIME и UR-F."
+      "status_note": "Исполнен и принят: ветка fix/search-source-dates @7cf8e1699d2a689c5a4249da9478ac4215e5701d (родитель 82d21889, база 92070d0e), ревью Approved с DONE на уровне строки UR-SRC-DATE; тест-файл среза — tests/test_search_source_dates.py (35 тестов). Выкладка поставлена в очередь после идущего хотфикса: deployed_commit в карте пуст, деплой не заявлен. Открытых пунктов внутри среза нет; сознательная граница (дата без распознанной метки-префикса остаётся текстом) зафиксирована в requirements-map.json -> notes."
     },
     {
       "id": "UR-C",
