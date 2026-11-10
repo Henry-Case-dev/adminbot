@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
-  "candidate_commit": "5d8c8598",
+  "candidate_commit": "6099cc17",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -22,7 +22,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23; +2 слайс 57349e6d — UR-26.3/26.4, merge 6d7c30b9; +1 слайс 4dca6439 — UR-26.5, merge db46fba2; итого 16/27 собственно среза, 17/27 с учётом UR-24.2 из UR-F), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись. UR-G: кандидат 7edcb2b4 (merge 9e3af353 в evol/impl) — привязано 33/40 VERIFIED (28 proven-existing + 3 proven-new; evidence plans/features/unified-reply/evidence/ur-g-acceptance.md + tests/test_ur_g_acceptance.py + цитированные existing-тесты; сьют 709 passed / 0 failed). 7 строк PENDING с точными зависимостями: UR-30.2 (UR-23.4 — factcheck-доставка не пишет ledger), UR-30.5 (UR-C-SCHED per-chat scheduler), UR-ACC-B2 (preprod-прогон размеченного набора), UR-ACC-D6 (fixture диалог.txt + live-модель), UR-ACC-E5/UR-ACC-E6 (UR-C-SCHED: UR-28.5), UR-ACC-E9 (postdeploy live-наблюдение после деплоя). Эпические строки UR-G в additional_requirements (UR-30.7, UR-SAVETY, UR-DONE-CRITERION, UR-EXEC-RULE, UR-BAN-10, UR-EXEC-WORKFLOW, UR-ACC-TRACE) не менялись. Биндинг UR-23.4 (2026-11-06, один писатель, карта): кандидаты 38f60f2d (factcheck-доставка пишет ledger; tests/test_ur234_factcheck_ledger.py — 7 passed) и d4116ed7 (summary пишет полный доставленный текст; tests/test_summary_ledger_full_text.py — 3 passed; ревью Approved: пункт «без молчаливого preview по [:20000]» закрыт полностью — publication-gate барьер соответствует сохранённому полному тексту), merge 42900fce в evol/impl — строка VERIFIED. UR-30.2: зависимость от UR-23.4 снята, остаётся PENDING только на композитный acceptance-прогон Direct→Initiative→Factcheck→Summary (тест не написан/не запущен). Итого по карте 142/261 required VERIFIED. Биндинг UR-26.3/UR-26.4 (approved unmerged slice 57349e6d, ветка ur/26-init-fc-payloads, прецедент PVR-UI; approved unmerged slice, кандидат содержит tests/test_ur26_init_fc_payloads.py и services/turn_payload_events.py, которых ещё нет в рабочем дереве evol/impl до merge): +2 строки VERIFIED — payload-observability стадий инициативы (initiative_l1_decision/tool_phase/initiative_recheck/nostalgia_text) и фактчека (factcheck_stage1/stage2/short_reply, temporal_verdict/validator/verbalize); оговорки ревьюера сохранены: REACT покрывается тем же SILENT-тестом ветки, зеркало usage_json в durable-колонке срезано до 2000 символов (mca_events.py:597). Итого по карте 151/261 required VERIFIED. Биндинг payload-observability (2026-11-06, один писатель, карта): оба слайса слиты в evol/impl — db46fba2 (4dca6439: summary-стадии, tests/test_ur26_summary_payloads.py + services/summary_stage_events.py) и 6d7c30b9 (57349e6d: initiative/factcheck; суммарно 22 теста зелёные); +3 строки VERIFIED — UR-26.5 (verified_scope = матрица stage1/stage2/reviewer/revision/repair/supervisor, дайджест-only, decision-коды; честные подсаб-итемы в pending_reason: deferred-generator answer_as_of_utc/summary_window_end_utc — кода и теста нет, и chunked-L1 overflow без события l1_plan), UR-30.4 и UR-ACC-E4 (UR-G, обе ноги payload-тестов слиты). Итого по карте 154/261 required VERIFIED.",
+  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23; +2 слайс 57349e6d — UR-26.3/26.4, merge 6d7c30b9; +1 слайс 4dca6439 — UR-26.5, merge db46fba2; итого 16/27 собственно среза, 17/27 с учётом UR-24.2 из UR-F), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись. UR-G: кандидат 7edcb2b4 (merge 9e3af353 в evol/impl) — привязано 33/40 VERIFIED (28 proven-existing + 3 proven-new; evidence plans/features/unified-reply/evidence/ur-g-acceptance.md + tests/test_ur_g_acceptance.py + цитированные existing-тесты; сьют 709 passed / 0 failed). 7 строк PENDING с точными зависимостями: UR-30.2 (UR-23.4 — factcheck-доставка не пишет ledger), UR-30.5 (UR-C-SCHED per-chat scheduler), UR-ACC-B2 (preprod-прогон размеченного набора), UR-ACC-D6 (fixture диалог.txt + live-модель), UR-ACC-E5/UR-ACC-E6 (UR-C-SCHED: UR-28.5), UR-ACC-E9 (postdeploy live-наблюдение после деплоя). Эпические строки UR-G в additional_requirements (UR-30.7, UR-SAVETY, UR-DONE-CRITERION, UR-EXEC-RULE, UR-BAN-10, UR-EXEC-WORKFLOW, UR-ACC-TRACE) не менялись. Биндинг UR-23.4 (2026-11-06, один писатель, карта): кандидаты 38f60f2d (factcheck-доставка пишет ledger; tests/test_ur234_factcheck_ledger.py — 7 passed) и d4116ed7 (summary пишет полный доставленный текст; tests/test_summary_ledger_full_text.py — 3 passed; ревью Approved: пункт «без молчаливого preview по [:20000]» закрыт полностью — publication-gate барьер соответствует сохранённому полному тексту), merge 42900fce в evol/impl — строка VERIFIED. UR-30.2: зависимость от UR-23.4 снята, остаётся PENDING только на композитный acceptance-прогон Direct→Initiative→Factcheck→Summary (тест не написан/не запущен). Итого по карте 142/261 required VERIFIED. Биндинг UR-26.3/UR-26.4 (approved unmerged slice 57349e6d, ветка ur/26-init-fc-payloads, прецедент PVR-UI; approved unmerged slice, кандидат содержит tests/test_ur26_init_fc_payloads.py и services/turn_payload_events.py, которых ещё нет в рабочем дереве evol/impl до merge): +2 строки VERIFIED — payload-observability стадий инициативы (initiative_l1_decision/tool_phase/initiative_recheck/nostalgia_text) и фактчека (factcheck_stage1/stage2/short_reply, temporal_verdict/validator/verbalize); оговорки ревьюера сохранены: REACT покрывается тем же SILENT-тестом ветки, зеркало usage_json в durable-колонке срезано до 2000 символов (mca_events.py:597). Итого по карте 151/261 required VERIFIED. Биндинг payload-observability (2026-11-06, один писатель, карта): оба слайса слиты в evol/impl — db46fba2 (4dca6439: summary-стадии, tests/test_ur26_summary_payloads.py + services/summary_stage_events.py) и 6d7c30b9 (57349e6d: initiative/factcheck; суммарно 22 теста зелёные); +3 строки VERIFIED — UR-26.5 (verified_scope = матрица stage1/stage2/reviewer/revision/repair/supervisor, дайджест-only, decision-коды; честные подсаб-итемы в pending_reason: deferred-generator answer_as_of_utc/summary_window_end_utc — кода и теста нет, и chunked-L1 overflow без события l1_plan), UR-30.4 и UR-ACC-E4 (UR-G, обе ноги payload-тестов слиты). Итого по карте 154/261 required VERIFIED. Биндинг UR-B evidence (2026-11-10, один писатель, карта): кандидат 6099cc17 (tests-only, ветка ur/b-evidence, родитель 92070d0e = прод 2.58.181; diff 92070d0e..6099cc17 = ровно 3 тест-файла, +293/−0, продукт байт-в-байт, деплой не требуется), ревью Approved. +4 строки VERIFIED: UR-03 (один tool-этап у обоих call-site), UR-RES-02 (ответ инициативы несёт настоящий поиск и tool event), UR-BAN-01 (0 поиска на реакцию/молчание/проверку Observer), UR-07.5 (нет LLM-надзирателя на гейте поиска); evidence привязан к blob-байтам tests/test_ur_b_live_wiring.py (e8635d62…), tests/test_asap8_v6_wc_direct_d04.py (81267ec2…), tests/test_evol_evidence_routing.py (a958ce93…), внешние прогоны — WorkspaceData/reports/unified-reply/ur-b-evidence-2.58.181/. Поле candidate_commit карты переведено на 6099cc17 (последний принятый кандидат); строки сохраняют собственный candidate_commit, старые привязки не переписаны. Остались PENDING с уточнённой причиной: UR-07.3 (дата источника в результатах поиска отсутствует как данные — нужен слайс), UR-BAN-02 (нет продуктового порога «prompt без полезного материала»); прочие открытые строки UR-B (UR-17.7/UR-17.8/UR-03.1/UR-06.5/UR-08.2) не менялись.",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -2918,8 +2918,17 @@
       "acceptance": "При намерении говорить о внешнем мире L1 планирует поиск, а трасса содержит реальный tool event: ответ инициативы тоже несёт настоящий вызов поиска, а не только поле capability.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Ответ инициативы несёт настоящий вызов поиска и tool event, а не только поле capability",
+          "observation": "test_initiative_call_site_reaches_provider: generate_initiative_reply реально доходит до _SearchProvider (queries==1), Writer получает evidence с 'example.com', trace содержит search_intent='required' и search_called=True. Отрицательный контроль в том же файле test_initiative_without_claim_query_makes_no_call (queries==[]) показывает, что вызов не безусловный, а следует из claim. Тот же прогон 20 passed, внешние артефакты: WorkspaceData/reports/unified-reply/ur-b-evidence-2.58.181/ (32 файла: base/, after/, regression/, mutation-*.log).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "artifact_sha256": "e8635d6230239a93162fd3bd425ef39cd77fc216a44c0fa1c59179dcbf94f3bd",
+          "candidate_commit": "6099cc17"
+        }
+      ],
       "pending_reason": "Ответ инициативы с настоящим вызовом поиска требует подключения исполнителя на инициативном маршруте (direct_chat_service.py:12932 всё ещё _l1_tool_phase)"
     },
     {
@@ -3402,8 +3411,17 @@
       "acceptance": "После L1 для REPLY оба режима проходят один tool-этап (_l1_tool_subset/_l1_tool_phase + ToolRouter) с одинаковой структурой ToolEvidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "После L1 оба живых call-site проходят один tool-этап с одинаковым контрактом ToolEvidence, а не два разных цикла",
+          "observation": "Кандидат 6099cc17 (только тесты; продукт байт-в-байт равен 92070d0e). Runtime-пути: test_initiative_call_site_reaches_provider и test_axis_open_world_reaches_provider доводят инициативный и прямой путь до реального провайдера (len(search.queries)==1, traces[-1]['search_called'] is True). Структурный контроль: test_live_helper_delegates_to_unified_phase (_l1_tool_phase содержит run_tool_phase, не содержит run_simple_tools/run_adaptive_chain), test_both_live_call_sites_use_the_single_tool_phase (и _handle_turn, и generate_initiative_reply вызывают self._l1_tool_phase без своего цикла), test_exactly_one_tool_phase_per_turn (capability + required_caps не дублируют фазу). Прогон tests/test_ur_b_live_wiring.py: 20 passed (база 19). Внешние артефакты прогона: WorkspaceData/reports/unified-reply/ur-b-evidence-2.58.181/ (32 файла: base/, after/, regression/, mutation-*.log).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "artifact_sha256": "e8635d6230239a93162fd3bd425ef39cd77fc216a44c0fa1c59179dcbf94f3bd",
+          "candidate_commit": "6099cc17"
+        }
+      ],
       "pending_reason": "run_tool_phase не подключён к живым маршрутам: direct_chat_service.py:4777 (Direct) и :12932 (Initiative) вызывают _l1_tool_phase → run_adaptive_chain/run_simple_tools. Единый tool-этап на двух режимах в проде не включён"
     },
     {
@@ -3577,7 +3595,7 @@
       "source_text_sha256": "97a79c5ee93eef3ed3e248c29ec56e7b55a48bf828df883c92d95e1f3e9b0a83",
       "source_excerpt": "- L2 получает структурированные результаты, источник/дату/ограничения и не должен приписывать поиску то, чего tool не вернул. При необходимости дополнительного запроса использовать уже существующий adaptive executor, ограниченный физическим",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не закрыто, дефект продукта (тестом не лечится): принятая формулировка требует источник, ДАТУ и ограничения, но результаты поиска даты не несут вообще. (1) _parse_search_sources создаёт SourceRecord с published_at='' (в докстроке прямо: «если публикации даты не сообщают — пустая строка, не выдумывать»); (2) у EvidenceSource (services/direct_execution.py:399) нет поля даты — вообще; (3) build_evidence_pack рендерит заголовок '[Источник N | tool | status]' без даты; (4) SearchAggregator._format_hits (services/search_aggregator.py:866) выдаёт только title/snippet/url. Дата доезжает лишь по пути fetch_article (web_content_extractor / tool_router / meta), это и фиксирует test_per_source_block_carries_source_date_and_limits: для веб-блока published_at=='', даты в паке нет. Нужен отдельный слайс: брать дату у провайдера поиска, если он её отдаёт, иначе явная пометка «дата не сообщается источником». Текущее корректное поведение пака — не изобретать дату.",
       "req_id": "UR-07.3",
       "slice": "UR-B",
       "acceptance": "L2 получает структурированные результаты с источником, датой и ограничениями и не приписывает поиску то, чего tool не вернул; добор запроса идёт существующим adaptive executor с остановкой при отсутствии прироста доказательств.",
@@ -3623,8 +3641,17 @@
       "acceptance": "Нет скрытых принудительных перезапросов при разговорной чепухе и нет добавочной LLM-модели «поисковик-надзиратель».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "На гейте поиска нет добавочной LLM-модели «поисковик-надзиратель» и нет принудительных перезапросов",
+          "observation": "test_ur_07_5_search_gate_has_no_supervisor_model: подставленный poisoned LLM (svc.llm) при инициативном ответе с внешним claim не вызывается ни разу (poisoned.calls==0), при этом execute_web_search реально диспатчится и Writer получает evidence. Дополнительно тест читает services/evidence_policy.py: нет импортов llm_client/openai/anthropic/httpx/requests/aiohttp, нет вызовов generate/completion, evaluate_evidence_need и l1.resolve_search_axis — синхронные с зафиксированной сигнатурой. Мутация mutation-c-gate.log (LLM-вызов в _evidence_preflight) роняет тест. Анти-refetch кейсы: test_wave6_conversational_phrase_does_not_force_network, test_scenario16_guard_hit_makes_no_second_call_and_keeps_joke, test_scenario29_initiative_answer_without_claims_makes_no_search. Прогон tests/test_evol_evidence_routing.py: 117 passed (база 116). Артефакты: WorkspaceData/reports/unified-reply/ur-b-evidence-2.58.181/ (32 файла: base/, after/, regression/, mutation-*.log).",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_sha256": "a958ce93db5bc0aa33fc6d51080ece2298155fbce798f02a8e499bdae06268a0",
+          "candidate_commit": "6099cc17"
+        }
+      ],
       "pending_reason": "Отсутствие добавочной LLM-модели «поисковик-надзиратель» ни одним тестом не проверено (покрыт только reuse без повторного вызова)"
     },
     {
@@ -7341,8 +7368,17 @@
       "acceptance": "Поиск не запускается на каждую реакцию, молчание и проверку Observer (по смыслу задачи, а не по признаку приватности), но скрытый обход поиска при планировании внешних фактов запрещён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Поиск не запускается на реакцию, молчание и проверку Observer; скрытый обход поиска при внешних фактах запрещён",
+          "observation": "TestObserverCheckMakesNoSearch::test_observer_check_performs_zero_search_calls: полный observe_tick через настоящий DirectChatService, SearchAggregator.search подменён счётчиком — агрегированных запросов 0 (и прежнее отсутствие вызова в initiative_observer проверено на живом пути, а не по имени файла). test_silent_and_react_make_no_tool_calls закрывает SILENT/REACT. Обратная сторона (запрет скрытого обхода): положительные кейсы оси — test_axis_open_world_reaches_provider и runtime-policy — требуют реального поиска при open_world. Мутационная проверка mutation-a-observer.log: возврат SearchAggregator.search в initiative_observer._evaluate_phase роняет тест (AssertionError, tests/test_ur_b_live_wiring.py:454). Артефакты: WorkspaceData/reports/unified-reply/ur-b-evidence-2.58.181/ (32 файла: base/, after/, regression/, mutation-*.log).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_b_live_wiring.py",
+          "artifact_sha256": "e8635d6230239a93162fd3bd425ef39cd77fc216a44c0fa1c59179dcbf94f3bd",
+          "candidate_commit": "6099cc17"
+        }
+      ],
       "bgs_note": "BGS-01 §2 п.3: запрет частого поиска обоснован смыслом и бюджетом, а не приватностью.",
       "superseded_text": "Поиск не запускается на каждую реакцию, молчание и проверку Observer, но скрытый обход поиска при планировании внешних фактов запрещён.",
       "superseded_by": "BGS-01 (owner 2026-11-05)",
@@ -7354,7 +7390,7 @@
       "source_text_sha256": "720c9d515c782621bcc3bf2b3df6a0149e4193ed04087480016a33d5a2d8ebc7",
       "source_excerpt": "- **Не устраивать** бесконечные tool-loop, retry генерации и сборку гигантского prompt без полезного материала. Физические API, timeout, resource и Telegram bounds остаются как safety, а не как эстетические ограничения длины.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не закрыто (не «незакрываемо»): нужен продуктовый порог. Сейчас есть только потолки циклов/токенов (tool-loop, retry, физические API/timeout/resource/Telegram bounds), а наблюдаемого критерия «переразмеренный prompt без полезного материала» нет — его надо определить как продуктовое правило (что считать полезным материалом и какой порог), только после этого появится проверяемое поведение.",
       "req_id": "UR-BAN-02",
       "slice": "UR-B",
       "acceptance": "Бесконечные tool-loop, retry генерации и сборка гигантского prompt без полезного материала не допускаются; физические API/timeout/resource/Telegram bounds остаются safety-лимитами.",
