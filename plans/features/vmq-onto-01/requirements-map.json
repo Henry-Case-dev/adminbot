@@ -3,8 +3,26 @@
   "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
   "source_sha256": "11fd732fed30e5ea2b78b1951d2e8df8b483ff55fea92285f6da57fcc7637cd0",
   "candidate_commit": "709865f6dbae508843b9f1b3ec73d33705621589",
-  "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
-  "candidate_note": "candidate_commit обозначает текущего кандидата в ревью: замороженный кандидат слайса VMQ-MEM-TIME 709865f6 (ветка vmq/time-bias, цепочка 31991b6f -> 81d98530 -> 709865f6, линия прода 92070d0e). deployed_commit остаётся 721bab10 (2.58.180) до выкатки 2.58.182, которую ведёт DevOps; выкаткой этот слайс не считается. Каждая запись evidence несёт собственный candidate_commit, поэтому привязки слайса VMQ-MEM к 721bab10 не переоцениваются и не переносятся.",
+  "deployed_commit": "0fed584598cbf103017a401a117eee236e2be0e5",
+  "candidate_note": "candidate_commit обозначает кандидата в ревью: замороженный кандидат слайса VMQ-MEM-TIME 709865f6 (ветка vmq/time-bias, цепочка 31991b6f -> 81d98530 -> 709865f6, линия прода 92070d0e). deployed_commit = 0fed5845 (2.58.183) с 11.11.2026: слайс впервые вышел в 2.58.182 (446cbf0b) и остаётся на проде в 2.58.183, единственное отличие которой — перенос stem_word и таблиц окончаний в нейтральный services/text_morphology.py с байт-идентичным поведением (раздел deployment_evidence.follow_up_2_58_183). Каждая запись evidence несёт собственный candidate_commit, поэтому привязки слайса к 709865f6 не переоцениваются и не переносятся, а все девять строк VMQ-TIME-01..09 остаются PENDING.",
+  "deployment_note_2_58_183": {
+    "slice": "VMQ-MEM-TIME",
+    "shipped_in": "2.58.182 @ 446cbf0b (с линии 92070d0e), затем 2.58.183 @ 0fed5845",
+    "prod_now": "0fed5845 (2.58.183) — текущий deployed_commit карты",
+    "unchanged_between_182_and_183": "только перенос нейтрального модуля: summary_memory больше не импортирует stem_word из search_aggregator; поведение байт-идентично, поэтому привязки слайса к 709865f6 остаются в силе",
+    "status_effect": "ни одна строка не переведена в VERIFIED: девять строк VMQ-TIME-01..09 остаются PENDING со своими привязанными evidence на 709865f6 — выкат не является приёмкой строк",
+    "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/time/release-2.58.183.md"
+  },
+  "config_fact_2026_11_11": {
+    "flag": "flags.chat_rag_rerank_enabled",
+    "effective_production_value": false,
+    "independent_sample_value": true,
+    "consequence": "ветка защиты периодных строк (period_fill/period_kept) в текущей прод-конфигурации не активна: она включается только при chat_rag_rerank_enabled=True",
+    "classification": "это факт конфигурации, а не дефект кода; код защиты существует и измерен при TRUE",
+    "recheck_trigger": "при включении флага — повторить замер защиты периодных строк на реальном архиве и обновить эту строку",
+    "affects_req_ids": ["VMQ-TIME-01", "VMQ-TIME-02", "VMQ-TIME-03", "VMQ-TIME-04", "VMQ-TIME-05", "VMQ-TIME-06", "VMQ-TIME-07", "VMQ-TIME-08", "VMQ-TIME-09"],
+    "note": "без этой оговорки легко прочитать измерение как «прод ведёт себя как выборка»; интерпретация обязана учитывать эффективное значение флага"
+  },
   "deployment_evidence": {
     "version": "2.58.180",
     "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
@@ -128,7 +146,39 @@
       "Тест формы плана держится только на крошечной БД",
       "CHAT_EPISODE_MAX_COUNT=2 обрывает цикл: у класса D не рассмотрено 28 из 40 кандидатов"
     ],
-    "coverage_effect": "0 строк переведено в VERIFIED. Выкат — P0-корректив трёх дефектов внутри линии VMQ-MEM; в карте у дефектов нет собственных строк (сверены все 380 инвентарных и 63 ручные строки). Привязка сделана на уровне карты, чтобы следующее измерение VMQ-MEM опиралось на реальный baseline «после»."
+    "coverage_effect": "0 строк переведено в VERIFIED. Выкат — P0-корректив трёх дефектов внутри линии VMQ-MEM; в карте у дефектов нет собственных строк (сверены все 380 инвентарных и 63 ручные строки). Привязка сделана на уровне карты, чтобы следующее измерение VMQ-MEM опиралось на реальный baseline «после».",
+    "follow_up_2_58_183": {
+      "version": "2.58.183",
+      "candidate_commit": "0fed584598cbf103017a401a117eee236e2be0e5",
+      "deployed_commit": "0fed584598cbf103017a401a117eee236e2be0e5",
+      "base_commit": "446cbf0b (2.58.182, слайс VMQ-MEM-TIME вышел здесь)",
+      "previous_deployment": "2.58.182 @ 446cbf0b, линия 2.58.181 @ 92070d0e",
+      "cherry_pick": "15c3bde1 -> 94dcafae (содержимое одобренного фикса), поверх 446cbf0b",
+      "reason": "2.58.182 вышел с КРАСНЫМ guard'ом ADR-1019: services/summary_memory.py импортировал stem_word из services.search_aggregator, из-за чего tests/test_evol_evidence_routing.py::test_scenario19_background_services_have_no_web_imports падал на прод-коде (воспроизведено красным на старом дереве)",
+      "fix": "stem_word, _RU_SUFFIXES и _EN_SUFFIXES перенесены в новый нейтральный services/text_morphology.py; search_aggregator ре-экспортирует их (вызовы не меняются), summary_memory импортирует только нейтральный модуль",
+      "product_blobs": {
+        "services/mca_retrieval_context.py": "259bc0b4",
+        "services/search_aggregator.py": "ae1f97bf",
+        "services/summary_memory.py": "717236b5",
+        "services/text_morphology.py": "69775156"
+      },
+      "delta": "446cbf0b..0fed5845 = 30 файлов, 98 вставок / 73 удаления; продуктовых файлов четыре (те, что выше), остальное — пины версий (config/settings.py, plans/docs/param-registry-round1025.meta.md, 24 тестовых файла)",
+      "security_blobs_unchanged": "web/api/avatars.py 3b8be940, web/api/deps.py 509b387d, services/permissions.py e20d46eb — те же блобы на 92070d0e, 446cbf0b и 0fed5845",
+      "behaviour_identity": "416 значений build_fts_query + 65 входов stem/term, sha 7252c6c4…; перенесённый блок (две таблицы окончаний + stem_word) побайтово совпадает со старым определением в search_aggregator",
+      "schema": "user_version=47, DDL=0",
+      "live_checks": {
+        "healthz": "2.58.183",
+        "unit": "running, NRestarts=0",
+        "log": "ноль ERROR/CRITICAL, ноль traceback",
+        "guard_on_deployed_tree": "1 passed",
+        "import_smoke": "FORBIDDEN_LOADED: [], REEXPORT_IDENTICAL: True"
+      },
+      "honest_gap": "свежая год-карта после рестарта НЕ наблюдалась: в окне не было реального трафика. Честная формулировка — путь эмиссии этим хотфиксом не затронут, но новое живое подтверждение год-карты на 2.58.183 отсутствует",
+      "rollback": "446cbf0b (2.58.182), затем 92070d0e (2.58.181); снапшоты predeploy-258182.db и predeploy-258183.db — quick_check=ok, user_version=47",
+      "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/time/release-2.58.183.md",
+      "artifact_sha256": "96b8ae55c6e5a3e098271b5208a25acb788513b734e0f4b4245c5067549ea18d",
+      "coverage_effect": "0 строк переведено в VERIFIED: выкат исправляет нарушенный инвариант ADR-1019 и не меняет поведения слайса, поэтому девять строк VMQ-TIME-01..09 остаются PENDING с прежними evidence на 709865f6"
+    }
   },
   "next_executable": {
     "slice": "VMQ-MEM",
