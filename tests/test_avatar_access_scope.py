@@ -52,6 +52,8 @@ CHAT_A = -1001000000001      # чат, доступный LOCAL_ID (грант)
 CHAT_B = -1002000000002      # чужой для LOCAL_ID чат
 PEER_A = 333333              # участник CHAT_A
 PEER_B = 444444              # участник только CHAT_B
+GRANT_ONLY = 777888          # админ CHAT_A по chat_admins, НЕ участник
+                             # users_meta ни одного чата (ветка гранта)
 JPEG = b"\xff\xd8\xff\xe0avatar-bytes"
 
 
@@ -214,6 +216,10 @@ class _FakeDb:
     def __init__(self, members):
         self._members = set((int(c), int(u)) for c, u in members)
 
+    def has(self, chat_id, user_id) -> bool:
+        """Синхронная проверка для тестов изоляции ветвей гейта."""
+        return (int(chat_id), int(user_id)) in self._members
+
     async def get_users_meta(self, chat_id, user_ids=None, limit=None):
         if user_ids is None:
             return [{"chat_id": chat_id, "user_id": u}
@@ -260,14 +266,15 @@ def bot():
 
 @pytest.fixture
 def lore():
-    """Лор: чаты A и B; USER_ID — админ чата A; участники по чатам."""
-    lore_runtime.set_lore_components(
-        store=_FakeLoreStore([CHAT_A, CHAT_B],
-                             {(CHAT_A, USER_ID): "local_admin"}),
-        db=_FakeDb({(CHAT_A, PEER_A), (CHAT_A, USER_ID),
-                    (CHAT_B, PEER_B), (CHAT_B, LOCAL_ID)}),
-    )
-    return lore_runtime
+    """Лор: чаты A и B. GRANT_ONLY — админ чата A ТОЛЬКО через chat_admins
+    (в users_meta ни одного чата его нет — изоляция ветки гранта);
+    участники: PEER_A/USER_ID — чат A, PEER_B/LOCAL_ID — чат B."""
+    store = _FakeLoreStore([CHAT_A, CHAT_B],
+                           {(CHAT_A, GRANT_ONLY): "local_admin"})
+    db = _FakeDb({(CHAT_A, PEER_A), (CHAT_A, USER_ID),
+                  (CHAT_B, PEER_B), (CHAT_B, LOCAL_ID)})
+    lore_runtime.set_lore_components(store=store, db=db)
+    return types.SimpleNamespace(store=store, db=db)
 
 
 @pytest.fixture
@@ -312,8 +319,11 @@ class TestSharedChatAllowed:
         assert ("get_user_profile_photos", PEER_A) in bot.calls
 
     def test_chat_admin_grant_in_accessible_chat(self, client, bot, lore):
-        """USER_ID — админ чата A (chat_admins), в users_meta может не быть."""
-        r = client.get(f"/api/avatar/user/{USER_ID}", headers=hdr(LOCAL_ID))
+        """Грант chat_admins БЕЗ участия в users_meta: тест изолирует ветку
+        is_chat_admin (иначе её удаление не было бы замечено)."""
+        assert not lore.db.has(CHAT_A, GRANT_ONLY)
+        assert not lore.db.has(CHAT_B, GRANT_ONLY)
+        r = client.get(f"/api/avatar/user/{GRANT_ONLY}", headers=hdr(LOCAL_ID))
         assert r.status_code == 200
         assert r.content == JPEG
 
@@ -381,6 +391,24 @@ class TestStrangerDenied:
         ok = client.get(f"/api/avatar/user/{PEER_B}", headers=hdr(ADMIN_ID))
         assert ok.status_code == 200
         assert ok.content == JPEG
+
+    def test_warmed_byte_cache_does_not_bypass_gate(self, client, bot, lore):
+        """Опасное направление: админ ПРОГРЕЛ байтовый кэш чужого аватара —
+        обычный юзер по тому же id обязан получить 403 (JSON), а не
+        закэшированные байты: гейт стоит ДО кэша."""
+        from web.api import avatars
+        ok = client.get(f"/api/avatar/user/{PEER_B}", headers=hdr(ADMIN_ID))
+        assert ok.status_code == 200
+        assert ok.content == JPEG
+        assert ("user", PEER_B) in avatars._avatar_cache, "кэш горячий"
+        calls_before = len(bot.calls)
+        denied = client.get(f"/api/avatar/user/{PEER_B}",
+                            headers=hdr(LOCAL_ID))
+        assert denied.status_code == 403
+        assert denied.headers["content-type"].startswith("application/json")
+        assert denied.json()["detail"] == "permission denied"
+        assert denied.content != JPEG, "байты из кэша не отдаются"
+        assert len(bot.calls) == calls_before, "Bot API не вызывается заново"
 
     def test_fail_closed_without_lore(self, client, bot):
         """Нет лора/данных участников → чужой аватар закрыт (не 500)."""
