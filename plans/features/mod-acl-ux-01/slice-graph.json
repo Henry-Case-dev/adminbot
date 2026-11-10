@@ -67,6 +67,8 @@
         "web/api/memory_agi.py",
         "web/api/deps.py",
         "web/api/analytics.py",
+        "web/api/avatars.py",
+        "tests/test_avatar_access_scope.py",
         "plans/features/mod-acl-ux-01/evidence/m1/**"
       ],
       "requirements": [

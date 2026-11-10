@@ -2538,6 +2538,43 @@
         }
       ],
       "pending_condition": "Дефект подтверждён аудитом 2.58.180 §2: `requires_permission(s)` (`web/api/deps.py` 190–204) вычисляет `match_permission(perms, required)` и `role_type` не смотрит; около 33 эндпоинтов (`routes.py` 17: `/admins`, `/roles*`, `/info*`, `/control/*`, `/debug/config`; `cover_styles.py` 16) отказывают по permissions. Идентичность `role_type=global_admin` проходит только потому, что сид-роль `admin` несёт `{\"wildcard\": true}` (`services/pg_db.py` 630–632 `00c64133`). Владелец не затронут (сид = wildcard), но роль с `role_type=global_admin` без `wildcard`/`access` получит 403 на `/api/admins`, `/api/roles`, `/api/cover/*` — тот же класс, что M1, но на permission-фронте. Условие: сделать предикат role_type-aware по образцу `user_is_global_admin` без расширения wildcard и без смешения классов операций, затем тест: role_type=global_admin без wildcard → 200 на трёх поверхностях, custom без access → 403."
+    },
+    {
+      "source_id": "MAC-AVATAR-01",
+      "source_line": 174,
+      "source_text_sha256": "fc0c35b764e9238670326b6c7daaf5e72f7a110953590d6be11c57e9901608ef",
+      "source_excerpt": "- HTTP API, фоновые задачи, tool calls и websocket/SSE должны использовать ту же семантику, не только frontend.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "MAC-AVATAR-01",
+      "slice": "M1",
+      "acceptance": "`GET /api/avatar/{kind}/{tid}`: посторонний авторизованный пользователь получает 403 `permission_denied` до любого вызова Bot API (включая прогретый байтовый кэш); self, участник доступного чата, участник любого доступного запросившему чата и глобальный админ получают 200; успешный ответ отдаётся как `private, max-age=86400` с `Vary: X-Telegram-Init-Data`; без lore-стора/при сбое источника правило закрыто (fail-closed, отказ, а не 200).",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "test",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-avatar-01-review.md",
+          "description": "вердикт ревью по кандидату c2255690: воспроизведение дыры на базе, 403 до Bot API, прогретый байтовый кэш не отдаёт чужое, self/участник/глобальный админ 200, заголовки ответа"
+        },
+        {
+          "type": "production",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-avatar-01-deploy.md",
+          "description": "живая проверка на выкаченном SHA: 403/200 по четырём случаям, Cache-Control/Vary, закрытое поведение без lore/PG"
+        }
+      ],
+      "review_reference": {
+        "candidate_commit": "c22556909ae6109939e443828f8559c89b129b9a",
+        "access_commit": "a272190889925c82aa5def3bc1c73c37b6ecd7d2",
+        "branch": "fix/avatar-scope",
+        "base_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+        "reviewer_session": "ses_e3b2c0e2effefC5Pc7klm558m1",
+        "status": "фикс проверен независимым ревьюером на кандидате, отдельного repo-артефакта ревью ещё нет",
+        "verified": "На базе 721bab10 ревьюер воспроизвёл дыру: любой аутентифицированный пользователь Mini App получал чужой аватар, id уходил в Bot API. На кандидате c2255690 посторонний получает 403 до Bot API, прогретый байтовый кэш чужую картинку не отдаёт, self/участник общего чата/глобальный админ — 200, ответ private + Vary."
+      },
+      "pending_condition": "Фикс лежит на ветке fix/avatar-scope (a2721908 — правило доступа, c2255690 — кэш) и проверен ревьюером; строка остаётся PENDING, потому что прод ещё не выкачен. Условие: выкат содержит байт-идентичный `web/api/avatars.py` и `tests/test_avatar_access_scope.py`, затем живая проверка на выкаченном SHA (403 до Bot API для постороннего при прогретом кэше, 200 для self/участника/глобального админа, `Cache-Control: private, max-age=86400` + `Vary: X-Telegram-Init-Data`, отказ без lore/PG)."
     }
   ],
   "items": [
