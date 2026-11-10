@@ -54,16 +54,21 @@ from services.target_marking import is_target_item_id
 logger = logging.getLogger(__name__)
 
 
-def _emit_quote_context_event(code: str, *, chat_id, message_id=None):
+def _emit_quote_context_event(code: str, *, chat_id, message_id=None,
+                              trace_id=None):
     """EVOL-015: fail-open эмиссия контекстной половины quote-таксономии
     (`delivered_to_context`/`unavailable`); источник — component="context".
-    R17: только id/коды — никаких текстов цитат в телеметрии."""
+    R17: только id/коды — никаких текстов цитат в телеметрии.
+
+    ``trace_id`` — корреляция хода (`correlation_id`), если вызывающий её
+    знает: без неё событие нельзя присоединить к `direct_turn_*` того же
+    хода в инспекторе."""
     try:
         from services.mca_events import emit_mca_event
         outcome = "skipped" if code == "unavailable" else "success"
         emit_mca_event("quote", outcome=outcome, component="context",
                        stage=f"quote_{code}", chat_id=chat_id,
-                       message_id=message_id)
+                       message_id=message_id, trace_id=trace_id)
     except Exception:
         pass
 
@@ -77,7 +82,7 @@ def quote_message_id(item) -> int | None:
     return int(tail) if tail.isdigit() else None
 
 
-def emit_quote_delivered(item, *, chat_id=None) -> None:
+def emit_quote_delivered(item, *, chat_id=None, trace_id=None) -> None:
     """EVOL-015: цитата хода РЕАЛЬНО ушла в LLM-контекст.
 
     Единственная точка эмиссии «доставлено». Вызывается либо сразу при
@@ -85,7 +90,8 @@ def emit_quote_delivered(item, *, chat_id=None) -> None:
     строк, реально оставшихся в payload (`emit_quote=False` на рендере):
     событие обязано описывать доставку, а не попытку рендера."""
     _emit_quote_context_event(_QUOTE_DELIVERED_EVENT, chat_id=chat_id,
-                              message_id=quote_message_id(item))
+                              message_id=quote_message_id(item),
+                              trace_id=trace_id)
 
 
 def quote_delivery_fragment(item, projection=None,

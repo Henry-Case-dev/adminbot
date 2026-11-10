@@ -1150,6 +1150,104 @@ async def test_unused_context_emits_no_quote_events(events):
 
 
 @pytest.mark.asyncio
+async def test_cancel_before_final_model_call_emits_no_quote_event(
+        monkeypatch, events):
+    """Отмена ДО финального вызова модели: контекст провайдеру не ушёл → 0.
+
+    Репро ревью: `used` выставлялся сразу после `build_messages`, то есть до
+    фактического вызова модели. Ход, отменённый (или упавший) между сборкой
+    payload и финальным вызовом, не делал НИ ОДНОГО вызова провайдера с
+    контекстом, но успевал записать «цитата доставлена». Теперь `used`
+    поднимается только ПОСЛЕ возврата финального вызова, поэтому отмена до
+    него событий не даёт."""
+    import asyncio as _asyncio
+
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _quoted_chain(40, quoted_item_id="tg:701", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    async def _cancelled(*args, **kwargs):
+        raise _asyncio.CancelledError()
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    # финальный вызов модели (`l2_writer`) не состоялся — отмена до него
+    monkeypatch.setattr(svc, "_l2_write_answer", _cancelled)
+
+    with pytest.raises(_asyncio.CancelledError):
+        await svc.handle(bot, msg, user)
+
+    assert "l2_writer" not in llm.calls, \
+        "финального вызова модели быть не должно: %r" % (llm.calls,)
+    assert _delivered_ids(events) == [], \
+        "контекст не уходил провайдеру — событий доставки нет: %r" % \
+        _delivered_ids(events)
+
+
+@pytest.mark.asyncio
+async def test_telegram_failure_after_model_call_keeps_quote_event(
+        monkeypatch, events):
+    """Сбой доставки в Telegram ПОСЛЕ вызова модели: событие остаётся.
+
+    Событие описывает доставку в КОНТЕКСТ модели, а не получение ответа
+    пользователем: модель цитату увидела, значит `quote_delivered_to_context`
+    обязан быть, даже если отправка в чат упала."""
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _quoted_chain(40, quoted_item_id="tg:701", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    async def _send_fails(*args, **kwargs):
+        raise RuntimeError("telegram send failed")
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    monkeypatch.setattr(svc, "_send_direct_answer", _send_fails)
+    await svc.handle(bot, msg, user)
+
+    assert "l2_writer" in llm.calls, \
+        "модель обязана была получить контекст: %r" % (llm.calls,)
+    assert _delivered_ids(events) == [701], \
+        "доставка в контекст состоялась — событие обязано быть: %r" % \
+        _delivered_ids(events)
+
+
+@pytest.mark.asyncio
+async def test_quote_event_is_correlated_with_turn(monkeypatch, events):
+    """Событие цитаты присоединяется к ходу: те же `chat_id` и `trace_id`.
+
+    Репро ревью: `quote_delivered_to_context` шёл с `chat_id=None` и без
+    `trace_id`, тогда как `direct_turn_context` того же хода нёс реальные
+    `chat_id` и `trace_id` — инспектор не мог связать события. Корреляция
+    хода теперь прокидывается в эмиссию."""
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _quoted_chain(3, quoted_item_id="tg:701")
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    context_ev = _event(events, turn_trace.EVENT_CONTEXT)
+    quote_ev = next((e for e in events
+                     if e.get("event_name") == "quote"
+                     and e.get("stage") == "quote_delivered_to_context"), None)
+    assert quote_ev is not None, "события цитаты нет"
+    assert quote_ev.get("chat_id") == context_ev.get("chat_id"), \
+        "chat_id события цитаты обязан совпадать с трассой хода: %r vs %r" % (
+            quote_ev.get("chat_id"), context_ev.get("chat_id"))
+    assert quote_ev.get("trace_id") == context_ev.get("trace_id"), \
+        "trace_id события цитаты обязан совпадать с трассой хода: %r vs %r" % (
+            quote_ev.get("trace_id"), context_ev.get("trace_id"))
+    assert quote_ev.get("trace_id"), "trace_id не должен быть пустым"
+
+
+@pytest.mark.asyncio
 async def test_empty_window_reports_zero_messages(monkeypatch, events):
     """Пустое окно: `{0, 0, 0}` — честные нули, без «неизвестно»."""
     svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=[])

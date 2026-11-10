@@ -2814,7 +2814,8 @@ def _quote_annotation_delivered(item_id, fragment, state) -> bool:
 
 def _quote_delivery_pending(chain, texts, projection=None,
                             *, trigger_message_id=None,
-                            rendered=None) -> dict:
+                            rendered=None, chat_id=None,
+                            correlation_id=None) -> dict:
     """Отложенное решение о доставке цитат (НЕ эмиссия).
 
     Событие `quote_delivered_to_context` описывает ФИНАЛЬНЫЙ payload хода,
@@ -2822,14 +2823,28 @@ def _quote_delivery_pending(chain, texts, projection=None,
     текст уже известен (`_settle_quote_delivery`): после аллокации, после
     legacy-бюджета при отказе аллокатора и после fallback-рекомпоза, если он
     заменил payload. Здесь только фиксируется вход: цепочка, бухгалтерия
-    рендера и текущий текст контекста."""
+    рендера, текущий текст контекста и корреляция хода (`chat_id`/`trace_id`
+    те же, что у остальных `direct_turn_*` событий этого хода)."""
     quoted = [item for item in (chain or ())
               if str(getattr(item, "quote_text", "") or "").strip()]
     if not quoted:
         return {}
     return {"quoted": quoted, "texts": [str(t or "") for t in (texts or ())],
             "projection": projection, "trigger": trigger_message_id,
-            "rendered": dict(rendered or {}), "used": False, "settled": False}
+            "rendered": dict(rendered or {}), "chat_id": chat_id,
+            "correlation_id": correlation_id,
+            "used": False, "settled": False}
+
+
+def _mark_quote_delivery_used(pending) -> None:
+    """Финальный вызов модели с контекстом СОСТОЯЛСЯ (вернулся ответ).
+
+    До этого момента контекст — только собранный текст: он может так и не
+    уйти провайдеру (отмена/исключение до вызова, silence/react). Ставится
+    ПОСЛЕ успешного возврата финального вызова, поэтому отмена или сбой до
+    него событий не порождает."""
+    if pending and pending.get("quoted"):
+        pending["used"] = True
 
 
 def _settle_quote_delivery(pending, texts=None) -> None:
@@ -2837,13 +2852,17 @@ def _settle_quote_delivery(pending, texts=None) -> None:
 
     Вызывается, когда финальный текст хода известен: контекст собран,
     аллокация/legacy-бюджет отработали, fallback-рекомпоз (если был) заменил
-    payload. Решение по каждому цитирующему ходу — по его собственной
-    доставленной строке (тождество звена), а не по совпадению текста.
+    payload, финальный вызов модели состоялся. Решение по каждому
+    цитирующему ходу — по его собственной доставленной строке (тождество
+    звена), а не по совпадению текста.
 
     ``texts`` — фактический текст, ушедший в payload (перекрывает ранее
-    записанный). ``used`` ложно → контекст вообще не попадал в payload
-    (silence/react/сбой до сборки сообщений): событий нет — доставки не
-    было. Невыводимая форма на любом пути → молчим (осознанный недоучёт).
+    записанный). ``used`` ложно → финального вызова не было
+    (silence/react/сбой до него): событий нет — доставки не было.
+    Невыводимая форма на любом пути → молчим (осознанный недоучёт).
+
+    Корреляция: `chat_id` и `trace_id` — те же, что у `direct_turn_context`
+    этого хода (иначе событие не присоединяется к ходу в инспекторе).
 
     Повторный вызов безопасен: эмиссия одноразовая (``settled``)."""
     if not pending or pending.get("settled"):
@@ -2872,7 +2891,9 @@ def _settle_quote_delivery(pending, texts=None) -> None:
                     escape_xml_text(fragment), state):
                 continue            # строка/аннотация этого хода не доехала
             seen.add(marker)
-            thread_chain.emit_quote_delivered(item)
+            thread_chain.emit_quote_delivered(
+                item, chat_id=pending.get("chat_id"),
+                trace_id=pending.get("correlation_id"))
     except Exception:                   # pragma: no cover - защита
         pass
     finally:
@@ -5256,11 +5277,6 @@ class DirectChatService:
                 _voice_bundle, user_blocks)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
-            # EVOL-015: контекст хода реально вошёл в payload запроса —
-            # решение о доставке цитат становится эмитируемым (содержимое
-            # уточнит fallback-рекомпоз, если он заменит payload).
-            if _quote_delivery.get("quoted"):
-                _quote_delivery["used"] = True
             # UR-20.8 (UR-F шаг 1): Writer реально подал строку часов —
             # отмечаем стадию `l2` в трассе хода (пустая строка — не подана).
             if str(time_line or "").strip():
@@ -5562,6 +5578,9 @@ class DirectChatService:
                             fallback_payload_adapter=_fb_adapter,
                             max_output_tokens=longform_max_tokens,
                             tool_plan=_tool_plan)
+                        # EVOL-015: финальный вызов модели состоялся —
+                        # контекст (и цитата в нём) реально ушёл провайдеру.
+                        _mark_quote_delivery_used(_quote_delivery)
                     else:
                         # ASAP-3.1 §14/§42: fallback recompose — при
                         # переключении на fallback-модель payload
@@ -5591,6 +5610,8 @@ class DirectChatService:
                                 input_tokens=sum(
                                     count_tokens(str(m.get("content") or ""))
                                     for m in payload)))
+                        # EVOL-015: финальный вызов модели (`single`) состоялся.
+                        _mark_quote_delivery_used(_quote_delivery)
             except NoApiKeyForChat as exc:
                 # Раунд 10 (F-7 §5.2) + D03: sandbox-фраза
                 # content.no_key_reply (LLM НЕ вызывается; тишины нет —
@@ -5996,6 +6017,9 @@ class DirectChatService:
                         history_assembly_block=(
                             HISTORY_COVERAGE_ASSEMBLY_BLOCK
                             if history_sample is not None else ""))
+                    # EVOL-015: финальный вызов модели (`l2_writer`) с
+                    # контекстом хода состоялся — доставка цитаты доказуема.
+                    _mark_quote_delivery_used(_quote_delivery)
                     if _l2 is not None:
                         # F3-семантика: режим несёт стиль и канал доставки.
                         raw, response_mode = _l2
@@ -9193,7 +9217,8 @@ class DirectChatService:
             out_quote_delivery.update(_quote_delivery_pending(
                 chain, legacy_texts, projection,
                 trigger_message_id=trigger_message_id,
-                rendered=_chain_rendered))
+                rendered=_chain_rendered, chat_id=chat_id,
+                correlation_id=correlation_id))
         return legacy_texts
 
     # ── ASAP-3 (round 1028, ADR-1028-2 D3–D7): Direct Context Composer ────
@@ -9807,7 +9832,8 @@ class DirectChatService:
                 out_quote_delivery.update(_quote_delivery_pending(
                     chain, legacy_texts, projection,
                     trigger_message_id=trigger_message_id,
-                    rendered=chain_rendered))
+                    rendered=chain_rendered, chat_id=chat_id,
+                    correlation_id=correlation_id))
             return legacy_texts
 
         # ── Финализация (дедуп middle↔tail + materialize) ──────────────────
@@ -9879,7 +9905,8 @@ class DirectChatService:
             out_quote_delivery.update(_quote_delivery_pending(
                 chain, final_texts, projection,
                 trigger_message_id=trigger_message_id,
-                rendered=chain_rendered))
+                rendered=chain_rendered, chat_id=chat_id,
+                correlation_id=correlation_id))
 
         # ── v6 D04 (§18C.4/§18C.2): реальные окна L2 для evidence capacity
         # (первичная модель) и L2 fallback-репака (fallback-модель) —
