@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T02:54:53+12:00",
+  "updated": "2026-11-11T03:08:49+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -601,8 +601,10 @@
       "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-11-fc-trust-01-current-task-excerpt.md",
       "source_sha256": "7E25F03E5DAC117659643144BDA18CA5E4984E781583142952C6B311E401F041",
-      "maps": [],
-      "coverage_complete": false,
+      "maps": [
+        "plans/features/fc-trust-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
       "queue_position": "after:vmq-onto-01+self-diag-01",
       "blocked_by": [
         "vmq-onto-01",
@@ -2855,8 +2857,32 @@
       "target_task_ids": [
         "fc-trust-01"
       ],
-      "reconciled": false,
-      "note": "Owner appended FC-TRUST-01 to current_task.md at line 10750 and requires it registered in the durable queue strictly after BOTH the quantum-randomness epic (VMQ-ONTO-01 / QAN-01) and the extended self-diagnostics epic (SELF-DIAG-01), without interrupting started work or wedging new initiatives between them. Execution prerequisite from the source: verify actual HEAD, worktrees, local current_task, active settings and deployed SHA; reuse PVR-FC, FCP-01..07, ASAP-FC and EVOL artefacts instead of duplicating them; forbidden: a second FactCheck, an editor agent, a parallel SearchAggregator, new subagents, a new common LLM pipeline, OpenSpec/GitHub-as-queue, embedding rebuild, mass memory/prompt cleanup. Deliverable is a full product fix with independent review and real E2E, not an audit; user settings and prompts preserved; no extra human gates or owner live checks."
+      "reconciled": true,
+      "note": "Owner appended FC-TRUST-01 to current_task.md at line 10750 and requires it registered in the durable queue strictly after BOTH the quantum-randomness epic (VMQ-ONTO-01 / QAN-01) and the extended self-diagnostics epic (SELF-DIAG-01), without interrupting started work or wedging new initiatives between them. Execution prerequisite from the source: verify actual HEAD, worktrees, local current_task, active settings and deployed SHA; reuse PVR-FC, FCP-01..07, ASAP-FC and EVOL artefacts instead of duplicating them; forbidden: a second FactCheck, an editor agent, a parallel SearchAggregator, new subagents, a new common LLM pipeline, OpenSpec/GitHub-as-queue, embedding rebuild, mass memory/prompt cleanup. Deliverable is a full product fix with independent review and real E2E, not an audit; user settings and prompts preserved; no extra human gates or owner live checks. Reconciled 2026-11-11: the epic is mapped into plans/features/fc-trust-01 (208 rows, 141 mandatory, 9 slices, strict evidence), with reuse of PVR-FC-CORRECTIVE-01, FCP-01..07, ASAP-FC and EVOL-RC rows via covered_by and 25 duplicates marked duplicate_of; queue position after vmq-onto-01 and self-diag-01 confirmed; the gate passed (inventory=161 manual=47 errors=0).",
+      "coverage_refs": [
+        {
+          "task_id": "fc-trust-01",
+          "map": "plans/features/fc-trust-01/requirements-map.json",
+          "req_ids": [
+            "FCT-010",
+            "FCT-011",
+            "FCT-012",
+            "FCT-101",
+            "FCT-106",
+            "FCT-201",
+            "FCT-401",
+            "FCT-406",
+            "FCT-502",
+            "FCT-601",
+            "FCT-603",
+            "FCT-701",
+            "FCT-801",
+            "FCT-902",
+            "FCT-903",
+            "FCT-906"
+          ]
+        }
+      ]
     }
   ],
   "source_inventory": {
@@ -3761,6 +3787,46 @@
               "MAC-LSN-07",
               "MAC-LSN-03",
               "MAC-LSN-06"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:e5565d3d1709:1",
+        "sha256": "4ebb1ac10e63a4b699fa5a58317f5b4a6ba6c1f714efcfd7d28357b16c786d4d",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "fc-trust-01"
+        ],
+        "coverage_refs": [
+          "plans/features/fc-trust-01/requirements-map.json"
+        ],
+        "reason": "Раздел «FC-TRUST-01 — достоверный фактчек: семантический поиск, доказательства, вердикт и публикация» (стр. 10750-11042) реализуется задачей fc-trust-01; карта построена из дословного снимка раздела: 208 строк (141 обязательная, 132 уникальных req_id), 9 срезов, переиспользование существующих обязательств PVR-FC/FCP/ASAP-FC/EVOL через covered_by; очередь — после vmq-onto-01 и self-diag-01.",
+        "requirement_refs": [
+          {
+            "task_id": "fc-trust-01",
+            "map": "plans/features/fc-trust-01/requirements-map.json",
+            "req_ids": [
+              "FCT-010",
+              "FCT-011",
+              "FCT-012",
+              "FCT-101",
+              "FCT-106",
+              "FCT-201",
+              "FCT-401",
+              "FCT-406",
+              "FCT-502",
+              "FCT-601",
+              "FCT-603",
+              "FCT-701",
+              "FCT-801",
+              "FCT-902",
+              "FCT-903",
+              "FCT-906",
+              "FCT-150",
+              "FCT-220",
+              "FCT-227",
+              "FCT-209"
             ]
           }
         ]
