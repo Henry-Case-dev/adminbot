@@ -1559,6 +1559,312 @@ def test_fallback_variant_counters_describe_sent_payload(events):
     assert primary_snapshot.delivered_quote_ids == (705,)
 
 
+"""Три недостающие проверки шага 1 (поведение уже реализовано)."""
+from types import SimpleNamespace
+
+import pytest
+
+import tests.test_ur_f_inspector_step1 as T
+from services import direct_chat_service as dcs
+from services import llm_client as _llm_client
+from services import mca_events
+from services import thread_chain
+from services import turn_trace
+from tests.test_ur_f_inspector_step1 import (
+    CHAT_ID, QUOTED_DROP_SENTINEL, _chain_items, _delivered_ids, _drive,
+    _event, _payload, _payload_row_keys, _payload_text, _plain_rows,
+    _quoted_chain, _StagedLLM,
+)
+
+
+@pytest.mark.asyncio
+async def test_legacy_path_emits_selection_snapshot(monkeypatch, events):
+    """Composer OFF: legacy-путь ТОЖЕ даёт `direct_turn_selection`.
+
+    Ранее этот путь не выпускал факты выбора вовсе. Теперь legacy-бюджет
+    отдаёт `PreparedTurnPayload`, а проектор печатает событие с той же
+    корреляцией, что `direct_turn_context`.
+
+    Чего legacy-путь честно НЕ знает (и что поэтому нулевое, а не выдуманное):
+    даты блоков (`first_ts`/`last_ts` = 0 — строк окна под рукой нет) и
+    `self_outputs` (пусто)."""
+    monkeypatch.setattr(dcs._composer, "composer_on", lambda: False)
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    # цитата в звене, которое legacy-бюджет вытесняет → ложных плюсов быть не должно
+    chain = _quoted_chain(40, quoted_item_id="tg:740", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    selection = _payload(events, turn_trace.EVENT_SELECTION)
+    counts = selection["counts"]
+    assert counts["window_messages"] == 3, counts
+    payload_rows = len(_payload_row_keys(llm))
+    assert counts["included_messages"] == payload_rows, (counts, payload_rows)
+    assert counts["available_messages"] >= counts["included_messages"]
+
+    thread_block = next(b for b in selection["blocks"]
+                        if b.get("kind") == "thread")
+    assert thread_block["rendered"] is True
+    assert thread_block.get("first_ts", 0) == 0, \
+        "legacy не измеряет даты окна — ноль честнее выдуманного"
+    assert thread_block.get("last_ts", 0) == 0
+    assert selection.get("self_outputs") in (None, []), \
+        "legacy не перечисляет свои реплики — пусто, а не выдумано"
+
+    context_ev = _event(events, turn_trace.EVENT_CONTEXT)
+    sel_ev = _event(events, turn_trace.EVENT_SELECTION)
+    assert sel_ev.get("chat_id") == context_ev.get("chat_id")
+    assert sel_ev.get("trace_id") == context_ev.get("trace_id")
+    assert sel_ev.get("trace_id")
+
+    assert _delivered_ids(events) == [], \
+        "цитата вытеснена — событий доставки нет: %r" % _delivered_ids(events)
+
+
+@pytest.mark.asyncio
+async def test_single_path_emits_one_correlated_snapshot(monkeypatch, events):
+    """Путь `single` (L1 OFF, без tools): ровно один снимок и корреляция.
+
+    Ранее у этого пути не было событийных проверок: receipt и селектор
+    связаны, но матрица не снималась."""
+    monkeypatch.setattr(dcs._l1, "direct_l1_enabled", lambda: False)
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    chain = _quoted_chain(40, quoted_item_id="tg:701", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    assert llm.calls == ["single"], llm.calls
+    selection = _payload(events, turn_trace.EVENT_SELECTION)
+    assert selection["counts"]["included_messages"] == len(_payload_row_keys(llm))
+    assert selection["counts"]["available_messages"] == 43, selection["counts"]
+    assert _delivered_ids(events) == [701]
+
+    context_ev = _event(events, turn_trace.EVENT_CONTEXT)
+    sel_ev = _event(events, turn_trace.EVENT_SELECTION)
+    quote_ev = next(e for e in events
+                    if e.get("event_name") == "quote"
+                    and e.get("stage") == "quote_delivered_to_context")
+    assert sel_ev.get("trace_id") == context_ev.get("trace_id")
+    assert quote_ev.get("trace_id") == context_ev.get("trace_id")
+    assert quote_ev.get("chat_id") == context_ev.get("chat_id")
+
+
+@pytest.mark.asyncio
+async def test_chat_with_tools_path_emits_one_correlated_snapshot(
+        monkeypatch, events):
+    """Путь `chat_with_tools`: ровно один снимок, корреляция, цитата по identity.
+
+    tool-loop подменён на возврат настоящего `ToolLoopResult` с `sent_body`
+    (сам цикл покрыт своими тестами): проверяется именно receipt-проводка и
+    проекция снимка."""
+    monkeypatch.setattr(dcs._l1, "direct_l1_enabled", lambda: False)
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    svc.tool_router = object()          # включает ветку chat_with_tools
+    chain = _quoted_chain(40, quoted_item_id="tg:701", chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return chain
+
+    sent_bodies = []
+
+    async def _fake_tools(client, payload, **kwargs):
+        body = {"model": "chat-model-x",
+                "messages": [dict(m or {}) for m in payload]}
+        sent_bodies.append(body)
+        return _tool_loop_result("ответ", body)
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    monkeypatch.setattr(dcs, "chat_with_tools", _fake_tools)
+    await svc.handle(bot, msg, user)
+
+    assert len(sent_bodies) == 1, "ровно один outbound-вызов пути"
+    selection = _payload(events, turn_trace.EVENT_SELECTION)
+    assert selection["counts"]["included_messages"] == \
+        len(_payload_row_keys(llm) | _payload_row_keys_from_body(sent_bodies[0]))
+    assert _delivered_ids(events) == [701]
+
+    context_ev = _event(events, turn_trace.EVENT_CONTEXT)
+    sel_ev = _event(events, turn_trace.EVENT_SELECTION)
+    quote_ev = next(e for e in events
+                    if e.get("event_name") == "quote"
+                    and e.get("stage") == "quote_delivered_to_context")
+    assert sel_ev.get("trace_id") == context_ev.get("trace_id")
+    assert quote_ev.get("trace_id") == context_ev.get("trace_id")
+    assert quote_ev.get("chat_id") == context_ev.get("chat_id")
+
+
+def _tool_loop_result(text, body):
+    """Настоящий `ToolLoopResult` с receipt (без запуска tool-цикла)."""
+    from services.tool_loop import ToolLoopResult
+    return ToolLoopResult(text, rounds_used=1, tool_trace=[],
+                          sent_body=body)
+
+
+def _payload_row_keys_from_body(body):
+    """Ключи строк контекста из фактически отправленного тела."""
+    text = "\n".join(str(m.get("content") or "")
+                     for m in (body or {}).get("messages") or ()
+                     if str(m.get("role") or "") == "user")
+    keys: set = set()
+    for tag in ("Global_Context", "Conversation_Thread", "Old_Episode"):
+        body_text = T._block_text(text, tag)
+        for line in body_text.split("\n"):
+            key = dcs._context_line_dedup_key(line)
+            if key:
+                keys.add(key)
+    return keys
+
+
+@pytest.mark.asyncio
+async def test_fallback_end_to_end_describes_adapted_body(monkeypatch, events):
+    """Реальный `llm_client` + адаптер рекомпоза + снимок.
+
+    Primary падает → LLMClient пересобирает payload адаптером и уходит на
+    fallback-ногу. Снимок обязан описывать ФАКТИЧЕСКИ отправленное (fallback)
+    тело, а не первичный контекст; отказ адаптера (invalid shape / исключение)
+    оставляет primary-тело, которое реально ушло модели (Q6)."""
+    client = _llm_client.LLMClient(
+        "https://api.test/v1", "k", "chat-model-x", "emb-model",
+        fallback_base_url="https://api.fb/v1", fallback_model="fb-model",
+        fallback_api_key="fk")
+
+    class _Resp:
+        def __init__(self, data):
+            self._data = data
+
+        def json(self):
+            return self._data
+
+    async def _primary_down(*args, **kwargs):
+        raise _llm_client.LLMTransportError("primary down")
+
+    captured = {}
+
+    async def _fallback_ok(payload, *, sent=None):
+        captured["body"] = payload
+        return _Resp({"choices": [{"message": {"content": "ответ FB"},
+                                   "finish_reason": "stop"}],
+                      "usage": {}})
+
+    monkeypatch.setattr(client, "_post", _primary_down)
+    monkeypatch.setattr(client, "_fallback_with_retries", _fallback_ok)
+
+    # Адаптер рекомпоза строит настоящий legacy-prepared (как fallback-вариант).
+    items = _chain_items(3, item_id_base=700)
+    thread_block, rendered = T._thread_block(items) \
+        if hasattr(T, "_thread_block") else (None, None)
+    assert thread_block is not None
+
+    def _adapter(payload):
+        prepared = dcs._prepared_turn_payload(
+            chat_id=CHAT_ID, correlation_id="cid-e2e",
+            blocks=[("thread", thread_block)], event_blocks=[],
+            available_item_ids={it.item_id for it in items},
+            window_messages=0, budget={"fallback": True}, dropped=(),
+            self_outputs=(), chain_rendered={"thread": rendered},
+            projection=None)
+        adapted = dict(payload)
+        adapted["messages"] = [
+            {"role": "system", "content": "SYS"},
+            {"role": "user", "content": thread_block},
+        ]
+        return adapted, prepared
+
+    primary_payload = {"model": "chat-model-x",
+                       "messages": [{"role": "system", "content": "SYS"},
+                                    {"role": "user", "content": "СТАРЫЙ КОНТЕКСТ"}]}
+    completion = await client.generate_with_metadata(
+        primary_payload["messages"], step="l2_writer",
+        correlation_id="cid-e2e", fallback_payload_adapter=_adapter)
+    assert completion.sent_body is not None
+    assert thread_block in dcs._sent_user_text(completion.sent_body), \
+        "отправлено именно адаптированное (fallback) тело"
+
+    primary_prepared = dcs._prepared_turn_payload(
+        chat_id=CHAT_ID, correlation_id="cid-e2e",
+        blocks=[("thread", T._thread_block(items[:1])[0])], event_blocks=[],
+        available_item_ids={it.item_id for it in items}, window_messages=0,
+        budget={}, dropped=(), self_outputs=(),
+        chain_rendered={"thread": T._thread_block(items[:1])[1]},
+        projection=None)
+
+    snapshot = dcs._settle_delivered_turn(
+        completion, _adapter(primary_payload)[1], None)
+    assert snapshot is not None
+    assert snapshot.counts["included_messages"] == len(items), snapshot.counts
+    assert snapshot.counts["included_messages"] != \
+        dcs._settle_delivered_turn(completion, primary_prepared, None) \
+        .counts["included_messages"]
+    assert snapshot.trace_id == "cid-e2e"
+
+    # ── отказ адаптера: invalid shape → отправлено PRIMARY-тело (Q6)
+    def _bad_shape(payload):
+        return {}, None
+
+    completion2 = await client.generate_with_metadata(
+        primary_payload["messages"], step="l2_writer",
+        correlation_id="cid-e2e", fallback_payload_adapter=_bad_shape)
+    assert "СТАРЫЙ КОНТЕКСТ" in dcs._sent_user_text(completion2.sent_body)
+
+    def _raises(payload):
+        raise RuntimeError("adapter boom")
+
+    completion3 = await client.generate_with_metadata(
+        primary_payload["messages"], step="l2_writer",
+        correlation_id="cid-e2e", fallback_payload_adapter=_raises)
+    assert "СТАРЫЙ КОНТЕКСТ" in dcs._sent_user_text(completion3.sent_body)
+
+
+@pytest.mark.asyncio
+async def test_fallback_projection_uses_fallback_variant_counters(events):
+    """Проекция снимка: счётчики/блоки — из fallback-варианта, не первичного.
+
+    Контроль к предыдущему тесту: тот проверяет реальный клиент, этот —
+    что селектор берёт вариант, соответствующий отправленному телу (иначе
+    событие описывало бы payload, которого модель не получала)."""
+    items = _chain_items(5, item_id_base=700)
+    quoted = [it._replace(quote_text=QUOTED_DROP_SENTINEL + " фрагмент",
+                          quote_author_id=10, quote_position=0,
+                          quote_is_manual=1, quote_original_available=True)
+              if it.item_id == "tg:705" else it for it in items]
+    primary_block, primary_rendered = T._thread_block(quoted)
+    fallback_block, fallback_rendered = T._thread_block(quoted[:2])
+    primary = dcs._prepared_turn_payload(
+        chat_id=CHAT_ID, correlation_id="cid-fb", blocks=[("thread", primary_block)],
+        event_blocks=[], available_item_ids={it.item_id for it in quoted},
+        window_messages=0, budget={"budget": 6000}, dropped=(), self_outputs=(),
+        chain_rendered={"thread": primary_rendered}, projection=None)
+    fallback = dcs._prepared_turn_payload(
+        chat_id=CHAT_ID, correlation_id="cid-fb", blocks=[("thread", fallback_block)],
+        event_blocks=[], available_item_ids={it.item_id for it in quoted},
+        window_messages=0, budget={"budget": 1500, "fallback": True},
+        dropped=(), self_outputs=(),
+        chain_rendered={"thread": fallback_rendered}, projection=None)
+    receipt = dcs.SuccessfulOutboundReceipt(
+        path="l2_writer",
+        sent_body={"messages": [{"role": "user", "content": fallback_block}]})
+
+    snapshot = dcs._settle_delivered_turn(receipt, fallback, None)
+    assert snapshot.counts["included_messages"] == 2, snapshot.counts
+    assert snapshot.delivered_quote_ids == ()
+    dcs._project_delivered_turn(snapshot, None)
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    assert payload["counts"]["included_messages"] == 2
+    assert payload["counts"]["available_messages"] == 5
+    assert _delivered_ids(events) == []
+
+
 @pytest.mark.asyncio
 async def test_empty_window_reports_zero_messages(monkeypatch, events):
     """Пустое окно: `{0, 0, 0}` — честные нули, без «неизвестно»."""

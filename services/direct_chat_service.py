@@ -9541,7 +9541,8 @@ class DirectChatService:
         в legacy-пути не измерялись (строк окна под рукой нет) — они нулевые/
         пустые, «доступно» = окно ∪ реально дошедшие id. Это недоучёт, а не
         выдуманные числа (см. контракт §«Допустимые недоучёты»)."""
-        blocks = [(str(kind or ""), str(text or ""))
+        blocks = [(("global_tail" if str(kind or "") == "global"
+                    else str(kind or "")), str(text or ""))
                   for kind, text in (pairs or ()) if text]
         event_blocks: list = []
         available: set = set(_sel_row_ids(window, bot_user_id=bot_user_id))
