@@ -2440,6 +2440,26 @@ def bounded_style_payload(payload: Mapping[str, Any], *,
     return data
 
 
+def style_event_payload(outcome: "StyleOutcome") -> tuple[str | None, dict]:
+    """``(status, payload)`` события `style_policy` — единый источник истины.
+
+    Возврат ``(None, {})`` — событие не выпускается (чистый стиль без
+    сработавших правил). Сериализацию ограничивает `bounded_style_payload`;
+    здесь только классификация статуса и состав фактов (без `RuleOutcome.detail`).
+    """
+    from services.style_policy import fired_rules
+    fired = fired_rules(outcome)
+    if outcome.styled and not outcome.repetition and not fired:
+        return None, {}
+    status = "failed" if (outcome.failed or outcome.denied) else "skipped"
+    if outcome.styled and (outcome.repetition or fired):
+        status = "success"
+    payload = outcome.as_dict()
+    if fired:
+        payload["rules"] = fired
+    return status, payload
+
+
 def _emit_style_event(outcome: StyleOutcome, *, chat_id: int, stage: str,
                       correlation_id: str | None = None) -> None:
     """Событие прохода правил стиля (fail-open, R17-safe).
@@ -2455,16 +2475,10 @@ def _emit_style_event(outcome: StyleOutcome, *, chat_id: int, stage: str,
     как и раньше, события не создаёт — объём остаётся «одно событие на ход»
     (не «на каждое правило»)."""
     try:
-        fired = fired_rules(outcome)
-        if outcome.styled and not outcome.repetition and not fired:
+        status, payload = style_event_payload(outcome)
+        if status is None:
             return          # чистый проход: сообщать нечего (прежнее поведение)
         from services import mca_events as _events
-        status = "failed" if (outcome.failed or outcome.denied) else "skipped"
-        if outcome.styled and (outcome.repetition or fired):
-            status = "success"
-        payload = outcome.as_dict()
-        if fired:
-            payload["rules"] = fired
         _events.emit_mca_event(
             "style_policy", outcome=status, level="WARN",
             component="style_policy", stage=stage, chat_id=int(chat_id or 0),

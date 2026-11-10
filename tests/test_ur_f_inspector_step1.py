@@ -124,9 +124,11 @@ class _StagedLLM:
                                      correlation_id=None, **kwargs):
         self.calls.append(step)
         self.last = list(messages or ())
+        sent = {"model": "chat-model-x",
+                "messages": [dict(m or {}) for m in (messages or ())]}
         if step == "l1_planner":
-            return _completion(self.l1_reply, "stop", correlation_id)
-        return _completion(SECRET_ANSWER, "stop", correlation_id)
+            return _completion(self.l1_reply, "stop", correlation_id, sent)
+        return _completion(SECRET_ANSWER, "stop", correlation_id, sent)
 
 
 def _plan():
@@ -134,13 +136,13 @@ def _plan():
     return _plan_json()
 
 
-def _completion(text, finish_reason, correlation_id=None):
+def _completion(text, finish_reason, correlation_id=None, sent_body=None):
     return LLMCompletion(
         text=text, finish_reason=finish_reason, provider="test-provider",
         model="test-model", usage={"prompt_tokens": 11, "completion_tokens": 7,
                                    "total_tokens": 18},
         max_output_tokens_sent=1000, attempt=1,
-        correlation_id=correlation_id)
+        correlation_id=correlation_id, sent_body=sent_body)
 
 
 def _drive(monkeypatch, llm, *, text="бот, как дела?", window=None,
@@ -1108,12 +1110,12 @@ async def test_allocator_failure_credits_surviving_quote(monkeypatch, events):
 
 @pytest.mark.asyncio
 async def test_unused_context_emits_no_quote_events(events):
-    """Контекст не попал в payload — событий нет (и есть контроль).
+    """Нет receipt — нет снимка: событий доставки не бывает.
 
-    `used` ложно = ход не довёл контекст до payload запроса (silence/react,
-    сбой до сборки сообщений). Доставки не было, значит и события быть не
-    должно, даже если бы строка с цитатой в тексте присутствовала. Второй
-    блок — контроль: тот же пакет с `used=True` даёт ровно одно событие."""
+    Сборка контекста (`PreparedTurnPayload`) событий не даёт вовсе; снимок
+    печатается только по успешному receipt с фактическим `sent_body`.
+    Второй блок — контроль: тот же prepared + receipt даёт ровно одно
+    событие цитаты и одно событие выбора."""
     from services.thread_chain import ChainItem
 
     item = ChainItem(uid=10, name="Вася", is_bot=False, text="реплика",
@@ -1125,28 +1127,34 @@ async def test_unused_context_emits_no_quote_events(events):
     block = ("<Conversation_Thread>\n"
              f"{direct_chat_service.escape_xml_text(line)}\n"
              "</Conversation_Thread>")
+    prepared = direct_chat_service._prepared_turn_payload(
+        chat_id=CHAT_ID, correlation_id="cid-unused",
+        blocks=[("thread", block)], event_blocks=[],
+        available_item_ids={"tg:777"}, window_messages=1, budget={},
+        dropped=(), self_outputs=(),
+        chain_rendered={"thread": [(item.item_id, line,
+                                    thread_chain.quote_delivery_fragment(
+                                        item, None, None))]},
+        projection=None)
 
-    def _pending():
-        return direct_chat_service._quote_delivery_pending(
-            [item], [block], None, trigger_message_id=None,
-            rendered={"thread": [(item.item_id, line)]})
+    # 1) receipt нет → снимка нет → событий нет
+    idle = direct_chat_service._settle_delivered_turn(None, prepared, None)
+    direct_chat_service._project_delivered_turn(idle, None)
+    assert idle is None
+    assert _delivered_ids(events) == []
+    assert not [e for e in events
+                if e.get("event_name") == turn_trace.EVENT_SELECTION]
 
-    idle = _pending()
-    assert idle["quoted"] and idle["used"] is False
-    direct_chat_service._settle_quote_delivery(idle)
-    assert _delivered_ids(events) == [], \
-        "контекст не уходил в payload — событий нет: %r" % \
-        _delivered_ids(events)
-
-    used = _pending()
-    used["used"] = True
-    direct_chat_service._settle_quote_delivery(used)
-    assert _delivered_ids(events) == [777], \
-        "доставленная цитата обязана дать одно событие: %r" % \
-        _delivered_ids(events)
-    # повторный settle — не второй эмит
-    direct_chat_service._settle_quote_delivery(used)
+    # 2) контроль: успешный receipt с тем же телом → снимок и одно событие
+    receipt = direct_chat_service.SuccessfulOutboundReceipt(
+        path="l2_writer",
+        sent_body={"messages": [{"role": "user", "content": block}]})
+    snapshot = direct_chat_service._settle_delivered_turn(
+        receipt, prepared, None)
+    assert snapshot is not None
+    direct_chat_service._project_delivered_turn(snapshot, None)
     assert _delivered_ids(events) == [777]
+    assert snapshot.counts["included_messages"] == 1
 
 
 @pytest.mark.asyncio
@@ -1255,13 +1263,15 @@ async def test_quote_event_is_correlated_with_turn(monkeypatch, events):
 #: ``other_entry`` — другой вход (не `_handle_turn`).
 OUTBOUND_CONTEXT_CALLS = {
     ("services/direct_chat_service.py", "_handle_turn",
-     "self._l2_write_answer", None): "marked:l2_writer",
+     "self._l2_write_answer", None): "receipt:l2_writer",
     ("services/direct_chat_service.py", "_handle_turn",
-     "self.llm.generate", "react"): "marked:react",
+     "self.llm.generate", "react"): "receipt:react",
     ("services/direct_chat_service.py", "_handle_turn",
-     "chat_with_tools", None): "marked:tools",
+     "chat_with_tools", None): "receipt:tools",
+    # Тот же путь `single` без literal-step (kwargs-словарь): receipt
+    # оставляет metadata-вариант; у голого str его нет — недоучёт.
     ("services/direct_chat_service.py", "_handle_turn",
-     "self.llm.generate", "single"): "marked:single",
+     "self.llm.generate", None): "receipt:single",
     # L1-планировщик планирует БЕЗ собранного user-контекста (окно + вопрос +
     # reply-блок): блока цепочки и аннотации цитаты в его payload нет.
     ("services/direct_chat_service.py", "_call",
@@ -1362,11 +1372,19 @@ def test_outbound_model_calls_inventory_is_classified():
                 "вызова и запись 'marked:…'; иначе — запись "
                 "'no_chain:<причина>'." % (key, owner, step))
             kind = OUTBOUND_CONTEXT_CALLS[key]
-            if kind.startswith("marked:"):
-                after = "\n".join(lines[end_line:end_line + 8])
-                assert "_mark_quote_delivery_used" in after, (
-                    "у вызова %r нет маркера доставки цитаты после него" % (
-                        key,))
+
+    # Четыре ответообразующих пути обязаны оставлять receipt: у receipt'а
+    # есть фактический `sent_body`, у голого `str` его нет.
+    import re as _re
+    source = open("services/direct_chat_service.py", encoding="utf-8").read()
+    for path in ("l2_writer", "react", "chat_with_tools", "single"):
+        assert _re.search(
+            r"_remember_receipt\([^)]*\"%s\"" % path, source), (
+            "путь %r не оставляет receipt (нет _remember_receipt)" % path)
+    assert "_mark_quote_delivery_used" not in source, (
+        "ручные маркеры доставки должны быть удалены")
+    assert "_settle_quote_delivery" not in source, (
+        "второй источник истины по цитатам должен быть удалён")
 
     missing = set(OUTBOUND_CONTEXT_CALLS) - found
     assert not missing, "инвентарь ссылается на исчезнувшие вызовы: %r" % (
@@ -1440,9 +1458,15 @@ async def test_react_call_failure_emits_no_quote_event(monkeypatch, events):
     from services.llm_client import LLMError
 
     class _ReactFails(_StagedLLM):
-        async def generate(self, messages, **kwargs):
+        async def generate_with_metadata(self, messages, **kwargs):
             if kwargs.get("step") == "react":
                 self.calls.append("react")      # вызов СОСТОЯЛСЯ, но отказ
+                raise LLMError("react provider down")
+            return await super().generate_with_metadata(messages, **kwargs)
+
+        async def generate(self, messages, **kwargs):
+            if kwargs.get("step") == "react":
+                self.calls.append("react")
                 raise LLMError("react provider down")
             return await super().generate(messages, **kwargs)
 
@@ -1462,6 +1486,77 @@ async def test_react_call_failure_emits_no_quote_event(monkeypatch, events):
     assert _delivered_ids(events) == [], \
         "ответа модели нет — события доставки быть не должно: %r" % \
         _delivered_ids(events)
+
+
+def _thread_block(items, projection=None, trigger=None):
+    """Блок `<Conversation_Thread>` из реальных строк + бухгалтерия рендера."""
+    lines = [thread_chain.format_chain_line(item, {}, trigger, emit_quote=False)
+             for item in items]
+    rendered = [(item.item_id, line,
+                 thread_chain.quote_delivery_fragment(item, projection, trigger))
+                for item, line in zip(items, lines)]
+    body = "\n".join(lines)
+    block = ("<Conversation_Thread>\n"
+             f"{direct_chat_service.escape_xml_text(body)}\n"
+             "</Conversation_Thread>")
+    return block, rendered
+
+
+def test_fallback_variant_counters_describe_sent_payload(events):
+    """Fallback заменил payload → счётчики описывают ФАКТИЧЕСКИ отправленное.
+
+    РЕПРО (реальный дефект): counters/blocks считались из ПЕРВИЧНОЙ
+    аллокации, а fallback-рекомпоз заменял payload и ничего не пересчитывал —
+    событие описывало контекст, которого модель не получала. Здесь два
+    prepared-варианта (primary — 5 звеньев с цитатой, fallback — 2 звена без
+    неё) и receipt с телом FALLBACK: снимок обязан дать счётчики и цитаты
+    fallback-варианта.
+
+    Мутация (взять primary вместо fallback) роняет этот тест."""
+    items = _chain_items(5, item_id_base=700)
+    quoted = [it._replace(quote_text=QUOTED_DROP_SENTINEL + " фрагмент",
+                          quote_author_id=10, quote_position=0,
+                          quote_is_manual=1, quote_original_available=True)
+              if it.item_id == "tg:705" else it for it in items]
+    primary_block, primary_rendered = _thread_block(quoted)
+    fallback_block, fallback_rendered = _thread_block(quoted[:2])
+
+    primary = direct_chat_service._prepared_turn_payload(
+        chat_id=CHAT_ID, correlation_id="cid-fb",
+        blocks=[("thread", primary_block)], event_blocks=[],
+        available_item_ids={it.item_id for it in quoted}, window_messages=0,
+        budget={"budget": 6000}, dropped=(), self_outputs=(),
+        chain_rendered={"thread": primary_rendered}, projection=None)
+    fallback = direct_chat_service._prepared_turn_payload(
+        chat_id=CHAT_ID, correlation_id="cid-fb",
+        blocks=[("thread", fallback_block)], event_blocks=[],
+        available_item_ids={it.item_id for it in quoted}, window_messages=0,
+        budget={"budget": 1500, "fallback": True}, dropped=(), self_outputs=(),
+        chain_rendered={"thread": fallback_rendered}, projection=None)
+
+    receipt = direct_chat_service.SuccessfulOutboundReceipt(
+        path="l2_writer",
+        sent_body={"messages": [{"role": "user", "content": fallback_block}]})
+
+    snapshot = direct_chat_service._settle_delivered_turn(
+        receipt, fallback, None)
+    assert snapshot is not None
+    # счётчики — проекция ОТПРАВЛЕННОГО (fallback) варианта, не первичного
+    assert snapshot.counts["included_messages"] == 2, snapshot.counts
+    assert snapshot.counts["available_messages"] == 5, snapshot.counts
+    # цитата вытеснена fallback-рекомпозом → событий цитаты нет
+    assert snapshot.delivered_quote_ids == ()
+    direct_chat_service._project_delivered_turn(snapshot, None)
+    assert _delivered_ids(events) == []
+
+    # контроль первичного варианта: цитата доставлена, звеньев больше
+    primary_snapshot = direct_chat_service._settle_delivered_turn(
+        direct_chat_service.SuccessfulOutboundReceipt(
+            path="l2_writer",
+            sent_body={"messages": [{"role": "user", "content": primary_block}]}),
+        primary, None)
+    assert primary_snapshot.counts["included_messages"] == 5
+    assert primary_snapshot.delivered_quote_ids == (705,)
 
 
 @pytest.mark.asyncio

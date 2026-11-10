@@ -2770,7 +2770,8 @@ def _chain_delivery_state(texts, rendered) -> dict:
         cursor = 0
         parts: list = []
         spans: list = []
-        for line_item_id, line in lines:
+        for entry in lines:
+            line_item_id, line = entry[0], entry[1]
             escaped = escape_xml_text(line)
             spans.append((cursor, cursor + len(escaped),
                           str(line_item_id or "")))
@@ -2784,7 +2785,8 @@ def _chain_delivery_state(texts, rendered) -> dict:
     return state
 
 
-def _quote_annotation_delivered(item_id, fragment, state) -> bool:
+@dataclass(frozen=True)
+class PreparedItem:
     """Аннотация цитаты ХОДА доехала — по его СОБСТВЕННОЙ строке.
 
     Проверяется позиция аннотации внутри диапазона своей строки (тождество
@@ -2793,111 +2795,383 @@ def _quote_annotation_delivered(item_id, fragment, state) -> bool:
     Обратная сторона — усечение может срезать заголовок строки, оставив
     саму аннотацию: тогда аннотация внутри выжившего диапазона и есть
     доставка."""
-    ident = str(item_id or "")
-    if not ident or not fragment:
-        return False
-    for candidate, kept, spans in state.values():
-        for start, end, span_id in spans:
-            if span_id != ident:
-                continue            # чужая строка не решает за этот ход
-            own = candidate[start:end]
-            pos = own.rfind(fragment)
-            if pos < 0:
-                continue            # аннотации нет в собственной строке
-            quote_start = start + pos
-            quote_end = quote_start + len(fragment)
-            for low, high in kept:
-                if low <= quote_start and quote_end <= high:
-                    return True
-    return False
+    item_id: str
+    block_kind: str
+    start: int
+    end: int
+    ts: int = 0
 
 
-def _quote_delivery_pending(chain, texts, projection=None,
-                            *, trigger_message_id=None,
-                            rendered=None, chat_id=None,
-                            correlation_id=None) -> dict:
-    """Отложенное решение о доставке цитат (НЕ эмиссия).
+@dataclass(frozen=True)
+class PreparedBlock:
+    """Финальный блок варианта payload + identity-спаны его элементов.
 
-    Событие `quote_delivered_to_context` описывает ФИНАЛЬНЫЙ payload хода,
-    поэтому оно эмитится не в момент сборки контекста, а там, где финальный
-    текст уже известен (`_settle_quote_delivery`): после аллокации, после
-    legacy-бюджета при отказе аллокатора и после fallback-рекомпоза, если он
-    заменил payload. Здесь только фиксируется вход: цепочка, бухгалтерия
-    рендера, текущий текст контекста и корреляция хода (`chat_id`/`trace_id`
-    те же, что у остальных `direct_turn_*` событий этого хода)."""
-    quoted = [item for item in (chain or ())
-              if str(getattr(item, "quote_text", "") or "").strip()]
-    if not quoted:
-        return {}
-    return {"quoted": quoted, "texts": [str(t or "") for t in (texts or ())],
-            "projection": projection, "trigger": trigger_message_id,
-            "rendered": dict(rendered or {}), "chat_id": chat_id,
-            "correlation_id": correlation_id,
-            "used": False, "settled": False}
+    ``quotes`` — доказанные спаны собственной quote-аннотации:
+    ``((item_id, start, end), …)``. Цитата может быть доказана и там, где
+    identity-заголовок строки уже срезан (усечение body), поэтому это
+    отдельный список, а не поле элемента."""
+    kind: str
+    text: str
+    role: str = ""
+    items: tuple = ()
+    quotes: tuple = ()
 
 
-def _mark_quote_delivery_used(pending) -> None:
-    """Финальный вызов модели с контекстом СОСТОЯЛСЯ (вернулся ответ).
+@dataclass(frozen=True)
+class PreparedTurnPayload:
+    """Собранный, но НЕ доставленный вариант контекста хода (событий не даёт).
 
-    До этого момента контекст — только собранный текст: он может так и не
-    уйти провайдеру (отмена/исключение до вызова, silence/react). Ставится
-    ПОСЛЕ успешного возврата финального вызова, поэтому отмена или сбой до
-    него событий не порождает."""
-    if pending and pending.get("quoted"):
-        pending["used"] = True
+    Единственный вход селектора: ``chat_id``/``correlation_id``, финальные
+    блоки с identity-спанами, доступный пул, бюджет/дропы и служебные факты.
+    Ничего не эмитит и не знает, состоялся ли вызов модели (Q1–Q2)."""
+    chat_id: int
+    correlation_id: str | None
+    blocks: tuple                    # tuple[PreparedBlock, …]
+    event_blocks: tuple              # bounded-проекция блоков для события
+    available_item_ids: frozenset    # namespaced msg:/tg:/bot_output_tg:
+    window_messages: int
+    budget: dict
+    dropped: tuple
+    self_outputs: tuple
+    policy_version: str
 
 
-def _settle_quote_delivery(pending, texts=None) -> None:
-    """ЕДИНСТВЕННАЯ точка эмиссии `quote_delivered_to_context`.
+@dataclass(frozen=True)
+class DeliveredTurnSnapshot:
+    """Неизменяемый снимок ФАКТИЧЕСКИ доставленного контекста (Q3–Q6).
 
-    Вызывается, когда финальный текст хода известен: контекст собран,
-    аллокация/legacy-бюджет отработали, fallback-рекомпоз (если был) заменил
-    payload, финальный вызов модели состоялся. Решение по каждому
-    цитирующему ходу — по его собственной доставленной строке (тождество
-    звена), а не по совпадению текста.
+    Создаётся ровно один раз селектором после успешного receipt; все
+    durable-события шага 1 — его bounded-проекции."""
+    chat_id: int
+    trace_id: str | None
+    path: str
+    included_items: tuple
+    available_message_ids: frozenset
+    counts: dict
+    budget: dict
+    dropped: tuple
+    self_outputs: tuple
+    delivered_quote_ids: tuple
+    identity_complete: bool
+    event_blocks: tuple
+    policy_version: str
 
-    ``texts`` — фактический текст, ушедший в payload (перекрывает ранее
-    записанный). ``used`` ложно → финального вызова не было
-    (silence/react/сбой до него): событий нет — доставки не было.
-    Невыводимая форма на любом пути → молчим (осознанный недоучёт).
 
-    Корреляция: `chat_id` и `trace_id` — те же, что у `direct_turn_context`
-    этого хода (иначе событие не присоединяется к ходу в инспекторе).
+def _sent_user_text(body) -> str:
+    """Текст user-сообщений отправленного body (для сверки с prepared)."""
+    if not isinstance(body, dict):
+        return ""
+    parts = []
+    for message in body.get("messages") or ():
+        if not isinstance(message, dict):
+            continue
+        if str(message.get("role") or "") != "user":
+            continue
+        parts.append(str(message.get("content") or ""))
+    return "\n\n".join(parts)
 
-    Повторный вызов безопасен: эмиссия одноразовая (``settled``)."""
-    if not pending or pending.get("settled"):
+
+def _prepared_item_id_from_key(key, projection=None) -> str:
+    """Ключ строки (``tg:``/``msg:`` либо метка прогона ``M12``) → item_id.
+
+    Метка разрешается ТОЛЬКО обратной картой уже выданных меток: новых здесь
+    не выдаётся (иначе измерение меняло бы рендер)."""
+    raw = str(key or "").strip()
+    if not raw:
+        return ""
+    if raw.startswith(("tg:", "msg:", "bot_output_tg:", "fact:", "row:")):
+        return raw
+    reverse = getattr(projection, "_label_items", None)
+    if isinstance(reverse, dict):
+        return str(reverse.get(raw) or "")
+    return ""
+
+
+def _prepared_items_for_block(kind: str, text, *, projection=None) -> tuple:
+    """Элементы строкового блока → identity-спаны в координатах ЕГО текста.
+
+    Ключ строки биективен сообщению (R2 §7.1), поэтому «строка в блоке» =
+    «элемент в payload». Строка без ключа (усечённый заголовок) элементом не
+    становится: её identity не доказана — счётчики завышены не будут."""
+    items: list = []
+    source = str(text or "")
+    if not source:
+        return ()
+    offset = 0
+    for line in source.split("\n"):
+        key = _context_line_dedup_key(line)
+        if key:
+            item_id = _prepared_item_id_from_key(key, projection)
+            if item_id:
+                items.append(PreparedItem(
+                    item_id=item_id, block_kind=kind, start=offset,
+                    end=offset + len(line)))
+        offset += len(line) + 1
+    return tuple(items)
+
+
+def _prepared_quotes_for_block(rendered_lines, kind: str, text) -> tuple:
+    """Доказанные спаны quote-аннотаций блока цепочки (только по тождеству).
+
+    Решение принимается по СОБСТВЕННОЙ строке звена: берётся диапазон его
+    аннотации в кандидате (бухгалтерия рендера) и проверяется, что он целиком
+    попал в выжившую часть; текст не сравнивается (кроме аннотации в своей
+    строке — см. `_quote_annotation_delivered`)."""
+    lines = (rendered_lines or {}).get(kind)
+    if not lines:
+        return ()
+    body = _chain_block_body(text, _CHAIN_BLOCK_TAGS.get(kind, ""))
+    if not body:
+        return ()
+    state = _chain_delivery_state([text], {kind: lines})
+    entry = state.get(kind)
+    if not entry:
+        return ()
+    candidate, kept, spans = entry
+    applied = "".join(candidate[low:high] for low, high in kept)
+    if applied != body:
+        # Текст правился чем-то ещё: привязка спанов не доказана (Q2/§недоучёт).
+        return ()
+    quotes: list = []
+    fragments = dict((str(ident or ""), frag)
+                     for ident, frag in _rendered_quote_fragments(lines))
+    # Базовое смещение каждого выжившего диапазона в ФИНАЛЬНОМ тексте блока.
+    bases: list = []
+    running = 0
+    for low, high in kept:
+        bases.append(running)
+        running += (high - low)
+    for start, end, ident in spans:
+        fragment = fragments.get(str(ident or ""))
+        if not fragment:
+            continue
+        pos = candidate[start:end].rfind(fragment)
+        if pos < 0:
+            continue                # аннотации нет в собственной строке
+        quote_start = start + pos
+        quote_end = quote_start + len(fragment)
+        for index, (low, high) in enumerate(kept):
+            if low <= quote_start and quote_end <= high:
+                base = bases[index]
+                quotes.append((ident,
+                               base + (quote_start - low),
+                               base + (quote_end - low)))
+                break
+    return tuple(quotes)
+
+
+def _rendered_quote_fragments(lines):
+    """Пары ``(item_id, fragment)`` из бухгалтерии рендера (без нового рендера)."""
+    out: list = []
+    for entry in lines or ():
+        try:
+            ident, fragment = entry[0], entry[2]
+        except (TypeError, IndexError):
+            continue
+        if fragment:
+            out.append((ident, fragment))
+    return out
+
+
+def _prepared_turn_payload(*, chat_id, correlation_id, blocks, event_blocks,
+                           available_item_ids, window_messages, budget, dropped,
+                           self_outputs, chain_rendered=None, projection=None,
+                           policy_version=None) -> PreparedTurnPayload:
+    """Собрать ``PreparedTurnPayload`` из финальных (kind, text) блоков.
+
+    Событий не эмитит — это вход селектора (`_settle_delivered_turn`)."""
+    prepared_blocks: list = []
+    for kind, text in blocks or ():
+        block_text = str(text or "")
+        prepared_blocks.append(PreparedBlock(
+            kind=str(kind or ""),
+            text=block_text,
+            items=_prepared_items_for_block(kind, block_text,
+                                            projection=projection),
+            quotes=_prepared_quotes_for_block(chain_rendered, str(kind or ""),
+                                              block_text)))
+    return PreparedTurnPayload(
+        chat_id=chat_id,
+        correlation_id=correlation_id,
+        blocks=tuple(prepared_blocks),
+        event_blocks=tuple(event_blocks or ()),
+        available_item_ids=frozenset(available_item_ids or ()),
+        window_messages=int(window_messages or 0),
+        budget=dict(budget or {}),
+        dropped=tuple(dict(item) for item in (dropped or ())),
+        self_outputs=tuple(dict(item) for item in (self_outputs or ())),
+        policy_version=str(policy_version or _composer.COMPOSER_POLICY_VERSION))
+
+
+class L2WriterResult(tuple):
+    """``(text, response_mode)`` + receipt финального writer-вызова (Q1).
+
+    Остаётся tuple-совместимым: распаковка ``text, mode = result`` работает
+    как раньше; ``sent_body`` доступен атрибутом (tuple-подкласс без
+    ``__slots__`` — у экземпляра есть свой ``__dict__``)."""
+
+    def __new__(cls, text, response_mode, sent_body=None):
+        obj = super().__new__(cls, (text, response_mode))
+        obj.sent_body = sent_body if isinstance(sent_body, dict) else None
+        return obj
+
+
+@dataclass(frozen=True)
+class SuccessfulOutboundReceipt:
+    """Receipt УСПЕШНОГО model-call: что фактически ушло провайдеру (Q1).
+
+    Создаётся только по возвращённому ответу — отмена/исключение receipt'а не
+    даёт, а значит не даёт и снимка доставки. ``path`` — outbound-путь
+    (`l2_writer`/`react`/`chat_with_tools`/`single`), ``sent_body`` —
+    последнее фактически отправленное тело (после primary/fallback)."""
+    path: str
+    sent_body: dict | None = None
+
+
+def _remember_receipt(holder, path: str, result) -> None:
+    """Запомнить успешный outbound-receipt хода (ровно один на ход)."""
+    if holder is None or result is None:
         return
-    if texts is not None:
-        pending["texts"] = [str(t or "") for t in (texts or ())]
-    if not pending.get("used"):
-        pending["settled"] = True
+    body = getattr(result, "sent_body", None)
+    if not isinstance(body, dict):
+        return                          # доставка не доказана (двойник/str)
+    holder["receipt"] = SuccessfulOutboundReceipt(path=str(path or ""),
+                                                 sent_body=body)
+
+
+def _settle_delivered_turn(receipt, prepared, style_outcome):
+    """ЕДИНСТВЕННЫЙ селектор: receipt + prepared → `DeliveredTurnSnapshot`.
+
+    ``receipt`` — успешный ответ модели (в нём ``sent_body`` = фактически
+    отправленное тело после primary/fallback). Нет receipt или нет
+    ``sent_body`` → доставка не доказана, снимка нет (событий не будет).
+    ``prepared`` — вариант, который этому body соответствует (primary или
+    fallback; выбор делает вызывающий по факту работы адаптера).
+    ``style_outcome`` — финальный итог стиля либо None (react-путь: проход не
+    выполнялся, событие стиля не выпускается)."""
+    if prepared is None:
+        return None
+    body = getattr(receipt, "sent_body", None) if receipt is not None else None
+    if not isinstance(body, dict):
+        return None
+    blob = _sent_user_text(body)
+    if not blob.strip():
+        return None
+    included: list = []
+    quotes: list = []
+    complete = True
+    event_blocks: list = []
+    present_kinds: set = set()
+    for block in prepared.blocks:
+        if not block.text:
+            continue
+        if block.text not in blob:
+            complete = False        # тело заменено неизвестной трансформацией
+            continue
+        present_kinds.add(block.kind)
+        included.extend(block.items)
+        quotes.extend(block.quotes)
+    for entry in prepared.event_blocks:
+        kind = str(entry.get("kind") or "")
+        if entry.get("rendered") and kind not in present_kinds:
+            complete = False
+            continue
+        event_blocks.append(dict(entry))
+    message_ids = {item.item_id for item in included
+                   if item.block_kind in _MESSAGE_BLOCK_KINDS}
+    delivered_quotes: list = []
+    for ident, _start, _end in quotes:
+        raw = str(ident or "")
+        if raw.startswith("tg:"):
+            tail = raw.split(":", 1)[-1]
+            if tail.isdigit() and int(tail) not in delivered_quotes:
+                delivered_quotes.append(int(tail))
+    return DeliveredTurnSnapshot(
+        chat_id=prepared.chat_id,
+        trace_id=prepared.correlation_id,
+        path=str(getattr(receipt, "path", "") or ""),
+        included_items=tuple(included),
+        available_message_ids=frozenset(
+            ident for ident in prepared.available_item_ids
+            if str(ident).startswith(("msg:", "tg:", "bot_output_tg:", "row:"))),
+        counts={
+            "available_messages": len(prepared.available_item_ids),
+            "included_messages": len(message_ids),
+            "window_messages": prepared.window_messages,
+        },
+        budget=dict(prepared.budget),
+        dropped=prepared.dropped,
+        self_outputs=prepared.self_outputs,
+        delivered_quote_ids=tuple(sorted(delivered_quotes)),
+        identity_complete=bool(complete),
+        event_blocks=tuple(event_blocks),
+        policy_version=prepared.policy_version)
+
+
+def _project_style_snapshot(style_outcome, *, chat_id, correlation_id) -> None:
+    """Проекция стилевого итога снимка через существующий bounded-сериализатор.
+
+    ``None`` (react-путь) → события нет: ложных нулей/`disabled` не пишем.
+    """
+    if style_outcome is None:
         return
     try:
-        state = _chain_delivery_state(pending.get("texts"),
-                                      pending.get("rendered"))
-        seen: set = set()
-        for item in pending.get("quoted") or ():
-            if not state:
-                break               # ни одна строка цепочки не доехала
-            fragment = thread_chain.quote_delivery_fragment(
-                item, pending.get("projection"), pending.get("trigger"))
-            if not fragment:
-                continue
-            marker = thread_chain.quote_message_id(item) or fragment
-            if marker in seen:
-                continue
-            if not _quote_annotation_delivered(
-                    getattr(item, "item_id", ""),
-                    escape_xml_text(fragment), state):
-                continue            # строка/аннотация этого хода не доехала
-            seen.add(marker)
-            thread_chain.emit_quote_delivered(
-                item, chat_id=pending.get("chat_id"),
-                trace_id=pending.get("correlation_id"))
+        status, raw = _style_policy.style_event_payload(style_outcome)
+        if status is None:
+            return
+        payload = _style_policy.bounded_style_payload(raw)
+        _mca_events.emit_mca_event(
+            "style_policy", outcome=status, level="WARN",
+            component="style_policy", stage="direct_pre_send",
+            chat_id=int(chat_id), trace_id=correlation_id,
+            usage_json=payload)
+    except Exception:                   # pragma: no cover - событие не рвёт ход
+        pass
+
+
+def _settle_delivered_turn_and_project(holder) -> None:
+    """Точка вызова селектора из `finally` хода: prepared + receipt → снимок.
+
+    Fallback-рекомпоз заменил payload → берётся его prepared-вариант; отказ
+    адаптера оставляет primary-вариант (Q6). Нет receipt → снимка нет.
+    """
+    if not holder:
+        return
+    prepared = (holder.get("fallback_prepared")
+                if holder.get("fallback_used") else holder.get("primary"))
+    snapshot = _settle_delivered_turn(holder.get("receipt"), prepared,
+                                      holder.get("style_outcome"))
+    holder["snapshot"] = snapshot
+    _project_delivered_turn(snapshot, holder.get("style_outcome"))
+
+
+def _project_delivered_turn(snapshot, style_outcome=None) -> None:
+    """Bounded-проекция: все durable-события шага 1 из ОДНОГО снимка."""
+    if snapshot is None:
+        return
+    try:
+        _ttrace.note_selection(
+            snapshot.trace_id, chat_id=snapshot.chat_id,
+            payload={
+                "counts": dict(snapshot.counts),
+                "budget": dict(snapshot.budget),
+                "blocks": list(snapshot.event_blocks),
+                "dropped": [dict(item) for item in snapshot.dropped],
+                "self_outputs": [dict(item) for item in snapshot.self_outputs],
+                "policy_version": snapshot.policy_version,
+            })
+    except Exception:      # pragma: no cover - трасса не рвёт ход
+        logger.warning("direct: selection projection failed | chat=%s",
+                       getattr(snapshot, "chat_id", None), exc_info=True)
+    try:
+        for message_id in snapshot.delivered_quote_ids:
+            thread_chain.emit_quote_delivered_message(
+                message_id, chat_id=snapshot.chat_id,
+                trace_id=snapshot.trace_id)
     except Exception:                   # pragma: no cover - защита
         pass
-    finally:
-        pending["settled"] = True
+    _project_style_snapshot(style_outcome, chat_id=snapshot.chat_id,
+                            correlation_id=snapshot.trace_id)
 
 
 async def _social_frame_for_turn(chat_id, message=None, *, bundle=None,
@@ -4346,12 +4620,10 @@ class DirectChatService:
         # присваивается ниже, в основном пути).
         _image_delivery: dict = {}
         tool_ctx = None
-        # ── EVOL-015 (UR-F шаг 1): отложенное решение о доставке цитат.
-        # Заполняется сборкой контекста (финальный текст её пути), уточняется
-        # fallback-рекомпозом (он ЗАМЕНЯЕТ payload) и эмитится РОВНО ОДИН раз
-        # в конце хода, когда финальный payload уже известен. Живёт вне `try`:
-        # `finally` обязан видеть переменную на всех выходах.
-        _quote_delivery: dict = {}
+        # ── UR-F шаг 1 (delivery snapshot): сборка даёт `prepared`-вариант,
+        # успешный outbound — `receipt`; ровно один селектор в `finally`
+        # запечатывает снимок и проецирует события. Живёт вне `try`.
+        _delivery: dict = {}
         # ── EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2 п.3/п.5): ОДНА проекция
         # прогона на весь payload хода (окно/ветка/тред/RAG/эпизоды/инструменты/
         # манифест). Метки выдаются по первому появлению, обратная карта живёт
@@ -4415,7 +4687,7 @@ class DirectChatService:
                 history_sample=history_sample,
                 projection=_speech_projection,
                 correlation_id=correlation_id,
-                out_quote_delivery=_quote_delivery)
+                out_prepared=_delivery)
             # Медиа-свидетельство актуальной ревизии — отдельным блоком payload
             # (данные, не инструкции); без связанного медиа блок не создаётся.
             user_blocks = self._insert_media_evidence(
@@ -5361,14 +5633,25 @@ class DirectChatService:
             if react_llm_pending:
                 try:
                     async with typing_active(bot, chat_id):
-                        raw_react = await self.llm.generate(
-                            _llm_react.inject_react_task(payload),
-                            temperature=temperature, chat_id=chat_id,
-                            module="direct_chat", step="react",
-                            correlation_id=correlation_id)
-                    # EVOL-015: исходящий вызов модели (`react`) с тем же
-                    # контекстом хода состоялся — цитата из payload доехала.
-                    _mark_quote_delivery_used(_quote_delivery)
+                        _meta_react = getattr(
+                            type(self.llm), "generate_with_metadata", None)
+                        if callable(_meta_react):
+                            _react_completion = await _meta_react(
+                                self.llm,
+                                _llm_react.inject_react_task(payload),
+                                temperature=temperature, chat_id=chat_id,
+                                module="direct_chat", step="react",
+                                correlation_id=correlation_id)
+                            raw_react = str(getattr(_react_completion, "text",
+                                                    "") or "")
+                            _remember_receipt(_delivery, "react",
+                                              _react_completion)
+                        else:
+                            raw_react = await self.llm.generate(
+                                _llm_react.inject_react_task(payload),
+                                temperature=temperature, chat_id=chat_id,
+                                module="direct_chat", step="react",
+                                correlation_id=correlation_id)
                     llm_reaction = _llm_react.extract_llm_reaction(raw_react)
                     if llm_reaction is None:
                         # Матрица — владелец action; LLM не ответила валидно →
@@ -5581,9 +5864,10 @@ class DirectChatService:
                             fallback_payload_adapter=_fb_adapter,
                             max_output_tokens=longform_max_tokens,
                             tool_plan=_tool_plan)
-                        # EVOL-015: финальный вызов модели состоялся —
-                        # контекст (и цитата в нём) реально ушёл провайдеру.
-                        _mark_quote_delivery_used(_quote_delivery)
+                        # UR-F шаг 1: receipt финального ответообразующего
+                        # вызова (body после primary/fallback); continuation
+                        # второго снимка не создаёт.
+                        _remember_receipt(_delivery, "chat_with_tools", raw)
                     else:
                         # ASAP-3.1 §14/§42: fallback recompose — при
                         # переключении на fallback-модель payload
@@ -5592,8 +5876,8 @@ class DirectChatService:
                         # ASAP 7 (F1, §1.1): в L1-пути эта ветка не
                         # выполняется (Writer — L2, стадия ниже).
                         _fb_factory = _fallback_meta.get("adapter_factory")
-                        raw = await self.llm.generate(
-                            payload, temperature=temperature, chat_id=chat_id,
+                        _single_kwargs = dict(
+                            temperature=temperature, chat_id=chat_id,
                             module="direct_chat", step="single",
                             correlation_id=correlation_id,
                             fallback_payload_adapter=(
@@ -5613,8 +5897,18 @@ class DirectChatService:
                                 input_tokens=sum(
                                     count_tokens(str(m.get("content") or ""))
                                     for m in payload)))
-                        # EVOL-015: финальный вызов модели (`single`) состоялся.
-                        _mark_quote_delivery_used(_quote_delivery)
+                        _meta_single = getattr(
+                            type(self.llm), "generate_with_metadata", None)
+                        if callable(_meta_single):
+                            _single_completion = await _meta_single(
+                                self.llm, payload, **_single_kwargs)
+                            raw = str(getattr(_single_completion, "text",
+                                              "") or "")
+                            _remember_receipt(_delivery, "single",
+                                              _single_completion)
+                        else:
+                            raw = await self.llm.generate(
+                                payload, **_single_kwargs)
             except NoApiKeyForChat as exc:
                 # Раунд 10 (F-7 §5.2) + D03: sandbox-фраза
                 # content.no_key_reply (LLM НЕ вызывается; тишины нет —
@@ -6020,9 +6314,8 @@ class DirectChatService:
                         history_assembly_block=(
                             HISTORY_COVERAGE_ASSEMBLY_BLOCK
                             if history_sample is not None else ""))
-                    # EVOL-015: финальный вызов модели (`l2_writer`) с
-                    # контекстом хода состоялся — доставка цитаты доказуема.
-                    _mark_quote_delivery_used(_quote_delivery)
+                    # UR-F шаг 1: receipt финального вызова (`l2_writer`).
+                    _remember_receipt(_delivery, "l2_writer", _l2)
                     if _l2 is not None:
                         # F3-семантика: режим несёт стиль и канал доставки.
                         raw, response_mode = _l2
@@ -6210,10 +6503,13 @@ class DirectChatService:
                 answer, chat_id=chat_id, plan=response_plan,
                 context="regular",
                 explicit_form=str(getattr(l1_plan, "form_override", "") or ""),
-                emit_events=True, stage="direct_pre_send",
+                emit_events=False, stage="direct_pre_send",
                 # UR-F шаг 1 (UR-20.8): событие `style_policy` привязывается к
                 # трассе хода (`trace_id`) и несёт сработавшие правила.
                 correlation_id=correlation_id)
+            # UR-F шаг 1 (Q3): итог стиля уезжает в селектор снимка; событие
+            # стиля выпускает ТОЛЬКО проектор (здесь `emit_events=False`).
+            _delivery["style_outcome"] = _style_outcome
             if _style_outcome.applied and str(_style_outcome.text or ""):
                 if _style_outcome.text != answer:
                     logger.info(
@@ -6415,7 +6711,7 @@ class DirectChatService:
             # текст. Решение по каждому цитирующему ходу принимается по его
             # собственной доставленной строке; контекст, не попавший в
             # payload (silence/react/сбой до сборки сообщений), молчит.
-            _settle_quote_delivery(_quote_delivery)
+            _settle_delivered_turn_and_project(_delivery)
             # ── RLR-06-OBSERVABILITY (§7): закрыть трассу хода. Если
             # текстовая доставка не состоялась (silence/react/картинка/
             # ошибка), событие доставки всё равно эмитится с исходом
@@ -8659,7 +8955,12 @@ class DirectChatService:
         _expression_record_raw(chat_id=chat_id, correlation_id=correlation_id,
                                text=text, mode=_expr_mode,
                                rendered=_expr_rendered)
-        return text, response_mode
+        # UR-F шаг 1 (Q1): receipt финального writer-вызова — фактически
+        # отправленное тело (после primary/fallback).
+        return L2WriterResult(
+            text, response_mode,
+            sent_body=getattr(_author_out.get("completion"), "sent_body",
+                              None))
 
     # ── Context Partitioning (58.6) ─────────────────────────────
 
@@ -8930,7 +9231,7 @@ class DirectChatService:
                                   history_sample: dict | None = None,
                                   projection=None,
                                   correlation_id: str | None = None,
-                                  out_quote_delivery: dict | None = None
+                                  out_prepared: dict | None = None
                                   ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
@@ -9164,7 +9465,7 @@ class DirectChatService:
                 history_sample=history_sample, projection=projection,
                 correlation_id=correlation_id, rag_memory=_rag_out,
                 chain_rendered=_chain_rendered,
-                out_quote_delivery=out_quote_delivery)
+                out_prepared=out_prepared)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
@@ -9208,21 +9509,63 @@ class DirectChatService:
             external_tokens, reserve_tokens, method = \
                 await self._estimate_external_payload_tokens(
                     chat_id, budget_tokens, extra_prompt_blocks=_extras)
+        legacy_pairs: list = []
         legacy_texts = self._apply_context_budget(
             blocks, budgets_enabled, budget_tokens,
             external_tokens=(external_tokens or None),
             reserve_tokens=reserve_tokens,
             estimation_method=method,
-            out_excluded=out_excluded)
-        # EVOL-015: legacy-путь тоже решает доставку по ФИНАЛЬНОМУ тексту
-        # (блоки усечены выше) — фиксируем отложенное решение.
-        if out_quote_delivery is not None:
-            out_quote_delivery.update(_quote_delivery_pending(
-                chain, legacy_texts, projection,
-                trigger_message_id=trigger_message_id,
-                rendered=_chain_rendered, chat_id=chat_id,
-                correlation_id=correlation_id))
+            out_excluded=out_excluded, out_blocks=legacy_pairs)
+        # UR-F шаг 1: legacy-путь (composer OFF) теперь тоже отдаёт факты
+        # выбора — черёз prepared-вариант; событие выпустит проектор снимка.
+        if out_prepared is not None:
+            out_prepared["primary"] = self._prepared_from_pairs(
+                legacy_pairs, chain_rendered=_chain_rendered,
+                projection=projection, chat_id=chat_id,
+                correlation_id=correlation_id, window=window,
+                budget={"slot": "direct.primary",
+                        "budget": int(budget_tokens or 0),
+                        "policy_mode": "legacy_budget"},
+                dropped=list(out_excluded or ()),
+                bot_user_id=getattr(self, "bot_id", None),
+                policy_version=_composer.COMPOSER_POLICY_VERSION)
         return legacy_texts
+
+    def _prepared_from_pairs(self, pairs, *, chain_rendered=None,
+                             projection=None, chat_id=0, correlation_id=None,
+                             window=(), budget=None, dropped=(),
+                             bot_user_id=None, policy_version=None):
+        """Legacy-путь: финальные ``(kind, text)`` → `PreparedTurnPayload`.
+
+        Событий не даёт. Отличие от композер-пути честное: даты/`self_outputs`
+        в legacy-пути не измерялись (строк окна под рукой нет) — они нулевые/
+        пустые, «доступно» = окно ∪ реально дошедшие id. Это недоучёт, а не
+        выдуманные числа (см. контракт §«Допустимые недоучёты»)."""
+        blocks = [(str(kind or ""), str(text or ""))
+                  for kind, text in (pairs or ()) if text]
+        event_blocks: list = []
+        available: set = set(_sel_row_ids(window, bot_user_id=bot_user_id))
+        for kind, text in blocks:
+            items = _prepared_items_for_block(kind, text, projection=projection)
+            ids: list = []
+            for item in items:
+                if item.item_id not in ids:
+                    ids.append(item.item_id)
+                available.add(item.item_id)
+            event_blocks.append({
+                "kind": kind, "role": "p1", "rendered": True,
+                "skip_reason": "",
+                "source_ids": ids[:_MAX_SELECTION_IDS],
+                "first_ts": 0, "last_ts": 0,
+                "tokens": count_tokens(text),
+            })
+        return _prepared_turn_payload(
+            chat_id=chat_id, correlation_id=correlation_id, blocks=blocks,
+            event_blocks=event_blocks, available_item_ids=available,
+            window_messages=len(list(window or ())),
+            budget=dict(budget or {}), dropped=dropped, self_outputs=(),
+            chain_rendered=chain_rendered, projection=projection,
+            policy_version=policy_version)
 
     # ── ASAP-3 (round 1028, ADR-1028-2 D3–D7): Direct Context Composer ────
 
@@ -9621,7 +9964,7 @@ class DirectChatService:
             correlation_id: str | None = None,
             rag_memory: dict | None = None,
             chain_rendered: dict | None = None,
-            out_quote_delivery: dict | None = None) -> list[str]:
+            out_prepared: dict | None = None) -> list[str]:
         """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
 
         Конвейер §6 ТЗ: candidates (существующие билдеры, global/thread без
@@ -9828,15 +10171,22 @@ class DirectChatService:
             # ЕГО результату (и эмитится в конце хода, когда финальный payload
             # известен); «доставлено по факту рендера» больше не выдаётся.
             legacy_blocks = [(kind, text) for kind, text in candidates if text]
+            legacy_pairs: list = []
             legacy_texts = self._apply_context_budget(
                 legacy_blocks, budgets_enabled, raw_budget,
-                out_excluded=out_excluded)
-            if out_quote_delivery is not None:
-                out_quote_delivery.update(_quote_delivery_pending(
-                    chain, legacy_texts, projection,
-                    trigger_message_id=trigger_message_id,
-                    rendered=chain_rendered, chat_id=chat_id,
-                    correlation_id=correlation_id))
+                out_excluded=out_excluded, out_blocks=legacy_pairs)
+            if out_prepared is not None:
+                out_prepared["primary"] = self._prepared_from_pairs(
+                    legacy_pairs, chain_rendered=chain_rendered,
+                    projection=projection, chat_id=chat_id,
+                    correlation_id=correlation_id,
+                    window=window,
+                    budget={"slot": "direct.primary", "budget": int(raw_budget),
+                            "policy_mode": "legacy_budget",
+                            "degraded": True},
+                    dropped=list(out_excluded or ()),
+                    bot_user_id=getattr(self, "bot_id", None),
+                    policy_version=_composer.COMPOSER_POLICY_VERSION)
             return legacy_texts
 
         # ── Финализация (дедуп middle↔tail + materialize) ──────────────────
@@ -9899,17 +10249,10 @@ class DirectChatService:
             return texts, kept_middle_lines
 
         final_texts, middle_lines = _finalize_allocation(allocation)
-        # EVOL-015: доставку цитаты решает ФИНАЛЬНЫЙ текст контекста, а не
-        # рендер кандидата и не промежуточная аллокация. Здесь только
-        # фиксируется отложенное решение (тождество строки — из бухгалтерии
-        # рендера `chain_rendered`); сама эмиссия — одна на ход, там, где
-        # финальный payload уже известен.
-        if out_quote_delivery is not None:
-            out_quote_delivery.update(_quote_delivery_pending(
-                chain, final_texts, projection,
-                trigger_message_id=trigger_message_id,
-                rendered=chain_rendered, chat_id=chat_id,
-                correlation_id=correlation_id))
+        # EVOL-015 → UR-F шаг 1: сборка НЕ эмитит событий. Финальный текст
+        # этого варианта становится `PreparedTurnPayload` ниже (после
+        # вычисления фактов выбора); селектор `_settle_delivered_turn`
+        # запечатает снимок после успешного outbound-вызова.
 
         # ── v6 D04 (§18C.4/§18C.2): реальные окна L2 для evidence capacity
         # (первичная модель) и L2 fallback-репака (fallback-модель) —
@@ -9945,12 +10288,41 @@ class DirectChatService:
                             _new_pieces(), _fb_budget,
                             truncator=self._composer_truncate)
                         fb_texts, _ = _finalize_allocation(fb_allocation)
-                        # EVOL-015: рекомпоз ЗАМЕНЯЕТ payload, который увидит
-                        # модель, — решение о доставке цитат пересчитывается по
-                        # его тексту (эмиссия остаётся одна: конец хода).
-                        if out_quote_delivery is not None:
-                            out_quote_delivery["texts"] = [
-                                str(t or "") for t in fb_texts]
+                        # UR-F шаг 1 (Q6): рекомпоз ЗАМЕНЯЕТ payload — он
+                        # материализует НОВЫЙ prepared-вариант вместе с
+                        # адаптированным body. Отказ (invalid/exception)
+                        # считаем «не доставлено как fallback»: остаётся
+                        # primary-вариант, который реально ушёл модели.
+                        primary = (out_prepared or {}).get("primary")
+                        fb_prepared = _prepared_turn_payload(
+                            chat_id=chat_id, correlation_id=correlation_id,
+                            blocks=[
+                                (str(getattr(_piece, "kind", "") or ""),
+                                 str(getattr(_piece, "text", "") or ""))
+                                for _piece in sorted(
+                                    fb_allocation.pieces,
+                                    key=lambda p: getattr(p, "position", 99))
+                                if str(getattr(_piece, "text", "") or "")],
+                            event_blocks=(),
+                            available_item_ids=(
+                                primary.available_item_ids if primary else ()),
+                            window_messages=(
+                                primary.window_messages if primary else 0),
+                            budget={
+                                "slot": "direct.primary",
+                                "budget": int(_fb_budget),
+                                "policy_mode": "fallback_recompose",
+                                "fallback": True,
+                            },
+                            dropped=tuple(
+                                dict(item) for item in fb_allocation.excluded),
+                            self_outputs=(),
+                            chain_rendered=chain_rendered,
+                            projection=projection,
+                            policy_version=_composer.COMPOSER_POLICY_VERSION)
+                        if out_prepared is not None:
+                            out_prepared["fallback_prepared"] = fb_prepared
+                            out_prepared["fallback_used"] = True
                         blocks = ([time_line] if time_line else []) + fb_texts
                         messages = incoming.get("messages") or []
                         adapted = dict(incoming)
@@ -9966,17 +10338,20 @@ class DirectChatService:
                             "budget=%d | tools_reserve=%d | blocks=%d",
                             chat_id, _fb_budget, int(extra_reserve or 0),
                             len(fb_texts))
-                        return adapted
+                        return adapted, fb_prepared
                     except Exception:
                         # ADR-1028-5 D10 (усиление): recompose failure —
                         # громкая oversized-risk диагностика (НЕ тихий
                         # fail-open); payload отправляется прежний (сервис
-                        # не рвём, паритет fail-open ASAP-3.1).
+                        # не рвём, паритет fail-open ASAP-3.1). Q6: это
+                        # refusal recompose, но НЕ delivery refusal —
+                        # используется primary-вариант.
                         logger.warning(
                             "direct: fallback recompose FAILED — primary "
                             "payload SENT AS-IS | oversized_risk=1 | "
                             "chat=%s", chat_id, exc_info=True)
-                        return incoming
+                        primary = (out_prepared or {}).get("primary")
+                        return incoming, primary
                 return _adapt
             try:
                 out_fallback["adapter_factory"] = _fallback_adapter_factory
@@ -10284,11 +10659,23 @@ class DirectChatService:
                         _self_outputs.append({"source_id": _sid,
                                               "tg_message_id": _tg,
                                               "ts": _ts})
-            _ttrace.note_selection(
-                correlation_id, chat_id=chat_id,
-                payload={
-                    "counts": _counts,
-                    "budget": {
+            # UR-F шаг 1: факты выбора больше НЕ эмитятся здесь — они входят в
+            # `PreparedTurnPayload`, а событие выпустит проектор снимка после
+            # фактического outbound-вызова (fallback заменит payload → снимок
+            # описывает ТО, что получила модель).
+            if out_prepared is not None:
+                _final_blocks = [
+                    (str(getattr(_piece, "kind", "") or ""),
+                     str(getattr(_piece, "text", "") or ""))
+                    for _piece in sorted(allocation.pieces,
+                                         key=lambda p: getattr(p, "position", 99))
+                    if str(getattr(_piece, "text", "") or "")]
+                out_prepared["primary"] = _prepared_turn_payload(
+                    chat_id=chat_id, correlation_id=correlation_id,
+                    blocks=_final_blocks, event_blocks=_sel_blocks,
+                    available_item_ids=_pool_ids,
+                    window_messages=len(list(window or ())),
+                    budget={
                         "slot": "direct.primary",
                         "window": int(model_window),
                         "window_source": str(window_source),
@@ -10301,13 +10688,11 @@ class DirectChatService:
                                             if fallback_recompose_budget
                                             else None),
                     },
-                    "blocks": _sel_blocks,
-                    "dropped": _dropped_items,
-                    "self_outputs": _self_outputs,
-                    "policy_version": _composer.COMPOSER_POLICY_VERSION,
-                })
+                    dropped=_dropped_items, self_outputs=_self_outputs,
+                    chain_rendered=chain_rendered, projection=projection,
+                    policy_version=_composer.COMPOSER_POLICY_VERSION)
         except Exception:      # pragma: no cover - трасса не рвёт ход
-            logger.warning("direct: selection trace failed | chat=%s",
+            logger.warning("direct: prepared payload failed | chat=%s",
                            chat_id, exc_info=True)
         return final_texts
 
@@ -12121,7 +12506,8 @@ class DirectChatService:
                               reserve_tokens: int = 0,
                               estimation_method: str | None = None,
                               excluded_categories: list | None = None,
-                              out_excluded: list | None = None
+                              out_excluded: list | None = None,
+                              out_blocks: list | None = None
                               ) -> list[str]:
         """Доли CHAT_CONTEXT_BUDGET_TOKENS (Раунд 8, B2/D2/T-791/T-799,
         spec §3.B2): map/rag/global/thread/anchors + новая доля branch (0.03)
@@ -12164,6 +12550,8 @@ class DirectChatService:
             logger.debug(
                 "direct: context budget unlimited (-1) — aggregate truncation "
                 "skipped | tokens=%d", total)
+            if out_blocks is not None:
+                out_blocks.extend((kind, text) for kind, text in blocks if text)
             return [text for _, text in blocks]
         budget = (int(raw_budget) if bstate == "cap"
                   else int(settings.CHAT_CONTEXT_BUDGET_TOKENS))
@@ -12175,6 +12563,8 @@ class DirectChatService:
             # последнего контекста (used/cap/truncated=False) для дашборда.
             record_context_usage(
                 sum(count_tokens(text) for _, text in blocks), budget, False)
+            if out_blocks is not None:
+                out_blocks.extend((kind, text) for kind, text in blocks if text)
             return [text for _, text in blocks]
         # MCA-07 D7: полный учёт payload (только при явно переданном
         # `external_tokens` — иначе прежняя числовая база, паритет).
@@ -12342,6 +12732,9 @@ class DirectChatService:
                     out_excluded.append(
                         {"kind": kind, "reason_code": "budget_exceeded",
                          "estimated_tokens": est})
+        if out_blocks is not None:
+            out_blocks.extend((kind, texts[kind]) for kind, _ in blocks
+                              if texts[kind])
         return [texts[kind] for kind, _ in blocks if texts[kind]]
 
     def _truncate_block(self, block: str, limit_tokens: int,
@@ -13805,7 +14198,9 @@ class DirectChatService:
                  for item in ordered]
         if out_lines is not None:
             out_lines.extend(
-                (str(getattr(item, "item_id", "") or ""), line)
+                (str(getattr(item, "item_id", "") or ""), line,
+                 thread_chain.quote_delivery_fragment(
+                     item, projection, trigger_message_id))
                 for item, line in zip(ordered, lines))
         body = "\n".join(lines)
         if not truncate:
@@ -13857,7 +14252,9 @@ class DirectChatService:
                  for item in fresh]
         if out_lines is not None:
             out_lines.extend(
-                (str(getattr(item, "item_id", "") or ""), line)
+                (str(getattr(item, "item_id", "") or ""), line,
+                 thread_chain.quote_delivery_fragment(
+                     item, projection, trigger_message_id))
                 for item, line in zip(fresh, lines))
         body = "\n".join(lines)
         return (f"<Conversation_Branch>\n"

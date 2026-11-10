@@ -94,6 +94,16 @@ def emit_quote_delivered(item, *, chat_id=None, trace_id=None) -> None:
                               trace_id=trace_id)
 
 
+def emit_quote_delivered_message(message_id, *, chat_id=None,
+                                 trace_id=None) -> None:
+    """То же событие по уже разрешённому Telegram id (проекция снимка хода).
+
+    Проектор доставленного хода знает только item id из снимка — повторный
+    рендер строки ради `ChainItem` дал бы второй источник истины."""
+    _emit_quote_context_event(_QUOTE_DELIVERED_EVENT, chat_id=chat_id,
+                              message_id=message_id, trace_id=trace_id)
+
+
 def quote_delivery_fragment(item, projection=None,
                             trigger_message_id=None) -> str:
     """Фрагмент, которым цитата хода входит в payload («доставлено/нет»).

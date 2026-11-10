@@ -217,7 +217,8 @@ class ToolLoopResult(str):
     """
 
     def __new__(cls, text, *, rounds_used=1, degraded=False, reason="ok",
-                tool_trace=None, tool_context=None, tool_results=None):
+                tool_trace=None, tool_context=None, tool_results=None,
+                sent_body=None):
         obj = super().__new__(cls, str(text or ""))
         obj.rounds_used = int(rounds_used)
         obj.degraded = bool(degraded)
@@ -225,6 +226,10 @@ class ToolLoopResult(str):
         obj.tool_trace = list(tool_trace) if tool_trace else []
         obj.tool_context = str(tool_context or "")
         obj.tool_results = list(tool_results) if tool_results else []
+        #: UR-F шаг 1 (delivery snapshot, Q1): фактически отправленный body
+        #: ФИНАЛЬНОГО ответообразующего раунда (только in-process); None —
+        #: доставка не доказана. Дополнительные раунды второй снимок не дают.
+        obj.sent_body = sent_body if isinstance(sent_body, dict) else None
         return obj
 
 
@@ -865,7 +870,9 @@ async def chat_with_tools(llm, messages: list[dict], *,
                                       rounds_used=round_index + 1,
                                       tool_trace=tool_trace,
                                       tool_context="\n".join(tool_context_parts),
-                                      tool_results=tool_results)
+                                      tool_results=tool_results,
+                                      sent_body=getattr(result, "sent_body",
+                                                        None))
             raise LLMBadResponseError("tool loop: empty final answer")
         tool_calls: list[LLMToolCall] = result.tool_calls
         if len(tool_calls) > _TOOL_CALLS_PER_ROUND_MAX:   # защита от спама
