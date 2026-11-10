@@ -549,7 +549,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S4-RPT-01"
         }
       ],
-      "pending_condition": "Отчёта аудита как файла не существует (его никто не создавал). Условие: тот же ограниченный аудит M1 должен выпустить отчёт с ошибочными 401/403, причиной, штатными отказами, исправлениями guard и frontend, API-трассой."
+      "pending_condition": "Артефакт аудита теперь существует (`evidence/m1/acl-audit-2.58.180.md`, §1–§6), но acceptance требует большего, и этого в нём нет: живых ошибочных 401/403 с причиной и request id (в §6 только 401 `missing init data` и 404 без идентичности и request id), API-трассы Embeddings, негативных cross-chat тестов, таблицы прав до/после. Условие: дополнить отчёт этими разделами после закрытия MAC-S4-157/161/171 и MAC-S10-12/S15-10 — форму и состав §1–§6 переиспользовать, второй отчёт не заводить."
     },
     {
       "source_id": "MAC-S5-NAV",
@@ -1674,7 +1674,7 @@
           "description": "наблюдаемый артефакт проверки MAC-M1-01"
         }
       ],
-      "pending_condition": "Веха M1: доступ и предикат доказаны, но строки 169/170/171/172/173/174/157/161/AC-06/RPT-01 открыты, поэтому веха не может быть VERIFIED."
+      "pending_condition": "Веха M1: после аудита 2.58.180 закрыты MAC-S4-169/170 (инвентарь ACL и разделение операций), зарегистрирован обязательный дефект MAC-DEF-01 (`requires_permission` не смотрит `role_type`). Открыты MAC-S4-157/161/171/172/173/174, MAC-S10-11/S10-12/S10-13/S15-10, MAC-S4-RPT-01 и MAC-DEF-01, поэтому веха VERIFIED быть не может."
     },
     {
       "source_id": "MAC-M2",
@@ -2515,6 +2515,29 @@
           "description": "живое наблюдение MAC-LSN-11 после 2.58.172"
         }
       ]
+    },
+    {
+      "source_id": "MAC-DEF-01",
+      "source_line": 580,
+      "source_text_sha256": "48eb7fb13f5cd8e32d7889a12b2f17d815b2f4769dc3ad96984eceb208dc26f2",
+      "source_excerpt": "11. Global admin role с `role_type=global_admin` и legacy `role=admin` тестируются обе; `ADMIN_USER_ID` после VPS migration, wildcard, custom role, stale TMA и backend 403 различаются.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "MAC-DEF-01",
+      "slice": "M1",
+      "acceptance": "Роль с role_type=global_admin без wildcard проходит GET /api/admins, /api/roles и /api/cover/* с кодом 200, а custom-роль без права access по-прежнему получает 403; разделение чтение/изменение/side-effect сохраняется.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "expected_evidence": [
+        {
+          "type": "test",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-def-01.md",
+          "description": "наблюдаемый артефакт проверки MAC-DEF-01"
+        }
+      ],
+      "pending_condition": "Дефект подтверждён аудитом 2.58.180 §2: `requires_permission(s)` (`web/api/deps.py` 190–204) вычисляет `match_permission(perms, required)` и `role_type` не смотрит; около 33 эндпоинтов (`routes.py` 17: `/admins`, `/roles*`, `/info*`, `/control/*`, `/debug/config`; `cover_styles.py` 16) отказывают по permissions. Идентичность `role_type=global_admin` проходит только потому, что сид-роль `admin` несёт `{\"wildcard\": true}` (`services/pg_db.py` 630–632 `00c64133`). Владелец не затронут (сид = wildcard), но роль с `role_type=global_admin` без `wildcard`/`access` получит 403 на `/api/admins`, `/api/roles`, `/api/cover/*` — тот же класс, что M1, но на permission-фронте. Условие: сделать предикат role_type-aware по образцу `user_is_global_admin` без расширения wildcard и без смешения классов операций, затем тест: role_type=global_admin без wildcard → 200 на трёх поверхностях, custom без access → 403."
     }
   ],
   "items": [
@@ -4154,7 +4177,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S4-157"
         }
       ],
-      "pending_condition": "Отказ 09.11 оказался следствием маршрута (M3), а не предиката, поэтому записи уровня запроса по реальному отказу владельца (request id, endpoint, effective role, scope, HTTP status) не существует. Условие: снять такую запись при следующем отказе или закрыть строку явным решением координатора как неприменимую."
+      "pending_condition": "Отказ 09.11 оказался следствием маршрута (M3), а не предиката, поэтому записи уровня запроса по реальному отказу (request id, endpoint, effective role, scope, HTTP status) не существует. Аудит 2.58.180 §6 даёт только живые 401 (`missing init data`) и 404 без request id и без идентичности владельца, поэтому строку не закрывает. Условие: снять такую запись при следующем отказе или закрыть строку явным решением координатора как неприменимую."
     },
     {
       "source_id": "L00158",
@@ -4262,7 +4285,18 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "type": "static",
+          "ref": "M1-аудит 2.58.180 §4: механизм аналитики/надзора — requires_global_admin(), не requires_permission",
+          "observation": "Аудит на выкаченной сборке 2.58.180 @ `721bab10`; код читался только через `git show 721bab10:<path>` (главный worktree — другая линия), продуктовый код не менялся. §4: `analytics.py` (10 эндпоинтов, `b69a7734`), `analytics_viz.py` (2), `oversight.py` (8, `97695358`), `oversight_router.py` (3) используют `requires_global_admin()` → `user_is_global_admin` (1), а `requires_permission` на этих путях не встречается ни разу. Идентичность `role_type=global_admin` проходит: колонка читается в `cache.roles()[role][\"role_type\"]` (`services/config_cache.py` 290/308 `5461395e`), `role_type_of` возвращает её без эвристик. Следствие: ранее записанная причина PENDING («аналитика идёт другим механизмом requires_permission») на 2.58.180 не подтверждается — механизм тот же.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/acl-audit-2.58.180.md",
+          "artifact_sha256": "bc15aaa0ad1e86af0e5204304c1e875c2e3a340b3f2690043d432351ce8ffb90",
+          "produced_on": "721bab1000a36c55b59794c36b6aefa6322a367c"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -4270,7 +4304,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S4-161"
         }
       ],
-      "pending_condition": "Embeddings открываются у владельца (живое подтверждение). Общеботовая аналитика идёт другим механизмом (requires_permission, не user_is_global_admin) и на этом релизе не наблюдалась. Условие: живое открытие аналитики с ролью global_admin."
+      "pending_condition": "Embeddings открываются у владельца (живое подтверждение на 2.58.174/175). Причина PENDING исправлена по факту: `/api/analytics/*` и `/api/oversight/*` идут через `requires_global_admin()` → `user_is_global_admin`, а не через `requires_permission` (аудит 2.58.180 §4), прежняя формулировка была неверной. Условие: живое открытие каждого защищённого эндпоинта аналитики/надзора с реальной сессией global admin и сохранением границ local admin/DM/user."
     },
     {
       "source_id": "L00163",
@@ -4299,16 +4333,26 @@
       "acceptance": "ACL-inventory покрывает GLOBAL и CHAT и роли global admin, local admin, moderator, custom, user, DM owner, включая негативные кейсы чужого чата и DM.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "type": "static",
+          "ref": "M1-аудит 2.58.180: инвентарь admin/global-admin предикатов и паритет путей по роутерам",
+          "observation": "Аудит на выкаченной сборке 2.58.180 @ `721bab10`; код читался только через `git show 721bab10:<path>` (главный worktree — другая линия), продуктовый код не менялся. §1 — инвентарь из 16 записей с blob-префиксами: `deps.user_is_global_admin` 207–222 `8ea42e1c` (wildcard / role_type_of==global_admin / legacy role==admin), `deps.requires_global_admin()` 225–237 (40 эндпоинтов), `deps.requires_permission(s)` 190–204 (role_type НЕ смотрит), `services/roles.role_type_of` 88–96 `14788c83`, `access_for` 144–215, `AccessCtx.is_global_admin` (access 9 / gates 4 / routes 22 / anticliche 1), `routes._ctx_global_admin` `9e88bfd8` (11 вызовов), `routes._is_global_admin` (F11), `memory_agi._require_global_admin` `a6ac54e7` (32 эндпоинта), `anticliche` `02d84a6f`, `chat_lore._is_global_admin`+`can_access_chat` `2e020112`, `cover_styles/stories/summary_test`, `_prompt_hidden_admin`+`_persona_can_view/edit`+`speech._can_edit_*`, `debug_config.is_debug_admin` `954acca9` и `chat_access.is_admin/privilege` `6a40dffe` (оба без role_type), `access.can_access_chat` `2e70f6d3` (DM-скоуп — только `is_dm_owner`). §2 — паритет по 17 роутерам: эндпоинты посчитаны по `@*_router`-декораторам на 721bab10 (access 8, gates 3, chat_lore 23, memory-семейство 26, anticliche 6, analytics 10 + analytics_viz 2, oversight 8 + oversight_router 3, summary_test 6, cover_styles 6+6, stories 5, speech через `_persona_access`, routes 5+11+22+1), `initiative_publications` 2 и `mechanism_diagnostics` 1 идут через чат-скоуп (`_require_chat_access` + `can_access_chat`), а не через глобальный гейт. Чат-скоуп и DM-границы присутствуют в инвентаре отдельными предикатами (chat_lore/`chat_admins`, `access.can_access_chat` с `is_dm_owner`, `summary_test._chat_accessible`); сами живые негативные прогоны по чужому чату и DM остаются отдельными строками MAC-S10-11/S10-12/S15-10. Итог §2: ни одного эндпоинта, где глобальный гейт сравнивал бы только legacy-имя роли, не осталось; websocket/SSE на 2.58.180 нет (`app.js:35019` — только polling 15 с).",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/acl-audit-2.58.180.md",
+          "artifact_sha256": "bc15aaa0ad1e86af0e5204304c1e875c2e3a340b3f2690043d432351ce8ffb90",
+          "produced_on": "721bab1000a36c55b59794c36b6aefa6322a367c"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-169.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-169"
         }
-      ],
-      "pending_condition": "Инвентарь ACL (GLOBAL/CHAT x роли x операции) как артефакт не создавался. Условие: ограниченное аудиторское задание M1 — собрать инвентарь и привязать файлом."
+      ]
     },
     {
       "source_id": "L00170",
@@ -4322,16 +4366,26 @@
       "acceptance": "Права чтения, изменения и side-effect (restart, rebuild, delete, test) разделены по операциям.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "type": "static",
+          "ref": "M1-аудит 2.58.180: разделение чтения, изменения и side-effect по операциям",
+          "observation": "Аудит на выкаченной сборке 2.58.180 @ `721bab10`; код читался только через `git show 721bab10:<path>` (главный worktree — другая линия), продуктовый код не менялся. §2: 33 эндпоинта разнесены по классам операций через `requires_permission` с классами `access`, `edit_info` и `action.*` — чтение `access` (routes.py 17: `/admins`, `/roles*`, `/info*`, `/control/*`, `/debug/config`; cover_styles.py 16), изменение `edit_info`, side-effect `action.*` (restart/rebuild/delete/test), при resource-модели 84.14.2. Промпты: `_prompt_require_view/edit` 3950–4008 поверх `effective_matrix` + `can_edit_param`, скрытые — через предикат (1); точечные пер-ключевые права чтения/правки — `can_view_key_value`/`can_edit_param` (собственный итог аудита, §«Итог»). Разделение операций не зависит от дефекта MAC-DEF-01: тот же предикат не смотрит role_type, но классы операций этим не смешиваются.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/acl-audit-2.58.180.md",
+          "artifact_sha256": "bc15aaa0ad1e86af0e5204304c1e875c2e3a340b3f2690043d432351ce8ffb90",
+          "produced_on": "721bab1000a36c55b59794c36b6aefa6322a367c"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/mac-s4-170.md",
           "description": "наблюдаемый артефакт проверки MAC-S4-170"
         }
-      ],
-      "pending_condition": "Разделение read/write/side-effect по операциям покрыто только точечно (test_403_on_mutating_endpoint). Условие: тот же аудит-инвентарь с разметкой операций."
+      ]
     },
     {
       "source_id": "L00171",
@@ -4346,7 +4400,18 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "type": "static",
+          "ref": "M1-аудит 2.58.180: 503 vs 403 в backend и UI — источники и ветки",
+          "observation": "Аудит на выкаченной сборке 2.58.180 @ `721bab10`; код читался только через `git show 721bab10:<path>` (главный worktree — другая линия), продуктовый код не менялся. §5: три backend-источника 503 — `memory_agi._db_or_503` 186–193 `a6ac54e7` («база памяти недоступна (не инициализирована)»), `access._require_pg` 69–71 `d29119da` и `chat_lore._pg_guard` 191–193 («PostgreSQL недоступен (R6)»), `gates.py:63`; у 403 всегда другой `detail` (`permission denied`, `нет доступа к чату`, `только для глобального админа`). UI `web/app.js` `e75158f0`: общий `api()` 10658–10671 (401 → authError initData, 403 → toast «Доступ запрещён: <detail>», 503 отдельно), адресные ветки 24163–24172 (503 → «PostgreSQL недоступен — попробуйте позже.»), `errText` 36858 (503 → «История временно недоступна: …»), 30427, панель Embeddings 11858–11866. Граница аудита: живой экран с искусственным 503 не поднимался.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/acl-audit-2.58.180.md",
+          "artifact_sha256": "bc15aaa0ad1e86af0e5204304c1e875c2e3a340b3f2690043d432351ce8ffb90",
+          "produced_on": "721bab1000a36c55b59794c36b6aefa6322a367c"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -4354,7 +4419,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S4-171"
         }
       ],
-      "pending_condition": "Backend-различение доказано: 401 (нет/битый initData), 403 (негативная матрица), 404 (несуществующий маршрут). UI-различение 503/stale не наблюдалось. Условие: живой экран с искусственным 503 и stale."
+      "pending_condition": "Backend-различение подтверждено на 2.58.180: три источника 503 с отдельными `detail`, у 403 другой текст, 401/404 сняты живыми пробами (§6 артефакта). UI-ветки для 503 существуют в коде, но живого экрана с 503 не было. Условие: поднять искусственный 503 (или дождаться реального при недоступном PG) и снять экран для каждой ветки — 24163/24172, `errText` 36858, 30427."
     },
     {
       "source_id": "L00172",
@@ -4369,7 +4434,18 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "type": "static",
+          "ref": "M1-аудит 2.58.180: механизмы защиты секретов по путям (§3)",
+          "observation": "Аудит на выкаченной сборке 2.58.180 @ `721bab10`; код читался только через `git show 721bab10:<path>` (главный worktree — другая линия), продуктовый код не менялся. §3 — механизмы, а не обещания: `_mask_secret` (`routes.py` 327–337, вызовы 566/1856/1676) отдаёт `{configured,last4}` всем ролям, keys-секция вырезается для не-глобала (543/554); `status_service._mask_key_for_role` 55–70 `81532b14`; `/api/status/key-history` — allowlist-payload 2595–2610 без ключей и `last4`; `/api/status/logs` — только глобальный админ (F11) плюс маскирование при записи `SecretMaskFilter` (`bot.py` 166 `02e186f3`) → `log_ring.sanitize` 65–91 `3dba11ac` (литеральные секреты каталога, Bearer/`sk-`/URI-creds); `debug_config._mask_secret` 181–185; запись ключей отдаёт только маску `chat_keys.mask_key_info` 74–87 `670245e1`; санитайзеры ошибок `llm_probe.sanitize_error` 149–158, `llm_client._mask_secrets` 81–100, `safe_fetch.mask_url/sanitize` 117–149, `youtube_transcript_engine.mask_proxy_endpoint` 132–149; лог non-2xx (`web/request_status.py` `eaabba43`) пишет только method/шаблон path/status/user/allowlisted reason, `HTTPException.detail` не пишется никогда. Регресс-утверждения: `tests/test_byok_image_key_round1024.py` `bdd4e362` (`assert \"brand-new-image-key\" not in resp.text`), `tests/test_chat_keys.py` `1d1d8a98`, `tests/test_debug_config.py` `b58546ca`. Граница, заявленная самим аудитом: сплошного DOM/HTML-скана не было (статика значений не содержит, `/api/me` отдаёт только bool-флаги), вывод секретов в Telegram-сообщения/чат не аудирован.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/acl-audit-2.58.180.md",
+          "artifact_sha256": "bc15aaa0ad1e86af0e5204304c1e875c2e3a340b3f2690043d432351ce8ffb90",
+          "produced_on": "721bab1000a36c55b59794c36b6aefa6322a367c"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -4377,7 +4453,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S4-172"
         }
       ],
-      "pending_condition": "Сплошной проверки секретов (ответы, HTML, логи, telemetry) нет. Условие: аудит-проверка секретов с привязанным артефактом."
+      "pending_condition": "Механизмы подтверждены аудитом: ответы API, ошибки провайдеров, кольцевой лог, non-2xx-лог. Не покрыто и прямо заявлено границей аудита (§3): сплошной DOM/HTML-скан и вывод секретов в Telegram-сообщения/чат. Условие: целевая агентская проверка этих двух каналов (браузерный снимок админ-экранов + скан bot-side форматирования); VERIFIED до неё не ставится."
     },
     {
       "source_id": "L00173",
@@ -4392,7 +4468,18 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "type": "static",
+          "ref": "M1-аудит 2.58.180: матрица промптов без второго ACL",
+          "observation": "Аудит на выкаченной сборке 2.58.180 @ `721bab10`; код читался только через `git show 721bab10:<path>` (главный worktree — другая линия), продуктовый код не менялся. §1 п.13/«Итог»: чтение и правка промптов идут через `_prompt_require_view/edit` 3950–4008 — `effective_matrix` + `can_edit_param`, скрытые — через предикат (1) (`_prompt_hidden_admin` 3944–3947); второй ACL для промптов не вводится. Пункт acceptance «политика SELF-DIAG-01 учитывается» проверить нечем: политика SELF-DIAG-01 (кандидат `98bc424e`) в выкат 2.58.180 не входит.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/acl-audit-2.58.180.md",
+          "artifact_sha256": "bc15aaa0ad1e86af0e5204304c1e875c2e3a340b3f2690043d432351ce8ffb90",
+          "produced_on": "721bab1000a36c55b59794c36b6aefa6322a367c"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -4400,7 +4487,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S4-173"
         }
       ],
-      "pending_condition": "Права на промпты по resource-based матрице зависят от SELF-DIAG-01; на этом релизе не проверялись. Условие: после решения SELF-DIAG-01 либо явная привязка к действующей матрице."
+      "pending_condition": "Механизм матрицы промптов на 2.58.180 подтверждён: действующий resource-based predicate + `can_edit_param`, второй ACL не вводится. Открыт пункт acceptance «политика SELF-DIAG-01 учитывается»: самой политики в проде нет (кандидат `98bc424e` исключён из выката как Needs Fixes), поэтому учитывать нечего. Условие: при появлении SELF-DIAG-01 в проде привязать её политику к этой матрице и снять живую проверку чтения/правки промпта."
     },
     {
       "source_id": "L00174",
@@ -4415,7 +4502,18 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "type": "static",
+          "ref": "M1-аудит 2.58.180: HTTP parity, websocket/SSE и расхождение bot-side",
+          "observation": "Аудит на выкаченной сборке 2.58.180 @ `721bab10`; код читался только через `git show 721bab10:<path>` (главный worktree — другая линия), продуктовый код не менялся. §1–§2: HTTP-часть использует role_type-aware предикат (`user_is_global_admin` 207–222 и его обёртки), legacy-only гейтов не осталось. websocket/SSE на 2.58.180 отсутствует — `app.js:35019` только polling 15 с, то есть эта часть acceptance неприменима к сборке (не «проверена»). Bot-side расхождение: `services/chat_access.is_admin/privilege` 43–64 `6a40dffe` опираются на `telegram_id==ADMIN_USER_ID` или строку `role==\"admin\"`, `role_type` не читают; потребители — `direct_chat_service.py` 11777/11807 и `mca_style_scope.py` 428–429, где идентичность с `role_type=global_admin` и другим именем роли считается внутри чата пользователем. Tool calls и фоновые задачи на этой сборке аудитом не проверялись.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/acl-audit-2.58.180.md",
+          "artifact_sha256": "bc15aaa0ad1e86af0e5204304c1e875c2e3a340b3f2690043d432351ce8ffb90",
+          "produced_on": "721bab1000a36c55b59794c36b6aefa6322a367c"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -4423,7 +4521,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S4-174"
         }
       ],
-      "pending_condition": "Паритет прав API/фоновых задач/tool calls/websocket не проверялся: доказана только HTTP-часть памяти. Условие: проверка остальных путей на той же семантике."
+      "pending_condition": "HTTP-часть на 2.58.180 использует role_type-aware предикат (аудит §1–§2). Открыто: (а) bot-side расхождение — `chat_access.is_admin/privilege` (`6a40dffe`) по-прежнему сравнивают legacy-строку `role==\"admin\"`, поэтому идентичность с `role_type=global_admin` и иным именем роли считается в чате пользователем (потребители: `direct_chat_service.py` 11777/11807, `mca_style_scope.py` 428–429); (б) tool calls и фоновые задачи на той же семантике не проверены. websocket/SSE на этой сборке нет (`app.js:35019` — polling 15 с), эта часть acceptance неприменима, а не подтверждена. Условие: привести bot-side к тому же предикату и снять проверку tool calls/фоновых задач."
     },
     {
       "source_id": "L00175",
@@ -7083,7 +7181,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S10-11"
         }
       ],
-      "pending_condition": "Доказаны role_type=global_admin, legacy admin и wildcard. Custom role, состояние «после миграции» и stale TMA не проверялись. Условие: матрица ролей после миграции + stale-сессия."
+      "pending_condition": "Доказаны role_type=global_admin, legacy admin и wildcard. Не проверены custom role, состояние «после миграции» и stale TMA. Матрицу ролей нельзя снимать до исправления MAC-DEF-01: роль с `role_type=global_admin` без `wildcard` сейчас получает 403 на `/api/admins`, `/api/roles`, `/api/cover/*` (аудит §2), и это исказит результат по custom role. Условие: MAC-DEF-01 исправлен, затем матрица ролей после миграции + stale-сессия."
     },
     {
       "source_id": "L00581",
@@ -7106,7 +7204,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S10-12"
         }
       ],
-      "pending_condition": "Нужен живой негативный прогон (local admin не получает глобальный API подменой селектора или X-Chat-Id). Имперсонация запрещена, поэтому закрывается только владельцем/вторым аккаунтом."
+      "pending_condition": "Нужен живой негативный прогон: local admin не получает глобальный API подменой селектора или `X-Chat-Id`. Имперсонация и генерация чужой HMAC-подписи запрещены, поэтому нужна собственная валидная TMA-сессия не-админа (тестовый аккаунт) — это агентская проверка при наличии такого аккаунта; при его отсутствии фиксируется техническая недоступность, а не задача владельцу."
     },
     {
       "source_id": "L00582",
@@ -7121,7 +7219,18 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "type": "static",
+          "ref": "M1-аудит 2.58.180: секреты в ответах/HTML/логах и видимость промптов",
+          "observation": "Аудит на выкаченной сборке 2.58.180 @ `721bab10`; код читался только через `git show 721bab10:<path>` (главный worktree — другая линия), продуктовый код не менялся. §3 — механизмы по всем секретсодержащим путям (маскирование ответов, allowlist key-history, `SecretMaskFilter` + `log_ring.sanitize` при записи, санитайзеры ошибок, redaction non-2xx) и регресс-утверждения на отсутствие сырого ключа в `resp.text`; §1 п.13 — промпты видны по ресурсной матрице (`_prompt_require_view/edit`), второй ACL не вводится. Граница: HTML/DOM сплошным сканом не проверялся, видимость промптов именно в контексте группового чата аудитом не проверялась.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/acl-audit-2.58.180.md",
+          "artifact_sha256": "bc15aaa0ad1e86af0e5204304c1e875c2e3a340b3f2690043d432351ce8ffb90",
+          "produced_on": "721bab1000a36c55b59794c36b6aefa6322a367c"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -7129,7 +7238,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S10-13"
         }
       ],
-      "pending_condition": "Секреты в ответах/HTML/логах и права на промпты — см. MAC-S4-172/173; отдельного артефакта нет."
+      "pending_condition": "Network-ответы и логи покрыты аудитом §3 (механизмы + регресс-утверждения). Не покрыты: HTML/DOM (сплошной скан не делался) и видимость промптов в контексте группового чата — см. MAC-S4-172/173. Условие: целевая проверка этих каналов; до неё строка остаётся PENDING."
     },
     {
       "source_id": "L00583",
@@ -7511,7 +7620,18 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "deployed_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
+          "type": "static",
+          "ref": "M1-аудит 2.58.180 §4: доступ к аналитике и надзору идёт тем же предикатом",
+          "observation": "Аудит на выкаченной сборке 2.58.180 @ `721bab10`; код читался только через `git show 721bab10:<path>` (главный worktree — другая линия), продуктовый код не менялся. §4: `analytics.py` (10 эндпоинтов, `b69a7734`), `analytics_viz.py` (2), `oversight.py` (8, `97695358`), `oversight_router.py` (3) используют `requires_global_admin()` → `user_is_global_admin` (1), а `requires_permission` на этих путях не встречается ни разу. Идентичность `role_type=global_admin` проходит: колонка читается в `cache.roles()[role][\"role_type\"]` (`services/config_cache.py` 290/308 `5461395e`), `role_type_of` возвращает её без эвристик. Следствие: ранее записанная причина PENDING («аналитика идёт другим механизмом requires_permission») на 2.58.180 не подтверждается — механизм тот же.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/acl-audit-2.58.180.md",
+          "artifact_sha256": "bc15aaa0ad1e86af0e5204304c1e875c2e3a340b3f2690043d432351ce8ffb90",
+          "produced_on": "721bab1000a36c55b59794c36b6aefa6322a367c"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -7519,7 +7639,7 @@
           "description": "наблюдаемый артефакт проверки MAC-AC-06"
         }
       ],
-      "pending_condition": "Живое подтверждение покрывает Embeddings; «правдивые 503» и общая аналитика не наблюдались. Условие: живой прогон аналитики и различения 503."
+      "pending_condition": "Живое подтверждение покрывает Embeddings. Механизм аналитики исправлен по факту: `requires_global_admin()` (аудит 2.58.180 §4), прежняя причина «другой механизм» неверна. Не наблюдались: живое открытие аналитики с сессией global admin, правдивые 503 и защита чужих чатов живым прогоном. Условие: живой прогон аналитики + различения 503, cross-chat — в MAC-S10-12/S15-10."
     },
     {
       "source_id": "L00621",
@@ -8221,7 +8341,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S15-10"
         }
       ],
-      "pending_condition": "Wildcard и global admin имеют одинаковый доступ (тесты), но «без обхода прав чужого личного чата» живым прогоном не проверялось. Условие: живой негативный прогон по чужому DM."
+      "pending_condition": "Wildcard и global admin имеют одинаковый доступ (тесты), но «без обхода прав чужого личного чата» живым прогоном не проверялось. Условие: живой негативный прогон по чужому DM с валидной сессией второго (не-админского) аккаунта; имперсонация запрещена."
     },
     {
       "source_id": "L00677",
@@ -8716,5 +8836,12 @@
     "M5A": "4e07817e9a4836a6e68837bbb815aa3ffdfe3dc8",
     "M5L": "c51933d0f29bd70d746b15529504cb4b8a645fc5 (deployed bee14188f5d554021813db332ab35abea2ecbff5)",
     "M4A": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e (содержимое 0833035a, 7faa9d7c, 827d4a3b, 6e175ced; стенд и JS/pytest — в этом же коммите)"
+  },
+  "m1_audit_2_58_180": {
+    "artifact_path": "plans/features/mod-acl-ux-01/evidence/m1/acl-audit-2.58.180.md",
+    "artifact_sha256": "bc15aaa0ad1e86af0e5204304c1e875c2e3a340b3f2690043d432351ce8ffb90",
+    "build": "721bab1000a36c55b59794c36b6aefa6322a367c",
+    "build_label": "2.58.180 @ `721bab10`",
+    "note": "M1-аудит на выкаченной сборке 2.58.180. Привязаны MAC-S4-169/170 (статический инвентарь ACL и разделение операций), частично MAC-S4-171/172/173, MAC-S10-13 и MAC-S4-174; исправлена причина PENDING у MAC-S4-161/MAC-AC-06 — аналитика и надзор идут через `requires_global_admin()`, а не `requires_permission`; зарегистрирован обязательный дефект MAC-DEF-01 (`requires_permission` не смотрит `role_type`). Map-level candidate_commit = 34213999 (2.58.175) не меняется: новые строки привязаны к 721bab10 в собственных evidence-записях."
   }
 }
