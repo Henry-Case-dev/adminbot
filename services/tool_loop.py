@@ -841,6 +841,21 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 # плана контент идентичен (deepcopy), с планом сохраняет
                 # уже исполненные шаги <tool_plan_results> (результаты
                 # честно попадают в plain-ответ).
+                # UR-F шаг 1 (Q1): plain-фолбэк обязан вернуть receipt —
+                # у `generate()` его нет, поэтому идём metadata-вариантом.
+                _plain_meta = getattr(llm, "generate_with_metadata", None)
+                if callable(_plain_meta):
+                    _plain_completion = await _plain_meta(
+                        payload_messages, temperature=temperature,
+                        chat_id=chat_id, module=module, step="single",
+                        correlation_id=correlation_id,
+                        fallback_payload_adapter=fallback_payload_adapter,
+                        max_output_tokens=max_output_tokens)
+                    return ToolLoopResult(
+                        str(getattr(_plain_completion, "text", "") or ""),
+                        rounds_used=1, tool_results=tool_results,
+                        sent_body=getattr(_plain_completion, "sent_body",
+                                          None))
                 plain = await llm.generate(
                     payload_messages, temperature=temperature,
                     chat_id=chat_id, module=module, step="single",

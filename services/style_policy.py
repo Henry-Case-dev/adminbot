@@ -2260,8 +2260,8 @@ def _revision_int(revision: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def _emit_extent_metric(outcome: StyleOutcome, *, chat_id: int, stage: str
-                        ) -> None:
+def _emit_extent_metric(outcome: StyleOutcome, *, chat_id: int, stage: str,
+                        trace_id: str | None = None) -> None:
     """SOUL-14.2: пер-сообщенческая метрика extent в СУЩЕСТВУЮЩИЙ
     telemetry-контур (``mca_events``, event ``speech_extent``).
 
@@ -2618,6 +2618,19 @@ async def apply_style_policy(text: Any, *, chat_id: int = 0, plan=None,
         # проход с выполненным extent-check, не только notable-исходы.
         _emit_extent_metric(result, chat_id=chat_id, stage=stage)
     return result
+
+
+def project_extent_metric(outcome: StyleOutcome, *, chat_id: int,
+                          stage: str = "direct_pre_send",
+                          trace_id: str | None = None) -> None:
+    """Проекция SOUL-14.2 из снимка доставленного хода (одна на ход).
+
+    Раньше метрику extent выпускал сам проход стиля (`emit_events=True`).
+    Теперь эмиссия — только у проектора снимка, поэтому метрика вызывается
+    отсюда: без дублей и без промежуточной эмиссии.
+    """
+    _emit_extent_metric(outcome, chat_id=int(chat_id or 0), stage=stage,
+                        trace_id=trace_id)
 
 
 def _needs_repair(results: Sequence[RuleOutcome]) -> bool:

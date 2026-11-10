@@ -2857,6 +2857,19 @@ class DeliveredTurnSnapshot:
     policy_version: str
 
 
+def _counts_as_message(block_kind, item_id) -> bool:
+    """Элемент — СООБЩЕНИЕ для счётчика (Q5 + смешанный legacy-блок)."""
+    raw = str(item_id or "")
+    if not raw.startswith(("msg:", "tg:", "bot_output_tg:", "row:")):
+        return False
+    kind = str(block_kind or "")
+    if kind in _MESSAGE_BLOCK_KINDS:
+        return True
+    # legacy-путь: конспект и verbatim-хвост лежат в одном блоке `global`;
+    # считать нужно только строки-сообщения (у конспекта ключа нет).
+    return kind == "global"
+
+
 def _sent_user_text(body) -> str:
     """Текст user-сообщений отправленного body (для сверки с prepared)."""
     if not isinstance(body, dict):
@@ -3010,9 +3023,10 @@ class L2WriterResult(tuple):
     как раньше; ``sent_body`` доступен атрибутом (tuple-подкласс без
     ``__slots__`` — у экземпляра есть свой ``__dict__``)."""
 
-    def __new__(cls, text, response_mode, sent_body=None):
+    def __new__(cls, text, response_mode, sent_body=None, prepared=None):
         obj = super().__new__(cls, (text, response_mode))
         obj.sent_body = sent_body if isinstance(sent_body, dict) else None
+        obj.prepared = prepared
         return obj
 
 
@@ -3026,17 +3040,73 @@ class SuccessfulOutboundReceipt:
     последнее фактически отправленное тело (после primary/fallback)."""
     path: str
     sent_body: dict | None = None
+    #: prepared-вариант ТОГО ЖЕ вызова (атомарно с телом, Q1/Q6): описание
+    #: счётчиков/блоков относится к отправленному body, а не к первичной сборке.
+    prepared: object = None
 
 
-def _remember_receipt(holder, path: str, result) -> None:
-    """Запомнить успешный outbound-receipt хода (ровно один на ход)."""
+def _remember_receipt(holder, path: str, result, *, prepared=None,
+                      binding=None) -> None:
+    """Запомнить успешный outbound-receipt хода (ровно один на ход).
+
+    Receipt атомарен: тело + `PreparedTurnPayload` того же вызова. Вариант
+    берётся у адаптера (`binding`, если он реально пересобрал payload) ЛИБО
+    пересобирается из фактического тела (`_prepared_rebased`) — событие не
+    может описывать первичную сборку после замены payload."""
     if holder is None or result is None:
         return
     body = getattr(result, "sent_body", None)
     if not isinstance(body, dict):
         return                          # доставка не доказана (двойник/str)
-    holder["receipt"] = SuccessfulOutboundReceipt(path=str(path or ""),
-                                                 sent_body=body)
+    variant = prepared
+    if variant is None and isinstance(binding, dict):
+        variant = binding.get("prepared")
+    if variant is None:
+        variant = getattr(result, "prepared", None)
+    if variant is None:
+        primary = holder.get("primary")
+        if primary is not None:
+            variant = _prepared_rebased(primary, _sent_user_text(body))
+    holder["receipt"] = SuccessfulOutboundReceipt(
+        path=str(path or ""), sent_body=body, prepared=variant)
+
+
+def _prepared_rebased(primary, body_text, *, budget=None, dropped=None):
+    """Вариант prepared, пересобранный из ФАКТИЧЕСКИ отправленного текста.
+
+    Fallback-рекомпоз пересобирает те же кандидаты, поэтому элементы
+    первичного варианта — надмножество: сохраняем те, чья собственная строка
+    (и спан quote-аннотации) физически остались в отправленном теле. Вид
+    блока и identity берутся у первичного варианта — ничего не угадывается
+    по тексту (Q2/Q6)."""
+    if primary is None:
+        return None
+    text = str(body_text or "")
+    if not text:
+        return primary
+    blocks: list = []
+    for block in primary.blocks:
+        if not block.text:
+            continue
+        items = tuple(item for item in block.items
+                      if block.text[item.start:item.end] in text)
+        quotes = tuple(quote for quote in block.quotes
+                       if block.text[quote[1]:quote[2]] in text)
+        if block.text not in text:
+            continue   # блок не доехал до отправленного тела
+        blocks.append(PreparedBlock(kind=block.kind, text=block.text,
+                                    role=block.role, items=items,
+                                    quotes=quotes))
+    return PreparedTurnPayload(
+        chat_id=primary.chat_id, correlation_id=primary.correlation_id,
+        blocks=tuple(blocks), event_blocks=primary.event_blocks,
+        available_item_ids=primary.available_item_ids,
+        window_messages=primary.window_messages,
+        budget=dict(budget or primary.budget),
+        dropped=(tuple(dropped) if dropped is not None
+                 else primary.dropped),
+        self_outputs=primary.self_outputs,
+        policy_version=primary.policy_version)
 
 
 def _settle_delivered_turn(receipt, prepared, style_outcome):
@@ -3078,7 +3148,7 @@ def _settle_delivered_turn(receipt, prepared, style_outcome):
             continue
         event_blocks.append(dict(entry))
     message_ids = {item.item_id for item in included
-                   if item.block_kind in _MESSAGE_BLOCK_KINDS}
+                   if _counts_as_message(item.block_kind, item.item_id)}
     delivered_quotes: list = []
     for ident, _start, _end in quotes:
         raw = str(ident or "")
@@ -3137,9 +3207,9 @@ def _settle_delivered_turn_and_project(holder) -> None:
     """
     if not holder:
         return
-    prepared = (holder.get("fallback_prepared")
-                if holder.get("fallback_used") else holder.get("primary"))
-    snapshot = _settle_delivered_turn(holder.get("receipt"), prepared,
+    receipt = holder.get("receipt")
+    prepared = getattr(receipt, "prepared", None) or holder.get("primary")
+    snapshot = _settle_delivered_turn(receipt, prepared,
                                       holder.get("style_outcome"))
     holder["snapshot"] = snapshot
     _project_delivered_turn(snapshot, holder.get("style_outcome"))
@@ -3172,6 +3242,13 @@ def _project_delivered_turn(snapshot, style_outcome=None) -> None:
         pass
     _project_style_snapshot(style_outcome, chat_id=snapshot.chat_id,
                             correlation_id=snapshot.trace_id)
+    if style_outcome is not None:
+        try:
+            _style_policy.project_extent_metric(
+                style_outcome, chat_id=snapshot.chat_id,
+                stage="direct_pre_send", trace_id=snapshot.trace_id)
+        except Exception:               # pragma: no cover - не рвёт ход
+            pass
 
 
 async def _social_frame_for_turn(chat_id, message=None, *, bundle=None,
@@ -5821,6 +5898,7 @@ class DirectChatService:
                         # recompose); payload с tools под primary-окно
                         # больше не уходит fallback-модели молча.
                         _fb_factory = _fallback_meta.get("adapter_factory")
+                        _fb_binding: dict = {}
                         _fb_adapter = None
                         if _fb_factory is not None:
                             try:
@@ -5831,7 +5909,8 @@ class DirectChatService:
                             except Exception:
                                 _tools_tokens = 0
                             _fb_adapter = _fb_factory(
-                                time_line, extra_reserve=_tools_tokens)
+                                time_line, extra_reserve=_tools_tokens,
+                                binding=_fb_binding)
                         # ── MCA-23 фаза 2 (§17): bounded multi-tool DAG ──
                         # Детерминированный план (0 LLM) ТОЛЬКО для явных
                         # мульти-данных запросов (напр. «сравни две ссылки»):
@@ -5867,7 +5946,8 @@ class DirectChatService:
                         # UR-F шаг 1: receipt финального ответообразующего
                         # вызова (body после primary/fallback); continuation
                         # второго снимка не создаёт.
-                        _remember_receipt(_delivery, "chat_with_tools", raw)
+                        _remember_receipt(_delivery, "chat_with_tools", raw,
+                                          binding=_fb_binding)
                     else:
                         # ASAP-3.1 §14/§42: fallback recompose — при
                         # переключении на fallback-модель payload
@@ -5876,13 +5956,15 @@ class DirectChatService:
                         # ASAP 7 (F1, §1.1): в L1-пути эта ветка не
                         # выполняется (Writer — L2, стадия ниже).
                         _fb_factory = _fallback_meta.get("adapter_factory")
+                        _fb_binding: dict = {}
                         _single_kwargs = dict(
                             temperature=temperature, chat_id=chat_id,
                             module="direct_chat", step="single",
                             correlation_id=correlation_id,
                             fallback_payload_adapter=(
-                                _fb_factory(time_line) if _fb_factory
-                                else None),
+                                _fb_factory(time_line,
+                                            binding=_fb_binding)
+                                if _fb_factory else None),
                             # UR-19.2: семантический ответ этого маршрута не
                             # ограничивается универсальным longform-4096 —
                             # ставится вычисленное физически допустимое
@@ -5905,7 +5987,8 @@ class DirectChatService:
                             raw = str(getattr(_single_completion, "text",
                                               "") or "")
                             _remember_receipt(_delivery, "single",
-                                              _single_completion)
+                                              _single_completion,
+                                              binding=_fb_binding)
                         else:
                             raw = await self.llm.generate(
                                 payload, **_single_kwargs)
@@ -6287,6 +6370,7 @@ class DirectChatService:
                             _turn_snap, chat_id)
                     _l2 = await self._l2_write_answer(
                         chat_id, query, temperature=temperature,
+                        primary_prepared=_delivery.get("primary"),
                         correlation_id=correlation_id,
                         character_block=character_block,
                         style_directives=style_directives,
@@ -8540,6 +8624,7 @@ class DirectChatService:
                                speech_block: str = "",
                                writer: str = "l2_writer",
                                fallback_budget_tokens: int | None = None,
+            primary_prepared=None,
                                max_tokens=None, diag_out: dict | None = None,
                                history_assembly_block: str = "",
                                speech=None
@@ -8781,6 +8866,26 @@ class DirectChatService:
                 fallback_budget_tokens=int(fallback_budget_tokens),
                 on_capacity_reason=lambda reason: _l1.record_l1_diagnostics(
                     chat_id, l2_capacity_reason=str(reason)))
+        _l2_binding: dict = {}
+        if _l2_fb_adapter is not None:
+            _raw_l2_adapter = _l2_fb_adapter
+
+            def _l2_fb_adapter(payload, _raw=_raw_l2_adapter):
+                """Рекомпоз L2: тело + prepared-вариант ОДНИМ объектом (Q6)."""
+                out = _raw(payload)
+                if isinstance(out, tuple) and len(out) == 2:
+                    adapted, prepared = out
+                else:
+                    adapted, prepared = out, None
+                if prepared is None:
+                    prepared = _prepared_rebased(
+                        primary_prepared, _sent_user_text(adapted),
+                        budget={"slot": "direct.primary",
+                                "budget": int(fallback_budget_tokens or 0),
+                                "policy_mode": "fallback_recompose",
+                                "fallback": True})
+                _l2_binding["prepared"] = prepared
+                return adapted, prepared
         if _l2_fb_adapter is not None and _expr_rendered:
             # §6: fallback-репак тоже обязан сохранить маркер — иначе класс.
             _l2_fb_adapter = _expression_marker_checked_adapter(
@@ -8960,7 +9065,8 @@ class DirectChatService:
         return L2WriterResult(
             text, response_mode,
             sent_body=getattr(_author_out.get("completion"), "sent_body",
-                              None))
+                              None),
+            prepared=_l2_binding.get("prepared"))
 
     # ── Context Partitioning (58.6) ─────────────────────────────
 
@@ -9541,8 +9647,11 @@ class DirectChatService:
         в legacy-пути не измерялись (строк окна под рукой нет) — они нулевые/
         пустые, «доступно» = окно ∪ реально дошедшие id. Это недоучёт, а не
         выдуманные числа (см. контракт §«Допустимые недоучёты»)."""
-        blocks = [(("global_tail" if str(kind or "") == "global"
-                    else str(kind or "")), str(text or ""))
+        # Смешанный legacy-блок (`global` = конспект-head + verbatim-tail) НЕ
+        # переименовывается: переименование записывало токены конспекта в
+        # свежие сообщения. Сообщения считаются по id СВОИХ строк (у строк
+        # конспекта канонического заголовка нет — они не сообщения).
+        blocks = [(str(kind or ""), str(text or ""))
                   for kind, text in (pairs or ()) if text]
         event_blocks: list = []
         available: set = set(_sel_row_ids(window, bot_user_id=bot_user_id))
@@ -10279,7 +10388,8 @@ class DirectChatService:
         # budget наравне с system/persona/messages.
         if out_fallback is not None and fallback_recompose_budget is not None:
             def _fallback_adapter_factory(time_line: str | None,
-                                          extra_reserve: int = 0):
+                                          extra_reserve: int = 0,
+                                          binding: dict | None = None):
                 def _adapt(incoming: dict):
                     try:
                         _fb_budget = fallback_recompose_budget
@@ -10321,6 +10431,8 @@ class DirectChatService:
                             chain_rendered=chain_rendered,
                             projection=projection,
                             policy_version=_composer.COMPOSER_POLICY_VERSION)
+                        if binding is not None:
+                            binding["prepared"] = fb_prepared
                         if out_prepared is not None:
                             out_prepared["fallback_prepared"] = fb_prepared
                             out_prepared["fallback_used"] = True
@@ -10352,6 +10464,8 @@ class DirectChatService:
                             "payload SENT AS-IS | oversized_risk=1 | "
                             "chat=%s", chat_id, exc_info=True)
                         primary = (out_prepared or {}).get("primary")
+                        if binding is not None:
+                            binding["prepared"] = primary
                         return incoming, primary
                 return _adapt
             try:
