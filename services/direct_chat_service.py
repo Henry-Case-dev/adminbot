@@ -9781,6 +9781,10 @@ class DirectChatService:
             # событии — отдельная операция `turn_trace`, и он не должен влиять
             # на счётчик (иначе «вошло 25» читалось бы как «вошло 8»).
             _full_ids: dict = {}
+            _all_chain_ids: list = []
+            _thread_piece = next((p for p in allocation.pieces
+                                  if p.kind == "thread"), None)
+            _thread_cut = 0
             _sel_blocks: list = []
             for _piece in sorted(allocation.pieces,
                                  key=lambda p: getattr(p, "position", 99)):
@@ -9834,8 +9838,17 @@ class DirectChatService:
                 elif _kind == "thread":
                     # Ветка ответов: id/даты — из тех же `ChainItem`, что
                     # рендерились в блок (формула id композера).
+                    #
+                    # ВАЖНО (измерение = факт): в счётчики идут только звенья,
+                    # чья СТРОКА реально осталась в piece'е после аллокации —
+                    # ровно та же техника, что у tail/middle
+                    # (`_context_line_dedup_key` ↔ `_sel_piece_line_keys`).
+                    # Иначе сжатая ветка объявляла бы «вошло 40» там, где в
+                    # запросе лежит 12 строк (репро P системного ревью).
+                    _thread_keys = _sel_piece_line_keys(_thread_piece)
                     _ids = []
                     _stamps = []
+                    _lost = 0
                     for _item in list(chain or ()):
                         try:
                             _frag = _composer.chain_item_to_fragment(
@@ -9844,22 +9857,48 @@ class DirectChatService:
                         except Exception:      # pragma: no cover - защита
                             continue
                         _sid = str(getattr(_frag, "source_id", "") or "")
+                        _ts = _sel_int(getattr(_frag, "timestamp_utc", 0)) or 0
+                        # пул «доступно» — ВСЕ звенья, независимо от выживания
+                        if _sid:
+                            _all_chain_ids.append(_sid)
+                        _line_key = ""
+                        try:
+                            _line_key = _context_line_dedup_key(self._chain_line(
+                                _item, suffix_map, trigger_message_id,
+                                projection))
+                        except Exception:      # pragma: no cover - защита
+                            _line_key = ""
+                        if not _line_key or _line_key not in _thread_keys:
+                            _lost += 1
+                            continue
                         if _sid and _sid not in _ids:
                             _ids.append(_sid)
-                        _ts = _sel_int(getattr(_frag, "timestamp_utc", 0)) or 0
                         if _ts:
                             _stamps.append(_ts)
                     _block["source_ids"] = _ids[:_MAX_SELECTION_IDS]
                     _block["first_ts"] = min(_stamps) if _stamps else 0
                     _block["last_ts"] = max(_stamps) if _stamps else 0
                     _full_ids[_kind] = _ids
+                    if _lost:
+                        # Что вырезано — названо причиной аллокации. Если
+                        # piece вытеснен целиком, причина уже есть в
+                        # `allocation.excluded` (двойного счёта нет).
+                        _thread_cut = _lost
                 _sel_blocks.append(_block)
-            # Счётчики: «доступно» — то, что композер реально мог взять в этом
-            # ходе; «вошло» — уникальные СООБЩЕНИЯ в ВИДИМЫХ блоках, считанные
-            # по ПОЛНЫМ наборам (срез ссылок до 8 к счётчику не относится).
-            # Считаются только блоки-носители сообщений: факты памяти (`rag`)
-            # — не сообщения, и `available_messages` их не учитывает, иначе
-            # получалось бы невозможное «вошло 30 из доступных 25».
+            # Счётчики. «Доступно» — размер ОБЪЕДИНЕНИЯ id четырёх пулов
+            # (tail/middle/chain/спаны эпизодов), а не сумма их размеров: одни и
+            # те же сообщения приходят и в хвосте, и в ветке, и в эпизоде, и
+            # сумма давала физически невозможное «доступно 16» при 13 реальных
+            # сообщениях (репро H2 системного ревью). «Вошло» — уникальные
+            # СООБЩЕНИЯ в ВИДИМЫХ блоках, по полным наборам (срез ссылок до 8
+            # к счётчику не относится). Факты памяти (`rag`) не сообщения.
+            _pool_ids: set = set()
+            _pool_ids.update(_sel_row_ids(global_parts["tail_rows"],
+                                          bot_user_id=_bot_id))
+            _pool_ids.update(_sel_row_ids(middle_rows, bot_user_id=_bot_id))
+            _pool_ids.update(_all_chain_ids)
+            for _span in (episode_stats.get("spans") or ()):
+                _pool_ids.update(list(_span.get("source_ids") or ()))
             _included_ids: set = set()
             for _block in _sel_blocks:
                 if not _block.get("rendered"):
@@ -9868,12 +9907,19 @@ class DirectChatService:
                 if _block_kind not in _MESSAGE_BLOCK_KINDS:
                     continue
                 _included_ids.update(_full_ids.get(_block_kind) or ())
+            _dropped_items = [dict(item) for item in allocation.excluded]
+            if _thread_cut:
+                # Ветка сжата аллокатором: назвать, сколько звеньев не вошло.
+                # Если piece вытеснен целиком, причина уже в `excluded`.
+                if not any(item.get("kind") == "thread"
+                           and str(item.get("reason_code") or "").endswith(
+                               "budget_exceeded")
+                           for item in _dropped_items):
+                    _dropped_items.append({"reason_code": "budget_exceeded",
+                                           "kind": "thread",
+                                           "count": int(_thread_cut)})
             _counts = {
-                "available_messages": (len(global_parts["tail_rows"])
-                                       + len(middle_rows) + len(list(chain
-                                                                    or ()))
-                                       + int(episode_stats.get("messages")
-                                             or 0)),
+                "available_messages": len(_pool_ids),
                 "included_messages": len(_included_ids),
                 "window_messages": len(list(window or ())),
             }
@@ -9909,7 +9955,7 @@ class DirectChatService:
                                             else None),
                     },
                     "blocks": _sel_blocks,
-                    "dropped": [dict(item) for item in allocation.excluded],
+                    "dropped": _dropped_items,
                     "self_outputs": _self_outputs,
                     "policy_version": _composer.COMPOSER_POLICY_VERSION,
                 })

@@ -105,6 +105,7 @@ class _StagedLLM:
     def __init__(self, *, plan=None):
         self.l1_reply = plan if plan is not None else _plan()
         self.calls: list = []
+        self.last: list = []          # фактический payload последнего вызова
         self._chat_model = "chat-model-x"
         self._base_url = "https://api.test/v1"
         self._fallback_model = "fb-model"
@@ -112,6 +113,7 @@ class _StagedLLM:
     async def generate(self, messages, temperature=None, chat_id=None,
                        module=None, step=None, correlation_id=None, **kwargs):
         self.calls.append(step)
+        self.last = list(messages or ())
         if step == "l1_planner":
             return self.l1_reply
         return SECRET_ANSWER
@@ -120,6 +122,7 @@ class _StagedLLM:
                                      chat_id=None, module=None, step=None,
                                      correlation_id=None, **kwargs):
         self.calls.append(step)
+        self.last = list(messages or ())
         if step == "l1_planner":
             return _completion(self.l1_reply, "stop", correlation_id)
         return _completion(SECRET_ANSWER, "stop", correlation_id)
@@ -582,6 +585,138 @@ async def test_real_turn_within_cap_counts_equal_and_not_truncated(
     tail = next(b for b in payload["blocks"] if b.get("kind") == "global_tail")
     assert len(tail["source_ids"]) == 4
     assert "truncated" not in payload
+
+
+def _block_text(payload_text: str, tag: str) -> str:
+    """Тело блока `<tag>…</tag>` из РЕАЛЬНОГО payload запроса."""
+    start = payload_text.find("<%s>" % tag)
+    end = payload_text.find("</%s>" % tag)
+    if start < 0 or end < 0:
+        return ""
+    return payload_text[start + len(tag) + 2:end]
+
+
+def _payload_row_keys(llm) -> set:
+    """Сколько РАЗНЫХ сообщений реально лежит в запросе к модели.
+
+    Считается по фактическому payload (`<Global_Context>` + ветка): ключ
+    строки (`tg:`/`msg:`) биективен сообщению — это и есть «строки, которые
+    реально доехали», независимо от того, что думает счётчик."""
+    text = "\n".join(str(m.get("content") or "") for m in (llm.last or ()))
+    keys: set = set()
+    for tag in ("Global_Context", "Conversation_Thread",
+                "Old_Episode"):
+        body = _block_text(text, tag)
+        for line in body.split("\n"):
+            key = direct_chat_service._context_line_dedup_key(line)
+            if key:
+                keys.add(key)
+    return keys
+
+
+def _chain_items(count, *, item_id_base=700, chars=0, start=1):
+    from services.thread_chain import ChainItem
+    return [ChainItem(uid=10, name="Вася", is_bot=False,
+                      text=("звено %d " % i) + ("текст " * (chars // 6)),
+                      ts=1_700_000_000 + i,
+                      item_id="tg:%d" % (item_id_base + i))
+            for i in range(start, start + count)]
+
+
+@pytest.mark.asyncio
+async def test_thread_compressed_by_allocator_counts_only_rows_in_request(
+        monkeypatch, events):
+    """РЕПРО P: длинная ветка сжата аллокатором — «вошло» = строки в запросе.
+
+    Прежний счётчик брал ВСЕ звенья цепочки, хотя в payload после сжатия
+    остаётся часть строк: событие объявляло «вошло 40» при 20 реальных, а
+    `dropped` был пуст. Теперь ids/даты/«вошло» считаются по выжившим строкам
+    (та же техника, что у tail/middle), а вырезанное названо причиной."""
+    llm = _StagedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    long_chain = _chain_items(40, chars=800)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return long_chain
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    await svc.handle(bot, msg, user)
+
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    counts = payload.get("counts") or {}
+    rows_in_request = _payload_row_keys(llm)
+    assert len(rows_in_request) < 40, "ветка должна была сжаться — иначе репро пустое"
+
+    assert counts.get("included_messages") == len(rows_in_request), \
+        "«вошло» обязано равняться строкам, реально лежащим в запросе"
+    # пул «доступно» = объединение (3 хвоста + 40 звеньев), без дублей
+    assert counts.get("available_messages") == 43, counts
+
+    dropped = payload.get("dropped") or []
+    thread_dropped = [row for row in dropped if row.get("kind") == "thread"]
+    assert thread_dropped, "срез ветки обязан быть назван в dropped"
+    assert thread_dropped[0]["reason_code"], "у потери должна быть причина"
+    assert thread_dropped[0]["count"] >= 1
+
+    thread_block = next(b for b in payload["blocks"]
+                        if b.get("kind") == "thread")
+    assert len(thread_block["source_ids"]) == 8
+    assert payload.get("truncated") is True
+
+
+@pytest.mark.asyncio
+async def test_available_is_union_of_pools_not_their_sum(monkeypatch, events):
+    """РЕПРО H2: одни и те же сообщения в хвосте, ветке и эпизоде.
+
+    `available_messages` — размер ОБЪЕДИНЕНИЯ пулов: 13 различных сообщений,
+    а не 13+13+13=39 (прежняя сумма давала физически невозможное «доступно
+    больше, чем существует»)."""
+    rows = _plain_rows(13)                       # tg 601..613
+    ids = ["msg:%d" % row["tg_message_id"] for row in rows]
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=rows)
+
+    async def _fake_chain(chat_id, message, depth=None):
+        return _chain_items(13, item_id_base=600)   # те же tg 601..613
+
+    async def _fake_episodes(chat_id, query, tail_rows, suffix_map,
+                            history_sample=None, projection=None):
+        return "", {"count": 1, "messages": 13, "tokens": 50, "hits": 1,
+                    "spans": [{"source_ids": list(ids),
+                               "first_ts": 1_700_000_001,
+                               "last_ts": 1_700_000_013}]}
+
+    monkeypatch.setattr(svc, "_collect_thread_chain", _fake_chain)
+    monkeypatch.setattr(svc, "_build_old_episodes", _fake_episodes)
+    await svc.handle(bot, msg, user)
+
+    counts = _payload(events, turn_trace.EVENT_SELECTION).get("counts") or {}
+    assert counts.get("available_messages") == 13, \
+        "доступно = объединение пулов (13), а не сумма (39)"
+    assert counts.get("included_messages") == 13
+    assert counts["included_messages"] <= counts["available_messages"]
+
+
+@pytest.mark.asyncio
+async def test_empty_window_reports_zero_messages(monkeypatch, events):
+    """Пустое окно: `{0, 0, 0}` — честные нули, без «неизвестно»."""
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=[])
+    await svc.handle(bot, msg, user)
+
+    counts = _payload(events, turn_trace.EVENT_SELECTION).get("counts") or {}
+    assert counts == {"available_messages": 0, "included_messages": 0,
+                      "window_messages": 0}, counts
+
+
+@pytest.mark.asyncio
+async def test_window_60_without_pressure_counts_all(monkeypatch, events):
+    """Окно 60 без давления: `{60, 60, 60}` — прежние числа не изменились."""
+    rows = _plain_rows(60)
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=rows)
+    await svc.handle(bot, msg, user)
+
+    counts = _payload(events, turn_trace.EVENT_SELECTION).get("counts") or {}
+    assert counts == {"available_messages": 60, "included_messages": 60,
+                      "window_messages": 60}, counts
 
 
 def test_selection_within_limits_is_not_flagged_truncated():
