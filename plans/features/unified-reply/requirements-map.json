@@ -3,8 +3,9 @@
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
   "candidate_commit": "7cf8e1699d2a689c5a4249da9478ac4215e5701d",
-  "deployed_commit": "",
-  "candidate_note": "candidate_commit — последний проверенный кандидат среза UR-SRC-DATE: 7cf8e1699d2a689c5a4249da9478ac4215e5701d (ветка fix/search-source-dates, родитель 82d21889, база 92070d0e), ревью Approved с DONE на уровне строки UR-SRC-DATE. deployed_commit намеренно пуст: выкладка этого среза поставлена в очередь ПОСЛЕ идущего сейчас хотфикса, поэтому SHA развёртывания появится только после релиза — выкладка не заявлена и не предполагается.",
+  "deployed_commit": "77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7",
+  "deployed_release": "2.58.184",
+  "candidate_note": "candidate_commit — последний проверенный кандидат среза UR-SRC-DATE: 7cf8e1699d2a689c5a4249da9478ac4215e5701d (ветка fix/search-source-dates, родитель 82d21889, база 92070d0e), ревью Approved с DONE на уровне строки UR-SRC-DATE. deployed_commit — фактический выкат: 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7, ветка release/2.58.184 (релиз 2.58.184), собранный из 0fed584598cbf103017a401a117eee236e2be0e5 (2.58.183) переносом среза combined-diff'ом 92070d0e..7cf8e169 (продуктовый коммит 5e85f990). Это семантический перенос кандидата на релизную линию, а не равенство SHA: одиночный cherry-pick 7cf8e169 конфликтовал и терял импорт services.search_aggregator в direct_execution.py. Идентичность среза подтверждена побайтово по tests/test_search_source_dates.py (sha256 fa3e3cae…, как в кандидате); DDL нет (user_version=47 до и после); security-блобы (permissions.py, avatars.py, deps.py) и text_morphology.py/summary_memory.py/mca_retrieval_context.py не изменены относительно 0fed5845.",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-unified-reply",
@@ -2805,8 +2806,47 @@
           "artifact_path": "tests/test_search_source_dates.py",
           "artifact_sha256": "fa3e3cae73561a1e2c0f4061651483827e3dc6587699c5df2df613153002e2b7",
           "candidate_commit": "7cf8e1699d2a689c5a4249da9478ac4215e5701d"
+        },
+        {
+          "ref": "Выложено 2.58.184 @ 77a63bc5: на живой проде дата провайдера доходит до пака и до структурного поля, при отсутствии даты пак говорит об этом явно, выдуманных дат нет",
+          "observation": "Релиз 2.58.184, ветка release/2.58.184 @ 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (база 0fed5845, продуктовый коммит переноса 5e85f990), живой прод: /healthz -> 200 {\"status\":\"ok\",\"version\":\"2.58.184\"}, unit active, NRestarts=0, за 30 минут ни одной записи уровня err, Traceback/CRITICAL = 0, user_version=47. Срез перенесён combined-diff'ом 92070d0e..7cf8e169 (33 файла: 7 файлов среза, пины версии, meta реестра), DDL нет, security-блобы и text_morphology/summary_memory/mca_retrieval_context совпадают с 0fed5845. Наблюдения на реальных ответах провайдеров, полученные чтением поискового пути на выкаченном дереве: Exa (publishedDate отдаётся по умолчанию) — 47 записей, 3 с датой, каждая дата привязана к своему URL (vedomosti.ru, lenta.ru, rzn.info), агрегатный EvidenceSource.published_at пуст для многохитовой выдачи, пак печатает построчную формулировку и сами даты; Tavily (дату не отдаёт, запрос не менялся) — 70 блоков, 0 строк даты, строка пака: [ИСТОЧНИК 1 | execute_web_search | ok | дата публикации не сообщается источником]. Пункты (1)-(4) acceptance выполнены на выкаченном дереве.",
+          "type": "production",
+          "artifact_path": "plans/features/unified-reply/evidence/release-2.58.184-ur-src-date.md",
+          "artifact_sha256": "490fc5d685ee78d171659944f493a87312678560586513a76fe914ace2a27d1d",
+          "deployed_commit": "77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7",
+          "deployed_release": "2.58.184"
         }
       ],
+      "deployed_commit": "77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7",
+      "deployed_release": "2.58.184",
+      "deployment": {
+        "release": "2.58.184",
+        "deployed_commit": "77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7",
+        "branch": "release/2.58.184",
+        "release_base": "0fed584598cbf103017a401a117eee236e2be0e5",
+        "product_commit": "5e85f990",
+        "candidate_port": "combined diff 92070d0e..7cf8e169",
+        "port_note": "Одиночный cherry-pick 7cf8e169 конфликтовал (ours deleted / theirs modified) и терял импорт services.search_aggregator в services/direct_execution.py; перенос сделан combined-diff'ом по файлам среза без конфликтов.",
+        "delta": "33 файла = 7 файлов среза (services/search_aggregator.py, services/direct_execution.py, services/tool_router.py — компактор сохраняет дату отдельным полем, tests/test_search_source_dates.py, test_rlr_acceptance_rows, test_rlr_no_second_author, test_unified_reply_ur_b_search_first) + config/settings.py (APP_VERSION) + plans/docs/param-registry-round1025.meta.md + 24 пина версии в тестах",
+        "slice_test_identical_to_candidate": "tests/test_search_source_dates.py sha256 fa3e3cae73561a1e2c0f4061651483827e3dc6587699c5df2df613153002e2b7 (байт-в-байт с блобом кандидата)",
+        "ddl": "нет; user_version=47 до и после выката; данные релиз не пишет",
+        "unchanged_vs_release_base": [
+          "services/permissions.py e20d46eb",
+          "web/api/avatars.py 3b8be940",
+          "web/api/deps.py 509b387d",
+          "services/text_morphology.py 69775156",
+          "services/summary_memory.py 717236b5",
+          "services/mca_retrieval_context.py 259bc0b4"
+        ],
+        "postdeploy": "/healthz 200 version=2.58.184; unit active; NRestarts=0; 0 err-записей за 30 минут; 0 Traceback/CRITICAL; APP_VERSION 2.58.184; user_version=47",
+        "rollback": "git checkout 0fed584598cbf103017a401a117eee236e2be0e5 && systemctl restart admin_bot — схема и данные не меняются, откат безопасен",
+        "evidence_artifact": "plans/features/unified-reply/evidence/release-2.58.184-ur-src-date.md",
+        "evidence_sha256": "490fc5d685ee78d171659944f493a87312678560586513a76fe914ace2a27d1d",
+        "gate_artifact": "plans/features/unified-reply/evidence/gate-release-2.58.184-ur-src-date.txt",
+        "gate_sha256": "a078757afe1553c8b2c8dfd93fb4827e586672b73999b1a5261a2464a4b6b19c"
+      },
+      "live_check_note": "Живое подтверждение получено ЧТЕНИЕМ поискового пути на выкаченном дереве с реальными ответами провайдеров (Exa, Tavily), а не трафиком чатов: в окне выката пользовательских поисковых запросов не было, тестовых сообщений в Telegram не отправлялось. Это честное ограничение наблюдения, а не скрытая подмена: путь исполнялся на проде тем же кодом, что и в чате. Отсутствие дат у Tavily — документированное поведение провайдера (published_date приходит только по include_published_date/topic=news; этот флаг сознательно НЕ включён, чтобы не менять запрос и не добавлять сетевых вызовов на ход), поэтому в проде даты приходят в основном от Exa; на паке это честно выражается строкой «дата публикации не сообщается источником».",
+      "gate_result_2_58_184": "check --stage release --slice UR-SRC-DATE --candidate 7cf8e169 --deployed-commit 77a63bc5 --strict-evidence --repo <дерево выката release/2.58.184 @77a63bc5, где лежит tests/test_search_source_dates.py> => rc=1, stage=release inventory=206 manual=140 scoped=1 errors=68. Состав разобран полностью: 67 ошибок — открытые строки эпика в транзитивном замыкании зависимостей среза (UR-SRC-DATE -> UR-B, UR-C-CLOCK, они тянут UR-A и UR-C): UR-C 44, UR-C-CLOCK 10, UR-B 7, UR-A 6 — required со статусом PENDING и/или без candidate-bound evidence, т.е. честное состояние родительского эпика (scoped release != parent DONE); 1 ошибка — «deployed commit missing or differs from reviewed candidate», документированный структурный класс гейта (требует deployed == candidate, а здесь семантический перенос на релизную линию). Ошибок по самой строке UR-SRC-DATE нет: статус VERIFIED, candidate-bound evidence, существование артефакта и sha256 при strict-evidence, live-типизация, узел графа — чисто. Полный вывод (гейт печатает первые 50 ошибок): plans/features/unified-reply/evidence/gate-release-2.58.184-ur-src-date.txt, sha256 a078757afe1553c8b2c8dfd93fb4827e586672b73999b1a5261a2464a4b6b19c.",
       "design_boundary": "Сознательная граница среза: дата публикации, записанная в тексте источника БЕЗ распознанной метки-префикса, остаётся обычным текстом и по-прежнему может участвовать в проверке чисел. Это не дефект и не незакрытый пункт — см. notes.",
       "expected_evidence": [
         {
