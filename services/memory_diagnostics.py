@@ -54,6 +54,16 @@ _MEMORY_ERROR_EVENTS = (
     "persona_traits",
 )
 
+#: VMQ-MEM-TIME (§10): событие единого retrieval — источник покрытия выдачи по
+#: годам и причин исключения кандидатов (пишет `mca07_retrieval` через
+#: `mca_retrieval_context.emit_stage_event(usage_json=…)`).
+_RETRIEVAL_EVENT = "mca07_retrieval"
+#: Причины исключения (§10, порядок фиксирован контрактом): политика/квота →
+#: статус → давность → релевантность → бюджет.
+_RETRIEVAL_EXCLUSION_KEYS = ("policy_operative", "status", "expired",
+                             "relevance", "budget")
+_RETRIEVAL_SCAN_LIMIT = 500
+
 # Ключ флага → (hot/pg key, settings attribute).
 _FLAG_SPEC = {
     "graph_rag_enabled": ("flags.graph_rag_enabled", "GRAPH_RAG_ENABLED"),
@@ -805,6 +815,78 @@ async def _extract_usage(db, chat_id: int | None) -> dict:
     for key in keys:
         total[key] = sums[key] if (with_usage and key in seen) else None
     return {"last_terminal": last_terminal, "total": total}
+
+
+async def retrieval_year_coverage(db, *, chat_id: int | None = None,
+                                  limit: int = 200) -> dict:
+    """VMQ-MEM-TIME (§10): покрытие выдачи по годам и причины исключения.
+
+    Читает ТОЛЬКО durable-события `mca07_retrieval` (никаких новых таблиц):
+    `usage_json` = `{"policy": …, "years": {"2023": 2, …},
+    "excluded": {"status": n, …}}`, которые пишет единый retrieval.
+    Возвращает честный пустой конверт (`available=False`, `empty_reason`),
+    если событий/данных нет — нули вместо «нет данных» не выдумываются.
+    R17-safe: только политика/годы/числа.
+    """
+    events = await _fetchall(
+        db,
+        "SELECT ts, usage_json FROM mca_events WHERE event_name = ? "
+        "ORDER BY ts DESC, id DESC LIMIT ?",
+        [_RETRIEVAL_EVENT, max(1, int(limit))])
+    if not events:
+        return {"available": False, "events": 0, "empty_reason": "no_data",
+                "scanned": 0, "years": {}, "excluded": {}, "policy": {}}
+    years: dict = {}
+    excluded: dict = {}
+    policy: dict = {}
+    with_usage = 0
+    last_ts = None
+    for row in events:
+        usage = _usage_dict(row.get("usage_json"))
+        if usage is None:
+            continue
+        with_usage += 1
+        if last_ts is None:
+            last_ts = _int_or_none(row.get("ts"))
+        value = str(usage.get("policy") or "")
+        if value:
+            policy[value] = policy.get(value, 0) + 1
+        row_years = usage.get("years")
+        if isinstance(row_years, dict):
+            for year, count in row_years.items():
+                key = str(year)
+                if not key.isdigit():
+                    continue
+                number = _int_or_none(count)
+                if number is None:
+                    continue
+                years[key] = years.get(key, 0) + number
+        row_excluded = usage.get("excluded")
+        if isinstance(row_excluded, dict):
+            for reason, count in row_excluded.items():
+                key = str(reason)
+                if key not in _RETRIEVAL_EXCLUSION_KEYS:
+                    continue
+                number = _int_or_none(count)
+                if number is None:
+                    continue
+                excluded[key] = excluded.get(key, 0) + number
+    if not with_usage:
+        return {"available": False, "events": len(events),
+                "empty_reason": "usage_missing", "scanned": len(events),
+                "years": {}, "excluded": {}, "policy": {}}
+    return {
+        "available": True,
+        "events": len(events),
+        "scanned": len(events),
+        "with_usage": with_usage,
+        "last_event_at": last_ts,
+        "years": dict(sorted(years.items())),
+        "year_count": len(years),
+        "excluded": {key: excluded[key] for key in _RETRIEVAL_EXCLUSION_KEYS
+                     if key in excluded},
+        "policy": policy,
+    }
 
 
 async def _recent_error(db, chat_id: int | None) -> dict | None:

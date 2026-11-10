@@ -138,16 +138,16 @@ class TestFlagsAndInvariants:
     def test_catalog_invariants(self):
         from services import param_catalog as pc
         # Базовые числа round1026: 467/426/442/100/98/21 — эпик их не меняет.
-        assert len(pc.REGISTRY) == 638
+        assert len(pc.REGISTRY) == 643
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 467  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10; EVOL-032 §4.3: +3 VIDEO_INTENT_* (env-only общая конфигурация) ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10; EVOL-032 §4.3: +3 VIDEO_INTENT_* (env-only общая конфигурация) ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.181", APP_VERSION
+        assert APP_VERSION == "2.58.182", APP_VERSION
         assert "v2.58.34" in README, "README не синхронизирован"
-        assert 'APP_VERSION = "2.58.181"' in SETTINGS
+        assert 'APP_VERSION = "2.58.182"' in SETTINGS
 
     def test_zero_ddl(self):
         # Δ DDL = 0: никаких новых таблиц/миграций эпиком не добавляется.

@@ -912,19 +912,19 @@ class TestAdversarial:
 class TestBounds:
     def test_counts_sanctioned(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 638
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 467  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        assert len(pc.REGISTRY) == 643
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         # QND-NONDET (2.58.179, 10.11.2026): +32 ключа limits.qnd_* /
         # initiative.trigger_probability → categorized 580→612 (REGISTRY
         # 606→638 / GROUPS 119→121 / TAB 117→119; F8 переиздан в срезе).
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 612
+                    if s.category is not None]) == 617
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
 
     def test_version_unchanged(self):
-        assert APP_VERSION == "2.58.181"
+        assert APP_VERSION == "2.58.182"
 
     def test_canon_twelve_tools(self):
         assert len(TOOL_CALLING_TOOLS) == 16

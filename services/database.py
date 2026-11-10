@@ -12587,7 +12587,8 @@ class DatabaseService:
 
     async def get_user_context_facts(self, chat_id: int, target_user: str,
                                      limit: int, now_ts: int, *,
-                                     user_id: int | None = None) -> list:
+                                     user_id: int | None = None,
+                                     scope: str = "operative") -> list:
         """A6/ADR-1026-18 D4 (read-only): confirmed-факты участника с
         провенанс-метаданными для envelope `get_user_context` (sources/
         confidence §3.3/D4).
@@ -12595,12 +12596,30 @@ class DatabaseService:
         MCA-04a FIX п.2 (spec §4.6): субъект-scope по `subject_ref_id` вместо
         `target_user`-имени (устойчивый ID); legacy без `subject_ref_id` —
         по имени; `world_knowledge`/`bot_self_reply` исключены. Сортировка
-        `weight DESC, created_at DESC`. Только чтение."""
+        `weight DESC, created_at DESC`. Только чтение.
+
+        VMQ-MEM-TIME (§5, уточнение владельца 10.11.2026): `scope` —
+        `operative` (прежний SQL байт-в-байт: только действующее сейчас) или
+        `historical` (профиль строится из НЕСКОЛЬКИХ периодов истории).
+        Историческое чтение — одно чтение с оконной функцией SQLite
+        (`ROW_NUMBER() OVER (PARTITION BY год …)`): не более `limit//5`
+        строк на год, действующие строки впереди, год берётся из
+        `message_timestamp`/`created_at`, NULL-год — отдельная последняя
+        группа. `limit` НЕ растёт (бюджет envelope не расширяется),
+        вытесненные квотой `archived_fact` участвуют (квота — оперативный
+        набор, не граница истории). Старый SQLite без оконных функций →
+        тот же контракт детерминированно в Python (bounded-чтение, без
+        второго поиска).
+        """
         target = str(target_user or "").strip()
         if not target:
             return []
+        scope_kind = str(scope or "").strip().lower()
         scope, exclude, sparams = await self._person_scope_clause(
             chat_id, target, user_id=user_id)
+        if scope_kind == "historical":
+            return await self._user_context_facts_multiperiod(
+                int(chat_id), scope, exclude, sparams, int(limit), int(now_ts))
         cursor = await self.db.execute(
             "SELECT id, fact, origin, created_at, target_user, weight, status, "
             "last_confirmed_at, tg_message_id, message_timestamp, kind, "
@@ -12612,6 +12631,140 @@ class DatabaseService:
             "ORDER BY weight DESC, created_at DESC LIMIT ?",
             [int(chat_id), *sparams, int(now_ts), int(limit)])
         return [dict(row) for row in await cursor.fetchall()]
+
+    async def _user_context_facts_multiperiod(self, chat_id: int, scope: str,
+                                              exclude: str, sparams: list,
+                                              limit: int, now_ts: int) -> list:
+        """Профиль нескольких периодов + честный добор без привязки (§5).
+
+        Реальность архива (измерение на копии прод-БД 10.11.2026): старые
+        `confirmed`-факты импортированы (`origin='history_import'`) БЕЗ
+        `subject_ref_id`, `target_user`, `speaker_author_id` и
+        `tg_message_id` — привязать их к человеку нечем (нет ни ссылки на
+        сообщение, ни автора), и выдумывать принадлежность запрещено.
+
+        Поэтому: (1) строки субъекта (`subject_ref_id`/legacy `target_user`)
+        выдаются как раньше, `unattributed=0`; (2) свободные слоты
+        добираются историей ЧАТА за несколько периодов с пометкой
+        `unattributed=1` — потребитель обязан подать их как общий контекст
+        чата, а не как сведения о человеке. Оперативный режим не затрагивается.
+        """
+        limit = max(1, int(limit))
+        # Половина среза — собственные bound-факты субъекта (прежняя
+        # семантика чтения), остальное — периоды истории чата. Без деления
+        # bound-строки занимают весь срез (`bot_direct_reply` — самые
+        # «тяжёлые» по весу) и профиль снова схлопывается в один год.
+        person_slots = max(1, limit // 2)
+        rows = await self._user_context_facts_historical(
+            chat_id, scope, exclude, sparams, person_slots, now_ts)
+        for row in rows:
+            row["unattributed"] = 0
+        free = limit - len(rows)
+        if free <= 0:
+            return rows
+        extra = await self._user_context_facts_historical(
+            chat_id, "1=1", exclude, [], free, now_ts,
+            skip_ids={row.get("id") for row in rows})
+        for row in extra:
+            row["unattributed"] = 1
+        rows.extend(extra)
+        return rows
+
+    #: Поля envelope профиля, общие для оперативного и исторического чтения.
+    _USER_CONTEXT_COLUMNS = (
+        "id, fact, origin, created_at, target_user, weight, status, "
+        "last_confirmed_at, tg_message_id, message_timestamp, kind, "
+        "subject_ref_id, attribution_method, assertion_kind, "
+        "speaker_author_id, provenance_channel, expires_at")
+
+    async def _user_context_facts_historical(self, chat_id: int, scope: str,
+                                             exclude: str, sparams: list,
+                                             limit: int, now_ts: int,
+                                             *, skip_ids=None) -> list:
+        """Профиль из нескольких периодов: годовая квота `limit//5` (§5).
+
+        Годовая квота — ГАРАНТИЯ покрытия периодов, а не жёсткий срез: сначала
+        в выдачу идут первые `limit//5` строк каждого года, затем свободные
+        места добираются остальными строками (иначе профиль одного периода
+        схлопывался бы до 2 строк, теряя уже известные факты).
+
+        `skip_ids` — уже выданные строки (добор «непривязанной» истории не
+        повторяет факты субъекта).
+        """
+        limit = max(1, int(limit))
+        per_year = max(1, limit // 5)
+        skip_sql = ""
+        skip_params: list = []
+        if skip_ids:
+            ids = sorted({int(value) for value in skip_ids})
+            if ids:
+                skip_sql = " AND id NOT IN (" + ",".join("?" * len(ids)) + ")"
+                skip_params = ids
+        import sqlite3 as _sqlite3
+        year_expr = ("CAST(strftime('%Y', COALESCE(NULLIF(message_timestamp,0),"
+                     "NULLIF(created_at,0)),'unixepoch') AS INT)")
+        valid_now = ("CASE WHEN status='confirmed' "
+                     "AND (expires_at IS NULL OR expires_at > ?) "
+                     "THEN 1 ELSE 0 END")
+        columns = self._USER_CONTEXT_COLUMNS
+        # Порядок: сначала годовая доля (rn <= per_year), затем добор; внутри —
+        # действующие впереди, годы по убыванию, вес/время/id.
+        order = ("ORDER BY CASE WHEN rn <= ? THEN 0 ELSE 1 END, "
+                 "valid_now DESC, COALESCE(yr,0) DESC, rn")
+        if _sqlite3.sqlite_version_info >= (3, 25):
+            sql = (
+                "WITH cand AS ("
+                f"SELECT {columns}, {year_expr} AS yr, {valid_now} AS valid_now "
+                f"FROM graph_facts WHERE chat_id = ? AND {scope} AND {exclude}"
+                f"{skip_sql} "
+                "AND ((status='confirmed' AND (expires_at IS NULL "
+                "OR expires_at > ?)) OR status='archived_fact')), "
+                "ranked AS (SELECT *, ROW_NUMBER() OVER ("
+                "PARTITION BY COALESCE(yr,0) ORDER BY valid_now DESC, "
+                "weight DESC, "
+                "COALESCE(NULLIF(message_timestamp,0), created_at) DESC, "
+                "id DESC) AS rn FROM cand) "
+                f"SELECT * FROM ranked {order} LIMIT ?")
+            cursor = await self.db.execute(
+                sql, [int(now_ts), int(chat_id), *sparams, *skip_params,
+                      int(now_ts), int(per_year), int(limit)])
+            return [dict(row) for row in await cursor.fetchall()]
+        # Degraded (SQLite < 3.25 без оконных функций): тот же контракт —
+        # годовая доля и «действующее впереди» — детерминированно в Python
+        # поверх bounded-чтения. Второго поиска/новых таблиц нет.
+        sql = (
+            f"SELECT {columns}, {year_expr} AS yr, {valid_now} AS valid_now "
+            f"FROM graph_facts WHERE chat_id = ? AND {scope} AND {exclude}"
+            f"{skip_sql} "
+            "AND ((status='confirmed' AND (expires_at IS NULL "
+            "OR expires_at > ?)) OR status='archived_fact') "
+            "ORDER BY valid_now DESC, weight DESC, "
+            "COALESCE(NULLIF(message_timestamp,0), created_at) DESC, id DESC "
+            "LIMIT ?")
+        cursor = await self.db.execute(
+            sql, [int(now_ts), int(chat_id), *sparams, *skip_params,
+                  int(now_ts), int(per_year) * max(1, limit)])
+        rows = [dict(row) for row in await cursor.fetchall()]
+        rank_by_year: dict = {}
+        for row in rows:
+            key = int(row.get("yr") or 0)
+            rank_by_year[key] = rank_by_year.get(key, 0) + 1
+            row["rn"] = rank_by_year[key]
+        ordered: list = []
+        for quota_pass in (True, False):
+            for valid in (1, 0):
+                for key in sorted(rank_by_year, reverse=True):
+                    for row in rows:
+                        if int(row.get("yr") or 0) != key:
+                            continue
+                        if int(row.get("valid_now") or 0) != valid:
+                            continue
+                        if (row["rn"] <= per_year) != quota_pass:
+                            continue
+                        ordered.append(row)
+                        if len(ordered) >= limit:
+                            return ordered
+        return ordered
 
     async def get_persona_names(self, chat_id: int, now_ts: int) -> list:
         """66.9: /persona list (только админ) — имена + счётчики прямых фактов

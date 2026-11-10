@@ -198,7 +198,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # сигналом поиска оставалась runtime-политика. Прежние байты —
     # PREV_DIRECT_L1_PLANNER_EVR3. Правила/участие/внешние утверждения/профиль
     # решений и тексты владельца не менялись.
-    "direct.base.l1_planner": "l1-planner-source-facts",
+    "direct.base.l1_planner": "l1-planner-memory-scope",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -397,8 +397,8 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "direct.base.l2_writer": ("l2-writer-self-correction-rca1",
                               "44736968bc76"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
-    "direct.base.l1_planner": ("l1-planner-source-facts",
-                               "2354a5cc57c4"),
+    "direct.base.l1_planner": ("l1-planner-memory-scope",
+                               "619290834387"),
     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
@@ -2933,7 +2933,12 @@ def factory_set_fingerprint() -> str:
 #: §2, метка ``initiative-observer-memory-recall``, печать ``108f277a466f``).
 #: Прочие 110 канонов, включая пользовательские тексты, байт-в-байт.
 #: Было ``b4e8b3569ab2``, стало ``011c83dfac95``.
-FACTORY_SET_SHA256_12 = "1532c9480cd5"
+#: VMQ-MEM-TIME (§2, 10.11.2026): changed = 1 — ``direct.base.l1_planner``
+#: получил необязательное поле политики памяти ``memory_scope`` в схеме и
+#: абзац его контракта (метка ``l1-planner-memory-scope``, печать
+#: ``619290834387``); прочие каноны, включая тексты владельца, байт-в-байт.
+#: Было ``011c83dfac95``, стало ``ae40ca11c77b``.
+FACTORY_SET_SHA256_12 = "ae40ca11c77b"
 
 
 

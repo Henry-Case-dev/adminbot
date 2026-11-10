@@ -930,6 +930,184 @@ def _fact_statuses(include_archived: bool) -> tuple:
     return _ARCHIVAL_FACT_STATUSES if include_archived else _LIVE_FACT_STATUSES
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# VMQ-MEM-TIME (§1–§4, уточнение владельца 10.11.2026): политика временнóго
+# охвата. Три РАЗДЕЛЬНЫХ свойства факта, ни одно из которых не подменяет
+# другое:
+#   * H (историческая значимость) = cosine(query, факт) × важность.
+#     Возраст и статус в H НЕ входят: старый факт не становится «незначимым».
+#   * R (фактическая достоверность) = вес × provenance. `archived_fact`
+#     (вытеснение квотой) НЕ понижает R: квота — не ложность, не
+#     неподтверждённость и не устаревание.
+#   * V (актуальность сейчас) = булев `status='confirmed' AND (expires_at пуст
+#     OR expires_at > now)`. V НЕ множитель H: он выбирает политику, служит
+#     tie-window и as-of пометкой («актуально / архив, год»).
+# Квота активных фактов остаётся ОПЕРАТИВНЫМ набором, а не границей доступной
+# истории: при `historical|auto` в пул входят и вытесненные квотой факты.
+# Никаких списков слов/регулярок года здесь нет — политику задаёт L1.
+MEMORY_POLICIES = ("operative", "historical", "auto")
+_HISTORICAL_POLICIES = frozenset({"historical", "auto"})
+#: Окно неразличимости (§3): при |Δ(H×R)| меньше окна предпочитается
+#: действующий сегодня факт. Это tie-break, а не штраф значимости.
+_POLICY_TIE_WINDOW = 0.05
+#: Соответствие provenance-класса (существующий `graphrag_provenance`)
+#: множителю R. Статус строки в нём НЕ участвует (см. R выше).
+_PROVENANCE_RELIABILITY = {
+    "confident": 1.0,
+    "tentative": 0.85,
+    "legacy_unverified": 0.7,
+}
+
+
+def _memory_policy(value) -> str:
+    """Политика из закрытого набора (§2); мусор/отсутствие → `auto`."""
+    candidate = str(value or "").strip().lower()
+    return candidate if candidate in MEMORY_POLICIES else "auto"
+
+
+def _row_val(row, key: str, default=None):
+    """Поле строки graph_facts (dict/sqlite3.Row/двойник) без исключений."""
+    try:
+        if isinstance(row, dict):
+            return row.get(key, default)
+        return row[key]
+    except Exception:
+        return default
+
+
+def _fact_valid_now(row, now: int) -> bool:
+    """V (§1): факт подтверждён И не истёк на момент `now`."""
+    if str(_row_val(row, "status") or "") != "confirmed":
+        return False
+    expires_at = _row_val(row, "expires_at")
+    if expires_at in (None, ""):
+        return True
+    try:
+        return int(expires_at) > int(now)
+    except (TypeError, ValueError):
+        return True
+
+
+def _reliability_factor(row) -> float:
+    """R-компонент provenance (§1). `archived_fact`/`expired` его НЕ понижают."""
+    try:
+        from services import graphrag_provenance as _prov
+        origin_class = _prov.classify_fact_provenance(row)
+    except Exception:
+        return _PROVENANCE_RELIABILITY["legacy_unverified"]
+    return float(_PROVENANCE_RELIABILITY.get(
+        str(origin_class or ""), _PROVENANCE_RELIABILITY["legacy_unverified"]))
+
+
+def _significance(cosine, row) -> float:
+    """H (§1): смысловая значимость факта для запроса. Возраста/статуса нет."""
+    try:
+        value = float(cosine)
+    except (TypeError, ValueError):
+        value = 0.0
+    return value * _importance_factor(_row_importance(row))
+
+
+def _policy_score(significance: float, row, now: int, policy: str) -> float:
+    """score = H × R (§3). Для `operative` H×R не используется — там
+    действует прежняя формула (вызывающий сохраняет её байт-в-байт)."""
+    weight = _effective_weight(_row_val(row, "weight"),
+                               _row_val(row, "last_confirmed_at"), now,
+                               policy=policy)
+    return float(significance) * float(weight) * _reliability_factor(row)
+
+
+def _policy_order(entries: list) -> list:
+    """Порядок исторической/автоматической политики (§3).
+
+    Основной ключ — H×R. Затем ОДНА стабильная проходка снизу вверх: в
+    пределах окна неразличимости действующий (V=1) поднимается выше
+    исторического. Это tie-window, а не штраф значимости: за пределами окна
+    порядок остаётся смысловым, а сравнение не становится нетранзитивным.
+    """
+    ordered = sorted(entries,
+                     key=lambda entry: float(entry.get("score") or 0.0),
+                     reverse=True)
+    for pos in range(len(ordered) - 1, 0, -1):
+        below, above = ordered[pos], ordered[pos - 1]
+        if not bool(below.get("valid")) or bool(above.get("valid")):
+            continue
+        delta = abs(float(above.get("score") or 0.0)
+                    - float(below.get("score") or 0.0))
+        if delta < _POLICY_TIE_WINDOW:
+            ordered[pos - 1], ordered[pos] = below, above
+    return ordered
+
+
+def _apply_policy_guarantees(chosen: list, ordered: list, slots: int,
+                             policy: str) -> list:
+    """Гарантии/страховки политики на ИТОГОВОМ составе (§4).
+
+    * `historical` — минимум `HIST_MIN_SLOTS = max(1, slots//5)` исторических
+      (V=0) записей, и только если кандидат не слабее
+      `HIST_REL_FLOOR × max(H среди V=1)`; иначе 0 (честно пусто, без подмены).
+    * `auto` — потолок `HIST_MAX_SHARE` от вытеснения актуального состояния
+      (правило вытеснения по H×R уже обеспечено порядком).
+    Заменяются только САМЫЕ СЛАБЫЕ слоты; порядок остальных сохраняется.
+    """
+    policy = _memory_policy(policy)
+    limit = max(1, int(slots or 1))
+    chosen = [fid for fid in (chosen or ())]
+    if policy == "operative" or not ordered:
+        return chosen[:limit]
+    by_fid = {entry["fid"]: entry for entry in ordered}
+    valid_by_fid = {entry["fid"]: bool(entry.get("valid"))
+                    for entry in ordered}
+    if policy == "historical":
+        min_slots = max(1, limit // 5)
+        floor = float(hot.get("limits.graph_hist_rel_floor",
+                              settings.GRAPH_HIST_REL_FLOOR) or 0.0)
+        best_valid = max((float(entry.get("significance") or 0.0)
+                          for entry in ordered if entry.get("valid")),
+                         default=0.0)
+        qualifying = [entry["fid"] for entry in ordered
+                      if not entry.get("valid")
+                      and float(entry.get("significance") or 0.0)
+                      >= floor * best_valid]
+        have = sum(1 for fid in chosen if not valid_by_fid.get(fid, True))
+        for fid in qualifying:
+            if have >= min_slots:
+                break
+            if fid in chosen:
+                continue
+            victim = next((f for f in reversed(chosen)
+                           if valid_by_fid.get(f)), None)
+            if victim is None:
+                break                     # действующих слотов нет — уже 0
+            chosen[chosen.index(victim)] = fid
+            have += 1
+        return chosen[:limit]
+    share = float(hot.get("limits.graph_hist_max_share",
+                          settings.GRAPH_HIST_MAX_SHARE) or 0.0)
+    cap = max(0, min(limit, int(limit * share)))
+    historic = [fid for fid in chosen if not valid_by_fid.get(fid, True)]
+    if len(historic) > cap:
+        drop = set(historic[cap:])
+        backfill = [entry["fid"] for entry in ordered
+                    if entry.get("valid") and entry["fid"] not in chosen]
+        chosen = [fid for fid in chosen if fid not in drop]
+        for fid in backfill:
+            if len(chosen) >= limit:
+                break
+            chosen.append(fid)
+    return chosen[:limit]
+
+
+def _select_by_policy(ordered: list, slots: int, policy: str) -> list:
+    """Срез политики: порядок `ordered` + гарантии/страховки (§4)."""
+    limit = max(0, int(slots))
+    ordered = list(ordered or ())
+    if limit <= 0 or not ordered:
+        return []
+    head = [entry["fid"] for entry in ordered[:limit]]
+    return _apply_policy_guarantees(head, ordered, limit, policy)
+
+
 # §11 «Повторяемость уже использованного воспоминания»: bounded-штраф
 # релевантности факту, недавно ПОДАВАВШЕМУСЯ в контекст ответов. Не удаление
 # и не обнуление: потолок штрафа сопоставим с существующими expired/belief-
@@ -945,23 +1123,43 @@ _RAG_USAGE_MAX_CHATS = 64            # вытеснение в process-local к�
 _RAG_USAGE_MAX_PER_CHAT = 512
 
 
-def _effective_weight(weight, confirmed_at, now: int) -> float:
+def _effective_weight(weight, confirmed_at, now: int, *,
+                      policy: str = "operative") -> float:
     """66.3 (T-481): w_eff = weight × 0.5^(Δдней/half_life) от last_confirmed_at;
     floor GRAPH_TIME_DECAY_FLOOR. Decay — ТОЛЬКО множитель ранга при чтении
-    (ничего не удаляется). Выключатель → weight как есть."""
-    if not hot.get("flags.graph_time_decay_enabled", settings.GRAPH_TIME_DECAY_ENABLED):
-        return float(weight or 0.5)
+    (ничего не удаляется). Выключатель → weight как есть.
+
+    VMQ-MEM-TIME (§1/§3, уточнение владельца 10.11.2026): полураспад и пол —
+    ТОЛЬКО оперативная политика («что действует сейчас»). Для
+    `historical`/`auto` возрастной член перестаёт быть множителем
+    значимости: остаётся ограниченный tie-break свежести
+    `weight × (1 − FRESH_TIEBREAK × min(1, возраст/HORIZON))` (≤ 5 %), который
+    не способен перевесить разницу смысловой значимости. `operative` —
+    байт-в-байт прежняя формула.
+    """
+    if _memory_policy(policy) == "operative":
+        if not hot.get("flags.graph_time_decay_enabled", settings.GRAPH_TIME_DECAY_ENABLED):
+            return float(weight or 0.5)
+        if confirmed_at is None:
+            confirmed_at = now
+        days = max(0.0, (now - confirmed_at) / 86400.0)
+        # N2: half_life в знаменателе — 0/NULL не даёт ZeroDivisionError (max 1)
+        half_life = max(1.0, hot.get(
+            "limits.graph_time_decay_half_life_days",
+            settings.GRAPH_TIME_DECAY_HALF_LIFE_DAYS) or 1.0)
+        w_eff = float(weight or 0.5) * (0.5 ** (days / half_life))
+        # N4: floor — or 0 по смыслу (пол не может быть None)
+        return max(hot.get("limits.graph_time_decay_floor",
+                           settings.GRAPH_TIME_DECAY_FLOOR) or 0.0, w_eff)
     if confirmed_at is None:
         confirmed_at = now
     days = max(0.0, (now - confirmed_at) / 86400.0)
-    # N2: half_life в знаменателе — 0/NULL не даёт ZeroDivisionError (max 1)
-    half_life = max(1.0, hot.get(
-        "limits.graph_time_decay_half_life_days",
-        settings.GRAPH_TIME_DECAY_HALF_LIFE_DAYS) or 1.0)
-    w_eff = float(weight or 0.5) * (0.5 ** (days / half_life))
-    # N4: floor — or 0 по смыслу (пол не может быть None)
-    return max(hot.get("limits.graph_time_decay_floor",
-                       settings.GRAPH_TIME_DECAY_FLOOR) or 0.0, w_eff)
+    tiebreak = float(hot.get("limits.graph_hist_fresh_tiebreak",
+                             settings.GRAPH_HIST_FRESH_TIEBREAK) or 0.0)
+    horizon = max(1, int(hot.get("limits.graph_hist_horizon_days",
+                                 settings.GRAPH_HIST_HORIZON_DAYS) or 1))
+    freshness = tiebreak * min(1.0, days / float(horizon))
+    return float(weight or 0.5) * max(0.0, 1.0 - freshness)
 
 
 def _cosine(a, b) -> float:
@@ -1570,6 +1768,8 @@ def build_fts_query(keywords: list[str], mode: str = "prefix_or") -> str:
     MCA-15 (T-4926, ADR-1028-12 D1) добавляет аддитивные режимы измерения:
     ``exact_phrase`` (quoted-фраза), ``token`` (точный токен), ``prefix``
     (явный префикс ``"term"*``), ``all_terms`` (AND), ``any_terms`` (OR).
+    VMQ-MEM-TIME (решение 11.11.2026) — ``prefix_or_stem``: те же префиксы
+    плюс префикс основы слова (``search_aggregator.stem_word``).
     Один сборщик — второго FTS-механизма нет. ``prefix`` — совпадение по
     префиксу, НЕ морфологический анализ (unicode61 без стемминга).
 
@@ -1592,6 +1792,21 @@ def build_fts_query(keywords: list[str], mode: str = "prefix_or") -> str:
         return " AND ".join(f'"{kw}"' for kw in cleaned)
     if mode == "prefix":
         return " OR ".join(f'"{kw}"*' for kw in cleaned)
+    if mode == "prefix_or_stem":
+        # VMQ-MEM-TIME (решение 11.11.2026): прежние префиксы ПЛЮС префикс
+        # основы слова по существующим таблицам словоизменения
+        # (`search_aggregator.stem_word`). Аддитивный режим: FTS5 без
+        # стемминга находил «колбас*», но не «колбасой»; здесь форма
+        # запроса и форма в тексте сводятся к одной основе. Списков
+        # годов/периодов нет — обобщаются обычные словоформы.
+        from services.search_aggregator import stem_word
+        terms: list[str] = []
+        for kw in cleaned:
+            terms.append(f'"{kw}"*')
+            stem = stem_word(kw)
+            if stem and stem != kw.lower():
+                terms.append(f'"{stem}"*')
+        return " OR ".join(terms)
     if mode != "prefix_or":
         logger.warning("build_fts_query: unknown mode — prefix_or | mode=%r",
                        mode)
@@ -5590,7 +5805,9 @@ class MemoryManager:
     async def retrieve_fact_candidates(self, chat_id, query, *,
                                        limit=None, include_direct_reply=False,
                                        include_self=False,
-                                       include_archived=False) -> list:
+                                       include_archived=False,
+                                       policy: str = "operative",
+                                       stats: dict | None = None) -> list:
         """MCA-07 (T-3844): кандидаты-факты со стабильным `id` и источником
         (единый retrieval-контракт). REUSE `_search_graph_facts(with_meta=True)`
         — второго retrieval НЕ создаётся. Возвращает список dict:
@@ -5601,7 +5818,15 @@ class MemoryManager:
         MEMORY-06 (§4.4/§7.1): `include_archived` — ТОЛЬКО явный исторический
         путь (обычные reply/initiative/context читают live-набор). Default
         False: неразрушающе вытесненные квотой факты (`archived_fact`) в
-        обычную выдачу не попадают."""
+        обычную выдачу не попадают.
+
+        VMQ-MEM-TIME (§2/§3): `policy` — закрытая политика временнóго охвата
+        (`operative|historical|auto`, нормализуется на сервере). Для
+        `historical|auto` пул включает `archived_fact` (квота — оперативный
+        набор, не граница истории), а возраст не является множителем
+        значимости. `stats` — необязательный приёмник счётчиков исключений
+        (квота/статус/давность) для наблюдаемости; текстов фактов в нём нет.
+        """
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return []
         try:
@@ -5612,7 +5837,8 @@ class MemoryManager:
                 chat_id, str(query or ""), limit,
                 include_direct_reply=include_direct_reply,
                 include_self=include_self, with_meta=True,
-                include_archived=bool(include_archived))
+                include_archived=bool(include_archived),
+                policy=policy, stats=stats)
         except Exception:
             logger.warning(
                 "graphrag retrieval: fact candidates failed — empty | "
@@ -5849,7 +6075,9 @@ class MemoryManager:
                                   include_direct_reply=False,
                                   include_self=False,
                                   with_meta: bool = False,
-                                  include_archived: bool = False) -> list:
+                                  include_archived: bool = False,
+                                  policy: str = "operative",
+                                  stats: dict | None = None) -> list:
         """[(origin, fact, rag_ts, target_user), ...]. Vec-путь: _ensure_vec_retry
         (55.8) → KNN (66.6: int8-coarse → float-реранк; 66.8: MMR); фейл
         embed/vec → FTS-фолбек. Epic 50 (58.8, D206): default — фильтр origin=
@@ -5874,7 +6102,8 @@ class MemoryManager:
                         chat_id, vectors[0], limit,
                         include_direct_reply=include_direct_reply,
                         include_self=include_self, with_meta=with_meta,
-                        include_archived=include_archived)
+                        include_archived=include_archived,
+                        policy=policy, stats=stats)
                     if rows:
                         return rows
             except Exception as exc:
@@ -5899,10 +6128,13 @@ class MemoryManager:
         match_query = build_fts_query(keywords)
         if not match_query:
             return []
+        policy = _memory_policy(policy)
+        historical = policy in _HISTORICAL_POLICIES
         rows = await self.db.search_graph_facts_fts(
             chat_id, match_query, limit * 2, now,
             include_direct_reply=include_direct_reply,
-            include_self=include_self, include_archived=include_archived)
+            include_self=include_self,
+            include_archived=bool(include_archived or historical))
         # 66.3 (T-481): время-взвешивание в Python (SQL-ранг не меняем);
         # стабильная сортировка — равные w_eff сохраняют FTS-порядок.
         # B4-1 (F5, ADR-1018-5 D7): × ограниченный множитель importance, чтобы
@@ -5935,6 +6167,15 @@ class MemoryManager:
         expired_row_ids = {r["id"] for r in expired_rows}
 
         def _base_rank_key(r):
+            if historical:
+                # VMQ-MEM-TIME (§3): в исторической/автоматической политике
+                # score = H × R: смысл × вес×provenance. Возрастной множитель
+                # не участвует, статус `archived_fact` не штрафуется (квота —
+                # не ложность); FTS-путь не даёт cosine — H = важность
+                # (нейтральный смысловой множитель), решение о составе
+                # остаётся за релевантностью FTS-ранга выше.
+                return _policy_score(_importance_factor(_row_importance(r)),
+                                     r, now, policy)
             base = (_effective_weight(r["weight"], r["last_confirmed_at"],
                                       now)
                     * _importance_factor(_row_importance(r)))
@@ -6045,7 +6286,9 @@ class MemoryManager:
                                include_direct_reply=False,
                                include_self=False,
                                with_meta: bool = False,
-                               include_archived: bool = False) -> list:
+                               include_archived: bool = False,
+                               policy: str = "operative",
+                               stats: dict | None = None) -> list:
         """KNN-путь GraphRAG (55.6) + Epic 60:
         - 66.6 (T-484): int8-coarse (k = fetch_k×4) → реранк точной cosine по
           float-колонке → top-fetch_k; float-only — точный MATCH (как раньше);
@@ -6056,11 +6299,35 @@ class MemoryManager:
         P0-квота: статус-фильтр выдачи — live-набор (`confirmed` +
         `archived_belief`); `include_archived=True` (историческое/архивное
         чтение) дополнительно допускает неразрушающе вытесненные квотой
-        `archived_fact` (с тем же архивным пенальти). Default False —
-        обычный RAG архивных фактов не видит."""
+        `archived_fact`. Default False — обычный RAG архивных фактов не видит.
+
+        VMQ-MEM-TIME (§1/§3/§4): `policy` — закрытая политика охвата.
+        `operative` — прежняя формула байт-в-байт (V=1 и полураспад 60 дн.).
+        `historical|auto` — score = H × R (H = cosine × важность, R = вес ×
+        provenance), пул `confirmed|archived_belief|archived_fact`, возраст не
+        множитель, V — tie-window (0.05) и as-of пометка, подбор доказательств
+        адаптивный (`_select_by_policy`). `stats` — приёмник счётчиков
+        исключений (квота/статус/давность/бюджет), только числа.
+        """
         now = int(time.time())
-        fetch_k = (max(limit, (hot.get("limits.graph_mmr_fetch_k", settings.GRAPH_MMR_FETCH_K) or 0))
-                   if hot.get("flags.graph_mmr_enabled", settings.GRAPH_MMR_ENABLED) else limit * 2)
+        policy = _memory_policy(policy)
+        historical = policy in _HISTORICAL_POLICIES
+        mmr_on = bool(hot.get("flags.graph_mmr_enabled",
+                              settings.GRAPH_MMR_ENABLED))
+        if historical:
+            # §3: архивные факты участвуют наравне — пул шире, чтобы
+            # исторические кандидаты вообще дошли до отбора (квота 50 не
+            # растёт: это только размер просмотра, не набор памяти).
+            hist_k = int(hot.get("limits.graph_mmr_fetch_k_historical",
+                                 settings.GRAPH_MMR_FETCH_K_HISTORICAL) or 0)
+            mr_k = int(hot.get("limits.graph_mmr_fetch_k",
+                               settings.GRAPH_MMR_FETCH_K) or 0)
+            fetch_k = max(int(limit), hist_k, int(limit) * 3)
+            if mmr_on:
+                fetch_k = max(fetch_k, mr_k)
+        else:
+            fetch_k = (max(limit, (hot.get("limits.graph_mmr_fetch_k", settings.GRAPH_MMR_FETCH_K) or 0))
+                       if mmr_on else limit * 2)
         ranked = await self._vec_candidates(
             chat_id, vector, fetch_k, include_direct_reply, now,
             include_self=include_self)
@@ -6069,13 +6336,29 @@ class MemoryManager:
         # берём confirmed + archived_belief (unconfirmed/legacy отбрасываем),
         # архивным даём пенальти к score и воскрешаем при пробитии порога.
         # P0-квота: 'archived_fact' в live-набор НЕ входит (обычная выдача его
-        # не возвращает); только явный archival-режим (include_archived=True).
-        statuses = _fact_statuses(include_archived)
+        # не возвращает); только явный archival-режим (include_archived=True)
+        # или историческая/автоматическая политика (VMQ-MEM-TIME §3).
+        statuses = _fact_statuses(bool(include_archived or historical))
         records = await self.db.get_graph_fact_records(
             [fid for fid, _, _ in ranked]) if ranked else []
         # dict (не sqlite3.Row): ниже помечаем воскрешённые статусы локально.
         by_id = {r["id"]: dict(r) for r in records
                  if str(r["status"] or "") in statuses}
+        if stats is not None:
+            # §10: причины исключения — по одному первому применимому коду
+            # (policy → status), только числа, без текстов фактов.
+            present = {int(r["id"]): str(r["status"] or "") for r in records}
+            for fid, _cosine, _vec in ranked:
+                status = present.get(int(fid))
+                if status is None:
+                    continue
+                if int(fid) in by_id:
+                    continue
+                if status == "archived_fact" and not historical:
+                    stats["policy_operative"] = (stats.get(
+                        "policy_operative") or 0) + 1
+                else:
+                    stats["status"] = (stats.get("status") or 0) + 1
         # B03.2 (v6.3): fresh-first исчерпан → по необходимости дополняем
         # архивными (истёкшими) со снижением trust: отдельная expired-only
         # стадия KNN (chat-scope сохранён), пенальти к score, пометка
@@ -6121,20 +6404,34 @@ class MemoryManager:
             settings.BELIEF_RESONANCE_THRESHOLD) or 0.78)
         cosine_by_id: dict = {}
         base_score_by_id: dict = {}
+        policy_entry_by_id: dict = {}
         sims: list = []
         for fid, cosine, vec in ranked:
             row = by_id.get(fid)
             if row is None:
                 continue
-            w_eff = _effective_weight(row["weight"], row["last_confirmed_at"], now)
-            # B4-1 (F5, ADR-1018-5 D7): × ограниченный множитель importance
-            # (meta imp=1 не доминирует в KNN-выборке при прочих равных).
-            score = cosine * w_eff * _importance_factor(_row_importance(row))
-            if str(row["status"] or "") in ("archived_belief",
-                                            "archived_fact"):
-                # P0-квота: вытесненный квотой факт в archival-режиме —
-                # ниже живых (история, не текущее знание).
-                score -= penalty
+            if historical:
+                # §3: score = H × R. Возраст не множитель, `archived_fact`
+                # не понижает R; существующий belief-пенальти остаётся
+                # ТОЛЬКО для `archived_belief` (убеждение — не факт).
+                significance = _significance(cosine, row)
+                score = _policy_score(significance, row, now, policy)
+                if str(row["status"] or "") == "archived_belief":
+                    score -= penalty
+                policy_entry_by_id[fid] = {
+                    "fid": fid, "score": float(score),
+                    "valid": _fact_valid_now(row, now),
+                    "significance": float(significance)}
+            else:
+                w_eff = _effective_weight(row["weight"], row["last_confirmed_at"], now)
+                # B4-1 (F5, ADR-1018-5 D7): × ограниченный множитель importance
+                # (meta imp=1 не доминирует в KNN-выборке при прочих равных).
+                score = cosine * w_eff * _importance_factor(_row_importance(row))
+                if str(row["status"] or "") in ("archived_belief",
+                                                "archived_fact"):
+                    # P0-квота: вытесненный квотой факт в archival-режиме —
+                    # ниже живых (история, не текущее знание).
+                    score -= penalty
             # P0-HA RELEVANCE (§11, правка ревью #2): bounded-штраф повторных
             # подач НЕ входит в selection-score — состав выдачи определяет
             # базовый penalty-free ранг (H24 при конкуренции); штраф
@@ -6146,14 +6443,26 @@ class MemoryManager:
         # (свежие подтверждённые данные всегда впереди архивных при прочих
         # равных; конфликт/неуверенность видны по пометке в выдаче).
         for fid, (row, cosine) in expired_by_id.items():
-            w_eff = _effective_weight(row["weight"], row["last_confirmed_at"],
-                                      now)
-            score = (cosine * w_eff
-                     * _importance_factor(_row_importance(row))
-                     - expired_penalty)
-            if str(row["status"] or "") in ("archived_belief",
-                                            "archived_fact"):
-                score -= penalty
+            if historical:
+                # §1: истёкший TTL — это V=0 (as-of пометка), а не штраф
+                # значимости: H×R не уменьшается за давность.
+                significance = _significance(cosine, row)
+                score = _policy_score(significance, row, now, policy)
+                if str(row["status"] or "") == "archived_belief":
+                    score -= penalty
+                policy_entry_by_id[fid] = {
+                    "fid": fid, "score": float(score),
+                    "valid": _fact_valid_now(row, now),
+                    "significance": float(significance)}
+            else:
+                w_eff = _effective_weight(row["weight"], row["last_confirmed_at"],
+                                          now)
+                score = (cosine * w_eff
+                         * _importance_factor(_row_importance(row))
+                         - expired_penalty)
+                if str(row["status"] or "") in ("archived_belief",
+                                                "archived_fact"):
+                    score -= penalty
             # P0-HA RELEVANCE (§11, правка ревью #2): тот же перенос штрафа
             # подач из selection-score в пост-селекционный порядок (симметрично
             # свежей части), только passive direct-доставка (include_self=True).
@@ -6163,9 +6472,35 @@ class MemoryManager:
             sims.append((fid, score, None))
         if not sims:
             return []
-        mmr_on = bool(hot.get("flags.graph_mmr_enabled",
-                              settings.GRAPH_MMR_ENABLED))
-        if mmr_on:
+        if historical:
+            if stats is not None:
+                chosen_ids = {fid for fid, _, _ in sims}
+                for fid, (row, _cosine) in expired_by_id.items():
+                    if fid not in chosen_ids:
+                        stats["expired"] = (stats.get("expired") or 0) + 1
+            # §4: адаптивный подбор — политический порядок (V как tie-window),
+            # затем MMR диверсифицирует УЖЕ упорядоченную выборку (λ не
+            # меняется), затем гарантии/страховки применяются к ИТОГОВОМУ
+            # составу (иначе срез top-limit вытеснял бы историю целиком).
+            ordered_entries = _policy_order(list(policy_entry_by_id.values()))
+            shortlist_k = max(int(limit), min(int(fetch_k),
+                                             len(ordered_entries)))
+            shortlist = [entry["fid"] for entry in ordered_entries[:shortlist_k]]
+            rank_by_fid = {fid: pos for pos, fid in enumerate(shortlist)}
+            sims = [s for s in sims if s[0] in rank_by_fid]
+            sims.sort(key=lambda s: rank_by_fid[s[0]])
+            if len(sims) > int(limit) and mmr_on:
+                if any(vec is None for _, _, vec in sims):
+                    sims = await self._attach_vectors(sims)
+                chosen = _mmr_select(
+                    sims, limit,
+                    (hot.get("limits.graph_mmr_lambda",
+                             settings.GRAPH_MMR_LAMBDA) or 0))
+            else:
+                chosen = [s[0] for s in sims[:int(limit)]]
+            chosen = _apply_policy_guarantees(chosen, ordered_entries,
+                                              int(limit), policy)
+        elif mmr_on:
             if any(vec is None for _, _, vec in sims):
                 sims = await self._attach_vectors(sims)
             chosen = _mmr_select(sims, limit, (hot.get("limits.graph_mmr_lambda", settings.GRAPH_MMR_LAMBDA) or 0))

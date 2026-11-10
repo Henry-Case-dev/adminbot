@@ -1328,6 +1328,11 @@ class ToolContext:
         # effective_limit/source/used/truncated/why/retrievable_remainder.
         # Out-of-band (в модельный ввод не сериализуется), R17-safe.
         self.evidence_limits: list[dict] = []
+        # VMQ-MEM-TIME (§2): политика временнóго охвата памяти из плана L1
+        # (`operative|historical|auto`; "" — план не давал значения, тогда
+        # действует серверный `auto`). Аддитивное поле, читается профилем и
+        # обзором памяти; второй meanings-канал не создаётся.
+        self.memory_scope = ""
 
     def result_for(self, tool_name: str) -> dict | None:
         """A2 (ADR-1026-15 D1/D6): последний envelope-результат инструмента.
@@ -3708,7 +3713,8 @@ class ToolRouter:
                                      channels=None,
                                      participants=(),
                                      include_relations: bool = False,
-                                     preserve_channel_order: bool = True):
+                                     preserve_channel_order: bool = True,
+                                     memory_scope: str | None = None):
         """MEMORY-06 (§4.4/§7.5): ЕДИНСТВЕННОЕ чтение памяти lookup-ветки.
 
         Все шесть purpose (`identity`/`appearance`/`speech_style`/
@@ -3765,13 +3771,43 @@ class ToolRouter:
                 scope=("participants" if uids else "auto"),
                 participants=uids,
                 preserve_channel_order=bool(preserve_channel_order),
-                include_relations=bool(include_relations))
+                include_relations=bool(include_relations),
+                # VMQ-MEM-TIME (§5): профиль человека строится из нескольких
+                # периодов; identity/внешность/речь/связи — действующие
+                # сведения. Явное «сейчас» от L1 понижает и профиль.
+                memory_scope=self._memory_lookup_scope(
+                    ctx, purpose, memory_scope))
             return await _rc.retrieve(db, memory, request)
         except Exception:
             logger.warning("[tools] unified memory retrieval failed | "
                            "purpose=%s | chat=%s", purpose,
                            getattr(ctx, "chat_id", None))
             return None
+
+    #: VMQ-MEM-TIME (§5): purpose, чей профиль строится из НЕСКОЛЬКИХ
+    #: периодов истории человека (`biography`/общий обзор). Identity,
+    #: внешность, речь и связи — действующие сведения (`operative`).
+    _MEMORY_SCOPE_HISTORY_PURPOSES = frozenset({"biography", "general"})
+
+    @classmethod
+    def _memory_lookup_scope(cls, ctx, purpose: str,
+                             memory_scope: str | None = None) -> str:
+        """Политика охвата памяти для профиля (§5), закрытый набор.
+
+        Источник — `L1Plan.memory_scope` (через `ToolContext`), нормализация
+        серверная: явное `operative` («что сейчас») понижает и профиль,
+        `historical` не понижается, отсутствие/мусор → `auto` (по существу).
+        Никаких словарных триггеров года.
+        """
+        if str(purpose or "") not in cls._MEMORY_SCOPE_HISTORY_PURPOSES:
+            return "operative"
+        value = str(memory_scope or getattr(ctx, "memory_scope", "") or "")
+        value = value.strip().lower()
+        if value == "operative":
+            return "operative"
+        if value == "historical":
+            return "historical"
+        return "auto"
 
     @staticmethod
     def _memory_lookup_row_get(row, key: str, default=None):
@@ -3990,17 +4026,49 @@ class ToolRouter:
             return None
 
     def _memory_lookup_fact_item(self, row: dict) -> dict:
-        """graph_facts-строка → факт envelope (per-fact confidence/source)."""
+        """graph_facts-строка → факт envelope (per-fact confidence/source).
+
+        VMQ-MEM-TIME (§6): аддитивные поля `status`, `valid_now`, `as_of_year`
+        — Writer (и человек) видит, историчность это или действующее
+        сведение. Промпты не меняются: маркировка живёт в данных, как
+        «(не подтверждено)». `confidence` — по R (вес+provenance), статус
+        `archived_fact` её НЕ понижает (квота ≠ ложность).
+        """
         weight = row.get("weight")
+        status = str(row.get("status") or "")
+        now = int(time.time())
+        expires_at = row.get("expires_at")
+        valid_now = status == "confirmed"
+        if valid_now and expires_at not in (None, ""):
+            try:
+                valid_now = int(expires_at) > now
+            except (TypeError, ValueError):
+                valid_now = True
+        ts = row.get("message_timestamp") or row.get("created_at")
+        as_of_year = None
+        try:
+            if ts:
+                as_of_year = datetime.datetime.fromtimestamp(
+                    int(ts), datetime.timezone.utc).year
+        except (TypeError, ValueError, OSError, OverflowError, AttributeError):
+            as_of_year = None
         return {
             "text": str(row.get("fact") or "").strip(),
             "confidence": self._memory_lookup_conf_label(
-                str(row.get("status") or ""), weight),
+                status, weight),
             "weight": float(weight) if weight is not None else None,
             "time": int(row.get("message_timestamp")
                         or row.get("created_at") or 0) or None,
             "source_id": resolve_item_id(
                 tg_message_id=row.get("tg_message_id"), fact_id=row.get("id")),
+            "status": status,
+            "valid_now": bool(valid_now),
+            "as_of_year": as_of_year,
+            # VMQ-MEM-TIME (§5, блокер 3 ре-ревью 10.11.2026): строка —
+            # исторический контекст ЧАТА без привязки к субъекту (архив
+            # импортирован без `subject_ref_id`/`target_user`/автора).
+            # `True` = это НЕ сведение о названном человеке.
+            "unattributed": bool(row.get("unattributed")),
         }
 
     def _memory_lookup_source_item(self, row: dict) -> dict:
@@ -4056,11 +4124,19 @@ class ToolRouter:
 
     @staticmethod
     def _memory_lookup_dossier_extra(facts) -> dict:
-        """Reuse `format_dossier_block` для компактного рендера фактов."""
+        """Reuse `format_dossier_block` для компактного рендера фактов.
+
+        VMQ-MEM-TIME (§5, ре-ревью 10.11.2026): строки с `unattributed`
+        (история ЧАТА, не привязанная к субъекту) в досье НЕ попадают.
+        Досье — компактная сводка О ЧЕЛОВЕКЕ; даже помеченная строка внутри
+        него читается как сведение о нём, поэтому такой факт остаётся только
+        в `facts` и в RAG-блоке (где несёт «(общий контекст чата)»).
+        """
         try:
             from services.dossier_prompts import format_dossier_block
             texts = [str(f.get("text") or "") for f in facts
-                     if str(f.get("text") or "").strip()]
+                     if isinstance(f, dict) and not f.get("unattributed")
+                     and str(f.get("text") or "").strip()]
             block = format_dossier_block(texts, [],
                                          _MEMORY_LOOKUP_RESULT_MAX_CHARS)
         except Exception:
@@ -4097,8 +4173,15 @@ class ToolRouter:
 
     @staticmethod
     def _memory_lookup_conf_label(status, weight) -> str:
-        """graph_facts.status+weight → confirmed/likely/unconfirmed (D4)."""
-        if str(status or "").strip().lower() != "confirmed":
+        """graph_facts.status+weight → confirmed/likely/unconfirmed (D4).
+
+        VMQ-MEM-TIME (§6): `archived_fact` (вытеснение квотой) — не признак
+        недостоверности: достоверность считается из веса и provenance, статус
+        квоты в неё не входит. `valid_now`/`as_of_year` несут историчность
+        отдельными полями.
+        """
+        if str(status or "").strip().lower() not in ("confirmed",
+                                                     "archived_fact"):
             return "unconfirmed"
         try:
             value = float(weight) if weight is not None else None

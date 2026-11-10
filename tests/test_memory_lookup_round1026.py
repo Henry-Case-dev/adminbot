@@ -249,7 +249,7 @@ class TestContract:
             f.name for f in dataclasses.fields(Settings)}
         # P0-FACTCHECK §6.3 (FC-06C, round 10.48): 587 → 586 (−2 мёртвых
         # TTL-ключа TEMPORAL_FRESHNESS_*, кеш вердиктов удалён W1).
-        assert len(pc.REGISTRY) == 638
+        assert len(pc.REGISTRY) == 643
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
@@ -709,3 +709,71 @@ class _OneCallLLM:
 
     async def generate(self, messages, **kwargs):
         return "plain"
+
+
+class TestUnattributedChatContext:
+    """Ре-ревью 10.11.2026: история ЧАТА не подаётся как знание о человеке.
+
+    Досье — компактная сводка О ЧЕЛОВЕКЕ, поэтому строка с `unattributed` в
+    него не попадает вовсе: даже помеченная строка внутри досье читается как
+    сведение о нём. В RAG-блоке тот же факт остаётся — но с пометкой
+    «(общий контекст чата)», чтобы не выдаваться за знание о человеке.
+    """
+
+    @staticmethod
+    def _rows():
+        bound = fact_row("Лёха работает программистом", fid=1)
+        chat_ctx = fact_row("Ярик работает смотрителем зоопарка с аллигаторами",
+                            fid=2, target="", created_at=1700000000)
+        chat_ctx["unattributed"] = 1
+        return bound, chat_ctx
+
+    @pytest.mark.asyncio
+    async def test_dossier_excludes_unattributed_fact(self):
+        bound, chat_ctx = self._rows()
+        router = make_router(db=FakeDb(facts=[bound, chat_ctx]),
+                             aliases=FakeAliases({"5": "Лёха"}))
+        out = payload(await call(router, {"person": "Лёха",
+                                         "purpose": "biography"}))
+        dossier = str(out.get("dossier") or "")
+        assert "программистом" in dossier, dossier
+        assert "аллигатор" not in dossier, dossier
+        # Сам факт в envelope остаётся — но с пометкой «без привязки».
+        marked = [f for f in out["facts"] if f.get("unattributed")]
+        assert marked, out["facts"]
+        assert any("аллигатор" in f["text"] for f in marked), marked
+
+    @pytest.mark.asyncio
+    async def test_rag_block_keeps_same_fact_with_marker(self, monkeypatch):
+        from services import direct_chat_service as dcs
+
+        class _Hot:
+            def get(self, key, default=None):
+                if key == "flags.graph_rag_enabled":
+                    return True
+                if key.startswith("limits."):
+                    return default
+                return False
+
+        async def _no_chat_param(*_args, **_kwargs):
+            return None
+
+        class _Msg:
+            text = "что ты знаешь про Лёху?"
+
+        monkeypatch.setattr(dcs, "hot", _Hot())
+        monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
+        bound, chat_ctx = self._rows()
+        rows = [dcs.DirectChatService._rag_meta_from_record(row, row["id"],
+                                                            position, 10)
+                for position, row in enumerate((bound, chat_ctx))]
+        service = dcs.DirectChatService(memory=object(), db=None, llm=None,
+                                        aliases=None)
+
+        async def fake_rows(*_args, **_kwargs):
+            return rows
+
+        monkeypatch.setattr(service, "_rag_unified_rows", fake_rows)
+        block, _hint = await service._build_rag_block(-100, _Msg(), "")
+        assert "аллигатор" in block, block
+        assert "(общий контекст чата)" in block, block

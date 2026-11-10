@@ -277,9 +277,10 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
     # ASAP-FC-VOICE-01 / B: + одно правило статуса секции [ПРОФИЛЬ РЕШЕНИЙ].
     # UNIFIED-REPLY UR-06/UR-03: + ось поиска (суффикс + две строки в схеме).
     # RLR-03.3: + поле preserve_source_facts (суффикс + строка в схеме).
-    assert canon == ((evr0 + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
-                      + cp._DIRECT_L1_TWO_PHASE_EVR2
-                      + cp._DIRECT_L1_DECISION_PROFILE_EVR3).replace(
+    # VMQ-MEM-TIME (§2): + поле memory_scope (суффикс + строка в схеме).
+    evr5 = ((evr0 + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
+             + cp._DIRECT_L1_TWO_PHASE_EVR2
+             + cp._DIRECT_L1_DECISION_PROFILE_EVR3).replace(
         ' "recheck": false}',
         ' "recheck": false,\n'
         ' "knowledge_origin": "",\n'
@@ -289,6 +290,12 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
         ' "search_intent": "",\n'
         ' "preserve_source_facts": false}', 1) \
         + cp._DIRECT_L1_SOURCE_FACTS_EVR5
+    assert cp.PREV_DIRECT_L1_PLANNER_EVR5 == evr5
+    assert canon == evr5.replace(
+        ' "preserve_source_facts": false}',
+        ' "preserve_source_facts": false,\n'
+        ' "memory_scope": "auto"}', 1) \
+        + cp._DIRECT_L1_MEMORY_SCOPE_EVR6
     assert len(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == 9750
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == "422e9d73d316"
     assert _sha12(prev5) == "902dd00edf52"
@@ -300,31 +307,34 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
     # слепок EVR2 = ровно байты прода 2.58.148 (09f3d533d173).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR2) == "09f3d533d173"
     # UNIFIED-REPLY UR-06/UR-03: слепок EVR3 = прежние активные байты
-    # (ef61a9dd6798), новые байты — с осью поиска (2354a5cc57c4).
+    # (ef61a9dd6798), новые байты — с осью поиска (619290834387).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
-    assert _sha12(canon) == "2354a5cc57c4"
+    assert _sha12(canon) == "619290834387"
     steps = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     assert steps[prev5] == canon
     assert steps[cp.PREV_DIRECT_L1_PLANNER_EVR0] == canon
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    # RLR-03.3: верхняя ступень снимает ТОЛЬКО поле preserve_source_facts →
-    # байты EVR4.
-    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_EVR4)
+    # VMQ-MEM-TIME (§2): верхняя ступень снимает ТОЛЬКО поле memory_scope →
+    # байты EVR5.
+    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_EVR5)
+    # RLR-03.3: затем снимается ТОЛЬКО поле preserve_source_facts → байты EVR4.
+    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR5,
+                           cp.PREV_DIRECT_L1_PLANNER_EVR4)
     # UNIFIED-REPLY UR-06/UR-03: затем снимается ось поиска → байты EVR3
     # (правило профиля решений).
-    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR4,
+    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR4,
                            cp.PREV_DIRECT_L1_PLANNER_EVR3)
     # ASAP-FC-VOICE-01 / B: затем снимается правило профиля решений → байты
     # прода 2.58.148 (EVR2).
-    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR3,
+    assert rollback[3] == (cp.PREV_DIRECT_L1_PLANNER_EVR3,
                            cp.PREV_DIRECT_L1_PLANNER_EVR2)
     # EVOL W17: затем снимается контракт двух фаз → байты 2.58.147.
-    assert rollback[3] == (cp.PREV_DIRECT_L1_PLANNER_EVR2,
+    assert rollback[4] == (cp.PREV_DIRECT_L1_PLANNER_EVR2,
                            cp.PREV_DIRECT_L1_PLANNER_EVR1)
-    assert rollback[4] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
+    assert rollback[5] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
                            cp.PREV_DIRECT_L1_PLANNER_EVR0)
-    assert rollback[5] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
-    assert rollback[6] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
+    assert rollback[6] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
+    assert rollback[7] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
     assert pr.is_known_canon(prev5)
 
 
@@ -485,7 +495,7 @@ def test_labels_and_fingerprint_after_bump():
     # RC v5 (2.58.155, ревью 04.11.2026): L2-писатель получил метку
     # l2-writer-self-correction-rca1 (44736968bc76) — прежняя
     # l2-writer-evidence-discipline осталась в слепке PREV_CHAT_VERBALIZER_EVR1.
-    assert "l1-planner-source-facts" in pr.factory_revision(
+    assert "l1-planner-memory-scope" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "toolphase-runtime-evidence" in pr.factory_revision(
         "direct.base.tool_phase")

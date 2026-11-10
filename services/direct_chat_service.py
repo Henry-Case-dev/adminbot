@@ -984,7 +984,12 @@ def _evidence_certainty(row) -> str:
     """MEMORY-06 (§7.2): честная пометка достоверности для evidence summary.
 
     Архивный (вытесненный квотой) факт, архивное убеждение и legacy-факт без
-    provenance не выдаются за подтверждённое знание — только текст-маркер."""
+    provenance не выдаются за подтверждённое знание — только текст-маркер.
+
+    VMQ-MEM-TIME (§6): V=0 по истечении TTL (`status='confirmed'`, но
+    `expires_at <= now`) — тоже «архивный факт»: историю нельзя подать как
+    действующую. Механизм существующий — расширён только предикат V.
+    """
     def _get(key):
         try:
             return row[key]
@@ -996,6 +1001,13 @@ def _evidence_certainty(row) -> str:
         return "archive"
     if status == "archived_belief":
         return "assumption"
+    expires_at = _get("expires_at")
+    if status == "confirmed" and expires_at not in (None, ""):
+        try:
+            if int(expires_at) <= int(time.time()):
+                return "archive"
+        except (TypeError, ValueError):
+            pass
     if _get("subject_ref_id") in (None, ""):
         return "unconfirmed"
     return ""
@@ -2473,6 +2485,16 @@ class DirectChatThrottle:
 
 _RAG_UNCONFIRMED_MARK = "(не подтверждено) "
 _RAG_TENTATIVE_MARK = "(предположение) "
+#: VMQ-MEM-TIME (§6): as-of метка исторического факта в `<RAG_Memory>` —
+#: та же пометка В ДАННЫХ (промпты не меняются), по прецеденту
+#: «(не подтверждено)». Год берётся из времени самой строки факта.
+_RAG_ARCHIVE_MARK = "(архив, %s) "
+_RAG_ARCHIVE_MARK_NOYEAR = "(архив) "
+#: VMQ-MEM-TIME (§5, блокер 3 ре-ревью 10.11.2026): исторический факт,
+#: добытый профилем БЕЗ привязки к субъекту (архив импортирован без
+#: `subject_ref_id`/`target_user`/автора). Помечается в данных, чтобы такой
+#: факт не читался как сведение о названном человеке.
+_RAG_UNATTRIBUTED_MARK = "(общий контекст чата) "
 
 
 def _rag_row_get(row, key: str, default=None):
@@ -2574,19 +2596,120 @@ def _rag_item_key(item) -> object:
         return None
 
 
-def _mark_rag_fact(item, ranks: dict):
+def _mark_rag_fact(item, ranks: dict, as_of: dict | None = None,
+                   unattributed: set | None = None):
     """Пометка достоверности строки RAG (§23): rank 3 → без изменений;
     rank 2 → «предположение»; rank 0/1 (legacy/conflicting) → «не
     подтверждено». Применяется ПОСЛЕ дедупа/реранка и ДО рендера (текст
-    факта уже не участвует в сравнениях с фоном)."""
-    rank = ranks.get(_rag_item_key(item))
-    if rank is None or rank >= 3:
+    факта уже не участвует в сравнениях с фоном).
+
+    VMQ-MEM-TIME (§6): `as_of` — карта актуальности (`{key: (valid_now,
+    год)}`) из `_rag_as_of_map`. Строка с V=0 (архивный по квоте или
+    истёкший TTL факт) получает ПРЕФИКС «(архив, YYYY)» — Writer не может
+    подать историю как действующее. Пометки аддитивны и не меняют текст
+    факта; неизвестная актуальность (двойник без статуса) не метится.
+
+    VMQ-MEM-TIME (§5, блокер 3): `unattributed` — набор ключей истории чата,
+    добытой профилем без привязки к субъекту; такая строка помечается
+    «(общий контекст чата)», чтобы не читаться как сведение о человеке.
+    """
+    key = _rag_item_key(item)
+    rank = ranks.get(key)
+    mark = ""
+    if as_of:
+        info = as_of.get(key)
+        if info is not None and not info[0]:
+            year = info[1]
+            mark = (_RAG_ARCHIVE_MARK % int(year)) if year \
+                else _RAG_ARCHIVE_MARK_NOYEAR
+    if unattributed and key in unattributed:
+        mark += _RAG_UNATTRIBUTED_MARK
+    if rank is not None and rank < 3:
+        mark += _RAG_TENTATIVE_MARK if rank == 2 else _RAG_UNCONFIRMED_MARK
+    if not mark:
         return item
-    mark = _RAG_TENTATIVE_MARK if rank == 2 else _RAG_UNCONFIRMED_MARK
     try:
         return (item[0], f"{mark}{item[1]}") + tuple(item[2:])
     except (TypeError, IndexError):
         return item
+
+
+def _rag_row_year(row) -> int | None:
+    """Год строки-кандидата direct-RAG (§3/§5): `rag_ts` → UTC-год."""
+    if not isinstance(row, dict):
+        return None
+    ts = (row.get("message_timestamp") or row.get("created_at")
+          or row.get("rag_ts"))
+    try:
+        if not ts:
+            return None
+        return datetime.datetime.fromtimestamp(
+            int(ts), datetime.timezone.utc).year
+    except (TypeError, ValueError, OSError, OverflowError):
+        return None
+
+
+def _rag_unattributed_keys(rows: list) -> set:
+    """Ключи строк истории чата без привязки к субъекту (§5, блокер 3)."""
+    out: set = set()
+    for row in rows or ():
+        if not isinstance(row, dict) or not row.get("unattributed"):
+            continue
+        out.add(row.get("item_id") or (row.get("origin"), row.get("fact")))
+    return out
+
+
+def _rag_period_keys(rows: list) -> set:
+    """Ключи строк, добранных политикой охвата (`period_fill`, §5).
+
+    Такой материал выбран ПОЛИТИКОЙ (другой период), а не релевантностью,
+    поэтому реранк релевантности не вправе его отбросить: иначе добор
+    retrieval не доживает до блока (решение архитектора 10.11.2026)."""
+    out: set = set()
+    for row in rows or ():
+        if not isinstance(row, dict) or not row.get("period_fill"):
+            continue
+        out.add(row.get("item_id") or (row.get("origin"), row.get("fact")))
+    return out
+
+
+def _rag_as_of_map(rows: list) -> dict:
+    """V/as-of по кандидатам RAG: `{key: (valid_now, год|None)}` (§6).
+
+    V = `status='confirmed' AND (expires_at пуст OR expires_at > now)` —
+    тот же предикат, что у политики памяти (не второй механизм). Год —
+    из `message_timestamp`/`created_at` САМОЙ строки факта, UTC. Строка без
+    объявленного статуса (совместимый двойник) считается актуальной и не
+    метится — неизвестность не выдаётся за архив.
+    """
+    out: dict = {}
+    now = int(time.time())
+    for row in rows or ():
+        if not isinstance(row, dict):
+            continue
+        key = row.get("item_id") or (row.get("origin"), row.get("fact"))
+        status = str(row.get("status") or "")
+        ts = (row.get("message_timestamp") or row.get("created_at")
+              or row.get("rag_ts"))
+        year = None
+        try:
+            if ts:
+                year = datetime.datetime.fromtimestamp(
+                    int(ts), datetime.timezone.utc).year
+        except (TypeError, ValueError, OSError, OverflowError, AttributeError):
+            year = None
+        if not status:
+            out[key] = (True, year)
+            continue
+        expires = row.get("expires_at")
+        expired = False
+        if expires not in (None, ""):
+            try:
+                expired = int(expires) <= now
+            except (TypeError, ValueError):
+                expired = False
+        out[key] = (status == "confirmed" and not expired, year)
+    return out
 
 
 # ── ASAP-EVIDENCE-ROUTING-01 v3 (§1.3/§1.5): сбор входов runtime-политики ────
@@ -4020,6 +4143,11 @@ class DirectChatService:
             # работает существующий on-demand захват инструмента).
             history_sample = await self._capture_turn_history_sample(
                 chat_id, query)
+            # VMQ-MEM-TIME (§2, блокер 1 ре-ревью 10.11.2026): блок памяти
+            # собирается здесь, ДО плана L1 (он нужен самому L1). Контекст
+            # пересборки запоминается, чтобы после плана отдать блоку
+            # политику охвата, не повторяя остальную сборку.
+            _rag_ctx: dict = {}
             user_blocks = await self._build_user_content(
                 chat_id, message, target_name,
                 target_user_id=(user_id or None),
@@ -4027,7 +4155,8 @@ class DirectChatService:
                 style_directives=style_directives,
                 extra_media_markers=_extra_media_markers,
                 history_sample=history_sample,
-                projection=_speech_projection)
+                projection=_speech_projection,
+                out_rag_ctx=_rag_ctx)
             # Медиа-свидетельство актуальной ревизии — отдельным блоком payload
             # (данные, не инструкции); без связанного медиа блок не создаётся.
             user_blocks = self._insert_media_evidence(
@@ -4782,6 +4911,14 @@ class DirectChatService:
                 # текст хода не отправляется (см. гейт перед доставкой).
                 # Единый признак хода: его читают и обработчики ошибок (B2).
                 _image_delivery["delivered"] = True
+            # ── VMQ-MEM-TIME (§2, блокер 1 ре-ревью 10.11.2026): политика
+            # охвата памяти из плана L1 доезжает до САМОГО блока памяти.
+            # До этой точки блок собран с серверным `auto`; если план выбрал
+            # другую политику (`operative`/`historical`), блок пересобирается
+            # тем же чтением и заменяется на месте. План `auto` — работы нет.
+            if _rag_ctx:
+                user_blocks = await self._apply_plan_memory_scope(
+                    user_blocks, _rag_ctx, l1_plan)
             # ── SOUL-1 (W2, §4 п.1 + §5): при флаге ON весь system
             # собирается композером из тех же блоков и ровно один раз:
             # channel_contract → core → identity → lessons/style → plan.
@@ -4926,6 +5063,12 @@ class DirectChatService:
             # сигнал (глобальной блокировки инструментов НЕТ).
             tool_ctx.stats_intent = str(
                 getattr(_stats_intent, "intent", "") or "")
+            # VMQ-MEM-TIME (§2, уточнение владельца 10.11.2026): политика
+            # временнóго охвата памяти из ТОГО ЖЕ плана L1 доступна tool-фазе
+            # (профиль/обзор памяти). Это единственный allowlisted-сигнал
+            # смысла запроса — новых списков слов/года нет.
+            tool_ctx.memory_scope = str(
+                getattr(l1_plan, "memory_scope", "") or "")
             if history_sample is not None:
                 # P0-HA SEGMENTS (архконтракт §0): выборка хода на tool_ctx
                 # (setattr, не новый обязательный аргумент __init__) —
@@ -8461,7 +8604,9 @@ class DirectChatService:
                                   style_directives: str = "",
                                   extra_media_markers: tuple = (),
                                   history_sample: dict | None = None,
-                                  projection=None
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None
                                   ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
@@ -8535,9 +8680,23 @@ class DirectChatService:
         # помечается баннером (источник не выключается, метки остаются).
         rag_block, nostalgia_hint = await self._build_rag_block(
             chat_id, message, global_ctx, history_sample=history_sample,
-            projection=projection)
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id)
         if rag_block:
             blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (§2, блокер 1 ре-ревью 10.11.2026): блок памяти
+            # собран ДО плана L1 (он нужен самому L1). Здесь запоминается
+            # ровно то, что нужно, чтобы ПОСЛЕ плана пересобрать ОДИН этот
+            # блок с политикой из плана; остальная сборка не повторяется.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
         if composer_mode:
             # <Global_Context> materializируется композером из частей
             # (head=P2 / middle=P3 / tail=P1) на слоте global.
@@ -12106,8 +12265,31 @@ class DirectChatService:
     #: сохраняется (`preserve_channel_order`), т.к. принятый контракт — именно
     #: KNN/MMR-порядок, а не типизированный ранг.
     _RAG_FACT_CHANNELS = ("vector",)
+    #: VMQ-MEM-TIME (§3/§5; блокер 2 ре-ревью 10.11.2026): для
+    #: `historical`/`auto` payload обязан ДОХОДИТЬ до известного старого
+    #: факта, который уже есть в пуле. Один `vector`-канал этого не умеет:
+    #: на реальном архиве он отдаёт 2024–2026 и не отдаёт найденный по
+    #: тексту факт 2023. Добор делает существующий `lexical`-канал
+    #: (`graph_facts_fts` того же слоя) ОТДЕЛЬНЫМ bounded-вызовом того же
+    #: `retrieve`, поэтому порядок основного среза не меняется.
+    _RAG_PERIOD_CHANNELS = ("lexical",)
+    #: Пул периодного вызова (VMQ-MEM-TIME, замер 11.11.2026). Канал
+    #: `lexical` — единственный, но внутри него сначала идут СООБЩЕНИЯ, затем
+    #: факты, и срез `top_k=limit` заполняется сообщениями: на копии прода при
+    #: `limit=10` до фактов доходило 5 строк, известный факт 2023 (FTS-rank
+    #: 3–7) в них не попадал. Поэтому периодный вызов просит пул ×2 (bounded,
+    #: не зависит от корпуса) — состав каналов не меняется.
+    _RAG_PERIOD_POOL_FACTOR = 2
+    #: Сколько слотов среза может занять материал ДРУГОГО периода
+    #: (`limit // N`). Это периодное разнообразие, а не квота памяти: при
+    #: `limit=10` — максимум 2 строки, поэтому вопрос о текущем состоянии
+    #: остаётся доминированным текущим годом (≥80 %).
+    _RAG_PERIOD_SLOT_DIV = 5
 
-    async def _rag_unified_rows(self, chat_id: int, query: str, message):
+    async def _rag_unified_rows(self, chat_id: int, query: str, message,
+                                memory_scope: str | None = None,
+                                subject_name: str | None = None,
+                                subject_uid: int | None = None):
         """MEMORY-06 (§7.5): отбор фактов direct-RAG через ЕДИНЫЙ `retrieve`.
 
         Возвращает кандидатов в прежней форме `get_rag_facts(with_meta=True)`
@@ -12122,7 +12304,22 @@ class DirectChatService:
         строки отобранных фактов (`RetrievalResult.fact_rows`) — отдельного
         чтения по id здесь нет. Вся принятая приёмка direct-RAG
         (self-origin-фильтр, дедуп против фона, реранк, graph-активация,
-        «золотые», ASC-хронология, капы) остаётся в `_build_rag_block`."""
+        «золотые», ASC-хронология, капы) остаётся в `_build_rag_block`.
+
+        VMQ-MEM-TIME (§3/§5, блокер 2 ре-ревью 10.11.2026): набор каналов
+        зависит от политики.
+
+        * `operative` — прежний `("vector",)` байт-паритет: один вызов, тот
+          же состав/порядок (текущее состояние вопроса).
+        * `historical`/`auto` — основной срез строится ТЕМ ЖЕ вызовом (канал
+          `vector`, порядок сохранён), после чего в свободные слоты
+          добирается материал ДРУГОГО периода: (1) `lexical`-канал того же
+          `retrieve` (`graph_facts_fts`), (2) профиль субъекта из
+          существующего чтения `get_user_context_facts` (строки без
+          привязки помечены `unattributed`). Добор ограничен
+          `limit // _RAG_PERIOD_SLOT_DIV` слотами и берёт только годы, которых
+          в срезе ещё нет, — поэтому состав основного среза не меняется, а
+          вопрос о текущем состоянии остаётся доминированным текущим годом."""
         try:
             memory = getattr(self, "memory", None)
             db = getattr(self, "db", None)
@@ -12137,32 +12334,168 @@ class DirectChatService:
                                  settings.GRAPH_RAG_FACTS_LIMIT) or 0)
             if limit <= 0:
                 return None
-            request = _mca_rc.RetrievalRequest(
-                chat_id=int(chat_id), query=str(query or ""),
-                mode="specific", purpose="reply", top_k=limit,
-                # Граф ответов и эпизоды — другие сегменты контекста; здесь
-                # нужен только фактический набор.
-                trigger_ref=None, reply_depth=0, scope="auto",
-                channels=self._RAG_FACT_CHANNELS,
-                preserve_channel_order=True,
-                include_self=True, include_direct_reply=True)
-            result = await _mca_rc.retrieve(db, memory, request)
-            rows = []
-            for position, row in enumerate(
-                    getattr(result, "fact_rows", ()) or ()):
-                fact_id = _rag_row_get(row, "id")
-                try:
-                    fact_id = int(fact_id)
-                except (TypeError, ValueError):
-                    continue
-                rows.append(self._rag_meta_from_record(row, fact_id,
-                                                       position, limit))
-            return rows
+            policy = _mca_rc._mc.normalize_memory_scope(
+                memory_scope if memory_scope is not None else "auto").value
+            base = await self._rag_retrieve(
+                db, memory, chat_id, query, self._RAG_FACT_CHANNELS,
+                limit, policy)
+            if policy == "operative":
+                return self._rag_rows_from_result(base, limit)
+            rows = self._rag_rows_from_result(base, limit)
+            if policy == "historical":
+                period_slots = max(1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
+            else:
+                # `auto` = L1 не принял решения. Периодный добор включается,
+                # только когда собственный срез уже содержателен (не меньше
+                # половины лимита фактов, не являющихся прошлыми ответами
+                # бота): иначе один старый факт стал бы главным источником
+                # ответа на текущий вопрос. Потолок тот же, что у
+                # `historical` (`limit // 5`): при 8 текущих строках это
+                # ровно 20 % среза, т.е. ≥80 % остаётся текущим годом
+                # (замер 11.11.2026: со слотом 1 в `auto` второй недостающий
+                # период не помещался и известный факт 2023 не доходил).
+                usable = sum(1 for row in rows
+                             if not _prov.is_self_referential_origin(
+                                 row.get("origin")))
+                if usable < max(1, int(limit) // 2):
+                    return rows
+                period_slots = max(1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
+            # Слоты под ДРУГОЙ период резервируются только в пробной копии:
+            # если добрать нечего, состав среза остаётся прежним (паритет
+            # принятой выдачи direct-RAG).
+            trimmed = rows[:max(1, int(limit) - period_slots)]
+            # (1) периодный добор из того же retrieval: старый факт, который
+            #     найден по тексту, но не попал в срез основного канала.
+            #     VMQ-MEM-TIME (решение 11.11.2026): словоформа вопроса и
+            #     словоформа в старом тексте сводятся к одной основе
+            #     (`lexical_stem`), и вытесненные квотой `archived_fact`
+            #     тоже видны (`include_archived`) — иначе импорт 2023 года
+            #     недостижим вовсе.
+            extra = await self._rag_retrieve(
+                db, memory, chat_id, query, self._RAG_PERIOD_CHANNELS,
+                limit * self._RAG_PERIOD_POOL_FACTOR, policy,
+                lexical_stem=True,
+                include_archived=policy in ("historical", "auto"))
+            trial = self._rag_append_period_rows(
+                trimmed, self._rag_rows_from_result(extra, limit), limit,
+                slots=period_slots)
+            # (2) периодный добор из профиля субъекта (без привязки —
+            #     помечается `unattributed`, чтобы не читалось как сведение
+            #     о человеке).
+            trial = await self._rag_append_profile_rows(
+                db, trial, chat_id, subject_name, subject_uid, limit)
+            return trial if len(trial) > len(trimmed) else rows
         except Exception:
             logger.warning(
                 "direct: unified rag retrieval failed — legacy read | chat=%s",
                 chat_id, exc_info=True)
             return None
+
+    @staticmethod
+    async def _rag_retrieve(db, memory, chat_id: int, query: str, channels,
+                            limit: int, policy: str, *,
+                            lexical_stem: bool = False,
+                            include_archived: bool = False):
+        """Один вызов существующего `retrieve` (без второго контура).
+
+        `lexical_stem`/`include_archived` включает ТОЛЬКО периодный добор
+        (VMQ-MEM-TIME, решение 11.11.2026); основной срез и `operative`
+        остаются с прежними значениями по умолчанию.
+        """
+        request = _mca_rc.RetrievalRequest(
+            chat_id=int(chat_id), query=str(query or ""),
+            mode="specific", purpose="reply", top_k=max(1, int(limit)),
+            # Граф ответов и эпизоды — другие сегменты контекста; здесь
+            # нужен только фактический набор.
+            trigger_ref=None, reply_depth=0, scope="auto",
+            channels=tuple(channels), preserve_channel_order=True,
+            include_self=True, include_direct_reply=True,
+            memory_scope=policy, lexical_stem=bool(lexical_stem),
+            include_archived=bool(include_archived))
+        return await _mca_rc.retrieve(db, memory, request)
+
+    @classmethod
+    def _rag_rows_from_result(cls, result, limit: int) -> list:
+        """`RetrievalResult.fact_rows` → кандидаты формы `get_rag_facts`.
+
+        Возвращает не больше `limit` строк (срез политики уважается)."""
+        rows: list = []
+        for position, row in enumerate(
+                getattr(result, "fact_rows", ()) or ()):
+            if len(rows) >= max(1, int(limit)):
+                break
+            try:
+                fact_id = int(_rag_row_get(row, "id"))
+            except (TypeError, ValueError):
+                continue
+            rows.append(cls._rag_meta_from_record(row, fact_id, position,
+                                                  limit))
+        return rows
+
+    @classmethod
+    def _rag_append_period_rows(cls, rows: list, extra: list, limit: int,
+                                slots: int | None = None) -> list:
+        """Добрать в срез строки ДРУГИХ лет (периодное разнообразие, §3).
+
+        Каждая добавленная строка помечается `period_fill` — признаком того,
+        что она добыта политикой охвата, а не отобрана релевантностью, и
+        поэтому не может быть отброшена реранком релевантности
+        (`_build_rag_block`, решение архитектора 10.11.2026)."""
+        budget = (max(1, int(limit) // cls._RAG_PERIOD_SLOT_DIV)
+                  if slots is None else max(1, int(slots)))
+        rows = list(rows or ())
+        seen_ids = {row.get("id") for row in rows}
+        seen_years = {_rag_row_year(row) for row in rows}
+        seen_years.discard(None)
+        added = 0
+        for row in extra or ():
+            if added >= budget or len(rows) >= int(limit):
+                break
+            if row.get("id") in seen_ids:
+                continue
+            if _prov.is_self_referential_origin(row.get("origin")):
+                continue
+            year = _rag_row_year(row)
+            if year is None or year in seen_years:
+                continue
+            row["period_fill"] = True
+            rows.append(row)
+            seen_ids.add(row.get("id"))
+            seen_years.add(year)
+            added += 1
+        return rows
+
+    async def _rag_append_profile_rows(self, db, rows: list, chat_id: int,
+                                       subject_name, subject_uid,
+                                       limit: int) -> list:
+        """Добрать периоды профиля субъекта (существующее чтение, §5)."""
+        name = str(subject_name or "").strip()
+        reader = getattr(db, "get_user_context_facts", None)
+        if not name or not callable(reader):
+            return rows
+        try:
+            profile = await reader(int(chat_id), name, max(1, int(limit)),
+                                  int(time.time()),
+                                  user_id=(int(subject_uid)
+                                           if subject_uid is not None
+                                           else None),
+                                  scope="historical")
+        except TypeError:
+            return rows
+        except Exception:
+            logger.warning("direct: profile period rows failed | chat=%s",
+                           chat_id, exc_info=True)
+            return rows
+        profile_rows = []
+        for row in profile or ():
+            if not isinstance(row, dict):
+                continue
+            meta = self._rag_meta_from_record(row, int(row.get("id") or 0),
+                                              0, limit)
+            if row.get("unattributed"):
+                meta["unattributed"] = True
+            profile_rows.append(meta)
+        return self._rag_append_period_rows(rows, profile_rows, limit)
 
     @staticmethod
     def _rag_meta_from_record(row, fact_id: int, position: int,
@@ -12202,12 +12535,18 @@ class DirectChatService:
             "assertion_kind": _rag_row_get(row, "assertion_kind"),
             "attribution_method": _rag_row_get(row, "attribution_method"),
             "provenance_channel": _rag_row_get(row, "provenance_channel"),
+            # VMQ-MEM-TIME (§5, блокер 3): строка истории чата без привязки
+            # к субъекту — потребитель помечает её как общий контекст.
+            "unattributed": bool(_rag_row_get(row, "unattributed")),
         }
 
     async def _build_rag_block(self, chat_id: int, message,
                                global_ctx: str,
                                history_sample: dict | None = None,
-                               projection=None
+                               projection=None,
+                               memory_scope: str | None = None,
+                               subject_name: str | None = None,
+                               subject_uid: int | None = None
                                ) -> tuple[str, str]:
         """Блок `<RAG_Memory>` direct-пути (F1-F4):
         F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
@@ -12248,7 +12587,15 @@ class DirectChatService:
         query = getattr(message, "text", None) or ""
         # MEMORY-06 (§7.5): сначала ЕДИНЫЙ retrieval-контракт (отбор фактов);
         # двойник без каналов (None) → прежнее чтение того же слоя.
-        rows = await self._rag_unified_rows(chat_id, query, message)
+        try:
+            rows = await self._rag_unified_rows(chat_id, query, message,
+                                                memory_scope=memory_scope,
+                                                subject_name=subject_name,
+                                                subject_uid=subject_uid)
+        except TypeError:
+            # Двойник/альтернативная реализация без поля политики/субъекта:
+            # прежний вызов (политика не навязывается несовместимому API).
+            rows = await self._rag_unified_rows(chat_id, query, message)
         if rows is None:
             try:
                 try:
@@ -12268,6 +12615,11 @@ class DirectChatService:
                     chat_id, exc_info=True)
                 return "", ""
         facts, ranks = _rag_rows_with_ranks(rows)
+        # VMQ-MEM-TIME (§6): актуальность/V по тем же строкам — источник
+        # as-of метки «(архив, YYYY)» для исторических фактов.
+        as_of = _rag_as_of_map(rows)
+        # VMQ-MEM-TIME (§5, блокер 3): история чата без привязки к субъекту.
+        unattributed = _rag_unattributed_keys(rows)
         # §23 read policy: бот-выводы — не факты мира (единый существующий
         # предикат; новых классификаторов нет).
         facts = [item for item in facts
@@ -12280,14 +12632,49 @@ class DirectChatService:
         if not kept:
             return "", ""
         # F4: флаг off → 0 лишних LLM-вызовов (ранний выход ДО сериализации).
+        # VMQ-MEM-TIME (решение архитектора 10.11.2026): реранк — фильтр
+        # РЕЛЕВАНТНОСТИ и временнóго требования не знает; строки, добранные
+        # политикой охвата (`period_fill`), он не отбрасывает. Протектор живёт
+        # здесь, у потребителя: общий `summary_memory.rerank_rag_facts` не
+        # получает понятия «период» (у него другие потребители).
+        period_keys = _rag_period_keys(rows)
+        period_kept = 0
         if hot.get("flags.chat_rag_rerank_enabled",
                    settings.CHAT_RAG_RERANK_ENABLED):
+            protected = [item for item in kept
+                         if _rag_item_key(item) in period_keys]
+            rest = [item for item in kept
+                    if _rag_item_key(item) not in period_keys]
             try:
-                kept = await self.memory.rerank_rag_facts(query, kept)
+                if rest:
+                    reranked = await self.memory.rerank_rag_facts(query, rest)
+                    if not reranked:
+                        # ВАЛИДНЫЙ ПУСТОЙ ответ реранка (`{"selected":[]}`) —
+                        # решение модели «здесь нет релевантного». Политика
+                        # разнообразия не вправе его перекрыть, иначе блок
+                        # собирался бы из одного добора (на архиве: «что
+                        # нового у Aleksey?» → единственная строка 2023 года).
+                        kept = []
+                        period_kept = 0
+                    else:
+                        # Реранк только УБИРАЕТ: итог = его собственный порядок
+                        # по не-периодной части + защищённый добор. Сумма не
+                        # растёт, при пустом доборе поведение прежнее
+                        # байт-в-байт (в т.ч. для `operative`, где маркеров
+                        # нет вовсе).
+                        kept = list(reranked) + protected
+                        period_kept = len(protected)
+                else:
+                    # Реранку нечего оценивать (весь срез — добор): решения
+                    # модели нет, поэтому добор остаётся как есть.
+                    kept = protected
+                    period_kept = len(protected)
             except Exception:
                 logger.warning(
                     "direct: rag rerank failed — original facts | chat=%s",
                     chat_id, exc_info=True)
+                period_kept = len([item for item in kept
+                                   if _rag_item_key(item) in period_keys])
         if not kept:
             return "", ""
         # F2/T-1429 (spec §4.4, 4.1.c): граф-активация — при частой связке
@@ -12320,7 +12707,8 @@ class DirectChatService:
         # SPEECH-P0-A2 (§23): пометка достоверности — тем же существующим
         # read-policy рангом, ПОСЛЕ дедупа/маркера «золотых» (сравнения шли
         # по исходному тексту факта) и ДО рендера.
-        kept = [_mark_rag_fact(item, ranks) for item in kept]
+        kept = [_mark_rag_fact(item, ranks, as_of, unattributed)
+                for item in kept]
         content = build_rag_context(order_rag_facts_asc(kept),
                                     origin_labels=True,
                                     projection=projection)
@@ -12353,11 +12741,61 @@ class DirectChatService:
             logger.warning("direct: rag context truncated to %d chars | chat=%s",
                            cap, chat_id)
             content = content[:cap]
-        logger.info("direct: rag block | facts=%d | chat=%s", len(kept), chat_id)
+        logger.info("direct: rag block | facts=%d | period_kept=%d | chat=%s",
+                    len(kept), period_kept, chat_id)
         return f"<RAG_Memory>\n{content}\n</RAG_Memory>", hint
 
-    # ── Раунд 9 (AGI Memory, E1/T-826, spec §3.5.1): маркер «золотых» ──
+    async def _apply_plan_memory_scope(self, user_blocks, rag_ctx: dict,
+                                       l1_plan) -> list:
+        """Политика охвата из плана L1 → сам блок `<RAG_Memory>` (§2).
 
+        Блок памяти собирается ДО плана (нужен для L1-контекста) и до этой
+        точки всегда идёт с серверным `auto`. Здесь единственная коррекция:
+        если план выбрал `operative`/`historical`, блок пересобирается ТЕМ ЖЕ
+        чтением (`_build_rag_block`) с политикой плана и заменяется на месте;
+        остальные блоки, их порядок и бюджетирование не пересобираются.
+        План `auto` (в т.ч. отсутствие L1) = то, с чем блок уже собран →
+        ноль дополнительных чтений.
+
+        Если блок не попал в payload (пустая выдача `auto` либо он исключён
+        бюджетом), вставка не делается: список уже бюджетирован, и добавлять
+        в него материал мимо бюджета нельзя.
+        """
+        if rag_ctx is None:
+            return user_blocks
+        plan_scope = _mca_rc._mc.normalize_memory_scope(
+            str(getattr(l1_plan, "memory_scope", "") or "")).value
+        if plan_scope == "auto":
+            return user_blocks
+        blocks = list(user_blocks or ())
+        position = next((index for index, block in enumerate(blocks)
+                         if str(block).startswith("<RAG_Memory>")), None)
+        if position is None:
+            logger.info("direct: rag block absent — policy not applied | "
+                        "policy=%s", plan_scope)
+            return user_blocks
+        try:
+            block, _hint = await self._build_rag_block(
+                rag_ctx["chat_id"], rag_ctx["message"], rag_ctx["global_ctx"],
+                history_sample=rag_ctx.get("history_sample"),
+                projection=rag_ctx.get("projection"),
+                memory_scope=plan_scope,
+                subject_name=rag_ctx.get("subject_name"),
+                subject_uid=rag_ctx.get("subject_uid"))
+        except Exception:
+            logger.warning("direct: rag rescope failed — keep auto block | "
+                           "policy=%s", plan_scope, exc_info=True)
+            return user_blocks
+        old = blocks[position]
+        if block:
+            blocks[position] = block
+        else:
+            del blocks[position]
+        logger.info("direct: rag block rescoped | policy=%s | chars %d->%d",
+                    plan_scope, len(str(old or "")), len(str(block or "")))
+        return blocks
+
+    # ── Раунд 9 (AGI Memory, E1/T-826, spec §3.5.1): маркер «золотых» ──
     async def _build_nostalgia_hint(self, chat_id: int, query: str,
                                     kept: list) -> str:
         """Строка-маркер слоя A (spec §3.5.1): «золотой» факт чата по теме

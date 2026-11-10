@@ -213,6 +213,47 @@ def normalize_search_intent(knowledge_origin, search_intent) -> str:
         return SEARCH_REQUIRED
     return intent
 
+
+# ── VMQ-MEM-TIME (§2, уточнение владельца 10.11.2026): политика памяти ──────
+# ОДНО новое опциональное allowlisted-поле ТОГО ЖЕ единственного L1-вызова
+# (прецедент `recheck`/`external_claims`/`preserve_source_facts`): смысл
+# запроса решает существующий L1, новых списков слов/регулярок года НЕТ.
+# Значения — закрытый набор `memory_contracts.MemoryScope`.
+MEMORY_SCOPES = ("operative", "historical", "auto")
+MEMORY_SCOPE_AUTO = "auto"
+MEMORY_SCOPE_OPERATIVE = "operative"
+MEMORY_SCOPE_HISTORICAL = "historical"
+#: Действия, при которых вопрос заведомо не про историю: реакция/молчание.
+_MEMORY_SCOPE_OPERATIVE_ACTIONS = frozenset({"silent", "react"})
+
+
+def resolve_memory_scope(memory_scope, *, action: str = "",
+                         knowledge_origin: str = "",
+                         search_intent: str = "") -> str:
+    """Серверная нормализация `memory_scope` (§2), никогда не бросает.
+
+    Правила (в порядке применения):
+      1. явный `historical` — НЕ понижается (модель/нормализация не могут
+         превратить исторический вопрос в оперативный);
+      2. мусор/отсутствие → `auto` (значение по умолчанию);
+      3. `knowledge_origin=open_world` + `search_intent=required` → `auto`
+         (внешний мир не является памятью чата — политику не навязывает);
+      4. `action ∈ (silent, react)` → `operative` (ответа о содержании нет);
+      5. иначе — присланное валидное значение (`auto`/`operative`).
+    """
+    candidate = str(memory_scope or "").strip().lower()
+    if candidate == MEMORY_SCOPE_HISTORICAL:
+        return MEMORY_SCOPE_HISTORICAL
+    if candidate not in MEMORY_SCOPES:
+        candidate = MEMORY_SCOPE_AUTO
+    origin = str(knowledge_origin or "").strip().lower()
+    intent = str(search_intent or "").strip().lower()
+    if origin == "open_world" and intent == SEARCH_REQUIRED:
+        return MEMORY_SCOPE_AUTO
+    if str(action or "").strip().lower() in _MEMORY_SCOPE_OPERATIVE_ACTIONS:
+        return MEMORY_SCOPE_OPERATIVE
+    return candidate
+
 # SOUL-1 (W3, SOUL-05.1): РОВНО ОДНО необязательное поле L1 — совет по приёму
 # юмора. Это не приказ быть смешным и не новая личность: значение по умолчанию
 # ``none``, невалидное → ``none`` (план не инвалидируется). Приёмы — W4
@@ -345,6 +386,13 @@ class L1Plan:
     knowledge_origin: str = ""
     search_intent: str = ""
     search_intent_source: str = ""
+    # ── VMQ-MEM-TIME (§2): политика временнóго охвата памяти
+    # (`operative|historical|auto`). Одно опциональное allowlisted-поле того
+    # же L1-вызова: `historical` — вопрос о прошлом (архивные факты
+    # участвуют полноценно), `operative` — только действующее сейчас,
+    # `auto` — решение по существу без словарных триггеров года.
+    # Нормализуется `resolve_memory_scope`; явный `historical` не понижается.
+    memory_scope: str = MEMORY_SCOPE_AUTO
 
     def effective_extent(self) -> str:
         """Явная форма пользователя поверх semantic extent (§2.5)."""
@@ -690,6 +738,13 @@ def normalize_l1_plan(data) -> L1Plan | None:
     plan.search_intent_source = ("llm" if raw_search_intent
                                  else ("normalized_open_world"
                                        if plan.search_intent else ""))
+    # ── VMQ-MEM-TIME (§2): политика временнóго охвата памяти. Аддитивное
+    # allowlisted-поле; невалидное/отсутствие → `auto`; явный `historical`
+    # сервер НЕ понижает (нормализация идёт после разбора action/origin/intent).
+    plan.memory_scope = resolve_memory_scope(
+        data.get("memory_scope"), action=action,
+        knowledge_origin=plan.knowledge_origin,
+        search_intent=plan.search_intent)
     # ── L1D (22.10.2026): форма участия. Невалидное/отсутствующее delivery →
     # "" (обычное сообщение); id — только положительные целые.
     plan.delivery = _closed(data.get("delivery"), L1_DELIVERY_MODES, "")

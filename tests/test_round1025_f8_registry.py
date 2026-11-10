@@ -356,7 +356,7 @@ PG_DB_SHA256_B07 = (
 # Better Stack SQL-ключи + CHECKUP_JOURNALCTL_CMD, добавлены 2 env-only
 # ключа локального backend'а. Артефакты переэмитированы, `--check` → OK.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "844175634a9f86e06f0594b6b010f95c51b1a72aa7555986ef0588441bb2d35d")
+    "58e6e3a2013600c5392906da458df06102176253e909a318e36700f7078c1a2f")
 
 
 def _sha256(path: Path) -> str:
@@ -471,7 +471,7 @@ class TestFrozenInvariants:
         # EVOL-031 (30.10.2026): −5 ключей Exact Match Cache / direct_dedup
         # (replay готовых ответов удалён; вкладка smart_cache снята) →
         # 581/119/117/22 (см. PARAM_CATALOG_SHA256_FOLLOWUP выше).
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 638
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 643
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 121
         assert len(pc._TAB_BY_GROUP) == \
             FIXTURE["counts"]["TAB_BY_GROUP"] == 119
@@ -492,7 +492,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.181"
+        assert APP_VERSION == "2.58.182"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
@@ -527,7 +527,7 @@ class TestRegistry:
         # SOUL-1 mobile-prompts (2026-10-16): +1 (L1 Planner) → 572.
         # P0-FACTCHECK §6.3 (FC-06C): −2 (TEMPORAL_FRESHNESS_*) → 586.
         # EVOL-031 (30.10.2026): −5 (Exact Match Cache / direct_dedup) → 581.
-        assert len(rows) == 638
+        assert len(rows) == 643
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -549,7 +549,7 @@ class TestRegistry:
         # EVOL-031 (30.10.2026): снятые 5 ключей — исторические (Epic 51,
         # до инвентаря round1014), в delta-набор не входили → дельта 175
         # без изменений (FIXTURE см. tools/_evol031_reissue_f8.py).
-        assert len(delta) == FIXTURE["counts"]["delta"] == 237
+        assert len(delta) == FIXTURE["counts"]["delta"] == 242
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -634,7 +634,7 @@ class TestRegistry:
         # (+2 ключа подачи фактчека).
         # MOD-ACL-UX-01 amendment (09.11.2026): reissue под 606/205
         # (+11 PG-only порогов/бюджетов уроков).
-        assert "638" in meta and "411" in meta and "237" in meta
+        assert "643" in meta and "411" in meta and "242" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -654,7 +654,7 @@ class TestScreenMap:
         # SOUL-1 mobile-prompts (2026-10-16): санкционированная Δ +1 → 572.
         # P0-FACTCHECK §6.3 (FC-06C): санкционированная Δ −2 → 586.
         # EVOL-031 (30.10.2026): санкционированная Δ −5 → 581.
-        assert len(keys) == 638
+        assert len(keys) == 643
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

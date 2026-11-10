@@ -2962,6 +2962,27 @@ class Settings:
     GRAPH_TIME_DECAY_HALF_LIFE_DAYS: float = _env_float_min(
         "GRAPH_TIME_DECAY_HALF_LIFE_DAYS", 60.0, 1.0)
     GRAPH_TIME_DECAY_FLOOR: float = _env_float_min("GRAPH_TIME_DECAY_FLOOR", 0.1, 0.0)
+    # ── VMQ-MEM-TIME (§1/§3/§4, уточнение владельца 10.11.2026) ─────────────
+    # Полураспад/пол выше — ТОЛЬКО оперативная политика («что действует
+    # сейчас»). Для исторического и автоматического чтения возраст не
+    # множитель значимости: остаётся ограниченный tie-break свежести
+    # (≤ GRAPH_HIST_FRESH_TIEBREAK — 5 %, чего мало, чтобы перевесить
+    # разницу смысловой значимости ≥10 %). HORIZON — горизонт, за которым
+    # tie-break насыщается; SIGNIFICANCE (H) возраст вообще не содержит.
+    GRAPH_HIST_FRESH_TIEBREAK: float = _env_float_min(
+        "GRAPH_HIST_FRESH_TIEBREAK", 0.05, 0.0)
+    GRAPH_HIST_HORIZON_DAYS: int = _env_int_min(
+        "GRAPH_HIST_HORIZON_DAYS", 1825, 1)
+    # Адаптивный подбор доказательств (§4): исторический кандидат получает
+    # слот в `historical` только при H ≥ floor × max(H по действующим), в
+    # `auto` — только если он не слабее вытесняемого. max_share — техническая
+    # страховка от вытеснения актуального состояния, НЕ квота свежести.
+    GRAPH_HIST_REL_FLOOR: float = _env_float("GRAPH_HIST_REL_FLOOR", 0.75)
+    GRAPH_HIST_MAX_SHARE: float = _env_float("GRAPH_HIST_MAX_SHARE", 0.5)
+    # Оверфетч пула для исторического/автоматического чтения (архивные факты
+    # участвуют наравне; квота 50 остаётся оперативным набором и НЕ растёт).
+    GRAPH_MMR_FETCH_K_HISTORICAL: int = _env_int_min(
+        "GRAPH_MMR_FETCH_K_HISTORICAL", 30, 1)
     # Квота памяти на человека (66.4): лимит прямых фактов (target_user NOT
     # NULL); сверх квоты вытесняется самый лёгкий и старый (weight/(age+1)).
     # 0 = лимит выключен. False = квота не считается.
@@ -3523,7 +3544,7 @@ settings = Settings()
 # S4 (10.26, ADR-1026-6 D1–D6): bump 2.58.22 → 2.58.23 — новый рантайм-модуль
 # `services/summary_fact_package.py` (детерминированный «пакет фактов §96»,
 # 0 LLM-вызовов; Δ каталога=0, Δ DDL=0; в живой путь НЕ врезан — GATED S5/S6).
-APP_VERSION = "2.58.181"   # (10.11.2026): 2.58.181 - два одобренных security-фикса одним релизом с прод-линии 2.58.180 (721bab10). (A) avatar-scope: GET /api/avatar/{kind}/{tid} больше не отдаёт чужую картинку любому валидному TMA-юзеру - гейт доступа ДО Bot API (self / доступный чат / участник доступного чата / глобальный админ; иначе 403 permission_denied, fail-closed без лора), ответ стал `Cache-Control: private, max-age=86400` + `Vary: X-Telegram-Init-Data`, байтовый кэш и TTL не тронуты. (B) MAC-DEF-01: `requires_permission` спрашивает общий `user_has_permission` (match ИЛИ глобальный админ по канону `user_is_global_admin`) - role_type `global_admin` без wildcard больше не получает ложный 403; `services/permissions.py` байт-в-байт, матчер не ослаблен. Продуктовых файлов два: web/api/avatars.py, web/api/deps.py. Схема БД остаётся v47 (DDL=0, шага миграции нет). Откат: revert до 721bab10 (2.58.180) + снапшот БД. Prior 2.58.180 - VMQ-MEM retrieval (plans/features/vmq-onto-01/evidence/vmq-q1/release-2.58.180.md).
+APP_VERSION = "2.58.182"   # (11.11.2026): 2.58.182 - VMQ-MEM-TIME: многопериодная память (разрез по годам) одним релизом поверх security-линии 2.58.181 (92070d0e). Историческое и автоматическое чтение больше не ранжирует факты по возрасту: полураспад/пол GRAPH_TIME_DECAY_* остаются ТОЛЬКО оперативной политикой («что действует сейчас»), исторический профиль строится по нескольким периодам (оконная функция SQLite, не более limit//5 строк на год, действующие строки впереди; старый SQLite - тот же контракт детерминированно в Python), архивные confirmed-факты без привязки (origin=history_import, нет subject_ref_id/target_user/автора) добираются как общий контекст чата с unattributed=1, а не как сведения о человеке. Адаптивный добор доказательств: исторический кандидат входит в набор только при H >= GRAPH_HIST_REL_FLOOR x max(H действующих), в auto - если не слабее вытесняемого; GRAPH_HIST_MAX_SHARE - техническая страховка от вытеснения актуального, НЕ квота свежести; оверфетч пула GRAPH_MMR_FETCH_K_HISTORICAL=30, квота оперативного набора (50) не выросла. period_kept появляется только для historical/auto. Security-фиксы 2.58.181 не тронуты: web/api/avatars.py, web/api/deps.py, services/permissions.py байт-в-байт 92070d0e. Схема БД остаётся v47 (DDL=0, шага миграции нет). Откат: возврат на 92070d0e (2.58.181) + снапшот БД. Prior 2.58.181 - avatar-scope + MAC-DEF-01 security gate. Prior 2.58.180 - VMQ-MEM retrieval (plans/features/vmq-onto-01/evidence/vmq-q1/release-2.58.180.md).
 
 
 def get_ytdlp_pot_provider() -> str:

@@ -159,11 +159,11 @@ class TestD6NoF0Duplication:
 class TestInvariants:
     def test_catalog_delta_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 638
+        assert len(pc.REGISTRY) == 643
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 467  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_secrets_count_28(self):
         # 20 category=keys (UI) + 8 env-only infra — состав НЕ изменён.
@@ -174,7 +174,7 @@ class TestInvariants:
 
     def test_app_version_bump(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.181", m and m.group(1)
+        assert m and m.group(1) == "2.58.182", m and m.group(1)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 

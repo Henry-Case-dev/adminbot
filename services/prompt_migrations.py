@@ -76,6 +76,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_EVR2,
     PREV_DIRECT_L1_PLANNER_EVR3,
     PREV_DIRECT_L1_PLANNER_EVR4,
+    PREV_DIRECT_L1_PLANNER_EVR5,
     PREV_CHAT_W2_SYSTEM_PROMPT,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
@@ -268,6 +269,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # ace6246bd360 (deploy-миграция 07:26) — на рестарте уедет на новый
     # канон этой ступенью.
     "prompts.direct_l1_planner_system_prompt": [
+        # VMQ-MEM-TIME (§2, уточнение владельца 10.11.2026): байты ревизии
+        # EVR5 (поле preserve_source_facts) ведут на ревизию EVR6 — одно
+        # необязательное поле `memory_scope` в схеме L1 и абзац его контракта
+        # (смысл запроса определяет модель, нормализует сервер; словарных
+        # триггеров года нет). Только точное совпадение байт; кастом
+        # владельца ступень не трогает.
+        (PREV_DIRECT_L1_PLANNER_EVR5, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         # RLR-03.3 (REMOVE-LEGACY-REPHRASING v2.0, R-03.3/R-06): байты ревизии
         # EVR4 (поля оси поиска) ведут на ревизию EVR5 — необязательное поле
         # `preserve_source_facts` в схеме L1 и абзац его контракта (сигнал
@@ -593,9 +601,12 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # в правиле 4 — на активные байты ред.5 (PREV_..._PA5W2 = канон W1);
     # стек прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
-        # ступень 0 (RLR-03.3): активный канон EVR5 → байты EVR4 (поля оси
+        # ступень 0 (VMQ-MEM-TIME): активный канон EVR6 → байты EVR5 (поле
+        # `preserve_source_facts`, без поля `memory_scope`)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR5),
+        # ступень 0 (RLR-03.3): байты EVR5 → байты EVR4 (поля оси
         # поиска, без поля `preserve_source_facts`)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR4),
+        (PREV_DIRECT_L1_PLANNER_EVR5, PREV_DIRECT_L1_PLANNER_EVR4),
         # ступень 0 (UNIFIED-REPLY UR-06/UR-03): активный канон EVR4 → байты
         # EVR3 (правило статуса профиля решений, без полей оси поиска)
         (PREV_DIRECT_L1_PLANNER_EVR4, PREV_DIRECT_L1_PLANNER_EVR3),

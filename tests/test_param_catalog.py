@@ -257,7 +257,7 @@ class TestCompleteness:
         #   VIDEO_INTENT_* (TTL pending-намерения, размер окна соседства, макс.
         #   возраст соседнего медиа) → 468. Каталога не касаются — см.
         #   _ENV_ONLY_SHARED_CONFIG выше (env-уровень, не per-chat ось).
-        assert len(fields) == 467  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов; EVOL-032 §4.3: +3 VIDEO_INTENT_* ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        assert len(fields) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов; EVOL-032 §4.3: +3 VIDEO_INTENT_* ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         # EVOL-031: 5 no-op полей снятого кеша — сознательно вне каталога.
         # EVOL-032 §4.3: 3 env-only поля общей конфигурации VideoIntent — тоже
@@ -692,7 +692,7 @@ class TestGroups8424:
         # семантического контракта уроков (группа memory_experience) →
         # memory 59.
         assert counts == {"prompts": 28, "models": 74, "keys": 33,
-                          "limits": 264, "flags": 108, "reactions": 39,
+                          "limits": 269, "flags": 108, "reactions": 39,
                           "content": 5, "memory": 59, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

@@ -66,7 +66,7 @@ class TestCatalogParity:
         # (факт 586) — учтено → 581/119.
         # QND-NONDET (10.11.2026): +32 REGISTRY / +2 GROUPS (квантовое
         # расписание и вероятность публикации на существующих вкладках).
-        assert len(REGISTRY) == 638, len(REGISTRY)
+        assert len(REGISTRY) == 643, len(REGISTRY)
         assert len(GROUPS) == 121
         from config.settings import Settings
         import dataclasses
@@ -74,7 +74,7 @@ class TestCatalogParity:
         # (NOSTALGIA_HISTORY_DEPTH_YEARS) → пин 467. EVOL-031 все 5
         # smart/dedup-ключей СОХРАЕНЫ (no-op); дрейф 467→465 внешний
         # (закоммиченный EVOL-016/012), не этой задачи.
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 467  # MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 472  # MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():

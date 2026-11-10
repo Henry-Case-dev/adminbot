@@ -139,7 +139,7 @@ def test_no_ddl_catalog_ks_tools_delta():
     # SMART_CACHE_*/CHAT_DEDUP, replay готовых ответов удалён).
     # MOD-ACL-UX-01 amendment (09.11.2026): 595 → 606 (+11 PG-only порогов/
     # бюджетов семантического контракта уроков, группа memory_experience).
-    assert len(pc.REGISTRY) == 638
+    assert len(pc.REGISTRY) == 643
 
 
 def test_registry_47_no_new_widgets():
@@ -201,7 +201,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.181"
+    assert APP_VERSION == "2.58.182"
 
 
 def test_routes_plus3_and_registration():

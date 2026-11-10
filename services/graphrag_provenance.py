@@ -301,8 +301,13 @@ def read_policy_rank(fact_row) -> int:
     except Exception:                                     # pragma: no cover
         pass
     if cls == EDGE_CONFIDENT:
+        # VMQ-MEM-TIME (§6, уточнение владельца 10.11.2026): вытеснение
+        # квотой (`archived_fact`) — это ограничение оперативного набора, а
+        # НЕ ложность/неподтверждённость. Ранг считается из provenance, не из
+        # статуса, поэтому архив не читается как «предположение»; его
+        # историчность подаётся отдельной as-of пометкой («архив, YYYY»).
         status = str(fact_row.get("status") or "")
-        return 3 if status == "confirmed" else 2
+        return 3 if status in ("confirmed", "archived_fact") else 2
     if cls == EDGE_TENTATIVE:
         return 2
     return 1 if str(fact_row.get("conflict_status") or "") == "conflicting" \

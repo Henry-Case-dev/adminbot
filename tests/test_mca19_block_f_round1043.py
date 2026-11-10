@@ -46,7 +46,7 @@ def test_catalog_counts_sanctioned():
     # TTL-ключа TEMPORAL_FRESHNESS_*, кеш вердиктов удалён W1).
     # EVOL-031 (28d55bd1, 30.10.2026): 586→581, 121→119, 119→117, 23→22 —
     # удаление answer-cache ключей/группы/tab (SMART_CACHE_*, CHAT_DEDUP).
-    assert len(pc.REGISTRY) == 638          # 510 → 519 (+9) → 586 → 581
+    assert len(pc.REGISTRY) == 643          # 510 → 519 (+9) → 586 → 581
     assert len(pc.GROUPS) == 121            # 108 → 112 (+4) → 121 → 119
     assert len(pc._TAB_BY_GROUP) == 119     # 106 → 110 → 119 → 117
     assert len(pc.TAB_RULES) == 22          # 21 → 22 (mod_vision)
@@ -131,7 +131,7 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # QND-NONDET (10.11.2026): +32 ключа квантового расписания и вероятности
     # публикации (31 `limits.qnd_*` + compat `initiative.trigger_probability`)
     # → 638+header=639.
-    assert len(tsv) == 639
+    assert len(tsv) == 644
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
@@ -141,9 +141,9 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # подачи фактчека: флаг раздела + директива «Критического разноса»).
     # MOD-ACL-UX-01 amendment (09.11.2026): reissue под 606/205 (+11
     # PG-only ключей семантического контракта уроков).
-    # QND-NONDET (10.11.2026): reissue под 638/237 (+32 ключа квантового
+    # QND-NONDET (10.11.2026): reissue под 643/242 (+32 ключа квантового
     # расписания/публикации; артефакты F8 переэмитированы этой же волной).
-    assert "638" in meta and "411" in meta and "237" in meta
+    assert "643" in meta and "411" in meta and "242" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────

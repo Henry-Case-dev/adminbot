@@ -60,6 +60,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_EVR2,
     PREV_DIRECT_L1_PLANNER_EVR3,
     PREV_DIRECT_L1_PLANNER_EVR4,
+    PREV_DIRECT_L1_PLANNER_EVR5,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -341,7 +342,10 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # RLR-03.3 (REMOVE-LEGACY-REPHRASING v2.0, 05.11.2026): первый откат
     # снимает ТОЛЬКО поле preserve_source_facts → байты EVR4
     # (PREV_DIRECT_L1_PLANNER_EVR4, 8d172f40241d); стек ступеней цел.
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_EVR4,
+    # VMQ-MEM-TIME (10.11.2026, §2): первый откат снимает ТОЛЬКО поле
+    # memory_scope → байты EVR5 (PREV_DIRECT_L1_PLANNER_EVR5, 2354a5cc57c4);
+    # стек ступеней цел.
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_EVR5,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     # ASAP-FC-VOICE-01 / A (02.11.2026): первый откат снимает ТОЛЬКО новый
     # канон голоса → байты прода 2.58.148 (PREV_FACTCHECK_VERBALIZER_VOICE01).
@@ -961,12 +965,12 @@ class TestMca23Migration:
         # (8d172f40241d, поля оси поиска knowledge_origin/search_intent);
         # L2-канон не менялся.
         # RLR-03.3 (REMOVE-LEGACY-REPHRASING v2.0, 05.11.2026): L1-планер —
-        # ревизия EVR5 (2354a5cc57c4, поле preserve_source_facts); L2-канон
+        # ревизия EVR5 (619290834387, поле preserve_source_facts); L2-канон
         # не менялся.
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("2354a5cc57c4", "44736968bc76")
+            ("619290834387", "44736968bc76")
 
         # лестница снята: любые вызовы — отказ без записи
         assert await rollback_prompt_canons(cache) == {}

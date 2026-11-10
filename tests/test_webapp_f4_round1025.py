@@ -184,11 +184,11 @@ def test_search_haystack_fields():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 638
+    assert len(pc.REGISTRY) == 643
     assert len(pc.GROUPS) == 121
     assert len(pc._TAB_BY_GROUP) == 119
     assert len(pc.TAB_RULES) == 22
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 467  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
 
 def test_no_new_state_libraries():

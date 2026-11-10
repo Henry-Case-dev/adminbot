@@ -553,6 +553,23 @@ class RetrievalRequest:
     #: (`MemoryManager`), `weight DESC` профиля субъекта, срез `recent`.
     #: По умолчанию False — прежний типизированный ранг (§7.1).
     preserve_channel_order: bool = False
+    #: VMQ-MEM-TIME (§2, уточнение владельца 10.11.2026): ОДНО аддитивное
+    #: allowlisted-поле политики временнóго охвата памяти —
+    #: `operative|historical|auto` (закрытый набор `memory_contracts.
+    #: MemoryScope`). Смысл запроса решает существующий L1
+    #: (`L1Plan.memory_scope`); сервер нормализует мусор/отсутствие в `auto`,
+    #: поэтому модель не может «понизить» явный `historical`. Словарных
+    #: триггеров года здесь нет: год, как и раньше, разбирают только
+    #: существующие технические парсеры диапазона — и только как дату.
+    memory_scope: str = "auto"
+    #: VMQ-MEM-TIME (решение 11.11.2026): аддитивный режим сборки FTS-запроса
+    #: для лексического канала — прежние префиксы ПЛЮС префикс основы слова
+    #: (`search_aggregator.stem_word`). Нужен периодному добору: FTS5 без
+    #: стемминга находил «колбас*», но не «колбасой». Default False →
+    #: `build_fts_query(..., mode="prefix_or")` байт-в-байт как раньше.
+    #: Списков годов/периодов не появляется — обобщаются обычные словоформы.
+    lexical_stem: bool = False
+
 
 
 @dataclasses.dataclass(frozen=True)
@@ -965,6 +982,12 @@ async def _subject_fact_rows(db, request: RetrievalRequest, limit: int) -> list:
     субъекту, а не по совпадению текста с запросом (факт «любит дронов» о
     человеке не содержит его имени и FTS его не находит).
 
+    VMQ-MEM-TIME (§5): при `memory_scope ∈ (historical, auto)` чтение идёт в
+    историческом режиме (`scope='historical'`) — профиль строится из
+    нескольких периодов с годовой квотой `limit//5` и участвующими
+    `archived_fact`. При `operative` — прежнее оперативное чтение
+    байт-в-байт (никакого расширения истории на текущий вопрос).
+
     Устойчивый ref разрешается по uid (`user_id=`), legacy-строки — по имени.
     Двойник без `user_id`-параметра → чтение по имени (совместимость).
     """
@@ -974,6 +997,9 @@ async def _subject_fact_rows(db, request: RetrievalRequest, limit: int) -> list:
     names = _subject_names(request)
     if not names:
         return []
+    scope = ("historical"
+             if _mc.normalize_memory_scope(request.memory_scope).value
+             in ("historical", "auto") else "operative")
     uids, _nodes = _subject_sets(request)
     uid_list = sorted(uids)[:2]
     pairs: list[tuple[int | None, str]] = []
@@ -989,14 +1015,21 @@ async def _subject_fact_rows(db, request: RetrievalRequest, limit: int) -> list:
         try:
             if uid is None:
                 batch = await reader(int(request.chat_id), name,
-                                     int(limit), now)
+                                     int(limit), now, scope=scope)
             else:
                 batch = await reader(int(request.chat_id), name,
-                                     int(limit), now, user_id=int(uid))
+                                     int(limit), now, user_id=int(uid),
+                                     scope=scope)
         except TypeError:
+            # Двойник без `scope`: то же субъект-чтение по прежнему контракту
+            # (расширение истории не «выдумывается» на несовместимом API).
             try:
-                batch = await reader(int(request.chat_id), name,
-                                     int(limit), now)
+                if uid is None:
+                    batch = await reader(int(request.chat_id), name,
+                                         int(limit), now)
+                else:
+                    batch = await reader(int(request.chat_id), name,
+                                         int(limit), now, user_id=int(uid))
             except Exception:
                 logger.warning("[mca07] subject channel read failed",
                                exc_info=True)
@@ -1358,6 +1391,42 @@ def _apply_filters(candidates: list, request: RetrievalRequest) -> list:
     return out
 
 
+def _year_coverage(ordered: list, fact_rows: dict) -> dict:
+    """Годы ВЫДАННОГО материала (§10): `{"2023": 2, "2026": 8}`.
+
+    Год берётся у кандидата: у факта — из `message_timestamp`/`created_at`
+    строки (реальный источник), у прочих — `sent_at`. Нет даты → кандидат
+    в гистограмму не попадает (нули и «примерные» годы не выдумываются).
+    """
+    years: dict = {}
+    for cand in ordered or ():
+        ts = 0
+        row = fact_rows.get(_candidate_identity(cand)) if fact_rows else None
+        if isinstance(row, dict):
+            for key in ("message_timestamp", "created_at", "rag_ts"):
+                try:
+                    ts = int(row.get(key) or 0)
+                except (TypeError, ValueError):
+                    ts = 0
+                if ts:
+                    break
+        if not ts:
+            try:
+                ts = int(getattr(cand, "sent_at", 0) or 0)
+            except (TypeError, ValueError):
+                ts = 0
+        if not ts:
+            continue
+        try:
+            year = time.gmtime(ts).tm_year
+        except (ValueError, OSError, OverflowError):
+            continue
+        if year <= 0:
+            continue
+        years[str(year)] = years.get(str(year), 0) + 1
+    return dict(sorted(years.items()))
+
+
 async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     """Единая точка retrieval-запроса, ОБОРАЧИВАЮЩАЯ существующие каналы.
 
@@ -1394,7 +1463,14 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                                chat_ids=chat_ids)
 
     keywords = _tokenize(request.query)
-    match = build_fts_query(keywords) if keywords else ""
+    # VMQ-MEM-TIME (решение 11.11.2026): `lexical_stem` — аддитивный режим
+    # сборки FTS-запроса (прежние префиксы + префикс основы слова). Включён
+    # только у периодного добора; все прочие потребители `retrieve` получают
+    # байт-идентичную прежнюю формулу (`prefix_or`).
+    match = build_fts_query(
+        keywords,
+        mode=("prefix_or_stem" if request.lexical_stem else "prefix_or")
+    ) if keywords else ""
     now = int(time.time())
     # P0-HA ISOLATION (§3): при активной количественной связке mode НЕ
     # повышается до "history" по _HISTORY_MARKERS (список маркеров не меняет)
@@ -1405,6 +1481,14 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     allowed_channels = resolve_channels(request, mode)
     limit = request_limit(request)
     fetch_k = max(1, limit)
+    # VMQ-MEM-TIME (§2/§10): политика охвата — закрытое значение из запроса
+    # (L1 → RetrievalRequest), мусор/отсутствие → `auto`. Словарных
+    # триггеров года нет: здесь только валидация уже принятого решения.
+    memory_scope = _mc.normalize_memory_scope(request.memory_scope)
+    policy = memory_scope.value
+    #: Счётчики причин исключения (§10): policy→status→expired→relevance→
+    #: budget. Только числа, без текстов фактов; уходят в durable-событие.
+    excluded: dict = {}
     channels: list[str] = []
     raw: list[RetrievalCandidate] = []
     #: §7.5 MEMORY-06: полные строки graph_facts по кандидату — канал их уже
@@ -1497,12 +1581,17 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                     db, dataclasses.replace(request, chat_id=chat_id), fetch_k)
                 for pos, row in enumerate(rows or ()):
                     cand = _fact_candidate(row, "subject", pos, resolve_item_id)
-                    if cand.subject_entity_id is None and len(scope_uids) == 1:
+                    if cand.subject_entity_id is None and len(scope_uids) == 1 \
+                            and not (isinstance(row, dict)
+                                     and row.get("unattributed")):
                         # Строка отобрана В scope объявленного субъекта
                         # (`subject_ref_id` по uid либо legacy
                         # `target_user` = имя), т.е. факт — о нём. Честная
                         # атрибуция нужна гейтам/уместности и identity-prior,
-                        # а не новому ранжированию.
+                        # а не новому ранжированию. VMQ-MEM-TIME (§5):
+                        # добор «без привязки» к субъекту НЕ атрибутируется —
+                        # иначе общий контекст чата выдавался бы за сведения
+                        # о человеке.
                         cand = dataclasses.replace(
                             cand, subject_entity_id=scope_uids[0])
                     raw.append(cand)
@@ -1582,11 +1671,24 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                         include_archived=bool(request.include_archived),
                         include_self=bool(request.include_self),
                         include_direct_reply=bool(
-                            request.include_direct_reply))
+                            request.include_direct_reply),
+                        policy=policy, stats=excluded)
                 except TypeError:
-                    # Двойники без archival-параметра: обычная (live) выдача.
-                    facts = await memory.retrieve_fact_candidates(
-                        chat_id, request.query, limit=fetch_k)
+                    # Двойник без политики/счётчиков: те же прежние флаги
+                    # доставки сохраняются (иначе live/direct/self-пул молча
+                    # сузился бы на несовместимом API).
+                    try:
+                        facts = await memory.retrieve_fact_candidates(
+                            chat_id, request.query, limit=fetch_k,
+                            include_archived=bool(request.include_archived),
+                            include_self=bool(request.include_self),
+                            include_direct_reply=bool(
+                                request.include_direct_reply))
+                    except TypeError:
+                        # Совместимость: реализации без archival-параметра —
+                        # обычная (live) выдача, как раньше.
+                        facts = await memory.retrieve_fact_candidates(
+                            chat_id, request.query, limit=fetch_k)
                 for pos, row in enumerate(facts or []):
                     cand = _fact_meta_candidate(row, pos, resolve_item_id)
                     raw.append(cand)
@@ -1679,6 +1781,7 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 subject_node_ids=prior_nodes)
     # Ограничение выдачи (эпизоды-первыми не вытесняются при истории, но и не
     # занимают срез целиком — см. `_HISTORY_EPISODE_SLICE_DIV`).
+    cut_before = len(ordered)
     if len(ordered) > limit:
         if not request.preserve_channel_order and mode in ("history",
                                                            "episodic"):
@@ -1729,11 +1832,24 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         emit_stage_event("retrieval", "success",
                          reason_code="exact_match_used",
                          chat_id=request.chat_id)
+    # VMQ-MEM-TIME (§10, уточнение владельца 10.11.2026): durable-событие
+    # несёт покрытие ВЫДАННОГО материала по годам и причины исключения
+    # кандидатов (квота/статус/давность/релевантность/бюджет). Bounded,
+    # R17-safe: только политика, годы и числа — ни текстов фактов, ни id
+    # сообщений. Фиктивных значений нет: пустая выдача → пустые словари.
+    years = _year_coverage(ordered, fact_rows)
+    excluded["relevance"] = (excluded.get("relevance") or 0) + len(
+        subject_dropped or ())
+    excluded["budget"] = (excluded.get("budget") or 0) + max(
+        0, cut_before - len(ordered))
     emit_stage_event(
         "retrieval", "success" if ordered else "silent",
         reason_code=reason, chat_id=request.chat_id,
         entity_ids=[c.id for c in ordered[:20]],
-        message_id=request.trigger_ref)
+        message_id=request.trigger_ref,
+        usage_json={"policy": policy, "years": years,
+                    "excluded": {key: int(value) for key, value
+                                 in sorted(excluded.items()) if int(value)}})
     return RetrievalResult(
         status=status, candidates=tuple(ordered),
         channels_used=tuple(sorted(set(channels), key=_CHANNEL_ORDER.index)),

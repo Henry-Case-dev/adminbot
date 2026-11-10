@@ -216,5 +216,9 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # internal.initiative_observer → initiative-observer-qnd-veto
     # (sha12 4bb33535bad5): блок требует veto_reason. Было 011c83dfac95,
     # стало 1532c9480cd5; прежние каноны байт-в-байт.
-    assert pr.FACTORY_SET_SHA256_12 == "1532c9480cd5"
+    # VMQ-MEM-TIME (10.11.2026): changed = 1 — direct.base.l1_planner получил
+    # поле memory_scope в схеме и абзац контракта (метка
+    # l1-planner-memory-scope, sha12 619290834387); прочие каноны байт-в-байт.
+    # Было 1532c9480cd5, стало ae40ca11c77b.
+    assert pr.FACTORY_SET_SHA256_12 == "ae40ca11c77b"
 

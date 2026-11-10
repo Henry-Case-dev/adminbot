@@ -113,12 +113,16 @@ def test_grep_audit_counts_are_stable():
 
     # Пин ДО этой волны дрейфовал: фактических кандидатов 74 (после allowlist
     # 73) уже на 6674811f; QND-NONDET новых prompt-констант не добавляет.
-    assert len(every) == 74, (
+    # VMQ-MEM-TIME (§2, 10.11.2026): +1 кандидат — композиция байтов L1
+    # (`DIRECT_L1_PLANNER_SYSTEM_PROMPT` собирается второй раз, EVR5 → EVR6),
+    # новых prompt-констант вне реестра не появилось: 74 → 75 (после
+    # allowlist 73 → 74).
+    assert len(every) == 75, (
         f"кандидатов {len(every)}: обновите §5 контракта и этот пин")
     assert len(every) - len(after_allowlist) == 1, (
         "кандидатов в allowlist "
         f"{len(every) - len(after_allowlist)}: обновите §5 и этот пин")
-    assert len(after_allowlist) == 73, (
+    assert len(after_allowlist) == 74, (
         f"закрыто code_source {len(after_allowlist)}: обновите §5 и этот пин")
     assert outside == [], (
         "кандидаты вне реестра: " + repr(outside))

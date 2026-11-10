@@ -199,6 +199,37 @@ def term_key(word: str) -> str:
     return stem[:6]
 
 
+def stem_word(word: str) -> str:
+    """Основа слова для FTS-префикса (VMQ-MEM-TIME, решение 11.11.2026).
+
+    Та же детерминированная «лёгкая морфология», что у `term_key`, но БЕЗ
+    клипа до 6 символов: клип — контракт сравнения терминов factcheck, а для
+    префиксного FTS он обрезал бы основу непредсказуемо. Отдаётся вся снятая
+    основа, минимум 4 символа (короче — слово не усекается вообще, иначе
+    префикс стал бы слишком широким).
+
+    Это снятие СЛОВОИЗМЕНЕНИЯ по существующим таблицам суффиксов: никаких
+    списков тем, времён или годов здесь нет.
+    """
+    low = str(word or "").lower()
+    if len(low) < 4:
+        return low
+    suffix = ""
+    for cand in _RU_SUFFIXES:
+        if len(low) - len(cand) >= 4 and low.endswith(cand):
+            suffix = cand
+            break
+    if not suffix:
+        for cand in _EN_SUFFIXES:
+            if len(low) - len(cand) >= 4 and low.endswith(cand):
+                suffix = cand
+                break
+    if not suffix:
+        return low
+    stem = low[: len(low) - len(suffix)]
+    return stem if len(stem) >= 4 else low
+
+
 def _term_keys(text: str) -> set[str]:
     low = str(text or "").lower()
     keys = {term_key(w) for w in _RELEVANCE_WORD_RE.findall(low) if w}

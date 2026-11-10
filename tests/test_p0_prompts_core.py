@@ -141,7 +141,7 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # Было 630ca46dff76, затем 54ac2b8ac34b, стало e9dc109330a8.
     # UNIFIED-REPLY UR-06/UR-03 (05.11.2026): changed = 1 — канон
     # direct.base.l1_planner получил поля оси поиска knowledge_origin/
-    # search_intent (метка l1-planner-source-facts, sha12 2354a5cc57c4);
+    # search_intent (метка l1-planner-source-facts, sha12 619290834387);
     # остальные каноны байт-в-байт. Было e9dc109330a8, стало a701aea74399 (EVR4), затем a29e68dc1de6 (EVR5, RLR-03.3).
     # Переутверждено осознанно (SOUL-AMD.3.2). FC-04 corrective: mixed/causality rules in temporal analyst+validator (branch fc/backend, 7b897c80).
     # NOST-PROACTIVE (10.11.2026, контракт шва nostalgia-seam-contract.md §2):
@@ -154,7 +154,10 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # молчания (veto_reason), ревизия initiative-observer-qnd-veto,
     # sha12 4bb33535bad5; прочие блоки байт-в-байт.
     # Было b4e8b3569ab2 → 011c83dfac95, стало 1532c9480cd5.
-    assert pr.FACTORY_SET_SHA256_12 == "1532c9480cd5"
+    # VMQ-MEM-TIME (10.11.2026): L1 получил поле memory_scope в схеме и абзац
+    # контракта → набор фабричных текстов изменился осознанно; прочие каноны
+    # байт-в-байт. Было 1532c9480cd5, стало ae40ca11c77b.
+    assert pr.FACTORY_SET_SHA256_12 == "ae40ca11c77b"
 
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"

@@ -72,6 +72,7 @@ def test_canon_schema_has_delivery_fields():
     # UNIFIED-REPLY UR-06/UR-03: к байтам EVR3 добавлена ось поиска
     # (knowledge_origin/search_intent) — суффикс + две строки в схеме.
     # RLR-03.3: поверх EVR4 — поле preserve_source_facts (суффикс + строка).
+    # VMQ-MEM-TIME (§2): поверх EVR5 — поле memory_scope (суффикс + строка).
     assert cp.PREV_DIRECT_L1_PLANNER_EVR4 == (
         (cp.PREV_DIRECT_L1_PLANNER_EVR0
          + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1).replace(
@@ -85,11 +86,17 @@ def test_canon_schema_has_delivery_fields():
         ' "recheck": false,\n'
         ' "knowledge_origin": "",\n'
         ' "search_intent": ""}', 1) + cp._DIRECT_L1_SEARCH_AXIS_EVR4
-    assert canon == cp.PREV_DIRECT_L1_PLANNER_EVR4.replace(
+    evr5 = cp.PREV_DIRECT_L1_PLANNER_EVR4.replace(
         ' "search_intent": ""}',
         ' "search_intent": "",\n'
         ' "preserve_source_facts": false}', 1) \
         + cp._DIRECT_L1_SOURCE_FACTS_EVR5
+    assert cp.PREV_DIRECT_L1_PLANNER_EVR5 == evr5
+    assert canon == evr5.replace(
+        ' "preserve_source_facts": false}',
+        ' "preserve_source_facts": false,\n'
+        ' "memory_scope": "auto"}', 1) \
+        + cp._DIRECT_L1_MEMORY_SCOPE_EVR6
     assert cp.PREV_DIRECT_L1_PLANNER_EVR0 == (
         _DIRECT_L1_PLANNER_BASE_R3
         + _DIRECT_L1_CLARIFICATION_CONTRACT
@@ -249,9 +256,10 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     assert PREV_DIRECT_L1_PLANNER_PA5W2 not in targets.values()
     from services.prompt_migrations import ROLLBACK_MIGRATIONS
     # ADR-1013-3: цепочка отката L1 —
-    # active→EVR4→EVR3→EVR2→EVR1→EVR0→PA5W2→PA5W1→P0CINTR2→P0CINT→P0CS2→P0CS→R3b→R3→2.58.113
+    # active→EVR5→EVR4→EVR3→EVR2→EVR1→EVR0→PA5W2→PA5W1→P0CINTR2→P0CINT→P0CS2→P0CS→R3b→R3→2.58.113
     assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == [
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, cp.PREV_DIRECT_L1_PLANNER_EVR4),
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, cp.PREV_DIRECT_L1_PLANNER_EVR5),
+        (cp.PREV_DIRECT_L1_PLANNER_EVR5, cp.PREV_DIRECT_L1_PLANNER_EVR4),
         (cp.PREV_DIRECT_L1_PLANNER_EVR4, cp.PREV_DIRECT_L1_PLANNER_EVR3),
         (cp.PREV_DIRECT_L1_PLANNER_EVR3, cp.PREV_DIRECT_L1_PLANNER_EVR2),
         (cp.PREV_DIRECT_L1_PLANNER_EVR2, cp.PREV_DIRECT_L1_PLANNER_EVR1),

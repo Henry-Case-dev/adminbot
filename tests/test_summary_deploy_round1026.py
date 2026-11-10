@@ -511,13 +511,13 @@ class TestBounds:
         # ASAP-3 (ADR-1028-2 D12): санкционированная Δ +2 → 483.
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ
         # models.chat_context_window_override → 484 (F8 переиздан атомарно).
-        assert len(pc.REGISTRY) == 638
+        assert len(pc.REGISTRY) == 643
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.181"
+        assert APP_VERSION == "2.58.182"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 

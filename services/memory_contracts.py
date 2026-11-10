@@ -56,7 +56,7 @@ __all__ = [
     "AssertionMode", "OriginClass", "RelationStatus", "EntityResolutionStatus",
     "SearchStatus", "QueryState", "MemoryPurpose", "IntentMode",
     "SearchScopeMode", "RefKind", "MatchCause", "EvidenceStatus",
-    "CommunityStatus",
+    "CommunityStatus", "MemoryScope", "MEMORY_SCOPE_DEFAULT",
     # константы
     "LINK_TYPES", "VERIFICATIONS", "INDEPENDENCES", "ASSERTION_KINDS",
     "SUPPORTING_LINK_TYPES", "WEAK_LINK_TYPES", "SUPPORTING_ORIGIN_CLASSES",
@@ -77,7 +77,7 @@ __all__ = [
     "MediaMemoryAttribution", "ExperienceVerdict", "MEDIA_MEMORY_REASONS",
     "EXPERIENCE_BASES",
     # функции
-    "resolve_assertion_mode",
+    "resolve_assertion_mode", "normalize_memory_scope",
 ]
 
 # ── Разделяемые значения из существующих домов (не дублировать) ─────────────
@@ -295,6 +295,26 @@ class IntentMode(_StrEnum):
     SPECIFIC = "specific"
     EPISODIC = "episodic"
     THEMATIC = "thematic"
+
+
+class MemoryScope(_StrEnum):
+    """Политика временнóго охвата памяти (VMQ-MEM-TIME §2).
+
+    Единственный закрытый набор: значение приходит из L1 (`memory_scope`)
+    и нормализуется на сервере. `operative` — только действующее сейчас
+    (`V=1`), прежнее поведение байт-в-байт; `historical` — явно исторический
+    вопрос (архивные факты участвуют полноценно); `auto` — решение по
+    существу запроса без словарных триггеров: исторический кандидат
+    занимает слот только если он не слабее вытесняемого.
+    """
+
+    OPERATIVE = "operative"
+    HISTORICAL = "historical"
+    AUTO = "auto"
+
+
+#: Значение по умолчанию при отсутствии/мусоре (VMQ-MEM-TIME §2).
+MEMORY_SCOPE_DEFAULT = MemoryScope.AUTO
 
 
 class SearchScopeMode(_StrEnum):
@@ -1146,6 +1166,21 @@ def resolve_assertion_mode(
     if joking:
         return AssertionMode.JOKING
     return AssertionMode.UNKNOWN
+
+
+def normalize_memory_scope(value) -> MemoryScope:
+    """Закрытое значение политики памяти (VMQ-MEM-TIME §2), иначе `auto`.
+
+    Мусор/отсутствие/неизвестная строка → `auto` (значение по умолчанию).
+    Никаких словарных триггеров года здесь нет: решение о смысле запроса
+    принимает L1 (`direct_l1.resolve_memory_scope`), этот помощник только
+    валидирует уже принятое значение.
+    """
+    candidate = str(value or "").strip().lower()
+    for scope in MemoryScope:
+        if candidate == scope.value:
+            return scope
+    return MEMORY_SCOPE_DEFAULT
 
 
 # ── C-4: интент, выдача и ответ поиска ────────────────────────────────────

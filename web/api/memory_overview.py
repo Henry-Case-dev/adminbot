@@ -224,6 +224,34 @@ async def memory_expired_overview(
     }
 
 
+@memory_overview_router.get("/memory/retrieval-coverage")
+async def memory_retrieval_coverage(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: Annotated[int | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 200,
+):
+    """VMQ-MEM-TIME (§10): покрытие выдачи памяти по ГОДАМ и причины
+    исключения кандидатов — для Статуса и Аналитики.
+
+    Источник — durable-события `mca07_retrieval` (новых таблиц нет):
+    политика (`operative|historical|auto`), гистограмма выданных лет и
+    причины исключения (`policy_operative`/`status`/`expired`/`relevance`/
+    `budget`). Пустая выборка → честное `available=false` + `empty_reason`;
+    фиктивные нули не подставляются. R17-safe: политика/годы/числа."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    try:
+        from services.memory_diagnostics import retrieval_year_coverage
+        body = await retrieval_year_coverage(db, chat_id=chat_id,
+                                            limit=int(limit))
+    except Exception:
+        logger.warning("[memory_overview] retrieval coverage read failed",
+                       exc_info=True)
+        return {"available": False, "empty_reason": "read_failed"}
+    return body
+
+
 @memory_overview_router.get("/memory/intel-funnels")
 async def memory_intel_funnels(
     request: Request,

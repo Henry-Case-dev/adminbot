@@ -414,10 +414,14 @@ class TestL1PromptAsksForAxis:
         assert '"knowledge_origin": ""' in schema
         assert '"search_intent": ""' in schema
         assert '"preserve_source_facts": false' in schema
+        # VMQ-MEM-TIME (§2): политика памяти — в ТОЙ ЖЕ схеме, после
+        # сохранения фактов; значение по умолчанию auto.
+        assert '"memory_scope": "auto"' in schema
         assert schema.index('"recheck": false,') < schema.index(
             '"knowledge_origin"') < schema.index('"search_intent": ""')
         assert schema.index('"search_intent": ""') < schema.index(
-            '"preserve_source_facts": false}')
+            '"preserve_source_facts": false') < schema.index(
+            '"memory_scope": "auto"')
         # Значения перечислены в том же пакете — модели есть из чего выбрать.
         assert "conversation_only" in system
         assert "not_applicable" in system
