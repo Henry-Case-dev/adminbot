@@ -22,7 +22,7 @@ D0 ─ D1 ─ D2 ─┬─ D3 ─┐
 |---|---|---|---|---|
 | D0 | Architect + PM | — | read-only (plans) | `plans/features/self-diag-01/{d0-discovery.md,requirements-map.json,slice-graph.json,plan.md}` |
 | D1 | Builder + Reviewer | D0 | writer | `services/system_logs_fetcher.py`, `config/settings.py`, `bot.py`, `web/app.js`, `tests/test_checkup_logs_portable.py` |
-| D2 | Architect + Builder | D1 | writer | `services/roles.py`, `services/access.py`, `services/telegram_role_check.py`, `services/diagnostic_policy.py`, `services/output_projection.py`, `web/api/access.py`, `services/tool_router.py` (точка гейта в `dispatch`), `handlers/checkup.py` (точка гейта чекапа), `tests/test_diagnostic_policy.py` |
+| D2 | Architect + Builder | — (ordering после D0/D1, не prerequisite — см. §7.1) | writer | `services/roles.py`, `services/access.py`, `services/telegram_role_check.py`, `services/diagnostic_policy.py`, `services/output_projection.py`, `web/api/access.py`, `services/tool_router.py` (точка гейта в `dispatch`), `handlers/checkup.py` (точка гейта чекапа), `tests/test_diagnostic_policy.py` |
 | D3 | Architect + Builder | D2 | writer | `services/diagnostic_collector.py`, `services/evidence_bundle.py`, `services/runtime_probes.py`, `services/tool_router.py`, `services/tool_schemas.py`, `services/memory_health.py`, тесты probes/bundle |
 | D4 | Builder | D2 | writer | `services/source_reader.py`, `services/deploy_identity.py`, `services/capability_registry.py`, `tests/test_deploy_identity.py` |
 | D5 | Builder + Security Reviewer | D2 | writer | `services/prompt_readback.py`, `handlers/prompt_readback.py`, `tests/test_prompt_readback.py` |
@@ -32,7 +32,7 @@ D0 ─ D1 ─ D2 ─┬─ D3 ─┐
 **Параллельность.** Одновременно допустимы не более двух writes: D3 и D4 (непересекающиеся файлы). D5 стартует после D2 и не пересекается с D3/D4 по путям. D1, D2, D6, D7 — одиночные лейны.
 
 **Сериализованные файлы.**
-- `services/system_logs_fetcher.py`, `config/settings.py`, `bot.py`, `web/app.js` — только D1, до D2/D6.
+- `services/system_logs_fetcher.py`, `config/settings.py`, `bot.py`, `web/app.js` — только D1. Жёсткого ребра «D1 до D2» больше нет с 11.11.2026 (общих файлов нет): правило действует для D6 и для любых перезаписей этих файлов внутри эпика.
 - `services/roles.py`, `services/access.py`, `web/api/access.py` — только D2; D6 читает контракт, не меняет.
 - `services/memory_health.py` — D3 и то только после интеграции MEMORY-08 (общий контракт метрик памяти).
 - `services/checkup_service.py`, `handlers/checkup.py` — только D6; промпт и стиль не редактируются.
@@ -108,6 +108,30 @@ D0 ─ D1 ─ D2 ─┬─ D3 ─┐
 
 > **Счётчики выше — состояние после четвёртого прохода ревью (принят `02e9d301`).** Промежуточное состояние `Needs Fixes` на `f58c458a` (11 слотов в `FAILED`) сохранено в §8 и в `slice_accounting.after_review_2026_11_11`; финальный вердикт — §9 и `review_evidence[1]` (`REV-D2-02e9d301-01`). Источник истины — `requirements-map.json`.
 
+### 7.1. Зависимость `D2 → D1` (и `→ D0`): serialization, не prerequisite (решение PM 11.11.2026)
+
+Граф объявлял `D2 depends_on D1` (и транзитивно `D0`), из-за чего release-гейт среза требовал `VERIFIED`
+по 22 строкам D1/D0. Проверка на живом репозитории показала, что это **объявление порядка работ**, а не
+техническая предпосылка:
+
+1. **Общих файлов нет.** D1 = `services/system_logs_fetcher.py`, `config/settings.py`, `bot.py`, `web/app.js`,
+   `tests/test_checkup_logs_portable.py`; D2 = `services/{roles,access,telegram_role_check,diagnostic_policy,output_projection,tool_router}.py`,
+   `web/api/access.py`, `handlers/checkup.py`, `tests/test_diagnostic_policy.py` — пересечение **0**.
+2. **Реализация D1 уже в проде.** `0c6dc58d` (портативный локальный backend логов чекапа) — предок
+   предыдущего прод-релиза `952b9ebd` (2.58.187) и выложенного `c087253d`; `services/system_logs_fetcher.py`
+   в них одинаков, `create_subprocess_shell`/`CHECKUP_JOURNALCTL_CMD` в чекап-пути отсутствуют.
+3. **Единственный контакт** — существующий импорт `CheckupLogsUnavailableException` в `handlers/checkup.py`,
+   который есть уже на базе `77a63bc5` и `952b9ebd`; дельтой D2 контракт не меняется.
+4. **D0** — планировочный слайс: `d0-discovery.md` доставлен и закреплён `d0_sha256` (`306c23e7…`), его
+   потребители — D6/AC-09 (байты промпта) и D1 (`SD1-D1-14`), а не D2.
+
+Поэтому в `slice-graph.json` жёстких рёбер у D2 больше нет: порядок записан полем `ordering`
+(`decision_ref: DEP-D2-D1-2026-11-11`), а решение и доказательства — в `dependency_decisions`.
+Строки **D1 (17) и D0 (5) остаются `PENDING` честно**: у них нет собственных доказательств
+(inventory, живой backend логов на новом VPS, сетевой trace отсутствия Better Stack), хотя код D1 в проде —
+это отдельная книжная работа владельца D1/D0, дефектом D2 не является. Если D1 начнёт менять свои файлы,
+ребро возвращается на время этих правок как writer-сериализация.
+
 ## 8. Результат независимого ревью D2 (2026-11-11): Needs Fixes
 
 Вердикт: **`Needs Fixes`** на портированном кандидате `f58c458a2efdb1613fe519143c9ad7517c37ecc8` (`self-diag/d2-port`, родитель `77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7`). Запись в карте — `review_evidence[0]` (`REV-D2-f58c458a-01`). Перенос проверен и претензий не имеет: **порт побайтово верен**, оба дефекта — в логике самого среза. Деплоя не было, `deployed_commit` пуст, **откат остаётся `77a63bc5`** (кандидат ничего не заменял).
@@ -152,7 +176,9 @@ D0 ─ D1 ─ D2 ─┬─ D3 ─┐
 
 Деплой: **не выкачен**, `deployed_commit` пуст, откат `77a63bc5`; релиз D2 поставлен в очередь после текущего релиза.
 
-> **Поправка 11.11.2026.** Срез D2 **выкачен**: прод — **2.58.188 @ `c087253d`** (`release/2.58.188`, порт rebase'ом на `952b9ebd`, 5 коммитов без конфликтов, blob-id файлов среза равны кандидату). Запись DevOps: `reports/deploy-2.58.188.md`. `deployed_commit` карты переведён на `c087253d`, `candidate_commit` остаётся `02e9d301`. Деплой не переводит в `VERIFIED` ни одной строки: живая проверка «ноль раскрытий» (`SD1-AC-14`) остаётся **postdeploy-only** и не выполнена — на реальном боте наблюдались политика и санитайзер, но полного живого хода «бот отвечает в Telegram» не было. Release-гейт среза на `c087253d` законно красный (`candidate mismatch` + зависимость D1 + необновлённый статус `SD1-D2-03`): это книжная привязка, а не дефект кода или прода. Lineage: рабочая ветка `master` (`88ebd845`) не содержит `952b9ebd`/`c087253d` — слияние релизных линий остаётся отдельным осознанным шагом.
+> **Поправка 11.11.2026.** Срез D2 **выкачен**: прод — **2.58.188 @ `c087253d`** (`release/2.58.188`, порт rebase'ом на `952b9ebd`, 5 коммитов без конфликтов, blob-id файлов среза равны кандидату). Запись DevOps: `reports/deploy-2.58.188.md`. `deployed_commit` карты переведён на `c087253d`, `candidate_commit` остаётся `02e9d301`. Деплой не переводит в `VERIFIED` ни одной строки: живая проверка «ноль раскрытий» (`SD1-AC-14`) остаётся **postdeploy-only** и не выполнена — на реальном боте наблюдались политика и санитайзер, но полного живого хода «бот отвечает в Telegram» не было. Release-гейт среза на `c087253d` законно красный (`candidate mismatch` + зависимость D1 + необновлённый статус `SD1-D2-03`): это книжная привязка, а не дефект кода или прода. Lineage: рабочая ветка `master` (`88ebd845`) не содержит `952b9ebd`/`c087253d` — слияние релизных линий остаётся отдельным осознанным шагом. → **Устарело 11.11.2026:** книжная привязка выполнена — `candidate_commit` переведён на `c087253d`, зависимость D1 снята; см. блок ниже и §7.1.
+
+> **Книжная привязка 11.11.2026 (PM).** Перепривязка выполнена: `candidate_commit` карты и все `evidence[]` строк D2 указывают на выложенный `c087253d` (исходная привязка к `02e9d301` сохранена в `accepted_candidate_commit`/`superseded_evidence`), живая приёмка `SD1-D2-03`/`SD1-D2-03b` снята артефактом `evidence/d2/sd1_d2_03.json` и строки переведены в `VERIFIED`. Итог среза: **37 VERIFIED / 4 READY_FOR_LIVE / 3 PENDING** в записях (35 / 4 / 3 по уникальным `req_id`). Жёсткое ребро `D2 depends_on D1` снято как сериализация (§7.1). План-гейт — `errors=0`; release-гейт среза — `errors=7` ровно по семи открытым строкам (3 `PENDING` + 4 `READY_FOR_LIVE`), книжных ошибок нет. Дословные выводы и доказательства — `reports/pm-d2-rebind-2.58.188.md`.
 
 Гейты (дословно, `evidence/d2/d2-evidence-02e9d301.md` §0.9): план-гейт — `stage=plan inventory=183 manual=53 scoped=0 errors=0`; ревью-гейт D2 — `errors=3` ровно на трёх открытых `PENDING` (`SD1-D2-23`, `SD1-D2-24`, `SD1-AMX-09`), что не является дефектом привязки: у каждой строки свой внешний исполнитель и своё условие.
 

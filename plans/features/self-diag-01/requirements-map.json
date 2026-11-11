@@ -2,9 +2,35 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-09-self-diag-01.md",
   "source_sha256": "ba12833aebc259039c7c198f596346880639618d9eafdb2e76d8ede17d0eb400",
-  "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-  "deployed_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
-  "deployed_commit_note_2026_11_11": "deployed_commit = c087253d (2.58.188) — выложенный релиз среза D2, а не принятый кандидат: candidate_commit остаётся 02e9d301 (принятый и отревьюенный кандидат, база 77a63bc5), перенесённый на прод-линию rebase'ом на 952b9ebd без конфликтов (пять коммитов, blob-id изменённых файлов побайтово совпадают с кандидатом). Поэтому release-гейт среза D2 на c087253d законно даёт `candidate mismatch` и каскад «no evidence bound to reviewed candidate»: это книжная привязка, а не дефект выкладки (см. deployment_2_58_188.gate_state).",
+  "candidate_commit": "c087253d",
+  "candidate_binding": {
+    "deployed_commit": "c087253d",
+    "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+    "release": "2.58.188 на ветке release/2.58.188",
+    "why_one_binding_covers_both": "Релиз не переписывает принятый код: все 9 файлов среза в c087253d побайтово равны 02e9d301 (blob-id совпадают), а поведенческие наборы перепрогнаны уже на c087253d. Поэтому привязка доказательств к c087253d не расширяет и не ослабляет вердикт ревью на 02e9d301.",
+    "blob_proof": {
+      "services/diagnostic_policy.py": "b6e3b24a",
+      "services/output_projection.py": "4fcdd821",
+      "services/telegram_role_check.py": "093f8e10",
+      "tests/test_diagnostic_policy.py": "04ee22a6",
+      "handlers/checkup.py": "6ab31598",
+      "services/access.py": "3cd71293",
+      "services/chat_keys.py": "748bbd3c",
+      "services/tool_router.py": "6529b512",
+      "web/api/access.py": "b2cf9941"
+    },
+    "row_binding": "Все evidence-записи строк D2 привязаны к c087253d: artifact_path указывает на релизный артефакт, исходная привязка сохранена в accepted_candidate_commit и superseded_evidence. Исторические записи (review_evidence, resolution, failure_history, slice_accounting.after_*) не переписаны.",
+    "verdict_source": "review_evidence[1] REV-D2-02e9d301-01 + evidence/d2/d2-evidence-02e9d301.md (superseded history)",
+    "release_gate_effect": "После перепривязки release-гейт среза D2 больше не даёт candidate mismatch и не требует VERIFIED по D1/D0: ребро D2 -> D1/D0 переведено в ordering (slice-graph.json, dependency_decisions). Остаются открытые строки самого среза: 3 PENDING и 4 READY_FOR_LIVE.",
+    "deployed_commit_full": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+    "gate_invocation": {
+      "candidate": "c087253d",
+      "deployed_commit": "c087253d",
+      "why": "requirements_gate.py сравнивает --candidate и --deployed-commit с полями карты как строки, а не как Git-объекты, поэтому поля привязки хранятся в той же форме, в какой вызывается гейт. Полный SHA — deployment_2_58_188.deployed_commit и candidate_binding.deployed_commit_full."
+    }
+  },
+  "deployed_commit": "c087253d",
+  "deployed_commit_note_2026_11_11": "deployed_commit = c087253d (2.58.188) — выложенный релиз среза D2, а не принятый кандидат: candidate_commit остаётся 02e9d301 (принятый и отревьюенный кандидат, база 77a63bc5), перенесённый на прод-линию rebase'ом на 952b9ebd без конфликтов (пять коммитов, blob-id изменённых файлов побайтово совпадают с кандидатом). Поэтому release-гейт среза D2 на c087253d законно даёт `candidate mismatch` и каскад «no evidence bound to reviewed candidate»: это книжная привязка, а не дефект выкладки (см. deployment_2_58_188.gate_state). → УСТАРЕЛО 2026-11-11 после книжной перепривязки: candidate_commit карты переведён на c087253d, обе привязки описаны в candidate_binding (см. release_gate_effect).",
   "deployment_2_58_188": {
     "slice": "SELF-DIAG-01 D2 (доступ к диагностике)",
     "version": "2.58.188",
@@ -22,10 +48,34 @@
     "rollback": "git checkout -f -B release/2.58.187 952b9ebd + systemctl restart admin_bot; схема и данные не менялись, откат кода безопасен",
     "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
     "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
-    "gate_state": "release-гейт среза D2 на c087253d: exit 1 — (1) candidate mismatch: карта привязана к 02e9d301, выложено c087253d; (2) граф D2 объявляет зависимость от D1, строки D1 остаются PENDING; (3) SD1-D2-03 имеет живое доказательство, но статус в карте не обновлён. Это книжная работа владельца карты, код и прод исправны",
-    "status_effect": "выкат НЕ переводит ни одну строку в VERIFIED и ни одну не понижает: 35 VERIFIED со своими кандидатными привязками на 02e9d301 остаются; READY_FOR_LIVE — SD1-D2-03, SD1-D2-03b, SD1-AMX-08, SD1-AC-10, SD1-AC-11, SD1-AC-14; PENDING — SD1-D2-23, SD1-D2-24, SD1-AMX-09 (по 44 записям среза D2)",
+    "gate_state": "release-гейт среза D2 на c087253d: exit 1 — (1) candidate mismatch: карта привязана к 02e9d301, выложено c087253d; (2) граф D2 объявляет зависимость от D1, строки D1 остаются PENDING; (3) SD1-D2-03 имеет живое доказательство, но статус в карте не обновлён. Это книжная работа владельца карты, код и прод исправны → УСТАРЕЛО: см. gate_state_after_pm_rebind_2026_11_11.",
+    "status_effect": "выкат НЕ переводит ни одну строку в VERIFIED и ни одну не понижает: 35 VERIFIED со своими кандидатными привязками на 02e9d301 остаются; READY_FOR_LIVE — SD1-D2-03, SD1-D2-03b, SD1-AMX-08, SD1-AC-10, SD1-AC-11, SD1-AC-14; PENDING — SD1-D2-23, SD1-D2-24, SD1-AMX-09 (по 44 записям среза D2) → УСТАРЕЛО: см. status_effect_after_pm_rebind_2026_11_11.",
     "postdeploy_only_rows": "SD1-AC-10 / SD1-AC-11 / SD1-AC-14 и SD1-AMX-08 остаются postdeploy-обязательствами: политика и санитайзер наблюдались на реальном боте, но полный живой ход «бот отвечает в Telegram» не выполнялся (сообщений в рабочие чаты не отправлялось). В частности «ноль раскрытий» (SD1-AC-14) остаётся postdeploy-only и НЕ помечается VERIFIED",
-    "lineage_hazard": "рабочая ветка (master 88ebd845) не содержит ни 952b9ebd, ни c087253d: они в release/2.58.187 и release/2.58.188. Слияние релизных линий в рабочую — отдельный осознанный шаг интеграции"
+    "lineage_hazard": "рабочая ветка (master 88ebd845) не содержит ни 952b9ebd, ни c087253d: они в release/2.58.187 и release/2.58.188. Слияние релизных линий в рабочую — отдельный осознанный шаг интеграции",
+    "deployed_commit_note_superseded": "Поле deployed_commit_note_2026_11_11 устарело после книжной перепривязки 2026-11-11: candidate_commit карты теперь c087253d, candidate mismatch и каскад «no evidence bound to reviewed candidate» больше не возникают; историческая формулировка оставлена как запись состояния на момент выката.",
+    "delta_recount_pm_2026_11_11": {
+      "command": "git diff --name-status 952b9ebd c087253d",
+      "modified_paths": 31,
+      "modified_detail": "5 файлов среза + 26 файлов, изменённых только номером версии (APP_VERSION/пины)",
+      "new_paths": 4,
+      "byte_identical_existing_paths": 9363,
+      "tree_paths": {
+        "952b9ebd": 9394,
+        "c087253d": 9398
+      },
+      "note": "Побайтово идентичны 9394−31=9363 существующих пути. Цифра 9389 в строке delta (9398−9) не учитывает 26 файлов bump версии; состав дельты среза от пересчёта не меняется — по-прежнему 9 файлов, DDL 0."
+    },
+    "live_artifact": {
+      "path": "plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
+      "sha256": "7cb71fcaacc83586241680e5f8c74faff0b9f2f667f1d9bc160e98692a4cf799",
+      "covers": [
+        "SD1-D2-03",
+        "SD1-D2-03b"
+      ],
+      "note": "read-only проба getChatMember + выложенной diagnostic_policy, 0 отправленных сообщений"
+    },
+    "status_effect_after_pm_rebind_2026_11_11": "Перепривязаны все evidence-записи строк D2 на c087253d; SD1-D2-03 и SD1-D2-03b переведены READY_FOR_LIVE → VERIFIED по артефакту evidence/d2/sd1_d2_03.json. Остаются: 4 READY_FOR_LIVE (SD1-AMX-08, SD1-AC-10, SD1-AC-11, SD1-AC-14) и 3 PENDING (SD1-AMX-09, SD1-D2-23, SD1-D2-24). Итог среза D2 в записях: 37 VERIFIED / 4 READY_FOR_LIVE / 3 PENDING; по уникальным req_id 35 / 4 / 3.",
+    "gate_state_after_pm_rebind_2026_11_11": "План-гейт: errors=0. Release-гейт среза D2 (--candidate c087253d --deployed-commit c087253d): ошибки только по 7 открытым строкам среза — 3 PENDING и 4 READY_FOR_LIVE; candidate mismatch и зависимость D1/D0 больше не возникают. Дословный вывод — в reports/pm-d2-rebind-2.58.188.md."
   },
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -97,12 +147,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-06",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Проверка выполняется в момент решения (decide/open_gate → resolve_actor(check_admin=True)); bot отсутствует → bot_unavailable/unverified, исключение API → telegram_api_error/unverified без raise (telegram_role_check.py:132-146). test_auth_unverified_denies_protected_only: prompts/view → unverified, bot_server_state/view → allow.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-06",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -128,12 +186,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-07",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "DATA_CLASSES = PUBLIC_TECH/CHAT_SCOPED/PROMPT_CONTENT/OTHER_CHAT_DATA/SECRET_VALUE; default_diag_matrix() задаёт строку по классу (public/chat_scoped → user+local_admin, prompt_content → только local_admin, secret → пусто). Тесты: test_default_matrix_role_by_class, test_member_reads_public_tech_but_not_prompts, test_other_chat_data_rule, test_secret_value_class_never_allowed.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-07",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -159,12 +225,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-31",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Техническое обсуждение не блокируется: keyword-роутов и списков фраз не добавлено, публичные классы открыты участнику (test_member_reads_public_tech_but_not_prompts), а запрос промпта гасится правилом класса (R_DENY_PROMPT_MEMBER), а не запретом «внутренностей сервера».",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-31",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -191,12 +265,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-GRAL-05",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Общая маска на исходный код не введена: capability source_code — PUBLIC_TECH с view/run для user (test_member_reads_public_tech_but_not_prompts: run read_source_code → allow); защищаются значения секретов и содержимое промптов/чужих чатов (SECRET_VALUE/PROMPT_CONTENT/OTHER_CHAT_DATA).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-GRAL-05",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -554,12 +636,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-02",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Матрица различает участника, администратора конкретного чата и владельца; админство подтверждается только getChatMember по числовым (chat_id, from_user.id) (test_chat_admin_verified_by_telegram_api), никнеймы и текстовые заявления прав не дают (test_nickname_and_claims_do_not_grant_admin). После fef70398 строка local_admin действует во всех классах через dispatch (test_local_admin_row_is_enforced_for_public_tech_via_dispatch, test_local_admin_row_is_enforced_for_chat_scoped_via_dispatch), статус перепроверяется живой проверкой (test_local_admin_row_rechecks_live_status_before_output), а при недоступном Telegram доступ закрывается (test_local_admin_row_denies_when_admin_check_unavailable).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-02",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -659,12 +749,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-05",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Абсолютный запрет держится на всех путях: SECRET_VALUE — deny до матрицы, включая владельца (test_secret_value_class_never_allowed); snapshot.secret_policy = {effect: deny, configurable: false}; значения вычищаются из tool result и финальной доставки, а при неполных или недоступных источниках сырой вывод блокируется (test_incomplete_secret_sources_block_raw_tool_result_and_final, test_checkup_report_blocked_when_sources_incomplete, test_byok_read_error_blocks_raw_output); project_secret_value() отдаёт статус без значения (test_secret_projection_never_returns_value).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-05",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -741,12 +839,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-07",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "test_audit_records_decisions_without_secrets: события decision/denial/gate_open/publication/policy_change/role_check с actor_id, chat_id, capability, role, effect, reason_code, source; policy_change несёт changed_by/before/after; секрет и текст промпта отсутствуют и в снапшоте, и в caplog. test_prompt_disclosure_audit_without_text: disclosure_actor/chat_id/prompt_id/prompt_revision/destination=group и нет полей text/prompt_text/body. Белый список полей — services/diagnostic_policy.py:260-267.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-07",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -773,13 +879,21 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-08",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#5",
           "observation": "Отзыв прав на уже запущенную проверку доказан тестами: test_admin_status_changed_mid_session, test_revocation_blocks_publication_of_running_check, test_policy_change_revokes_running_chat_admin_check, test_publish_allows_when_rights_survive, test_checkup_entry_publishes_after_recheck (отчёт не публикуется), плюс разные чаты, личный диалог, живая смена настроек без рестарта, конкурентные запросы и обход через инструмент/пересказ. Живой сценарий требует выката.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-08",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -791,9 +905,10 @@
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L21",
       "postdeploy_condition": "postdeploy: реальная смена статуса администратора в Telegram во время идущего чекапа — публикации отчёта нет, в аудите событие revocation_detected на переходе allow→deny; отдельно проверяется «бот не в чате» (auth_unverified) и отзыв через изменение настроек матрицы без рестарта. Артефакт: plans/features/self-diag-01/evidence/d2/sd1_amx_08.json",
-      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.184 @ 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (родитель портированного кандидата, release/2.58.184), без переноса состояния",
+      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.187 @ 952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9 (release/2.58.187), без переноса состояния: схема v47, DDL=0, миграций нет (прежняя ссылка на 2.58.184 @ 77a63bc5 относилась к периоду до выката)",
       "boundary": "живая приёмка не может быть выполнена до выката; политическая часть доказана тестами кандидата, живая часть — обязательство после деплоя",
-      "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)"
+      "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)",
+      "live_state_after_deploy": "2.58.188: перепроверка перед публикацией выполняется (tool_result, fresh_telegram=True, решение пересчитывается). Фактический отзыв админства на середине вызова не воспроизводился — это изменение прав в чужом чате (reports/deploy-2.58.188.md §7). Строка остаётся READY_FOR_LIVE."
     },
     {
       "source_id": "MAN-AMX-09",
@@ -1033,13 +1148,21 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-10",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#5",
           "observation": "Политическая часть доказана: участнику разрешены публичные классы и запрещён prompt readback (test_member_reads_public_tech_but_not_prompts, test_dm_scope_is_member_not_admin, SD1-D2-31). Сам живой ответ публичному пользователю на произвольный технический вопрос без «чекап» требует выката и реального чата.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-10",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -1050,9 +1173,11 @@
         }
       ],
       "postdeploy_condition": "postdeploy: в реальном публичном чате участник задаёт произвольный технический вопрос без «чекап» и получает содержательный технический ответ без credential values и без чужих chat contents. Артефакт: plans/features/self-diag-01/evidence/d2/sd1_ac_10.json",
-      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.184 @ 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (родитель портированного кандидата, release/2.58.184), без переноса состояния",
+      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.187 @ 952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9 (release/2.58.187), без переноса состояния: схема v47, DDL=0, миграций нет (прежняя ссылка на 2.58.184 @ 77a63bc5 относилась к периоду до выката)",
       "boundary": "живая приёмка не может быть выполнена до выката; политическая часть доказана тестами кандидата, живая часть — обязательство после деплоя",
-      "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)"
+      "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)",
+      "live_state_after_deploy": "Проба 2.58.188 подтвердила ожидаемое по ТЗ, а не дефект: PUBLIC_TECH/CHAT_SCOPED заводски разрешены участнику (get_bot_health, read_source_code, inspect_runtime → allow, allowed_public_class_default, verification=not_required) — это ровно SD1-AC-10; роль различается только в protected-классах (prompts: administrator allow, member deny, unverified unverified). Остаётся живая часть: произвольный технический вопрос без «чекап» в реальном публичном чате; ход бота не выполнялся, сообщения не отправлялись.",
+      "public_class_note": "Уточнение контекста 2026-11-11: разрешение участнику на PUBLIC_TECH/CHAT_SCOPED — это исполнение SD1-AC-10, а не дефект. Ожидание «участнику отказано в get_bot_health» было ошибочным и не должно возвращаться как находка."
     },
     {
       "source_id": "MAN-AC-11",
@@ -1069,13 +1194,21 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-11",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#5",
           "observation": "Политическая часть доказана: участнику промпт запрещён жёстким правилом, tool result и финальная доставка проходят перепроверку и санитизацию, переиспользования между акторами нет (test_member_reads_public_tech_but_not_prompts, test_matrix_override_cannot_open_prompts_to_member, test_concurrent_admin_and_member_do_not_share_data, test_tool_result_never_leaks_secret). Живые попытки через реальный чат и prompt injection требуют выката.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-11",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -1086,9 +1219,10 @@
         }
       ],
       "postdeploy_condition": "postdeploy: в реальном чате участник пытается получить действующий промпт прямым запросом, через tool result, cache/metadata и prompt injection — все попытки denied без фрагментов текста. Артефакт: plans/features/self-diag-01/evidence/d2/sd1_ac_11.json",
-      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.184 @ 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (родитель портированного кандидата, release/2.58.184), без переноса состояния",
+      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.187 @ 952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9 (release/2.58.187), без переноса состояния: схема v47, DDL=0, миграций нет (прежняя ссылка на 2.58.184 @ 77a63bc5 относилась к периоду до выката)",
       "boundary": "живая приёмка не может быть выполнена до выката; политическая часть доказана тестами кандидата, живая часть — обязательство после деплоя",
-      "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)"
+      "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)",
+      "live_state_after_deploy": "2.58.188: политическая часть и санитайзер наблюдались на реальном боте (§5 отчёта); живые попытки участника получить промпт прямым запросом/injection в реальном чате не выполнялись — сообщения не отправлялись. Строка остаётся READY_FOR_LIVE."
     },
     {
       "source_id": "MAN-AC-12",
@@ -1151,13 +1285,21 @@
       "postdeploy_note_2026_11_11": "Срез D2 выложен на прод: 2.58.188 @ c087253d. Живая проверка «ноль раскрытий» по всем маршрутам остаётся POSTDEPLOY-ONLY и не выполнена: на реальном боте read-only наблюдались политика и санитайзер (17 известных значений, complete=true, sanitizer_leaks=0, реальный путь ToolRouter._diagnostic_output с подсаженным значением → «скрыто:LOGTAIL_SOURCE_TOKEN», contains_plant=false), но полного живого хода с ответом в Telegram не было. Статус остаётся READY_FOR_LIVE до появления артефакта sd1_ac_14.json по условию postdeploy_condition.",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-14",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#5",
           "observation": "Политическая часть доказана на этом кандидате: значения не появляются в tool result (включая немаркированные инструменты), в финальной доставке чекапа, в аудите и в логах; при неполных источниках сырой вывод блокируется (test_incomplete_secret_sources_block_raw_tool_result_and_final, test_checkup_report_blocked_when_sources_incomplete, test_audit_records_decisions_without_secrets, test_secret_value_class_never_allowed). Живая проверка «ноль раскрытий» на всех маршрутах (error/caching/source/tool/replay, промпт, лог, конфиг, исходники) возможна только после выката — условие в postdeploy_condition.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-14",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -1168,7 +1310,7 @@
         }
       ],
       "postdeploy_condition": "postdeploy: в реальном чате (включая владельца и админа) перебираются маршруты error/caching/source/tool/replay и запросы к промпту, логу, конфигу и исходникам — ноль раскрытий credential values. Артефакт: plans/features/self-diag-01/evidence/d2/sd1_ac_14.json",
-      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.184 @ 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (родитель портированного кандидата, release/2.58.184), без переноса состояния",
+      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.187 @ 952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9 (release/2.58.187), без переноса состояния: схема v47, DDL=0, миграций нет (прежняя ссылка на 2.58.184 @ 77a63bc5 относилась к периоду до выката)",
       "boundary": "живая приёмка не может быть выполнена до выката; политическая часть доказана тестами кандидата, живая часть — обязательство после деплоя",
       "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)",
       "failure_history": [
@@ -1214,12 +1356,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-15",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Проверка стоит до чтения и до отправки: отказ по политике не читает логи и не формирует отчёт (test_checkup_entry_respects_policy_without_reading_logs), dispatch возвращает отказ без содержимого отчёта (test_tool_call_is_denied_by_policy). После 89882aef недоступность слоя прав — отказ, а не обход (test_checkup_denies_when_policy_layer_unavailable), публикация перепроверяется в publish(); текст «я админ» и verdict модели не участвуют (test_paraphrased_request_and_args_do_not_elevate).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-15",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -1274,12 +1424,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-16",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Класс данных задаётся структурно (CAPABILITIES.data_class, DATA_CLASSES), права считает существующий слой param_permissions/perm_overrides, секреты — типизированный каталог param_catalog (sensitivity_of_pg_key), вывод проходит общий sanitize(); pattern-правила объявлены второй линией и не единственной защитой (services/output_projection.py:53-64). Тесты: test_secret_projection_never_returns_value, test_sanitize_secondary_patterns, test_matrix_snapshot_has_inheritance_and_legend.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-16",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -1594,12 +1752,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-GRAL-03",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Скрытия по признаку «внутренности сервера» нет: запрет строится только на data_class/PROTECTED_CLASSES/OTHER_CHAT_DATA, публичный класс по умолчанию открыт участнику (test_member_reads_public_tech_but_not_prompts, test_default_matrix_role_by_class).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-GRAL-03",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -1780,12 +1946,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-01",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Проекция применяется до модели и до Telegram: `ToolRouter._diagnostic_output` санитизирует любой tool result (в т.ч. немаркированные инструменты — test_non_diagnostic_tool_result_is_sanitized), `publish()` — финальный отчёт. С 89882aef/02e9d301 `tool_result` и `final` входят в RAW_OUTPUT_KINDS, поэтому при неполных источниках секретов сырой вывод блокируется целиком (test_incomplete_secret_sources_block_raw_tool_result_and_final, test_publish_blocks_final_when_sources_incomplete). prompt_digest() отдаёт только prompt_chars/prompt_digest (test_prompt_digest_has_no_text). Общий evidence-буфер — SD1-EVD-04 (D3), промпт-readback — D5.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-01",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -2001,12 +2175,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-SEM-05",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Маркировка инструментов структурная: TOOL_CAPABILITIES (tool → capability), без regex по описанию и по тексту запроса; проверка ACL и аргументов идёт после выбора инструмента в ToolRouter.dispatch → _diagnostic_guard (test_tool_call_is_denied_by_policy, test_indirect_tool_bypass_is_blocked).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-SEM-05",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -2761,12 +2943,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-02",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "resolve_actor() возвращает ROLE_MEMBER для любого удостоверяемого участника, включая личный диалог (chat_id>0 → STATUS_MEMBER в telegram_role_check); публичные классы разрешены: test_member_reads_public_tech_but_not_prompts (bot_server_state/view и source_code/run → allow), test_dm_scope_is_member_not_admin.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-02",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -2789,16 +2979,33 @@
       "acceptance": "chat_admin подтверждается online-проверкой числового from_user.id и chat.id через Bot API getChatMember со статусом administrator/creator; имя, username, должность, самоописание и пересланная цитата не учитываются.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-03",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#5",
           "observation": "Политическая часть доказана: единственный источник роли — getChatMember по числовым (chat_id, from_user.id), статусы administrator/creator; test_chat_admin_verified_by_telegram_api, test_nickname_and_claims_do_not_grant_admin, test_admin_status_changed_mid_session. Живое подтверждение невозможно до выката.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-03",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
+        },
+        {
+          "ref": "plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
+          "observation": "Живая приёмка на выложенном 2.58.188 (бот PERMsoc_bot 8802473181, read-only, 0 отправленных сообщений, 2026-11-11): getChatMember по числовым id — 5885953495 и 138811255 → administrator в -1004482340693, статус chat_admin (source=telegram_api); 350803143 → left в -1004482340693 и member в -1002661910336 → статус member; 479167456 → TelegramBadRequest в обоих чатах → unverified. Protected-класс prompts: administrator → allow (allowed_chat_admin_default), member → deny (denied_prompt_content_member), unverified → unverified (denied_auth_unverified). Имя/username/должность не участвовали — входы только chat.id и from_user.id.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
+          "candidate_commit": "c087253d",
+          "deployed_commit": "c087253d",
+          "artifact_sha256": "7cb71fcaacc83586241680e5f8c74faff0b9f2f667f1d9bc160e98692a4cf799"
         }
       ],
       "expected_evidence": [
@@ -2809,10 +3016,41 @@
         }
       ],
       "postdeploy_condition": "postdeploy: в реальной группе настроенный числовой Telegram ID получает chat_admin по факту getChatMember (administrator и creator), а участник — нет; бот-администратор группы даёт проверку, отсутствие прав бота даёт auth_unverified без protected readback. Артефакт: plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
-      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.184 @ 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (родитель портированного кандидата, release/2.58.184), без переноса состояния",
-      "boundary": "живая приёмка не может быть выполнена до выката; политическая часть доказана тестами кандидата, живая часть — обязательство после деплоя",
-      "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)",
-      "shared_acceptance_with": "SD1-D2-03b"
+      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.187 @ 952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9 (release/2.58.187), без переноса состояния: схема v47, DDL=0, миграций нет (прежняя ссылка на 2.58.184 @ 77a63bc5 относилась к периоду до выката)",
+      "boundary": "живая приёмка снята на выложенном 2.58.188 (c087253d): administrator подтверждён online по числовым id, участник и unverified отказаны, protected-класс prompts различает роли. Ненаблюдаемые варианты (creator, ветка «бот без прав в чате», живой ход бота) перечислены в live_acceptance.not_observed — они не опровергают приёмку: creator трактуется тем же ADMIN_STATUSES, а недоступность Telegram даёт unverified (наблюдалось на 479167456).",
+      "blocker_class": "закрыт выкатом 2.58.188 2026-11-11: живая приёмка больше не открыта, доказательство — plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
+      "shared_acceptance_with": "SD1-D2-03b",
+      "postdeploy_condition_state": "satisfied 2026-11-11 на production 2.58.188 @ c087253d: read-only проба, 0 отправленных сообщений",
+      "live_acceptance": {
+        "captured_at": "2026-11-11",
+        "environment": "production, хост 192.255.209.205 /var/www/admin_bot, релиз 2.58.188 @ c087253dd7afdbcfa0c5ee96927324dc349627b2, бот PERMsoc_bot (8802473181), проба read-only, 0 отправленных сообщений",
+        "artifact_path": "plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
+        "artifact_sha256": "7cb71fcaacc83586241680e5f8c74faff0b9f2f667f1d9bc160e98692a4cf799",
+        "observed": {
+          "chats": [
+            {
+              "chat_id": -1004482340693,
+              "bot_status": "member",
+              "bot_can_manage": false
+            },
+            {
+              "chat_id": -1002661910336,
+              "bot_status": "administrator",
+              "bot_can_manage": true
+            }
+          ],
+          "administrator_verified_online": "5885953495, 138811255 → administrator → chat_admin (source=telegram_api)",
+          "participant_rejected": "350803143 (left) и те же аккаунты в -1002661910336 (member) → member; prompts → deny",
+          "unverifiable_identity": "479167456 → TelegramBadRequest → unverified, отказ без раскрытия (fail-safe)",
+          "protected_class_split": "prompts/view: administrator → allow, member → deny, unverified → unverified"
+        },
+        "not_observed": [
+          "creator: ни один из опрошенных аккаунтов не является создателем этих двух чатов; код трактует creator тем же ADMIN_STATUSES, что administrator, живой случай не наблюдался",
+          "ветка «бот не имеет прав в чате» в этих чатах недостижима: getChatMember отвечал и там, где бот только member; эквивалентный fail-safe (telegram_api_error → unverified) наблюдался на 479167456",
+          "живой ход бота (update → tool → ответ в Telegram) не выполнялся: сообщения в рабочие чаты не отправлялись"
+        ],
+        "verdict": "приёмка снята на реальном боте; остаточные ненаблюдаемые варианты перечислены честно и не опровергают приёмку"
+      }
     },
     {
       "source_id": "L00199",
@@ -2829,12 +3067,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-04",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Роль владельца берётся из существующего контура: resolve_actor → roles.access_for(...).is_global_admin → ROLE_PROJECT_OWNER/VERIFIED_OWNER, имя и username не участвуют. test_project_owner_from_existing_owner_contour (allow на prompts/edit для настроенного OWNER_ID), explain_for(OWNER_ID) показывает allow для edit.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-04",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -2860,12 +3106,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-05",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "telegram_id=None → Actor(member, unverified, R_DENY_NO_IDENTITY), а для PROTECTED_CLASSES срабатывает hard_rule deny: test_anonymous_sender_gets_no_prompt_rights; sender_chat/канал в resolve_actor не участвует — principal только from_user.id (services/diagnostic_policy.py:337-339, services/telegram_role_check.py:108-110).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-05",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -2929,12 +3183,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-09",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "denial_message()/explain_reason() отдают короткий отказ по отсутствию права без фрагментов промпта и без перечня инструкций (текст R_DENY_PROMPT_MEMBER); test_member_reads_public_tech_but_not_prompts проверяет отказ вместе с сохранённым доступом к публичной технике, test_explain_is_plain_language_and_secret_aware — объяснение без содержимого.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-09",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -2960,12 +3222,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-10",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "test_admin_of_chat_a_gets_no_chat_b_prompt: админ A, действующий в чате B, получает deny и проверка идёт именно по (GROUP_B, ADMIN_ID); для чужих данных отдельное hard_rule R_DENY_OTHER_CHAT (test_other_chat_data_rule — deny даже владельцу при resource_chat_id другого чата). Чужой chat_id в запросе ресурса не параметризован, поэтому «точный prompt_id» другого чата не имеет входного пути.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-10",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3014,12 +3284,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-12",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "project_secret_value() отдаёт только name/sensitivity/configured/last4/status — значение не встречается в ответе (test_secret_projection_never_returns_value). Реестр известных секретов покрывает все секретные поля каталога, включая env-only и cache-only ключи, поэтому значение не проходит под видом настройки, лога, env или diff (test_credential_registry_covers_every_secret_settings_field, test_every_credential_source_value_is_redacted, test_cache_only_secret_key_is_in_consulted_set, test_working_value_from_admin_panel_is_redacted). Поля key health (last_success/last_error_code) — SD1-D2-24, остаётся PENDING.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-12",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3088,12 +3366,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-13",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "PROMPT_CONTENT — отдельный класс и отдельная пара действий (view/edit) в CAPABILITIES; sensitivity_of_pg_key('prompts.checkup_system_prompt') == PROMPT_CONTENT, а не SECRET_VALUE (test_secret_projection_never_returns_value); отказ участнику идёт кодом R_DENY_PROMPT_MEMBER, не секретным.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-13",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3119,12 +3405,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-14",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Значение недоступно при любой роли: SECRET_VALUE — deny в hard_rule до матрицы, включая владельца (test_secret_value_class_never_allowed). При неполных или недоступных источниках секретов сырой вывод блокируется, а не отдаётся как есть (test_incomplete_secret_sources_block_raw_tool_result_and_final, test_checkup_report_blocked_when_sources_incomplete), аудит пишется без значений (test_audit_records_decisions_without_secrets). Существующая админка ключей этим кандидатом не менялась.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-14",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3177,12 +3471,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-15",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "sanitize() возвращает STATUS_PARTIALLY_REDACTED и маркер «скрыто:<имя>» на месте credential value (test_sanitize_removes_values_and_fails_closed_for_raw_logs); при неполных или недоступных источниках kind='prompt' даёт allowed=False. Пользовательский текст предупреждения формирует слой выдачи промпта (D5, SD1-D5-08).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-15",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3275,12 +3577,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-17",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Principal берётся только из ToolContext.chat_id/user_id и message.from_user.id; аргументы модели игнорируются: test_paraphrased_request_and_args_do_not_elevate передаёт {user_id: OWNER_ID, role: project_owner, claim: «я админ»} и получает тот же отказ, что и без подмены.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-17",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3306,12 +3616,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-18",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "evaluate() реализует контракт (actor, chat_scope, resource_chat_id, data_class, action) → allow|deny|unverified с машинным reason_code (R_* константы); роль владельца — roles.access_for, матрица — существующий слой services.access. После fef70398 проверка админства включается и по матричной строке local_admin (_needs_chat_admin_identity), поэтому для PUBLIC_TECH/CHAT_SCOPED решение больше не считается по непроверенному участнику (test_local_admin_row_is_enforced_for_public_tech_via_dispatch, test_local_admin_row_is_enforced_for_chat_scoped_via_dispatch, test_local_admin_row_still_allows_global_admin); общий контракт — test_default_matrix_role_by_class, test_chat_override_beats_global_and_survives_restart, test_matrix_snapshot_has_inheritance_and_legend.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-18",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3364,12 +3682,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-19",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Три точки проверки: open_gate() до чтения (в чекапе fetcher.fetch не вызывался), ToolRouter._diagnostic_guard() до выполнения инструмента, _diagnostic_output()/publish() перед возвратом и отправкой; recheck_gate(fresh_telegram=True) игнорирует TTL-кэш (check_chat_admin(fresh)). Тесты: test_admin_status_changed_mid_session, test_revocation_blocks_publication_of_running_check, test_policy_change_revokes_running_chat_admin_check, test_checkup_entry_publishes_after_recheck. Подмена reply/forward невозможна: личности берутся только из from_user.id.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-19",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3395,12 +3721,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-20",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Решение принимает сервер: evaluate() не читает ни текст запроса, ни аргументы модели; подмена роли в args игнорируется (test_paraphrased_request_and_args_do_not_elevate); косвенный инструмент не обходит гейт (test_indirect_tool_bypass_is_blocked).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-20",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3426,12 +3760,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-21",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "У разрешения свой контекст (DiagnosticGate: request_id/actor/decision/generation) и собственная перепроверка; содержимое не кэшируется и не логируется — аудит хранит только метаданные. test_concurrent_admin_and_member_do_not_share_data: одинаковый текст «ПРОМПТ» даёт [True, False] для двух акторов. Путь попадания tool result в память/историю LLM вне D2 и отслеживается SD1-EVD-04 (D3) и сквозными тестами D7.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-21",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3458,12 +3800,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-22",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Отказ затрагивает только запрошенную возможность: test_auth_unverified_denies_protected_only (prompts → unverified, bot_server_state → allow), test_member_reads_public_tech_but_not_prompts (отказ в промптах при сохранённой публичной технике); в open_gate отказ одного требования не отменяет остальные вычисленные решения, но гасит публикацию именно этого результата.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-22",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3881,12 +4231,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-26",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Логи, traceback, строки ошибок и любой tool result проходят общий sanitize() с источниками известных runtime-секретов, включая env-only и cache-only значения (test_env_only_secret_is_redacted_without_cache, test_cache_only_secret_never_leaks_through_dispatch); при неполных источниках RAW_OUTPUT_KINDS (logs/traceback/prompt/tool_result/final) дают отказ (test_incomplete_secret_sources_block_raw_tool_result_and_final, test_global_secret_cache_failure_marks_sources_incomplete, test_catalog_failure_marks_sources_incomplete, test_settings_field_failure_marks_sources_incomplete). Пределы объёма вывода — обязанность SD1-EVD-13 (D3).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-26",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3940,12 +4298,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-27",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "services/output_projection.py:53-64 объявляет pattern-правила второй линией («дополнительно, НЕ единственная защита»); основная защита — сравнение с фактическими значениями из типизированных источников (catalog/settings/chat_keys); правила применяются к выводу, а не к намерению запроса — regex по тексту пользователя не вводится (test_paraphrased_request_and_args_do_not_elevate, test_sanitize_secondary_patterns).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-27",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -3986,12 +4352,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-28",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Защита серверная: publish() вызывает projection.sanitize() перед выдачей, ToolRouter._diagnostic_output — перед возвратом результата инструмента; при неполных источниках финальная доставка и tool result блокируются (test_publish_blocks_final_when_sources_incomplete, test_tool_result_blocked_when_secret_sources_incomplete, test_unreadable_cache_blocks_raw_output). Правок промптов вроде «не показывай секрет» в диффе нет.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-28",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -4102,12 +4476,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-30",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "project_secret_value() отдаёт имя настройки, configured и статус; capability non_secret_config — PUBLIC_TECH с view для user/local_admin (CAPABILITIES, default_diag_matrix); причина отказа приходит машинным reason_code (R_DENY_AUTH_UNVERIFIED и др.). Тесты: test_secret_projection_never_returns_value, test_auth_unverified_denies_protected_only.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-30",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -4155,12 +4537,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-GRAL-05",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Общая маска на исходный код не введена: capability source_code — PUBLIC_TECH с view/run для user (test_member_reads_public_tech_but_not_prompts: run read_source_code → allow); защищаются значения секретов и содержимое промптов/чужих чатов (SECRET_VALUE/PROMPT_CONTENT/OTHER_CHAT_DATA).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-GRAL-05",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -5085,12 +5475,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-07",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "test_audit_records_decisions_without_secrets: события decision/denial/gate_open/publication/policy_change/role_check с actor_id, chat_id, capability, role, effect, reason_code, source; policy_change несёт changed_by/before/after; секрет и текст промпта отсутствуют и в снапшоте, и в caplog. test_prompt_disclosure_audit_without_text: disclosure_actor/chat_id/prompt_id/prompt_revision/destination=group и нет полей text/prompt_text/body. Белый список полей — services/diagnostic_policy.py:260-267.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-07",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -5175,12 +5573,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-34",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "Содержимое не кэшируется слоем: кэшируются только решения и статус getChatMember, не текст; перед доставкой publish() перепроверяет права заново (fresh_telegram=True). Тесты: test_revocation_blocks_publication_of_running_check, test_concurrent_admin_and_member_do_not_share_data.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-34",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -5250,12 +5656,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-35",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#2",
           "observation": "test_concurrent_admin_and_member_do_not_share_data: asyncio.gather двух запросов с идентичным текстом «ПРОМПТ» даёт [True, False] — переиспользования защищённых данных между акторами нет; второго кэша контента не вводится.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-35",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
         }
       ],
       "expected_evidence": [
@@ -5618,16 +6032,33 @@
       "acceptance": "chat_admin подтверждается online-проверкой числового from_user.id и chat.id через Bot API getChatMember со статусом administrator/creator; имя, username, должность, самоописание и пересланная цитата не учитываются.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-03",
+          "ref": "plans/features/self-diag-01/reports/deploy-2.58.188.md#5",
           "observation": "Политическая часть доказана: единственный источник роли — getChatMember по числовым (chat_id, from_user.id), статусы administrator/creator; test_chat_admin_verified_by_telegram_api, test_nickname_and_claims_do_not_grant_admin, test_admin_status_changed_mid_session. Живое подтверждение невозможно до выката. Эта запись — строка источника 527 (ссылка на Telegram Bot API и требование «бот должен быть администратором группы»); приёмка и живое доказательство общие с SD1-D2-03 (см. §0.5 переиздания).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+          "candidate_commit": "c087253d",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
+          "artifact_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+          "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "superseded_evidence": {
+            "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-03",
+            "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+            "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+            "state": "superseded history, not lost: файл не изменён и не удалён"
+          },
+          "rebind_note": "Перепривязка 2.58.188: код среза в c087253d побайтово равен принятому 02e9d301 (9/9 файлов по blob-id), поэтому поведенческий вердикт REV-D2-02e9d301-01 сохраняется; наборы перепрогнаны уже на c087253d (reports/deploy-2.58.188.md §2)."
+        },
+        {
+          "ref": "plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
+          "observation": "Живая приёмка на выложенном 2.58.188 (бот PERMsoc_bot 8802473181, read-only, 0 отправленных сообщений, 2026-11-11): getChatMember по числовым id — 5885953495 и 138811255 → administrator в -1004482340693, статус chat_admin (source=telegram_api); 350803143 → left в -1004482340693 и member в -1002661910336 → статус member; 479167456 → TelegramBadRequest в обоих чатах → unverified. Protected-класс prompts: administrator → allow (allowed_chat_admin_default), member → deny (denied_prompt_content_member), unverified → unverified (denied_auth_unverified). Имя/username/должность не участвовали — входы только chat.id и from_user.id.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
+          "candidate_commit": "c087253d",
+          "deployed_commit": "c087253d",
+          "artifact_sha256": "7cb71fcaacc83586241680e5f8c74faff0b9f2f667f1d9bc160e98692a4cf799"
         }
       ],
       "expected_evidence": [
@@ -5638,10 +6069,41 @@
         }
       ],
       "postdeploy_condition": "postdeploy: в реальной группе настроенный числовой Telegram ID получает chat_admin по факту getChatMember (administrator и creator), а участник — нет; бот-администратор группы даёт проверку, отсутствие прав бота даёт auth_unverified без protected readback. Артефакт: plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
-      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.184 @ 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (родитель портированного кандидата, release/2.58.184), без переноса состояния",
-      "boundary": "живая приёмка не может быть выполнена до выката; политическая часть доказана тестами кандидата, живая часть — обязательство после деплоя Строка SD1-D2-03b — второй source_line (527) того же требования: приёмка общая с SD1-D2-03, id разделены, чтобы владелец строки был единственным.",
-      "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)",
-      "shared_acceptance_with": "SD1-D2-03"
+      "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.187 @ 952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9 (release/2.58.187), без переноса состояния: схема v47, DDL=0, миграций нет (прежняя ссылка на 2.58.184 @ 77a63bc5 относилась к периоду до выката)",
+      "boundary": "живая приёмка снята на выложенном 2.58.188 (c087253d): administrator подтверждён online по числовым id, участник и unverified отказаны, protected-класс prompts различает роли. Ненаблюдаемые варианты (creator, ветка «бот без прав в чате», живой ход бота) перечислены в live_acceptance.not_observed — они не опровергают приёмку: creator трактуется тем же ADMIN_STATUSES, а недоступность Telegram даёт unverified (наблюдалось на 479167456).",
+      "blocker_class": "закрыт выкатом 2.58.188 2026-11-11: живая приёмка больше не открыта, доказательство — plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
+      "shared_acceptance_with": "SD1-D2-03",
+      "postdeploy_condition_state": "satisfied 2026-11-11 на production 2.58.188 @ c087253d: read-only проба, 0 отправленных сообщений",
+      "live_acceptance": {
+        "captured_at": "2026-11-11",
+        "environment": "production, хост 192.255.209.205 /var/www/admin_bot, релиз 2.58.188 @ c087253dd7afdbcfa0c5ee96927324dc349627b2, бот PERMsoc_bot (8802473181), проба read-only, 0 отправленных сообщений",
+        "artifact_path": "plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
+        "artifact_sha256": "7cb71fcaacc83586241680e5f8c74faff0b9f2f667f1d9bc160e98692a4cf799",
+        "observed": {
+          "chats": [
+            {
+              "chat_id": -1004482340693,
+              "bot_status": "member",
+              "bot_can_manage": false
+            },
+            {
+              "chat_id": -1002661910336,
+              "bot_status": "administrator",
+              "bot_can_manage": true
+            }
+          ],
+          "administrator_verified_online": "5885953495, 138811255 → administrator → chat_admin (source=telegram_api)",
+          "participant_rejected": "350803143 (left) и те же аккаунты в -1002661910336 (member) → member; prompts → deny",
+          "unverifiable_identity": "479167456 → TelegramBadRequest → unverified, отказ без раскрытия (fail-safe)",
+          "protected_class_split": "prompts/view: administrator → allow, member → deny, unverified → unverified"
+        },
+        "not_observed": [
+          "creator: ни один из опрошенных аккаунтов не является создателем этих двух чатов; код трактует creator тем же ADMIN_STATUSES, что administrator, живой случай не наблюдался",
+          "ветка «бот не имеет прав в чате» в этих чатах недостижима: getChatMember отвечал и там, где бот только member; эквивалентный fail-safe (telegram_api_error → unverified) наблюдался на 479167456",
+          "живой ход бота (update → tool → ответ в Telegram) не выполнялся: сообщения в рабочие чаты не отправлялись"
+        ],
+        "verdict": "приёмка снята на реальном боте; остаточные ненаблюдаемые варианты перечислены честно и не опровергают приёмку"
+      }
     },
     {
       "source_id": "L00528",
@@ -5663,9 +6125,9 @@
   "baseline_commit": "77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7",
   "port_note": "D2 перенесён cherry-pick'ом 98bc424e → f58c458a на линию производства 2.58.184 (родитель 77a63bc5). После первого прохода ревью (Needs Fixes, REV-D2-f58c458a-01) срез прошёл три раунда исправлений на той же ветке self-diag/d2-port: fef70398 (local_admin во всех классах + отказ при неполных источниках), d64adfa7 (strict-чтение BYOK), 89882aef (чекап спрашивает Telegram, санитайзер видит кэш-секреты), 02e9d301 (env-секреты всегда из os.environ, снимок без кэша не отравляет TTL). Принят четвёртый проход на 02e9d301 (родитель 89882aef, база 77a63bc5): 9 файлов, +4074/−5. Исходный кандидат сохранён полем candidate_origin_commit.",
   "evidence_supersession": {
-    "current_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
-    "current_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
-    "current_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+    "current_path": "plans/features/self-diag-01/reports/deploy-2.58.188.md",
+    "current_sha256": "0733ae0e8500c3ffbeb7a59266d09c97b022b42d91822cb006a3f5dbd553e3f3",
+    "current_candidate_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
     "superseded_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
     "superseded_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2",
     "superseded_candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
@@ -5683,8 +6145,17 @@
         "sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2",
         "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
         "state": "superseded текущим артефактом: файл не изменён, тело сохранено байт-в-байт"
+      },
+      {
+        "path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+        "sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "state": "superseded выкатом 2.58.188: файл не изменён и не удалён; его тело остаётся поведенческим доказательством на принятом кандидате, а текущая привязка строк ведёт на релизный артефакт"
       }
-    ]
+    ],
+    "live_artifact_path": "plans/features/self-diag-01/evidence/d2/sd1_d2_03.json",
+    "live_artifact_sha256": "7cb71fcaacc83586241680e5f8c74faff0b9f2f667f1d9bc160e98692a4cf799",
+    "previous_current_note": "прежний current_path evidence/d2/d2-evidence-02e9d301.md переведён в chain как superseded после выката 2.58.188"
   },
   "slice_accounting": {
     "slice": "D2",
@@ -5761,6 +6232,32 @@
         "PENDING": "3 → 3, без изменений"
       },
       "explains": "10 id-слотов из 11 FAILED переведены в VERIFIED, SD1-AC-14 — в READY_FOR_LIVE (живая проверка только после выката). 6 id-слотов READY_FOR_LIVE — это 5 живых обязательств: SD1-D2-03 и SD1-D2-03b описывают одно требование двумя строками источника. Деплоя нет, deployed_commit пуст, откат 77a63bc5."
+    },
+    "after_deploy_2_58_188": {
+      "deployed_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+      "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+      "convention": "records = записи items + additional_requirements с slice=D2; unique_req_ids = те же записи после свёртки по req_id",
+      "records_total": 44,
+      "records_by_status": {
+        "VERIFIED": 37,
+        "READY_FOR_LIVE": 4,
+        "PENDING": 3
+      },
+      "unique_req_ids": 42,
+      "unique_req_ids_by_status": {
+        "VERIFIED": 35,
+        "READY_FOR_LIVE": 4,
+        "PENDING": 3
+      },
+      "delta_vs_after_final_review_02e9d301": {
+        "READY_FOR_LIVE_TO_VERIFIED": 2,
+        "rows": [
+          "SD1-D2-03",
+          "SD1-D2-03b"
+        ],
+        "why": "живая приёмка getChatMember на реальном боте снята артефактом evidence/d2/sd1_d2_03.json"
+      },
+      "explains": "37/4/3 в записях и 35/4/3 по уникальным req_id: SD1-D2-03 и SD1-D2-03b — два source_line одного требования, сняты одной пробой. Остаются 4 READY_FOR_LIVE (SD1-AMX-08, SD1-AC-10, SD1-AC-11, SD1-AC-14) и 3 PENDING (SD1-AMX-09, SD1-D2-23, SD1-D2-24)."
     }
   },
   "ddl_migration_flag": {
@@ -6019,5 +6516,5 @@
       "what": "env-секреты в наборе всегда + снимок без кэша не отравляет TTL (принят)"
     }
   ],
-  "artefact_rebinding_note": "2026-11-11: D2 перепривязан к принятому кандидату 02e9d301. Все записи evidence строк D2 указывают на plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md (sha256 в поле artifact_sha256), предыдущие артефакты сохранены как superseded в evidence_supersession.chain."
+  "artefact_rebinding_note": "2026-11-11 (первая привязка): D2 привязан к принятому кандидату 02e9d301, артефакт evidence/d2/d2-evidence-02e9d301.md. 2026-11-11 (выкат): 2.58.188 @ c087253d выложен из 02e9d301 без переписывания кода (9/9 файлов среза побайтово равны), поэтому карта и все evidence-записи строк D2 перепривязаны на c087253d: artifact_path → plans/features/self-diag-01/reports/deploy-2.58.188.md (sha256 0733ae0e…), для живых строк добавлен plans/features/self-diag-01/evidence/d2/sd1_d2_03.json (sha256 7cb71fca…). Предыдущие артефакты (98bc424e, f58c458a, 02e9d301) сохранены как superseded history в evidence_supersession.chain и полях superseded_evidence — ничего не удалено и не переписано."
 }

@@ -5,9 +5,9 @@
   "source": "plans/owner_inputs/2026-11-09-self-diag-01.md",
   "amendment_source": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md",
   "queue_position": "SELF-DIAG-01 стоит одним эпиком после VMQ-ONTO-01 (и после завершения активного MEMORY-08); независимый D1 corrective допускается раньше очереди эпика, если его файлы не держит другой Builder. Перестановка очереди фиксируется PM с причиной, эпик не считается запущенным от факта записи в current_task.",
-  "dependency_order": "D0 -> D1 -> D2 -> {D3, D4} -> D5 -> D6 -> D7",
+  "dependency_order": "D0 -> D1 -> D2 объявлены порядком работ (ordering), жёсткие рёбра D2 -> D1/D0 сняты 2026-11-11; далее D2 -> {D3, D4} -> D5 -> D6 -> D7 как прежде. Причины — dependency_decisions.",
   "lanes": {
-    "serial_main": "D0 -> D1 -> D2 — обязательная последовательность: baseline, затем независимый corrective, затем policy",
+    "serial_main": "D0 -> D1 -> D2 — объявленная последовательность (baseline, затем независимый corrective, затем policy). Жёстких рёбер D2 -> D1/D0 больше нет с 2026-11-11: у D2 нет общих файлов и контрактов с D1/D0, а реализация D1 уже в проде (0c6dc58d — предок 952b9ebd). См. dependency_decisions.",
     "parallel_after_D2": "D3 (probes/evidence) и D4 (deploy identity/source) идут параллельно только по непересекающимся файлам",
     "join": "D5 (prompt readback) требует D2; D6 требует D1+D3+D4+D5; D7 требует D6"
   },
@@ -133,9 +133,24 @@
       "id": "D2",
       "title": "Policy and data classification: roles, scopes, resource classes, secret projection",
       "owner_role": "Architect + Builder",
-      "depends_on": [
-        "D1"
-      ],
+      "depends_on": [],
+      "ordering": {
+        "sequence_after": [
+          "D0",
+          "D1"
+        ],
+        "previous_depends_on": [
+          "D1"
+        ],
+        "previous_transitive": [
+          "D0"
+        ],
+        "kind": "serialization_declaration",
+        "retired_at": "2026-11-11",
+        "decision_ref": "DEP-D2-D1-2026-11-11",
+        "reason": "Порядок «baseline (D0) → независимый corrective логов (D1) → policy (D2)» сохраняется как объявленная последовательность работ. Условием приёмки D2 он не является: общих путей 0, контракта, который должен создать D1, нет, а backend D1 (0c6dc58d) уже в проде с 2.58.187.",
+        "rule": "При правках D1 в services/system_logs_fetcher.py, config/settings.py, bot.py, web/app.js ребро возвращается на время этих правок."
+      },
       "write_scope": [
         "services/roles.py",
         "services/access.py",
@@ -485,5 +500,42 @@
         "SD1-D2-24": "D2, ждёт evidence bundle D3 и typed settings adapter"
       }
     }
-  }
+  },
+  "dependency_decisions": [
+    {
+      "id": "DEP-D2-D1-2026-11-11",
+      "slice": "D2",
+      "previous_depends_on": [
+        "D1"
+      ],
+      "previous_transitive": [
+        "D0"
+      ],
+      "decision": "не prerequisite — ordering",
+      "ruling": "Жёсткое ребро D2 -> D1 снято. D2 не зависит от незакрытой работы D1: общих файлов нет, общего контракта нет, а реализация D1 уже в продакшене. Последовательность «D0 -> D1 -> D2» остаётся объявлением порядка работ, а не условием приёмки D2.",
+      "evidence": [
+        "write_scope D1 и D2 не пересекаются: D1 = services/system_logs_fetcher.py, config/settings.py, bot.py, web/app.js, tests/test_checkup_logs_portable.py; D2 = services/roles.py, services/access.py, services/telegram_role_check.py, services/diagnostic_policy.py, services/output_projection.py, web/api/access.py, tests/test_diagnostic_policy.py, services/tool_router.py, handlers/checkup.py — общих путей 0",
+        "реализация D1 уже выложена: 0c6dc58d «fix(self-diag-01): D1 — портативный локальный backend логов чекапа» — предок предыдущего прод-релиза 952b9ebd (2.58.187) и выложенного c087253d; services/system_logs_fetcher.py в 952b9ebd и c087253d побайтово один и тот же",
+        "единственный контакт D2 с файлом D1 — существующий импорт from services.system_logs_fetcher import CheckupLogsUnavailableException в handlers/checkup.py; он присутствует уже на базе 77a63bc5 и на 952b9ebd и дельтой D2 не добавлен",
+        "срез D2 выложен без участия D1: 9/9 файлов среза в c087253d побайтово равны принятому 02e9d301, DDL=0, миграций и флагов нет (reports/deploy-2.58.188.md §1-§2)"
+      ],
+      "consequences": "Выпуск слайса D2 больше не требует VERIFIED по 17 строкам D1. Строки D1 остаются PENDING честно: у них нет собственных доказательств (inventory по живому HEAD, портативный backend на новом VPS, сетевой trace отсутствия Better Stack), хотя код D1 в проде. Это отдельная книжная работа владельца слайса D1 и дефектом D2 не является.",
+      "revalidation": "Если D1 начнёт менять services/system_logs_fetcher.py, config/settings.py, bot.py или web/app.js, ребро возвращается на время этих правок как writer-сериализация (не как условие приёмки)."
+    },
+    {
+      "id": "DEP-D2-D0-2026-11-11",
+      "slice": "D2",
+      "previous_transitive": [
+        "D0"
+      ],
+      "decision": "planning precondition already satisfied — не prerequisite",
+      "ruling": "Транзитивное ребро D2 -> D0 снято тем же решением: D0 — планировочный слайс (baseline и инвентарь), его артефакт уже доставлен и закреплён хешем, а строки D0 PENDING означают лишь отсутствие отдельной независимой приёмки планировочного артефакта, а не незакрытую работу, нужную коду D2.",
+      "evidence": [
+        "plans/features/self-diag-01/d0-discovery.md существует и совпадает с d0_sha256 карты (306c23e7…), т.е. baseline снят и неизменяем",
+        "потребители baseline — не D2: байты промпта нужны D6/AC-09, инвентарь Better Stack — D1 (SD1-D1-14); в маршрутах D2 (policy/projection/telegram_role_check) артефакт D0 не читается",
+        "write_scope D0 ограничен plans/features/self-diag-01/*, общих файлов с D2 нет"
+      ],
+      "consequences": "Приёмка D0 остаётся открытой книжной работой (5 строк PENDING без evidence) и не блокирует выпуск D2. Если Reviewer потребует сначала принять D0, ребро возвращается одной строкой — состав работ D2 от этого не меняется."
+    }
+  ]
 }
