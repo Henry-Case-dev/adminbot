@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T16:13:42+12:00",
+  "updated": "2026-11-11T16:40:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -762,7 +762,36 @@
       "blocker_sources": {},
       "execution_state": "queued",
       "position_basis": "owner decision",
-      "queue_note": "owner-priority epic: quantum randomness"
+      "queue_note": "owner-priority epic: quantum randomness",
+      "postdeploy_monitoring": {
+        "blocking": false,
+        "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
+        "events_needed": [
+          "durable `mca07_retrieval` rows with policy + years + excluded",
+          "journal line `direct: rag block | facts=N | period_kept=K`"
+        ],
+        "metrics_not_yet_confirmed": {
+          "share_of_answers_with_a_past_year_row": "sample baseline 6 of 15; production share unmeasured",
+          "year_distribution": "observed once in production: {2022:1, 2023:2}",
+          "period_kept_per_turn": "0 production observations (log line absent in the window)",
+          "empty_rag_block_share": "in-process baseline 7 of 34, not a production figure",
+          "current_state_2026_dominance": "in-process only",
+          "block_latency_historical_auto_vs_operative": "in-process +110 ms, `duration_ms` is null in the event"
+        },
+        "thresholds": {
+          "sample": "at least 34 real rag-block lines and 10 operative answers",
+          "alarm_if": "no past-year row across the whole sample, or period_kept > 2, or a current-state answer with fewer than 6 of 10 rows from 2026"
+        },
+        "not_before": "2026-11-12T14:42:00Z",
+        "owner_action": "none",
+        "resume": "a new run reads the events; no automatic wake-up exists"
+      },
+      "config_caveat": {
+        "item": "CHAT_RAG_RERANK_ENABLED factory default is False and that is the production value",
+        "consequence": "The period-protection branch is dormant in production because nothing filters the slice. With the reranker off, old-period rows arrive unfiltered (measured earlier: a person question returned 2024 and 2025), so delivery works, but the accepted sample was measured with the flag ON.",
+        "classification": "configuration fact, not a mechanism defect",
+        "decision_needed": "whether the ready reranking feature should be enabled by default under the project's standing rule; it costs an extra model call per turn, so it is a cost/quality choice rather than a defect"
+      }
     },
     {
       "id": "self-diag-01",
