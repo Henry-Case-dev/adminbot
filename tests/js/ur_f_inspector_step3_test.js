@@ -475,4 +475,141 @@ const vm = (extra) => Object.assign({
   assert(noStages.indexOf('местное время не зафиксировано') >= 0, noStages);
 })();
 
+// ── 8. UR-20.9: служебные значения карточки — только через словари ────────
+(function () {
+  const start = INDEX.indexOf('data-turn-inspector');
+  const end = INDEX.indexOf('</template>',
+    INDEX.indexOf('data-turn-unavailable', start));
+  const section = INDEX.slice(start, end);
+
+  // (1) Карта счётчиков LLM-вызовов: каждый вид назван словом, JSON нет.
+  const calls = m.turnLlmCallsLine({ planning: 1, tool: 1, final: 1,
+    continuation: 0, provider_retry: 1 });
+  ['планирование L1 (planning): 1', 'инструменты (tool): 1',
+    'ответ Writer (final): 1', 'продолжение ответа (continuation): 0',
+    'повтор у провайдера (provider_retry): 1'].forEach(function (part) {
+    assert(calls.indexOf(part) >= 0, 'LLM-вызовы без подписи: ' + part
+      + ' → ' + calls);
+  });
+  assert(calls.indexOf('{') < 0 && calls.indexOf('"') < 0,
+    'карта кодов не печатается JSON-ом: ' + calls);
+  // Настоящий 0 — число при подписи, а НЕ «неизвестно».
+  assert(calls.indexOf('continuation): неизвестно') < 0, calls);
+  // Неизвестный вид вызова — «код: …», а не голый токен.
+  assert(m.turnLlmCallsLine({ mystery_call: 2 })
+    .indexOf('код: mystery_call: 2') >= 0);
+  // Пустая карта (старая трасса) — честная пустота, не «{}».
+  assert(m.turnLlmCallsLine(null).indexOf('не зафиксированы') >= 0);
+  assert(m.turnLlmCallsLine({}).indexOf('не зафиксированы') >= 0);
+
+  // (2) Остановка хода и источник текста — подписи, неизвестное — «код: …».
+  assert.strictEqual(m.turnCodeLine('stop_reason', 'l1_silent'),
+    'решение L1 — промолчать (l1_silent)');
+  assert.strictEqual(m.turnCodeLine('stop_reason', 'l1_react_invalid'),
+    'реакция L1 недопустима — тишина (l1_react_invalid)');
+  assert.strictEqual(m.turnCodeLine('stop_reason', 'mystery_stop'),
+    'код: mystery_stop');
+  assert.strictEqual(m.turnCodeLine('text_source', 'source_restored'),
+    'исходный текст вместо правки (форма не сохранена) (source_restored)');
+  assert.strictEqual(m.turnCodeLine('text_source', 'weird_source'),
+    'код: weird_source');
+
+  // (3) Находки проверок: код form-гарда расшифрован, нули не выдаются за
+  // находку и не печатаются сырым map.
+  const checks = m.turnChecksLine({ form_guard: 'form_guard_leak_blocked',
+    protected_facts_mismatch: false, needs_clarification: false,
+    numeric_mismatch: 0, cliche_observed: 2, format_observed: 0 });
+  assert(checks.indexOf('форма ответа: служебная разметка в тексте — правка '
+    + 'заблокирована (form_guard_leak_blocked)') >= 0, checks);
+  assert(checks.indexOf('замечены клише: 2') >= 0, checks);
+  assert(checks.indexOf('{') < 0 && checks.indexOf('"') < 0,
+    'находки не печатаются JSON-ом: ' + checks);
+  assert(checks.indexOf('numeric_mismatch') < 0
+    && checks.indexOf('format_observed') < 0,
+    'нулевые находки не печатаются сырыми ключами: ' + checks);
+  assert.strictEqual(m.turnChecksLine({ format_observed: 0 }), 'находок нет');
+  assert.strictEqual(m.turnChecksLine(null), NO_DATA);
+  assert(m.turnChecksLine({ form_guard: 'mystery_guard' })
+    .indexOf('код: mystery_guard') >= 0, 'неизвестный код form-гарда');
+
+  // (4) Инструмент и его ошибка: имя и код — словами.
+  const tool = m.turnToolLine({ tool: 'execute_web_search', status: 'timeout',
+    error: 'search_timeout', refs: 3, out_chars: 800 });
+  assert(tool.indexOf('поиск в интернете (execute_web_search)') === 0, tool);
+  assert(tool.indexOf('источник не ответил вовремя (search_timeout)') >= 0,
+    tool);
+  assert(tool.indexOf('истекло время (timeout)') >= 0, tool);
+  const unknownTool = m.turnToolLine({ tool: 'mystery_tool', status: 'ok' });
+  assert(unknownTool.indexOf('код: mystery_tool') === 0, unknownTool);
+  assert(m.turnToolLine({ tool: 'fact_check', status: 'denied',
+    error: 'chain_call_limit' }).indexOf('вызов запрещён гвардом (denied)')
+    >= 0, 'статус denied не остаётся сырым кодом');
+
+  // (5) Причина отказа Writer'а.
+  assert.strictEqual(m.turnCodeLine('refused_reason', 'unfinished_answer'),
+    'ответ остался незавершённым (unfinished_answer)');
+  assert.strictEqual(m.turnCodeLine('refused_reason', 'empty_final'),
+    'пустой текст после правок (empty_final)');
+  assert.strictEqual(m.turnCodeLine('refused_reason', 'odd_reason'),
+    'код: odd_reason');
+
+  // (6) Разметка: ни одного JSON.stringify служебного значения в карточке.
+  ['JSON.stringify(turnDiag.context.llm_calls',
+    'JSON.stringify(turnDiag.writer.completion.checks'].forEach(function (raw) {
+    assert(section.indexOf(raw) < 0, 'служебное значение печатается как есть: '
+      + raw);
+  });
+  assert(section.indexOf('turnLlmCallsLine(') >= 0);
+  assert(section.indexOf('turnChecksLine(') >= 0);
+  assert(/turnCodeLine\(\s*'stop_reason'/.test(section),
+    'stop_reason идёт через словарь');
+  assert(/turnCodeLine\(\s*'text_source'/.test(section),
+    'text_source идёт через словарь');
+  assert(/turnCodeLine\(\s*'refused_reason'/.test(section),
+    'refused_reason идёт через словарь');
+  assert(section.indexOf('turnToolLine(t)') >= 0, 'строка инструмента на месте');
+
+  // (7) Одна отрендеренная трасса: все ранее «голые» значения читаемы.
+  const trace = {
+    context: {
+      llm_calls: { planning: 1, tool: 1, final: 1, continuation: 0,
+        provider_retry: 1 },
+      stop_reason: 'l1_silent',
+      tools: [{ tool: 'execute_web_search', status: 'timeout',
+        error: 'search_timeout', refs: 3 }],
+    },
+    writer: { completion: { text_source: 'source_restored',
+      refused: true, refused_reason: 'unfinished_answer',
+      checks: { form_guard: 'form_guard_leak_blocked', numeric_mismatch: 0 } } },
+  };
+  const rendered = [
+    m.turnLlmCallsLine(trace.context.llm_calls),
+    'Ход остановлен: ' + m.turnCodeLine('stop_reason',
+      trace.context.stop_reason),
+    m.turnToolLine(trace.context.tools[0]),
+    'Текст: ' + m.turnCodeLine('text_source',
+      trace.writer.completion.text_source),
+    'Находки проверок: ' + m.turnChecksLine(trace.writer.completion.checks),
+    'Честный отказ: ' + m.turnCodeLine('refused_reason',
+      trace.writer.completion.refused_reason),
+  ];
+  ['l1_silent', 'source_restored', 'execute_web_search', 'planning',
+    'form_guard_leak_blocked', 'search_timeout',
+    'unfinished_answer'].forEach(function (code) {
+    const line = rendered.filter(function (l) { return l.indexOf(code) >= 0; });
+    assert(line.length === 1, 'код не отрендерен: ' + code);
+    const before = line[0].slice(0, line[0].indexOf(code));
+    assert(/\(\s*$/.test(before), 'код ' + code + ' без подписи: ' + line[0]);
+  });
+  rendered.forEach(function (line) {
+    assert(line.indexOf('{') < 0 && line.indexOf('"') < 0,
+      'отрендеренная строка не должна быть JSON-ом: ' + line);
+  });
+  // `pass`-правило по-прежнему не выдаёт себя за применённое.
+  assert(m.turnRuleLine({ rule_id: 'q', kind: 'quotation_marks',
+    status: 'pass' }).indexOf('сработало') < 0);
+  assert(m.turnRuleLine({ rule_id: 'q', kind: 'quotation_marks',
+    status: 'pass' }).indexOf('нарушений нет') >= 0);
+})();
+
 console.log('UR-F-STEP3-OK');

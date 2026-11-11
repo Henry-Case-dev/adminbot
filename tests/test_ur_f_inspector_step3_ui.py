@@ -201,6 +201,61 @@ class TestCodeDictionaries:
         assert "turnCodeLine: function" in APP_JS
 
 
+class TestServiceValuesLabelled:
+    """UR-20.9: служебные значения карточки идут через словари, а не как есть.
+
+    Раньше карточка печатала `JSON.stringify(llm_calls)` / `JSON.stringify(checks)`
+    и голые `stop_reason`/`text_source`/`refused_reason`, имя инструмента и
+    `error`. Норма одна: известный код — подпись (код в скобках), неизвестный —
+    «код: <значение>»; карта кодов JSON'ом не печатается."""
+
+    def test_no_json_dumps_in_turn_card(self):
+        for raw in ("JSON.stringify(turnDiag.context.llm_calls",
+                    "JSON.stringify(turnDiag.writer.completion.checks"):
+            assert raw not in SECTION, "%s печатает карту кодов как есть" % raw
+        assert "JSON.stringify(" not in SECTION, \
+            "инспектор не печатает служебные значения JSON-ом"
+
+    def test_card_uses_dictionaries(self):
+        assert "turnLlmCallsLine(" in SECTION
+        assert "turnChecksLine(" in SECTION
+        for group in ("stop_reason", "text_source", "refused_reason"):
+            assert re.search(r"turnCodeLine\(\s*'%s'" % group, SECTION), group
+
+    def test_dictionary_groups_present(self):
+        for group, code, label in (
+                ("llm_call", "planning", "планирование L1"),
+                ("llm_call", "provider_retry", "повтор у провайдера"),
+                ("stop_reason", "l1_silent", "решение L1 — промолчать"),
+                ("text_source", "source_restored",
+                 "исходный текст вместо правки"),
+                ("form_guard", "form_guard_leak_blocked", "служебная разметка"),
+                ("check_finding", "form_guard", "форма ответа"),
+                ("tool_name", "execute_web_search", "поиск в интернете"),
+                ("tool_error", "search_timeout",
+                 "источник не ответил вовремя"),
+                ("refused_reason", "unfinished_answer",
+                 "ответ остался незавершённым")):
+            block = _code_block("%s: {" % group)
+            assert "%s:" % code in block, group + "/" + code
+            assert label in block, group + "/" + code
+
+    def test_tool_line_goes_through_dictionaries(self):
+        block = _code_block("turnToolLine: function")
+        assert "turnCodeText('tool_name', t.tool)" in block
+        assert "turnCodeText('tool_error', t.error)" in block
+        assert "t.tool ||" not in block, \
+            "имя инструмента не печатается сырым токеном"
+
+    def test_counts_and_checks_helpers(self):
+        calls = _code_block("turnLlmCallsLine: function")
+        assert "turnNumText(" in calls and "неизвестно" in calls
+        assert "llm_call" in calls, "вид вызова берётся из словаря"
+        checks = _code_block("turnChecksLine: function")
+        assert "TURN_UNKNOWN_CODE" in checks, "неизвестный код — «код: …»"
+        assert "turnCodeText('form_guard'" in checks
+
+
 class TestHonestEmptiness:
     """`null`/`stages.*=false` → «нет данных», никогда 0 вместо «неизвестно»."""
 
@@ -396,6 +451,27 @@ class TestLiveViewports:
             assert summaries, "%s: строка конспекта не отрендерена" % label
             assert "конспект до " in summaries[0], summaries[0]
             assert "диапазон:" in summaries[0]
+            # ── UR-20.9: служебные значения названы словами, а не как есть.
+            stop_line = data["stopLine"]
+            assert "решение L1 — промолчать (l1_silent)" in stop_line, stop_line
+            calls_line = data["llmCalls"]
+            for part in ("планирование L1 (planning): 1",
+                         "продолжение ответа (continuation): 0",
+                         "повтор у провайдера (provider_retry): 1"):
+                assert part in calls_line, calls_line
+            assert "{" not in calls_line and '"' not in calls_line, calls_line
+            checks_line = data["checksLine"]
+            assert "форма ответа" in checks_line, checks_line
+            assert "form_guard_leak_blocked" in checks_line, checks_line
+            assert "замечены клише: 2" in checks_line, checks_line
+            assert "{" not in checks_line and '"' not in checks_line, checks_line
+            text_line = data["textSourceLine"]
+            assert "source_restored" in text_line, text_line
+            assert "исходный текст вместо правки" in text_line, text_line
+            tool_row = data["toolFirst"]
+            assert "поиск в интернете (execute_web_search)" in tool_row, tool_row
+            assert "источник не ответил вовремя (search_timeout)" in tool_row, \
+                tool_row
             rects = data["cardRects"]
             assert len(rects) == 4
             lefts = {row["left"] for row in rects}

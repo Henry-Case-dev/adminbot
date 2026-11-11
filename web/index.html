@@ -1399,14 +1399,14 @@
                         </div>
                         <div class="text-xs text-gray-400 turn-wrap"
                              data-turn-llm-calls>
-                          LLM-вызовы: <span class="font-mono">{{
-                            JSON.stringify(turnDiag.context.llm_calls
-                              || {}) }}</span>
+                          LLM-вызовы: {{ turnLlmCallsLine(
+                            turnDiag.context.llm_calls) }}
                         </div>
                         <div v-if="turnDiag.context.stop_reason"
                              class="text-xs text-amber-300 turn-wrap"
                              data-turn-stop>Ход остановлен:
-                          {{ turnDiag.context.stop_reason }}</div>
+                          {{ turnCodeLine('stop_reason',
+                             turnDiag.context.stop_reason) }}</div>
                       </template>
                       <div v-else class="text-xs text-gray-500">{{
                         turnMissing('context') }}</div>
@@ -1529,8 +1529,9 @@
                                    && turnDiag.writer.completion.refused"
                              class="text-xs text-red-300 turn-wrap"
                              data-turn-refused>
-                          Честный отказ Writer'а: {{
-                            turnDiag.writer.completion.refused_reason
+                          Честный отказ Writer'а: {{ turnCodeLine(
+                            'refused_reason',
+                            turnDiag.writer.completion.refused_reason)
                             || 'причина не указана' }}
                         </div>
                         <div v-if="turnDiag.writer.manifest
@@ -1558,9 +1559,8 @@
                                    && turnDiag.writer.completion.checks"
                              class="text-xs text-amber-300 mt-1 turn-wrap"
                              data-turn-checks>
-                          Находки проверок: <span class="font-mono">{{
-                            JSON.stringify(turnDiag.writer.completion.checks)
-                          }}</span>
+                          Находки проверок: {{ turnChecksLine(
+                            turnDiag.writer.completion.checks) }}
                         </div>
                         <div v-if="turnDiag.writer.completion
                                    && turnDiag.writer.completion.text_source
@@ -1568,8 +1568,9 @@
                                       !== 'author'"
                              class="text-xs text-amber-300 turn-wrap"
                              data-turn-text-source>
-                          Текст: {{ turnDiag.writer.completion.text_source
-                            }} (не авторская версия)
+                          Текст: {{ turnCodeLine('text_source',
+                            turnDiag.writer.completion.text_source) }}
+                          (не авторская версия)
                         </div>
                       </template>
                       <div v-else class="text-xs text-gray-500">{{

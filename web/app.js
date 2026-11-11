@@ -3455,6 +3455,10 @@
       skipped: 'пропущен',
       degraded: 'деградация',
       partial: 'частичный результат',
+      // direct_execution помечает так вызов, срезанный гвардом цепочки.
+      denied: 'вызов запрещён гвардом',
+      cancelled: 'вызов отменён',
+      delivery_unknown: 'результат не подтверждён',
     },
     // Действие планировщика L1 (direct_l1.ACTIONS).
     action: {
@@ -3478,6 +3482,82 @@
       content_filter: 'сработал фильтр провайдера',
       tool_calls: 'модель запросила инструмент',
       function_call: 'модель запросила функцию',
+    },
+    // Вид LLM-вызова хода (turn_trace.CALL_KINDS). Это КЛЮЧИ карты счётчиков
+    // `context.llm_calls`: карта не печатается как JSON, каждый вид назван.
+    llm_call: {
+      planning: 'планирование L1',
+      tool: 'инструменты',
+      final: 'ответ Writer',
+      continuation: 'продолжение ответа',
+      provider_retry: 'повтор у провайдера',
+    },
+    // Почему ход закончился без текста (turn_trace.note_stop).
+    stop_reason: {
+      l1_silent: 'решение L1 — промолчать',
+      l1_react_invalid: 'реакция L1 недопустима — тишина',
+      no_text_delivery: 'текст не доставлен',
+    },
+    // Откуда взялся отправленный текст (turn_trace completion.text_source).
+    text_source: {
+      author: 'авторская версия Writer',
+      source_restored: 'исходный текст вместо правки (форма не сохранена)',
+      none: 'текста нет — честный отказ',
+    },
+    // Код находки form-гарда (negative_constraints.FORM_GUARD_*).
+    form_guard: {
+      form_guard_rejected: 'форма ответа не сохранена — ответ отклонён',
+      form_guard_leak_blocked: 'служебная разметка в тексте — правка заблокирована',
+    },
+    // Ключи находок проверок Writer'а (turn_trace completion.checks).
+    check_finding: {
+      form_guard: 'форма ответа',
+      protected_facts_mismatch: 'защищённые факты не совпали',
+      needs_clarification: 'нужно уточнение',
+      numeric_mismatch: 'число не совпало с источником',
+      cliche_observed: 'замечены клише',
+      format_observed: 'замечены нарушения формата',
+    },
+    // Имена инструментов (services/tool_schemas.py).
+    tool_name: {
+      execute_web_search: 'поиск в интернете',
+      fetch_article: 'чтение статьи',
+      fact_check: 'проверка фактов',
+      query_chat_memory: 'поиск в памяти чата',
+      dig_into_lore: 'разбор сведений о чате',
+      compile_lore_story: 'сюжет по истории чата',
+      summarize_video: 'разбор видео',
+      transcribe_video: 'расшифровка видео',
+      download_media: 'загрузка медиа',
+      recognize_image: 'распознавание изображения',
+      generate_image: 'создание изображения',
+      edit_image: 'правка изображения',
+      read_source_code: 'чтение исходного кода',
+      get_bot_health: 'состояние бота',
+      get_recent_history: 'свежая история чата',
+      get_user_context: 'сведения об участнике',
+    },
+    // Коды ошибок вызова инструмента (tool_result / direct_execution).
+    tool_error: {
+      search_timeout: 'источник не ответил вовремя',
+      safe_fetch_timeout: 'источник не ответил вовремя',
+      timeout: 'истекло время вызова',
+      chain_timeout: 'исчерпано время цепочки шагов',
+      chain_call_limit: 'исчерпан лимит вызовов инструментов',
+      chain_cost_limit: 'исчерпан лимит платных вызовов',
+      dedup: 'повторный вызов того же инструмента',
+      side_effect: 'повтор небезопасен — вызов пропущен',
+      disabled: 'инструмент выключен',
+      unknown_tool: 'неизвестный инструмент',
+      tool_error: 'ошибка вызова инструмента',
+      stats_unsupported: 'точный подсчёт невозможен',
+      delivery_unknown: 'результат не подтверждён',
+      cancelled: 'вызов отменён',
+    },
+    // Причина честного отказа Writer'а (turn_trace.note_l2_refusal).
+    refused_reason: {
+      unfinished_answer: 'ответ остался незавершённым',
+      empty_final: 'пустой текст после правок',
     },
     // Стадии часов хода (turn_trace.CLOCK_STAGE_ORDER).
     stage: { l1: 'L1', tool: 'инструменты', l2: 'ответ' },
@@ -15834,11 +15914,14 @@
       },
       turnToolLine: function (t) {
         if (!t) return '';
-        var line = t.tool || 'инструмент не назван';
+        // Имя инструмента — из словаря (иначе «код: <значение>»): карточка не
+        // показывает служебное имя голым токеном.
+        var line = t.tool ? turnCodeText('tool_name', t.tool)
+          : 'инструмент не назван';
         line += t.status
           ? (' · ' + turnCodeWord('tool_status', t.status) + ' (' + t.status + ')')
           : ' · статус не зафиксирован';
-        if (t.error) line += ' · ошибка: ' + t.error;
+        if (t.error) line += ' · ошибка: ' + turnCodeText('tool_error', t.error);
         if (t.refs != null) line += ' · источников: ' + t.refs;
         if (t.out_chars != null) line += ' · символов: ' + t.out_chars;
         return line;
@@ -15966,6 +16049,52 @@
         var inWindow = turnNumText(counts.window_messages);
         if (inWindow) line += ' · в окне ' + inWindow;
         return line;
+      },
+      // Счётчики LLM-вызовов хода (context.llm_calls) словами: вид вызова +
+      // число. Карта кодов не печатается JSON'ом; настоящий 0 остаётся
+      // числом при подписи (это факт, а не «неизвестно»).
+      turnLlmCallsLine: function (calls) {
+        if (!calls || typeof calls !== 'object') {
+          return 'счётчики вызовов не зафиксированы (трасса старше версии)';
+        }
+        var parts = [];
+        Object.keys(calls).forEach(function (kind) {
+          var count = turnNumText(calls[kind]);
+          parts.push(turnCodeText('llm_call', kind) + ': '
+            + (count === '' ? 'неизвестно' : count));
+        });
+        return parts.length
+          ? parts.join(' · ')
+          : 'счётчики вызовов не зафиксированы (трасса старше версии)';
+      },
+      // Находки проверок Writer'а (completion.checks) словами: ключ —
+      // подпись, код form-гарда — из словаря. «Не найдено» и нули не
+      // перечисляются: карточка называет находки, а не сырой map кодов.
+      turnChecksLine: function (checks) {
+        if (!checks || typeof checks !== 'object') return TURN_NO_DATA;
+        var parts = [];
+        Object.keys(checks).forEach(function (key) {
+          var value = checks[key];
+          if (value === false || value === null || value === undefined
+              || value === '') return;
+          var name = turnCodeWord('check_finding', key);
+          if (value === true) {
+            parts.push(name);
+            return;
+          }
+          if (key === 'form_guard') {
+            parts.push(name + ': ' + turnCodeText('form_guard', value));
+            return;
+          }
+          var count = turnNumText(value);
+          if (count === '') {
+            parts.push(name + ': ' + TURN_UNKNOWN_CODE + String(value));
+            return;
+          }
+          if (count === '0') return;   // ноль находок — не находка
+          parts.push(name + ': ' + count);
+        });
+        return parts.length ? parts.join(' · ') : 'находок нет';
       },
       // Версии разделов промпта: понятное имя + сам ключ (никогда голый код).
       turnRevisionLines: function (manifest) {

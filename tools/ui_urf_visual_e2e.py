@@ -289,19 +289,24 @@ TURN_DIAG_STUB = {
                "fallback": "test-model-8b-fallback",
                "plan_source": "l1_slot"},
         "tool_rounds": 1, "tool_degraded": False, "tool_reason": "",
-        "tools": [{"tool": "web_search", "status": "success", "error": "",
+        # Имя инструмента и код ошибки — служебные значения: карточка обязана
+        # назвать их словами (UR-20.9), а не сырыми токенами.
+        "tools": [{"tool": "execute_web_search", "status": "timeout",
+                   "error": "search_timeout",
                    "out_chars": 800, "truncated": False, "attempt": 1,
                    "refs": 3}],
         "coverage": {"sources": 3, "delivered": 2, "capacity_chars": 12000,
                      "delivered_chars": 900, "limits": 0},
-        "llm_calls": {"planning": 1, "final": 1},
+        # Карта счётчиков LLM-вызовов: раньше печаталась JSON'ом целиком.
+        "llm_calls": {"planning": 1, "tool": 1, "final": 1,
+                      "continuation": 0, "provider_retry": 1},
         "idempotency_key": "direct:-100:1:r1:-",
         "clock": {"timezone": TZ,
                   "as_of_utc": "2026-11-06T12:00:00+00:00",
                   "timezone_source": "chat",
                   "config_version": "2026-11-06T08:00:00+00:00",
                   "stages": ["l1", "tool", "l2"]},
-        "stop_reason": "",
+        "stop_reason": "l1_silent",
     },
     "writer": {
         "outcome": "success", "ts": 1792230001,
@@ -321,7 +326,15 @@ TURN_DIAG_STUB = {
                        "fallback_used": False, "usage": {"total_tokens": 980},
                        "max_output_tokens_sent": 4096,
                        "chars": 420, "continuation_calls": 0,
-                       "text_source": "author"},
+                       "text_source": "source_restored",
+                       # Находки проверок: код form-гарда + настоящие нули —
+                       # всё это раньше печаталось JSON'ом (UR-20.9).
+                       "checks": {"form_guard": "form_guard_leak_blocked",
+                                  "protected_facts_mismatch": False,
+                                  "needs_clarification": False,
+                                  "numeric_mismatch": 0,
+                                  "cliche_observed": 2,
+                                  "format_observed": 0}},
         "semantic_rewrite_count": 0, "llm_calls": {"final": 1},
     },
     "delivery": {
@@ -516,7 +529,13 @@ async () => {
     'not_applicable', 'repaired', 'exempted', 'conflict', 'failed',
     'model_map', 'dynamic', 'reply_to_bot', 'dash', 'quotation_marks',
     'line_breaks', 'one_word', 'dash_replaced', 'line_breaks_exceeded',
-    'protected_verbatim', 'l2_writer', 'p0', 'p1', 'p2', 'p3'];
+    'protected_verbatim', 'l2_writer', 'p0', 'p1', 'p2', 'p3',
+    // UR-20.9: коды LLM-вызовов, остановки хода, источника текста, находок
+    // проверок, инструмента и его ошибки — та же норма (подпись/«код: …»).
+    'l1_silent', 'source_restored', 'execute_web_search', 'search_timeout',
+    'planning', 'final', 'provider_retry', 'continuation',
+    'form_guard', 'form_guard_leak_blocked', 'numeric_mismatch',
+    'cliche_observed'];
   const unexplained = [];
   rawCodes.forEach((code) => {
     let at = text.indexOf(code);
@@ -563,6 +582,12 @@ async () => {
     styleCounts: flat(q('[data-turn-style-counts]')),
     ruleRows: all('[data-turn-rule-row]').length,
     ruleFirst: flat(all('[data-turn-rule-row]')[0]),
+    // UR-20.9: строки, которые раньше печатали служебные значения как есть.
+    stopLine: flat(q('[data-turn-stop]')),
+    llmCalls: flat(q('[data-turn-llm-calls]')),
+    checksLine: flat(q('[data-turn-checks]')),
+    textSourceLine: flat(q('[data-turn-text-source]')),
+    toolFirst: flat(all('[data-turn-tool-row]')[0]),
     unexplained: unexplained,
     clipped: clipped,
     truncateClass: wrap.querySelectorAll('.truncate').length,
@@ -905,6 +930,39 @@ def main() -> int:
             failures.append(label + ": links missing")
         if "сработало правило" not in (r.get("ruleFirst") or ""):
             failures.append(label + ": style rule line missing")
+        # ── UR-20.9: карточка не печатает служебные значения как есть.
+        stop_line = r.get("stopLine") or ""
+        for part in ("Ход остановлен:", "решение L1 — промолчать (l1_silent)"):
+            if part not in stop_line:
+                failures.append(label + ": stop line lacks " + part
+                                + ": " + stop_line)
+        calls_line = r.get("llmCalls") or ""
+        for part in ("планирование L1 (planning): 1",
+                     "продолжение ответа (continuation): 0",
+                     "повтор у провайдера (provider_retry): 1"):
+            if part not in calls_line:
+                failures.append(label + ": llm calls line lacks " + part
+                                + ": " + calls_line)
+        if "{" in calls_line or "}" in calls_line or '"' in calls_line:
+            failures.append(label + ": llm calls dumped as JSON: " + calls_line)
+        checks_line = r.get("checksLine") or ""
+        for part in ("форма ответа", "form_guard_leak_blocked",
+                     "замечены клише: 2"):
+            if part not in checks_line:
+                failures.append(label + ": checks line lacks " + part
+                                + ": " + checks_line)
+        if checks_line.count("{") or '"' in checks_line:
+            failures.append(label + ": checks dumped as JSON: " + checks_line)
+        if "исходный текст вместо правки (форма не сохранена) (source_restored)" \
+                not in (r.get("textSourceLine") or ""):
+            failures.append(label + ": text source not labelled: "
+                            + (r.get("textSourceLine") or ""))
+        tool_line = r.get("toolFirst") or ""
+        for part in ("поиск в интернете (execute_web_search)",
+                     "источник не ответил вовремя (search_timeout)"):
+            if part not in tool_line:
+                failures.append(label + ": tool line lacks " + part
+                                + ": " + tool_line)
         if r.get("unexplained"):
             failures.append(label + ": raw code without label "
                             + json.dumps(r.get("unexplained"),
