@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-12T02:56:21+12:00",
+  "updated": "2026-11-12T04:29:44+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1506,6 +1506,28 @@
         "lineage_note": "services/meme_initiative.py, web/api/initiative_publications.py, handlers/meme_command.py and services/publication_coordination.py exist ONLY on the production line (c087253d); the working branch does not contain them. Any implementation must branch from the production line, never from master.",
         "status": "preparation_complete_implementation_not_started"
       }
+    },
+    {
+      "id": "vision-context-unify-01",
+      "ticket": "VISION-CONTEXT-UNIFY-01",
+      "title": "Единая мультимодальная история сообщений и изображений (плановый эпик)",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-12-vision-context-unify-01.md",
+      "source_sha256": "DA86A94F43101F3F87E73C51C73E75C2A5F76364544217FC6D5DB4C46B8A1F81",
+      "maps": [],
+      "coverage_complete": false,
+      "queue_position": 40,
+      "priority": "P3",
+      "priority_label": "planned",
+      "blocked_by": [],
+      "blocker_sources": {},
+      "queue_after": [
+        "web-search-quality-01"
+      ],
+      "queue_after_note": "Организационная зависимость порядка от владельца: старт строго после WEB-SEARCH-QUALITY-01 и после всех задач, уже стоящих выше в очереди. Это не техническая зависимость API, поэтому технический blocked_by пуст. Позиция последняя; приоритеты существующих задач не менялись.",
+      "execution_state": "queued",
+      "position_basis": "owner instruction 2026-11-12: planned, non-urgent, last in queue, no reordering of current priorities",
+      "queue_note": "Регистрация и сверка с существующими эпиками. Реализация НЕ начата. При старте: read-only аудит актуального кода и прода, матрица несовпадений producer → запись → анализ → связывание → селекция → фактический prompt потребителя, затем Architect → Builder → Reviewer → штатный Release. Обязательный охват: все потребители истории, входящие фото, пересланные посты, альбомы, картинки самого бота, автоматические и ручные мемы, долговечная привязка готового Vision к опубликованному сообщению."
     }
   ],
   "owner_inputs": [
@@ -3986,6 +4008,17 @@
           ]
         }
       ]
+    },
+    {
+      "id": "OI-2026-11-12-VISION-CONTEXT-UNIFY-01",
+      "source_path": "plans/owner_inputs/2026-11-12-vision-context-unify-01.md",
+      "source_sha256": "DA86A94F43101F3F87E73C51C73E75C2A5F76364544217FC6D5DB4C46B8A1F81",
+      "kind": "new_task",
+      "target_task_ids": [
+        "vision-context-unify-01"
+      ],
+      "reconciled": false,
+      "note": "Владелец добавил плановый, НЕ срочный архитектурный эпик VISION-CONTEXT-UNIFY-01 (единая мультимодальная история сообщений и изображений). Требования: зарегистрировать в durable-очереди строго после WEB-SEARCH-QUALITY-01 и всех уже назначенных более приоритетных задач, не переставлять текущие приоритеты, не прерывать текущие эпики, реализацию не начинать. Перед реализацией — read-only аудит актуального кода/прода, затем Architect → Builder → Reviewer → штатный Release. Обязательный охват: все потребители истории, входящие фото, пересланные посты, альбомы, собственные изображения бота, автоматические и ручные мемы, долговечная привязка готового Vision к опубликованному сообщению. Запрещено: новая БД/параллельный Vision-пайплайн/TTL-кеш вместо durable, фиктивные строки в smart_messages, OCR как слова бота, новые ручные переключатели и OFF/SHADOW для готовой функции. Дубликат не создавать — дополнять существующий эпик."
     }
   ],
   "source_inventory": {
