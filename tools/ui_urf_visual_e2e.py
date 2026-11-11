@@ -172,9 +172,112 @@ TURN_DIAG_STUB = {
     "chat_id": CHAT_ID, "available": True, "trace_id": "corr-urf-1",
     "turns": [{"trace_id": "corr-urf-1", "ts": 1792230000,
                "trigger": "turn_context"}],
+    # UR-F шаг 3 (§4): присутствие стадий — bool, UI не угадывает по пустым
+    # объектам. Все семь стадий есть → все секции обязаны отрендериться.
+    "stages": {"context": True, "writer": True, "delivery": True,
+               "selection": True, "search": True, "tool_phase": True,
+               "style": True},
+    # UR-20.4: кто отвечал и кому. Длинные id (12 цифр) не обрезаются.
+    "source": {"message_id": 987654321012, "author_id": 777,
+               "author_alias": "Анна",
+               "message_ts": 1792229900,
+               "reply_to_id": 987654321000, "reply_to_author_id": 555,
+               "reply_to_alias": "Борис"},
+    # UR-20.8: расширение существующего clock (плюс стадии часов).
+    "clock": {"timezone": TZ,
+              "as_of_utc": "2026-11-06T12:00:00+00:00",
+              "timezone_source": "chat",
+              "config_version": "2026-11-06T08:00:00+00:00",
+              "stages": ["l1", "tool", "l2"]},
+    # UR-20.5/20.6: снимок выбора (7 блоков → сворачивание после 5-го).
+    "selection": {
+        "policy_version": "ur-c/selection/v1",
+        "counts": {"available_messages": 25, "included_messages": 12,
+                   "window_messages": 40},
+        "budget": {"slot": "direct.primary", "window": 128000,
+                   "window_source": "model_map", "output_reserve": 12800,
+                   "available": 110000, "budget": 16000,
+                   "policy_mode": "dynamic", "payload_tokens": 5400,
+                   "fallback_window": None},
+        "blocks": [
+            {"kind": "global_tail", "role": "p1", "rendered": True,
+             "source_ids": ["msg:987654321012", "msg:987654321013"],
+             "first_ts": 1792228800, "last_ts": 1792229900, "tokens": 800},
+            {"kind": "thread", "role": "p1", "rendered": True,
+             "source_ids": ["msg:987654321000"],
+             "first_ts": 1792228200, "last_ts": 1792228299, "tokens": 320},
+            {"kind": "rag", "role": "p2", "rendered": True,
+             "source_ids": ["fact:42", "summary:-100500:2"],
+             "first_ts": 1792000000, "last_ts": 1792100000, "tokens": 640},
+            {"kind": "global_head", "role": "p2", "rendered": True,
+             "source_ids": [], "first_ts": 0, "last_ts": 0, "tokens": 512},
+            {"kind": "episode", "role": "p0", "rendered": True,
+             "source_ids": ["episode:7"],
+             "first_ts": 1791000000, "last_ts": 1791003600, "tokens": 480},
+            {"kind": "protected", "role": "p0", "rendered": True,
+             "source_ids": [], "first_ts": 0, "last_ts": 0, "tokens": 120},
+            # Неизвестный код: UI обязан показать «код: mystery_kind».
+            {"kind": "mystery_kind", "role": "p3", "rendered": False,
+             "skip_reason": "budget_exceeded", "source_ids": [],
+             "first_ts": 0, "last_ts": 0, "tokens": 0},
+        ],
+        "dropped": [{"reason_code": "budget_exceeded", "kind": "global_middle",
+                     "count": 3},
+                    {"reason_code": "duplicate_source", "kind": "thread",
+                     "count": 1}],
+        "dropped_total": 9,
+        "self_outputs": [{"source_id": "bot_output:42",
+                          "tg_message_id": 4242, "ts": 1792229800}],
+        "truncated": True,
+    },
+    # UR-20.7: решение о поиске + ссылки выдачи (4 ссылки → «показать ещё»).
+    "search": {
+        "decision": "required", "called": True, "status": "ok",
+        "skip_reason": "", "evidence_class": "web", "required": True,
+        "source_count": 5,
+        "source_ids": ["web:1", "web:2"],
+        "links": [
+            {"source_id": "web:1",
+             "source_url": "https://example.test/very/long/path/" + "a" * 90,
+             "source_title": "Длинный заголовок источника выдачи",
+             "published_at": "2026-11-01"},
+            {"source_id": "web:2",
+             "source_url": "https://example.test/second",
+             "source_title": "Второй источник", "published_at": None},
+            {"source_id": "web:3",
+             "source_url": "https://example.test/third",
+             "source_title": "Третий источник", "published_at": "2026-10-20"},
+            {"source_id": "web:4",
+             "source_url": "https://example.test/fourth",
+             "source_title": "Четвёртый источник",
+             "published_at": "2026-10-10"},
+        ],
+    },
+    # UR-20.8: правила стиля (6 правил → сворачивание после 4-го).
+    "style": {
+        "revision": "sp-2026-11-06", "source": "chat", "applied": True,
+        "counts": {"pass": 4, "repaired": 2},
+        "rules": [
+            {"rule_id": "dash.hard.factory", "kind": "dash",
+             "status": "repaired", "reason": "dash_replaced",
+             "source": "factory"},
+            {"rule_id": "quotes.hard.factory", "kind": "quotation_marks",
+             "status": "pass", "reason": "", "source": "factory"},
+            {"rule_id": "extent.check", "kind": "extent", "status": "pass",
+             "reason": "", "source": "chat"},
+            {"rule_id": "emoji.soft", "kind": "emoji", "status": "exempted",
+             "reason": "protected_verbatim", "source": "chat"},
+            {"rule_id": "line.breaks", "kind": "line_breaks",
+             "status": "conflict", "reason": "line_breaks_exceeded",
+             "source": "chat"},
+            # Неизвестная причина: UI обязан показать «код: mystery_reason».
+            {"rule_id": "one.word", "kind": "one_word", "status": "failed",
+             "reason": "mystery_reason", "source": "chat"},
+        ],
+    },
     "context": {
         "outcome": "success", "ts": 1792230000, "flow": "direct",
-        "trigger": "botword",
+        "trigger": "force_keyword",
         "l1": {"action": "reply", "model": "test-model-8b",
                "plan_source": "l1_slot"},
         "tool_rounds": 1, "tool_degraded": False, "tool_reason": "",
@@ -188,7 +291,8 @@ TURN_DIAG_STUB = {
         "clock": {"timezone": TZ,
                   "as_of_utc": "2026-11-06T12:00:00+00:00",
                   "timezone_source": "chat",
-                  "config_version": "2026-11-06T08:00:00+00:00"},
+                  "config_version": "2026-11-06T08:00:00+00:00",
+                  "stages": ["l1", "tool", "l2"]},
         "stop_reason": "",
     },
     "writer": {
@@ -380,6 +484,101 @@ PROBE_INSPECTOR = r"""
 }
 """
 
+PROBE_INSPECTOR_STEP3 = r"""
+async () => {
+  const q = (s) => document.querySelector(s);
+  const all = (s) => Array.from(document.querySelectorAll(s));
+  const wrap = q('[data-turn-inspector]');
+  if (!wrap) return {ok: false, why: 'no inspector'};
+  const flat = (node) => ((node && node.textContent) || '')
+    .replace(/\s+/g, ' ').trim();
+  const text = flat(wrap);
+  const cards = all('[data-turn-stage]');
+  const rects = cards.map((c) => {
+    const r = c.getBoundingClientRect();
+    return {left: Math.round(r.left), top: Math.round(r.top),
+            width: Math.round(r.width)};
+  });
+  // «Ни одного неизвестного кода»: сырой код допустим ТОЛЬКО в скобках сразу
+  // после подписи или после «код: ». Всё остальное — утечка токена в UI.
+  const rawCodes = ['global_tail', 'thread', 'rag', 'global_head', 'episode',
+    'protected', 'budget_exceeded', 'duplicate_source', 'required',
+    'not_applicable', 'repaired', 'exempted', 'conflict', 'failed',
+    'model_map', 'dynamic', 'reply_to_bot', 'dash', 'quotation_marks',
+    'line_breaks', 'one_word', 'dash_replaced', 'line_breaks_exceeded',
+    'protected_verbatim', 'l2_writer', 'p0', 'p1', 'p2', 'p3'];
+  const unexplained = [];
+  rawCodes.forEach((code) => {
+    let at = text.indexOf(code);
+    while (at >= 0) {
+      const before = text.slice(Math.max(0, at - 80), at);
+      const inParens = /\(\s*$/.test(before);
+      const prefixed = /код:\s*$/.test(before);
+      if (!inParens && !prefixed) {
+        unexplained.push(code + ' ← ' + before.slice(-28));
+      }
+      at = text.indexOf(code, at + code.length);
+    }
+  });
+  // Обрезка запрещена: ни `truncate`-класса, ни ellipsis, ни вылезания.
+  const clipped = [];
+  wrap.querySelectorAll('*').forEach((el) => {
+    const st = getComputedStyle(el);
+    if (st.textOverflow === 'ellipsis') clipped.push('ellipsis:' + el.className);
+  });
+  const out = {
+    ok: true,
+    titles: cards.map((c) => flat(c.querySelector('.font-semibold'))),
+    cardRects: rects,
+    sourceLine: flat(q('[data-turn-source]')),
+    clockStages: flat(q('[data-turn-clock-stages]')),
+    budget: flat(q('[data-turn-budget]')),
+    counts: flat(q('[data-turn-counts]')),
+    truncNote: flat(q('[data-turn-truncated]')),
+    blockRows: all('[data-turn-block-row]').length,
+    blockFirst: flat(all('[data-turn-block-row]')[0]),
+    dropped: all('[data-turn-dropped] > div').map(flat).filter(Boolean),
+    selfOutputs: all('[data-turn-self-outputs] > div').map(flat)
+      .filter(Boolean),
+    searchDecision: flat(q('[data-turn-search-decision]')),
+    searchAction: flat(q('[data-turn-search-action]')),
+    linkRows: all('[data-turn-link-row]').length,
+    linkFirst: flat(all('[data-turn-link-row]')[0]),
+    styleHead: flat(q('[data-turn-style-head]')),
+    styleCounts: flat(q('[data-turn-style-counts]')),
+    ruleRows: all('[data-turn-rule-row]').length,
+    ruleFirst: flat(all('[data-turn-rule-row]')[0]),
+    unexplained: unexplained,
+    clipped: clipped,
+    truncateClass: wrap.querySelectorAll('.truncate').length,
+    hScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
+    vw: window.innerWidth,
+  };
+  // Сворачивание: по умолчанию НЕ раскрыто, кнопка «показать ещё» работает.
+  out.collapsedByDefault = out.blockRows === 5 && out.linkRows === 3
+    && out.ruleRows === 4;
+  const more = ['[data-turn-more-blocks]', '[data-turn-more-links]',
+    '[data-turn-more-rules]'].map(q);
+  out.moreButtons = more.filter(Boolean).length;
+  more.forEach((b) => { if (b) b.click(); });
+  await new Promise((r) => setTimeout(r, 250));
+  // Неизвестные коды (block kind / reason) лежат в свёрнутых списках —
+  // проверяем отрисовку после раскрытия: «код: <значение>», а не токен.
+  const expandedText = flat(wrap);
+  out.hasUnknownFallback = expandedText.indexOf('код: mystery_kind') >= 0
+    && expandedText.indexOf('код: mystery_reason') >= 0;
+  out.afterExpand = {
+    blocks: all('[data-turn-block-row]').length,
+    links: all('[data-turn-link-row]').length,
+    rules: all('[data-turn-rule-row]').length,
+    buttonsLeft: ['[data-turn-more-blocks]', '[data-turn-more-links]',
+      '[data-turn-more-rules]'].filter(q).length,
+    hScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
+  };
+  return out;
+}
+"""
+
 PROBE_MODES = r"""
 () => {
   const wrap = document.querySelector('[data-direct-modes]');
@@ -405,10 +604,76 @@ def _shoot(page, name, out_dir):
     page.screenshot(path=os.path.join(out_dir, name + ".png"), full_page=False)
 
 
+def _other_screens(page, base, label, results, out_dir):
+    """Остальные экраны волны UR-F (не инспектор): прежние приёмки."""
+    # «Модули → Время» (UR-29.1/29.2): ждём РЕАЛЬНОЕ состояние
+    # (часы/список зон — из ответов API), не фиксированную паузу.
+    page.goto(base + "#/modules/time")
+    try:
+        page.wait_for_selector("[data-time-clock]", timeout=8000)
+    except Exception:
+        pass
+    page.wait_for_timeout(700)
+    results["time-" + label] = page.evaluate(PROBE_TIME)
+    _shoot(page, "urf-time-" + label, out_dir)
+
+    page.goto(base + "#/modules/direct/settings")
+    try:
+        page.wait_for_selector(
+            '[data-config-group="flags_chat_behavior"]',
+            timeout=10000)
+    except Exception:
+        pass
+    page.wait_for_timeout(500)
+    results["direct-settings-" + label] = page.evaluate(
+        PROBE_DIRECT_SETTINGS)
+    _shoot(page, "urf-direct-settings-" + label, out_dir)
+
+    # Честные подписи действующих ключей (UR-21.x) живут на вкладке
+    # «Лимиты» workspace (workspaceGroupTab: limits → 'limits').
+    page.goto(base + "#/modules/direct/limits")
+    try:
+        page.wait_for_selector(
+            '[data-config-group="limits_temperature"]',
+            timeout=10000)
+    except Exception:
+        pass
+    page.wait_for_timeout(500)
+    results["direct-limits-" + label] = page.evaluate(
+        PROBE_DIRECT_SETTINGS)
+    _shoot(page, "urf-direct-limits-" + label, out_dir)
+
+    # UR-21.20: технические ожидания очереди — «Служебное» на вкладке
+    # «Диагностика» (= «Технические ограничения» BGS-06.2).
+    page.goto(base + "#/modules/checkup/limits")
+    try:
+        page.wait_for_selector(
+            '[data-config-group="limits_service"]', timeout=10000)
+    except Exception:
+        pass
+    page.wait_for_timeout(500)
+    results["checkup-limits-" + label] = page.evaluate(
+        PROBE_DIRECT_SETTINGS)
+    _shoot(page, "urf-checkup-limits-" + label, out_dir)
+
+    page.goto(base + "#/modules/direct")
+    try:
+        page.wait_for_selector("[data-direct-modes]", timeout=8000)
+    except Exception:
+        pass
+    page.wait_for_timeout(500)
+    results["modes-" + label] = page.evaluate(PROBE_MODES)
+    _shoot(page, "urf-modes-" + label, out_dir)
+
+
 def main() -> int:
     out_dir = DEFAULT_SHOTS
     if "--out" in sys.argv:
         out_dir = os.path.abspath(sys.argv[sys.argv.index("--out") + 1])
+    #: Узкий прогон: только инспектор хода (шаг 3). Остальные экраны волны
+    #: проверяются полным прогоном; pytest гоняет узкий, чтобы не дублировать
+    #: чужие приёмки.
+    only_inspector = "--only-inspector" in sys.argv
     os.makedirs(out_dir, exist_ok=True)
     _start_server()
     base = "http://127.0.0.1:%d/web/index.html" % PORT
@@ -431,55 +696,8 @@ def main() -> int:
             # API-стабы: /api/** отвечает _routes() (честные данные UR-F).
             page.route("**/api/**", _routes())
             page.add_init_script(M.TMA_STUB)
-            # «Модули → Время» (UR-29.1/29.2): ждём РЕАЛЬНОЕ состояние
-            # (часы/список зон — из ответов API), не фиксированную паузу.
-            page.goto(base + "#/modules/time")
-            try:
-                page.wait_for_selector("[data-time-clock]", timeout=8000)
-            except Exception:
-                pass
-            page.wait_for_timeout(700)
-            results["time-" + label] = page.evaluate(PROBE_TIME)
-            _shoot(page, "urf-time-" + label, out_dir)
-
-            page.goto(base + "#/modules/direct/settings")
-            try:
-                page.wait_for_selector(
-                    '[data-config-group="flags_chat_behavior"]',
-                    timeout=10000)
-            except Exception:
-                pass
-            page.wait_for_timeout(500)
-            results["direct-settings-" + label] = page.evaluate(
-                PROBE_DIRECT_SETTINGS)
-            _shoot(page, "urf-direct-settings-" + label, out_dir)
-
-            # Честные подписи действующих ключей (UR-21.x) живут на вкладке
-            # «Лимиты» workspace (workspaceGroupTab: limits → 'limits').
-            page.goto(base + "#/modules/direct/limits")
-            try:
-                page.wait_for_selector(
-                    '[data-config-group="limits_temperature"]',
-                    timeout=10000)
-            except Exception:
-                pass
-            page.wait_for_timeout(500)
-            results["direct-limits-" + label] = page.evaluate(
-                PROBE_DIRECT_SETTINGS)
-            _shoot(page, "urf-direct-limits-" + label, out_dir)
-
-            # UR-21.20: технические ожидания очереди — «Служебное» на вкладке
-            # «Диагностика» (= «Технические ограничения» BGS-06.2).
-            page.goto(base + "#/modules/checkup/limits")
-            try:
-                page.wait_for_selector(
-                    '[data-config-group="limits_service"]', timeout=10000)
-            except Exception:
-                pass
-            page.wait_for_timeout(500)
-            results["checkup-limits-" + label] = page.evaluate(
-                PROBE_DIRECT_SETTINGS)
-            _shoot(page, "urf-checkup-limits-" + label, out_dir)
+            if not only_inspector:
+                _other_screens(page, base, label, results, out_dir)
 
             page.goto(base + "#/modules/direct/inspector")
             try:
@@ -487,17 +705,22 @@ def main() -> int:
             except Exception:
                 pass
             page.wait_for_timeout(500)
+            # Свёрнутый вид снимаем ДО раскрытия списков (шаг 3 §5).
+            _shoot(page, "urf-inspector-step3-collapsed-" + label, out_dir)
+            # Карточки по отдельности: на телефоне в окно влезает одна-две.
+            for stage in ("l1", "tools", "writer", "delivery"):
+                try:
+                    page.locator('[data-turn-stage="%s"]' % stage).screenshot(
+                        path=os.path.join(
+                            out_dir, "urf-inspector-step3-%s-%s.png"
+                            % (stage, label)))
+                except Exception:
+                    pass
             results["inspector-" + label] = page.evaluate(PROBE_INSPECTOR)
             _shoot(page, "urf-inspector-" + label, out_dir)
-
-            page.goto(base + "#/modules/direct")
-            try:
-                page.wait_for_selector("[data-direct-modes]", timeout=8000)
-            except Exception:
-                pass
-            page.wait_for_timeout(500)
-            results["modes-" + label] = page.evaluate(PROBE_MODES)
-            _shoot(page, "urf-modes-" + label, out_dir)
+            results["inspector3-" + label] = page.evaluate(
+                PROBE_INSPECTOR_STEP3)
+            _shoot(page, "urf-inspector-step3-expanded-" + label, out_dir)
             ctx.close()
         browser.close()
 
@@ -509,7 +732,11 @@ def main() -> int:
 
     # ── Приёмочные инварианты (fail = ненулевой exit) ─────────────────────
     failures = []
-    for label in ("time-desktop-1440", "time-mobile-390"):
+    if only_inspector:
+        labels_other = ()
+    else:
+        labels_other = ("time-desktop-1440", "time-mobile-390")
+    for label in labels_other:
         r = results.get(label) or {}
         if not r.get("ok"):
             failures.append(label + ": editor missing")
@@ -528,8 +755,8 @@ def main() -> int:
             failures.append(label + ": save/reset buttons missing")
         if r.get("hScroll"):
             failures.append(label + ": horizontal scroll")
-    for label in ("direct-settings-desktop-1440",
-                  "direct-settings-mobile-390"):
+    for label in (() if only_inspector else ("direct-settings-desktop-1440",
+                  "direct-settings-mobile-390")):
         r = results.get(label) or {}
         if r.get("deadFound"):
             failures.append(label + ": dead keys visible "
@@ -538,7 +765,9 @@ def main() -> int:
             failures.append(label + ": панель машинных флагов")
         if r.get("hScroll"):
             failures.append(label + ": horizontal scroll")
-    for label in ("direct-limits-desktop-1440", "direct-limits-mobile-390"):
+    for label in (() if only_inspector
+                  else ("direct-limits-desktop-1440",
+                        "direct-limits-mobile-390")):
         r = results.get(label) or {}
         if r.get("deadFound"):
             failures.append(label + ": dead keys visible "
@@ -556,7 +785,9 @@ def main() -> int:
             failures.append(label + ": панель машинных флагов")
         if r.get("hScroll"):
             failures.append(label + ": horizontal scroll")
-    for label in ("checkup-limits-desktop-1440", "checkup-limits-mobile-390"):
+    for label in (() if only_inspector
+                  else ("checkup-limits-desktop-1440",
+                        "checkup-limits-mobile-390")):
         r = results.get(label) or {}
         if not (r.get("honest") or {}).get("serviceGroup"):
             failures.append(label + ": «Служебное» (lock waits) отсутствует")
@@ -574,7 +805,80 @@ def main() -> int:
             failures.append(label + ": honest delivery line missing")
         if r.get("hScroll"):
             failures.append(label + ": horizontal scroll")
-    for label in ("modes-desktop-1440", "modes-mobile-390"):
+    # ── UR-F шаг 3 (§5): карточки, расшифровка кодов, сворачивание, мобильный
+    titles = ["Планирование (L1)", "Инструменты и поиск", "Что видел ответ",
+              "Операции и доставка"]
+    for label in ("inspector3-desktop-1440", "inspector3-mobile-390"):
+        r = results.get(label) or {}
+        if not r.get("ok"):
+            failures.append(label + ": step-3 probe failed")
+            continue
+        if r.get("titles") != titles:
+            failures.append(label + ": card titles " + json.dumps(
+                r.get("titles"), ensure_ascii=False))
+        if "отвечал:" not in (r.get("sourceLine") or ""):
+            failures.append(label + ": source (кто отвечал) not rendered")
+        if "в ответ на:" not in (r.get("sourceLine") or ""):
+            failures.append(label + ": source (на что ответ) not rendered")
+        if "часы поданы на этапах" not in (r.get("clockStages") or ""):
+            failures.append(label + ": clock stages line missing")
+        budget = r.get("budget") or ""
+        for part in ("окно модели", "запас на ответ", "из бюджета", "режим:"):
+            if part not in budget:
+                failures.append(label + ": budget line lacks " + part)
+        counts = r.get("counts") or ""
+        if "доступно сообщений" not in counts \
+                or "вошло в запрос" not in counts:
+            failures.append(label + ": counts line wrong: " + counts)
+        if "показаны первые" not in (r.get("truncNote") or ""):
+            failures.append(label + ": truncated explanation missing")
+        if not r.get("collapsedByDefault"):
+            failures.append(label + ": lists not collapsed by default "
+                            + json.dumps({"b": r.get("blockRows"),
+                                          "l": r.get("linkRows"),
+                                          "r": r.get("ruleRows")}))
+        after = r.get("afterExpand") or {}
+        if after.get("blocks") != 7 or after.get("links") != 4 \
+                or after.get("rules") != 6:
+            failures.append(label + ": expand broken " + json.dumps(after))
+        if after.get("hScroll"):
+            failures.append(label + ": horizontal scroll after expand")
+        if not r.get("selfOutputs"):
+            failures.append(label + ": own replies list missing")
+        if not any("не образец стиля" in line
+                   for line in (r.get("selfOutputs") or [])):
+            failures.append(label + ": own replies disclaimer missing")
+        if "поиск" not in (r.get("searchDecision") or ""):
+            failures.append(label + ": search decision not in words")
+        if not r.get("linkRows"):
+            failures.append(label + ": links missing")
+        if "сработало правило" not in (r.get("ruleFirst") or ""):
+            failures.append(label + ": style rule line missing")
+        if r.get("unexplained"):
+            failures.append(label + ": raw code without label "
+                            + json.dumps(r.get("unexplained"),
+                                         ensure_ascii=False))
+        if not r.get("hasUnknownFallback"):
+            failures.append(label + ": unknown code fallback missing")
+        if r.get("clipped") or r.get("truncateClass"):
+            failures.append(label + ": ids/dates clipped "
+                            + json.dumps(r.get("clipped")[:3],
+                                         ensure_ascii=False))
+        if r.get("hScroll"):
+            failures.append(label + ": horizontal scroll")
+        rects = r.get("cardRects") or []
+        if len(rects) == 4:
+            if label.endswith("mobile-390"):
+                lefts = {row.get("left") for row in rects}
+                if len(lefts) != 1:
+                    failures.append(label + ": cards not single column "
+                                    + json.dumps(rects))
+            else:
+                if rects[0].get("left") == rects[1].get("left"):
+                    failures.append(label + ": cards not two columns "
+                                    + json.dumps(rects))
+    for label in (() if only_inspector
+                  else ("modes-desktop-1440", "modes-mobile-390")):
         r = results.get(label) or {}
         if not r.get("ok"):
             failures.append(label + ": modes card missing")

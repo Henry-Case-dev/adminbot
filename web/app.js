@@ -3290,6 +3290,344 @@
       return {};
     }
   }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UR-F шаг 3 (контракт §5): расшифровка внутренних кодов инспектора хода.
+  // Правило одно: ни один код не выводится голым токеном. У известного кода
+  // есть понятная подпись (код показывается моно рядом), у неизвестного —
+  // «код: <значение>». Словари ниже — единственный источник подписей; их
+  // читают методы `turnCodeText`/`turnStageWord` рядом с `turnOpLine`.
+  // ═══════════════════════════════════════════════════════════════════════════
+  var TURN_UNKNOWN_CODE = 'код: ';
+  //: Единая формулировка честной пустоты (старая трасса без нового поля).
+  var TURN_NO_DATA = 'нет данных (трасса старше версии)';
+  //: Пороги сворачивания длинных списков (§5). Меньше порога — не сворачиваем.
+  var TURN_LIST_LIMITS = { blocks: 5, links: 3, rules: 4 };
+
+  var TURN_CODE_DICTS = {
+    // Блоки контекста: kind композера + машинные теги частей payload (путь
+    // без композера). MAP/Branch/Anchor/TTL — короткие имена из контракта §5.
+    block: {
+      global_tail: 'свежие сообщения',
+      global_middle: 'подобранные сообщения',
+      global_head: 'конспект',
+      episode: 'старые эпизоды',
+      rag: 'память, факты',
+      thread: 'ветка ответов',
+      branch: 'ветка ответов',
+      map: 'карта участников',
+      protected: 'защищённые факты',
+      sandwich: 'напоминание',
+      current: 'текущая реплика',
+      target: 'адресат реплики',
+      relations: 'отношения участников',
+      lore: 'сведения о чате',
+      correction: 'рамка возражения',
+      history_supplement: 'дополнение из архива',
+      nostalgia: 'прежние воспоминания',
+      mood: 'настроение беседы',
+      anchors: 'привязка к сообщению',
+      untagged: 'блок без имени',
+      MAP: 'карта участников',
+      Branch: 'ветка ответов',
+      Anchor: 'привязка к сообщению',
+      TTL: 'срок жизни записи',
+      Tool_Evidence: 'найденные источники',
+      Current_Question: 'текущий вопрос',
+      Global_Context: 'конспект разговора',
+      RAG_Memory: 'память, факты',
+      Old_Episode: 'старые эпизоды',
+      Conversation_Thread: 'ветка ответов',
+      Conversation_Branch: 'ветка ответов',
+      UserResolutionMap: 'карта участников',
+      protected_facts: 'защищённые факты',
+      chat_lore: 'сведения о чате',
+      Target_User: 'адресат реплики',
+      Correction_Frame: 'рамка возражения',
+      History_Supplement: 'дополнение из архива',
+      Fresh_Chat_Window: 'свежие сообщения',
+      user_relations: 'отношения участников',
+      deferred_request: 'отложенный запрос',
+      Initiative_Context: 'контекст инициативы',
+      Expression_Settings: 'настройки выражения',
+      prev_context: 'соседние сообщения до',
+      next_context: 'соседние сообщения после',
+      segment: 'фрагмент разговора',
+    },
+    // Имена технических операций доставки (services/turn_trace.py: OP_*).
+    ops: {
+      l2_scrubber: 'очистка ответа Writer',
+      reasoning_marker_strip: 'снятие служебных меток модели',
+      machine_marker_strip: 'снятие машинных меток',
+      lore_story_override: 'подстановка сюжета чата',
+      evidence_egress_guard: 'защита источников при отправке',
+      owner_style_punctuation: 'пунктуация по правилам владельца',
+      rich_render: 'разметка для Telegram',
+      html_escape: 'экранирование разметки',
+      plain_render: 'обычный текст',
+      egress_sanitize: 'финальная очистка перед отправкой',
+      telegram_chunk: 'разбивка на части Telegram',
+      unexplained_text_change: 'изменение текста без объяснения',
+    },
+    // Решение L1 о поиске (direct_l1.SEARCH_*).
+    search_decision: {
+      required: 'поиск обязателен',
+      beneficial: 'поиск полезен',
+      not_applicable: 'поиск не нужен',
+    },
+    // Итог поиска (direct_execution.SEARCH_STATUS_*).
+    search_status: {
+      ok: 'источники найдены',
+      empty: 'выдача пуста',
+      timeout: 'источник не ответил вовремя',
+      contradictory: 'источники противоречат друг другу',
+      unavailable: 'поиск недоступен',
+      skipped_not_required: 'пропущен — не требовался',
+      privacy_blocked: 'запрещён правилами приватности',
+    },
+    // Почему поиск не выполнялся (direct_execution.SKIP_*).
+    search_skip: {
+      participation_without_text: 'нет текста, по которому искать',
+      search_intent_not_applicable: 'по решению L1 поиск не нужен',
+      no_resolved_tools: 'инструмент поиска не подключён',
+      search_tool_absent: 'инструмент поиска недоступен',
+      user_forbidden_external: 'внешний поиск выключен в чате',
+      empty_query: 'пустой поисковый запрос',
+      qualified_verified_reuse: 'использованы уже проверенные источники',
+      search_contradictory: 'поиск дал противоречивые источники',
+    },
+    // Статусы правил стиля (style_policy.STATUSES).
+    rule_status: {
+      pass: 'нарушений нет',
+      repaired: 'исправлено',
+      exempted: 'не правилось: защищённый фрагмент',
+      conflict: 'конфликт с задачей',
+      failed: 'не удалось применить',
+      denied: 'запрещено',
+      not_applicable: 'не применимо',
+    },
+    // Виды правил стиля (style_policy._RULE_HANDLERS + extent).
+    rule_kind: {
+      dash: 'тире',
+      quotation_marks: 'кавычки',
+      forbidden_chars: 'запрещённые символы',
+      line_breaks: 'переносы строк',
+      trailing_period: 'точка в конце',
+      emoji: 'эмодзи',
+      one_word: 'однословный ответ',
+      extent: 'объём ответа',
+    },
+    // Причины срабатывания правила (без текста самого правила).
+    rule_reason: {
+      protected_verbatim: 'фрагмент защищён от правок',
+      soft_habit_writer_only: 'мягкая привычка — правит только Writer',
+      emoji_removed: 'эмодзи убраны',
+      dash_replaced: 'тире заменено',
+      rule_params_absent: 'у правила нет настроек',
+      forbidden_chars_removed: 'запрещённые символы убраны',
+      quotes_normalized: 'кавычки приведены к норме',
+      quotes_removed: 'кавычки убраны',
+      quotes_in_protected: 'кавычки внутри защищённого фрагмента',
+      owner_rule_vs_task: 'правило владельца против задачи',
+      covered_by_extent_check: 'покрыто проверкой объёма',
+      blank_line_runs_collapsed: 'лишние пустые строки убраны',
+      line_breaks_exceeded: 'слишком много переносов',
+      ellipsis_kept: 'многоточие сохранено',
+      kind_handler_absent: 'нет обработчика такого правила',
+      rule_error: 'ошибка при применении правила',
+    },
+    // Почему блок контекста не вошёл в запрос (allocation.excluded).
+    drop_reason: {
+      budget_exceeded: 'не поместилось в окно модели',
+      compressed: 'сжато ради других блоков',
+      physical_overflow: 'физический предел размера запроса',
+      duplicate_source: 'повтор уже показанного',
+      correction_unbound: 'возражение не привязано к реплике',
+      superseded_by_user_correction: 'заменено более поздней поправкой',
+    },
+    // Итог инструмента (tool_loop/direct tools[]).
+    tool_status: {
+      ok: 'выполнен',
+      success: 'выполнен',
+      error: 'ошибка',
+      failed: 'ошибка',
+      timeout: 'истекло время',
+      empty: 'пустой результат',
+      skipped: 'пропущен',
+      degraded: 'деградация',
+      partial: 'частичный результат',
+    },
+    // Действие планировщика L1 (direct_l1.ACTIONS).
+    action: {
+      reply: 'ответить',
+      react: 'реакция',
+      silent: 'промолчать',
+    },
+    // Почему ход вообще начался (direct_chat_service.TRIGGER_*).
+    trigger: {
+      force_keyword: 'обращение ключевым словом',
+      mention: 'упоминание в тексте',
+      persona_name: 'обращение по имени',
+      reply_to_bot: 'ответ на сообщение бота',
+      free_will: 'свободная инициатива',
+      initiative: 'плановая инициатива',
+    },
+    // Как закончился ответ модели.
+    finish: {
+      stop: 'модель закончила ответ',
+      length: 'упёрлась в лимит длины',
+      content_filter: 'сработал фильтр провайдера',
+      tool_calls: 'модель запросила инструмент',
+      function_call: 'модель запросила функцию',
+    },
+    // Стадии часов хода (turn_trace.CLOCK_STAGE_ORDER).
+    stage: { l1: 'L1', tool: 'инструменты', l2: 'ответ' },
+    // Приоритет вытеснения блока (direct_context_composer P0..P3).
+    priority: {
+      p0: 'не вытесняется',
+      p1: 'вытесняется последним',
+      p2: 'фоновый',
+      p3: 'режется первым',
+    },
+    // Режим расчёта бюджета (model_capacity.apply_budget_policy).
+    policy_mode: {
+      unlimited: 'без ограничения',
+      dynamic: 'динамический',
+      cap: 'заданный предел',
+      legacy_budget: 'прежний расчёт бюджета',
+      fallback_recompose: 'пересборка под запасную модель',
+    },
+    // Откуда взято окно модели (model_capacity.WINDOW_SOURCE_*).
+    window_source: {
+      model_map: 'из справочника моделей',
+      env_override: 'задано настройкой сервера',
+      unknown_fallback: 'модель неизвестна — взято осторожное значение',
+    },
+    // Кто собирал ответ (turn_trace.note_l2_request: writer_name).
+    writer_name: {
+      l2_writer: 'сборщик ответа L2',
+      l1_planner: 'планировщик L1',
+      speech_writer: 'писатель речи',
+    },
+    // Версии частей промпта (turn_trace.note_l2_request: prompt_keys).
+    prompt_key: {
+      'prompts.direct_chat_verbalizer_system_prompt': 'промпт вербализатора',
+      'prompts.direct_l1_planner_system_prompt': 'промпт планировщика L1',
+    },
+    // Пространства имён стабильных id (web/api/routes.py _TURN_ID_NAMESPACES).
+    id_ns: {
+      msg: 'сообщение',
+      tg: 'сообщение Telegram',
+      row: 'строка истории',
+      fact: 'факт памяти',
+      episode: 'эпизод',
+      summary: 'конспект',
+      web: 'источник из поиска',
+      src: 'источник',
+      source: 'источник',
+      bot_output: 'своя реплика',
+      bot_output_tg: 'своя реплика в Telegram',
+    },
+    // Откуда взяты правила стиля (style_policy policy_source).
+    style_source: {
+      chat: 'настройки чата',
+      global: 'глобальная настройка',
+      default: 'заводские правила',
+      factory: 'заводские правила',
+      absent: 'правил нет',
+    },
+  };
+
+  //: Плоский доступ к словарю группы (неизвестная группа — пусто).
+  function turnDict(group) {
+    return TURN_CODE_DICTS[group] || {};
+  }
+
+  //: Понятная подпись кода или '' (кода нет / подписи нет).
+  function turnLabelOf(group, code) {
+    if (code == null || code === '') return '';
+    var dict = turnDict(group);
+    var key = String(code);
+    if (Object.prototype.hasOwnProperty.call(dict, key)) return dict[key];
+    var lower = key.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(dict, lower)) return dict[lower];
+    return '';
+  }
+
+  //: Текст «подпись (код)»; неизвестный код — «код: <значение>», не токен.
+  function turnCodeText(group, code) {
+    if (code == null || code === '') return '';
+    var label = turnLabelOf(group, code);
+    return label ? label + ' (' + String(code) + ')'
+      : TURN_UNKNOWN_CODE + String(code);
+  }
+
+  //: Только подпись (когда код и так показан отдельно, моно): неизвестный
+  //: код тоже получает читаемый вид, а не пропадает.
+  function turnCodeWord(group, code) {
+    if (code == null || code === '') return '';
+    var label = turnLabelOf(group, code);
+    return label || (TURN_UNKNOWN_CODE + String(code));
+  }
+
+  //: Целое с разрядами: 128000 → «128 000». Не число — '' (не 0).
+  function turnNumText(value) {
+    if (value == null || value === '' || typeof value === 'boolean') return '';
+    var num = Number(value);
+    if (!isFinite(num) || Math.floor(num) !== num) return '';
+    return String(num).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  //: Идентификатор числом БЕЗ разрядов: 987654321012 → «987654321012».
+  //: Id копируют и сверяют — группировать цифры в нём нельзя.
+  function turnIdNum(value) {
+    if (value == null || value === '' || typeof value === 'boolean') return '';
+    var num = Number(value);
+    if (!isFinite(num) || Math.floor(num) !== num) return '';
+    return String(num);
+  }
+
+  //: «06.11 15:42» из unix-секунд В ПОЯСЕ ЧАТА (IANA). Пояс неизвестен —
+  //: честные UTC-цифры с пометкой UTC, а не выдуманная зона (§5).
+  function turnShortWhen(ts, tz) {
+    var num = Number(ts);
+    if (!isFinite(num) || num <= 0) return '';
+    var date = new Date(num * 1000);
+    if (isNaN(date.getTime())) return '';
+    var zone = (typeof tz === 'string' && tz) ? tz : 'UTC';
+    try {
+      var parts = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: zone, day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      }).formatToParts(date);
+      var got = {};
+      for (var i = 0; i < parts.length; i++) {
+        got[parts[i].type] = parts[i].value;
+      }
+      if (!got.day || !got.month || !got.hour || !got.minute) return '';
+      var line = got.day + '.' + got.month + ' ' + got.hour + ':' + got.minute;
+      if (zone === 'UTC' && !(typeof tz === 'string' && tz)) {
+        return line + ' UTC';
+      }
+      return line;
+    } catch (e) {
+      return '';                     // неизвестная зона — без подстановки
+    }
+  }
+
+  //: Стабильный id → «сообщение 12345». Неизвестное пространство имён и
+  //: отсутствие разделителя — «код: значение» (без выдуманного смысла).
+  function turnIdText(id) {
+    if (id == null || id === '') return '';
+    var text = String(id);
+    var cut = text.indexOf(':');
+    if (cut <= 0) return TURN_UNKNOWN_CODE + text;
+    var head = text.slice(0, cut);
+    var tail = text.slice(cut + 1);
+    var label = turnLabelOf('id_ns', head);
+    if (!label) return TURN_UNKNOWN_CODE + text;
+    return label + ' ' + tail;
+  }
+
   var app = Vue.createApp({
     data: function () {
       return {
@@ -3925,6 +4263,9 @@
         turnDiagTraceId: '',       // явный выбор по trace_id
         turnDiagBusy: false,
         turnDiagError: '',
+        // UR-F шаг 3 (§5): раскрытые длинные списки инспектора. Только
+        // локальное состояние экрана: по умолчанию всё свёрнуто.
+        turnDiagOpen: {},          // {'blocks'|'links'|'rules': true}
         // Раунд 10.23 (F8, ADR-1023-8): вкладка «Промпты» — активный режим
         // Вербализатора (Tabs) и блок мониторинга динамического анти-клише.
         promptMode: 'casual',      // редактируемый режим: casual|serious|deep_research
@@ -15339,6 +15680,9 @@
           var data = await this.api('/api/direct/turn-diagnostics' + qs);
           self.turnDiag = data || null;
           self.turnDiagError = '';
+          // Раскрытые списки принадлежат конкретной трассе: смена хода
+          // начинается со свёрнутого состояния (§5).
+          self.turnDiagOpen = {};
         } catch (e) {
           if (force || !this.turnDiag) {
             self.turnDiag = null;
@@ -15374,8 +15718,10 @@
       },
       turnToolLine: function (t) {
         if (!t) return '';
-        var line = t.tool || '?';
-        line += ' · ' + (t.status || 'no_status');
+        var line = t.tool || 'инструмент не назван';
+        line += t.status
+          ? (' · ' + turnCodeWord('tool_status', t.status) + ' (' + t.status + ')')
+          : ' · статус не зафиксирован';
         if (t.error) line += ' · ошибка: ' + t.error;
         if (t.refs != null) line += ' · источников: ' + t.refs;
         if (t.out_chars != null) line += ' · символов: ' + t.out_chars;
@@ -15383,11 +15729,23 @@
       },
       turnOpLine: function (op) {
         if (!op) return '';
-        var line = op.op || '?';
+        var line = op.op
+          ? (turnCodeWord('ops', op.op) + ' (' + op.op + ')')
+          : 'операция без имени';
         if (op.chunks) line += ' ×' + op.chunks;
         line += op.changed ? ' · текст изменился' : ' · без изменений';
         if (op.chars != null) line += ' · ' + op.chars + ' симв.';
         return line;
+      },
+      // Причина расхождения digest — список имён операций через запятую.
+      turnDivergenceText: function (reason) {
+        var text = String(reason || '');
+        if (!text) return '';
+        return text.split(',').map(function (name) {
+          var code = name.trim();
+          if (!code) return '';
+          return turnCodeWord('ops', code) + ' (' + code + ')';
+        }).filter(function (part) { return !!part; }).join(', ');
       },
       turnDeliveryLabel: function (delivery, outcome) {
         var d = delivery || {};
@@ -15395,12 +15753,325 @@
           return 'доставлен как написан (digest совпал)';
         }
         if (d.divergence_reason) {
-          return 'текст менялся при доставке: ' + d.divergence_reason;
+          return 'текст менялся при доставке: '
+            + this.turnDivergenceText(d.divergence_reason);
         }
         if (outcome && outcome !== 'success') {
           return 'без доставки текста: ' + (d.reason || outcome);
         }
         return 'итог: ' + (d.outcome || outcome || 'нет данных');
+      },
+
+      // ═══ UR-F шаг 3 (§5): подписи, строки карточек, сворачивание ═════════
+      // Всё, что показывает инспектор, идёт через словари выше: код без
+      // понятной подписи не выводится нигде — только «код: <значение>».
+      turnCodeLine: function (group, code) {
+        return turnCodeText(group, code);
+      },
+      turnCodeName: function (group, code) {
+        return turnCodeWord(group, code);
+      },
+      // Пояс чата для дат хода: из `clock` ответа (нет — пусто, не выдумка).
+      turnTz: function () {
+        var diag = this.turnDiag || {};
+        var clock = diag.clock || (diag.context && diag.context.clock) || null;
+        var tz = clock && clock.timezone;
+        return (typeof tz === 'string') ? tz : '';
+      },
+      turnWhen: function (ts) {
+        return turnShortWhen(ts, this.turnTz());
+      },
+      // Честная пустота секции: старая трасса без стадии — прямо об этом.
+      turnMissing: function (kind) {
+        var stages = (this.turnDiag && this.turnDiag.stages) || null;
+        if (stages && stages[kind] === false) return TURN_NO_DATA;
+        return 'нет данных';
+      },
+      // «часы поданы на этапах: L1, инструменты, ответ» (UR-20.8).
+      turnClockStagesLine: function (clock) {
+        var stages = clock && clock.stages;
+        if (!Array.isArray(stages)) {
+          return 'стадии часов не зафиксированы (трасса старше версии)';
+        }
+        if (!stages.length) return 'часы не поданы ни на одной стадии';
+        return 'часы поданы на этапах: ' + stages.map(function (code) {
+          return turnCodeWord('stage', code);
+        }).join(', ');
+      },
+      // Кто отвечал и кому (UR-20.4): только id/дата/алиас из трассы.
+      turnSourceWho: function (source) {
+        if (!source) return TURN_NO_DATA;
+        var who = source.author_alias
+          ? String(source.author_alias) : 'автор не назван';
+        var id = turnIdNum(source.message_id);
+        var line = 'отвечал: ' + who + ' (сообщение '
+          + (id || 'не зафиксировано');
+        var when = this.turnWhen(source.message_ts);
+        if (when) line += ', ' + when;
+        return line + ')';
+      },
+      turnSourceReply: function (source) {
+        if (!source) return TURN_NO_DATA;
+        if (source.reply_to_id == null) return 'не ответ на сообщение';
+        var who = source.reply_to_alias
+          ? String(source.reply_to_alias) : 'автор не назван';
+        var id = turnIdNum(source.reply_to_id);
+        return 'в ответ на: ' + who + ' (сообщение ' + (id || 'не зафиксировано')
+          + ')';
+      },
+      // Бюджет одним предложением (UR-20.6): неизвестное число — словом.
+      turnBudgetLine: function (budget) {
+        if (!budget) return TURN_NO_DATA;
+        var window = turnNumText(budget.window);
+        var windowFrom = budget.window_source
+          ? ' (' + turnCodeWord('window_source', budget.window_source) + ')' : '';
+        var reserve = turnNumText(budget.output_reserve);
+        var used = turnNumText(budget.payload_tokens);
+        var cap = turnNumText(budget.budget);
+        var mode = budget.policy_mode
+          ? turnCodeWord('policy_mode', budget.policy_mode) : 'не зафиксирован';
+        return 'окно модели ' + (window || 'неизвестно') + windowFrom
+          + ' · запас на ответ ' + (reserve || 'неизвестно')
+          + ' · вошло ' + (used || 'неизвестно') + ' из бюджета '
+          + (cap || 'неизвестно')
+          + ' · режим: ' + mode;
+      },
+      // «доступно сообщений N · вошло в запрос M» (UR-20.5).
+      turnCountsLine: function (counts) {
+        if (!counts) return TURN_NO_DATA;
+        var available = turnNumText(counts.available_messages);
+        var included = turnNumText(counts.included_messages);
+        var line = 'доступно сообщений ' + (available || 'неизвестно')
+          + ' · вошло в запрос ' + (included || 'неизвестно');
+        var inWindow = turnNumText(counts.window_messages);
+        if (inWindow) line += ' · в окне ' + inWindow;
+        return line;
+      },
+      // Версии разделов промпта: понятное имя + сам ключ (никогда голый код).
+      turnRevisionLines: function (manifest) {
+        var revisions = manifest && manifest.revisions;
+        if (!revisions || typeof revisions !== 'object') return [];
+        return Object.keys(revisions).map(function (key) {
+          var label = turnLabelOf('prompt_key', key)
+            || turnLabelOf('block', key);
+          var head = label
+            ? (label + ' (' + key + ')') : (TURN_UNKNOWN_CODE + String(key));
+          var value = revisions[key];
+          return value ? head + ' — ' + String(value) : head;
+        });
+      },
+      turnBlockDates: function (block) {        var first = this.turnWhen(block && block.first_ts);
+        var last = this.turnWhen(block && block.last_ts);
+        if (first && last && first !== last) return first + ' — ' + last;
+        return first || last || '';
+      },
+      // Блоки контекста: понятное имя + даты + ссылки + приоритет вытеснения.
+      turnBlockRows: function (selection) {
+        var blocks = (selection && Array.isArray(selection.blocks))
+          ? selection.blocks : null;
+        if (!blocks) return [];
+        var self = this;
+        return blocks.map(function (block) {
+          if (!block || !block.kind) return null;
+          var tokens = turnNumText(block.tokens);
+          return {
+            kind: String(block.kind),
+            name: turnCodeWord('block', block.kind),
+            priority: turnCodeWord('priority', block.role),
+            dates: self.turnBlockDates(block),
+            tokens: tokens ? ('≈' + tokens + ' токенов') : '',
+            refs: (Array.isArray(block.source_ids) ? block.source_ids : [])
+              .map(function (id) { return turnIdText(id); }),
+            skip: block.rendered === false
+              ? (block.skip_reason
+                ? 'не вошло в запрос: '
+                  + turnCodeWord('drop_reason', block.skip_reason)
+                : 'не вошло в запрос')
+              : '',
+          };
+        }).filter(function (row) { return !!row; });
+      },
+      // «не вошло, потому что …» — отдельный список причин (§5).
+      turnDroppedLines: function (selection) {
+        var rows = (selection && Array.isArray(selection.dropped))
+          ? selection.dropped : null;
+        if (!rows) return [];
+        return rows.map(function (item) {
+          if (!item) return '';
+          var line = item.reason_code
+            ? turnCodeWord('drop_reason', item.reason_code)
+            : 'причина не указана';
+          if (item.kind) line += ' · ' + turnCodeWord('block', item.kind);
+          var count = turnNumText(item.count);
+          if (count) line += ' · ' + count + ' шт.';
+          return line;
+        }).filter(function (line) { return !!line; });
+      },
+      // Свои реплики в истории — не образец стиля (§5).
+      turnSelfOutputLines: function (selection) {
+        var rows = (selection && Array.isArray(selection.self_outputs))
+          ? selection.self_outputs : null;
+        if (!rows) return [];
+        var self = this;
+        return rows.map(function (row) {
+          if (!row) return '';
+          var id = turnIdNum(row.tg_message_id);
+          var line = id ? ('сообщение ' + id)
+            : (turnIdText(row.source_id) || 'сообщение без номера');
+          var when = self.turnWhen(row.ts);
+          if (when) line += ' · ' + when;
+          return line;
+        }).filter(function (line) { return !!line; });
+      },
+      turnTruncNote: function (selection) {
+        if (!selection || selection.truncated !== true) return '';
+        var parts = [];
+        if (Array.isArray(selection.blocks) && selection.blocks.length) {
+          parts.push('блоки: показаны ' + selection.blocks.length
+            + ', часть записей сокращена при сохранении трассы');
+        }
+        if (Array.isArray(selection.dropped) && selection.dropped.length) {
+          var total = turnNumText(selection.dropped_total);
+          parts.push(total
+            ? ('потерянные: показаны первые ' + selection.dropped.length
+              + ' из ' + total)
+            : ('потерянные: показаны ' + selection.dropped.length
+              + ', часть записей сокращена при сохранении трассы'));
+        }
+        if (Array.isArray(selection.self_outputs)
+            && selection.self_outputs.length) {
+          parts.push('свои реплики: показаны ' + selection.self_outputs.length
+            + ', часть записей сокращена при сохранении трассы');
+        }
+        return parts.length
+          ? ('запись сокращена — ' + parts.join('; '))
+          : 'запись сокращена при сохранении трассы';
+      },
+      // Решение о поиске словами (UR-20.7); код показывается рядом, моно.
+      turnSearchDecisionWord: function (search) {
+        if (!search) return 'решение о поиске не зафиксировано '
+          + '(трасса старше версии)';
+        var word = turnLabelOf('search_decision', search.decision);
+        if (word) return word;
+        return search.decision
+          ? TURN_UNKNOWN_CODE + String(search.decision)
+          : 'решение о поиске не зафиксировано';
+      },
+      turnSearchActionLine: function (search) {
+        if (!search) return '';
+        var parts = [];
+        if (search.called === true) parts.push('поиск выполнялся');
+        else if (search.called === false) parts.push('поиск не выполнялся');
+        else parts.push('неизвестно, выполнялся ли поиск');
+        if (search.status) {
+          parts.push('итог: ' + turnCodeWord('search_status', search.status));
+        }
+        if (search.skip_reason) {
+          parts.push('причина: ' + turnCodeWord('search_skip',
+            search.skip_reason));
+        }
+        var count = turnNumText(search.source_count);
+        if (count) parts.push('источников в выдаче: ' + count);
+        return parts.join(' · ');
+      },
+      turnLinkTitle: function (link) {
+        if (!link) return '';
+        if (link.source_title) return String(link.source_title);
+        var id = turnIdText(link.source_id);
+        return id || 'без заголовка';
+      },
+      turnLinkWhen: function (link) {
+        var raw = link && link.published_at;
+        if (!raw) return 'дата публикации не сообщается источником';
+        var match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw));
+        if (match) {
+          return 'опубликовано ' + match[3] + '.' + match[2] + '.' + match[1];
+        }
+        return 'опубликовано: ' + String(raw);
+      },
+      // Причина срабатывания правила: составные (`a:b`) раскрываются целиком.
+      turnRuleReason: function (reason) {
+        var text = String(reason || '');
+        if (!text) return '';
+        var cut = text.indexOf(':');
+        if (cut > 0) {
+          var head = turnCodeText('rule_reason', text.slice(0, cut));
+          var tail = turnCodeText('rule_reason', text.slice(cut + 1));
+          return head + ': ' + tail;
+        }
+        return turnCodeText('rule_reason', text);
+      },
+      // «сработало правило: <понятное имя> · причина <код>» — без текста правил.
+      // Статус задаёт формулировку: правило с итогом «нарушений нет» не
+      // называется «сработавшим» (иначе строка противоречит самой себе).
+      turnRuleLine: function (rule) {
+        if (!rule) return '';
+        var name = turnLabelOf('rule_kind', rule.kind)
+          || (rule.rule_id ? String(rule.rule_id) : 'правило без имени');
+        var status = rule.status ? String(rule.status) : '';
+        var fired = { repaired: 1, conflict: 1, failed: 1, denied: 1 };
+        var line;
+        if (fired[status]) {
+          line = 'сработало правило: ' + name
+            + ' · итог: ' + turnCodeWord('rule_status', status);
+        } else if (status === 'pass') {
+          line = 'правило проверено, нарушений нет: ' + name;
+        } else if (status === 'exempted') {
+          line = 'правило не применялось: ' + name;
+        } else if (status === 'not_applicable') {
+          line = 'правило не применимо: ' + name;
+        } else if (status) {
+          line = 'правило: ' + name
+            + ' · итог: ' + turnCodeWord('rule_status', status);
+        } else {
+          line = 'правило: ' + name;
+        }
+        if (rule.reason) {
+          line += ' · причина: ' + this.turnRuleReason(rule.reason);
+        }
+        return line;
+      },
+      turnStyleHeader: function (style) {
+        if (!style) return 'правила стиля не зафиксированы (трасса старше версии)';
+        var head;
+        if (style.applied === true) head = 'правила применены';
+        else if (style.applied === false) head = 'правила не применялись';
+        else head = 'применение правил не зафиксировано';
+        if (style.source) {
+          head += ' · откуда: ' + turnCodeWord('style_source', style.source);
+        }
+        if (style.revision) head += ' · версия правил: ' + style.revision;
+        return head;
+      },
+      turnStyleCountsLine: function (style) {
+        if (!style || !style.counts) return '';
+        var parts = [];
+        Object.keys(style.counts).forEach(function (key) {
+          var count = turnNumText(style.counts[key]);
+          if (!count) return;
+          parts.push(turnCodeWord('rule_status', key) + ': ' + count);
+        });
+        return parts.join(' · ');
+      },
+      // Свёрнутые списки: порог из контракта, состояние — только на экране.
+      turnVisibleList: function (list, key, limit) {
+        var rows = Array.isArray(list) ? list : [];
+        if (rows.length <= limit) return rows;
+        return (this.turnDiagOpen && this.turnDiagOpen[key])
+          ? rows : rows.slice(0, limit);
+      },
+      turnHiddenCount: function (list, key, limit) {
+        var rows = Array.isArray(list) ? list : [];
+        if (rows.length <= limit) return 0;
+        return (this.turnDiagOpen && this.turnDiagOpen[key])
+          ? 0 : rows.length - limit;
+      },
+      turnToggleMore: function (key) {
+        var next = {};
+        var current = this.turnDiagOpen || {};
+        Object.keys(current).forEach(function (name) { next[name] = current[name]; });
+        next[key] = !next[key];
+        this.turnDiagOpen = next;
       },
 
       // ═══ D07 (v6 §9B.2/§9B.3): global-view overrides — stack/popover ═══

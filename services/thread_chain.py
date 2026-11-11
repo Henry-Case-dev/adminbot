@@ -54,18 +54,79 @@ from services.target_marking import is_target_item_id
 logger = logging.getLogger(__name__)
 
 
-def _emit_quote_context_event(code: str, *, chat_id, message_id=None):
+def _emit_quote_context_event(code: str, *, chat_id, message_id=None,
+                              trace_id=None):
     """EVOL-015: fail-open эмиссия контекстной половины quote-таксономии
     (`delivered_to_context`/`unavailable`); источник — component="context".
-    R17: только id/коды — никаких текстов цитат в телеметрии."""
+    R17: только id/коды — никаких текстов цитат в телеметрии.
+
+    ``trace_id`` — корреляция хода (`correlation_id`), если вызывающий её
+    знает: без неё событие нельзя присоединить к `direct_turn_*` того же
+    хода в инспекторе."""
     try:
         from services.mca_events import emit_mca_event
         outcome = "skipped" if code == "unavailable" else "success"
         emit_mca_event("quote", outcome=outcome, component="context",
                        stage=f"quote_{code}", chat_id=chat_id,
-                       message_id=message_id)
+                       message_id=message_id, trace_id=trace_id)
     except Exception:
         pass
+
+
+def quote_message_id(item) -> int | None:
+    """Telegram id хода, несущего цитату (None — id нет или не ``tg:``)."""
+    item_id = str(getattr(item, "item_id", "") or "")
+    if not item_id.startswith("tg:"):
+        return None
+    tail = item_id.split(":", 1)[-1]
+    return int(tail) if tail.isdigit() else None
+
+
+def emit_quote_delivered(item, *, chat_id=None, trace_id=None) -> None:
+    """EVOL-015: цитата хода РЕАЛЬНО ушла в LLM-контекст.
+
+    Единственная точка эмиссии «доставлено». Вызывается либо сразу при
+    рендере строки (путь без аллокатора), либо ПОСЛЕ аллокации — только для
+    строк, реально оставшихся в payload (`emit_quote=False` на рендере):
+    событие обязано описывать доставку, а не попытку рендера."""
+    _emit_quote_context_event(_QUOTE_DELIVERED_EVENT, chat_id=chat_id,
+                              message_id=quote_message_id(item),
+                              trace_id=trace_id)
+
+
+def emit_quote_delivered_message(message_id, *, chat_id=None,
+                                 trace_id=None) -> None:
+    """То же событие по уже разрешённому Telegram id (проекция снимка хода).
+
+    Проектор доставленного хода знает только item id из снимка — повторный
+    рендер строки ради `ChainItem` дал бы второй источник истины."""
+    _emit_quote_context_event(_QUOTE_DELIVERED_EVENT, chat_id=chat_id,
+                              message_id=message_id, trace_id=trace_id)
+
+
+def quote_delivery_fragment(item, projection=None,
+                            trigger_message_id=None) -> str:
+    """Фрагмент, которым цитата хода входит в payload («доставлено/нет»).
+
+    Ровно та аннотация, которую печатает рендер этого режима
+    (``render_speech_line`` → ``SpeechQuote.render`` либо
+    ``format_chain_line`` → ``_quote_annotation``). По ней вызывающий
+    проверяет, доехала ли цитата до УЖЕ аллоцированного payload: усечение
+    режет текст по токенам, поэтому один лишь заголовок строки ничего не
+    доказывает (заголовок держится, а аннотация в хвосте строки срезана).
+
+    Пусто — цитаты у хода нет. Побочных эффектов доставки нет; метка автора
+    уже выдана рендером, поэтому ``SpeechQuote.render`` здесь — только чтение
+    обратных карт прогона."""
+    if not isinstance(item, ChainItem):
+        item = ChainItem(*item)
+    if not str(item.quote_text or "").strip():
+        return ""
+    is_target = is_target_item_id(item.item_id, trigger_message_id)
+    if projection is not None and speech_projection_enabled():
+        quote = _speech_quote(item, is_target=is_target)
+        return quote.render(projection) if quote is not None else ""
+    return _quote_annotation(item, is_target=is_target)
 
 
 class ChainItem(NamedTuple):
@@ -465,12 +526,17 @@ def _quote_annotation(item: ChainItem, *, is_target: bool) -> str:
 
 
 def format_chain_line(item, suffix_map: dict | None = None,
-                      trigger_message_id=None) -> str:
+                      trigger_message_id=None, *,
+                      emit_quote: bool = True) -> str:
     """Каноническая строка хода цепочки (ярус A). user — «[ts | имя [uid] |
     ID]: текст», бот — ts опущен, ID ``tg:``. Ход-триггер (F1) получает
     маркер (единый матчер/guard ``is_target_item_id``).
     EVOL-015: ход с цитатой получает inline-аннотацию выделенного фрагмента
-    (без цитаты — байт-в-байт прежняя строка)."""
+    (без цитаты — байт-в-байт прежняя строка).
+
+    ``emit_quote=False`` — строка рендерится как КАНДИДАТ (payload ещё не
+    аллоцирован): событие «цитата доставлена» эмитит вызывающий после
+    аллокации, только по выжившим строкам."""
     if not isinstance(item, ChainItem):
         item = ChainItem(*item)
     if item.is_bot:
@@ -483,13 +549,9 @@ def format_chain_line(item, suffix_map: dict | None = None,
     annotation = _quote_annotation(item, is_target=is_target)
     if annotation:
         text = f"{text}\n{annotation}"
-        # EVOL-015: цитата реально ушла в LLM-контекст (render = delivery).
-        _tg_ref = (item.item_id.split(":", 1)[-1]
-                   if item.item_id.startswith("tg:") else None)
-        _emit_quote_context_event(
-            _QUOTE_DELIVERED_EVENT, chat_id=None,
-            message_id=int(_tg_ref)
-            if _tg_ref and _tg_ref.isdigit() else None)
+        if emit_quote:
+            # EVOL-015: цитата реально ушла в LLM-контекст (render = delivery).
+            emit_quote_delivered(item)
     return format_context_item(
         ts=item.ts, author=author, item_id=item.item_id,
         forward_source=item.forward_source, text=text, kind="msg",
@@ -587,7 +649,8 @@ def _speech_reply_relation(item):
 
 
 def render_speech_line(item, projection, suffix_map: dict | None = None,
-                       trigger_message_id=None, relations=()) -> str:
+                       trigger_message_id=None, relations=(),
+                       *, emit_quote: bool = True) -> str:
     """Речевая строка хода цепочки (EVOL v5 §4.2 п.2).
 
     Всё содержательное сохраняется: абсолютное время, имя+`U`-метка автора,
@@ -595,21 +658,19 @@ def render_speech_line(item, projection, suffix_map: dict | None = None,
     маркер целевого хода. Меняется ровно *неозвучиваемая* форма технических
     ключей: ``tg:<id>`` → ``M<n>`` с обратным отображением в
     `SpeechProjection` (§5.4 «допустимы метки при точном обратном
-    отображении»)."""
+    отображении»).
+
+    ``emit_quote=False`` — строка рендерится как кандидат до аллокации:
+    событие «цитата доставлена» эмитит вызывающий по выжившим строкам."""
     if not isinstance(item, ChainItem):
         item = ChainItem(*item)
     suffix = (suffix_map or {}).get(item.uid, "") if not item.is_bot else ""
     author = f"{item.name}{suffix}" if suffix else item.name
     is_target = is_target_item_id(item.item_id, trigger_message_id)
     quote = _speech_quote(item, is_target=is_target)
-    if quote is not None:
+    if quote is not None and emit_quote:
         # EVOL-015: цитата реально ушла в LLM-контекст (render = delivery).
-        _tg_ref = (item.item_id.split(":", 1)[-1]
-                   if item.item_id.startswith("tg:") else None)
-        _emit_quote_context_event(
-            _QUOTE_DELIVERED_EVENT, chat_id=None,
-            message_id=int(_tg_ref)
-            if _tg_ref and _tg_ref.isdigit() else None)
+        emit_quote_delivered(item)
     if item.media_type:
         # Медиа-строка: маркер перерисовывается меткой (реф = та же строка).
         text = media_marker(item.media_type, item.item_id,

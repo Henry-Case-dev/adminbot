@@ -17,6 +17,7 @@ LLM_FALLBACK_* (62.4, пустые env = ровно старое поведен�
 direct_chat_service (llm_client о нём НЕ знает — контракт 62.3).
 """
 import asyncio
+import copy
 import json
 import logging
 import random
@@ -322,6 +323,11 @@ class LLMChatResult:
     # default None — существующие конструкторы/тесты не ломаются.
     # Никогда не уходит пользователю (см. reply_postprocess).
     reasoning: str | None = None
+    # UR-F шаг 1 (delivery snapshot, Q1): defensive copy последнего фактически
+    # отправленного body (после primary/fallback). Только in-process: не
+    # сериализуется и не логируется. ``None`` у двойников/старых конструкторов
+    # → доставка не доказана (under-count, ложного кредита нет).
+    sent_body: dict | None = None
 
 
 # EMBED-META-WIRE (CANARY-03): метаданные embed-ответа провайдера.
@@ -447,6 +453,9 @@ class LLMCompletion:
     correlation_id: str | None
     fallback_chain: tuple[LLMProviderAttempt, ...] = ()
     finish_reason_raw: str | None = None
+    #: UR-F шаг 1 (delivery snapshot, Q1): что ФАКТИЧЕСКИ ушло провайдеру
+    #: (после primary/fallback и recompose). Только in-process.
+    sent_body: dict | None = None
 
     @property
     def fallback_used(self) -> bool:
@@ -1656,6 +1665,11 @@ class LLMClient:
             if fallback_payload_adapter is not None:
                 try:
                     adapted = fallback_payload_adapter(payload)
+                    if isinstance(adapted, tuple) and len(adapted) == 2:
+                        # UR-F шаг 1 (Q6): адаптер возвращает (body,
+                        # prepared-вариант); вариант держит сервис, здесь нужен
+                        # только body.
+                        adapted = adapted[0]
                     if isinstance(adapted, dict) and adapted.get("messages"):
                         payload = adapted
                         logger.info(
@@ -1746,6 +1760,8 @@ class LLMClient:
             correlation_id=correlation_id,
             fallback_chain=tuple(fallback_chain),
             finish_reason_raw=finish_reason_raw,
+            sent_body=copy.deepcopy(sent_body) if isinstance(sent_body, dict)
+            else None,
         )
 
     async def generate_background(self, messages: list[dict[str, str]], *,
@@ -1969,6 +1985,11 @@ class LLMClient:
             if fallback_payload_adapter is not None:
                 try:
                     adapted = fallback_payload_adapter(payload)
+                    if isinstance(adapted, tuple) and len(adapted) == 2:
+                        # UR-F шаг 1 (Q6): адаптер возвращает (body,
+                        # prepared-вариант); вариант держит сервис, здесь нужен
+                        # только body.
+                        adapted = adapted[0]
                     if isinstance(adapted, dict) and adapted.get("messages"):
                         payload = adapted
                         logger.info(
@@ -2093,6 +2114,10 @@ class LLMClient:
             tool_calls=tool_calls,
             finish_reason=choice.get("finish_reason"),
             reasoning=reasoning_text,
+            # UR-F шаг 1 (Q1): фактически отправленный body (после fallback).
+            sent_body=(copy.deepcopy(_sent_body(sent, payload)[1])
+                       if isinstance(_sent_body(sent, payload)[1], dict)
+                       else None),
         )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:

@@ -457,8 +457,11 @@ class TestToolSchemasInFallbackBudget:
                        {"role": "system", "content": "SYS"},
                        {"role": "user", "content": "\n\n".join(blocks)}],
                    "tools": _tools()}
-        light = factory(None, extra_reserve=0)(dict(payload))
-        heavy = factory(None, extra_reserve=100_000)(dict(payload))
+        # UR-F шаг 1 (Q6): адаптер возвращает (body, prepared-вариант).
+        light, light_prepared = factory(None, extra_reserve=0)(dict(payload))
+        heavy, heavy_prepared = factory(None, extra_reserve=100_000)(
+            dict(payload))
+        assert light_prepared is not None and heavy_prepared is not None
         light_size = len(str(light["messages"][1]["content"]))
         heavy_size = len(str(heavy["messages"][1]["content"]))
         assert heavy_size < light_size, (

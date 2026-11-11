@@ -1359,56 +1359,73 @@
                   Выберите ход — данные появятся после загрузки трассы.
                 </div>
                 <template v-if="turnDiag && turnDiag.available">
-                  <div class="text-xs text-gray-500 mb-2" data-turn-meta>
+                  <div class="text-xs text-gray-500 mb-2 turn-wrap" data-turn-meta>
                     Ход: <span class="font-mono">{{ turnDiag.trace_id }}</span>
+                    · код хода (служебный, по нему собрана трасса)
                     <template v-if="turnDiag.context">
-                      · {{ turnFlowLabel(turnDiag.context.flow) }}
+                      <template v-if="turnDiag.context.flow">
+                        · {{ turnFlowLabel(turnDiag.context.flow) }}</template>
                       <template v-if="turnDiag.context.trigger">
-                        · триггер: {{ turnDiag.context.trigger }}</template>
+                        · триггер: {{ turnCodeLine('trigger',
+                          turnDiag.context.trigger) }}</template>
                     </template>
                   </div>
                   <div class="grid gap-2 md:grid-cols-2">
                     <!-- L1 -->
                     <div class="card p-3" data-turn-stage="l1">
-                      <div class="text-sm font-semibold mb-1">1 · Планирование (L1)</div>
+                      <div class="text-sm font-semibold mb-1">Планирование (L1)</div>
                       <template v-if="turnDiag.context">
-                        <div class="text-xs" data-turn-l1-action>
-                          Действие: {{ (turnDiag.context.l1
+                        <div class="flex flex-col text-xs turn-wrap"
+                             data-turn-source>
+                          <div>{{ turnSourceWho(turnDiag.source) }}</div>
+                          <div class="text-gray-400 mt-0.5">{{
+                            turnSourceReply(turnDiag.source) }}</div>
+                        </div>
+                        <div class="text-xs mt-1 turn-wrap" data-turn-l1-action>
+                          Действие: {{ turnCodeLine('action', turnDiag.context.l1
                             && turnDiag.context.l1.action) || 'нет данных' }}
                           <template v-if="turnDiag.context.l1
                                           && turnDiag.context.l1.model">
                             · модель: {{ turnDiag.context.l1.model }}</template>
                         </div>
-                        <div class="text-xs text-gray-400 mt-1"
+                        <div class="text-xs text-gray-400 mt-1 turn-wrap"
                              data-turn-clock-line>
                           Время хода: {{ turnClockLine(turnDiag.context) }}
                         </div>
-                        <div class="text-xs text-gray-400" data-turn-llm-calls>
+                        <div class="text-xs text-gray-400 turn-wrap"
+                             data-turn-clock-stages>
+                          {{ turnClockStagesLine(turnDiag.clock
+                             || turnDiag.context.clock) }}
+                        </div>
+                        <div class="text-xs text-gray-400 turn-wrap"
+                             data-turn-llm-calls>
                           LLM-вызовы: <span class="font-mono">{{
                             JSON.stringify(turnDiag.context.llm_calls
                               || {}) }}</span>
                         </div>
                         <div v-if="turnDiag.context.stop_reason"
-                             class="text-xs text-amber-300"
+                             class="text-xs text-amber-300 turn-wrap"
                              data-turn-stop>Ход остановлен:
                           {{ turnDiag.context.stop_reason }}</div>
                       </template>
-                      <div v-else class="text-xs text-gray-500">нет данных</div>
+                      <div v-else class="text-xs text-gray-500">{{
+                        turnMissing('context') }}</div>
                     </div>
                     <!-- Tools -->
                     <div class="card p-3" data-turn-stage="tools">
-                      <div class="text-sm font-semibold mb-1">2 · Инструменты</div>
+                      <div class="text-sm font-semibold mb-1">Инструменты и поиск</div>
                       <template v-if="turnDiag.context">
-                        <div class="text-xs" data-turn-tools-summary>
-                          Раундов: {{ turnDiag.context.tool_rounds || 0 }}
+                        <div class="text-xs turn-wrap" data-turn-tools-summary>
+                          Раундов: {{ turnDiag.context.tool_rounds != null
+                            ? turnDiag.context.tool_rounds : 'неизвестно' }}
                           <template v-if="turnDiag.context.tool_degraded">
-                            · деградация: {{ turnDiag.context.tool_reason
-                              || 'да' }}</template>
+                            · деградация: {{ turnCodeLine('tool_status',
+                              turnDiag.context.tool_reason) || 'да' }}</template>
                         </div>
                         <div v-if="(turnDiag.context.tools || []).length"
                              class="flex flex-col gap-1 mt-1">
                           <div v-for="(t, ti) in turnDiag.context.tools"
-                               :key="'tool-' + ti" class="text-xs"
+                               :key="'tool-' + ti" class="text-xs turn-wrap"
                                data-turn-tool-row>{{ turnToolLine(t) }}</div>
                         </div>
                         <div v-else class="text-xs text-gray-500">
@@ -1416,7 +1433,7 @@
                         </div>
                         <div v-if="turnDiag.context.coverage
                                    && turnDiag.context.coverage.sources != null"
-                             class="text-xs text-gray-400 mt-1"
+                             class="text-xs text-gray-400 mt-1 turn-wrap"
                              data-turn-coverage>
                           Источников: {{ turnDiag.context.coverage.sources }}
                           · доставлено: {{ turnDiag.context.coverage.delivered
@@ -1424,14 +1441,59 @@
                             : '—' }}
                         </div>
                       </template>
-                      <div v-else class="text-xs text-gray-500">нет данных</div>
+                      <div v-else class="text-xs text-gray-500">{{
+                        turnMissing('context') }}</div>
+                      <!-- UR-20.7: решение о поиске словами + ссылки выдачи -->
+                      <div class="mt-2" data-turn-search>
+                        <div class="text-xs turn-wrap" data-turn-search-decision>
+                          {{ turnSearchDecisionWord(turnDiag.search) }}
+                          <span v-if="turnDiag.search && turnDiag.search.decision"
+                                class="font-mono text-gray-500">({{
+                            turnDiag.search.decision }})</span>
+                        </div>
+                        <div v-if="turnDiag.search"
+                             class="text-xs text-gray-400 turn-wrap"
+                             data-turn-search-action>{{
+                          turnSearchActionLine(turnDiag.search) }}</div>
+                        <div v-if="turnDiag.search
+                                   && (turnDiag.search.links || []).length"
+                             class="flex flex-col gap-1 mt-1">
+                          <div v-for="(link, li) in turnVisibleList(
+                                 turnDiag.search.links, 'links', 3)"
+                               :key="'link-' + li"
+                               class="flex flex-col text-xs turn-wrap"
+                               data-turn-link-row>
+                            <a :href="link.source_url" target="_blank"
+                               rel="noopener noreferrer"
+                               class="text-violet-300 turn-wrap">{{
+                              turnLinkTitle(link) }}</a>
+                            <span class="font-mono text-gray-500 turn-wrap">→
+                              {{ link.source_url }}</span>
+                            <span class="text-gray-500">{{
+                              turnLinkWhen(link) }}</span>
+                          </div>
+                          <button type="button"
+                                  v-if="turnHiddenCount(turnDiag.search.links,
+                                         'links', 3)"
+                                  class="btn-ghost text-xs self-start"
+                                  data-turn-more-links
+                                  @click="turnToggleMore('links')">показать
+                            ещё {{ turnHiddenCount(turnDiag.search.links,
+                              'links', 3) }}</button>
+                        </div>
+                        <div v-else-if="turnDiag.search"
+                             class="text-xs text-gray-500 turn-wrap"
+                             data-turn-no-links>поиск не дал ссылок</div>
+                      </div>
                     </div>
                     <!-- Writer -->
                     <div class="card p-3" data-turn-stage="writer">
-                      <div class="text-sm font-semibold mb-1">3 · Writer (ответ)</div>
+                      <div class="text-sm font-semibold mb-1">Что видел ответ</div>
                       <template v-if="turnDiag.writer">
-                        <div class="text-xs" data-turn-writer-completion>
-                          Завершение: {{ (turnDiag.writer.completion
+                        <div class="text-xs turn-wrap"
+                             data-turn-writer-completion>
+                          Завершение: {{ turnCodeLine('finish',
+                            turnDiag.writer.completion
                             && turnDiag.writer.completion.finish_reason)
                             || 'нет данных' }}
                           <template v-if="turnDiag.writer.completion
@@ -1457,26 +1519,36 @@
                         </div>
                         <div v-if="turnDiag.writer.completion
                                    && turnDiag.writer.completion.refused"
-                             class="text-xs text-red-300" data-turn-refused>
+                             class="text-xs text-red-300 turn-wrap"
+                             data-turn-refused>
                           Честный отказ Writer'а: {{
                             turnDiag.writer.completion.refused_reason
                             || 'причина не указана' }}
                         </div>
                         <div v-if="turnDiag.writer.manifest
                                    && (turnDiag.writer.manifest.blocks || []).length"
-                             class="text-xs text-gray-400 mt-1"
+                             class="text-xs text-gray-400 mt-1 turn-wrap"
                              data-turn-manifest>
-                          Блоков в payload: {{
+                          Блоков в запросе: {{
                             turnDiag.writer.manifest.blocks.length }}
-                          · рендерилось: {{ turnDiag.writer.manifest.blocks
+                          · показано: {{ turnDiag.writer.manifest.blocks
                             .filter(function (b) { return b.rendered; }).length }}
                           <template v-if="turnDiag.writer.manifest.writer">
-                            · writer: {{ turnDiag.writer.manifest.writer
+                            · писатель: {{ turnCodeLine('writer_name',
+                              turnDiag.writer.manifest.writer)
                               }}</template>
+                        </div>
+                        <div v-if="turnRevisionLines(turnDiag.writer.manifest)
+                                   .length"
+                             class="text-xs text-gray-400 mt-1 turn-wrap"
+                             data-turn-revisions>
+                          Версии разделов промпта: {{
+                            turnRevisionLines(turnDiag.writer.manifest)
+                              .join('; ') }}
                         </div>
                         <div v-if="turnDiag.writer.completion
                                    && turnDiag.writer.completion.checks"
-                             class="text-xs text-amber-300 mt-1"
+                             class="text-xs text-amber-300 mt-1 turn-wrap"
                              data-turn-checks>
                           Находки проверок: <span class="font-mono">{{
                             JSON.stringify(turnDiag.writer.completion.checks)
@@ -1486,46 +1558,148 @@
                                    && turnDiag.writer.completion.text_source
                                    && turnDiag.writer.completion.text_source
                                       !== 'author'"
-                             class="text-xs text-amber-300"
+                             class="text-xs text-amber-300 turn-wrap"
                              data-turn-text-source>
                           Текст: {{ turnDiag.writer.completion.text_source
                             }} (не авторская версия)
                         </div>
                       </template>
-                      <div v-else class="text-xs text-gray-500">нет данных</div>
+                      <div v-else class="text-xs text-gray-500">{{
+                        turnMissing('writer') }}</div>
+                      <!-- UR-20.5/20.6: что реально попало в запрос L2 -->
+                      <div class="mt-2" data-turn-selection>
+                        <div class="text-xs turn-wrap" data-turn-budget>{{
+                          turnBudgetLine(turnDiag.selection
+                            && turnDiag.selection.budget) }}</div>
+                        <div class="text-xs text-gray-400 mt-0.5 turn-wrap"
+                             data-turn-counts>{{
+                          turnCountsLine(turnDiag.selection
+                            && turnDiag.selection.counts) }}</div>
+                        <div v-if="turnTruncNote(turnDiag.selection)"
+                             class="text-xs text-gray-500 mt-0.5 turn-wrap"
+                             data-turn-truncated>{{
+                          turnTruncNote(turnDiag.selection) }}</div>
+                        <div v-if="turnBlockRows(turnDiag.selection).length"
+                             class="flex flex-col gap-1 mt-1"
+                             data-turn-blocks>
+                          <div v-for="(row, bi) in turnVisibleList(
+                                 turnBlockRows(turnDiag.selection),
+                                 'blocks', 5)"
+                               :key="'block-' + bi"
+                               class="flex flex-col text-xs turn-wrap"
+                               data-turn-block-row>
+                            <div class="font-semibold">{{ row.name }}</div>
+                            <div v-if="row.dates" class="text-gray-400">
+                              даты: {{ row.dates }}</div>
+                            <div v-if="row.tokens" class="text-gray-500">{{
+                              row.tokens }}</div>
+                            <div v-if="row.priority" class="text-gray-500">
+                              приоритет вытеснения: {{ row.priority }}</div>
+                            <div v-if="row.refs.length" class="text-gray-400">
+                              вошло: {{ row.refs.join(', ') }}</div>
+                            <div v-if="row.skip" class="text-amber-300">{{
+                              row.skip }}</div>
+                          </div>
+                          <button type="button"
+                                  v-if="turnHiddenCount(
+                                         turnBlockRows(turnDiag.selection),
+                                         'blocks', 5)"
+                                  class="btn-ghost text-xs self-start"
+                                  data-turn-more-blocks
+                                  @click="turnToggleMore('blocks')">показать
+                            ещё {{ turnHiddenCount(
+                              turnBlockRows(turnDiag.selection),
+                              'blocks', 5) }}</button>
+                        </div>
+                        <div v-if="turnDroppedLines(turnDiag.selection).length"
+                             class="mt-1" data-turn-dropped>
+                          <div class="text-xs text-gray-400">
+                            не вошло, потому что:</div>
+                          <div v-for="(line, di) in turnDroppedLines(
+                                 turnDiag.selection)"
+                               :key="'drop-' + di"
+                               class="text-xs text-gray-500 turn-wrap">• {{
+                            line }}</div>
+                        </div>
+                        <div v-if="turnSelfOutputLines(turnDiag.selection).length"
+                             class="mt-1" data-turn-self-outputs>
+                          <div class="text-xs text-gray-400">
+                            свои реплики в истории разговора (не образец
+                            стиля):</div>
+                          <div v-for="(line, si) in turnSelfOutputLines(
+                                 turnDiag.selection)"
+                               :key="'self-' + si"
+                               class="text-xs text-gray-500 turn-wrap">• {{
+                            line }}</div>
+                        </div>
+                      </div>
                     </div>
                     <!-- Ops + Delivery -->
                     <div class="card p-3" data-turn-stage="delivery">
-                      <div class="text-sm font-semibold mb-1">4 · Операции и доставка</div>
+                      <div class="text-sm font-semibold mb-1">Операции и доставка</div>
                       <template v-if="turnDiag.delivery">
-                        <div class="text-xs" data-turn-delivery-line>
+                        <div class="text-xs turn-wrap" data-turn-delivery-line>
                           {{ turnDeliveryLabel(turnDiag.delivery,
                              turnDiag.delivery.outcome) }}
                         </div>
                         <div v-if="(turnDiag.delivery.ops || []).length"
                              class="flex flex-col gap-0.5 mt-1">
                           <div v-for="(op, oi) in turnDiag.delivery.ops"
-                               :key="'op-' + oi" class="text-xs text-gray-400"
+                               :key="'op-' + oi"
+                               class="text-xs text-gray-400 turn-wrap"
                                data-turn-op-row>{{ turnOpLine(op) }}</div>
                         </div>
                         <div v-else class="text-xs text-gray-500">
                           технических операций не было
                         </div>
                         <div v-if="turnDiag.delivery.digest_match === false"
-                             class="text-xs text-amber-300 mt-1"
+                             class="text-xs text-amber-300 mt-1 turn-wrap"
                              data-turn-divergence>
                           raw_final ≠ delivered — причина: {{
-                            turnDiag.delivery.divergence_reason
+                            turnDivergenceText(
+                              turnDiag.delivery.divergence_reason)
                             || 'не объяснено' }}
                         </div>
                         <div v-if="turnDiag.delivery.delivery
                                    && turnDiag.delivery.delivery.idempotency_key"
-                             class="text-xs text-gray-500 mt-1 font-mono"
+                             class="text-xs text-gray-500 mt-1 font-mono turn-wrap"
                              data-turn-idempotency>
                           ключ: {{ turnDiag.delivery.delivery.idempotency_key }}
                         </div>
                       </template>
-                      <div v-else class="text-xs text-gray-500">нет данных</div>
+                      <div v-else class="text-xs text-gray-500">{{
+                        turnMissing('delivery') }}</div>
+                      <!-- UR-20.8: сработавшие правила стиля (без их текста) -->
+                      <div class="mt-2" data-turn-style>
+                        <div class="text-xs text-gray-400 turn-wrap"
+                             data-turn-style-head>{{
+                          turnStyleHeader(turnDiag.style) }}</div>
+                        <div v-if="turnStyleCountsLine(turnDiag.style)"
+                             class="text-xs text-gray-500 turn-wrap"
+                             data-turn-style-counts>{{
+                          turnStyleCountsLine(turnDiag.style) }}</div>
+                        <div v-if="turnDiag.style
+                                   && (turnDiag.style.rules || []).length"
+                             class="flex flex-col gap-1 mt-1">
+                          <div v-for="(rule, ri) in turnVisibleList(
+                                 turnDiag.style.rules, 'rules', 4)"
+                               :key="'rule-' + ri"
+                               class="text-xs text-gray-300 turn-wrap"
+                               data-turn-rule-row>{{ turnRuleLine(rule) }}</div>
+                          <button type="button"
+                                  v-if="turnHiddenCount(turnDiag.style.rules,
+                                         'rules', 4)"
+                                  class="btn-ghost text-xs self-start"
+                                  data-turn-more-rules
+                                  @click="turnToggleMore('rules')">показать
+                            ещё {{ turnHiddenCount(turnDiag.style.rules,
+                              'rules', 4) }}</button>
+                        </div>
+                        <div v-else-if="turnDiag.style
+                                   && turnDiag.style.applied === true"
+                             class="text-xs text-gray-500 turn-wrap"
+                             data-turn-no-rules>ни одно правило не сработало</div>
+                      </div>
                     </div>
                   </div>
                 </template>

@@ -443,3 +443,18 @@ def test_js_unit_prompt_version_card():
     _run_js(os.path.join("tests", "js", "prompt_version_card_test.js"),
             ok_marker="PVR-S4-CARD-OK")
 
+
+def test_js_unit_ur_f_inspector_step3():
+    """UR-F шаг 3 (контракт §5): карточки инспектора хода и расшифровка кодов.
+
+    Проверяется на РЕАЛЬНОМ web/app.js: подписи block-kind (включая
+    MAP/Branch/Anchor/TTL), ops, решение/итог поиска, статусы и причины
+    правил стиля, fallback «код: <значение>» для неизвестного кода, честная
+    пустота «нет данных (трасса старше версии)» вместо нуля, однострочники
+    бюджета/счётчиков, даты в поясе чата, id без обрезки, сворачивание
+    длинных списков (5/3/4) и объяснение `truncated` словами.
+    """
+    _run_js(os.path.join("tests", "js", "ur_f_inspector_step3_test.js"),
+            ok_marker="UR-F-STEP3-OK")
+
+
