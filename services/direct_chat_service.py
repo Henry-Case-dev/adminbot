@@ -13769,19 +13769,41 @@ class DirectChatService:
             base_years = tuple(sorted(
                 {year for year in (_rag_row_year(row) for row in rows)
                  if year is not None}))
-            extra = await self._rag_retrieve(
-                db, memory, chat_id, query, self._RAG_PERIOD_CHANNELS,
-                self._RAG_PERIOD_POOL, policy,
-                lexical_stem=True,
-                include_archived=policy in ("historical", "auto"),
-                period_fill=True,
-                exclude_years=base_years)
-            extra_rows = self._rag_rows_from_result(
-                extra, self._RAG_PERIOD_POOL)
+            # ОДНА векторная нога на ход (§5, 12.11.2026): при `auto → historical`
+            # блок памяти пересобирается тем же чтением после плана L1, и без
+            # повторного использования пула KNN k=32 (embed + KNN) платился бы
+            # дважды за один ход. Пул кешируется ключом (чат, вопрос) и
+            # подставляется ТОЛЬКО в окно пересборки (`_apply_plan_memory_scope`
+            # армирует его на один вызов) — между ходами переиспользования нет.
+            reuse = getattr(self, "_rag_period_reuse", None)
+            cache_key = (int(chat_id), str(query or ""))
+            extra_rows = None
+            period_meta: dict = {}
+            if isinstance(reuse, dict) and reuse.get("key") == cache_key:
+                extra_rows = list(reuse.get("rows") or ())
+                period_meta = dict(reuse.get("meta") or {})
+                period_reused = 1
+            else:
+                period_reused = 0
+            if extra_rows is None:
+                extra = await self._rag_retrieve(
+                    db, memory, chat_id, query, self._RAG_PERIOD_CHANNELS,
+                    self._RAG_PERIOD_POOL, policy,
+                    lexical_stem=True,
+                    include_archived=policy in ("historical", "auto"),
+                    period_fill=True,
+                    exclude_years=base_years)
+                extra_rows = self._rag_rows_from_result(
+                    extra, self._RAG_PERIOD_POOL)
+                period_meta = dict(getattr(extra, "period_fill", None) or {})
+                # Сырой пул (до порога §2: порог зависит от политики) — на
+                # случай пересборки с политикой плана.
+                self._rag_period_pool = {"key": cache_key,
+                                         "rows": list(extra_rows),
+                                         "meta": dict(period_meta)}
             accepted, rejected = self._rag_period_subject_filter(query,
                                                                  extra_rows,
                                                                  policy)
-            period_meta = getattr(extra, "period_fill", None) or {}
             self._rag_period_stats = {
                 "rejected_subject": int(rejected),
                 "vector_pool_miss": int(period_meta.get("vector_pool_miss")
@@ -13791,6 +13813,7 @@ class DirectChatService:
                 "vector_kept": sum(1 for row in accepted
                                    if row.get("subject_proxy") == "knn"),
                 "exclude_years": len(base_years),
+                "period_leg_reused": int(period_reused),
             }
             trial = self._rag_append_period_rows(
                 trimmed, accepted, limit, slots=period_slots)
@@ -14057,6 +14080,9 @@ class DirectChatService:
         # этому ходу — сбрасываем до чтения, чтобы повторный сбор блока на
         # том же экземпляре не унаследовал счётчики прошлого вопроса.
         self._rag_period_stats = {}
+        # Пул периодной ноги этого вызова: без периода он пуст (окно
+        # пересборки не должно подставить пул прошлого хода).
+        self._rag_period_pool = None
         try:
             rows = await self._rag_unified_rows(chat_id, query, message,
                                                 memory_scope=memory_scope,
@@ -14123,7 +14149,6 @@ class DirectChatService:
         # снимает и её; лексическая строка, прошедшая порог §2, в реранк не
         # отправлялась и его молчанием не гасится.
         protected_keys = period_keys - _rag_period_judged_keys(rows)
-        period_kept = 0
         period_kept_despite_empty = 0
         # Гейт реранка — per-chat цепочкой 2.58.186 (`_cp_g`: override чата →
         # глобальный hot → env/фабричный дефолт). Оба изменения складываются
@@ -14146,7 +14171,6 @@ class DirectChatService:
                         # он остаётся (иначе найденная история гибнет от
                         # молчания по другому набору).
                         kept = protected
-                        period_kept = len(protected)
                         period_kept_despite_empty = len(protected)
                     else:
                         # Реранк только УБИРАЕТ: итог = его собственный порядок
@@ -14155,20 +14179,24 @@ class DirectChatService:
                         # байт-в-байт (в т.ч. для `operative`, где маркеров
                         # нет вовсе).
                         kept = list(reranked) + protected
-                        period_kept = len(protected)
                 else:
                     # Реранку нечего оценивать (весь срез — добор): решения
                     # модели нет, поэтому добор остаётся как есть.
                     kept = protected
-                    period_kept = len(protected)
             except Exception:
                 logger.warning(
                     "direct: rag rerank failed — original facts | chat=%s",
                     chat_id, exc_info=True)
-                period_kept = len([item for item in kept
-                                   if _rag_item_key(item) in protected_keys])
         if not kept:
             return "", ""
+        # VMQ-MEM next stage (§4, 12.11.2026): `period_kept` считается по
+        # ФАКТИЧЕСКИ показанному срезу (`kept` ∩ периодные ключи) — а не внутри
+        # ветки реранка. Иначе при выключенном реранке реально отрисованная
+        # периодная строка логировалась как 0, а knn-строка, выбранная
+        # моделью, не считалась вовсе. `period_kept_despite_empty` остаётся
+        # отдельным смыслом: сколько пережило валидный пустой вердикт.
+        period_kept = sum(1 for item in kept
+                          if _rag_item_key(item) in period_keys)
         # F2/T-1429 (spec §4.4, 4.1.c): граф-активация — при частой связке
         # 2–3 узлов в L1 связанные архивные beliefs поднимаются в горячий
         # кэш БЕЗ dig_into_lore (только показ). Флаг off → [] (0 изменений);
@@ -14289,7 +14317,21 @@ class DirectChatService:
         Если блок не попал в payload (пустая выдача `auto` либо он исключён
         бюджетом), вставка не делается: список уже бюджетирован, и добавлять
         в него материал мимо бюджета нельзя.
-        """
+
+        VMQ-MEM next stage (§1/§5, 12.11.2026): периодный пул (векторная нога
+        KNN k=32 + лексика) НЕ платится второй раз за тот же ход — окно
+        пересборки армирует пул, собранный блоком `auto`, и снимает его после
+        единственного повторного вызова. Плата за ход: одна векторная нога."""
+        self._rag_period_reuse = getattr(self, "_rag_period_pool", None)
+        try:
+            return await self._apply_plan_memory_scope_locked(
+                user_blocks, rag_ctx, l1_plan)
+        finally:
+            self._rag_period_reuse = None
+            self._rag_period_pool = None
+
+    async def _apply_plan_memory_scope_locked(self, user_blocks, rag_ctx: dict,
+                                              l1_plan) -> list:
         if rag_ctx is None:
             return user_blocks
         plan_scope = _mca_rc._mc.normalize_memory_scope(

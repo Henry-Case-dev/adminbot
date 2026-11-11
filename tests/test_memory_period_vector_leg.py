@@ -476,3 +476,236 @@ class TestBlockIntegration:
         assert seen, "реранк вызывался"
         assert any("Сосед из 2025" in text for text in seen[0]), seen
         assert all("Ремонт ванной 2023" not in text for text in seen[0]), seen
+
+
+# ── §1/§5: ОДНА векторная нога на ход (пересборка блока после плана L1) ────
+
+
+class _PeriodResult:
+    """Результат `retrieve`-двойника: строки + телеметрия периодной ноги."""
+
+    def __init__(self, rows=(), meta=None):
+        self.fact_rows = tuple(rows)
+        self.period_fill = meta
+
+
+def _base_rows(count=8, year=2026):
+    return [{"id": 100 + index, "origin": "history_import",
+             "fact": "текущий факт %d" % index, "status": "confirmed",
+             "expires_at": None, "created_at": _ts(year),
+             "message_timestamp": _ts(year), "tg_message_id": 700 + index,
+             "chat_id": CHAT, "item_id": "fact:%d" % (100 + index)}
+            for index in range(count)]
+
+
+def _block_row(fid, year, text, *, period=False, proxy=None):
+    row = {"id": fid, "origin": "history_import", "fact": text,
+           "status": "confirmed", "expires_at": None,
+           "message_timestamp": _ts(year), "created_at": _ts(year),
+           "tg_message_id": 900 + fid, "chat_id": CHAT,
+           "item_id": "fact:%d" % fid}
+    if period:
+        row["period_fill"] = True
+    if proxy:
+        row["subject_proxy"] = proxy
+    return row
+
+
+class TestOnePeriodLegPerTurn:
+    """Блок памяти собирается до плана L1 (`auto`), затем пересобирается с
+    политикой плана. Периодный пул (embed + KNN k=32 + лексика) обязан
+    оплачиваться ОДИН раз за ход; `operative` не добавляет второй ноги."""
+
+    class _Memory:
+        async def rerank_rag_facts(self, query, facts):
+            return list(facts)
+
+    @staticmethod
+    def _wire(monkeypatch, service):
+        async def _no_chat_param(*_args, **_kwargs):
+            return None
+
+        monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
+        calls: list = []
+
+        async def fake_retrieve(db, memory, chat_id, query, channels, limit,
+                                policy, **kwargs):
+            calls.append({"channels": tuple(channels), "limit": int(limit),
+                          "policy": policy, "kwargs": dict(kwargs)})
+            if tuple(channels) == ("vector",):
+                return _PeriodResult(_base_rows())
+            return _PeriodResult((), {"vector_leg": "ok", "vector_rows": 0,
+                                      "vector_pool_miss": 1})
+
+        service.db = types.SimpleNamespace(
+            search_messages_fts=lambda *a, **k: None)
+        monkeypatch.setattr(service, "_rag_retrieve", fake_retrieve)
+        return calls
+
+    @staticmethod
+    def _period_calls(calls):
+        return [call for call in calls if call["kwargs"].get("period_fill")]
+
+    @pytest.mark.asyncio
+    async def test_auto_then_historical_pays_one_period_leg(
+            self, monkeypatch):
+        _hot(monkeypatch, {"flags.graph_rag_enabled": True,
+                           "flags.chat_rag_rerank_enabled": False,
+                           "memory.nostalgia_layer_a_enabled": False,
+                           "limits.graph_rag_facts_limit": 10,
+                           "limits.graph_rag_context_max_chars": 2000})
+        service = dcs.DirectChatService(memory=self._Memory(), db=None,
+                                        llm=None, aliases=None)
+        calls = self._wire(monkeypatch, service)
+        question = "что было с концертом органной музыки?"
+        block, _hint = await service._build_rag_block(
+            CHAT, _Msg(question), "", memory_scope="auto")
+        period = self._period_calls(calls)
+        assert len(period) == 1, (calls, "auto платит одну периодную ногу")
+        # Пул — ЛИТЕРАЛЬНО 32: константа реализацией не считается.
+        assert period[0]["limit"] == 32, (
+            period[0], "пул периодной ноги фиксирован")
+        assert service._rag_period_pool, "пул сохранён для пересборки"
+        out = await service._apply_plan_memory_scope(
+            ["<Current_Question>%s</Current_Question>" % question, block],
+            {"chat_id": CHAT, "message": _Msg(question), "global_ctx": ""},
+            types.SimpleNamespace(memory_scope="historical"))
+        period = self._period_calls(calls)
+        assert len(period) == 1, (
+            calls, "пересборка НЕ платит вторую векторную ногу")
+        assert [call["policy"] for call in period] == ["auto"]
+        assert period[0]["limit"] == 32
+        assert period[0]["kwargs"].get("period_fill") is True
+        base = [call for call in calls if call["channels"] == ("vector",)]
+        assert len(base) == 2, "основной срез строится в обоих проходах"
+        assert out and out[-1].startswith("<RAG_Memory>"), out
+        # Окно пересборки закрыто: между ходами пул не переиспользуется.
+        assert service._rag_period_reuse is None
+        assert service._rag_period_pool is None
+
+    @pytest.mark.asyncio
+    async def test_auto_then_operative_pays_one_period_leg(
+            self, monkeypatch):
+        _hot(monkeypatch, {"flags.graph_rag_enabled": True,
+                           "flags.chat_rag_rerank_enabled": False,
+                           "memory.nostalgia_layer_a_enabled": False,
+                           "limits.graph_rag_facts_limit": 10,
+                           "limits.graph_rag_context_max_chars": 2000})
+        service = dcs.DirectChatService(memory=self._Memory(), db=None,
+                                        llm=None, aliases=None)
+        calls = self._wire(monkeypatch, service)
+        question = "что сейчас происходит в чате?"
+        block, _hint = await service._build_rag_block(
+            CHAT, _Msg(question), "", memory_scope="auto")
+        out = await service._apply_plan_memory_scope(
+            ["<Current_Question>%s</Current_Question>" % question, block],
+            {"chat_id": CHAT, "message": _Msg(question), "global_ctx": ""},
+            types.SimpleNamespace(memory_scope="operative"))
+        period = self._period_calls(calls)
+        assert len(period) == 1, (
+            calls, "operative-план не добавляет второй периодной ноги")
+        operative_base = [call for call in calls
+                          if call["channels"] == ("vector",)
+                          and call["policy"] == "operative"]
+        assert len(operative_base) == 1, calls
+        assert out and out[-1].startswith("<RAG_Memory>"), out
+
+
+class TestPeriodKeptTelemetry:
+    """§4: `period_kept` = сколько периодных строк ФАКТИЧЕСКИ показано."""
+
+    class _Msg:
+        def __init__(self, text):
+            self.text = text
+
+    @staticmethod
+    def _service(monkeypatch, memory, rows):
+        service = dcs.DirectChatService(memory=memory, db=None, llm=None,
+                                        aliases=None)
+
+        async def _no_chat_param(*_args, **_kwargs):
+            return None
+
+        monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
+
+        async def fake_rows(*_args, **_kwargs):
+            return rows
+
+        monkeypatch.setattr(service, "_rag_unified_rows", fake_rows)
+        return service
+
+    @staticmethod
+    def _log(monkeypatch, service, query):
+        import logging
+
+        captured: list = []
+
+        class _Handler(logging.Handler):
+            def emit(self, record):
+                captured.append(record.getMessage())
+
+        handler = _Handler()
+        logger = logging.getLogger("services.direct_chat_service")
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        loop = asyncio.new_event_loop()
+        try:
+            block, _hint = loop.run_until_complete(service._build_rag_block(
+                CHAT, TestPeriodKeptTelemetry._Msg(query), ""))
+        finally:
+            logger.removeHandler(handler)
+            loop.close()
+        line = next((item for item in captured
+                     if item.startswith("direct: rag block")), "")
+        return block, line
+
+    def test_period_kept_rerank_off_counts_rendered_row(self, monkeypatch):
+        _hot(monkeypatch, {"flags.chat_rag_rerank_enabled": False,
+                           "memory.nostalgia_layer_a_enabled": False})
+
+        class _Memory:
+            async def rerank_rag_facts(self, query, facts):
+                raise AssertionError("реранк выключен")
+
+        rows = [_block_row(1, 2026, "Текущее событие про отпуск"),
+                _block_row(3, 2023, "Старое событие про переезд",
+                           period=True, proxy="stems")]
+        service = self._service(monkeypatch, _Memory(), rows)
+        block, line = self._log(monkeypatch, service, "что было с отпуском")
+        assert "переезд" in block, block
+        assert "period_kept=1" in line, (line, "показанная строка — 1")
+        assert "period_kept_despite_empty=0" in line, line
+
+    def test_period_kept_rerank_on_counts_chosen_knn_row(self, monkeypatch):
+        _hot(monkeypatch, {"flags.chat_rag_rerank_enabled": True,
+                           "memory.nostalgia_layer_a_enabled": False})
+
+        class _Memory:
+            async def rerank_rag_facts(self, query, facts):
+                return list(facts)          # модель выбрала всё, включая knn
+
+        rows = [_block_row(1, 2026, "Текущее событие про отпуск"),
+                _block_row(3, 2023, "Сосед про отпуск",
+                           period=True, proxy="knn")]
+        service = self._service(monkeypatch, _Memory(), rows)
+        block, line = self._log(monkeypatch, service, "что было с отпуском")
+        assert "Сосед про отпуск" in block, block
+        assert "period_kept=1" in line, (line, "knn-строка выбрана моделью")
+        assert "period_kept_despite_empty=0" in line, line
+
+    def test_period_kept_despite_empty_stays_separate(self, monkeypatch):
+        _hot(monkeypatch, {"flags.chat_rag_rerank_enabled": True,
+                           "memory.nostalgia_layer_a_enabled": False})
+
+        class _Memory:
+            async def rerank_rag_facts(self, query, facts):
+                return []
+
+        rows = [_block_row(1, 2026, "Текущее событие про отпуск"),
+                _block_row(3, 2023, "Старое событие про переезд",
+                           period=True, proxy="stems")]
+        service = self._service(monkeypatch, _Memory(), rows)
+        block, line = self._log(monkeypatch, service, "что было с отпуском")
+        assert "переезд" in block, block
+        assert "period_kept=1" in line, line
+        assert "period_kept_despite_empty=1" in line, line

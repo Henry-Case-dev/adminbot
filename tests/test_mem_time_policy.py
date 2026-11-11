@@ -937,7 +937,7 @@ class TestLexicalStemPeriodFill:
                                         "period_fill": True,
                                         "exclude_years": tuple(
                                             sorted({2026}))}, period
-                assert period[0][3] == service._RAG_PERIOD_POOL, period
+                assert period[0][3] == 32, (period, "пул фиксирован: 32")
 
     @pytest.mark.asyncio
     async def test_word_form_mismatch_finds_old_fact(self):
