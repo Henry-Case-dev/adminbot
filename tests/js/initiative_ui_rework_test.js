@@ -1897,6 +1897,94 @@ async function peekStaleSuite() {
     'код пропал и из раскрытой трассы');
   assert.ok(APP_JS.indexOf('codeLabel') > 0);
 
+  // 15.5 Сервер кладёт КОД в `reason_label`, а сырые имена незнакомых событий
+  // — в `other_events`. В СВЁРНУТОЙ строке — только человеческий текст.
+  function rowText(row) {
+    return [row.timeText, row.kindLabel, row.runLabel, row.chatLabel,
+            row.stagesText, row.modeLabel, row.reasonText, row.outcomeLabel,
+            row.deliveryLabel, row.deliverySign, row.messageIdText,
+            row.chainReasonsText, row.otherText,
+            row.failedStage ? row.failedStage.label : '']
+      .filter(Boolean).join(' ');
+  }
+
+  // (а) `reason_label` равен коду → ни кода, ни пустоты, а честная подпись.
+  const codeAsLabel = computed.iniPubRows.call({
+    iniPub: { rows: [
+      { attempt_id: 'meme:raw1', kind: 'meme', ts: 1800000010,
+        stage: 'publish', outcome: 'failed', reason_code: 'zz_raw_code',
+        reason_label: 'zz_raw_code', delivered: false, message_id: null,
+        mode: 'auto', reason_codes: ['zz_raw_code'] },
+    ] },
+  })[0];
+  assert.strictEqual(codeAsLabel.reasonText.indexOf('zz_raw_code'), -1,
+    'код попал в подпись причины: ' + codeAsLabel.reasonText);
+  assert.ok(codeAsLabel.reasonText.length > 0,
+    'у строки нет человеческой подписи причины');
+  assert.strictEqual(rowText(codeAsLabel).indexOf('zz_raw_code'), -1,
+    'код попал в свёрнутую строку: ' + rowText(codeAsLabel));
+
+  // (б) Машинный токен в `reason_label` + сырое имя события: в строке нет ни
+  // того, ни другого — оба живут в раскрытой трассе.
+  const tokenRow = computed.iniPubRows.call({
+    iniPub: { rows: [
+      { attempt_id: 'text:raw2', kind: 'text_initiative', ts: 1800000011,
+        stage: 'claim', outcome: 'other', reason_code: '',
+        reason_label: 'publication_pending', delivered: null,
+        message_id: null, mode: 'auto',
+        reason_codes: ['publication_pending'],
+        other_events: [{ name: 'publication_pending', outcome: 'pending' }] },
+    ] },
+  })[0];
+  assert.strictEqual(tokenRow.reasonText.indexOf('publication_pending'), -1,
+    'машинный токен попал в подпись причины: ' + tokenRow.reasonText);
+  assert.strictEqual(rowText(tokenRow).indexOf('publication_pending'), -1,
+    'сырое имя события попало в свёрнутую строку: ' + rowText(tokenRow));
+  assert.strictEqual(rowText(tokenRow).indexOf('pending'), -1,
+    'сырой исход события попал в свёрнутую строку: ' + rowText(tokenRow));
+  assert.strictEqual(INDEX.indexOf('data-ini-pub-other'), -1,
+    'в свёрнутой строке осталась плашка сырых событий');
+
+  // (в) Этап текстовой инициативы тоже читается по-русски, а не «claim».
+  const textStage = computed.iniPubRows.call({
+    iniPub: { rows: [
+      { attempt_id: 'text:raw5', kind: 'text_initiative', ts: 1800000014,
+        stage: 'claim', outcome: 'other', reason_code: '', reason_label: '',
+        delivered: null, message_id: null, mode: 'auto',
+        reason_codes: [], other_events: [] },
+    ] },
+  })[0];
+  assert.strictEqual(textStage.stageLabel, 'захват брони', textStage.stageLabel);
+  assert.strictEqual(rowText(textStage).indexOf('claim'), -1,
+    'сырое имя этапа попало в свёрнутую строку: ' + rowText(textStage));
+
+  // (в) Код известен словарю → строка подписана по-русски, а не «код: …».
+  const knownCode = computed.iniPubRows.call({
+    iniPub: { rows: [
+      { attempt_id: 'meme:raw3', kind: 'meme', ts: 1800000012,
+        stage: 'publish', outcome: 'skipped', reason_code: 'publication_stale',
+        reason_label: 'publication_stale', delivered: false,
+        message_id: null, mode: 'auto',
+        reason_codes: ['publication_stale'] },
+    ] },
+  })[0];
+  assert.ok(knownCode.reasonText.indexOf('устаревшая') >= 0,
+    'известный код не получил человеческую подпись: ' + knownCode.reasonText);
+
+  // (г) Обычная человеческая подпись не подменяется словарной.
+  const humanLabel = computed.iniPubRows.call({
+    iniPub: { rows: [
+      { attempt_id: 'meme:raw4', kind: 'meme', ts: 1800000013,
+        stage: 'publish', outcome: 'deferred',
+        reason_code: 'publication_conflict',
+        reason_label: 'публикацию отложил конфликт с другим механизмом',
+        delivered: null, message_id: null, mode: 'auto',
+        reason_codes: ['publication_conflict'] },
+    ] },
+  })[0];
+  assert.strictEqual(humanLabel.reasonText,
+    'публикацию отложил конфликт с другим механизмом');
+
   return pubSuite();
 })();
 

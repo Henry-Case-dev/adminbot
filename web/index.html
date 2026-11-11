@@ -3057,7 +3057,7 @@
                           · без подтверждения {{ iniPubCounts.deliveryUnknown }}
                         </template>
                         <span class="text-[10px] text-gray-600"
-                              data-ini-pub-counts-note>категории вложенные, не слагаются;
+                              data-ini-pub-counts-note>· категории вложенные, не слагаются;
                           текст {{ iniPubCounts.text == null ? 'нет данных' : iniPubCounts.text }}
                           · мемы {{ iniPubCounts.meme == null ? 'нет данных' : iniPubCounts.meme }}</span>
                       </template>
@@ -3188,9 +3188,6 @@
                           <span v-if="row.historical" class="ini-row__chain"
                                 :data-ini-pub-historical="row.attempt_id">
                             · историческая запись без идентификатора</span>
-                          <span v-if="row.otherText" class="ini-row__chain"
-                                :data-ini-pub-other="row.attempt_id">
-                            · событие {{ row.otherText }}</span>
                           <span v-if="row.chainReasonsText" class="ini-row__chain"
                                 :data-ini-pub-chain-reason="row.attempt_id">
                             · в цепочке: {{ row.chainReasonsText }}</span>

@@ -971,6 +971,24 @@ def _detail(attempt_id):
                              "sent_at": NOW - 1780,
                              "delivery_status": "delivered",
                              "output_kind": "initiative_reply"}}
+    if attempt_id.startswith("text:U3"):
+        # Незнакомое событие P0: сырое имя живёт в РАСКРЫТОЙ трассе, а не в
+        # свёрнутой строке журнала.
+        return {"schema_version": 1, "available": True, "notes": [],
+                "attempt": {"attempt_id": "text:U3",
+                            "kind": "text_initiative", "job_id": "U3",
+                            "mode": "auto", "ts": NOW - 900,
+                            "stage": "claim", "outcome": "other",
+                            "reason_code": "", "delivered": None,
+                            "message_id": None},
+                "chain": [], "events": [
+                    {"id": 1, "ts": NOW - 900,
+                     "event_name": "publication_pending",
+                     "stage": "claim", "outcome": "pending",
+                     "reason_code": "", "reason_label": "",
+                     "level": "INFO", "duration_ms": 1, "error_type": ""},
+                ],
+                "delivery": None}
     return {"schema_version": 1, "available": True, "notes": ["trace_empty"],
             "attempt": None, "chain": [], "events": [], "delivery": None}
 
@@ -2974,10 +2992,29 @@ def run_publications(browser, width, height, label, shots):
                   "незнакомое событие не помечено как «other»: %r" % u3)
             check("неклассифицированное событие" in u3["text"], label,
                   "строка не названа честно: %r" % u3["text"][:140])
-            check("publication_pending" in u3["other"], label,
-                  "сырое имя события не показано: %r" % u3["other"])
-            check("pending" in u3["other"], label,
-                  "сырой outcome события не показан: %r" % u3["other"])
+            check(u3["other"] == "", label,
+                  "в свёрнутой строке осталась плашка сырых событий: %r"
+                  % u3["other"])
+            # Ревью: сырое имя незнакомого события принадлежит РАСКРЫТОЙ
+            # трассе, в свёрнутой строке — только читаемый текст.
+            check("publication_pending" not in u3["text"], label,
+                  "сырое имя события напечатано в свёрнутой строке: %r"
+                  % u3["text"][:180])
+            check("pending" not in u3["text"], label,
+                  "сырой исход события напечатан в свёрнутой строке: %r"
+                  % u3["text"][:180])
+            page.click('[data-ini-pub-row="text:U3"]')
+            page.wait_for_timeout(700)
+            u3_detail = page.evaluate(r"""
+            () => {
+              const d = document.querySelector('[data-ini-pub-detail]');
+              return d ? String(d.textContent).replace(/\s+/g, ' ').trim() : '';
+            }
+            """)
+            notes.append({label + "-other-detail": u3_detail[:200]})
+            check("publication_pending" in u3_detail, label,
+                  "сырое имя события не показано в раскрытой трассе: %r"
+                  % u3_detail[:160])
             check("badge-warn" not in u3["badge"], label,
                   "незнакомое событие подано как ошибка: %r" % u3["badge"])
         check("text:U4" in rows_all, label,

@@ -4304,6 +4304,36 @@
     return seen ? out : null;
   }
 
+  //: Машинный токен, а не человеческая подпись: либо совпадает с кодом (сервер
+  //: иногда кладёт код в `reason_label`), либо состоит из латиницы, цифр и
+  //: разделителей без пробелов. Такое в свёрнутой строке не печатается.
+  function iniLooksLikeCode(label, code) {
+    var text = String(label == null ? '' : label).trim();
+    if (!text) return false;
+    if (code && text === String(code)) return true;
+    return /^[A-Za-z0-9_.:\-]+$/.test(text);
+  }
+
+  //: Этап ТЕКСТОВОЙ инициативы по-русски. Незнакомый этап не печатается
+  //: сырым токеном в строке журнала — он остаётся в раскрытой трассе.
+  function iniTextStageLabel(stage) {
+    var key = String(stage == null ? '' : stage);
+    if (!key) return '—';
+    return INI_STAGE_LABELS[key] || 'этап не расшифрован';
+  }
+
+  //: Подпись причины для СВЁРНУТОЙ строки журнала: человеческий ярлык, иначе
+  //: известный ярлык кода, иначе честное «причина не расшифрована». Код в этом
+  //: слое не печатается никогда — раскрытая трасса показывает его как «код: …».
+  function iniPubReasonText(label, code) {
+    var raw = String(label == null ? '' : label).trim();
+    if (raw && !iniLooksLikeCode(raw, code)) return raw;
+    var known = code ? iniCodeLabel(code) : '';
+    if (known && known.indexOf(INI_CODE_PREFIX) !== 0) return known;
+    if (raw || code) return 'причина не расшифрована (код — в трассе)';
+    return '';
+  }
+
   //: Внутренний код → русская подпись. Незнакомый код получает «код: …»,
   //: поэтому ни одно значение не выводится голым токеном.
   function iniCodeLabel(code) {
@@ -10438,7 +10468,7 @@
             chatLabel: (chatTitle || (chatId == null ? '' : String(chatId))),
             chatId: chatId,
             stageLabel: (r.kind === 'meme'
-              ? memeStageLabelOf(r.stage) : (r.stage || '—')),
+              ? memeStageLabelOf(r.stage) : iniTextStageLabel(r.stage)),
             stages: stages,
             failedStage: failedStage,
             stagesText: stages.map(function (st) {
@@ -10452,13 +10482,12 @@
                 : (r.outcome === 'delivery_unknown'
                   || r.outcome === 'other' ? 'badge-muted'
                   : 'badge-warn'))),
-            reasonText: (r.reason_label
-              || (code ? iniCodeLabel(code) : '')),
-            // Незнакомое событие: сырое имя и его `outcome` — как есть.
-            otherText: (r.other_events || []).map(function (e) {
-              return String(e.name || '')
-                + (e.outcome ? (' · ' + String(e.outcome)) : '');
-            }).join(', '),
+            // Подпись причины в СВЁРНУТОЙ строке — только человеческий текст:
+            // сервер иногда присылает код в `reason_label`, а код в этом слое
+            // не печатается (он живёт в раскрытой трассе рядом с «код: …»).
+            reasonText: iniPubReasonText(r.reason_label, code),
+            // Сырые имена незнакомых событий сюда НЕ попадают: они принадлежат
+            // раскрытой трассе. Честность исхода держится подписью «другое».
             // Причины, которые реально были в цепочке (например конфликт
             // координации, после которого мем всё-таки доставили). В СВЁРНУТОЙ
             // строке — только ЧИТАЕМЫЕ подписи: код без человеческого ярлыка
