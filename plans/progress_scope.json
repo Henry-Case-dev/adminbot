@@ -533,19 +533,10 @@
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 47 required rows (37 epic acceptance rows, 9 provider-management rows, 1 mapping row), 12 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=46 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V voice is the first executable slice when its files are free; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
       "updated": "2026-11-09",
-      "queue_position": "unranked:fork:triage",
-      "priority": "fork",
+      "queue_position": "immediately_before:fc-trust-01",
+      "priority": "P1",
       "blocked_by": [],
-      "position_status": "fork",
-      "queue_fork": {
-        "question": "Position of this task among unfinished work was never established.",
-        "options": [
-          "A — keep as registered backlog until its own decision point",
-          "B — rank it explicitly when it becomes the next executable step"
-        ],
-        "decision_needed": "One triage pass over the unranked backlog; no per-task invention.",
-        "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
-      }
+      "position_status": "chained"
     },
     {
       "id": "self-diag-01",
@@ -558,19 +549,10 @@
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
       "updated": "2026-11-09",
-      "queue_position": "unranked:fork:triage",
-      "priority": "fork",
+      "queue_position": "immediately_before:fc-trust-01",
+      "priority": "P1",
       "blocked_by": [],
-      "position_status": "fork",
-      "queue_fork": {
-        "question": "Position of this task among unfinished work was never established.",
-        "options": [
-          "A — keep as registered backlog until its own decision point",
-          "B — rank it explicitly when it becomes the next executable step"
-        ],
-        "decision_needed": "One triage pass over the unranked backlog; no per-task invention.",
-        "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
-      }
+      "position_status": "chained"
     },
     {
       "id": "smart-module-semantic-routing-p0",
@@ -4404,7 +4386,8 @@
       "immediately_after:<task>",
       "release_pending",
       "blocked_external",
-      "unranked:fork:<slug>"
+      "unranked:fork:<slug>",
+      "immediately_before:<task>"
     ],
     "priority_grammar": [
       "P0",

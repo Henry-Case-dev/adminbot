@@ -21,7 +21,7 @@ DONE = {"VERIFIED", "DONE", "DONE_WITH_GAPS"}
 POSITION_RE = re.compile(
     r"^(active|release_pending|blocked_external|unranked:fork:[a-z0-9][a-z0-9-]*"
     r"|after:[a-z0-9][a-z0-9._-]*(,[a-z0-9][a-z0-9._-]*)*"
-    r"|immediately_after:[a-z0-9][a-z0-9._-]*)$"
+    r"|immediately_after:[a-z0-9][a-z0-9._-]*|immediately_before:[a-z0-9][a-z0-9._-]*)$"
 )
 PRIORITY = {"P0", "P1", "P2", "fork"}
 FORK_FIELDS = ("question", "options", "decision_needed", "why_not_derived")
@@ -67,7 +67,7 @@ def check(scope: dict) -> list[str]:
                     problems.append(f"{tid}: blocked_by references unknown task '{dep}'")
 
         if isinstance(pos, str):
-            if pos.startswith("after:") or pos.startswith("immediately_after:"):
+            if pos.startswith("after:") or pos.startswith("immediately_after:") or pos.startswith("immediately_before:"):
                 refs = pos.split(":", 1)[1].split(",")
                 for ref in refs:
                     if ref not in ids:
