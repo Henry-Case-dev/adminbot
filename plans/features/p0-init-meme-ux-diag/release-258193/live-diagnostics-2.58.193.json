@@ -1,0 +1,150 @@
+{
+ "-1004482340693": {
+  "generated_at": 1794430290,
+  "schema_version": 1,
+  "degraded": [],
+  "blocks": {
+   "text_initiative": {
+    "available": true,
+    "no_data": null,
+    "last_attempt": {
+     "at": 1794430277,
+     "mode": "auto",
+     "run_id": "init:-1004482340693:20261111:3b76bd0834",
+     "outcome": "skipped",
+     "stop_stage": "semantic_eval_unavailable",
+     "incomplete_historical": false
+    },
+    "last_check_ts": 1794430277,
+    "readiness": {
+     "state": "waiting",
+     "reason": "not_enough_messages",
+     "reason_class": "not_enough_messages",
+     "next_eligible_at": 1794432977,
+     "next_basis": "eval_interval"
+    },
+    "enabled": null,
+    "state": null
+   },
+   "meme": {
+    "available": true,
+    "no_data": null,
+    "last_attempt": {
+     "at": 1794430282,
+     "mode": "auto",
+     "run_id": "meme:-1004482340693:2026-11-11:2cb0ca1e6e2a",
+     "outcome": "skipped",
+     "stop_stage": "skipped",
+     "incomplete_historical": false
+    },
+    "last_check_ts": 1794430282,
+    "readiness": {
+     "state": "waiting",
+     "reason": "daily_quota_reached",
+     "reason_class": "quota",
+     "next_eligible_at": 1794441600,
+     "next_basis": "quota_next_reset"
+    },
+    "enabled": null,
+    "state": null
+   }
+  },
+  "pub_rows": 40,
+  "row_keys": [
+   "attempt_id",
+   "chain_len",
+   "delivered",
+   "events_len",
+   "incomplete_historical",
+   "job_id",
+   "kind",
+   "limit_source",
+   "limit_value",
+   "message_id",
+   "mode",
+   "outcome",
+   "reason_code",
+   "reason_codes",
+   "reason_label",
+   "stage",
+   "stages",
+   "ts",
+   "window_messages"
+  ],
+  "delivered_sample_len": 0
+ },
+ "-1002661910336": {
+  "generated_at": 1794430290,
+  "schema_version": 1,
+  "degraded": [],
+  "blocks": {
+   "text_initiative": {
+    "available": true,
+    "no_data": null,
+    "last_attempt": {
+     "at": 1794429982,
+     "mode": "auto",
+     "run_id": "init:-1002661910336:20261111:ce8fd12ef4",
+     "outcome": "skipped",
+     "stop_stage": "eval_budget",
+     "incomplete_historical": false
+    },
+    "last_check_ts": 1794429982,
+    "readiness": {
+     "state": "waiting",
+     "reason": "not_enough_messages",
+     "reason_class": "not_enough_messages",
+     "next_eligible_at": 1794432682,
+     "next_basis": "eval_interval"
+    },
+    "enabled": null,
+    "state": null
+   },
+   "meme": {
+    "available": true,
+    "no_data": null,
+    "last_attempt": {
+     "at": 1794430282,
+     "mode": "auto",
+     "run_id": "meme:-1002661910336:2026-11-11:dba4ea279f71",
+     "outcome": "skipped",
+     "stop_stage": "skipped",
+     "incomplete_historical": false
+    },
+    "last_check_ts": 1794430282,
+    "readiness": {
+     "state": "waiting",
+     "reason": "daily_quota_reached",
+     "reason_class": "quota",
+     "next_eligible_at": 1794441600,
+     "next_basis": "quota_next_reset"
+    },
+    "enabled": null,
+    "state": null
+   }
+  },
+  "pub_rows": 40,
+  "row_keys": [
+   "attempt_id",
+   "chain_len",
+   "delivered",
+   "events_len",
+   "incomplete_historical",
+   "job_id",
+   "kind",
+   "limit_source",
+   "limit_value",
+   "message_id",
+   "mode",
+   "outcome",
+   "reason_code",
+   "reason_codes",
+   "reason_label",
+   "stage",
+   "stages",
+   "ts",
+   "window_messages"
+  ],
+  "delivered_sample_len": 0
+ }
+}
