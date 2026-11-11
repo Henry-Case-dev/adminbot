@@ -7,8 +7,8 @@ Primary phase: review
 Active feature: p0-init-meme-ux-diag
 Active lanes: ses_e35acae71ffeL25nAbHGPwHb1B (Reviewer: 2d0dc10a six corrected axes blockers); ses_e35cb2fcbffdSK0NnPDg0Ksm9O (Reviewer: inspector d3e74eef consolidating verdict); ses_e35ab34b9ffeeo8AlDtS8NDPrU (DevOps: 2.58.189 cherry-pick preparation, no deployment)
 Join barriers: both verdicts. S3 overview UI must not start before the axes verdict; inspector release 2.58.189 waits on its verdict, and the prepared port is packaging only.
-Last verified: R0-INV closed read-only on production 2.58.188 (evidence/r0/diagnosis-2.58.188.md, 9 rows VERIFIED); axes candidate 2d0dc10a implements the six review blockers; production healthy at c087253d.
-Next unlocks: bind 2d0dc10a verdict -> S3 overview UI; inspector verdict -> 2.58.189; S5b paid-image loss after S5
+Last verified: R0-INV closed read-only on production 2.58.188 (evidence/r0/diagnosis-2.58.188.md, 9 rows VERIFIED); axes candidate 2d0dc10a implements the six review blockers; production healthy at c087253d. Inspector 2.58.189 port prepared clean at f328611f (branch rel/2.58.189-inspector-prep, base c087253d, 19 files, no version bump, no DDL), pending verdict.
+Next unlocks: bind 2d0dc10a verdict -> S3 overview UI; inspector verdict -> version bump over f328611f plus re-approval of ROUTES_SHA256_F11 (tests/test_round1025_f8_registry.py:102) and deployment; S5b paid-image loss after S5
 Next execution: awaiting_children
 Review: pending
 Deployment: verified 2.58.188 @ c087253d (schema 47, no DDL); rollback 952b9ebd
@@ -27,6 +27,8 @@ Map: 72 unique requirements across slices R0-INV, A0-ARCH, S1-AXES, S2-ID, S3-OV
 ## Open items outside this epic
 
 Inspector UR-20.4/20.5/20.8 VERIFIED; UR-20.6 and UR-20.7 await the consolidating verdict at d3e74eef, which also decides parent UR-20 and readiness for 2.58.189. VMQ-NEXT-01..05 stay PENDING for lack of a real direct turn (admission proven, per-turn behaviour unobserved). Scheduled live-share sample waits for real traffic (>=34 blocks, >=10 operative answers); no automatic wake-up, no owner action.
+
+Release port for 2.58.189 is prepared and clean at f328611f: only 8 of the 29 commits in `92070d0e..d3e74eef` are new (21 already shipped in 2.58.185), one conflict resolved additively in a test double, production 2.58.186-188 lines intact, three security blobs byte-identical to c087253d, no DDL, 75 routes unchanged. Two of my earlier statements about this branch are corrected: the four stable pre-existing failures are stale `APP_VERSION` JS pins (not routes.py), and the slice legitimately adds five routes.py pin failures that the release step must re-approve (`ROUTES_SHA256_F11`), as was done in 40d52954.
 
 ## Owner corrections that stay binding
 
