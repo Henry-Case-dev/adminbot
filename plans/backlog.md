@@ -570,3 +570,27 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
 
 - [OBSERVATION, profile completeness, адресат Builder/Reviewer] На субъекте с 12 подтверждёнными фактами профильный `retrieve(purpose="dossier", channels=("subject",))` вернул 5 кандидатов: ID-политика ADR-1020-1 (`resolve_item_id` -> `tg:<tg_message_id>`) схлопывает несколько фактов одного сообщения в один кандидат. Механизм предсуществующий и не введён MEMORY-06, но профиль теперь идёт через него, поэтому фактов на выходе может быть меньше, чем строк в `graph_facts`. Нужно решение: принятая группировка по источнику или потеря на строку `MEM-06-RUNTIME` («возвращает все известные подтверждённые факты»). Поэтому `MEM-06-RUNTIME` остаётся `NOT_VERIFIED`.
 - [OBSERVATION, data, адресат PM/Builder] Субъект-колонки неоднородны: у части людей `graph_facts.subject_ref_id` заполнен (`mca_source_refs.source_ref_id`), у части — `NULL` (legacy по `target_user`). Оба пути в проде работают (uid-путь: 5 кандидатов на 12 фактов; legacy-путь: 8 фактов, все 8 без имени в тексте против 0 из 20 у лексического запроса), но покрытие разное. При первом реальном вытеснении по квоте стоит повторить живую сверку изоляции архива (сейчас `archived_fact` = 0 строк).
+
+## Added 2026-11-12 (S5b — оплаченное изображение при `publisher_not_bound`; наблюдения вне среза)
+
+Срез S5b закрыл потерю оплаченной картинки и учёт квоты; ниже — то, что НЕ входит
+в его приёмку и осталось как есть (кандидат `e92cdcd5`).
+
+- [PRE-EXISTING, initiative/meme, исполнитель Builder] Событийный тик не может отправить мем:
+  `services/initiative_observer.dispatch_event` передаёт бота через `_service_attr("bot")`, а у
+  `DirectChatService` атрибута `bot` нет вовсе, поэтому `_meme_sender()` всегда `None`. Следствие:
+  живое сообщение может запустить платный проход мема, но публикация из этого тика физически
+  невозможна — после S5b результат сохраняется и доставляется штатным проходом, однако сам отказ
+  остаётся. Нужна привязка бота тем же способом, каким его получают остальные сервисы
+  (`bind_runtime`-прецедент `mca_vision`). Влияние: задержка публикации мема (до следующего
+  штатного прохода) и лишний отказ в журнале. Воспроизведение:
+  `tests/test_evol014_meme_initiative.py::test_meme_phase_runs_real_pipeline_and_journals_stages`
+  (`_runner` без бота → `publisher_not_bound`) + лог `[meme] paid image deferred`.
+- [PRE-EXISTING, initiative/diagnostics, исполнитель Builder] Ось `last_attempt` для отказов
+  публикации берёт терминальной строкой служебную запись этапа `skipped` (у неё больше
+  `STAGES`-индекс), поэтому карточка показывает «остановилось: пропуск», хотя реальный терминал —
+  `publish`. `_meme_last_attempt` (`services/initiative_diagnostics.py`) и `_finish` (доп. строка
+  `skipped` из `_cancel`) не менялись S5b; факт доставки читается отдельным
+  `_meme_last_closure` и корректен. Влияние: читаемость оси попытки, данные журнала верны.
+  Воспроизведение: `tests/test_publication_binding_delivery.py` (`_meme_last_attempt` →
+  `stop_stage="skipped"`).
