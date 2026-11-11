@@ -104,6 +104,9 @@ STATE = {
     "requests": [],
     #: Режим осей: off | on | cooldown | delivery_unknown | foreign_chat.
     "diag_mode": "off",
+    # Правки ревью на 430703be: устаревшее окно и чужой чат в ответе.
+    "stale_window": False,
+    "pub_foreign": False,
     "post_chat": None,
 }
 
@@ -769,6 +772,50 @@ def _detail(attempt_id):
                             "delivered": False, "message_id": None},
                 "chain": _meme_chain_skipped(), "events": [],
                 "delivery": {"delivered": False, "message_id": None}}
+    if attempt_id.startswith("meme:job-79"):
+        # Строки прикола нет, но картинка собрана ИЗ него и отправка прошла.
+        chain = [
+            {"stage": "summary", "ts": NOW - 500, "outcome": "passed",
+             "reason_code": "", "reason_label": "",
+             "facts": {"chars": 33, "source": "chat"},
+             "limit_source": "model_capability", "limit_value": 400,
+             "window_messages": 300},
+            {"stage": "image_generation", "ts": NOW - 480,
+             "outcome": "passed", "reason_code": "", "reason_label": "",
+             "facts": {"chars": 20, "template_source": "chat",
+                       "template_revision": "t1", "joke_chars": 7},
+             "limit_source": "model_capability", "limit_value": 400,
+             "window_messages": 300},
+            {"stage": "publish", "ts": NOW - 460, "outcome": "published",
+             "reason_code": "sent", "reason_label": "отправлено",
+             "facts": {"manual": False, "gate": "open",
+                       "output": {"tg_message_id": 4400, "ledger_id": 8}},
+             "limit_source": "model_capability", "limit_value": 400,
+             "window_messages": 300},
+        ]
+        events = [
+            {"id": None, "ts": NOW - 500, "event_name": "digest_ready",
+             "stage": "attempt", "outcome": "digest_ready", "reason_code": "",
+             "reason_label": "", "detail": "chars:33", "delivered": None,
+             "level": "", "error_type": ""},
+            {"id": None, "ts": NOW - 480, "event_name": "image_ready",
+             "stage": "attempt", "outcome": "image_ready", "reason_code": "",
+             "reason_label": "", "detail": "prompt:20|bytes:900",
+             "delivered": None, "level": "", "error_type": ""},
+            {"id": None, "ts": NOW - 460, "event_name": "publication_sent",
+             "stage": "attempt", "outcome": "publication_sent",
+             "reason_code": "sent", "reason_label": "отправлено",
+             "detail": "tg:4400", "delivered": True, "level": "",
+             "error_type": ""},
+        ]
+        return {"schema_version": 1, "available": True, "notes": [],
+                "attempt": {"attempt_id": "meme:job-79", "kind": "meme",
+                            "job_id": "job-79", "mode": "auto",
+                            "ts": NOW - 460, "stage": "publish",
+                            "outcome": "published", "reason_code": "sent",
+                            "delivered": True, "message_id": 4400},
+                "chain": chain, "events": events,
+                "delivery": {"delivered": True, "message_id": 4400}}
     if attempt_id.startswith("meme:job-70"):
         # R0-случай: ручной /meme убит на стадии картинки, строк журнала нет.
         return {"schema_version": 1, "available": True,
@@ -1010,10 +1057,20 @@ def make_api_handler():
                             or any(reason in str(c).lower()
                                    for c in (r.get("reason_codes") or []))]
             page = rows[offset:offset + 2]
+            asked_days = 7
+            for part in qs.split("&"):
+                if part.startswith("days="):
+                    try:
+                        asked_days = int(part.split("=", 1)[1])
+                    except ValueError:
+                        asked_days = 7
+            window_days = 7 if STATE.get("stale_window") else asked_days
             return send({
-                "schema_version": 1, "generated_at": NOW, "chat_id": CHAT_A,
+                "schema_version": 1, "generated_at": NOW,
+                "chat_id": (CHAT_B if STATE.get("pub_foreign") else CHAT_A),
                 "available": True, "notes": [],
-                "window": {"days": 7, "since": NOW - 7 * 86400, "until": NOW},
+                "window": {"days": window_days,
+                           "since": NOW - window_days * 86400, "until": NOW},
                 "filters": {}, "rows": page,
                 "counts": {"total": len(rows),
                            "checked": len(rows),
@@ -2328,6 +2385,140 @@ def run_next_bound(browser, width, height, label, shots):
         ctx.close()
 
 
+# ── Сценарий 2g: правки ревью на 430703be ────────────────────────────────
+def run_review4(browser, width, height, label, shots):
+    """Прикол без записи, неизвестный код, окно счётчиков, чужой чат, строка."""
+    STATE["diag_mode"] = "on"
+    STATE["stale_window"] = False
+    STATE["pub_foreign"] = False
+    ctx, page = new_page(browser, width, height)
+    try:
+        # (а) Строка списка: только читаемый текст, без сырых кодов.
+        open_page(page, "publications")
+        page.wait_for_selector("[data-ini-pub-row]", timeout=15000)
+        page.wait_for_timeout(500)
+        rows = page.evaluate(r"""
+        () => {
+          const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+          const rows = Array.from(document.querySelectorAll('[data-ini-pub-row]'))
+            .map((el) => strip(el.textContent));
+          return {rows: rows,
+                  counts: strip((document.querySelector('[data-ini-pub-counts]')
+                    || {}).textContent),
+                  codes: document.querySelectorAll('.ini-row__code').length,
+                  hScroll: document.documentElement.scrollWidth - window.innerWidth};
+        }
+        """)
+        notes.append({label + "-review4-rows": {
+            "rows": rows["rows"][:3], "counts": rows["counts"],
+            "codes": rows["codes"]}})
+        joined = " | ".join(rows["rows"])
+        for raw in ("joke_generation_failed", "publication_stale",
+                    " publication_conflict", " brand_new_gate"):
+            check(raw.strip() + " " not in joined + " ", label,
+                  "в свёрнутой строке сырой код %r: %r" % (raw, joined[:220]))
+            check(" " + raw.strip() not in joined, label,
+                  "в свёрнутой строке сырой код %r: %r" % (raw, joined[:220]))
+        check(rows["codes"] == 0, label,
+              "в строке списка остался элемент кода: %d" % rows["codes"])
+        check("за 7 дн." in rows["counts"], label,
+              "счётчики не назвали окно: %r" % rows["counts"])
+        check("нет данных" not in rows["counts"], label,
+              "счётчики пришли, а показано «нет данных»: %r" % rows["counts"])
+        check(rows["hScroll"] <= 1, label,
+              "журнал прокручивается по горизонтали: %d" % rows["hScroll"])
+
+        # (б) Подпись окна — из серверного `window`, даже если фильтр другой.
+        STATE["stale_window"] = True
+        page.select_option('[data-ini-filter="days"]', "30")
+        page.wait_for_timeout(800)
+        late = page.evaluate(
+            "() => String((document.querySelector('[data-ini-pub-counts]') || {})"
+            ".textContent || '').replace(/\\s+/g, ' ').trim()")
+        notes.append({label + "-review4-window": late[:160]})
+        check("за 7 дн." in late, label,
+              "окно подписано не по серверу: %r" % late[:160])
+        check("за 30 дн." not in late, label,
+              "поздний ответ подписан текущим фильтром: %r" % late[:160])
+        STATE["stale_window"] = False
+        page.select_option('[data-ini-filter="days"]', "7")
+        page.wait_for_timeout(600)
+        shot(page, shots, "review4_rows_%s" % label)
+
+        # (в) Чужой чат в ответе журнала: строки не подменяются.
+        STATE["pub_foreign"] = True
+        page.click("[data-ini-pub-refresh]")
+        page.wait_for_timeout(800)
+        foreign = page.evaluate(r"""
+        () => {
+          const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+          return {rows: document.querySelectorAll('[data-ini-pub-row]').length,
+                  error: strip((document.querySelector('[data-ini-pub-error]')
+                    || {}).textContent),
+                  counts: strip((document.querySelector('[data-ini-pub-counts]')
+                    || {}).textContent)};
+        }
+        """)
+        notes.append({label + "-review4-foreign": {
+            "rows": foreign["rows"], "error": foreign["error"],
+            "counts": foreign["counts"][:100]}})
+        # Ответ чужого чата не наполняет журнал: строки не появляются, причина
+        # названа, а счётчики не подменяются числами другого чата.
+        check(foreign["rows"] == 0, label,
+              "строки чужого чата попали в журнал: %d" % foreign["rows"])
+        check("другого чата" in foreign["error"], label,
+              "отброс чужого ответа не объяснён: %r" % foreign["error"])
+        check("нет данных" in foreign["counts"], label,
+              "счётчики подменены ответом чужого чата: %r"
+              % foreign["counts"][:120])
+        STATE["pub_foreign"] = False
+
+        # (г) Трасса: прикол без записи, но с фактом более позднего шага.
+        open_tab(page, "diagnostics")
+        def load(attempt, expect=None):
+            page.fill("[data-ini-trace-input]", attempt)
+            page.press("[data-ini-trace-input]", "Enter")
+            if expect:
+                page.wait_for_function(
+                    "(want) => { const head = document.querySelector("
+                    "'[data-ini-trace-head]');"
+                    " return !!head && head.textContent.indexOf(want) >= 0; }",
+                    arg=expect, timeout=15000)
+            page.wait_for_timeout(350)
+            return page.evaluate(TRACE_PROBE)
+
+        nojoke = load("meme:job-79", "meme:job-79")
+        joke = _step_of(nojoke["trace"], "joke")
+        image = _step_of(nojoke["trace"], "image")
+        notes.append({label + "-review4-nojoke": {
+            "joke": (joke or {}).get("state"),
+            "image": (image or {}).get("state")}})
+        check(image and image["state"] == "done", label,
+              "картинка не показана как выполненная: %r" % (image,))
+        check(joke and joke["state"] != "not_run", label,
+              "прикол назван «не выполнялось», хотя картинка собрана из него: %r"
+              % (joke,))
+        check("не выполнялось" not in (joke or {}).get("text", ""), label,
+              "в тексте шага прикола «не выполнялось»: %r" % (joke,))
+
+        # (д) Неизвестный код не выбирает шаг остановки.
+        odd = load("meme:job-71", "meme:job-71")
+        status = odd["trace"]["status"]
+        notes.append({label + "-review4-unknown": status[:200]})
+        check("этап остановки не определён" in status, label,
+              "неизвестный код назвал этап: %r" % status[:200])
+        check("Прикол" not in status, label,
+              "неизвестный код угадал шаг «Прикол»: %r" % status[:200])
+        check("код: brand_new_gate" in status, label,
+              "читаемая подпись кода потерялась: %r" % status[:200])
+        shot(page, shots, "review4_unknown_%s" % label)
+    finally:
+        STATE["stale_window"] = False
+        STATE["pub_foreign"] = False
+        STATE["diag_mode"] = "off"
+        ctx.close()
+
+
 # ── Сценарий 3: «Текстовая инициатива» ───────────────────────────────────
 def run_text(browser, width, height, label, shots):
     ctx, page = new_page(browser, width, height)
@@ -2706,8 +2897,13 @@ def run_publications(browser, width, height, label, shots):
         check("не доставлено" not in deferred["text"], label,
               "отложенный конфликт подан как недоставка: %r"
               % deferred["text"][:160])
-        check("в цепочке" in deferred["text"], label,
-              "в строке нет причин цепочки (конфликт) : %r"
+        # Ревью 430703be: в СВЁРНУТОЙ строке — только читаемый текст;
+        # сырой код причины живёт только в раскрытой трассе.
+        check("конфликт" in deferred["text"], label,
+              "в строке нет читаемой причины конфликта: %r"
+              % deferred["text"][:160])
+        check("publication_deferred_conflict" not in deferred["text"], label,
+              "в свёрнутой строке напечатан сырой код причины: %r"
               % deferred["text"][:160])
         check("publication_deferred_conflict" in deferred["events"], label,
               "в деталях нет события отложенного конфликта: %r"
@@ -3211,6 +3407,9 @@ def main() -> int:
                 # P0IM-BAN-NOETA: граница «не раньше», а не расписание.
                 run_next_bound(browser, 1536, 960, "1536", args.shots)
                 run_next_bound(browser, 390, 844, "390", args.shots)
+                # Правки ревью на 430703be (трасса, журнал, строка).
+                run_review4(browser, 1536, 960, "1536", args.shots)
+                run_review4(browser, 390, 844, "390", args.shots)
                 # Блокер 1: смена чата очищает карточки, затем показывает свои.
                 run_chat_switch_cards(browser, 1536, 960, "1536", args.shots)
                 run_chat_switch_cards(browser, 390, 844, "390", args.shots)

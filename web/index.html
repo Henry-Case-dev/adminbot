@@ -3043,18 +3043,27 @@
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-xs text-gray-500" data-ini-pub-counts
                           :data-ini-pub-window="iniPubCounts.windowLabel">
-                      {{ iniPubCounts.windowLabel }}:
-                      проверено {{ iniPubCounts.checked }}
-                      · решено {{ iniPubCounts.decided }}
-                      · опубликовано {{ iniPubCounts.published }}
-                      · доставлено {{ iniPubCounts.delivered }}
-                      · ожидает {{ iniPubCounts.pending }}
-                      <template v-if="iniPubCounts.deliveryUnknown">
-                        · без подтверждения {{ iniPubCounts.deliveryUnknown }}
+                      <template v-if="iniPubCounts.hasCounts">
+                        <span v-if="iniPubCounts.hasWindow"
+                              data-ini-pub-window-label>{{ iniPubCounts.windowLabel }}: </span>
+                        <span data-ini-pub-counters>
+                          проверено {{ iniPubCounts.checked == null ? 'нет данных' : iniPubCounts.checked }}
+                          · решено {{ iniPubCounts.decided == null ? 'нет данных' : iniPubCounts.decided }}
+                          · опубликовано {{ iniPubCounts.published == null ? 'нет данных' : iniPubCounts.published }}
+                          · доставлено {{ iniPubCounts.delivered == null ? 'нет данных' : iniPubCounts.delivered }}
+                          · ожидает {{ iniPubCounts.pending == null ? 'нет данных' : iniPubCounts.pending }}
+                        </span>
+                        <template v-if="iniPubCounts.deliveryUnknown">
+                          · без подтверждения {{ iniPubCounts.deliveryUnknown }}
+                        </template>
+                        <span class="text-[10px] text-gray-600"
+                              data-ini-pub-counts-note>категории вложенные, не слагаются;
+                          текст {{ iniPubCounts.text == null ? 'нет данных' : iniPubCounts.text }}
+                          · мемы {{ iniPubCounts.meme == null ? 'нет данных' : iniPubCounts.meme }}</span>
                       </template>
-                      <span class="text-[10px] text-gray-600"
-                            data-ini-pub-counts-note>категории вложенные, не слагаются;
-                        текст {{ iniPubCounts.text }} · мемы {{ iniPubCounts.meme }}</span>
+                      <template v-else>
+                        <span data-ini-pub-counters>нет данных: счётчики не пришли</span>
+                      </template>
                     </span>
                     <button type="button" class="btn-ghost text-xs"
                             :disabled="iniPub.busy"
@@ -3173,7 +3182,6 @@
                         </span>
                         <span class="ini-row__reason">
                           {{ row.reasonText || 'без причины' }}
-                          <span v-if="row.reason_code" class="ini-row__code">{{ row.reason_code }}</span>
                           <span v-if="row.failedStage" class="ini-row__chain"
                                 :data-ini-pub-failed-stage="row.attempt_id">
                             · ошибка на шаге «{{ row.failedStage.label }}»</span>

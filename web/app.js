@@ -3532,15 +3532,20 @@
       var patch = patches[pair[0]] || { state: 'not_run', text: '' };
       return iniTraceStep(pair[0], pair[1], patch);
     });
-    // Место остановки: неизвестный код причины всё равно остаётся видимым.
+    // Место остановки: неизвестный код причины остаётся видимым как «код: …»,
+    // но шаг остановки НЕ угадывается: без записи в словаре причин место
+    // остановки не определено, даже если терминальный этап известен.
     // Успешная попытка НЕ имеет «места остановки» — иначе публикация читалась
     // бы как обрыв.
     var success = (outcome === 'published' || outcome === 'sent'
                    || outcome === 'say' || outcome === 'react'
                    || outcome === 'success');
     var stopKey = '';
-    if (!success && reason) stopKey = INI_STOP_STEP_BY_REASON[reason] || '';
-    if (!success && !stopKey && terminal) {
+    if (!success && reason) {
+      stopKey = INI_STOP_STEP_BY_REASON[reason] || '';
+    } else if (!success && !reason && terminal) {
+      // Кода причины нет вовсе — тогда место остановки берётся из реального
+      // терминального этапа (это факт, а не догадка о коде).
       stopKey = INI_STOP_STEP_BY_STAGE[String(terminal.stage || '')] || '';
     }
     var stopStep = null;
@@ -3779,6 +3784,23 @@
         at: ctx.terminal ? Number(ctx.terminal.ts) || null : null,
         text: 'прикол не получился', code: ctx.reason || 'joke_generation_failed',
       });
+    } else if (iniHasFacts(image) || imageEvent || claim || requestedEvent
+               || sentEvent || deferredEvent || failedEvent
+               || ctx.byStage.image_generation || ctx.byStage.publish) {
+      // Факта этапа нет, но ПОЗЖЕ доказано, что попытка шла дальше: промпт
+      // картинки собирается из прикола. Отсутствие записи — это «нет данных»
+      // (или косвенный факт), а НЕ «не выполнялось».
+      var jokeChars = (image && image.joke_chars != null)
+        ? Number(image.joke_chars) : null;
+      ctx.set('joke', {
+        state: (jokeChars ? 'inferred' : 'unknown'),
+        at: ctx.stageAt('joke') || null,
+        text: (jokeChars
+          ? ('прикол был: из него собран промпт картинки ('
+            + jokeChars + ' симв.)')
+          : 'записи этапа нет, но попытка дошла до следующего шага'),
+        note: 'текст прикола и модель исторически не сохранялись',
+      });
     } else {
       ctx.set('joke', { state: 'not_run', text: 'до прикола не дошло' });
     }
@@ -3803,6 +3825,15 @@
         at: ctx.terminal ? Number(ctx.terminal.ts) || null : null,
         text: 'запрос картинки не завершился успехом',
         code: ctx.reason || 'image_generation_failed',
+      });
+    } else if (claim || requestedEvent || deferredEvent
+               || ctx.byStage.publish) {
+      // Позже доказано, что попытка дошла до брони/публикации — значит запрос
+      // картинки был. Нет записи ≠ «не выполнялось».
+      ctx.set('image', {
+        state: 'unknown', at: ctx.stageAt('image_generation') || null,
+        text: 'записи этапа нет, но попытка дошла до брони публикации',
+        note: 'ответ провайдера статусом не записан',
       });
     } else {
       ctx.set('image', { state: 'not_run', text: 'до запроса картинки не дошло' });
@@ -3835,6 +3866,12 @@
         at: ctx.terminal ? Number(ctx.terminal.ts) || null : null,
         text: 'бронь публикации не выдана',
         code: ctx.reason || 'publication_conflict',
+      });
+    } else if (ctx.byStage.publish) {
+      // Строка публикации есть — бронь запрашивалась, просто её факта нет.
+      ctx.set('claim', {
+        state: 'unknown', at: ctx.stageAt('publish') || null,
+        text: 'записи о брони нет, но попытка дошла до этапа публикации',
       });
     } else {
       ctx.set('claim', { state: 'not_run', text: 'до брони не дошло' });
@@ -4236,6 +4273,35 @@
       return 'инициативных публикаций ещё не было — отсчёт не от чего вести';
     }
     return 'время не рассчитывается: нет доказанного основания';
+  }
+
+  //: Сигнатура запроса журнала: чат-независимая часть (фильтры + смещение).
+  //: Ответ с другой сигнатурой — от другого запроса, его нельзя применять.
+  function iniPubFilterSignature(filters, offset) {
+    var f = filters || {};
+    return [String(f.days == null ? 7 : f.days), String(f.kind || 'all'),
+            String(f.mode || 'all'), String(f.outcome || 'all'),
+            String(f.reason || ''), String(offset == null ? 0 : offset)]
+      .join('|');
+  }
+
+  //: Счётчики журнала: только реально пришедшие числа. Отсутствие объекта или
+  //: поля — «нет данных», а не ноль.
+  function iniPubCountsOf(data) {
+    var c = (data && data.counts && typeof data.counts === 'object')
+      ? data.counts : null;
+    if (!c) return null;
+    var keys = ['checked', 'decided', 'published', 'delivered', 'pending',
+                'delivery_unknown', 'text', 'meme'];
+    var out = {};
+    var seen = false;
+    keys.forEach(function (key) {
+      var value = c[key];
+      var num = (value == null || value === '') ? null : Number(value);
+      out[key] = (num == null || !isFinite(num)) ? null : num;
+      if (out[key] != null) seen = true;
+    });
+    return seen ? out : null;
   }
 
   //: Внутренний код → русская подпись. Незнакомый код получает «код: …»,
@@ -6104,7 +6170,8 @@
         // публикации (текст и мемы) и трасса РОВНО одной попытки. Один
         // запрос на вкладку; «Обзор» тяжёлый журнал НЕ грузит.
         iniPub: {
-          rows: [], counts: {}, notes: [], available: null, busy: false,
+          rows: [], counts: null, window: null, notes: [], available: null,
+          busy: false,
           error: '', nextOffset: null, loaded: false,
           filters: { days: 7, kind: 'all', mode: 'all', outcome: 'all',
                      reason: '' },
@@ -10393,9 +10460,14 @@
                 + (e.outcome ? (' · ' + String(e.outcome)) : '');
             }).join(', '),
             // Причины, которые реально были в цепочке (например конфликт
-            // координации, после которого мем всё-таки доставили).
+            // координации, после которого мем всё-таки доставили). В СВЁРНУТОЙ
+            // строке — только ЧИТАЕМЫЕ подписи: код без человеческого ярлыка
+            // живёт в раскрытой трассе рядом с «код: …», не здесь.
             chainReasonsText: chainReasons
               .map(function (c) { return iniCodeLabel(c); })
+              .filter(function (label) {
+                return label && label.indexOf('код: ') !== 0;
+              })
               .join(' · '),
             deliveryLabel: delivery.label,
             deliveryClass: delivery.tone,
@@ -10412,26 +10484,36 @@
         });
       },
       // Счётчики с ЯВНЫМ окном: проверено / решено / опубликовано / доставлено /
-      // ожидает — разные факты, а не одно число.
+      // ожидает — разные факты, а не одно число. Окно берётся из СЕРВЕРНОГО
+      // `window`, а не из фильтров (поздний ответ на «7 дней» не подписывается
+      // текущими «30 днями»). Нет счётчиков — «нет данных», не нули.
       iniPubCounts: function () {
-        var c = (this.iniPub && this.iniPub.counts) || {};
-        var days = (this.iniPub && this.iniPub.filters
-          && this.iniPub.filters.days != null) ? Number(this.iniPub.filters.days)
-          : 7;
-        var windowLabel = (days > 0
-          ? ('за ' + (days === 1 ? 'сутки' : (days + ' дн.')))
-          : 'за всё время');
+        var c = (this.iniPub && this.iniPub.counts) ? this.iniPub.counts : null;
+        var window = (this.iniPub && this.iniPub.window)
+          ? this.iniPub.window : null;
+        var days = (window && window.days != null) ? Number(window.days) : null;
+        var windowLabel = '';
+        if (days != null && isFinite(days)) {
+          windowLabel = (days > 0
+            ? ('за ' + (days === 1 ? 'сутки' : (days + ' дн.')))
+            : 'за всё время');
+        }
+        function num(key) {
+          return (c && c[key] != null) ? Number(c[key]) : null;
+        }
         return {
+          hasCounts: !!c,
+          hasWindow: !!windowLabel,
           windowLabel: windowLabel,
           days: days,
-          checked: Number(c.checked == null ? (c.total || 0) : c.checked),
-          decided: Number(c.decided || 0),
-          published: Number(c.published || 0),
-          delivered: Number(c.delivered || 0),
-          pending: Number(c.pending == null ? (c.deferred || 0) : c.pending),
-          deliveryUnknown: Number(c.delivery_unknown || 0),
-          text: Number(c.text || 0),
-          meme: Number(c.meme || 0),
+          checked: num('checked'),
+          decided: num('decided'),
+          published: num('published'),
+          delivered: num('delivered'),
+          pending: num('pending'),
+          deliveryUnknown: num('delivery_unknown'),
+          text: num('text'),
+          meme: num('meme'),
         };
       },
       // ═══ P1: вкладка «Диагностика» — группы РОВНО одной попытки ═══
@@ -15595,13 +15677,16 @@
         if (st.busy) return;
         if (this.activeChatId == null) {
           st.rows = [];
-          st.counts = {};
+          st.counts = null;
+          st.window = null;
           st.loaded = false;
           st.error = '';
           return;
         }
+        var chatId = this.activeChatId;
         st.busy = true;
         st.error = '';
+        var epoch = this.scopeEpoch;
         var offset = reset ? 0 : (st.nextOffset == null ? 0 : st.nextOffset);
         var f = st.filters || {};
         var q = '?days=' + encodeURIComponent(f.days == null ? 7 : f.days)
@@ -15610,13 +15695,36 @@
           + '&outcome=' + encodeURIComponent(f.outcome || 'all')
           + '&reason=' + encodeURIComponent(f.reason || '')
           + '&offset=' + offset;
-        var epoch = this.scopeEpoch;
+        // Снимок запроса: ответ применяется, только если с тех пор не сменились
+        // ни чат/область, ни фильтры (иначе окно и строки были бы чужими).
+        var sig = iniPubFilterSignature(f, offset);
         try {
           var data = await this.api('/api/initiative/publications' + q);
           if (!this._scopeGuard(epoch)) return;
+          if (String(this.activeChatId) !== String(chatId)) return;
+          if (!this._payloadChatMatches(data, chatId)) {
+            // Ответ другого чата не может наполнить журнал выбранного: счётчики
+            // и окно тоже не берём (иначе числа чужого чата подписали бы журнал).
+            st.rows = [];
+            st.counts = null;
+            st.window = null;
+            st.nextOffset = null;
+            st.loaded = false;
+            st.error = 'Ответ пришёл для другого чата и отброшен — обновите журнал';
+            return;
+          }
+          if (sig !== iniPubFilterSignature(st.filters || {}, offset)) {
+            // Поздний ответ на прежние фильтры: состояние уже другое.
+            st.counts = null;
+            st.window = null;
+            return;
+          }
           st.available = data && data.available !== false;
           st.notes = (data && data.notes) || [];
-          st.counts = (data && data.counts) || {};
+          // Счётчики берутся как есть; отсутствие счётчиков — это «нет данных»,
+          // а не нули.
+          st.counts = iniPubCountsOf(data);
+          st.window = (data && data.window) ? data.window : null;
           st.nextOffset = (data && data.next_offset != null)
             ? data.next_offset : null;
           var rows = (data && data.rows) || [];
@@ -15624,8 +15732,10 @@
           st.loaded = true;
         } catch (e) {
           if (!this._scopeGuard(epoch)) return;
+          if (String(this.activeChatId) !== String(chatId)) return;
           if (reset) st.rows = [];
-          st.counts = {};
+          st.counts = null;
+          st.window = null;
           st.nextOffset = null;
           st.error = (e && e.status === 403)
             ? 'Нет доступа к журналу этого чата'

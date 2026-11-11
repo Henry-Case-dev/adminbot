@@ -678,9 +678,23 @@ function axesCard(kind, payload, extra) {
   assert.strictEqual(view[0].deliveryLabel,
     'отправки не было: попытка отложена');
   assert.strictEqual(view[0].deliveryState, 'never');
-  assert.ok(view[0].chainReasonsText.indexOf('конфликт') >= 0
-            || view[0].chainReasonsText.length > 0,
-    'причины цепочки не дошли до строки журнала');
+  // Свёрнутая строка не печатает коды: незнакомый код цепочки остаётся
+  // только в раскрытой трассе. Знакомая причина — читаемой подписью.
+  assert.strictEqual(
+    view[0].chainReasonsText.indexOf('publication_deferred_conflict'), -1,
+    'код причины из цепочки попал в свёрнутую строку: '
+    + view[0].chainReasonsText);
+  const knownChain = computed.iniPubRows.call({
+    iniPub: { rows: [
+      { attempt_id: 'meme:7', kind: 'meme', ts: 1800000001, stage: 'publish',
+        outcome: 'deferred', reason_code: 'publication_conflict',
+        reason_label: '', delivered: null, mode: 'auto',
+        reason_codes: ['publication_conflict', 'in_flight'] },
+    ] },
+  });
+  assert.ok(knownChain[0].chainReasonsText.indexOf('уже выполняется') >= 0,
+    'знакомая причина цепочки не подписана: '
+    + knownChain[0].chainReasonsText);
   assert.strictEqual(view[1].outcomeLabel, 'доставка неизвестна');
   // Фильтр «причина» на сервере использует и причины цепочки — код должен
   // присутствовать в разметке как подсказка строки.
@@ -1147,6 +1161,7 @@ function publishedMemeDetail(over) {
 
   const counts = computed.iniPubCounts.call({
     iniPub: { filters: { days: '7' },
+              window: { days: 7 },
               counts: { total: 5, checked: 5, decided: 4, published: 2,
                         delivered: 2, pending: 1, delivery_unknown: 1,
                         text: 1, meme: 4 } },
@@ -1160,7 +1175,7 @@ function publishedMemeDetail(over) {
   assert.strictEqual(counts.deliveryUnknown, 1);
   assert.ok(INDEX.indexOf('data-ini-pub-window') > 0,
     'окно счётчиков не выведено в разметку');
-  assert.ok(INDEX.indexOf('проверено {{ iniPubCounts.checked }}') > 0,
+  assert.ok(INDEX.indexOf('проверено {{ iniPubCounts.checked == null') > 0,
     'счётчик «проверено» не показан отдельно от «решено»');
 })();
 
@@ -1687,6 +1702,202 @@ async function peekStaleSuite() {
   assert.ok(INDEX.indexOf('data-meme-diag-next') > 0
             && INDEX.indexOf('item.block.nextCheckUnknownReason') > 0,
     'нет честного «нет данных» с причиной');
+})();
+
+// ── 15. Дефекты ревью на 430703be (трасса, журнал, строка списка) ────────
+(function () {
+  // 15.1 Отсутствие факта этапа ≠ «не выполнялось», если позже есть факты.
+  // Прикол без своей записи, но картинка собрана ИЗ него → косвенный факт.
+  const noJokeFacts = computed.iniTraceSteps.call({
+    iniTrace: {
+      attempt: { attempt_id: 'meme:j1', kind: 'meme', job_id: 'j1',
+                 mode: 'auto', ts: T4, stage: 'publish',
+                 outcome: 'published', reason_code: 'sent', delivered: true,
+                 message_id: 555, incomplete_historical: false },
+      chain: [
+        { stage: 'summary', ts: T1, outcome: 'passed', reason_code: '',
+          facts: { chars: 41, source: 'chat' } },
+        // Строки прикола нет вовсе.
+        { stage: 'image_generation', ts: T3, outcome: 'passed',
+          reason_code: '',
+          facts: { chars: 20, template_source: 'chat',
+                   template_revision: 't1', joke_chars: 7 } },
+        { stage: 'publish', ts: T4, outcome: 'published',
+          reason_code: 'sent',
+          facts: { manual: false, gate: 'open',
+                   output: { tg_message_id: 555, ledger_id: 3 } } },
+      ],
+      events: [
+        { event_name: 'digest_ready', ts: T1, detail: 'chars:41' },
+        { event_name: 'image_ready', ts: T3, detail: 'prompt:20|bytes:900' },
+        { event_name: 'publication_sent', ts: T4, detail: 'tg:555',
+          delivered: true },
+      ],
+      delivery: { delivered: true, message_id: 555 },
+    },
+  });
+  const jokeStep = noJokeFacts.steps.filter(function (s) {
+    return s.key === 'joke';
+  })[0];
+  assert.notStrictEqual(jokeStep.state, 'not_run',
+    'прикол назван «не выполнялось», хотя картинка собрана из него');
+  assert.strictEqual(jokeStep.state, 'inferred', jokeStep.state);
+  assert.ok(jokeStep.text.indexOf('7') > 0,
+    'косвенный факт не назван числом: ' + jokeStep.text);
+  assert.strictEqual(noJokeFacts.stopLabel, '',
+    'успешная попытка получила место остановки');
+  assert.ok(noJokeFacts.statusLine.indexOf('опубликовано') > 0,
+    noJokeFacts.statusLine);
+
+  // Без косвенного признака, но с фактом более позднего шага — «нет данных»,
+  // а не «не выполнялось».
+  const lateOnly = computed.iniTraceSteps.call({
+    iniTrace: {
+      attempt: { attempt_id: 'meme:j2', kind: 'meme', job_id: 'j2',
+                 mode: 'auto', ts: T4, stage: 'publish',
+                 outcome: 'published', reason_code: 'sent', delivered: true,
+                 message_id: 556, incomplete_historical: false },
+      chain: [
+        { stage: 'image_generation', ts: T3, outcome: 'passed',
+          reason_code: '', facts: {} },
+        { stage: 'publish', ts: T4, outcome: 'published',
+          reason_code: 'sent', facts: {} },
+      ],
+      events: [{ event_name: 'publication_sent', ts: T4, detail: 'tg:556' }],
+      delivery: { delivered: true, message_id: 556 },
+    },
+  });
+  const jokeLate = lateOnly.steps.filter(function (s) {
+    return s.key === 'joke';
+  })[0];
+  assert.notStrictEqual(jokeLate.state, 'not_run',
+    'прикол назван «не выполнялось» при доказанном более позднем шаге');
+  assert.strictEqual(jokeLate.state, 'unknown', jokeLate.state);
+
+  // 15.2 Неизвестный код НЕ выбирает шаг остановки, даже если этап записан.
+  const unknownStop = computed.iniTraceSteps.call({
+    iniTrace: {
+      attempt: { attempt_id: 'meme:j3', kind: 'meme', job_id: 'j3',
+                 mode: 'auto', ts: T2, stage: 'joke', outcome: 'failed',
+                 reason_code: 'zz_not_in_any_dict', delivered: false,
+                 message_id: null, incomplete_historical: false },
+      chain: [{ stage: 'joke', ts: T2, outcome: 'failed',
+                reason_code: 'zz_not_in_any_dict', facts: {} }],
+      events: [],
+      delivery: { delivered: false, message_id: null },
+    },
+  });
+  assert.strictEqual(unknownStop.stopLabel, '',
+    'неизвестный код выбрал шаг остановки: ' + unknownStop.stopLabel);
+  assert.ok(unknownStop.statusLine.indexOf('код: zz_not_in_any_dict') > 0,
+    'читаемая подпись кода потерялась: ' + unknownStop.statusLine);
+  assert.ok(unknownStop.statusLine.indexOf('этап остановки не определён') > 0,
+    unknownStop.statusLine);
+  assert.strictEqual(unknownStop.steps.some(function (s) {
+    return s.state === 'failed' && s.key === 'joke'
+      && unknownStop.stopLabel === 'Прикол (LLM B)';
+  }), false, 'шаг остановки выдуман по этапу');
+
+  // 15.3 Журнал: чужой чат и чужое окно не применяются; нет счётчиков — «нет
+  // данных», а не нули.
+  async function pubSuite() {
+    // (а) Ответ другого чата отбрасывается.
+    const foreign = {
+      activeChatId: CHAT, scopeEpoch: 4, iniPub: {
+        rows: [{ attempt_id: 'meme:old' }], counts: null, window: null,
+        notes: [], busy: false, error: '', nextOffset: null, loaded: true,
+        filters: { days: 7, kind: 'all', mode: 'all', outcome: 'all',
+                   reason: '' },
+      },
+      iniPubDetail: null, iniPubFocus: '',
+      api: async function () {
+        return { schema_version: 1, chat_id: -100999, available: true,
+                 notes: [], window: { days: 7 }, rows: [{ attempt_id: 'meme:x' }],
+                 counts: { checked: 1 }, next_offset: null };
+      },
+      _scopeGuard: methods._scopeGuard,
+      _payloadChatMatches: methods._payloadChatMatches,
+    };
+    foreign.loadInitiativePublications = methods.loadInitiativePublications;
+    await methods.loadInitiativePublications.call(foreign, true);
+    assert.strictEqual(foreign.iniPub.rows.length, 0,
+      'строки чужого чата попали в журнал');
+    assert.strictEqual(foreign.iniPub.loaded, false);
+    assert.strictEqual(foreign.iniPub.counts, null,
+      'счётчики чужого чата применены');
+    assert.ok(String(foreign.iniPub.error).indexOf('другого чата') >= 0,
+      'отброс чужого ответа не объяснён');
+
+    // (б) Поздний ответ на «7 дней» не подписывается текущими «30 днями».
+    const late = {
+      activeChatId: CHAT, scopeEpoch: 5, iniPub: {
+        rows: [], counts: null, window: null, notes: [], busy: false,
+        error: '', nextOffset: null, loaded: false,
+        filters: { days: 7, kind: 'all', mode: 'all', outcome: 'all',
+                   reason: '' },
+      },
+      iniPubDetail: null, iniPubFocus: '',
+      api: async function () {
+        // Пока шёл запрос, пользователь переключил период на 30 дней.
+        late.iniPub.filters.days = '30';
+        return { schema_version: 1, chat_id: CHAT, available: true,
+                 notes: [], window: { days: 7 },
+                 rows: [{ attempt_id: 'meme:late' }],
+                 counts: { checked: 2 }, next_offset: null };
+      },
+      _scopeGuard: methods._scopeGuard,
+      _payloadChatMatches: methods._payloadChatMatches,
+    };
+    late.loadInitiativePublications = methods.loadInitiativePublications;
+    await methods.loadInitiativePublications.call(late, true);
+    assert.strictEqual(late.iniPub.rows.length, 0,
+      'ответ, снятый при другом фильтре, применён к новому окну');
+
+    // (в) Окно подписи — из серверного `window`, а не из фильтров.
+    const counts = computed.iniPubCounts.call({
+      iniPub: { filters: { days: '30' }, window: { days: 7 },
+                counts: { checked: 2, published: 1 } },
+    });
+    assert.strictEqual(counts.windowLabel, 'за 7 дн.',
+      'подпись окна взята из фильтров: ' + counts.windowLabel);
+    // (г) Нет счётчиков вовсе — «нет данных», а не нули.
+    const emptyCounts = computed.iniPubCounts.call({
+      iniPub: { filters: { days: '7' }, window: { days: 7 }, counts: null },
+    });
+    assert.strictEqual(emptyCounts.hasCounts, false);
+    assert.strictEqual(emptyCounts.checked, null);
+    assert.strictEqual(emptyCounts.published, null);
+    assert.ok(INDEX.indexOf('нет данных: счётчики не пришли') > 0,
+      'нет честной строки «нет данных» для счётчиков');
+    assert.ok(INDEX.indexOf("iniPubCounts.checked == null ? 'нет данных'") > 0,
+      'нулевое значение печатается вместо «нет данных»');
+  }
+
+  // 15.4 Строка списка: никакого сырого кода в свёрнутом слое.
+  assert.strictEqual(INDEX.indexOf('ini-row__code'), -1,
+    'в строке списка остался сырой код причины');
+  assert.strictEqual(INDEX.indexOf('row.reason_code'), -1,
+    'шаблон строки печатает reason_code');
+  assert.strictEqual(INDEX.indexOf('код: ') < 0
+                     || INDEX.indexOf('ini-row__code') < 0, true);
+  // Код причины цепочки не выводится и текстом строки.
+  const chainRow = computed.iniPubRows.call({
+    iniPub: { rows: [
+      { attempt_id: 'meme:9', kind: 'meme', ts: 1800000002, stage: 'publish',
+        outcome: 'deferred', reason_code: 'publication_conflict',
+        reason_label: '', delivered: null, mode: 'auto',
+        reason_codes: ['publication_conflict', 'publication_deferred_conflict'] },
+    ] },
+  });
+  assert.strictEqual(chainRow[0].chainReasonsText.indexOf('код: '), -1,
+    'в свёрнутой строке остался префикс «код: »: '
+    + chainRow[0].chainReasonsText);
+  // Код остаётся в раскрытой трассе — рядом с русской подписью.
+  assert.ok(INDEX.indexOf('data-ini-step-code') > 0,
+    'код пропал и из раскрытой трассы');
+  assert.ok(APP_JS.indexOf('codeLabel') > 0);
+
+  return pubSuite();
 })();
 
 chatBoundSuite().then(peekStaleSuite).then(function () {
