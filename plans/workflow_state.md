@@ -5,8 +5,8 @@ Task source: root prompt + plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-co
 Status: in_progress
 Primary phase: review
 Active feature: p0-init-meme-ux-diag
-Active lanes: ses_e3350442effe0o7Ww8DyvMSBaO (Reviewer: f6905098 S6 freshness, incl. transplant risk onto 7a7cd0ce)
-Join barriers: the next release carries S6 + S5b and must be transplanted onto `7a7cd0ce`; the two adjacent `index.html` hunks and the two `iniChatTimezone` call sites are the known conflict points.
+Active lanes: ses_e3340c368ffei35Hzh4MIpNBd0 (DevOps: release 2.58.194 = S5b + S6 with the reviewer's transplant watch points); ses_e334070f6ffe0gz57onBbpoNd9 (Builder: S7-ACCEPT matrix runner and the two owed live checks)
+Join barriers: S7 must not close the epic; the two live cases stay "not happened" until the quota reset produces a real delivery.
 Join barriers: S6 waits for the S5b verdict; any release must take web files from the `bcc090a3` line because `master` is 930 KB behind on the interface.
 
 DELIVERY-LINEAGE WARNING (verified twice, independent reviewers): `master` is not an ancestor of the production line. `web/app.js` is 1 331 753 bytes on `master` versus 2 262 122 at `bcc090a3`; `index.html` is 929 056 versus 1 328 853. Building a release from `master` would delete roughly 930 KB of the shipped interface. Releases branch from the current production commit and cherry-pick approved commits.
