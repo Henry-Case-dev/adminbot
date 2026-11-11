@@ -2687,25 +2687,30 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
         own_cooldown is not None and own_cooldown > 0 and basis_ts is not None
         and (now_ts - int(basis_ts)) < int(own_cooldown))
 
-    # P0IM-BAN-NOETA: `next_check_ts` — НЕ назначенное время, а вычисленная
-    # нижняя граница «от последнего обращения к провайдеру + кулдаун». Поэтому:
-    #   * прошедшее значение из предыдущего прохода не выдаётся (это не расписание);
-    #   * при отсутствии доказанного базиса — null, а не «сейчас» и не ноль.
-    next_check = _stamp_or_none(entry.get("next_check_ts"))
-    if next_check is not None and int(next_check) <= int(now_ts):
-        next_check = None
-    if next_check is not None:
-        # Основание называет ИСТОЧНИК расчёта: вызов провайдера (кулдаун) или
-        # запись прохода (например сброс суточной квоты). Это не расписание.
-        next_basis = "cooldown" if basis_ts else "payload_state"
+    # P0IM-BAN-NOETA: `next_check_ts` — НЕ назначенное время, а доказанная нижняя
+    # граница «последний вызов провайдера + кулдаун». Сброс суточной квоты,
+    # тихие часы и произвольная запись прошлого прохода сюда НЕ подставляются:
+    # иначе чужое время выдавалось бы за кулдаун (дефект ревью: квота →
+    # «cooldown»). Запись прохода принимается только когда она САМА доказуема:
+    # её `next_check_ts` равен `последний вызов провайдера + cooldown_seconds`
+    # из той же записи. Иначе времени нет.
+    recorded = _stamp_or_none(entry.get("next_check_ts"))
+    if recorded is not None and int(recorded) <= int(now_ts):
+        recorded = None
+    recorded_cooldown = _int_or_none(entry.get("cooldown_seconds"))
+    proven = None
+    if basis_ts and recorded_cooldown and int(recorded_cooldown) > 0:
+        candidate = int(basis_ts) + int(recorded_cooldown)
+        if candidate > int(now_ts):
+            proven = candidate
+    next_check, next_basis = None, "unknown"
+    if recorded is not None and proven is not None \
+            and int(recorded) == int(proven):
+        next_check, next_basis = int(recorded), "cooldown"
     elif own_cooldown is not None and own_cooldown > 0 and basis_ts:
         candidate = int(basis_ts) + int(own_cooldown)
         if candidate > int(now_ts):
             next_check, next_basis = candidate, "cooldown"
-        else:
-            next_check, next_basis = None, "unknown"
-    else:
-        next_check, next_basis = None, "unknown"
 
     trace = (entry.get("random") or diag.get("random")
              or eligible_facts.get("random") or last_facts.get("random"))

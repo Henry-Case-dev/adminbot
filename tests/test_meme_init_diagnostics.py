@@ -1964,6 +1964,106 @@ def test_next_check_is_a_bound_and_never_now(tmp_path, monkeypatch):
         diag_b["meme"]["next_check_basis"]
 
 
+async def _seed_reservation(svc, *, job_id: str, status: str,
+                            created_at: int, day_bucket: str) -> None:
+    """Бронь журнала квоты напрямую: сценарий «квота выбрана без вызова»."""
+    await svc.db.execute(
+        "INSERT INTO %s (job_id, chat_id, day_bucket, timezone_name,"
+        " timezone_source, status, error_code, created_at)"
+        " VALUES (?,?,?,?,?,?, '', ?)" % meme.RESERVATION_TABLE,
+        (job_id, CHAT, day_bucket, "UTC", "utc_fallback", status,
+         int(created_at)))
+    await svc.db.commit()
+
+
+def test_quota_skip_has_no_invented_or_relabelled_next_check(
+        tmp_path, monkeypatch):
+    """Квота не назначает время и не подписывается «кулдауном».
+
+    (а) квота выбрана без вызова провайдера → `next_check_ts is None`;
+    (б) квота выбрана ПОСЛЕ вызова → время = «вызов + кулдаун», не сброс квоты;
+    (в) старая запись прохода со сбросом квоты в `next_check_ts` не называется
+        кулдауном и не показывается как время.
+    """
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="quota_noeta.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            day = meme.day_window(CHAT, NOW)
+            reset_ts = int(datetime.fromisoformat(day.next_reset_iso).timestamp())
+            # (а) Три брони в дне, провайдер не вызывался вовсе.
+            for index in range(3):
+                await _seed_reservation(
+                    svc, job_id="quota-a-%d" % index, status="reserved",
+                    created_at=NOW_TS - 7200, day_bucket=day.bucket)
+            state_a: dict = {}
+            await _meme_pass(state_a, ledger=ledger,
+                             settings=_settings(daily_limit=3,
+                                                cooldown_seconds=3600))
+            entry_a = state_a[str(CHAT)]
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state_a}})
+            diag_a = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            # (б) Та же квота, но вызов провайдера был 60 с назад.
+            provider_ts = NOW_TS - 60
+            await _seed_reservation(
+                svc, job_id="quota-b-0", status="provider_called",
+                created_at=provider_ts, day_bucket=day.bucket)
+            state_b: dict = {}
+            await _meme_pass(state_b, ledger=ledger,
+                             settings=_settings(daily_limit=3,
+                                                cooldown_seconds=600))
+            entry_b = state_b[str(CHAT)]
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state_b}})
+            diag_b = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            # (в) Запись прошлого прохода от старой версии: там сброс квоты.
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True,
+                         "chats": {str(CHAT): {
+                             "output_kind": meme.OUTPUT_KIND,
+                             "last_check_ts": NOW_TS,
+                             "next_check_ts": reset_ts,
+                             "reason": meme.SKIP_QUOTA,
+                             "reason_label": "",
+                             "stage": meme.STAGE_SKIPPED}}}})
+            diag_c = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            return (entry_a, diag_a["meme"], entry_b, diag_b["meme"],
+                    diag_c["meme"], reset_ts)
+        finally:
+            await svc.close()
+
+    entry_a, block_a, entry_b, block_b, block_c, reset_ts = asyncio.run(
+        scenario())
+    # (а) Пропуск по квоте без вызова провайдера: времени не существует.
+    assert entry_a["reason"] == meme.SKIP_QUOTA, entry_a
+    assert entry_a["next_check_ts"] is None, entry_a
+    assert block_a["next_check_ts"] is None, block_a
+    assert block_a["next_check_basis"] != "cooldown", block_a
+    # (б) Время — доказанная граница кулдауна, а не сброс квоты.
+    assert entry_b["reason"] == meme.SKIP_QUOTA, entry_b
+    assert entry_b["next_check_ts"] == NOW_TS - 60 + 600, entry_b
+    assert entry_b["next_check_ts"] != reset_ts, entry_b
+    assert block_b["next_check_ts"] == entry_b["next_check_ts"], block_b
+    assert block_b["next_check_basis"] == "cooldown", block_b
+    # (в) Сброс квоты из старой записи не выдаётся за кулдаун.
+    assert block_c["next_check_ts"] != reset_ts, block_c
+    if block_c["next_check_ts"] is not None:
+        assert block_c["next_check_basis"] == "cooldown", block_c
+
+
 def test_availability_without_provider_call_has_no_next_time(
         tmp_path, monkeypatch):
     """`availability()` без вызова провайдера не выдаёт `now` как время."""

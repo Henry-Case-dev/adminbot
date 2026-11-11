@@ -3674,20 +3674,6 @@ async def _note_state(state: dict | None, result: AttemptResult,
         candidate = int(last_provider_ts) + int(cooldown)
         if candidate > int(now_ts):
             next_check = candidate
-    if next_check is None and cooldown > 0:
-        # Вызова ещё не было: пауза начнётся с него, расписания нет.
-        next_check = None
-    if str(result.reason or "") == SKIP_QUOTA:
-        # Квота суток: следующая реальная возможность — начало нового дня.
-        try:
-            window = day_window(int(result.chat_id), None)
-            reset = int(datetime.fromisoformat(
-                window.next_reset_iso).timestamp())
-            if reset > int(now_ts):
-                next_check = (reset if next_check is None
-                              else max(int(next_check), reset))
-        except Exception:
-            pass
     state[str(int(result.chat_id))] = {
         "output_kind": OUTPUT_KIND,
         "last_check_ts": int(now_ts),
