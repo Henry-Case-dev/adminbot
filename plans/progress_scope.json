@@ -19,7 +19,7 @@
       "blocked_by": [],
       "position_status": "release_pending",
       "blocker_sources": {},
-      "execution_state": "release_pending",
+      "execution_state": "needs_lineage_reconcile",
       "position_basis": "chain/dependency or release state",
       "queue_note": "work verified, awaits a release slot",
       "previous_status": "READY_FOR_LIVE",
@@ -31,7 +31,7 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; verified rows exist but the recorded deployment is not in the current production lineage",
-      "release_state": "recorded deployed commit is NOT in the current production lineage; release status needs reconciliation before it can be claimed again"
+      "release_state": "recorded deployed commit is NOT in the current production lineage; release claim needs reconciliation before reuse"
     },
     {
       "id": "asap8-v6.3",
@@ -49,7 +49,7 @@
       "blocked_by": [],
       "position_status": "release_pending",
       "blocker_sources": {},
-      "execution_state": "release_pending",
+      "execution_state": "paused_with_progress",
       "position_basis": "chain/dependency or release state",
       "queue_note": "work verified, awaits a release slot",
       "previous_status": "READY_FOR_LIVE",
@@ -61,7 +61,7 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
-      "release_state": "deployed_in_production_line: the recorded deployed commit is an ancestor of the live 2.58.184; the remaining gap is open rows, not a pending release"
+      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release"
     },
     {
       "id": "cfg-01-07",
@@ -153,7 +153,7 @@
       "blocked_by": [],
       "position_status": "release_pending",
       "blocker_sources": {},
-      "execution_state": "release_pending",
+      "execution_state": "paused_with_progress",
       "position_basis": "chain/dependency or release state",
       "queue_note": "work verified, awaits a release slot",
       "previous_status": "READY_FOR_LIVE",
@@ -165,7 +165,7 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
-      "release_state": "deployed_in_production_line: the recorded deployed commit is an ancestor of the live 2.58.184; the remaining gap is open rows, not a pending release"
+      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release"
     },
     {
       "id": "samples-ux",
@@ -461,7 +461,7 @@
       "blocked_by": [],
       "position_status": "release_pending",
       "blocker_sources": {},
-      "execution_state": "release_pending",
+      "execution_state": "paused_with_progress",
       "position_basis": "chain/dependency or release state",
       "queue_note": "work verified, awaits a release slot",
       "previous_status": "READY_FOR_LIVE",
@@ -473,7 +473,7 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
-      "release_state": "deployed_in_production_line: the recorded deployed commit is an ancestor of the live 2.58.184; the remaining gap is open rows, not a pending release"
+      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release"
     },
     {
       "id": "p0-factcheck-post-release",
@@ -510,7 +510,7 @@
       "blocked_by": [],
       "position_status": "release_pending",
       "blocker_sources": {},
-      "execution_state": "release_pending",
+      "execution_state": "paused_with_progress",
       "position_basis": "chain/dependency or release state",
       "queue_note": "work verified, awaits a release slot",
       "previous_status": "READY_FOR_LIVE",
@@ -522,7 +522,7 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
-      "release_state": "deployed_in_production_line: the recorded deployed commit is an ancestor of the live 2.58.184; the remaining gap is open rows, not a pending release"
+      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release"
     },
     {
       "id": "p0-history-analysis",
@@ -552,7 +552,7 @@
       "blocked_by": [],
       "position_status": "release_pending",
       "blocker_sources": {},
-      "execution_state": "release_pending",
+      "execution_state": "paused_with_progress",
       "position_basis": "chain/dependency or release state",
       "queue_note": "work verified, awaits a release slot",
       "previous_status": "READY_FOR_LIVE",
@@ -564,7 +564,7 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
-      "release_state": "deployed_in_production_line: the recorded deployed commit is an ancestor of the live 2.58.184; the remaining gap is open rows, not a pending release"
+      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release"
     },
     {
       "id": "evol",
