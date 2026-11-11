@@ -3481,6 +3481,12 @@
     },
     // Стадии часов хода (turn_trace.CLOCK_STAGE_ORDER).
     stage: { l1: 'L1', tool: 'инструменты', l2: 'ответ' },
+    // Слот модели, которым считался запрос (model_slots / auto_budget).
+    slot: {
+      'direct.primary': 'основной ответ',
+      'summary.l1': 'конспект (первый уровень)',
+      'summary.l2': 'конспект (широкий фон)',
+    },
     // Приоритет вытеснения блока (direct_context_composer P0..P3).
     priority: {
       p0: 'не вытесняется',
@@ -3611,6 +3617,37 @@
       return line;
     } catch (e) {
       return '';                     // неизвестная зона — без подстановки
+    }
+  }
+
+  //: «06.11 15:00 (+03:00)» из ISO-инстанта В ПОЯСЕ ЧАТА (UR-20.8).
+  //: Пояс неизвестен/инстант не разобран → '' (без выдуманной зоны и без
+  //: подстановки UTC вместо пояса чата).
+  function turnLocalStamp(iso, tz) {
+    var raw = String(iso || '');
+    if (!raw) return '';
+    var at = new Date(raw);
+    if (isNaN(at.getTime())) return '';
+    var zone = (typeof tz === 'string' && tz) ? tz : '';
+    if (!zone) return '';
+    try {
+      var parts = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: zone, day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+        timeZoneName: 'longOffset',
+      }).formatToParts(at);
+      var got = {};
+      for (var i = 0; i < parts.length; i++) {
+        got[parts[i].type] = parts[i].value;
+      }
+      if (!got.day || !got.month || !got.hour || !got.minute) return '';
+      var line = got.day + '.' + got.month + ' ' + got.hour + ':' + got.minute;
+      // 'GMT+03:00' → '+03:00'; 'GMT' (ровно нулевой сдвиг) → '+00:00'.
+      var offset = String(got.timeZoneName || '').replace('GMT', '');
+      if (!offset) offset = '+00:00';
+      return line + ' (' + offset + ')';
+    } catch (e) {
+      return '';
     }
   }
 
@@ -15706,14 +15743,85 @@
         return flow === 'direct' ? 'Direct' : (flow || '—');
       },
       turnClockLine: function (ctx) {
+        // UR-20.8/UR-29.3: одной строкой — IANA, ЛОКАЛЬНЫЕ дата/время с
+        // смещением, UTC-инстант, источник настройки и присутствие часов на
+        // каждой стадии. Чего трасса не знает — так и говорит.
         var clock = ctx && ctx.clock;
         if (!clock || !clock.timezone) return 'нет данных';
-        var line = clock.timezone;
-        if (clock.as_of_utc) line += ' · ' + clock.as_of_utc;
+        var tz = String(clock.timezone);
+        var line = tz;
+        var local = turnLocalStamp(clock.as_of_utc, tz);
+        if (local) line += ' · местное время ' + local;
+        else if (clock.as_of_utc) {
+          line += ' · местное время не рассчитано (пояс не распознан)';
+        } else {
+          line += ' · местное время не зафиксировано';
+        }
+        if (clock.as_of_utc) line += ' · UTC ' + clock.as_of_utc;
         if (clock.timezone_source) {
           line += ' · источник: ' + this.timeSourceLabel(
             clock.timezone_source);
         }
+        line += ' · ' + this.turnClockStagePresence(clock);
+        return line;
+      },
+      // Присутствие часов на стадиях — короткой формой для строки часов
+      // (подробная формулировка с null/[] живёт в `turnClockStagesLine`).
+      turnClockStagePresence: function (clock) {
+        var stages = clock && clock.stages;
+        if (!Array.isArray(stages)) {
+          return 'часы на этапах: не зафиксированы';
+        }
+        if (!stages.length) return 'часы на этапах: ни одной';
+        return 'часы на этапах: ' + stages.map(function (code) {
+          return turnCodeWord('stage', code);
+        }).join(', ');
+      },
+      // UR-20.6: модель/слот ОБОИХ этапов. L1 — из контекстного события,
+      // L2 — из запроса Writer'а (provider/model/fallback/max output).
+      // Отсутствие данных называется словами, а не пустой строкой.
+      turnL1ModelLine: function () {
+        var diag = this.turnDiag || {};
+        var l1 = (diag.context && diag.context.l1) || null;
+        var model = l1 && l1.model ? String(l1.model) : '';
+        var budget = (diag.selection && diag.selection.budget) || null;
+        var reserve = turnNumText(budget && budget.output_reserve);
+        if (!model) {
+          return 'L1: модель не зафиксирована (планирование не вызывалось '
+            + 'или трасса старше версии)';
+        }
+        var line = 'L1: модель ' + model;
+        // Слота L1 в событии нет — не подставляем чужой слот L2.
+        line += ' · слот не зафиксирован';
+        if (l1.fallback) line += ' · fallback: ' + String(l1.fallback);
+        line += ' · запас на ответ ' + (reserve || 'неизвестно');
+        return line;
+      },
+      turnL2ModelLine: function () {
+        var diag = this.turnDiag || {};
+        var writer = diag.writer || null;
+        var request = (writer && writer.request) || null;
+        var model = request && request.model ? String(request.model) : '';
+        var provider = request && request.provider
+          ? String(request.provider) : '';
+        if (!model && !provider) {
+          return 'L2: модель не зафиксирована (Writer не вызывался или '
+            + 'трасса старше версии)';
+        }
+        var line = 'L2: ' + (provider ? (provider + ' / ') : '')
+          + (model || 'модель не названа');
+        var budget = (diag.selection && diag.selection.budget) || null;
+        if (budget && budget.slot) {
+          line += ' · слот запроса: ' + turnCodeText('slot', budget.slot);
+        }
+        if (request && request.fallback_model) {
+          line += ' · fallback: ' + String(request.fallback_model);
+        }
+        // Фактически отправленный предел генерации — из завершения вызова.
+        var completion = (writer && writer.completion) || null;
+        var sent = turnNumText(completion && completion.max_output_tokens_sent);
+        line += ' · отправлено max output tokens: '
+          + (sent || 'не зафиксировано (трасса старше версии)');
         return line;
       },
       turnToolLine: function (t) {
@@ -15816,8 +15924,12 @@
         var who = source.reply_to_alias
           ? String(source.reply_to_alias) : 'автор не назван';
         var id = turnIdNum(source.reply_to_id);
-        return 'в ответ на: ' + who + ' (сообщение ' + (id || 'не зафиксировано')
-          + ')';
+        var line = 'в ответ на: ' + who + ' (сообщение '
+          + (id || 'не зафиксировано');
+        // Дата родителя — тем же форматом, что дата автора (UR-20.4).
+        var when = this.turnWhen(source.reply_to_ts);
+        if (when) line += ', ' + when;
+        return line + ')';
       },
       // Бюджет одним предложением (UR-20.6): неизвестное число — словом.
       turnBudgetLine: function (budget) {
@@ -15874,14 +15986,21 @@
         return blocks.map(function (block) {
           if (!block || !block.kind) return null;
           var tokens = turnNumText(block.tokens);
+          var refs = (Array.isArray(block.source_ids) ? block.source_ids : [])
+            .map(function (id) { return turnIdText(id); });
+          var summary = self.turnSummaryNote(block, refs);
           return {
             kind: String(block.kind),
             name: turnCodeWord('block', block.kind),
             priority: turnCodeWord('priority', block.role),
-            dates: self.turnBlockDates(block),
+            // У конспекта диапазон печатает строка «конспект до …» — даты
+            // не дублируются второй строкой.
+            dates: summary ? '' : self.turnBlockDates(block),
             tokens: tokens ? ('≈' + tokens + ' токенов') : '',
-            refs: (Array.isArray(block.source_ids) ? block.source_ids : [])
-              .map(function (id) { return turnIdText(id); }),
+            refs: refs,
+            // UR-20.5: у конспекта нет единого source_id — вместо выдуманного
+            // id показываем, ДО КАКОЙ даты он собран, и его диапазон.
+            summary: summary,
             skip: block.rendered === false
               ? (block.skip_reason
                 ? 'не вошло в запрос: '
@@ -15890,6 +16009,24 @@
               : '',
           };
         }).filter(function (row) { return !!row; });
+      },
+      // «конспект до <дата> · диапазон: <начало> — <конец>» для конспекта.
+      // Нет ни дат, ни ссылок — пусто (старая трасса: «нет данных», не «1970»).
+      turnSummaryNote: function (block, refs) {
+        if (!block || String(block.kind || '') !== 'global_head') return '';
+        if (refs && refs.length) return '';
+        var last = this.turnWhen(block.last_ts);
+        var first = this.turnWhen(block.first_ts);
+        if (!last && !first) return '';
+        var line = last
+          ? ('конспект до ' + last)
+          : 'конспект: дата конца не зафиксирована';
+        if (first && last && first !== last) {
+          line += ' · диапазон: ' + first + ' — ' + last;
+        } else if (first && !last) {
+          line += ' · диапазон с ' + first;
+        }
+        return line + ' · единого id источника у конспекта нет';
       },
       // «не вошло, потому что …» — отдельный список причин (§5).
       turnDroppedLines: function (selection) {

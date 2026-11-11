@@ -74,6 +74,7 @@ const vm = (extra) => Object.assign({
   turnTz: m.turnTz,
   turnWhen: m.turnWhen,
   turnBlockDates: m.turnBlockDates,
+  turnSummaryNote: m.turnSummaryNote,
   turnTurnOpen: null,
 }, extra || {});
 
@@ -363,6 +364,93 @@ const vm = (extra) => Object.assign({
     'длинные id/адреса переносятся, а не обрезаются');
   assert(/не\s+образец\s+стиля/.test(section),
     'свои реплики честно не названы образцом стиля');
+})();
+
+// ── 7. Доработка шага 1 (UR-20.4…20.8): строки, которых не было ──────────
+(function () {
+  // Собственный `this` с методами компонента: хелперы вызывают друг друга.
+  const withTz = (tz) => Object.assign({}, m,
+    { turnDiag: tz ? { clock: { timezone: tz } } : {} });
+
+  // (1) UR-20.4: дата сообщения-родителя — тем же форматом, что у автора.
+  const reply = m.turnSourceReply.call(withTz('Europe/Moscow'),
+    { reply_to_id: 987654321000, reply_to_alias: 'Борис',
+      reply_to_ts: 1792229400 });
+  assert(/^в ответ на: Борис \(сообщение 987654321000, \d{2}\.\d{2} \d{2}:\d{2}\)$/
+    .test(reply), 'дата родителя в строке: ' + reply);
+  // Даты нет — прежняя честная строка без выдуманного времени.
+  assert.strictEqual(
+    m.turnSourceReply.call(withTz('Europe/Moscow'),
+      { reply_to_id: 5, reply_to_alias: 'Борис' }),
+    'в ответ на: Борис (сообщение 5)');
+
+  // (2) UR-20.5: у конспекта — «конспект до <дата>» и диапазон, без id.
+  const rows = m.turnBlockRows.call(withTz('Europe/Moscow'), { blocks: [
+    { kind: 'global_head', role: 'p2', rendered: true, source_ids: [],
+      first_ts: 1792000000, last_ts: 1792050000, tokens: 512 },
+    { kind: 'global_tail', role: 'p1', rendered: true,
+      source_ids: ['msg:1'], first_ts: 1792228800, last_ts: 1792229900,
+      tokens: 800 },
+  ] });
+  assert(/^конспект до \d{2}\.\d{2} \d{2}:\d{2}/.test(rows[0].summary),
+    'конспект до даты: ' + rows[0].summary);
+  assert(rows[0].summary.indexOf('диапазон:') >= 0, rows[0].summary);
+  assert(rows[0].summary.indexOf('единого id источника') >= 0);
+  assert.strictEqual(rows[0].dates, '',
+    'диапазон не дублируется второй строкой');
+  assert.strictEqual(rows[0].refs.length, 0, 'id конспекта не выдуман');
+  assert.strictEqual(rows[1].summary, '', 'у дословных строк — прежний вид');
+  assert(rows[1].dates.indexOf('—') >= 0);
+  // Старая трасса без дат: пусто, а не «01.01 1970».
+  const oldRows = m.turnBlockRows.call(withTz('Europe/Moscow'), { blocks: [
+    { kind: 'global_head', rendered: true, source_ids: [],
+      first_ts: 0, last_ts: 0, tokens: 512 }] });
+  assert.strictEqual(oldRows[0].summary, '');
+
+  // (3) UR-20.6: отдельная строка L1 и строка L2 с фактическим пределом.
+  const full = Object.assign({}, m, { turnDiag: {
+    context: { l1: { model: 'test-model-8b', fallback: 'fb-model' } },
+    selection: { budget: { slot: 'direct.primary', output_reserve: 12800 } },
+    writer: { request: { provider: 'api.example', model: 'test-model-8b',
+                         fallback_model: 'fb-model', max_output_tokens: 4096 },
+              completion: { max_output_tokens_sent: 4096 } } } });
+  assert.strictEqual(full.turnL1ModelLine(),
+    'L1: модель test-model-8b · слот не зафиксирован · fallback: fb-model '
+    + '· запас на ответ 12 800');
+  assert.strictEqual(full.turnL2ModelLine(),
+    'L2: api.example / test-model-8b · слот запроса: основной ответ '
+    + '(direct.primary) · fallback: fb-model '
+    + '· отправлено max output tokens: 4 096');
+  // Пустота названа словами, чужой слот L2 не подставляется в L1.
+  const empty = Object.assign({}, m, { turnDiag: {} });
+  assert(/^L1: модель не зафиксирована/.test(empty.turnL1ModelLine()),
+    empty.turnL1ModelLine());
+  assert(/^L2: модель не зафиксирована/.test(empty.turnL2ModelLine()),
+    empty.turnL2ModelLine());
+  const noSlot = Object.assign({}, m, { turnDiag: {
+    writer: { request: { provider: 'api.example', model: 'mm' },
+              completion: {} }, selection: null } });
+  const noSlotLine = noSlot.turnL2ModelLine();
+  assert(noSlotLine.indexOf('слот запроса') < 0, noSlotLine);
+  assert(noSlotLine.indexOf('max output tokens: не зафиксировано') >= 0,
+    'отправленный предел честно неизвестен: ' + noSlotLine);
+
+  // (4) UR-20.8/UR-29.3: IANA + локальное время со смещением + UTC +
+  // источник настройки + присутствие часов на стадиях — ОДНОЙ строкой.
+  const clockLine = m.turnClockLine.call(Object.assign({}, m), { clock: {
+    timezone: 'Europe/Moscow', as_of_utc: '2026-11-06T12:00:00+00:00',
+    timezone_source: 'chat', stages: ['l1', 'tool', 'l2'] } });
+  assert(clockLine.indexOf('Europe/Moscow') === 0, clockLine);
+  assert(/местное время \d{2}\.\d{2} 15:00 \(\+03:00\)/.test(clockLine),
+    'локальные дата/время и смещение: ' + clockLine);
+  assert(clockLine.indexOf('UTC 2026-11-06T12:00:00+00:00') >= 0, clockLine);
+  assert(clockLine.indexOf('часы на этапах: L1, инструменты, ответ') >= 0,
+    clockLine);
+  assert.strictEqual(m.turnClockLine(null), 'нет данных');
+  const noStages = m.turnClockLine.call(Object.assign({}, m),
+    { clock: { timezone: 'UTC' } });
+  assert(noStages.indexOf('часы на этапах: не зафиксированы') >= 0, noStages);
+  assert(noStages.indexOf('местное время не зафиксировано') >= 0, noStages);
 })();
 
 console.log('UR-F-STEP3-OK');

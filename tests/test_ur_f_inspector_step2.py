@@ -210,8 +210,8 @@ def _emit_chain(trace_id, *, chat_id=CHAT_ID,
         trace_id, chat_id=chat_id, trigger="botword", flow="direct",
         source_message_id=source_message_id, source_author_id=10,
         reply_to_message_id=reply_to_message_id, reply_to_author_id=9,
-        source_message_ts=1_700_000_100, alias_source_author="@Вася",
-        alias_reply_parent="Петя")
+        source_message_ts=1_700_000_100, reply_to_message_ts=1_700_000_040,
+        alias_source_author="@Вася", alias_reply_parent="Петя")
     turn_trace.note_clock(trace_id, line="[2026-11-06 15:00 МСК]",
                           source="chat", timezone="Europe/Moscow",
                           as_of_utc="2026-11-06T12:00:00+00:00",
@@ -361,6 +361,8 @@ async def test_new_trace_projects_all_sections(tmp_path, monkeypatch):
     assert body["source"]["message_ts"] == 1_700_000_100
     assert body["source"]["reply_to_id"] == REPLY_PARENT_TG_ID
     assert body["source"]["reply_to_author_id"] == 9
+    # UR-20.4: время сообщения-родителя доезжает до проекции.
+    assert body["source"]["reply_to_ts"] == 1_700_000_040
     assert body["source"]["reply_to_alias"] == "Петя"
     assert body["clock"]["timezone"] == "Europe/Moscow"
     assert body["clock"]["stages"] == ["l1", "tool", "l2"]
@@ -439,7 +441,7 @@ async def test_old_trace_returns_null_sections(tmp_path, monkeypatch):
     assert body["source"] == {"message_id": None, "author_id": None,
                               "author_alias": None, "message_ts": None,
                               "reply_to_id": None, "reply_to_author_id": None,
-                              "reply_to_alias": None}
+                              "reply_to_ts": None, "reply_to_alias": None}
     assert body["clock"]["stages"] is None
 
 
@@ -871,6 +873,7 @@ def _nan_turn_json() -> str:
             "\"policy_version\": \"alloc_v3\", "
             "\"flow\": \"direct\", \"trigger\": \"botword\", "
             "\"source_message_id\": NaN, \"source_message_ts\": Infinity, "
+            "\"reply_to_message_ts\": NaN, "
             "\"semantic_rewrite_count\": NaN}")
 
 
@@ -932,6 +935,8 @@ async def test_nan_and_infinity_numbers_are_unknown_not_500(tmp_path,
     assert selection["self_outputs"][0]["ts"] is None
     assert body["source"]["message_id"] is None
     assert body["source"]["message_ts"] is None
+    # Новое числовое поле идёт ТЕМ ЖЕ правилом: NaN — не время.
+    assert body["source"]["reply_to_ts"] is None
     assert body["search"]["source_count"] is None
     assert body["search"]["links"][0]["source_url"] == \
         "https://example.test/a1"
@@ -984,6 +989,7 @@ async def test_fractional_id_does_not_read_a_neighbour_message(
         "source_message_id": SOURCE_TG_ID + 0.9,      # 501.9
         "source_author_id": 10, "source_message_ts": 1_700_000_100,
         "reply_to_message_id": REPLY_PARENT_TG_ID + 0.9,
+        "reply_to_message_ts": 1_700_000_040.9,       # не целое — не время
     })
     rows, _ = await _rows_of(db, "corr-frac")
     for row in rows:
@@ -1003,6 +1009,8 @@ async def test_fractional_id_does_not_read_a_neighbour_message(
     # Дробные id не стали соседними целыми.
     assert plain["source"]["message_id"] is None
     assert plain["source"]["reply_to_id"] is None
+    # Дробное время родителя — «неизвестно», а не округлённая секунда.
+    assert plain["source"]["reply_to_ts"] is None
     # И текст соседнего сообщения (501 / 500) не подставлен.
     assert allowed["source"]["text"] is None
     assert "reply_parent" not in allowed["source"]

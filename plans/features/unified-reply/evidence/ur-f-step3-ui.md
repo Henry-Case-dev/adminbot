@@ -88,12 +88,19 @@ DDL = 0, эндпоинтов не добавлено, шаг-2 проекция
 | набор | результат |
 |---|---|
 | `node tests/js/ur_f_inspector_step3_test.js` | `UR-F-STEP3-OK` |
-| `tests/test_ur_f_inspector_step3_ui.py` (новый) | 32 passed |
-| `tests/test_ur_f_inspector_step1.py` + `step2.py` | 53 + 19 passed |
-| `tests/test_ur_c_clock.py`, `test_ur_d_writer.py`, `test_ur_e_speech.py`, `test_ur_turn_engine.py` | 78 passed |
-| `tests/test_webapp_js_unit.py` | 40 passed, 4 failed — те же 4 падают на базе `d8270517` (glass/heartbeat/aurora пины) |
-| `test_webapp_evol_w9/w10/w11/w12/w13/w14/w16` + `parity_smoke` + `design_tokens` 1025 + `test_ur_ui_effective_config` | 257 passed |
-| `tests/test_mca23_planned_vs_actual.py` | 23 passed + 1 failed (`test_routes_pin_untouched`) — падает одинаково на `92070d0e`/`d8270517` (устаревший пин sha256 `routes.py`), `routes.py` этим слайсом не менялся |
+| `tests/test_ur_f_inspector_step3_ui.py` (новый) | 36 passed |
+| `tests/test_ur_f_inspector_step1.py` + `step2.py` | 55 + 19 passed |
+| `tests/test_ur_c_clock.py`, `test_ur_d_writer.py`, `test_ur_e_speech.py`, `test_ur_turn_engine.py` | 74 passed |
+| `tests/test_direct_chat.py` | 156 passed |
+| `tests/test_webapp_js_unit.py` | 40 passed, 4 failed — те же 4 падают на базе `92070d0e` (glass/heartbeat/aurora пины) |
+| `test_webapp_evol_w7/w9/w10/w11/w12/w13/w14/w15/w16` + `parity_smoke` + `design_tokens_1025` + `test_ur_ui_effective_config` | 307 passed |
+| `tests/test_mca23_planned_vs_actual.py` | 23 passed + 1 failed (`test_routes_pin_untouched`) — падает одинаково на базе `92070d0e` и `dbf89a96` (устаревший пин) |
+| `tests/test_round1025_f8_registry.py` | 1 failed (`test_routes_file_unchanged`) — пин ложен уже на `dbf89a96` (sha256 базы не совпадает); на `92070d0e` зелёный |
+
+Сводный прогон «web/direct наборов» на одной и той же выборке:
+база `92070d0e` — 351 passed / 5 failed; кандидат доработки — 351 passed /
+6 failed (дельта ровно один уже устаревший пин `test_routes_file_unchanged`,
+который на `dbf89a96` тоже падает).
 
 Живой прогон `tools/ui_urf_visual_e2e.py` (1440×900 и 390×844): `URF-VISUAL-OK`,
 консоль браузера чиста (0 ошибок). Отчёт: `urf/urf-step3-visual-report.json`.
@@ -109,7 +116,18 @@ DDL = 0, эндпоинтов не добавлено, шаг-2 проекция
 `urf-step3-after-expanded-mobile-390.png`, живой Chrome (Browser Use)
 `urf-step3-bu-{mobile-390,desktop-1440}.png`.
 
+Доработка шага 3 (четыре гэпа): свежий прогон того же инструмента —
+`urf/urf-step1-gaps-visual-report.json` (sha256
+`76a9eca80ff1933b91b56bff201a3e0028220c59bd2b704d3ae40f806653c3ec`),
+снимки `urf/urf-step1-gaps-desktop-1440.png`, `urf/urf-step1-gaps-mobile-390.png`.
+В отчёте — реальные строки DOM: `sourceLine`, `clockLine`, `modelL1`,
+`modelL2`, `blockSummaries` (см. таблицу «было → стало» выше); `unexplained=[]`,
+`clipped=[]`, `console_error_count=0`, `hScroll=false` на обоих вьюпортах.
+
 ## Чего не хватило из бэкенда (не патчил, сообщаю)
+
+> **Обновление (доработка шага 3, ветка `ur/f-inspector-step1`):** пункты 1 и 2
+> ЗАКРЫТЫ ниже — см. раздел «Доработка: четыре гэпа приёмки».
 
 1. **Дата сообщения, на которое отвечали.** `source.reply_to_id` есть, даты
    нет — строка «в ответ на: … (сообщение M)» без времени. Нужен
@@ -131,6 +149,43 @@ DDL = 0, эндпоинтов не добавлено, шаг-2 проекция
    `FIRED_STATUSES`, фильтровать должен бэкенд, иначе карточка выглядит
    длиннее, чем «сработавшие правила».
 
+## Доработка: четыре гэпа приёмки (UR-20.4/20.5/20.6/20.8)
+
+База доработки: `dbf89a96`. DDL = 0, новых событий = 0, новых маршрутов = 0.
+Единственное новое поле события — числовая дата родителя ответа. Правки:
+`services/turn_trace.py` (поле + слот), `services/direct_chat_service.py`
+(продюсер даты родителя, диапазон окна конспекта в блоке `global_head`),
+`web/api/routes.py` (одна строка строгого allowlist проекции), `web/app.js`,
+`web/index.html` (строки карточек), `tools/ui_urf_visual_e2e.py` (стаб и
+проверки), тесты.
+
+| гэп | было (реальная строка карточки) | стало |
+|---|---|---|
+| UR-20.4 | `в ответ на: Борис (сообщение 987654321000)` | `в ответ на: Борис (сообщение 987654321000, 17.10 12:30)` |
+| UR-20.5 | блок `конспект` без дат и без ссылок | `конспект до 15.10 10:40 · диапазон: 14.10 20:46 — 15.10 10:40 · единого id источника у конспекта нет` |
+| UR-20.6 | только `· модель: test-model-8b` у L1 | `L1: модель test-model-8b · слот не зафиксирован · fallback: … · запас на ответ 12 800` и `L2: api.example / test-model-8b · слот запроса: основной ответ (direct.primary) · отправлено max output tokens: 4 096` |
+| UR-20.8/29.3 | `Время хода: Europe/Moscow · 2026-11-06T12:00:00+00:00 · источник: настройки чата` | `Время хода: Europe/Moscow · местное время 06.11 15:00 (+03:00) · UTC 2026-11-06T12:00:00+00:00 · источник: настройки чата · часы на этапах: L1, инструменты, ответ` |
+
+Что именно знает код (и чего не выдумано):
+
+* **Дата родителя** — `reply_to_message_ts` в событии `direct_turn_context`
+  (тот же путь, где `source_message_ts`), в проекции — `source.reply_to_ts`
+  через общий числовой предикат `_turn_int` (bool/NaN/∞/дробное → `null`).
+  Родитель без даты → ключа нет вовсе (карточка не печатает выдуманное время).
+* **Диапазон конспекта** — из существующей записи `chat_running_summary`
+  (`window_start_ts`/`window_end_ts`). Единого `source_id` у конспекта нет:
+  id не выдумывается, поэтому строка говорит «конспект до <дата>» и диапазон.
+  Запись без `window_start_ts` (старая/двойник) даёт пустое начало, а не `1970`.
+* **Слот L1** — в событии его нет (`l1` несёт только `model`/`fallback`), и
+  чужой слот L2 туда не подставляется: карточка честно пишет «слот не
+  зафиксирован». Слот L2 берётся из `selection.budget.slot` (`direct.primary`).
+  Предел генерации L2 — `writer.completion.max_output_tokens_sent` (фактически
+  отправленный), а не значение из конфига.
+* **Часы** — локальные дата/время и смещение считаются из `clock.as_of_utc` в
+  поясе чата (`Intl.DateTimeFormat` + `timeZoneName: 'longOffset'`); UTC-инстант
+  и источник настройки остаются, присутствие часов на стадиях — в той же строке
+  короткой формой (подробная формулировка с `null`/`[]` — отдельная строка).
+
 ## Остаётся риск
 
 * Счётчик `included_messages` точен, а `blocks[].source_ids` в событии
@@ -138,3 +193,13 @@ DDL = 0, эндпоинтов не добавлено, шаг-2 проекция
   от него не зависит.
 * Пороги сворачивания (5/3/4) — числа контракта; при росте лимитов событий
   они не пересчитываются автоматически.
+* Доработка шага 3: слот L1 в трассе отсутствует (`l1` = action/plan/model/
+  fallback), поэтому карточка говорит «слот не зафиксирован». Добавление
+  `l1.slot` — изменение формы события (allowlist проекции), в этой правке
+  запрещено; это отдельное решение (нужен ключ в `_TURN_CONTEXT_SCHEMA.l1`).
+* `test_round1025_f8_registry.py::test_routes_file_unchanged` и
+  `test_mca23_planned_vs_actual.py::test_routes_pin_untouched` — байтовые пины
+  `web/api/routes.py`; они ложны уже на базе `dbf89a96` (sha256
+  `0d15c690…` ≠ пин `1a7d0d4e…`/`8f5601a3…`), т.е. пин не сторожит ничего с
+  шагов 1–2. Перепин не делался: это осознанное решение владельца канона
+  (L-F11S-1), а не побочный эффект доработки.

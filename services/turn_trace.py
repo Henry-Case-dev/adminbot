@@ -180,7 +180,7 @@ class TurnTrace:
         "clock_ts", "clock_timezone", "clock_as_of_utc",
         "clock_config_version", "clock_timezone_source", "clock_stages",
         "reply_to_message_id", "reply_to_author_id", "source_message_ts",
-        "alias_source_author", "alias_reply_parent",
+        "reply_to_message_ts", "alias_source_author", "alias_reply_parent",
         "l1", "tools", "tool_rounds", "tool_degraded",
         "tool_reason", "coverage", "llm_calls", "manifest", "request",
         "completion", "semantic_rewrite_count", "raw_final_digest",
@@ -194,7 +194,8 @@ class TurnTrace:
                  flow: str = FLOW_DIRECT, source_message_id=None,
                  source_author_id=None, idempotency_key: str = "",
                  reply_to_message_id=None, reply_to_author_id=None,
-                 source_message_ts=None, alias_source_author: str = "",
+                 source_message_ts=None, reply_to_message_ts=None,
+                 alias_source_author: str = "",
                  alias_reply_parent: str = ""):
         self.correlation_id = str(correlation_id)
         self.chat_id = int(chat_id) if chat_id is not None else None
@@ -208,6 +209,10 @@ class TurnTrace:
         self.reply_to_message_id = reply_to_message_id
         self.reply_to_author_id = reply_to_author_id
         self.source_message_ts = source_message_ts
+        # UR-20.4 (доработка шага 1): время сообщения-родителя ответа. Раньше
+        # карточка показывала «в ответ на: … (сообщение N)» без времени —
+        # дата родителя просто не доезжала до события.
+        self.reply_to_message_ts = reply_to_message_ts
         self.alias_source_author = alias(alias_source_author)
         self.alias_reply_parent = alias(alias_reply_parent)
         # UR-C-CLOCK (UR-26.7): структурированные поля ChatClock (аддитивно).
@@ -317,6 +322,7 @@ class TurnTrace:
                 ("reply_to_message_id", self.reply_to_message_id),
                 ("reply_to_author_id", self.reply_to_author_id),
                 ("source_message_ts", self.source_message_ts),
+                ("reply_to_message_ts", self.reply_to_message_ts),
                 ("alias_source_author", self.alias_source_author),
                 ("alias_reply_parent", self.alias_reply_parent)):
             if value not in (None, "", 0):
@@ -540,7 +546,8 @@ def begin(correlation_id, *, chat_id=None, trigger: str = "",
           source_author_id=None,
           idempotency_key: str = "",
           reply_to_message_id=None, reply_to_author_id=None,
-          source_message_ts=None, alias_source_author: str = "",
+          source_message_ts=None, reply_to_message_ts=None,
+          alias_source_author: str = "",
           alias_reply_parent: str = "") -> "TurnTrace | None":
     """Начать трассу хода. Нет `correlation_id` → трассы нет (fail-open)."""
     if not correlation_id:
@@ -554,6 +561,7 @@ def begin(correlation_id, *, chat_id=None, trigger: str = "",
             reply_to_message_id=reply_to_message_id,
             reply_to_author_id=reply_to_author_id,
             source_message_ts=source_message_ts,
+            reply_to_message_ts=reply_to_message_ts,
             alias_source_author=alias_source_author,
             alias_reply_parent=alias_reply_parent)
         with _lock:

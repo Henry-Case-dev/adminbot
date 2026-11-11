@@ -1657,6 +1657,7 @@ _TURN_SOURCE_FIELDS = {
     "message_ts": "source_message_ts",
     "reply_to_id": "reply_to_message_id",
     "reply_to_author_id": "reply_to_author_id",
+    "reply_to_ts": "reply_to_message_ts",
     "reply_to_alias": "alias_reply_parent",
 }
 _TURN_SOURCE_SCHEMA = {
@@ -1666,6 +1667,7 @@ _TURN_SOURCE_SCHEMA = {
     "message_ts": "int",
     "reply_to_id": "int",
     "reply_to_author_id": "int",
+    "reply_to_ts": "int",
     "reply_to_alias": ("text", 48),
 }
 #: Ключи контракта → ключи события для часов (`clock_*` в трассе).

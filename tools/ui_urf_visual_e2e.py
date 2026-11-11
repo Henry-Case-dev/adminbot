@@ -26,6 +26,7 @@
 import datetime
 import json
 import os
+import re
 import sys
 import threading
 import zoneinfo
@@ -182,6 +183,8 @@ TURN_DIAG_STUB = {
                "author_alias": "Анна",
                "message_ts": 1792229900,
                "reply_to_id": 987654321000, "reply_to_author_id": 555,
+               # Время сообщения-родителя (раньше его не было в событии).
+               "reply_to_ts": 1792229400,
                "reply_to_alias": "Борис"},
     # UR-20.8: расширение существующего clock (плюс стадии часов).
     "clock": {"timezone": TZ,
@@ -210,7 +213,8 @@ TURN_DIAG_STUB = {
              "source_ids": ["fact:42", "summary:-100500:2"],
              "first_ts": 1792000000, "last_ts": 1792100000, "tokens": 640},
             {"kind": "global_head", "role": "p2", "rendered": True,
-             "source_ids": [], "first_ts": 0, "last_ts": 0, "tokens": 512},
+             "source_ids": [], "first_ts": 1792000000,
+             "last_ts": 1792050000, "tokens": 512},
             {"kind": "episode", "role": "p0", "rendered": True,
              "source_ids": ["episode:7"],
              "first_ts": 1791000000, "last_ts": 1791003600, "tokens": 480},
@@ -279,6 +283,7 @@ TURN_DIAG_STUB = {
         "outcome": "success", "ts": 1792230000, "flow": "direct",
         "trigger": "force_keyword",
         "l1": {"action": "reply", "model": "test-model-8b",
+               "fallback": "test-model-8b-fallback",
                "plan_source": "l1_slot"},
         "tool_rounds": 1, "tool_degraded": False, "tool_reason": "",
         "tools": [{"tool": "web_search", "status": "success", "error": "",
@@ -306,10 +311,12 @@ TURN_DIAG_STUB = {
                      "revisions": {"prompts.direct_chat_verbalizer_"
                                    "system_prompt": "v7"}},
         "request": {"provider": "api.example", "model": "test-model-8b",
-                    "fallback_model": "", "max_output_tokens": 4096},
+                    "fallback_model": "test-model-8b-fallback",
+                    "max_output_tokens": 4096},
         "completion": {"finish_reason": "stop", "metadata_available": True,
                        "completed": True, "is_truncated": False, "attempt": 1,
                        "fallback_used": False, "usage": {"total_tokens": 980},
+                       "max_output_tokens_sent": 4096,
                        "chars": 420, "continuation_calls": 0,
                        "text_source": "author"},
         "semantic_rewrite_count": 0, "llm_calls": {"final": 1},
@@ -531,7 +538,12 @@ async () => {
     titles: cards.map((c) => flat(c.querySelector('.font-semibold'))),
     cardRects: rects,
     sourceLine: flat(q('[data-turn-source]')),
+    clockLine: flat(q('[data-turn-clock-line]')),
     clockStages: flat(q('[data-turn-clock-stages]')),
+    modelL1: flat(q('[data-turn-model-l1]')),
+    modelL2: flat(q('[data-turn-model-l2]')),
+    blockSummaries: all('[data-turn-block-summary]').map(flat)
+      .filter(Boolean),
     budget: flat(q('[data-turn-budget]')),
     counts: flat(q('[data-turn-counts]')),
     truncNote: flat(q('[data-turn-truncated]')),
@@ -822,6 +834,41 @@ def main() -> int:
             failures.append(label + ": source (на что ответ) not rendered")
         if "часы поданы на этапах" not in (r.get("clockStages") or ""):
             failures.append(label + ": clock stages line missing")
+        # ── UR-20.4/20.5/20.6/20.8 (доработка шага 1): реальные строки карточек
+        src_line = r.get("sourceLine") or ""
+        if not re.search(r"в ответ на: .*сообщение 987654321000, "
+                         r"\d{2}\.\d{2} \d{2}:\d{2}\)", src_line):
+            failures.append(label + ": reply parent time missing: " + src_line)
+        clock_line = r.get("clockLine") or ""
+        for part in ("Europe/Moscow", "местное время",
+                     "часы на этапах:", "L1"):
+            if part not in clock_line:
+                failures.append(label + ": clock line lacks " + part
+                                + ": " + clock_line)
+        if not re.search(r"\(\+\d{2}:\d{2}\)", clock_line):
+            failures.append(label + ": clock line has no UTC offset: "
+                            + clock_line)
+        if "2026-11-06T12:00:00+00:00" not in clock_line:
+            failures.append(label + ": clock line lost as_of_utc: " + clock_line)
+        model_l1 = r.get("modelL1") or ""
+        for part in ("L1: модель test-model-8b", "слот не зафиксирован",
+                     "fallback: test-model-8b-fallback",
+                     "запас на ответ 12 800"):
+            if part not in model_l1:
+                failures.append(label + ": L1 model line lacks " + part
+                                + ": " + model_l1)
+        model_l2 = r.get("modelL2") or ""
+        for part in ("L2: api.example / test-model-8b",
+                     "слот запроса: основной ответ (direct.primary)",
+                     "отправлено max output tokens: 4 096"):
+            if part not in model_l2:
+                failures.append(label + ": L2 model line lacks " + part
+                                + ": " + model_l2)
+        if not any("конспект до" in line
+                   for line in (r.get("blockSummaries") or [])):
+            failures.append(label + ": summary date line missing "
+                            + json.dumps(r.get("blockSummaries"),
+                                         ensure_ascii=False))
         budget = r.get("budget") or ""
         for part in ("окно модели", "запас на ответ", "из бюджета", "режим:"):
             if part not in budget:

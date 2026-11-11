@@ -316,7 +316,10 @@ async def test_context_event_carries_source_reply_parent_and_clock_stages(
     msg.reply_to_message = parent
     stamp = datetime.datetime(2026, 11, 10, 12, 0, 0,
                               tzinfo=datetime.timezone.utc)
+    parent_stamp = datetime.datetime(2026, 11, 10, 11, 30, 0,
+                                     tzinfo=datetime.timezone.utc)
     msg.date = stamp
+    parent.date = parent_stamp
     await svc.handle(bot, msg, user)
 
     ctx = _payload(events, turn_trace.EVENT_CONTEXT)
@@ -325,6 +328,9 @@ async def test_context_event_carries_source_reply_parent_and_clock_stages(
     assert ctx["reply_to_message_id"] == 400
     assert ctx["reply_to_author_id"] == 11
     assert ctx["source_message_ts"] == int(stamp.timestamp())
+    # UR-20.4: время сообщения-родителя — иначе карточка показывала «в ответ
+    # на: Петя (сообщение 400)» без даты.
+    assert ctx["reply_to_message_ts"] == int(parent_stamp.timestamp())
     # алиасы — два значения на ход (полный ростер участников не пишется)
     alias_keys = {key for key in ctx if key.startswith("alias_")}
     assert alias_keys == {"alias_source_author", "alias_reply_parent"}
@@ -333,6 +339,26 @@ async def test_context_event_carries_source_reply_parent_and_clock_stages(
     assert "@" not in ctx["alias_source_author"]
     # стадии, реально получившие TimeContext (tool-фазы в этом ходе нет)
     assert ctx["clock_stages"] == ["l1", "l2"], ctx.get("clock_stages")
+
+
+@pytest.mark.asyncio
+async def test_reply_parent_without_date_adds_no_timestamp_field(
+        monkeypatch, events):
+    """Родитель без даты → поля нет вовсе (не `0` и не `None`-заглушка).
+
+    «Честная пустота» §2: старая/двойниковая реплика без `date` не должна
+    давать карточке выдуманное «01.01 00:00»."""
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=_rows(3))
+    from tests.test_direct_chat import _message, _user as _chat_user
+    parent = _message(text="вопрос родителя", message_id=401,
+                      user=_chat_user(user_id=11, first_name="Петя"))
+    parent.date = None
+    msg.reply_to_message = parent
+    await svc.handle(bot, msg, user)
+
+    ctx = _payload(events, turn_trace.EVENT_CONTEXT)
+    assert ctx["reply_to_message_id"] == 401
+    assert "reply_to_message_ts" not in ctx, ctx.get("reply_to_message_ts")
 
 
 def test_clock_stage_marks_are_canonical_and_deduplicated():
@@ -2598,6 +2624,7 @@ async def test_multi_round_tools_fallback_last_describes_adapted_body(
 
 
 SUMMARY_TEXT = "конспект: обсуждали дроны и отчёты за прошлую неделю"
+SUMMARY_START_TS = 1_700_000_000
 SUMMARY_END_TS = 1_700_000_003
 SUMMARY_POST_ROWS = 5
 
@@ -2607,7 +2634,10 @@ def _summary_window():
 
 
 def _summary_db():
-    """FakeDB + РЕАЛЬНЫЙ бегущий конспект (метка объёма и watermark)."""
+    """FakeDB + РЕАЛЬНЫЙ бегущий конспект (метка объёма и watermark).
+
+    Записи `window_start_ts` здесь НЕТ намеренно: старая запись/двойник без
+    колонки не должна рвать сборку и не должна выдумывать начало диапазона."""
     from tests.test_direct_chat import FakeDB
 
     class _DB(FakeDB):
@@ -2692,6 +2722,44 @@ async def test_summary_turn_composer_on_and_off_agree_on_counts(
     assert "строка окна %d" % len(window) in off_global_text
     assert on_global.count(SUMMARY_TEXT) == 1
     assert off_global_text.count(SUMMARY_TEXT) == 1
+
+
+@pytest.mark.asyncio
+async def test_summary_block_carries_window_range_not_invented_ids(
+        monkeypatch, events):
+    """UR-20.5: у блока `global_head` есть ДАТЫ окна конспекта и нет
+    выдуманного `source_id`.
+
+    Раньше `_sel_block` заполнял ids/даты только для `global_tail`/
+    `global_middle`, поэтому конспект приходил без дат и без ссылок — карточка
+    не могла сказать ни «конспект до <дата>», ни диапазон."""
+    from tests.test_direct_chat import FakeDB
+
+    class _DB(FakeDB):
+        async def get_running_summary(self, chat_id, now):
+            return {"summary": SUMMARY_TEXT,
+                    "window_start_ts": SUMMARY_START_TS,
+                    "window_end_ts": SUMMARY_END_TS,
+                    "raw_count": 3}
+
+        async def get_summary_level(self, chat_id, level):
+            return None
+
+        async def get_smart_raw(self, chat_id, **kwargs):
+            return []
+
+    svc, bot, msg, user = _drive_with_db(monkeypatch, _StagedLLM(),
+                                         window=_summary_window(), db=_DB())
+    await svc.handle(bot, msg, user)
+
+    payload = _payload(events, turn_trace.EVENT_SELECTION)
+    blocks = {b.get("kind"): b for b in (payload.get("blocks") or ())}
+    head = blocks["global_head"]
+    # Диапазон окна — ровно из записи конспекта (начало и конец).
+    assert head.get("first_ts") == SUMMARY_START_TS, head
+    assert head.get("last_ts") == SUMMARY_END_TS, head
+    # Единого id у конспекта нет — он и не выдумывается.
+    assert not (head.get("source_ids") or ()), head
 
 
 DASH_ANSWER = "Да — конечно"

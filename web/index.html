@@ -1489,6 +1489,14 @@
                     <!-- Writer -->
                     <div class="card p-3" data-turn-stage="writer">
                       <div class="text-sm font-semibold mb-1">Что видел ответ</div>
+                      <!-- UR-20.6: модель/слот каждого этапа одной строкой;
+                           отсутствие данных названо словами, а не пустотой. -->
+                      <div class="text-xs turn-wrap" data-turn-model-l1>
+                        {{ turnL1ModelLine() }}
+                      </div>
+                      <div class="text-xs turn-wrap" data-turn-model-l2>
+                        {{ turnL2ModelLine() }}
+                      </div>
                       <template v-if="turnDiag.writer">
                         <div class="text-xs turn-wrap"
                              data-turn-writer-completion>
@@ -1591,6 +1599,8 @@
                             <div class="font-semibold">{{ row.name }}</div>
                             <div v-if="row.dates" class="text-gray-400">
                               даты: {{ row.dates }}</div>
+                            <div v-if="row.summary" class="text-gray-400"
+                                 data-turn-block-summary>{{ row.summary }}</div>
                             <div v-if="row.tokens" class="text-gray-500">{{
                               row.tokens }}</div>
                             <div v-if="row.priority" class="text-gray-500">

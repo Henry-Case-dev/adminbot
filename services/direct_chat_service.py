@@ -2588,6 +2588,19 @@ def _sel_ts(value):
     return int(raw)
 
 
+def _running_summary_ts(row, key: str):
+    """unix-время окна бегущего конспекта из строки БД (dict или `sqlite3.Row`).
+
+    Строка конспекта — существующая таблица (`chat_running_summary`), в
+    тестах/двойниках она может прийти без поля: тогда честное «неизвестно»
+    (`None`), а не выдуманный нуль или `KeyError`, рвущий сборку контекста."""
+    try:
+        value = row[key]
+    except Exception:
+        return None
+    return _sel_ts(value)
+
+
 def _sel_row_ref(row, *, bot_user_id=None) -> tuple:
     """`(source_id, tg_message_id, ts)` строки окна — та же формула id, что у
     композера (`row_to_fragment`), чтобы Inspector и payload ссылались на одно
@@ -5108,15 +5121,17 @@ class DirectChatService:
             # по мере их фактического выполнения. Никаких сырых текстов:
             # только id/коды/числа/digest'ы.
             # UR-F (UR-20.4, шаг 1): источник хода и родитель ответа —
-            # `reply_to_message_id`/`reply_to_author_id`/`source_message_ts`
-            # и ровно ДВА пер-ходовых алиаса (§3: полный ростер участников в
-            # трассу не пишется).
+            # `reply_to_message_id`/`reply_to_author_id`/`source_message_ts`/
+            # `reply_to_message_ts` и ровно ДВА пер-ходовых алиаса (§3: полный
+            # ростер участников в трассу не пишется).
             _trace_reply_tg = None
             _trace_reply_uid = None
+            _trace_reply_ts = None
             _trace_alias_parent = ""
             if _reply_obj is not None:
                 _trace_reply_tg = _sel_int(getattr(_reply_obj, "message_id",
                                                    None))
+                _trace_reply_ts = _sel_ts(getattr(_reply_obj, "date", None))
                 _trace_reply_from = getattr(_reply_obj, "from_user", None)
                 _trace_reply_uid = _sel_int(getattr(_trace_reply_from, "id",
                                                     None))
@@ -5132,6 +5147,7 @@ class DirectChatService:
                 reply_to_message_id=_trace_reply_tg,
                 reply_to_author_id=_trace_reply_uid,
                 source_message_ts=_sel_ts(getattr(message, "date", None)),
+                reply_to_message_ts=_trace_reply_ts,
                 alias_source_author=self._trace_alias(
                     (user_id or None),
                     getattr(_trace_from_user, "first_name", None),
@@ -9981,10 +9997,11 @@ class DirectChatService:
         tail_min = _composer.fresh_tail_min_messages()
         parts: dict = {
             "head_lines": [], "middle_rows": [], "tail_rows": [],
-            "tail_lines": [], "window_end_ts": None, "raw_count": 0,
-            "has_summary": False,
+            "tail_lines": [], "window_start_ts": None, "window_end_ts": None,
+            "raw_count": 0, "has_summary": False,
         }
         summary_text = None
+        window_start_ts = None
         window_end_ts = None
         raw_count = 0
         if await chat_summary_enabled(chat_id):
@@ -9993,6 +10010,10 @@ class DirectChatService:
                 if row is not None:
                     summary_text = row["summary"]
                     raw_count = int(row["raw_count"] or 0)
+                    # UR-20.5 (доработка шага 1): конспект покрывает ДИАПАЗОН
+                    # окна — начало и конец. Раньше брался только watermark,
+                    # поэтому у блока `global_head` не было ни дат, ни источника.
+                    window_start_ts = _running_summary_ts(row, "window_start_ts")
                     window_end_ts = row["window_end_ts"]
                 if summary_text is not None:
                     try:
@@ -10017,6 +10038,7 @@ class DirectChatService:
                                chat_id, exc_info=True)
         if summary_text is not None:
             parts["has_summary"] = True
+            parts["window_start_ts"] = window_start_ts
             parts["window_end_ts"] = window_end_ts
             parts["raw_count"] = raw_count
             parts["head_lines"].append(
@@ -10925,6 +10947,17 @@ class DirectChatService:
                     _block["first_ts"] = min(_stamps) if _stamps else 0
                     _block["last_ts"] = max(_stamps) if _stamps else 0
                     _full_ids[_kind] = _ids
+                elif _kind == "global_head":
+                    # UR-20.5 (доработка шага 1): конспект покрывает ДИАПАЗОН
+                    # окна, а не отдельные сообщения. Даты берутся из реальной
+                    # записи `chat_running_summary` (`window_start_ts`/
+                    # `window_end_ts`). Единого `source_id` у конспекта нет —
+                    # id не выдумывается (в событии блок остаётся без ссылок,
+                    # UI говорит «конспект до <дата>»).
+                    _head_first = _sel_int(global_parts.get("window_start_ts"))
+                    _head_last = _sel_int(global_parts.get("window_end_ts"))
+                    _block["first_ts"] = _head_first or 0
+                    _block["last_ts"] = _head_last or 0
                 elif _kind == "thread":
                     # Ветка ответов: id/даты — из тех же `ChainItem`, что
                     # рендерились в блок (формула id композера).

@@ -274,6 +274,62 @@ class TestMobileFirst:
         assert "@media (min-width:768px){.md\\:col-span-2" in prebuilt
 
 
+class TestAcceptanceGaps:
+    """Доработка шага 3: дата родителя, дата конспекта, модели L1/L2, часы.
+
+    Раньше карточка не могла показать: (1) время сообщения, на которое
+    отвечали — даты не было в событии; (2) дату конспекта — блок
+    `global_head` приходил без дат и без ссылок; (3) модель/слот L2 — в UI
+    была только модель L1; (4) локальное время и смещение часов — только
+    IANA и UTC-инстант."""
+
+    def test_reply_parent_time_rendered_like_author_line(self):
+        block = _code_block("turnSourceReply: function")
+        assert "reply_to_ts" in block, "дата родителя читается из проекции"
+        assert "turnWhen(" in block, "формат тот же, что у строки автора"
+        assert "в ответ на:" in block
+        assert "письмо" not in block and "text" not in block, \
+            "текст сообщения родителя в UI не подставляется"
+
+    def test_summary_block_note(self):
+        block = _code_block("turnSummaryNote: function")
+        assert "конспект до " in block
+        assert "диапазон" in block
+        assert "единого id источника" in block
+        # Ссылки (реальные id) приоритетнее: конспект без id — отдельная
+        # ветка, а не подмена.
+        assert "refs" in block
+        assert "data-turn-block-summary" in SECTION
+
+    def test_model_lines_both_stages(self):
+        assert "turnL1ModelLine()" in SECTION
+        assert "turnL2ModelLine()" in SECTION
+        assert "data-turn-model-l1" in SECTION
+        assert "data-turn-model-l2" in SECTION
+        l1 = _code_block("turnL1ModelLine: function")
+        assert "слот не зафиксирован" in l1
+        assert "fallback" in l1 and "запас на ответ" in l1
+        assert "модель не зафиксирована" in l1, "пустота названа словами"
+        l2 = _code_block("turnL2ModelLine: function")
+        assert "отправлено max output tokens" in l2
+        assert "max_output_tokens_sent" in l2, \
+            "показывается фактически отправленный предел генерации"
+        assert "модель не зафиксирована" in l2
+
+    def test_clock_line_has_local_time_offset_and_stages(self):
+        block = _code_block("turnClockLine: function")
+        for part in ("clock.timezone", "местное время", "UTC ",
+                     "timezone_source", "turnClockStagePresence"):
+            assert part in block, part
+        assert "clock.as_of_utc" in block, "инстант часов остаётся в строке"
+        helper = _code_block("function turnLocalStamp(")
+        assert "timeZoneName: 'longOffset'" in helper
+        assert "day: '2-digit'" in helper and "minute: '2-digit'" in helper
+        presence = _code_block("turnClockStagePresence: function")
+        assert "часы на этапах" in presence
+        assert "stage" in presence
+
+
 class TestLiveViewports:
     """Живой прогон: 1440×900 и 390×844 (Playwright, существующий инструмент)."""
 
@@ -312,6 +368,31 @@ class TestLiveViewports:
                 "%s: неизвестный код показан не как «код: …»" % label
             assert data["unexplained"] == [], \
                 "%s: сырой код без подписи" % label
+            # ── Доработка шага 1: реальные строки карточек (UR-20.4…20.8)
+            src_line = data["sourceLine"]
+            assert "в ответ на:" in src_line
+            assert re.search(r"сообщение \d+, \d{2}\.\d{2} \d{2}:\d{2}\)",
+                             src_line), "%s: дата родителя: %r" % (label, src_line)
+            clock_line = data["clockLine"]
+            assert "Europe/Moscow" in clock_line
+            assert "местное время" in clock_line, clock_line
+            assert re.search(r"\(\+\d{2}:\d{2}\)", clock_line), \
+                "%s: смещение пояса: %r" % (label, clock_line)
+            assert "2026-11-06T12:00:00+00:00" in clock_line
+            assert "часы на этапах:" in clock_line
+            l1_line = data["modelL1"]
+            assert "L1: модель test-model-8b" in l1_line, l1_line
+            assert "слот не зафиксирован" in l1_line
+            assert "fallback: test-model-8b-fallback" in l1_line
+            assert "запас на ответ 12 800" in l1_line
+            l2_line = data["modelL2"]
+            assert "L2: api.example / test-model-8b" in l2_line, l2_line
+            assert "основной ответ (direct.primary)" in l2_line
+            assert "отправлено max output tokens: 4 096" in l2_line
+            summaries = data["blockSummaries"]
+            assert summaries, "%s: строка конспекта не отрендерена" % label
+            assert "конспект до " in summaries[0], summaries[0]
+            assert "диапазон:" in summaries[0]
             rects = data["cardRects"]
             assert len(rects) == 4
             lefts = {row["left"] for row in rects}
