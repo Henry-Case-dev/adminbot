@@ -1077,7 +1077,242 @@ async function chatBoundSuite() {
     'чужой message_id попал в карточку выбранного чата');
 }
 
-chatBoundSuite().then(function () {
+// ── 12. P0IM-OV-HEADER: «этот чат / другой чат / сравнить чаты» ─────────
+// Три состояния обзора. Второй чат читается ТЕМ ЖЕ эндпоинтом со своим
+// `X-Chat-Id`; сравнение — две подписанные колонки из двух payload'ов, без
+// третьего «вычислительного» набора.
+const OTHER_TITLE = 'Чат B';
+
+function peekPayload(chatId, msgId, runId) {
+  const p = axesPayload({
+    last_delivery: { status: 'confirmed', at: NOW_TS - 60,
+                     destination: chatId, message_id: msgId,
+                     run_id: runId || 'corr-x' },
+    last_attempt: { at: NOW_TS - 60, mode: 'auto', run_id: runId || 'corr-x',
+                    outcome: 'say', stop_stage: '', incomplete_historical: false },
+  }, {
+    last_delivery: { status: 'confirmed', at: NOW_TS - 60,
+                     destination: chatId, message_id: msgId,
+                     run_id: runId || 'job-x' },
+    last_attempt: { at: NOW_TS - 60, mode: 'auto', run_id: runId || 'job-x',
+                    outcome: 'published', stop_stage: 'publish',
+                    incomplete_historical: false },
+  });
+  p.chat_id = chatId;
+  return p;
+}
+
+function peekCtx(extra) {
+  const ctx = Object.assign({
+    activeChatId: CHAT,
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' },
+                  { chat_id: OTHER_CHAT, title: OTHER_TITLE }],
+    scopeEpoch: 3,
+    memeDiag: null,
+    memeDiagError: '',
+    iniPeekMode: 'self',
+    iniPeek: null,
+    iniPeekChatId: null,
+    iniPeekBusy: false,
+    iniPeekQueued: false,
+    iniPeekError: '',
+    iniPeekSeq: 0,
+    calls: [],
+    canEditConfig: function () { return true; },
+    memeSettingsView: { memeEnabled: true, initiativeEnabled: true,
+                        quotaText: '1 / 3', remainingText: 'осталось 2',
+                        resetAt: '' },
+  }, extra || {});
+  ctx.api = async function (path, options) {
+    ctx.calls.push({ path: path, chatId: options && options.chatId });
+    return ctx.apiResult ? ctx.apiResult(options) : null;
+  };
+  ctx._scopeGuard = methods._scopeGuard;
+  ctx._iniPeekOk = methods._iniPeekOk;
+  ctx.loadIniPeek = methods.loadIniPeek;
+  ctx.iniSetPeekMode = methods.iniSetPeekMode;
+  return ctx;
+}
+
+(function () {
+  // 12.1 «Другой чат»: чужой payload читается своим X-Chat-Id и рендерит
+  // свои значения — без цифр своего чата.
+  const other = peekPayload(OTHER_CHAT, 987654);
+  const own = peekPayload(CHAT, 777);
+  const view = computed.iniOtherDiagView.call({
+    iniPeek: other, iniPeekChatId: OTHER_CHAT, activeChatId: CHAT,
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' },
+                  { chat_id: OTHER_CHAT, title: OTHER_TITLE }],
+  });
+  assert.ok(view, 'снимок другого чата не построен');
+  assert.ok(view.meme.axes.deliveryText.indexOf('987654') > 0,
+    'в карточке другого чата нет ЕГО message_id: ' + view.meme.axes.deliveryText);
+  assert.strictEqual(view.meme.axes.deliveryText.indexOf('777'), -1,
+    'в карточку другого чата попало значение своего чата');
+  const cards = computed.initiativeMemeCard.call({
+    activeChatId: CHAT,
+    iniViewMode: 'other',
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' },
+                  { chat_id: OTHER_CHAT, title: OTHER_TITLE }],
+    iniOtherDiagView: view,
+    iniOtherChat: { chatId: OTHER_CHAT, title: OTHER_TITLE },
+    iniOverviewTimezone: TZ,
+    canEditConfig: function () { return true; },
+    memeSettingsView: null,
+    memeDiagView: null,
+  });
+  assert.ok(cards.deliveryText.indexOf('987654') > 0,
+    'карточка в режиме «другой чат» не показывает его доставку: '
+    + cards.deliveryText);
+  assert.strictEqual(cards.attemptRef, '',
+    'в чужом чате появилась ссылка на попытку своего журнала');
+  assert.strictEqual(cards.sourceChatTitle, OTHER_TITLE);
+
+  // 12.2 Режим переключается, целевой чат уходит в запрос, снимок чист.
+  const ctx = peekCtx();
+  ctx.apiResult = function () { return other; };
+  methods.iniSetPeekMode.call(ctx, 'other');
+  assert.strictEqual(ctx.iniPeekMode, 'other');
+  assert.strictEqual(ctx.calls.length, 1, 'второй чат не запрошен');
+  assert.strictEqual(ctx.calls[0].chatId, OTHER_CHAT,
+    'запрос ушёл не за вторым чатом: ' + JSON.stringify(ctx.calls[0]));
+  assert.strictEqual(ctx.calls[0].path,
+    '/api/initiative/mechanism-diagnostics',
+    'использован не существующий эндпоинт диагностики');
+
+  // 12.3 «Сравнить»: две колонки, каждая со своим payload'ом.
+  const cmpCtx = peekCtx({
+    iniPeekMode: 'compare',
+    memeDiag: own,
+    iniPeek: other,
+    iniPeekChatId: OTHER_CHAT,
+  });
+  const cmp = computed.iniCompare.call(cmpCtx);
+  assert.strictEqual(cmp.visible, true);
+  assert.strictEqual(cmp.ready, true, 'сравнение не собралось: ' + JSON.stringify(cmp.error));
+  assert.strictEqual(cmp.groups.length, 2, 'сравнение не по механизмам');
+  const memeGroup = cmp.groups.filter(function (g) {
+    return g.key === 'meme';
+  })[0];
+  assert.strictEqual(memeGroup.leftTitle, 'Чат A');
+  assert.strictEqual(memeGroup.rightTitle, OTHER_TITLE);
+  const del = memeGroup.rows.filter(function (r) { return r.key === 'delivery'; })[0];
+  assert.ok(del.leftText.indexOf('777') > 0, del.leftText);
+  assert.ok(del.rightText.indexOf('987654') > 0, del.rightText);
+  assert.strictEqual(del.leftText, del.leftText,
+    'левая колонка не является значением своего payload');
+  // Никаких производных чисел: у строки ровно два значения и признак
+  // расхождения, третьего «общего» числа нет.
+  const keys = Object.keys(del).sort().join(',');
+  assert.strictEqual(keys,
+    'differs,key,label,leftState,leftText,rightState,rightText',
+    'в сравнении появились лишние/вычисленные поля: ' + keys);
+  assert.strictEqual(String(del.leftText).indexOf('|'), -1);
+  // Каждая ось обеих карточек присутствует.
+  const axisKeys = memeGroup.rows.map(function (r) { return r.key; });
+  assert.deepStrictEqual(axisKeys,
+    ['config', 'now', 'next', 'attempt', 'delivery']);
+  // Время в обеих колонках — UTC, чтобы значения были сравнимы без пересчёта.
+  assert.ok(del.leftText.indexOf('UTC') > 0, del.leftText);
+  assert.ok(del.rightText.indexOf('UTC') > 0, del.rightText);
+})();
+
+// 12.4 Честная деградация: один чат — ни «другого», ни «сравнить».
+(function () {
+  const ctx = peekCtx({ accessChats: [{ chat_id: CHAT, title: 'Чат A' }] });
+  assert.strictEqual(computed.iniOtherChat.call(ctx), null,
+    'второй чат выдуман при одном доступном');
+  methods.iniSetPeekMode.call(ctx, 'compare');
+  assert.strictEqual(ctx.iniPeekMode, 'self',
+    'режим «сравнить» включился без второго чата');
+  assert.strictEqual(ctx.calls.length, 0, 'сделан запрос без второго чата');
+  assert.strictEqual(computed.iniViewMode.call(ctx), 'self');
+  const cmp = computed.iniCompare.call(ctx);
+  assert.strictEqual(cmp.available, false);
+  assert.strictEqual(cmp.visible, false);
+  assert.deepStrictEqual(cmp.groups, []);
+  // Разметка: переключатель и «сравнить» условны (без второго чата их нет).
+  assert.ok(/v-if="iniOtherChat"[\s\S]{0,200}data-ini-switch/.test(INDEX),
+    'переключатель не скрывается при одном чате');
+  assert.ok(INDEX.indexOf('data-ini-switch-mode-btn="compare"') > 0,
+    'кнопки «Сравнить чаты» нет в разметке обзора');
+  assert.ok(INDEX.indexOf('>Этот чат</button>') > 0
+            && INDEX.indexOf('>Другой чат</button>') > 0,
+    'в переключателе нет «этого»/«другого» чата');
+})();
+
+// 12.5 Устаревшие ответы отбрасываются в КАЖДОМ состоянии.
+async function peekStaleSuite() {
+  // (а) Ответ пришёл не для того чата, который просили.
+  const ctx2 = peekCtx({ iniPeekMode: 'other' });
+  ctx2.apiResult = function () { return peekPayload(CHAT, 777); };
+  await ctx2.loadIniPeek.call(ctx2);
+  assert.strictEqual(ctx2.iniPeek, null,
+    'ответ своего чата применён как снимок другого');
+  assert.strictEqual(ctx2.iniPeekChatId, null);
+  assert.ok(String(ctx2.iniPeekError).length > 0,
+    'отброс чужого ответа не объяснён');
+
+  // (б) Шапка сменилась, пока шёл запрос второго чата.
+  let release = null;
+  const ctx3 = peekCtx({ iniPeekMode: 'compare' });
+  ctx3.api = function (path, options) {
+    ctx3.calls.push({ path: path, chatId: options && options.chatId });
+    return new Promise(function (res) { release = res; });
+  };
+  const pending = ctx3.loadIniPeek.call(ctx3);
+  ctx3.scopeEpoch += 1;                 // смена шапки
+  release(peekPayload(OTHER_CHAT, 987654));
+  await pending;
+  assert.strictEqual(ctx3.iniPeek, null,
+    'ответ второго чата применён после смены шапки');
+  assert.strictEqual(ctx3.iniPeekBusy, false,
+    'загрузчик второго чата залип после смены шапки');
+
+  // (в) Режим вернули на «этот чат», ответ пришёл позже — отброшен.
+  let release2 = null;
+  const ctx4 = peekCtx({ iniPeekMode: 'other' });
+  ctx4.api = function (path, options) {
+    ctx4.calls.push({ path: path, chatId: options && options.chatId });
+    return new Promise(function (res) { release2 = res; });
+  };
+  const pending2 = ctx4.loadIniPeek.call(ctx4);
+  methods.iniSetPeekMode.call(ctx4, 'self');
+  release2(peekPayload(OTHER_CHAT, 987654));
+  await pending2;
+  assert.strictEqual(ctx4.iniPeek, null,
+    'поздний ответ применился после возврата к своему чату');
+  assert.strictEqual(computed.iniOtherDiagView.call({
+    iniPeek: ctx4.iniPeek, iniPeekChatId: ctx4.iniPeekChatId,
+    activeChatId: CHAT,
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' },
+                  { chat_id: OTHER_CHAT, title: OTHER_TITLE }],
+  }), null);
+
+  // (г) Смена активного чата очищает режим и снимок второго чата.
+  const ctx5 = peekCtx({
+    iniPeekMode: 'compare',
+    iniPeek: peekPayload(OTHER_CHAT, 987654),
+    iniPeekChatId: OTHER_CHAT,
+  });
+  methods.iniResetChatScope.call(ctx5);
+  assert.strictEqual(ctx5.iniPeekMode, 'self', 'режим пережил смену чата');
+  assert.strictEqual(ctx5.iniPeek, null, 'снимок второго чата пережил смену чата');
+
+  // (д) Снимок второго чата не подменяет карточки, если его чат перестал
+  //     быть «другим» (шапка ушла на него).
+  const foreign = computed.iniOtherDiagView.call({
+    iniPeek: peekPayload(OTHER_CHAT, 987654),
+    iniPeekChatId: OTHER_CHAT,
+    activeChatId: OTHER_CHAT,
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' },
+                  { chat_id: OTHER_CHAT, title: OTHER_TITLE }],
+  });
+  assert.strictEqual(foreign, null,
+    'снимок показан как «другой чат», хотя он теперь выбранный');
+}
+
+chatBoundSuite().then(peekStaleSuite).then(function () {
   console.log('INITIATIVE-UI-OK');
 }).catch(function (err) {
   console.error(err && err.stack || err);

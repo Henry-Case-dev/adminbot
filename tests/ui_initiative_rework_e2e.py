@@ -366,7 +366,20 @@ def _diag(chat_id=None):
             "last_delivery": {"status": "never", "at": None, "destination": None,
                               "message_id": None, "run_id": ""}})
     elif mode == "on":
-        pass
+        # Второй чат намеренно в другом состоянии: сравнение должно показывать
+        # РАЗНИЦУ по осям, а не две одинаковые колонки.
+        if not is_a:
+            meme_over.update({
+                "ready": False, "ready_reason": "cooldown_active",
+                "skip": {"code": "cooldown_active", "label": "кулдаун",
+                         "origin": "cooldown"},
+                "cooldown": {"own_seconds": 21600, "remaining_seconds": 5400,
+                             "basis": "last_provider_call",
+                             "basis_ts": NOW - 16200, "scope": "mechanism_own"},
+                "readiness": {"state": "waiting", "reason": "cooldown_active",
+                              "reason_class": "cooldown",
+                              "next_eligible_at": NOW + 5400,
+                              "next_basis": "cooldown"}})
     elif mode == "cooldown":
         # ГЛАВНЫЙ кейс дефекта: механизм РАЗРЕШЁН, но ждёт кулдаун.
         meme_over.update({
@@ -883,6 +896,13 @@ def make_api_handler():
             return send({"is_global_admin": True, "is_local_admin": True,
                          "effective_permissions": None})
         if path.endswith("/api/access/chats"):
+            if STATE.get("single_chat"):
+                # Честная деградация: в доступе только один чат.
+                return send([
+                    {"chat_id": CHAT_A, "title": "Чат A", "is_dm": False,
+                     "photo_file_id": None, "access": "admin",
+                     "is_active": True},
+                ])
             return send([
                 {"chat_id": CHAT_A, "title": "Чат A", "is_dm": False,
                  "photo_file_id": None, "access": "admin", "is_active": True},
@@ -1602,6 +1622,230 @@ def run_chat_switch_cards(browser, width, height, label, shots):
     finally:
         ctx.close()
     STATE["diag_mode"] = "off"
+
+
+# ── Сценарий 2d: P0IM-OV-HEADER — «этот / другой / сравнить» ─────────────
+PEEK_PROBE = r"""
+() => {
+  const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+  const val = (sel) => strip((document.querySelector(sel) || {}).textContent);
+  const clipped = (root) => Array.from(
+    document.querySelectorAll((root || '') + ' .ini-fact__v, ' +
+                              (root || '') + ' .ini-compare__val'))
+    .filter((el) => el.scrollWidth > el.clientWidth + 1).length;
+  const offscreen = (root) => Array.from(
+    document.querySelectorAll((root || '') + ' .ini-fact__v, ' +
+                              (root || '') + ' .ini-compare__val'))
+    .filter((el) => el.getBoundingClientRect().right > window.innerWidth + 1)
+    .length;
+  const groups = Array.from(
+    document.querySelectorAll('[data-ini-compare-mech]')).map((g) => ({
+      mech: g.getAttribute('data-ini-compare-mech'),
+      title: strip((g.querySelector('.ini-compare__title') || {}).textContent),
+      left: strip((g.querySelector('[data-ini-compare-chat="left"]') || {})
+        .textContent),
+      right: strip((g.querySelector('[data-ini-compare-chat="right"]') || {})
+        .textContent),
+      rows: Array.from(g.querySelectorAll('[data-ini-compare-axis]')).map((r) => ({
+        axis: r.getAttribute('data-ini-compare-axis'),
+        label: strip((r.querySelector('.ini-compare__label') || {}).textContent),
+        left: strip((r.querySelector('[data-ini-compare-side="left"]') || {})
+          .textContent),
+        right: strip((r.querySelector('[data-ini-compare-side="right"]') || {})
+          .textContent),
+        differs: r.classList.contains('ini-compare__row--diff'),
+      })),
+    }));
+  const cards = {};
+  ['text', 'meme'].forEach((c) => {
+    const root = '[data-ini-card="' + c + '"]';
+    cards[c] = {
+      present: !!document.querySelector(root),
+      delivery: val(root + ' [data-ini-axis="' + c + ':delivery"] .ini-fact__v'),
+      config: val(root + ' [data-ini-axis="' + c + ':config"] .ini-fact__v'),
+      attemptBtn: !!document.querySelector(root + ' [data-ini-open-attempt]'),
+    };
+  });
+  return {
+    switchVisible: !!document.querySelector('[data-ini-switch]'),
+    switchMode: (document.querySelector('[data-ini-switch]') || {}).getAttribute
+      ? document.querySelector('[data-ini-switch]')
+        .getAttribute('data-ini-switch-mode') : null,
+    buttons: Array.from(document.querySelectorAll('[data-ini-switch-mode-btn]'))
+      .map((b) => b.getAttribute('data-ini-switch-mode-btn')),
+    compareBtn: !!document.querySelector('[data-ini-switch-mode-btn="compare"]'),
+    comparePresent: !!document.querySelector('[data-ini-compare]'),
+    compareReady: (document.querySelector('[data-ini-compare]') || {})
+      .getAttribute ? document.querySelector('[data-ini-compare]')
+      .getAttribute('data-ini-compare-ready') : null,
+    compareWaiting: val('[data-ini-compare-waiting]'),
+    peekLabel: val('[data-ini-peek-label]'),
+    peekError: val('[data-ini-peek-error]'),
+    scopeChat: val('[data-ini-overview-chat]'),
+    cards: cards,
+    groups: groups,
+    clipCards: clipped('[data-ini-card]'),
+    clipCompare: clipped('[data-ini-compare]'),
+    offCards: offscreen('[data-ini-card]'),
+    offCompare: offscreen('[data-ini-compare]'),
+    hScroll: document.documentElement.scrollWidth - window.innerWidth,
+    vw: window.innerWidth,
+  };
+}
+"""
+
+
+def run_peek_modes(browser, width, height, label, shots):
+    """Три состояния обзора + честная деградация одним прогоном."""
+    STATE["diag_mode"] = "on"
+    STATE["single_chat"] = False
+    ctx, page = new_page(browser, width, height)
+    try:
+        open_page(page)
+        page.wait_for_selector('[data-ini-switch]', timeout=15000)
+        page.wait_for_timeout(500)
+        base = page.evaluate(PEEK_PROBE)
+        notes.append({label + "-peek-self": {
+            "buttons": base["buttons"], "mode": base["switchMode"],
+            "delivery": base["cards"]["meme"]["delivery"]}})
+        check(base["switchVisible"], label, "нет переключателя чатов")
+        check(base["buttons"] == ["self", "other", "compare"], label,
+              "переключатель не из трёх состояний: %r" % (base["buttons"],))
+        check(base["switchMode"] == "self", label,
+              "исходное состояние не «этот чат»: %r" % base["switchMode"])
+        check(not base["comparePresent"], label,
+              "сравнение показано в состоянии «этот чат»")
+        check("4321" in base["cards"]["meme"]["delivery"], label,
+              "свой чат не показан: %r" % base["cards"]["meme"]["delivery"])
+
+        # «Другой чат»: свои пять осей второго чата, без чисел своего.
+        page.click('[data-ini-switch-mode-btn="other"]')
+        page.wait_for_function(
+            "() => { const el = document.querySelector("
+            "'[data-ini-card=\"meme\"] [data-ini-axis=\"meme:delivery\"] .ini-fact__v');"
+            " return !!el && el.textContent.indexOf('987654') >= 0; }",
+            timeout=15000)
+        page.wait_for_timeout(300)
+        other = page.evaluate(PEEK_PROBE)
+        notes.append({label + "-peek-other": {
+            "mode": other["switchMode"], "label": other["peekLabel"],
+            "delivery": other["cards"]["meme"]["delivery"]}})
+        check(other["switchMode"] == "other", label,
+              "режим не переключился: %r" % other["switchMode"])
+        check("987654" in other["cards"]["meme"]["delivery"], label,
+              "другой чат не показал свою доставку: %r"
+              % other["cards"]["meme"]["delivery"])
+        check("4321" not in other["cards"]["meme"]["delivery"], label,
+              "в «другом чате» осталось число своего чата")
+        check("Чат B" in other["peekLabel"], label,
+              "режим не назвал, чей чат показан: %r" % other["peekLabel"])
+        check(not other["cards"]["meme"]["attemptBtn"], label,
+              "в чужом чате предложена ссылка на попытку своего журнала")
+        check(other["hScroll"] <= 1, label,
+              "«другой чат» прокручивается по горизонтали: %d" % other["hScroll"])
+        check(other["clipCards"] == 0, label,
+              "в «другом чате» обрезаны значения: %d" % other["clipCards"])
+        shot(page, shots, "peek_other_%s" % label)
+
+        # «Сравнить чаты»: две подписанные колонки, без третьего набора чисел.
+        page.click('[data-ini-switch-mode-btn="compare"]')
+        page.wait_for_selector('[data-ini-compare][data-ini-compare-ready="true"]',
+                               timeout=15000)
+        page.wait_for_timeout(400)
+        cmp = page.evaluate(PEEK_PROBE)
+        notes.append({label + "-peek-compare": {
+            "mode": cmp["switchMode"], "groups": [
+                {"mech": g["mech"], "left": g["left"], "right": g["right"],
+                 "rows": len(g["rows"])} for g in cmp["groups"]],
+            "hScroll": cmp["hScroll"], "clip": cmp["clipCompare"],
+            "off": cmp["offCompare"]}})
+        check(cmp["comparePresent"], label, "нет блока сравнения")
+        check(len(cmp["groups"]) == 2, label,
+              "сравнение не по двум механизмам: %r"
+              % [g["mech"] for g in cmp["groups"]])
+        check(not cmp["cards"]["text"]["present"], label,
+              "в сравнении остались карточки одного чата")
+        for g in cmp["groups"]:
+            check(g["left"] == "Чат A" and g["right"] == "Чат B", label,
+                  "колонки не подписаны чатами: %r / %r"
+                  % (g["left"], g["right"]))
+            check(len(g["rows"]) == 5, label,
+                  "сравнение не по пяти осям (%s): %r"
+                  % (g["mech"], [r["axis"] for r in g["rows"]]))
+            for row in g["rows"]:
+                check(bool(row["left"]) and bool(row["right"]), label,
+                      "пустая ячейка сравнения: %r" % row)
+        meme_rows = {r["axis"]: r for r in
+                     [x for g in cmp["groups"] if g["mech"] == "meme"
+                      for x in g["rows"]]}
+        delivery = meme_rows.get("meme:delivery") or {}
+        check("4321" in (delivery.get("left") or ""), label,
+              "левая колонка не из своего payload: %r" % delivery)
+        check("987654" in (delivery.get("right") or ""), label,
+              "правая колонка не из payload другого чата: %r" % delivery)
+        check(delivery.get("differs") is True, label,
+              "расхождение значений не отмечено")
+        # Разница видна и по СОСТОЯНИЮ: у мемов второй чат ждёт кулдаун.
+        now_row = meme_rows.get("meme:now") or {}
+        check("может сработать сейчас" in (now_row.get("left") or ""), label,
+              "левая колонка «Сейчас» не своя: %r" % now_row)
+        check("кулдаун" in (now_row.get("right") or ""), label,
+              "правая колонка «Сейчас» не показала ожидание второго чата: %r"
+              % now_row)
+        check(now_row.get("differs") is True, label,
+              "разные состояния чатов не отмечены как расхождение")
+        # Время в обеих колонках — UTC (иначе сравнивать пришлось бы с пересчётом).
+        check("UTC" in (delivery.get("left") or ""), label,
+              "время левой колонки без явного пояса: %r" % delivery)
+        check("UTC" in (delivery.get("right") or ""), label,
+              "время правой колонки без явного пояса: %r" % delivery)
+        check(cmp["hScroll"] <= 1, label,
+              "сравнение прокручивается по горизонтали: %d px" % cmp["hScroll"])
+        check(cmp["clipCompare"] == 0, label,
+              "в сравнении обрезаны значения: %d" % cmp["clipCompare"])
+        check(cmp["offCompare"] == 0, label,
+              "значения сравнения вышли за экран: %d" % cmp["offCompare"])
+        shot(page, shots, "peek_compare_%s" % label)
+
+        # Возврат к своему чату: чужие числа исчезают.
+        page.click('[data-ini-switch-mode-btn="self"]')
+        page.wait_for_function(
+            "() => { const el = document.querySelector("
+            "'[data-ini-card=\"meme\"] [data-ini-axis=\"meme:delivery\"] .ini-fact__v');"
+            " return !!el && el.textContent.indexOf('4321') >= 0; }",
+            timeout=15000)
+        back = page.evaluate(PEEK_PROBE)
+        check("987654" not in back["cards"]["meme"]["delivery"], label,
+              "после возврата осталось число другого чата: %r"
+              % back["cards"]["meme"]["delivery"])
+        check(not back["comparePresent"], label,
+              "сравнение осталось на экране после возврата к своему чату")
+
+        # Деградация: один чат в доступе — переключателя нет, ошибок нет.
+        STATE["single_chat"] = True
+        page.reload(wait_until="load")
+        page.wait_for_selector('[data-workspace-overview]', timeout=15000)
+        page.wait_for_timeout(1200)
+        single = page.evaluate(PEEK_PROBE)
+        notes.append({label + "-peek-single": {
+            "switch": single["switchVisible"], "compare": single["compareBtn"],
+            "delivery": single["cards"]["meme"]["delivery"]}})
+        check(not single["switchVisible"], label,
+              "при одном чате показан пустой переключатель")
+        check(not single["compareBtn"], label,
+              "при одном чате предложено сравнение")
+        check(not single["comparePresent"], label,
+              "при одном чате показан пустой блок сравнения")
+        check("4321" in single["cards"]["meme"]["delivery"], label,
+              "при одном чате пропали его собственные данные: %r"
+              % single["cards"]["meme"]["delivery"])
+        check(single["hScroll"] <= 1, label,
+              "при одном чате появилась горизонтальная прокрутка")
+        shot(page, shots, "peek_single_%s" % label)
+    finally:
+        STATE["single_chat"] = False
+        STATE["diag_mode"] = "off"
+        ctx.close()
 
 
 # ── Сценарий 3: «Текстовая инициатива» ───────────────────────────────────
@@ -2478,6 +2722,9 @@ def main() -> int:
                 STATE["diag_mode"] = "off"
                 # Блокер 4: действие карточки ведёт в трассу ТОЙ ЖЕ попытки.
                 run_attempt_focus(browser, 1536, 960, "1536", args.shots)
+                # P0IM-OV-HEADER: три состояния обзора + честная деградация.
+                run_peek_modes(browser, 1536, 960, "1536", args.shots)
+                run_peek_modes(browser, 390, 844, "390", args.shots)
                 # Блокер 1: смена чата очищает карточки, затем показывает свои.
                 run_chat_switch_cards(browser, 1536, 960, "1536", args.shots)
                 run_chat_switch_cards(browser, 390, 844, "390", args.shots)

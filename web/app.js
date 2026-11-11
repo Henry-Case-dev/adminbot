@@ -3799,10 +3799,101 @@
     };
   }
 
+  //: Строки сравнения двух чатов: у каждой оси — ДВА значения из двух разных
+  //: payload'ов, каждое со своим чатом. Никакой арифметики и «победителя».
+  var INI_COMPARE_ROWS = (
+    ['config', 'now', 'next', 'attempt', 'delivery']
+  );
+  var INI_COMPARE_LABELS = {
+    config: 'Разрешено',
+    now: 'Сейчас',
+    next: 'Дальше',
+    attempt: 'Последняя попытка',
+    delivery: 'Последняя отправка',
+  };
+  var INI_COMPARE_MECHS = (
+    [['text_initiative', 'Текстовая инициатива'],
+     ['meme', 'Мемы']]
+  );
+  function iniAxisCell(axes, key) {
+    var a = axes || {};
+    if (key === 'config') {
+      return { text: String(a.configText || ''), state: String(a.configState || '') };
+    }
+    if (key === 'now') {
+      return { text: String(a.nowText || ''),
+               state: String(a.readinessState || '') };
+    }
+    if (key === 'next') return { text: String(a.nextText || ''), state: '' };
+    if (key === 'attempt') {
+      return { text: String(a.attemptText || ''), state: '' };
+    }
+    return { text: String(a.deliveryText || ''),
+             state: String(a.deliveryStatus || '') };
+  }
+  //: Заголовок чата из уже загруженного списка доступных чатов.
+  function iniChatTitleOf(list, chatId) {
+    var rows = list || [];
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i] && String(rows[i].chat_id) === String(chatId)) {
+        return String(rows[i].title || '');
+      }
+    }
+    return '';
+  }
+
+  //: «Другой чат» для текущей шапки: первый чужой доступный чат, всегда
+  //: названный. Один доступный чат → null (сравнивать не с чем).
+  function iniOtherChatOf(list, activeChatId) {
+    var rows = list || [];
+    var out = null;
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (!row) continue;
+      if (String(row.chat_id) === String(activeChatId)) continue;
+      out = { chatId: row.chat_id, title: String(row.title || '') };
+      break;
+    }
+    return out;
+  }
+
+  //: Сравнение строится из ДВУХ payload'ов: `left` — ответ своего чата,  //: `right` — ответ другого. Время в обеих колонках — UTC (пояс чужого чата
+  //: не читается), поэтому значения сравнимы без пересчёта.
+  function iniCompareGroups(leftPayload, rightPayload, leftTitle, rightTitle) {
+    var groups = [];
+    INI_COMPARE_MECHS.forEach(function (mech) {
+      var leftBlock = leftPayload ? leftPayload[mech[0]] : null;
+      var rightBlock = rightPayload ? rightPayload[mech[0]] : null;
+      var leftAxes = iniAxesOf(leftBlock, '');
+      var rightAxes = iniAxesOf(rightBlock, '');
+      groups.push({
+        key: mech[0],
+        title: mech[1],
+        leftTitle: leftTitle,
+        rightTitle: rightTitle,
+        rows: INI_COMPARE_ROWS.map(function (key) {
+          var left = iniAxisCell(leftAxes, key);
+          var right = iniAxisCell(rightAxes, key);
+          return {
+            key: key,
+            label: INI_COMPARE_LABELS[key],
+            leftText: left.text || INI_NO_DATA,
+            leftState: left.state,
+            rightText: right.text || INI_NO_DATA,
+            rightState: right.state,
+            // «Признак расхождения» — только для подсветки факта, что значения
+            // РАЗНЫЕ. Он не выбирает «правильное» и не ранжирует чаты.
+            differs: (left.text || '') !== (right.text || ''),
+          };
+        }),
+      });
+    });
+    return groups;
+  }
+
   //: Пять осей одного механизма одним объектом. Всё, что показано, взято из
   //: ответа сервера; при отсутствии оси честный ответ — «нет данных».
-  function iniAxesOf(raw, tz) {
-    var b = (raw && typeof raw === 'object') ? raw : {};
+  function iniAxesOf(raw, tz) {    var b = (raw && typeof raw === 'object') ? raw : {};
     var out = {};
     var parts = [
       iniConfigurationAxis(b.configuration),
@@ -3819,15 +3910,42 @@
     return out;
   }
 
+  //: Текст квоты из блока диагностики (без настроек чата): текст — «0 = без
+  //: капа», мем — «0 = предел» (как `quota_block`), поэтому один и тот же ноль
+  //: читается по-разному и никогда не выдаётся за «нет данных».
+  function iniQuotaText(quota, isText) {
+    var q = (quota && typeof quota === 'object') ? quota : {};
+    if (q.available === false) return 'неизвестна (квота не прочитана)';
+    if (q.unlimited === true) return 'без предела (0 = без капа)';
+    if (q.limit == null) return 'неизвестен';
+    var text = String(q.limit) + ' / сутки';
+    text += ' · израсходовано ' + (q.used == null ? 'неизвестно' : q.used);
+    text += ' · осталось ' + (q.remaining == null ? 'неизвестно' : q.remaining);
+    if (isText === false && q.limit_reached === true) text += ' · предел';
+    return text;
+  }
+
+  //: Текст квоты из настроек мемов (для своего чата: там есть дата сброса).
+  function iniMemeSettingsQuota(st) {
+    if (!st) return 'неизвестна';
+    return st.quotaText + ' · ' + st.remainingText
+      + (st.resetAt ? (' · сброс: ' + st.resetAt) : '');
+  }
+
   //: Собирает карточку одного механизма из ЕГО блока пяти осей. Никакой
   //: клиентской реконструкции «включено» из мастер-флага/наблюдателя здесь нет:
   //: источник один — `configuration` из ответа сервера (§1).
+  //: В режиме «другой чат» карточка показывает оси ДРУГОГО payload'а: квота
+  //: берётся из его же блока, а время — в UTC (его пояса у нас нет).
   function iniCardOf(kind) {
     var isText = kind === 'text';
-    var view = this.memeDiagView || {};
+    var mode = String(this.iniViewMode || 'self');
+    var isOther = mode === 'other';
+    var view = isOther ? (this.iniOtherDiagView || {}) : (this.memeDiagView || {});
     var block = (isText ? view.text : view.meme) || null;
+    var tz = isOther ? '' : this.iniOverviewTimezone;
     var ax = (block && block.axes)
-      ? block.axes : iniAxesOf(null, this.iniOverviewTimezone);
+      ? block.axes : iniAxesOf(null, tz);
     var canEdit = this.canEditConfig;
     var canEditKey = (isText ? INITIATIVE_MASTER_KEY
       : 'flags.meme_initiative_enabled');
@@ -3844,19 +3962,18 @@
         : 'меняет только админ этого чата');
     }
     var quotaText;
-    if (isText) {
+    if (isOther) {
+      // Чужой чат: только его собственный блок квоты, без настроек своего чата.
       quotaText = block
-        ? (block.quota.unlimited
-          ? 'без предела (0 = без капа)'
-          : (block.quota.limitText + ' / сутки · израсходовано '
-            + block.quota.usedText + ' · осталось ' + block.quota.remainingText))
+        ? iniQuotaText(block.quota, isText)
+        : 'неизвестна';
+    } else if (isText) {
+      quotaText = block
+        ? iniQuotaText(block.quota, true)
         : 'неизвестна';
     } else {
       var st = this.memeSettingsView;
-      quotaText = st
-        ? (st.quotaText + ' · ' + st.remainingText
-          + (st.resetAt ? (' · сброс: ' + st.resetAt) : ''))
-        : 'неизвестна';
+      quotaText = st ? iniMemeSettingsQuota(st) : 'неизвестна';
     }
     var card = {
       key: kind,
@@ -3869,16 +3986,20 @@
       // Попытку можно открыть в УЖЕ существующем журнале: `attempt_id` имеет
       // вид `<kind>:<job_id|trace_id>` (см. web/api/initiative_publications.py).
       // Пустой родитель → ссылки нет (кнопка не показывается), а не «попытка 0».
-      attemptRef: (ax.attemptRunId
+      // В чужом чате ссылки нет: журнал открывается для выбранного чата.
+      attemptRef: (!isOther && ax.attemptRunId
         ? ((isText ? 'text:' : 'meme:') + ax.attemptRunId) : ''),
       // Проверка ≠ попытка ≠ подтверждённая отправка (§5, строка 3).
       // Время проверки — тем же форматом, что остальные оси (пояс чата или
       // честный UTC), а не в поясе устройства.
       checkText: (!block ? INI_NO_DATA
         : (block.lastCheckTs == null ? 'никогда'
-          : (iniWhen(block.lastCheckTs, this.iniOverviewTimezone)
-            || INI_NO_DATA))),
+          : (iniWhen(block.lastCheckTs, tz) || INI_NO_DATA))),
       noData: (!block || block.isNoData),
+      sourceChatTitle: (isOther
+        ? String((iniOtherChatOf(this.accessChats, this.activeChatId) || {})
+          .title || '')
+        : ''),
     };
     for (var key in ax) {
       if (Object.prototype.hasOwnProperty.call(ax, key)) card[key] = ax[key];
@@ -5181,6 +5302,16 @@
         // пришедший во время чтения, не теряется и не оставляет старый снимок.
         memeDiagQueued: false,
         memeDiagError: '',
+        // P0IM-OV-HEADER: компактный переключатель «этот / другой / сравнить».
+        // Второй чат читается ТЕМ ЖЕ эндпоинтом со своим `X-Chat-Id`; снимки
+        // никогда не склеиваются: у каждого свой payload и своя подпись чата.
+        iniPeekMode: 'self',        // self | other | compare
+        iniPeek: null,              // payload ДРУГОГО чата (не смешивается)
+        iniPeekChatId: null,        // для какого чата прочитан `iniPeek`
+        iniPeekBusy: false,
+        iniPeekQueued: false,
+        iniPeekError: '',
+        iniPeekSeq: 0,              // монотонный гвард ответов второго чата
         // P1 «Инициатива» (рекомпоновка страницы): журнал ЛОГИЧЕСКИХ попыток
         // публикации (текст и мемы) и трасса РОВНО одной попытки. Один
         // запрос на вкладку; «Обзор» тяжёлый журнал НЕ грузит.
@@ -9044,6 +9175,94 @@
             : 'снимок ещё не прочитан'),
         };
       },
+      // ═══ P0IM-OV-HEADER: «этот чат / другой чат / сравнить чаты» ═════════
+      // Доступные чаты — уже существующий `/api/access/chats`. «Другой чат» —
+      // ПЕРВЫЙ чужой в этом же списке, и он всегда назван; если чат один,
+      // переключателя нет вовсе (пустое сравнение не рисуется).
+      iniActiveChatTitle: function () {
+        return iniChatTitleOf(this.accessChats, this.activeChatId);
+      },
+      iniOtherChat: function () {
+        return iniOtherChatOf(this.accessChats, this.activeChatId);
+      },
+      // Режим просмотра: без второго чата «другой»/«сравнить» не существуют,
+      // поэтому рендер честно падает в «этот чат», даже если состояние
+      // осталось от прошлой конфигурации доступа.
+      iniViewMode: function () {
+        var mode = String(this.iniPeekMode || 'self');
+        if (mode !== 'self'
+            && !iniOtherChatOf(this.accessChats, this.activeChatId)) return 'self';
+        return mode;
+      },
+      // Снимок ВТОРОГО чата: применяется только к тому чату, который просили,
+      // и только пока он остаётся «другим» для текущей шапки.
+      iniOtherDiagView: function () {
+        var d = this.iniPeek;
+        var other = iniOtherChatOf(this.accessChats, this.activeChatId);
+        if (!d || !other) return null;
+        if (this.iniPeekChatId == null
+            || String(this.iniPeekChatId) !== String(other.chatId)) {
+          return null;
+        }
+        if (d.chat_id == null || String(d.chat_id) !== String(other.chatId)) {
+          return null;
+        }
+        // Пояса чужого чата у нас нет (свой конфиг читается только для
+        // выбранного чата) — время второго чата показывается в UTC с пометкой.
+        var tz = '';
+        return {
+          chatId: other.chatId,
+          title: other.title,
+          generatedAt: d.generated_at || null,
+          degraded: d.degraded || [],
+          text: memeMechanismViewOf(d.text_initiative, tz),
+          meme: memeMechanismViewOf(d.meme, tz),
+        };
+      },
+      // Сравнение: ДВА собственных набора осей, подписанных своими чатами.
+      // Никаких производных чисел: слева — ответ своего чата, справа — ответ
+      // другого, каждая ячейка остаётся значением своего payload'а.
+      iniCompare: function () {
+        // Режим выводится здесь же: без второго чата сравнения не существует,
+        // поэтому `compute` не зависит от порядка вычисления `iniViewMode`.
+        var other = iniOtherChatOf(this.accessChats, this.activeChatId);
+        var mode = String(this.iniPeekMode || 'self');
+        if (mode !== 'self' && !other) mode = 'self';
+        var active = this.activeChatId;
+        var leftTitle = iniChatTitleOf(this.accessChats, this.activeChatId)
+          || 'этот чат';
+        var out = {
+          mode: mode,
+          visible: mode === 'compare',
+          available: !!other,
+          leftTitle: leftTitle,
+          rightTitle: other ? other.title : '',
+          busy: this.iniPeekBusy === true,
+          error: String(this.iniPeekError || ''),
+          ready: false,
+          groups: [],
+        };
+        if (mode !== 'compare' || !other) return out;
+        var selfPayload = null;
+        if (this.memeDiag && active != null
+            && this.memeDiag.chat_id != null
+            && String(this.memeDiag.chat_id) === String(active)) {
+          selfPayload = this.memeDiag;
+        }
+        var otherPayload = null;
+        if (this.iniPeek && other
+            && this.iniPeekChatId != null
+            && this.iniPeek.chat_id != null
+            && String(this.iniPeekChatId) === String(other.chatId)
+            && String(this.iniPeek.chat_id) === String(other.chatId)) {
+          otherPayload = this.iniPeek;
+        }
+        if (!selfPayload || !otherPayload) return out;
+        out.ready = true;
+        out.groups = iniCompareGroups(selfPayload, otherPayload, leftTitle,
+                                      other.title);
+        return out;
+      },
       // ═══ P1 «Инициатива» (2026-11-03): ОБЗОР — две равнозначные карточки ═══
       // Одна карточка на механизм, одни и те же поля, разные источники:
       // живое состояние — из `mechanism-diagnostics` (не из настроек!), факт
@@ -12302,6 +12521,14 @@
         this.memeDiag = null;
         this.memeDiagError = '';
         this.memeDiagQueued = false;
+        // Переключатель возвращается к своему чату: «другой чат» в новой
+        // области — это уже ДРУГОЙ чат, старый снимок к нему не относится.
+        this.iniPeekMode = 'self';
+        this.iniPeek = null;
+        this.iniPeekChatId = null;
+        this.iniPeekQueued = false;
+        this.iniPeekError = '';
+        this.iniPeekSeq += 1;
         this.memeSettings = null;
         this.memeSettingsError = '';
         this.memeFieldErrors = {};
@@ -14448,6 +14675,8 @@
         if (this.activeChatId == null) return;
         this.loadMemeSettings();
         this.loadInitiativeVitality();
+        // Второй чат читается тем же эндпоинтом: «Обновить» обновляет и его.
+        if (String(this.iniPeekMode) !== 'self') this.loadIniPeek();
       },
       initiativeTabEnter: function (tab) {
         var isInitiative = !!(this.workspace && this.workspace.module
@@ -14456,6 +14685,11 @@
         if (tab === 'overview') {
           if (this.activeChatId != null) this.loadMemeSettings();
           this.loadInitiativeVitality();
+          // Возврат на «Обзор» в режиме «другой/сравнить» дочитывает снимок
+          // второго чата, если его ещё нет (тот же single-flight).
+          if (String(this.iniPeekMode) !== 'self' && !this.iniPeek) {
+            this.loadIniPeek();
+          }
           return;
         }
         if (tab === 'text') {
@@ -14584,6 +14818,96 @@
         var ref = String(attemptRef || '');
         if (!ref) return;
         this.initiativeOpenTrace(ref);
+      },
+      // ═══ P0IM-OV-HEADER: переключатель «этот / другой / сравнить» ═════════
+      // Никакой новой секции: переключатель живёт в шапке обзора, «другой
+      // чат» — тот же эндпоинт со своим `X-Chat-Id`, «сравнить» — две колонки
+      // тех же осей. Смена режима сразу сбрасывает чужой снимок: ответ,
+      // пришедший для прежнего выбора, не может стать текущим (см. `_iniPeekOk`).
+      iniSetPeekMode: function (mode) {
+        var next = String(mode || 'self');
+        if (next !== 'self' && next !== 'other' && next !== 'compare') return;
+        if (next !== 'self'
+            && !iniOtherChatOf(this.accessChats, this.activeChatId)) {
+          // Один чат: «другой»/«сравнить» не существуют (пустое сравнение не
+          // рисуем) — режим остаётся своим.
+          next = 'self';
+        }
+        var prev = String(this.iniPeekMode || 'self');
+        this.iniPeekMode = next;
+        if (next === 'self') {
+          this.iniPeekSeq += 1;          // ответы второго чата больше не нужны
+          return;
+        }
+        // «Другой» и «сравнить» читают ОДИН и тот же payload второго чата:
+        // переключение между ними не перезаписывает уже проверенный снимок.
+        var otherNow = iniOtherChatOf(this.accessChats, this.activeChatId);
+        var sameTarget = (this.iniPeekChatId != null && otherNow
+          && String(this.iniPeekChatId) === String(otherNow.chatId));
+        if (prev === 'self' || !sameTarget) {
+          this.iniPeekSeq += 1;          // старый ответ инвалидируется сразу
+          this.iniPeek = null;
+          this.iniPeekChatId = null;
+          this.iniPeekError = '';
+        }
+        this.loadIniPeek();
+      },
+      // Чужой снимок применяется только если: ответ ещё актуален (seq), шапка
+      // не менялась (epoch + activeChatId), цель осталась «другим чатом», и
+      // payload подписан ИМЕННО этим чатом. Иначе — отброшен с причиной.
+      _iniPeekOk: function (seq, epoch, activeId, chatId, data) {
+        if (seq !== this.iniPeekSeq) return false;
+        if (this._scopeGuard(epoch) !== true) return false;
+        if (String(this.activeChatId) !== String(activeId)) return false;
+        var other = iniOtherChatOf(this.accessChats, this.activeChatId);
+        if (!other || String(other.chatId) !== String(chatId)) return false;
+        if (!data || data.chat_id == null) return false;
+        return String(data.chat_id) === String(chatId);
+      },
+      loadIniPeek: async function () {
+        var other = iniOtherChatOf(this.accessChats, this.activeChatId);
+        if (!other || String(this.iniPeekMode) === 'self') return;
+        var chatId = other.chatId;
+        if (this.iniPeekBusy) {
+          this.iniPeekQueued = true;
+          return;
+        }
+        var seq = this.iniPeekSeq;
+        var epoch = this.scopeEpoch;
+        var activeId = this.activeChatId;
+        this.iniPeekBusy = true;
+        this.iniPeekQueued = false;
+        this.iniPeekError = '';
+        try {
+          // Тот же существующий эндпоинт, адресованный ДРУГОМУ чату.
+          var data = await this.api('/api/initiative/mechanism-diagnostics',
+                                    { chatId: chatId });
+          if (!this._iniPeekOk(seq, epoch, activeId, chatId, data)) {
+            if (seq === this.iniPeekSeq) {
+              this.iniPeekError =
+                'Снимок другого чата не применился: выбран другой чат или '
+                + 'режим — обновите экран';
+            }
+            return;
+          }
+          this.iniPeek = data || null;
+          this.iniPeekChatId = chatId;
+        } catch (e) {
+          if (seq !== this.iniPeekSeq) return;
+          if (!this._scopeGuard(epoch)
+              || String(this.activeChatId) !== String(activeId)) return;
+          this.iniPeek = null;
+          this.iniPeekChatId = null;
+          this.iniPeekError = (e && e.status === 403)
+            ? 'Нет доступа к диагностике другого чата'
+            : ((e && e.message) || 'диагностика другого чата недоступна');
+        } finally {
+          this.iniPeekBusy = false;
+          if (this.iniPeekQueued) {
+            this.iniPeekQueued = false;
+            if (String(this.iniPeekMode) !== 'self') this.loadIniPeek();
+          }
+        }
       },
       // id сообщения: `0`/пусто — «не записан», а не «сообщение 0».
       iniMessageIdLabel: function (value) {

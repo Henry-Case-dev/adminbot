@@ -1910,13 +1910,59 @@
                     <button type="button" class="btn-ghost text-xs"
                             data-ini-refresh @click="initiativeRefresh()">Обновить</button>
                   </div>
+                  <!-- P0IM-OV-HEADER: компактный переключатель «этот / другой /
+                       сравнить». Второго чата нет — переключателя нет вовсе:
+                       пустое сравнение не рисуется. -->
+                  <div v-if="iniOtherChat" class="ini-switch" data-ini-switch
+                       :data-ini-switch-mode="iniViewMode" role="group"
+                       aria-label="Что показать">
+                    <button type="button" class="ini-switch__btn"
+                            :class="{ 'ini-switch__btn--on': iniViewMode === 'self' }"
+                            :aria-pressed="iniViewMode === 'self' ? 'true' : 'false'"
+                            data-ini-switch-mode-btn="self"
+                            @click="iniSetPeekMode('self')">Этот чат</button>
+                    <button type="button" class="ini-switch__btn"
+                            :class="{ 'ini-switch__btn--on': iniViewMode === 'other' }"
+                            :aria-pressed="iniViewMode === 'other' ? 'true' : 'false'"
+                            data-ini-switch-mode-btn="other"
+                            :data-ini-switch-target="iniOtherChat.chatId"
+                            @click="iniSetPeekMode('other')">Другой чат</button>
+                    <button type="button" class="ini-switch__btn"
+                            :class="{ 'ini-switch__btn--on': iniViewMode === 'compare' }"
+                            :aria-pressed="iniViewMode === 'compare' ? 'true' : 'false'"
+                            data-ini-switch-mode-btn="compare"
+                            @click="iniSetPeekMode('compare')">Сравнить чаты</button>
+                  </div>
+                  <div v-if="iniViewMode !== 'self'" class="ini-note"
+                       data-ini-peek-label>
+                    <template v-if="iniViewMode === 'other'">
+                      Показан другой чат: <b>{{ iniOtherChat.title || iniOtherChat.chatId }}</b> —
+                      его собственные оси, только чтение. Время в UTC (пояс
+                      другого чата здесь не читается).
+                    </template>
+                    <template v-else>
+                      Сравнение двух чатов по одним и тем же механизмам. Слева —
+                      <b>{{ iniActiveChatTitle || 'этот чат' }}</b>, справа —
+                      <b>{{ iniOtherChat.title || iniOtherChat.chatId }}</b>;
+                      у каждой колонки свой ответ. Время в обеих колонках — UTC.
+                      Значения не складываются и не усредняются.
+                    </template>
+                  </div>
+                  <div v-if="iniPeekError && iniViewMode !== 'self'"
+                       class="ini-note ini-note--warn" data-ini-peek-error>
+                    {{ iniPeekError }}
+                  </div>
+                  <div v-if="iniPeekBusy && iniViewMode !== 'self' && !iniPeek"
+                       class="ini-note" data-ini-peek-busy>
+                    Читаем второй чат…
+                  </div>
                   <div v-if="memeDiagError" class="ini-note ini-note--warn"
                        data-ini-overview-diag-error>
                     Состояние механизмов не прочитано: {{ memeDiagError }}
                   </div>
                 </template>
 
-                <div class="ini-cards">
+                <div class="ini-cards" v-if="iniViewMode !== 'compare'">
                   <section class="ini-card" data-ini-card="text">
                     <header class="ini-card__head">
                       <span class="msr" aria-hidden="true">{{ iconGlyph('forum') }}</span>
@@ -1975,7 +2021,8 @@
                               data-ini-open="text" @click="openWorkspaceTab('text')">
                         {{ initiativeTextCard.tabLabel }} →
                       </button>
-                      <button v-if="initiativeTextCard.attemptRef" type="button"
+                      <button v-if="initiativeTextCard.attemptRef && iniViewMode === 'self'"
+                              type="button"
                               class="btn-ghost text-xs"
                               data-ini-open-attempt="text"
                               :data-ini-attempt-ref="initiativeTextCard.attemptRef"
@@ -2043,7 +2090,8 @@
                               data-ini-open="memes" @click="openWorkspaceTab('memes')">
                         {{ initiativeMemeCard.tabLabel }} →
                       </button>
-                      <button v-if="initiativeMemeCard.attemptRef" type="button"
+                      <button v-if="initiativeMemeCard.attemptRef && iniViewMode === 'self'"
+                              type="button"
                               class="btn-ghost text-xs"
                               data-ini-open-attempt="meme"
                               :data-ini-attempt-ref="initiativeMemeCard.attemptRef"
@@ -2052,6 +2100,51 @@
                       </button>
                     </div>
                   </section>
+                </div>
+
+                <!-- P0IM-OV-HEADER: сравнение двух чатов. Две КОЛОНКИ одних и
+                     тех же осей; каждая ячейка — значение своего payload'а,
+                     подписанного своим чатом. Ни сумм, ни средних, ни
+                     «победителя»: подсветка только отмечает РАЗНЫЕ значения. -->
+                <div v-if="iniViewMode === 'compare'" class="ini-compare"
+                     data-ini-compare
+                     :data-ini-compare-ready="iniCompare.ready ? 'true' : 'false'">
+                  <div v-if="!iniCompare.ready" class="ini-note" data-ini-compare-waiting>
+                    <template v-if="iniCompare.error">{{ iniCompare.error }}</template>
+                    <template v-else-if="iniCompare.busy">Читаем второй чат…</template>
+                    <template v-else>
+                      Сравнивать пока нечего: данные одного из чатов не прочитаны.
+                    </template>
+                  </div>
+                  <template v-else>
+                    <div v-for="g in iniCompare.groups" :key="'cmp-' + g.key"
+                         class="ini-compare__group"
+                         :data-ini-compare-mech="g.key">
+                      <div class="ini-compare__title">{{ g.title }}</div>
+                      <div class="ini-compare__head">
+                        <span class="ini-compare__label"></span>
+                        <span class="ini-compare__chat" data-ini-compare-chat="left">
+                          {{ g.leftTitle }}
+                        </span>
+                        <span class="ini-compare__chat" data-ini-compare-chat="right">
+                          {{ g.rightTitle }}
+                        </span>
+                      </div>
+                      <div v-for="row in g.rows"
+                           :key="'cmp-row-' + g.key + '-' + row.key"
+                           class="ini-compare__row"
+                           :class="{ 'ini-compare__row--diff': row.differs }"
+                           :data-ini-compare-axis="g.key + ':' + row.key">
+                        <span class="ini-compare__label">{{ row.label }}</span>
+                        <span class="ini-compare__val"
+                              :data-ini-compare-side="'left'"
+                              :data-ini-compare-state="row.leftState">{{ row.leftText }}</span>
+                        <span class="ini-compare__val"
+                              :data-ini-compare-side="'right'"
+                              :data-ini-compare-state="row.rightState">{{ row.rightText }}</span>
+                      </div>
+                    </div>
+                  </template>
                 </div>
 
                 <div v-if="initiativeCoordination.visible" class="ini-coord"
