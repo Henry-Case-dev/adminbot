@@ -4445,13 +4445,18 @@
       var gateLabel = INI_CONFIG_GATE_LABELS[gate]
         || (gate ? ('код: ' + gate) : 'гейт без имени');
       var layer = String(row.layer || '');
-      var layerLabel = INI_CONFIG_LAYER_LABELS[layer] || '';
-      var state;
-      if (row.enabled === true) state = 'разрешает';
-      else if (row.enabled === false) state = 'запрещает';
-      else state = 'неизвестно';
-      parts.push(gateLabel + ': ' + state
-        + (layerLabel ? ' · ' + layerLabel : ' · слой не записан'));
+      var layerLabel = INI_CONFIG_LAYER_LABELS[layer]
+        || (layer ? ('слой: ' + layer) : 'слой не записан');
+      // Разрешающий гейт не пересказывает «разрешает»: важно только, ИЗ
+      // какого он слоя. Запрет и неизвестность называются словами — иначе
+      // причина отказа потерялась бы в подписи слоя.
+      if (row.enabled === true) {
+        parts.push(gateLabel + ' — ' + layerLabel);
+      } else {
+        parts.push(gateLabel + ': '
+          + (row.enabled === false ? 'запрещает' : 'неизвестно')
+          + ' · ' + layerLabel);
+      }
     }
     return parts.join('; ');
   }
@@ -4462,6 +4467,14 @@
     var num = Number(ts);
     if (ts == null || !isFinite(num) || num <= 0) return '';
     return turnShortWhen(num, tz || '');
+  }
+
+  //: Та же метка, но с годом: длинные списки (журнал событий) не должны
+  //: терять дату. Пояс — тот же (чат или честный UTC с пометкой).
+  function iniWhenFull(ts, tz) {
+    var num = Number(ts);
+    if (ts == null || !isFinite(num) || num <= 0) return '';
+    return turnShortWhen(num, tz || '', true);
   }
 
   //: Ось configuration: ВКЛ/ВЫКЛ/НЕИЗВЕСТНО — ТОЛЬКО из `configuration`.
@@ -5457,23 +5470,31 @@
 
   //: «06.11 15:42» из unix-секунд В ПОЯСЕ ЧАТА (IANA). Пояс неизвестен —
   //: честные UTC-цифры с пометкой UTC, а не выдуманная зона (§5).
-  function turnShortWhen(ts, tz) {
+  function turnShortWhen(ts, tz, withYear) {
     var num = Number(ts);
     if (!isFinite(num) || num <= 0) return '';
     var date = new Date(num * 1000);
     if (isNaN(date.getTime())) return '';
     var zone = (typeof tz === 'string' && tz) ? tz : 'UTC';
     try {
-      var parts = new Intl.DateTimeFormat('ru-RU', {
+      var opts = {
         timeZone: zone, day: '2-digit', month: '2-digit',
         hour: '2-digit', minute: '2-digit', hour12: false,
-      }).formatToParts(date);
+      };
+      if (withYear) opts.year = 'numeric';
+      var parts = new Intl.DateTimeFormat('ru-RU', opts).formatToParts(date);
       var got = {};
       for (var i = 0; i < parts.length; i++) {
         got[parts[i].type] = parts[i].value;
       }
       if (!got.day || !got.month || !got.hour || !got.minute) return '';
-      var line = got.day + '.' + got.month + ' ' + got.hour + ':' + got.minute;
+      var line;
+      if (withYear && got.year) {
+        line = got.day + '.' + got.month + '.' + got.year + ', '
+          + got.hour + ':' + got.minute;
+      } else {
+        line = got.day + '.' + got.month + ' ' + got.hour + ':' + got.minute;
+      }
       if (zone === 'UTC' && !(typeof tz === 'string' && tz)) {
         return line + ' UTC';
       }
@@ -10448,8 +10469,14 @@
         });
         out = out.filter(function (e) { return !!e.ts; });
         out.sort(function (a, b) { return b.ts - a.ts; });
+        // Время события — в поясе ЧАТА и по серверному штампу: раньше здесь
+        // печаталось локальное время устройства, и один и тот же момент на
+        // «Обзоре» и в журнале выглядел по-разному (P0IM-S6-TZ).
+        var tz = this.iniOverviewTimezone;
         return out.slice(0, 5).map(function (e) {
-          return Object.assign({}, e, { timeText: _tsStatusLabel(e.ts, '—') });
+          return Object.assign({}, e, {
+            timeText: iniWhenFull(e.ts, tz) || '—',
+          });
         });
       },
       // «Последнее решение» текстовой инициативы: вероятность и РЕАЛЬНЫЙ
@@ -10463,10 +10490,12 @@
         var random = block ? block.random : null;
         return {
           hasDecision: !!(decision || (mod && mod.lastDecision)),
+          // Время решения — в поясе чата (тот же штамп, что остальные оси).
           timeText: decision && decision.ts
-            ? _tsStatusLabel(decision.ts, '—')
+            ? (iniWhenFull(decision.ts, this.iniOverviewTimezone) || '—')
             : ((mod && mod.lastDecision && mod.lastDecision.ts)
-              ? _tsStatusLabel(mod.lastDecision.ts, '—') : 'решений не было'),
+              ? (iniWhenFull(mod.lastDecision.ts, this.iniOverviewTimezone)
+                 || '—') : 'решений не было'),
           actionText: decision
             ? (decision.action || 'решение')
             : ((mod && mod.lastDecision && mod.lastDecision.action) || '—'),

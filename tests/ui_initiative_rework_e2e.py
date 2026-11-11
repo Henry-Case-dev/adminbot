@@ -283,7 +283,24 @@ def _block(mechanism, **over):
         "blocking": {"blocked": [], "warned": []},
         # P0 (§1): пять осей — та же форма, что отдаёт сборщик диагностики.
         "configuration": {"enabled": True, "source": "chat", "scope": "chat",
-                          "reason": ""},
+                          "reason": "",
+                          # P0IM-S6-EFFECTIVE: слой КАЖДОГО гейта. Тумблер
+                          # чата выставлен сохранённым значением, настройки
+                          # мемов — заводским: витрина обязана их различить.
+                          "layers": [
+                              {"gate": "module_gate", "layer": "global",
+                               "enabled": True, "source": "product",
+                               "reason": ""},
+                              {"gate": "observer", "layer": "global",
+                               "enabled": True, "source": "product",
+                               "reason": ""},
+                              {"gate": "chat_toggle", "layer": "chat",
+                               "enabled": True, "source": "chat",
+                               "reason": ""},
+                              {"gate": "meme_settings", "layer": "factory",
+                               "enabled": True, "source": "meme_settings",
+                               "reason": ""},
+                          ]},
         "health": {"state": "ok", "dependencies": [
             {"name": "event_log", "state": "ok",
              "source": "initiative_observer.chat_block_state"},
@@ -482,6 +499,9 @@ def _diag(chat_id=None):
     return {
         "schema_version": 1, "generated_at": NOW,
         "chat_id": (other if mode == "foreign_chat" else base),
+        # P0IM-S6-TZ: пояс чата и его СЛОЙ приходят в самом ответе. У чатов
+        # разные пояса — визуально видно, что время берётся из payload.
+        "time": _time_block(base, mode),
         "text_initiative": _block(
             "text_initiative",
             random={"performed": True, "outcome": "hit", "value": 0.08,
@@ -492,6 +512,28 @@ def _diag(chat_id=None):
             **text_over),
         "meme": _block("meme", **meme_over),
         "degraded": [],
+    }
+
+
+#: Пояс чата по слоям: A — сохранённый override, B — только общая настройка.
+CHAT_TZ = {CHAT_A: ("Europe/Moscow", "chat"),
+           CHAT_B: ("Asia/Tokyo", "global")}
+
+
+def _time_block(chat_id, mode):
+    """Блок времени ответа: серверный штамп + названный пояс и его слой."""
+    if mode == "tz_missing":
+        # Чатовый пояс не задан ни на одном слое: назван ЗАВОДСКОЙ пояс.
+        name, source, offset = "UTC", "utc_fallback", 0
+    else:
+        name, source = CHAT_TZ.get(int(chat_id), ("UTC", "global"))
+        offset = 3 * 3600 if name == "Europe/Moscow" else 9 * 3600
+    return {
+        "generated_at": NOW,
+        "basis": "server_snapshot",
+        "timezone": {"name": name, "source": source,
+                     "offset_seconds": offset, "default_name": "UTC",
+                     "reason": ""},
     }
 
 
@@ -1348,8 +1390,8 @@ OVERVIEW_PROBE = r"""
       badge: badge ? strip(badge.textContent) : '',
       config: badge ? badge.getAttribute('data-ini-config') : null,
       health: !!el.querySelector('[data-ini-health]'),
-      axes: ['config', 'now', 'next', 'check', 'attempt', 'delivery', 'quota',
-             'who'].map((name) => ({ name: name, row: axis(
+      axes: ['config', 'layers', 'now', 'next', 'check', 'attempt', 'delivery',
+             'quota', 'who'].map((name) => ({ name: name, row: axis(
                el.getAttribute('data-ini-card'), name) })),
     };
   };
@@ -1374,6 +1416,20 @@ OVERVIEW_PROBE = r"""
         .textContent),
       tz: strip((document.querySelector('[data-ini-overview-tz]') || {})
         .textContent),
+      // P0IM-S6-TZ: слой пояса виден в разметке, а не только в тексте.
+      tzSource: (document.querySelector('[data-ini-overview-tz]') || {})
+        .getAttribute
+        ? document.querySelector('[data-ini-overview-tz]')
+          .getAttribute('data-ini-tz-source') : null,
+      tzName: document.querySelector('[data-ini-overview-tz]')
+        ? document.querySelector('[data-ini-overview-tz]')
+          .getAttribute('data-ini-tz-name') : null,
+      tzKnown: document.querySelector('[data-ini-overview-tz]')
+        ? document.querySelector('[data-ini-overview-tz]')
+          .getAttribute('data-ini-tz-known') : null,
+      snapshotBasis: document.querySelector('[data-ini-overview-snapshot]')
+        ? document.querySelector('[data-ini-overview-snapshot]')
+          .getAttribute('data-ini-snapshot-basis') : null,
       snapshot: strip((document.querySelector('[data-ini-overview-snapshot]') || {})
         .textContent),
       hasRefresh: !!document.querySelector('[data-ini-refresh]'),
@@ -1522,7 +1578,7 @@ def run_overview(browser, width, height, label, shots):
             "textRect": data["textRect"], "memeRect": data["memeRect"],
             "badges": (data["textEffect"], data["memeEffect"]),
             "truncatedFacts": data["truncatedFacts"],
-            "axes": {c: {r["name"]: r["row"]["value"]
+            "axes": {c: {r["name"]: (r["row"] or {}).get("value")
                          for r in (data[c] or {}).get("axes") or []}
                      for c in ("textCard", "memeCard")}}})
         check(data["textCard"] and data["memeCard"], label,
@@ -1550,11 +1606,48 @@ def run_overview(browser, width, height, label, shots):
                 check(not row_m.get("truncated"), label,
                       "значение оси %r мемов обрезано" % name)
             for row in list(text_rows.values()) + list(meme_rows.values()):
-                check(row and row["right"] <= data["vw"] + 1, label,
+                if not row:
+                    continue
+                check(row["right"] <= data["vw"] + 1, label,
                       "значение оси вышло за экран: %r" % (row,))
             check("Генерации сегодня: 1 / 3" in data["memeCard"]["text"], label,
                   "квота дня мемов не из настроек: %r"
                   % data["memeCard"]["text"][:200])
+            # ── P0IM-S6-FRESH ───────────────────────────────────────────────
+            # TIME: пояс назван и пришёл из ОТВЕТА сервера (своим слоем), а не
+            # из списка глобальных параметров. Ответ чужого чата отбрасывается,
+            # поэтому шапка им не подписывается — этот случай проверяется ниже.
+            if (STATE.get("diag_mode") or "off") != "foreign_chat":
+                check(data["scope"]["tzSource"] == "chat", label,
+                      "слой пояса не назван в шапке: %r" % (data["scope"],))
+                check("Europe/Moscow" in (data["scope"]["tz"] or ""), label,
+                      "пояс чата не показан в шапке: %r"
+                      % (data["scope"]["tz"],))
+                check(data["scope"]["snapshotBasis"] == "штамп снимка — сервер",
+                      label, "базис штампа не назван: %r"
+                      % (data["scope"].get("snapshotBasis"),))
+                check("(сервер)" in (data["scope"]["snapshot"] or ""), label,
+                      "штамп снимка не подписан серверным: %r"
+                      % (data["scope"]["snapshot"],))
+            # EFFECTIVE: слой каждого гейта виден в карточке и не обрезан.
+            # Слои приходят из ответа: там, где ответ их не прислал, строки нет
+            # вовсе (подпись не выдумывается) — это отдельная проверка режима.
+            for card_key, card_name in (("textCard", "текст"),
+                                        ("memeCard", "мемы")):
+                row = _axis_rows(data[card_key]).get("layers")
+                if row is None:
+                    continue
+                check(row.get("visible"), label,
+                      "%s: слои решения не видны" % card_name)
+                check(not row.get("truncated"), label,
+                      "%s: слои решения обрезаны" % card_name)
+                value = row.get("value") or ""
+                check("заводское значение" in value, label,
+                      "%s: заводский слой не назван: %r" % (card_name, value))
+                check("слой чата" in value, label,
+                      "%s: слой чата не назван: %r" % (card_name, value))
+                check(row.get("right", 0) <= data["vw"] + 1, label,
+                      "%s: слои решения вышли за экран" % card_name)
 
         mode = STATE.get("diag_mode") or "off"
         expect = AXIS_EXPECT.get(mode)
@@ -3495,6 +3588,155 @@ def run_row_wrap(browser, width, height, label, shots):
         STATE["diag_mode"] = "off"
         ctx.close()
 
+def run_s6_scope(browser, width, height, label, shots):
+    """P0IM-S6-FRESH на живом экране: пояс из ответа, слои, оба чата.
+
+    Проверяется то, что нельзя увидеть на одном скриншоте: пояс и его слой
+    называются в шапке, время второго чата печатается в ЕГО поясе, а «пояс не
+    задан» читается как «не задан» + заводское значение, а не как часовой пояс
+    сервера.
+    """
+    STATE["single_chat"] = False
+    ctx, page = new_page(browser, width, height)
+    try:
+        # 1) Основной режим: пояс чата A назван вместе со слоем.
+        STATE["diag_mode"] = "on"
+        open_page(page)
+        page.wait_for_selector('[data-ini-overview-tz]', timeout=15000)
+        page.wait_for_timeout(400)
+        probe = page.evaluate(S6_PROBE)
+        notes.append({label + "-s6-self": probe})
+        check(probe["tzSource"] == "chat", label,
+              "слой пояса не назван: %r" % (probe["tzSource"],))
+        check("Europe/Moscow" in probe["tzLabel"], label,
+              "пояс чата A не назван: %r" % (probe["tzLabel"],))
+        check(probe["tzKnown"] == "true", label,
+              "известный пояс помечен как неизвестный")
+        check(probe["snapshotBasis"] == "штамп снимка — сервер", label,
+              "базис штампа не серверный: %r" % (probe["snapshotBasis"],))
+        check(probe["snapshot"].endswith("(сервер)") or "(сервер)" in
+              probe["snapshot"], label,
+              "снимок не подписан серверным штампом: %r" % (probe["snapshot"],))
+        # Слои решения: заводское значение и слой чата различимы.
+        for card in ("text", "meme"):
+            row = probe["layers"][card]
+            check(row["present"], label,
+                  "%s: строки «Слои решения» нет" % card)
+            check(not row["truncated"], label,
+                  "%s: слои решения обрезаны" % card)
+            check("заводское значение" in row["value"], label,
+                  "%s: заводский слой не назван: %r"
+                  % (card, row["value"]))
+            check("слой чата" in row["value"], label,
+                  "%s: слой чата не назван: %r" % (card, row["value"]))
+            check(row["right"] <= probe["vw"] + 1, label,
+                  "%s: слои решения вышли за экран" % card)
+        shot(page, shots, "s6_self_%s" % label)
+
+        # 2) Другой чат: пояс ТОГО чата, а не подпись выбранного.
+        # Переключатель существует только когда доступны ОБА чата, а шапка
+        # должна успеть выбрать чат: клик до этого молча вернул бы «этот чат».
+        page.wait_for_selector('[data-ini-switch]', timeout=15000)
+        page.wait_for_function(
+            "() => { const el = document.querySelector('[data-ini-overview-chat]');"
+            " return !!el && el.textContent.indexOf('Чат A') >= 0"
+            " && !!document.querySelector('[data-ini-card=\"meme\"]'); }",
+            timeout=15000)
+        page.wait_for_timeout(500)
+        page.click('[data-ini-switch-mode-btn="other"]')
+        page.wait_for_function(
+            "() => { const el = document.querySelector('[data-ini-switch]');"
+            " return !!el && el.getAttribute('data-ini-switch-mode') === 'other'"
+            " && !!document.querySelector('[data-ini-card-tz=\"meme\"]'); }",
+            timeout=15000)
+        page.wait_for_timeout(600)
+        other = page.evaluate(S6_PROBE)
+        notes.append({label + "-s6-other": other})
+        check("Asia/Tokyo" in other["cardTz"]["meme"], label,
+              "время чужого чата показано не в его поясе: %r"
+              % (other["cardTz"]["meme"],))
+        check(other["cardTzSource"]["meme"] == "global", label,
+              "слой пояса чужого чата не назван: %r"
+              % (other["cardTzSource"]["meme"],))
+        check("Чат B" in other["peekLabel"], label,
+              "режим не назвал, чей чат показан: %r" % (other["peekLabel"],))
+        shot(page, shots, "s6_other_%s" % label)
+
+        # 3) Пояс чата не задан ни на одном слое: назван заводской.
+        # Снимок перечитывается с нуля: переключение режима не делает запроса,
+        # а goto на тот же адрес с другим хэшем не перезагружает документ.
+        STATE["diag_mode"] = "tz_missing"
+        page.reload(wait_until="load")
+        page.wait_for_selector('[data-ini-overview-tz]', timeout=15000)
+        page.wait_for_function(
+            "() => { const el = document.querySelector('[data-ini-overview-tz]');"
+            " return !!el && el.textContent.indexOf('не задан') >= 0; }",
+            timeout=15000)
+        page.wait_for_timeout(300)
+        missing = page.evaluate(S6_PROBE)
+        notes.append({label + "-s6-tz-missing": missing})
+        check(missing["tzSource"] == "utc_fallback", label,
+              "источник пояса по умолчанию не назван: %r"
+              % (missing["tzSource"],))
+        check("не задан" in missing["tzLabel"], label,
+              "«пояс чата не задан» не сказано: %r" % (missing["tzLabel"],))
+        check("заводское" in missing["tzLabel"], label,
+              "заводской пояс по умолчанию не назван: %r"
+              % (missing["tzLabel"],))
+        check("UTC" in missing["tzLabel"], label,
+              "имя пояса по умолчанию не названо: %r" % (missing["tzLabel"],))
+        shot(page, shots, "s6_tz_missing_%s" % label)
+    finally:
+        ctx.close()
+        STATE["diag_mode"] = "off"
+
+
+S6_PROBE = r"""
+() => {
+  const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+  const tzEl = document.querySelector('[data-ini-overview-tz]');
+  const snapEl = document.querySelector('[data-ini-overview-snapshot]');
+  const layerRow = (card) => {
+    const el = document.querySelector(
+      '[data-ini-card="' + card + '"] [data-ini-axis="' + card + ':layers"]');
+    if (!el) return { present: false, value: '', truncated: false, right: 0 };
+    const v = el.querySelector('.ini-fact__v') || el;
+    return {
+      present: true,
+      value: strip(v.textContent),
+      truncated: v.scrollWidth > v.clientWidth + 1,
+      right: Math.round(v.getBoundingClientRect().right),
+    };
+  };
+  const cardTz = (card) => {
+    const el = document.querySelector('[data-ini-card-tz="' + card + '"]');
+    return el ? strip(el.textContent) : '';
+  };
+  const cardTzSource = (card) => {
+    const el = document.querySelector('[data-ini-card-tz="' + card + '"]');
+    return el ? el.getAttribute('data-ini-card-tz-source') : null;
+  };
+  return {
+    tzLabel: strip((tzEl || {}).textContent),
+    tzSource: tzEl ? tzEl.getAttribute('data-ini-tz-source') : null,
+    tzName: tzEl ? tzEl.getAttribute('data-ini-tz-name') : null,
+    tzKnown: tzEl ? tzEl.getAttribute('data-ini-tz-known') : null,
+    snapshotBasis: snapEl
+      ? snapEl.getAttribute('data-ini-snapshot-basis') : null,
+    snapshot: strip((snapEl || {}).textContent),
+    layers: { text: layerRow('text'), meme: layerRow('meme') },
+    cardTz: { text: cardTz('text'), meme: cardTz('meme') },
+    cardTzSource: { text: cardTzSource('text'),
+                    meme: cardTzSource('meme') },
+    peekLabel: strip((document.querySelector('[data-ini-peek-label]') || {})
+      .textContent),
+    vw: window.innerWidth,
+    hScroll: document.documentElement.scrollWidth - window.innerWidth,
+  };
+}
+"""
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--shots", default="")
@@ -3555,6 +3797,9 @@ def main() -> int:
                 run_mobile_nav(browser, 360, 740, "360", args.shots)
                 run_overview(browser, 390, 844, "390", args.shots)
                 run_chat_switch(browser, 1280, 900, "1280", args.shots)
+                # P0IM-S6-FRESH: пояс из ответа, слои решения, оба чата.
+                run_s6_scope(browser, 1536, 960, "1536", args.shots)
+                run_s6_scope(browser, 390, 844, "390", args.shots)
             finally:
                 browser.close()
     finally:

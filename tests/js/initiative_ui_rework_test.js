@@ -2176,6 +2176,9 @@ async function s6FreshSuite() {
     'слой чата не назван: ' + layersText);
   assert.ok(layersText.indexOf('общий слой') > 0,
     'общий слой не назван: ' + layersText);
+  // Разрешающий гейт не пересказывает «разрешает» — только слой.
+  assert.strictEqual(layersText.indexOf('разрешает'), -1,
+    'разрешающий гейт пересказан словами: ' + layersText);
   // Агрегат прежний: новая строка не подменяет «Разрешено».
   assert.strictEqual(view.text.axes.configState, 'true');
 
@@ -2282,6 +2285,45 @@ async function s6FreshSuite() {
     'неизвестный пояс не помечен как UTC: ' + tzFailed.generatedText);
   assert.ok(tzFailed.timezoneLabel.indexOf('не прочитан') >= 0,
     'неизвестный пояс не назван: ' + tzFailed.timezoneLabel);
+
+  // 2b) Время событий на том же экране — тоже в поясе чата, с годом.
+  function evCtx(memeDiag) {
+    return {
+      memeDiag: memeDiag,
+      activeChatId: CHAT,
+      initiativeVitality: { decisions: [{ ts: NOW_TS, action: 'say',
+                                          reason_code: '', reason_label: '' }] },
+      memeSettings: null,
+      // В живом приложении это computed-СВОЙСТВО; здесь тот же доступ по
+      // имени, чтобы проверялся реальный путь рендера.
+      get iniOverviewTimezone() {
+        return computed.iniOverviewTimezone.call(this);
+      },
+    };
+  }
+  const evMoscow = computed.initiativeRecentEvents.call(evCtx({
+    chat_id: CHAT, generated_at: NOW_TS, degraded: [],
+    time: { generated_at: NOW_TS, timezone: SERVER_TZ },
+    text_initiative: {}, meme: {},
+  }));
+  const evTokyo = computed.initiativeRecentEvents.call(evCtx({
+    chat_id: CHAT, generated_at: NOW_TS, degraded: [],
+    time: { generated_at: NOW_TS,
+            timezone: { name: 'Asia/Tokyo', source: 'chat',
+                        offset_seconds: 32400, default_name: 'UTC',
+                        reason: '' } },
+    text_initiative: {}, meme: {},
+  }));
+  const evNone = computed.initiativeRecentEvents.call(evCtx(null));
+  assert.ok(evMoscow.length && evMoscow[0].timeText,
+    'время события не показано');
+  assert.ok(evMoscow[0].timeText.indexOf(',') > 0,
+    'в метке события нет года: ' + evMoscow[0].timeText);
+  assert.notStrictEqual(evMoscow[0].timeText, evTokyo[0].timeText,
+    'пояс не влияет на время события (часы устройства): '
+    + evMoscow[0].timeText);
+  assert.ok(evNone[0].timeText.indexOf(' UTC') > 0,
+    'без пояса событие подписано не UTC: ' + evNone[0].timeText);
 
   // 3) Поздний ответ другого чата не применяется и не подписывает снимок.
   const late = loaderCtx(async function () {
