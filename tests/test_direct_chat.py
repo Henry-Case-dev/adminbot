@@ -559,7 +559,7 @@ class TestContextPartitioning:
         # MEMORY-06 (§7.5): чтение идёт ЕДИНЫМ каналом кандидатов.
         assert memory.unified_calls == [
             (CHAT_ID, "расскажи про дроны", True, True, False)]
-        assert memory.rerank_calls == []           # флаг реранка off (default)
+        assert memory.rerank_calls == [("расскажи про дроны", 1)]  # дефолт ON
         # F3/T-809: direct-рендер с origin-меткой («[чат] …»); MEMORY-06 (§7.5):
         # канонический item_id из единого retrieval (как у with_meta прод-пути).
         assert blocks[1] == "<RAG_Memory>\n[чат] [fact:1]: фон из памяти\n</RAG_Memory>"
@@ -2171,7 +2171,8 @@ class TestEpic60RunningSummaryContext:
 class TestRagDirectPipeline:
     """Раунд 8 (F2/T-808, F4/T-810): direct-сборка <RAG_Memory> — словарный
     дедуп фактов против текста <Global_Context>; LLM-реранк вызывается
-    ТОЛЬКО при flags.chat_rag_rerank_enabled=True (default off — 0 вызовов),
+    при flags.chat_rag_rerank_enabled=True, а фабричный дефолт флага — ON
+    (условие, в котором измерялся приём памяти); явный flag off → 0 вызовов,
     ошибка реранка → исходные факты (fail-open)."""
 
     @pytest.mark.asyncio
@@ -2215,7 +2216,14 @@ class TestRagDirectPipeline:
         assert all("<RAG_Memory>" not in b for b in blocks)
 
     @pytest.mark.asyncio
-    async def test_rerank_off_by_default_zero_calls(self, fake_time):
+    async def test_rerank_off_flag_explicit_zero_calls(self, fake_time,
+                                                       monkeypatch):
+        """Флаг, выключенный явно (env/PG/чат), по-прежнему означает 0 LLM-
+        вызовов: ветка реранка выходит до сериализации кандидатов."""
+        import dataclasses as _dc
+
+        mod = _dc.replace(settings, CHAT_RAG_RERANK_ENABLED=False)
+        monkeypatch.setattr("services.direct_chat_service.settings", mod)
         memory = FakeMemory(
             window=[_window_row()],
             rag_facts=[("chat_history", "про дроны вчера", None)])
@@ -2225,6 +2233,27 @@ class TestRagDirectPipeline:
         rag_block = next(b for b in blocks if b.startswith("<RAG_Memory>"))
         assert "про дроны вчера" in rag_block
         assert memory.rerank_calls == []       # флаг off → 0 LLM-вызовов
+
+    def test_rerank_factory_default_on_env_overrides(self, monkeypatch):
+        """Фабричный дефолт флага — ON: ровно то состояние, в котором
+        измерялись приём памяти и защита периодического добора (при OFF
+        протектор добора — мёртвая ветка, добор нефильтрован). Явная
+        env-переменная по-прежнему переопределяет дефолт."""
+        import importlib
+
+        import config.settings as _cs
+
+        monkeypatch.delenv("CHAT_RAG_RERANK_ENABLED", raising=False)
+        importlib.reload(_cs)
+        assert _cs.Settings.CHAT_RAG_RERANK_ENABLED is True
+
+        monkeypatch.setenv("CHAT_RAG_RERANK_ENABLED", "0")
+        importlib.reload(_cs)
+        assert _cs.Settings.CHAT_RAG_RERANK_ENABLED is False
+
+        monkeypatch.setenv("CHAT_RAG_RERANK_ENABLED", "1")
+        importlib.reload(_cs)
+        assert _cs.Settings.CHAT_RAG_RERANK_ENABLED is True
 
     @pytest.mark.asyncio
     async def test_self_facts_not_in_factual_rag(self, fake_time):

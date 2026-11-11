@@ -3055,8 +3055,11 @@ class Settings:
     # expires_at NULL (вечные) не удаляются и так.
     GRAPH_PURGE_PROTECT_WEIGHT: float = _env_float("GRAPH_PURGE_PROTECT_WEIGHT", 0.8)
     GRAPH_PURGE_PROTECT_DAYS: int = _env_int("GRAPH_PURGE_PROTECT_DAYS", 3)
-    # LLM-реранк top-k RAG в direct (F4, T-810): флаг off → 0 лишних LLM-вызовов.
-    CHAT_RAG_RERANK_ENABLED: bool = _env_bool("CHAT_RAG_RERANK_ENABLED", False)
+    # LLM-реранк top-k RAG в direct (F4, T-810): default ON — это то условие,
+    # в котором измерялся приём памяти (15 вопросов) и защита периодического
+    # добора (VMQ-MEM-TIME: протектор живёт ВНУТРИ ветки флага). Флаг off →
+    # 0 лишних LLM-вызовов, но фильтр релевантности и протектор добора спят.
+    CHAT_RAG_RERANK_ENABLED: bool = _env_bool("CHAT_RAG_RERANK_ENABLED", True)
 
     # ── Epic 60 Фаза E (Section 67.4) → EVOL-031 ──────────────────
     # EVOL-031 (30.10.2026): replay-ветка direct_dedup удалена вместе с
