@@ -13859,7 +13859,8 @@ class DirectChatService:
             get_rag_context — search/factcheck не тронуты);
         F2 — словарный дедуп фактов против текста <Global_Context>
             (dedup_rag_vs_global, порог limits.chat_rag_dedup_overlap_ratio);
-        F4 — при flags.chat_rag_rerank_enabled=True: LLM-фильтр top-k
+        F4 — при flags.chat_rag_rerank_enabled=True (per-chat: override чата →
+            глобальный hot → env/дефолт): LLM-фильтр top-k
             (memory.rerank_rag_facts, fail-open); off → 0 вызовов;
         F3 — рендер с origin-метками «[{label}] {date} текст» (build_rag_context
             origin_labels=True). Fail-open: любая ошибка/пусто → "" (блок не
@@ -13936,6 +13937,11 @@ class DirectChatService:
         if not kept:
             return "", ""
         # F4: флаг off → 0 лишних LLM-вызовов (ранний выход ДО сериализации).
+        # Гейт читается per-chat цепочкой (override чата → глобальный hot →
+        # env/фабричный дефолт) — как остальные параметры этого сервиса:
+        # явный opt-out чата обязан отключать и вызов модели, и фильтр.
+        # Это было латентным, пока фабричный дефолт был False; с дефолтом ON
+        # `hot.get` без `chat_id` игнорировал сохранённый opt-out чата.
         # VMQ-MEM-TIME (решение архитектора 10.11.2026): реранк — фильтр
         # РЕЛЕВАНТНОСТИ и временнóго требования не знает; строки, добранные
         # политикой охвата (`period_fill`), он не отбрасывает. Протектор живёт
@@ -13943,8 +13949,8 @@ class DirectChatService:
         # получает понятия «период» (у него другие потребители).
         period_keys = _rag_period_keys(rows)
         period_kept = 0
-        if hot.get("flags.chat_rag_rerank_enabled",
-                   settings.CHAT_RAG_RERANK_ENABLED):
+        if await _cp_g(chat_id, "flags.chat_rag_rerank_enabled",
+                       settings.CHAT_RAG_RERANK_ENABLED):
             protected = [item for item in kept
                          if _rag_item_key(item) in period_keys]
             rest = [item for item in kept

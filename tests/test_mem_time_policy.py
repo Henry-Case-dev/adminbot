@@ -712,10 +712,11 @@ class TestPeriodFillSurvivesRerank:
     def _service(cls, monkeypatch, memory, rows):
         from services import direct_chat_service as dcs
 
-        async def _no_chat_param(*_args, **_kwargs):
-            return None
-
-        monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
+        # Гейт реранка и кап читаются реальной per-chat цепочкой
+        # (`_cp_g` → override чата → hot → фабричный дефолт): chat-слой в
+        # тесте не инициализирован (`_chat_params_cache is None`) → действует
+        # hot-фейк `_hot(...)`. Заглушка `_cp_g → None` больше не нужна и
+        # скрывала бы флаг от гейта.
         service = dcs.DirectChatService(memory=memory, db=None, llm=None,
                                         aliases=None)
 

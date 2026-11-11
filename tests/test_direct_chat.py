@@ -2322,6 +2322,106 @@ class TestRagDirectPipeline:
         assert "про дроны вчера" in rag_block       # fail-open
 
 
+class _GateHot:
+    """Фейк ConfigCache: только `.get(key, default)` (контракт hot_config)."""
+
+    def __init__(self, values=None):
+        self.values = dict(values or {})
+
+    def get(self, key, default=None):
+        return self.values.get(key, default)
+
+
+class _GateChatParams:
+    """Фейк кэша chat_params: реальная форма root `{"overrides": {...}}`.
+
+    `get_chat_param`/`_override_layer` читают только `get_chat_params`;
+    PG-загрузка покрыта тестами services/chat_params, здесь нужен реальный
+    резолв-порядок над заданными слоями."""
+
+    def __init__(self, overrides=None):
+        self.overrides = dict(overrides or {})
+
+    async def get_chat_params(self, chat_id):
+        return {"v": 1, "overrides": dict(self.overrides)}
+
+
+class TestRerankGatePrecedence:
+    """Гейт реранка читается тем же per-chat путём, что остальные параметры
+    direct-сервиса (`_cp_g` → `chat_params.get_chat_param`): override чата →
+    глобальный hot → env/фабричный дефолт. Считаем ФАКТИЧЕСКИЕ вызовы
+    реранка на реальном `_build_user_content`; `_cp_g` не подменяется."""
+
+    @pytest.fixture
+    def gate(self, monkeypatch):
+        from services import chat_params as _cpar
+        from services import hot_config as _hotc
+
+        def setup(*, hot=None, chat=None):
+            _hotc.set_config_cache(
+                _GateHot({} if hot is None
+                         else {"flags.chat_rag_rerank_enabled": hot}))
+            _cpar.set_chat_params_cache(_GateChatParams(
+                {} if chat is None
+                else {"flags.chat_rag_rerank_enabled": chat}))
+
+        yield setup
+        _hotc.set_config_cache(None)
+        _cpar.set_chat_params_cache(None)
+
+    async def _calls(self):
+        memory = FakeMemory(
+            window=[_window_row()],
+            rag_facts=[("chat_history", "про дроны вчера", None)])
+        service = _make_service(memory=memory)
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(text="дроны"), "вася")
+        return memory.rerank_calls, blocks
+
+    @pytest.mark.asyncio
+    async def test_chat_opt_out_beats_factory_and_global(self, gate, fake_time):
+        """Фабрика ON + глобально ON + чат OFF → 0 вызовов (opt-out honored)."""
+        assert settings.CHAT_RAG_RERANK_ENABLED is True
+        gate(hot=True, chat=False)
+        calls, blocks = await self._calls()
+        assert calls == []
+        # выключенный реранк = ровно порядок поиска, блок на месте
+        rag = next(b for b in blocks if b.startswith("<RAG_Memory>"))
+        assert "про дроны вчера" in rag
+
+    @pytest.mark.asyncio
+    async def test_chat_opt_in_beats_global_off(self, gate, fake_time):
+        """Чат ON + глобально OFF → 1 вызов."""
+        gate(hot=False, chat=True)
+        calls, _blocks = await self._calls()
+        assert len(calls) == 1
+        assert calls[0][0] == "дроны"
+
+    @pytest.mark.asyncio
+    async def test_no_overrides_factory_default_on(self, gate, fake_time):
+        """Ни override чата, ни глобального значения → фабричный ON → 1."""
+        gate()
+        calls, _blocks = await self._calls()
+        assert len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_env_zero_without_overrides_no_calls(self, gate, fake_time,
+                                                      monkeypatch):
+        """env `0` без override чата/глобального → 0 вызовов."""
+        import importlib
+
+        import config.settings as _cs
+
+        monkeypatch.setenv("CHAT_RAG_RERANK_ENABLED", "0")
+        importlib.reload(_cs)
+        assert _cs.settings.CHAT_RAG_RERANK_ENABLED is False
+        monkeypatch.setattr("services.direct_chat_service.settings",
+                            _cs.settings)
+        gate()
+        calls, _blocks = await self._calls()
+        assert calls == []
+
+
 class TestPersonaCard:
     """Epic 60 Фаза D (66.9, T-487): карточка человека — агрегация графа
     (прямые факты + связи + защищённые), формат VERBATIM, права доступа."""
