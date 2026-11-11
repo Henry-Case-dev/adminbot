@@ -1,10 +1,10 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T16:05:00+12:00",
+  "updated": "2026-11-11T16:13:42+12:00",
   "tasks": [
     {
       "id": "soul-1",
-      "status": "READY_FOR_LIVE",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
       "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "maps": [
@@ -21,11 +21,21 @@
       "blocker_sources": {},
       "execution_state": "release_pending",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "work verified, awaits a release slot"
+      "queue_note": "work verified, awaits a release slot",
+      "previous_status": "READY_FOR_LIVE",
+      "progress": {
+        "verified_rows": 263,
+        "total_rows": 293,
+        "deployed_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+        "deployed_in_current_line": false
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; verified rows exist but the recorded deployment is not in the current production lineage",
+      "release_state": "recorded deployed commit is NOT in the current production lineage; release status needs reconciliation before it can be claimed again"
     },
     {
       "id": "asap8-v6.3",
-      "status": "READY_FOR_LIVE",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
       "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "maps": [
@@ -41,7 +51,17 @@
       "blocker_sources": {},
       "execution_state": "release_pending",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "work verified, awaits a release slot"
+      "queue_note": "work verified, awaits a release slot",
+      "previous_status": "READY_FOR_LIVE",
+      "progress": {
+        "verified_rows": 197,
+        "total_rows": 227,
+        "deployed_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
+      "release_state": "deployed_in_production_line: the recorded deployed commit is an ancestor of the live 2.58.184; the remaining gap is open rows, not a pending release"
     },
     {
       "id": "cfg-01-07",
@@ -120,7 +140,7 @@
     },
     {
       "id": "add-exp-2026-10-19",
-      "status": "READY_FOR_LIVE",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-01-current_task-snapshot.md",
       "source_sha256": "B69802BFD67EB1C5807112BD8079C585FB5AB2051B523357FAAECA7C58C72F62",
       "maps": [
@@ -135,7 +155,17 @@
       "blocker_sources": {},
       "execution_state": "release_pending",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "work verified, awaits a release slot"
+      "queue_note": "work verified, awaits a release slot",
+      "previous_status": "READY_FOR_LIVE",
+      "progress": {
+        "verified_rows": 28,
+        "total_rows": 37,
+        "deployed_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
+      "release_state": "deployed_in_production_line: the recorded deployed commit is an ancestor of the live 2.58.184; the remaining gap is open rows, not a pending release"
     },
     {
       "id": "samples-ux",
@@ -150,7 +180,7 @@
     },
     {
       "id": "asap-speech-arch",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/features/asap-speech-arch/source-owner-p0-corrective-2026-10-25.md",
       "source_sha256": "2F7EF4D743F5F7616D075435116DFF3E0AEE7B59446EC599BAF013C4915B1C9B",
       "maps": [
@@ -176,12 +206,21 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "queued",
-      "position_basis": "chain/dependency or release state"
+      "execution_state": "paused_with_progress",
+      "position_basis": "chain/dependency or release state",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 331,
+        "total_rows": 685,
+        "deployed_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "asap2-direct-chat",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/features/asap2-direct-chat/source-2026-10-22.md",
       "source_sha256": "8F600767E06877AC45ED9BD9768922459A052DFC7B344F8B793C1E41F8531DE7",
       "maps": [
@@ -203,8 +242,17 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "queued",
-      "position_basis": "chain/dependency or release state"
+      "execution_state": "paused_with_progress",
+      "position_basis": "chain/dependency or release state",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 108,
+        "total_rows": 146,
+        "deployed_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "embed-identity-compat",
@@ -219,7 +267,7 @@
     },
     {
       "id": "asap3-corrective",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/features/asap3-corrective/source-2026-10-23.md",
       "source_sha256": "B6AFDB21378B23402447C3771501D49C0064E040474D1B32D5BA7C571B498642",
       "maps": [
@@ -241,12 +289,21 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "queued",
-      "position_basis": "chain/dependency or release state"
+      "execution_state": "paused_with_progress",
+      "position_basis": "chain/dependency or release state",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 232,
+        "total_rows": 281,
+        "deployed_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "p0-factcheck-speech",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
       "source_sha256": "2BD56C9F15E90AAD62C81654EC0D9F4B325F0BCEA58A8EEDD71CF6513BFE6978",
       "maps": [
@@ -269,8 +326,17 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "queued",
-      "position_basis": "chain/dependency or release state"
+      "execution_state": "paused_with_progress",
+      "position_basis": "chain/dependency or release state",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 581,
+        "total_rows": 707,
+        "deployed_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "pemsoc-one-reaction",
@@ -286,7 +352,7 @@
     },
     {
       "id": "p0-factcheck-media",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/features/p0-factcheck-media/source-2026-10-25.md",
       "source_sha256": "F0F71AC03247F727F7EC5ACB771A6B95AA7332F43A79EEA64B4F70946741485A",
       "maps": [
@@ -309,7 +375,16 @@
       },
       "blocker_sources": {},
       "execution_state": "queued",
-      "position_basis": "chain/dependency or release state"
+      "position_basis": "chain/dependency or release state",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 0,
+        "total_rows": 175,
+        "deployed_commit": null,
+        "deployed_in_current_line": null
+      },
+      "not_started": true,
+      "pause_reason": "no running assignment and no verified row yet"
     },
     {
       "id": "p0-delta-analysis",
@@ -324,7 +399,7 @@
     },
     {
       "id": "asap5-multimodal",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-10-26-asap5-current_task-excerpt.md",
       "source_sha256": "E8CB2B1ED3B96721B6D19D47E970410B3C9A0E5C121FC21F423C0FCF887604A8",
       "maps": [
@@ -346,10 +421,19 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "paused_with_branch",
+      "execution_state": "paused_with_progress",
       "position_basis": "chain/dependency or release state",
       "queue_note": "map shows 157/483 verified and a deployment: status BUILDING restored",
-      "status_note": "Corrected from PENDING: requirements map shows 157 of 483 rows VERIFIED and a deployed commit (05c408f6)."
+      "status_note": "Corrected from PENDING: requirements map shows 157 of 483 rows VERIFIED and a deployed commit (05c408f6).",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 157,
+        "total_rows": 483,
+        "deployed_commit": "05c408f6f974670193588da795bdbc66dfa26a2b",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "post-asap5-corrective",
@@ -364,7 +448,7 @@
     },
     {
       "id": "p0-nostalgia-rework",
-      "status": "READY_FOR_LIVE",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-10-27-nostalgia-rework-current_task-excerpt.md",
       "source_sha256": "74CF86E69168889B07B83F6BAF41F8260D0F957F4B7081BF486413D5CE9F3681",
       "maps": [
@@ -379,7 +463,17 @@
       "blocker_sources": {},
       "execution_state": "release_pending",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "work verified, awaits a release slot"
+      "queue_note": "work verified, awaits a release slot",
+      "previous_status": "READY_FOR_LIVE",
+      "progress": {
+        "verified_rows": 27,
+        "total_rows": 269,
+        "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
+      "release_state": "deployed_in_production_line: the recorded deployed commit is an ancestor of the live 2.58.184; the remaining gap is open rows, not a pending release"
     },
     {
       "id": "p0-factcheck-post-release",
@@ -403,7 +497,7 @@
     },
     {
       "id": "p0-admin-cache-toggle-save",
-      "status": "READY_FOR_LIVE",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-10-28-exact-match-cache-save-broken.md",
       "source_sha256": "B8EC2E211686BCC1BC436C9A969EA7562CC1400EF8A6D84851AF260EA8CF5254",
       "maps": [
@@ -418,7 +512,17 @@
       "blocker_sources": {},
       "execution_state": "release_pending",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "work verified, awaits a release slot"
+      "queue_note": "work verified, awaits a release slot",
+      "previous_status": "READY_FOR_LIVE",
+      "progress": {
+        "verified_rows": 5,
+        "total_rows": 10,
+        "deployed_commit": "5c8bf35db07e49d1dae4ca5a543911bf6b56ed54",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
+      "release_state": "deployed_in_production_line: the recorded deployed commit is an ancestor of the live 2.58.184; the remaining gap is open rows, not a pending release"
     },
     {
       "id": "p0-history-analysis",
@@ -434,7 +538,7 @@
     },
     {
       "id": "release-then-migrate",
-      "status": "READY_FOR_LIVE",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-10-29-release-then-migrate.md",
       "source_sha256": "CCC204766633F595B486794E1B7FD2E831520BE1AE00931CD63182A69D4EB301",
       "maps": [
@@ -450,11 +554,21 @@
       "blocker_sources": {},
       "execution_state": "release_pending",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "work verified, awaits a release slot"
+      "queue_note": "work verified, awaits a release slot",
+      "previous_status": "READY_FOR_LIVE",
+      "progress": {
+        "verified_rows": 75,
+        "total_rows": 91,
+        "deployed_commit": "5346ee765e83ee859596b60437811b21db1e4564",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
+      "release_state": "deployed_in_production_line: the recorded deployed commit is an ancestor of the live 2.58.184; the remaining gap is open rows, not a pending release"
     },
     {
       "id": "evol",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-10-29-evol-epic-launch.md",
       "source_sha256": "8132D0A653944DB1217BA13FA874FEC1310F450C9AC7981FC461D8D75BA7A0B1",
       "maps": [
@@ -477,13 +591,22 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "paused_with_branch",
+      "execution_state": "paused_with_progress",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "long-running umbrella; many verified rows"
+      "queue_note": "long-running umbrella; many verified rows",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 1023,
+        "total_rows": 2398,
+        "deployed_commit": "bd0f38ed1bb08e9787c67c516b1ce76f1da42cb7",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "epic-memory-cognitive-02",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
       "source_sha256": "316893A95392D7FBA23EF7D96EAA603384A587B7AB82BD29A6350453D9CA0ED1",
       "maps": [
@@ -505,13 +628,22 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "paused_with_branch",
+      "execution_state": "paused_with_progress",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "owns MEM-AUDIT and memory retention"
+      "queue_note": "owns MEM-AUDIT and memory retention",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 32,
+        "total_rows": 300,
+        "deployed_commit": "b2fed7077e3dac5b5904fc5d999c69bc4363de30",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "menu-01",
-      "status": "REVIEW",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-07-epic-memory-cognitive-02.md",
       "source_sha256": "316893A95392D7FBA23EF7D96EAA603384A587B7AB82BD29A6350453D9CA0ED1",
       "maps": [
@@ -535,7 +667,16 @@
       "blocker_sources": {},
       "execution_state": "in_review_without_assignment",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "status REVIEW without a running reviewer"
+      "queue_note": "status REVIEW without a running reviewer",
+      "previous_status": "REVIEW",
+      "progress": {
+        "verified_rows": 7,
+        "total_rows": 13,
+        "deployed_commit": null,
+        "deployed_in_current_line": null
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; verified rows exist, nothing deployed"
     },
     {
       "id": "evol-reply-context-integrity-01",
@@ -568,7 +709,7 @@
     },
     {
       "id": "factcheck-clean-publication",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md",
       "source_sha256": "A5FCC4194578458C97584CBED091B156C448AB927DF105B3D360D5A428429084",
       "maps": [
@@ -592,7 +733,16 @@
       "blocker_sources": {},
       "execution_state": "paused_with_branch",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "FCP-01..07 all pending"
+      "queue_note": "FCP-01..07 all pending",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 0,
+        "total_rows": 19,
+        "deployed_commit": null,
+        "deployed_in_current_line": null
+      },
+      "not_started": true,
+      "pause_reason": "no running assignment and no verified row yet"
     },
     {
       "id": "vmq-onto-01",
@@ -636,7 +786,7 @@
     },
     {
       "id": "smart-module-semantic-routing-p0",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-10-smart-module-semantic-routing-p0.md",
       "source_sha256": "2ECA66DA1825F85EBD0E9353E53A5281635297427510DE6274E9EF5E2AF48A8C",
       "maps": [
@@ -661,9 +811,18 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "paused_with_branch",
+      "execution_state": "paused_with_progress",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "P0/P1 routing work already released earlier"
+      "queue_note": "P0/P1 routing work already released earlier",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 101,
+        "total_rows": 331,
+        "deployed_commit": "1a4a9b1b1ba7429d54f8ca651ce9629efcda7f8e",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "mod-acl-ux-01",
@@ -885,7 +1044,7 @@
     },
     {
       "id": "meme-pipeline-refactor-01",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md",
       "source_sha256": "D11119FEAA1772E9A96B5EF56B692CA8D9A3E0D731F071D172497CC95E31ED96",
       "maps": [
@@ -908,14 +1067,23 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "paused_with_branch",
+      "execution_state": "paused_with_progress",
       "position_basis": "chain/dependency or release state",
       "queue_note": "map shows 164/197 verified and a deployment",
-      "status_note": "Status BUILDING matches the map: 164 of 197 rows VERIFIED and a deployed commit (bd0f38ed). No action taken."
+      "status_note": "Status BUILDING matches the map: 164 of 197 rows VERIFIED and a deployed commit (bd0f38ed). No action taken.",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 164,
+        "total_rows": 197,
+        "deployed_commit": "bd0f38ed1bb08e9787c67c516b1ce76f1da42cb7",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "hotfix-meme-publication-initiative-ui",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md",
       "source_sha256": "0D54087FA77555B33CC37283666549264E751C8CD97FABC13B0467FA8A875268",
       "maps": [
@@ -938,8 +1106,17 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "queued",
-      "position_basis": "chain/dependency or release state"
+      "execution_state": "paused_with_progress",
+      "position_basis": "chain/dependency or release state",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 22,
+        "total_rows": 92,
+        "deployed_commit": "8aada85edbd57c5437372b99566ac17ac89047ec",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "epic-cm-visual-01",
@@ -1059,7 +1236,7 @@
       "id": "behavior-gates-simplification-01",
       "ticket": "BEHAVIOR-GATES-SIMPLIFICATION-01",
       "title": "Удалить поведенческие удавки, сохранить целостность системы",
-      "status": "BUILDING",
+      "status": "PENDING",
       "priority": "P1",
       "queue_position": 8,
       "blocked_by": [
@@ -1081,11 +1258,20 @@
       },
       "execution_state": "awaiting_dependency",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "urgent tier after unified-reply; paused branch exists"
+      "queue_note": "urgent tier after unified-reply; paused branch exists",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 67,
+        "total_rows": 184,
+        "deployed_commit": null,
+        "deployed_in_current_line": null
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; verified rows exist, nothing deployed"
     },
     {
       "id": "remove-legacy-rephrasing-01",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md",
       "source_sha256": "8DC7751C893704B895B4FCFD8475B504E668294E6966688A278AB6E261BB3F22",
       "maps": [
@@ -1108,12 +1294,21 @@
         "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
       },
       "blocker_sources": {},
-      "execution_state": "paused_with_branch",
-      "position_basis": "chain/dependency or release state"
+      "execution_state": "paused_with_progress",
+      "position_basis": "chain/dependency or release state",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 145,
+        "total_rows": 189,
+        "deployed_commit": "5e0cb2017d9ad3ad4be3485e0e85d45c8e0447b2",
+        "deployed_in_current_line": true
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
     },
     {
       "id": "reply-context-integrity-rci",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-07-context-integrity-factcheck-clean-publication.md",
       "source_sha256": "A5FCC4194578458C97584CBED091B156C448AB927DF105B3D360D5A428429084",
       "maps": [
@@ -1144,7 +1339,16 @@
       "execution_state": "amendment",
       "position_basis": "chain/dependency or release state",
       "queue_note": "owner input of 07.11 amends two existing epics rather than forming an independent epic; kept registered, executed inside them",
-      "status_note": "Owner input of 07.11 amends two existing epics rather than forming an independent epic: it references EVOL-REPLY-CONTEXT-INTEGRITY-01 and FactCheck clean publication. Kept registered with its own 18-row map, blocked by both parents, execution happens inside them. Not deleted, not duplicated."
+      "status_note": "Owner input of 07.11 amends two existing epics rather than forming an independent epic: it references EVOL-REPLY-CONTEXT-INTEGRITY-01 and FactCheck clean publication. Kept registered with its own 18-row map, blocked by both parents, execution happens inside them. Not deleted, not duplicated.",
+      "previous_status": "BUILDING",
+      "progress": {
+        "verified_rows": 6,
+        "total_rows": 18,
+        "deployed_commit": null,
+        "deployed_in_current_line": null
+      },
+      "paused": true,
+      "pause_reason": "no running assignment; verified rows exist, nothing deployed"
     },
     {
       "id": "fc-trust-01",
