@@ -5,8 +5,8 @@ Task source: root prompt + plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-co
 Status: in_progress
 Primary phase: review
 Active feature: p0-init-meme-ux-diag
-Active lanes: ses_e357d26b4ffemxzNxlAh77olCq (Builder: compare switcher on the overview); ses_e34d4aaedffeOQBCFcnbUfMoLD (PM: binding the 2.58.190 deployed record)
-Join barriers: S4-TRACE waits for the overview verdict; the 2.58.190 record must be bound before the epic accounting is reported.
+Active lanes: ses_e357d26b4ffemxzNxlAh77olCq (Builder: S4-TRACE publications/diagnostics trace); ses_e34bc4c07ffeYdpxeHcXzaoVZL (PM: binding the approved S3-OV rows)
+Join barriers: S5 must wait for the S4 verdict; the S3 rows are candidate-approved only and are not VERIFIED until a release.
 Last verified: 2.58.190 DEPLOYED at `7c3c01b2` (grounds fix; base `edd7d472`/2.58.189), schema v47, no DDL, rollback `edd7d472`; live diagnostics show a real lesson with `grounds[]` (primary source id, provenance, `tg_message_id` resolved separately from the row id), `independent_grounds` computed, `stems_shared=null` with `not_lexical_path`, and zero consistency violations. 2.58.189 earlier brought the inspector slice; the post-deploy probe trace 71a18f9a returned `context.l1.slot="main"` from the actual record. Earlier: R0-INV closed (9 rows), S1-AXES + S2-ID approved at 4c59a483, 12 rows bound.
 Next unlocks: PM binding UR-20.6/20.7/UR-20 to edd7d472 closes the inspector slice; S3 UI verdict -> S4-TRACE; evidence-grounds repair -> independent Reviewer check on the actual JSON incl. restart; then S5-MEME and S5b
 Next execution: awaiting_children
