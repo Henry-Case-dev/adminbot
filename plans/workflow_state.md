@@ -5,8 +5,10 @@ Task source: root prompt + plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-co
 Status: in_progress
 Primary phase: review
 Active feature: p0-init-meme-ux-diag
-Active lanes: ses_e33e19c27ffeat2nNIORQnj7dX (Reviewer: 1957c0e9 honesty fixes); ses_e33e17e07ffeFAzq5QuWByNoUj (Builder: S5b paid-image durability)
-Join barriers: S6 waits for the S5b verdict; the delivery-lineage warning (master web files are older than production) must be honoured by any release.
+Active lanes: ses_e33c3f1bfffe4X1wLLinQAH4N5 (DevOps: release 2.58.193 = S5 memo durability + display honesty); ses_e33e17e07ffeFAzq5QuWByNoUj (Builder: S5b paid-image durability)
+Join barriers: S6 waits for the S5b verdict; any release must take web files from the `bcc090a3` line because `master` is 930 KB behind on the interface.
+
+DELIVERY-LINEAGE WARNING (verified twice, independent reviewers): `master` is not an ancestor of the production line. `web/app.js` is 1 331 753 bytes on `master` versus 2 262 122 at `bcc090a3`; `index.html` is 929 056 versus 1 328 853. Building a release from `master` would delete roughly 930 KB of the shipped interface. Releases branch from the current production commit and cherry-pick approved commits.
 Last verified: 2.58.192 DEPLOYED at `bcc090a3` (trace + ETA boundary; base `a6884ad7`/2.58.191), schema v47, no DDL, rollback `a6884ad7`; live journal shows 40 rows per real chat with zero machine codes in collapsed rows and codes only inside the expanded trace. 2.58.190 carried the grounds fix; 2.58.189 the inspector slice. Earlier: R0-INV closed (9 rows), S1-AXES + S2-ID approved at 4c59a483, 12 rows bound.
 Next unlocks: PM binding UR-20.6/20.7/UR-20 to edd7d472 closes the inspector slice; S3 UI verdict -> S4-TRACE; evidence-grounds repair -> independent Reviewer check on the actual JSON incl. restart; then S5-MEME and S5b
 Next execution: awaiting_children
