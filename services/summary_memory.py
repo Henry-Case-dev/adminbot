@@ -136,6 +136,18 @@ _KNN_SCOPE_K_CAP = 512
 _DEDUP_KNN_WANT = 3               # семантика 64.1: до 3 ближайших кандидатов
 _DEDUP_KNN_CAP = 192
 
+#: VMQ-MEM next stage (§1, 11.11.2026): периодная векторная нога добора —
+#: ФИКСИРОВАННЫЙ пул ближайших соседей. Это не «пул текущего среза»: срез
+#: 2026-доминирован, и фильтр по годам применяется ПОСЛЕ `k`. 128/512 не
+#: поднимать — это другая цена (~5 c, ~6 МБ) и отдельная ступень.
+_PERIOD_FILL_KNN_K = 32
+#: Причины состояния индекса, которые НЕ доказывают расхождение: там решает
+#: прежний гейт A06 (`_index_generation_ok`), иначе периодная нога была бы
+#: строже основного KNN. `compat_not_proven` в этот набор НЕ входит.
+_PERIOD_GUARD_SOFT_REASONS = frozenset({
+    "no_generation", "source_empty", "config_unavailable", "probe_error",
+})
+
 # ── GraphRAG v2 (Epic 46, Sections 55.4/55.5/55.6/55.8) ───────────
 
 # КАНОН R46-2 — промпт-экстрактор (VERBATIM, байт-в-байт; тест-якорь backlog
@@ -6812,6 +6824,149 @@ class MemoryManager:
             want, keep)
         self._log_knn_scope(tele, "graphrag RAG", chat_id)
         return [(row["fact_id"], 1.0 - row["distance"], None) for row in rows]
+
+    async def period_fill_candidates(self, chat_id, query, *,
+                                     k: int = _PERIOD_FILL_KNN_K,
+                                     exclude_years=(),
+                                     include_direct_reply=False,
+                                     include_self=False,
+                                     include_archived=False,
+                                     now: int | None = None,
+                                     stats: dict | None = None) -> list:
+        """VMQ-MEM next stage (§1): периодная векторная нога добора.
+
+        Ровно один float-`MATCH` с ФИКСИРОВАННЫМ `k` (32) и JOIN по `rowid`
+        (= `fact_id` в проде) к `graph_facts`, где применяются chat/TTL/origin
+        и окно по годам. Срез НЕ проходит через `_search_graph_facts` / MMR /
+        staged `k×4`: там 2026-доминирование возвращается до фильтра, и старое
+        физически не достаётся. Фильтр по годам стоит ПОСЛЕ `k` — старый факт
+        вне 32 ближайших честно не находится (`vector_pool_miss`), и это
+        записывается, а не выдаётся за успех. `k` не поднимать (128/512 —
+        отдельная цена ~5 c / ~6 МБ, к этому пулу не относится).
+
+        Это БЛИЖАЙШИЙ СОСЕД в окне, а не доказанный ответ: под
+        `chat_rag_rerank_enabled=False` строка входит в слот с
+        `subject_proxy=knn` (потребитель помечает её как соседа), под
+        `True` — уходит в существующий `rerank_rag_facts` вместе с
+        непериодным срезом и живёт только если модель её выбрала.
+
+        Поколение индекса не `compatible` (в частности `compat_not_proven`)
+        → нога НЕ принимается: `stats['vector_leg']` получает причину,
+        возвращается `[]`, вызывающий обязан остаться на лексическом пути
+        (деградация, не исключение и не молчаливая пустота). Никогда не
+        бросает."""
+        if stats is None:
+            stats = {}
+        stats.setdefault("vector_rows", 0)
+        try:
+            guard = await self._period_vector_guard()
+            if guard:
+                stats["vector_leg"] = guard
+                logger.info(
+                    "graphrag RAG: period vector leg not accepted (%s) — "
+                    "lexical only | chat_id=%s", guard, chat_id)
+                return []
+            k = max(1, int(k or _PERIOD_FILL_KNN_K))
+            vectors = await self._embed([str(query or "")],
+                                        priority=_PRIO_QUERY)
+            if not vectors or not vectors[0]:
+                stats["vector_leg"] = "embed_unavailable"
+                return []
+            vector = vectors[0]
+            now = int(time.time() if now is None else now)
+            sql = (
+                "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, "
+                "f.weight, f.last_confirmed_at, f.message_timestamp, "
+                "f.status, f.importance, f.tg_message_id, f.forward_from, "
+                "f.expires_at, f.chat_id, f.subject_ref_id, "
+                "f.speaker_author_id, f.assertion_kind, "
+                "f.attribution_method, f.provenance_channel, "
+                "COALESCE(f.message_timestamp, f.created_at) AS rag_ts, "
+                "v.distance AS distance "
+                "FROM (SELECT rowid, distance FROM graph_facts_vec "
+                "      WHERE embedding MATCH ? AND k = ?) v "
+                "JOIN graph_facts f ON f.id = v.rowid "
+                "WHERE f.chat_id = ? ")
+            params: list = [json.dumps(vector), k, int(chat_id)]
+            if not include_archived:
+                sql += ("AND (f.expires_at IS NULL OR f.expires_at > ?) ")
+                params.append(now)
+            statuses = ("('confirmed', 'archived_belief', 'archived_fact')"
+                        if include_archived else "('confirmed')")
+            sql += f"AND f.status IN {statuses} "
+            if not include_direct_reply:
+                sql += "AND f.origin != 'bot_direct_reply' "
+            if not include_self:
+                sql += "AND f.origin != 'bot_self_reply' "
+            years: list = []
+            for year in (exclude_years or ()):
+                try:
+                    years.append(int(year))
+                except (TypeError, ValueError):
+                    continue
+            years = sorted(set(years))
+            if years:
+                # Годы — целые из базового среза, не текст вопроса. Пустой
+                # набор предикат не добавляет (`NOT IN ()` запрещён).
+                sql += (
+                    "AND CAST(strftime('%Y', COALESCE(f.message_timestamp, "
+                    "f.created_at), 'unixepoch') AS INTEGER) NOT IN ("
+                    + ",".join("?" for _ in years) + ") ")
+                params.extend(years)
+            sql += "ORDER BY v.distance"
+            cursor = await self.db.db.execute(sql, params)
+            rows = [dict(row) for row in await cursor.fetchall()]
+            stats["vector_leg"] = "ok"
+            stats["vector_rows"] = len(rows)
+            stats["vector_pool"] = k
+            stats["exclude_years"] = len(years)
+            stats["vector_pool_miss"] = 1 if not rows else 0
+            return rows
+        except Exception:
+            logger.warning(
+                "graphrag RAG: period vector leg failed — lexical only | "
+                "chat_id=%s", chat_id, exc_info=True)
+            stats["vector_leg"] = "error"
+            return []
+
+    async def _period_vector_guard(self) -> str:
+        """Причина, по которой периодная векторная нога НЕ принимается.
+
+        Пустая строка — нога допустима. `compat_not_proven` — прямое
+        требование ступени: пока совместимость старого индекса не доказана
+        (ни MSI-доказательства, ни durable-допуска), результат KNN не
+        принимается как ответ, и вызывающий остаётся на лексическом пути.
+        Прочие несовместимые состояния дают свой `reason_code` — эффект тот
+        же. `no_generation`/`source_empty`/`config_unavailable` — это НЕ
+        доказательство расхождения: там работает прежний гейт A06
+        (`_index_generation_ok`), чтобы периодная нога не была строже
+        основного KNN. Никогда не бросает."""
+        try:
+            if not await self._ensure_vec_retry():
+                return "embed_unavailable"
+        except Exception:
+            return "embed_unavailable"
+        reason = ""
+        try:
+            from services import embedding_control_plane as _ecp
+            compat = await _ecp.resolve_index_compat(
+                self.db, "graph_facts_vec",
+                current_fp=self._identity_fingerprint(),
+                current_dims=self._vec_dim)
+            state = str(compat.get("state") or "")
+            if state == _ecp.STATE_COMPATIBLE:
+                return ""
+            reason = str(compat.get("reason_code") or "") or state or "unknown"
+            if reason not in _PERIOD_GUARD_SOFT_REASONS:
+                return reason
+        except Exception:
+            reason = ""
+        try:
+            if await self._index_generation_ok("graph_facts_vec"):
+                return ""
+        except Exception:
+            return ""
+        return "index_generation_not_serviceable"
 
     @staticmethod
     def _vec_row_keep(chat_id, include_direct_reply, now,

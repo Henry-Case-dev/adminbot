@@ -647,7 +647,7 @@ class TestPeriodSlots:
         rows = await service._rag_unified_rows(
             CHAT, "q", None, memory_scope="historical",
             subject_name="Aleksey", subject_uid=7)
-        assert calls == [("vector",), ("lexical",)], calls
+        assert calls == [("vector",), ("lexical", "vector")], calls
         assert profile_calls == [("Aleksey", 7, "historical")]
         ids = [row["id"] for row in rows]
         assert ids[0] == 1, "основной срез остаётся первым"
@@ -683,7 +683,8 @@ class TestPeriodFillSurvivesRerank:
     """
 
     @staticmethod
-    def _row(fid, year, text, *, period=False, origin="history_import"):
+    def _row(fid, year, text, *, period=False, origin="history_import",
+             proxy=None):
         row = {"id": fid, "origin": origin, "fact": text,
                "status": "confirmed", "expires_at": None,
                "message_timestamp": _ts(year), "created_at": _ts(year),
@@ -691,6 +692,8 @@ class TestPeriodFillSurvivesRerank:
                "item_id": f"fact:{fid}"}
         if period:
             row["period_fill"] = True
+        if proxy:
+            row["subject_proxy"] = proxy
         return row
 
     class _Msg:
@@ -745,20 +748,48 @@ class TestPeriodFillSurvivesRerank:
         assert all("переезд" not in item[1] for item in memory.calls[0])
 
     @pytest.mark.asyncio
+    async def test_valid_empty_rerank_drops_judged_rows(self, monkeypatch):
+        """§3: валидный пустой вердикт гасит только те строки, которые модель
+        УВИДЕЛА (векторный сосед `knn` уходит в реранк вместе с непериодным
+        срезом). Лексическая строка, прошедшая порог §2 и в реранк не
+        отправлявшаяся, его молчанием не гасится."""
+        _hot(monkeypatch, {"flags.chat_rag_rerank_enabled": True,
+                           "memory.nostalgia_layer_a_enabled": False})
+        rows = [self._row(1, 2026, "Свежий факт про ремонт"),
+                self._row(9, 2024, "Векторный сосед про ремонт",
+                          period=True, proxy="knn"),
+                self._row(5, 2023, "Старый факт про ремонт ванной",
+                          period=True, proxy="stems")]
+        memory = self._Memory(keep_n=0)          # валидный пустой выбор
+        service = self._service(monkeypatch, memory, rows)
+        block, _hint = await service._build_rag_block(
+            CHAT, self._Msg("что было с ремонтом ванной"), "")
+        assert "Свежий факт" not in block, (block, "судимая строка снята")
+        assert "Векторный сосед" not in block, (block, "knn-строка судима")
+        assert "Старый факт про ремонт ванной" in block, (
+            block, "лексический добор §2 переживает пустой вердикт")
+        assert memory.calls, "реранк вызывался по не-периодной части"
+        # knn-строка была в отправленном наборе, лексическая — нет.
+        seen = [item[1] for item in memory.calls[0]]
+        assert any("Векторный сосед" in text for text in seen), seen
+        assert all("Старый факт" not in text for text in seen), seen
+
+    @pytest.mark.asyncio
     async def test_valid_empty_rerank_renders_no_block(self, monkeypatch):
-        """F1 (ре-ревью 11.11.2026): валидный пустой ответ реранка
-        (`{"selected":[]}`) — это решение модели «ничего не релевантно»; оно
-        НЕ перекрывается добором, иначе блок собирался бы из одной старой
-        строки (на архиве: «что нового у Aleksey?» → строка 2023 года)."""
+        """Пустой вердикт при отсутствии защищённого добора — блока нет.
+
+        Иначе блок собирался бы из строки, которую модель не выбрала (на
+        архиве: «что нового у Aleksey?» → единственная строка 2023 года)."""
         _hot(monkeypatch, {"flags.chat_rag_rerank_enabled": True,
                            "memory.nostalgia_layer_a_enabled": False})
         rows = [self._row(1, 2026, "Свежий факт"),
-                self._row(9, 2024, "Факт другого периода", period=True)]
+                self._row(9, 2024, "Векторный сосед", period=True,
+                          proxy="knn")]
         memory = self._Memory(keep_n=0)          # валидный пустой выбор
         service = self._service(monkeypatch, memory, rows)
         block, _hint = await service._build_rag_block(
             CHAT, self._Msg("что нового?"), "")
-        assert block == "", (block, "пустой ответ реранка — блока нет")
+        assert block == "", (block, "судимые строки снял вердикт модели")
         assert memory.calls, "реранк вызывался по не-периодной части"
 
     @pytest.mark.asyncio
@@ -879,7 +910,7 @@ class TestLexicalStemPeriodFill:
 
         async def fake_retrieve(db, memory, chat_id, query, channels, limit,
                                 policy, **kwargs):
-            calls.append((tuple(channels), policy, kwargs))
+            calls.append((tuple(channels), policy, kwargs, limit))
             result = _Result()
             result.fact_rows = (tuple(base_rows) if tuple(channels) == ("vector",)
                                 else ())
@@ -894,14 +925,19 @@ class TestLexicalStemPeriodFill:
             await service._rag_unified_rows(CHAT, "что было с колбасой?",
                                             None, memory_scope=policy)
             base = [call for call in calls if call[0] == ("vector",)]
-            period = [call for call in calls if call[0] == ("lexical",)]
+            period = [call for call in calls
+                      if call[0] == ("lexical", "vector")]
             assert base and base[0][2] == {}, base
             if policy == "operative":
                 assert period == [], "operative до добора не доходит"
             else:
                 assert period, calls
                 assert period[0][2] == {"lexical_stem": True,
-                                        "include_archived": True}, period
+                                        "include_archived": True,
+                                        "period_fill": True,
+                                        "exclude_years": tuple(
+                                            sorted({2026}))}, period
+                assert period[0][3] == service._RAG_PERIOD_POOL, period
 
     @pytest.mark.asyncio
     async def test_word_form_mismatch_finds_old_fact(self):

@@ -569,6 +569,17 @@ class RetrievalRequest:
     #: `build_fts_query(..., mode="prefix_or")` байт-в-байт как раньше.
     #: Списков годов/периодов не появляется — обобщаются обычные словоформы.
     lexical_stem: bool = False
+    #: VMQ-MEM next stage (§1, 11.11.2026): признак ПЕРИОДНОГО добора —
+    #: второго вызова того же `retrieve` из direct-RAG. Меняет ровно две
+    #: вещи: (1) векторный канал идёт периодной ногой (фиксированный пул,
+    #: JOIN по rowid, фильтр по годам ПОСЛЕ среза), (2) `exclude_years`
+    #: применяется к SQL-окну `search_graph_facts_fts`. Default False —
+    #: все прочие вызывающие байт-идентичны.
+    period_fill: bool = False
+    #: Годы, УЖЕ лежащие в базовом срезе (int из среза, не текст вопроса).
+    #: Предикат добавляется только при непустом наборе; пустой набор
+    #: `NOT IN ()` не строит. Действует только при `period_fill=True`.
+    exclude_years: tuple[int, ...] = ()
 
 
 
@@ -730,6 +741,10 @@ class RetrievalResult:
     #: вес, статус, v17-provenance) — канал их уже прочитал, поэтому потребителю
     #: не нужно второе чтение по id. Порядок = порядок кандидатов.
     fact_rows: tuple[dict, ...] = ()
+    #: VMQ-MEM next stage (§1/§4): наблюдаемость периодного добора — только
+    #: счётчики/коды, без текстов фактов: `{vector_leg, vector_rows,
+    #: vector_pool, vector_pool_miss, subject_proxy}`. None — обычный запрос.
+    period_fill: dict | None = None
 
 
 def is_history_query(query: str) -> bool:
@@ -1495,6 +1510,9 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     #: прочитал, поэтому потребитель (direct-RAG/context) не делает второе
     #: чтение ради текста/веса/provenance.
     fact_rows: dict[str, dict] = {}
+    #: VMQ-MEM next stage (§1): идентичности строк ПЕРИОДНОЙ векторной ноги —
+    #: они идут первыми в обходе и не проходят порог §2 (смысловой путь).
+    period_vector_ids: set = set()
     exact_used = False      # L-MCA07-3: reason_code `exact_match_used`
 
     def _allow(name: str) -> bool:
@@ -1633,12 +1651,14 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                     chat_id, match, max(1, fetch_k * 2), now,
                     include_direct_reply=bool(request.include_direct_reply),
                     include_archived=bool(request.include_archived),
-                    include_self=bool(request.include_self))
+                    include_self=bool(request.include_self),
+                    exclude_years=_exclude_years_of(request))
                 for pos, row in enumerate(rows or []):
                     cand = _fact_candidate(row, "lexical", pos,
                                            resolve_item_id)
                     raw.append(cand)
-                    fact_rows[_candidate_identity(cand)] = dict(row)
+                    fact_rows[_candidate_identity(cand)] = _period_marked(
+                        row, request, "lexical")
                 if rows:
                     channels.append("lexical")
             except TypeError:
@@ -1651,7 +1671,8 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                         cand = _fact_candidate(row, "lexical", pos,
                                                resolve_item_id)
                         raw.append(cand)
-                        fact_rows[_candidate_identity(cand)] = dict(row)
+                        fact_rows[_candidate_identity(cand)] = _period_marked(
+                            row, request, "lexical")
                     if rows:
                         channels.append("lexical")
                 except Exception:
@@ -1663,41 +1684,84 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
 
     # ── vector (REUSE MemoryManager; единый retrieval-контракт) ─────────────
     if _allow("vector") and memory is not None:
-        for chat_id in chat_ids:
-            try:
+        if request.period_fill:
+            # VMQ-MEM next stage (§1): периодная нога — НЕ
+            # `_search_graph_facts`/MMR/staged k×4. Там срез 2026-доминирован
+            # и фильтр после MMR старое не достаёт. Здесь один float-MATCH с
+            # фиксированным k, JOIN по rowid к graph_facts и окно по годам
+            # ПОСЛЕ среза. Функция живёт рядом с `_vec_candidates`; её нет у
+            # двойников → честная деградация на лексику с кодом причины.
+            period_stats: dict = {}
+            rows = []
+            reader = getattr(memory, "period_fill_candidates", None)
+            if not callable(reader):
+                period_stats["vector_leg"] = "unsupported_memory"
+            else:
+                for chat_id in chat_ids:
+                    try:
+                        rows = await reader(
+                            chat_id, request.query, k=fetch_k,
+                            exclude_years=tuple(request.exclude_years or ()),
+                            include_direct_reply=bool(
+                                request.include_direct_reply),
+                            include_self=bool(request.include_self),
+                            include_archived=bool(
+                                request.include_archived),
+                            stats=period_stats)
+                    except TypeError:
+                        period_stats["vector_leg"] = "unsupported_memory"
+                        rows = []
+                    except Exception:
+                        period_stats["vector_leg"] = "error"
+                        rows = []
+                    break
+            for pos, row in enumerate(rows or ()):
+                if not isinstance(row, dict):
+                    continue
+                cand = _fact_meta_candidate(row, pos, resolve_item_id)
+                raw.append(cand)
+                marked = _period_marked(row, request, "vector")
+                fact_rows[_candidate_identity(cand)] = marked
+                period_vector_ids.add(_candidate_identity(cand))
+            if rows:
+                channels.append("vector")
+        else:
+            for chat_id in chat_ids:
                 try:
-                    facts = await memory.retrieve_fact_candidates(
-                        chat_id, request.query, limit=fetch_k,
-                        include_archived=bool(request.include_archived),
-                        include_self=bool(request.include_self),
-                        include_direct_reply=bool(
-                            request.include_direct_reply),
-                        policy=policy, stats=excluded)
-                except TypeError:
-                    # Двойник без политики/счётчиков: те же прежние флаги
-                    # доставки сохраняются (иначе live/direct/self-пул молча
-                    # сузился бы на несовместимом API).
                     try:
                         facts = await memory.retrieve_fact_candidates(
                             chat_id, request.query, limit=fetch_k,
                             include_archived=bool(request.include_archived),
                             include_self=bool(request.include_self),
                             include_direct_reply=bool(
-                                request.include_direct_reply))
+                                request.include_direct_reply),
+                            policy=policy, stats=excluded)
                     except TypeError:
-                        # Совместимость: реализации без archival-параметра —
-                        # обычная (live) выдача, как раньше.
-                        facts = await memory.retrieve_fact_candidates(
-                            chat_id, request.query, limit=fetch_k)
-                for pos, row in enumerate(facts or []):
-                    cand = _fact_meta_candidate(row, pos, resolve_item_id)
-                    raw.append(cand)
-                    if isinstance(row, dict):
-                        fact_rows[_candidate_identity(cand)] = dict(row)
-                if facts:
-                    channels.append("vector")
-            except Exception:
-                logger.warning("[mca07] vector channel failed", exc_info=True)
+                        # Двойник без политики/счётчиков: те же прежние флаги
+                        # доставки сохраняются (иначе live/direct/self-пул молча
+                        # сузился бы на несовместимом API).
+                        try:
+                            facts = await memory.retrieve_fact_candidates(
+                                chat_id, request.query, limit=fetch_k,
+                                include_archived=bool(request.include_archived),
+                                include_self=bool(request.include_self),
+                                include_direct_reply=bool(
+                                    request.include_direct_reply))
+                        except TypeError:
+                            # Совместимость: реализации без archival-параметра —
+                            # обычная (live) выдача, как раньше.
+                            facts = await memory.retrieve_fact_candidates(
+                                chat_id, request.query, limit=fetch_k)
+                    for pos, row in enumerate(facts or []):
+                        cand = _fact_meta_candidate(row, pos, resolve_item_id)
+                        raw.append(cand)
+                        if isinstance(row, dict):
+                            fact_rows[_candidate_identity(cand)] = dict(row)
+                    if facts:
+                        channels.append("vector")
+                except Exception:
+                    logger.warning("[mca07] vector channel failed",
+                                   exc_info=True)
 
     # ── community (§4.4/C-6): членство активной сборки, если она есть ───────
     if _allow("community") and mode == "thematic":
@@ -1779,6 +1843,14 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 ordered, subject_entity_ids=prior_uids,
                 participant_ids=request.participants,
                 subject_node_ids=prior_nodes)
+    # VMQ-MEM next stage (§1): обход периодного пула — СНАЧАЛА строки
+    # векторной ноги (они и есть смысловой путь), затем лексические: иначе
+    # слоты `limit//5` забирает лексика, и смысловой добор не доходит.
+    if request.period_fill and period_vector_ids:
+        ordered = ([cand for cand in ordered
+                    if _candidate_identity(cand) in period_vector_ids]
+                   + [cand for cand in ordered
+                      if _candidate_identity(cand) not in period_vector_ids])
     # Ограничение выдачи (эпизоды-первыми не вытесняются при истории, но и не
     # занимают срез целиком — см. `_HISTORY_EPISODE_SLICE_DIV`).
     cut_before = len(ordered)
@@ -1842,14 +1914,32 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         subject_dropped or ())
     excluded["budget"] = (excluded.get("budget") or 0) + max(
         0, cut_before - len(ordered))
+    # VMQ-MEM next stage (§4): наблюдаемость периодного добора — только
+    # счётчики и `subject_proxy` (как строка вошла), без текстов фактов.
+    period_usage = None
+    if request.period_fill:
+        period_usage = {
+            "vector_leg": str(period_stats.get("vector_leg")
+                              or ("ok" if period_vector_ids else "no_rows")),
+            "vector_rows": len(period_vector_ids),
+            "vector_pool_miss": int(bool(
+                period_stats.get("vector_pool_miss"))),
+            "subject_proxy": _subject_proxy_counts(ordered, fact_rows,
+                                                   period_vector_ids),
+        }
+    usage_json = {"policy": policy, "years": years,
+                  "excluded": {key: int(value) for key, value
+                               in sorted(excluded.items()) if int(value)}}
+    if period_usage is not None:
+        usage_json["period_fill"] = period_usage
+        if period_usage.get("subject_proxy"):
+            usage_json["subject_proxy"] = period_usage["subject_proxy"]
     emit_stage_event(
         "retrieval", "success" if ordered else "silent",
         reason_code=reason, chat_id=request.chat_id,
         entity_ids=[c.id for c in ordered[:20]],
         message_id=request.trigger_ref,
-        usage_json={"policy": policy, "years": years,
-                    "excluded": {key: int(value) for key, value
-                                 in sorted(excluded.items()) if int(value)}})
+        usage_json=usage_json)
     return RetrievalResult(
         status=status, candidates=tuple(ordered),
         channels_used=tuple(sorted(set(channels), key=_CHANNEL_ORDER.index)),
@@ -1859,7 +1949,8 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         chat_ids=chat_ids, ambiguity=ambiguity, relevance=relevance,
         relations=relations,
         fact_rows=tuple(fact_rows[_candidate_identity(cand)] for cand in ordered
-                        if _candidate_identity(cand) in fact_rows))
+                        if _candidate_identity(cand) in fact_rows),
+        period_fill=period_usage)
 
 
 def _message_candidate(row, channel: str, position: int, resolve_item_id):
@@ -1920,6 +2011,58 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
         origin_type=(origin or str(_row_get(row, "provenance_channel")
                                    or "") or None),
         provenance_backed=(subject_ref not in (None, "")))
+
+
+def _exclude_years_of(request: RetrievalRequest):
+    """Годы SQL-окна FTS: только у периодного добора, иначе None (прежний SQL)."""
+    if not request.period_fill:
+        return None
+    years: list = []
+    for year in (request.exclude_years or ()):
+        try:
+            years.append(int(year))
+        except (TypeError, ValueError):
+            continue
+    return tuple(sorted(set(years))) or None
+
+
+def _period_marked(row, request: RetrievalRequest, source: str) -> dict:
+    """Полная строка факта − пометка канала периодного добора (`period_source`).
+
+    `period_fill` — не только «другой период»: потребителю нужно знать, как
+    строка вошла. Векторная строка (`vector`) — ближайший сосед в окне, а НЕ
+    доказанный ответ (под выключенным реранком входит с `subject_proxy=knn`);
+    лексическая (`lexical`) — совпадение текста. Пометка аддитивна и не
+    попадает ни в один рендер."""
+    try:
+        marked = dict(row)
+    except (TypeError, ValueError):
+        # Не-mapping (совместимый двойник отдал объект) — прежнее поведение
+        # потребителя: строка без полей, ничего не выдумываем.
+        marked = {"raw": row}
+    if request.period_fill:
+        marked["period_source"] = source
+    return marked
+
+
+def _subject_proxy_counts(ordered, fact_rows, period_vector_ids) -> dict:
+    """Счётчики «как вошла строка» для периодного пула: только числа/коды."""
+    counts: dict = {}
+    for cand in ordered or ():
+        identity = _candidate_identity(cand)
+        if identity not in fact_rows:
+            continue
+        row = fact_rows[identity]
+        if not isinstance(row, dict):
+            continue
+        if identity in period_vector_ids:
+            key = "knn"
+        elif row.get("period_source"):
+            key = str(row.get("period_source"))
+        else:
+            continue
+        counts[key] = counts.get(key, 0) + 1
+    return counts
 
 
 def _fact_meta_candidate(row, position: int, resolve_item_id):

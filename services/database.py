@@ -11155,7 +11155,8 @@ class DatabaseService:
                                      include_direct_reply=False,
                                      include_archived=False,
                                      include_self=False,
-                                     include_expired=None) -> list:
+                                     include_expired=None,
+                                     exclude_years=None) -> list:
         """FTS-фолбек RAG с ленивым TTL-фильтром (D175). Epic 50 (58.8, D206):
         include_direct_reply=False (default) → origin='bot_direct_reply' НЕ
         подмешивается в чужие пайплайны; + created_at/target_user в SELECT.
@@ -11182,7 +11183,14 @@ class DatabaseService:
         находит их полноценно); False (default RAG) → только свежие; True →
         expired участвуют всегда. SELECT аддитивно несёт ``f.expires_at`` —
         вызывающий отличает archive-hit (``expires_at <= now_ts``) от свежих
-        и помечает trust/as-of на своей стороне."""
+        и помечает trust/as-of на своей стороне.
+
+        VMQ-MEM next stage (§1, 11.11.2026): ``exclude_years`` — дешёвое
+        SQL-окно по годам у ОДНОГО периодного вызывающего (периодный добор
+        direct-RAG). Предикат тот же (`COALESCE(message_timestamp,
+        created_at)`), применяется ДО `ORDER BY rank LIMIT`, годы приходят
+        целыми из базового среза, а не текстом вопроса. ``None``/пусто →
+        прежний SQL байт-в-байт (`NOT IN ()` не строится)."""
         # P0-квота: include_archived=True — историческое/архивное копание
         # (dig_into_lore) видит и архивные beliefs, и неразрушающе вытесненные
         # квотой факты ('archived_fact', см. archive_graph_fact_for_quota);
@@ -11193,6 +11201,22 @@ class DatabaseService:
                            else bool(include_expired))
         ttl_clause = ("" if expired_visible
                       else "AND (f.expires_at IS NULL OR f.expires_at > ?) ")
+        # VMQ-MEM next stage (§1): окно по годам — только у периодного добора.
+        # Годы — целые из базового среза; пустой набор не превращается в
+        # `NOT IN ()` (невалидный SQL), предикат просто не добавляется.
+        excluded_years: list = []
+        for year in (exclude_years or ()):
+            try:
+                excluded_years.append(int(year))
+            except (TypeError, ValueError):
+                continue
+        excluded_years = sorted(set(excluded_years))
+        year_clause = ""
+        if excluded_years:
+            year_clause = (
+                "AND CAST(strftime('%Y', COALESCE(f.message_timestamp, "
+                "f.created_at), 'unixepoch') AS INTEGER) NOT IN ("
+                + ",".join("?" for _ in excluded_years) + ") ")
         # MCA-22 (ADR-1028-6 D7/C5): SELECT АДДИТИВНО расширен provenance-
         # колонками v17 (subject_ref_id/attribution_method/assertion_kind/
         # speaker_author_id/provenance_channel) — retrieval переносит
@@ -11214,10 +11238,12 @@ class DatabaseService:
             sql += "AND f.origin != 'bot_direct_reply' "
         if not include_self:
             sql += "AND f.origin != 'bot_self_reply' "
+        sql += year_clause
         sql += "ORDER BY graph_facts_fts.rank LIMIT ?"
         params: list = [match_query, chat_id]
         if not expired_visible:
             params.append(now_ts)
+        params.extend(excluded_years)
         params.append(limit)
         cursor = await self.db.execute(sql, params)
         return await cursor.fetchall()

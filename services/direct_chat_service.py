@@ -102,6 +102,7 @@ from services import bot_persona
 from services import thread_chain
 from services import mca_gates
 from services import mca_retrieval_context as _mca_rc
+from services import text_morphology as _morph      # VMQ-MEM §2: основа слова
 from services import response_freshness as _fresh   # MCA-22 (C7, D8)
 from services import bot_output_ledger as _ledger   # MCA-22 (C2, D2)
 from services import graphrag_provenance as _gprov  # MCA-22 (C5/C8, D6/D9)
@@ -3410,6 +3411,84 @@ def _rag_period_keys(rows: list) -> set:
             continue
         out.add(row.get("item_id") or (row.get("origin"), row.get("fact")))
     return out
+
+
+def _rag_subject_proxy_of(row) -> str | None:
+    """Как строка вошла в периодный добор (§2): `knn` / `stems` / иное.
+
+    Мета-строка `_rag_meta_from_record` несёт готовое поле `subject_proxy`;
+    сырая строка факта — `period_source` (его ставит периодный `retrieve`).
+    `vector` → `knn` (ближайший сосед в окне, не оракул предмета),
+    `lexical` → `stems` (совпадение после порога ≥2 основ).
+    Не-периодная строка → None."""
+    proxy = _rag_row_get(row, "subject_proxy")
+    if proxy:
+        return str(proxy)
+    source = str(_rag_row_get(row, "period_source") or "")
+    if source == "vector":
+        return "knn"
+    if source == "lexical":
+        return "stems"
+    if source:
+        return source
+    return None
+
+
+def _subject_proxy_histogram(rows: list, kept: list) -> str:
+    """Bounded-гистограмма «как вошла» по показанным периодным строкам.
+
+    Только имена и числа, без текстов фактов: `knn=1,stems=2`."""
+    by_key: dict = {}
+    for row in rows or ():
+        if not isinstance(row, dict) or not row.get("period_fill"):
+            continue
+        by_key[row.get("item_id") or (row.get("origin"), row.get("fact"))] = (
+            _rag_subject_proxy_of(row) or "unmarked")
+    counts: dict = {}
+    for item in kept or ():
+        proxy = by_key.get(_rag_item_key(item))
+        if proxy is None:
+            continue
+        counts[proxy] = counts.get(proxy, 0) + 1
+    return ",".join(f"{name}={counts[name]}" for name in sorted(counts))
+
+
+def _rag_subject_stems(text) -> set:
+    """Основы значимых слов (≥4 символа) — существующая морфология (§2).
+
+    Никаких списков тем/времён/годов: `_TOKEN_RE`-эквивалент (`_tokenize`
+    того же retrieval) и существующий `stem_word`. Стемминг здесь —
+    сравнение «тот же предмет», а не расширение FTS-запроса."""
+    out: set = set()
+    for word in _mca_rc._tokenize(text):
+        stem = _morph.stem_word(str(word))
+        if len(stem) >= 4:
+            out.add(stem)
+    return out
+
+
+def _rag_subject_shared(query_stems: set, text) -> int:
+    """Сколько разных основ делят вопрос и текст факта (§2, порог ≥2)."""
+    if not query_stems or not str(text or "").strip():
+        return 0
+    return len(query_stems & _rag_subject_stems(text))
+
+
+def _rag_period_judged_keys(rows: list) -> set:
+    """Ключи периодных строк, которые УВИДИТ реранк (`subject_proxy=knn`).
+
+    Векторная строка уходит в существующий `rerank_rag_facts` вместе с
+    непериодным срезом, поэтому валидный пустой вердикт снимает и её.
+    Лексическая строка, прошедшая порог §2, в реранк не отправлялась — её
+    он не судит (и не гасит)."""
+    judged: set = set()
+    for row in rows or ():
+        if not isinstance(row, dict) or not row.get("period_fill"):
+            continue
+        if _rag_subject_proxy_of(row) != "knn":
+            continue
+        judged.add(row.get("item_id") or (row.get("origin"), row.get("fact")))
+    return judged
 
 
 def _rag_as_of_map(rows: list) -> dict:
@@ -13575,19 +13654,24 @@ class DirectChatService:
     #: тексту факт 2023. Добор делает существующий `lexical`-канал
     #: (`graph_facts_fts` того же слоя) ОТДЕЛЬНЫМ bounded-вызовом того же
     #: `retrieve`, поэтому порядок основного среза не меняется.
-    _RAG_PERIOD_CHANNELS = ("lexical",)
-    #: Пул периодного вызова (VMQ-MEM-TIME, замер 11.11.2026). Канал
-    #: `lexical` — единственный, но внутри него сначала идут СООБЩЕНИЯ, затем
-    #: факты, и срез `top_k=limit` заполняется сообщениями: на копии прода при
-    #: `limit=10` до фактов доходило 5 строк, известный факт 2023 (FTS-rank
-    #: 3–7) в них не попадал. Поэтому периодный вызов просит пул ×2 (bounded,
-    #: не зависит от корпуса) — состав каналов не меняется.
-    _RAG_PERIOD_POOL_FACTOR = 2
+    _RAG_PERIOD_CHANNELS = ("lexical", "vector")
+    #: Пул периодного вызова (VMQ-MEM next stage, 11.11.2026). Пул
+    #: ФИКСИРОВАН (32) и не зависит от корпуса: внутри `lexical` сначала идут
+    #: СООБЩЕНИЯ, затем факты, поэтому прежний `limit*2` заполнялся
+    #: сообщениями и факты не доходили. Срез `extra, limit=10` снимал A8 —
+    #: в обход передаётся САМ пул, не `limit`.
+    _RAG_PERIOD_POOL = 32
     #: Сколько слотов среза может занять материал ДРУГОГО периода
     #: (`limit // N`). Это периодное разнообразие, а не квота памяти: при
     #: `limit=10` — максимум 2 строки, поэтому вопрос о текущем состоянии
     #: остаётся доминированным текущим годом (≥80 %).
     _RAG_PERIOD_SLOT_DIV = 5
+    #: Порог «тот же предмет, не то же слово» (§2): лексическая строка входит,
+    #: только если вопрос и текст делят ≥2 разных основы (длина основы ≥4).
+    #: При пороге 1 остаётся шум одного слова (на архиве: айтишники, покупк,
+    #: предпочтения, сейчас). Списка тем нет — только существующая морфология.
+    _RAG_PERIOD_MIN_STEMS = 2
+    #: Векторная строка порог §2 НЕ проходит: иначе смысловой путь отменён.
 
     async def _rag_unified_rows(self, chat_id: int, query: str, message,
                                 memory_scope: str | None = None,
@@ -13616,13 +13700,18 @@ class DirectChatService:
           же состав/порядок (текущее состояние вопроса).
         * `historical`/`auto` — основной срез строится ТЕМ ЖЕ вызовом (канал
           `vector`, порядок сохранён), после чего в свободные слоты
-          добирается материал ДРУГОГО периода: (1) `lexical`-канал того же
-          `retrieve` (`graph_facts_fts`), (2) профиль субъекта из
+          добирается материал ДРУГОГО периода: (1) второй вызов того же
+          `retrieve` с каналами `("lexical", "vector")` и пулом 32 —
+          векторная нога есть БЛИЖАЙШИЙ СОСЕД в окне (не доказанный ответ),
+          лексическая входит только при ≥2 общих основах с вопросом, и
+          SQL-окно по годам базового среза; (2) профиль субъекта из
           существующего чтения `get_user_context_facts` (строки без
           привязки помечены `unattributed`). Добор ограничен
           `limit // _RAG_PERIOD_SLOT_DIV` слотами и берёт только годы, которых
           в срезе ещё нет, — поэтому состав основного среза не меняется, а
-          вопрос о текущем состоянии остаётся доминированным текущим годом."""
+          вопрос о текущем состоянии остаётся доминированным текущим годом.
+          Обход пула: сначала строки векторной ноги, затем лексические."""
+        self._rag_period_stats = {}
         try:
             memory = getattr(self, "memory", None)
             db = getattr(self, "db", None)
@@ -13668,20 +13757,43 @@ class DirectChatService:
             # принятой выдачи direct-RAG).
             trimmed = rows[:max(1, int(limit) - period_slots)]
             # (1) периодный добор из того же retrieval: старый факт, который
-            #     найден по тексту, но не попал в срез основного канала.
-            #     VMQ-MEM-TIME (решение 11.11.2026): словоформа вопроса и
-            #     словоформа в старом тексте сводятся к одной основе
-            #     (`lexical_stem`), и вытесненные квотой `archived_fact`
-            #     тоже видны (`include_archived`) — иначе импорт 2023 года
-            #     недостижим вовсе.
+            #     найден по смыслу/тексту, но не попал в срез основного канала.
+            #     VMQ-MEM next stage (11.11.2026): в добор входят ОБА пути —
+            #     векторный (фиксированный пул 32, JOIN по rowid, фильтр по
+            #     годам ПОСЛЕ среза) и лексический (словоформа вопроса и
+            #     словоформа в старом тексте сводятся к одной основе,
+            #     `lexical_stem`; вытесненные квотой `archived_fact` тоже
+            #     видны — `include_archived`). Векторная нога — ближайший
+            #     сосед, а не оракул предмета: порог §2 к ней не применяется,
+            #     и это видно в `subject_proxy`.
+            base_years = tuple(sorted(
+                {year for year in (_rag_row_year(row) for row in rows)
+                 if year is not None}))
             extra = await self._rag_retrieve(
                 db, memory, chat_id, query, self._RAG_PERIOD_CHANNELS,
-                limit * self._RAG_PERIOD_POOL_FACTOR, policy,
+                self._RAG_PERIOD_POOL, policy,
                 lexical_stem=True,
-                include_archived=policy in ("historical", "auto"))
+                include_archived=policy in ("historical", "auto"),
+                period_fill=True,
+                exclude_years=base_years)
+            extra_rows = self._rag_rows_from_result(
+                extra, self._RAG_PERIOD_POOL)
+            accepted, rejected = self._rag_period_subject_filter(query,
+                                                                 extra_rows,
+                                                                 policy)
+            period_meta = getattr(extra, "period_fill", None) or {}
+            self._rag_period_stats = {
+                "rejected_subject": int(rejected),
+                "vector_pool_miss": int(period_meta.get("vector_pool_miss")
+                                        or 0),
+                "vector_leg": str(period_meta.get("vector_leg") or ""),
+                "vector_rows": int(period_meta.get("vector_rows") or 0),
+                "vector_kept": sum(1 for row in accepted
+                                   if row.get("subject_proxy") == "knn"),
+                "exclude_years": len(base_years),
+            }
             trial = self._rag_append_period_rows(
-                trimmed, self._rag_rows_from_result(extra, limit), limit,
-                slots=period_slots)
+                trimmed, accepted, limit, slots=period_slots)
             # (2) периодный добор из профиля субъекта (без привязки —
             #     помечается `unattributed`, чтобы не читалось как сведение
             #     о человеке).
@@ -13698,13 +13810,15 @@ class DirectChatService:
     async def _rag_retrieve(db, memory, chat_id: int, query: str, channels,
                             limit: int, policy: str, *,
                             lexical_stem: bool = False,
-                            include_archived: bool = False):
+                            include_archived: bool = False,
+                            period_fill: bool = False,
+                            exclude_years=()):
         """Один вызов существующего `retrieve` (без второго контура).
 
-        `lexical_stem`/`include_archived` включает ТОЛЬКО периодный добор
-        (VMQ-MEM-TIME, решение 11.11.2026); основной срез и `operative`
-        остаются с прежними значениями по умолчанию.
-        """
+        `lexical_stem`/`include_archived`/`period_fill`/`exclude_years`
+        включают ТОЛЬКО периодный добор (VMQ-MEM, решения 11.11.2026);
+        основной срез и `operative` остаются с прежними значениями по
+        умолчанию."""
         request = _mca_rc.RetrievalRequest(
             chat_id=int(chat_id), query=str(query or ""),
             mode="specific", purpose="reply", top_k=max(1, int(limit)),
@@ -13714,7 +13828,9 @@ class DirectChatService:
             channels=tuple(channels), preserve_channel_order=True,
             include_self=True, include_direct_reply=True,
             memory_scope=policy, lexical_stem=bool(lexical_stem),
-            include_archived=bool(include_archived))
+            include_archived=bool(include_archived),
+            period_fill=bool(period_fill),
+            exclude_years=tuple(exclude_years or ()))
         return await _mca_rc.retrieve(db, memory, request)
 
     @classmethod
@@ -13734,6 +13850,45 @@ class DirectChatService:
             rows.append(cls._rag_meta_from_record(row, fact_id, position,
                                                   limit))
         return rows
+
+    @classmethod
+    def _rag_period_subject_filter(cls, query: str, extra_rows: list,
+                                   policy: str = "historical"
+                                   ) -> tuple[list, int]:
+        """Отбор пула периодного добора: «тот же предмет, не то же слово» (§2).
+
+        * Лексическая строка входит только при `≥2` разных общих основах
+          вопроса и текста (существующие `_tokenize` + `stem_word`, основа
+          ≥4 символов). Порог 1 оставлял шум одного слова.
+        * Векторная строка (`subject_proxy=knn`) — ближайший сосед в окне.
+          Под `historical` порог §2 к ней НЕ применяется: иначе смысловой
+          путь отменён. Под `auto` решение L1 отсутствует, поэтому §4/§5
+          действуют буквально: «старый год входит только через §2» — там
+          порог обязателен для ЛЮБОЙ периодной строки (сосед без общих основ
+          — это чужой текущий разговор, а не ответ на вопрос о прошлом).
+        * Порядок обхода: сначала строки векторной ноги, затем лексические —
+          слоты `limit//5` забирает смысловой путь, а не случайное слово.
+
+        Возвращает `(принятые, число_отклонённых_по_предмету)`."""
+        strict = str(policy or "") != "historical"
+        query_stems = _rag_subject_stems(query)
+        vector_rows = [row for row in extra_rows
+                       if _rag_subject_proxy_of(row) == "knn"]
+        lexical_rows = [row for row in extra_rows
+                        if _rag_subject_proxy_of(row) != "knn"]
+        accepted: list = []
+        rejected = 0
+        for row in vector_rows + lexical_rows:
+            knn_row = _rag_subject_proxy_of(row) == "knn"
+            if knn_row and not strict:
+                accepted.append(row)
+                continue
+            if _rag_subject_shared(query_stems, row.get("fact")) >= \
+                    cls._RAG_PERIOD_MIN_STEMS:
+                accepted.append(row)
+            else:
+                rejected += 1
+        return accepted, rejected
 
     @classmethod
     def _rag_append_period_rows(cls, rows: list, extra: list, limit: int,
@@ -13833,6 +13988,12 @@ class DirectChatService:
             "expires_at": expires_at,
             "chat_id": _rag_row_get(row, "chat_id"),
             "status": _rag_row_get(row, "status"),
+            # VMQ-MEM next stage (§1/§2): как строка вошла в периодный добор.
+            # `knn` — ближайший векторный сосед в окне (НЕ доказанный ответ,
+            # под выключенным реранком входит именно как сосед), `stems` —
+            # лексическое совпадение после порога §2. Не-периодные строки —
+            # None.
+            "subject_proxy": _rag_subject_proxy_of(row),
             "subject_ref_id": _rag_row_get(row, "subject_ref_id"),
             "speaker_author_id": _rag_row_get(row, "speaker_author_id"),
             "assertion_kind": _rag_row_get(row, "assertion_kind"),
@@ -13892,6 +14053,10 @@ class DirectChatService:
         query = getattr(message, "text", None) or ""
         # MEMORY-06 (§7.5): сначала ЕДИНЫЙ retrieval-контракт (отбор фактов);
         # двойник без каналов (None) → прежнее чтение того же слоя.
+        # VMQ-MEM next stage (§4): телеметрия периодного добора принадлежит
+        # этому ходу — сбрасываем до чтения, чтобы повторный сбор блока на
+        # том же экземпляре не унаследовал счётчики прошлого вопроса.
+        self._rag_period_stats = {}
         try:
             rows = await self._rag_unified_rows(chat_id, query, message,
                                                 memory_scope=memory_scope,
@@ -13919,6 +14084,10 @@ class DirectChatService:
                     "direct: rag facts failed — no rag block | chat=%s",
                     chat_id, exc_info=True)
                 return "", ""
+        # VMQ-MEM next stage (§4): счётчики периодного добора того же хода —
+        # только числа/коды (`_rag_unified_rows` их владелец; двойники их не
+        # ставят → пустая телеметрия, рендер не меняется).
+        period_stats = getattr(self, "_rag_period_stats", None) or {}
         facts, ranks = _rag_rows_with_ranks(rows)
         # VMQ-MEM-TIME (§6): актуальность/V по тем же строкам — источник
         # as-of метки «(архив, YYYY)» для исторических фактов.
@@ -13948,24 +14117,37 @@ class DirectChatService:
         # здесь, у потребителя: общий `summary_memory.rerank_rag_facts` не
         # получает понятия «период» (у него другие потребители).
         period_keys = _rag_period_keys(rows)
+        # VMQ-MEM next stage (§3): реранк судит только строки, которые он
+        # УВИДЕЛ. Векторная периодная строка (`subject_proxy=knn`) уходит в
+        # него вместе с непериодным срезом, поэтому валидный пустой вердикт
+        # снимает и её; лексическая строка, прошедшая порог §2, в реранк не
+        # отправлялась и его молчанием не гасится.
+        protected_keys = period_keys - _rag_period_judged_keys(rows)
         period_kept = 0
+        period_kept_despite_empty = 0
+        # Гейт реранка — per-chat цепочкой 2.58.186 (`_cp_g`: override чата →
+        # глобальный hot → env/фабричный дефолт). Оба изменения складываются
+        # аддитивно: счётчики периодного добора живут при любом значении флага.
         if await _cp_g(chat_id, "flags.chat_rag_rerank_enabled",
                        settings.CHAT_RAG_RERANK_ENABLED):
             protected = [item for item in kept
-                         if _rag_item_key(item) in period_keys]
+                         if _rag_item_key(item) in protected_keys]
             rest = [item for item in kept
-                    if _rag_item_key(item) not in period_keys]
+                    if _rag_item_key(item) not in protected_keys]
             try:
                 if rest:
                     reranked = await self.memory.rerank_rag_facts(query, rest)
                     if not reranked:
                         # ВАЛИДНЫЙ ПУСТОЙ ответ реранка (`{"selected":[]}`) —
-                        # решение модели «здесь нет релевантного». Политика
-                        # разнообразия не вправе его перекрыть, иначе блок
-                        # собирался бы из одного добора (на архиве: «что
-                        # нового у Aleksey?» → единственная строка 2023 года).
-                        kept = []
-                        period_kept = 0
+                        # решение модели «в этом срезе нет релевантного». Оно
+                        # не перекрывается добором: судимые строки не
+                        # показываются, блок не собирается из них. Но
+                        # лексический добор с ≥2 основами модель не видела —
+                        # он остаётся (иначе найденная история гибнет от
+                        # молчания по другому набору).
+                        kept = protected
+                        period_kept = len(protected)
+                        period_kept_despite_empty = len(protected)
                     else:
                         # Реранк только УБИРАЕТ: итог = его собственный порядок
                         # по не-периодной части + защищённый добор. Сумма не
@@ -13984,7 +14166,7 @@ class DirectChatService:
                     "direct: rag rerank failed — original facts | chat=%s",
                     chat_id, exc_info=True)
                 period_kept = len([item for item in kept
-                                   if _rag_item_key(item) in period_keys])
+                                   if _rag_item_key(item) in protected_keys])
         if not kept:
             return "", ""
         # F2/T-1429 (spec §4.4, 4.1.c): граф-активация — при частой связке
@@ -14051,8 +14233,19 @@ class DirectChatService:
             logger.warning("direct: rag context truncated to %d chars | chat=%s",
                            cap, chat_id)
             content = content[:cap]
-        logger.info("direct: rag block | facts=%d | period_kept=%d | chat=%s",
-                    len(kept), period_kept, chat_id)
+        logger.info(
+            "direct: rag block | facts=%d | period_kept=%d | "
+            "period_rejected_subject=%d | period_kept_despite_empty=%d | "
+            "vector_pool_miss=%d | period_vector_knn=%d | "
+            "period_vector_leg=%s | subject_proxy=%s | chat=%s",
+            len(kept), period_kept,
+            int(period_stats.get("rejected_subject") or 0),
+            period_kept_despite_empty,
+            int(period_stats.get("vector_pool_miss") or 0),
+            int(period_stats.get("vector_kept") or 0),
+            str(period_stats.get("vector_leg") or "n/a"),
+            _subject_proxy_histogram(rows, kept),
+            chat_id)
         # UR-F шаг 1 (UR-20.5/20.7): какие ИМЕННО факты памяти вошли в блок —
         # id и даты (текст факта не копируется). Out-параметр, потому что
         # второй проход по фактам после рендера запрещён (порядок/метки уже
