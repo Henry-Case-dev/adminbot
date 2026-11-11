@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-12T04:39:42+12:00",
+  "updated": "2026-11-12T08:23:11+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -31,7 +31,15 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; verified rows exist but the recorded deployment is not in the current production lineage",
-      "release_state": "recorded deployed commit is NOT in the current production lineage; release claim needs reconciliation before reuse"
+      "release_state": "recorded deployed commit is NOT in the current production lineage; release claim needs reconciliation before reuse",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 10,
+          "to": 11,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "asap8-v6.3",
@@ -61,7 +69,15 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
-      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release"
+      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 11,
+          "to": 12,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "cfg-01-07",
@@ -165,7 +181,15 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
-      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release"
+      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 12,
+          "to": 13,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "samples-ux",
@@ -433,7 +457,15 @@
         "deployed_in_current_line": true
       },
       "paused": true,
-      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 16,
+          "to": 17,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "post-asap5-corrective",
@@ -473,7 +505,15 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
-      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release"
+      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 13,
+          "to": 14,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "p0-factcheck-post-release",
@@ -522,7 +562,15 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
-      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release"
+      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 14,
+          "to": 15,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "p0-history-analysis",
@@ -564,7 +612,15 @@
       },
       "paused": true,
       "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
-      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release"
+      "release_state": "already deployed in the current production line (recorded deployed commit is an ancestor of 2.58.184); the remaining gap is open requirement rows, not a pending release",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 15,
+          "to": 16,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "evol",
@@ -602,7 +658,15 @@
         "deployed_in_current_line": true
       },
       "paused": true,
-      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 19,
+          "to": 20,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "epic-memory-cognitive-02",
@@ -639,7 +703,15 @@
         "deployed_in_current_line": true
       },
       "paused": true,
-      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 20,
+          "to": 21,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "menu-01",
@@ -742,7 +814,15 @@
         "deployed_in_current_line": null
       },
       "not_started": true,
-      "pause_reason": "no running assignment and no verified row yet"
+      "pause_reason": "no running assignment and no verified row yet",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 22,
+          "to": 23,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "vmq-onto-01",
@@ -755,7 +835,7 @@
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 47 required rows (37 epic acceptance rows, 9 provider-management rows, 1 mapping row), 12 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=46 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V voice is the first executable slice when its files are free; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
       "updated": "2026-11-09",
-      "queue_position": 3,
+      "queue_position": 4,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "chained",
@@ -823,7 +903,19 @@
         "GRAPH_RAG_FACTS_LIMIT": 10,
         "GRAPH_RAG_CONTEXT_MAX_CHARS": 2000,
         "per_chat_overrides_of_memory_flags": "none (224 chat_params history entries checked)"
-      }
+      },
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 3,
+          "to": 5,
+          "why": "owner order 2026-11-12"
+        }
+      ],
+      "queue_after": [
+        "self-diag-01"
+      ],
+      "queue_after_note": "Владелец 2026-11-12: сразу после самодиагностики. Уточнение владельца: «квантовые рандомы» — это именно VMQ-ONTO-01, не goodmorning-quantum-media."
     },
     {
       "id": "self-diag-01",
@@ -836,14 +928,26 @@
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
       "updated": "2026-11-09",
-      "queue_position": 4,
+      "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "chained",
       "blocker_sources": {},
       "execution_state": "queued",
       "position_basis": "owner decision",
-      "queue_note": "owner-priority epic: extended self-diagnostics"
+      "queue_note": "owner-priority epic: extended self-diagnostics",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 4,
+          "to": 3,
+          "why": "owner order 2026-11-12"
+        }
+      ],
+      "queue_after": [
+        "p0-init-meme-ux-diag"
+      ],
+      "queue_after_note": "Владелец 2026-11-12: следующая задача после текущего эпика — самодиагностика."
     },
     {
       "id": "smart-module-semantic-routing-p0",
@@ -883,7 +987,15 @@
         "deployed_in_current_line": true
       },
       "paused": true,
-      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 21,
+          "to": 22,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "mod-acl-ux-01",
@@ -912,7 +1024,15 @@
       "blocker_sources": {},
       "execution_state": "queued",
       "position_basis": "owner decision",
-      "queue_note": "owner-priority epic; UI shares web/app.js with the active unified-reply lane, so UI slices wait for it, backend slices do not"
+      "queue_note": "owner-priority epic; UI shares web/app.js with the active unified-reply lane, so UI slices wait for it, backend slices do not",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 5,
+          "to": 6,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108",
@@ -1004,7 +1124,15 @@
         "MEM-AUDIT": "writer serialization on services/worker_budget.py, not a product dependency; PAY-BALANCE must not fork that file concurrently",
         "VISION-OWN": "writer serialization on services/image_generation.py, not a product dependency",
         "conclusion": "two of the three are shared-file ordering constraints inside the epic graph, not reasons to block the whole epic; the epic-level blocked_by stays empty"
-      }
+      },
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 23,
+          "to": 24,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "asap-fc-voice-01",
@@ -1032,7 +1160,15 @@
       },
       "blocker_sources": {},
       "execution_state": "queued",
-      "position_basis": "chain/dependency or release state"
+      "position_basis": "chain/dependency or release state",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 24,
+          "to": 25,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "asap-evol-anticliche-memory-admin-ux",
@@ -1060,7 +1196,15 @@
       },
       "blocker_sources": {},
       "execution_state": "queued",
-      "position_basis": "chain/dependency or release state"
+      "position_basis": "chain/dependency or release state",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 25,
+          "to": 26,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "epic-experience-learning-performance-help",
@@ -1089,7 +1233,15 @@
       },
       "blocker_sources": {},
       "execution_state": "queued",
-      "position_basis": "chain/dependency or release state"
+      "position_basis": "chain/dependency or release state",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 26,
+          "to": 27,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "p0-meme-image-only",
@@ -1140,7 +1292,15 @@
         "deployed_in_current_line": true
       },
       "paused": true,
-      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open"
+      "pause_reason": "no running assignment; work verified and partly deployed, remaining rows open",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 17,
+          "to": 18,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "hotfix-meme-publication-initiative-ui",
@@ -1205,7 +1365,15 @@
       },
       "blocker_sources": {},
       "execution_state": "paused_with_branch",
-      "position_basis": "chain/dependency or release state"
+      "position_basis": "chain/dependency or release state",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 27,
+          "to": 28,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "epic-prompt-versioning-ux-01",
@@ -1272,7 +1440,15 @@
       },
       "execution_state": "awaiting_dependency",
       "position_basis": "chain/dependency or release state",
-      "queue_note": "immediately after unified-reply"
+      "queue_note": "immediately after unified-reply",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 8,
+          "to": 9,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "goodmorning-quantum-media",
@@ -1300,7 +1476,15 @@
       },
       "blocker_sources": {},
       "execution_state": "paused_with_branch",
-      "position_basis": "chain/dependency or release state"
+      "position_basis": "chain/dependency or release state",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 28,
+          "to": 4,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "behavior-gates-simplification-01",
@@ -1337,7 +1521,15 @@
         "deployed_in_current_line": null
       },
       "paused": true,
-      "pause_reason": "no running assignment; verified rows exist, nothing deployed"
+      "pause_reason": "no running assignment; verified rows exist, nothing deployed",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 9,
+          "to": 10,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "remove-legacy-rephrasing-01",
@@ -1418,7 +1610,15 @@
         "deployed_in_current_line": null
       },
       "paused": true,
-      "pause_reason": "no running assignment; verified rows exist, nothing deployed"
+      "pause_reason": "no running assignment; verified rows exist, nothing deployed",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 18,
+          "to": 19,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "fc-trust-01",
@@ -1445,7 +1645,15 @@
       },
       "execution_state": "awaiting_dependency",
       "position_basis": "owner decision",
-      "queue_note": "owner ordered it after both quantum and self-diagnostics"
+      "queue_note": "owner ordered it after both quantum and self-diagnostics",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 6,
+          "to": 7,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "web-search-quality-01",
@@ -1477,7 +1685,15 @@
         "fc-trust-01": "task:fc-trust-01"
       },
       "execution_state": "awaiting_dependency",
-      "position_basis": "owner decision"
+      "position_basis": "owner decision",
+      "queue_history": [
+        {
+          "at": "2026-11-12",
+          "from": 7,
+          "to": 8,
+          "why": "owner order 2026-11-12"
+        }
+      ]
     },
     {
       "id": "p0-init-meme-ux-diag",
@@ -4057,6 +4273,19 @@
           ]
         }
       ]
+    },
+    {
+      "id": "OI-2026-11-12-QUEUE-ORDER-SELFDIAG-QUANTUM",
+      "source_path": "plans/owner_inputs/2026-11-12-queue-order-selfdiag-quantum.md",
+      "source_sha256": "A616B9505F1BAA2B58CA64771BDEC6BD6593C9BE209C7BFD40F0EEB07A7A1BA6",
+      "kind": "decision",
+      "target_task_ids": [
+        "self-diag-01",
+        "vmq-onto-01"
+      ],
+      "reconciled": true,
+      "recorded_in": "plans/owner_inputs/2026-11-12-queue-order-selfdiag-quantum.md",
+      "note": "Владелец задал порядок: сразу после текущего эпика — самодиагностика (self-diag-01), затем квантовые рандомы = VMQ-ONTO-01 (уточнение владельца; первая трактовка через goodmorning-quantum-media была ошибочной и отменена). Относительный порядок остальных задач сохранён, цепочка fc-trust после vmq-onto-01 и self-diag-01 не нарушена, web-search остаётся после fc-trust, vision-context-unify-01 остаётся последним."
     }
   ],
   "source_inventory": {
