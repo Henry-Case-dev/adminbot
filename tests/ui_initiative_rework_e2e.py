@@ -315,6 +315,14 @@ def _diag(chat_id=None):
     run_id = "job-77" if is_a else "job-88"
     sent_at = NOW - 120 if is_a else NOW - 3600
     meme_over = {"last_check_ts": NOW - 60, "next_check_ts": NOW + 300,
+                 # P0IM-BAN-NOETA: доказанная нижняя граница (провайдер +
+                 # кулдаун), а не расписание.
+                 "next_check_basis": "cooldown",
+                 "cooldown": {"own_seconds": 21600,
+                              "remaining_seconds": 300,
+                              "basis": "last_provider_call",
+                              "basis_ts": NOW - 21300,
+                              "scope": "mechanism_own"},
                  "stages": {"considered": 1, "joke": 1},
                  "conditions": {"messages": 42 if is_a else 7, "quota_left": 2},
                  "last_attempt": {"at": sent_at, "mode": "auto",
@@ -330,6 +338,9 @@ def _diag(chat_id=None):
                             "selected_source": "quantum",
                             "fallback": False, "reason": ""}}
     text_over = {
+        # P0IM-BAN-NOETA: проверок не было — времени не существует.
+        "last_check_ts": None, "next_check_ts": None,
+        "next_check_basis": "never_checked",
         "last_attempt": {"at": NOW - 120, "mode": "auto",
                          "run_id": ("corr-a" if is_a else "corr-b"),
                          "outcome": "say", "stop_stage": "initiative_sent",
@@ -452,6 +463,13 @@ def _diag(chat_id=None):
                           "reason_class": "manual_priority",
                           "next_eligible_at": NOW + 600,
                           "next_basis": "manual_priority_until"}})
+    elif mode == "never_called":
+        # Провайдера ещё не вызывали: времени не существует (раньше тут был `now`).
+        meme_over.update({
+            "next_check_ts": None, "next_check_basis": "unknown",
+            "cooldown": {"own_seconds": 21600, "remaining_seconds": 0,
+                         "basis": "no_prior_provider_call", "basis_ts": None,
+                         "scope": "mechanism_own"}})
     elif mode == "no_basis":
         # Штамп есть, основания нет: «не раньше» печатать нечем.
         meme_over.update({
@@ -2223,6 +2241,93 @@ def run_trace(browser, width, height, label, shots):
         ctx.close()
 
 
+# ── Сценарий 2f: P0IM-BAN-NOETA — «Не раньше (расчёт)», а не расписание ──
+def run_next_bound(browser, width, height, label, shots):
+    """Строка границы: названное основание; без базиса — «нет данных»."""
+    STATE["diag_mode"] = "on"
+    ctx, page = new_page(browser, width, height)
+    try:
+        open_page(page, "diagnostics")
+        page.wait_for_timeout(600)
+        # Технический блок механизмов свёрнут по умолчанию — раскрываем его.
+        page.evaluate(
+            "() => { const d = document.querySelector('[data-meme-diag-section]');"
+            " if (d) d.open = true; }")
+        page.wait_for_selector('[data-meme-diag-next="meme"]', timeout=15000)
+        page.wait_for_timeout(300)
+        data = page.evaluate(r"""
+        () => {
+          const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+          const txt = (sel) => strip((document.querySelector(sel) || {})
+            .textContent);
+          return {
+            meme: txt('[data-meme-diag-next="meme"]'),
+            memeBasis: ((document.querySelector(
+              '[data-meme-diag-next="meme"]') || {}).getAttribute
+              ? document.querySelector('[data-meme-diag-next="meme"]')
+                .getAttribute('data-meme-diag-next-basis') : null),
+            text: txt('[data-meme-diag-next="text_initiative"]'),
+            pageText: strip(document.body.innerText),
+            hScroll: document.documentElement.scrollWidth - window.innerWidth,
+            truncated: Array.from(document.querySelectorAll(
+              '[data-meme-diag-next]')).filter(
+                (el) => el.scrollWidth > el.clientWidth + 1).length,
+          };
+        }
+        """)
+        notes.append({label + "-next-bound": {
+            "meme": data["meme"], "basis": data["memeBasis"],
+            "text": data["text"], "hScroll": data["hScroll"],
+            "truncated": data["truncated"]}})
+        check("не раньше" in data["meme"], label,
+              "граница не названа «не раньше»: %r" % data["meme"])
+        check("кулдаун" in data["meme"] and "провайдер" in data["meme"], label,
+              "основание расчёта не названо: %r" % data["meme"])
+        check(data["memeBasis"] == "cooldown", label,
+              "основание не передано: %r" % data["memeBasis"])
+        check("нет данных" in data["text"], label,
+              "без базиса нет честного «нет данных»: %r" % data["text"])
+        check("проверок ещё не было" in data["text"], label,
+              "причина «нет данных» не названа: %r" % data["text"])
+        check("Следующая проверка" not in data["pageText"], label,
+              "на странице осталась строка «Следующая проверка»")
+        check(data["hScroll"] <= 1, label,
+              "диагностика прокручивается по горизонтали: %d" % data["hScroll"])
+        check(data["truncated"] == 0, label,
+              "значение границы обрезано: %d" % data["truncated"])
+        shot(page, shots, "next_bound_%s" % label)
+
+        # Провайдера ещё не вызывали: «нет данных» + причина, без времени.
+        # Отдельный контекст — состояние прошлой страницы не участвует.
+        STATE["diag_mode"] = "never_called"
+        ctx2, page2 = new_page(browser, width, height)
+        try:
+            open_page(page2, "diagnostics")
+            page2.wait_for_timeout(600)
+            page2.evaluate(
+                "() => { const d = document.querySelector("
+                "'[data-meme-diag-section]'); if (d) d.open = true; }")
+            page2.wait_for_selector('[data-meme-diag-next="meme"]', timeout=15000)
+            page2.wait_for_timeout(300)
+            never = page2.evaluate(
+                "() => String((document.querySelector("
+                "'[data-meme-diag-next=\"meme\"]') || {}).textContent || '')"
+                ".replace(/\\s+/g, ' ').trim()")
+            notes.append({label + "-next-bound-never": never})
+            check("нет данных" in never, label,
+                  "без вызова провайдера нет «нет данных»: %r" % never)
+            check("провайдер" in never, label,
+                  "причина не названа: %r" % never)
+            check("не раньше" not in never, label,
+                  "подставлено время без вызова провайдера: %r" % never)
+            shot(page2, shots, "next_bound_never_%s" % label)
+        finally:
+            ctx2.close()
+    finally:
+        STATE["diag_mode"] = "off"
+        ctx.close()
+
+
 # ── Сценарий 3: «Текстовая инициатива» ───────────────────────────────────
 def run_text(browser, width, height, label, shots):
     ctx, page = new_page(browser, width, height)
@@ -3103,6 +3208,9 @@ def main() -> int:
                 # S4-TRACE: строка попытки и связная трасса (десктоп + телефон).
                 run_trace(browser, 1536, 960, "1536", args.shots)
                 run_trace(browser, 390, 844, "390", args.shots)
+                # P0IM-BAN-NOETA: граница «не раньше», а не расписание.
+                run_next_bound(browser, 1536, 960, "1536", args.shots)
+                run_next_bound(browser, 390, 844, "390", args.shots)
                 # Блокер 1: смена чата очищает карточки, затем показывает свои.
                 run_chat_switch_cards(browser, 1536, 960, "1536", args.shots)
                 run_chat_switch_cards(browser, 390, 844, "390", args.shots)

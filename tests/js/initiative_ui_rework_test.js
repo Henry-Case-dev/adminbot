@@ -1599,6 +1599,96 @@ async function peekStaleSuite() {
     'снимок показан как «другой чат», хотя он теперь выбранный');
 }
 
+// ── 14. P0IM-BAN-NOETA: граница «не раньше», а не «следующая проверка» ───
+// Значение `next_check_ts` — вычисленная нижняя граница (провайдер + кулдаун),
+// а не расписание. Проверяется и текст, и сама разметка поверхности.
+(function () {
+  function memeView(over) {
+    const payload = {
+      schema_version: 1, generated_at: NOW_TS, chat_id: CHAT,
+      text_initiative: null,
+      meme: Object.assign({
+        mechanism: 'meme', output_kind: 'meme_initiative', available: true,
+        data_state: 'ok', no_data_reasons: [], ready: false,
+        last_check_ts: NOW_TS - 60, next_check_ts: null,
+        next_check_basis: 'unknown', random: null, conditions: null,
+        stages: null, skip: null, skip_recorded: null,
+        cooldown: { own_seconds: 21600, remaining_seconds: 0,
+                    basis: 'no_prior_provider_call', basis_ts: null,
+                    scope: 'mechanism_own' },
+        quota: { available: true, limit: 3, used: 1, remaining: 2,
+                 limit_reached: false, unlimited: false, next_reset: '' },
+        publication: null, blocking: null,
+      }, over || {}),
+      degraded: [],
+    };
+    const view = computed.memeDiagView.call({
+      memeDiag: payload, activeChatId: CHAT, iniOverviewTimezone: TZ,
+    });
+    return view.meme;
+  }
+
+  // 14.1 Граница есть: «не раньше …» + НАЗВАННОЕ основание расчёта.
+  const bound = memeView({
+    next_check_ts: NOW_TS + 600, next_check_basis: 'cooldown',
+    cooldown: { own_seconds: 21600, remaining_seconds: 600,
+                basis: 'last_provider_call', basis_ts: NOW_TS,
+                scope: 'mechanism_own' },
+  });
+  assert.strictEqual(bound.nextCheckTs, NOW_TS + 600);
+  assert.ok(bound.nextCheckBoundText.indexOf('не раньше ') === 0,
+    'граница не названа «не раньше»: ' + bound.nextCheckBoundText);
+  assert.ok(bound.nextCheckBasisLabel.indexOf('кулдаун') > 0
+            && bound.nextCheckBasisLabel.indexOf('провайдер') > 0,
+    'основание расчёта не названо: ' + bound.nextCheckBasisLabel);
+  assert.strictEqual(bound.nextCheckUnknownReason, '');
+
+  // 14.2 Основания нет (провайдера ещё не вызывали): «нет данных» + причина,
+  // никакого нуля и никакого выдуманного времени.
+  const unknown = memeView({ next_check_ts: null, next_check_basis: 'unknown' });
+  assert.strictEqual(unknown.nextCheckTs, null);
+  assert.strictEqual(unknown.nextCheckBoundText, 'нет данных');
+  assert.ok(unknown.nextCheckUnknownReason.indexOf('провайдер') > 0,
+    'причина «нет данных» не названа: ' + unknown.nextCheckUnknownReason);
+  assert.ok(String(unknown.nextCheckBoundText).indexOf('1970') < 0);
+  assert.strictEqual(/\d/.test(String(unknown.nextCheckBoundText)), false,
+    'в «нет данных» попало число: ' + unknown.nextCheckBoundText);
+
+  // 14.3 Кулдаун не задан — тоже «нет данных», но с другой причиной.
+  const noCooldown = memeView({
+    next_check_ts: null, next_check_basis: 'unknown',
+    cooldown: { own_seconds: 0, remaining_seconds: 0,
+                basis: 'no_prior_publication', basis_ts: null,
+                scope: 'mechanism_own' },
+  });
+  assert.ok(noCooldown.nextCheckUnknownReason.indexOf('кулдаун не задан') >= 0,
+    'причина не названа: ' + noCooldown.nextCheckUnknownReason);
+
+  // 14.4 Проверок не было — отдельная причина, а не «следующая проверка».
+  const never = memeView({
+    last_check_ts: null, next_check_ts: null,
+    next_check_basis: 'never_checked',
+  });
+  assert.ok(never.nextCheckUnknownReason.indexOf('проверок ещё не было') >= 0,
+    never.nextCheckUnknownReason);
+
+  // 14.5 Разметка поверхности: строки «Следующая проверка» больше нет, а
+  // вычисленная граница подписана как расчёт с основанием.
+  assert.strictEqual(INDEX.indexOf('Следующая проверка'), -1,
+    'в разметке осталась строка «Следующая проверка»');
+  assert.strictEqual(APP_JS.indexOf('Следующая проверка'), -1,
+    'в коде остался заголовок «Следующая проверка»');
+  assert.ok(INDEX.indexOf('Не раньше (расчёт)') > 0,
+    'нет строки «Не раньше (расчёт)»');
+  assert.ok(INDEX.indexOf('item.block.nextCheckBoundText') > 0,
+    'граница не выводится через nextCheckBoundText');
+  assert.ok(INDEX.indexOf('item.block.nextCheckBasisLabel') > 0,
+    'основание расчёта не выводится рядом с границей');
+  assert.ok(INDEX.indexOf('data-meme-diag-next') > 0
+            && INDEX.indexOf('item.block.nextCheckUnknownReason') > 0,
+    'нет честного «нет данных» с причиной');
+})();
+
 chatBoundSuite().then(peekStaleSuite).then(function () {
   console.log('INITIATIVE-UI-OK');
 }).catch(function (err) {

@@ -3666,19 +3666,32 @@ async def _note_state(state: dict | None, result: AttemptResult,
     except Exception:
         last_provider_ts = 0
     cooldown = int(cfg.cooldown_seconds) if cfg is not None else 0
-    next_check = max(int(now_ts), last_provider_ts + max(0, cooldown))
+    # P0IM-BAN-NOETA: значение — только доказанная нижняя граница «последний
+    # вызов провайдера + кулдаун». Без вызова (или без кулдауна) времени нет:
+    # `now` в поле не подставляется, иначе проход выдаёт себя за расписание.
+    next_check = None
+    if cooldown > 0 and last_provider_ts > 0:
+        candidate = int(last_provider_ts) + int(cooldown)
+        if candidate > int(now_ts):
+            next_check = candidate
+    if next_check is None and cooldown > 0:
+        # Вызова ещё не было: пауза начнётся с него, расписания нет.
+        next_check = None
     if str(result.reason or "") == SKIP_QUOTA:
         # Квота суток: следующая реальная возможность — начало нового дня.
         try:
             window = day_window(int(result.chat_id), None)
-            next_check = max(next_check, int(datetime.fromisoformat(
-                window.next_reset_iso).timestamp()))
+            reset = int(datetime.fromisoformat(
+                window.next_reset_iso).timestamp())
+            if reset > int(now_ts):
+                next_check = (reset if next_check is None
+                              else max(int(next_check), reset))
         except Exception:
             pass
     state[str(int(result.chat_id))] = {
         "output_kind": OUTPUT_KIND,
         "last_check_ts": int(now_ts),
-        "next_check_ts": int(next_check),
+        "next_check_ts": (None if next_check is None else int(next_check)),
         "random": random_trace,
         "reason": str(result.reason or ""),
         "reason_label": _reason_label(result.reason),
@@ -3905,11 +3918,18 @@ def _availability_diagnostics(cfg: MemeSettings, *, ledger, chat_id,
             last_facts = parse_attempt_facts(row)
     except Exception:
         last_check, last_reason, last_facts = 0, "", {}
-    cooldown = int(cfg.cooldown_seconds or 0)
+    cooldown = int(cfg.cooldown_seconds if cfg is not None else 0)
     remaining = 0
     if cooldown and last_check:
         remaining = max(0, cooldown - max(0, now - last_check))
-    next_check = max(now, last_check + cooldown) if cooldown else now
+    # P0IM-BAN-NOETA: только доказанная нижняя граница (последний вызов
+    # провайдера + кулдаун, если она ещё в будущем). Никакого `now` вместо
+    # времени: без вызова провайдера или без кулдауна — null.
+    next_check = None
+    if cooldown > 0 and last_check > 0:
+        candidate = int(last_check) + int(cooldown)
+        if candidate > int(now):
+            next_check = candidate
     random_trace = dict(last_facts.get("random") or {})
     publish_view: dict = {}
     if publication is not None:
@@ -3944,7 +3964,7 @@ def _availability_diagnostics(cfg: MemeSettings, *, ledger, chat_id,
             publish_view = {"available": False}
     return {
         "last_check_ts": last_check,
-        "next_check_ts": int(next_check),
+        "next_check_ts": (None if next_check is None else int(next_check)),
         "random": random_trace,
         "conditions": {
             "initiative_enabled": reason != SKIP_INITIATIVE_DISABLED,

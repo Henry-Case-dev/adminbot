@@ -1912,3 +1912,79 @@ def test_text_child_llm_calls_are_namespaced(tmp_path, monkeypatch):
         "init:%d:20261111:ccc#digest" % CHAT
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# P0IM-BAN-NOETA: `next_check_ts` — вычисленная НИЖНЯЯ ГРАНИЦА, не расписание
+# ═════════════════════════════════════════════════════════════════════════════
+def test_next_check_is_a_bound_and_never_now(tmp_path, monkeypatch):
+    """Граница считается от провайдера и кулдауна; без базиса — null, не `now`."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="noeta.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            # (а) вызов провайдера был, кулдаун задан → доказанная граница.
+            state_a: dict = {}
+            await _meme_pass(state_a, ledger=ledger,
+                             settings=_settings(cooldown_seconds=600))
+            entry_a = state_a[str(CHAT)]
+            # (б) кулдаун выключен → времени нет вовсе (раньше подставлялся `now`).
+            state_b: dict = {}
+            await _meme_pass(state_b, ledger=ledger,
+                             settings=_settings(cooldown_seconds=0))
+            entry_b = state_b[str(CHAT)]
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state_a}})
+            diag_a = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state_b}})
+            diag_b = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            return entry_a, entry_b, diag_a, diag_b
+        finally:
+            await svc.close()
+
+    entry_a, entry_b, diag_a, diag_b = asyncio.run(scenario())
+    # Провайдер вызван в NOW_TS → граница = NOW_TS + кулдаун (в будущем).
+    assert entry_a["next_check_ts"] == NOW_TS + 600, entry_a
+    block_a = diag_a["meme"]
+    assert block_a["next_check_ts"] == NOW_TS + 600, block_a["next_check_ts"]
+    assert block_a["next_check_basis"] == "cooldown", block_a
+    # Кулдаун 0: подстановки `now` больше нет — времени не существует.
+    assert entry_b["next_check_ts"] is None, entry_b
+    assert diag_b["meme"]["next_check_ts"] is None, diag_b["meme"]
+    assert diag_b["meme"]["next_check_basis"] in ("unknown", "cooldown"), \
+        diag_b["meme"]["next_check_basis"]
+
+
+def test_availability_without_provider_call_has_no_next_time(
+        tmp_path, monkeypatch):
+    """`availability()` без вызова провайдера не выдаёт `now` как время."""
+    _image_ok(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="noeta_avail.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            return await meme.availability(
+                CHAT, settings=_settings(cooldown_seconds=3600),
+                ledger=ledger, initiative_on=True, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    payload = asyncio.run(scenario())
+    diagnostics = payload["diagnostics"]
+    assert diagnostics["cooldown_seconds"] == 3600
+    assert diagnostics["next_check_ts"] is None, diagnostics
+    # Остальные поля сохранены — контракт ответа не сужен.
+    for key in ("last_check_ts", "random", "conditions", "skip_reason",
+                "cooldown_remaining_seconds", "publication"):
+        assert key in diagnostics, key

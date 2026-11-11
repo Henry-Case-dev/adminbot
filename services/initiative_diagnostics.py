@@ -2687,14 +2687,23 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
         own_cooldown is not None and own_cooldown > 0 and basis_ts is not None
         and (now_ts - int(basis_ts)) < int(own_cooldown))
 
+    # P0IM-BAN-NOETA: `next_check_ts` — НЕ назначенное время, а вычисленная
+    # нижняя граница «от последнего обращения к провайдеру + кулдаун». Поэтому:
+    #   * прошедшее значение из предыдущего прохода не выдаётся (это не расписание);
+    #   * при отсутствии доказанного базиса — null, а не «сейчас» и не ноль.
     next_check = _stamp_or_none(entry.get("next_check_ts"))
+    if next_check is not None and int(next_check) <= int(now_ts):
+        next_check = None
     if next_check is not None:
-        next_basis = "payload_state"
-    elif own_cooldown is not None and basis_ts:
-        # Пауза истекла или ещё идёт — дата считается от последнего вызова
-        # провайдера (тот же базис, что у боевого гейта), а не от брони.
-        next_check = int(basis_ts) + int(own_cooldown)
-        next_basis = "cooldown"
+        # Основание называет ИСТОЧНИК расчёта: вызов провайдера (кулдаун) или
+        # запись прохода (например сброс суточной квоты). Это не расписание.
+        next_basis = "cooldown" if basis_ts else "payload_state"
+    elif own_cooldown is not None and own_cooldown > 0 and basis_ts:
+        candidate = int(basis_ts) + int(own_cooldown)
+        if candidate > int(now_ts):
+            next_check, next_basis = candidate, "cooldown"
+        else:
+            next_check, next_basis = None, "unknown"
     else:
         next_check, next_basis = None, "unknown"
 

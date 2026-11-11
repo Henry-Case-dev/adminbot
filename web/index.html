@@ -3526,9 +3526,23 @@
                             <span :data-meme-diag-last="item.key">{{ item.block.lastCheckText }}</span>
                           </div>
                           <div class="meme-diag-row">
-                            <span class="meme-diag-key">Следующая проверка</span>
-                            <span>{{ item.block.nextCheckText }}
-                              <span v-if="item.block.nextCheckBasisLabel" class="text-gray-600">({{ item.block.nextCheckBasisLabel }})</span>
+                            <!-- P0IM-BAN-NOETA: это НЕ «следующая проверка», а
+                                 вычисленная нижняя граница. Показывается вместе
+                                 с названным основанием; без основания — «нет
+                                 данных» с причиной, без нуля и без выдумки. -->
+                            <span class="meme-diag-key">Не раньше (расчёт)</span>
+                            <span :data-meme-diag-next="item.key"
+                                  :data-meme-diag-next-basis="item.block.nextCheckBasisKey">
+                              <template v-if="item.block.nextCheckTs">
+                                {{ item.block.nextCheckBoundText }}
+                                <span v-if="item.block.nextCheckBasisLabel"
+                                      class="text-gray-600">— {{ item.block.nextCheckBasisLabel }}</span>
+                              </template>
+                              <template v-else>
+                                нет данных
+                                <span v-if="item.block.nextCheckUnknownReason"
+                                      class="text-gray-600">— {{ item.block.nextCheckUnknownReason }}</span>
+                              </template>
                             </span>
                           </div>
                           <div class="meme-diag-row">

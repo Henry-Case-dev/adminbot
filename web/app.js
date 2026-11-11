@@ -3067,9 +3067,11 @@
     no_prior_publication: 'инициативных публикаций ещё не было',
   };
   var MEME_NEXT_CHECK_BASIS = {
-    payload_state: 'из записанного состояния прохода',
-    cooldown: 'расчёт от собственного кулдауна',
-    eval_interval: 'интервал оценки',
+    // P0IM-BAN-NOETA: это НЕ расписание, а вычисленная нижняя граница, поэтому
+    // подпись называет именно расчёт и его источник.
+    cooldown: 'расчёт от последнего обращения к провайдеру и кулдауна',
+    payload_state: 'расчёт по записанному состоянию прохода',
+    eval_interval: 'расчёт от интервала оценки',
     every_pass: 'ближайший проход цикла',
     unknown: 'не рассчитана',
     never_checked: 'проверок ещё не было',
@@ -3198,10 +3200,21 @@
       lastCheckText: (b.last_check_ts == null
         ? 'никогда' : _tsStatusLabel(b.last_check_ts, 'никогда')),
       nextCheckTs: (b.next_check_ts == null ? null : b.next_check_ts),
+      // P0IM-BAN-NOETA: значение — вычисленная НИЖНЯЯ ГРАНИЦА, а не время
+      // следующего запуска. Поэтому (а) оно никогда не называется расписанием,
+      // (б) показывается только вместе с названным основанием расчёта,
+      // (в) при отсутствии доказанного базиса — «нет данных» с причиной.
       nextCheckText: (b.next_check_ts == null
         ? 'не рассчитана' : _tsStatusLabel(b.next_check_ts, 'не рассчитана')),
+      nextCheckBoundText: (b.next_check_ts == null
+        ? 'нет данных'
+        : ('не раньше ' + _tsStatusLabel(b.next_check_ts, 'не рассчитана'))),
+      nextCheckBasisKey: String(b.next_check_basis || ''),
       nextCheckBasisLabel: (MEME_NEXT_CHECK_BASIS[String(
         b.next_check_basis || '')] || String(b.next_check_basis || '')),
+      nextCheckUnknownReason: (b.next_check_ts != null
+        ? ''
+        : iniNextBoundUnknownReason(b, cd)),
       random: memeDrawViewOf(b.random),
       randomMissing: memeDrawViewOf(b.random) == null,
       conditionsRows: (cond ? Object.keys(cond).sort().map(function (k) {
@@ -4204,6 +4217,26 @@
     publication_precheck: 'бронь публикации',
     chat_scope: 'выбор чата',
   };
+
+  //: P0IM-BAN-NOETA: почему вычисленной нижней границы нет. Причина берётся из
+  //: уже записанного основания кулдауна (`cooldown.basis`), а не выдумывается.
+  function iniNextBoundUnknownReason(block, cooldown) {
+    var cd = (cooldown && typeof cooldown === 'object') ? cooldown : {};
+    var basis = String(cd.basis || '');
+    var checkBasis = String((block && block.next_check_basis) || '');
+    if (checkBasis === 'never_checked') return 'проверок ещё не было';
+    if (checkBasis === 'chat_not_selected') return 'чат не выбран';
+    var own = cd.own_seconds;
+    if (own == null) return 'кулдаун не прочитан — время не рассчитывается';
+    if (Number(own) <= 0) return 'кулдаун не задан — расписания нет';
+    if (basis === 'no_prior_provider_call') {
+      return 'вызовов провайдера ещё не было — отсчёт не от чего вести';
+    }
+    if (basis === 'no_prior_publication') {
+      return 'инициативных публикаций ещё не было — отсчёт не от чего вести';
+    }
+    return 'время не рассчитывается: нет доказанного основания';
+  }
 
   //: Внутренний код → русская подпись. Незнакомый код получает «код: …»,
   //: поэтому ни одно значение не выводится голым токеном.
@@ -15549,6 +15582,9 @@
           return;
         }
         if (tab === 'diagnostics') {
+          // S4/P0IM-BAN-NOETA: технический блок механизмов показывает границу
+          // «не раньше» — он должен быть прочитан и при прямом входе на вкладку.
+          if (this.activeChatId != null) this.loadMemeDiagnostics();
           this.iniTraceEnsure();
         }
       },
