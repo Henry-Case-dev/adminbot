@@ -1899,56 +1899,75 @@
                   его состояние и события.
                 </div>
 
+                <template v-else>
+                  <div class="ini-scope-line" data-ini-overview-scope>
+                    <span data-ini-overview-chat>
+                      Чат: {{ iniOverviewScope.chatTitle || iniOverviewScope.chatId }}
+                    </span>
+                    <span data-ini-overview-tz>{{ iniOverviewScope.timezoneLabel }}</span>
+                    <span data-ini-overview-snapshot>{{ iniOverviewScope.snapshotLabel }}</span>
+                    <span class="flex-1"></span>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-ini-refresh @click="initiativeRefresh()">Обновить</button>
+                  </div>
+                  <div v-if="memeDiagError" class="ini-note ini-note--warn"
+                       data-ini-overview-diag-error>
+                    Состояние механизмов не прочитано: {{ memeDiagError }}
+                  </div>
+                </template>
+
                 <div class="ini-cards">
                   <section class="ini-card" data-ini-card="text">
                     <header class="ini-card__head">
                       <span class="msr" aria-hidden="true">{{ iconGlyph('forum') }}</span>
                       <span class="ini-card__title">{{ initiativeTextCard.title }}</span>
                       <span class="badge shrink-0"
-                            :class="initiativeTextCard.effective === true ? 'badge-ok'
-                              : (initiativeTextCard.effective === false ? 'badge-muted' : 'badge-warn')"
-                            data-ini-effect="text">{{ initiativeTextCard.effectiveLabel }}</span>
+                            :class="initiativeTextCard.configTone === 'ok' ? 'badge-ok'
+                              : (initiativeTextCard.configTone === 'muted' ? 'badge-muted' : 'badge-warn')"
+                            :data-ini-config="initiativeTextCard.configState"
+                            data-ini-effect="text">{{ initiativeTextCard.configBadge }}</span>
+                      <span v-if="initiativeTextCard.healthChip"
+                            class="badge badge-warn shrink-0"
+                            data-ini-health="text"
+                            :title="initiativeTextCard.healthDetail">{{ initiativeTextCard.healthChip }}</span>
                     </header>
                     <div class="ini-facts">
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Кто может изменить</span>
-                        <span class="ini-fact__v">{{ initiativeTextCard.canEditLabel }}</span>
+                      <div class="ini-fact" data-ini-axis="text:config">
+                        <span class="ini-fact__k">Разрешено</span>
+                        <span class="ini-fact__v" data-ini-axis-value>{{ initiativeTextCard.configText }}</span>
                       </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Источник состояния</span>
-                        <span class="ini-fact__v">{{ initiativeTextCard.sourceLabel }}</span>
-                      </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Последняя проверка</span>
-                        <span class="ini-fact__v">{{ initiativeTextCard.lastCheckText }}</span>
-                      </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Её исход</span>
-                        <span class="ini-fact__v">{{ initiativeTextCard.lastOutcomeText }}</span>
-                      </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Следующая проверка</span>
-                        <span class="ini-fact__v">{{ initiativeTextCard.nextCheckText }}
-                          <span v-if="initiativeTextCard.nextCheckBasisLabel"
-                                class="text-gray-600">({{ initiativeTextCard.nextCheckBasisLabel }})</span>
+                      <div class="ini-fact" data-ini-axis="text:now"
+                           :data-ini-readiness="initiativeTextCard.readinessState">
+                        <span class="ini-fact__k">Сейчас</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.nowText }}
+                          <span v-if="initiativeTextCard.nowCode"
+                                class="ini-fact__code">({{ initiativeTextCard.nowCodeText }})</span>
                         </span>
                       </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Последняя реальная публикация</span>
-                        <span class="ini-fact__v">{{ initiativeTextCard.lastPublicationText }}</span>
+                      <div class="ini-fact" data-ini-axis="text:next">
+                        <span class="ini-fact__k">Дальше</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.nextText }}</span>
                       </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Свой кулдаун</span>
-                        <span class="ini-fact__v">{{ initiativeTextCard.cooldownText }}
-                          · остаток: {{ initiativeTextCard.cooldownRemaining }}</span>
+                      <div class="ini-fact" data-ini-axis="text:check">
+                        <span class="ini-fact__k">Последняя проверка</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.checkText }}</span>
                       </div>
-                      <div class="ini-fact">
+                      <div class="ini-fact" data-ini-axis="text:attempt">
+                        <span class="ini-fact__k">Последняя попытка</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.attemptText }}</span>
+                      </div>
+                      <div class="ini-fact" data-ini-axis="text:delivery"
+                           :data-ini-delivery="initiativeTextCard.deliveryStatus">
+                        <span class="ini-fact__k">Последняя отправка</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.deliveryText }}</span>
+                      </div>
+                      <div class="ini-fact" data-ini-axis="text:quota">
                         <span class="ini-fact__k">Дневная квота</span>
                         <span class="ini-fact__v">{{ initiativeTextCard.quotaText }}</span>
                       </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Ждёт сейчас</span>
-                        <span class="ini-fact__v">{{ initiativeTextCard.waitingText }}</span>
+                      <div class="ini-fact" data-ini-axis="text:who">
+                        <span class="ini-fact__k">Кто может изменить</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.canEditLabel }}</span>
                       </div>
                     </div>
                     <button type="button" class="btn-ghost text-xs"
@@ -1962,50 +1981,52 @@
                       <span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span>
                       <span class="ini-card__title">{{ initiativeMemeCard.title }}</span>
                       <span class="badge shrink-0"
-                            :class="initiativeMemeCard.effective === true ? 'badge-ok'
-                              : (initiativeMemeCard.effective === false ? 'badge-muted' : 'badge-warn')"
-                            data-ini-effect="meme">{{ initiativeMemeCard.effectiveLabel }}</span>
+                            :class="initiativeMemeCard.configTone === 'ok' ? 'badge-ok'
+                              : (initiativeMemeCard.configTone === 'muted' ? 'badge-muted' : 'badge-warn')"
+                            :data-ini-config="initiativeMemeCard.configState"
+                            data-ini-effect="meme">{{ initiativeMemeCard.configBadge }}</span>
+                      <span v-if="initiativeMemeCard.healthChip"
+                            class="badge badge-warn shrink-0"
+                            data-ini-health="meme"
+                            :title="initiativeMemeCard.healthDetail">{{ initiativeMemeCard.healthChip }}</span>
                     </header>
                     <div class="ini-facts">
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Кто может изменить</span>
-                        <span class="ini-fact__v">{{ initiativeMemeCard.canEditLabel }}</span>
+                      <div class="ini-fact" data-ini-axis="meme:config">
+                        <span class="ini-fact__k">Разрешено</span>
+                        <span class="ini-fact__v" data-ini-axis-value>{{ initiativeMemeCard.configText }}</span>
                       </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Источник состояния</span>
-                        <span class="ini-fact__v">{{ initiativeMemeCard.sourceLabel }}</span>
-                      </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Последняя проверка</span>
-                        <span class="ini-fact__v">{{ initiativeMemeCard.lastCheckText }}</span>
-                      </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Её исход</span>
-                        <span class="ini-fact__v">{{ initiativeMemeCard.lastOutcomeText }}</span>
-                      </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Следующая проверка</span>
-                        <span class="ini-fact__v">{{ initiativeMemeCard.nextCheckText }}
-                          <span v-if="initiativeMemeCard.nextCheckBasisLabel"
-                                class="text-gray-600">({{ initiativeMemeCard.nextCheckBasisLabel }})</span>
+                      <div class="ini-fact" data-ini-axis="meme:now"
+                           :data-ini-readiness="initiativeMemeCard.readinessState">
+                        <span class="ini-fact__k">Сейчас</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.nowText }}
+                          <span v-if="initiativeMemeCard.nowCode"
+                                class="ini-fact__code">({{ initiativeMemeCard.nowCodeText }})</span>
                         </span>
                       </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Последняя реальная публикация</span>
-                        <span class="ini-fact__v">{{ initiativeMemeCard.lastPublicationText }}</span>
+                      <div class="ini-fact" data-ini-axis="meme:next">
+                        <span class="ini-fact__k">Дальше</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.nextText }}</span>
                       </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Свой кулдаун</span>
-                        <span class="ini-fact__v">{{ initiativeMemeCard.cooldownText }}
-                          · остаток: {{ initiativeMemeCard.cooldownRemaining }}</span>
+                      <div class="ini-fact" data-ini-axis="meme:check">
+                        <span class="ini-fact__k">Последняя проверка</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.checkText }}</span>
                       </div>
-                      <div class="ini-fact">
+                      <div class="ini-fact" data-ini-axis="meme:attempt">
+                        <span class="ini-fact__k">Последняя попытка</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.attemptText }}</span>
+                      </div>
+                      <div class="ini-fact" data-ini-axis="meme:delivery"
+                           :data-ini-delivery="initiativeMemeCard.deliveryStatus">
+                        <span class="ini-fact__k">Последняя отправка</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.deliveryText }}</span>
+                      </div>
+                      <div class="ini-fact" data-ini-axis="meme:quota">
                         <span class="ini-fact__k">Дневная квота</span>
                         <span class="ini-fact__v">{{ initiativeMemeCard.quotaText }}</span>
                       </div>
-                      <div class="ini-fact">
-                        <span class="ini-fact__k">Ждёт сейчас</span>
-                        <span class="ini-fact__v">{{ initiativeMemeCard.waitingText }}</span>
+                      <div class="ini-fact" data-ini-axis="meme:who">
+                        <span class="ini-fact__k">Кто может изменить</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.canEditLabel }}</span>
                       </div>
                     </div>
                     <button type="button" class="btn-ghost text-xs"
@@ -2015,7 +2036,8 @@
                   </section>
                 </div>
 
-                <div class="ini-coord" data-ini-coordination
+                <div v-if="initiativeCoordination.visible" class="ini-coord"
+                     data-ini-coordination
                      :data-ini-coord-state="initiativeCoordination.state">
                   <span class="ini-coord__label">Координация отправки</span>
                   <span class="badge shrink-0"

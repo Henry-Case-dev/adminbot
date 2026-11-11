@@ -102,7 +102,8 @@ STATE = {
     "joke_source_by_chat": {},
     "image_source_by_chat": {},
     "requests": [],
-    "axes_on": False,
+    #: Режим осей: off | on | cooldown | delivery_unknown | foreign_chat.
+    "diag_mode": "off",
     "post_chat": None,
 }
 
@@ -277,14 +278,35 @@ def _block(mechanism, **over):
                         "interval_seconds": 900,
                         "manual_priority_until": None, "checked_at": NOW},
         "blocking": {"blocked": [], "warned": []},
+        # P0 (§1): пять осей — та же форма, что отдаёт сборщик диагностики.
+        "configuration": {"enabled": True, "source": "chat", "scope": "chat",
+                          "reason": ""},
+        "health": {"state": "ok", "dependencies": [
+            {"name": "event_log", "state": "ok",
+             "source": "initiative_observer.chat_block_state"},
+            {"name": "publication_precheck", "state": "ok",
+             "source": "PublicationCoordinator.precheck"}]},
+        "readiness": {"state": "ready", "reason": "", "reason_class": "",
+                      "next_eligible_at": None, "next_basis": "none"},
+        "last_attempt": {"at": NOW - 120, "mode": "auto", "run_id": "job-77",
+                         "outcome": "published", "stop_stage": "publish",
+                         "incomplete_historical": False},
+        "last_delivery": {"status": "confirmed", "at": NOW - 120,
+                          "destination": CHAT_A, "message_id": 4321,
+                          "run_id": "job-77"},
     }
     base.update(over)
     return base
 
 
 def _diag():
-    axes = bool(STATE.get("axes_on"))
-    text_over = {}
+    """Диагностика двух механизмов с ПЯТЬЮ осями (как боевой сборщик).
+
+    `STATE["diag_mode"]` переключает реальные состояния, на которых прежняя
+    витрина лгала: выключено настройкой, включено + кулдаун, доставка
+    неизвестна, ответ чужого чата.
+    """
+    mode = STATE.get("diag_mode") or "off"
     meme_over = {"last_check_ts": NOW - 60, "next_check_ts": NOW + 300,
                  "stages": {"considered": 1, "joke": 1},
                  "conditions": {"messages": 42, "quota_left": 2},
@@ -293,20 +315,79 @@ def _diag():
                             "purpose": "trigger", "source": "quantum",
                             "selected_source": "quantum",
                             "fallback": False, "reason": ""}}
-    if not axes:
-        # Честный стейт выключенного механизма: готовность false и ТОЧНАЯ
-        # причина — так же, как это отдаёт боевой сборщик диагностики.
+    text_over = {}
+    if mode == "off":
+        # Явный OFF настройкой: ready=false И configuration.enabled=false.
         text_over = {"ready": False, "ready_reason": "initiative_disabled",
                      "skip": {"code": "initiative_disabled",
                               "label": "инициатива выключена",
-                              "origin": "gate"}}
-        meme_over.update({"ready": False,
-                          "ready_reason": "initiative_disabled",
-                          "skip": {"code": "initiative_disabled",
-                                   "label": "инициатива выключена",
-                                   "origin": "gate"}})
+                              "origin": "gate"},
+                     "configuration": {"enabled": False, "source": "product",
+                                       "scope": "global",
+                                       "reason": "master_off"},
+                     "readiness": {"state": "blocked",
+                                   "reason": "initiative_disabled",
+                                   "reason_class": "disabled",
+                                   "next_eligible_at": None,
+                                   "next_basis": "unknown"}}
+        meme_over.update({
+            "ready": False, "ready_reason": "initiative_disabled",
+            "skip": {"code": "initiative_disabled",
+                     "label": "инициатива выключена", "origin": "gate"},
+            "configuration": {"enabled": False, "source": "product",
+                              "scope": "global", "reason": "master_off"},
+            "readiness": {"state": "blocked", "reason": "initiative_disabled",
+                          "reason_class": "disabled", "next_eligible_at": None,
+                          "next_basis": "unknown"},
+            "last_attempt": {"at": NOW - 900, "mode": "auto", "run_id": "job-76",
+                             "outcome": "skipped", "stop_stage": "publish",
+                             "incomplete_historical": False},
+            "last_delivery": {"status": "never", "at": None, "destination": None,
+                              "message_id": None, "run_id": ""}})
+    elif mode == "on":
+        pass
+    elif mode == "cooldown":
+        # ГЛАВНЫЙ кейс дефекта: механизм РАЗРЕШЁН, но ждёт кулдаун.
+        meme_over.update({
+            "ready": False, "ready_reason": "cooldown_active",
+            "skip": {"code": "cooldown_active", "label": "кулдаун",
+                     "origin": "cooldown"},
+            "cooldown": {"own_seconds": 21600, "remaining_seconds": 3600,
+                         "basis": "last_provider_call",
+                         "basis_ts": NOW - 18000, "scope": "mechanism_own"},
+            "configuration": {"enabled": True, "source": "chat",
+                              "scope": "chat", "reason": ""},
+            "readiness": {"state": "waiting", "reason": "cooldown_active",
+                          "reason_class": "cooldown",
+                          "next_eligible_at": NOW + 3600,
+                          "next_basis": "cooldown"},
+            "last_attempt": {"at": NOW - 18000, "mode": "manual",
+                             "run_id": "job-80", "outcome": "published",
+                             "stop_stage": "publish",
+                             "incomplete_historical": False},
+            "last_delivery": {"status": "confirmed", "at": NOW - 18000,
+                              "destination": CHAT_A, "message_id": 555444,
+                              "run_id": "job-80"}})
+    elif mode == "delivery_unknown":
+        meme_over.update({
+            "last_attempt": {"at": NOW - 300, "mode": "auto",
+                             "run_id": "job-81", "outcome": "skipped",
+                             "stop_stage": "publication_stale",
+                             "incomplete_historical": False},
+            "last_delivery": {"status": "unknown", "at": NOW - 300,
+                              "destination": CHAT_A, "message_id": None,
+                              "run_id": "job-81"}})
+        text_over = {
+            "last_attempt": {"at": NOW - 240, "mode": "auto",
+                             "run_id": "corr-9", "outcome": "silent",
+                             "stop_stage": "not_enough_messages",
+                             "incomplete_historical": False},
+            "last_delivery": {"status": "never", "at": None,
+                              "destination": None, "message_id": None,
+                              "run_id": ""}}
     return {
-        "schema_version": 1, "generated_at": NOW, "chat_id": CHAT_A,
+        "schema_version": 1, "generated_at": NOW,
+        "chat_id": (CHAT_B if mode == "foreign_chat" else CHAT_A),
         "text_initiative": _block(
             "text_initiative",
             random={"performed": True, "outcome": "hit", "value": 0.08,
@@ -698,10 +779,11 @@ def make_api_handler():
             return send(_vitality())
         if path.endswith("/api/config"):
             payload = M._stub_for(url)
-            if STATE.get("axes_on"):
-                # Доказательство композиции: включаем ТРИ реальные оси и
-                # проверяем, что карточка обзора меняет состояние (а не
-                # повторяет мастер-флаг).
+            if STATE.get("diag_mode") != "off":
+                # Настройки ЧАТА разрешают механизм (как в жизни при кулдауне),
+                # поэтому «Разрешено: ВКЛ» приходит из осей, а не из флага
+                # витрины: при cooldown `ready=False`, а карточка обязана
+                # остаться ВКЛ.
                 for item in payload.get("items") or []:
                     if item.get("key") in ("flags.initiative_enabled",
                                            "flags.initiative_observer_enabled",
@@ -894,15 +976,46 @@ OVERVIEW_PROBE = r"""
     return { x: Math.round(r.left), y: Math.round(r.top),
              w: Math.round(r.width), h: Math.round(r.height) };
   };
+  // Пять осей читаются по СВОИМ узлам: одно значение не может приехать из
+  // чужого механизма или из чужой оси.
+  const axis = (card, name) => {
+    const el = document.querySelector(
+      '[data-ini-card="' + card + '"] [data-ini-axis="' + card + ':' + name + '"]');
+    if (!el) return null;
+    const v = el.querySelector('.ini-fact__v');
+    const valueEl = v || el;
+    return {
+      k: strip((el.querySelector('.ini-fact__k') || {}).textContent),
+      v: strip(el.textContent),
+      value: strip(valueEl.textContent),
+      // Обрезка: текст оси обязан помещаться в свой узел целиком.
+      truncated: valueEl.scrollWidth > valueEl.clientWidth + 1,
+      right: Math.round(valueEl.getBoundingClientRect().right),
+      visible: valueEl.getBoundingClientRect().height > 0,
+      state: el.getAttribute('data-ini-readiness')
+        || el.getAttribute('data-ini-delivery') || '',
+    };
+  };
   const card = (sel) => {
     const el = document.querySelector(sel);
     if (!el) return null;
-    return { text: strip(el.textContent),
-             facts: Array.from(el.querySelectorAll('.ini-fact')).map((f) => ({
-               k: strip((f.querySelector('.ini-fact__k') || {}).textContent),
-               v: strip((f.querySelector('.ini-fact__v') || {}).textContent) })) };
+    const badge = el.querySelector('[data-ini-effect]');
+    return {
+      text: strip(el.textContent),
+      badge: badge ? strip(badge.textContent) : '',
+      config: badge ? badge.getAttribute('data-ini-config') : null,
+      health: !!el.querySelector('[data-ini-health]'),
+      axes: ['config', 'now', 'next', 'check', 'attempt', 'delivery', 'quota',
+             'who'].map((name) => ({ name: name, row: axis(
+               el.getAttribute('data-ini-card'), name) })),
+    };
   };
+  const scopeLine = document.querySelector('[data-ini-overview-scope]');
   const events = Array.from(document.querySelectorAll('[data-ini-event]'));
+  const coord = document.querySelector('[data-ini-coordination]');
+  const truncatedFacts = Array.from(
+    document.querySelectorAll('[data-ini-card] .ini-fact__v'))
+    .filter((el) => el.scrollWidth > el.clientWidth + 1).length;
   return {
     textCard: card('[data-ini-card="text"]'),
     memeCard: card('[data-ini-card="meme"]'),
@@ -912,26 +1025,105 @@ OVERVIEW_PROBE = r"""
       .textContent),
     memeEffect: strip((document.querySelector('[data-ini-effect="meme"]') || {})
       .textContent),
+    scope: {
+      text: strip((scopeLine || {}).textContent),
+      chat: strip((document.querySelector('[data-ini-overview-chat]') || {})
+        .textContent),
+      tz: strip((document.querySelector('[data-ini-overview-tz]') || {})
+        .textContent),
+      snapshot: strip((document.querySelector('[data-ini-overview-snapshot]') || {})
+        .textContent),
+      hasRefresh: !!document.querySelector('[data-ini-refresh]'),
+      truncated: !!scopeLine
+        && scopeLine.scrollWidth > scopeLine.clientWidth + 1,
+    },
+    diagError: strip((document.querySelector('[data-ini-overview-diag-error]')
+      || {}).textContent),
     coord: {
-      state: (document.querySelector('[data-ini-coordination]') || {}).getAttribute
-        ? document.querySelector('[data-ini-coordination]')
-          .getAttribute('data-ini-coord-state') : null,
+      present: !!coord,
+      state: coord ? coord.getAttribute('data-ini-coord-state') : null,
       label: strip((document.querySelector('[data-ini-coord-label]') || {})
         .textContent),
       event: strip((document.querySelector('[data-ini-coord-event]') || {})
         .textContent),
-      text: strip((document.querySelector('[data-ini-coordination]') || {})
-        .textContent),
+      text: strip((coord || {}).textContent),
     },
     events: events.map((el) => strip(el.textContent)),
     eventCount: events.length,
     hasWorkspaceOverview: !!document.querySelector('[data-workspace-overview]'),
     hasPrimary: !!document.querySelector('[data-module-primary-action]'),
     overviewH: (rect('[data-initiative-overview]') || {}).h,
+    truncatedFacts: truncatedFacts,
     overflow: document.documentElement.scrollWidth - window.innerWidth,
+    vw: window.innerWidth,
   };
 }
 """
+
+#: Ожидаемые формулировки пяти осей по режиму диагностики. Одна таблица —
+#: одно место правды для сценариев (текст проверяется дословно по смыслу).
+#: `cards` — общие фразы обеих карточек, `meme`/`text` — фразы своей карточки.
+AXIS_EXPECT = {
+    "off": {
+        "badge": "ВЫКЛ",
+        "config": ["выключено", "глобальный выключатель"],
+        "text": {"now": ["заблокировано", "выключено настройкой"],
+                 "readiness": "blocked",
+                 "delivery": ["подтверждено", "сообщение 4321"],
+                 "delivery_state": "confirmed"},
+        "meme": {"now": ["заблокировано", "выключено настройкой"],
+                 "readiness": "blocked",
+                 "delivery": ["ещё не доставлял"],
+                 "delivery_state": "never",
+                 "attempt": ["остановилось", "публикация"]},
+    },
+    "on": {
+        "badge": "ВКЛ",
+        "config": ["включено", "настройка этого чата"],
+        "text": {"now": ["может сработать сейчас"],
+                 "next": ["точное время не назначено"],
+                 "readiness": "ready",
+                 "delivery": ["подтверждено", "сообщение 4321"],
+                 "delivery_state": "confirmed"},
+        "meme": {"now": ["может сработать сейчас"],
+                 "next": ["точное время не назначено"],
+                 "readiness": "ready",
+                 "delivery": ["подтверждено", "сообщение 4321"],
+                 "delivery_state": "confirmed"},
+    },
+    "cooldown": {
+        "badge": "ВКЛ",
+        "config": ["включено", "настройка этого чата"],
+        "text": {"now": ["может сработать сейчас"], "readiness": "ready"},
+        "meme": {"now": ["ждёт", "кулдаун", "осталось 1 ч"],
+                 "next": ["не раньше", "по собственному кулдауну"],
+                 "readiness": "waiting",
+                 "delivery": ["подтверждено", "сообщение 555444"],
+                 "delivery_state": "confirmed",
+                 "attempt": ["вручную (/meme)", "опубликовано"]},
+    },
+    "delivery_unknown": {
+        "badge": "ВКЛ",
+        "text": {"delivery": ["ещё не доставлял"],
+                 "delivery_state": "never",
+                 "attempt": ["остановилось", "мало сообщений"]},
+        "meme": {"delivery": ["доставка неизвестна", "id сообщения нет"],
+                 "delivery_state": "unknown",
+                 "attempt": ["остановилось", "устаревшая бронь"]},
+    },
+}
+
+def _axis_rows(card):
+    return {row["name"]: row["row"] for row in (card or {}).get("axes") or []}
+
+
+def _frags(value):
+    """Ожидание — строка или список подстрок (одна ось, несколько фактов)."""
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return [str(item) for item in value]
 
 
 def run_overview(browser, width, height, label, shots):
@@ -941,36 +1133,125 @@ def run_overview(browser, width, height, label, shots):
         open_page(page)
         data = page.evaluate(OVERVIEW_PROBE)
         notes.append({label + "-overview": {
-            "coord": data["coord"], "eventCount": data["eventCount"],
-            "textRect": data["textRect"], "memeRect": data["memeRect"]}})
+            "scope": data["scope"], "coord": data["coord"],
+            "eventCount": data["eventCount"],
+            "textRect": data["textRect"], "memeRect": data["memeRect"],
+            "badges": (data["textEffect"], data["memeEffect"]),
+            "truncatedFacts": data["truncatedFacts"],
+            "axes": {c: {r["name"]: r["row"]["value"]
+                         for r in (data[c] or {}).get("axes") or []}
+                     for c in ("textCard", "memeCard")}}})
         check(data["textCard"] and data["memeCard"], label,
               "нет двух карточек механизмов")
         if data["textCard"] and data["memeCard"]:
-            tk = {f["k"] for f in data["textCard"]["facts"]}
-            mk = {f["k"] for f in data["memeCard"]["facts"]}
-            for want in ("Кто может изменить", "Последняя проверка",
-                         "Следующая проверка", "Последняя реальная публикация",
-                         "Свой кулдаун", "Дневная квота", "Ждёт сейчас"):
-                check(want in tk, label, "в карточке текста нет поля %r" % want)
-                check(want in mk, label, "в карточке мемов нет поля %r" % want)
-            # Композиция РЕАЛЬНЫХ осей: выключенный механизм (мастер ON, но
-            # оси/гейт OFF) обязан читаться как «выключена», включённый — как
-            # «включена». Это не повтор мастер-флага.
-            want_text = "включена" if STATE.get("axes_on") else "выключена"
-            check(data["textEffect"] == want_text, label,
-                  "состояние текста не собрано из осей: ожидалось %r, показано %r"
-                  % (want_text, data["textEffect"]))
-            want_meme = "включены" if STATE.get("axes_on") else "выключены"
-            check(data["memeEffect"] == want_meme, label,
-                  "состояние мемов не собрано из осей: ожидалось %r, показано %r"
-                  % (want_meme, data["memeEffect"]))
+            text_rows = _axis_rows(data["textCard"])
+            meme_rows = _axis_rows(data["memeCard"])
+            # Обе карточки дают ВСЕ пять осей + квоту, каждая в своём узле.
+            for name in ("config", "now", "next", "attempt", "delivery",
+                         "quota"):
+                check(text_rows.get(name), label,
+                      "в карточке текста нет оси %r" % name)
+                check(meme_rows.get(name), label,
+                      "в карточке мемов нет оси %r" % name)
+            for name in ("config", "now", "next", "attempt", "delivery"):
+                row = text_rows.get(name) or {}
+                check(row.get("visible"), label,
+                      "ось %r текста не видна без перехода на другую вкладку"
+                      % name)
+                check(not row.get("truncated"), label,
+                      "значение оси %r текста обрезано" % name)
+                row_m = meme_rows.get(name) or {}
+                check(row_m.get("visible"), label,
+                      "ось %r мемов не видна" % name)
+                check(not row_m.get("truncated"), label,
+                      "значение оси %r мемов обрезано" % name)
+            for row in list(text_rows.values()) + list(meme_rows.values()):
+                check(row and row["right"] <= data["vw"] + 1, label,
+                      "значение оси вышло за экран: %r" % (row,))
             check("Генерации сегодня: 1 / 3" in data["memeCard"]["text"], label,
                   "квота дня мемов не из настроек: %r"
                   % data["memeCard"]["text"][:200])
-        check(data["coord"]["state"] == "free", label,
-              "координация не «свободно»: %r" % data["coord"])
-        check(bool(data["coord"]["event"]), label,
-              "в координации нет реального события/паузы из API")
+
+        mode = STATE.get("diag_mode") or "off"
+        expect = AXIS_EXPECT.get(mode)
+        notes.append({label + "-mode": mode})
+        if mode == "foreign_chat":
+            # Ответ чужого чата ОТБРОШЕН: карточки не показывают его данные,
+            # шапка не подписана его снимком, причина названа.
+            check(data["diagError"], label,
+                  "ответ чужого чата не объяснён на экране")
+            joined = ((data["textCard"] or {}).get("text") or "") + \
+                     ((data["memeCard"] or {}).get("text") or "")
+            check("555444" not in joined and "4321" not in joined, label,
+                  "данные чужого чата попали в карточки: %r" % joined[:200])
+            check("снимок ещё не прочитан" in data["scope"]["text"], label,
+                  "снимок чужого чата подписал шапку: %r" % data["scope"])
+        elif expect:
+            # Обе карточки: одно и то же «Разрешено» (одна ось конфигурации).
+            for card_key, card_name in (("textCard", "текст"),
+                                        ("memeCard", "мемы")):
+                card = data[card_key] or {}
+                rows = _axis_rows(card)
+                check(card.get("badge") == expect["badge"], label,
+                      "%s: «Разрешено» не %r (%r)"
+                      % (card_name, expect["badge"], card.get("badge")))
+                for frag in _frags(expect.get("config")):
+                    check(frag in (rows.get("config") or {}).get("value", ""),
+                          label, "%s: в «Разрешено» нет %r: %r"
+                          % (card_name, frag,
+                             (rows.get("config") or {}).get("value")))
+            # Фразы своей карточки: ожидание — по механизму, а не «где-нибудь».
+            for card_key, card_name, expect_key in (
+                    ("textCard", "текст", "text"),
+                    ("memeCard", "мемы", "meme")):
+                own = expect.get(expect_key) or {}
+                rows = _axis_rows(data[card_key])
+                for name in ("now", "next", "attempt", "delivery"):
+                    for frag in _frags(own.get(name)):
+                        check(frag in (rows.get(name) or {}).get("value", ""),
+                              label, "%s: в оси %r нет %r: %r"
+                              % (card_name, name, frag,
+                                 (rows.get(name) or {}).get("value")))
+                if own.get("readiness"):
+                    check((rows.get("now") or {}).get("state")
+                          == own["readiness"], label,
+                          "%s: готовность %r, ожидалось %r"
+                          % (card_name, (rows.get("now") or {}).get("state"),
+                             own["readiness"]))
+                if own.get("delivery_state"):
+                    check((rows.get("delivery") or {}).get("state")
+                          == own["delivery_state"], label,
+                          "%s: состояние доставки %r, ожидалось %r"
+                          % (card_name,
+                             (rows.get("delivery") or {}).get("state"),
+                             own["delivery_state"]))
+            if mode == "delivery_unknown":
+                # Три состояния доставки не схлопываются: у текста «ещё не
+                # доставлял», у мемов «доставка неизвестна» — разные строки.
+                text_val = (_axis_rows(data["textCard"]).get("delivery")
+                            or {}).get("value", "")
+                meme_val = (_axis_rows(data["memeCard"]).get("delivery")
+                            or {}).get("value", "")
+                check(text_val != meme_val, label,
+                      "«неизвестно» и «никогда» показаны одинаково: %r"
+                      % text_val)
+        if expect and mode in ("off", "cooldown"):
+            # ready=false НИКОГДА не рисуется как «выключено», кроме явного OFF.
+            cards = (data["textCard"] or {}).get("text", "") + \
+                    (data["memeCard"] or {}).get("text", "")
+            if mode == "cooldown":
+                check("выключено" not in cards, label,
+                      "кулдаун отрисован как «выключено»")
+        check(bool(data["scope"]["chat"]), label, "в шапке не назван чат")
+        check(bool(data["scope"]["tz"]), label, "в шапке не назван пояс")
+        check(data["scope"]["hasRefresh"], label, "нет кнопки «Обновить»")
+        check(not data["scope"]["truncated"], label,
+              "строка чата/пояса обрезана")
+        check(data["truncatedFacts"] == 0, label,
+              "обрезанных значений в карточках: %d" % data["truncatedFacts"])
+        # Полоса координации — только при живом конфликте/приоритете/деградации.
+        check(not data["coord"]["present"], label,
+              "полоса координации висит без события: %r" % data["coord"])
         check(3 <= data["eventCount"] <= 5, label,
               "значимых событий %d (нужно 3–5)" % data["eventCount"])
         check(data["hasWorkspaceOverview"] and data["hasPrimary"], label,
@@ -990,7 +1271,7 @@ def run_overview(browser, width, height, label, shots):
                   "на узком экране карточки не перешли в одну колонку")
         check(data["overflow"] <= 1, label,
               "горизонтальная прокрутка страницы: %d px" % data["overflow"])
-        shot(page, shots, "overview_%s" % label)
+        shot(page, shots, "overview_%s_%s" % (mode, label))
     finally:
         ctx.close()
 
@@ -1672,7 +1953,7 @@ def run_chat_switch(browser, width, height, label, shots):
     STATE["image_source_by_chat"] = {}
     STATE["post_body"] = None
     STATE["post_count"] = 0
-    STATE["axes_on"] = False
+    STATE["diag_mode"] = "off"
     ctx, page = new_page(browser, width, height)
     errs = []
     dialogs = []
@@ -1853,10 +2134,17 @@ def main() -> int:
                 run_head(browser, 1536, 960, "1536", args.shots)
                 run_overview(browser, 1536, 960, "1536", args.shots)
                 run_overview(browser, 1024, 900, "1024", args.shots)
-                # Вторая ось композиции: все три реальные оси включены.
-                STATE["axes_on"] = True
-                run_overview(browser, 1536, 960, "1536-axeson", args.shots)
-                STATE["axes_on"] = False
+                # P0 (§1/§6): состояния пяти осей на РЕАЛЬНОМ UI.
+                # 1) разрешено и готово; 2) разрешено + кулдаун (главный
+                # дефект: ready=false не смеет давать «выключено»);
+                # 3) доставка неизвестна ≠ «ещё не доставлял»;
+                # 4) ответ чужого чата отброшен.
+                for mode in ("on", "cooldown", "delivery_unknown",
+                             "foreign_chat"):
+                    STATE["diag_mode"] = mode
+                    run_overview(browser, 1536, 960, "1536-" + mode, args.shots)
+                    run_overview(browser, 390, 844, "390-" + mode, args.shots)
+                STATE["diag_mode"] = "off"
                 run_text(browser, 1536, 960, "1536", args.shots)
                 run_memes(browser, 1536, 960, "1536", args.shots)
                 run_memes(browser, 390, 844, "390", args.shots)

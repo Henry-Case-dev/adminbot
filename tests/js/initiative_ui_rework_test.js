@@ -123,56 +123,246 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
     'инвариант покрытия вкладки «Инициатива» нарушен');
 })();
 
-// ── 3. «Обзор»: состояние из гейта механизма, не из мастера ──────────────
-(function () {
-  function card(block, extra) {
-    const ctx = Object.assign({
-      intentModuleStatus: function () {
-        return { effective: true, sourceLabel: 'module_registry' };
-      },
-      memeDiagView: { text: block, meme: block },
-      initiativeVitality: { sends: [{ ts: 1800000000 }], decisions: [] },
-      memeSettings: { analytics: { attempts: [] } },
-      memeSettingsView: null,
-      initiativePerChatItem: null,
-      initiativeFlagGroups: [],
-      activeChatId: -100,
-      canEditConfig: function () { return true; },
-      fmtTs: function () { return 'x'; },
-    }, extra || {});
-    ctx.memeSettingsView = ctx.memeSettingsView
-      || { memeEnabled: false, initiativeEnabled: false, quotaText: 'q',
-           remainingText: 'r', resetAt: '', available: true,
-           unavailableReason: '' };
-    return ctx;
+// ── 3. «Обзор»: пять независимых осей (P0-INIT-MEME-UX-DIAG §1/§5) ───────
+// Карточка читает оси, посчитанные сервером. Проверяются ровно те случаи, где
+// прежняя витрина лгала: кулдаун/мало сообщений как «выключено», 0 вместо
+// «неизвестно», «доставка неизвестна» как «не доставлял», готовность как
+// обещание публикации.
+const NOW_TS = 1792200300;
+const CHAT = -100123;
+const TZ = 'Europe/Moscow';
+
+function axesPayload(textOver, memeOver) {
+  function block(mechanism, over) {
+    return Object.assign({
+      mechanism: mechanism,
+      output_kind: mechanism,
+      source: 'stub',
+      available: true,
+      data_state: 'ok',
+      no_data_reasons: [],
+      ready: true,
+      ready_reason: '',
+      last_check_ts: NOW_TS - 120,
+      next_check_ts: null,
+      next_check_basis: 'unknown',
+      random: null,
+      conditions: null,
+      stages: null,
+      skip: null,
+      skip_recorded: null,
+      cooldown: { own_seconds: 21600, remaining_seconds: 0,
+                  basis: 'last_initiative_publication',
+                  basis_ts: NOW_TS - 7200, scope: 'mechanism_own' },
+      quota: { available: true, limit: 3, used: 1, remaining: 2,
+               limit_reached: false, unlimited: false, next_reset: '' },
+      publication: null,
+      blocking: null,
+      configuration: { enabled: true, source: 'chat', scope: 'chat',
+                       reason: '' },
+      health: { state: 'ok',
+                dependencies: [{ name: 'event_log', state: 'ok',
+                                 source: 'stub' }] },
+      readiness: { state: 'ready', reason: '', reason_class: '',
+                   next_eligible_at: null, next_basis: 'none' },
+      last_attempt: { at: NOW_TS - 120, mode: 'auto', run_id: 'run-1',
+                      outcome: 'published', stop_stage: 'publish',
+                      incomplete_historical: false },
+      last_delivery: { status: 'confirmed', at: NOW_TS - 120,
+                       destination: CHAT, message_id: 777, run_id: 'run-1' },
+    }, over || {});
   }
-  const off = {
-    present: true, isNoData: false, ready: false,
-    skip: { code: 'initiative_disabled', label: 'инициатива выключена',
-            originLabel: 'гейт' },
-    skipRecorded: null, lastCheckText: 'никогда',
-    nextCheckText: 'не рассчитана', nextCheckBasisLabel: '',
-    cooldown: { ownText: '6 ч', remainingText: '0 с' },
-    quota: { unlimited: false, limitText: '3', usedText: '1',
-             remainingText: '2' },
-    publication: null, random: null, conditionsRows: null,
+  return {
+    schema_version: 1,
+    generated_at: NOW_TS,
+    chat_id: CHAT,
+    text_initiative: block('text_initiative', textOver),
+    meme: block('meme', memeOver),
+    degraded: [],
   };
-  const on = Object.assign({}, off, {
-    ready: true, skip: null, lastCheckText: '15.01.2027',
+}
+
+function axesCard(kind, payload, extra) {
+  const view = computed.memeDiagView.call({
+    memeDiag: payload, iniOverviewTimezone: TZ,
   });
-  const textOff = computed.initiativeTextCard.call(card(off));
-  assert.strictEqual(textOff.effective, false,
-    'выключенный гейт механизма не превращается в «включено»');
-  assert.strictEqual(textOff.effectiveLabel, 'выключена');
-  assert.ok(textOff.sourceLabel.indexOf('гейт механизма') >= 0,
-    'источник состояния не подписан: ' + textOff.sourceLabel);
-  const textOn = computed.initiativeTextCard.call(card(on));
-  assert.strictEqual(textOn.effectiveLabel, 'включена');
-  // Без блока диагностики — честный фолбэк на оси, а не выдуманное «вкл».
-  const noBlock = computed.initiativeTextCard.call(
-    card(null, { memeDiagView: null }));
-  assert.strictEqual(noBlock.effectiveLabel, 'состояние неизвестно',
-    'без прочитанных осей состояние не должно заявлять «включена»');
+  const ctx = Object.assign({
+    memeDiagView: view,
+    iniOverviewTimezone: TZ,
+    canEditConfig: function () { return true; },
+    activeChatId: CHAT,
+    memeSettingsView: { memeEnabled: true, initiativeEnabled: true,
+                        quotaText: 'Генерации сегодня: 1 / 3',
+                        remainingText: 'осталось 2', resetAt: '' },
+  }, extra || {});
+  const fn = kind === 'text' ? computed.initiativeTextCard
+    : computed.initiativeMemeCard;
+  return fn.call(ctx);
+}
+
+// 3.1 Кулдаун: «Разрешено: ВКЛ» + ожидание, НЕ «выключено».
+(function () {
+  const card = axesCard('meme', axesPayload({}, {
+    ready: false,
+    skip: { code: 'cooldown_active', label: 'кулдаун', origin: 'cooldown' },
+    cooldown: { own_seconds: 21600, remaining_seconds: 3600,
+                basis: 'last_provider_call', basis_ts: NOW_TS - 18000,
+                scope: 'mechanism_own' },
+    readiness: { state: 'waiting', reason: 'cooldown_active',
+                 reason_class: 'cooldown',
+                 next_eligible_at: NOW_TS + 3600, next_basis: 'cooldown' },
+  }));
+  assert.strictEqual(card.configEnabled, true,
+    'кулдаун превратил разрешённый механизм в «выключено»');
+  assert.strictEqual(card.configBadge, 'ВКЛ');
+  assert.strictEqual(card.configState, 'true');
+  assert.ok(card.configText.indexOf('включено') === 0,
+    'источник разрешения не назван: ' + card.configText);
+  assert.ok(card.configText.indexOf('настройка этого чата') > 0,
+    'эффективный источник не назван по-русски: ' + card.configText);
+  assert.strictEqual(card.readinessState, 'waiting');
+  assert.ok(card.nowText.indexOf('кулдаун') > 0,
+    'причина ожидания не названа: ' + card.nowText);
+  assert.ok(card.nowText.indexOf('осталось 1 ч') > 0,
+    'остаток кулдауна не из серверного факта: ' + card.nowText);
+  assert.ok(card.nextText.indexOf('не раньше') === 0,
+    'доказанное время не показано: ' + card.nextText);
+  assert.ok(card.nextText.indexOf('по собственному кулдауну') > 0,
+    'основание времени не названо: ' + card.nextText);
+  // Ни одно поле карточки не выдаёт «выключено» при cooldown.
+  assert.strictEqual(JSON.stringify(card).indexOf('ВЫКЛ'), -1,
+    'кулдаун отрисован как ВЫКЛ: ' + JSON.stringify(card));
+})();
+
+// 3.2 Мало сообщений: тоже ожидание, а не «выключено»; ready=false само по
+// себе НЕ даёт «выключено».
+(function () {
+  const text = axesCard('text', axesPayload({
+    ready: false,
+    skip: { code: 'not_enough_messages', label: 'мало сообщений',
+            origin: 'gate' },
+    readiness: { state: 'waiting', reason: 'not_enough_messages',
+                 reason_class: 'not_enough_messages',
+                 next_eligible_at: null, next_basis: 'unknown' },
+  }, {}));
+  assert.strictEqual(text.configBadge, 'ВКЛ');
+  assert.ok(text.nowText.indexOf('мало сообщений') > 0, text.nowText);
+  assert.ok(text.nextText.indexOf('точное время не назначено') === 0,
+    'выдуманное время прохода показано как факт: ' + text.nextText);
+  assert.strictEqual(text.nextAt, null);
+})();
+
+// 3.3 Истёкший маркер приоритета / брони не превращается в ожидание.
+(function () {
+  const card = axesCard('meme', axesPayload({}, {
+    publication: { available: true, coordination: 'ok', degraded: false,
+                   conflict: false, conflict_state: 'none', ok: true,
+                   reason: '', reason_label: '', detail: '', state: 'released',
+                   holder_kind: 'meme', claimed_by: '', other_kind: '',
+                   other_age_seconds: null, interval_seconds: 900,
+                   manual_priority_until: NOW_TS - 600,
+                   manual_priority_active: false,
+                   manual_priority_expired: true,
+                   claim_expires_at: NOW_TS - 900, checked_at: NOW_TS },
+    readiness: { state: 'ready', reason: '', reason_class: '',
+                 next_eligible_at: null, next_basis: 'none' },
+  }));
+  assert.strictEqual(card.readinessState, 'ready',
+    'истёкший маркер превратил готовность в блок');
+  assert.ok(card.nowText.indexOf('приоритет') < 0,
+    'истёкший приоритет показан как действующий: ' + card.nowText);
+  assert.ok(card.nowText.indexOf('публикация уже идёт') < 0,
+    'истёкшая бронь показана как текущая публикация: ' + card.nowText);
+})();
+
+// 3.4 «Доставка неизвестна» ≠ «ещё не доставлял»; id не подменяется нулём.
+(function () {
+  const unknown = axesCard('meme', axesPayload({}, {
+    last_delivery: { status: 'unknown', at: NOW_TS - 60, destination: CHAT,
+                     message_id: null, run_id: 'run-9' },
+  }));
+  const never = axesCard('meme', axesPayload({}, {
+    last_delivery: { status: 'never', at: null, destination: null,
+                     message_id: null, run_id: '' },
+  }));
+  assert.strictEqual(unknown.deliveryStatus, 'unknown');
+  assert.strictEqual(unknown.deliveryBadge, 'доставка неизвестна');
+  assert.strictEqual(never.deliveryStatus, 'never');
+  assert.strictEqual(never.deliveryBadge, 'ещё не доставлял');
+  assert.notStrictEqual(unknown.deliveryText, never.deliveryText,
+    'неизвестная доставка схлопнута в «ещё не доставлял»');
+  assert.strictEqual(unknown.deliveryMessageId, '');
+  assert.strictEqual(unknown.deliveryText.indexOf(' сообщение 0'), -1,
+    'неизвестный id напечатан нулём: ' + unknown.deliveryText);
+  const confirmed = axesCard('meme', axesPayload({}, {}));
+  assert.strictEqual(confirmed.deliveryStatus, 'confirmed');
+  assert.ok(confirmed.deliveryText.indexOf('сообщение 777') > 0,
+    'id подтверждённого сообщения не показан: ' + confirmed.deliveryText);
+  assert.ok(confirmed.deliveryText.indexOf(String(CHAT)) > 0,
+    'адресат подтверждённой отправки не показан: ' + confirmed.deliveryText);
+})();
+
+// 3.5 Неизвестный код деградирует в читаемый «код: …», а не в голый токен.
+(function () {
+  const card = axesCard('meme', axesPayload({}, {
+    configuration: { enabled: true, source: 'mystery_layer', scope: 'chat',
+                     reason: '' },
+    readiness: { state: 'waiting', reason: 'brand_new_gate',
+                 reason_class: 'brand_new_class',
+                 next_eligible_at: null, next_basis: 'unknown' },
+    last_attempt: { at: NOW_TS - 60, mode: 'weird', run_id: 'r', outcome: '',
+                    stop_stage: 'unheard_stage', incomplete_historical: false },
+  }));
+  assert.ok(card.configText.indexOf('код: mystery_layer') > 0,
+    'незнакомый слой источника выведен голым токеном: ' + card.configText);
+  assert.ok(card.nowText.indexOf('код: brand_new_class') > 0,
+    'незнакомый класс причины выведен голым токеном: ' + card.nowText);
+  assert.ok(card.nowCodeText.indexOf('код: brand_new_gate') === 0,
+    'незнакомый код причины не подписан: ' + card.nowCodeText);
+  assert.ok(card.attemptText.indexOf('код: weird') > 0,
+    'незнакомый способ попытки выведен голым токеном: ' + card.attemptText);
+  assert.ok(card.attemptText.indexOf('код: unheard_stage') > 0,
+    'незнакомый этап выведен голым токеном: ' + card.attemptText);
+})();
+
+// 3.6 Нечитаемая настройка = «неизвестно», а не ВЫКЛ. Нет попыток — нет нулей.
+(function () {
+  const card = axesCard('text', axesPayload({
+    configuration: { enabled: null, source: 'read_failed', scope: 'global',
+                     reason: 'read_failed' },
+    readiness: { state: 'unknown', reason: 'read_failed',
+                 reason_class: 'unknown',
+                 next_eligible_at: null, next_basis: 'unknown' },
+    last_attempt: { at: null, mode: 'unknown', run_id: '', outcome: '',
+                    stop_stage: '', incomplete_historical: true },
+    last_delivery: { status: 'never', at: null, destination: null,
+                     message_id: null, run_id: '' },
+    quota: { available: false, limit: null, used: null, remaining: null,
+             limit_reached: false, unlimited: false, next_reset: '' },
+    available: false, data_state: 'no_data',
+    no_data_reasons: ['read_failed'],
+  }, {}));
+  assert.strictEqual(card.configEnabled, null);
+  assert.strictEqual(card.configBadge, 'НЕИЗВЕСТНО');
+  assert.ok(card.configText.indexOf('неизвестно') === 0, card.configText);
+  assert.strictEqual(JSON.stringify(card).indexOf('ВЫКЛ'), -1,
+    'нечитаемая настройка отрисована как ВЫКЛ');
+  assert.strictEqual(card.attemptText, 'попыток ещё не было');
+  assert.strictEqual(card.deliveryBadge, 'ещё не доставлял');
+  assert.strictEqual(card.nextAt, null);
+  assert.ok(card.quotaText.indexOf('неизвест') >= 0,
+    'неизвестная квота выдана числом: ' + card.quotaText);
+})();
+
+// 3.7 Цифры квоты и времени берутся только из серверных полей.
+(function () {
+  const card = axesCard('text', axesPayload({
+    quota: { available: true, limit: 0, used: null, remaining: null,
+             limit_reached: false, unlimited: true, next_reset: '' },
+  }, {}));
+  assert.strictEqual(card.quotaText, 'без предела (0 = без капа)',
+    'текстовая квота 0 = без лимита не отделена от «нет данных»: '
+    + card.quotaText);
 })();
 
 // ── 4. «Публикации»: строки и доставка ───────────────────────────────────
@@ -495,4 +685,156 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
     'подпись источника не выведена в UI');
 })();
 
-console.log('INITIATIVE-UI-OK');
+// ── 11. Ответ привязан к выбранному чату (P0-INIT-MEME-UX-DIAG §4) ────────
+// Поздний ответ другого чата не может стать содержимым карточек: применяем
+// только при совпадении epoch И `payload.chat_id`, иначе отбрасываем.
+const OTHER_CHAT = -100999;
+
+function diagStub(chatId, runId) {
+  return {
+    schema_version: 1, generated_at: NOW_TS, chat_id: chatId, degraded: [],
+    text_initiative: {
+      mechanism: 'text_initiative', available: true, data_state: 'ok',
+      no_data_reasons: [], last_attempt: { at: NOW_TS, mode: 'auto',
+                                           run_id: runId || 'r', outcome: 'say',
+                                           stop_stage: '', incomplete_historical: false },
+    },
+    meme: { mechanism: 'meme', available: true, data_state: 'ok',
+            no_data_reasons: [], last_attempt: { at: NOW_TS, mode: 'auto',
+                                                 run_id: runId || 'r', outcome: 'published',
+                                                 stop_stage: 'publish', incomplete_historical: false } },
+  };
+}
+
+function loaderCtx(apiImpl) {
+  const ctx = {
+    activeChatId: CHAT,
+    scopeEpoch: 5,
+    memeDiag: null,
+    memeDiagBusy: false,
+    memeDiagQueued: false,
+    memeDiagError: '',
+    calls: 0,
+    api: apiImpl,
+  };
+  ctx._scopeGuard = methods._scopeGuard;
+  ctx._chatBound = methods._chatBound;
+  ctx._payloadChatMatches = methods._payloadChatMatches;
+  ctx.loadMemeDiagnostics = methods.loadMemeDiagnostics;
+  return ctx;
+}
+
+async function chatBoundSuite() {
+  // a) Ответ того же чата и того же scope применяется.
+  let ctx = loaderCtx(async function () {
+    ctx.calls++;
+    return diagStub(CHAT, 'run-7');
+  });
+  await ctx.loadMemeDiagnostics();
+  assert.strictEqual(ctx.calls, 1);
+  assert.ok(ctx.memeDiag, 'ответ своего чата не применён');
+  assert.strictEqual(ctx.memeDiag.text_initiative.last_attempt.run_id,
+    'run-7');
+
+  // b) Ответ ДРУГОГО чата отбрасывается, а не подписывает карточки.
+  ctx = loaderCtx(async function () {
+    ctx.calls++;
+    return diagStub(OTHER_CHAT, 'run-foreign');
+  });
+  await ctx.loadMemeDiagnostics();
+  assert.strictEqual(ctx.memeDiag, null,
+    'поздний ответ чужого чата применён к выбранному чату');
+  assert.ok(String(ctx.memeDiagError).indexOf('другого чата') >= 0,
+    'отброс чужого ответа не объяснён: ' + ctx.memeDiagError);
+
+  // c) Смена epoch во время запроса: ответ не применяется, шина не залипает.
+  ctx = loaderCtx(async function () {
+    ctx.calls++;
+    ctx.scopeEpoch += 1;
+    return diagStub(CHAT, 'run-late');
+  });
+  ctx.memeDiag = diagStub(CHAT, 'run-kept');
+  await ctx.loadMemeDiagnostics();
+  assert.strictEqual(ctx.memeDiag.text_initiative.last_attempt.run_id,
+    'run-kept', 'устаревший ответ переписал снимок');
+  assert.strictEqual(ctx.memeDiagBusy, false,
+    'после смены scope загрузчик остался «занятым» навсегда');
+
+  // d) Занятый загрузчик не теряет вызов: один in-flight + один хвост.
+  let release = null;
+  ctx = loaderCtx(function () {
+    ctx.calls++;
+    if (ctx.calls === 1) {
+      return new Promise(function (res) { release = res; });
+    }
+    return Promise.resolve(diagStub(CHAT, 'run-tail'));
+  });
+  const first = ctx.loadMemeDiagnostics();
+  const second = ctx.loadMemeDiagnostics();
+  assert.strictEqual(ctx.memeDiagQueued, true,
+    'вызов во время чтения потерян (останется старый снимок)');
+  release(diagStub(CHAT, 'run-head'));
+  await first;
+  await second;
+  for (let i = 0; i < 5; i++) {
+    await new Promise(function (r) { setImmediate(r); });
+  }
+  assert.strictEqual(ctx.calls, 2, 'хвостовой вызов не выполнен: ' + ctx.calls);
+  assert.strictEqual(ctx.memeDiag.text_initiative.last_attempt.run_id,
+    'run-tail', 'последний запрос не заменил снимок');
+
+  // e) Шапка не подписывается снимком другого чата.
+  const scopeOther = computed.iniOverviewScope.call({
+    activeChatId: CHAT,
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' }],
+    configItems: [{ key: 'limits.chat_timezone', value: 'Europe/Moscow' }],
+    memeDiag: diagStub(OTHER_CHAT, 'r'),
+  });
+  assert.strictEqual(scopeOther.generatedText, '',
+    'снимок чужого чата подписал шапку');
+  assert.strictEqual(scopeOther.timezone, 'Europe/Moscow');
+  assert.strictEqual(scopeOther.chatTitle, 'Чат A');
+  const scopeOwn = computed.iniOverviewScope.call({
+    activeChatId: CHAT,
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' }],
+    configItems: [{ key: 'limits.chat_timezone', value: 'Europe/Moscow' }],
+    memeDiag: diagStub(CHAT, 'r'),
+  });
+  assert.ok(scopeOwn.snapshotLabel.indexOf('снимок: ') === 0,
+    'снимок своего чата не показан: ' + scopeOwn.snapshotLabel);
+  // Пояс не задан → честный UTC, а не выдуманная зона.
+  const scopeNoTz = computed.iniOverviewScope.call({
+    activeChatId: CHAT, accessChats: [], configItems: [],
+    memeDiag: null,
+  });
+  assert.strictEqual(scopeNoTz.timezone, 'UTC');
+  assert.ok(scopeNoTz.timezoneLabel.indexOf('UTC') > 0,
+    'отсутствие пояса не названо: ' + scopeNoTz.timezoneLabel);
+
+  // f) Настройки мемов тоже привязаны к чату ответа.
+  const settingsCtx = {
+    activeChatId: CHAT, scopeEpoch: 7, memeSettings: null,
+    memeSettingsBusy: false, memeSettingsError: '', memeFieldErrors: {},
+    memeDraftDirty: false, memeDraftChat: null,
+    api: async function () { return { chat_id: OTHER_CHAT, settings: {} }; },
+    memeDraftFromSettings: function () { return {}; },
+    loadMemeDiagnostics: function () { settingsCtx.diagCalls++; },
+    diagCalls: 0,
+    _scopeGuard: methods._scopeGuard,
+    _chatBound: methods._chatBound,
+    _payloadChatMatches: methods._payloadChatMatches,
+  };
+  await methods.loadMemeSettings.call(settingsCtx);
+  assert.strictEqual(settingsCtx.memeSettings, null,
+    'настройки чужого чата применены к выбранному');
+  assert.ok(String(settingsCtx.memeSettingsError).indexOf('другого чата') >= 0,
+    'отброс настроек чужого чата не объяснён');
+}
+
+chatBoundSuite().then(function () {
+  console.log('INITIATIVE-UI-OK');
+}).catch(function (err) {
+  console.error(err && err.stack || err);
+  process.exitCode = 1;
+});
+

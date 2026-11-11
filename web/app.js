@@ -3128,7 +3128,7 @@
   }
   // ДВА блока диагностики строятся этой функцией независимо друг от друга:
   // поля одного механизма физически не могут попасть в другой.
-  function memeMechanismViewOf(raw) {
+  function memeMechanismViewOf(raw, tz) {
     var b = (raw && typeof raw === 'object') ? raw : {};
     var present = Object.keys(b).length > 0;
     var mechanism = String(b.mechanism || '');
@@ -3172,6 +3172,8 @@
         ? 'Текстовая инициатива'
         : (mechanism === 'meme' ? 'Мемы в инициативе'
           : 'Механизм не указан')),
+      // Пять независимых осей (§1) — готовые бытовые фразы этого же блока.
+      axes: iniAxesOf(b, tz || ''),
       outputKind: String(b.output_kind || ''),
       source: String(b.source || ''),
       available: available,
@@ -3275,6 +3277,470 @@
         }),
       } : null),
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0-INIT-MEME-UX-DIAG §5 — ПЯТЬ НЕЗАВИСИМЫХ ОСЕЙ ВИТРИНЫ «ОБЗОР»
+  // ───────────────────────────────────────────────────────────────────────────
+  // Read-model осей приходит с сервера готовым (`configuration`/`health`/
+  // `readiness`/`last_attempt`/`last_delivery`). UI ничего не досчитывает из
+  // флагов: он только переводит машинные значения в бытовые фразы.
+  // Три жёстких инварианта (§2, §6):
+  //   * «Разрешено» читает ТОЛЬКО `configuration.enabled`; `ready=false` не
+  //     означает «выключено» — кулдаун/квота/тихие часы/жребий/тик остаются
+  //     ожиданием при включённом механизме;
+  //   * неизвестное НЕ превращается ни в 0, ни в «нет»: пустое значение — это
+  //     «нет данных», а не ноль;
+  //   * каждый показанный внутренний код идёт рядом с русской подписью;
+  //     незнакомый код — «код: <значение>», а не голый токен.
+  // ═══════════════════════════════════════════════════════════════════════════
+  var INI_NO_DATA = 'нет данных';
+  var INI_CODE_PREFIX = 'код: ';
+
+  //: Слой, который РАЗРЕШИЛ механизм (`configuration.source`).
+  var INI_CONFIG_SOURCE_LABELS = {
+    chat: 'настройка этого чата',
+    global: 'общая настройка',
+    product: 'глобальный выключатель',
+    env: 'серверная настройка',
+    meme_settings: 'настройки мемов этого чата',
+    image_module: 'модуль картинок',
+    read_failed: 'источник не прочитан',
+  };
+  //: Причина «не разрешено / неизвестно» (`configuration.reason`).
+  var INI_CONFIG_REASON_LABELS = {
+    master_off: 'выключено глобальным выключателем',
+    chat_disabled: 'выключено для этого чата',
+    disabled_by_setting: 'выключено настройкой мемов этого чата',
+    image_module_off: 'выключен модуль картинок',
+    not_group: 'это не групповой чат',
+    initiative_disabled: 'инициатива выключена',
+    read_failed: 'настройку не удалось прочитать',
+    chat_not_selected: 'чат не выбран',
+  };
+  //: Состояние готовности (`readiness.state`) — «сейчас», не «разрешено».
+  var INI_READINESS_LABELS = {
+    ready: 'может сработать сейчас',
+    waiting: 'ждёт',
+    busy: 'сейчас публикует',
+    blocked: 'заблокировано',
+    unknown: 'неизвестно',
+  };
+  //: Класс причины (`readiness.reason_class`) — одна бытовая причина.
+  var INI_REASON_CLASS_LABELS = {
+    cooldown: 'кулдаун',
+    not_enough_messages: 'мало сообщений в окне',
+    quota: 'исчерпан суточный лимит',
+    quiet_hours: 'тихие часы',
+    lottery: 'не прошёл случайный порог',
+    schedule: 'ждёт ближайшего прохода',
+    coordination: 'ждёт публикацию другого механизма',
+    deferred: 'отложено координацией',
+    manual_priority: 'действует приоритет ручного /meme',
+    busy: 'публикация уже идёт',
+    content: 'нет подходящего повода',
+    disabled: 'выключено настройкой',
+    schema: 'нет таблицы журнала или брони',
+    permissions: 'нет прав на публикацию',
+    provider: 'провайдер недоступен',
+    unknown: 'причина не классифицирована',
+  };
+  //: Основание доказанного времени (`readiness.next_basis`).
+  var INI_NEXT_BASIS_LABELS = {
+    cooldown: 'по собственному кулдауну',
+    quiet_hours: 'по концу тихих часов',
+    quota_next_reset: 'по сбросу суточного лимита',
+    cross_type_interval: 'по межтиповому интервалу публикаций',
+    manual_priority_until: 'по приоритету ручного /meme',
+    eval_interval: 'по интервалу оценки',
+    never_checked: 'проверок ещё не было',
+    chat_not_selected: 'чат не выбран',
+    none: '',
+    unknown: '',
+  };
+  //: Этапы механизма (`last_attempt.stop_stage`) + имена событий попытки.
+  var INI_STAGE_LABELS = {
+    considered: 'рассмотрение',
+    eligible: 'годен к генерации',
+    summary: 'выжимка',
+    joke: 'генерация прикола',
+    image_generation: 'генерация картинки',
+    publish: 'публикация',
+    claim: 'захват брони',
+    decision: 'решение',
+    failed: 'ошибка',
+    skipped: 'пропуск',
+    initiative_decided: 'решение',
+    initiative_sent: 'отправка',
+    initiative_recheck_passed: 'повторная проверка',
+    initiative_writer_generated: 'текст сгенерирован',
+    initiative_writer_unavailable: 'генератор текста недоступен',
+    initiative_reacted: 'реакция',
+    delivery_unknown: 'доставка неизвестна',
+  };
+  //: Как шла попытка (`last_attempt.mode`).
+  var INI_ATTEMPT_MODE_LABELS = {
+    manual: 'вручную (/meme)',
+    auto: 'автоматически',
+    unknown: 'способ не записан',
+  };
+  //: Исходы, которыми попытка ЗАВЕРШИЛАСЬ (для остальных показываем этап).
+  var INI_ATTEMPT_DONE_OUTCOMES = {
+    passed: true, published: true, sent: true, success: true, say: true,
+    react: true,
+  };
+  //: Состояние подтверждённой отправки (`last_delivery.status`).
+  var INI_DELIVERY_LABELS = {
+    confirmed: 'доставлено',
+    unknown: 'доставка неизвестна',
+    never: 'ещё не доставлял',
+  };
+  var INI_HEALTH_STATE_LABELS = {
+    ok: 'исправно',
+    degraded: 'деградация',
+    error: 'ошибка',
+    unknown: 'не проверено',
+  };
+  var INI_DEPENDENCY_LABELS = {
+    image: 'картинки',
+    event_log: 'журнал событий',
+    publication_precheck: 'бронь публикации',
+    chat_scope: 'выбор чата',
+  };
+
+  //: Внутренний код → русская подпись. Незнакомый код получает «код: …»,
+  //: поэтому ни одно значение не выводится голым токеном.
+  function iniCodeLabel(code) {
+    var text = String(code == null ? '' : code);
+    if (!text) return '';
+    return (MEME_REASON_LABELS[text] || INI_STAGE_LABELS[text]
+      || INI_CONFIG_REASON_LABELS[text] || INI_REASON_CLASS_LABELS[text]
+      || (INI_CODE_PREFIX + text));
+  }
+
+  //: Пояс чата из уже загруженных параметров: тот же порядок, что у серверного
+  //: `resolve_timezone` — `limits.chat_timezone` → `limits.summary_timezone`.
+  //: Оба пусты → '' (витрина покажет UTC с пометкой, а не выдуманную зону).
+  function iniChatTimezone(items) {
+    var list = items || [];
+    function pick(key) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].key === key) {
+          var raw = list[i].value;
+          var text = (raw == null ? '' : String(raw)).trim();
+          if (text) return text;
+        }
+      }
+      return '';
+    }
+    return pick('limits.chat_timezone') || pick('limits.summary_timezone') || '';
+  }
+
+  //: Метка времени: только из переданного сервером штампа и в поясе чата.
+  //: Пустой/нечисловой штамп — «нет данных», а не 1970 и не 0.
+  function iniWhen(ts, tz) {
+    var num = Number(ts);
+    if (ts == null || !isFinite(num) || num <= 0) return '';
+    return turnShortWhen(num, tz || '');
+  }
+
+  //: Ось configuration: ВКЛ/ВЫКЛ/НЕИЗВЕСТНО — ТОЛЬКО из `configuration`.
+  function iniConfigurationAxis(cfg) {
+    var c = (cfg && typeof cfg === 'object') ? cfg : null;
+    var enabled = null;
+    if (c && c.enabled === true) enabled = true;
+    else if (c && c.enabled === false) enabled = false;
+    var source = String((c && c.source) || '');
+    var sourceLabel = (INI_CONFIG_SOURCE_LABELS[source]
+      || (source ? (INI_CODE_PREFIX + source) : 'слой не записан'));
+    var reason = String((c && c.reason) || '');
+    var reasonLabel = reason ? iniCodeLabel(reason) : '';
+    var text;
+    if (enabled === true) {
+      text = 'включено — ' + sourceLabel;
+    } else if (enabled === false) {
+      text = 'выключено — ' + sourceLabel
+        + (reasonLabel ? ': ' + reasonLabel : '');
+    } else {
+      text = 'неизвестно — '
+        + (reasonLabel || 'настройку не удалось прочитать');
+    }
+    return {
+      configState: (enabled === true ? 'true'
+        : (enabled === false ? 'false' : 'unknown')),
+      configEnabled: enabled,
+      configBadge: (enabled === true ? 'ВКЛ'
+        : (enabled === false ? 'ВЫКЛ' : 'НЕИЗВЕСТНО')),
+      configTone: (enabled === true ? 'ok'
+        : (enabled === false ? 'muted' : 'warn')),
+      configText: text,
+      configSource: source,
+    };
+  }
+
+  //: Ось readiness: «сейчас» + одна причина + честное следующее время.
+  function iniReadinessAxis(ready, block, tz) {
+    var r = (ready && typeof ready === 'object') ? ready : null;
+    var state = String((r && r.state) || '');
+    var klass = String((r && r.reason_class) || '');
+    var code = String((r && r.reason) || '');
+    var stateLabel = (INI_READINESS_LABELS[state]
+      || (state ? (INI_CODE_PREFIX + state) : INI_NO_DATA));
+    var reasonLabel = (klass
+      ? (INI_REASON_CLASS_LABELS[klass] || (INI_CODE_PREFIX + klass)) : '');
+    // Остаток кулдауна — уже посчитанный сервером факт, не клиентский отсчёт.
+    var cd = (block && block.cooldown && typeof block.cooldown === 'object')
+      ? block.cooldown : {};
+    var rest = null;
+    if (klass === 'cooldown' && cd.remaining_seconds != null) {
+      var restNum = Number(cd.remaining_seconds);
+      if (isFinite(restNum) && restNum > 0) rest = memeDurationText(restNum);
+    }
+    var nowText;
+    if (state === 'ready') {
+      nowText = stateLabel + ' — ничего не мешает';
+    } else if (state === 'waiting') {
+      nowText = stateLabel + (reasonLabel ? ': ' + reasonLabel : '')
+        + (rest ? ', осталось ' + rest : '');
+    } else if (state === 'busy') {
+      nowText = stateLabel
+        + (reasonLabel && klass !== 'busy' ? ': ' + reasonLabel : '');
+    } else if (state === 'blocked') {
+      nowText = stateLabel + ': ' + (reasonLabel || 'причина не записана');
+    } else {
+      nowText = stateLabel + (reasonLabel ? ': ' + reasonLabel : '');
+    }
+    var nextAt = (r && r.next_eligible_at != null)
+      ? Number(r.next_eligible_at) : null;
+    if (nextAt != null && (!isFinite(nextAt) || nextAt <= 0)) nextAt = null;
+    var basis = String((r && r.next_basis) || '');
+    var basisLabel = INI_NEXT_BASIS_LABELS[basis] || '';
+    var nextWhen = nextAt != null ? iniWhen(nextAt, tz) : '';
+    if (nextAt != null && !nextWhen) nextAt = null;
+    var nextText;
+    if (nextAt != null) {
+      nextText = 'не раньше ' + nextWhen
+        + (basisLabel ? ' (' + basisLabel + ')' : '');
+    } else if (state === 'ready') {
+      nextText = 'точное время не назначено — рассматривается на ближайшем '
+        + 'проходе';
+    } else if (state === 'busy') {
+      nextText = 'точное время не назначено — ждёт завершения текущей '
+        + 'публикации';
+    } else if (state === 'waiting') {
+      nextText = 'точное время не назначено — ждёт ближайшего прохода';
+    } else if (state === 'blocked') {
+      nextText = 'время не назначается'
+        + (reasonLabel ? ' — ' + reasonLabel : '');
+    } else {
+      nextText = INI_NO_DATA;
+    }
+    return {
+      readinessState: state,
+      readinessStateLabel: stateLabel,
+      readinessClass: klass,
+      nowText: nowText,
+      nowCode: code,
+      // Код показывается РЯДОМ с русской подписью и в машинном виде («код:
+      // cooldown_active»), чтобы не дублировать само слово причины.
+      nowCodeText: code ? (INI_CODE_PREFIX + code) : '',
+      nextText: nextText,
+      nextAt: nextAt,
+      nextBasis: basis,
+      nextBasisLabel: basisLabel,
+    };
+  }
+
+  //: Ось last_attempt: одна попытка — когда, как, что сделала, где встала.
+  function iniAttemptAxis(attempt, tz) {
+    var a = (attempt && typeof attempt === 'object') ? attempt : null;
+    var at = (a && a.at != null) ? Number(a.at) : null;
+    if (at != null && (!isFinite(at) || at <= 0)) at = null;
+    var mode = String((a && a.mode) || '');
+    var modeLabel = (INI_ATTEMPT_MODE_LABELS[mode]
+      || (mode ? (INI_CODE_PREFIX + mode) : 'способ не записан'));
+    var outcome = String((a && a.outcome) || '');
+    var outcomeText = (outcome
+      ? (MEME_OUTCOME_LABELS[outcome] || (INI_CODE_PREFIX + outcome))
+      : 'исход не записан');
+    var stage = String((a && a.stop_stage) || '');
+    var stopText = '';
+    if (stage && !INI_ATTEMPT_DONE_OUTCOMES[outcome]) {
+      stopText = 'остановилось: ' + iniCodeLabel(stage);
+    }
+    var incomplete = !!(a && a.incomplete_historical);
+    var parts = [];
+    if (!a || at == null) {
+      return {
+        attemptText: 'попыток ещё не было',
+        attemptAt: null,
+        attemptMode: mode,
+        attemptModeLabel: modeLabel,
+        attemptOutcomeText: '',
+        attemptStopText: '',
+        attemptRunId: '',
+      };
+    }
+    parts.push(iniWhen(at, tz) || INI_NO_DATA);
+    parts.push(modeLabel);
+    parts.push(outcomeText);
+    var text = parts.join(' · ') + (stopText ? ' · ' + stopText : '')
+      + (incomplete ? ' · историческая запись без идентификатора' : '');
+    return {
+      attemptText: text,
+      attemptAt: at,
+      attemptMode: mode,
+      attemptModeLabel: modeLabel,
+      attemptOutcomeText: outcomeText,
+      attemptStopText: stopText,
+      attemptRunId: String((a && a.run_id) || ''),
+    };
+  }
+
+  //: Ось last_delivery: подтверждено / неизвестно / ещё не доставлял.
+  //: Три состояния НИКОГДА не схлопываются: «неизвестно» — не «нет».
+  function iniDeliveryAxis(delivery, tz) {
+    var d = (delivery && typeof delivery === 'object') ? delivery : null;
+    var status = String((d && d.status) || '');
+    var when = iniWhen((d && d.at), tz);
+    var dest = (d && d.destination != null) ? String(d.destination) : '';
+    var msgId = (d && d.message_id != null) ? String(d.message_id) : '';
+    var badge = INI_DELIVERY_LABELS[status] || '';
+    var text;
+    if (status === 'confirmed') {
+      var parts = ['подтверждено'];
+      if (when) parts.push(when);
+      parts.push(dest ? ('чат ' + dest) : 'чат не записан');
+      parts.push(msgId ? ('сообщение ' + msgId)
+        : 'id сообщения не записан');
+      text = parts.join(' · ');
+    } else if (status === 'unknown') {
+      // «Отправлено» без id — не доставка и не «никогда».
+      text = 'доставка неизвестна'
+        + (when ? (' · запись ' + when) : '')
+        + ' · id сообщения нет';
+    } else if (status === 'never') {
+      text = 'ещё не доставлял';
+    } else {
+      text = (status ? (INI_CODE_PREFIX + status) : INI_NO_DATA);
+    }
+    return {
+      deliveryStatus: status,
+      deliveryBadge: (badge || (status ? (INI_CODE_PREFIX + status)
+        : INI_NO_DATA)),
+      deliveryText: text,
+      deliveryAt: (d && d.at != null) ? Number(d.at) : null,
+      deliveryMessageId: msgId,
+      deliveryDestination: dest,
+    };
+  }
+
+  //: Ось health: только исправность. Не исправность зависит от того,
+  //: разрешён ли механизм: «провайдер недоступен» никогда не даёт ВЫКЛ.
+  function iniHealthAxis(health) {
+    var h = (health && typeof health === 'object') ? health : null;
+    var state = String((h && h.state) || '');
+    var deps = (h && Array.isArray(h.dependencies)) ? h.dependencies : [];
+    var bad = [];
+    deps.forEach(function (dep) {
+      if (!dep || typeof dep !== 'object') return;
+      var depState = String(dep.state || '');
+      if (depState === 'ok') return;
+      var name = String(dep.name || '');
+      bad.push((INI_DEPENDENCY_LABELS[name]
+        || (name ? (INI_CODE_PREFIX + name) : 'зависимость без имени'))
+        + ' — ' + (INI_HEALTH_STATE_LABELS[depState]
+          || (depState ? (INI_CODE_PREFIX + depState) : INI_NO_DATA)));
+    });
+    return {
+      healthState: state,
+      healthStateLabel: (INI_HEALTH_STATE_LABELS[state]
+        || (state ? (INI_CODE_PREFIX + state) : INI_NO_DATA)),
+      healthChip: (state === 'error' ? 'ошибка проверки' : ''),
+      healthDetail: bad.length ? ('проверка: ' + bad.join(' · ')) : '',
+    };
+  }
+
+  //: Пять осей одного механизма одним объектом. Всё, что показано, взято из
+  //: ответа сервера; при отсутствии оси честный ответ — «нет данных».
+  function iniAxesOf(raw, tz) {
+    var b = (raw && typeof raw === 'object') ? raw : {};
+    var out = {};
+    var parts = [
+      iniConfigurationAxis(b.configuration),
+      iniHealthAxis(b.health),
+      iniReadinessAxis(b.readiness, b, tz),
+      iniAttemptAxis(b.last_attempt, tz),
+      iniDeliveryAxis(b.last_delivery, tz),
+    ];
+    parts.forEach(function (part) {
+      for (var key in part) {
+        if (Object.prototype.hasOwnProperty.call(part, key)) out[key] = part[key];
+      }
+    });
+    return out;
+  }
+
+  //: Собирает карточку одного механизма из ЕГО блока пяти осей. Никакой
+  //: клиентской реконструкции «включено» из мастер-флага/наблюдателя здесь нет:
+  //: источник один — `configuration` из ответа сервера (§1).
+  function iniCardOf(kind) {
+    var isText = kind === 'text';
+    var view = this.memeDiagView || {};
+    var block = (isText ? view.text : view.meme) || null;
+    var ax = (block && block.axes)
+      ? block.axes : iniAxesOf(null, this.iniOverviewTimezone);
+    var canEdit = this.canEditConfig;
+    var canEditKey = (isText ? INITIATIVE_MASTER_KEY
+      : 'flags.meme_initiative_enabled');
+    var canEditLabel;
+    if (typeof canEdit !== 'function') {
+      canEditLabel = 'права не определены';
+    } else if (canEdit(canEditKey)) {
+      canEditLabel = (isText
+        ? 'менять можете вы: рубильник в каталоге «Модули»'
+        : 'менять можете вы (вкладка «Мемы» этого чата)');
+    } else {
+      canEditLabel = (isText
+        ? 'меняет только глобальный админ (каталог «Модули»)'
+        : 'меняет только админ этого чата');
+    }
+    var quotaText;
+    if (isText) {
+      quotaText = block
+        ? (block.quota.unlimited
+          ? 'без предела (0 = без капа)'
+          : (block.quota.limitText + ' / сутки · израсходовано '
+            + block.quota.usedText + ' · осталось ' + block.quota.remainingText))
+        : 'неизвестна';
+    } else {
+      var st = this.memeSettingsView;
+      quotaText = st
+        ? (st.quotaText + ' · ' + st.remainingText
+          + (st.resetAt ? (' · сброс: ' + st.resetAt) : ''))
+        : 'неизвестна';
+    }
+    var card = {
+      key: kind,
+      title: (isText ? 'Текстовая инициатива' : 'Мемы'),
+      tab: (isText ? 'text' : 'memes'),
+      tabLabel: (isText ? 'Открыть настройки текста'
+        : 'Открыть настройки мемов'),
+      canEditLabel: canEditLabel,
+      quotaText: quotaText,
+      // Проверка ≠ попытка ≠ подтверждённая отправка (§5, строка 3).
+      // Время проверки — тем же форматом, что остальные оси (пояс чата или
+      // честный UTC), а не в поясе устройства.
+      checkText: (!block ? INI_NO_DATA
+        : (block.lastCheckTs == null ? 'никогда'
+          : (iniWhen(block.lastCheckTs, this.iniOverviewTimezone)
+            || INI_NO_DATA))),
+      noData: (!block || block.isNoData),
+    };
+    for (var key in ax) {
+      if (Object.prototype.hasOwnProperty.call(ax, key)) card[key] = ax[key];
+    }
+    return card;
   }
 
   // Разбор `detail` строки журнала (JSON фактов этапа) для видимой аналитики.
@@ -4568,6 +5034,9 @@
         // склеиваются; при отсутствии данных блок честно пустой).
         memeDiag: null,
         memeDiagBusy: false,
+        // P0 §4: один in-flight + один «хвост» на последний epoch — запрос,
+        // пришедший во время чтения, не теряется и не оставляет старый снимок.
+        memeDiagQueued: false,
         memeDiagError: '',
         // P1 «Инициатива» (рекомпоновка страницы): журнал ЛОГИЧЕСКИХ попыток
         // публикации (текст и мемы) и трасса РОВНО одной попытки. Один
@@ -8364,12 +8833,13 @@
       memeDiagView: function () {
         var d = this.memeDiag;
         if (!d) return null;
+        var tz = this.iniOverviewTimezone;
         return {
           generatedAt: d.generated_at || null,
           schemaVersion: d.schema_version || null,
           degraded: d.degraded || [],
-          text: memeMechanismViewOf(d.text_initiative),
-          meme: memeMechanismViewOf(d.meme),
+          text: memeMechanismViewOf(d.text_initiative, tz),
+          meme: memeMechanismViewOf(d.meme, tz),
         };
       },
       // Два блока диагностики как СПИСОК из двух независимых элементов:
@@ -8378,210 +8848,75 @@
       memeDiagBlocks: function () {
         var d = this.memeDiag;
         if (!d) return [];
+        var tz = this.iniOverviewTimezone;
         return [
           { key: 'text_initiative', title: 'Текстовая инициатива',
-            block: memeMechanismViewOf(d.text_initiative) },
+            block: memeMechanismViewOf(d.text_initiative, tz) },
           { key: 'meme', title: 'Мемы в инициативе',
-            block: memeMechanismViewOf(d.meme) },
+            block: memeMechanismViewOf(d.meme, tz) },
         ];
+      },
+      // ═══ P0-INIT-MEME-UX-DIAG §5: шапка обзора ═══════════════════════════
+      // Чат и его ПОЯС называются над сгибом: время в карточках показывается
+      // в поясе чата, а не в поясе устройства. Пояс читается из уже
+      // загруженных параметров (`limits.chat_timezone` → `limits.summary_timezone`,
+      // тот же порядок, что у серверного `resolve_timezone`); не задан ни один
+      // — честный UTC с пометкой, а не выдуманная зона.
+      iniOverviewTimezone: function () {
+        return iniChatTimezone(this.configItems);
+      },
+      iniOverviewScope: function () {
+        var chatId = this.activeChatId;
+        var chat = null;
+        (this.accessChats || []).forEach(function (row) {
+          if (row && String(row.chat_id) === String(chatId)) chat = row;
+        });
+        var tz = iniChatTimezone(this.configItems);
+        var diag = this.memeDiag || null;
+        // Снимок показывается ТОЛЬКО когда он про этот чат: поздний ответ
+        // другого чата не должен подписывать шапку.
+        var sameChat = !!(diag && diag.chat_id != null && chatId != null
+          && String(diag.chat_id) === String(chatId));
+        var generated = sameChat && diag.generated_at != null
+          ? iniWhen(diag.generated_at, tz) : '';
+        return {
+          chatId: chatId,
+          chatTitle: chat ? String(chat.title || '') : '',
+          timezone: tz || 'UTC',
+          timezoneKnown: !!tz,
+          timezoneLabel: (tz
+            ? ('пояс чата: ' + tz)
+            : 'пояс чата не задан — время в UTC'),
+          generatedText: generated,
+          snapshotLabel: (generated
+            ? ('снимок: ' + generated)
+            : 'снимок ещё не прочитан'),
+        };
       },
       // ═══ P1 «Инициатива» (2026-11-03): ОБЗОР — две равнозначные карточки ═══
       // Одна карточка на механизм, одни и те же поля, разные источники:
       // живое состояние — из `mechanism-diagnostics` (не из настроек!), факт
       // последней публикации — из ledger/журнала попыток, право управления —
       // из реального RBAC текущего пользователя (`canEditConfig`).
+      // P0 (§1/§5): карточка показывает ПЯТЬ ОСЕЙ как они посчитаны сервером:
+      // «Разрешено» (configuration) ≠ «Сейчас» (readiness) ≠ проверка ≠
+      // попытка ≠ подтверждённая отправка. Клиент НЕ собирает оси из флагов.
       initiativeTextCard: function () {
-        var mod = this.intentModuleStatus();
-        var block = (this.memeDiagView || {}).text || null;
-        var vit = this.initiativeVitality || null;
-        var perChat = this.initiativePerChatItem;
-        var observer = null;
-        var self = this;
-        (this.initiativeFlagGroups || []).forEach(function (g) {
-          (g.items || []).forEach(function (it) {
-            if (it.key === 'flags.initiative_observer_enabled') observer = it;
-          });
-        });
-        var masterOn = mod ? (mod.effective === true) : null;
-        var observerOn = observer ? (observer.value === true) : null;
-        var chatOn = perChat ? (perChat.value === true) : null;
-        var chatScoped = this.activeChatId != null;
-        // ПЕРВИЧНЫЙ источник — вердикт самого механизма (его гейт): он один
-        // знает и мастер-флаг, и ось наблюдателя, и тумблер чата. Если блока
-        // нет, состояние собирается из осей, доступных текущей роли, и это
-        // честно помечено в подписи источника.
-        var effective = null;
-        var effOrigin = '';
-        if (block && !block.isNoData) {
-          var skipCode = (block.skip && block.skip.code) || '';
-          if (skipCode === 'initiative_disabled'
-              || skipCode === 'disabled_by_setting') {
-            effective = false;
-            effOrigin = 'гейт механизма';
-          } else if (block.ready === true) {
-            effective = true;
-            effOrigin = 'гейт механизма';
-          } else if (block.ready === false) {
-            effective = false;
-            effOrigin = 'гейт механизма';
-          }
-        }
-        if (effective === null && masterOn !== null) {
-          if (observerOn === null) {
-            // Ось наблюдателя не прочитана (нет прав на параметр) — состояние
-            // НЕ выводится из одного мастера: «неизвестно» честнее «включено».
-            effOrigin = 'мастер прочитан, ось наблюдателя — нет';
-          } else {
-            effective = masterOn && observerOn
-              && (!chatScoped || chatOn !== false);
-            effOrigin = 'мастер + оси';
-          }
-        }
-        var sends = (vit && vit.sends) || [];
-        var lastPub = sends.length ? sends[0].ts : null;
-        var lastDecision = (mod && mod.lastDecision) || null;
-        var decisionText = '';
-        if (lastDecision) {
-          var code = String(lastDecision.reason_code || '');
-          decisionText = (lastDecision.action ? String(lastDecision.action) : 'решение')
-            + (code ? (' · ' + memeReasonLabelOf(code)) : ' · без причины');
-        } else if (block && block.skipRecorded) {
-          decisionText = block.skipRecorded.label;
-        }
-        return {
-          key: 'text',
-          title: 'Текстовая инициатива',
-          tab: 'text',
-          tabLabel: 'Открыть настройки текста',
-          effective: effective,
-          effectiveLabel: (effective === null
-            ? 'состояние неизвестно'
-            : (effective ? 'включена' : 'выключена')),
-          sourceLabel: ((mod && mod.sourceLabel
-            ? ('источник: ' + mod.sourceLabel)
-            : 'источник не прочитан')
-            + (effOrigin ? (' · ' + effOrigin) : '')
-            + (observerOn === null ? ' · наблюдатель не прочитан' : '')),
-          canEditLabel: self.canEditConfig
-            ? (self.canEditConfig(INITIATIVE_MASTER_KEY)
-              ? 'менять можете вы: рубильник в каталоге «Модули»'
-              : 'меняет только глобальный админ (каталог «Модули»)')
-            : 'права не определены',
-          lastCheckText: (block ? block.lastCheckText : 'нет данных'),
-          lastOutcomeText: decisionText || 'решение не записано',
-          nextCheckText: (block ? block.nextCheckText : 'нет данных'),
-          nextCheckBasisLabel: (block ? block.nextCheckBasisLabel : ''),
-          nextDueText: (mod && mod.nextDue
-            ? _tsStatusLabel(mod.nextDue, '') : ''),
-          lastPublicationText: (lastPub
-            ? _tsStatusLabel(lastPub, '') : 'публикаций не было'),
-          cooldownText: (block ? block.cooldown.ownText : 'неизвестен'),
-          cooldownRemaining: (block ? block.cooldown.remainingText : 'неизвестен'),
-          quotaText: (block
-            ? (block.quota.unlimited
-              ? 'без предела (0 = без капа)'
-              : (block.quota.limitText + ' / сутки · израсходовано '
-                 + block.quota.usedText + ' · осталось '
-                 + block.quota.remainingText))
-            : 'неизвестна'),
-          waitingText: (block
-            ? (block.skip ? block.skip.label
-              : (block.ready === true ? 'ничего не мешает'
-                : (block.isNoData ? 'нет данных' : 'неизвестно')))
-            : 'нет данных'),
-          noData: !block || block.isNoData,
-        };
+        return iniCardOf.call(this, 'text');
       },
       initiativeMemeCard: function () {
-        var block = (this.memeDiagView || {}).meme || null;
-        var st = this.memeSettingsView;
-        var mod = this.intentModuleStatus();
-        var attempts = (this.memeSettings && this.memeSettings.analytics
-                        && this.memeSettings.analytics.attempts) || [];
-        var lastPub = null;
-        for (var i = 0; i < attempts.length; i++) {
-          if (String(attempts[i].outcome || '') === 'published') {
-            lastPub = attempts[i].ts;
-            break;
-          }
-        }
-        var masterOn = mod ? (mod.effective === true) : null;
-        var ownOn = st ? st.memeEnabled : null;
-        // Первичный источник — гейт самого мем-механизма (он знает и мастер,
-        // и ось мемов, и тумблер чата, и доступность image-провайдера).
-        var effective = null;
-        var effOrigin = '';
-        if (block && !block.isNoData) {
-          var skipCode = (block.skip && block.skip.code) || '';
-          if (skipCode === 'initiative_disabled' || skipCode === 'disabled_by_setting'
-              || skipCode === 'image_module_off'
-              || skipCode === 'image_provider_not_configured'
-              || skipCode === 'image_provider_unhealthy') {
-            effective = false;
-            effOrigin = 'гейт механизма';
-          } else if (block.ready === true) {
-            effective = true;
-            effOrigin = 'гейт механизма';
-          } else if (block.ready === false) {
-            effective = false;
-            effOrigin = 'гейт механизма';
-          }
-        }
-        if (effective === null && masterOn !== null && ownOn !== null) {
-          effective = masterOn && ownOn;
-          effOrigin = 'мастер + ось мемов';
-        }
-        return {
-          key: 'meme',
-          title: 'Мемы',
-          tab: 'memes',
-          tabLabel: 'Открыть настройки мемов',
-          effective: effective,
-          effectiveLabel: (effective === null
-            ? 'состояние неизвестно'
-            : (effective ? 'включены' : 'выключены')),
-          sourceLabel: ((st
-            ? ('свойство чата: ' + (st.memeEnabled ? 'включено' : 'выключено')
-              + ' · ' + (st.initiativeEnabled
-                ? 'инициатива включена' : 'инициатива выключена'))
-            : 'настройки не прочитаны')
-            + (effOrigin ? (' · ' + effOrigin) : '')),
-          canEditLabel: (this.canEditConfig
-            ? (this.canEditConfig('flags.meme_initiative_enabled')
-              ? 'менять можете вы (вкладка «Мемы» этого чата)'
-              : 'меняет только админ этого чата')
-            : 'права не определены'),
-          lastCheckText: (block ? block.lastCheckText : 'нет данных'),
-          lastOutcomeText: (block
-            ? ((block.skipRecorded && block.skipRecorded.label)
-              || block.readyLabel)
-            : 'решение не записано'),
-          nextCheckText: (block ? block.nextCheckText : 'нет данных'),
-          nextCheckBasisLabel: (block ? block.nextCheckBasisLabel : ''),
-          nextDueText: '',
-          lastPublicationText: (lastPub
-            ? _tsStatusLabel(lastPub, '') : 'публикаций не было'),
-          cooldownText: (block ? block.cooldown.ownText : 'неизвестен'),
-          cooldownRemaining: (block ? block.cooldown.remainingText : 'неизвестен'),
-          quotaText: (st
-            ? (st.quotaText + ' · ' + st.remainingText
-              + (st.resetAt ? (' · сброс: ' + st.resetAt) : ''))
-            : 'неизвестна'),
-          waitingText: (block
-            ? (block.skip ? block.skip.label
-              : (block.ready === true ? 'ничего не мешает'
-                : (block.isNoData ? 'нет данных' : 'неизвестно')))
-            : 'нет данных'),
-          noData: !block || block.isNoData,
-        };
+        return iniCardOf.call(this, 'meme');
       },
       // Общая полоса «Координация отправки»: состояние ТОЛЬКО из API
       // (`publication` двух блоков). Никакого клиентского отсчёта: остаток
       // паузы — это `interval_seconds`/`other_age_seconds` с сервера.
+      // §5: полоса показывается ТОЛЬКО когда есть что сказать — живой
+      // конфликт, живой приоритет ручного /meme или деградация координации.
+      // «Свободно» и «не проверялась» — не событие, поэтому полосы нет.
       initiativeCoordination: function () {
         var d = this.memeDiagView;
         if (!d) {
-          return { state: 'unknown', label: 'нет данных',
+          return { state: 'unknown', label: 'нет данных', visible: false,
                    detail: 'диагностика механизмов не прочитана', event: '' };
         }
         var blocks = [d.text, d.meme].filter(function (b) {
@@ -8589,12 +8924,14 @@
         });
         if (!blocks.length) {
           return { state: 'unknown', label: 'координация не проверялась',
+                   visible: false,
                    detail: 'ни один механизм не сообщил состояние брони',
                    event: '' };
         }
         var degraded = d.degraded || [];
         if (degraded.length) {
           return { state: 'degraded', label: 'координация недоступна',
+                   visible: true,
                    detail: 'конфликт публикаций неизвестен (не «конфликта нет»)',
                    event: degraded.join(', ') };
         }
@@ -8613,13 +8950,13 @@
           return b.publication.conflict === true;
         });
         if (manual) {
-          return { state: 'deferred',
+          return { state: 'deferred', visible: true,
                    label: 'отложено: приоритет ручного /meme',
                    detail: 'автоматический мем ждёт окна приоритета',
                    event: 'до ' + manual };
         }
         if (conflict) {
-          return { state: 'waiting',
+          return { state: 'waiting', visible: true,
                    label: 'ожидает другой механизм',
                    detail: (holder ? ('бронь держит: ' + holder) : 'бронь занята')
                      + (other ? (' · публиковал: ' + other) : ''),
@@ -8627,7 +8964,7 @@
                      ? ('межтиповой интервал ' + blocks[0].publication.intervalText)
                      : '') };
         }
-        return { state: 'free', label: 'свободно',
+        return { state: 'free', label: 'свободно', visible: false,
                  detail: 'ни один механизм не держит бронь публикации',
                  event: checked ? ('проверено ' + checked) : '' };
       },
@@ -13793,6 +14130,21 @@
         if (this.activeChatId == null) return false;
         return ['overview', 'text', 'memes'].indexOf(ws.tab) >= 0;
       },
+      // ═══ P4/P0: настройки мемов и диагностика — ДВА запроса, но каждый ответ
+      // привязывается к тому чату, для которого был задан вопрос (§4).
+      // Снимок до await — `{epoch, chatId}`; применяем ответ, только если epoch
+      // не изменился И `payload.chat_id` равен выбранному чату. Поздний ответ
+      // другого чата не может стать содержимым карточек.
+      _chatBound: function (epoch, chatId) {
+        return this._scopeGuard(epoch) === true
+          && this.activeChatId != null
+          && String(this.activeChatId) === String(chatId);
+      },
+      _payloadChatMatches: function (data, chatId) {
+        if (!data || typeof data !== 'object') return false;
+        if (data.chat_id == null || data.chat_id === '') return false;
+        return String(data.chat_id) === String(chatId);
+      },
       loadMemeSettings: async function () {
         if (this.memeSettingsBusy) return;
         if (this.activeChatId == null) {
@@ -13801,13 +14153,21 @@
           this.memeDraftChat = null;
           return;
         }
+        var chatId = this.activeChatId;
         this.memeSettingsBusy = true;
         this.memeSettingsError = '';
         this.memeFieldErrors = {};
         var epoch = this.scopeEpoch;
         try {
           var data = await this.api('/api/initiative/meme-settings');
-          if (!this._scopeGuard(epoch)) return;
+          if (!this._chatBound(epoch, chatId)) return;
+          if (!this._payloadChatMatches(data, chatId)) {
+            // Ответ не про этот чат: применять его к карточкам нельзя.
+            this.memeSettings = null;
+            this.memeSettingsError =
+              'Ответ пришёл для другого чата и отброшен — обновите экран';
+            return;
+          }
           // F3: изменённый черновик этого же чата НЕ перезаписываем серверным
           // ответом — иначе набранный текст молча пропадал при переходе
           // «Мемы → Обзор → Мемы». Данные настроек обновляются всегда, черновик
@@ -13820,41 +14180,75 @@
             this.memeDraftChat = this.activeChatId;
           }
         } catch (e) {
-          if (!this._scopeGuard(epoch)) return;
+          if (!this._chatBound(epoch, chatId)) return;
           this.memeSettings = null;
           this.memeSettingsError = (e && e.status === 403)
             ? 'Нет доступа к настройкам этого чата'
             : ((e && e.message) || 'настройки недоступны');
         } finally {
-          if (this._scopeGuard(epoch)) this.memeSettingsBusy = false;
+          this.memeSettingsBusy = false;
         }
         // P4: два блока диагностики — отдельный запрос, отдельная ошибка:
         // недоступная диагностика не скрывает настройки и промпты.
         this.loadMemeDiagnostics();
       },
       // P4 (`MEME-IIC-DIAG-UI`): два НЕЗАВИСИМЫХ блока (текст и мемы).
+      // P0 §4: один in-flight запрос и один «хвост» на последний epoch —
+      // прежний молчаливый выход при `memeDiagBusy` оставлял старый снимок
+      // после смены чата. Теперь накопившийся вызов выполняется после текущего.
       loadMemeDiagnostics: async function () {
-        if (this.memeDiagBusy || this.activeChatId == null) return;
+        if (this.activeChatId == null) {
+          this.memeDiag = null;
+          this.memeDiagBusy = false;
+          this.memeDiagQueued = false;
+          this.memeDiagError = '';
+          return;
+        }
+        if (this.memeDiagBusy) {
+          this.memeDiagQueued = true;
+          return;
+        }
+        var chatId = this.activeChatId;
         this.memeDiagBusy = true;
+        this.memeDiagQueued = false;
         this.memeDiagError = '';
         var epoch = this.scopeEpoch;
         try {
           var data = await this.api('/api/initiative/mechanism-diagnostics');
-          if (!this._scopeGuard(epoch)) return;
+          if (!this._chatBound(epoch, chatId)) return;
+          if (!this._payloadChatMatches(data, chatId)) {
+            // Поздний/чужой снимок: карточки этого чата он не описывает.
+            this.memeDiag = null;
+            this.memeDiagError =
+              'Диагностика пришла для другого чата и отброшена — '
+              + 'обновите экран';
+            return;
+          }
           this.memeDiag = data || null;
         } catch (e) {
-          if (!this._scopeGuard(epoch)) return;
+          if (!this._chatBound(epoch, chatId)) return;
           this.memeDiag = null;
           this.memeDiagError = (e && e.status === 403)
             ? 'Нет доступа к диагностике этого чата'
             : ((e && e.message) || 'диагностика недоступна');
         } finally {
-          if (this._scopeGuard(epoch)) this.memeDiagBusy = false;
+          this.memeDiagBusy = false;
+          if (this.memeDiagQueued) {
+            this.memeDiagQueued = false;
+            if (this.activeChatId != null) this.loadMemeDiagnostics();
+          }
         }
       },
       // ═══ P1 «Инициатива» (2026-11-03): вход на вкладку и журнал попыток ═══
       // Одна точка входа на вкладку: каждый экран читает ровно свои данные,
       // повторных опросов нет (у каждого загрузчика свой single-flight).
+      // §5: «Обновить» на обзоре перечитывает ТЕ ЖЕ данные (настройки чата →
+      // диагностика + активность текста). Новых эндпоинтов нет.
+      initiativeRefresh: function () {
+        if (this.activeChatId == null) return;
+        this.loadMemeSettings();
+        this.loadInitiativeVitality();
+      },
       initiativeTabEnter: function (tab) {
         var isInitiative = !!(this.workspace && this.workspace.module
                               && this.workspace.module.id === 'mod_initiative');

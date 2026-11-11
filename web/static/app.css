@@ -8663,6 +8663,19 @@ body > .sticky-save[data-save-panel] {
 .ini-fact { display: block; min-width: 0; padding: 1px 0; }
 .ini-fact__k { display: block; color: #94a3b8; }
 .ini-fact__v { display: block; color: #cbd5e1; overflow-wrap: anywhere; min-width: 0; }
+/* Технический код — рядом с русской подписью, мелко и не первым: он нужен для
+   сверки, но читать состояние по нему не требуется (§5). */
+.ini-fact__code {
+  color: #64748b; overflow-wrap: anywhere; font-variant-numeric: tabular-nums;
+}
+
+/* Шапка обзора: выбранный чат, его пояс, снимок и «Обновить» — в одну
+   строку, которая переносится, но не создаёт горизонтальной прокрутки. */
+.ini-scope-line {
+  display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap;
+  min-width: 0; margin: 2px 0 8px; color: #94a3b8; font-size: 0.86em;
+}
+.ini-scope-line > span { min-width: 0; overflow-wrap: anywhere; }
 
 /* ── Полоса «Координация отправки» ──────────────────────────────────── */
 .ini-coord {
@@ -8832,6 +8845,8 @@ body > .sticky-save[data-save-panel] {
   border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
   border-radius: var(--radius-lg, 12px); min-width: 0;
 }
+/* Честная ошибка чтения: подпись не выдаёт «нет данных» за «всё хорошо». */
+.ini-note--warn { color: #fca5a5; border-color: rgba(248, 113, 113, .35); }
 
 /* ── Лента вкладок: прокрутка ВНУТРИ полосы (мобильный) ─────────────── */
 @media (max-width: 767px) {
