@@ -747,10 +747,10 @@ async def test_grounds_survive_serialize_reload_and_restart(tmp_path,
 @pytest.mark.asyncio
 async def test_recover_lesson_grounds_from_links_is_idempotent(
         tmp_path, monkeypatch):
-    """Основания восстанавливаются ТОЛЬКО из сохранённых связей; повтор — no-op.
+    """Подтверждённый урок правится из сохранённых связей; повтор — no-op.
 
-    Урок без связей честно попадает в `refused`, а не получает выдуманный
-    источник."""
+    `confirmation_count` берётся из строки (дефект = положительный счётчик при
+    пустых основаниях), поэтому урок предложен с одним источником."""
     monkeypatch.setattr(hot_config, "get", _FakeHot().get)
     db = await _db(tmp_path, "recover.db")
     try:
@@ -759,13 +759,10 @@ async def test_recover_lesson_grounds_from_links_is_idempotent(
             type="context", scope="chat", rule_key="bounded_block",
             scope_chat_id=CHAT, origin_kind="explicit",
             independent_sources=("message:12",))
-        lost, _v2 = await svc.lesson.propose(
-            type="context", scope="chat", rule_key="compact_block",
-            scope_chat_id=CHAT, origin_kind="explicit")
-        # Эмуляция дефекта: основания пропали из сохранённой строки.
+        # Эмуляция дефекта: основания пропали, счётчик остался.
         await db.db.execute(
-            "UPDATE mca_lessons SET independent_sources = '[]' "
-            "WHERE lesson_id = ?", (recoverable,))
+            "UPDATE mca_lessons SET independent_sources = '[]', "
+            "confirmation_count = 1 WHERE lesson_id = ?", (recoverable,))
         await db.db.commit()
         lesson = await svc.store.get_lesson(recoverable)
         if lesson.get("source_ref_id") is None:
@@ -783,12 +780,133 @@ async def test_recover_lesson_grounds_from_links_is_idempotent(
 
         report = await svc.store.recover_lesson_grounds()
         assert recoverable in [row["lesson_id"] for row in report["repaired"]]
-        assert lost in [row["lesson_id"] for row in report["refused"]]
         row = await svc.store.get_lesson(recoverable)
         assert json.loads(row["independent_sources"]) == ["message:12"]
         # Идемпотентность: второй прогон ничего не пишет.
         again = await svc.store.recover_lesson_grounds()
         assert again["repaired"] == []
+        assert again["skipped_unconfirmed"] == []
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_recover_skips_unconfirmed_lesson(tmp_path, monkeypatch):
+    """`confirmation_count = 0` — законное «оснований пока нет», не дефект.
+
+    Такая строка не правится и попадает в `skipped_unconfirmed` со счётчиком:
+    иначе инструмент дописал бы основания уроку, который никогда не
+    подтверждался."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "skip_unconfirmed.db")
+    try:
+        svc = me.get_service(db)
+        lid, ver = await svc.lesson.propose(
+            type="context", scope="chat", rule_key="bounded_block",
+            scope_chat_id=CHAT, origin_kind="explicit")
+        lesson = await svc.store.get_lesson(lid, ver)
+        from services import provenance as _prov
+        src = _prov.SourceRef(store="sqlite", entity_type="message",
+                              entity_id="12", chat_id=CHAT,
+                              resolution="resolved")
+        src_id = await _prov.resolve_source_ref(db, src)
+        await _prov.add_evidence_link(db, _prov.EvidenceLink(
+            subject_ref_id=int(lesson["source_ref_id"]),
+            source_ref_id=int(src_id), link_type="derived_from",
+            method="direct_reference", verification="verified",
+            independence="independent"))
+
+        report = await svc.store.recover_lesson_grounds()
+        skipped = {row["lesson_id"]: row
+                   for row in report["skipped_unconfirmed"]}
+        assert lid in skipped
+        assert skipped[lid]["confirmation_count"] == 0
+        assert lid not in [row["lesson_id"] for row in report["repaired"]]
+        assert report["skipped_unconfirmed_count"] >= 1
+        row = await svc.store.get_lesson(lid, ver)
+        assert json.loads(row["independent_sources"] or "[]") == []
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_recover_refuses_when_links_exceed_counter(tmp_path,
+                                                         monkeypatch):
+    """Связей больше, чем подтверждений → отказ, без записи.
+
+    Список длиннее счётчика — признак другого дефекта; «дополнить» его значило
+    бы придумать историю."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "exceed.db")
+    try:
+        svc = me.get_service(db)
+        lid, ver = await svc.lesson.propose(
+            type="context", scope="chat", rule_key="bounded_block",
+            scope_chat_id=CHAT, origin_kind="explicit")
+        await db.db.execute(
+            "UPDATE mca_lessons SET independent_sources = '[]', "
+            "confirmation_count = 1 WHERE lesson_id = ?", (lid,))
+        await db.db.commit()
+        lesson = await svc.store.get_lesson(lid, ver)
+        from services import provenance as _prov
+        for msg in ("12", "13"):               # две связи при счётчике 1
+            src = _prov.SourceRef(store="sqlite", entity_type="message",
+                                  entity_id=msg, chat_id=CHAT,
+                                  resolution="resolved")
+            src_id = await _prov.resolve_source_ref(db, src)
+            await _prov.add_evidence_link(db, _prov.EvidenceLink(
+                subject_ref_id=int(lesson["source_ref_id"]),
+                source_ref_id=int(src_id), link_type="derived_from",
+                method="direct_reference", verification="verified",
+                independence="independent"))
+
+        report = await svc.store.recover_lesson_grounds()
+        refused = [row for row in report["refused"]
+                   if row.get("reason") == "grounds_exceed_counter"]
+        assert [row["lesson_id"] for row in refused] == [lid]
+        assert refused[0]["recovered"] == 2
+        assert refused[0]["confirmation_count"] == 1
+        assert lid not in [row["lesson_id"] for row in report["repaired"]]
+        row = await svc.store.get_lesson(lid, ver)
+        assert json.loads(row["independent_sources"] or "[]") == []
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_recover_dry_run_writes_nothing(tmp_path, monkeypatch):
+    """Сухой прогон: те же правила, отчёт `would_restore`, ноль записи."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "dry_run.db")
+    try:
+        svc = me.get_service(db)
+        lid, ver = await svc.lesson.propose(
+            type="context", scope="chat", rule_key="bounded_block",
+            scope_chat_id=CHAT, origin_kind="explicit",
+            independent_sources=("message:12",))
+        await db.db.execute(
+            "UPDATE mca_lessons SET independent_sources = '[]', "
+            "confirmation_count = 1 WHERE lesson_id = ?", (lid,))
+        await db.db.commit()
+        lesson = await svc.store.get_lesson(lid, ver)
+        from services import provenance as _prov
+        src = _prov.SourceRef(store="sqlite", entity_type="message",
+                              entity_id="12", chat_id=CHAT,
+                              resolution="resolved")
+        src_id = await _prov.resolve_source_ref(db, src)
+        await _prov.add_evidence_link(db, _prov.EvidenceLink(
+            subject_ref_id=int(lesson["source_ref_id"]),
+            source_ref_id=int(src_id), link_type="derived_from",
+            method="direct_reference", verification="verified",
+            independence="independent"))
+
+        report = await svc.store.recover_lesson_grounds(dry_run=True)
+        assert report["dry_run"] is True
+        repaired = [row for row in report["repaired"]
+                    if row["lesson_id"] == lid]
+        assert repaired and repaired[0]["would_restore"] == ["message:12"]
+        row = await svc.store.get_lesson(lid, ver)
+        assert json.loads(row["independent_sources"] or "[]") == []
     finally:
         await db.close()
 

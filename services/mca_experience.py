@@ -983,20 +983,33 @@ class ExperienceStore:
         return out
 
     async def recover_lesson_grounds(self, *, chat_id: int | None = None,
-                                     limit: int = 500) -> dict:
+                                     limit: int = 500,
+                                     dry_run: bool = False) -> dict:
         """Восстановить `independent_sources` урока из сохранённых связей.
 
         Дефект 12.11.2026: `validate()` заменял список оснований более узким
-        (для preference-уроков — пустым), поэтому у подтверждённого урока
-        оставался `confirmation_count` без единого основания. Здесь список
-        восстанавливается ТОЛЬКО из уже существующих данных
-        (`mca_evidence_links` → `mca_source_refs`): ничего не выдумывается,
-        статус урока не меняется, отметки «VERIFIED» не ставятся.
+        (для preference-уроков — пустым), поэтому у ПОДТВЕРЖДЁННОГО урока
+        оставался `confirmation_count` без единого основания. Восстановление
+        берёт ТОЛЬКО уже существующие данные (`mca_evidence_links` →
+        `mca_source_refs`): ничего не выдумывается, статус урока не меняется,
+        отметки «VERIFIED» не ставятся.
+
+        Область строго ограничена дефектом (сухой прогон на проде 2.58.190,
+        13.11.2026 показал, что «пустые основания» — более широкая популяция):
+
+        * правится только `confirmation_count > 0` И пустые основания;
+        * урок без подтверждений (`confirmation_count = 0`) — законное
+          состояние «оснований пока нет»: он НЕ трогается и попадает в
+          `skipped_unconfirmed` со своим счётчиком;
+        * если восстановленных оснований БОЛЬШЕ счётчика — это признак другого
+          дефекта: отказ `grounds_exceed_counter`, без записи (иначе список
+          стал бы длиннее счётчика, т.е. придуманной историей).
 
         Идемпотентно: второй прогон на тех же данных ничего не пишет.
-        Возвращает отчёт `{scanned, repaired, refused, unchanged}`.
+        `dry_run=True` — тот же отбор и те же правила, без записи.
         Отсутствие колонок v46 (старая БД) → `scanned=0`, честный отказ."""
-        report = {"scanned": 0, "repaired": [], "refused": [], "unchanged": 0}
+        report = {"scanned": 0, "repaired": [], "refused": [], "unchanged": 0,
+                  "skipped_unconfirmed": [], "dry_run": bool(dry_run)}
         try:
             columns = {str(r["name"]) for r in await (await self._db.db.execute(
                 "PRAGMA table_info(mca_lessons)")).fetchall()}
@@ -1009,7 +1022,7 @@ class ExperienceStore:
         params: tuple = (int(chat_id),) if chat_id is not None else ()
         cursor = await self._db.db.execute(
             "SELECT lesson_id, version, scope_chat_id, source_ref_id, "
-            "independent_sources FROM mca_lessons WHERE "
+            "confirmation_count, independent_sources FROM mca_lessons WHERE "
             "(independent_sources IS NULL OR independent_sources IN ('', '[]'))"
             + where + " ORDER BY updated_at DESC LIMIT ?",
             (*params, max(1, int(limit))))
@@ -1022,6 +1035,13 @@ class ExperienceStore:
         for row in rows:
             lesson_id = str(row.get("lesson_id") or "")
             version = int(row.get("version") or 0)
+            counter = int(row.get("confirmation_count") or 0)
+            if counter <= 0:
+                # Не «дефект»: урок не подтверждён, оснований ещё нет.
+                report["skipped_unconfirmed"].append({
+                    "lesson_id": lesson_id, "version": version,
+                    "confirmation_count": counter})
+                continue
             recovered: list[str] = []
             for ref in links.get(int(row.get("source_ref_id") or 0), []) \
                     if row.get("source_ref_id") is not None else []:
@@ -1031,20 +1051,28 @@ class ExperienceStore:
             if not recovered:
                 report["refused"].append({
                     "lesson_id": lesson_id, "version": version,
-                    "reason": "no_stored_evidence_links"})
+                    "reason": "no_stored_evidence_links",
+                    "confirmation_count": counter})
                 continue
-            count = max(len(recovered), 0)
-            current_count = 0
-            try:
-                stored_row = await self.get_lesson(lesson_id, version)
-                current_count = int((stored_row or {}).get(
-                    "confirmation_count") or 0)
-            except Exception:
-                current_count = 0
+            if len(recovered) > counter:
+                # Счётчик меньше сохранённых связей — другой дефект; список
+                # длиннее счётчика не пишем (это была бы выдуманная история).
+                report["refused"].append({
+                    "lesson_id": lesson_id, "version": version,
+                    "reason": "grounds_exceed_counter",
+                    "recovered": len(recovered),
+                    "confirmation_count": counter})
+                continue
+            if dry_run:
+                report["repaired"].append({
+                    "lesson_id": lesson_id, "version": version,
+                    "would_restore": sorted(recovered),
+                    "confirmation_count": counter})
+                continue
 
             async def _body(conn, lid=lesson_id, ver=version,
                             tokens=tuple(sorted(recovered)),
-                            total=max(count, current_count)):
+                            total=counter):
                 cursor_ = await conn.execute(
                     "UPDATE mca_lessons SET independent_sources = ?, "
                     "confirmation_count = ?, updated_at = updated_at "
@@ -1059,9 +1087,12 @@ class ExperienceStore:
             if written:
                 report["repaired"].append({
                     "lesson_id": lesson_id, "version": version,
-                    "recovered": sorted(recovered)})
+                    "recovered": sorted(recovered),
+                    "confirmation_count": counter})
             else:
                 report["unchanged"] += 1
+        report["skipped_unconfirmed_count"] = len(
+            report["skipped_unconfirmed"])
         return report
 
     async def count(self, table: str) -> int:
