@@ -1,0 +1,72 @@
+{
+  "requirement": "SD1-D2-03",
+  "shared_with": "SD1-D2-03b",
+  "slice": "D2",
+  "epic": "SELF-DIAG-01",
+  "kind": "live",
+  "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+  "deployed_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+  "deployed_version": "2.58.188",
+  "previous_release": {
+    "version": "2.58.187",
+    "commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9"
+  },
+  "environment": {
+    "host_role": "production",
+    "app_dir": "/var/www/admin_bot",
+    "bot_username": "PERMsoc_bot",
+    "bot_id": 8802473181,
+    "probe_mode": "read_only",
+    "sent_messages": 0,
+    "method": "Bot API getChatMember (read-only) via services.telegram_role_check.check_chat_admin(fresh=True) and the deployed services.diagnostic_policy"
+  },
+  "observed_at_local_probe": "2026-11-11T09:2xZ (server UTC)",
+  "chats_probed": [
+    {"chat_id": -1004482340693, "bot_status_in_chat": "member", "bot_can_manage": false},
+    {"chat_id": -1002661910336, "bot_status_in_chat": "administrator", "bot_can_manage": true}
+  ],
+  "live_role_checks": [
+    {"chat_id": -1004482340693, "account": "ADMIN_USER_ID", "telegram_id": 5885953495, "status": "chat_admin", "telegram_status": "administrator", "source": "telegram_api"},
+    {"chat_id": -1004482340693, "account": "ALAN_USER_ID", "telegram_id": 138811255, "status": "chat_admin", "telegram_status": "administrator", "source": "telegram_api"},
+    {"chat_id": -1004482340693, "account": "KOSTIK_USER_ID", "telegram_id": 350803143, "status": "member", "telegram_status": "left", "source": "telegram_api"},
+    {"chat_id": -1004482340693, "account": "SLAVIK_USER_ID", "telegram_id": 479167456, "status": "unverified", "telegram_status": "", "source": "telegram_api_error"},
+    {"chat_id": -1002661910336, "account": "ADMIN_USER_ID", "telegram_id": 5885953495, "status": "member", "telegram_status": "member", "source": "telegram_api"},
+    {"chat_id": -1002661910336, "account": "ALAN_USER_ID", "telegram_id": 138811255, "status": "member", "telegram_status": "member", "source": "telegram_api"},
+    {"chat_id": -1002661910336, "account": "KOSTIK_USER_ID", "telegram_id": 350803143, "status": "member", "telegram_status": "member", "source": "telegram_api"},
+    {"chat_id": -1002661910336, "account": "SLAVIK_USER_ID", "telegram_id": 479167456, "status": "unverified", "telegram_status": "", "source": "telegram_api_error"}
+  ],
+  "protected_class_proof": {
+    "capability": "prompts",
+    "action": "view",
+    "data_class": "PROMPT_CONTENT",
+    "purpose": "the only class whose default matrix differs between user and local_admin, therefore the only path that consults Telegram live; proves the admin/member split observed by the deployed policy",
+    "results": [
+      {"chat_id": -1004482340693, "account": "ADMIN_USER_ID", "actor_role": "chat_admin", "verification": "verified_admin", "matrix_role": "local_admin", "effect": "allow", "reason_code": "allowed_chat_admin_default", "source": "class_default"},
+      {"chat_id": -1004482340693, "account": "ALAN_USER_ID", "actor_role": "chat_admin", "verification": "verified_admin", "matrix_role": "local_admin", "effect": "allow", "reason_code": "allowed_chat_admin_default", "source": "class_default"},
+      {"chat_id": -1004482340693, "account": "KOSTIK_USER_ID", "actor_role": "member", "verification": "verified_member", "matrix_role": "user", "effect": "deny", "reason_code": "denied_prompt_content_member", "source": "hard_rule"},
+      {"chat_id": -1004482340693, "account": "SLAVIK_USER_ID", "actor_role": "member", "verification": "unverified", "matrix_role": "user", "effect": "unverified", "reason_code": "denied_auth_unverified", "source": "hard_rule"},
+      {"chat_id": -1002661910336, "account": "ADMIN_USER_ID", "actor_role": "member", "verification": "verified_member", "matrix_role": "user", "effect": "deny", "reason_code": "denied_prompt_content_member", "source": "hard_rule"},
+      {"chat_id": -1002661910336, "account": "ALAN_USER_ID", "actor_role": "member", "verification": "verified_member", "matrix_role": "user", "effect": "deny", "reason_code": "denied_prompt_content_member", "source": "hard_rule"},
+      {"chat_id": -1002661910336, "account": "KOSTIK_USER_ID", "actor_role": "member", "verification": "verified_member", "matrix_role": "user", "effect": "deny", "reason_code": "denied_prompt_content_member", "source": "hard_rule"},
+      {"chat_id": -1002661910336, "account": "SLAVIK_USER_ID", "actor_role": "member", "verification": "unverified", "matrix_role": "user", "effect": "unverified", "reason_code": "denied_auth_unverified", "source": "hard_rule"}
+    ]
+  },
+  "acceptance_mapping": {
+    "chat_admin_confirmed_online_by_numeric_ids": "PASS — administrator status in -1004482340693 for 5885953495 and 138811255 produced chat_admin; no name/username/claim participated (the only inputs are chat.id and from_user.id)",
+    "participant_is_not_admin": "PASS — 350803143 (left) and the same accounts in -1002661910336 (member) produced member and were denied prompt content",
+    "unverifiable_identity_is_not_admin": "PASS — Telegram returned TelegramBadRequest for 479167456 in both chats; the policy produced unverified (denied_auth_unverified) instead of granting access",
+    "creator_status": "NOT OBSERVED — no probed account holds creator in these two chats. The code path treats creator identically to administrator (ADMIN_STATUSES); not observed live.",
+    "bot_admin_prerequisite": "PARTIALLY OBSERVED — getChatMember succeeded in both chats, including the one where the bot is only member, so the 'bot lacks rights' branch was not reachable there; the equivalent fail-safe (telegram_api_error to unverified) was observed for 479167456"
+  },
+  "incidental_findings": [
+    {
+      "severity": "low",
+      "area": "config",
+      "evidence": "SLAVIK_USER_ID (479167456) yields TelegramBadRequest on every getChatMember in both production chats, so that account can never be verified as chat_admin and always resolves to unverified",
+      "impact": "fail-safe, no leak; a configured participant id is simply not resolvable by this bot",
+      "next_action": "owner/PM decide whether that id is still expected to resolve; not part of the D2 candidate"
+    }
+  ],
+  "boundary": "Only read-only Bot API calls and local module calls were used. No message was sent into any working chat. The live path via a real Telegram turn (bot receives an update that triggers a diagnostic tool) was not executed in this session.",
+  "artifact_generated_by": "DevOps release 2.58.188"
+}
