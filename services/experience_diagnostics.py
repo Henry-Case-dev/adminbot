@@ -939,13 +939,21 @@ def _lesson_ground_from_token(token: str, lesson: dict,
     scope_chat = (lesson or {}).get("scope_chat_id")
     chat = None if scope_chat is None else int(scope_chat)
 
-    def _message_ground(msg_id, tg_id, author=None, ref=None) -> dict:
-        key = (chat if chat is not None else (ref or {}).get("chat_id"),
-               tg_id if tg_id is not None else msg_id)
-        resolved = origins.get(key)
+    def _message_ground(stored, ref=None, author=None) -> dict:
+        """Основание-сообщение. `stored` — значение ИЗ ХРАНИЛИЩА (`message:<id>`).
+
+        Идентичность разводится до происхождения: значение может быть как
+        telegram-id, так и `smart_messages.id` (исторические записи). Обратное
+        преобразование делает `provenance.resolve_message_provenance`; в
+        `tg_message_id` попадает ТОЛЬКО разрешённый telegram-id."""
+        chat_for_lookup = (chat if chat is not None
+                           else (ref or {}).get("chat_id"))
+        stored_text = str(stored)
+        resolved = origins.get((chat_for_lookup, stored_text))
         origin = (resolved or {}).get("origin")
+        tg_id = (resolved or {}).get("tg_message_id")
         link_label = str((ref or {}).get("link_independence") or "")
-        if resolved:
+        if origin:
             # Происхождение установлено: метка вычисляется из него, а не из
             # когда-то записанного значения ссылки.
             independence = _prov.independence_from_origin(origin, resolved=True)
@@ -956,15 +964,13 @@ def _lesson_ground_from_token(token: str, lesson: dict,
             independence = "unknown"
         return _prov.ground_record(
             store=str((ref or {}).get("store") or "sqlite"),
-            entity_type="message", entity_id=str(msg_id),
-            chat_id=(chat if chat is not None else (ref or {}).get("chat_id")),
-            tg_message_id=(tg_id if tg_id is not None
-                           else (ref or {}).get("tg_message_id")),
+            entity_type="message", entity_id=stored_text,
+            chat_id=chat_for_lookup,
+            tg_message_id=tg_id,
             author_id=author,
             origin=origin,
             source_ref_id=(ref or {}).get("source_ref_id"),
-            resolution=("resolved"
-                        if (msg_id is not None and chat is not None)
+            resolution=("resolved" if chat_for_lookup is not None
                         else "unresolved"),
             verification="verified", independence=independence,
             supports_kind="lesson",
@@ -981,8 +987,7 @@ def _lesson_ground_from_token(token: str, lesson: dict,
         if token not in (ref_id, ref_tg) and token_tail not in (ref_id, ref_tg):
             continue
         if entity_type == "message":
-            return _message_ground(ref_id, ref.get("tg_message_id") or
-                                   _token_int(ref_id), ref=ref)
+            return _message_ground(ref_id, ref=ref)
         if entity_type == "episode":
             author = (episodes.get(ref_id) or {}).get("user_id")
             return _prov.ground_record(
@@ -997,8 +1002,7 @@ def _lesson_ground_from_token(token: str, lesson: dict,
                 channel="evidence_link",
                 stems_shared=None, stems_shared_reason="not_lexical_path")
     if token.startswith("message:"):
-        msg_id = _token_int(token.split(":", 1)[1])
-        return _message_ground(msg_id, msg_id)
+        return _message_ground(token.split(":", 1)[1])
     episode = episodes.get(token)
     if episode is not None:
         return _prov.ground_record(
@@ -1034,6 +1038,22 @@ def _lesson_grounds_state(grounds: list[dict], tokens: list[str],
     if tokens and len(grounds) < len(tokens):
         return "partial"
     return "partial" if unresolved else "complete"
+
+
+def _ground_identity_key(ground: dict) -> str:
+    """Ключ дедупа оснований — по РАЗРЕШЁННОЙ идентичности источника.
+
+    Одно сообщение может встретиться дважды: как токен `message:<tg>` и как
+    связь с `entity_id = <row id>`. Это ОДНО основание, поэтому ключ берёт
+    telegram-id, когда он известен, иначе сохранённое значение."""
+    if not isinstance(ground, dict):
+        return ""
+    entity_type = str(ground.get("entity_type") or "")
+    tg = ground.get("tg_message_id")
+    value = tg if tg is not None else ground.get("entity_id")
+    if value is None or str(value) == "":
+        return ""
+    return f"{entity_type}:{value}:{ground.get('chat_id')}"
 
 
 def _lesson_grounds_line(item: dict) -> dict:
@@ -1100,26 +1120,28 @@ def grounds_consistency_violations(lessons_block: dict) -> list[str]:
 
 
 async def _message_origin_map(db, pairs) -> dict:
-    """Происхождение сообщений страницы: `{(chat, tg): {origin,...}}`.
+    """Происхождение сообщений страницы: `{(chat, ЗНАЧЕНИЕ): разрешение}`.
 
-    Только существующие данные (`provenance.resolve_message_origin` — ledger
-    выводов бота + `graph_facts.origin`), с кешем на вызов и жёстким потолком
-    обращений: за потолком происхождение считается неизвестным (основание
-    хранится, но не подтверждение), а не «независимым по умолчанию»."""
+    Ключ — значение из хранилища (`message:<id>`, где id мог быть row id), а не
+    telegram-id: разрешение значения в telegram-id делает существующий
+    `provenance.resolve_message_provenance` (`smart_messages` → ledger/факты).
+    Кеш на вызов + жёсткий потолок обращений: за потолком происхождение
+    неизвестно (основание хранится, но не подтверждение), не «независимо»."""
     out: dict = {}
     budget = _MESSAGE_ORIGIN_LOOKUPS_MAX
-    for chat_id, tg_id in pairs or ():
-        key = (chat_id, tg_id)
-        if key in out or tg_id is None:
+    for chat_id, value in pairs or ():
+        key = (chat_id, value)
+        if key in out or value is None:
             continue
         if budget <= 0:
             out[key] = None
             continue
         budget -= 1
         try:
-            out[key] = await _prov.resolve_message_origin(db, chat_id, tg_id)
+            out[key] = await _prov.resolve_message_provenance(
+                db, chat_id, value)
         except Exception:
-            logger.debug("[exp_diag] message origin unavailable",
+            logger.debug("[exp_diag] message provenance unavailable",
                          exc_info=True)
             out[key] = None
     return out
@@ -1162,18 +1184,18 @@ async def _lesson_grounds_page(db, lesson_rows: list[dict]) -> tuple[list, list]
         except Exception:
             episodes = {}
     # Происхождение сообщений-оснований: без него независимость не заявляется.
+    # Ключ — ЗНАЧЕНИЕ из хранилища (может быть row id) и чат урока.
     origin_pairs: list = []
     for row in page:
         scope_chat = row.get("scope_chat_id")
         for token in _stored_lesson_tokens(row):
             if token.startswith("message:"):
-                origin_pairs.append((scope_chat, _token_int(token.split(":")[1])))
+                origin_pairs.append((scope_chat, token.split(":", 1)[1]))
         for ref in links.get(int(row.get("source_ref_id") or 0), []) \
                 if row.get("source_ref_id") is not None else []:
             if str(ref.get("entity_type")) == "message":
                 origin_pairs.append((ref.get("chat_id") or scope_chat,
-                                     ref.get("tg_message_id")
-                                     or _token_int(ref.get("entity_id"))))
+                                     str(ref.get("entity_id") or "")))
     origins = await _message_origin_map(db, origin_pairs)
     items: list[dict] = []
     for row in page:
@@ -1186,10 +1208,10 @@ async def _lesson_grounds_page(db, lesson_rows: list[dict]) -> tuple[list, list]
         for token in tokens:
             ground = _lesson_ground_from_token(token, lesson, refs, episodes,
                                               origins)
-            root = str(ground.get("provenance_root") or "")
-            if root and root in seen:
+            marker = _ground_identity_key(ground)
+            if marker in seen:
                 continue
-            seen.add(root)
+            seen.add(marker)
             grounds.append(ground)
         # Связи, которых нет в списке токенов (восстановимое основание уже
         # сохранено, но список ещё не починен) — тоже основания урока.
@@ -1197,10 +1219,10 @@ async def _lesson_grounds_page(db, lesson_rows: list[dict]) -> tuple[list, list]
             ground = _lesson_ground_from_token(
                 str(ref.get("entity_id") or ""), lesson, [ref], episodes,
                 origins)
-            root = str(ground.get("provenance_root") or "")
-            if not root or root in seen:
+            marker = _ground_identity_key(ground)
+            if not marker or marker in seen:
                 continue
-            seen.add(root)
+            seen.add(marker)
             grounds.append(ground)
         total = len(grounds)
         capped = grounds[:_LESSON_GROUNDS_MAX]

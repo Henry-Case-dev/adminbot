@@ -3185,19 +3185,23 @@ class ExperienceReviewRunner:
         try:
             from services.provenance import (
                 EvidenceLink, SourceRef, add_evidence_link,
-                independence_from_origin, resolve_message_origin,
+                independence_from_origin, resolve_message_provenance,
                 resolve_source_ref)
             lesson = await self._service.get_lesson(
                 str(candidate["lesson_id"]), int(candidate["version"]))
             if lesson is None or lesson.get("source_ref_id") is None:
                 return
-            resolved = await resolve_message_origin(
-                self._db, int(chat_id), int(msg_id))
+            # ИДЕНТИЧНОСТЬ: `pref_msg` — либо telegram-id, либо `smart_messages.id`.
+            # В `tg_message_id` пишется ТОЛЬКО telegram-id (после разрешения).
+            resolved = await resolve_message_provenance(
+                self._db, int(chat_id), msg_id)
+            tg_id = (resolved or {}).get("tg_message_id")
             independence = independence_from_origin(
-                (resolved or {}).get("origin"), resolved=bool(resolved))
+                (resolved or {}).get("origin"),
+                resolved=bool((resolved or {}).get("origin")))
             src = SourceRef(store="sqlite", entity_type="message",
                             entity_id=str(int(msg_id)), chat_id=int(chat_id),
-                            tg_message_id=int(msg_id),
+                            tg_message_id=(None if tg_id is None else int(tg_id)),
                             resolution="resolved")
             src_id = await resolve_source_ref(self._db, src)
             if src_id is None:
@@ -3206,9 +3210,12 @@ class ExperienceReviewRunner:
                 subject_ref_id=int(lesson["source_ref_id"]),
                 source_ref_id=int(src_id), link_type="derived_from",
                 method="direct_reference", verification="verified",
-                independence=independence, extractor_version="mca-16/d06",
-                basis=("detector source message (id only; origin="
-                       + ((resolved or {}).get("source") or "unknown") + ")")))
+                independence=independence, extractor_version="mca-16/d07",
+                basis=("detector source message (id only; identity="
+                       + str((resolved or {}).get("identity") or "absent")
+                       + "; origin="
+                       + str((resolved or {}).get("source") or "unknown")
+                       + ")")))
         except Exception:
             logger.warning("[mca16] message provenance link failed",
                            exc_info=True)

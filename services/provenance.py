@@ -539,6 +539,78 @@ def independence_from_origin(origin, *, resolved: bool) -> str:
     return "unknown"
 
 
+async def resolve_message_identity(db, chat_id, value) -> dict | None:
+    """Значение ↔ telegram-id сообщения (ROW id и telegram id НЕ взаимозаменяемы).
+
+    `mca_lessons.independent_sources` и исторические evidence-связи хранят
+    `message:<id>`, где `<id>` могло быть как telegram-id, так и `smart_messages.id`
+    (row id). Здесь это разводится по существующей таблице (`smart_messages`,
+    без новых колонок): если обе трактовки существуют и расходятся — честная
+    неоднозначность, а не догадка.
+
+    Возврат: `{"tg_message_id": int|None, "identity": код}` | None, если такого
+    сообщения в данных нет."""
+    if value is None:
+        return None
+    try:
+        raw = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    scope = " AND chat_id = ?" if chat_id is not None else ""
+    params_tail: tuple = (int(chat_id),) if chat_id is not None else ()
+    try:
+        cursor = await db.db.execute(
+            "SELECT id, tg_message_id FROM smart_messages WHERE "
+            "tg_message_id = ?" + scope + " LIMIT 1", (raw, *params_tail))
+        as_tg = await cursor.fetchone()
+        cursor = await db.db.execute(
+            "SELECT id, tg_message_id FROM smart_messages WHERE id = ?"
+            + scope + " LIMIT 1", (raw, *params_tail))
+        as_row = await cursor.fetchone()
+    except Exception:                                     # pragma: no cover
+        logger.debug("[provenance] message identity lookup failed",
+                     exc_info=True)
+        return None
+    if as_tg is not None and as_row is None:
+        return {"tg_message_id": raw, "identity": "as_telegram_id"}
+    if as_tg is not None and as_row is not None:
+        row_tg = as_row["tg_message_id"]
+        if row_tg is not None and int(row_tg) == raw:
+            return {"tg_message_id": raw, "identity": "as_telegram_id"}
+        # Значение годится и как row id, и как чужой telegram-id — не угадываем.
+        return {"tg_message_id": None, "identity": "ambiguous"}
+    if as_row is not None:
+        row_tg = as_row["tg_message_id"]
+        if row_tg is None:
+            return {"tg_message_id": None, "identity": "row_without_tg_id"}
+        return {"tg_message_id": int(row_tg), "identity": "as_row_id"}
+    # Строки в `smart_messages` нет: исторический формат продюсеров — telegram-id.
+    # Значение принимается как telegram-id, а происхождение всё равно решает
+    # отдельный поиск (ledger/факты); ничего не выдумывается.
+    return {"tg_message_id": raw, "identity": "as_telegram_id"}
+
+
+async def resolve_message_provenance(db, chat_id, value) -> dict | None:
+    """Происхождение сообщения по значению из хранилища (`message:<id>`).
+
+    Один вход для продюсера ссылки и для читателя сохранённых ссылок: сначала
+    значение приводится к telegram-id (`resolve_message_identity`), затем
+    разрешается происхождение (`resolve_message_origin`). Возвращает
+    `{"tg_message_id", "identity", "origin", "self_referential", "source"}`;
+    `None` — сообщения нет в данных."""
+    identity = await resolve_message_identity(db, chat_id, value)
+    if identity is None:
+        return None
+    tg = identity.get("tg_message_id")
+    resolved = await resolve_message_origin(db, chat_id, tg) \
+        if tg is not None else None
+    out = dict(identity)
+    out["origin"] = (resolved or {}).get("origin")
+    out["self_referential"] = bool((resolved or {}).get("self_referential"))
+    out["source"] = (resolved or {}).get("source")
+    return out
+
+
 def ground_gaps(grounds) -> list[str]:
     """Честные пробелы записи основания (коды, без догадок).
 

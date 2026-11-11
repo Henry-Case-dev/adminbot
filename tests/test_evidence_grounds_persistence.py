@@ -490,6 +490,204 @@ async def test_lesson_ground_stems_null_always_carries_reason(tmp_path,
         await db.close()
 
 
+async def _smart_message(db, *, chat_id=CHAT, row_tg_id, user_id=42):
+    """Сообщение с ЯВНО заданным telegram-id (row id и tg id различаются)."""
+    cursor = await db.db.execute(
+        "INSERT INTO smart_messages (user_id, chat_id, text, reply_to_id, "
+        "timestamp, media_type, author_name, is_forward, tg_message_id) "
+        "VALUES (?, ?, 'текст сообщения', NULL, ?, 'text', 'u', 0, ?)",
+        (user_id, chat_id, 1_700_000_000, row_tg_id))
+    await db.db.commit()
+    return cursor.lastrowid
+
+
+@pytest.mark.asyncio
+async def test_bot_message_with_different_row_and_tg_ids(tmp_path,
+                                                         monkeypatch):
+    """ИДЕНТИЧНОСТЬ: row id ≠ telegram id. Вывод бота не даёт независимости."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "bot_ids.db")
+    try:
+        svc = me.get_service(db)
+        row_id = await _smart_message(db, row_tg_id=44021)
+        await _bot_output(db, tg_id=44021)
+        lid, ver = await svc.lesson.propose(
+            type="social_preference", scope="user_in_chat",
+            rule_key="address_form", scope_chat_id=CHAT, scope_user_id=42,
+            applicability="user:42 pref:address_form",
+            origin_kind="explicit",
+            independent_sources=("message:%d" % row_id,))
+        assert row_id != 44021
+        runner = mj.ExperienceReviewRunner(db)
+        await runner._link_message_provenance({
+            "lesson_id": lid, "version": ver,
+            "pref_msg": row_id, "pref_chat_id": CHAT})
+        # В поле tg_message_id — РАЗРЕШЁННЫЙ telegram-id, не row id.
+        cursor = await db.db.execute(
+            "SELECT r.tg_message_id AS tg, l.independence AS indep "
+            "FROM mca_evidence_links l JOIN mca_source_refs r "
+            "ON r.source_ref_id = l.source_ref_id "
+            "WHERE l.subject_ref_id = (SELECT source_ref_id FROM mca_lessons "
+            "WHERE lesson_id = ?)", (lid,))
+        link = dict(await cursor.fetchone())
+        assert link["tg"] == 44021
+        assert link["indep"] == "self_referential"
+        snapshot = await diag.experience_pipeline_snapshot(db)
+        item = next(i for i in snapshot["learning_analytics"]["lessons"]
+                    ["items"] if i["lesson_id"] == lid)
+        ground = item["grounds"][0]
+        print("BOT JSON:", json.dumps(ground, ensure_ascii=False))
+        assert ground["entity_id"] == str(row_id)
+        assert ground["tg_message_id"] == 44021
+        assert ground["origin"] == "bot_direct_reply"
+        assert ground["independence"] == "self_referential"
+        assert item["independent_grounds"] == 0
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_third_party_message_with_different_row_and_tg_ids(
+        tmp_path, monkeypatch):
+    """Внешнее сообщение, значение = row id, происхождение под telegram-id."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "third_ids.db")
+    try:
+        svc = me.get_service(db)
+        row_id = await _smart_message(db, row_tg_id=44022, user_id=7)
+        await _fact_origin(db, tg_id=44022)
+        lid, ver = await svc.lesson.propose(
+            type="social_preference", scope="user_in_chat",
+            rule_key="address_form", scope_chat_id=CHAT, scope_user_id=42,
+            applicability="user:42 pref:address_form",
+            origin_kind="explicit",
+            independent_sources=("message:%d" % row_id,))
+        runner = mj.ExperienceReviewRunner(db)
+        await runner._link_message_provenance({
+            "lesson_id": lid, "version": ver,
+            "pref_msg": row_id, "pref_chat_id": CHAT})
+        snapshot = await diag.experience_pipeline_snapshot(db)
+        item = next(i for i in snapshot["learning_analytics"]["lessons"]
+                    ["items"] if i["lesson_id"] == lid)
+        ground = item["grounds"][0]
+        print("THIRD-PARTY JSON:", json.dumps(ground, ensure_ascii=False))
+        assert ground["tg_message_id"] == 44022
+        assert ground["origin"] == "chat_history"
+        assert ground["independence"] == "independent"
+        assert item["independent_grounds"] == 1
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_unresolvable_message_is_stored_but_unknown(tmp_path,
+                                                           monkeypatch):
+    """Неразрешимое сообщение: основание хранится, независимость `unknown`."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "unresolvable.db")
+    try:
+        svc = me.get_service(db)
+        lid, _ver = await svc.lesson.propose(
+            type="context", scope="chat", rule_key="bounded_block",
+            scope_chat_id=CHAT, origin_kind="explicit",
+            independent_sources=("message:9",))
+        snapshot = await diag.experience_pipeline_snapshot(db)
+        item = next(i for i in snapshot["learning_analytics"]["lessons"]
+                    ["items"] if i["lesson_id"] == lid)
+        ground = item["grounds"][0]
+        print("UNRESOLVED JSON:", json.dumps(ground, ensure_ascii=False))
+        assert ground["origin"] is None
+        assert ground["independence"] == "unknown"
+        assert item["independent_grounds"] == 0
+        assert "origin_unknown" in item["gaps"]
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_legacy_saved_row_id_link_resolves_like_fresh(tmp_path,
+                                                             monkeypatch):
+    """Уже сохранённая связь со row id в `entity_id` разрешается как свежая.
+
+    Исторические писатели клали row id в `entity_id` и не заполняли
+    `tg_message_id`; такая связь обязана получить то же происхождение."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "legacy_link.db")
+    try:
+        svc = me.get_service(db)
+        row_id = await _smart_message(db, row_tg_id=44021)
+        await _bot_output(db, tg_id=44021)
+        legacy_lid, legacy_ver = await svc.lesson.propose(
+            type="social_preference", scope="user_in_chat",
+            rule_key="address_form", scope_chat_id=CHAT, scope_user_id=42,
+            applicability="user:42 pref:address_form",
+            origin_kind="explicit",
+            independent_sources=("message:%d" % row_id,))
+        lesson = await svc.store.get_lesson(legacy_lid, legacy_ver)
+        from services import provenance as _prov
+        src = _prov.SourceRef(store="sqlite", entity_type="message",
+                              entity_id=str(row_id), chat_id=CHAT,
+                              resolution="resolved")   # tg_message_id НЕ заполнен
+        src_id = await _prov.resolve_source_ref(db, src)
+        await _prov.add_evidence_link(db, _prov.EvidenceLink(
+            subject_ref_id=int(lesson["source_ref_id"]),
+            source_ref_id=int(src_id), link_type="derived_from",
+            method="direct_reference", verification="verified",
+            independence="independent", extractor_version="mca-16/d05"))
+
+        fresh_lid, fresh_ver = await svc.lesson.propose(
+            type="social_preference", scope="user_in_chat",
+            rule_key="address_form", scope_chat_id=CHAT, scope_user_id=42,
+            applicability="user:42 pref:address_form",
+            origin_kind="explicit",
+            independent_sources=("message:%d" % row_id,))
+        runner = mj.ExperienceReviewRunner(db)
+        await runner._link_message_provenance({
+            "lesson_id": fresh_lid, "version": fresh_ver,
+            "pref_msg": row_id, "pref_chat_id": CHAT})
+
+        snapshot = await diag.experience_pipeline_snapshot(db)
+        items = {i["lesson_id"]: i
+                 for i in snapshot["learning_analytics"]["lessons"]["items"]}
+        legacy = items[legacy_lid]["grounds"][0]
+        fresh = items[fresh_lid]["grounds"][0]
+        print("LEGACY JSON:", json.dumps(legacy, ensure_ascii=False))
+        for ground in (legacy, fresh):
+            assert ground["tg_message_id"] == 44021
+            assert ground["origin"] == "bot_direct_reply"
+            assert ground["independence"] == "self_referential"
+        assert items[legacy_lid]["independent_grounds"] == 0
+        assert items[fresh_lid]["independent_grounds"] == 0
+        # Происхождение и метка совпадают; читатель сильнее устаревшей метки.
+        assert legacy["independence"] == fresh["independence"]
+
+        # Одно сообщение в двух формах (токен по tg + связь по row id) —
+        # ОДНО основание, а не два (дедуп по разрешённой идентичности).
+        mixed_lid, mixed_ver = await svc.lesson.propose(
+            type="social_preference", scope="user_in_chat",
+            rule_key="address_form", scope_chat_id=CHAT, scope_user_id=42,
+            applicability="user:42 pref:address_form",
+            origin_kind="explicit",
+            independent_sources=("message:%d" % 44021,))
+        mixed = await svc.store.get_lesson(mixed_lid, mixed_ver)
+        mixed_src = _prov.SourceRef(store="sqlite", entity_type="message",
+                                   entity_id=str(row_id), chat_id=CHAT,
+                                   resolution="resolved")
+        mixed_src_id = await _prov.resolve_source_ref(db, mixed_src)
+        await _prov.add_evidence_link(db, _prov.EvidenceLink(
+            subject_ref_id=int(mixed["source_ref_id"]),
+            source_ref_id=int(mixed_src_id), link_type="derived_from",
+            method="direct_reference", verification="verified",
+            independence="independent", extractor_version="mca-16/d05"))
+        snapshot2 = await diag.experience_pipeline_snapshot(db)
+        mixed_item = next(i for i in snapshot2["learning_analytics"]["lessons"]
+                          ["items"] if i["lesson_id"] == mixed_lid)
+        assert len(mixed_item["grounds"]) == 1
+        assert mixed_item["independent_grounds"] == 0
+    finally:
+        await db.close()
+
+
 # ═══ 4. Полный цикл: построение → запись → перечитывание → перезапуск ═════
 @pytest.mark.asyncio
 async def test_grounds_survive_serialize_reload_and_restart(tmp_path,
