@@ -1,0 +1,223 @@
+{
+  "schema": "openworkflow-deployment-evidence-v1",
+  "slice": "VMQ-GROUNDS",
+  "req_id": "VMQ-GROUNDS-01",
+  "recorded_at": "2026-11-12",
+  "recorded_by": "PM: связывание записи о выкладке с приёмкой строки. Выкладку выполнял DevOps, независимое подтверждение на кандидате — Reviewer; PM повторно выкладку не делал и прод не менял.",
+  "supersedes": {
+    "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/grounds/repair-2026-11-12.md",
+    "what": "§6 «Что осталось непроверенным» этого документа закрыт здесь: выкладка, SHA, чтение живого JSON после рестарта. Сам документ сохранён байт-в-байт как запись состояния на момент кандидата и не переписывается."
+  },
+  "deployment": {
+    "version": "2.58.190",
+    "deployed_commit": "7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe",
+    "deployed_commit_short": "7c3c01b2",
+    "branch": "release/2.58.190",
+    "base_commit": "edd7d472",
+    "base_version": "2.58.189",
+    "built_from": "edd7d472 + переносы c4c01a1f (581a1ef4, add8f3ff, cd4a54a8) + пин версии",
+    "version_pin_commit": "7c3c01b2",
+    "approved_candidate": "c4c01a1f47481e77ec369fcbf350f7d0b2f4b3ac",
+    "approved_candidate_branch": "fix/memory-grounds-provenance",
+    "delta": {
+      "files": 39,
+      "candidate_files": [
+        "config/settings.py (APP_VERSION 2.58.190 + описание релиза)",
+        "services/direct_chat_service.py",
+        "services/experience_diagnostics.py",
+        "services/mca_experience.py",
+        "services/mca_experience_jobs.py",
+        "services/provenance.py",
+        "services/turn_trace.py",
+        "tests/test_evidence_grounds_persistence.py",
+        "tools/mca_lesson_grounds_repair.py"
+      ],
+      "candidate_files_note": "services/mca_experience_jobs.py — часть одобренного кандидата (механизм 4, идентичность сообщения), включён намеренно, а не по недосмотру.",
+      "non_candidate_files": 30,
+      "non_candidate_breakdown": "24 python-пина версии, 4 JS-пина версии, plans/docs/param-registry-round1025.meta.md, plans/features/vmq-onto-01/evidence/vmq-mem/stems-vs-provenance-2026-11-12.md (артефакт семантики кандидата)",
+      "ddl": 0,
+      "schema_version": 47,
+      "database_py_in_delta": false,
+      "migrations_in_delta": false
+    },
+    "byte_identical_to_2_58_189": {
+      "note": "Проверено PM по blob-хешам Git: дерево 2.58.190 не меняет эти файлы относительно edd7d472. Поэтому отпечаток F11 НЕ переутверждался — он относится к неизменённому файлу.",
+      "files": {
+        "services/permissions.py": "e20d46ebf1591bfa4f1c9df622d6babcb33d7ccb",
+        "web/api/avatars.py": "3b8be940b539d608c92b8d145af47a23c186dd1d",
+        "web/api/deps.py": "509b387d4894dda8575b6d36ab307e6fbb2a848c",
+        "web/api/routes.py": "de3d57d656dbec23ffa7113cdee4474754d0ddb6",
+        "tests/fixtures/round1025/f8_baseline.json": "2ae1a9b6b5ee17cc868adcee781c2b77c51f51be"
+      }
+    },
+    "code_blob_identity_vs_approved_candidate": {
+      "note": "Сверка одобренного кандидата c4c01a1f с выложенным деревом 7c3c01b2. Перенос делался на другую базовую линию (2.58.189), поэтому два файла линии диалога перенесены адаптацией, а не копией.",
+      "identical": {
+        "services/experience_diagnostics.py": "15d1f15ec2e4a09e368e00b1f1aabda42c6eab7e",
+        "services/mca_experience.py": "18e4d25c05865b08b63e48d40422a3ff9581bf8e",
+        "services/mca_experience_jobs.py": "8be254524523e9e7c2220df6d8abd30179131f7b",
+        "services/provenance.py": "de70d2e38e32f335fab2ae0e71306295b0bf2595",
+        "tests/test_evidence_grounds_persistence.py": "25415a995ebea7b98b90953fee08a9f414d8745a",
+        "tools/mca_lesson_grounds_repair.py": "b96ca253513b3e641c4cb49ba1b2c54ba51ccb0b"
+      },
+      "ported_not_identical": {
+        "services/direct_chat_service.py": {
+          "candidate": "596fb6935ffb5a67df6f2b97f5273257837dc8c4",
+          "release": "3073ca97f73f2fb7cade9dbfa68cca905747a8fd",
+          "base": "3b76f40d5b3cfe4db926f0f8d12ceed73706a485"
+        },
+        "services/turn_trace.py": {
+          "candidate": "b5a2faa7fc9ea0f65c8efdf4beb368bae047292f",
+          "release": "091fa6c8a6fdf2082d8793e67cd220edf27ba2a2",
+          "base": "5d3ca1fb85e63489516b80345e1772ec8dd26edb"
+        }
+      }
+    },
+    "predeploy_snapshot": "backups/predeploy-258190-20261111T145101Z.db",
+    "rollback": "edd7d472 (2.58.189)"
+  },
+  "deployed_tree_checks_by_pm": {
+    "mode": "read-only Git, дерево 7c3c01b2, без выкладки и без записи в БД",
+    "results": [
+      "git diff --name-only edd7d472 7c3c01b2 → 39 файлов, из них 9 файлов кандидата (список выше) и 30 не-кандидатных (пины и артефакт семантики)",
+      "нет services/database.py и нет каталога миграций в дельте → DDL=0",
+      "services/direct_chat_service.py содержит перенос stems_shared (11 вхождений), services/turn_trace.py — 13, services/experience_diagnostics.py — 4",
+      "services/provenance.py:542 def resolve_message_identity; services/mca_experience_jobs.py:3195-3204 пишет в tg_message_id только telegram-id после разрешения",
+      "services/experience_diagnostics.py:1095 def grounds_consistency_violations",
+      "пороги на выложенном дереве: services/direct_chat_service.py _RAG_PERIOD_MIN_STEMS = 2; services/mca_experience.py LESSON_MIN_LOCAL_CONFIRMATIONS = 2, LESSON_MIN_GLOBAL_CONFIRMATIONS = 3",
+      "инструмент ремонта на выложенном дереве: blob b96ca253 = кандидат c4c01a1f; коммит 10ab50b5 НЕ является предком 7c3c01b2 (git merge-base --is-ancestor)",
+      "у tools/mca_lesson_grounds_repair.py нет вызывающих в рантайме: git grep по services/handlers/web/tools находит только собственные строки документации самого инструмента"
+    ]
+  },
+  "postdeploy_readonly_2026_11_12": {
+    "source": "read-only наблюдение на выкаченной службе (DevOps), переданное PM для связывания записи",
+    "health": {
+      "/healthz": "2.58.190",
+      "service": "active, 0 перезапусков после выкладки",
+      "logs_in_window": "TRACEBACK 0, CRITICAL 0, ERROR 0",
+      "db": "integrity ok, счётчики не изменились"
+    },
+    "diagnostics": {
+      "chat_id": "-1002661910336",
+      "lesson_id_prefix": "07d4dea4",
+      "grounds_total": 1,
+      "distinct_ground_roots": 1,
+      "independent_grounds": 0,
+      "grounds_state": "complete",
+      "gaps": ["author_unknown", "origin_unknown"],
+      "ground_fields": {
+        "provenance_root": "<присутствует>",
+        "source_ref_id": 42854,
+        "entity_type": "message",
+        "entity_id": 9767,
+        "tg_message_id": 1024497,
+        "independence": "unknown",
+        "stems_shared": null,
+        "stems_shared_reason": "not_lexical_path"
+      },
+      "identity_note": "row id 9767 и telegram id 1024497 различаются и оба верны — именно этот класс блокировал второй круг ревью; на проде он закрыт.",
+      "grounds_consistency_violations": []
+    }
+  },
+  "clause_evidence": [
+    {
+      "clause": 1,
+      "requirement": "Основания сохраняются структурно: id первичного источника, происхождение, связь с воспоминанием/решением.",
+      "evidence": "live JSON диагностики: у урока 07d4dea4… в чате -1002661910336 основание несёт source_ref_id=42854, provenance_root, entity_type=message, entity_id=9767, tg_message_id=1024497; связь с уроком — через сам блок урока.",
+      "coverage_class": "live_production",
+      "result": "satisfied"
+    },
+    {
+      "clause": 2,
+      "requirement": "Текстовый отчёт и JSON из одних данных; отчёт не содержит основания, которого нет в сохраняемом состоянии.",
+      "evidence": "тот же live JSON: grounds_total=1, distinct_ground_roots=1, grounds_consistency_violations=[] (инвариант падает, если отчётное основание отсутствует в payload); отсутствующие сведения названы (gaps=[author_unknown, origin_unknown]), а не подставлены.",
+      "coverage_class": "live_production",
+      "result": "satisfied"
+    },
+    {
+      "clause": 3,
+      "requirement": "Независимость оснований решается по происхождению, а не по числу фрагментов или совпадению слов.",
+      "evidence": "live: independence=unknown, independent_grounds=0 при одном сохранённом основании и distinct_ground_roots=1 — неразрешённое происхождение хранится, но подтверждением не считается. Одновременно stems_shared=null с причиной not_lexical_path: лексическое совпадение не подменяет независимость. Код выложенного дерева: services/provenance.py:542 resolve_message_identity, services/mca_experience_jobs.py:3195-3204.",
+      "coverage_class": "live_production + deployed_tree_code",
+      "result": "satisfied"
+    },
+    {
+      "clause": 4,
+      "requirement": "Восстановление только там, где достоверно возможно; недостающие доказательства не придумываются; неподтверждённое не помечается VERIFIED.",
+      "evidence": "аудит прода 11.11.2026: 653 урока, 647 с положительным счётчиком, 0 строк с положительным счётчиком и пустыми основаниями, recoverable 0 / unrecoverable 0; запись на проде не выполнялась и не требуется. 6 уроков без оснований имеют confirmation_count=0 — законное «оснований пока нет», они не трогаются (reconciled_boundary ниже). Ни один статус урока не повышен.",
+      "coverage_class": "live_audit + reconciled_boundary",
+      "result": "satisfied"
+    },
+    {
+      "clause": 5,
+      "requirement": "Полный цикл: формирование → запись JSON → повторное чтение → проверка независимости → восстановление после перезапуска.",
+      "evidence": "формирование и запись — существующий _link_message_provenance при сборке урока; независимое подтверждение JSON и переживания рестарта процесса — собственный прогон Reviewer на одобренном кандидате c4c01a1f (не пересказ отчёта Builder); на выкаченной службе — рестарт самой выкладкой, после него /healthz=2.58.190, 0 перезапусков в окне, и основание с provenance читается из живого процесса заново.",
+      "coverage_class": "candidate_run + live_production_post_restart",
+      "result": "satisfied"
+    },
+    {
+      "clause": 6,
+      "requirement": "Архитектура памяти и критерии приёмки не изменены без необходимости; параллельного хранилища и нового механизма отчётности нет.",
+      "evidence": "структурно: в дельте 39 файлов нет services/database.py и миграций (DDL=0), схема v47, снимок перед выкладкой backups/predeploy-258190-20261111T145101Z.db; пороги на выложенном дереве не тронуты (_RAG_PERIOD_MIN_STEMS=2, LESSON_MIN_LOCAL_CONFIRMATIONS=2, LESSON_MIN_GLOBAL_CONFIRMATIONS=3); основания лежат в существующих mca_evidence_links→mca_source_refs, а memory_grounds — поле существующего события usage_json, не новая таблица и не новый отчётный механизм.",
+      "coverage_class": "deployed_tree_structure",
+      "result": "satisfied"
+    },
+    {
+      "clause": 7,
+      "requirement": "stems_shared в структурированном результате и трассе, из одного источника; если не вычислялось — null с причиной, а не фиктивный ноль; новая колонка БД не вводится.",
+      "evidence": "live: в том же основании stems_shared=null и stems_shared_reason=not_lexical_path — поле присутствует в payload, null только с названной причиной, фиктивного нуля нет (именно этот провал клаузы и исключён). Код выложенного дерева содержит перенос: direct_chat_service.py 11 вхождений, turn_trace.py 13, experience_diagnostics.py 4; новых колонок нет (DDL=0).",
+      "coverage_class": "live_production_null_branch + deployed_tree_code",
+      "result": "satisfied_with_documented_limit",
+      "limit": "Живой выборки с НЕНУЛЕВЫМ stems_shared не было: в окне не случилось строки лексического добора, поэтому прод наблюдался только на ветке not_lexical_path. Это ограничение охвата живого окна, а не невыполненная клауза: провал «0 вместо null» опровергнут живыми данными, а вычисление проверено набором tests/test_evidence_grounds_persistence.py (23 passed), файл которого на выложенном дереве байт-идентичен кандидату (25415a99)."
+    }
+  ],
+  "reconciled_boundary": {
+    "why_this_record_exists": "Два ранних утверждения выглядели противоречием и не должны сливаться ни в одну из сторон.",
+    "a": "production has zero rows with the defect",
+    "b": "production has 6 lessons without grounds, all unconfirmed",
+    "c": "the corrected tool on that population reports `skipped_unconfirmed` and repairs nothing",
+    "both_true_because": "Это РАЗНЫЕ популяции. Дефект (пункт a) — положительный счётчик подтверждений при пустом списке оснований: таких строк 0. Популяция (b) — уроки без оснований при confirmation_count=0; это законное состояние «оснований пока нет», а не дефект, и восстановления не требует.",
+    "must_not_be_conflated": "(1) Нельзя выводить из (b), что дефект есть на проде: строк дефекта ноль. (2) Нельзя выводить из (a), что 6 уроков «исправлены» или «здоровы по основаниям»: оснований у них нет и не должно быть до подтверждения. (3) Нельзя считать (c) доказательством записи: на этой популяции инструмент не пишет ничего.",
+    "source_of_a": "read-only аудит прода 2026-11-11T14:03Z (653 урока, positive_counter_with_empty_sources=0, recoverable 0, unrecoverable 0); запись в разделе production_audit карты",
+    "source_of_b": "тот же аудит: 653 - 647 = 6 уроков без положительного счётчика; отдельно — ранний сухой прогон на проде, назвавший 6 «repairable»",
+    "source_of_c": "уточнённая область инструмента в коммите 10ab50b5 (APPROVED, НЕ выложен): confirmation_count=0 → skipped_unconfirmed; recovered > counter → refused (grounds_exceed_counter); запись только при 0 < recovered <= counter",
+    "operational_consequence": "Восстановительный прогон на проде не требуется и не выполнялся. Инструмент остаётся защитой от будущей потери и проверяется только на копии БД."
+  },
+  "repair_tool": {
+    "path": "tools/mca_lesson_grounds_repair.py",
+    "deployed_blob": "b96ca253513b3e641c4cb49ba1b2c54ba51ccb0b",
+    "deployed_equals_approved_candidate": true,
+    "contains_scope_correction": false,
+    "scope_correction": {
+      "commit": "10ab50b5",
+      "state": "APPROVED_NOT_DEPLOYED",
+      "proof_not_deployed": "git merge-base --is-ancestor 10ab50b5 7c3c01b2 → не предок; blob инструмента на 2.58.190 равен c4c01a1f (b96ca253), а не 10ab50b5 (8bf9c794)",
+      "behavior": [
+        "confirmation_count = 0 → skipped_unconfirmed: не трогается и не считается исправленным",
+        "recovered > confirmation_count → refused: grounds_exceed_counter (список длиннее счётчика не пишется)",
+        "нет связей → refused: no_stored_evidence_links",
+        "запись только при 0 < recovered <= counter, статус урока не меняется, VERIFIED не ставится"
+      ],
+      "shared_blob_note": "services/mca_experience.py на 2.58.190 байт-идентичен кандидату (18e4d25c) и правкой инструмента не затрагивался; вызывающих в рантайме у инструмента нет.",
+      "why_not_a_row_blocker": "Клауза (4) — про записи и про отсутствие выдуманных доказательств; на проде дефектных строк ноль, запись не выполнялась. Уточнение области инструмента — отдельное эксплуатационное улучшение, оно ждёт выкладки и не меняет приёмку данных строки."
+    },
+    "operational_warning": "ИНСТРУМЕНТ ОТКРЫВАЕТ БД ЧЕРЕЗ initialize(): запускать только на КОПИИ базы, никогда на живом файле прода. initialize() выполняет штатную инициализацию схемы, а живой файл нельзя открывать инструментом записи даже в сухом режиме."
+  },
+  "pending_observations": [
+    {
+      "id": "VMQ-GROUNDS-OBS-TURN-GROUNDS",
+      "what": "memory_grounds[] в живом событии direct_turn_selection",
+      "state": "NOT_OBSERVED_YET",
+      "why": "после рестарта выкладки не было ни одного прямого хода, поэтому событие direct_turn_selection с непустым memory_grounds[] ещё не возникало",
+      "trigger": "первый реальный прямой ход после 2026-11-12 в рабочем чате; проверка read-only по usage_json этого события (наличие memory_grounds[], grounds_summary, per-row stems_shared/причина)",
+      "owner": "агенты (DevOps/Builder — чтение usage_json); это НЕ задача владельца и НЕ клауза приёмки строки",
+      "blocking": false
+    }
+  ],
+  "coverage_limits": [
+    "Живой выборки с ненулевым stems_shared не было: в окне не случилась строка лексического добора (см. clause 7).",
+    "Записанный прогон tests/test_evidence_grounds_persistence.py (23 passed) относится к кандидату; на самом дереве 2.58.190 отдельный прогон PM не наблюдал. Файл теста на выложенном дереве байт-идентичен кандидату, а решающим доказательством выложенного поведения служит живое чтение прода.",
+    "services/direct_chat_service.py и services/turn_trace.py перенесены на другую базовую линию и не байт-идентичны кандидату: их выложенное поведение подтверждается живыми данными и наличием механизмов в дереве 7c3c01b2, а не равенством блобов."
+  ],
+  "status_effect": "VMQ-GROUNDS-01 переведена в VERIFIED по семи клаузам с построчным указанием доказательства. Ни одна строка памяти VMQ-NEXT-* этим не закрыта: VMQ-NEXT-04 остаётся PENDING из-за отсутствия положительного случая."
+}

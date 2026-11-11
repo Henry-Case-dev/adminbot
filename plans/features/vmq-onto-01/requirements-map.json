@@ -413,6 +413,47 @@
       "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
       "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
       "artifact_note": "байт-идентичная копия записи DevOps из коммита 57df2287 (release/2.58.187); в основной линии файл приведён PM как durable evidence, содержимое не переписывалось"
+    },
+    "follow_up_2_58_190": {
+      "stage": "VMQ-GROUNDS — корректив доказательной базы (основания решений структурно), поверх линии памяти 2.58.189",
+      "version": "2.58.190",
+      "deployed_commit": "7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe",
+      "deployed_commit_short": "7c3c01b2",
+      "approved_candidate": "c4c01a1f47481e77ec369fcbf350f7d0b2f4b3ac",
+      "candidate_branch": "fix/memory-grounds-provenance",
+      "release_branch": "release/2.58.190",
+      "base_commit": "edd7d472",
+      "base_version": "2.58.189",
+      "built_from": "edd7d472 + переносы c4c01a1f (581a1ef4, add8f3ff, cd4a54a8) + пин версии (7c3c01b2)",
+      "previous_deployment": "2.58.189 @ edd7d472",
+      "rollback": "edd7d472 (2.58.189)",
+      "delta": {
+        "files": 39,
+        "candidate_files": 9,
+        "candidate_files_list": "config/settings.py, services/direct_chat_service.py, services/experience_diagnostics.py, services/mca_experience.py, services/mca_experience_jobs.py, services/provenance.py, services/turn_trace.py, tests/test_evidence_grounds_persistence.py, tools/mca_lesson_grounds_repair.py",
+        "non_candidate_files": 30,
+        "non_candidate_breakdown": "24 python-пина версии, 4 JS-пина, plans/docs/param-registry-round1025.meta.md, plans/features/vmq-onto-01/evidence/vmq-mem/stems-vs-provenance-2026-11-12.md",
+        "mca_experience_jobs_note": "services/mca_experience_jobs.py — часть одобренного кандидата (идентичность сообщения), включён намеренно"
+      },
+      "invariants": {
+        "ddl": 0,
+        "schema": "v47, шага миграции не было",
+        "database_py_in_delta": false,
+        "predeploy_snapshot": "backups/predeploy-258190-20261111T145101Z.db",
+        "byte_identical_to_2_58_189": "permissions.py, avatars.py, deps.py, routes.py, f8_baseline.json — поэтому отпечаток F11 НЕ переутверждался",
+        "thresholds": "не тронуты на выложенном дереве: _RAG_PERIOD_MIN_STEMS=2, LESSON_MIN_LOCAL_CONFIRMATIONS=2, LESSON_MIN_GLOBAL_CONFIRMATIONS=3"
+      },
+      "code_blob_identity": {
+        "identical_to_candidate": "experience_diagnostics.py (15d1f15e), mca_experience.py (18e4d25c), mca_experience_jobs.py (8be25452), provenance.py (de70d2e3), tests/test_evidence_grounds_persistence.py (25415a99), tools/mca_lesson_grounds_repair.py (b96ca253)",
+        "ported_on_other_base": "direct_chat_service.py (candidate 596fb693 → release 3073ca97), turn_trace.py (candidate b5a2faa7 → release 091fa6c8): перенос на линию 2.58.189, а не копия файла"
+      },
+      "health": "healthz=2.58.190, служба active, 0 перезапусков, TRACEBACK/CRITICAL/ERROR = 0, целостность БД ok, счётчики не изменились",
+      "live_facts": "живая диагностика урока 07d4dea4… (чат -1002661910336): grounds_total=1, distinct_ground_roots=1, independent_grounds=0, grounds_state=complete, gaps=[author_unknown, origin_unknown]; основание с provenance_root, source_ref_id=42854, entity_type=message, entity_id=9767, tg_message_id=1024497; independence=unknown; stems_shared=null (not_lexical_path); grounds_consistency_violations=[]",
+      "boundary": "дефектных строк на проде 0; 6 уроков без оснований имеют confirmation_count=0 и не являются дефектом; уточнённый инструмент на этой популяции даёт skipped_unconfirmed и не пишет ничего",
+      "not_proven": "memory_grounds[] в живом событии direct_turn_selection не наблюдался (не было прямого хода после рестарта); ненулевой stems_shared в живом окне не наблюдался",
+      "coverage_effect": "VMQ-GROUNDS-01 переведена в VERIFIED по семи клаузам на живых данных; строки VMQ-NEXT-01..05 не закрыты",
+      "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/grounds/deployed-2.58.190.json",
+      "artifact_sha256": "950dd1d7e2ff529c0591bc376ed4870c5407b00661960d16ee4a5ca2d9caaba5"
     }
   },
   "next_executable": {
@@ -2720,6 +2761,15 @@
         "status_effect": "VMQ-NEXT-04 остаётся PENDING; закрывать его аргументом о вакуумности запрещено",
         "measurement_owner": "агенты, не владелец: прогон на копии прод-БД — Builder/DevOps, независимое подтверждение — Reviewer"
       },
+      "release_2_58_190_effect": {
+        "recorded_at": "2026-11-12",
+        "status_changed": false,
+        "status": "PENDING",
+        "why": "Выкладка 2.58.190 меняет только доступность инструмента и данных, но не добавляет положительного случая. Клауза C2 применяется к строкам ЛЕКСИЧЕСКОГО добора, а в замере 12.11.2026 таких строк не было ни одной (0 периодных строк во всех 34 блоках). Продукт теперь переносит `stems_shared` в payload, поэтому будущий прогон получит per-row число из продукта, а не из прозы отчёта, — но само правило по-прежнему не применено ни к одной строке.",
+        "remaining_gap": "тот же и без изменений: прогон 17 вопросов (A1–A15, C1, C2) на копии прод-БД, в котором в блоке C2 под auto есть хотя бы одна строка лексического добора, и её stems_shared берётся из payload продукта. Если в таком прогоне строк лексического добора с < 2 основами нет — C2 выполнена по существу и строка закрывается доказательством, а не вакуумом.",
+        "what_would_not_help": "повторный прогон на той же популяции без строк лексического добора, равно как и ссылка на 2.58.190 как на «положительный случай», приёмкой не является",
+        "owner_task": "нет: это работа агентов (Builder/DevOps — прогон на копии, Reviewer — независимое подтверждение)"
+      },
       "measurement_class_2026_11_11": {
         "class": "a",
         "closable_by_read_only_copy_measurement": true,
@@ -2979,23 +3029,102 @@
       "notes_2026_11_12": {
         "two_inputs_not_confused": "OI-2026-11-12-EVIDENCE-GROUNDS (source_owner_input) — про СТРУКТУРНОЕ ХРАНЕНИЕ оснований; OI-2026-11-12-STEMS-VS-INDEPENDENCE (source_owner_input_2) — про РАЗДЕЛЕНИЕ двух метрик и смысл «порога двух основ». Общая часть у них одна: `stems_shared` должен попадать в структурированный результат из одного источника. Этот общий инженерный факт записан пунктом (7) здесь, а сама семантика метрик — в metrics_semantics_2026_11_12 и в строке VMQ-NEXT-04, чтобы одна и та же клауза не жила в двух строках с разными статусами.",
         "row_boundary": "Строка не расширяет VMQ-NEXT-04 и не переводит её в VERIFIED: там приёмка про доставку и о текущем состоянии, здесь — про структуру оснований и метрик в сохраняемом состоянии.",
-        "why_ready_for_live_not_verified": "Код исправлен и одобрен на кандидате, Reviewer подтвердил JSON и перезапуск на кандидате. Выкладка 2.58.190 ещё не подтверждена, поэтому строка стоит на шаге ожидания выкладки, а не в VERIFIED; READY_FOR_LIVE здесь — временное состояние до наблюдения на выкаченной службе."
+        "why_it_was_ready_for_live_not_verified": "[СНЯТО 12.11.2026: строка VERIFIED на выложенном 2.58.190 @ 7c3c01b2, см. clause_evidence_2026_11_12.] До выкладки: код исправлен и одобрен на кандидате, Reviewer подтвердил JSON и перезапуск на кандидате, а выкладка 2.58.190 ещё не была подтверждена, поэтому строка стояла на шаге ожидания выкладки, а не в VERIFIED."
       },
-      "stage": "корректив доказательной базы поверх линии памяти 2.58.188 (кандидат c4c01a1f, выкладка 2.58.190 в процессе)",
+      "stage": "корректив доказательной базы поверх линии памяти 2.58.188 (кандидат c4c01a1f, выложено 2.58.190 @ 7c3c01b2)",
       "acceptance": "Шесть требований владельца в его собственных терминах. (1) Основания решений хранятся СТРУКТУРНО: у каждого есть идентификатор первичного источника, происхождение и связь с соответствующим воспоминанием/решением — в машиночитаемом виде, а не только в тексте. (2) Текстовый отчёт и JSON формируются из одних подтверждённых данных: отчёт не может содержать основание, отсутствующее в сохраняемом состоянии (и наоборот). (3) Независимость двух оснований решается по происхождению источников, а не по числу фрагментов или текстовому совпадению. (4) Уже потерянные основания восстанавливаются только там, где это достоверно возможно; недостающие доказательства не придумываются, неподтверждённое не помечается VERIFIED. (5) Полный цикл проверен: формирование → запись JSON → повторное чтение → проверка независимости → восстановление после перезапуска процесса. (6) Архитектура памяти и критерии приёмки не изменены без доказанной необходимости; параллельного хранилища и нового механизма отчётности не создано. Провал: отчёт содержит основание, которого нет в JSON; основание засчитано независимым по совпадению слов или числу фрагментов; восстановленная запись помечена подтверждённой без доказательства; цикл держится в тесте, но рушится после перезапуска процесса. Дополнительно (7) [из второй поправки того же дня, OI-2026-11-12-STEMS-VS-INDEPENDENCE]: метрика `stems_shared` присутствует в структурированном результате поиска и в диагностической трассе, вычисляется в существующем `_rag_subject_shared()`, отдаётся в JSON/API/отчёт из одного источника данных; если значение не вычислялось — `null` с причиной, а не фиктивный ноль; новая колонка БД для этого не вводится. Провал пункта (7): отчёт приводит число общих основ, которого нет в payload, либо вместо неизмеренного значения записан 0.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
-      "status_note": "READY_FOR_LIVE = кандидат одобрен ревью и проверен на нём, но выкладка ещё не подтверждена; VERIFIED не выставляется до наблюдения на выкаченной службе. Это не FINAL-приёмка: строка не может остаться в READY_FOR_LIVE навсегда.",
-      "deployment_state": "candidate_approved_not_deployed",
-      "acceptance_state": "CANDIDATE_APPROVED_AWAITING_DEPLOY",
+      "status": "VERIFIED",
+      "status_note": "VERIFIED 12.11.2026 на выложенном 2.58.190 @ 7c3c01b2. Все семь клауз подтверждены: пункт (1) — живые данные диагностики, (2) — grounds_consistency_violations=[] на живом payload, (3) — independence=unknown при сохранённом основании, (4) — ноль дефектных строк и отсутствие записи, (5) — собственный прогон Reviewer на кандидате плюс живое чтение после рестарта выкладки, (6) — DDL=0 и нетронутые пороги, (7) — null с причиной not_lexical_path в живом JSON. Построчное соответствие — в clause_evidence_2026_11_12; остаточные ограничения охвата названы в verification_limits_2026_11_12 и невыполненными клаузами не являются.",
+      "deployment_state": "deployed_and_live_verified",
+      "acceptance_state": "VERIFIED",
       "candidate_commit": "c4c01a1f47481e77ec369fcbf350f7d0b2f4b3ac",
       "candidate_branch": "fix/memory-grounds-provenance",
       "candidate_base": "c087253d",
-      "deployed_commit": null,
-      "deployed_note": "Выкладка 2.58.190 (ветка release/2.58.190, пин версии 7c3c01b2) идёт; SHA сюда дописывается, когда DevOps сообщит его. До этого ни одна половина строки не считается проверенной на проде.",
-      "unverified_reason": "Код исправлен и одобрен на кандидате c4c01a1f, Reviewer подтвердил на кандидате наличие оснований в фактическом JSON и их переживание перезапуска процесса. Осталось обязательное наблюдение на ВЫКАЧЕННОМ кандидате 2.58.190: SHA выкладки, чтение JSON из живого процесса и рестарт службы. Приёмка на кандидате не подменяется приёмкой на проде.",
+      "deployed_commit": "7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe",
+      "deployed_version": "2.58.190",
+      "deployed_branch": "release/2.58.190",
+      "deployed_note": "Выложено 2.58.190 @ 7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe (ветка release/2.58.190; база edd7d472/2.58.189, переносы 581a1ef4, add8f3ff, cd4a54a8, пин версии 7c3c01b2). Дерево проверено PM read-only по Git: 39 файлов дельты, DDL=0, схема v47, permissions.py/avatars.py/deps.py/routes.py/f8_baseline.json байт-идентичны 2.58.189 (поэтому отпечаток F11 не переутверждался). Полная запись: plans/features/vmq-onto-01/evidence/vmq-mem/grounds/deployed-2.58.190.json.",
+      "verified_at": "2026-11-12",
+      "verified_by": "PM связал приёмку строки с живым read-only наблюдением на выкаченной службе (DevOps) и независимым прогоном Reviewer на кандидате c4c01a1f; повторной выкладки, записи в БД и повторного ревью не выполнялось",
+      "unverified_reason": "",
+      "clause_evidence_2026_11_12": {
+        "1": {
+          "clause": "структурное хранение: id первичного источника, происхождение, связь с воспоминанием/решением",
+          "evidence": "live JSON диагностики, чат -1002661910336, урок 07d4dea4…: основание несёт source_ref_id=42854, provenance_root, entity_type=message, entity_id=9767, tg_message_id=1024497; row id 9767 и telegram id 1024497 различаются и оба верны (класс, блокировавший второй круг ревью, на проде закрыт)",
+          "class": "live_production",
+          "result": "satisfied"
+        },
+        "2": {
+          "clause": "отчёт и JSON из одних подтверждённых данных; в отчёте нет основания, отсутствующего в сохраняемом состоянии",
+          "evidence": "тот же живой JSON: grounds_total=1, distinct_ground_roots=1, grounds_consistency_violations=[]; отсутствующее названо (gaps=[author_unknown, origin_unknown]), а не заполнено догадкой",
+          "class": "live_production",
+          "result": "satisfied"
+        },
+        "3": {
+          "clause": "независимость оснований — по происхождению, а не по числу фрагментов или совпадению слов",
+          "evidence": "live: independence=unknown, independent_grounds=0 при одном сохранённом основании, distinct_ground_roots=1, stems_shared=null с причиной not_lexical_path (лексическое совпадение не подменяет независимость). Код выложенного дерева: services/provenance.py:542 resolve_message_identity; services/mca_experience_jobs.py:3195-3204 пишет в tg_message_id только telegram-id после разрешения",
+          "class": "live_production + deployed_tree_code",
+          "result": "satisfied"
+        },
+        "4": {
+          "clause": "восстановление только достоверного; доказательства не выдумываются; неподтверждённое не помечается VERIFIED",
+          "evidence": "аудит прода 11.11.2026: 653 урока, 647 с положительным счётчиком, 0 строк с положительным счётчиком при пустых основаниях, recoverable 0 / unrecoverable 0; запись на проде не выполнялась и не требуется; 6 уроков без оснований имеют confirmation_count=0 и не трогаются (reconciled_boundary_2026_11_12)",
+          "class": "live_audit + reconciled_boundary",
+          "result": "satisfied"
+        },
+        "5": {
+          "clause": "полный цикл: формирование → запись JSON → повторное чтение → проверка независимости → восстановление после перезапуска",
+          "evidence": "формирование и запись — существующий _link_message_provenance при сборке урока; независимое подтверждение фактического JSON и переживания рестарта процесса — СОБСТВЕННЫЙ прогон Reviewer на кандидате c4c01a1f (не пересказ отчёта Builder); на выкаченной службе рестарт выполнен самой выкладкой, после него /healthz=2.58.190, 0 перезапусков в окне, и основание с provenance читается из живого процесса заново",
+          "class": "candidate_run + live_production_post_restart",
+          "result": "satisfied"
+        },
+        "6": {
+          "clause": "архитектура памяти и критерии приёмки не изменены без необходимости; параллельного хранилища и нового механизма отчётности нет",
+          "evidence": "структурно: в 39 файлах дельты нет services/database.py и миграций (DDL=0), схема v47, снимок backups/predeploy-258190-20261111T145101Z.db; пороги на выложенном дереве не тронуты (_RAG_PERIOD_MIN_STEMS=2, LESSON_MIN_LOCAL_CONFIRMATIONS=2, LESSON_MIN_GLOBAL_CONFIRMATIONS=3); основания лежат в существующих mca_evidence_links→mca_source_refs, а memory_grounds — поле существующего события usage_json, не новая таблица и не новый отчётный механизм",
+          "class": "deployed_tree_structure",
+          "result": "satisfied"
+        },
+        "7": {
+          "clause": "stems_shared в структурированном результате и трассе из одного источника; null с причиной вместо фиктивного нуля; без новой колонки БД",
+          "evidence": "live: stems_shared=null и stems_shared_reason=not_lexical_path в том же основании — поле присутствует в payload, null только с названной причиной, провал «0 вместо null» опровергнут живыми данными; перенос присутствует в выложенном дереве (direct_chat_service.py 11 вхождений, turn_trace.py 13, experience_diagnostics.py 4), новых колонок нет (DDL=0)",
+          "class": "live_production_null_branch + deployed_tree_code",
+          "result": "satisfied_with_documented_limit",
+          "limit": "ненулевой stems_shared в живом окне не наблюдался (строки лексического добора не случилось); вычисление проверено набором tests/test_evidence_grounds_persistence.py (23 passed), файл которого на выложенном дереве байт-идентичен кандидату (25415a99)"
+        }
+      },
+      "verification_limits_2026_11_12": [
+        "Живой выборки с ненулевым stems_shared не было: в окне не случилась строка лексического добора (см. клаузу 7).",
+        "Записанный прогон tests/test_evidence_grounds_persistence.py относится к кандидату; отдельного прогона на самом дереве 2.58.190 PM не наблюдал. Решающим доказательством выложенного поведения служит живое чтение прода.",
+        "services/direct_chat_service.py и services/turn_trace.py перенесены на другую базовую линию и не байт-идентичны кандидату: их выложенное поведение подтверждается живыми данными и наличием механизмов в дереве 7c3c01b2.",
+        "memory_grounds[] в живом событии direct_turn_selection не наблюдался — вынесен в pending_observations_2026_11_12 как внутреннее наблюдение с триггером, а не как задача владельцу."
+      ],
+      "pending_observations_2026_11_12": [
+        {
+          "id": "VMQ-GROUNDS-OBS-TURN-GROUNDS",
+          "what": "memory_grounds[] в живом событии direct_turn_selection",
+          "state": "NOT_OBSERVED_YET",
+          "why": "после рестарта выкладки не было ни одного прямого хода, поэтому событие direct_turn_selection с непустым memory_grounds[] ещё не возникало",
+          "trigger": "первый реальный прямой ход после 2026-11-12; read-only проверка usage_json этого события: memory_grounds[], grounds_summary, per-row stems_shared либо причина",
+          "owner": "агенты (DevOps/Builder, read-only чтение usage_json); не задача владельца и не клауза приёмки строки",
+          "blocking": false
+        }
+      ],
+      "reconciled_boundary_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/grounds/deployed-2.58.190.json раздел reconciled_boundary; краткая форма — в grounds_repair_2026_11_12.reconciled_boundary_2026_11_12 этой карты",
       "evidence": [
+        {
+          "type": "production",
+          "ref": "Выкладка 2.58.190 @ 7c3c01b2 и живое read-only наблюдение на выкаченной службе (SHA, чтение живого JSON, рестарт, сверка отчёт==payload)",
+          "observation": "Выложено 2.58.190 @ 7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe (ветка release/2.58.190), схема v47, DDL=0, снимок перед выкладкой backups/predeploy-258190-20261111T145101Z.db. /healthz отдаёт 2.58.190, служба active, 0 перезапусков, TRACEBACK/CRITICAL/ERROR = 0, целостность БД ok, счётчики не изменились. Живая диагностика реального урока 07d4dea4… в чате -1002661910336: grounds_total=1, distinct_ground_roots=1, independent_grounds=0, grounds_state=complete, gaps=[author_unknown, origin_unknown]; основание несёт provenance_root, source_ref_id=42854, entity_type=message, entity_id=9767, tg_message_id=1024497 (row id и telegram id различаются и оба верны), independence=unknown, stems_shared=null с причиной not_lexical_path; grounds_consistency_violations=[]. Все семь клауз закрыты, построчное соответствие — в clause_evidence_2026_11_12.",
+          "candidate_commit": "7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe",
+          "deployed_commit": "7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/grounds/deployed-2.58.190.json",
+          "artifact_sha256": "950dd1d7e2ff529c0591bc376ed4870c5407b00661960d16ee4a5ca2d9caaba5",
+          "covers_row_acceptance": true,
+          "measurement_environment": "production_read_only",
+          "not_production": false
+        },
         {
           "type": "live",
           "ref": "Независимое подтверждение Reviewer на кандидате: фактический JSON содержит основания, основания переживают перезапуск процесса (передано в одобрении кандидата c4c01a1f после трёх кругов ревью)",
@@ -3004,7 +3133,7 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/grounds/repair-2026-11-12.md",
           "artifact_sha256": "2ad727dc9588c3f98b4316820f349dc261bcb824e4d466cf6f3d70420306a5b9",
           "covers_row_acceptance": false,
-          "why_not_covering": "кандидат, не выкладка: обязательный остаток строки — наблюдение на 2.58.190",
+          "why_not_covering": "кандидат, не выкладка: эта запись — половина строки про кандидата; половина про выкладку закрыта записью type=production с candidate_commit 7c3c01b2",
           "measurement_environment": "candidate_worktree",
           "not_production": true
         },
@@ -3017,7 +3146,7 @@
           "artifact_sha256": "2ad727dc9588c3f98b4316820f349dc261bcb824e4d466cf6f3d70420306a5b9",
           "covers_row_acceptance": false,
           "test_file_in_candidate": "tests/test_evidence_grounds_persistence.py",
-          "why_not_covering": "тесты доказывают механизмы и цикл на кандидате; пункт (5) в части «после перезапуска» на выкаченной службе ещё не наблюдён"
+          "why_not_covering": "тесты доказывают механизмы и цикл на кандидате; на выложенной службе цикл подтверждён живым чтением после рестарта (запись type=production), поэтому этот прогон остаётся кандидатской половиной доказательства"
         }
       ],
       "expected_evidence": [
@@ -9148,16 +9277,17 @@
           ],
           "port_note": "те же три правки перенесены на линию 2.58.189 (поэтому идентификаторы коммитов отличаются от ветки правки); содержимое докладного артефакта и инструмента на release/2.58.190 байт-идентично ветке правки (sha256 4fa21646… и 7f1557fa… соответственно)",
           "version_pin_commit": "7c3c01b2",
-          "deployed_commit": null,
-          "deployed_note": "на момент записи выкладка 2.58.190 идёт; SHA выкладки сюда дописывается, когда DevOps сообщит его. До этого ни одна строка не считается проверенной на проде."
+          "deployed_commit": "7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe",
+          "deployed_note": "Выложено 12.11.2026: 2.58.190 @ 7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe на ветке release/2.58.190 (база edd7d472/2.58.189 + переносы 581a1ef4, add8f3ff, cd4a54a8 + пин версии). Запись с проверкой дерева, живыми данными и границами: plans/features/vmq-onto-01/evidence/vmq-mem/grounds/deployed-2.58.190.json.",
+          "deployed_tree_verified_by_pm": "39 файлов дельты: 9 файлов кандидата, 24 python-пина, 4 JS-пина, meta-реестр параметров и артефакт семантики; DDL=0, services/database.py в дельте нет; permissions.py/avatars.py/deps.py/routes.py/f8_baseline.json байт-идентичны 2.58.189 (F11 не переутверждался); bots mca_experience.py и mca_experience_jobs.py байт-идентичны одобренному кандидату; direct_chat_service.py и turn_trace.py перенесены адаптацией на другую базовую линию"
         }
       },
       "defect_record": {
         "id": "VMQ-MEM-GROUNDS-2026-11-12",
         "kind": "diagnostics_grounds_loss",
-        "status": "FIXED_IN_CANDIDATE_PENDING_DEPLOY",
+        "status": "FIXED_DEPLOYED_VERIFIED",
         "req_id": "VMQ-GROUNDS-01",
-        "req_id_note": "Дефект формально привязан к строке приёмки VMQ-GROUNDS-01 (слайс VMQ-GROUNDS): корректив владельца — не отдельная функция, но это обязательство с собственной наблюдаемой приёмкой, поэтому оно живёт строкой карты, а не только записью дефекта. Строка стоит в READY_FOR_LIVE до наблюдения на выкаченном 2.58.190; VERIFIED не выставлено.",
+        "req_id_note": "Дефект формально привязан к строке приёмки VMQ-GROUNDS-01 (слайс VMQ-GROUNDS): корректив владельца — не отдельная функция, но это обязательство с собственной наблюдаемой приёмкой, поэтому оно живёт строкой карты, а не только записью дефекта. Строка переведена в VERIFIED 12.11.2026 на выложенном 2.58.190 @ 7c3c01b2 по семи клаузам (clause_evidence_2026_11_12); остаточные ограничения охвата названы и клаузами не являются.",
         "owner_inputs": [
           "plans/owner_inputs/2026-11-12-evidence-grounds-persistence.md",
           "plans/owner_inputs/2026-11-12-stems-vs-independent-sources.md"
@@ -9206,7 +9336,23 @@
         "len_equals_confirmation_count": "для всех 653 уроков len(independent_sources) == confirmation_count",
         "recoverable": 0,
         "unrecoverable": 0,
-        "conclusion": "дефект в коде есть, затронутых строк в живой базе нет; поэтому восстановительный прогон на проде не нужен — инструмент ценен как защита от будущей потери"
+        "conclusion": "дефект в коде есть, затронутых строк в живой базе нет; поэтому восстановительный прогон на проде не нужен — инструмент ценен как защита от будущей потери",
+        "reconciled_boundary_2026_11_12": {
+          "why": "Ранний сухой прогон на проде назвал 6 «repairable» уроков, а read-only аудит дал ноль строк с дефектом. Оба утверждения верны и описывают РАЗНЫЕ популяции; запись не должна сливать их ни в одну из сторон.",
+          "a": "production has zero rows with the defect",
+          "b": "production has 6 lessons without grounds, all unconfirmed",
+          "c": "the corrected tool on that population reports `skipped_unconfirmed` and repairs nothing",
+          "a_explained": "Дефект = положительный confirmation_count при пустом списке оснований: таких строк 0 из 653 (у 647 положительный счётчик, и у всех len(independent_sources) == confirmation_count).",
+          "b_explained": "6 уроков = 653 − 647 без положительного счётчика. Пустые основания при confirmation_count = 0 — законное «оснований пока нет», а не потеря: два подтверждения не являются условием хранения или извлечения.",
+          "c_explained": "На этой популяции уточнённый инструмент (10ab50b5) относит уроки в skipped_unconfirmed и не пишет ничего; запись возможна только при 0 < recovered <= counter.",
+          "must_not_be_conflated": "Из (b) нельзя выводить наличие дефекта на проде (a: ноль строк). Из (a) нельзя выводить, что 6 уроков «исправлены» или «здоровы по основаниям». (c) не является доказательством записи: на этой популяции не пишется ничего.",
+          "sources": {
+            "a": "этот аудит (production_audit выше) + 0 recoverable/unrecoverable",
+            "b": "тот же аудит (653 − 647 = 6) + ранний сухой прогон, назвавший 6 «repairable»",
+            "c": "область инструмента в коммите 10ab50b5 (APPROVED, не выложен)"
+          },
+          "operational_consequence": "Восстановление на проде не требуется и не выполнялось; инструмент проверяется только на копии БД."
+        }
       },
       "tests": {
         "new_file": "tests/test_evidence_grounds_persistence.py",
@@ -9221,6 +9367,7 @@
         "artifact_sha256_note": "первые 16 знаков blob-хеша на c4c01a1f и на release/2.58.190 (совпадает)",
         "kind": "операционный инструмент восстановления, по умолчанию СУХОЙ прогон",
         "default_is_dry_run": "запись возможна только с явным --apply; без него печатается отчёт (scanned/repaired/refused/unchanged, dry_run=true)",
+        "operational_warning": "ИНСТРУМЕНТ ОТКРЫВАЕТ БАЗУ ЧЕРЕЗ initialize() (tools/mca_lesson_grounds_repair.py: await db.initialize() перед отчётом). Поэтому запускать его можно ТОЛЬКО на КОПИИ базы и НИКОГДА на живом файле прода: даже сухой прогон открывает файл штатной инициализацией схемы.",
         "bounds": [
           "читает только уже сохранённые данные (mca_evidence_links → mca_source_refs), ничего не выдумывает: нет связей — урок попадает в refused",
           "статус урока не меняется, VERIFIED не ставится",
@@ -9229,6 +9376,19 @@
           "без миграций, без новых таблиц"
         ],
         "usage": "py -3 tools/mca_lesson_grounds_repair.py --db <копия БД> [--apply] — рабочая копия, не живой файл прода",
+        "scope_correction_10ab50b5": {
+          "commit": "10ab50b5",
+          "state": "APPROVED_NOT_DEPLOYED",
+          "deployed_contains": "только c4c01a1f: blob инструмента на 2.58.190 = b96ca253 (совпадает с кандидатом), а у 10ab50b5 blob 8bf9c794; git merge-base --is-ancestor 10ab50b5 7c3c01b2 → не предок",
+          "behavior": [
+            "confirmation_count = 0 → skipped_unconfirmed: урок не трогается и не считается исправленным",
+            "recovered > confirmation_count → refused: grounds_exceed_counter (список длиннее счётчика не пишется)",
+            "нет связей → refused: no_stored_evidence_links",
+            "запись только при 0 < recovered <= counter; статус урока не меняется, VERIFIED не ставится; по умолчанию сухой прогон"
+          ],
+          "why_not_blocking_the_row": "Клауза (4) — про записи и про отсутствие выдуманных доказательств: дефектных строк на проде ноль, запись не выполнялась. Уточнение области инструмента — отдельное эксплуатационное улучшение, ждёт выкладки и приёмку данных строки не меняет.",
+          "runtime_callers": "нет: git grep по services/handlers/web/tools на дереве 7c3c01b2 находит только строки документации самого инструмента; services/mca_experience.py на 2.58.190 байт-идентичен кандидату (18e4d25c)"
+        },
         "apply_needed_on_production": false,
         "apply_reason": "аудит 2026-11-11T14:03Z нашёл ноль затронутых строк (recoverable 0, unrecoverable 0), поэтому запись на проде не требуется и не выполнялась; инструмент остаётся для будущих случаев и для проверки на копии"
       },
@@ -9239,10 +9399,28 @@
           "note": "файл существует на ветке правки c4c01a1f и на release/2.58.190 (байт-идентичен), но ещё не в master: поэтому это artifact_path_in_candidate, а не artifact_path рабочего дерева"
         },
         "test_file_in_candidate": "tests/test_evidence_grounds_persistence.py",
-        "measure_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/measure-2026-11-12.md"
+        "measure_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/measure-2026-11-12.md",
+        "deployed_record": {
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/grounds/deployed-2.58.190.json",
+          "artifact_sha256": "950dd1d7e2ff529c0591bc376ed4870c5407b00661960d16ee4a5ca2d9caaba5",
+          "what": "выкладка 2.58.190 @ 7c3c01b2: дельта и байт-идентичные файлы, живое read-only наблюдение, построчное соответствие «клауза → доказательство», согласованная граница (a)/(b)/(c), предупреждение initialize() и незакрытое наблюдение memory_grounds[]"
+        },
+        "candidate_record": {
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/grounds/repair-2026-11-12.md",
+          "artifact_sha256": "2ad727dc9588c3f98b4316820f349dc261bcb824e4d466cf6f3d70420306a5b9",
+          "note": "сохранён байт-в-байт как запись состояния на момент кандидата; его §6 «что осталось непроверенным» закрыт записью deployed_record, а не переписыванием этого документа"
+        }
+      },
+      "deployed_observation_2026_11_12": {
+        "commit": "7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe",
+        "mode": "read-only на выкаченной службе",
+        "health": "/healthz=2.58.190, служба active, 0 перезапусков, TRACEBACK/CRITICAL/ERROR = 0, целостность БД ok, счётчики не изменились",
+        "live_grounds": "чат -1002661910336, урок 07d4dea4…: grounds_total=1, distinct_ground_roots=1, independent_grounds=0, grounds_state=complete, gaps=[author_unknown, origin_unknown]; основание: provenance_root, source_ref_id=42854, entity_type=message, entity_id=9767, tg_message_id=1024497, independence=unknown, stems_shared=null (not_lexical_path); grounds_consistency_violations=[]",
+        "identity": "row id 9767 ≠ telegram id 1024497, оба верны — блокер второго круга ревью на проде закрыт",
+        "restart": "рестарт выполнен самой выкладкой; после него основание с provenance читается из живого процесса"
       },
       "not_this_change": "не закрывает ни одну строку VMQ-NEXT-01..05; не меняет пороги, отбор, эмбеддинги, промпты, настройки; не исправляет открытый дефект VMQ-MEM-NEXT-YEARMIX-2026-11-12; не выполняет запись в прод-БД",
-      "status_effect": "Ремонт записан как исправление с кандидатом c4c01a1f и выкладкой 2.58.190 в процессе. Ни одна строка приёмки не переведена в VERIFIED этой записью; дефект остаётся FIXED_IN_CANDIDATE_PENDING_DEPLOY до подтверждения выкладки и наблюдения на выкаченном кандидате, а SHA выкладки дописывается сюда же."
+      "status_effect": "Ремонт исправлен в кандидате c4c01a1f и выложен в 2.58.190 @ 7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe. Строка VMQ-GROUNDS-01 переведена в VERIFIED по семи клаузам на живых данных (клауза → доказательство в clause_evidence_2026_11_12), дефект закрыт как FIXED_DEPLOYED_VERIFIED. Незакрытыми остаются только названные внутренние наблюдения: memory_grounds[] в живом событии хода (триггер — первый прямой ход) и ненулевой stems_shared в живом окне; ни то, ни другое не является невыполненной клаузой. Строки VMQ-NEXT-01..05 этой записью не закрываются."
     },
     "status_effect_2026_11_12": "Замер выполнен, но строки не закрыты: 02 PENDING (доля 2026 выше базы), 03 PENDING (вакуумно), 04 PENDING (формулировка C2). Память эпика НЕ может отчитываться как завершённая часть: по вопросам без года тренд ушёл в противоположную сторону, а открытый дефект VMQ-MEM-NEXT-YEARMIX-2026-11-12 остаётся в этой записи. [12.11.2026, уточнение] «Формулировка C2» у VMQ-NEXT-04 больше НЕ открытый вопрос: смысл клаузы восстановлен из собственного источника (§2 дизайна, см. metrics_semantics_2026_11_12), и строка остаётся PENDING не из-за формулировки, а из-за отсутствия положительного случая (ноль строк лексического добора во всех 34 блоках)."
   }
