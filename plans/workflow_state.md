@@ -5,8 +5,8 @@ Task source: root prompt + plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-co
 Status: in_progress
 Primary phase: review
 Active feature: p0-init-meme-ux-diag
-Active lanes: ses_e34140974ffeVkCvBgN6I2J3q9 (DevOps: release 2.58.192 = trace + ETA boundary, then two live inconsistencies investigated read-only); ses_e3413ea39ffeqgxFtx48aO6dTg (Builder: S5-MEME marker clearing and cancellation handling)
-Join barriers: S5b waits for the S5 verdict; the next release must not include anything unreviewed.
+Active lanes: ses_e34140974ffeVkCvBgN6I2J3q9 (DevOps: release 2.58.192 = trace + ETA boundary, then two live inconsistencies investigated read-only); ses_e33fa8240ffe2N2vnZY3rgsuuW (Reviewer: 8a329875 marker clearing and interruption)
+Join barriers: S5b waits for this verdict; the next release must not include unreviewed commits.
 Last verified: 2.58.190 DEPLOYED at `7c3c01b2` (grounds fix; base `edd7d472`/2.58.189), schema v47, no DDL, rollback `edd7d472`; live diagnostics show a real lesson with `grounds[]` (primary source id, provenance, `tg_message_id` resolved separately from the row id), `independent_grounds` computed, `stems_shared=null` with `not_lexical_path`, and zero consistency violations. 2.58.189 earlier brought the inspector slice; the post-deploy probe trace 71a18f9a returned `context.l1.slot="main"` from the actual record. Earlier: R0-INV closed (9 rows), S1-AXES + S2-ID approved at 4c59a483, 12 rows bound.
 Next unlocks: PM binding UR-20.6/20.7/UR-20 to edd7d472 closes the inspector slice; S3 UI verdict -> S4-TRACE; evidence-grounds repair -> independent Reviewer check on the actual JSON incl. restart; then S5-MEME and S5b
 Next execution: awaiting_children
