@@ -1,0 +1,227 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "P0-INIT-MEME-UX-DIAG",
+  "code_base": {
+    "branch": "release/2.58.188",
+    "commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+    "note": "Все write_scope указаны относительно production-линии. Локальный master модуль не содержит; Builder обязан ветвиться от release/2.58.188."
+  },
+  "waves": [
+    {
+      "wave": 0,
+      "slices": [
+        "R0-INV"
+      ],
+      "note": "Только read-only; причина /meme должна быть установлена до любой правки."
+    },
+    {
+      "wave": 1,
+      "slices": [
+        "A0-ARCH",
+        "S1-AXES"
+      ],
+      "note": "Две независимые полосы: контракт идентичности и оси read-model."
+    },
+    {
+      "wave": 2,
+      "slices": [
+        "S2-ID",
+        "S3-OV"
+      ],
+      "note": "Параллельно: services/api идентичности против web/app.js обзора."
+    },
+    {
+      "wave": 3,
+      "slices": [
+        "S4-TRACE",
+        "S5-MEME"
+      ],
+      "note": "Параллельно: web/api+app.js трассы против handlers /meme."
+    },
+    {
+      "wave": 4,
+      "slices": [
+        "S6-FRESH"
+      ],
+      "note": "Свежесть/время/scope после трассы и /meme — те же файлы UI."
+    },
+    {
+      "wave": 5,
+      "slices": [
+        "S7-ACCEPT"
+      ],
+      "note": "Независимая сквозная приёмка и релизная проверка."
+    }
+  ],
+  "slices": [
+    {
+      "id": "R0-INV",
+      "title": "Read-only разбор живого состояния двух чатов и неудачного /meme (без изменения кода)",
+      "role": "Builder (read-only) + Reviewer",
+      "risk": "R0",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/p0-init-meme-ux-diag/evidence/r0"
+      ],
+      "acceptance": "Артефакт r0 содержит таблицу five-axis по двум чатам и двум механизмам, посегментную трассу каждого неудачного /meme с точным отсутствующим участком, перечень подтверждённых кодом дефектов с файлом:строкой и очередь правок; в диффе ноль изменений product-кода (git diff --stat по services/web/handlers пуст).",
+      "exclusions": "Никаких правок product-кода, настроек, флагов и данных; никаких публикаций в рабочие чаты.",
+      "live_evidence": "Реальный production-процесс, БД, журналы, провайдерная доступность."
+    },
+    {
+      "id": "A0-ARCH",
+      "title": "Контракт идентичности попытки и совместимости исторических строк",
+      "role": "Architect",
+      "risk": "R2",
+      "depends_on": [
+        "R0-INV"
+      ],
+      "write_scope": [
+        "plans/features/p0-init-meme-ux-diag/arch"
+      ],
+      "acceptance": "Зафиксированный контракт architecture.md (§1-§4) сверен с зависимыми срезами: единый родитель без новых колонок, child-call ID, сходимость image/бронь/Telegram/ledger, incomplete_historical для старых строк, mode в detail JSON; S2-ID и S4-TRACE ссылаются на документ, открытых контрактных вопросов нет.",
+      "exclusions": "Architect не реализует код и не меняет продукт.",
+      "join_barrier": "S2-ID не начинается до фиксации решения.",
+      "state": "contract frozen (DESIGN READY); точка сверки перед S2-ID, не ожидание нового решения",
+      "design_ref": "architecture.md"
+    },
+    {
+      "id": "S1-AXES",
+      "title": "Пять независимых осей на существующем read-model (backend)",
+      "role": "Builder",
+      "risk": "R1",
+      "depends_on": [
+        "R0-INV"
+      ],
+      "write_scope": [
+        "services/initiative_diagnostics.py",
+        "web/api/initiative_vitality.py",
+        "services/module_registry.py",
+        "tests/test_meme_init_diagnostics.py"
+      ],
+      "acceptance": "Один API-ответ на чат отдаёт по каждому механизму configuration/health/readiness/last_attempt/last_delivery; при cooldown/not_enough_messages/quota enabled остаётся true, readiness=waiting с причиной; next_eligible_at присутствует только при next_check_basis из существующих полей; в диффе нет новых таблиц, миграций, сервисов и LLM-вызовов.",
+      "exclusions": "Никакой клиентской логики в этом срезе; web/app.js не правится.",
+      "can_parallel_with": [
+        "A0-ARCH"
+      ],
+      "join_barrier": "S3-OV ждёт форму ответа."
+    },
+    {
+      "id": "S2-ID",
+      "title": "Сквозная идентичность попытки и учёт попыток",
+      "role": "Builder",
+      "risk": "R2",
+      "depends_on": [
+        "A0-ARCH"
+      ],
+      "write_scope": [
+        "services/meme_initiative.py",
+        "web/api/initiative_publications.py",
+        "handlers/meme_command.py",
+        "tests/test_initiative_publications_api.py",
+        "tests/test_meme_pipeline_api.py",
+        "services/initiative_observer.py"
+      ],
+      "acceptance": "run_id существует до самых ранних гейтов для обоих механизмов (мем: jid после загрузки cfg; текст: per-chat run_id в начале оценки чата с trace_id во всех _emit); child-call ID у LLM A/B и сходимость image API/брони/Telegram/ledger по одному родителю; ранний отказ даёт одну логическую попытку; manual/auto пишется в detail JSON; строки без ID помечены incomplete_historical; параллельные запуски в двух чатах не создают дублей и не теряют попытку.",
+      "exclusions": "Не менять контракт обхода гейтов /meme (MEME-CMD-BYPASS-GATES) и настройки.",
+      "can_parallel_with": [
+        "S3-OV"
+      ],
+      "join_barrier": "S4-TRACE и S5-MEME ждут стабильного родителя.",
+      "design_ref": "architecture.md §3"
+    },
+    {
+      "id": "S3-OV",
+      "title": "Новый обзор: две карточки с пятью осями",
+      "role": "Builder",
+      "risk": "R1",
+      "depends_on": [
+        "S1-AXES"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "tests/js/initiative_ui_rework_test.js"
+      ],
+      "acceptance": "В обзоре для выбранного чата обе карточки показывают «Разрешено», текущее состояние с одной главной причиной, последнюю проверку, последнюю попытку, последнюю подтверждённую отправку и квоту; в кулдауне карточка мемов показывает «Разрешено: ВКЛ»; ready=false больше не даёт «выключено»; время только с TZ из backend; мобильная ширина без горизонтальной прокрутки.",
+      "exclusions": "Вкладки настроек (HMF-UI-03/04) и «Публикации»/«Диагностика» не переписываются в этом срезе.",
+      "can_parallel_with": [
+        "S2-ID"
+      ],
+      "live_evidence": "Playwright + Browser Use на реальном UI двух чатов."
+    },
+    {
+      "id": "S4-TRACE",
+      "title": "Публикации и Диагностика: одна попытка, связная трасса, защищённый доступ",
+      "role": "Builder",
+      "risk": "R2",
+      "depends_on": [
+        "S2-ID",
+        "S3-OV"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/initiative_publications.py",
+        "tests/ui_initiative_rework_e2e.py",
+        "tests/test_initiative_publications_api.py"
+      ],
+      "acceptance": "Список = одна строка на попытку с режимом и признаком доставки; фильтры и серверная пагинация работают; клик раскрывает трассу из фиксированного словаря этапов с местом остановки, «не выполнялся» для незапускавшихся шагов, фактическими промптами/моделью/message_id; полный текст доступен только админу своего чата через защищённое раскрытие, секреты вырезаны, старые следы честно помечены.",
+      "exclusions": "Никаких новых журналов, нового конвейера и дублирующих панелей; настройки/промпты не редактируются здесь.",
+      "live_evidence": "Playwright + Browser Use, RBAC другой чат, полная трасса без утечки секретов."
+    },
+    {
+      "id": "S5-MEME",
+      "title": "Ручной /meme: доказанная трасса, снятие приоритета, безопасное восстановление",
+      "role": "Builder",
+      "risk": "R2",
+      "depends_on": [
+        "S2-ID"
+      ],
+      "write_scope": [
+        "handlers/meme_command.py",
+        "services/publication_coordination.py",
+        "tests/test_meme_command_autodelete.py"
+      ],
+      "acceptance": "Каждый участок ручного запуска имеет фактическое доказательство; приоритет снимается при нормальном завершении и установленном отказе, восстанавливается существующим durable механизмом после падения; нет гонок, дублей и бесконечных ретраев; после истечения TTL интерфейс не показывает ожидание; вызов без прав не раскрывает секретов и чужого чата.",
+      "exclusions": "Контракт обхода авто-лимитов и обязательных инвариантов доставки сохраняется без изменений.",
+      "live_evidence": "Реальный /meme в тестовом чате, без шума в рабочих чатах."
+    },
+    {
+      "id": "S6-FRESH",
+      "title": "Effective-состояние, время и разграничение чатов",
+      "role": "Builder",
+      "risk": "R1",
+      "depends_on": [
+        "S4-TRACE",
+        "S5-MEME"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "services/initiative_diagnostics.py",
+        "web/api/initiative_vitality.py",
+        "services/publication_coordination.py",
+        "tests/test_initiative_delivery_telemetry.py"
+      ],
+      "acceptance": "При переключении чата на медленном API не показываются данные предыдущего чата (guard + метка scope); время в TZ выбранного чата из backend; просроченный маркер или бронь не выглядят актуальным ожиданием; effective-значения из UI совпадают с runtime, сохранённые настройки не изменены.",
+      "exclusions": "Никаких записей в настройки и override-слои.",
+      "live_evidence": "Browser Use: медленный API + смена scope, два чата."
+    },
+    {
+      "id": "S7-ACCEPT",
+      "title": "Независимая сквозная приёмка, отсутствие регрессий, релизная проверка",
+      "role": "Reviewer + DevOps",
+      "risk": "R1",
+      "depends_on": [
+        "S6-FRESH"
+      ],
+      "write_scope": [
+        "plans/features/p0-init-meme-ux-diag/evidence/accept",
+        "tests/test_p0_init_meme_acceptance.py",
+        "tests/ui_p0_init_meme_e2e.py"
+      ],
+      "acceptance": "Матрица §8 пройдена на обоих чатах (конфигурация, отказы, ручной запуск, RBAC, UI desktop+mobile); два равных пользователя видят одно состояние; включённое в кулдауне не названо выключенным; неудачный /meme имеет точный или честно неизвестный исход; настройки/промпты/квоты не изменены, дополнительных LLM-вызовов нет; после релиза приложены скриншоты, артефакты доставки и статус продакшена.",
+      "exclusions": "Приёмка не расширяется посторонними улучшениями и не требует ручных проверок владельца."
+    }
+  ]
+}

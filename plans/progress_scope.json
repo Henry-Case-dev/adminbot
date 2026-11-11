@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T21:47:40+12:00",
+  "updated": "2026-11-11T21:58:33+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1486,15 +1486,26 @@
       "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-corrective-excerpt.md",
       "source_sha256": "6D0D5C52CF5B6A50CE7F4098EEB8136A49AE1D024B83C5FB802BF016587CD91A",
-      "maps": [],
-      "coverage_complete": false,
+      "maps": [
+        "plans/features/p0-init-meme-ux-diag/requirements-map.json"
+      ],
+      "coverage_complete": true,
       "queue_position": 2,
       "priority": "P0",
       "blocked_by": [],
       "blocker_sources": {},
       "execution_state": "queued",
       "position_basis": "owner marked it P0 corrective; current lanes continue in parallel",
-      "queue_note": "Started with a read-only diagnosis of the real `/meme` failure and the two-chat divergence; PM maps requirements against the existing UI epics and the Architect designs the five-axis read-model. Implementation is not started."
+      "queue_note": "Started with a read-only diagnosis of the real `/meme` failure and the two-chat divergence; PM maps requirements against the existing UI epics and the Architect designs the five-axis read-model. Implementation is not started.",
+      "preparation": {
+        "pm_map": "plans/features/p0-init-meme-ux-diag/requirements-map.json",
+        "architecture": "plans/features/p0-init-meme-ux-diag/architecture.md",
+        "slices": 9,
+        "requirements": 72,
+        "first_slice": "R0-INV (read-only investigation, no product code)",
+        "lineage_note": "services/meme_initiative.py, web/api/initiative_publications.py, handlers/meme_command.py and services/publication_coordination.py exist ONLY on the production line (c087253d); the working branch does not contain them. Any implementation must branch from the production line, never from master.",
+        "status": "preparation_complete_implementation_not_started"
+      }
     }
   ],
   "owner_inputs": [
@@ -3835,8 +3846,25 @@
       "target_task_ids": [
         "p0-init-meme-ux-diag"
       ],
-      "reconciled": false,
-      "note": "Owner added a P0 corrective for the existing Initiative/Meme module at current_task.md line 11423. It requires five independent state axes per chat and per mechanism (configuration, health, readiness, last attempt, last confirmed delivery) exposed by the backend read-model, an overview understandable without internal codes, and a read-only investigation of the real `/meme` failure and the two-chat divergence. Bans: conflating readiness with configuration, inventing ETAs, new diagnostic systems or LLM checks for observability. Preserve user prompts, models and saved settings. Reuse existing diagnostics APIs; the module is not a new product."
+      "reconciled": true,
+      "note": "Owner added a P0 corrective for the existing Initiative/Meme module at current_task.md line 11423. It requires five independent state axes per chat and per mechanism (configuration, health, readiness, last attempt, last confirmed delivery) exposed by the backend read-model, an overview understandable without internal codes, and a read-only investigation of the real `/meme` failure and the two-chat divergence. Bans: conflating readiness with configuration, inventing ETAs, new diagnostic systems or LLM checks for observability. Preserve user prompts, models and saved settings. Reuse existing diagnostics APIs; the module is not a new product. Reconciled 2026-11-11: 127 source lines mapped into 72 unique requirements across nine slices (R0 read-only investigation, A0 architecture checkpoint, S1 five axes, S2 attempt identity, S3 overview, S4 publications/diagnostics, S5 manual /meme, S6 effective/time/scope, S7 acceptance). Zero duplicated rows: sixteen existing maps were checked and overlapping obligations are kept as required with covered_by + delta. Every write scope is bound to production commit c087253d because the module does not exist in the working branch.",
+      "coverage_refs": [
+        {
+          "task_id": "p0-init-meme-ux-diag",
+          "map": "plans/features/p0-init-meme-ux-diag/requirements-map.json",
+          "req_ids": [
+            "R0-INV",
+            "A0-ARCH",
+            "S1-AXES",
+            "S2-ID",
+            "S3-OV",
+            "S4-TRACE",
+            "S5-MEME",
+            "S6-FRESH",
+            "S7-ACCEPT"
+          ]
+        }
+      ]
     }
   ],
   "source_inventory": {
