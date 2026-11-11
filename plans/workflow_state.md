@@ -5,10 +5,10 @@ Task source: root prompt + plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-co
 Status: in_progress
 Primary phase: review
 Active feature: p0-init-meme-ux-diag
-Active lanes: ses_e3592db0cffeJ3cPK2yvabGPwb (Reviewer: 4c59a483 third pass, three blockers); ses_e358b0029ffeSuAej0swt6A5Hr (Builder: VMQ-NEXT-02/03/04 measurement on a DB copy); ses_e35cb2fcbffdSK0NnPDg0Ksm9O (Reviewer: inspector d3e74eef consolidating verdict)
-Join barriers: both verdicts. S3 overview UI must not start before the axes verdict; inspector release 2.58.189 waits on its verdict, and the prepared port is packaging only.
-Last verified: R0-INV closed read-only on production 2.58.188 (evidence/r0/diagnosis-2.58.188.md, 9 rows VERIFIED); axes candidate 2d0dc10a implements the six review blockers; production healthy at c087253d. Inspector 2.58.189 port prepared clean at f328611f (branch rel/2.58.189-inspector-prep, base c087253d, 19 files, no version bump, no DDL), pending verdict.
-Next unlocks: bind 2d0dc10a verdict -> S3 overview UI; inspector verdict -> version bump over f328611f plus re-approval of ROUTES_SHA256_F11 (tests/test_round1025_f8_registry.py:102) and deployment; S5b paid-image loss after S5
+Active lanes: ses_e357d26b4ffemxzNxlAh77olCq (Builder: S3-OV overview UI); ses_e357d0352ffezEIrf2bWQSX58A (PM: binding S1-AXES/S2-ID to 4c59a483); ses_e358b0029ffeSuAej0swt6A5Hr (Builder: VMQ-NEXT-02/03/04 measurement on a DB copy); ses_e35cb2fcbffdSK0NnPDg0Ksm9O (Reviewer: inspector d3e74eef consolidating verdict, long-running)
+Join barriers: S4 must wait for the S3 verdict; the inspector release waits on its verdict; two earlier inspector review sessions never returned, so if this one also stops without a verdict the slice gets one narrow replacement check rather than a third full pass.
+Last verified: R0-INV closed read-only on production 2.58.188 (evidence/r0/diagnosis-2.58.188.md, 9 rows VERIFIED). S1-AXES + S2-ID APPROVED at 4c59a483 (third pass): delivery resolves the latest row with a message id, list mode comes only from the terminal row, spool never deletes an unread tail; the single residual window is both journal and spool writes failing, which is logged as `attempt LOST`. S3-OV overview UI in build on the same branch. Inspector 2.58.189 port prepared clean at f328611f (branch rel/2.58.189-inspector-prep, base c087253d, 19 files, no version bump, no DDL), pending verdict.
+Next unlocks: S3 UI verdict -> S4-TRACE then S5-MEME (incl. marker clearing and cancellation handling) then S5b; inspector verdict -> version bump over f328611f plus re-approval of ROUTES_SHA256_F11 and deployment; VMQ-NEXT-02/03/04 measurement on a DB copy in flight
 Next execution: awaiting_children
 Review: pending
 Deployment: verified 2.58.188 @ c087253d (schema 47, no DDL); rollback 952b9ebd
