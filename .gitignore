@@ -126,3 +126,6 @@ tools/_ui_round1026_raw.json
 # ADD-EXP (19.10.2026): lane evidence dir must be committable (durable proof).
 # Narrow re-include after the generic build/ pattern; fonts build/ unaffected.
 !plans/features/add-exp/evidence/build/
+
+# Browser MCP tool artefacts (workflow-owned scratch; never durable project data).
+.playwright-mcp/
