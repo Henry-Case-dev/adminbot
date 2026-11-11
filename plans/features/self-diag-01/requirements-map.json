@@ -528,7 +528,7 @@
       "acceptance": "Матрица поддерживает обычных участников, администраторов конкретного Telegram-чата и владельца бота и учитывает числовой Telegram user ID, реальный статус администратора через Telegram API, chat scope и актуальные настройки; текстовые заявления о правах, никнеймы, пересланные сообщения и Reply не учитываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AMX-02",
@@ -546,7 +546,17 @@
           "description": "наблюдаемый артефакт проверки SD1-AMX-02"
         }
       ],
-      "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L11"
+      "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L11",
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-01"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "VERIFIED",
+        "reason": "Матрица не учитывает реального админа чата для PUBLIC_TECH/CHAT_SCOPED: check_admin=True только для PROTECTED_CLASSES ({PROMPT_CONTENT, OTHER_CHAT_DATA}), поэтому актор остаётся member (matrix_role=\"user\") и getChatMember не вызывается — реальный админ чата получает решение как участник.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "MAN-AMX-03",
@@ -606,7 +616,7 @@
       "acceptance": "Выдача credential values через чат запрещена абсолютно и неотключаемо: никому, включая владельца, не тумблером и не настройкой; проверка выполняется на уровне backend/tool results и итоговой доставки; настройки показывают наличие и статус секрета, но не значение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AMX-05",
@@ -624,7 +634,17 @@
           "description": "наблюдаемый артефакт проверки SD1-AMX-05"
         }
       ],
-      "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L15"
+      "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L15",
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-02"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "VERIFIED",
+        "reason": "Абсолютный запрет не выполняется на всех путях: при недоступных источниках секретов sanitize(kind=tool_result|final) отдаёт allowed=True с исходным текстом, а чекап при исключении слоя прав публикует отчёт вообще без санитайзера.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "MAN-AMX-06",
@@ -1069,7 +1089,7 @@
       "acceptance": "Token, API key, password, private key и session secret не раскрываются никому через Telegram, включая owner/admin; проверены все error/caching/source/tool/replay маршруты, включая prompt, лог, config и исходники.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AC-14",
@@ -1091,7 +1111,17 @@
       "postdeploy_condition": "postdeploy: в реальном чате (включая владельца и админа) перебираются маршруты error/caching/source/tool/replay и запросы к промпту, логу, конфигу и исходникам — ноль раскрытий credential values. Артефакт: plans/features/self-diag-01/evidence/d2/sd1_ac_14.json",
       "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.184 @ 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (родитель портированного кандидата, release/2.58.184), без переноса состояния",
       "boundary": "живая приёмка не может быть выполнена до выката; политическая часть доказана тестами кандидата, живая часть — обязательство после деплоя",
-      "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)"
+      "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)",
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-02"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "READY_FOR_LIVE",
+        "reason": "Живая приёмка «ноль раскрытий» не может быть выдана на этом кандидате: найдены реальные пути утечки (fail-open projection, обход публикации), поэтому строка переведена из READY_FOR_LIVE в FAILED до исправления.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "MAN-AC-15",
@@ -1105,7 +1135,7 @@
       "acceptance": "Авторизация действует на стороне backend до чтения, перед ToolResult и перед отправкой и не определяется текстом «я админ» или verdict модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AC-15",
@@ -1122,7 +1152,18 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d2/sd1_ac_15.json",
           "description": "наблюдаемый артефакт проверки SD1-AC-15"
         }
-      ]
+      ],
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-01",
+          "SD1-REV-D2-02"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "VERIFIED",
+        "reason": "Гарантия «перед отправкой» не выполняется для чекапа: handlers/checkup.py:123-126 при исключении слоя прав возвращает gate=None, и отчёт уходит без проверки прав и без очистки секретов.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "MAN-AC-16",
@@ -1642,7 +1683,7 @@
       "acceptance": "Промпт-readback и секретные данные не попадают в общий evidence-буфер, не кэшируются как публичные и фильтруются до модели и до Telegram.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-01",
@@ -1660,7 +1701,17 @@
           "description": "наблюдаемый артефакт проверки SD1-D2-01"
         }
       ],
-      "boundary": "общий evidence-буфер (SD1-EVD-04) и промпт-readback (D5) на этом кандидате отсутствуют; доказана фильтрация до модели и до Telegram"
+      "boundary": "общий evidence-буфер (SD1-EVD-04) и промпт-readback (D5) на этом кандидате отсутствуют; доказана фильтрация до модели и до Telegram",
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-02"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "VERIFIED",
+        "reason": "«Фильтруются до модели и до Telegram» опровергнуто: fail-open в output projection для tool_result/final и обход publish в handlers/checkup.py:123-126.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "L00099",
@@ -2849,7 +2900,7 @@
       "acceptance": "Секреты не выдаются под видом настройки, исходника, лога, env, сырого конфига, diff или части промпта; для секретного поля возвращаются только configured/not_configured, masked fingerprint и health status.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-12",
@@ -2867,7 +2918,17 @@
           "description": "наблюдаемый артефакт проверки SD1-D2-12"
         }
       ],
-      "boundary": "набор возвращаемых полей трактуется как разрешающий список («не более»): значение не возвращается ни на одном маршруте; расширенные key-health поля не реализованы и отслеживаются в SD1-D2-24"
+      "boundary": "набор возвращаемых полей трактуется как разрешающий список («не более»): значение не возвращается ни на одном маршруте; расширенные key-health поля не реализованы и отслеживаются в SD1-D2-24",
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-02"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "VERIFIED",
+        "reason": "Реестр известных секретов неполон (нет SOURCE_READ_GITHUB_TOKEN, SUMMARY_L1_API_KEY, SUMMARY_L2_API_KEY, EMBEDDING_EXTRA_API_KEYS), поэтому такие значения не снимаются и остаётся только pattern-линия, которая защитой не считается.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "L00220",
@@ -2927,7 +2988,7 @@
       "acceptance": "Credential values недоступны в output при любом статусе роли; project_owner управляет ими через админку и не получает текст ключа обратно в Telegram.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-14",
@@ -2944,7 +3005,17 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d2/sd1_d2_14.json",
           "description": "наблюдаемый артефакт проверки SD1-D2-14"
         }
-      ]
+      ],
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-02"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "VERIFIED",
+        "reason": "Credential values достижимы в output при недоступных или неполных источниках секретов: санитайзер возвращает allowed=True с неизменённым текстом.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "L00224",
@@ -2958,7 +3029,7 @@
       "acceptance": "Промпт, содержащий credential value, отдаётся только с удалённым/замаскированным фрагментом, статусом partially_redacted и предупреждением о риске.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-15",
@@ -2976,7 +3047,17 @@
           "description": "наблюдаемый артефакт проверки SD1-D2-15"
         }
       ],
-      "boundary": "маска и статус partially_redacted доказаны здесь; текст предупреждения — слой доставки D5"
+      "boundary": "маска и статус partially_redacted доказаны здесь; текст предупреждения — слой доставки D5",
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-02"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "VERIFIED",
+        "reason": "Маскирование credential value в промпте не гарантировано: при неполном реестре значение неизвестно санитайзеру, текст получает статус clean и уходит целиком.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "L00225",
@@ -3060,7 +3141,7 @@
       "acceptance": "Разрешение вычисляет существующий авторизационный сервис/policy layer по (authenticated_actor, chat_scope, resource_class, resource_scope, action, destination) в allow|deny|unverified с машинным reason_code.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-18",
@@ -3077,7 +3158,17 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d2/sd1_d2_18.json",
           "description": "наблюдаемый артефакт проверки SD1-D2-18"
         }
-      ]
+      ],
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-01"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "VERIFIED",
+        "reason": "Контракт решения выполняется не для всех классов: authenticated_actor подменяется непроверенным member для public/chat-скоупа, поэтому матрица считает роль, которая не подтверждена, а строка local_admin недостижима.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "L00231",
@@ -3520,8 +3611,11 @@
           "description": "наблюдаемый артефакт проверки SD1-D2-23"
         }
       ],
-      "remaining": "Частично: sensitivity_sources реализованы (sensitivity_of_pg_key по param_catalog: secret/keys → SECRET_VALUE, prompts → PROMPT_CONTENT, прочее → NON_SECRET_CONFIG), но требование «для нового провайдера sensitivity обязательна при регистрации» не обеспечено — ParamSpec.secret имеет default False, то есть новый провайдер без флага молча становится NON_SECRET_CONFIG. Нужен явный обязательный флаг/проверка при регистрации.",
-      "blocker_class": "не дефект D2: sensitivity-источник реализован, а обязательность флага при регистрации провайдера — отдельное требование к каталогу параметров (ParamSpec.secret сейчас по умолчанию False); ждёт обязательного флага при регистрации"
+      "remaining": "Частично: sensitivity_sources реализованы (sensitivity_of_pg_key по param_catalog: secret/keys → SECRET_VALUE, prompts → PROMPT_CONTENT, прочее → NON_SECRET_CONFIG), но требование «для нового провайдера sensitivity обязательна при регистрации» не обеспечено — ParamSpec.secret по умолчанию False. Дополнительно по разбору 2026-11-11 (дефект SD1-REV-D2-02) реестр известных runtime-секретов неполон: SOURCE_READ_GITHUB_TOKEN, SUMMARY_L1_API_KEY, SUMMARY_L2_API_KEY, EMBEDDING_EXTRA_API_KEYS не зарегистрированы и потому не снимаются санитайзером. Требуется реализация; статус не меняется.",
+      "blocker_class": "не дефект D2: sensitivity-источник реализован, а обязательность флага при регистрации провайдера — отдельное требование к каталогу параметров (ParamSpec.secret сейчас по умолчанию False); ждёт обязательного флага при регистрации",
+      "linked_defects": [
+        "SD1-REV-D2-02"
+      ]
     },
     {
       "source_id": "L00270",
@@ -3605,7 +3699,7 @@
       "acceptance": "Логи, traceback, строки ошибок и комментарии кода считаются недоверенными носителями утечки и проходят общий структурный sanitizer/redactor с источниками известных runtime-секретов, пределами и fail-closed для high-risk raw contents.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-26",
@@ -3623,7 +3717,17 @@
           "description": "наблюдаемый артефакт проверки SD1-D2-26"
         }
       ],
-      "boundary": "«пределы» (бюджет/обрезка) относятся к SD1-EVD-13 (D3); здесь доказаны структурная санитизация с источниками и fail-closed"
+      "boundary": "«пределы» (бюджет/обрезка) относятся к SD1-EVD-13 (D3); здесь доказаны структурная санитизация с источниками и fail-closed",
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-02"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "VERIFIED",
+        "reason": "Санитайзер не является общим и fail-closed только для logs/traceback/prompt; строки ошибок, tool_result и финальная доставка проходят при недоступных источниках, а чекап обходит публикацию.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "L00274",
@@ -3683,7 +3787,7 @@
       "acceptance": "Для protected data применяется server-side output projection по role/scope, а не просьба «не показывай секрет» в промпте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "FAILED",
       "evidence": [
         {
           "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-28",
@@ -3700,7 +3804,17 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d2/sd1_d2_28.json",
           "description": "наблюдаемый артефакт проверки SD1-D2-28"
         }
-      ]
+      ],
+      "failure": {
+        "review_evidence_id": "REV-D2-f58c458a-01",
+        "defect_ids": [
+          "SD1-REV-D2-02"
+        ],
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "previous_status": "VERIFIED",
+        "reason": "Server-side output projection обходится: при сбое слоя прав чекап публикуется без projection, а при недоступных источниках projection возвращает исходный текст.",
+        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+      }
     },
     {
       "source_id": "L00279",
@@ -5376,7 +5490,27 @@
     },
     "explains": "26/2/2 — фильтр только по items; 33/5/3 — уникальные req_id всего среза до разделения SD1-D2-03; 33/6/3 — после разделения на SD1-D2-03 и SD1-D2-03b (одно требование, два source_line, общая приёмка)",
     "ddl_or_migration": "none",
-    "feature_flag": "none — безусловный слой политики для трёх инструментов (get_bot_health, read_source_code, inspect_runtime)"
+    "feature_flag": "none — безусловный слой политики для трёх инструментов (get_bot_health, read_source_code, inspect_runtime)",
+    "after_review_2026_11_11": {
+      "review_evidence_id": "REV-D2-f58c458a-01",
+      "verdict": "NEEDS_FIXES",
+      "convention": "records = записи items + additional_requirements с slice=D2; unique_req_ids = те же записи после свёртки по req_id",
+      "records_total": 44,
+      "records_by_status": {
+        "FAILED": 11,
+        "PENDING": 3,
+        "READY_FOR_LIVE": 5,
+        "VERIFIED": 25
+      },
+      "unique_req_ids": 42,
+      "unique_req_ids_by_status": {
+        "FAILED": 11,
+        "PENDING": 3,
+        "READY_FOR_LIVE": 5,
+        "VERIFIED": 23
+      },
+      "explains": "Блоки records_*/unique_req_ids* на этом уровне — состояние ДО разбора 2026-11-11; здесь — после: 11 id-слотов в FAILED (10 было VERIFIED, SD1-AC-14 — READY_FOR_LIVE). Деплоя нет, deployed_commit пуст, откат остаётся 77a63bc5."
+    }
   },
   "ddl_migration_flag": {
     "ddl": "none",
@@ -5385,5 +5519,113 @@
     "behaviour": "unconditional policy gate: TOOL_CAPABILITIES гейтит get_bot_health, read_source_code, inspect_runtime в ToolRouter.dispatch (до выполнения) и перед возвратом результата",
     "owner_rule_note": "правило «готовая функция включается заводским значением флага» неприменимо: включать нечего, выключенного состояния у слоя нет",
     "checked_scope": "весь дифф 77a63bc5..f58c458a: 2946 добавленных строк, 8 файлов, 0 DDL/migration/flag/env"
-  }
+  },
+  "review_evidence": [
+    {
+      "id": "REV-D2-f58c458a-01",
+      "slice": "D2",
+      "verdict": "NEEDS_FIXES",
+      "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+      "candidate_origin_commit": "98bc424ef719083b9392a84918bab0af3b87c587",
+      "baseline_commit": "77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7",
+      "reviewed_at": "2026-11-11",
+      "reviewer": "independent review (отдельный Reviewer, не Builder)",
+      "deployment": "none — кандидат не выкатывался, deployed_commit карты пуст",
+      "rollback_ref": "откат остаётся 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (релиз 2.58.184): портированный кандидат не был релизом и ничего не заменял",
+      "port_proven": "Порт подтверждён байт-в-байт: 7 из 8 продуктовых файлов совпадают с 98bc424e, services/tool_router.py отличается только собственными изменениями производства (блок гейта не тронут). Оба дефекта — в логике среза, не в переносе.",
+      "defects": [
+        {
+          "id": "SD1-REV-D2-01",
+          "area": "policy",
+          "severity": "blocking",
+          "title": "Строка матрицы local_admin не действует для PUBLIC_TECH/CHAT_SCOPED, Telegram не спрашивается",
+          "description": "check_admin вычисляется только из PROTECTED_CLASSES = {PROMPT_CONTENT, OTHER_CHAT_DATA} в decide(), open_gate() и recheck_gate(). Для public/chat-возможностей resolve_actor() возвращает ROLE_MEMBER с VERIFICATION_NOT_REQUIRED и matrix_role=\"user\"; getChatMember не вызывается никогда. Следствие: реальный администратор Telegram-чата оценивается как обычный участник — строка local_admin в матрице недостижима, а чатовый override, называющий local_admin, отказывает именно админу.",
+          "code_refs": [
+            "services/diagnostic_policy.py :: PROTECTED_CLASSES",
+            "services/diagnostic_policy.py :: resolve_actor (check_admin)",
+            "services/diagnostic_policy.py :: decide / open_gate / recheck_gate",
+            "services/diagnostic_policy.py :: default_diag_matrix (PUBLIC_TECH/CHAT_SCOPED)"
+          ],
+          "affected_req_ids": [
+            "SD1-AMX-02",
+            "SD1-D2-18",
+            "SD1-AC-15"
+          ]
+        },
+        {
+          "id": "SD1-REV-D2-02",
+          "area": "leak",
+          "severity": "blocking",
+          "title": "Проекция вывода пропускает credential value и обходится на чекапе",
+          "description": "(1) sanitize(): при secrets=None fail-closed включается только для fail_closed_kinds=(\"logs\",\"traceback\",\"prompt\"); для kind=\"tool_result\" и \"final\" возвращается DeliveryResult(allowed=True, original, BLOCKED) — исходный текст уходит как есть. (2) Реестр известных секретов неполон: _settings_secret_values() берёт только поля каталога с флагом secret плюс settings.API_TOKEN, known_secret_values() добавляет chat_keys.global_secret_keys() = {\"keys.image_api_key\"}; значения, читаемые напрямую из окружения, не регистрируются: SOURCE_READ_GITHUB_TOKEN (services/source_reader.py:197), SUMMARY_L1_API_KEY (services/summary_l1_clusterizer.py:680), SUMMARY_L2_API_KEY, EMBEDDING_EXTRA_API_KEYS (services/embedding_control_plane.py:371). (3) known_secret_values_async(): исключение при чтении BYOK-ключа проглатывается в warning, поэтому ошибка чтения неотличима от «ключа нет». (4) handlers/checkup.py:123-126: _checkup_diagnostic_gate() при исключении возвращает (None, None), publication guard пропускается целиком, и отчёт публикуется без санитизации — fail-open.",
+          "code_refs": [
+            "services/output_projection.py :: sanitize (secrets is None, fail_closed_kinds)",
+            "services/output_projection.py :: _settings_secret_values / known_secret_values",
+            "services/output_projection.py :: known_secret_values_async (BYOK)",
+            "services/chat_keys.py :: GLOBAL_SECRET_KEYS",
+            "services/source_reader.py:197",
+            "services/summary_l1_clusterizer.py:680",
+            "services/embedding_control_plane.py:371",
+            "services/tool_router.py :: _diagnostic_output (kind=tool_result)",
+            "handlers/checkup.py:123-126"
+          ],
+          "affected_req_ids": [
+            "SD1-AMX-05",
+            "SD1-D2-01",
+            "SD1-D2-12",
+            "SD1-D2-14",
+            "SD1-D2-15",
+            "SD1-D2-26",
+            "SD1-D2-28",
+            "SD1-AC-14",
+            "SD1-AC-15"
+          ]
+        }
+      ],
+      "affected_req_ids": [
+        "SD1-AMX-02",
+        "SD1-D2-18",
+        "SD1-AMX-05",
+        "SD1-D2-01",
+        "SD1-D2-12",
+        "SD1-D2-14",
+        "SD1-D2-15",
+        "SD1-D2-26",
+        "SD1-D2-28",
+        "SD1-AC-14",
+        "SD1-AC-15"
+      ],
+      "rows_moved_to_failed": 11,
+      "rows_left_unchanged": [
+        "SD1-D2-03",
+        "SD1-D2-03b",
+        "SD1-D2-07",
+        "SD1-D2-19",
+        "SD1-AMX-08",
+        "SD1-D2-02",
+        "SD1-D2-04",
+        "SD1-D2-05",
+        "SD1-D2-06",
+        "SD1-D2-09",
+        "SD1-D2-10",
+        "SD1-D2-13",
+        "SD1-D2-17",
+        "SD1-D2-20",
+        "SD1-D2-21",
+        "SD1-D2-22",
+        "SD1-D2-27",
+        "SD1-D2-30",
+        "SD1-D2-31",
+        "SD1-D2-34",
+        "SD1-D2-35",
+        "SD1-AC-16",
+        "SD1-GRAL-03",
+        "SD1-GRAL-05",
+        "SD1-AMX-07"
+      ],
+      "unchanged_judgement": "Строки выше сверены по тексту приёмки и найденными дефектами не опровергаются: механизм getChatMember (D2-03/03b) и различение классов/применение матрицы (D2-07) реализованы — сломано то, КОГО матрица получает актором (AMX-02, D2-18); «до чтения, перед результатом, перед отправкой» (D2-19) нарушено только fail-open ветвью чекапа, и это держат AC-15 и уже PENDING SD1-AMX-09.",
+      "no_status_promotion": "Ни одна строка этим разбором в VERIFIED не переводилась.",
+      "open_implementation_tie": "SD1-D2-23 (обязательная sensitivity при регистрации) связана с исправлением дефекта SD1-REV-D2-02: полный реестр секретов и обязательный флаг sensitivity при регистрации провайдера — одна работа. Статус строки не меняется (PENDING), требуется реализация."
+    }
+  ]
 }

@@ -15,13 +15,38 @@
   },
   "config_fact_2026_11_11": {
     "flag": "flags.chat_rag_rerank_enabled",
-    "effective_production_value": false,
-    "independent_sample_value": true,
-    "consequence": "ветка защиты периодных строк (period_fill/period_kept) в текущей прод-конфигурации не активна: она включается только при chat_rag_rerank_enabled=True",
-    "classification": "это факт конфигурации, а не дефект кода; код защиты существует и измерен при TRUE",
-    "recheck_trigger": "при включении флага — повторить замер защиты периодных строк на реальном архиве и обновить эту строку",
-    "affects_req_ids": ["VMQ-TIME-01", "VMQ-TIME-02", "VMQ-TIME-03", "VMQ-TIME-04", "VMQ-TIME-05", "VMQ-TIME-06", "VMQ-TIME-07", "VMQ-TIME-08", "VMQ-TIME-09"],
-    "note": "без этой оговорки легко прочитать измерение как «прод ведёт себя как выборка»; интерпретация обязана учитывать эффективное значение флага"
+    "corrected": "2026-11-11",
+    "effective_production_value": true,
+    "effective_value_source": "global",
+    "production_row": {
+      "table": "bot_settings",
+      "key": "flags.chat_rag_rerank_enabled",
+      "category": "flags",
+      "value": true,
+      "updated_at": "2026-09-06 14:48:01.866578+00"
+    },
+    "env_override": "нет: переменная окружения не задана",
+    "chat_override": "нет ни в одном из трёх рабочих чатов",
+    "factory_default": {
+      "before_2_58_186": false,
+      "from_2_58_186": true
+    },
+    "effective_value_changed_by_2_58_186": false,
+    "consequence": "ветка защиты периодных строк (period_fill/period_kept) активна в проде с 06.09.2026 и по настоящее время: глобальная строка держит true, переопределений нет, реальный resolver отдаёт True с источником global и до, и после 2.58.186",
+    "independent_sample_parity": "независимая выборка из 15 вопросов на 709865f6 измерялась при том же эффективном значении флага, что и прод: условия замера и прода совпадают",
+    "classification": "это факт конфигурации, а не дефект кода; код защиты существует, работает и измерен в тех же условиях, в которых работает прод",
+    "recheck_trigger": "перечитать эффективное значение перед следующей приёмкой, если изменится строка bot_settings, заводской дефолт или появится чатовый override; отдельного замера «после включения флага» не требуется — флаг был включён на всём измеренном интервале",
+    "evidence": "три независимых read-only чтения прод-БД 11.11.2026; подтверждение в репозитории: plans/docs/prod-params-audit-2026-09.md:38 и октябрьские снапшоты plans/features/soul-1/evidence/soul-prep/ev_live_snapshot_2026-10-17.txt:43, plans/features/soul-1/evidence/release-soul-25886/final-verification.txt:48",
+    "affects_req_ids": ["VMQ-TIME-01", "VMQ-TIME-02", "VMQ-TIME-03", "VMQ-TIME-04", "VMQ-TIME-05", "VMQ-TIME-06", "VMQ-TIME-07", "VMQ-TIME-08", "VMQ-TIME-09"]
+  },
+  "notes": [
+    "2026-11-11 — причина ошибки учёта (одна запись, bookkeeping): ключ хранится в bot_settings с префиксом «flags.» — flags.chat_rag_rerank_enabled. Поиск по имени настройки/переменной (CHAT_RAG_RERANK_ENABLED) или по ключу без префикса (chat_rag_rerank_enabled) не находит строку и даёт ложный вывод «строки нет, эффективное значение False». Это ошибка учёта, а не дефект продукта; исправленное значение — в config_fact_2026_11_11 этой карты."
+  ],
+  "lineage_divergence_2026_11_11": {
+    "observed": "2026-11-11",
+    "fact": "рабочая ветка master (HEAD 66b8e001, config/settings.py APP_VERSION 2.58.111) не содержит работ 2.58.185/186: на master services/direct_chat_service.py:9410 читает гейт как hot.get(\"flags.chat_rag_rerank_enabled\", ...) без chat_id, а заводской дефолт CHAT_RAG_RERANK_ENABLED=False; на линии release/2.58.186 (d96b24ab) гейт — per-chat цепочка _cp_g(chat_id, ...), заводской дефолт True, APP_VERSION 2.58.186. release/2.58.185 не является предком master, master не является предком release/2.58.186: линии разошлись.",
+    "consequence": "прод работает на линии release/* (2.58.186), поэтому выводы о прод-поведении нельзя снимать с master без указания линии; расхождение фиксируется как факт и не влияет на уже привязанные evidence слайса",
+    "integration": "слияние не выполнялось и этой правкой не планируется: интеграция master с линией release/* — отдельный осознанный шаг со своим ревью и выкатом"
   },
   "deployment_evidence": {
     "version": "2.58.180",
@@ -176,7 +201,8 @@
       "honest_gap": "свежая год-карта после рестарта НЕ наблюдалась: в окне не было реального трафика. Честная формулировка — путь эмиссии этим хотфиксом не затронут, но новое живое подтверждение год-карты на 2.58.183 отсутствует",
       "rollback": "446cbf0b (2.58.182), затем 92070d0e (2.58.181); снапшоты predeploy-258182.db и predeploy-258183.db — quick_check=ok, user_version=47",
       "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/time/release-2.58.183.md",
-      "artifact_sha256": "96b8ae55c6e5a3e098271b5208a25acb788513b734e0f4b4245c5067549ea18d",
+      "artifact_sha256": "759d43872db9077ca0a02a42da0e36fe642743675149500bafe59fe623aa88fe",
+      "artifact_sha256_note": "перепривязан 2026-11-11 после добавления блока CORRECTION (2026-11-11) в конец артефакта; исходный текст записи не переписывался, прежний хеш 96b8ae55… относился к версии без поправки",
       "coverage_effect": "0 строк переведено в VERIFIED: выкат исправляет нарушенный инвариант ADR-1019 и не меняет поведения слайса, поэтому девять строк VMQ-TIME-01..09 остаются PENDING с прежними evidence на 709865f6"
     }
   },
