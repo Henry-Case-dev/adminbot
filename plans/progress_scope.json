@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T17:50:00+12:00",
+  "updated": "2026-11-11T19:45:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -812,13 +812,13 @@
         }
       },
       "config_caveat": {
-        "item": "CHAT_RAG_RERANK_ENABLED factory default is False and that is the production value",
-        "consequence": "The period-protection branch is dormant in production because nothing filters the slice. With the reranker off, old-period rows arrive unfiltered (measured earlier: a person question returned 2024 and 2025), so delivery works, but the accepted sample was measured with the flag ON.",
-        "classification": "configuration fact, not a mechanism defect",
-        "decision_needed": "whether the ready reranking feature should be enabled by default under the project's standing rule; it costs an extra model call per turn, so it is a cost/quality choice rather than a defect"
+        "item": "correction of an earlier wrong audit",
+        "detail": "An audit on 2026-11-11 reported 'no bot_settings row, effective False'. Two later independent reads of the same production DB found the global row \"true\" with updated_at 2026-09-06. The first audit was wrong; therefore the period-protection branch was ACTIVE in production all along and the independent memory acceptance sample did match production conditions.",
+        "classification": "corrected record, no mechanism defect",
+        "remaining_decision": "none for the flag itself; the factory default now matches the accepted condition"
       },
       "config_fact_current": {
-        "CHAT_RAG_RERANK_ENABLED": "False (factory default, no hot or per-chat override)",
+        "CHAT_RAG_RERANK_ENABLED": "effectively True in production BEFORE the 2.58.186 release as well: the global hot row in bot_settings held \"true\" since 2026-09-06 14:48 UTC, no chat override existed, and no env variable was set. The 2.58.186 change aligned the FACTORY default with that reality and fixed the chat-level resolution (a stored chat opt-out was previously ignored because the gate read the global value without chat_id). The effective value did not change; what changed is that a fresh install and a chat opt-out now behave correctly.",
         "GRAPH_RAG_ENABLED": "True",
         "GRAPH_RAG_FACTS_LIMIT": 10,
         "GRAPH_RAG_CONTEXT_MAX_CHARS": 2000,
