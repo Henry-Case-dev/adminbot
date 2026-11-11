@@ -214,7 +214,15 @@ ROUTES_SHA256_F11 = (
     # канонического резолвера (`resolve_module_capability`). Новых
     # @router-маршрутов НЕТ (Δ routes=0), RBAC/маскировка/DDL не менялись,
     # f8_baseline не переиздавался. Хэш переутверждён осознанно.
-    "1a7d0d4e89c9203b3047700fd4c46e5d0372a03385f88af224811db5749d46f4")
+    # UR-F INSPECTOR шаг 2 (11.11.2026, L-F11S-1 conscious requalification):
+    # аддитивная проекция СУЩЕСТВУЮЩЕГО GET /api/direct/turn-diagnostics —
+    # разделы stages/source/clock.stages/selection/search/style со строгим
+    # allowlist (null вместо 0, id только реальных namespace, URL без
+    # управляющих символов, include_text=1 под can_access_chat на тот же
+    # чат). Новых @router-маршрутов НЕТ (Δ routes=0: 62 -> 62), RBAC/маскировка
+    # не менялись, DDL=0 (схема v47), f8_baseline не переиздавался. Хэш
+    # переутверждён осознанно.
+    "0d15c69025d6fdea55a5a25a441cac7f998847824998bc5c7ff01c8e22984860")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
@@ -492,7 +500,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.184"
+        assert APP_VERSION == "2.58.185"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")

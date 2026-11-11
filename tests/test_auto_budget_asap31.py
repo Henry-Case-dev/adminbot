@@ -208,6 +208,10 @@ class RecomposeFakeLLM:
         if fallback_payload_adapter is not None:
             adapted = fallback_payload_adapter(
                 {"model": self._chat_model, "messages": messages})
+            # UR-F шаг 1 (Q6): адаптер отдаёт (body, prepared-вариант), а
+            # LLMClient берёт только body — двойник повторяет это поведение.
+            if isinstance(adapted, tuple) and len(adapted) == 2:
+                adapted = adapted[0]
             self.adapted_calls.append(adapted)
             return "ok-adapted"
         return "ok"
