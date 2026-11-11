@@ -312,6 +312,167 @@ def evidence_independent_count(links: list[dict]) -> int:
     return len(seen)
 
 
+# ── Основания решения (grounds) как СОХРАНЯЕМАЯ структура ───────────────────
+#
+# Дефект 12.11.2026: отчёт называл основания, которых не было в сохранённом
+# JSON. Механизм один и тот же: между продюсером и хранилищем стоял
+# allowlist/`.get()`-сеть, поэтому ОТСУТСТВИЕ основания было неотличимо от
+# пустого значения. Здесь единственный контракт записи основания: id
+# первичного источника + его происхождение (чат/сообщение/автор) + явная
+# связь с элементом памяти/решением, которое он поддерживает.
+#
+# Независимость двух оснований решается ТОЛЬКО по происхождению и через
+# существующий примитив `evidence_independent_count` (одинаковое
+# происхождение → одно доказательство). Совпадение слов/фрагментов — это
+# релевантность вопросу, а не независимость подтверждений, и оно никогда не
+# даёт «verified» основание.
+
+#: Виды элементов, которые основание может поддерживать.
+GROUND_SUPPORTS = frozenset({"lesson", "rag_fact", "period_row", "decision"})
+
+
+def ground_root(store: str, entity_type: str, entity_id, chat_id) -> str:
+    """Корень происхождения основания — ТА ЖЕ identity, что дедуп
+    `mca_source_refs` (`store`/`entity_type`/`entity_id`/`chat_id`).
+
+    Два основания с одинаковым корнем — одно доказательство, даже если
+    пришли разными строками/выводами."""
+    return "{}:{}:{}:{}".format(
+        str(store or "unknown"), str(entity_type or "unknown"),
+        str(entity_id if entity_id is not None else ""),
+        "" if chat_id is None else str(int(chat_id)))
+
+
+def ground_record(*, entity_type: str, entity_id,
+                  store: str = "sqlite", chat_id=None,
+                  tg_message_id=None, author_id=None, origin=None,
+                  source_ref_id=None, resolution: str = "unknown",
+                  verification: str = "tentative",
+                  supports_kind: str = "", supports_id=None,
+                  channel: str | None = None, proxy: str | None = None,
+                  period_fill: bool = False,
+                  stems_shared=None,
+                  stems_shared_reason: str | None = None) -> dict:
+    """Одна сохраняемая запись основания (id + происхождение + связь).
+
+    `verification` — честный статус самого основания: `verified` только когда
+    основание ПРОВЕРЕНО (например, прошло валидацию урока), `tentative` когда
+    оно отобрано по релевантности (RAG-строка/периодный добор). Неизвестные
+    значения → `unknown` (не выдумываем статус).
+
+    `stems_shared` — ДРУГАЯ метрика: лексическая релевантность пары
+    «вопрос ↔ строка» (общие основы). Она переносится сюда как есть, вместе с
+    `stems_shared_reason`, и НИКОГДА не участвует в `independent_grounds_count`:
+    совпадение слов не делает основание независимым подтверждением. `None` =
+    значение не вычислялось для этой строки (причина обязательна)."""
+    entity = str(entity_type or "unknown")
+    if entity not in ENTITY_TYPES:
+        entity = "unknown"
+    res = str(resolution or "unknown")
+    if res not in RESOLUTIONS:
+        res = "unknown"
+    ver = str(verification or "unknown")
+    if ver not in VERIFICATIONS:
+        ver = "unknown"
+    kind = str(supports_kind or "")
+    if kind not in GROUND_SUPPORTS:
+        kind = ""
+    chat = None if chat_id is None else int(chat_id)
+    tg = None if tg_message_id is None else int(tg_message_id)
+    author = None if author_id is None else int(author_id)
+    ref_id = None if source_ref_id is None else int(source_ref_id)
+    origin_text = str(origin) if origin else None
+    return {
+        "provenance_root": ground_root(store, entity, entity_id, chat),
+        "source_ref_id": ref_id,
+        "store": str(store or "unknown"),
+        "entity_type": entity,
+        "entity_id": str(entity_id if entity_id is not None else ""),
+        "chat_id": chat,
+        "tg_message_id": tg,
+        "author_id": author,
+        "origin": origin_text,
+        "self_referential": is_self_referential_origin(origin_text),
+        "resolution": res,
+        "verification": ver,
+        "supports_kind": kind,
+        "supports_id": (None if supports_id is None else str(supports_id)),
+        "channel": (str(channel) if channel else None),
+        "proxy": (str(proxy) if proxy else None),
+        "period_fill": bool(period_fill),
+        # Лексическая релевантность (НЕ независимость). `None` + причина =
+        # для этой строки значение не вычислялось (не подменяем нулём).
+        "stems_shared": (None if stems_shared is None else int(stems_shared)),
+        "stems_shared_reason": (str(stems_shared_reason)
+                                if stems_shared_reason else None),
+    }
+
+
+def grounds_as_links(grounds) -> list[dict]:
+    """Основания → форма `mca_evidence_links` для `evidence_independent_count`.
+
+    `provenance_root` подставляется как `source_ref_id` — правило дедупа
+    (уникальный источник, не уникальная строка) не дублируется, а
+    переиспользуется. Собственные ответы бота помечаются
+    `self_referential` и примитивом не считаются."""
+    links: list[dict] = []
+    for ground in grounds or ():
+        if not isinstance(ground, dict):
+            continue
+        links.append({
+            "link_type": "derived_from",
+            "verification": str(ground.get("verification") or "unknown"),
+            "independence": ("self_referential"
+                             if ground.get("self_referential")
+                             else "independent"),
+            "source_ref_id": str(ground.get("provenance_root") or ""),
+        })
+    return links
+
+
+def independent_grounds_count(grounds) -> int:
+    """Сколько НЕЗАВИСИМЫХ оснований (по происхождению, не по числу строк).
+
+    REUSE `evidence_independent_count`: две копии одного источника, два
+    фрагмента одной реплики и собственный ответ бота — не подтверждения."""
+    return int(evidence_independent_count(grounds_as_links(grounds)))
+
+
+def distinct_ground_roots(grounds) -> int:
+    """Различные корни происхождения среди оснований (без фильтра статуса)."""
+    roots = {str(g.get("provenance_root") or "")
+             for g in grounds or () if isinstance(g, dict)}
+    roots.discard("")
+    return len(roots)
+
+
+#: Виды элементов, у которых `origin` есть по контракту (для честного пробела).
+_ORIGIN_ENTITY_TYPES = frozenset({"message", "graph_fact"})
+
+
+def ground_gaps(grounds) -> list[str]:
+    """Честные пробелы записи основания (коды, без догадок).
+
+    Пустой список — происхождение полное. `author_unknown`/`origin_unknown`
+    означают ровно «в сохранённых данных этого нет», а не «независимо».
+    `origin_unknown` сообщается только для видов, у которых `origin` есть по
+    контракту (у эпизода его не бывает — это не пробел)."""
+    gaps: set[str] = set()
+    for ground in grounds or ():
+        if not isinstance(ground, dict):
+            continue
+        entity_type = str(ground.get("entity_type"))
+        if not ground.get("origin") and entity_type in _ORIGIN_ENTITY_TYPES:
+            gaps.add("origin_unknown")
+        if ground.get("author_id") is None:
+            gaps.add("author_unknown")
+        if entity_type == "message" and ground.get("tg_message_id") is None:
+            gaps.add("message_id_missing")
+        if str(ground.get("resolution")) != "resolved":
+            gaps.add("source_unresolved")
+    return sorted(gaps)
+
+
 # ── БД-операции (REUSE `_provenance_*`; рантайм — через write_transaction) ──
 
 async def resolve_source_ref(db, ref: SourceRef) -> int | None:

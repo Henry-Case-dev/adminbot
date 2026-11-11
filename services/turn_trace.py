@@ -64,6 +64,9 @@ SELECTION_BLOCKS_MAX = 16
 SELECTION_SOURCE_IDS_MAX = 8
 SELECTION_DROPPED_MAX = 8
 SELECTION_SELF_OUTPUTS_MAX = 6
+#: Основания решения (id + происхождение) на блок: столько же, сколько
+#: `source_ids` — запись описывает ровно те элементы, что показаны блоком.
+SELECTION_GROUNDS_MAX = 8
 #: Ссылки выдачи (`source_links`) живут в отдельном JSON-слое
 #: `source_ref_json`, который `mca_events` ограничивает 2000 символами.
 SOURCE_LINKS_MAX = 6
@@ -795,7 +798,8 @@ def _json_size(value) -> int:
         return 0
 
 
-def _sel_block(item, *, cuts: dict | None = None) -> dict | None:
+def _sel_block(item, *, cuts: dict | None = None,
+               out_grounds: list | None = None) -> dict | None:
     """Один блок контекста: kind/role/rendered/даты/ссылки/токены (без текста).
 
     `role` — НЕ авторская роль участника: здесь лежит приоритет вытеснения
@@ -833,7 +837,85 @@ def _sel_block(item, *, cuts: dict | None = None) -> dict | None:
     tokens = _sel_int(item.get("tokens"))
     if tokens is not None:
         row["tokens"] = tokens
+    # Основания идут НЕ в блок, а в отдельный bounded-список события; здесь
+    # они только нормализуются — иначе allowlist снова их выбросит.
+    if out_grounds is not None:
+        out_grounds.extend(_sel_grounds(item.get("grounds"), cuts=cuts))
     return row
+
+
+def _compact_ground(item: dict) -> dict | None:
+    """Основание для durable-события: id + происхождение, без повторов.
+
+    `resolution`/`verification`/`proxy`/`period_fill` остаются только когда
+    отличаются от обычного значения — так запись не занимает бюджет
+    `usage_json`, но и не теряет смысл. `stems_shared` переносится всегда:
+    число либо `None` с причиной (лексическая метрика, не подтверждение)."""
+    if not isinstance(item, dict):
+        return None
+    row: dict = {}
+    entity_type = _code(item.get("entity_type"), 16)
+    if entity_type:
+        row["entity_type"] = entity_type
+    entity_id = _code(item.get("entity_id"), 48)
+    if entity_id:
+        row["entity_id"] = entity_id
+    for key in ("chat_id", "tg_message_id", "author_id"):
+        value = _sel_int(item.get(key))
+        if value is not None:
+            row[key] = value
+    origin = _code(item.get("origin"), 32)
+    if origin:
+        row["origin"] = origin
+    if item.get("self_referential"):
+        row["self_referential"] = True
+    if item.get("period_fill"):
+        row["period_fill"] = True
+    proxy = _code(item.get("proxy"), 16)
+    if proxy:
+        row["proxy"] = proxy
+    resolution = _code(item.get("resolution"), 16)
+    if resolution and resolution != "resolved":
+        row["resolution"] = resolution
+    verification = _code(item.get("verification"), 16)
+    if verification:
+        row["verification"] = verification
+    chain = _code(item.get("channel"), 24)
+    if chain:
+        row["channel"] = chain
+    root = _code(item.get("provenance_root"), 64)
+    if root:
+        row["provenance_root"] = root
+    if item.get("stems_shared") is None:
+        row["stems_shared"] = None
+        row["stems_shared_reason"] = (
+            _code(item.get("stems_shared_reason"), 32) or "not_computed")
+    else:
+        row["stems_shared"] = _sel_int(item.get("stems_shared"))
+    return row or None
+
+
+def _sel_grounds(items, *, cuts: dict | None = None) -> list:
+    """Основания решения: id + происхождение, БЕЗ текста (≤`SELECTION_GROUNDS_MAX`).
+
+    ДЕФЕКТ 12.11.2026: этот проектор собирал блок из закрытого набора ключей,
+    поэтому любое новое поле продюсера (основание с происхождением) молча
+    выпадало из сохранённого JSON — отчёт мог ссылаться на основание, которого
+    в хранилище не было. Теперь основания проходят насквозь (id/коды), а
+    усечение списка видно через `cuts` → `truncated`.
+
+    `stems_shared` остаётся ЛЕКСИЧЕСКОЙ метрикой и переносится как есть:
+    `None` означает «не вычислялось», причина — в `stems_shared_reason`."""
+    rows: list = []
+    for item in _sel_items(items, SELECTION_GROUNDS_MAX * 3):
+        row = _compact_ground(item)
+        if row:
+            rows.append(row)
+    if len(rows) > SELECTION_GROUNDS_MAX:
+        if cuts is not None:
+            cuts["grounds"] = True
+        rows = rows[:SELECTION_GROUNDS_MAX]
+    return rows
 
 
 def _sel_dropped(items, *, cuts: dict | None = None) -> tuple[list, int]:
@@ -937,12 +1019,51 @@ def _selection_payload(raw) -> dict:
                   if isinstance(item, dict)]
     if len(raw_blocks) > SELECTION_BLOCKS_MAX:
         cuts["blocks"] = True
+    collected_grounds: list = []
     blocks = [row for row in
-              (_sel_block(item, cuts=cuts)
+              (_sel_block(item, cuts=cuts, out_grounds=collected_grounds)
                for item in raw_blocks[:SELECTION_BLOCKS_MAX])
               if row]
     if blocks:
         payload["blocks"] = blocks
+    # Основания — ОТДЕЛЬНЫЙ bounded-список события, а не поле блоков: блоки
+    # описывают «что видел ответ», основания — «на что опирались». При
+    # нехватке бюджета `usage_json` сокращаются основания, а не состав блоков.
+    grounds_all: list = []
+    seen_grounds: set = set()
+    for ground in collected_grounds:
+        marker = (str(ground.get("entity_type")), str(ground.get("entity_id")),
+                  str(ground.get("provenance_root")))
+        if marker in seen_grounds:
+            continue
+        seen_grounds.add(marker)
+        grounds_all.append(ground)
+    if grounds_all:
+        # Приоритет сохранения — основания периода/лексического добора (у них
+        # есть `stems_shared`, вокруг которого идут споры о «двух основах»).
+        # Остальные идут следом; всё, что не влезло в бюджет `usage_json`,
+        # честно видно по `grounds_summary` и `truncated`.
+        grounds_all.sort(key=lambda g: 0 if g.get("stems_shared") is not None
+                         else 1)
+        payload["memory_grounds"] = grounds_all[:SELECTION_GROUNDS_MAX]
+        if len(grounds_all) > SELECTION_GROUNDS_MAX:
+            payload["truncated"] = True
+        roots = {str(g.get("provenance_root") or "") for g in grounds_all}
+        roots.discard("")
+        # Сводка по ВСЕМ вычисленным основаниям (не только по усечённому
+        # списку), поэтому усечение не искажает итог.
+        payload["grounds_summary"] = {
+            "total": len(grounds_all),
+            "roots": len(roots),
+            "self_referential": sum(1 for g in grounds_all
+                                    if g.get("self_referential")),
+            "period_fill": sum(1 for g in grounds_all
+                               if g.get("period_fill")),
+            "stems_shared_measured": sum(
+                1 for g in grounds_all if g.get("stems_shared") is not None),
+            "stems_shared_unmeasured": sum(
+                1 for g in grounds_all if g.get("stems_shared") is None),
+        }
     dropped, dropped_total = _sel_dropped(data.get("dropped"), cuts=cuts)
     if dropped:
         payload["dropped"] = dropped
@@ -972,6 +1093,16 @@ def _selection_payload(raw) -> dict:
         payload["truncated"] = True
         if dropped_total:
             payload["dropped_total"] = dropped_total
+    # Основания — производная информация: сокращаются ПЕРЕД выбросом блоков
+    # (иначе теряется «что видел ответ», UR-20.4).
+    if _json_size(payload) > _PAYLOAD_LIMIT:
+        for keep in (3, 1):
+            if _json_size(payload) <= _PAYLOAD_LIMIT:
+                break
+            grounds = payload.get("memory_grounds")
+            if isinstance(grounds, list) and len(grounds) > keep:
+                payload["memory_grounds"] = grounds[:keep]
+                payload["truncated"] = True
     while len(payload.get("blocks") or ()) > 1 \
             and _json_size(payload) > _PAYLOAD_LIMIT:
         payload["blocks"] = payload["blocks"][:-1]

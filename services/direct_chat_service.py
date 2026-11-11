@@ -2631,7 +2631,8 @@ def _sel_row_ids(rows, *, bot_user_id=None, limit: int | None = None) -> list:
 
 
 def _sel_block(*, kind: str, role: str, rendered: bool, skip_reason: str = "",
-               rows=(), tokens: int = 0, bot_user_id=None) -> dict:
+               rows=(), tokens: int = 0, bot_user_id=None,
+               grounds=None) -> dict:
     """Блок контекста хода: kind/role/rendered/ids/даты/токены (без текста).
 
     `source_ids`/`first_ts`/`last_ts` берутся из РЕАЛЬНЫХ строк, попавших в
@@ -2657,7 +2658,57 @@ def _sel_block(*, kind: str, role: str, rendered: bool, skip_reason: str = "",
         "first_ts": (min(stamps) if stamps else 0),
         "last_ts": (max(stamps) if stamps else 0),
         "tokens": int(tokens or 0),
+        # ДЕФЕКТ 12.11.2026: основания решения несли только id (`source_ids`),
+        # без происхождения, поэтому независимость нельзя было проверить ни в
+        # отчёте, ни в JSON. Здесь — записи `provenance.ground_record` (id +
+        # чат/сообщение/автор + связь с элементом памяти), если блок их знает.
+        "grounds": [dict(item) for item in (grounds or ())
+                    if isinstance(item, dict)],
     }
+
+
+def _rag_ground_records(rows: list, kept: list, chat_id) -> list:
+    """Основания RAG-блока: одна запись на ФАКТИЧЕСКИ вошедшую строку.
+
+    Происхождение берётся из той же строки, что ушла в блок (`chat_id`,
+    `tg_message_id`, `speaker_author_id`, `origin`, `subject_ref_id`,
+    `provenance_channel`); `verification='tentative'` — факт, отобранный по
+    релевантности/охвату, не является проверенным подтверждением. Поэтому
+    совпадение слов не превращается в «независимое подтверждение»: счётчик
+    `provenance.independent_grounds_count` такие основания не считает."""
+    by_id: dict = {}
+    for row in rows or ():
+        if not isinstance(row, dict):
+            continue
+        key = str(row.get("item_id") or "")
+        if key:
+            by_id[key] = row
+    out: list = []
+    for item in kept or ():
+        key = str(_rag_item_key(item) or "")
+        row = by_id.get(key) or {}
+        out.append(_prov.ground_record(
+            store="sqlite", entity_type="graph_fact",
+            entity_id=(key or str(item[0] if item else "")),
+            chat_id=(row.get("chat_id")
+                     if row.get("chat_id") is not None else chat_id),
+            tg_message_id=row.get("tg_message_id"),
+            author_id=row.get("speaker_author_id"),
+            origin=(row.get("origin") if row else (item[0] if item else None)),
+            source_ref_id=row.get("subject_ref_id"),
+            resolution=("resolved" if row else "unknown"),
+            verification="tentative",
+            supports_kind="rag_fact", supports_id=(key or None),
+            channel=row.get("provenance_channel"),
+            proxy=_rag_subject_proxy_of(row) if row else None,
+            period_fill=bool(row.get("period_fill")),
+            stems_shared=row.get("stems_shared"),
+            stems_shared_reason=(row.get("stems_shared_reason")
+                                 or (None if row.get("stems_shared") is not None
+                                     else ("not_period_row"
+                                           if not row.get("period_fill")
+                                           else "not_computed")))))
+    return out
 
 
 def _sel_piece_line_keys(piece) -> set:
@@ -3481,7 +3532,13 @@ def _rag_subject_stems(text) -> set:
 
 
 def _rag_subject_shared(query_stems: set, text) -> int:
-    """Сколько разных основ делят вопрос и текст факта (§2, порог ≥2)."""
+    """Сколько РАЗНЫХ основ делят вопрос и текст факта (§2, порог ≥2 основ).
+
+    Это ЛЕКСИЧЕСКАЯ релевантность пары «вопрос ↔ строка», а НЕ независимость
+    оснований утверждения (та считается по происхождению,
+    `provenance.independent_grounds_count`). Одно и то же вычисление
+    используется решением §2 и полем `stems_shared` диагностики: значение
+    не пересчитывается вторым способом ни в отчёте, ни в JSON."""
     if not query_stems or not str(text or "").strip():
         return 0
     return len(query_stems & _rag_subject_stems(text))
@@ -10954,6 +11011,11 @@ class DirectChatService:
                     _block["source_ids"] = _rag_ids[:_MAX_SELECTION_IDS]
                     _block["first_ts"] = int(rag_memory.get("first_ts") or 0)
                     _block["last_ts"] = int(rag_memory.get("last_ts") or 0)
+                    # Основания того же решения (происхождение, не только id).
+                    _block["grounds"] = [
+                        dict(item) for item in
+                        (rag_memory.get("grounds") or ())
+                        if isinstance(item, dict)][:_MAX_SELECTION_IDS]
                     _full_ids[_kind] = _rag_ids
                 elif _kind == "episode":
                     # Спаны фактически вошедших эпизодов (без текста строк).
@@ -13947,6 +14009,14 @@ class DirectChatService:
         * Порядок обхода: сначала строки векторной ноги, затем лексические —
           слоты `limit//5` забирает смысловой путь, а не случайное слово.
 
+        VMQ-MEM next stage (§2, уточнение 12.11.2026): `stems_shared` —
+        ЛЕКСИЧЕСКАЯ релевантность (общие основы вопроса и текста), а не
+        независимость оснований. Значение считается ЗДЕСЬ существующим
+        `_rag_subject_shared` и пишется в саму строку (`stems_shared` +
+        `stems_shared_reason`), чтобы отчёт и JSON читали ОДНО вычисление, а
+        не пересчитывали по-своему. Где порог не применяется (векторная нога
+        под `historical`) — `None` + причина, а не выдуманный 0.
+
         Возвращает `(принятые, число_отклонённых_по_предмету)`."""
         strict = str(policy or "") != "historical"
         query_stems = _rag_subject_stems(query)
@@ -13959,10 +14029,16 @@ class DirectChatService:
         for row in vector_rows + lexical_rows:
             knn_row = _rag_subject_proxy_of(row) == "knn"
             if knn_row and not strict:
+                if isinstance(row, dict):
+                    row["stems_shared"] = None
+                    row["stems_shared_reason"] = "vector_leg_no_threshold"
                 accepted.append(row)
                 continue
-            if _rag_subject_shared(query_stems, row.get("fact")) >= \
-                    cls._RAG_PERIOD_MIN_STEMS:
+            shared = _rag_subject_shared(query_stems, row.get("fact"))
+            if isinstance(row, dict):
+                row["stems_shared"] = int(shared)
+                row["stems_shared_reason"] = "lexical_threshold_applied"
+            if shared >= cls._RAG_PERIOD_MIN_STEMS:
                 accepted.append(row)
             else:
                 rejected += 1
@@ -14353,6 +14429,10 @@ class DirectChatService:
                 out_memory["source_ids"] = ids
                 out_memory["first_ts"] = min(stamps) if stamps else 0
                 out_memory["last_ts"] = max(stamps) if stamps else 0
+                # Основания решения: id + происхождение каждого вошедшего
+                # факта (R17: без текста). Раньше здесь были только id.
+                out_memory["grounds"] = _rag_ground_records(
+                    rows, kept, chat_id)
             except Exception:      # pragma: no cover - наблюдение не рвёт блок
                 pass
         return f"<RAG_Memory>\n{content}\n</RAG_Memory>", hint

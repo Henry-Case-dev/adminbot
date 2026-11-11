@@ -287,6 +287,35 @@ def _sha1_16(*parts) -> str:
     return hashlib.sha1(material.encode("utf-8")).hexdigest()[:16]
 
 
+#: Токены оснований урока (`independent_sources`) — те же формы, что пишут
+#: продюсеры: `message:<id>` для реплики и голый `episode_id` для эпизода.
+_GROUND_MESSAGE_PREFIX = "message:"
+
+
+def _ground_token(ref: dict, scope_chat_id) -> str | None:
+    """SourceRef-строка → токен основания в форме `independent_sources`.
+
+    Только те виды источников, для которых у урока есть форма токена; прочие
+    (`lesson`, `graph_fact`, …) сюда не подставляются — иначе восстановление
+    выдумывало бы основания нового вида."""
+    entity_type = str((ref or {}).get("entity_type") or "")
+    entity_id = str((ref or {}).get("entity_id") or "")
+    if not entity_id:
+        return None
+    if entity_type == "message":
+        tg = (ref or {}).get("tg_message_id")
+        chat = (ref or {}).get("chat_id")
+        known_chat = scope_chat_id if scope_chat_id is not None else chat
+        if known_chat is not None and chat is not None \
+                and int(chat) != int(known_chat):
+            return None                    # чужой чат — не основание урока
+        return f"{_GROUND_MESSAGE_PREFIX}" \
+               f"{entity_id if tg is None else tg}"
+    if entity_type == "episode":
+        return entity_id
+    return None
+
+
 def feedback_dedup_key(source_kind, chat_id, ref_type, ref_id,
                        identity: str | None = None) -> str:
     """Стабильная идентичность feedback (EXP-FIX-09).
@@ -919,6 +948,120 @@ class ExperienceStore:
             "ORDER BY application_id DESC LIMIT 1",
             (str(lesson_id), int(version), str(application_ref)))
         return _row_dict(await cursor.fetchone())
+
+    # ── основания урока: чтение и ОДНОРАЗОВОЕ восстановление ─────────────────
+
+    async def lesson_grounds_from_links(self, source_ref_ids) -> dict:
+        """Основания уроков из СОХРАНЁННЫХ evidence-связей (mca-04a).
+
+        `{subject_ref_id: [source_ref dict, …]}` — источники типа episode /
+        message / прочие, на которые урок опирается по `mca_evidence_links`.
+        Ничего не выдумывает: нет связей — пустой список."""
+        ids = sorted({int(x) for x in (source_ref_ids or ())
+                      if x is not None})
+        if not ids:
+            return {}
+        marks = ",".join("?" for _ in ids)
+        cursor = await self._db.db.execute(
+            "SELECT l.subject_ref_id AS subject_ref_id, "
+            "r.source_ref_id AS source_ref_id, r.store AS store, "
+            "r.entity_type AS entity_type, r.entity_id AS entity_id, "
+            "r.chat_id AS chat_id, r.tg_message_id AS tg_message_id, "
+            "r.resolution AS resolution "
+            "FROM mca_evidence_links l JOIN mca_source_refs r "
+            "ON r.source_ref_id = l.source_ref_id "
+            "WHERE l.subject_ref_id IN (" + marks + ") "
+            "AND l.link_type IN ('derived_from','supports')", tuple(ids))
+        out: dict = {}
+        for row in await cursor.fetchall():
+            item = _row_dict(row) or {}
+            subject = item.get("subject_ref_id")
+            if subject is None:
+                continue
+            out.setdefault(int(subject), []).append(item)
+        return out
+
+    async def recover_lesson_grounds(self, *, chat_id: int | None = None,
+                                     limit: int = 500) -> dict:
+        """Восстановить `independent_sources` урока из сохранённых связей.
+
+        Дефект 12.11.2026: `validate()` заменял список оснований более узким
+        (для preference-уроков — пустым), поэтому у подтверждённого урока
+        оставался `confirmation_count` без единого основания. Здесь список
+        восстанавливается ТОЛЬКО из уже существующих данных
+        (`mca_evidence_links` → `mca_source_refs`): ничего не выдумывается,
+        статус урока не меняется, отметки «VERIFIED» не ставятся.
+
+        Идемпотентно: второй прогон на тех же данных ничего не пишет.
+        Возвращает отчёт `{scanned, repaired, refused, unchanged}`.
+        Отсутствие колонок v46 (старая БД) → `scanned=0`, честный отказ."""
+        report = {"scanned": 0, "repaired": [], "refused": [], "unchanged": 0}
+        try:
+            columns = {str(r["name"]) for r in await (await self._db.db.execute(
+                "PRAGMA table_info(mca_lessons)")).fetchall()}
+        except Exception:
+            columns = set()
+        if not {"independent_sources", "confirmation_count"} <= columns:
+            report["refused"].append({"reason": "schema_without_v46_columns"})
+            return report
+        where = " AND scope_chat_id = ?" if chat_id is not None else ""
+        params: tuple = (int(chat_id),) if chat_id is not None else ()
+        cursor = await self._db.db.execute(
+            "SELECT lesson_id, version, scope_chat_id, source_ref_id, "
+            "independent_sources FROM mca_lessons WHERE "
+            "(independent_sources IS NULL OR independent_sources IN ('', '[]'))"
+            + where + " ORDER BY updated_at DESC LIMIT ?",
+            (*params, max(1, int(limit))))
+        rows = [_row_dict(r) or {} for r in await cursor.fetchall()]
+        report["scanned"] = len(rows)
+        if not rows:
+            return report
+        links = await self.lesson_grounds_from_links(
+            [r.get("source_ref_id") for r in rows])
+        for row in rows:
+            lesson_id = str(row.get("lesson_id") or "")
+            version = int(row.get("version") or 0)
+            recovered: list[str] = []
+            for ref in links.get(int(row.get("source_ref_id") or 0), []) \
+                    if row.get("source_ref_id") is not None else []:
+                token = _ground_token(ref, row.get("scope_chat_id"))
+                if token and token not in recovered:
+                    recovered.append(token)
+            if not recovered:
+                report["refused"].append({
+                    "lesson_id": lesson_id, "version": version,
+                    "reason": "no_stored_evidence_links"})
+                continue
+            count = max(len(recovered), 0)
+            current_count = 0
+            try:
+                stored_row = await self.get_lesson(lesson_id, version)
+                current_count = int((stored_row or {}).get(
+                    "confirmation_count") or 0)
+            except Exception:
+                current_count = 0
+
+            async def _body(conn, lid=lesson_id, ver=version,
+                            tokens=tuple(sorted(recovered)),
+                            total=max(count, current_count)):
+                cursor_ = await conn.execute(
+                    "UPDATE mca_lessons SET independent_sources = ?, "
+                    "confirmation_count = ?, updated_at = updated_at "
+                    "WHERE lesson_id = ? AND version = ? AND "
+                    "(independent_sources IS NULL OR independent_sources IN "
+                    "('', '[]'))",
+                    (json.dumps(list(tokens)), int(total), lid, ver))
+                return cursor_.rowcount
+
+            written = await self._db.write_transaction(
+                _body, op_name="mca16_lesson_grounds_recover")
+            if written:
+                report["repaired"].append({
+                    "lesson_id": lesson_id, "version": version,
+                    "recovered": sorted(recovered)})
+            else:
+                report["unchanged"] += 1
+        return report
 
     async def count(self, table: str) -> int:
         allowed = {
@@ -1634,12 +1777,26 @@ class LessonService:
                   })
             return False
         count = len(ev.evidence_sources())
+        # ДЕФЕКТ 12.11.2026 (основания в отчёте, но не в хранилище): здесь
+        # стояла ЗАМЕНА сохранённого списка на `ev.evidence_sources()`. Для
+        # `explicit_preference`/`humor_instruction` набор оснований в
+        # ValidationEvidence пуст (проверка идёт по правам/конфликту), поэтому
+        # подтверждённый урок терял уже сохранённые первичные источники, а
+        # `confirmation_count` (max-защищённый) продолжал утверждать
+        # «подтверждений N» — число без оснований. Теперь список только
+        # РАСТЁТ (объединение), недостающие основания не выдумываются.
+        try:
+            stored_sources = [str(x) for x in json.loads(
+                lesson.get("independent_sources") or "[]")]
+        except (TypeError, ValueError):
+            stored_sources = []
+        merged = sorted(set(stored_sources) | set(ev.evidence_sources()))
         updated = await self._store.set_lesson_status(
             lesson_id, version, "validated", last_validated_at=_now(),
             validator_version=VALIDATOR_VERSION,
             confirmation_count=max(count, int(
                 lesson.get("confirmation_count") or 0)),
-            independent_sources=json.dumps(sorted(ev.evidence_sources())))
+            independent_sources=json.dumps(merged))
         if updated:
             _emit("validation_passed", outcome="success",
                   reason_code="validation_passed", entity_ids=[str(lesson_id)],

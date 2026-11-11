@@ -50,6 +50,8 @@ import json
 import logging
 import time
 
+from services import provenance as _prov
+
 logger = logging.getLogger(__name__)
 
 #: Этапы цепочки в порядке следования (лейблы — для витрины, не для логики).
@@ -888,6 +890,272 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
     }
 
 
+_LESSONS_PAGE_MAX = 50
+_LESSON_GROUNDS_MAX = 8
+
+
+def _token_int(value):
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _stored_lesson_tokens(lesson: dict) -> list[str]:
+    """`mca_lessons.independent_sources` → список токенов (без исключений).
+
+    Битый/пустой JSON — честно пустой список, а не выдуманное основание."""
+    raw = (lesson or {}).get("independent_sources")
+    if not raw:
+        return []
+    try:
+        values = json.loads(raw) if isinstance(raw, (str, bytes)) else raw
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(values, (list, tuple)):
+        return []
+    out: list[str] = []
+    for value in values:
+        text = str(value if value is not None else "").strip()
+        if text and text not in out:
+            out.append(text)
+    return out
+
+
+def _lesson_ground_from_token(token: str, lesson: dict,
+                              refs: list[dict], episodes: dict) -> dict:
+    """Токен основания урока → запись происхождения (id + чат/сообщение/автор).
+
+    Разрешение идёт по СОХРАНЁННЫМ данным: evidence-связи урока
+    (`mca_evidence_links` → `mca_source_refs`) и `mca_experience_episodes`.
+    Если в данных ничего нет — запись остаётся с честным `unresolved`/
+    `author_unknown`, а не с придуманным адресом."""
+    scope_chat = (lesson or {}).get("scope_chat_id")
+    chat = None if scope_chat is None else int(scope_chat)
+    for ref in refs or ():
+        if str(ref.get("entity_type")) not in ("message", "episode"):
+            continue
+        ref_id = str(ref.get("entity_id") or "")
+        ref_tg = (str(ref.get("tg_message_id"))
+                  if ref.get("tg_message_id") is not None else "")
+        token_tail = token.split(":", 1)[1] if ":" in token else token
+        if token not in (ref_id, ref_tg) \
+                and token_tail not in (ref_id, ref_tg):
+            continue
+        ref_chat = ref.get("chat_id")
+        author = None
+        if str(ref.get("entity_type")) == "episode":
+            author = (episodes.get(ref_id) or {}).get("user_id")
+        return _prov.ground_record(
+            store=str(ref.get("store") or "sqlite"),
+            entity_type=str(ref.get("entity_type")),
+            entity_id=ref_id,
+            chat_id=(None if ref_chat is None else ref_chat),
+            tg_message_id=ref.get("tg_message_id"),
+            author_id=author,
+            source_ref_id=ref.get("source_ref_id"),
+            resolution=str(ref.get("resolution") or "unknown"),
+            verification="verified",
+            supports_kind="lesson",
+            supports_id=str(lesson.get("lesson_id") or ""),
+            channel="evidence_link")
+    if token.startswith("message:"):
+        msg_id = _token_int(token.split(":", 1)[1])
+        return _prov.ground_record(
+            store="sqlite", entity_type="message",
+            entity_id=(str(msg_id) if msg_id is not None else token),
+            chat_id=chat, tg_message_id=msg_id,
+            resolution=("resolved" if chat is not None and msg_id is not None
+                        else "unresolved"),
+            verification="verified", supports_kind="lesson",
+            supports_id=str(lesson.get("lesson_id") or ""),
+            channel="lesson_source_token")
+    episode = episodes.get(token)
+    if episode is not None:
+        return _prov.ground_record(
+            store="sqlite", entity_type="episode", entity_id=token,
+            chat_id=episode.get("chat_id"),
+            author_id=episode.get("user_id"),
+            resolution=("resolved"
+                        if episode.get("chat_id") is not None else "unresolved"),
+            verification="verified", supports_kind="lesson",
+            supports_id=str(lesson.get("lesson_id") or ""),
+            channel="lesson_source_token")
+    return _prov.ground_record(
+        store="unknown", entity_type="unknown", entity_id=token,
+        chat_id=chat, resolution="unresolved", verification="unknown",
+        supports_kind="lesson", supports_id=str(lesson.get("lesson_id") or ""),
+        channel="lesson_source_token")
+
+
+def _lesson_grounds_state(grounds: list[dict], tokens: list[str],
+                          confirmation_count: int) -> str:
+    """Состояние оснований урока: `complete`/`partial`/`none`/`no_data`.
+
+    `none` — число подтверждений есть, а оснований нет (дефект виден, а не
+    замаскирован). `no_data` — ни подтверждений, ни оснований."""
+    if not grounds:
+        return "none" if confirmation_count > 0 else "no_data"
+    unresolved = [g for g in grounds
+                  if str(g.get("resolution")) != "resolved"]
+    if tokens and len(grounds) < len(tokens):
+        return "partial"
+    return "partial" if unresolved else "complete"
+
+
+def _lesson_grounds_line(item: dict) -> dict:
+    """Текстовая строка об основаниях урока — ТОЛЬКО из `item` (тех же записей).
+
+    Ничего не добавляет от себя: `refs` — ровно те основания, что лежат в
+    JSON этого же ответа, поэтому отчёт не может назвать основание, которого
+    в машиночитаемых данных нет."""
+    refs: list[str] = []
+    parts: list[str] = []
+    for ground in item.get("grounds") or ():
+        ref = f"{ground.get('entity_type')}:{ground.get('entity_id')}"
+        if ref not in refs:
+            refs.append(ref)
+        chat = ground.get("chat_id")
+        author = ground.get("author_id")
+        origin = ground.get("origin") or "неизвестно"
+        parts.append(
+            f"{ref} (чат {chat if chat is not None else '—'}, "
+            f"автор {author if author is not None else 'неизвестен'}, "
+            f"происхождение {origin}, "
+            f"{'собственный вывод бота' if ground.get('self_referential') else 'внешний'})")
+    head = (f"урок {str(item.get('lesson_id'))[:8]} v{item.get('version')} "
+            f"[{item.get('status')}/{item.get('origin_kind')}]: "
+            f"подтверждений {item.get('confirmation_count')}, "
+            f"независимых по происхождению {item.get('independent_grounds')}")
+    if item.get("confirmation_count_mismatch"):
+        head += " — СОХРАНЁННЫЕ ОСНОВАНИЯ НЕ ПОДТВЕРЖДАЮТ ЭТО ЧИСЛО"
+    if parts:
+        text = f"{head}; основания: " + "; ".join(parts)
+    elif str(item.get("grounds_state")) == "none":
+        text = f"{head}; оснований в сохранённых данных нет"
+    else:
+        text = f"{head}; оснований нет"
+    return {"lesson_id": str(item.get("lesson_id") or ""),
+            "text": text, "refs": refs}
+
+
+def grounds_consistency_violations(lessons_block: dict) -> list[str]:
+    """Инвариант «отчёт ⊆ JSON»: строка не может называть отсутствующее.
+
+    Пустой список — согласовано. Проверка независима от текста: сравниваются
+    `refs` строки и `grounds` этого же payload'а, поэтому allowlist-проектор,
+    выбросивший `grounds`, сразу даёт нарушение."""
+    violations: list[str] = []
+    items = {str(item.get("lesson_id") or ""): item
+             for item in (lessons_block or {}).get("items") or ()
+             if isinstance(item, dict)}
+    for line in (lessons_block or {}).get("lines") or ():
+        if not isinstance(line, dict):
+            continue
+        lesson_id = str(line.get("lesson_id") or "")
+        item = items.get(lesson_id)
+        if item is None:
+            violations.append(f"line_without_item:{lesson_id}")
+            continue
+        present = {f"{g.get('entity_type')}:{g.get('entity_id')}"
+                   for g in item.get("grounds") or ()
+                   if isinstance(g, dict)}
+        for ref in line.get("refs") or ():
+            if str(ref) not in present:
+                violations.append(f"ref_not_in_json:{lesson_id}:{ref}")
+    return violations
+
+
+async def _lesson_grounds_page(db, lesson_rows: list[dict]) -> tuple[list, list]:
+    """Основания страницы уроков (≤`_LESSONS_PAGE_MAX`) + текстовые строки.
+
+    Основания берутся из СОХРАНЁННЫХ данных; независимость считается по
+    происхождению (`provenance.independent_grounds_count`), а не по числу
+    фрагментов и не по совпадению слов."""
+    page = lesson_rows[:_LESSONS_PAGE_MAX]
+    if not page:
+        return [], []
+    ref_ids = [row.get("source_ref_id") for row in page
+               if row.get("source_ref_id") is not None]
+    token_episode_ids = []
+    for row in page:
+        for token in _stored_lesson_tokens(row):
+            if not token.startswith("message:"):
+                token_episode_ids.append(token)
+    links: dict = {}
+    try:
+        from services.mca_experience import get_service
+        store = get_service(db).store
+        links = await store.lesson_grounds_from_links(ref_ids)
+    except Exception:
+        logger.debug("[exp_diag] lesson evidence links unavailable",
+                     exc_info=True)
+        links = {}
+    episodes: dict = {}
+    if token_episode_ids:
+        try:
+            marks = ",".join("?" for _ in token_episode_ids)
+            rows = await _fetch_all(
+                db, "SELECT episode_id, chat_id, user_id FROM "
+                "mca_experience_episodes WHERE episode_id IN (" + marks + ")",
+                tuple(token_episode_ids))
+            episodes = {str(r.get("episode_id")): r for r in rows}
+        except Exception:
+            episodes = {}
+    items: list[dict] = []
+    for row in page:
+        lesson = dict(row)
+        tokens = _stored_lesson_tokens(lesson)
+        refs = list(links.get(int(lesson.get("source_ref_id")), [])) \
+            if lesson.get("source_ref_id") is not None else []
+        grounds: list[dict] = []
+        seen: set = set()
+        for token in tokens:
+            ground = _lesson_ground_from_token(token, lesson, refs, episodes)
+            root = str(ground.get("provenance_root") or "")
+            if root and root in seen:
+                continue
+            seen.add(root)
+            grounds.append(ground)
+        # Связи, которых нет в списке токенов (восстановимое основание уже
+        # сохранено, но список ещё не починен) — тоже основания урока.
+        for ref in refs:
+            ground = _lesson_ground_from_token(
+                str(ref.get("entity_id") or ""), lesson, [ref], episodes)
+            root = str(ground.get("provenance_root") or "")
+            if not root or root in seen:
+                continue
+            seen.add(root)
+            grounds.append(ground)
+        total = len(grounds)
+        capped = grounds[:_LESSON_GROUNDS_MAX]
+        count = _int(lesson.get("confirmation_count"))
+        item = {
+            "lesson_id": str(lesson.get("lesson_id") or ""),
+            "version": _int(lesson.get("version")),
+            "status": str(lesson.get("status") or ""),
+            "type": str(lesson.get("type") or ""),
+            "scope": str(lesson.get("scope") or ""),
+            "scope_chat_id": lesson.get("scope_chat_id"),
+            "origin_kind": str(lesson.get("origin_kind") or "unknown"),
+            "confirmation_count": count,
+            "temporal_rank": lesson.get("temporal_rank"),
+            "last_validated_at": _opt_ts(lesson.get("last_validated_at")),
+            "grounds": capped,
+            "grounds_total": total,
+            "grounds_truncated": total > len(capped),
+            "distinct_ground_roots": _prov.distinct_ground_roots(capped),
+            "independent_grounds": _prov.independent_grounds_count(capped),
+            "grounds_state": _lesson_grounds_state(capped, tokens, count),
+            "gaps": _prov.ground_gaps(capped),
+        }
+        item["confirmation_count_mismatch"] = bool(
+            count > 0 and item["distinct_ground_roots"] < count)
+        items.append(item)
+    lines = [_lesson_grounds_line(item) for item in items]
+    return items, lines
+
+
 async def _learning_analytics(db, *, chat_id: int | None = None) -> dict:
     """Аналитика семантического контракта (read-only; §5).
 
@@ -915,8 +1183,11 @@ async def _learning_analytics(db, *, chat_id: int | None = None) -> dict:
     try:
         lesson_rows = await _fetch_all(
             db,
-            "SELECT status, temporal_rank, confirmation_count, origin_kind, "
-            "last_validated_at FROM mca_lessons" + where, params)
+            "SELECT lesson_id, version, status, type, scope, scope_chat_id, "
+            "temporal_rank, confirmation_count, origin_kind, "
+            "last_validated_at, independent_sources, source_ref_id "
+            "FROM mca_lessons" + where
+            + " ORDER BY updated_at DESC, lesson_id, version DESC", params)
     except Exception:
         lesson_rows = []
     confirmed = stale = 0
@@ -945,6 +1216,11 @@ async def _learning_analytics(db, *, chat_id: int | None = None) -> dict:
             "total_rows": _int(value.get("total")),
             "last_ts": _opt_ts(value.get("last_ts")),
         })
+    lesson_items, lesson_lines = await _lesson_grounds_page(db, lesson_rows)
+    state_counts: dict[str, int] = {}
+    for item in lesson_items:
+        state = str(item.get("grounds_state") or "no_data")
+        state_counts[state] = state_counts.get(state, 0) + 1
     return {
         "fresh_lag": {
             "lag_rows": _int(progress.get("backlog_rows")),
@@ -956,8 +1232,24 @@ async def _learning_analytics(db, *, chat_id: int | None = None) -> dict:
             "watermark": _int(payload.get("archive_watermark")),
             "coverage_by_chat_year": coverage[:200],
         },
-        "lessons": {"confirmed": confirmed, "stale": stale,
-                    "by_origin": by_origin},
+        "lessons": {
+            "confirmed": confirmed, "stale": stale, "by_origin": by_origin,
+            # ДЕФЕКТ 12.11.2026: агрегаты выше не несли ни одного первичного
+            # основания (id + происхождение), поэтому отчёт мог назвать
+            # подтверждения, которых в сохранённом JSON не было. `items` —
+            # основания КАЖДОГО урока из сохранённых данных, `lines` —
+            # текстовый вид тех же записей (один источник, не два).
+            "total": len(lesson_rows),
+            "items": lesson_items,
+            "items_truncated": len(lesson_rows) > _LESSONS_PAGE_MAX,
+            "lines": lesson_lines,
+            "grounds_state_counts": state_counts,
+            "note": ("independent_grounds считается по ПРОИСХОЖДЕНИЮ "
+                     "(provenance, уникальный источник), а не по числу строк: "
+                     "две копии одного источника и собственный ответ бота "
+                     "подтверждением не являются. Пустые основания — "
+                     "«нет данных», а не ноль подтверждений."),
+        },
         "counters": {
             "candidates_total": _int(durable.get("candidates_total")),
             "lessons_activated": _int(durable.get("lessons_activated")),
