@@ -2988,6 +2988,10 @@
     template_empty: 'шаблон картинки пуст',
     image_generation_failed: 'генерация картинки не удалась',
     publish_blocked: 'публикация заблокирована',
+    // P0IM-S5B: точные причины закрытия попытки без отправки. Значения
+    // приходят из фактов журнала (`detail`), поэтому подписи нужны здесь.
+    publisher_not_bound: 'отправитель не привязан в этом процессе',
+    deferred_publication_expired: 'срок отложенной публикации истёк',
     daily_quota_reached: 'суточная квота исчерпана',
     low_activity: 'мало активности',
     schema_absent: 'схемы журнала/брони нет',
@@ -3259,6 +3263,14 @@
         unlimited: quota.unlimited === true,
         limitReached: quota.limit_reached === true,
         nextResetText: String(quota.next_reset || ''),
+        // P0IM-S5B-QUOTA: «израсходовано» ≠ «отправлено» (факт доставки по
+        // списанным слотам; null = фактов нет).
+        delivered: (quota.delivered == null ? null : Number(quota.delivered)),
+        notDelivered: (quota.not_delivered == null
+          ? null : Number(quota.not_delivered)),
+        notDeliveredReasons: (quota.not_delivered_reasons
+          && typeof quota.not_delivered_reasons === 'object')
+          ? quota.not_delivered_reasons : {},
       },
       publication: (pub ? {
         available: pub.available === true,
@@ -4241,6 +4253,8 @@
     confirmed: 'доставлено',
     unknown: 'доставка неизвестна',
     never: 'ещё не доставлял',
+    // P0IM-S5B-DELIVERY-FACT: попытка закрыта без отправки — факт с причиной.
+    not_delivered: 'не доставлено',
   };
   var INI_HEALTH_STATE_LABELS = {
     ok: 'исправно',
@@ -4643,6 +4657,15 @@
         + ' · id сообщения нет';
     } else if (status === 'never') {
       text = 'ещё не доставлял';
+    } else if (status === 'not_delivered') {
+      // Попытка закрыта без отправки: время и ТОЧНАЯ причина известны.
+      // Код печатается как «код: …» только если человеческой подписи нет —
+      // так же, как остальные неизвестные коды в карточке.
+      var code = String((d && d.reason_code) || '');
+      var reason = code ? iniCodeLabel(code) : 'причина не записана';
+      text = 'не доставлено'
+        + (when ? (' · ' + when) : '')
+        + ' · причина: ' + reason;
     } else {
       text = (status ? (INI_CODE_PREFIX + status) : INI_NO_DATA);
     }
@@ -4654,6 +4677,7 @@
       deliveryAt: (d && d.at != null) ? Number(d.at) : null,
       deliveryMessageId: msgId,
       deliveryDestination: dest,
+      deliveryReasonCode: String((d && d.reason_code) || ''),
     };
   }
 
@@ -4806,14 +4830,54 @@
     text += ' · израсходовано ' + (q.used == null ? 'неизвестно' : q.used);
     text += ' · осталось ' + (q.remaining == null ? 'неизвестно' : q.remaining);
     if (isText === false && q.limit_reached === true) text += ' · предел';
+    if (isText === false) {
+      var nd = iniQuotaNotDeliveredOf(q);
+      text += iniQuotaNotDeliveredNote(nd.count, nd.reasons);
+    }
     return text;
+  }
+
+  //: Счётчик «израсходовано без отправки» из любого слоя чтения: витрина
+  //: приходит camelCase, серверный блок — snake_case. Оба поля — ОДИН факт.
+  function iniQuotaNotDeliveredOf(q) {
+    var raw = (q && typeof q === 'object') ? q : {};
+    var count = (raw.notDelivered != null ? raw.notDelivered
+      : raw.not_delivered);
+    var reasons = (raw.notDeliveredReasons
+      && typeof raw.notDeliveredReasons === 'object')
+      ? raw.notDeliveredReasons
+      : ((raw.not_delivered_reasons
+          && typeof raw.not_delivered_reasons === 'object')
+        ? raw.not_delivered_reasons : {});
+    return { count: count, reasons: reasons };
+  }
+
+  //: P0IM-S5B-QUOTA: «израсходовано» ≠ «отправлено». Слот, списанный под
+  //: попытку без доставки, печатается отдельно и с причиной — иначе квота
+  //: выглядит как реальная публикация. Ноль и отсутствие данных не
+  //: печатаются как факт (null ≠ 0).
+  function iniQuotaNotDeliveredNote(count, reasons) {
+    var num = (count == null || count === '') ? null : Number(count);
+    if (num == null || !isFinite(num) || num <= 0) return '';
+    var map = (reasons && typeof reasons === 'object') ? reasons : {};
+    var parts = [];
+    Object.keys(map).sort().forEach(function (code) {
+      var value = Number(map[code]);
+      if (!isFinite(value) || value <= 0) return;
+      var label = code ? iniCodeLabel(code) : 'причина не записана';
+      parts.push(value > 1 ? (label + ' ×' + value) : label);
+    });
+    return ' · израсходовано без отправки: ' + num
+      + (parts.length ? (' (' + parts.join(', ') + ')') : ' (причина не записана)');
   }
 
   //: Текст квоты из настроек мемов (для своего чата: там есть дата сброса).
   function iniMemeSettingsQuota(st) {
     if (!st) return 'неизвестна';
+    var nd = iniQuotaNotDeliveredOf(st);
     return st.quotaText + ' · ' + st.remainingText
-      + (st.resetAt ? (' · сброс: ' + st.resetAt) : '');
+      + (st.resetAt ? (' · сброс: ' + st.resetAt) : '')
+      + iniQuotaNotDeliveredNote(nd.count, nd.reasons);
   }
 
   //: Собирает карточку одного механизма из ЕГО блока пяти осей. Никакой
@@ -9796,6 +9860,13 @@
           timezoneSource: day.timezone_source || q.timezone_source || '',
           dayBucket: day.bucket || q.day_bucket || '',
           quotaReason: q.reason || '',
+          // P0IM-S5B-QUOTA: факт доставки по списанным слотам (null = нет данных).
+          deliveredCount: (q.delivered == null ? null : Number(q.delivered)),
+          notDelivered: (q.not_delivered == null ? null
+            : Number(q.not_delivered)),
+          notDeliveredReasons: (q.not_delivered_reasons
+            && typeof q.not_delivered_reasons === 'object')
+            ? q.not_delivered_reasons : {},
           counters: counters,
           skipRows: skipRows,
           stages: m.delivery && m.delivery.stages ? m.delivery.stages : [],

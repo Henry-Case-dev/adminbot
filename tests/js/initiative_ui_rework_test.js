@@ -1988,6 +1988,99 @@ async function peekStaleSuite() {
   return pubSuite();
 })();
 
+// 3.4b P0IM-S5B-DELIVERY-FACT: «не доставлено» ≠ «ещё не доставлял».
+(function () {
+  const notDelivered = axesCard('meme', axesPayload({}, {
+    last_delivery: { status: 'not_delivered', at: NOW_TS - 60,
+                     destination: CHAT, message_id: null, run_id: 'run-s5b',
+                     reason_code: 'publisher_not_bound' },
+  }));
+  assert.strictEqual(notDelivered.deliveryStatus, 'not_delivered');
+  assert.strictEqual(notDelivered.deliveryBadge, 'не доставлено');
+  assert.ok(notDelivered.deliveryText.indexOf('не доставлено') === 0,
+    'закрытие без отправки не названо: ' + notDelivered.deliveryText);
+  assert.ok(notDelivered.deliveryText.indexOf('отправитель не привязан') > 0,
+    'причина не названа по-русски: ' + notDelivered.deliveryText);
+  assert.strictEqual(notDelivered.deliveryMessageId, '',
+    'изображение выдано за сообщение с id: ' + notDelivered.deliveryText);
+  assert.strictEqual(notDelivered.deliveryReasonCode, 'publisher_not_bound');
+
+  // Незнакомая причина деградирует в «код: …», а не в голый токен.
+  const unknownCode = axesCard('meme', axesPayload({}, {
+    last_delivery: { status: 'not_delivered', at: NOW_TS - 60,
+                     destination: CHAT, message_id: null, run_id: 'run-x',
+                     reason_code: 'brand_new_reason' },
+  }));
+  assert.ok(unknownCode.deliveryText.indexOf('код: brand_new_reason') > 0,
+    'незнакомая причина выведена голым токеном: ' + unknownCode.deliveryText);
+
+  const noReason = axesCard('meme', axesPayload({}, {
+    last_delivery: { status: 'not_delivered', at: NOW_TS - 60,
+                     destination: CHAT, message_id: null, run_id: 'run-y',
+                     reason_code: '' },
+  }));
+  assert.ok(noReason.deliveryText.indexOf('причина не записана') > 0,
+    'отсутствие причины выдано за причину: ' + noReason.deliveryText);
+})();
+
+// 3.7b P0IM-S5B-QUOTA: «израсходовано» ≠ «отправлено».
+(function () {
+  function settingsView(quota) {
+    return computed.memeSettingsView.call({
+      memeSettings: {
+        settings: { enabled: true, daily_limit: 3 },
+        quota: quota,
+        day: {}, availability: {}, analytics: {}, defaults: {},
+        length_limit: {}, prompts: {}, template: {},
+      },
+    });
+  }
+  function memeCard(st) {
+    const payload = axesPayload({}, {});
+    const view = computed.memeDiagView.call({
+      memeDiag: payload, activeChatId: CHAT, iniOverviewTimezone: TZ,
+    });
+    return computed.initiativeMemeCard.call({
+      activeChatId: CHAT, iniViewMode: 'self',
+      accessChats: [{ chat_id: CHAT, title: 'Чат A' }],
+      iniOtherDiagView: null, iniOtherChat: null,
+      iniOverviewTimezone: TZ, canEditConfig: function () { return true; },
+      memeSettingsView: st, memeDiagView: view,
+    });
+  }
+  const spent = settingsView({ available: true, limit: 3, spent: 1,
+                               remaining: 2, delivered: 0, not_delivered: 1,
+                               not_delivered_reasons: {
+                                 publisher_not_bound: 1 } });
+  assert.strictEqual(spent.notDelivered, 1);
+  assert.deepStrictEqual(spent.notDeliveredReasons,
+                         { publisher_not_bound: 1 });
+  const cardSpent = memeCard(spent);
+  assert.ok(cardSpent.quotaText.indexOf('израсходовано без отправки: 1') > 0,
+    'слот без отправки не показан: ' + cardSpent.quotaText);
+  assert.ok(cardSpent.quotaText.indexOf('отправитель не привязан') > 0,
+    'причина слота без отправки не названа: ' + cardSpent.quotaText);
+  assert.ok(cardSpent.quotaText.indexOf('Генерации сегодня: 1 / 3') === 0,
+    'базовая квота подменена припиской: ' + cardSpent.quotaText);
+
+  const delivered = settingsView({ available: true, limit: 3, spent: 1,
+                                   remaining: 2, delivered: 1,
+                                   not_delivered: 0,
+                                   not_delivered_reasons: {} });
+  assert.strictEqual(memeCard(delivered).quotaText.indexOf('без отправки'),
+                     -1,
+                     'доставленный слот показан как неотправленный');
+
+  // Нет данных — это НЕ «ноль неотправленных»: приписки нет.
+  const noData = settingsView({ available: true, limit: 3, spent: 2,
+                                remaining: 1, delivered: null,
+                                not_delivered: null,
+                                not_delivered_reasons: {} });
+  assert.strictEqual(noData.notDelivered, null);
+  assert.strictEqual(memeCard(noData).quotaText.indexOf('без отправки'), -1,
+    'отсутствие данных выдано за факт: ' + memeCard(noData).quotaText);
+})();
+
 chatBoundSuite().then(peekStaleSuite).then(function () {
   console.log('INITIATIVE-UI-OK');
 }).catch(function (err) {

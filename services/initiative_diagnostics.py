@@ -1231,7 +1231,8 @@ PUBLICATION_FIELDS = (
 COOLDOWN_FIELDS = ("scope", "own_seconds", "remaining_seconds", "basis",
                    "basis_ts")
 QUOTA_FIELDS = ("scope", "limit", "used", "remaining", "unlimited",
-                "limit_reached", "available", "next_reset")
+                "limit_reached", "available", "next_reset", "delivered",
+                "not_delivered", "not_delivered_reasons")
 SKIP_FIELDS = ("code", "label", "origin")
 
 
@@ -1420,13 +1421,22 @@ def cooldown_block(own_seconds, *, now: int, basis_ts=None,
 
 
 def quota_block(*, limit, used, available: bool | None = None,
-                next_reset=None, zero_means_unlimited: bool = True) -> dict:
+                next_reset=None, zero_means_unlimited: bool = True,
+                delivered=None, not_delivered=None,
+                not_delivered_reasons=None) -> dict:
     """Собственная квота механизма (сутки): лимит/использовано/остаток.
 
     ``zero_means_unlimited=True`` (текстовая инициатива: ``day_cap <= 0`` —
     «без дневного капа»), ``False`` (мемы: ``daily_limit <= 0`` — механизм
     фактически остановлен, боевой гейт отдаёт ``daily_quota_reached``).
     Нет данных → соответствующие поля ``null``, а не нули.
+
+    P0IM-S5B-QUOTA: ``delivered``/``not_delivered``/``not_delivered_reasons``
+    разделяют «слот израсходован» и «мем реально отправлен». Списанный слот
+    при этом НЕ возвращается: списание означает реально оплаченный вызов
+    провайдера, поэтому честный вариант — показать «израсходован без
+    отправки» с причиной. Механизм без фактов доставки (текст) получает
+    ``None`` — «нет данных», а не «0 неотправленных».
     """
     cap = _int_or_none(limit)
     spent = _int_or_none(used)
@@ -1437,6 +1447,15 @@ def quota_block(*, limit, used, available: bool | None = None,
     remaining: int | None = None
     if cap is not None and spent is not None:
         remaining = max(0, cap - spent) if cap > 0 else 0
+    reasons: dict = {}
+    for code, count in (not_delivered_reasons or {}).items():
+        key = str(code or "")
+        try:
+            value = int(count)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            reasons[key] = value
     return {
         "scope": COOLDOWN_SCOPE,
         "limit": cap,
@@ -1446,6 +1465,9 @@ def quota_block(*, limit, used, available: bool | None = None,
         "limit_reached": limit_reached,
         "available": available,
         "next_reset": next_reset,
+        "delivered": _int_or_none(delivered),
+        "not_delivered": _int_or_none(not_delivered),
+        "not_delivered_reasons": reasons,
     }
 
 
@@ -1501,7 +1523,8 @@ READINESS_FIELDS = ("state", "reason", "reason_class", "next_eligible_at",
                     "next_basis")
 LAST_ATTEMPT_FIELDS = ("at", "mode", "run_id", "outcome", "stop_stage",
                        "incomplete_historical")
-LAST_DELIVERY_FIELDS = ("status", "at", "destination", "message_id", "run_id")
+LAST_DELIVERY_FIELDS = ("status", "at", "destination", "message_id", "run_id",
+                        "reason_code")
 
 #: Состояния оси readiness (§1). `ready` НЕ обещает публикацию — только
 #: «механизм можно рассматривать сейчас».
@@ -1519,6 +1542,10 @@ HEALTH_UNKNOWN = "unknown"
 DELIVERY_CONFIRMED = "confirmed"
 DELIVERY_UNKNOWN = "unknown"
 DELIVERY_NEVER = "never"
+#: P0IM-S5B-DELIVERY-FACT: попытка ЗАКРЫТА без отправки и это доказано её же
+#: терминальной строкой. Отличается от `never` («журнала выводов пусто»):
+#: тут известно и время, и точный код причины (`publisher_not_bound` и др.).
+DELIVERY_NOT_DELIVERED = "not_delivered"
 
 MODE_MANUAL = "manual"
 MODE_AUTO = "auto"
@@ -1962,12 +1989,18 @@ def attempt_block(*, at=None, mode: str = MODE_UNKNOWN, run_id: str = "",
 
 
 def delivery_block(*, status: str = DELIVERY_NEVER, at=None, destination=None,
-                   message_id=None, run_id: str = "") -> dict:
+                   message_id=None, run_id: str = "",
+                   reason_code: str = "") -> dict:
     """Ось last_delivery: «сообщение РЕАЛЬНО ушло», а не «сгенерировали».
 
     ``confirmed`` — только запись `record_delivered_output`/`mca_bot_outputs`
     с `tg_message_id`. `sent` без id — ``unknown``. Пусто — ``never``.
     `considered`/`generated`/`deferred` доставкой не являются никогда.
+
+    ``not_delivered`` — попытка закрыта без отправки, и её терминальная строка
+    это доказала; тогда ``reason_code`` несёт ТОЧНУЮ причину
+    (`publisher_not_bound`), а не общий код исхода. `run_id` у таких строк —
+    родитель попытки, чтобы факт был привязан к своей записи журнала.
     """
     stamp = _stamp_or_none(at)
     return {
@@ -1976,6 +2009,7 @@ def delivery_block(*, status: str = DELIVERY_NEVER, at=None, destination=None,
         "destination": _int_or_none(destination),
         "message_id": _int_or_none(message_id),
         "run_id": str(run_id or ""),
+        "reason_code": str(reason_code or ""),
     }
 
 
@@ -2274,6 +2308,73 @@ def _meme_sent_evidence(rows: list[dict]) -> bool:
                     and item.get("delivered") is not False):
                 return True
     return False
+
+
+def _meme_last_closure(rows: list[dict]) -> dict:
+    """Факт доставки ТЕРМИНАЛЬНОЙ строки самой свежей попытки (или ``{}``).
+
+    Источник — только то, что записал сам пайплайн: `publication.delivery`
+    (или одноимённый ключ этапа publish) терминальной строки. Ничего не
+    досчитывается: нет ключа — пустой словарь, и ось остаётся как была.
+    """
+    try:
+        from services import meme_initiative as meme
+    except Exception:                        # pragma: no cover - defensive
+        return {}
+    attempt = _meme_last_attempt(rows)
+    if not attempt or not attempt.get("at"):
+        return {}
+    key = str(attempt.get("run_id") or "")
+    group = [row for row in rows or () if isinstance(row, dict)
+             and (str(row.get("job_id") or "") == key if key
+                  else "row:" + str(row.get("attempt_id") or ""))]
+    if not group:
+        return {}
+    # Читается САМАЯ СВЕЖАЯ строка группы, в фактах которой есть записанный
+    # факт доставки: он появляется только на публикационном пути, поэтому
+    # служебные строки этапов (у них доставки нет вовсе) его не подменяют.
+    for row in sorted(group, key=lambda item: _int(item.get("ts")),
+                      reverse=True):
+        facts = meme.parse_attempt_facts(row)
+        publication = facts.get("publication")
+        publication = publication if isinstance(publication, dict) else {}
+        delivery = str(publication.get("delivery")
+                       or facts.get("delivery") or "")
+        if delivery in ("not_sent", "unknown"):
+            return {
+                "at": row.get("ts"),
+                "run_id": key,
+                "delivery": delivery,
+                "reason_code": meme.attempt_cause_code(row),
+            }
+    return {}
+
+
+def _apply_attempt_closure(delivery: dict, closure: dict,
+                           chat_id: int) -> dict:
+    """Ось доставки с учётом закрытия БЕЗ отправки (P0IM-S5B-DELIVERY-FACT).
+
+    Подтверждённая отправка не переписывается: это отдельный факт и он
+    остаётся главным (`confirmed`). Если же доставки нет, а попытка закрыта
+    без отправки, пустое «ещё не доставлял» заменяется честным
+    «не доставлено · <код причины>» — иначе потеря остаётся невидимой.
+    """
+    if not closure:
+        return delivery
+    status = str((delivery or {}).get("status") or "")
+    if status == DELIVERY_CONFIRMED:
+        return delivery
+    state = str(closure.get("delivery") or "")
+    if state == "not_sent":
+        return delivery_block(
+            status=DELIVERY_NOT_DELIVERED, at=closure.get("at"),
+            destination=chat_id, run_id=str(closure.get("run_id") or ""),
+            reason_code=str(closure.get("reason_code") or ""))
+    if state == "unknown" and status != DELIVERY_UNKNOWN:
+        return delivery_block(
+            status=DELIVERY_UNKNOWN, at=closure.get("at"),
+            destination=chat_id, run_id=str(closure.get("run_id") or ""))
+    return delivery
 
 
 async def _text_last_attempt(db, chat_id: int, *, now_ts: int,
@@ -2732,7 +2833,11 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
             quota = quota_block(
                 limit=view.get("limit"), used=view.get("spent"),
                 available=bool(view.get("available")),
-                next_reset=view.get("next_reset"), zero_means_unlimited=False)
+                next_reset=view.get("next_reset"), zero_means_unlimited=False,
+                # P0IM-S5B-QUOTA: «израсходовано» ≠ «отправлено».
+                delivered=view.get("delivered"),
+                not_delivered=view.get("not_delivered"),
+                not_delivered_reasons=view.get("not_delivered_reasons"))
         quiet_active = bool(cfg is not None and meme.quiet_hours_block(
             getattr(cfg, "quiet_hours", ""), stamp,
             str(getattr(day, "timezone_name", "UTC"))))
@@ -2822,6 +2927,10 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
         db, cid, (meme.OUTPUT_KIND,), sent_evidence=_meme_sent_evidence(rows),
         attempt_at=attempt.get("at"),
         run_id=str(attempt.get("run_id") or ""))
+    # P0IM-S5B-DELIVERY-FACT: попытка, закрытая без отправки, обязана читаться
+    # как «не доставлено» с точной причиной, а не как «ещё не доставлял».
+    last_delivery = _apply_attempt_closure(
+        last_delivery, _meme_last_closure(rows), cid)
 
     return _apply_axes({
         "mechanism": MECHANISM_MEME,
@@ -2952,8 +3061,11 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
       исторический идентификатор НЕ склеивается по времени или тексту — он
       помечен ``incomplete_historical`` и остаётся отдельной строкой;
     * ``last_delivery`` — только запись ``mca_bot_outputs`` с ``tg_message_id``
-      (``confirmed``); «отправлено» без id — ``unknown``; пусто — ``never``.
-      ``considered``/``generated``/``deferred`` доставкой не являются.
+      (``confirmed``); «отправлено» без id — ``unknown``; пусто — ``never``;
+      попытка мема, закрытая без отправки (терминальная строка записала
+      ``delivery=not_sent``), — ``not_delivered`` с точным ``reason_code``
+      (``publisher_not_bound`` и др.). ``considered``/``generated``/
+      ``deferred`` доставкой не являются.
 
     ``skip.origin``: ``gate``/``availability``/``quota``/``cooldown``/
     ``quiet_hours``/``publication`` — текущее состояние; ``payload_state``/
@@ -2977,7 +3089,10 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
 
     ``quota`` (``QUOTA_FIELDS``): ``limit_reached`` — упёрлись в предел
     (у мемов ``limit<=0`` тоже предел: механизм выключен лимитом; у текста
-    ``cap<=0`` — «без капа», поэтому ``unlimited=true``).
+    ``cap<=0`` — «без капа», поэтому ``unlimited=true``). ``delivered``/
+    ``not_delivered``/``not_delivered_reasons`` — у мемов факт доставки по
+    списанным слотам (``not_delivered`` = «израсходован без отправки» +
+    точная причина); у механизма без фактов доставки там ``null``/пусто.
 
     Никогда не бросает: сбой чтения даёт честный ``no_data``-блок.
     Ничего не пишет, ничего не отправляет, LLM не вызывает.

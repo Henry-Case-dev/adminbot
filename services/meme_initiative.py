@@ -1203,6 +1203,64 @@ class SqliteQuotaLedger:
         finally:
             conn.close()
 
+    def slot_delivery(self, chat_id: int, day_bucket: str) -> dict:
+        """Слоты суток, разделённые по факту ПОДТВЕРЖДЁННОЙ отправки.
+
+        P0IM-S5B-QUOTA: списание не меняется (слот платный ровно тогда, когда
+        провайдер реально вызван — ``COUNTED_STATUSES``), но «израсходовано»
+        перестаёт быть неотличимым от «опубликовано». Слот считается
+        доставленным, если у его ``job_id`` есть терминальная строка журнала
+        попыток с ``outcome='published'``; иначе он попадает в
+        ``not_delivered`` с точной причиной закрытия.
+
+        Новых таблиц и колонок нет: оба источника — уже существующие таблицы
+        ТОГО ЖЕ файла журнала. Поздняя доставка отложенной строки дописывает
+        в журнал `published` с тем же `job_id`, поэтому счётчик сам
+        исправляется без отдельного состояния.
+        """
+        placeholders = ",".join("?" * len(COUNTED_STATUSES))
+        conn = _connect(self.path)
+        try:
+            slots = [str(row["job_id"] or "") for row in conn.execute(
+                f"SELECT job_id FROM {RESERVATION_TABLE} "
+                f"WHERE chat_id=? AND day_bucket=? AND status IN "
+                f"({placeholders})",
+                (int(chat_id), day_bucket, *COUNTED_STATUSES)).fetchall()]
+            slots = [job for job in slots if job]
+            if not slots:
+                return {"delivered": 0, "not_delivered": 0, "reasons": {}}
+            marks = ",".join("?" * len(slots))
+            rows = conn.execute(
+                f"SELECT job_id, ts, outcome, reason_code, detail FROM "
+                f"{ATTEMPT_TABLE} WHERE job_id IN ({marks}) "
+                "ORDER BY ts",
+                tuple(slots)).fetchall()
+        except Exception:
+            logger.warning("[meme] quota slot read failed", exc_info=True)
+            return {"delivered": 0, "not_delivered": 0, "reasons": {},
+                    "available": False}
+        finally:
+            conn.close()
+        latest: dict[str, dict] = {}
+        delivered: set[str] = set()
+        for row in rows:
+            job = str(row["job_id"] or "")
+            if not job:
+                continue
+            if str(row["outcome"] or "") == "published":
+                delivered.add(job)
+            latest[job] = dict(row)          # ORDER BY ts → последняя строка
+        reasons: dict[str, int] = {}
+        not_delivered = 0
+        for job in slots:
+            if job in delivered:
+                continue
+            not_delivered += 1
+            code = attempt_cause_code(latest.get(job)) or ""
+            reasons[code] = reasons.get(code, 0) + 1
+        return {"delivered": len(slots) - not_delivered,
+                "not_delivered": not_delivered, "reasons": reasons}
+
     def status_counts(self, chat_id: int, day_bucket: str) -> dict[str, int]:
         conn = _connect(self.path)
         try:
@@ -1447,10 +1505,19 @@ def quota_view(ledger: SqliteQuotaLedger | None, *, chat_id: int,
             "timezone_name": day.timezone_name,
             "timezone_source": day.timezone_source,
             "next_reset": day.next_reset_iso,
+            # Нет журнала — нет и фактов доставки: `None`, а не «0 отправлено».
+            "delivered": None,
+            "not_delivered": None,
+            "not_delivered_reasons": {},
         }
     counts = ledger.status_counts(chat_id, day.bucket)
     spent = sum(counts.get(status, 0) for status in COUNTED_STATUSES)
     remaining = max(0, int(limit) - spent) if int(limit) > 0 else 0
+    # P0IM-S5B-QUOTA: «израсходовано» и «отправлено» — РАЗНЫЕ факты. Слот,
+    # списанный под попытку без доставки, не возвращается (деньги за вызов
+    # провайдера уже потрачены, и возврат слота разрешил бы лишний платный
+    # вызов сверх суточного капа), но и не выдаётся за публикацию.
+    slots = ledger.slot_delivery(chat_id, day.bucket)
     return {
         "available": True,
         "reason": "ok" if int(limit) > 0 and spent < int(limit) else SKIP_QUOTA,
@@ -1465,6 +1532,9 @@ def quota_view(ledger: SqliteQuotaLedger | None, *, chat_id: int,
         "provider_failed": counts.get("provider_failed", 0),
         "reserved": counts.get("reserved", 0),
         "denied": counts.get("denied", 0),
+        "delivered": slots.get("delivered"),
+        "not_delivered": slots.get("not_delivered"),
+        "not_delivered_reasons": dict(slots.get("reasons") or {}),
     }
 
 
@@ -1707,6 +1777,45 @@ def attempt_mode_of(facts: dict | None) -> str:
     if raw in ("automatic", "auto"):
         return "auto"
     return ""
+
+
+def _looks_like_cause_code(text: str) -> bool:
+    """Похоже ли значение на КОД причины, а не на человеческую фразу.
+
+    `detail` терминальной строки хранит либо код (`publisher_not_bound`,
+    `chat_gate_disabled`, `tg:123` — с `:` не подходит), либо готовый текст
+    (`module_disabled_during_generation`). Кодами считаем только строчную
+    латиницу/цифры/подчёркивания: так в витрину не уезжает пересказ.
+    """
+    token = str(text or "")
+    if not 3 <= len(token) <= 48:
+        return False
+    if not token.isascii() or not token[0].islower() or not token[0].isalpha():
+        return False
+    return all(ch.islower() or ch.isdigit() or ch == "_" for ch in token)
+
+
+def attempt_cause_code(row: dict | None) -> str:
+    """ТОЧНЫЙ код причины закрытия попытки (для витрины доставки и квоты).
+
+    `reason_code` строки — общий код исхода (`publish_blocked`), а конкретная
+    причина лежит в фактах терминальной строки (`detail`): именно там живёт
+    `publisher_not_bound`. Пустой/непохожий на код `detail` не подставляется —
+    тогда возвращается сам `reason_code`.
+    """
+    data = row if isinstance(row, dict) else {}
+    reason = str(data.get("reason_code") or "")
+    try:
+        facts = parse_attempt_facts(data)
+    except Exception:                        # pragma: no cover - defensive
+        facts = {}
+    for candidate in (facts.get("detail"),
+                      (facts.get("publication") or {}).get("detail")
+                      if isinstance(facts.get("publication"), dict) else None):
+        text = str(candidate or "").strip()
+        if _looks_like_cause_code(text):
+            return text
+    return reason
 
 
 def _finish(result: AttemptResult, *, ledger, now_ts: int,
@@ -2581,8 +2690,14 @@ async def _deliver_deferred_row(db, row: dict, *, cfg: MemeSettings,
         await coordinator.release(int(chat_id), claim.claim_id,
                                   published=False, holder_kind=OUTPUT_KIND,
                                   holder_ref=run_id, now=ts)
-        return await _terminal(SKIP_PUBLISH, detail="publisher_not_bound",
-                               event=EVENT_PUBLICATION_FAILED)
+        # P0IM-S5B-NODISCARD: отправителя в этом процессе нет — это НЕ повод
+        # удалять оплаченный артефакт. Строка остаётся `queued` (файл цел,
+        # строк журнала нет: ожидание не является попыткой), и первый же
+        # проход с привязанным ботом доставит её. Срок ограничен СУЩЕСТВУЮЩЕЙ
+        # ретенцией (`expires_at` = собственный кулдаун механизма): после него
+        # срабатывает честный терминал `deferred_publication_expired` с фактом
+        # «не отправлено» — бесконечного ретрая нет.
+        return await _wait(SKIP_PUBLISH, "publisher_not_bound")
     sending = await coordinator.begin_sending(int(chat_id), claim.claim_id,
                                              now=ts, manual=False)
     facts[STAGE_PUBLISH]["sending"] = sending.as_dict()
@@ -3349,8 +3464,48 @@ async def _consider_once(
             blocked = await _drop_claim(SKIP_PUBLISH,
                                         detail=str(gate_reason or SKIP_PUBLISH))
         else:
-            blocked = await _drop_claim(SKIP_PUBLISH, detail="publisher_not_bound",
-                                        reason_event=EVENT_PUBLICATION_FAILED)
+            # P0IM-S5B-NODISCARD (§1.2.5 «не отменять готовые изображения»):
+            # изображение УЖЕ оплачено и получено, а отправителя в этом
+            # процессе нет (событийный тик без привязанного бота — штатный
+            # случай, а не поломка конфигурации). Раньше байты удалялись, а
+            # слот квоты оставался израсходованным: пользователь не получал
+            # ничего и не видел причины. Теперь результат уходит в
+            # СУЩЕСТВУЮЩУЮ durable-очередь B1 (`task_jobs` + файл), и штатный
+            # проход с привязанным ботом доставит его при первом свободном
+            # слоте. Новых очередей/таблиц/планировщиков нет.
+            deferred = None
+            if not manual:
+                deferred = await defer_generated_meme(
+                    db, chat_id=int(chat_id), content=content,
+                    snapshot=snapshot, run_id=jid, reason=SKIP_PUBLISH,
+                    detail="publisher_not_bound", cfg=cfg,
+                    prompt_origin=origin, now_ts=ts)
+            pub_facts["artifact"] = {
+                "reason": "publisher_not_bound",
+                "bytes": int(image_bytes),
+                # `preserved=false` — честный факт: durable-путь недоступен,
+                # байты сохранить негде. Такой исход виден, а не «как будто
+                # всё сохранили».
+                "preserved": bool(deferred),
+                "deferred_job_id": str((deferred or {}).get("job_id") or ""),
+            }
+            # Доставки в этом проходе не было — это ФАКТ попытки, а не вывод
+            # читателя: ось доставки обязана показать «не доставлено».
+            pub_facts["delivery"] = "not_sent"
+            if deferred:
+                pub_facts["deferred"] = deferred
+                facts.setdefault(STAGE_PUBLISH, {})["deferred"] = deferred
+                logger.info("[meme] paid image deferred | chat=%s | "
+                            "reason=publisher_not_bound | job=%s",
+                            chat_id, (deferred or {}).get("job_id"))
+            else:
+                logger.warning("[meme] paid image not deliverable | chat=%s | "
+                               "reason=publisher_not_bound | preserved=false",
+                               chat_id)
+            blocked = await _drop_claim(
+                SKIP_PUBLISH, detail="publisher_not_bound",
+                reason_event=(EVENT_PUBLICATION_DEFERRED if deferred
+                              else EVENT_PUBLICATION_FAILED))
         blocked.outcome = "blocked"
         return blocked
     # ── §2.5 M2: финальная проверка ЧАТА перед первым side effect. Картинка
