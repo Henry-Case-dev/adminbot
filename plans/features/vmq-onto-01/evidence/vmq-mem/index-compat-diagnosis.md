@@ -1,0 +1,17 @@
+# VMQ-MEM — диагноз index-compat (2.58.187)
+
+`ARCHITECT_ADJUSTMENT_REQUIRED` к чтению side-`resolve` как живого PCI. Передопуск из этого чтения небезопасен. Формула PCI не менялась (`connection_identity`, `services/embedding_control_plane.py:2657`, с `30a2f868`).
+
+1. PCI = sha256[:16] канон-JSON `{provider_family, endpoint_host, endpoint_path, credential_alias, quota_group}`. Порт, ключ, DSN, driver не входят. Текущий: `_current_conn()` → `resolve_embedding_profiles()["primary"]`. Группа: override `models.embedding_quota_group`, иначе `keys.embedding_quota_group_labels`, иначе авто-alias `primary` (`_profile_quota_group:2171`). `hot.get` при `_cache is None` отдаёт дефолт (`hot_config.py:71-75`). Допуск: `ensure_index_compat` → `format_admission` → `adopt_embedding_generation` пишет только `mca_embedding_index_generations.config_revision` (`adopt1:<space16>:<conn16>:<checked>:<mean>:<min>:<hit5>:<at>`). Валиден лишь при совпадении space и conn (`admission_valid:2725`).
+
+2. Оба хеша воспроизведены той же формулой; host/path/family/alias одинаковы (`apinet.cloud`, `/v1`, `openai-compatible`, `primary`). Разница одно поле: `a93485483697c3c3` = `quota_group=apinet_paid`; `d2e6314e3586c547` = `quota_group=primary`. Допуск записал живой процесс 2.58.113 (2026-10-23T05:53:35Z) при labels `primary:apinet_paid,…` (с 2026-10-22T17:15Z): `release-258113/deploy.md`, `embed-provider/report.md`. Это не смена host/port и не смена формулы. `d2e6314e` — PCI процесса без hot-кэша; тот же хеш дал predeploy-скрипт без кэша (`resolver-pre/report.md:40`). Замер 2.58.187 — прямой `resolve_index_compat`, не API живого процесса. Старт MemoryManager зовёт `ensure_index_compat` (`summary_memory.py:2097`); при своём mismatch и успешной пробе он переписал бы `config_revision`. В заметке допуск всё ещё `a9348548…`, событий ADMITTED/INSUFFICIENT нет.
+
+3. Передопуск в этом дизайне безопасен только из того же резолва, что у бота: одна проба 12 текстов (порог checked≥8, mean≥0.995, min≥0.990, hit5≥0.80), сеть только на выборке, `graph_facts_vec` не пишется, fingerprint/provider/endpoint не меняются. После adopt: `state=compatible`, `class=ADMITTED_COMPATIBLE`, `needs_probe=false`, canary `source=admission`. Side-процесс без кэша записал бы PCI `primary` и инвалидировал бы живой допуск `apinet_paid`. Это не путь. Пересборка не нужна.
+
+4. Сначала живое чтение: `GET /api/memory/embeddings` → `generation` индекса `graph_facts_vec` (`generation_status` в процессе бота). Если `compat.state=compatible`, `conn=a93485483697c3c3`, `needs_probe=false` — передопуск не делать, нога уже допустима. Если живой процесс сам даёт `conn=d2e6314e` и `needs_probe` — один `ensure_index_compat` внутри него. Журнал: `SmartModule: embedding index serviceable | index=graph_facts_vec | class=ADMITTED_COMPATIBLE`.
+
+5. Одна нога на ход (код `952b9ebd`): одно `mca_events` retrieval; `usage_json.period_fill` только у периодного вызова, нет у operative; `vector_leg=ok`. k=32 — `_RAG_PERIOD_POOL=32` → `fetch_k` → SQL `k=?`. В событии k не печатается; `period_vector_knn` — число оставленных, не k. Латентность: в логе нет `knn_ms`; потолок дизайна — p95 периодного вызова ≤ +400 мс к лексическому на той же копии. +110 мс лексики — не цена вектора.
+
+Вне скоупа: смена модели, пересборка векторов, новое хранилище.
+
+DIAGNOSIS READY. Следующее: read-only compat из живого процесса; передопуск только если его conn ≠ допуска. Риск R1 (ложный side-PCI); R2, если передопустить из процесса без hot-кэша.
