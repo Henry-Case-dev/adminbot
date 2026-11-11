@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-12T04:29:44+12:00",
+  "updated": "2026-11-12T04:39:42+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1514,8 +1514,10 @@
       "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-12-vision-context-unify-01.md",
       "source_sha256": "DA86A94F43101F3F87E73C51C73E75C2A5F76364544217FC6D5DB4C46B8A1F81",
-      "maps": [],
-      "coverage_complete": false,
+      "maps": [
+        "plans/features/vision-context-unify-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
       "queue_position": 40,
       "priority": "P3",
       "priority_label": "planned",
@@ -1527,7 +1529,17 @@
       "queue_after_note": "Организационная зависимость порядка от владельца: старт строго после WEB-SEARCH-QUALITY-01 и после всех задач, уже стоящих выше в очереди. Это не техническая зависимость API, поэтому технический blocked_by пуст. Позиция последняя; приоритеты существующих задач не менялись.",
       "execution_state": "queued",
       "position_basis": "owner instruction 2026-11-12: planned, non-urgent, last in queue, no reordering of current priorities",
-      "queue_note": "Регистрация и сверка с существующими эпиками. Реализация НЕ начата. При старте: read-only аудит актуального кода и прода, матрица несовпадений producer → запись → анализ → связывание → селекция → фактический prompt потребителя, затем Architect → Builder → Reviewer → штатный Release. Обязательный охват: все потребители истории, входящие фото, пересланные посты, альбомы, картинки самого бота, автоматические и ручные мемы, долговечная привязка готового Vision к опубликованному сообщению."
+      "queue_note": "Регистрация и сверка с существующими эпиками. Реализация НЕ начата. При старте: read-only аудит актуального кода и прода, матрица несовпадений producer → запись → анализ → связывание → селекция → фактический prompt потребителя, затем Architect → Builder → Reviewer → штатный Release. Обязательный охват: все потребители истории, входящие фото, пересланные посты, альбомы, картинки самого бота, автоматические и ручные мемы, долговечная привязка готового Vision к опубликованному сообщению.",
+      "preparation": {
+        "registration_map": "plans/features/vision-context-unify-01/requirements-map.json",
+        "requirements": 18,
+        "source_lines": 104,
+        "map_kind": "registration-map",
+        "dedup_candidates_checked": 21,
+        "separate_epic_verdict": "separate planned epic: the target function has no owner in any existing map (targeted search over 51 maps found no required row for a media read projection), its parts belong to four different owners, and attaching it to the closest candidate (the YM-NOST corrective) would place a media contract behind a payment-architecture gate.",
+        "start_preconditions": "At start: read-only audit of the actual production code line (the module files are absent from the old master checkout), then Architect -> Builder -> Reviewer -> normal release. C2.2 and album completeness extend VISION-OWN-PROVENANCE / VISION-MULTI-COVERAGE; any edit to services/image_generation.py, the initiative journal (P0IM-*, HMF-*) or web/api/initiative_publications.py must be serialized with those rows' owners.",
+        "status": "registered_only_not_started"
+      }
     }
   ],
   "owner_inputs": [
@@ -4017,8 +4029,34 @@
       "target_task_ids": [
         "vision-context-unify-01"
       ],
-      "reconciled": false,
-      "note": "Владелец добавил плановый, НЕ срочный архитектурный эпик VISION-CONTEXT-UNIFY-01 (единая мультимодальная история сообщений и изображений). Требования: зарегистрировать в durable-очереди строго после WEB-SEARCH-QUALITY-01 и всех уже назначенных более приоритетных задач, не переставлять текущие приоритеты, не прерывать текущие эпики, реализацию не начинать. Перед реализацией — read-only аудит актуального кода/прода, затем Architect → Builder → Reviewer → штатный Release. Обязательный охват: все потребители истории, входящие фото, пересланные посты, альбомы, собственные изображения бота, автоматические и ручные мемы, долговечная привязка готового Vision к опубликованному сообщению. Запрещено: новая БД/параллельный Vision-пайплайн/TTL-кеш вместо durable, фиктивные строки в smart_messages, OCR как слова бота, новые ручные переключатели и OFF/SHADOW для готовой функции. Дубликат не создавать — дополнять существующий эпик."
+      "reconciled": true,
+      "note": "Владелец добавил плановый, НЕ срочный архитектурный эпик VISION-CONTEXT-UNIFY-01 (единая мультимодальная история сообщений и изображений). Требования: зарегистрировать в durable-очереди строго после WEB-SEARCH-QUALITY-01 и всех уже назначенных более приоритетных задач, не переставлять текущие приоритеты, не прерывать текущие эпики, реализацию не начинать. Перед реализацией — read-only аудит актуального кода/прода, затем Architect → Builder → Reviewer → штатный Release. Обязательный охват: все потребители истории, входящие фото, пересланные посты, альбомы, собственные изображения бота, автоматические и ручные мемы, долговечная привязка готового Vision к опубликованному сообщению. Запрещено: новая БД/параллельный Vision-пайплайн/TTL-кеш вместо durable, фиктивные строки в smart_messages, OCR как слова бота, новые ручные переключатели и OFF/SHADOW для готовой функции. Дубликат не создавать — дополнять существующий эпик. Reconciled 2026-11-12: registered as a planned epic at queue position 40 (last), priority P3 with label 'planned', organizational queue_after web-search-quality-01 and technical blocked_by empty. A registration map exists (18 section-level requirement ids, 104 source lines) that records the dedup inventory against 21 existing epics; no obligation is already implemented end-to-end, so the epic is a separate container rather than a duplicate. Slice decomposition, write scopes and the repo audit happen when the queue reaches it.",
+      "coverage_refs": [
+        {
+          "task_id": "vision-context-unify-01",
+          "map": "plans/features/vision-context-unify-01/requirements-map.json",
+          "req_ids": [
+            "VCU-COVERAGE-SOURCES",
+            "VCU-A",
+            "VCU-B",
+            "VCU-C",
+            "VCU-DURABLE-VISION-BIND",
+            "VCU-NO-NEW-DB-OR-PIPELINE",
+            "VCU-NO-FAKE-ROWS",
+            "VCU-OCR-ATTRIBUTION",
+            "VCU-E",
+            "VCU-NO-OCR-STUB",
+            "VCU-F",
+            "VCU-G",
+            "VCU-H",
+            "VCU-ON-BY-DEFAULT",
+            "VCU-PRESERVE-SETTINGS",
+            "VCU-NO-NEW-TOGGLES",
+            "VCU-I",
+            "VCU-D"
+          ]
+        }
+      ]
     }
   ],
   "source_inventory": {
@@ -5029,7 +5067,7 @@
       },
       {
         "id": "H1:9f91a503493f:1",
-        "sha256": "c1622d91bf05678fb7ab59ab781a4f1625499354773c8f4e6be40924e7042ad5",
+        "sha256": "004101d803774e48ed602c684c0212ba395996817d994cc72780ac9743a423f0",
         "disposition": "mapped",
         "target_task_ids": [
           "p0-init-meme-ux-diag"
@@ -5118,6 +5156,44 @@
               "P0IM-MM-MARKER",
               "P0IM-OV-PERCHAT-CAUSE",
               "P0IM-AX-HEALTH"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "H1:efaa49f00141:1",
+        "sha256": "96648f0811957fb8eab1744dc8d88da82410942e03a533d70c18776aeadeff11",
+        "disposition": "mapped",
+        "target_task_ids": [
+          "vision-context-unify-01"
+        ],
+        "coverage_refs": [
+          "plans/features/vision-context-unify-01/requirements-map.json"
+        ],
+        "reason": "Раздел «VISION-CONTEXT-UNIFY-01 — единая мультимодальная история сообщений и изображений» (стр. 11555 и далее) зарегистрирован как плановый несрочный эпик на позиции 40, сразу после web-search-quality-01 и всех уже назначенных более приоритетных задач; приоритеты не менялись. Регистрационная карта: 18 требований по разделам A-I и владельческим запретам, 104 строки источника, сверка с 21 существующим эпиком (ни одно обязательство не реализовано целиком, дубля нет). Декомпозиция, write-scope и аудит кода — при подходе очереди. Реализация не начиналась.",
+        "requirement_refs": [
+          {
+            "task_id": "vision-context-unify-01",
+            "map": "plans/features/vision-context-unify-01/requirements-map.json",
+            "req_ids": [
+              "VCU-COVERAGE-SOURCES",
+              "VCU-A",
+              "VCU-B",
+              "VCU-C",
+              "VCU-DURABLE-VISION-BIND",
+              "VCU-NO-NEW-DB-OR-PIPELINE",
+              "VCU-NO-FAKE-ROWS",
+              "VCU-OCR-ATTRIBUTION",
+              "VCU-E",
+              "VCU-NO-OCR-STUB",
+              "VCU-F",
+              "VCU-G",
+              "VCU-H",
+              "VCU-ON-BY-DEFAULT",
+              "VCU-PRESERVE-SETTINGS",
+              "VCU-NO-NEW-TOGGLES",
+              "VCU-I",
+              "VCU-D"
             ]
           }
         ]
