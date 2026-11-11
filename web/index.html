@@ -1032,12 +1032,9 @@
                      Второй панели «агрегированных чисел для красоты» нет. -->
                 <div class="flex flex-wrap items-center gap-2 mt-2"
                      data-module-overview-actions>
-                  <span v-if="moduleLastEventLine(workspaceModule)"
-                        class="text-xs text-gray-500" data-module-last-action>
+                  <span class="text-xs text-gray-500" data-module-last-action>
                     Последнее действие: {{ moduleLastEventLine(workspaceModule) }}
                   </span>
-                  <span v-else class="text-xs text-gray-500"
-                        data-module-last-action>Последних действий в журнале нет</span>
                   <span class="flex-1"></span>
                   <button type="button" class="btn-accent text-xs"
                           data-module-primary-action
@@ -1881,10 +1878,7 @@
                   <span class="flex-1"></span>
                   <div class="flex flex-wrap items-center gap-2" data-module-overview-actions>
                     <span class="text-xs text-gray-500" data-module-last-action>
-                      <template v-if="moduleLastEventLine(workspaceModule)">
-                        Последнее действие: {{ moduleLastEventLine(workspaceModule) }}
-                      </template>
-                      <template v-else>Последних действий в журнале нет</template>
+                      Последнее действие: {{ moduleLastEventLine(workspaceModule) }}
                     </span>
                     <button type="button" class="btn-accent text-xs"
                             data-module-primary-action

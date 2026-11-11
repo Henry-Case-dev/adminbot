@@ -22903,17 +22903,57 @@
         return 'Здоровье: ' + h.label + (h.reason ? ' — ' + h.reason : '') + when;
       },
       // Последняя подтверждённая ошибка/выполнение — только реальные данные.
-      moduleLastEventLine: function (m) {
+      // P0IM-OV-HONEST: состояний ДВА, а не «факт или пусто». `unknown` значит
+      // «источник молчит» и никогда не превращается в «действий не было»:
+      // молчание источника — не пустой журнал.
+      moduleLastEventState: function (m) {
         // §5 v2.1: одна область — одна ошибка (запоздавший ответ чужой
         // области не показывается: он живёт под своим scope-ключом).
         var err = this.moduleScopeErrorFor(m);
-        if (err) return 'Последняя операция: ошибка — ' + err;
+        if (err) {
+          return { kind: 'event',
+                   text: 'Последняя операция: ошибка — ' + err };
+        }
+        var id = String((m && m.id) || '');
+        // У «Инициативы» журнал уже прочитан этой же страницей (оси двух
+        // механизмов в `mechanism-diagnostics`), поэтому строка берёт
+        // РЕАЛЬНУЮ новейшую попытку, а не объявляет пустоту.
+        if (id === 'mod_initiative') return this.initiativeLastActionFact();
         var h = this.moduleHealthView(m);
         if (h && h.observedAt) {
-          return 'Последнее подтверждённое наблюдение: '
-            + this.fmtLogTs(h.observedAt);
+          return { kind: 'event',
+                   text: 'Последнее подтверждённое наблюдение: '
+                         + this.fmtLogTs(h.observedAt) };
         }
-        return '';
+        return { kind: 'unknown', text: INI_NO_DATA };
+      },
+      moduleLastEventLine: function (m) {
+        return this.moduleLastEventState(m).text;
+      },
+      // Новейшая РЕАЛЬНАЯ попытка из УЖЕ загруженного снимка диагностики (тот
+      // же ответ, что у карточек ниже): ось `last_attempt` двух механизмов.
+      // Пусто в снимке или снимка нет → «нет данных», а не «нет действий».
+      initiativeLastActionFact: function () {
+        var view = this.memeDiagView;
+        if (!view) return { kind: 'unknown', text: INI_NO_DATA };
+        var tz = this.iniOverviewTimezone;
+        var best = null;
+        [['text', 'Текстовая инициатива'], ['meme', 'Мемы']]
+          .forEach(function (pair) {
+            var block = view[pair[0]] || null;
+            if (!block || block.isNoData) return;
+            var ax = block.axes || {};
+            var at = Number(ax.attemptAt);
+            if (ax.attemptAt == null || !isFinite(at) || at <= 0) return;
+            if (best && at <= best.at) return;
+            best = {
+              at: at,
+              text: iniWhen(at, tz) + ' · ' + pair[1]
+                + (ax.attemptOutcomeText ? ' — ' + ax.attemptOutcomeText : ''),
+            };
+          });
+        return (best ? { kind: 'event', text: best.text }
+          : { kind: 'unknown', text: INI_NO_DATA });
       },
       // F5 (ADR-1025-15 D2/§46): шов F4 меняет РЕАЛИЗАЦИЮ — теперь это
       // навигация на страницу модуля `#/modules/<slug>` (§46). Точка входа
