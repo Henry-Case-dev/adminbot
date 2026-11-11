@@ -8644,6 +8644,10 @@ body > .sticky-save[data-save-panel] {
 }
 .ini-card__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ini-card > button { align-self: flex-start; }
+.ini-card__actions {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  align-self: flex-start; min-width: 0;
+}
 .ini-col .meme-row .field { max-width: 11rem; }
 .ini-col .meme-row > span:first-child { flex: 1 1 100%; }
 .ini-budget-grid { display: grid; gap: 2px 16px;

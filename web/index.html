@@ -1970,10 +1970,19 @@
                         <span class="ini-fact__v">{{ initiativeTextCard.canEditLabel }}</span>
                       </div>
                     </div>
-                    <button type="button" class="btn-ghost text-xs"
-                            data-ini-open="text" @click="openWorkspaceTab('text')">
-                      {{ initiativeTextCard.tabLabel }} →
-                    </button>
+                    <div class="ini-card__actions">
+                      <button type="button" class="btn-ghost text-xs"
+                              data-ini-open="text" @click="openWorkspaceTab('text')">
+                        {{ initiativeTextCard.tabLabel }} →
+                      </button>
+                      <button v-if="initiativeTextCard.attemptRef" type="button"
+                              class="btn-ghost text-xs"
+                              data-ini-open-attempt="text"
+                              :data-ini-attempt-ref="initiativeTextCard.attemptRef"
+                              @click="iniOpenAttempt(initiativeTextCard.attemptRef)">
+                        Показать попытку →
+                      </button>
+                    </div>
                   </section>
 
                   <section class="ini-card" data-ini-card="meme">
@@ -2029,10 +2038,19 @@
                         <span class="ini-fact__v">{{ initiativeMemeCard.canEditLabel }}</span>
                       </div>
                     </div>
-                    <button type="button" class="btn-ghost text-xs"
-                            data-ini-open="memes" @click="openWorkspaceTab('memes')">
-                      {{ initiativeMemeCard.tabLabel }} →
-                    </button>
+                    <div class="ini-card__actions">
+                      <button type="button" class="btn-ghost text-xs"
+                              data-ini-open="memes" @click="openWorkspaceTab('memes')">
+                        {{ initiativeMemeCard.tabLabel }} →
+                      </button>
+                      <button v-if="initiativeMemeCard.attemptRef" type="button"
+                              class="btn-ghost text-xs"
+                              data-ini-open-attempt="meme"
+                              :data-ini-attempt-ref="initiativeMemeCard.attemptRef"
+                              @click="iniOpenAttempt(initiativeMemeCard.attemptRef)">
+                        Показать попытку →
+                      </button>
+                    </div>
                   </section>
                 </div>
 
@@ -3046,7 +3064,7 @@
                               :class="row.outcomeClass"
                               :data-ini-pub-outcome="row.outcome">{{ row.outcomeLabel }}</span>
                         <span class="shrink-0" :class="row.deliveryClass"
-                              :data-ini-pub-delivery="String(row.delivered)">
+                              :data-ini-pub-delivery="row.deliveryState">
                           {{ row.deliveryLabel }}
                         </span>
                         <span class="msr shrink-0" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
@@ -3066,8 +3084,7 @@
                             режим: {{ row.modeLabel }}
                             <template v-if="iniPubDetail.delivery">
                               · доставка: message_id
-                              {{ iniPubDetail.delivery.message_id == null ? '—'
-                                 : iniPubDetail.delivery.message_id }}
+                              {{ iniMessageIdLabel(iniPubDetail.delivery.message_id) }}
                             </template>
                             <template v-if="row.chain_len">
                               · этапов в журнале: {{ row.chain_len }}
@@ -3212,8 +3229,8 @@
                     </div>
                     <div class="ini-fact">
                       <span class="ini-fact__k">Исход</span>
-                      <span class="ini-fact__v">{{ iniTraceAttempt
-                        ? memeOutcomeLabel(iniTraceAttempt.outcome) : '—' }}</span>
+                      <span class="ini-fact__v" data-ini-trace-outcome>{{ iniTraceAttempt
+                        ? iniOutcomeLabel(iniTraceAttempt.outcome) : '—' }}</span>
                     </div>
                     <div class="ini-fact">
                       <span class="ini-fact__k">Доставка</span>

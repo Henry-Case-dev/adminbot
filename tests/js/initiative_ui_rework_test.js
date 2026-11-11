@@ -183,21 +183,22 @@ function axesPayload(textOver, memeOver) {
 }
 
 function axesCard(kind, payload, extra) {
-  const view = computed.memeDiagView.call({
-    memeDiag: payload, iniOverviewTimezone: TZ,
-  });
   const ctx = Object.assign({
-    memeDiagView: view,
-    iniOverviewTimezone: TZ,
-    canEditConfig: function () { return true; },
+    memeDiag: payload,
     activeChatId: CHAT,
+    iniOverviewTimezone: TZ,
+  }, extra || {});
+  const view = computed.memeDiagView.call(ctx);
+  const cardCtx = Object.assign({}, ctx, {
+    memeDiagView: view,
+    canEditConfig: function () { return true; },
     memeSettingsView: { memeEnabled: true, initiativeEnabled: true,
                         quotaText: 'Генерации сегодня: 1 / 3',
                         remainingText: 'осталось 2', resetAt: '' },
-  }, extra || {});
+  });
   const fn = kind === 'text' ? computed.initiativeTextCard
     : computed.initiativeMemeCard;
-  return fn.call(ctx);
+  return fn.call(cardCtx);
 }
 
 // 3.1 Кулдаун: «Разрешено: ВКЛ» + ожидание, НЕ «выключено».
@@ -371,25 +372,50 @@ function axesCard(kind, payload, extra) {
     iniPub: { rows: [
       { attempt_id: 'meme:1', kind: 'meme', ts: 1800000000, stage: 'publish',
         outcome: 'published', reason_code: 'sent', reason_label: 'отправлено',
-        delivered: true, mode: 'manual' },
+        delivered: true, message_id: 4321, mode: 'manual' },
       { attempt_id: 'meme:2', kind: 'meme', ts: 1799999999, stage: 'publish',
         outcome: 'skipped', reason_code: 'publication_stale',
         reason_label: '', delivered: false, mode: 'auto' },
       { attempt_id: 'text:3', kind: 'text_initiative', ts: 1799999998,
-        stage: 'decision', outcome: 'say', reason_code: '',
+        stage: 'send', outcome: 'delivery_unknown', reason_code: '',
+        reason_label: '', delivered: null, mode: 'auto' },
+      { attempt_id: 'text:4', kind: 'text_initiative', ts: 1799999997,
+        stage: 'decision', outcome: 'silent', reason_code: '',
         reason_label: '', delivered: null, mode: 'auto' },
     ] },
   });
-  assert.strictEqual(view.length, 3);
-  assert.strictEqual(view[0].deliveryLabel, 'доставлено');
-  assert.strictEqual(view[1].deliveryLabel, 'не доставлено');
-  assert.strictEqual(view[2].deliveryLabel, 'неизвестно',
-    'null-доставка не должна читаться как «нет»');
+  assert.strictEqual(view.length, 4);
+  // Блокер 5: три РАЗНЫХ состояния доставки, ни одного схлопывания.
+  assert.strictEqual(view[0].deliveryLabel, 'доставлено · сообщение 4321');
+  assert.strictEqual(view[0].deliveryState, 'confirmed');
+  assert.strictEqual(view[1].deliveryLabel,
+    'отправки не было: бот решил не публиковать');
+  assert.strictEqual(view[1].deliveryState, 'never');
+  assert.strictEqual(view[2].deliveryLabel, 'доставка неизвестна');
+  assert.strictEqual(view[2].deliveryState, 'unknown');
+  assert.strictEqual(view[3].deliveryLabel,
+    'отправки не было: бот решил не публиковать');
+  assert.strictEqual(view[3].deliveryState, 'never');
+  assert.notStrictEqual(view[2].deliveryLabel, view[3].deliveryLabel,
+    '«доставка неизвестна» и «отправки не было» схлопнуты');
   assert.strictEqual(view[0].modeLabel, 'ручной /meme');
   assert.ok(view[1].reasonText.indexOf('устаревшая') >= 0,
     'код причины без текста не превращается в человеческий: '
     + view[1].reasonText);
   assert.strictEqual(view[0].outcomeOk, true);
+  // Ни одного голого машинного слова в исходе строки.
+  assert.strictEqual(view[3].outcomeLabel, 'бот решил промолчать');
+  assert.strictEqual(view[2].outcomeLabel, 'доставка неизвестна');
+  // `0` — не id сообщения.
+  const zero = computed.iniPubRows.call({
+    iniPub: { rows: [
+      { attempt_id: 'meme:9', kind: 'meme', ts: 1800000099, stage: 'publish',
+        outcome: 'published', reason_code: '', reason_label: '',
+        delivered: true, message_id: 0, mode: 'auto' },
+    ] },
+  });
+  assert.strictEqual(zero[0].deliveryLabel, 'доставлено',
+    'нулевой id напечатан как сообщение: ' + zero[0].deliveryLabel);
 })();
 
 // ── 5. «Диагностика»: группы и итог «генерация/отправка» ─────────────────
@@ -648,7 +674,10 @@ function axesCard(kind, payload, extra) {
   assert.strictEqual(view[0].outcomeLabel, 'отложено');
   assert.strictEqual(view[0].outcomeClass, 'badge-info',
     'отложенный конфликт подан как ошибка');
-  assert.strictEqual(view[0].deliveryLabel, 'неизвестно');
+  // Блокер 5: у отложенной строки — «отправки не было», а не глухое «неизвестно».
+  assert.strictEqual(view[0].deliveryLabel,
+    'отправки не было: попытка отложена');
+  assert.strictEqual(view[0].deliveryState, 'never');
   assert.ok(view[0].chainReasonsText.indexOf('конфликт') >= 0
             || view[0].chainReasonsText.length > 0,
     'причины цепочки не дошли до строки журнала');
@@ -685,11 +714,173 @@ function axesCard(kind, payload, extra) {
     'подпись источника не выведена в UI');
 })();
 
+// ── 10.6 Блокеры независимого ревью на d58fbb56 ─────────────────────────
+// 2) истёкший приоритет ручного /meme — не живой блок, 3) время только с
+// названным основанием, 4) ссылка на попытку из карточки, 5) исходы и
+// доставка — по-человечески, без голых токенов.
+(function () {
+  function pubView(over) {
+    return {
+      available: true, coordination: 'ok', degraded: false, conflict: false,
+      conflict_state: 'none', ok: true, reason: '', reason_label: '',
+      detail: '', state: 'released', holder_kind: 'meme', claimed_by: '',
+      other_kind: '', other_age_seconds: null, interval_seconds: 900,
+      manual_priority_until: null, manual_priority_active: false,
+      manual_priority_expired: false, checked_at: NOW_TS,
+    };
+  }
+  function coordOf(pubOver) {
+    const view = computed.memeDiagView.call({
+      memeDiag: axesPayload({}, { publication: Object.assign(
+        pubView(), pubOver || {}) }),
+      activeChatId: CHAT, iniOverviewTimezone: TZ,
+    });
+    return computed.initiativeCoordination.call({ memeDiagView: view });
+  }
+
+  // 2) Истёкший дедлайн — полосы нет и он не назван «отложено».
+  const expired = coordOf({ manual_priority_until: NOW_TS - 600,
+                            manual_priority_active: false,
+                            manual_priority_expired: true });
+  assert.strictEqual(expired.visible, false,
+    'истёкший приоритет ручного /meme показан как живой блок: '
+    + JSON.stringify(expired));
+  assert.strictEqual(String(expired.label).indexOf('приоритет'), -1,
+    'истёкший приоритет назван действующим: ' + expired.label);
+  // Без флага бэкенда, но дедлайн в прошлом — тоже не блок (часы сервера).
+  const expiredNoFlag = coordOf({ manual_priority_until: NOW_TS - 600 });
+  assert.strictEqual(expiredNoFlag.visible, false,
+    'прошлый дедлайн без флага нарисован блоком');
+  // Живой приоритет — блок с конкретным сроком.
+  const live = coordOf({ manual_priority_until: NOW_TS + 600,
+                         manual_priority_active: true });
+  assert.strictEqual(live.visible, true,
+    'живой приоритет ручного /meme не показан');
+  assert.strictEqual(live.state, 'deferred');
+  assert.ok(String(live.event).indexOf('до ') === 0,
+    'срок живого приоритета не назван: ' + live.event);
+  // Флаг бэкенда главнее: активный=true даже при «прошлом» штампе.
+  const flagWins = coordOf({ manual_priority_until: NOW_TS - 600,
+                             manual_priority_active: true });
+  assert.strictEqual(flagWins.visible, true,
+    'флаг manual_priority_active проигнорирован');
+
+  // 3) Штамп без основания не печатается как «не раньше».
+  const noBasis = axesCard('meme', axesPayload({}, {
+    readiness: { state: 'waiting', reason: 'cooldown_active',
+                 reason_class: 'cooldown',
+                 next_eligible_at: NOW_TS + 3600, next_basis: '' },
+  }));
+  assert.strictEqual(noBasis.nextAt, null,
+    'время без основания отдано как обещание');
+  assert.strictEqual(String(noBasis.nextText).indexOf('не раньше'), -1,
+    'время без основания напечатано как «не раньше»: ' + noBasis.nextText);
+  assert.ok(noBasis.nextText.indexOf('основание срока не записано') > 0,
+    'отсутствие основания не объяснено: ' + noBasis.nextText);
+  assert.strictEqual(noBasis.nextBasisMissing, true);
+  const withBasis = axesCard('meme', axesPayload({}, {
+    readiness: { state: 'waiting', reason: 'cooldown_active',
+                 reason_class: 'cooldown',
+                 next_eligible_at: NOW_TS + 3600, next_basis: 'cooldown' },
+  }));
+  assert.ok(withBasis.nextText.indexOf('не раньше') === 0, withBasis.nextText);
+  assert.ok(withBasis.nextText.indexOf('по собственному кулдауну') > 0);
+  assert.ok(withBasis.nextAt > 0);
+
+  // 4) Попытка открывается в существующей «Диагностике» по своему родителю.
+  const memeCard = axesCard('meme', axesPayload({}, {}));
+  assert.strictEqual(memeCard.attemptRef, 'meme:run-1',
+    'ссылка на попытку мемов не собрана: ' + memeCard.attemptRef);
+  const textCard = axesCard('text', axesPayload({}, {}));
+  assert.strictEqual(textCard.attemptRef, 'text:run-1',
+    'ссылка на попытку текста не собрана: ' + textCard.attemptRef);
+  const noRun = axesCard('meme', axesPayload({}, {
+    last_attempt: { at: NOW_TS, mode: 'auto', run_id: '', outcome: 'skipped',
+                    stop_stage: 'publish', incomplete_historical: true },
+  }));
+  assert.strictEqual(noRun.attemptRef, '',
+    'ссылка на попытку без родителя выдумана');
+  const navCtx = {
+    iniPubFocus: '',
+    tab: '',
+    openWorkspaceTab: function (t) { this.tab = t; },
+    initiativeOpenTrace: methods.initiativeOpenTrace,
+  };
+  methods.iniOpenAttempt.call(navCtx, memeCard.attemptRef);
+  assert.strictEqual(navCtx.tab, 'diagnostics',
+    'действие карточки не ведёт в существующую «Диагностику»');
+  assert.strictEqual(navCtx.iniPubFocus, 'meme:run-1',
+    'фокус попытки не передан: ' + navCtx.iniPubFocus);
+  methods.iniOpenAttempt.call(navCtx, '');
+  assert.strictEqual(navCtx.iniPubFocus, 'meme:run-1',
+    'пустая ссылка сбросила фокус попытки');
+  assert.ok(INDEX.indexOf('data-ini-open-attempt="text"') > 0
+            && INDEX.indexOf('data-ini-open-attempt="meme"') > 0,
+    'в карточках нет действия «Показать попытку»');
+  assert.ok(INDEX.indexOf('initiativeTextCard.attemptRef') > 0,
+    'кнопка не несёт ссылку на попытку');
+
+  // 5) Исходы — по-человечески; молчание — решение, а не остановка.
+  const silent = axesCard('text', axesPayload({
+    last_attempt: { at: NOW_TS - 60, mode: 'auto', run_id: 'tr-1',
+                    outcome: 'silent', stop_stage: 'initiative_decided',
+                    incomplete_historical: false },
+  }, {}));
+  assert.ok(silent.attemptText.indexOf('бот решил промолчать') > 0,
+    'молчание не названо решением: ' + silent.attemptText);
+  assert.strictEqual(silent.attemptText.indexOf('остановилось'), -1,
+    'молчание подано как остановка: ' + silent.attemptText);
+  const sentRow = axesCard('meme', axesPayload({}, {
+    last_attempt: { at: NOW_TS - 60, mode: 'auto', run_id: 'j-1',
+                    outcome: 'sent', stop_stage: 'publish',
+                    incomplete_historical: false },
+  }));
+  assert.ok(sentRow.attemptText.indexOf('отправлено') > 0,
+    'исход «sent» не переведён: ' + sentRow.attemptText);
+  assert.strictEqual(sentRow.attemptText.indexOf('sent'), -1,
+    'в карточке остался голый токен «sent»: ' + sentRow.attemptText);
+  const oddRow = axesCard('meme', axesPayload({}, {
+    last_attempt: { at: NOW_TS - 60, mode: 'auto', run_id: 'j-2',
+                    outcome: 'weird_outcome', stop_stage: 'publish',
+                    incomplete_historical: false },
+  }));
+  assert.ok(oddRow.attemptText.indexOf('код: weird_outcome') > 0,
+    'незнакомый исход выведен голым токеном: ' + oddRow.attemptText);
+
+  // 5) Список значимых событий: без голых `silent`/`sent`/`reply.text`.
+  const events = computed.initiativeRecentEvents.call({
+    initiativeVitality: { decisions: [
+      { ts: NOW_TS - 10, action: 'silent', outcome: 'silent',
+        reason_code: 'no_random_hit', reason_label: 'порог не пройден' },
+      { ts: NOW_TS - 20, action: 'reply.text', outcome: 'say',
+        reason_code: '', reason_label: '' },
+      { ts: NOW_TS - 30, action: 'nudge', outcome: '', reason_code: '',
+        reason_label: '' },
+    ] },
+    memeSettings: { analytics: { attempts: [
+      { ts: NOW_TS - 5, job_id: 'job-9', stage: 'publish', outcome: 'sent',
+        reason_code: '' },
+    ] } },
+  });
+  const texts = events.map(function (e) { return e.text; }).join(' | ');
+  assert.ok(texts.indexOf('бот решил промолчать') > 0,
+    'в списке событий молчание не названо: ' + texts);
+  assert.ok(texts.indexOf('ответ текстом') > 0,
+    'действие «reply.text» осталось токеном: ' + texts);
+  assert.ok(texts.indexOf('отправлено') > 0,
+    'исход «sent» остался токеном в списке: ' + texts);
+  assert.ok(texts.indexOf('код: nudge') > 0,
+    'незнакомое действие не подписано: ' + texts);
+  assert.strictEqual(/\bsilent\b/.test(texts.replace('код: ', '')), false,
+    'в списке событий остался голый `silent`: ' + texts);
+  assert.strictEqual(/(^|[^:]) sent\b/.test(texts), false,
+    'в списке событий остался голый `sent`: ' + texts);
+})();
+
 // ── 11. Ответ привязан к выбранному чату (P0-INIT-MEME-UX-DIAG §4) ────────
 // Поздний ответ другого чата не может стать содержимым карточек: применяем
 // только при совпадении epoch И `payload.chat_id`, иначе отбрасываем.
 const OTHER_CHAT = -100999;
-
 function diagStub(chatId, runId) {
   return {
     schema_version: 1, generated_at: NOW_TS, chat_id: chatId, degraded: [],
@@ -829,6 +1020,61 @@ async function chatBoundSuite() {
     'настройки чужого чата применены к выбранному');
   assert.ok(String(settingsCtx.memeSettingsError).indexOf('другого чата') >= 0,
     'отброс настроек чужого чата не объяснён');
+
+  // g) Смена чата очищает снимок, а чужой payload не рендерится вообще.
+  const switchCtx = {
+    activeChatId: OTHER_CHAT,
+    memeDiag: diagStub(CHAT, 'run-old'),
+    memeDiagError: '',
+    memeDiagQueued: true,
+    memeSettings: { chat_id: CHAT, settings: {} },
+    memeSettingsError: '',
+    memeFieldErrors: {},
+    memeDraft: { prompt_joke: 'чужой черновик' },
+    memeDraftChat: CHAT,
+    initiativeVitality: { decisions: [{}] },
+    iniPubFocus: 'meme:old',
+    iniPubDetail: { attempt_id: 'meme:old' },
+    iniPubDetailError: '',
+    iniTrace: { attempt: {} },
+    iniTraceError: '',
+    iniTraceOpen: { stages: true },
+    iniPub: { rows: [{ attempt_id: 'meme:old' }], counts: { total: 1 },
+               notes: ['x'], nextOffset: 2, loaded: true, error: '' },
+  };
+  methods.iniResetChatScope.call(switchCtx);
+  assert.strictEqual(switchCtx.memeDiag, null,
+    'смена чата не очистила снимок диагностики');
+  assert.strictEqual(switchCtx.memeSettings, null,
+    'смена чата не очистила настройки прежнего чата');
+  assert.strictEqual(switchCtx.memeDraft, null,
+    'черновик прежнего чата переехал в новый');
+  assert.strictEqual(switchCtx.iniPub.rows.length, 0,
+    'журнал прежнего чата остался на экране');
+  assert.strictEqual(switchCtx.iniPub.loaded, false);
+  assert.strictEqual(switchCtx.iniPubFocus, '');
+  assert.strictEqual(switchCtx.iniTrace, null);
+  assert.strictEqual(switchCtx.memeDiagQueued, false);
+  // И рендер: снимок чужого чата не даёт карточку даже если он в состоянии.
+  const foreignView = computed.memeDiagView.call({
+    memeDiag: diagStub(CHAT, 'run-foreign'),
+    activeChatId: OTHER_CHAT,
+    iniOverviewTimezone: TZ,
+  });
+  assert.strictEqual(foreignView, null,
+    'снимок чужого чата отрендерен для выбранного чата');
+  const cardForeign = computed.initiativeMemeCard.call({
+    memeDiagView: foreignView,
+    activeChatId: OTHER_CHAT,
+    iniOverviewTimezone: TZ,
+    canEditConfig: function () { return true; },
+    memeSettingsView: null,
+  });
+  assert.strictEqual(cardForeign.deliveryStatus, '',
+    'карточка показала доставку из чужого снимка');
+  assert.strictEqual(cardForeign.attemptText, 'попыток ещё не было');
+  assert.strictEqual(JSON.stringify(cardForeign).indexOf('111'), -1,
+    'чужой message_id попал в карточку выбранного чата');
 }
 
 chatBoundSuite().then(function () {
@@ -837,4 +1083,3 @@ chatBoundSuite().then(function () {
   console.error(err && err.stack || err);
   process.exitCode = 1;
 });
-

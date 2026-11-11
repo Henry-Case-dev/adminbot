@@ -2958,10 +2958,16 @@
     deferred: 'отложено',
     delivery_unknown: 'доставка неизвестна',
     other: 'неклассифицированное событие',
+    // P0 (блокер 5): «отправлено» — это факт отправки, а не машинный `sent`.
+    sent: 'отправлено',
+    success: 'отправлено',
   };
   function memeOutcomeLabel(outcome) {
     var code = String(outcome || '');
-    return MEME_OUTCOME_LABELS[code] || (code || '—');
+    if (!code) return '—';
+    // Незнакомый исход не выводится голым токеном: «код: …» — та же
+    // формулировка, что у распознавания кодов трассы (§5 P0-корректива).
+    return MEME_OUTCOME_LABELS[code] || ('код: ' + code);
   }
   // Коды причин: пропуски пайплайна (meme_initiative.SKIP_*), причины
   // пропуска речевых слоёв (prompt_composer) и маркеры «нет данных» (P9).
@@ -3263,6 +3269,10 @@
           ? '' : memeDurationText(pub.interval_seconds)),
         manualPriorityUntilText: (pub.manual_priority_until == null
           ? '' : _tsStatusLabel(pub.manual_priority_until, '')),
+        // Блокер 2: «приоритет ручного /meme» — ЖИВОЙ или истёкший. Флаг
+        // бэкенда авторитетнее; если его нет — сравнение идёт с серверным
+        // `checked_at` (часы сервера), а не с часами браузера.
+        manualPriorityActive: iniManualPriorityActive(pub),
       } : null),
       blocking: (blocked.length || warned.length ? {
         blocked: blocked.map(function (item) {
@@ -3384,10 +3394,42 @@
     auto: 'автоматически',
     unknown: 'способ не записан',
   };
+  //: Исход попытки и строки журнала — по-человечески, без машинных токенов.
+  //: «Молчание» — это РЕШЕНИЕ бота, а не остановка: так оно и написано.
+  var INI_OUTCOME_LABELS = {
+    published: 'опубликовано',
+    sent: 'отправлено',
+    success: 'отправлено',
+    passed: 'выполнено',
+    skipped: 'пропущено',
+    failed: 'ошибка',
+    blocked: 'публикация заблокирована',
+    deferred: 'отложено',
+    silent: 'бот решил промолчать',
+    say: 'бот решил ответить',
+    react: 'бот поставил реакцию',
+    decided: 'решение принято',
+    cancelled: 'отменено',
+    delivery_unknown: 'доставка неизвестна',
+    other: 'неклассифицированное событие',
+  };
+  //: Действия решений текстовой инициативы (`initiative-vitality.decisions`).
+  var INI_TEXT_ACTION_LABELS = {
+    'reply.text': 'ответ текстом',
+    'reply.sticker': 'ответ стикером',
+    'reply.voice': 'ответ голосом',
+    'reply': 'ответ',
+    say: 'ответ',
+    silent: 'бот решил промолчать',
+    react: 'реакция',
+    noop: 'ничего не делал',
+  };
   //: Исходы, которыми попытка ЗАВЕРШИЛАСЬ (для остальных показываем этап).
+  //: Молчание и принятое решение — тоже завершение: бот решил и не пошёл
+  //: дальше, это не «остановка на этапе».
   var INI_ATTEMPT_DONE_OUTCOMES = {
     passed: true, published: true, sent: true, success: true, say: true,
-    react: true,
+    react: true, silent: true, decided: true, cancelled: true,
   };
   //: Состояние подтверждённой отправки (`last_delivery.status`).
   var INI_DELIVERY_LABELS = {
@@ -3415,7 +3457,22 @@
     if (!text) return '';
     return (MEME_REASON_LABELS[text] || INI_STAGE_LABELS[text]
       || INI_CONFIG_REASON_LABELS[text] || INI_REASON_CLASS_LABELS[text]
+      || INI_OUTCOME_LABELS[text] || INI_TEXT_ACTION_LABELS[text]
       || (INI_CODE_PREFIX + text));
+  }
+
+  //: Исход попытки/строки журнала по-русски. Пустой — «нет данных»/свой текст.
+  function iniOutcomeLabel(outcome, emptyText) {
+    var code = String(outcome == null ? '' : outcome);
+    if (!code) return emptyText || INI_NO_DATA;
+    return (INI_OUTCOME_LABELS[code] || (INI_CODE_PREFIX + code));
+  }
+
+  //: id сообщения: `0` и отрицательные — не id, а отсутствие доказательства.
+  function iniMessageIdText(value) {
+    var num = Number(value);
+    if (value == null || !isFinite(num) || num <= 0) return '';
+    return String(num);
   }
 
   //: Пояс чата из уже загруженных параметров: тот же порядок, что у серверного
@@ -3516,11 +3573,17 @@
     var basis = String((r && r.next_basis) || '');
     var basisLabel = INI_NEXT_BASIS_LABELS[basis] || '';
     var nextWhen = nextAt != null ? iniWhen(nextAt, tz) : '';
-    if (nextAt != null && !nextWhen) nextAt = null;
+    // Блокер 3: время имеет цену только вместе с НАЗВАННЫМ основанием. Штамп
+    // без основания не печатается как «не раньше» — иначе читается как
+    // обещание, у которого нет источника.
     var nextText;
-    if (nextAt != null) {
-      nextText = 'не раньше ' + nextWhen
-        + (basisLabel ? ' (' + basisLabel + ')' : '');
+    var nextBasisMissing = false;
+    if (nextAt != null && !basisLabel) nextBasisMissing = true;
+    if (nextAt != null && nextWhen && basisLabel) {
+      nextText = 'не раньше ' + nextWhen + ' (' + basisLabel + ')';
+    } else if (nextAt != null && nextWhen) {
+      nextText = 'время не называется: основание срока не записано'
+        + ' (штамп ' + nextWhen + ')';
     } else if (state === 'ready') {
       nextText = 'точное время не назначено — рассматривается на ближайшем '
         + 'проходе';
@@ -3545,13 +3608,64 @@
       // cooldown_active»), чтобы не дублировать само слово причины.
       nowCodeText: code ? (INI_CODE_PREFIX + code) : '',
       nextText: nextText,
-      nextAt: nextAt,
+      nextAt: (basisLabel ? nextAt : null),
+      nextStampedAt: nextAt,
+      nextBasisMissing: nextBasisMissing,
       nextBasis: basis,
       nextBasisLabel: basisLabel,
     };
   }
 
+  //: Три РАЗНЫХ состояния доставки в журнале (§2/блокер 5):
+  //: «доставлено» (есть id) · «доставка неизвестна» (попытка была, подтверждения
+  //: нет) · «отправки не было» (решение/пропуск/отложено — до отправки не
+  //: дошли). `delivered=false` при отсутствии намерения отправлять тоже читается
+  //: как «отправки не было», а не как провал.
+  var INI_NO_SEND_OUTCOMES = {
+    silent: true, decided: true, skipped: true, considered: true,
+    deferred: true,
+  };
+  function iniJournalDelivery(row) {
+    var r = (row && typeof row === 'object') ? row : {};
+    var outcome = String(r.outcome || '');
+    var msgId = iniMessageIdText(r.message_id);
+    if (r.delivered === true) {
+      return {
+        state: 'confirmed',
+        label: (msgId ? ('доставлено · сообщение ' + msgId) : 'доставлено'),
+        tone: 'text-green-400',
+        messageIdText: msgId,
+      };
+    }
+    if (INI_NO_SEND_OUTCOMES[outcome]) {
+      return {
+        state: 'never',
+        label: (outcome === 'deferred'
+          ? 'отправки не было: попытка отложена'
+          : 'отправки не было: бот решил не публиковать'),
+        tone: 'text-gray-500',
+        messageIdText: '',
+      };
+    }
+    if (r.delivered === false) {
+      return {
+        state: 'failed',
+        label: 'не доставлено',
+        tone: 'text-amber-300',
+        messageIdText: '',
+      };
+    }
+    return {
+      state: 'unknown',
+      label: 'доставка неизвестна',
+      tone: 'text-gray-500',
+      messageIdText: '',
+    };
+  }
+
   //: Ось last_attempt: одна попытка — когда, как, что сделала, где встала.
+  //: Исход читается по-человечески: молчание — это осознанное решение бота, а
+  //: не «остановка»; `sent` — обычная отправка, а не машинный токен.
   function iniAttemptAxis(attempt, tz) {
     var a = (attempt && typeof attempt === 'object') ? attempt : null;
     var at = (a && a.at != null) ? Number(a.at) : null;
@@ -3560,9 +3674,7 @@
     var modeLabel = (INI_ATTEMPT_MODE_LABELS[mode]
       || (mode ? (INI_CODE_PREFIX + mode) : 'способ не записан'));
     var outcome = String((a && a.outcome) || '');
-    var outcomeText = (outcome
-      ? (MEME_OUTCOME_LABELS[outcome] || (INI_CODE_PREFIX + outcome))
-      : 'исход не записан');
+    var outcomeText = iniOutcomeLabel(outcome, 'исход не записан');
     var stage = String((a && a.stop_stage) || '');
     var stopText = '';
     if (stage && !INI_ATTEMPT_DONE_OUTCOMES[outcome]) {
@@ -3581,6 +3693,11 @@
         attemptRunId: '',
       };
     }
+    // Попытку можно открыть в существующем журнале: родитель попытки —
+    // `job_id` мема или `trace_id` текста, а `attempt_id` журнала имеет вид
+    // `<kind>:<родитель>` (см. web/api/initiative_publications.py). Вид
+    // механизма знает карточка, поэтому ссылка собирается в `iniCardOf`.
+    var runId = String((a && a.run_id) || '');
     parts.push(iniWhen(at, tz) || INI_NO_DATA);
     parts.push(modeLabel);
     parts.push(outcomeText);
@@ -3593,8 +3710,29 @@
       attemptModeLabel: modeLabel,
       attemptOutcomeText: outcomeText,
       attemptStopText: stopText,
-      attemptRunId: String((a && a.run_id) || ''),
+      attemptRunId: runId,
     };
+  }
+
+  //: Жив ли приоритет ручного `/meme` (§2/блокер 2). Флаг бэкенда
+  //: (`manual_priority_active`) авторитетнее; без него — сравнение дедлайна с
+  //: серверным `checked_at`, чтобы часы браузера не рисовали чужой блок.
+  function iniManualPriorityActive(pub) {
+    var p = (pub && typeof pub === 'object') ? pub : null;
+    if (!p) return false;
+    if (p.manual_priority_active === true) return true;
+    if (p.manual_priority_active === false) return false;
+    var until = Number(p.manual_priority_until);
+    if (p.manual_priority_until == null || !isFinite(until) || until <= 0) {
+      return false;
+    }
+    var ref = Number(p.checked_at);
+    if (p.checked_at != null && isFinite(ref) && ref > 0) {
+      return until > ref;
+    }
+    // Нет серверного штампа проверки — сравниваем с текущим временем только
+    // как крайний случай (иначе блок вообще не рисуем).
+    return until > Math.floor(Date.now() / 1000);
   }
 
   //: Ось last_delivery: подтверждено / неизвестно / ещё не доставлял.
@@ -3604,7 +3742,7 @@
     var status = String((d && d.status) || '');
     var when = iniWhen((d && d.at), tz);
     var dest = (d && d.destination != null) ? String(d.destination) : '';
-    var msgId = (d && d.message_id != null) ? String(d.message_id) : '';
+    var msgId = iniMessageIdText(d && d.message_id);
     var badge = INI_DELIVERY_LABELS[status] || '';
     var text;
     if (status === 'confirmed') {
@@ -3728,6 +3866,11 @@
         : 'Открыть настройки мемов'),
       canEditLabel: canEditLabel,
       quotaText: quotaText,
+      // Попытку можно открыть в УЖЕ существующем журнале: `attempt_id` имеет
+      // вид `<kind>:<job_id|trace_id>` (см. web/api/initiative_publications.py).
+      // Пустой родитель → ссылки нет (кнопка не показывается), а не «попытка 0».
+      attemptRef: (ax.attemptRunId
+        ? ((isText ? 'text:' : 'meme:') + ax.attemptRunId) : ''),
       // Проверка ≠ попытка ≠ подтверждённая отправка (§5, строка 3).
       // Время проверки — тем же форматом, что остальные оси (пояс чата или
       // честный UTC), а не в поясе устройства.
@@ -8833,6 +8976,14 @@
       memeDiagView: function () {
         var d = this.memeDiag;
         if (!d) return null;
+        // §4/блокер 1: снимок чужого чата НИКОГДА не рендерится. Даже если он
+        // пришёл раньше очистки (медленный ответ, прямой вызов загрузчика),
+        // карточка не имеет права показать чужой адресат или message_id.
+        var selected = this.activeChatId;
+        if (selected != null
+            && (d.chat_id == null || String(d.chat_id) !== String(selected))) {
+          return null;
+        }
         var tz = this.iniOverviewTimezone;
         return {
           generatedAt: d.generated_at || null,
@@ -8941,7 +9092,12 @@
         var checked = '';
         blocks.forEach(function (b) {
           var p = b.publication;
-          if (p.manualPriorityUntilText) manual = p.manualPriorityUntilText;
+          // Только ЖИВОЙ приоритет ручного `/meme`: истёкший дедлайн — не блок
+          // (бэкенд уже считает `manual_priority_active`; фолбэк — сравнение
+          // дедлайна с серверным `checked_at`).
+          if (p.manualPriorityActive === true && p.manualPriorityUntilText) {
+            manual = p.manualPriorityUntilText;
+          }
           if (p.claimedBy) holder = p.claimedBy;
           if (p.otherKind) other = p.otherKind;
           if (p.checkedAtText) checked = p.checkedAtText;
@@ -8971,15 +9127,20 @@
       // Последние ЗНАЧИМЫЕ события (3–5) — из уже загруженных источников:
       // решения текста (`initiative-vitality`) и терминальные строки журнала
       // мемов. Полный журнал живёт во вкладке «Публикации».
+      // Блокер 5: ни одного голого машинного слова — у действия и исхода есть
+      // русская подпись; незнакомый код становится «код: …».
       initiativeRecentEvents: function () {
         var out = [];
         var vit = this.initiativeVitality || null;
         ((vit && vit.decisions) || []).forEach(function (row) {
+          var action = String(row.action || '');
+          var actionLabel = (INI_TEXT_ACTION_LABELS[action]
+            || (action ? (INI_CODE_PREFIX + action) : 'решение'));
           out.push({
             ts: row.ts,
             kind: 'text_initiative',
             kindLabel: 'Текст',
-            text: (row.action || 'решение') + (row.reason_label
+            text: actionLabel + (row.reason_label
               ? (' · ' + row.reason_label) : ''),
             code: row.reason_code || '',
             attemptId: row.correlation_id ? ('text:' + row.correlation_id) : '',
@@ -8993,13 +9154,15 @@
           if (!job || seen[job]) return;
           seen[job] = true;
           var code = String(row.reason_code || '');
+          var codeLabel = code ? iniCodeLabel(code) : '';
+          var outcomeLabel = iniOutcomeLabel(row.outcome);
           out.push({
             ts: row.ts,
             kind: 'meme',
             kindLabel: 'Мемы',
-            text: memeStageLabelOf(row.stage) + ' · '
-              + (memeOutcomeLabel(row.outcome))
-              + (code ? (' · ' + memeReasonLabelOf(code)) : ''),
+            text: memeStageLabelOf(row.stage) + ' · ' + outcomeLabel
+              + (codeLabel && codeLabel !== outcomeLabel
+                ? (' · ' + codeLabel) : ''),
             code: code,
             attemptId: 'meme:' + job,
           });
@@ -9161,19 +9324,22 @@
           var chainReasons = (r.reason_codes || []).filter(function (c) {
             return c && c !== code;
           });
+          // Блокер 5: три РАЗНЫХ состояния доставки, а не одно «неизвестно».
+          var delivery = iniJournalDelivery(r);
           return Object.assign({}, r, {
             timeText: _tsStatusLabel(r.ts, '—'),
             kindLabel: (r.kind === 'meme' ? 'Мемы' : 'Текст'),
             stageLabel: (r.kind === 'meme'
               ? memeStageLabelOf(r.stage) : (r.stage || '—')),
-            outcomeLabel: memeOutcomeLabel(r.outcome),
+            outcomeLabel: iniOutcomeLabel(r.outcome),
             outcomeOk: (r.outcome === 'published'),
             outcomeClass: (r.outcome === 'published' ? 'badge-ok'
               : (r.outcome === 'deferred' ? 'badge-info'
                 : (r.outcome === 'delivery_unknown'
                   || r.outcome === 'other' ? 'badge-muted'
                   : 'badge-warn'))),
-            reasonText: (r.reason_label || (code ? memeReasonLabelOf(code) : '')),
+            reasonText: (r.reason_label
+              || (code ? iniCodeLabel(code) : '')),
             // Незнакомое событие: сырое имя и его `outcome` — как есть.
             otherText: (r.other_events || []).map(function (e) {
               return String(e.name || '')
@@ -9182,12 +9348,12 @@
             // Причины, которые реально были в цепочке (например конфликт
             // координации, после которого мем всё-таки доставили).
             chainReasonsText: chainReasons
-              .map(function (c) { return memeReasonLabelOf(c); })
+              .map(function (c) { return iniCodeLabel(c); })
               .join(' · '),
-            deliveryLabel: (r.delivered === true ? 'доставлено'
-              : (r.delivered === false ? 'не доставлено' : 'неизвестно')),
-            deliveryClass: (r.delivered === true ? 'text-green-400'
-              : (r.delivered === false ? 'text-amber-300' : 'text-gray-500')),
+            deliveryLabel: delivery.label,
+            deliveryClass: delivery.tone,
+            deliveryState: delivery.state,
+            messageIdText: delivery.messageIdText,
             modeLabel: (r.mode === 'manual' ? 'ручной /meme' : 'авто'),
           });
         });
@@ -12122,6 +12288,40 @@
           // смена контекста сбрасывает стейл-гейты для «Модулей»/PERMsoc
           this.gateInfo = null;
         }
+        // §4: шапка сменилась — карточки и журнал ОЧИЩАЮТСЯ сразу, до ответа
+        // нового чата. Иначе на экране остаётся снимок прежнего чата (пустая
+        // шапка + чужие даты/идентификаторы в карточке).
+        // Защитно: стабы без метода (юнит-тесты) не падают.
+        if (typeof this.iniResetChatScope === 'function') {
+          this.iniResetChatScope();
+        }
+      },
+      // Сброс chat-scoped состояния «Инициативы» (§4). Вызывается при смене
+      // чата и не читает ничего сама: только чистит снимки и фокус попытки.
+      iniResetChatScope: function () {
+        this.memeDiag = null;
+        this.memeDiagError = '';
+        this.memeDiagQueued = false;
+        this.memeSettings = null;
+        this.memeSettingsError = '';
+        this.memeFieldErrors = {};
+        this.memeDraft = null;
+        this.memeDraftChat = null;
+        this.initiativeVitality = null;
+        this.iniPubFocus = '';
+        this.iniPubDetail = null;
+        this.iniPubDetailError = '';
+        this.iniTrace = null;
+        this.iniTraceError = '';
+        this.iniTraceOpen = {};
+        if (this.iniPub) {
+          this.iniPub.rows = [];
+          this.iniPub.counts = {};
+          this.iniPub.notes = [];
+          this.iniPub.nextOffset = null;
+          this.iniPub.loaded = false;
+          this.iniPub.error = '';
+        }
       },
       isChatContext: function () {
         return this.activeChatId != null;
@@ -14375,6 +14575,23 @@
       initiativeOpenTrace: function (attemptId) {
         if (attemptId) this.iniPubFocus = String(attemptId);
         this.openWorkspaceTab('diagnostics');
+      },
+      // Блокер 4: из карточки обзора — к ТОЙ ЖЕ попытке в существующей
+      // «Диагностике». Фокус попытки уже живёт в `iniPubFocus`, вид механизма
+      // и родитель попытки — в `attempt_id` (`<kind>:<job_id|trace_id>`), чат —
+      // в заголовке `X-Chat-Id` того же запроса. Новых адресов и хранилищ нет.
+      iniOpenAttempt: function (attemptRef) {
+        var ref = String(attemptRef || '');
+        if (!ref) return;
+        this.initiativeOpenTrace(ref);
+      },
+      // id сообщения: `0`/пусто — «не записан», а не «сообщение 0».
+      iniMessageIdLabel: function (value) {
+        return iniMessageIdText(value) || '—';
+      },
+      // Исход по-русски для шаблона (module-scope функции в шаблон не видны).
+      iniOutcomeLabel: function (value) {
+        return iniOutcomeLabel(value);
       },
       // Трасса РОВНО одной попытки для «Диагностики». Без выбора — самая
       // свежая попытка из уже загруженного журнала (если он загружен).

@@ -299,37 +299,58 @@ def _block(mechanism, **over):
     return base
 
 
-def _diag():
+def _diag(chat_id=None):
     """Диагностика двух механизмов с ПЯТЬЮ осями (как боевой сборщик).
 
-    `STATE["diag_mode"]` переключает реальные состояния, на которых прежняя
-    витрина лгала: выключено настройкой, включено + кулдаун, доставка
-    неизвестна, ответ чужого чата.
+    Ответ привязан к ЗАПРОШЕННОМУ чату (`X-Chat-Id`): у чатов разные
+    идентификаторы доставки и разные попытки, поэтому переключение чата видно
+    на экране. `STATE["diag_mode"]` переключает реальные состояния, на которых
+    прежняя витрина лгала.
     """
+    base = CHAT_A if chat_id is None else int(chat_id)
+    other = CHAT_B if base == CHAT_A else CHAT_A
+    is_a = base == CHAT_A
     mode = STATE.get("diag_mode") or "off"
+    msg_id = 4321 if is_a else 987654
+    run_id = "job-77" if is_a else "job-88"
+    sent_at = NOW - 120 if is_a else NOW - 3600
     meme_over = {"last_check_ts": NOW - 60, "next_check_ts": NOW + 300,
                  "stages": {"considered": 1, "joke": 1},
-                 "conditions": {"messages": 42, "quota_left": 2},
+                 "conditions": {"messages": 42 if is_a else 7, "quota_left": 2},
+                 "last_attempt": {"at": sent_at, "mode": "auto",
+                                  "run_id": run_id, "outcome": "published",
+                                  "stop_stage": "publish",
+                                  "incomplete_historical": False},
+                 "last_delivery": {"status": "confirmed", "at": sent_at,
+                                   "destination": base, "message_id": msg_id,
+                                   "run_id": run_id},
                  "random": {"performed": True, "outcome": "hit", "value": 0.02,
                             "hit": True, "probability": 0.05,
                             "purpose": "trigger", "source": "quantum",
                             "selected_source": "quantum",
                             "fallback": False, "reason": ""}}
-    text_over = {}
+    text_over = {
+        "last_attempt": {"at": NOW - 120, "mode": "auto",
+                         "run_id": ("corr-a" if is_a else "corr-b"),
+                         "outcome": "say", "stop_stage": "initiative_sent",
+                         "incomplete_historical": False},
+        "last_delivery": {"status": "confirmed", "at": sent_at,
+                          "destination": base,
+                          "message_id": (777 if is_a else 888999),
+                          "run_id": ("corr-a" if is_a else "corr-b")},
+    }
     if mode == "off":
         # Явный OFF настройкой: ready=false И configuration.enabled=false.
-        text_over = {"ready": False, "ready_reason": "initiative_disabled",
-                     "skip": {"code": "initiative_disabled",
-                              "label": "инициатива выключена",
-                              "origin": "gate"},
-                     "configuration": {"enabled": False, "source": "product",
-                                       "scope": "global",
-                                       "reason": "master_off"},
-                     "readiness": {"state": "blocked",
-                                   "reason": "initiative_disabled",
-                                   "reason_class": "disabled",
-                                   "next_eligible_at": None,
-                                   "next_basis": "unknown"}}
+        # Попытка и доставка остаются фактами чата (их не прячем).
+        text_over.update({
+            "ready": False, "ready_reason": "initiative_disabled",
+            "skip": {"code": "initiative_disabled",
+                     "label": "инициатива выключена", "origin": "gate"},
+            "configuration": {"enabled": False, "source": "product",
+                              "scope": "global", "reason": "master_off"},
+            "readiness": {"state": "blocked", "reason": "initiative_disabled",
+                          "reason_class": "disabled", "next_eligible_at": None,
+                          "next_basis": "unknown"}})
         meme_over.update({
             "ready": False, "ready_reason": "initiative_disabled",
             "skip": {"code": "initiative_disabled",
@@ -375,19 +396,58 @@ def _diag():
                              "stop_stage": "publication_stale",
                              "incomplete_historical": False},
             "last_delivery": {"status": "unknown", "at": NOW - 300,
-                              "destination": CHAT_A, "message_id": None,
+                              "destination": base, "message_id": None,
                               "run_id": "job-81"}})
-        text_over = {
+        text_over.update({
             "last_attempt": {"at": NOW - 240, "mode": "auto",
                              "run_id": "corr-9", "outcome": "silent",
-                             "stop_stage": "not_enough_messages",
+                             "stop_stage": "initiative_decided",
                              "incomplete_historical": False},
             "last_delivery": {"status": "never", "at": None,
                               "destination": None, "message_id": None,
-                              "run_id": ""}}
+                              "run_id": ""}})
+    elif mode == "expired_priority":
+        # Истёкший приоритет ручного /meme — НЕ живой блок.
+        meme_over.update({
+            "publication": {"available": True, "coordination": "ok",
+                            "degraded": False, "conflict": False,
+                            "conflict_state": "none", "ok": True,
+                            "reason": "", "reason_label": "", "detail": "",
+                            "state": "released", "holder_kind": "meme",
+                            "claimed_by": "", "other_kind": "",
+                            "other_age_seconds": None, "interval_seconds": 900,
+                            "manual_priority_until": NOW - 600,
+                            "manual_priority_active": False,
+                            "manual_priority_expired": True,
+                            "claim_expires_at": NOW - 900, "checked_at": NOW},
+            "readiness": {"state": "ready", "reason": "", "reason_class": "",
+                          "next_eligible_at": None, "next_basis": "none"}})
+    elif mode == "live_priority":
+        meme_over.update({
+            "publication": {"available": True, "coordination": "ok",
+                            "degraded": False, "conflict": False,
+                            "conflict_state": "none", "ok": True,
+                            "reason": "", "reason_label": "", "detail": "",
+                            "state": "claimed", "holder_kind": "meme",
+                            "claimed_by": "meme", "other_kind": "",
+                            "other_age_seconds": None, "interval_seconds": 900,
+                            "manual_priority_until": NOW + 600,
+                            "manual_priority_active": True,
+                            "manual_priority_expired": False,
+                            "claim_expires_at": NOW + 600, "checked_at": NOW},
+            "readiness": {"state": "waiting", "reason": "publication_conflict",
+                          "reason_class": "manual_priority",
+                          "next_eligible_at": NOW + 600,
+                          "next_basis": "manual_priority_until"}})
+    elif mode == "no_basis":
+        # Штамп есть, основания нет: «не раньше» печатать нечем.
+        meme_over.update({
+            "readiness": {"state": "waiting", "reason": "cooldown_active",
+                          "reason_class": "cooldown",
+                          "next_eligible_at": NOW + 3600, "next_basis": ""}})
     return {
         "schema_version": 1, "generated_at": NOW,
-        "chat_id": (CHAT_B if mode == "foreign_chat" else CHAT_A),
+        "chat_id": (other if mode == "foreign_chat" else base),
         "text_initiative": _block(
             "text_initiative",
             random={"performed": True, "outcome": "hit", "value": 0.08,
@@ -724,7 +784,8 @@ def make_api_handler():
                         STATE["image_source_by_chat"][chat_key] = "factory"
             return send(_meme_settings(chat_hdr))
         if path.endswith("/api/initiative/mechanism-diagnostics"):
-            return send(_diag())
+            # Ответ привязан к чату запроса: подмена чата видна на экране.
+            return send(_diag(chat_hdr))
         if path.endswith("/api/initiative/publications/detail"):
             attempt = ""
             for part in qs.split("&"):
@@ -1050,6 +1111,14 @@ OVERVIEW_PROBE = r"""
     },
     events: events.map((el) => strip(el.textContent)),
     eventCount: events.length,
+    attemptRefs: {
+      text: ((document.querySelector('[data-ini-open-attempt="text"]') || {})
+        .getAttribute ? document.querySelector('[data-ini-open-attempt="text"]')
+        .getAttribute('data-ini-attempt-ref') : ''),
+      meme: ((document.querySelector('[data-ini-open-attempt="meme"]') || {})
+        .getAttribute ? document.querySelector('[data-ini-open-attempt="meme"]')
+        .getAttribute('data-ini-attempt-ref') : ''),
+    },
     hasWorkspaceOverview: !!document.querySelector('[data-workspace-overview]'),
     hasPrimary: !!document.querySelector('[data-module-primary-action]'),
     overviewH: (rect('[data-initiative-overview]') || {}).h,
@@ -1063,13 +1132,16 @@ OVERVIEW_PROBE = r"""
 #: Ожидаемые формулировки пяти осей по режиму диагностики. Одна таблица —
 #: одно место правды для сценариев (текст проверяется дословно по смыслу).
 #: `cards` — общие фразы обеих карточек, `meme`/`text` — фразы своей карточки.
+#: `coord` — показывается ли полоса координации; `forbid` — чего на экране
+#: быть не должно вовсе.
 AXIS_EXPECT = {
     "off": {
         "badge": "ВЫКЛ",
         "config": ["выключено", "глобальный выключатель"],
+        "attempt_ref": {"text": "text:corr-a", "meme": "meme:job-76"},
         "text": {"now": ["заблокировано", "выключено настройкой"],
                  "readiness": "blocked",
-                 "delivery": ["подтверждено", "сообщение 4321"],
+                 "delivery": ["подтверждено", "сообщение 777"],
                  "delivery_state": "confirmed"},
         "meme": {"now": ["заблокировано", "выключено настройкой"],
                  "readiness": "blocked",
@@ -1080,10 +1152,11 @@ AXIS_EXPECT = {
     "on": {
         "badge": "ВКЛ",
         "config": ["включено", "настройка этого чата"],
+        "attempt_ref": {"text": "text:corr-a", "meme": "meme:job-77"},
         "text": {"now": ["может сработать сейчас"],
                  "next": ["точное время не назначено"],
                  "readiness": "ready",
-                 "delivery": ["подтверждено", "сообщение 4321"],
+                 "delivery": ["подтверждено", "сообщение 777"],
                  "delivery_state": "confirmed"},
         "meme": {"now": ["может сработать сейчас"],
                  "next": ["точное время не назначено"],
@@ -1094,6 +1167,7 @@ AXIS_EXPECT = {
     "cooldown": {
         "badge": "ВКЛ",
         "config": ["включено", "настройка этого чата"],
+        "attempt_ref": {"meme": "meme:job-80"},
         "text": {"now": ["может сработать сейчас"], "readiness": "ready"},
         "meme": {"now": ["ждёт", "кулдаун", "осталось 1 ч"],
                  "next": ["не раньше", "по собственному кулдауну"],
@@ -1101,15 +1175,43 @@ AXIS_EXPECT = {
                  "delivery": ["подтверждено", "сообщение 555444"],
                  "delivery_state": "confirmed",
                  "attempt": ["вручную (/meme)", "опубликовано"]},
+        "forbid": ["выключено"],
     },
     "delivery_unknown": {
         "badge": "ВКЛ",
+        "attempt_ref": {"text": "text:corr-9", "meme": "meme:job-81"},
         "text": {"delivery": ["ещё не доставлял"],
                  "delivery_state": "never",
-                 "attempt": ["остановилось", "мало сообщений"]},
+                 # Блокер 5: молчание — решение бота, а не «остановка».
+                 "attempt": ["бот решил промолчать"]},
         "meme": {"delivery": ["доставка неизвестна", "id сообщения нет"],
                  "delivery_state": "unknown",
                  "attempt": ["остановилось", "устаревшая бронь"]},
+        "forbid": ["остановилось: решение"],
+    },
+    "expired_priority": {
+        "badge": "ВКЛ",
+        "attempt_ref": {"meme": "meme:job-77"},
+        "meme": {"now": ["может сработать сейчас"], "readiness": "ready"},
+        "coord": False,
+        # Блокер 2: истёкший дедлайн не рисуется ни полосой, ни словом.
+        "forbid": ["приоритет ручного", "отложено"],
+    },
+    "live_priority": {
+        "badge": "ВКЛ",
+        "attempt_ref": {"meme": "meme:job-77"},
+        "meme": {"now": ["ждёт"], "readiness": "waiting"},
+        "coord": True,
+        "coord_state": "deferred",
+    },
+    "no_basis": {
+        "badge": "ВКЛ",
+        "attempt_ref": {"meme": "meme:job-77"},
+        "meme": {"now": ["ждёт", "кулдаун"],
+                 "next": ["основание срока не записано"],
+                 "readiness": "waiting"},
+        # Блокер 3: без названного основания «не раньше» не печатается.
+        "forbid": ["не раньше"],
     },
 }
 
@@ -1186,6 +1288,11 @@ def run_overview(browser, width, height, label, shots):
                   "данные чужого чата попали в карточки: %r" % joined[:200])
             check("снимок ещё не прочитан" in data["scope"]["text"], label,
                   "снимок чужого чата подписал шапку: %r" % data["scope"])
+            # Ссылка на попытку тоже не может прийти из чужого снимка.
+            check(not data["attemptRefs"]["meme"]
+                  and not data["attemptRefs"]["text"], label,
+                  "ссылка на попытку выведена из чужого снимка: %r"
+                  % data["attemptRefs"])
         elif expect:
             # Обе карточки: одно и то же «Разрешено» (одна ось конфигурации).
             for card_key, card_name in (("textCard", "текст"),
@@ -1235,6 +1342,41 @@ def run_overview(browser, width, height, label, shots):
                 check(text_val != meme_val, label,
                       "«неизвестно» и «никогда» показаны одинаково: %r"
                       % text_val)
+            # Блокер 5: в списке значимых событий нет голых машинных слов.
+            joined_events = " | ".join(data.get("events") or [])
+            for token in (" silent", " sent", " reply.text", " delivery_unknown"):
+                check(token + " " not in joined_events + " "
+                      and not joined_events.endswith(token), label,
+                      "в списке событий голый токен %r: %r"
+                      % (token.strip(), joined_events))
+        if expect:
+            # «Чего на экране быть не должно» — по всему обзору, а не по строке.
+            page_text = " ".join([
+                (data["textCard"] or {}).get("text", ""),
+                (data["memeCard"] or {}).get("text", ""),
+                data["scope"]["text"],
+                (data["coord"] or {}).get("text", ""),
+                " ".join(data.get("events") or []),
+            ])
+            for bad in expect.get("forbid") or []:
+                check(bad not in page_text, label,
+                      "на обзоре всё ещё есть %r: %r" % (bad, page_text[:300]))
+            # Блокер 2: полоса координации — только по живому событию.
+            want_coord = expect.get("coord")
+            if want_coord is None:
+                check(not data["coord"]["present"], label,
+                      "полоса координации висит без события: %r" % data["coord"])
+            elif want_coord is False:
+                check(not data["coord"]["present"], label,
+                      "истёкший приоритет нарисован полосой: %r" % data["coord"])
+            else:
+                check(data["coord"]["present"], label,
+                      "живой конфликт/приоритет не показан полосой: %r"
+                      % data["coord"])
+                if expect.get("coord_state"):
+                    check(data["coord"]["state"] == expect["coord_state"], label,
+                          "состояние координации %r, ожидалось %r"
+                          % (data["coord"]["state"], expect["coord_state"]))
         if expect and mode in ("off", "cooldown"):
             # ready=false НИКОГДА не рисуется как «выключено», кроме явного OFF.
             cards = (data["textCard"] or {}).get("text", "") + \
@@ -1249,9 +1391,15 @@ def run_overview(browser, width, height, label, shots):
               "строка чата/пояса обрезана")
         check(data["truncatedFacts"] == 0, label,
               "обрезанных значений в карточках: %d" % data["truncatedFacts"])
-        # Полоса координации — только при живом конфликте/приоритете/деградации.
-        check(not data["coord"]["present"], label,
-              "полоса координации висит без события: %r" % data["coord"])
+        # Блокер 4: у попытки есть действие, ведущее в её трассу.
+        refs = expect.get("attempt_ref") if expect else None
+        if refs:
+            for face in ("text", "meme"):
+                if face not in refs:
+                    continue
+                check(data["attemptRefs"].get(face) == refs[face], label,
+                      "%s: ссылка на попытку %r, ожидалась %r"
+                      % (face, data["attemptRefs"].get(face), refs[face]))
         check(3 <= data["eventCount"] <= 5, label,
               "значимых событий %d (нужно 3–5)" % data["eventCount"])
         check(data["hasWorkspaceOverview"] and data["hasPrimary"], label,
@@ -1274,6 +1422,186 @@ def run_overview(browser, width, height, label, shots):
         shot(page, shots, "overview_%s_%s" % (mode, label))
     finally:
         ctx.close()
+
+
+# ── Сценарий 2b: «Показать попытку» ведёт в ЕЁ трассу (блокер 4) ──────────
+def run_attempt_focus(browser, width, height, label, shots):
+    STATE["diag_mode"] = "on"
+    ctx, page = new_page(browser, width, height)
+    try:
+        open_page(page)
+        page.wait_for_selector('[data-ini-open-attempt="meme"]', timeout=15000)
+        ref = page.get_attribute('[data-ini-open-attempt="meme"]',
+                                 'data-ini-attempt-ref')
+        check(bool(ref), label, "кнопка попытки не несёт ссылку")
+        page.click('[data-ini-open-attempt="meme"]')
+        page.wait_for_selector("[data-ini-trace-head]", timeout=15000)
+        page.wait_for_timeout(400)
+        data = page.evaluate(r"""
+        () => {
+          const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+          const facts = {};
+          Array.from(document.querySelectorAll('[data-ini-trace-head] .ini-fact'))
+            .forEach((el) => {
+              facts[strip((el.querySelector('.ini-fact__k') || {}).textContent)] =
+                strip((el.querySelector('.ini-fact__v') || {}).textContent);
+            });
+          return { href: location.hash, facts: facts,
+                   outcome: strip((document.querySelector('[data-ini-trace-outcome]')
+                     || {}).textContent),
+                   noChat: !!document.querySelector('[data-ini-trace-nochat]') };
+        }
+        """)
+        notes.append({label + "-attempt-focus": data})
+        check("/diagnostics" in data["href"], label,
+              "действие карточки не открыло «Диагностику»: %r" % data["href"])
+        check(data["facts"].get("Попытка") == ref, label,
+              "открыта не та попытка: %r (ждали %r)"
+              % (data["facts"].get("Попытка"), ref))
+        check(data["facts"].get("Механизм") == "Мемы", label,
+              "вид механизма не передан: %r" % data["facts"].get("Механизм"))
+        check(not data["noChat"], label, "трасса открылась без чата")
+        # Блокер 5: исход в трассе — по-русски, без голого `published`.
+        check(data["outcome"] == "опубликовано", label,
+              "исход в трассе не переведён: %r" % data["outcome"])
+        check("meme:job-77" in ref, label,
+              "в ссылку попал не родитель попытки: %r" % ref)
+        shot(page, shots, "attempt_focus_%s" % label)
+    finally:
+        ctx.close()
+    STATE["diag_mode"] = "off"
+
+
+# ── Сценарий 2c: смена чата очищает карточки (блокер 1) ───────────────────
+def run_chat_switch_cards(browser, width, height, label, shots):
+    """Заполненный обзор чата A → переключение на B → карточки не показывают A.
+
+    Проверяется именно дефект: под шапкой «Чат B» не может висеть снимок A
+    (и его message_id). После ответа B на экране появляются ЕГО идентификаторы.
+    """
+    STATE["diag_mode"] = "on"
+    ctx, page = new_page(browser, width, height)
+    try:
+        open_page(page)
+        page.wait_for_selector('[data-ini-card="meme"] [data-ini-axis="meme:delivery"]',
+                               timeout=15000)
+        page.wait_for_timeout(500)
+        before = page.evaluate(r"""
+        () => {
+          const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+          const val = (sel) => strip((document.querySelector(sel) || {})
+            .textContent);
+          return {
+            scopeText: val('[data-ini-overview-scope]'),
+            textDelivery: val('[data-ini-axis="text:delivery"] .ini-fact__v'),
+            memeDelivery: val('[data-ini-axis="meme:delivery"] .ini-fact__v'),
+            hScroll: document.documentElement.scrollWidth - window.innerWidth,
+            truncated: Array.from(document.querySelectorAll(
+              '[data-ini-card] .ini-fact__v'))
+              .filter((el) => el.scrollWidth > el.clientWidth + 1).length,
+          };
+        }
+        """)
+        notes.append({label + "-switch-before": before})
+        check("Чат A" in before["scopeText"], label,
+              "в шапке не чат A: %r" % before["scopeText"])
+        check("4321" in before["memeDelivery"], label,
+              "обзор A пуст до переключения: %r" % before["memeDelivery"])
+        check("777" in before["textDelivery"], label,
+              "обзор A без доставки текста: %r" % before["textDelivery"])
+        check(before["hScroll"] <= 1, label,
+              "заполненный обзор A прокручивается по горизонтали: %d"
+              % before["hScroll"])
+        check(before["truncated"] == 0, label,
+              "в заполненном обзоре A обрезаны значения: %d" % before["truncated"])
+        shot(page, shots, "overview_filled_a_%s" % label)
+
+        page.click(".scope-trigger")
+        page.wait_for_selector(".scope-panel .scope-option", state="visible")
+        try:
+            page.click(".scope-panel .scope-option:has-text('Чат B')",
+                       timeout=5000)
+        except Exception:  # noqa: BLE001
+            # Стеклянный слой иногда перехватывает hit-test в момент отрисовки:
+            # кликаем ТОТ ЖЕ элемент его собственным DOM-кликом.
+            page.eval_on_selector(
+                ".scope-panel .scope-option:has-text('Чат B')",
+                "el => el.click()")
+        # Ни в один момент под шапкой B не должно быть данных A.
+        page.wait_for_function(
+            "() => { const el = document.querySelector("
+            "'[data-ini-overview-scope]');"
+            " return !!el && el.textContent.indexOf('Чат B') >= 0; }",
+            timeout=10000)
+        leaked = page.evaluate(r"""
+        () => {
+          const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+          const val = (sel) => strip((document.querySelector(sel) || {})
+            .textContent);
+          return { text: val('[data-ini-card="text"]'),
+                   meme: val('[data-ini-card="meme"]'),
+                   scope: val('[data-ini-overview-scope]') };
+        }
+        """)
+        notes.append({label + "-switch-immediate": {
+            "scope": leaked["scope"],
+            "meme": leaked["meme"][:160]}})
+        check("4321" not in leaked["meme"] and "777" not in leaked["text"],
+              label,
+              "под шапкой B остался снимок чата A: %r"
+              % leaked["meme"][:200])
+
+        page.wait_for_function(
+            "() => { const el = document.querySelector("
+            "'[data-ini-axis=\"meme:delivery\"] .ini-fact__v');"
+            " return !!el && el.textContent.indexOf('987654') >= 0; }",
+            timeout=15000)
+        page.wait_for_timeout(400)
+        after = page.evaluate(r"""
+        () => {
+          const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+          const val = (sel) => strip((document.querySelector(sel) || {})
+            .textContent);
+          return {
+            scopeText: val('[data-ini-overview-scope]'),
+            textDelivery: val('[data-ini-axis="text:delivery"] .ini-fact__v'),
+            memeDelivery: val('[data-ini-axis="meme:delivery"] .ini-fact__v'),
+            textCard: val('[data-ini-card="text"]'),
+            memeCard: val('[data-ini-card="meme"]'),
+            hScroll: document.documentElement.scrollWidth - window.innerWidth,
+            truncated: Array.from(document.querySelectorAll(
+              '[data-ini-card] .ini-fact__v'))
+              .filter((el) => el.scrollWidth > el.clientWidth + 1).length,
+          };
+        }
+        """)
+        notes.append({label + "-switch-after": {
+            "scope": after["scopeText"],
+            "textDelivery": after["textDelivery"],
+            "memeDelivery": after["memeDelivery"],
+            "hScroll": after["hScroll"],
+            "truncated": after["truncated"]}})
+        check("Чат B" in after["scopeText"], label,
+              "шапка не переключилась на B: %r" % after["scopeText"])
+        check("987654" in after["memeDelivery"], label,
+              "карточка мемов не показала доставку чата B: %r"
+              % after["memeDelivery"])
+        check("888999" in after["textDelivery"], label,
+              "карточка текста не показала доставку чата B: %r"
+              % after["textDelivery"])
+        check("4321" not in after["memeCard"], label,
+              "в карточке B остался message_id чата A")
+        check("Чат A" not in after["scopeText"], label,
+              "шапка одновременно называет оба чата: %r" % after["scopeText"])
+        check(after["hScroll"] <= 1, label,
+              "заполненный обзор B прокручивается по горизонтали: %d"
+              % after["hScroll"])
+        check(after["truncated"] == 0, label,
+              "в заполненном обзоре B обрезаны значения: %d" % after["truncated"])
+        shot(page, shots, "overview_filled_b_%s" % label)
+    finally:
+        ctx.close()
+    STATE["diag_mode"] = "off"
 
 
 # ── Сценарий 3: «Текстовая инициатива» ───────────────────────────────────
@@ -2138,13 +2466,21 @@ def main() -> int:
                 # 1) разрешено и готово; 2) разрешено + кулдаун (главный
                 # дефект: ready=false не смеет давать «выключено»);
                 # 3) доставка неизвестна ≠ «ещё не доставлял»;
-                # 4) ответ чужого чата отброшен.
+                # 4) истёкший приоритет /meme не блок; живой — блок;
+                # 5) штамп без основания не «не раньше»;
+                # 6) ответ чужого чата отброшен.
                 for mode in ("on", "cooldown", "delivery_unknown",
+                             "expired_priority", "live_priority", "no_basis",
                              "foreign_chat"):
                     STATE["diag_mode"] = mode
                     run_overview(browser, 1536, 960, "1536-" + mode, args.shots)
                     run_overview(browser, 390, 844, "390-" + mode, args.shots)
                 STATE["diag_mode"] = "off"
+                # Блокер 4: действие карточки ведёт в трассу ТОЙ ЖЕ попытки.
+                run_attempt_focus(browser, 1536, 960, "1536", args.shots)
+                # Блокер 1: смена чата очищает карточки, затем показывает свои.
+                run_chat_switch_cards(browser, 1536, 960, "1536", args.shots)
+                run_chat_switch_cards(browser, 390, 844, "390", args.shots)
                 run_text(browser, 1536, 960, "1536", args.shots)
                 run_memes(browser, 1536, 960, "1536", args.shots)
                 run_memes(browser, 390, 844, "390", args.shots)
