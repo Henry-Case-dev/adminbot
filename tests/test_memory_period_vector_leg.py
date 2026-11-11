@@ -455,10 +455,10 @@ class TestBlockIntegration:
                 seen.append([item[1] for item in facts])
                 return []            # валидный пустой выбор модели
 
-        async def _no_chat_param(*_args, **_kwargs):
-            return None
-
-        monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
+        # Гейт реранка — реальная per-chat цепочка 2.58.186 (`_cp_g` → override
+        # чата → hot → фабричный дефолт). Заглушка `_cp_g → None` скрывала бы
+        # флаг от гейта (chat-слой в тесте не инициализирован) — она убрана,
+        # как и в test_mem_time_policy.py релиза 2.58.186.
         service = dcs.DirectChatService(memory=_Memory(), db=None, llm=None,
                                        aliases=None)
 
@@ -623,11 +623,8 @@ class TestPeriodKeptTelemetry:
         service = dcs.DirectChatService(memory=memory, db=None, llm=None,
                                         aliases=None)
 
-        async def _no_chat_param(*_args, **_kwargs):
-            return None
-
-        monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
-
+        # Гейт реранка — реальная per-chat цепочка 2.58.186 (см. выше): стаб
+        # `_cp_g → None` превращал бы флаг ON в OFF и обесценивал телеметрию.
         async def fake_rows(*_args, **_kwargs):
             return rows
 
