@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 """Durable-queue completeness lint for plans/progress_scope.json.
 
-Not a second queue: it validates the queue metadata that already lives in the
-scope file. Registration of an epic is complete only when the task has a
-queue position, a priority and a dependency list, and any "fork" position is
-documented with concrete options and the decision it needs.
+Complements (does not replace) `workflow_progress.py --require-queue`:
+that checker validates the whole scope; this one is a fast local gate with the
+same rules plus a few stricter ones (uniqueness, dependency provenance).
 
-Exit code 0 = queue metadata complete, 1 = defects found.
-
-Usage: python tools/queue_check.py [--scope-file plans/progress_scope.json] [--json]
+Exit 0 = queue metadata complete, 1 = defects.
 """
 from __future__ import annotations
 
@@ -18,67 +15,51 @@ import re
 import sys
 
 DONE = {"VERIFIED", "DONE", "DONE_WITH_GAPS"}
-POSITION_RE = re.compile(
-    r"^(active|release_pending|blocked_external|unranked:fork:[a-z0-9][a-z0-9-]*"
-    r"|after:[a-z0-9][a-z0-9._-]*(,[a-z0-9][a-z0-9._-]*)*"
-    r"|immediately_after:[a-z0-9][a-z0-9._-]*|immediately_before:[a-z0-9][a-z0-9._-]*)$"
-)
-PRIORITY = {"P0", "P1", "P2", "fork"}
-FORK_FIELDS = ("question", "options", "decision_needed", "why_not_derived")
+PRIORITY_RE = re.compile(r"^P[0-9]$")
 
 
 def check(scope: dict) -> list[str]:
     problems: list[str] = []
     tasks = scope.get("tasks") or []
     ids = {t.get("id") for t in tasks if t.get("id")}
+    seen_pos: dict[int, str] = {}
 
-    schema = scope.get("queue_schema")
-    if not schema:
-        problems.append("scope: queue_schema missing (queue grammar is not declared)")
+    if not scope.get("queue_schema"):
+        problems.append("scope: queue_schema missing")
 
     for t in tasks:
         tid = t.get("id") or "<no-id>"
-        status = str(t.get("status") or "").upper()
-        if status in DONE:
+        if str(t.get("status") or "").upper() in DONE:
             continue
 
         pos = t.get("queue_position")
+        if not isinstance(pos, int) or isinstance(pos, bool) or pos <= 0:
+            problems.append(f"{tid}: queue_position must be a positive integer, got {pos!r}")
+        elif pos in seen_pos:
+            problems.append(f"{tid}: queue_position {pos} duplicates {seen_pos[pos]}")
+        else:
+            seen_pos[pos] = tid
+
         prio = t.get("priority")
+        if not isinstance(prio, str) or not PRIORITY_RE.match(prio):
+            problems.append(f"{tid}: priority must be P0..P9, got {prio!r}")
+
         blocked = t.get("blocked_by")
-
-        if not pos:
-            problems.append(f"{tid}: queue_position missing")
-        elif not POSITION_RE.match(str(pos)):
-            problems.append(f"{tid}: queue_position '{pos}' violates the declared grammar")
-
-        if not prio:
-            problems.append(f"{tid}: priority missing")
-        elif str(prio) not in PRIORITY:
-            problems.append(f"{tid}: priority '{prio}' not in {sorted(PRIORITY)}")
-
         if blocked is None:
-            problems.append(f"{tid}: blocked_by missing (use [] when there are no task-level blockers)")
+            problems.append(f"{tid}: blocked_by missing (use [] when none)")
         elif not isinstance(blocked, list):
             problems.append(f"{tid}: blocked_by must be a list")
         else:
+            sources = t.get("blocker_sources") or {}
             for dep in blocked:
-                base = str(dep).split(":")[0]
-                if base not in ids:
-                    problems.append(f"{tid}: blocked_by references unknown task '{dep}'")
+                dep = str(dep)
+                if dep == tid:
+                    problems.append(f"{tid}: blocked_by references itself")
+                elif dep not in ids and dep not in sources:
+                    problems.append(f"{tid}: blocked_by '{dep}' is neither an existing task nor declared in blocker_sources")
 
-        if isinstance(pos, str):
-            if pos.startswith("after:") or pos.startswith("immediately_after:") or pos.startswith("immediately_before:"):
-                refs = pos.split(":", 1)[1].split(",")
-                for ref in refs:
-                    if ref not in ids:
-                        problems.append(f"{tid}: queue_position references unknown task '{ref}'")
-                    if ref == tid:
-                        problems.append(f"{tid}: queue_position references itself")
-            if pos.startswith("unranked:fork:"):
-                fork = t.get("queue_fork") or {}
-                for field in FORK_FIELDS:
-                    if not fork.get(field):
-                        problems.append(f"{tid}: fork position without queue_fork.{field}")
+        if not t.get("execution_state"):
+            problems.append(f"{tid}: execution_state missing (active_assignment/queued/awaiting_dependency/awaiting_architecture/paused_with_branch/release_pending/waiting_external/amendment)")
 
     return problems
 
@@ -93,12 +74,8 @@ def main() -> int:
         scope = json.load(fh)
 
     problems = check(scope)
-    payload = {
-        "scope_file": args.scope_file,
-        "tasks": len(scope.get("tasks") or []),
-        "problems": problems,
-        "ok": not problems,
-    }
+    payload = {"scope_file": args.scope_file, "tasks": len(scope.get("tasks") or []),
+               "problems": problems, "ok": not problems}
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
