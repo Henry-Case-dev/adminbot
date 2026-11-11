@@ -11,7 +11,7 @@ Last verified: RETRIEVAL FIXES MEASURED ON A REAL COPY OF THE ARCHIVE at candida
 Next unlocks: 2.58.182 after the import fix -> deploy and telemetry; inspector step 2; dates DONE; FC-TRUST-01 mapping sits after vmq-onto-01 and self-diag-01
 Next execution: awaiting_children
 Review: approved (inspector step 3 dbf89a96; steps 1 c9ef6e72 and 2 d8270517 closed earlier)
-Deployment: verified 2.58.184 @ 77a63bc5 (schema 47) - source dates live; 2.58.183 @ 0fed5845 remains the rollback for this release
+Deployment: verified 2.58.186 @ d96b24ab (schema 47) - rerank default/precedence; two production audits contradict each other about the pre-release stored value, a third read-only check is running
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh — 73/73 owner inputs reconciled, 32/32 source sections accounted; aggregate 3997/6295 requirements (63%), 13/49 tasks
 Open detail: the preserved WIP commit f41c2c31 covers 22 files (9 service modules, settings, catalogue, four new suites, the reissue tool). Another 71 files under tests/fixtures and test pins are dirty in that worktree because the catalogue grew and the pins still need regeneration; they are derived artefacts and the finish lane regenerates them rather than keeping the dirty copies.
