@@ -8883,7 +8883,14 @@ body > .sticky-save[data-save-panel] {
 .ini-row:hover { background: rgba(255, 255, 255, .04); }
 .ini-row:focus-visible { outline: 2px solid rgba(129, 140, 248, .8); outline-offset: 1px; }
 .ini-row__time { color: #94a3b8; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
-.ini-row__stage { color: #cbd5e1; flex: 0 0 auto; }
+/* Строка стадий (и режим) обязана ПЕРЕНОСИТЬСЯ: `flex: 0 0 auto` держал её
+   в одну линию по max-content, и на узком экране содержимое обрезалось
+   (`scrollWidth` строки 516 против 340 при 390px). Идентификаторы и длинные
+   слаги внутри переносятся по любому месту, а не вылезают за строку. */
+.ini-row__stage {
+  color: #cbd5e1; flex: 1 1 auto; min-width: 0;
+  overflow-wrap: anywhere; word-break: break-word;
+}
 .ini-row__reason { color: #94a3b8; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
 .ini-row__code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -8908,13 +8915,17 @@ body > .sticky-save[data-save-panel] {
 }
 .ini-trace__head {
   display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-  padding: 7px 2px; min-height: 38px; background: none; border: 0;
-  color: #e2e8f0; font-size: 0.94em; cursor: pointer; min-width: 0;
+  flex-wrap: wrap; padding: 7px 2px; min-height: 38px; background: none;
+  border: 0; color: #e2e8f0; font-size: 0.94em; cursor: pointer; min-width: 0;
 }
 .ini-trace__head:hover { background: rgba(255, 255, 255, .04); }
 .ini-trace__head:focus-visible { outline: 2px solid rgba(129, 140, 248, .8); outline-offset: 1px; }
-.ini-trace__title { font-weight: 700; flex: 0 0 auto; }
-.ini-trace__summary { color: #94a3b8; overflow-wrap: anywhere; min-width: 0; }
+.ini-trace__title {
+  font-weight: 700; flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere;
+}
+.ini-trace__summary {
+  color: #94a3b8; flex: 1 1 auto; overflow-wrap: anywhere; min-width: 0;
+}
 .ini-trace__body {
   padding: 2px 10px 8px; display: flex; flex-direction: column; gap: 3px;
   font-size: 0.89em; min-width: 0;

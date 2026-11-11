@@ -3403,6 +3403,98 @@ def run_chat_switch(browser, width, height, label, shots):
         ctx.close()
 
 
+# ── Сценарий: строка журнала ПЕРЕНОСИТСЯ, а не обрезается ──────────────────
+WRAP_PROBE = r"""
+() => {
+  const box = (el) => (el ? [el.scrollWidth, el.clientWidth] : null);
+  const offenders = [];
+  document.querySelectorAll(
+      '[data-ini-pub-row], .ini-rows__item, [data-ini-pub-counts],'
+      + ' [data-ini-pub-detail], .ini-trace, .ini-trace *').forEach((el) => {
+    const cs = getComputedStyle(el);
+    // Строчные элементы не имеют собственной коробки: их scrollWidth не про
+    // обрезку. Проверяются блочные/flex/grid-контейнеры.
+    if (cs.display === 'inline' || cs.display === 'contents') return;
+    if (el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1) {
+      offenders.push({cls: String(el.className).slice(0, 46),
+                      sw: el.scrollWidth, cw: el.clientWidth});
+    }
+  });
+  const rows = Array.from(document.querySelectorAll('[data-ini-pub-row]'));
+  return {
+    vw: window.innerWidth,
+    docSw: document.documentElement.scrollWidth,
+    docCw: document.documentElement.clientWidth,
+    rows: rows.map(box),
+    items: Array.from(document.querySelectorAll('.ini-rows__item')).map(box),
+    counts: box(document.querySelector('[data-ini-pub-counts]')),
+    detail: box(document.querySelector('[data-ini-pub-detail]')),
+    trace: box(document.querySelector('.ini-trace')),
+    offenders: offenders,
+  };
+}
+"""
+
+
+def run_row_wrap(browser, width, height, label, shots):
+    """Ноль горизонтального переполнения: строка, счётчики и трасса."""
+    STATE["diag_mode"] = "on"
+    ctx, page = new_page(browser, width, height)
+    try:
+        open_page(page, "publications")
+        page.wait_for_selector("[data-ini-pub-row]", timeout=20000)
+        page.click('[data-ini-filter="chat"] button')
+        page.wait_for_timeout(1200)
+        page.click('[data-ini-pub-row="meme:job-77"]')
+        page.wait_for_timeout(900)
+        rows = page.evaluate(WRAP_PROBE)
+        notes.append({label + "-wrap-rows": {
+            "vw": rows["vw"], "docSw": rows["docSw"],
+            "docCw": rows["docCw"], "rows": rows["rows"],
+            "items": rows["items"], "counts": rows["counts"],
+            "detail": rows["detail"], "offenders": rows["offenders"][:6]}})
+        check(rows["docSw"] <= rows["docCw"] + 1, label,
+              "страница прокручивается по горизонтали: %d > %d"
+              % (rows["docSw"], rows["docCw"]))
+        for pair in rows["rows"] + rows["items"]:
+            if pair:
+                check(pair[0] <= pair[1] + 1, label,
+                      "строка обрезана: scrollWidth %d > clientWidth %d"
+                      % (pair[0], pair[1]))
+        for name in ("counts", "detail"):
+            pair = rows[name]
+            if pair:
+                check(pair[0] <= pair[1] + 1, label,
+                      "%s обрезан: scrollWidth %d > clientWidth %d"
+                      % (name, pair[0], pair[1]))
+        check(not rows["offenders"], label,
+              "переполнение внутри журнала/трассы: %r"
+              % (rows["offenders"][:5],))
+
+        # Раскрытая трасса той же попытки: те же правила, тот же ноль.
+        open_tab(page, "diagnostics")
+        page.fill("[data-ini-trace-input]", "meme:job-72")
+        page.press("[data-ini-trace-input]", "Enter")
+        page.wait_for_timeout(1500)
+        trace = page.evaluate(WRAP_PROBE)
+        notes.append({label + "-wrap-trace": {
+            "vw": trace["vw"], "docSw": trace["docSw"],
+            "docCw": trace["docCw"], "trace": trace["trace"],
+            "offenders": trace["offenders"][:6]}})
+        check(trace["docSw"] <= trace["docCw"] + 1, label,
+              "трасса прокручивается по горизонтали: %d > %d"
+              % (trace["docSw"], trace["docCw"]))
+        if trace["trace"]:
+            check(trace["trace"][0] <= trace["trace"][1] + 1, label,
+                  "трасса обрезана: scrollWidth %d > clientWidth %d"
+                  % (trace["trace"][0], trace["trace"][1]))
+        check(not trace["offenders"], label,
+              "переполнение внутри трассы: %r" % (trace["offenders"][:5],))
+        shot(page, shots, "wrap_%s" % label)
+    finally:
+        STATE["diag_mode"] = "off"
+        ctx.close()
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--shots", default="")
@@ -3447,6 +3539,10 @@ def main() -> int:
                 # Правки ревью на 430703be (трасса, журнал, строка).
                 run_review4(browser, 1536, 960, "1536", args.shots)
                 run_review4(browser, 390, 844, "390", args.shots)
+                # Перенос строки/трассы: ноль обрезки на трёх ширинах.
+                run_row_wrap(browser, 1536, 960, "1536", args.shots)
+                run_row_wrap(browser, 390, 844, "390", args.shots)
+                run_row_wrap(browser, 360, 740, "360", args.shots)
                 # Блокер 1: смена чата очищает карточки, затем показывает свои.
                 run_chat_switch_cards(browser, 1536, 960, "1536", args.shots)
                 run_chat_switch_cards(browser, 390, 844, "390", args.shots)
