@@ -1,0 +1,97 @@
+{
+  "release": "2.58.192",
+  "deployed_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+  "previous_production": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+  "captured_at_utc": "2026-11-11T19:11Z",
+  "endpoint": "GET /api/initiative/publications (+/detail), GET /api/initiative/mechanism-diagnostics, live Mini App in chromium",
+  "note": "Read-only production read-back after the 2.58.192 restart (19:05:11Z). initData, tokens and secrets are not stored. Times are UTC as rendered by the shipped build.",
+  "health": {
+    "healthz": {"status": "ok", "version": "2.58.192"},
+    "server_head": "bcc090a358d81d510f473b0bba1647a1979113a2",
+    "systemd": {"ActiveState": "active", "SubState": "running", "NRestarts": 0},
+    "journal_since_restart": {"lines": 207, "TRACEBACK": 0, "CRITICAL": 0, "ERROR": 5},
+    "journal_errors_explained": [
+      "1x services.mca_events SUMMARY_RUN_DONE failed (chat -1002661910336, run 9ac2d7fc6ff24d37a3aa3ca58453f7ae) - run started 331 s before the restart, closed by startup recovery as an orphan (SUMMARY_ORPHAN_RUN_CLOSED). Restart side effect, no user-visible effect.",
+      "2x INCIDENT incident_opened (qnd.event, entity inc_0bf85af44dbb48308eae5d672fd9db95) - watchdog takeover at startup.",
+      "2x INCIDENT incident_opened (asap8b01, entity inc_4627f4bd625945b6b330f33bb7f47184) - same startup takeover."
+    ],
+    "db": {"user_version": 47, "tables": 130, "predeploy_backup_bytes": 2407440384, "predeploy_quick_check": "ok", "predeploy_messages": 2079595},
+    "served_app_js_sha256": "04788332ffb0a5f953e9200ec5f8f6e40b7f851e0e4c3fcf5920671072879738",
+    "release_app_js_sha256": "04788332ffb0a5f953e9200ec5f8f6e40b7f851e0e4c3fcf5920671072879738"
+  },
+  "journal_live": [
+    {
+      "chat_id": -1004482340693,
+      "chat_title": "Неистово супер крутые криэйторы гиперговна",
+      "viewport": [1536, 960],
+      "counters": "проверено 327 · решено 327 · опубликовано 12 · доставлено 12 · ожидает 5",
+      "rows_rendered": 40,
+      "collapsed_row_stop_example": "12.11.2026, 07:10:04 Мемы meme:-1004482340693:2026-11-11:eb1a0f38ea0d · <чат> авто · Рассмотрено → Пропуск ⊘ суточная квота мемов исчерпана · ошибка на шаге «Пропуск» пропущено отправки не было: бот решил не публиковать",
+      "collapsed_raw_codes": "none (0 snake_case codes in all 40 collapsed rows)",
+      "expanded_trace_stop": {
+        "status": "автоматическая попытка · остановилось на шаге «Обязательные гейты»: суточная квота исчерпана",
+        "code_shown_in_trace": "daily_quota_reached",
+        "steps": [
+          ["trigger", "done", "11.11 19:10 UTC — инициативный проход рассмотрел чат"],
+          ["gates", "skipped", "11.11 19:10 UTC — остановилось на воротах: суточная квота исчерпана · код: daily_quota_reached"],
+          ["messages", "unknown", "нет записи об окне сообщений"],
+          ["summary", "not_run", "до выжимки не дошло"],
+          ["joke", "not_run", "до прикола не дошло"],
+          ["image", "not_run", "до запроса картинки не дошло"],
+          ["claim", "not_run", "до брони не дошло"],
+          ["send", "not_run", "до отправки не дошло"],
+          ["result", "failed", "ошибка видимого результата нет: отправки не было"]
+        ]
+      },
+      "collapsed_row_published_example": "11.11.2026, 10:26:23 Текст 5ccb0131a0c142ad · <чат> авто · new_message → observer:useful_info без причины опубликовано доставлено · сообщение 10414",
+      "expanded_trace_published": {
+        "status": "автоматическая попытка · опубликовано, сообщение 10414",
+        "code_shown_in_trace": "default",
+        "steps": [
+          ["trigger", "done", "10.11 22:26 UTC — повод оценён"],
+          ["gates", "inferred", "10.11 22:26 UTC — условия проверены: решение записано"],
+          ["context", "unknown", "отдельной записи о контексте и окне нет"],
+          ["decision", "done", "10.11 22:26 UTC — решение: отправлено · код: default"],
+          ["send", "done", "10.11 22:26 UTC — отправлено, сообщение 10414"],
+          ["result", "done", "10.11 22:26 UTC — сообщение 10414 в этом чате"]
+        ]
+      }
+    },
+    {
+      "chat_id": -1002661910336,
+      "chat_title": "PERMsoc: кукярик",
+      "viewport": [1536, 960],
+      "counters": "проверено 361 · решено 361 · опубликовано 27 · доставлено 27 · ожидает 13",
+      "rows_rendered": 40,
+      "collapsed_raw_codes": "none",
+      "published_rows_filtered": 27
+    },
+    {
+      "chat_id": -1004482340693,
+      "viewport": [390, 844],
+      "counters": "проверено 327 · решено 327 · опубликовано 12 · доставлено 12 · ожидает 5",
+      "rows_rendered": 40,
+      "collapsed_raw_codes": "none"
+    }
+  ],
+  "overview_axes_live": {
+    "chat_id": -1004482340693,
+    "text_initiative": "Последняя попытка 11.11 19:11 UTC · автоматически · пропущено · остановилось: код: lease_held | Дальше не раньше 11.11 19:13 UTC (по интервалу оценки)",
+    "meme": "Последняя попытка 11.11 19:11 UTC · автоматически · пропущено · остановилось: пропуск | Дальше не раньше 12.11 00:00 UTC (по сбросу суточного лимита)",
+    "module_header_last_action": "Последних действий в журнале нет"
+  },
+  "open_inconsistencies_investigated": {
+    "attempt_time_gap": {
+      "payload_2_58_191": {"text_last_attempt_at": "2026-11-11T16:27:40Z", "text_stop_stage": "lease_held", "text_run_id": "init:-1004482340693:20261111:9926b6d84a", "meme_last_attempt_at": "2026-11-11T16:28:16Z", "text_readiness_next_eligible_at": "2026-11-11T16:41:54Z"},
+      "db_rows": {"meme_attempt_16_27_40": "meme:-1004482340693:2026-11-11:8fae1f157347 (considered passed + skipped daily_quota_reached)", "meme_attempts_16_42_00_16_42_59": 14, "mca_events_16_42": 4, "bot_outputs_16_42": 0, "text_trace_rows_for_9926b6d84a": 0},
+      "conclusion": "16:42 belongs to the meme mechanism (its attempt rows at 16:42:xx) or, for the text mechanism, to readiness.next_eligible_at=16:41:54Z; 16:27:40Z is the text_initiative last_attempt.at. Different fields/mechanisms, not a timezone shift (14m14s is not an offset) and not missing data."
+    },
+    "b_empty_journal_label": {
+      "string": "Последних действий в журнале нет",
+      "source": "web/index.html:1886-1888 (initiative overview) and 1035-1042 (module header): v-else of moduleLastEventLine(workspaceModule)",
+      "exact_cause": "moduleLastEventLine returns '' for mod_initiative: moduleHealthView has cases only for mod_vision/mod_sleep/mod_experience and moduleScopeErrorFor has no initiative scope error. The line never reads the publications journal.",
+      "journal_reality": "GET /api/initiative/publications for the same chat/server returned 327 rows in 7 days; the journal tab rendered 40 rows and shows its own different empty text «За выбранный период попыток нет.»",
+      "filters_involved": "none - no window/chat/mechanism filter is applied to this label"
+    }
+  }
+}
