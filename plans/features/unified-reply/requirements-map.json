@@ -2,10 +2,10 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
-  "candidate_commit": "b457ad0e41d40a3d73f8ab2926bd0eba8dc83193",
+  "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
   "deployed_commit": "77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7",
   "deployed_release": "2.58.184",
-  "candidate_note": "ОБНОВЛЕНИЕ 2026-11-11 (привязка доработки шага 3): текущий проверенный кандидат — b457ad0e41d40a3d73f8ab2926bd0eba8dc83193 (ветка ur/f-inspector-step1, родитель 3713298cd2bd4ee4a8d41e546b7cb8fecece27f9, база dbf89a96), ревью Approved; по нему VERIFIED привязаны UR-20.4 (дата reply-parent), UR-20.5 (дата/диапазон конспекта), UR-20.8 (локальное время хода со смещением), а UR-20.6 остаётся PENDING ровно на поле слота L1 (`l1.slot`). Выкладки нет: прод — 2.58.185/186, доработка ждёт отдельного релиза (notes[NOTE-2026-11-11-UR-F-STEP3-GAPS-NOT-DEPLOYED]). Живой проход Browser Use по этому кандидату не завершён (notes[NOTE-2026-11-11-UR-F-STEP3-BU-LIMITATION]). Предыдущее состояние записи: candidate_commit — последний проверенный кандидат: срез UR-F, шаг 3 (UI инспектора хода), dbf89a96bf1979b515dc1294d20ce75125100f4f, ветка ur/f-inspector-step1, родитель d82705170367cef0f5e5c5e5d1412f03dce2d441, база 92070d0e, ревью Approved. Закрыты все три шага среза: шаг 1 (durable events, c9ef6e7281fe8cbdfdb4039af66f56fc6c4673da), шаг 2 (проекция API, d8270517) и шаг 3 (UI: подписи, карточки, сворачивание, mobile-first приёмка). Шаг 3 закрыт по UI, но срез НЕ выложен: ветка не влита, переноса на текущую прод-линию и деплоя не было (см. notes[NOTE-2026-11-11-UR-F-STEP3-NOT-RELEASED]); строки UR-20.4/20.5/20.6/20.8 остаются PENDING по недопоставленным частям, UR-20.7 — VERIFIED. Предыдущий кандидат поля — UR-SRC-DATE: 7cf8e1699d2a689c5a4249da9478ac4215e5701d (ветка fix/search-source-dates, родитель 82d21889, база 92070d0e), ревью Approved с DONE на уровне строки UR-SRC-DATE. deployed_commit — фактический выкат: 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7, ветка release/2.58.184 (релиз 2.58.184), собранный из 0fed584598cbf103017a401a117eee236e2be0e5 (2.58.183) переносом среза combined-diff'ом 92070d0e..7cf8e169 (продуктовый коммит 5e85f990). Это семантический перенос кандидата на релизную линию, а не равенство SHA: одиночный cherry-pick 7cf8e169 конфликтовал и терял импорт services.search_aggregator в direct_execution.py. Идентичность среза подтверждена побайтово по tests/test_search_source_dates.py (sha256 fa3e3cae…, как в кандидате); DDL нет (user_version=47 до и после); security-блобы (permissions.py, avatars.py, deps.py) и text_morphology.py/summary_memory.py/mca_retrieval_context.py не изменены относительно 0fed5845. КОНТРОЛЬНЫЙ ПРОХОД 2026-11-11: более глубокое ревью того же кандидата нашло в строках поиска/инструмента внутренние коды (execute_web_search, search_timeout, l1_silent, source_restored, form_guard_leak_blocked), сырую карту llm_calls и text_source — закрытие UR-20.7 ПЕРЕКРЫТО, строка снова PENDING (см. review_evidence[UR-F / шаг 3 — контрольный проход по расшифровке кодов]), исправление в работе; UR-20.4/20.5/20.8 остаются VERIFIED, UR-20.6 — PENDING по слоту L1.",
+  "candidate_note": "ОБНОВЛЕНИЕ 2026-11-12: текущий проверенный кандидат — d3e74eef11f5cbedc4509dd05da2aa059a1102c4 (ветка ur/f-inspector-step1), два независимых живых ревью Approved (полное и узкое). По нему UR-20.6 и UR-20.7 привязаны VERIFIED, а родитель UR-20 закрыт по фактическим статусам девяти агрегируемых строк. Релиз вывозит порт f328611f (ветки release/2.58.189, rel/2.58.189-inspector-prep), а не ветку среза: отличие порта от кандидата d3e74eef в тех же шести файлах — одна строка комментария в web/app.js, контракт инспектора тот же (измерение ревью). Выкладки не было: deployed_commit/deployed_release по-прежнему описывают последний выкат 2.58.184, который проверяла эта карта. Прежнее состояние записи (2026-11-11): ОБНОВЛЕНИЕ 2026-11-11 (привязка доработки шага 3): текущий проверенный кандидат — b457ad0e41d40a3d73f8ab2926bd0eba8dc83193 (ветка ur/f-inspector-step1, родитель 3713298cd2bd4ee4a8d41e546b7cb8fecece27f9, база dbf89a96), ревью Approved; по нему VERIFIED привязаны UR-20.4 (дата reply-parent), UR-20.5 (дата/диапазон конспекта), UR-20.8 (локальное время хода со смещением), а UR-20.6 остаётся PENDING ровно на поле слота L1 (`l1.slot`). Выкладки нет: прод — 2.58.185/186, доработка ждёт отдельного релиза (notes[NOTE-2026-11-11-UR-F-STEP3-GAPS-NOT-DEPLOYED]). Живой проход Browser Use по этому кандидату не завершён (notes[NOTE-2026-11-11-UR-F-STEP3-BU-LIMITATION]). Предыдущее состояние записи: candidate_commit — последний проверенный кандидат: срез UR-F, шаг 3 (UI инспектора хода), dbf89a96bf1979b515dc1294d20ce75125100f4f, ветка ur/f-inspector-step1, родитель d82705170367cef0f5e5c5e5d1412f03dce2d441, база 92070d0e, ревью Approved. Закрыты все три шага среза: шаг 1 (durable events, c9ef6e7281fe8cbdfdb4039af66f56fc6c4673da), шаг 2 (проекция API, d8270517) и шаг 3 (UI: подписи, карточки, сворачивание, mobile-first приёмка). Шаг 3 закрыт по UI, но срез НЕ выложен: ветка не влита, переноса на текущую прод-линию и деплоя не было (см. notes[NOTE-2026-11-11-UR-F-STEP3-NOT-RELEASED]); строки UR-20.4/20.5/20.6/20.8 остаются PENDING по недопоставленным частям, UR-20.7 — VERIFIED. Предыдущий кандидат поля — UR-SRC-DATE: 7cf8e1699d2a689c5a4249da9478ac4215e5701d (ветка fix/search-source-dates, родитель 82d21889, база 92070d0e), ревью Approved с DONE на уровне строки UR-SRC-DATE. deployed_commit — фактический выкат: 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7, ветка release/2.58.184 (релиз 2.58.184), собранный из 0fed584598cbf103017a401a117eee236e2be0e5 (2.58.183) переносом среза combined-diff'ом 92070d0e..7cf8e169 (продуктовый коммит 5e85f990). Это семантический перенос кандидата на релизную линию, а не равенство SHA: одиночный cherry-pick 7cf8e169 конфликтовал и терял импорт services.search_aggregator в direct_execution.py. Идентичность среза подтверждена побайтово по tests/test_search_source_dates.py (sha256 fa3e3cae…, как в кандидате); DDL нет (user_version=47 до и после); security-блобы (permissions.py, avatars.py, deps.py) и text_morphology.py/summary_memory.py/mca_retrieval_context.py не изменены относительно 0fed5845. КОНТРОЛЬНЫЙ ПРОХОД 2026-11-11: более глубокое ревью того же кандидата нашло в строках поиска/инструмента внутренние коды (execute_web_search, search_timeout, l1_silent, source_restored, form_guard_leak_blocked), сырую карту llm_calls и text_source — закрытие UR-20.7 ПЕРЕКРЫТО, строка снова PENDING (см. review_evidence[UR-F / шаг 3 — контрольный проход по расшифровке кодов]), исправление в работе; UR-20.4/20.5/20.8 остаются VERIFIED, UR-20.6 — PENDING по слоту L1.",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-unified-reply",
@@ -4810,17 +4810,31 @@
       "acceptance": "Раздел «Ответы в чате» пересобран по пользовательским действиям: три уровня, мобильный-first, без внутренних кодов MAP/Branch/Anchor/TTL без расшифровки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "remaining_scope": "три открытые части родителя, и все три — обязательства среза UR-F, а не backlog: (1) расшифровка внутренних кодов в строках поиска/инструмента (UR-20.7); (2) слот L1 (UR-20.6) — ждёт независимого ревью на новом кандидате, поле уже пишется с 1ce5760b; (3) строка «Операции и доставка» печатает сырыми `delivery.reason`, `delivery_outcome`, `diag_reason`, `flow` — ОТКРЫТЫЙ ИСХОДНЫЙ БЛОКЕР пункта заголовка «без внутренних кодов без расшифровки» (current_task.md:5914), исправление в работе: d3e74eef на ветке ur/f-inspector-step1 (не слито, не выложено, независимого ревью нет).",
-      "remaining_scope_fields_raw_codes": [
-        "delivery.reason",
-        "delivery_outcome",
-        "diag_reason",
-        "flow"
-      ],
-      "remaining_scope_class": "slice_obligation_not_backlog",
-      "remaining_requirements": "Родитель остаётся открытым, пока не исправлен обход словаря и не пройдено повторное независимое ревью: на том же кандидате строки поиска и инструмента печатают внутренние значения (`execute_web_search`, `search_timeout`, `l1_silent`, `source_restored`, `form_guard_leak_blocked`, сырая карта `llm_calls`, `text_source`) — это прямое нарушение заголовочной приёмки «без внутренних кодов без расшифровки». Поздний аудит нашёл тот же обход §5 в строке доставки: `delivery.reason` (web/app.js::turnDeliveryLabel — `'без доставки текста: ' + (d.reason || outcome)`), `delivery_outcome` (там же — `'итог: ' + (d.outcome || outcome)`), `flow` (turnFlowLabel — `flow === 'direct' ? 'Direct' : (flow || '—')`) и `diag_reason` (web/index.html:1718-1721 — `turnDiag.reason` по-русски только для `no_turn_traces`, иначе сырой код) выводятся внутренними значениями бэкенда. Это тот же дефект отображения, а не данных, и он относится к обязательствам среза UR-F, а не к backlog. Исправление в работе: d3e74eef (словари `delivery_reason`/`delivery_outcome`/`diag_reason`/`flow`, `reason` объявлен в `_TURN_DELIVERY_SCHEMA`), ветка ur/f-inspector-step1 не слита и не выложена, независимого ревью нет — до него родитель закрытым не считается. Это ДЕФЕКТ ОТОБРАЖЕНИЯ, НЕ ДЕФЕКТ ДАННЫХ: событие шага 1 и API-проекция шага 2 содержат полные и верные значения, ничего не потеряно и не искажено; чинится словарями и строками UI, изменения шагов 1–2 не требуются. Второй открытый пункт родителя — UR-20.6 (в событии нет `l1.slot`), он к этой находке отношения не имеет и закрывается своим путём. Остальные строки раздела, включая UR-20.4/20.5/20.8, этой находкой не затронуты.",
-      "evidence": []
+      "status": "VERIFIED",
+      "aggregate_rows": ["UR-20.1", "UR-20.2", "UR-20.3", "UR-20.9", "UR-20.4", "UR-20.5", "UR-20.6", "UR-20.7", "UR-20.8"],
+      "closure_basis": "Родитель закрыт по фактическим статусам строк, которые он агрегирует, а не по указанию или мнению ревьюера: три экрана (UR-20.1/20.2/20.3/20.9) и пять пунктов второго экрана (UR-20.4-20.8) — все VERIFIED, у каждой строки своё candidate-bound доказательство. Названный в заголовке запрет («нет названий MAP/Branch/Anchor/Target/TTL/RAG без расшифровки») закрыт строками UR-20.1/20.2, последний открытый блокер того же заголовка — сырые коды строки доставки — снят на d3e74eef.",
+      "remaining_scope_history": "До 2026-11-12 родитель был открыт по трём пунктам, и все три закрыты на d3e74eef: расшифровка внутренних кодов в строках поиска/инструмента (UR-20.7), слот L1 (UR-20.6, поле пишется с 1ce5760b) и строка «Операции и доставка», печатавшая сырыми `delivery.reason`/`delivery_outcome`/`diag_reason`/`flow`. Прежняя формулировка «родитель остаётся открытым, пока не исправлен обход словаря и не пройдено повторное независимое ревью» исполнена: исправление — d3e74eef, ревью — два независимых, оба Approved.",
+      "verified_scope": "Раздел «Ответы в чате» — три уровня (обзор/инспектор/настройки), mobile-first, четыре карточки второго экрана; живой прогон на 1440×900 и 390×844 даёт `hScroll=false`, `clipped=[]`, `unexplained=[]`, `console_error_count=0`. Декодирование служебных значений проверено двумя независимыми ревью на d3e74eef (122 passed + UR-F-STEP3-OK, пять мутаций). Граница честности: закрытие опирается на девять агрегируемых строк; остаточный пункт про сырой `rule_id` в защитной ветке `turnRuleLine` записан в `open_items` (UR-F-RES-RULEID-01) и в приёмку этих строк не входит. Выкладки не было: VERIFIED здесь — принятый кандидат, а не работающая прод-функция.",
+      "evidence": [
+        {
+          "ref": "Родитель раздела: закрытие по фактическим статусам девяти агрегируемых строк, вердикты ревью — plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md",
+          "observation": "На момент записи все строки, которые агрегирует UR-20, — VERIFIED: UR-20.1/20.2/20.3/20.9 (три уровня mobile-first и три экрана) и UR-20.4/20.5/20.6/20.7/20.8 (пять пунктов второго экрана). До этого захода PENDING были ровно две — UR-20.6 (слот L1) и UR-20.7 (обход словаря); обе привязаны к d3e74eef двумя независимыми ревью 2026-11-12. Последний открытый блокер заголовочного пункта «без внутренних кодов без расшифровки» — сырые `delivery.reason`, `delivery_outcome`, `diag_reason`, `flow` — снят тем же кандидатом.",
+          "type": "review",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md",
+          "artifact_sha256": "546beae0c5695f615d664898a140dd0ac685e3b878e4d6c3ecaf4b820faf21e8",
+          "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4"
+        },
+        {
+          "ref": "Живой раздел после пересборки: plans/features/unified-reply/evidence/urf/urf-step1-slot-visual-report.json (inspector3-desktop-1440 / inspector3-mobile-390) + трёхуровневый workspace — tests/js/ur_ui_settings_test.js",
+          "observation": "На обоих вьюпортах `titles` = «Планирование (L1)», «Инструменты и поиск», «Что видел ответ», «Операции и доставка»; `hScroll=false`, `clipped=[]`, `truncateClass=0`, `collapsedByDefault=true`, `unexplained=[]`, `console_error_count=0`. Три уровня (обзор/инспектор/настройки) и mobile-first закрыты строкой UR-20.1 с её собственным доказательством, здесь не переоцениваются.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-step1-slot-visual-report.json",
+          "artifact_sha256": "2d31ae6a8900d8560ba9ec46d1c32fae3932b7e4a89ae03ad2326135d5cbf7b6",
+          "artifact_blob": "d7f1bdd14a443eb092d6e520abb1823b184d5ebe",
+          "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате d3e74eef; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        }
+      ]
     },
     {
       "source_id": "L00279",
@@ -4974,13 +4988,39 @@
       "acceptance": "Для хода показаны модель/слот L1 и L2, effective context window, фактическое число токенов, output reserve, fallback, finish_reason и число продолжений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "partially_satisfied": "events+api+ui-partial",
-      "remaining_scope": "ждёт независимого ревью на новом кандидате (df5d2c2c / 0c15d2c1 line): поле `l1.slot` больше НЕ отсутствует — 1ce5760b пишет его через событие (`services/turn_trace.py::note_l1`, enum-путь `_code`), через allowlist проекции (`_TURN_CONTEXT_SCHEMA[\"l1\"]` в web/api/routes.py, тип code) и через строку L1 (web/app.js: известный слот вместо подписи «слот не зафиксирован»; «не зафиксирован» осталось только для трасс до этого поля). Статус остаётся PENDING до независимого ревью этого кандидата и до выкладки.",
-      "remaining_scope_is_stale_note": "Прежняя редакция этого поля утверждала, что в событии нет `l1.slot` (allowlist `_TURN_CONTEXT_SCHEMA[\"l1\"]` без ключа `slot`). Это состояние снято коммитом 1ce5760b на ветке ur/f-inspector-step1; запись больше не описывает текущий гэп.",
-      "remaining_scope_detail": "Точный незакрытый объём (на кандидате линии df5d2c2c / 0c15d2c1): до 1ce5760b карточка «Планирование (L1)» писала «L1: модель test-model-8b · слот не зафиксирован · fallback: test-model-8b-fallback · запас на ответ 12 800», потому что `l1` в `_TURN_CONTEXT_SCHEMA` перечислял только action/response_act/structure/plan_source/execution_mode/override/model/fallback. Коммит 1ce5760b закрыл все три слоя: (1) `note_l1()` принимает slot и пишет `l1.slot` в событие `direct_turn_context`; (2) `l1.slot` объявлен в allowlist проекции; (3) строка L1 печатает известный слот, а «не зафиксирован» остаётся только там, где значения нет. Оставшийся объём — независимое ревью нового кандидата (событие + проекция + строка, оба режима планирования дают разные слоты; подстановки чужого слота L2 в строку L1 быть не должно) и последующая выкладка. Закрывать строку по прежней формулировке «поля нет в событии» нельзя — она устарела.",
-      "remaining_requirements": "Шаги 1–3 приняты и доработкой b457ad0e закрыты соседние гэпы: одна строка «окно модели N (откуда) · запас на ответ M · вошло K из бюджета B · режим», «Завершение: <подпись finish_reason>», «использован fallback», «попыток: N», «продолжений: N», честные «неизвестно» вместо 0; строка L2 — «L2: api.example / test-model-8b · слот запроса: основной ответ (direct.primary) · fallback: test-model-8b-fallback · отправлено max output tokens: 4 096» (предел генерации — фактически отправленный `max_output_tokens_sent`). Гэп слота L1 закрыт в коде коммитом 1ce5760b (событие + allowlist + строка), поэтому строка НЕ закрыта ровно в одном: нет независимого ревью нового кандидата (df5d2c2c / 0c15d2c1 line) и нет выкладки; статус PENDING сохраняется до ревью.",
+      "status": "VERIFIED",
+      "partially_satisfied": "events+api+ui — закрыто на d3e74eef (два независимых ревью Approved 2026-11-12)",
+      "remaining_scope_history": "Гэп слота L1 снят в коде коммитом 1ce5760b: `note_l1()` пишет `l1.slot`, поле объявлено в `_TURN_CONTEXT_SCHEMA[\"l1\"]` как `(\"code\", 24)`, строка L1 печатает подпись слота, а «слот не зафиксирован» осталось только для трасс старше поля. Прежняя редакция этого поля утверждала, что в событии нет `l1.slot` — это состояние снято и записано как устаревшее. До 2026-11-12 строка оставалась PENDING ровно из-за отсутствия независимого ревью нового кандидата и выкладки; ревью проведено на d3e74eef.",
+      "verified_scope": "На кандидате d3e74eef обе строки этапов показаны вместе с моделью и слотом: L1 — «L1: модель test-model-8b · слот: выделенный планировщик (l1_slot) · fallback: … · запас на ответ 12 800», второй режим планирования даёт «слот: основная модель (main)» и отличается от первого; L2 — «L2: api.example / test-model-8b · слот запроса: основной ответ (direct.primary) · fallback: … · отправлено max output tokens: 4 096». Слот читается из фактически отправленного payload, трасса без поля даёт пустое значение, а не выдуманный `main`, свободный текст/кириллица/точки с запятой/сверхдлинная строка отбрасываются enum-путём, чужой слот L2 в строку L1 не подставляется. Остальные части приёмки строки (окно/запас/фактические токены, fallback, finish_reason, продолжения) закрыты на b457ad0e и этим кандидатом не отменяются.",
       "evidence": [
+        {
+          "ref": "UR-20.6, два независимых живых ревью кандидата d3e74eef (2026-11-12, оба Approved); сводка вердиктов — plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md",
+          "observation": "Сквозная цепочка слота L1 проверена целиком: `l1_slot`/`main` из `_execute_turn` → `meta[\"slot\"]` → enum-фильтр трассы → allowlist-проекция → строка L1; карточка печатает подпись слота и не подставляет слот L2 в строку L1. Контратаки ревью: выделенный слот падает по таймауту, а планирует основная модель → `slot=main` с правильной моделью; старая трасса без поля остаётся пустой, выдуманный `main` не появляется; свободный текст, кириллица, точки с запятой и сверхдлинная строка в enum отвергнуты. Наборы: 122 passed (59+19+44) плюс UR-F-STEP3-OK; пять мутаций упали содержательно. Живая карточка на 1440 и 390: подпись слота на месте, «код: mystery_delivery» вместо сырой причины, горизонтального скролла нет.",
+          "type": "review",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md",
+          "artifact_sha256": "546beae0c5695f615d664898a140dd0ac685e3b878e4d6c3ecaf4b820faf21e8",
+          "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4"
+        },
+        {
+          "ref": "Слот L1 в событии и enum: tests/test_ur_f_inspector_step1.py::test_l1_event_records_dedicated_slot_and_its_model, ::test_trace_written_before_this_change_has_no_invented_slot, ::test_l1_slot_is_validated_as_a_code (строки 435-474 кандидата); проекция — tests/test_ur_f_inspector_step2.py:1048-1058",
+          "observation": "Модель слота берётся из фактически отправленного payload: `llm.posts[0][\"payload\"][\"model\"] == ctx[\"l1\"][\"model\"]`, сам `ctx[\"l1\"][\"slot\"]` равен `l1_slot`; трасса до этого изменения даёт `slot == \"\"` (main не выдумывается); свободный текст «выделенный слот планировщика» отбрасывается общим enum-путём; загрязнение `slot=CHAT_LEAK` внутри `l1` не проходит allowlist-проекцию.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_f_inspector_step1.py",
+          "artifact_sha256": "e1974e0c11e610ca460d8a16cbe1e1d3cd59a75ebf9c5af0b3873ca59d330878",
+          "artifact_blob": "ad111491a1d3804c1685941c6cbdf10cf51eabf5",
+          "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате d3e74eef; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        },
+        {
+          "ref": "Живой прогон строк L1/L2 на 1440×900 и 390×844: plans/features/unified-reply/evidence/urf/urf-step1-slot-visual-report.json (ключи inspector3-desktop-1440 / inspector3-mobile-390, инструмент tools/ui_urf_visual_e2e.py)",
+          "observation": "На обоих вьюпортах `ok=true`, `hScroll=false`, `unexplained=[]`; `modelL1` = «L1: модель test-model-8b · слот: выделенный планировщик (l1_slot) · fallback: test-model-8b-fallback · запас на ответ 12 800», `modelL2` = «L2: api.example / test-model-8b · слот запроса: основной ответ (direct.primary) · fallback: test-model-8b-fallback · отправлено max output tokens: 4 096». Тест tests/test_ur_f_inspector_step3_ui.py:470-478 падает, если этих подстрок нет.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-step1-slot-visual-report.json",
+          "artifact_sha256": "2d31ae6a8900d8560ba9ec46d1c32fae3932b7e4a89ae03ad2326135d5cbf7b6",
+          "artifact_blob": "d7f1bdd14a443eb092d6e520abb1823b184d5ebe",
+          "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате d3e74eef; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        },
         {
           "ref": "UR-F шаг 2 (API-проекция): tests/test_ur_f_inspector_step2.py; design note — plans/features/unified-reply/evidence/ur-f-step2-api-projection.md; вердикт — review_evidence[UR-F / шаг 2 / d8270517] (Approved)",
           "observation": "API-уровень строки закрыт на d8270517: окно/запас/budget/режим, `policy_version`, `request` и `completion` отдаются вместе; NaN/дробные значения становятся `null` вместо ложного 0. Рендер строки и `finish_reason` в UI не проверялся, строка остаётся PENDING.",
@@ -5024,20 +5064,40 @@
       "acceptance": "Для хода показано решение поиска, реальный tool call, результат/недоступность и ссылки, а отдельно — включённые реплики бота с tg_message_id, датой и функцией «история разговора» с исключением из стилевых инструкций.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "reopened_by": "review_evidence[UR-F / шаг 3 / контрольный проход расшифровки кодов / dbf89a96 (кандидат проверен также на b457ad0e)] (Needs Fixes)",
-      "partially_satisfied": "events+api+ui — состав данных полный, расшифровка в строках поиска/инструмента неполна",
-      "remaining_scope": "строки поиска и инструмента печатают внутренние коды вместо русских формулировок; отдельная открытая часть той же строки — строка «Операции и доставка»: `delivery.reason`, `delivery_outcome`, `diag_reason`, `flow` выводятся сырыми значениями бэкенда. Исправление в работе: d3e74eef на ветке ur/f-inspector-step1 (словари `delivery_reason`/`delivery_outcome`/`diag_reason`/`flow`, `reason` объявлен в `_TURN_DELIVERY_SCHEMA`) — не слито, не выложено, независимого ревью нет; закрытие строки возможно только после этого ревью.",
-      "remaining_scope_fields_raw_codes": [
-        "delivery.reason",
-        "delivery_outcome",
-        "diag_reason",
-        "flow"
-      ],
-      "remaining_scope_class": "slice_obligation_not_backlog",
-      "remaining_scope_detail": "Точный незакрытый объём (кандидат dbf89a96 и тот же код в b457ad0e; файлы web/index.html, web/app.js): (1) строка инструмента печатает техническое имя как есть — «execute_web_search · выполнен (success)» (web/app.js::turnToolLine: `var line = t.tool || …`, словаря имён инструментов нет вовсе); (2) значение статуса/причины поиска не совпадает с ключами словаря, поэтому вместо русского имени выводится код: в словаре `search_status` есть `timeout`, а событие несёт `search_timeout` (services/direct_execution.py:1916), аналогично решения/причины уровня L1 приходят как `l1_silent` и не имеют записи в словаре `action`/`reason`; (3) имена операций доставки `source_restored` и `form_guard_leak_blocked` отсутствуют в словаре `ops` (web/app.js::TURN_CODE_DICTS.ops), поэтому печатаются кодом; (4) карта вызовов модели выводится сырым JSON — «LLM-вызовы: {\"planning\":…}» (web/index.html:1403, `JSON.stringify(turnDiag.context.llm_calls)`); (5) поле источника текста печатается сырым кодом — «источник: assistant_fallback (текст заменён …)» (web/index.html:1571, `turnDiag.writer.completion.text_source`). Контракт §5 требует русского имени или префикса «код: …»; фактически в этих пяти местах видно внутреннее значение; (6) строка «Операции и доставка» печатает сырыми `delivery.reason` (web/app.js::turnDeliveryLabel — `'без доставки текста: ' + (d.reason || outcome)`), `delivery_outcome` (там же — `'итог: ' + (d.outcome || outcome)`), `flow` (turnFlowLabel — `flow === 'direct' ? 'Direct' : (flow || '—')`) и `diag_reason` (web/index.html:1718-1721 — `turnDiag.reason`: русский текст есть только для `no_turn_traces`, иначе печатается сам код); в кандидате b457ad0e поля `reason` нет даже в объявленной проекции `_TURN_DELIVERY_SCHEMA`, поэтому причина молчания до UI не доезжает. Нужно: имена инструментов — словарь; коды статусов/решений/операций — привести ключи к тому, что реально пишет бэкенд (или нормализовать на проекции); `llm_calls` — перечислить понятными именами классов вызовов; `text_source` — русская подпись + код; `delivery.reason`/`delivery_outcome`/`flow`/`diag_reason` — словарями, а `reason` объявить в проекции доставки; затем повторное независимое ревью UI (включая живой проход 1440/390 и проверку отсутствия голых кодов).",
-      "remaining_requirements": "Срез по строке не закрыт. Данные (события шага 1, проекция шага 2) содержат всё нужное и это находкой не затронуто: решение поиска, tool call, результат/недоступность, ссылки, свои реплики с tg id и датой. Именно приёмка показывает, что на карточке часть этих значений видна внутренними кодами, а не по-русски. Это дефект отображения, а не дефект данных: ничего не потеряно и не искажено в persisted-событии или в API-проекции — чинится словарями/строками UI и новым ревью.",
+      "status": "VERIFIED",
+      "reopened_by": "review_evidence[UR-F / шаг 3 / контрольный проход расшифровки кодов / dbf89a96 (кандидат проверен также на b457ad0e)] (Needs Fixes) — ЗАКРЫТО на d3e74eef",
+      "partially_satisfied": "events+api+ui — обход словаря закрыт на d3e74eef (два независимых ревью Approved 2026-11-12)",
+      "remaining_scope_history": "Строка была возвращена в PENDING контрольным проходом на dbf89a96 за показ внутренних кодов в строках поиска/инструмента. На d3e74eef обход снят: `turnToolLine` берёт имя инструмента из словаря `tool_name` (неизвестное → «код: <значение>»), статусы поиска/операций/решения L1 идут через `search_status`/`ops`/`action`, `llm_calls` печатается словарём вызовов, `text_source` — словарём, строка доставки использует `delivery_reason`/`delivery_outcome`/`diag_reason`/`flow`. Прежние записи о незакрытом обходе оставлены как история; статус PENDING снят только после двух независимых ревью.",
+      "verified_scope": "На d3e74eef неизвестные значения печатаются как «код: …» (`mystery_tool`, `mystery_delivery`), а известные — русскими подписями: «поиск обязателен (required)», «поиск выполнялся · итог: источники найдены · источников в выдаче: 5», ссылки с датой публикации, «свои реплики в истории разговора (не образец стиля): • сообщение 4242 · 17.10 12:36», `unexplained=[]` на 1440 и 390. Решение поиска, реальный tool call, результат/недоступность, ссылки и отдельный блок своих реплик с `tg_message_id`, датой и функцией «история разговора» закрыты шагами 1–3 (c9ef6e72, d8270517, dbf89a96) и этим кандидатом не меняются.",
       "evidence": [
+        {
+          "ref": "UR-20.7, два независимых живых ревью кандидата d3e74eef (2026-11-12, оба Approved); сводка вердиктов — plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md",
+          "observation": "Обход словаря, за который строка была возвращена в PENDING на dbf89a96, снят: имя инструмента, статус поиска, решение/причина L1, операции доставки, карта `llm_calls` и `text_source` идут через словари, неизвестное печатается как «код: …». Ревью подтверждают строки поиска/инструмента и строку «Операции и доставка» (`delivery.reason`, `delivery_outcome`, `diag_reason`, `flow`), подписи видимых идентификаторов («сообщение», «ключ», «код хода», «модель») и то, что `pass` печатается как «правило проверено, нарушений нет». Пять мутаций упали содержательно, узкое ревью дополнительно уронило JS-тест мутацией «голый токен вместо текста словаря». Наборы 122 passed (59+19+44) + UR-F-STEP3-OK; живая карточка 1440 и 390 — «код: mystery_delivery» для неизвестной причины, ни одного неизвестного кода, горизонтального скролла нет.",
+          "type": "review",
+          "artifact_path": "plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md",
+          "artifact_sha256": "546beae0c5695f615d664898a140dd0ac685e3b878e4d6c3ecaf4b820faf21e8",
+          "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4"
+        },
+        {
+          "ref": "Неизвестное значение — «код: …», словарь не подменяется текстом: tests/js/ur_f_inspector_step3_test.js:542-543 и :569-575; разметка/живой прогон — tests/test_ur_f_inspector_step3_ui.py:511",
+          "observation": "`turnToolLine({ tool: 'mystery_tool', status: 'ok' })` даёт строку, начинающуюся с «код: mystery_tool»; `turnDeliveryLabel` с `reason='mystery_delivery'` даёт ровно «без доставки текста: код: mystery_delivery»; в живом отчёте та же строка проверяется как «код: mystery_delivery», и тест падает, если показан голый токен.",
+          "type": "test",
+          "artifact_path": "tests/js/ur_f_inspector_step3_test.js",
+          "artifact_sha256": "aaa21e22b03ee013fe3f2edd16decac3d632ec26dbfefef6871639ec925fcee9",
+          "artifact_blob": "33afc5400ae0925ec5027a191ebf60cfef9671e7",
+          "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате d3e74eef; ветка ur-f не влита, в рабочем дереве master файла нет (состояние переноса)."
+        },
+        {
+          "ref": "Живые строки поиска, ссылок и своих реплик на 1440×900 и 390×844: plans/features/unified-reply/evidence/urf/urf-step1-slot-visual-report.json (inspector3-desktop-1440 / inspector3-mobile-390)",
+          "observation": "`searchDecision` = «поиск обязателен (required)», `searchAction` = «поиск выполнялся · итог: источники найдены · источников в выдаче: 5», `linkRows=3` с «→ адрес» и «опубликовано 01.11.2026», `selfOutputs` = «свои реплики в истории разговора (не образец стиля):» + «• сообщение 4242 · 17.10 12:36», `unexplained=[]` (ни одного голого кода) на обоих вьюпортах.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-step1-slot-visual-report.json",
+          "artifact_sha256": "2d31ae6a8900d8560ba9ec46d1c32fae3932b7e4a89ae03ad2326135d5cbf7b6",
+          "artifact_blob": "d7f1bdd14a443eb092d6e520abb1823b184d5ebe",
+          "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате d3e74eef; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        },
         {
           "ref": "UR-F шаг 2 (API-проекция): tests/test_ur_f_inspector_step2.py; design note — plans/features/unified-reply/evidence/ur-f-step2-api-projection.md; вердикт — review_evidence[UR-F / шаг 2 / d8270517] (Approved)",
           "observation": "API-уровень строки закрыт на d8270517: решение поиска, ссылки с проверкой URL, свои реплики и дедупликация отдаются из события хода; пустая дата не выдумывается. UI-формулировки не проверялись, строка остаётся PENDING.",
@@ -8107,7 +8167,30 @@
       "evidence": []
     }
   ],
-  "open_items": [],
+  "open_items": [
+    {
+      "id": "UR-F-RES-RULEID-01",
+      "slice": "UR-F",
+      "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+      "row_relations": ["UR-20.7", "UR-20.8"],
+      "statement": "web/app.js::turnRuleLine берёт имя правила из словаря `rule_kind`; если вид правила вне словаря, строка печатает сырой `rule_id` (fallback `|| (rule.rule_id ? String(rule.rule_id) : 'правило без имени')`), а не «код: …».",
+      "why_not_blocking_here": "Ветка защитная и в наблюдаемом поведении не проявилась: правила из конфига с неизвестным видом отсекаются при загрузке (`services/style_policy.py:600-601`, `rule_kind_unknown`), поэтому нормальный путь даёт один из восьми известных видов; в одобренном живом прогоне сырого `rule_id` нет (`unexplained=[]`). Значение вне одиннадцати перечисленных ревью групп полей и вне перечня `MAP/Branch/Anchor/Target/TTL/RAG` заголовочной приёмки UR-20.",
+      "classification": "open_residual_display_defect_not_owner_task",
+      "next_action": "Отдельная мелкая доработка отображения (словарь правила или откат «код: <rule_id>») в следующем заходе по инспектору; строки UR-20.7/20.8 из-за неё не переоткрываются без нового доказательства.",
+      "source": "plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md"
+    },
+    {
+      "id": "UR-F-RES-BU-CHANNEL-01",
+      "slice": "UR-F",
+      "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+      "row_relations": ["UR-20.6", "UR-20.7", "UR-20"],
+      "statement": "Канал Browser Use не показал карточку в сессии ревью: официальный Telegram-скрипт сбрасывал launch hash, поэтому полноценного Browser Use-прохода по кандидату d3e74eef нет.",
+      "impact": "Визуальная часть вердикта опирается на кадры Playwright того же кандидата на 1440×900 и 390×844 (urf-step1-slot-visual-report.json и снимки), а не на Browser Use. Это ограничение доказательства, а не выполненная проверка: Browser Use-проход по этому кандидату не засчитан.",
+      "classification": "evidence_limitation_not_owner_task",
+      "next_action": "Перезапустить Browser Use-проход в следующем визуальном заходе (или на релизном порту f328611f) без сброса launch hash; до этого ограничение остаётся видимым.",
+      "source": "plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md"
+    }
+  ],
   "not_covered_by_this_wave": [
     "Мем-инициатива и её два промпта (§«Не входит» источника) — не входят в эпик.",
     "Переписывание содержательной логики саммари/фактчека/видео кроме сквозного времени — не входит.",
@@ -8241,9 +8324,39 @@
     "UR-E": "b2738117",
     "UR-C-SCHED": "5d8c8598",
     "UR-SRC-DATE": "7cf8e1699d2a689c5a4249da9478ac4215e5701d",
-    "UR-F": "b457ad0e41d40a3d73f8ab2926bd0eba8dc83193"
+    "UR-F": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4"
   },
   "notes": [
+    {
+      "id": "NOTE-2026-11-12-UR-F-STEP3-CODES-VERDICT",
+      "slice": "UR-F",
+      "kind": "review_binding",
+      "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+      "branch": "ur/f-inspector-step1",
+      "statement": "Два независимых живых ревью 2026-11-12 вернули Approved на d3e74eef: закрыт обход словаря в строках карточки (имя инструмента, статус поиска, решение/причина L1, операции доставки, карта `llm_calls`, `text_source`, а также `delivery.reason`/`delivery_outcome`/`diag_reason`/`flow`) и принят слот L1 (`l1_slot`/`main` с моделью, без подстановки слота L2). По этому вердикту UR-20.6 и UR-20.7 переведены в VERIFIED, родитель UR-20 закрыт по фактическим статусам девяти агрегируемых строк. Наборы 122 passed (59+19+44) + UR-F-STEP3-OK, пять мутаций упали содержательно.",
+      "rows": {"UR-20": "VERIFIED", "UR-20.6": "VERIFIED", "UR-20.7": "VERIFIED"},
+      "artifact": "plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md"
+    },
+    {
+      "id": "NOTE-2026-11-12-UR-F-RESIDUALS",
+      "slice": "UR-F",
+      "kind": "residuals",
+      "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+      "statement": "Два остаточных пункта записаны честно и не превращены в задачи владельцу: (1) `turnRuleLine` печатает сырой `rule_id`, если вид правила вне словаря `rule_kind` (защитная ветка; правила из конфига с неизвестным видом отсекаются при загрузке, в живом прогоне не наблюдалось, в одиннадцать групп полей ревью не входит); (2) канал Browser Use не показал карточку в сессии ревью из-за сброса launch hash официальным Telegram-скриптом, поэтому визуальный вердикт опирается на кадры Playwright того же кандидата на 1440 и 390.",
+      "where": "open_items[UR-F-RES-RULEID-01, UR-F-RES-BU-CHANNEL-01]",
+      "owner_action_required": false,
+      "artifact": "plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md"
+    },
+    {
+      "id": "NOTE-2026-11-12-UR-F-RELEASE-PORT",
+      "slice": "UR-F",
+      "kind": "release_state",
+      "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+      "statement": "Релиз вывозит порт f328611f (ветки release/2.58.189, rel/2.58.189-inspector-prep), а не ветку среза: отличие порта от кандидата d3e74eef в тех же шести файлах — одна строка комментария в web/app.js, контракт инспектора тот же (измерение ревью). Выкладки не было: deployed_commit/deployed_release не менялись (2.58.184 — последний выкат, проверенный этой картой). Требование ревьюера: вывозить именно порт, а не ветку ur/f-inspector-step1.",
+      "port_commit": "f328611f",
+      "releases": ["2.58.189"],
+      "artifact": "plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md"
+    },
     {
       "id": "NOTE-2026-11-11-UR-F-STEP3-CODES-REOPEN",
       "slice": "UR-F",
@@ -8504,6 +8617,18 @@
     }
   ],
   "review_evidence": [
+    {
+      "slice": "UR-F",
+      "step": "шаг 3 — коды карточки и слот L1: два независимых живых ревью (полное и узкое), оба Approved",
+      "candidate_commit": "d3e74eef11f5cbedc4509dd05da2aa059a1102c4",
+      "branch": "ur/f-inspector-step1",
+      "verdicts": [{"kind": "полное ревью", "verdict": "Approved", "checked": "сквозная цепочка слота L1: `l1_slot`→`main` в `_execute_turn`→`meta[\"slot\"]`→enum-фильтр→allowlist-проекция→строка карточки; карточка печатает подпись слота и не подставляет слот L2; все перечисленные служебные значения идут через словари с откатом «код: …»; `pass` = «правило проверено, нарушений нет»; видимые идентификаторы несут подписи («сообщение», «ключ», «код хода», «модель»)", "challenges": "выделенный слот падает по таймауту, планирует основная модель → `slot=main` с правильной моделью; старая трасса без поля остаётся пустой, `main` не выдумывается; свободный текст, кириллица, точки с запятой и сверхдлинная строка в enum отвергнуты; пять мутаций упали содержательно", "counts": "122 passed (59+19+44) + UR-F-STEP3-OK", "visual": "живая карточка 1440 и 390: подпись слота, русские подписи, «код: mystery_delivery», горизонтального скролла нет"}, {"kind": "узкое ревью", "verdict": "Approved", "checked": "проектор отдаёт `main`/`l1_slot` вместе с моделью, отвергает текст вида `not_a_slot` в `None`, для старой трассы слот не выдумывает", "challenges": "одна мутация (голый токен вместо текста словаря) уронила JS-тест", "counts": "те же 122 passed (59+19+44) + UR-F-STEP3-OK", "boundaries_noted": "родитель UR-20 нельзя закрывать, пока соседние строки карты остаются PENDING; релиз должен вывозить порт f328611f, а не ветку среза"}],
+      "rows": {"UR-20.6": "VERIFIED", "UR-20.7": "VERIFIED", "UR-20": "VERIFIED"},
+      "port": {"commit": "f328611f", "branches": ["release/2.58.189", "rel/2.58.189-inspector-prep"], "measurement": "отличие порта от кандидата в тех же шести файлах — одна строка комментария в web/app.js; контракт инспектора тот же"},
+      "artifact": "plans/features/unified-reply/evidence/ur-f-inspector-verdict-2026-11-12.md",
+      "artifact_sha256": "546beae0c5695f615d664898a140dd0ac685e3b878e4d6c3ecaf4b820faf21e8",
+      "not_claimed": ["Browser Use-проход по этому кандидату не выполнен (сброс launch hash официальным Telegram-скриптом); визуальная часть — Playwright того же кандидата", "выкладки не было: VERIFIED означает принятый кандидат, а не работающую прод-функцию"]
+    },
     {
       "slice": "UR-F",
       "step": "шаг 3 — контрольный проход по расшифровке кодов (кандидат dbf89a96; тот же код строк проверен и в b457ad0e)",
