@@ -192,7 +192,14 @@ def _row(tg, ts, text, user_id=10, author="Вася", reply_to=None):
 
 
 class RecomposeFakeLLM:
-    """LLM с fallback: generate вызывает adapter (как LLMClient §14)."""
+    """LLM с fallback: generate вызывает adapter (как LLMClient §14).
+
+    Двойник ОБЯЗАН повторять форму ответа адаптера настоящего клиента:
+    с UR-F шага 1 (Q6) адаптер рекомпоза отдаёт `(body, prepared)` — модели
+    уходит только `body`, `prepared`-вариант остаётся у сервиса
+    (`services/llm_client.py:1665-1674` и `1985-1994`). Непригодная форма →
+    прежнее тело (payload «SENT AS-IS»), как в клиенте — не тихий успех.
+    """
 
     def __init__(self):
         self.calls = []
@@ -206,12 +213,14 @@ class RecomposeFakeLLM:
                        fallback_payload_adapter=None, **kwargs):
         self.calls.append(messages)
         if fallback_payload_adapter is not None:
-            adapted = fallback_payload_adapter(
-                {"model": self._chat_model, "messages": messages})
+            primary = {"model": self._chat_model, "messages": messages}
+            adapted = fallback_payload_adapter(dict(primary))
             # UR-F шаг 1 (Q6): адаптер отдаёт (body, prepared-вариант), а
             # LLMClient берёт только body — двойник повторяет это поведение.
             if isinstance(adapted, tuple) and len(adapted) == 2:
                 adapted = adapted[0]
+            if not (isinstance(adapted, dict) and adapted.get("messages")):
+                adapted = primary
             self.adapted_calls.append(adapted)
             return "ok-adapted"
         return "ok"
