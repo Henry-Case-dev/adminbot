@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-12T08:23:11+12:00",
+  "updated": "2026-11-12T09:43:13+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1699,7 +1699,7 @@
       "id": "p0-init-meme-ux-diag",
       "ticket": "P0-INIT-MEME-UX-DIAG-CORRECTIVE",
       "title": "Инициатива/Мемы: достоверное состояние, понятный UX и сквозная диагностика",
-      "status": "PENDING",
+      "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-corrective-excerpt.md",
       "source_sha256": "6D0D5C52CF5B6A50CE7F4098EEB8136A49AE1D024B83C5FB802BF016587CD91A",
       "maps": [
@@ -1710,9 +1710,9 @@
       "priority": "P0",
       "blocked_by": [],
       "blocker_sources": {},
-      "execution_state": "queued",
+      "execution_state": "active_assignment",
       "position_basis": "owner marked it P0 corrective; current lanes continue in parallel",
-      "queue_note": "Started with a read-only diagnosis of the real `/meme` failure and the two-chat divergence; PM maps requirements against the existing UI epics and the Architect designs the five-axis read-model. Implementation is not started.",
+      "queue_note": "Started with a read-only diagnosis of the real `/meme` failure and the two-chat divergence; PM maps requirements against the existing UI epics and the Architect designs the five-axis read-model. Implementation is not started. | 2026-11-12: releases 2.58.189-193 shipped as verified increments; slices S1-AXES, S2-ID, S3-OV, S4-TRACE, S5-MEME, S5b in review/live; S6-FRESH in build; epic not done.",
       "preparation": {
         "pm_map": "plans/features/p0-init-meme-ux-diag/requirements-map.json",
         "architecture": "plans/features/p0-init-meme-ux-diag/architecture.md",
