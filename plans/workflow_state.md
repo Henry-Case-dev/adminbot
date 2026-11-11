@@ -86,7 +86,7 @@ EFFECTIVE-CONFIG RULE APPLIED: the new policy requires the reviewed effective co
 
 REVIEW QUEUE BLOCKED ON PROVIDER QUOTA (2026-11-11 19:12): three review dispatches failed with `pre-consume quota failed` — the account needs more than it has per request ($1.97 vs $1.81, $1.66 vs $1.15, $2.74 vs $0.18). No approval is being fabricated to work around it. Candidates waiting for an independent verdict, in priority order: (1) `b457ad0e` ur/f-inspector-step1 — four acceptance gaps plus a fixed adapter double; (2) `d64adfa7` self-diag/d2-port — policy-matrix and credential-leak fixes for the eleven FAILED rows; (3) `c698618a` vmq/next-stage — one period leg per turn, truthful `period_kept`, corrected A5/A11 attribution. `release/2.58.186` exists for the approved rerank change (`17cfc38a`, approved 6/6) — its deployment status is unconfirmed after the quota failure.
 
-Recovery instruction: when model quota is restored, dispatch the three reviews above in that order with their existing briefs, then proceed to binding and release. Until then only tool-level work (git, tests, accounting) is possible; production stays at 2.58.185 and rollback remains 40d52954.
+Recovery instruction: when model quota is restored, dispatch the three reviews above in that order with their existing briefs, then proceed to binding and release. Until then only tool-level work (git, tests, accounting) is possible; production stays at 2.58.185 and rollback remains 40d52954. Local mechanical re-runs on 2026-11-11: D2 fix 57 passed, memory fix 56 passed, inspector 110 passed (run from each worktree; a first attempt from the main checkout produced one false failure because those tests resolve paths relative to cwd).
 
 Updated: 2026-11-10T20:30:00+12:00
 
