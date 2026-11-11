@@ -6,7 +6,7 @@
   "source_path": "plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-corrective-excerpt.md",
   "source_sha256": "6d0d5c52cf5b6a50ce7f4098eeb8136a49ae1d024b83c5fb802bf016587cd91a",
   "source_note": "Immutable excerpt of user-owned plans/current_task.md lines 11423-11552. owner_inputs id OI-2026-11-11-P0-INIT-MEME-UX-DIAG (registration is Orchestrator's single-writer job).",
-  "candidate_commit": "",
+  "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
   "deployed_commit": "",
   "production_baseline": {
     "release": "2.58.188",
@@ -231,7 +231,8 @@
         "HMF-UI-06",
         "UR-20.5"
       ],
-      "delta": "Разделение аналитики и воронки уже требовалось; добавляется явный словарь шести состояний для одной попытки."
+      "delta": "Разделение аналитики и воронки уже требовалось; добавляется явный словарь шести состояний для одной попытки.",
+      "pending_reason": "Половина «отложенная/id-less отправка не считается доставленной» доказана (id-less -> unknown, confirmed только с message_id), но «considered не считается публикацией» показывает S4-TRACE (P0IM-PB-VOCAB, P0IM-PB-COUNT); доказательств по этой половине пока нет."
     },
     {
       "source_id": "MANUAL-L008-C",
@@ -246,7 +247,8 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Acceptance называет конкретный путь availability().next_check_ts (подстановка now при отсутствии кулдауна); web/api/initiative_vitality.py и web/app.js этим кандидатом не тронуты, ось отдаёт next_basis, но требование не закрыто — ждёт S3/S6."
     },
     {
       "source_id": "MANUAL-L016-A",
@@ -321,7 +323,8 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Backend-половина доказана (enabled=false только из явного OFF; кулдаун/квота/тихие часы/нехватка сообщений остаются waiting), но acceptance требует «ни в backend, ни в UI»; UI-половина — S3-OV, поэтому строка остаётся PENDING."
     },
     {
       "source_id": "MANUAL-L030-B",
@@ -336,7 +339,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Половина «отложенная/id-less отправка не считается доставленной» доказана (id-less -> unknown, confirmed только с message_id), но «considered не считается публикацией» показывает S4-TRACE (P0IM-PB-VOCAB, P0IM-PB-COUNT); доказательств по этой половине пока нет."
     },
     {
       "source_id": "MANUAL-L035-B",
@@ -350,8 +354,17 @@
       "acceptance": "run_id присваивается в начале каждого реального рассмотрения и каждого ручного запроса — до самых ранних гейтов: для мема jid mint сразу после загрузки cfg, до любого skipped(); для текста per-chat run_id в начале оценки чата, не cycle task_jobs.job_id. Ранний отказ, не дошедший до генерации, тоже имеет свой run_id, и каждый ранний skipped несёт тот же родитель.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 6 вердикта Reviewer (текст) + тесты approved-кандидата (мем)",
+          "observation": "Ф.6: идентичность текста mint до первого гейта. Мем: jid создаётся сразу после загрузки cfg и передаётся во все skipped(), ранний отказ до генерации имеет свой run_id (test_early_refusal_has_its_own_run_id, test_cooldown_quota_quiet_refusals_carry_run_id). Текст: per-chat run_id в начале оценки чата, не цикловой task_jobs.job_id (test_text_early_refusal_has_per_chat_run_id: run_id != \"cycle-job-id\", решение и read-model видят того же родителя).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [],
       "delta": "Новое: подтверждённый дефект — jid создаётся после нескольких ранних гейтов."
     },
@@ -594,7 +607,8 @@
         "MEME-IIC-DIAG-NO-MIX",
         "MEME-IIC-DIAG-UI"
       ],
-      "delta": "Раздельные per-mechanism блоки уже есть; добавляется единый контракт ответа вместо клиентской реконструкции."
+      "delta": "Раздельные per-mechanism блоки уже есть; добавляется единый контракт ответа вместо клиентской реконструкции.",
+      "pending_reason": "Пять осей приходят с backend в одном ответе (подтверждено), но вторая половина acceptance — клиент не собирает ВКЛ/ВЫКЛ из разных флагов и не выводит статус из отсутствия полей — на 4c59a483 не выполнена: web/app.js не менялся и по-прежнему рисует ready=false как «выключено». Закрывает S3-OV (P0IM-OV-FALSEOFF, P0IM-OV-L1)."
     },
     {
       "source_id": "MANUAL-L069-A",
@@ -608,8 +622,17 @@
       "acceptance": "Оси реализованы расширением существующих initiative_diagnostics, initiative_vitality, module_registry, publication_coordination и API; в диффе нет новой БД, параллельной state machine, отдельного сервиса телеметрии или второго цикла.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "review",
+          "ref": "Инспекция диффа approved-кандидата",
+          "observation": "Дифф c087253d..4c59a483 затрагивает только существующие модули (initiative_diagnostics, meme_initiative, initiative_observer, publication_coordination, web/api/initiative_publications + три файла тестов): новых файлов, таблиц, миграций/DDL, отдельного сервиса телеметрии, второго цикла и новых LLM-вызовов нет; publication_coordination отдаёт уже прочитанный expires_at, новых запросов не добавлено.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [
         "EVOL-014",
         "MEME-PROHIB-NO-DUP-PIPELINE",
@@ -630,7 +653,8 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Backend-половина доказана (enabled=false только из явного OFF; кулдаун/квота/тихие часы/нехватка сообщений остаются waiting), но acceptance требует «ни в backend, ни в UI»; UI-половина — S3-OV, поэтому строка остаётся PENDING."
     },
     {
       "source_id": "MANUAL-L071-B",
@@ -644,8 +668,17 @@
       "acceptance": "Backend отдаёт ось readiness: ready/waiting/busy/blocked/unknown с reason и reason_class, где waiting — кулдаун/нехватка сообщений/тихие часы/квота/жребий/тик/координация/отложенный артефакт/живой manual priority, busy — свежий inflight или claim в будущем, blocked — только enabled=false или жёсткий отказ прав/schema; next_eligible_at только при доказанном базисе; «готов к оценке» нигде не трактуется как обещание публикации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 6 вердикта Reviewer + тесты approved-кандидата",
+          "observation": "Ф.6: cooldown/quota/quiet/not-enough-messages остаются waiting (включённое в кулдауне не названо выключенным); истёкший маркер ручного приоритета не блокирует; исключение precheck даёт unknown, а не schema. Живая бронь даёт busy, просроченная — нет (test_axis_readiness_busy_on_live_claim_and_not_busy_when_expired); время следующей попытки не выдумывается из периодичности (test_axis_readiness_has_no_invented_eta_after_lottery_miss).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ]
     },
     {
       "source_id": "MANUAL-L071-C",
@@ -754,7 +787,8 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Acceptance называет конкретный путь availability().next_check_ts (подстановка now при отсутствии кулдауна); web/api/initiative_vitality.py и web/app.js этим кандидатом не тронуты, ось отдаёт next_basis, но требование не закрыто — ждёт S3/S6."
     },
     {
       "source_id": "MANUAL-L083-A",
@@ -1103,8 +1137,17 @@
       "acceptance": "Оси реализованы расширением существующих initiative_diagnostics, initiative_vitality, module_registry, publication_coordination и API; в диффе нет новой БД, параллельной state machine, отдельного сервиса телеметрии или второго цикла.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "review",
+          "ref": "Инспекция диффа approved-кандидата",
+          "observation": "Дифф c087253d..4c59a483 затрагивает только существующие модули (initiative_diagnostics, meme_initiative, initiative_observer, publication_coordination, web/api/initiative_publications + три файла тестов): новых файлов, таблиц, миграций/DDL, отдельного сервиса телеметрии, второго цикла и новых LLM-вызовов нет; publication_coordination отдаёт уже прочитанный expires_at, новых запросов не добавлено.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ]
     },
     {
       "source_id": "MANUAL-L108-A",
@@ -1179,7 +1222,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Половина «отложенная/id-less отправка не считается доставленной» доказана (id-less -> unknown, confirmed только с message_id), но «considered не считается публикацией» показывает S4-TRACE (P0IM-PB-VOCAB, P0IM-PB-COUNT); доказательств по этой половине пока нет."
     },
     {
       "source_id": "MANUAL-L112-A",
@@ -1193,8 +1237,17 @@
       "acceptance": "run_id присваивается в начале каждого реального рассмотрения и каждого ручного запроса — до самых ранних гейтов: для мема jid mint сразу после загрузки cfg, до любого skipped(); для текста per-chat run_id в начале оценки чата, не cycle task_jobs.job_id. Ранний отказ, не дошедший до генерации, тоже имеет свой run_id, и каждый ранний skipped несёт тот же родитель.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 6 вердикта Reviewer (текст) + тесты approved-кандидата (мем)",
+          "observation": "Ф.6: идентичность текста mint до первого гейта. Мем: jid создаётся сразу после загрузки cfg и передаётся во все skipped(), ранний отказ до генерации имеет свой run_id (test_early_refusal_has_its_own_run_id, test_cooldown_quota_quiet_refusals_carry_run_id). Текст: per-chat run_id в начале оценки чата, не цикловой task_jobs.job_id (test_text_early_refusal_has_per_chat_run_id: run_id != \"cycle-job-id\", решение и read-model видят того же родителя).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ]
     },
     {
       "source_id": "MANUAL-L112-B",
@@ -1208,8 +1261,17 @@
       "acceptance": "На всех этапах и во всех событиях присутствуют chat_id, run_id, режим manual/auto, request_ref, stage, timestamps, причина или вердикт и delivered status.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Тесты approved-кандидата + инспекция кода кандидата",
+          "observation": "Мем: строка попытки и события несут chat_id, run_id, mode (manual/auto), request_ref (id сообщения /meme либо run_id), stage, метки времени, причину/вердикт и признак доставки. Текст: каждое чатовое событие получает trace_id = run_id, вне чатового контекста родитель не выдумывается (test_text_events_carry_per_chat_run_id), mode=auto в read-model (test_text_early_refusal_has_per_chat_run_id). manual/request_ref для текстовой инициативы не имеют смысла и не выдумываются.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [
         "FC-07.1"
       ],
@@ -1227,8 +1289,17 @@
       "acceptance": "LLM A и B имеют отдельные child-call ID с общим родительским run_id ({jid}#meme_summary, {jid}#meme_joke; для текста {run_id}#digest|#eval|#writer) вместо случайных uuid4; image API, бронь (holder_ref) и record_delivered_output сходятся по тому же родителю и не расходятся на случайные correlation_id.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Тесты approved-кандидата + инспекция кода кандидата",
+          "observation": "Дочерние вызовы LLM A/B именуются {jid}#meme_summary и {jid}#meme_joke вместо случайных uuid4 (test_child_llm_calls_are_namespaced_under_the_parent_run); текст — {run_id}#eval и {run_id}#digest (test_text_child_llm_calls_are_namespaced). Image API, бронь (holder_ref) и record_delivered_output сходятся по тому же родителю (инспекция кода кандидата); ф.1 показывает run_id в строке доставки.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ]
     },
     {
       "source_id": "MANUAL-L112-3",
@@ -1242,8 +1313,17 @@
       "acceptance": "Идентичность попытки никогда не подменяется совпадением текста, секунды или порядка строк.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Тесты approved-кандидата (строки без id и соседние попытки)",
+          "observation": "Идентичность попытки берётся из job_id/attempt_id: две исторические строки без job_id остаются двумя разными строками и не склеиваются по времени/тексту (test_legacy_rows_without_job_id_are_marked_historical), обычная попытка с job_id не помечается исторической (test_regular_attempts_are_not_marked_historical), соседняя попытка не заражается чужим режимом (test_joke_cap_rows_do_not_leak_into_other_attempts).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [],
       "delta": "Новое: запрет на «склейку по похожести»."
     },
@@ -1277,7 +1357,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Одно-попыточность, устойчивый родитель и отсутствие протечки режима доказаны, но durable-часть acceptance («без потери этапов», дефект D4 журнала) не выполнена в остаточном окне RW-D4-BOTH-WRITE-FAIL: при одновременном отказе журнала и spool строка теряется (в логе attempt LOST). См. residual_windows и evidence/s1s2/review-4c59a483.md."
     },
     {
       "source_id": "MANUAL-L114-B",
@@ -1291,8 +1372,17 @@
       "acceptance": "Исторические строки с пустым job_id/trace_id читаются осторожно: помечаются incomplete_historical, не склеиваются по времени или совпадению текста, чужие события не присоединяются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 1 вердикта Reviewer + тесты approved-кандидата",
+          "observation": "Ф.1: строки без любого id читаются как unknown. test_legacy_rows_without_job_id_are_marked_historical: две старые строки без job_id помечены incomplete_historical=true и не выдаются за попытку с родителем, detail открывается по их собственному attempt_id; test_regular_attempts_are_not_marked_historical: обычная попытка с job_id не помечена исторической.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [],
       "delta": "Новое: политика чтения унаследованных строк."
     },
@@ -1314,7 +1404,8 @@
         "MEME-IIC-INDEP-TRIGGERS",
         "MEME-IIC-PROHIB-GLOBAL-LOCK"
       ],
-      "delta": "Независимость чатов и запрет глобальной блокировки уже доказаны; добавляется идемпотентность учёта попыток."
+      "delta": "Независимость чатов и запрет глобальной блокировки уже доказаны; добавляется идемпотентность учёта попыток.",
+      "pending_reason": "Нет наблюдения о параллельных запусках в двух чатах и нет проверки конкурентной группировки/дедупликации в approved-серии; закрывается S7-ACCEPT (P0IM-AC-MATRIX-FAIL, конкурирующие чаты/холдеры) или отдельным targeted probe."
     },
     {
       "source_id": "MANUAL-L118-A",
@@ -1496,7 +1587,8 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Acceptance называет конкретный путь availability().next_check_ts (подстановка now при отсутствии кулдауна); web/api/initiative_vitality.py и web/app.js этим кандидатом не тронуты, ось отдаёт next_basis, но требование не закрыто — ждёт S3/S6."
     },
     {
       "source_id": "MANUAL-L132-A",
@@ -1915,7 +2007,8 @@
       "status": "PENDING",
       "evidence": [],
       "covered_by": [],
-      "delta": "Новое: именно эта путаница — подтверждённый дефект (web/app.js, initiativeTextCard/initiativeMemeCard на c087253d присваивают effective=false при block.ready === false)."
+      "delta": "Новое: именно эта путаница — подтверждённый дефект (web/app.js, initiativeTextCard/initiativeMemeCard на c087253d присваивают effective=false при block.ready === false).",
+      "pending_reason": "Backend-половина доказана (enabled=false только из явного OFF; кулдаун/квота/тихие часы/нехватка сообщений остаются waiting), но acceptance требует «ни в backend, ни в UI»; UI-половина — S3-OV, поэтому строка остаётся PENDING."
     },
     {
       "source_id": "L00009",
@@ -2006,8 +2099,17 @@
       "acceptance": "Backend отдаёт по каждому механизму поле configuration: enabled true/false/null, effective source, scope и reason при неразрешённой конфигурации; значение совпадает с тем, что реально использует воркер.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 6 вердикта Reviewer + тесты approved-кандидата",
+          "observation": "Ф.6: enabled=false только из явного OFF; если гейт нечитаем, отдаётся null, а не false; источник и scope различаются по чату (chat-слой не выдаётся за global); без X-Chat-Id 422, не-админу 403. Тесты кандидата: test_axis_configuration_false_only_from_explicit_setting, test_axis_configuration_is_null_when_gate_is_unreadable, test_configuration_names_chat_layer_instead_of_global, test_configuration_chat_override_is_named_as_chat.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [
         "EVOL-035",
         "UR-20.9",
@@ -2028,8 +2130,17 @@
       "acceptance": "Backend отдаёт ось readiness: ready/waiting/busy/blocked/unknown с reason и reason_class, где waiting — кулдаун/нехватка сообщений/тихие часы/квота/жребий/тик/координация/отложенный артефакт/живой manual priority, busy — свежий inflight или claim в будущем, blocked — только enabled=false или жёсткий отказ прав/schema; next_eligible_at только при доказанном базисе; «готов к оценке» нигде не трактуется как обещание публикации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 6 вердикта Reviewer + тесты approved-кандидата",
+          "observation": "Ф.6: cooldown/quota/quiet/not-enough-messages остаются waiting (включённое в кулдауне не названо выключенным); истёкший маркер ручного приоритета не блокирует; исключение precheck даёт unknown, а не schema. Живая бронь даёт busy, просроченная — нет (test_axis_readiness_busy_on_live_claim_and_not_busy_when_expired); время следующей попытки не выдумывается из периодичности (test_axis_readiness_has_no_invented_eta_after_lottery_miss).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [
         "MEME-IIC-DIAG-TIMES",
         "MEME-IIC-DIAG-COOLDOWN-CONFLICT",
@@ -2049,8 +2160,17 @@
       "acceptance": "Backend отдаёт ось last_attempt: время, manual/auto, run_id, краткий исход и этап остановки, связанные с той же попыткой, что открывается в истории.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факты 1-2 вердикта Reviewer + тест approved-кандидата",
+          "observation": "Ф.2: ось диагностики согласуется со списком публикаций по той же попытке; ф.1: строка доставки несёт run_id=run-888. test_axis_last_attempt_is_one_attempt_with_mode_and_stage: набор полей at/mode/run_id/outcome/stop_stage/incomplete_historical, ранний отказ по квоте — отдельная попытка со своим непустым run_id и режимом.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [
         "MEME-IIC-DIAG-UI",
         "MEME-JOKE-DIAG-UI"
@@ -2069,8 +2189,17 @@
       "acceptance": "Backend отдаёт ось last_delivery: подтверждённый факт доставки, время и message_id, либо «никогда не было», либо unknown; ожидание и отложенная отправка не выдаются за доставку.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 1 вердикта Reviewer (независимый кейс Reviewer)",
+          "observation": "Ф.1: подтверждённая доставка разрешается по последней строке с tg_message_id; кейс 777 + 21 строка без id + 888 + 9 строк без id дал confirmed / message_id=888 / run_id=run-888; пустой журнал -> never; строки без любого id -> unknown; сбой чтения -> unknown; сужение запроса до самой новой строки ломает их тест. Ожидание и отложенная отправка не выдаются за доставку.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [
         "MEME-IIC-LEDGER-EXISTING",
         "HMF-ACC-02"
@@ -2095,7 +2224,8 @@
         "MEME-IIC-DIAG-TIMES",
         "MEME-IIC-PROHIB-HARDCODED-TIMINGS"
       ],
-      "delta": "Следующая проверка уже берётся из реальных данных; добавляется запрет на вычисленный на глаз ETA."
+      "delta": "Следующая проверка уже берётся из реальных данных; добавляется запрет на вычисленный на глаз ETA.",
+      "pending_reason": "Acceptance называет конкретный путь availability().next_check_ts (подстановка now при отсутствии кулдауна); web/api/initiative_vitality.py и web/app.js этим кандидатом не тронуты, ось отдаёт next_basis, но требование не закрыто — ждёт S3/S6."
     },
     {
       "source_id": "L00032",
@@ -2146,7 +2276,8 @@
       "covered_by": [
         "HMF-UI-06"
       ],
-      "delta": "HMF-UI-06 уже требовал показать точную цепочку, включая «генерация успешна, отправка отменена»; добавляется требование к самой группировке и к раннему отказу."
+      "delta": "HMF-UI-06 уже требовал показать точную цепочку, включая «генерация успешна, отправка отменена»; добавляется требование к самой группировке и к раннему отказу.",
+      "pending_reason": "Одно-попыточность, устойчивый родитель и отсутствие протечки режима доказаны, но durable-часть acceptance («без потери этапов», дефект D4 журнала) не выполнена в остаточном окне RW-D4-BOTH-WRITE-FAIL: при одновременном отказе журнала и spool строка теряется (в логе attempt LOST). См. residual_windows и evidence/s1s2/review-4c59a483.md."
     },
     {
       "source_id": "L00036",
@@ -2160,8 +2291,17 @@
       "acceptance": "Режим manual/auto — самостоятельное поле строки журнала (в существующем detail JSON терминальной строки, не новой колонкой) и не восстанавливается только по поздним publication-фактам, поэтому ранний отказ `/meme` распознаётся как ручной.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 2 вердикта Reviewer (независимый кейс Reviewer)",
+          "observation": "Ф.2: опубликованный РУЧНОЙ мем с этапом «прикол», записавшим mode=auto, показывается как manual; фильтр manual его находит, auto — нет; ось диагностики согласуется; соседняя попытка остаётся auto. Режим берётся из терминальной строки (detail JSON), а не восстанавливается по поздним publication-фактам. Тесты: test_manual_published_meme_is_manual_even_if_joke_stage_says_auto, test_joke_cap_rows_do_not_leak_into_other_attempts, test_terminal_journal_row_records_attempt_mode, test_manual_early_refusal_is_manual_in_the_publications_list.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [],
       "delta": "Новое: подтверждённый дефект — режим выводится из поздних фактов."
     },
@@ -2177,8 +2317,17 @@
       "acceptance": "LLM A и B имеют отдельные child-call ID с общим родительским run_id ({jid}#meme_summary, {jid}#meme_joke; для текста {run_id}#digest|#eval|#writer) вместо случайных uuid4; image API, бронь (holder_ref) и record_delivered_output сходятся по тому же родителю и не расходятся на случайные correlation_id.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Тесты approved-кандидата + инспекция кода кандидата",
+          "observation": "Дочерние вызовы LLM A/B именуются {jid}#meme_summary и {jid}#meme_joke вместо случайных uuid4 (test_child_llm_calls_are_namespaced_under_the_parent_run); текст — {run_id}#eval и {run_id}#digest (test_text_child_llm_calls_are_namespaced). Image API, бронь (holder_ref) и record_delivered_output сходятся по тому же родителю (инспекция кода кандидата); ф.1 показывает run_id в строке доставки.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [],
       "delta": "Новое: подтверждённый дефект — отдельные случайные correlation_id в _default_summarize/_default_joke."
     },
@@ -2311,8 +2460,17 @@
       "acceptance": "Backend отдаёт ось health: ok/degraded/error/unknown с подтверждением готовности зависимостей и указанием источника проверки; «нет данных» и ошибка загрузки не превращаются в состояние ошибки механизма.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Тесты approved-кандидата с внедрённой неисправностью (дословной фразы об этой оси вердикт не содержит)",
+          "observation": "Fault-injection на кандидате: при отсутствии таблицы брони health=degraded (не «ok»), источник image указан как meme_initiative.image_dependency; при отсутствии журнала попыток health=error и readiness=blocked/schema. Тесты: test_axis_health_degraded_coordination_is_not_ok, test_axis_health_error_when_attempt_journal_is_absent.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ],
       "covered_by": [
         "MEME-IIC-DEGRADE-VISIBLE"
       ],
@@ -2379,8 +2537,17 @@
       "acceptance": "Backend отдаёт по каждому механизму поле configuration: enabled true/false/null, effective source, scope и reason при неразрешённой конфигурации; значение совпадает с тем, что реально использует воркер.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 6 вердикта Reviewer + тесты approved-кандидата",
+          "observation": "Ф.6: enabled=false только из явного OFF; если гейт нечитаем, отдаётся null, а не false; источник и scope различаются по чату (chat-слой не выдаётся за global); без X-Chat-Id 422, не-админу 403. Тесты кандидата: test_axis_configuration_false_only_from_explicit_setting, test_axis_configuration_is_null_when_gate_is_unreadable, test_configuration_names_chat_layer_instead_of_global, test_configuration_chat_override_is_named_as_chat.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ]
     },
     {
       "source_id": "L00064",
@@ -2394,8 +2561,17 @@
       "acceptance": "Backend отдаёт ось health: ok/degraded/error/unknown с подтверждением готовности зависимостей и указанием источника проверки; «нет данных» и ошибка загрузки не превращаются в состояние ошибки механизма.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Тесты approved-кандидата с внедрённой неисправностью (дословной фразы об этой оси вердикт не содержит)",
+          "observation": "Fault-injection на кандидате: при отсутствии таблицы брони health=degraded (не «ok»), источник image указан как meme_initiative.image_dependency; при отсутствии журнала попыток health=error и readiness=blocked/schema. Тесты: test_axis_health_degraded_coordination_is_not_ok, test_axis_health_error_when_attempt_journal_is_absent.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ]
     },
     {
       "source_id": "L00065",
@@ -2409,8 +2585,17 @@
       "acceptance": "Backend отдаёт ось readiness: ready/waiting/busy/blocked/unknown с reason и reason_class, где waiting — кулдаун/нехватка сообщений/тихие часы/квота/жребий/тик/координация/отложенный артефакт/живой manual priority, busy — свежий inflight или claim в будущем, blocked — только enabled=false или жёсткий отказ прав/schema; next_eligible_at только при доказанном базисе; «готов к оценке» нигде не трактуется как обещание публикации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 6 вердикта Reviewer + тесты approved-кандидата",
+          "observation": "Ф.6: cooldown/quota/quiet/not-enough-messages остаются waiting (включённое в кулдауне не названо выключенным); истёкший маркер ручного приоритета не блокирует; исключение precheck даёт unknown, а не schema. Живая бронь даёт busy, просроченная — нет (test_axis_readiness_busy_on_live_claim_and_not_busy_when_expired); время следующей попытки не выдумывается из периодичности (test_axis_readiness_has_no_invented_eta_after_lottery_miss).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ]
     },
     {
       "source_id": "L00066",
@@ -2424,8 +2609,17 @@
       "acceptance": "Backend отдаёт ось last_attempt: время, manual/auto, run_id, краткий исход и этап остановки, связанные с той же попыткой, что открывается в истории.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факты 1-2 вердикта Reviewer + тест approved-кандидата",
+          "observation": "Ф.2: ось диагностики согласуется со списком публикаций по той же попытке; ф.1: строка доставки несёт run_id=run-888. test_axis_last_attempt_is_one_attempt_with_mode_and_stage: набор полей at/mode/run_id/outcome/stop_stage/incomplete_historical, ранний отказ по квоте — отдельная попытка со своим непустым run_id и режимом.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ]
     },
     {
       "source_id": "L00067",
@@ -2439,8 +2633,17 @@
       "acceptance": "Backend отдаёт ось last_delivery: подтверждённый факт доставки, время и message_id, либо «никогда не было», либо unknown; ожидание и отложенная отправка не выдаются за доставку.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+          "type": "test",
+          "ref": "Факт 1 вердикта Reviewer (независимый кейс Reviewer)",
+          "observation": "Ф.1: подтверждённая доставка разрешается по последней строке с tg_message_id; кейс 777 + 21 строка без id + 888 + 9 строк без id дал confirmed / message_id=888 / run_id=run-888; пустой журнал -> never; строки без любого id -> unknown; сбой чтения -> unknown; сужение запроса до самой новой строки ломает их тест. Ожидание и отложенная отправка не выдаются за доставку.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+          "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7"
+        }
+      ]
     },
     {
       "source_id": "L00073",
@@ -2693,5 +2896,92 @@
       "per-chat override присутствуют в обоих чатах",
       "API отдаёт выбранный чат (X-Chat-Id эхом как chat_id); без заголовка 422 и master-only фолбэк — утечки нет"
     ]
-  }
+  },
+  "candidate_note": "candidate_commit — принятый, но НЕ задеплоенный кандидат срезов S1-AXES/S2-ID (init/meme-axes, база c087253d). Для review/release другого среза карты это поле обновляется на его кандидата; привязка строк держится на candidate_commit в их evidence.",
+  "residual_windows": [
+    {
+      "id": "RW-D4-BOTH-WRITE-FAIL",
+      "defect_ref": "D4",
+      "slice": "S2-ID",
+      "req_ids": [
+        "P0IM-ID-FINISH"
+      ],
+      "status": "OPEN",
+      "candidate_seen_at": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+      "condition": "Запись строки попытки в журнал (sqlite) не удалась И запись в файловый spool тоже не удалась (диск/права/ошибка os.replace).",
+      "trigger": "Нужны одновременно обе ошибки: при отказе только журнала строка durable-спулится и доезжает до таблицы (проверено на 501 строке, батч 200, прерванный os.replace, повтор без дублей).",
+      "observable": "Строка не попадает ни в meme_initiative_attempt, ни в spool-файл; пишется WARNING `[meme] attempt LOST (journal and spool unavailable) | attempt=<jid>`. Независимый прогон Reviewer: таблица=0, файла spool нет, лог attempt LOST — то есть уже не молчаливо.",
+      "not_closed_why": "Acceptance P0IM-ID-FINISH требует «без потери этапов»; в этом окне этап теряется. Поэтому строка оставлена PENDING, а не повышена.",
+      "verification_owner": "agent",
+      "owner_action_required": false,
+      "next_check": "Следующий кандидат эпика и S7-ACCEPT (P0IM-AC-MATRIX-FAIL: обрыв после LLM A/B и после image API, старые неполные записи): окно должно быть либо закрыто durable-путём, либо зафиксировано как принятый риск с явной записью в карте. Владельцу как проверка не передаётся."
+    }
+  ],
+  "slice_progress": {
+    "S1-AXES": "backend принят на 4c59a483; строки P0IM-AX-SERVER / P0IM-BAN-ENABLED / P0IM-BAN-CONFLATE / P0IM-BAN-NOETA остаются PENDING — их закрывает S3-OV и S4-TRACE/UI-путь",
+    "S2-ID": "принят на 4c59a483 по идентичности, режиму, historical и child-call; P0IM-ID-FINISH держится открытым остаточным окном RW-D4-BOTH-WRITE-FAIL, P0IM-ID-CONC ждёт S7-ACCEPT/targeted probe",
+    "S3-OV": {
+      "state": "STARTED (Builder lane, коммитов S3 в init/meme-axes пока нет)",
+      "base_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "tests/js/initiative_ui_rework_test.js"
+      ],
+      "owns_req_ids": [
+        "P0IM-OV-CARDS",
+        "P0IM-OV-FALSEOFF",
+        "P0IM-OV-PERCHAT-CAUSE",
+        "P0IM-OV-FRESH",
+        "P0IM-OV-HEADER",
+        "P0IM-OV-L1",
+        "P0IM-OV-L2",
+        "P0IM-OV-L3",
+        "P0IM-OV-ACT",
+        "P0IM-OV-COORD",
+        "P0IM-OV-LIST",
+        "P0IM-OV-NODUMP",
+        "P0IM-OV-SAMPLE",
+        "P0IM-OV-SILENT"
+      ],
+      "accounting_note": "S3 закрывает UI-половину P0IM-BAN-ENABLED, P0IM-AX-SERVER и P0IM-BAN-NOETA, но эти строки остаются за S1-AXES: S3 не помечает их VERIFIED сам, а двойного счёта нет — работа одна."
+    }
+  },
+  "binding_log": [
+    {
+      "date": "2026-11-12",
+      "slice_ids": [
+        "S1-AXES",
+        "S2-ID"
+      ],
+      "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+      "verified_req_ids": [
+        "P0IM-AX-CONFIG",
+        "P0IM-AX-HEALTH",
+        "P0IM-AX-READY",
+        "P0IM-AX-ATTEMPT",
+        "P0IM-AX-DELIVERY",
+        "P0IM-AX-REUSE",
+        "P0IM-ID-MODE",
+        "P0IM-ID-RUN",
+        "P0IM-ID-CHILD",
+        "P0IM-ID-FIELDS",
+        "P0IM-ID-NOTEXT",
+        "P0IM-ID-HIST"
+      ],
+      "pending_req_ids": [
+        "P0IM-AX-SERVER",
+        "P0IM-BAN-ENABLED",
+        "P0IM-BAN-CONFLATE",
+        "P0IM-BAN-NOETA",
+        "P0IM-ID-FINISH",
+        "P0IM-ID-CONC"
+      ],
+      "rows_touched": 35,
+      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s1s2/review-4c59a483.md",
+      "artifact_sha256": "215cd7e0b8b64fa3b123f638e05e05f859930aa251633d0638a89a590dd079c7",
+      "note": "Ни одна строка не повышена по «зелёной серии в целом»: у каждого PENDING назван конкретный невыполненный пункт acceptance."
+    }
+  ]
 }
