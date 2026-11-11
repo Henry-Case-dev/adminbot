@@ -605,6 +605,9 @@ const vm = (extra) => Object.assign({
     assert(line.indexOf('{') < 0 && line.indexOf('"') < 0,
       'отрендеренная строка не должна быть JSON-ом: ' + line);
   });
+  // Неизвестная операция доставки — по-прежнему «код: …», не голый токен.
+  assert(m.turnOpLine({ op: 'mystery_op', changed: false })
+    .indexOf('код: mystery_op') === 0, 'неизвестная операция без подписи');
   // `pass`-правило по-прежнему не выдаёт себя за применённое.
   assert(m.turnRuleLine({ rule_id: 'q', kind: 'quotation_marks',
     status: 'pass' }).indexOf('сработало') < 0);
