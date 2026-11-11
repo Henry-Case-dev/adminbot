@@ -102,21 +102,24 @@ def _diag_runtime():
     return cache, pg
 
 
-async def _checkup_diagnostic_gate(actor_id, chat_id):
+async def _checkup_diagnostic_gate(actor_id, chat_id, bot=None):
     """Разрешение на чекап: запуск проверки + право видеть логи чата.
 
     Возвращает `(gate, denied_decision)`: `gate` — открытое разрешение для
     перепроверки перед публикацией; `denied_decision` — отказ политики
     (тогда отчёт не формируется и логи не читаются).
 
-    Недоступность слоя прав — это ОТКАЗ, а не обход: без проверки запрет
-    доказать нельзя, поэтому чекап не выполняется и не публикуется.
+    `bot` обязателен для живой проверки админства: без него политика не
+    может подтвердить строку `local_admin` и отказывает подтверждённому
+    админу чата. Недоступность слоя прав — это ОТКАЗ, а не обход: без
+    проверки запрет доказать нельзя, поэтому чекап не выполняется.
     """
     cache, pg = _diag_runtime()
     try:
         gate = await diagnostic_policy.open_gate(
             "bot_server_state", "run", telegram_id=actor_id,
-            chat_id=chat_id, cache=cache, pg=pg, destination="checkup",
+            chat_id=chat_id, cache=cache, bot=bot, pg=pg,
+            destination="checkup",
             also=(("logs_traceback", "view"),))
     except Exception:
         logger.warning("[checkup] diagnostic policy unavailable — checkup "
@@ -155,7 +158,8 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
     # очищается от секретов ПЕРЕД отправкой. Промпт и характер чекапа не
     # меняются — гейт стоит только на доступе к данным.
     actor_id = message.from_user.id if message.from_user else None
-    gate, denied = await _checkup_diagnostic_gate(actor_id, message.chat.id)
+    gate, denied = await _checkup_diagnostic_gate(actor_id, message.chat.id,
+                                                  bot=bot)
     if denied is not None:
         logger.info("[checkup] denied by diagnostic policy | chat=%s user=%s "
                     "| reason=%s", message.chat.id, actor_id,
@@ -205,7 +209,8 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
         try:
             pub_cache, pub_pg = _diag_runtime()
             publication = await diagnostic_policy.publish(
-                gate, report, cache=pub_cache, pg=pub_pg, kind="final")
+                gate, report, cache=pub_cache, bot=bot, pg=pub_pg,
+                kind="final")
         except Exception:
             logger.exception("[checkup] publication guard failed | chat=%s",
                              message.chat.id)

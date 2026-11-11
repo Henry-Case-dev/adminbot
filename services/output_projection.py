@@ -214,6 +214,32 @@ def is_secret_pg_key(pg_key: str) -> bool:
     return sensitivity_of_pg_key(pg_key) == SENSITIVITY_SECRET
 
 
+def _catalog_secret_keys() -> tuple[str, ...]:
+    """PG-ключи каталога, помеченные как секрет (включая cache-only)."""
+    from services import param_catalog as catalog
+    return tuple(sorted(spec.pg_key for spec in catalog.REGISTRY.values()
+                        if spec.secret))
+
+
+def _config_cache_secret_sources() -> dict[str, bool]:
+    """Действующие секретные ключи конфиг-кэша: {pg_key: списковый ли}.
+
+    Рабочее значение параметра живёт в `bot_settings` (ConfigCache), а не в
+    `Settings`: ключ, заданный в админке, отличается от env-дефолта. Поэтому
+    сравнивать нужно ЗНАЧЕНИЕ ИЗ КЭША — в том числе для ключей без поля в
+    `Settings` (`keys.direct_l1_api_key`, `keys.summary_l2_api_key`, инфра-
+    секреты каталога) и для ключей реестра credential-полей, которые можно
+    переопределить через админку (`keys.llm_api_key` и другие).
+    """
+    kinds: dict[str, bool] = {
+        field.pg_key: field.kind == CREDENTIAL_KIND_LIST
+        for field in CREDENTIAL_FIELDS
+    }
+    for pg_key in _catalog_secret_keys():
+        kinds.setdefault(pg_key, False)
+    return kinds
+
+
 def known_secret_values(cache=None, *, use_cache: bool = True,
                         ) -> SecretSnapshot:
     """Известные runtime-значения секретов + полнота источников.
@@ -224,7 +250,12 @@ def known_secret_values(cache=None, *, use_cache: bool = True,
       2) секретные поля каталога параметров с `settings_field` (страховка,
          если каталог расширили без правки реестра);
       3) токен бота (`settings.API_TOKEN`);
-      4) действующие глобальные секреты (`services.chat_keys`) из конфиг-кэша.
+      4) ДЕЙСТВУЮЩИЕ значения ВСЕХ секретных ключей конфиг-кэша: реестра
+         credential-полей (переопределяемых через админку —
+         `keys.llm_api_key` и другие) и каталога, включая cache-only ключи
+         без `settings_field` (`keys.direct_l1_api_key`,
+         `keys.summary_l1_api_key`, инфра-секреты каталога), плюс глобальные
+         секреты `services.chat_keys`.
 
     `SecretSnapshot.complete=False` — часть источников прочитать не удалось;
     для сырого вывода это отказ (см. `sanitize`). Ключ конкретного чата
@@ -244,15 +275,44 @@ def known_secret_values(cache=None, *, use_cache: bool = True,
                        "не удался", exc_info=True)
         return SecretSnapshot({}, False, ("settings",))
 
-    if cache is not None:
+    if cache is None:
+        # Отсутствие конфиг-кэша — не ошибка (прецедент BYOK/`pg` выше: «без
+        # хранилища ключей чата не бывает»). Без ConfigCache в этом процессе
+        # не действует ни одно значение `bot_settings`: `hot_config.get`
+        # обслуживает settings-дефолт, поэтому собранный набор Settings и
+        # есть полный набор ДЕЙСТВУЮЩИХ здесь credential-значений. Обратный
+        # случай — кэш есть, но чтение упало — это «неизвестно» и отказ.
+        logger.debug("[diag-secrets] конфиг-кэш не подключён — действуют "
+                     "только settings-значения")
+    else:
+        sources: dict[str, bool] = {}
         try:
             from services import chat_keys
             for name in sorted(chat_keys.global_secret_keys()):
-                _remember(values, cache.get(name), name)
+                sources.setdefault(name, False)
         except Exception:
-            logger.warning("[diag-secrets] глобальные секреты недоступны",
-                           exc_info=True)
+            logger.warning("[diag-secrets] список глобальных секретов "
+                           "недоступен", exc_info=True)
             missing.append("global_secrets")
+        try:
+            for name, is_list in _config_cache_secret_sources().items():
+                sources.setdefault(name, is_list)
+        except Exception:
+            logger.warning("[diag-secrets] каталог секретных ключей "
+                           "недоступен", exc_info=True)
+            missing.append("catalog")
+        for name in sorted(sources):
+            try:
+                value = cache.get(name)
+            except Exception:
+                # Кэш не читается → какие значения в нём лежат, неизвестно.
+                logger.warning("[diag-secrets] секрет конфиг-кэша не читается "
+                               "— полнота неизвестна | key=%s", name,
+                               exc_info=True)
+                missing.append("config_cache")
+                break
+            _remember_source_value(values, value, name,
+                                   is_list=sources[name])
     # Ключ конкретного чата (BYOK) читается только асинхронно —
     # см. `known_secret_values_async`.
     snapshot = SecretSnapshot(values, not missing, tuple(missing))
@@ -321,6 +381,25 @@ def _remember(values: dict[str, str], value, name: str) -> None:
     if text.lower() in {"true", "false", "none", "null"}:
         return
     values.setdefault(text, name)
+
+
+def _remember_source_value(values: dict[str, str], value, name: str, *,
+                           is_list: bool = False) -> None:
+    """Запомнить значение источника: списковое поле раскладывается на части.
+
+    Значение приходит из конфиг-кэша, где списковый секрет лежит либо
+    строкой через запятую, либо готовым списком (jsonb). Скалярное значение
+    НЕ режется: запятая внутри ключа — часть самого ключа.
+    """
+    if isinstance(value, (list, tuple, set, frozenset)):
+        for part in value:
+            _remember(values, part, name)
+        return
+    if is_list:
+        for part in _LIST_SPLIT.split(str(value or "")):
+            _remember(values, part, name)
+        return
+    _remember(values, value, name)
 
 
 # ── Проекция секретного поля (никогда значение) ────────────────────────────

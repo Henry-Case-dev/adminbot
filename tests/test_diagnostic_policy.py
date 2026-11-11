@@ -1353,7 +1353,11 @@ def test_global_secret_cache_failure_marks_sources_incomplete():
     snapshot = projection.known_secret_values(cache=_BrokenCache({}),
                                               use_cache=False)
     assert snapshot.complete is False
-    assert "global_secrets" in snapshot.missing
+    # Нечитаемый кэш — это "не знаю", поэтому причина называет кэш.
+    assert "config_cache" in snapshot.missing
+    blocked = projection.sanitize(f"текст {UNPATTERNED}", kind="final",
+                                  secrets=snapshot)
+    assert blocked.allowed is False and blocked.text == ""
 
 
 def test_catalog_failure_marks_sources_incomplete(monkeypatch):
@@ -1457,3 +1461,187 @@ async def test_checkup_denies_when_policy_layer_unavailable(monkeypatch,
     sent = _sent_text(bot)
     assert UNPATTERNED not in sent
     assert diag.R_DENY_POLICY_UNAVAILABLE in sent
+
+
+# ── 13. Чекап реально спрашивает Telegram (бот доходит до политики) ────────
+
+class _BotWithMembers:
+    """AsyncMock-бот с настоящим ответом `getChatMember` (остальное — мок)."""
+
+    def __init__(self, statuses):
+        from unittest.mock import AsyncMock as _AM
+        self._inner = _AM()
+        self.send_message = self._inner.send_message
+        self.calls: list[tuple[int, int]] = []
+        self._statuses = dict(statuses)
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    async def get_chat_member(self, chat_id, user_id):
+        self.calls.append((chat_id, user_id))
+        return FakeMember(self._statuses.get((chat_id, user_id), "member"))
+
+
+@pytest.mark.asyncio
+async def test_checkup_passes_for_real_chat_admin(monkeypatch, member_cache):
+    """Строка `local_admin`: админ чата проходит чекап, участник — нет.
+
+    Дефект: чекап не передавал полученного бота ни в открытие разрешения,
+    ни в публикацию, поэтому подтверждённый создатель группы определялся как
+    `member` (Telegram не вызывался), а публикация отменяла уже выданное
+    разрешение.
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    pg = FakePg()
+    await _local_admin_only(pg, "bot_server_state")
+    service = MagicMock()
+    service.checkup = AsyncMock(return_value="ОТЧЁТ: аптайм в норме")
+    fetcher = MagicMock()
+    fetcher.fetch = AsyncMock(return_value=("логи", False))
+    mod = _wire_checkup(monkeypatch, service, fetcher, member_cache, pg)
+
+    admin_bot = _BotWithMembers({(GROUP_A, ADMIN_ID): "creator"})
+    await mod.checkup_handler(_make_msg("чекап", user_id=ADMIN_ID),
+                              bot=admin_bot)
+    assert service.checkup.await_count == 1
+    assert (GROUP_A, ADMIN_ID) in admin_bot.calls      # Telegram реально вызван
+    assert "аптайм" in _sent_text(admin_bot)           # отчёт опубликован
+
+    mod._cooldown._last.clear()
+    member_bot = _BotWithMembers({(GROUP_A, MEMBER_ID): "member"})
+    await mod.checkup_handler(_make_msg("чекап", message_id=2,
+                                        user_id=MEMBER_ID), bot=member_bot)
+    assert service.checkup.await_count == 1            # проверка не выполнялась
+    assert fetcher.fetch.await_count == 1              # логи не читались
+    assert (GROUP_A, MEMBER_ID) in member_bot.calls
+    denied_text = _sent_text(member_bot)
+    assert "аптайм" not in denied_text
+    assert diag.R_DENY_GLOBAL_OVERRIDE in denied_text
+
+
+# ── 14. Секрет, живущий только в конфиг-кэше (не в Settings) ───────────────
+
+#: Значение ниже есть ТОЛЬКО в конфиг-кэше: поля в `Settings` не существует.
+CACHE_ONLY_SECRET = "cache-only-unpatterned-secret-246813579"
+#: Действующее значение параметра, переопределённого через админку
+#: (`bot_settings`), при другом env-дефолте в `Settings`.
+CACHE_OVERRIDE_SECRET = "panel-override-unpatterned-secret-135792468"
+
+
+def test_cache_only_secret_key_is_in_consulted_set():
+    """`keys.direct_l1_api_key` не имеет Settings-поля и читается из кэша."""
+    keys = projection._catalog_secret_keys()
+    assert "keys.direct_l1_api_key" in keys
+    assert "keys.summary_l1_api_key" in keys
+    assert "keys.llm_api_key" in keys
+
+    cache = FakeCache({}, values={"keys.direct_l1_api_key": CACHE_ONLY_SECRET})
+    projection.reset_secret_cache()
+    snapshot = projection.known_secret_values(cache=cache, use_cache=False)
+    assert snapshot.complete is True
+    assert snapshot.values.get(CACHE_ONLY_SECRET) == "keys.direct_l1_api_key"
+
+    result = projection.sanitize(f"вывод инструмента: {CACHE_ONLY_SECRET}",
+                                 kind="tool_result", secrets=snapshot)
+    assert result.allowed is True
+    assert CACHE_ONLY_SECRET not in result.text
+
+
+def test_working_value_from_admin_panel_is_redacted():
+    """Действует значение из `bot_settings`, а не env-дефолт `Settings`.
+
+    Дефект: санитайзер собирал только `Settings` (env-дефолт) и «глобальные»
+    секреты, поэтому ключ, заданный в админке, в наборе отсутствовал.
+    """
+    from config.settings import settings as cfg
+
+    cache = FakeCache({}, values={"keys.llm_api_key": CACHE_OVERRIDE_SECRET})
+    with _patched_settings({"LLM_API_KEY": "env-default-unpatterned-864209753"}):
+        assert cfg.LLM_API_KEY == "env-default-unpatterned-864209753"
+        projection.reset_secret_cache()
+        snapshot = projection.known_secret_values(cache=cache, use_cache=False)
+    assert snapshot.complete is True
+    assert snapshot.values.get(CACHE_OVERRIDE_SECRET) == "keys.llm_api_key"
+    assert "env-default-unpatterned-864209753" in snapshot.values
+
+    leaked = f"лог: провайдер ответил ключом {CACHE_OVERRIDE_SECRET}"
+    result = projection.sanitize(leaked, kind="tool_result", secrets=snapshot)
+    assert result.allowed is True
+    assert CACHE_OVERRIDE_SECRET not in result.text
+    assert "«скрыто:keys.llm_api_key»" in result.text
+
+
+@pytest.mark.asyncio
+async def test_cache_only_secret_never_leaks_through_dispatch(monkeypatch,
+                                                             member_cache):
+    """Сквозной путь: значение из кэша не доходит до результата инструмента."""
+    cache = FakeCache({}, values={"keys.direct_l1_api_key": CACHE_ONLY_SECRET})
+    cache.pg = FakePg()
+    router = _router_with(monkeypatch, cache, cache.pg, "unused")
+
+    async def fake_article(arguments, ctx):
+        return f"текст статьи, в конфиге был ключ {CACHE_ONLY_SECRET}"
+
+    router._fetch_article = fake_article
+    projection.reset_secret_cache()
+    ctx = ToolContext(chat_id=GROUP_A, query="статья", user_id=MEMBER_ID)
+    result = await router.dispatch("fetch_article", {"url": "u"}, ctx)
+    assert CACHE_ONLY_SECRET not in result
+    assert "«скрыто:keys.direct_l1_api_key»" in result
+
+
+@pytest.mark.asyncio
+async def test_unreadable_cache_blocks_raw_output(monkeypatch, member_cache):
+    """Нечитаемый/отсутствующий кэш → «неизвестно» → сырой вывод блокируется."""
+    class _BrokenCache(FakeCache):
+        def get(self, key, default=None):
+            raise RuntimeError("config cache broken")
+
+    cache = _BrokenCache({})
+    cache.pg = FakePg()
+    projection.reset_secret_cache()
+    snapshot = projection.known_secret_values(cache=cache, use_cache=False)
+    assert snapshot.complete is False
+    assert "config_cache" in snapshot.missing
+
+    router = _router_with(monkeypatch, cache, cache.pg, "unused")
+
+    async def fake_article(arguments, ctx):
+        return f"текст статьи: {CACHE_ONLY_SECRET}"
+
+    router._fetch_article = fake_article
+    ctx = ToolContext(chat_id=GROUP_A, query="статья", user_id=MEMBER_ID)
+    result = await router.dispatch("fetch_article", {"url": "u"}, ctx)
+    assert CACHE_ONLY_SECRET not in result
+    assert "вывод заблокирован" in result
+
+
+@pytest.mark.asyncio
+async def test_no_config_cache_keeps_primary_path_but_still_redacts_settings(
+        monkeypatch, member_cache):
+    """Без ConfigCache действуют только `Settings` — набор полон, путь жив.
+
+    Прецедент модуля (`known_secret_values_async`): отсутствие хранилища —
+    не ошибка, а нечитаемое хранилище — «неизвестно» (см. тест выше). Иначе
+    любой процесс без подключённого конфиг-кэша блокировал бы ВЕСЬ вывод
+    инструментов, то есть выключал бы основную функцию по умолчанию.
+    """
+    settings_secret = "settings-only-unpatterned-secret-97531"
+    projection.reset_secret_cache()
+    with _patched_settings({"IMAGE_API_KEY": settings_secret}):
+        snapshot = projection.known_secret_values(cache=None, use_cache=False)
+        assert snapshot.complete is True
+        assert snapshot.values.get(settings_secret) == "keys.image_api_key"
+
+    router = _router_with(monkeypatch, None, None, "unused")
+
+    async def fake_article(arguments, ctx):
+        return f"текст статьи: {CACHE_ONLY_SECRET}"
+
+    router._fetch_article = fake_article
+    ctx = ToolContext(chat_id=GROUP_A, query="статья", user_id=MEMBER_ID)
+    result = await router.dispatch("fetch_article", {"url": "u"}, ctx)
+    assert "вывод заблокирован" not in result        # основная функция жива
+    assert "текст статьи" in result
