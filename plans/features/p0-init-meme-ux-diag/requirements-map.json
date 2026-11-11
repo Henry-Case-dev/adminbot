@@ -6,12 +6,18 @@
   "source_path": "plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-corrective-excerpt.md",
   "source_sha256": "6d0d5c52cf5b6a50ce7f4098eeb8136a49ae1d024b83c5fb802bf016587cd91a",
   "source_note": "Immutable excerpt of user-owned plans/current_task.md lines 11423-11552. owner_inputs id OI-2026-11-11-P0-INIT-MEME-UX-DIAG (registration is Orchestrator's single-writer job).",
-  "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
-  "deployed_commit": "",
+  "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+  "deployed_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
   "production_baseline": {
-    "release": "2.58.188",
-    "commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
-    "branch": "release/2.58.188"
+    "release": "2.58.191",
+    "commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+    "branch": "release/2.58.191",
+    "deployed_at_utc": "2026-11-11T16:23:41Z",
+    "schema_version": 47,
+    "ddl": "none",
+    "new_settings": "none",
+    "predeploy_snapshot": "/tmp/predeploy-258191.db",
+    "rollback_commit": "7c3c01b2"
   },
   "code_base_note": "Факты кода и write-scope привязаны к release/2.58.188 (c087253d). Локальный master (89be9d4f) НЕ содержит services/meme_initiative.py, web/api/initiative_publications.py, handlers/meme_command.py, services/publication_coordination.py: линии расходятся (release впереди на 1310 коммитов, master на 180), модуль «Инициатива/Мемы» существует только в production-линии. Builder обязан ветвиться от release/2.58.188, иначе он перепишет модуль с нуля — прямое нарушение требования владельца.",
   "strict_evidence": true,
@@ -316,7 +322,7 @@
       "acceptance": "Две равнозначные карточки «Текстовая инициатива» и «Мемы» дают все пять осей за 3–5 секунд чтения, без технических кодов в главном слое и без перехода по пяти вкладкам.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
@@ -325,9 +331,25 @@
           "observation": "726736ee, O1+O2+O3+O4: обе карточки («Текстовая инициатива» и «Мемы») строятся из одного блока пяти осей; «Разрешено» читает только configuration.enabled (null → «неизвестно»), «Сейчас» — readiness с одной главной причиной, время — только при серверном штампе и названном основании; в кулдауне карточка мемов показывает «Разрешено: ВКЛ», а не «выключено». Внутренние коды идут с русской подписью («код: …»). Все пять осей видны без перехода по вкладкам.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Кадр прода: две карточки, пять осей, читается без технических кодов.",
+          "observation": "Кадр прода 1280x950: «Обзор» = две равнозначные карточки «Текстовая инициатива» и «Мемы», в каждой все пять осей подряд (Разрешено / Сейчас / Дальше / Последняя проверка / Последняя попытка / Последняя отправка / Дневная квота / Кто может изменить); переход по пяти вкладкам не нужен, технических кодов в главном слое нет — код причины только в скобках при человеческой формулировке.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Кадр прода 1280x950: «Обзор» = две равнозначные карточки «Текстовая инициатива» и «Мемы», в каждой все пять осей подряд (Разрешено / Сейчас / Дальше / Последняя проверка / Последняя попытка / Последняя отправка / Дневная квота / Кто может изменить); переход по пяти вкладкам не нужен, технических кодов в главном слое нет — код причины только в скобках при человеческой формулировке.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
+          "artifact_sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a"
         }
       ],
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L030-A",
@@ -341,7 +363,7 @@
       "acceptance": "«Включено» означает только разрешение настройками. Кулдаун, нехватка сообщений, квота, тихие часы, проигрыш жребия, ожидание тика и координация публикации не переводят механизм в «выключено»; ready=false неэквивалентно enabled=false ни в backend, ни в UI.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
@@ -358,9 +380,25 @@
           "observation": "O1+O2: ready=false ни в одном ожидании не рисуется «выключено» — показывается «Разрешено: ВКЛ» плюс объяснение ожидания (кулдаун, квота, тихие часы, нехватка сообщений, жребий, тик, координация); «Разрешено» читает только configuration.enabled, null → «неизвестно», а не «выкл».",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Живой прод: ready=false не эквивалентно enabled=false ни в payload, ни в карточке.",
+          "observation": "Один ответ на чат несёт одновременно `configuration.enabled` и `readiness.state`: enabled=true + waiting при квоте, кулдауне, нехватке сообщений и при `not_group`; enabled=false встретилось только от явной настройки (`disabled_by_setting`, чат 5885953495). ready=false нигде не превращено в enabled=false — ни в payload, ни в кадре (карточка «ВКЛ» + «ждёт»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Один ответ на чат несёт одновременно `configuration.enabled` и `readiness.state`: enabled=true + waiting при квоте, кулдауне, нехватке сообщений и при `not_group`; enabled=false встретилось только от явной настройки (`disabled_by_setting`, чат 5885953495). ready=false нигде не превращено в enabled=false — ни в payload, ни в кадре (карточка «ВКЛ» + «ждёт»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/live-diagnostics-2.58.191.json",
+          "artifact_sha256": "0a882ea4d57649b37e26928db0e4f86bd39eeecc713b88fc4e8c10f5fe63a77f"
         }
       ],
-      "pending_reason": "Обе половины существуют: backend доказан на 4c59a483, UI — на 726736ee (O1/O2). Строка в REVIEW, а не VERIFIED, потому что кандидат не задеплоен. Строка остаётся за S1-AXES: S3-OV поставил только UI-половину, двойного счёта нет."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L030-B",
@@ -637,7 +675,7 @@
       "acceptance": "Все пять осей приходят с backend/read-model в одном ответе на выбранный чат; клиент не собирает «включено/выключено» из разных флагов и не выводит статус из отсутствия полей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
@@ -654,6 +692,22 @@
           "observation": "O2: клиент читает только оси ответа — configuration.enabled как tri-state (true/false/null), остальные оси как есть; enabled=null даёт «неизвестно»; статус не выводится из отсутствия полей и не собирается из разных флагов (реализация iniAxesOf / iniCardOf, web/app.js).",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Пять осей пришли одним ответом на чат для трёх чатов; клиент читает оси, а не собирает статус.",
+          "observation": "Все пять осей (`configuration`, `health`, `readiness`, `last_attempt`, `last_delivery`) пришли одним ответом на выбранный чат для трёх чатов, `schema_version=1`, `degraded=[]`; кадр согласован с payload (квота мемов 3/3 и её сброс, сообщения 10435/10472), то есть клиент читает оси, а не собирает статус из посторонних флагов.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Все пять осей (`configuration`, `health`, `readiness`, `last_attempt`, `last_delivery`) пришли одним ответом на выбранный чат для трёх чатов, `schema_version=1`, `degraded=[]`; кадр согласован с payload (квота мемов 3/3 и её сброс, сообщения 10435/10472), то есть клиент читает оси, а не собирает статус из посторонних флагов.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/live-diagnostics-2.58.191.json",
+          "artifact_sha256": "0a882ea4d57649b37e26928db0e4f86bd39eeecc713b88fc4e8c10f5fe63a77f"
         }
       ],
       "covered_by": [
@@ -661,7 +715,7 @@
         "MEME-IIC-DIAG-UI"
       ],
       "delta": "Раздельные per-mechanism блоки уже есть; добавляется единый контракт ответа вместо клиентской реконструкции.",
-      "pending_reason": "Обе половины существуют: backend отдаёт пять осей одним ответом (4c59a483), клиент больше не собирает ВКЛ/ВЫКЛ из флагов (726736ee, O2). Строка в REVIEW до выкладки; остаётся за S1-AXES, дублирования в S3 нет."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L069-A",
@@ -705,7 +759,7 @@
       "acceptance": "«Включено» означает только разрешение настройками. Кулдаун, нехватка сообщений, квота, тихие часы, проигрыш жребия, ожидание тика и координация публикации не переводят механизм в «выключено»; ready=false неэквивалентно enabled=false ни в backend, ни в UI.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
@@ -722,9 +776,25 @@
           "observation": "O1+O2: ready=false ни в одном ожидании не рисуется «выключено» — показывается «Разрешено: ВКЛ» плюс объяснение ожидания (кулдаун, квота, тихие часы, нехватка сообщений, жребий, тик, координация); «Разрешено» читает только configuration.enabled, null → «неизвестно», а не «выкл».",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Живой прод: ожидания (квота/кулдаун/мало сообщений) не переводят механизм в «выключено».",
+          "observation": "Один ответ на чат несёт одновременно `configuration.enabled` и `readiness.state`: enabled=true + waiting при квоте, кулдауне, нехватке сообщений и при `not_group`; enabled=false встретилось только от явной настройки (`disabled_by_setting`, чат 5885953495). ready=false нигде не превращено в enabled=false — ни в payload, ни в кадре (карточка «ВКЛ» + «ждёт»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Один ответ на чат несёт одновременно `configuration.enabled` и `readiness.state`: enabled=true + waiting при квоте, кулдауне, нехватке сообщений и при `not_group`; enabled=false встретилось только от явной настройки (`disabled_by_setting`, чат 5885953495). ready=false нигде не превращено в enabled=false — ни в payload, ни в кадре (карточка «ВКЛ» + «ждёт»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/live-diagnostics-2.58.191.json",
+          "artifact_sha256": "0a882ea4d57649b37e26928db0e4f86bd39eeecc713b88fc4e8c10f5fe63a77f"
         }
       ],
-      "pending_reason": "Обе половины существуют: backend доказан на 4c59a483, UI — на 726736ee (O1/O2). Строка в REVIEW, а не VERIFIED, потому что кандидат не задеплоен. Строка остаётся за S1-AXES: S3-OV поставил только UI-половину, двойного счёта нет."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L071-B",
@@ -762,7 +832,7 @@
       "acceptance": "Обзор показывает свежесть снимка и даёт обновить данные; «нет данных» и ошибка загрузки не окрашиваются как OFF и не выдаются за выключенный механизм.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
@@ -771,13 +841,29 @@
           "observation": "O5 на 726736ee: смена чата мгновенно очищает снимок, поздний ответ чужого чата отбрасывается (guard проверен мутацией). O2: неизвестное значение (в т.ч. enabled=null и отсутствие поля) показывается как «неизвестно»/«нет данных», а не как «выкл». Проверено PM по файлу кандидата: подпись снимка snapshotLabel («снимок: …») утверждается в tests/js/initiative_ui_rework_test.js:994, действие «Обновить» — в tests/ui_initiative_rework_e2e.py:1409 (hasRefresh).",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Свежесть снимка и «Обновить» в живом кадре; неизвестные данные не выданы за OFF.",
+          "observation": "Верх кадра: «пояс чата не задан — время в UTC · снимок: 11.11 16:42 UTC» и действие «Обновить»; у текста дневная квота не прочитана и показана как «неизвестна (квота не прочитана)», а не как OFF и не как выключенный механизм.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Верх кадра: «пояс чата не задан — время в UTC · снимок: 11.11 16:42 UTC» и действие «Обновить»; у текста дневная квота не прочитана и показана как «неизвестна (квота не прочитана)», а не как OFF и не как выключенный механизм.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
+          "artifact_sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a"
         }
       ],
       "covered_by": [
         "EVOL-042"
       ],
       "delta": "Инспектор уже различал «последний реальный вызов» и отсутствие данных; добавляется явная свежесть и запрет красить no-data как OFF.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L075-A",
@@ -791,7 +877,7 @@
       "acceptance": "Верх обзора показывает выбранный чат, дату и часовой пояс данных, действие «Обновить», а при достаточных правах и обоих доступных чатах — компактное переключение «Этот чат / Другой чат / Сравнить чаты»; агрегаты всех чатов не смешиваются с данными выбранного, глобальные метки подписаны.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
@@ -800,6 +886,22 @@
           "observation": "O8+O9 на 726736ee: верх обзора показывает выбранный чат и дату/TZ снимка, действие «Обновить» и переключатель «Этот чат / Другой чат / Сравнить чаты» при наличии обоих чатов и прав; при одном доступном чате переключателя нет (проверено PM по файлу кандидата: tests/js/initiative_ui_rework_test.js:1238 — кнопки «Сравнить чаты» нет в разметке обзора). «Сравнить» — две подписанные колонки по механизму и оси, без третьего вычисленного набора, без усреднения и без победителя (tests/ui_initiative_rework_e2e.py:1750). Агрегаты всех чатов не подмешиваются в данные выбранного.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Верх обзора на проде: чат, TZ/снимок, «Обновить», переключатель при двух чатах, подписанные глобальные метки.",
+          "observation": "Кадр: выбранный чат «Неистово супер крутые…», подпись пояса и времени снимка, «Обновить», компактное переключение «Этот чат / Другой чат / Сравнить чаты» при двух доступных чатах; глобальные метки подписаны («глобальный выключатель», «глобальный рубильник»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Кадр: выбранный чат «Неистово супер крутые…», подпись пояса и времени снимка, «Обновить», компактное переключение «Этот чат / Другой чат / Сравнить чаты» при двух доступных чатах; глобальные метки подписаны («глобальный выключатель», «глобальный рубильник»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
+          "artifact_sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a"
         }
       ],
       "covered_by": [
@@ -808,7 +910,7 @@
         "ADMINUI-NO-NEW-SECTIONS"
       ],
       "delta": "Верхняя панель с областью действия и запрет новых разделов уже заданы; добавляется явный выбранный чат, TZ, обновление и сравнение чатов.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L077-A",
@@ -822,7 +924,7 @@
       "acceptance": "Две равнозначные карточки «Текстовая инициатива» и «Мемы» дают все пять осей за 3–5 секунд чтения, без технических кодов в главном слое и без перехода по пяти вкладкам.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
@@ -831,9 +933,25 @@
           "observation": "726736ee, O1+O2+O3+O4: обе карточки («Текстовая инициатива» и «Мемы») строятся из одного блока пяти осей; «Разрешено» читает только configuration.enabled (null → «неизвестно»), «Сейчас» — readiness с одной главной причиной, время — только при серверном штампе и названном основании; в кулдауне карточка мемов показывает «Разрешено: ВКЛ», а не «выключено». Внутренние коды идут с русской подписью («код: …»). Все пять осей видны без перехода по вкладкам.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Кадр прода: две карточки «Текстовая инициатива» и «Мемы» с полным набором осей.",
+          "observation": "Кадр прода 1280x950: «Обзор» = две равнозначные карточки «Текстовая инициатива» и «Мемы», в каждой все пять осей подряд (Разрешено / Сейчас / Дальше / Последняя проверка / Последняя попытка / Последняя отправка / Дневная квота / Кто может изменить); переход по пяти вкладкам не нужен, технических кодов в главном слое нет — код причины только в скобках при человеческой формулировке.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Кадр прода 1280x950: «Обзор» = две равнозначные карточки «Текстовая инициатива» и «Мемы», в каждой все пять осей подряд (Разрешено / Сейчас / Дальше / Последняя проверка / Последняя попытка / Последняя отправка / Дневная квота / Кто может изменить); переход по пяти вкладкам не нужен, технических кодов в главном слое нет — код причины только в скобках при человеческой формулировке.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
+          "artifact_sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a"
         }
       ],
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L079-A",
@@ -847,7 +965,7 @@
       "acceptance": "Первая строка карточки: название · «Разрешено: ВКЛ/ВЫКЛ/неизвестно» · «Сейчас: <состояние и причина>» · отдельный признак ошибки только при фактической неисправности.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
@@ -856,13 +974,29 @@
           "observation": "O1+O2: первая строка карточки — «название · Разрешено: ВКЛ/ВЫКЛ/неизвестно · Сейчас: <состояние и причина>»; «Разрешено» означает только разрешение настройками, ожидание не переводит механизм в «выключено», enabled=null → «неизвестно». Отдельный признак ошибки ставится только при фактической неисправности оси health.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Первая строка карточки на проде: название · «Разрешено: ВКЛ» · «Сейчас: <состояние и причина>», без ложной ошибки.",
+          "observation": "Первая строка обеих карточек: «Текстовая инициатива ВКЛ» и «Мемы ВКЛ», затем «Сейчас: может сработать сейчас — ничего не мешает» и «Сейчас: ждёт: исчерпан суточный лимит (код: daily_quota_reached)». Признака ошибки нет ни в одном из трёх чатов (`health.state=ok` во всех осях).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Первая строка обеих карточек: «Текстовая инициатива ВКЛ» и «Мемы ВКЛ», затем «Сейчас: может сработать сейчас — ничего не мешает» и «Сейчас: ждёт: исчерпан суточный лимит (код: daily_quota_reached)». Признака ошибки нет ни в одном из трёх чатов (`health.state=ok` во всех осях).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
+          "artifact_sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a"
         }
       ],
       "covered_by": [
         "HMF-UI-02"
       ],
       "delta": "Требование к строке статуса уже было; здесь «Разрешено» жёстко означает только разрешение настройками.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L081-A",
@@ -876,7 +1010,7 @@
       "acceptance": "Вторая строка: одна главная человеческая причина («пауза после вызова провайдера до HH:MM», «накоплено 2 из 8 сообщений», «L1 не нашёл повода», «ждёт следующий проход»), остальные раскрываются; время только на серверном основании и с TZ, без выдуманного обратного отсчёта.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
@@ -885,6 +1019,22 @@
           "observation": "O3: время следующей возможности печатается только при серверном штампе И названном основании — «не раньше <время> (<основание>)»; при штампе без основания «не раньше» не появляется (показывается «время не называется: основание срока не записано» с явным штампом), без штампа — «точное время не назначено». O1: главная причина одна («ждёт кулдаун», «ждёт ближайшего прохода»), остальное раскрывается. Обратного отсчёта из периодичности нет.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Одна главная причина; время только по серверному основанию с TZ, без выдуманного отсчёта.",
+          "observation": "Одна главная причина на карточку; время только по названному основанию: «не раньше 12.11 00:00 UTC (по сбросу суточного лимита)» против «точное время не назначено — рассматривается на ближайшем проходе». Обратного отсчёта, выведенного из периодичности, нет.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Одна главная причина на карточку; время только по названному основанию: «не раньше 12.11 00:00 UTC (по сбросу суточного лимита)» против «точное время не назначено — рассматривается на ближайшем проходе». Обратного отсчёта, выведенного из периодичности, нет.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
+          "artifact_sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a"
         }
       ],
       "covered_by": [
@@ -892,7 +1042,7 @@
         "MEME-IIC-DIAG-TIMES"
       ],
       "delta": "Причина ожидания уже требовалась; добавляется правило одной главной причины и серверного времени.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L081-B",
@@ -947,7 +1097,8 @@
         "MEME-IIC-DIAG-UI"
       ],
       "delta": "Поля «последняя проверка/публикация» уже были; добавляется явное разделение проверки, попытки и доставки.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "Не подтверждена подпись нулевой квоты (на проде у мемов 3/3, у текста «квота не прочитана») и не сведено расхождение времени «последней попытки»: кадр показывает 16:42 UTC, а `last_attempt.at` той же выборки — 16:27:40Z.",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "MANUAL-L085-A",
@@ -977,7 +1128,8 @@
         "UR-20.3"
       ],
       "delta": "Переходы в публикации и выбор конкретного хода уже были; добавляется глубокий переход по run_id.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "«Настройки» и «Показать попытку» в живом проходе не нажимались: адресный переход с run_id, фильтром чата и видом механизма на проде не наблюдён.",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "MANUAL-L087-A",
@@ -1007,7 +1159,8 @@
         "MEME-IIC-DIAG-COOLDOWN-CONFLICT"
       ],
       "delta": "Полоса координации уже требовалась; добавляется условие «только при актуальном влиянии» и объяснение держателя.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "Живого состояния координации (кто держит бронь и до какого подтверждённого времени) в кадре нет — полоса не наблюдалась.",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "MANUAL-L087-B",
@@ -1036,7 +1189,8 @@
         "HMF-UI-02"
       ],
       "delta": "Ранее требовалось 3–5 событий; здесь 5–10 попыток с режимом и причиной.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "В живом кадре регион «Последние попытки» пуст: «Последних действий в журнале нет» при наличии попытки 16:42 в карточке; 5–10 строк (manual/auto, тип, время, итог, причина) по проду не подтверждены.",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "MANUAL-L087-C",
@@ -1050,13 +1204,37 @@
       "acceptance": "Обзор не превращается в дамп JSON, набор из двадцати технических бейджей или многоколоночную таблицу на телефоне; проверяется на мобильной ширине Mini App.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
           "type": "ui",
           "ref": "Наблюдение O9 (замеры Reviewer в существующем стенде Playwright).",
           "observation": "O9: замеры Reviewer в существующем стенде Playwright — 390x844 и 1536x960, hScroll=0, scrollWidth равен ширине экрана, ноль обрезаний, ноль элементов за экраном; технического дампа JSON и многоколоночной таблицы на мобильной ширине нет (обзор — карточки и строки). Живого браузерного прохода в последнем раунде не было.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
+          "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Обзор на проде не дамп и не таблица; замеры узкой ширины на том же коде без переполнения.",
+          "observation": "Живой кадр отданной сборки — карточки и строки, без JSON-дампа и без многоколоночной таблицы на узкой ширине; замеры того же кода в существующем стенде: 390x844 и 1536x960, hScroll=0, ноль обрезаний.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Живой кадр отданной сборки — карточки и строки, без JSON-дампа и без многоколоночной таблицы на узкой ширине; замеры того же кода в существующем стенде: 390x844 и 1536x960, hScroll=0, ноль обрезаний.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
+          "artifact_sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "ui",
+          "ref": "Замеры того же кода в существующем стенде Playwright (O9) — узкая ширина без переполнения.",
+          "observation": "Живой кадр отданной сборки — карточки и строки, без JSON-дампа и без многоколоночной таблицы на узкой ширине; замеры того же кода в существующем стенде: 390x844 и 1536x960, hScroll=0, ноль обрезаний.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
         }
@@ -1066,7 +1244,7 @@
         "ASAP-UI-02-07"
       ],
       "delta": "Адаптивность уже требовалась; добавляется явный запрет на технический дамп в главном слое.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L089-A",
@@ -1093,7 +1271,8 @@
       ],
       "covered_by": [],
       "delta": "Новое: обязательная проверяемая форма карточки из ТЗ (образец не является мок-данными продакшена).",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "Семантика образца совпала частично: «Разрешено: ВКЛ | Сейчас: ждёт…» и подтверждённая отправка (сообщение 10472) есть; состояние «изображение создано, отправка отложена» на проде не наблюдалось, «Показать попытку» не нажималось.",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "MANUAL-L091-A",
@@ -1118,7 +1297,8 @@
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
         }
       ],
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "Семантика образца совпала частично: ожидание показано с причиной и временем сброса лимита; «изображение создано, отправка отложена» на проде не наблюдалось, «Показать попытку» не нажималось.",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "MANUAL-L092-A",
@@ -1143,7 +1323,8 @@
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
         }
       ],
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "Состояние «последний запуск: автоматический · изображение создано, отправка отложена» в живом срезе не встретилось (попытка была пропущена на гейте, а не отложена на отправке).",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "MANUAL-L093-A",
@@ -1168,7 +1349,8 @@
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
         }
       ],
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "Подтверждённая отправка с номером сообщения на проде есть (10472, 10435, 1210123), но вторая половина семантики образца — отложенная отправка после готового изображения — не наблюдалась.",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "MANUAL-L094-A",
@@ -1193,7 +1375,8 @@
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
         }
       ],
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "Действие «Показать попытку» в живом проходе не нажималось — поведение действия по проду не подтверждено.",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "MANUAL-L096-A",
@@ -1220,7 +1403,8 @@
       ],
       "covered_by": [],
       "delta": "Новое: отдельное состояние «решил промолчать» на обзоре.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "Молчания текста в живом срезе нет: чат 1 — skipped `lease_held`, чат 2 — success `nostalgia_due`; «бот решил промолчать» на проде не наблюдено.",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "MANUAL-L100-A",
@@ -1880,7 +2064,7 @@
       "acceptance": "Обзор не превращается в дамп JSON, набор из двадцати технических бейджей или многоколоночную таблицу на телефоне; проверяется на мобильной ширине Mini App.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
@@ -1889,9 +2073,33 @@
           "observation": "O9: замеры Reviewer в существующем стенде Playwright — 390x844 и 1536x960, hScroll=0, scrollWidth равен ширине экрана, ноль обрезаний, ноль элементов за экраном; технического дампа JSON и многоколоночной таблицы на мобильной ширине нет (обзор — карточки и строки). Живого браузерного прохода в последнем раунде не было.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Обзор на проде не дамп и не многоколоночная таблица; узкая ширина измерена на том же коде.",
+          "observation": "Живой кадр отданной сборки — карточки и строки, без JSON-дампа и без многоколоночной таблицы на узкой ширине; замеры того же кода в существующем стенде: 390x844 и 1536x960, hScroll=0, ноль обрезаний.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Живой кадр отданной сборки — карточки и строки, без JSON-дампа и без многоколоночной таблицы на узкой ширине; замеры того же кода в существующем стенде: 390x844 и 1536x960, hScroll=0, ноль обрезаний.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
+          "artifact_sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "ui",
+          "ref": "Замеры того же кода в существующем стенде Playwright (O9) — узкая ширина без переполнения.",
+          "observation": "Живой кадр отданной сборки — карточки и строки, без JSON-дампа и без многоколоночной таблицы на узкой ширине; замеры того же кода в существующем стенде: 390x844 и 1536x960, hScroll=0, ноль обрезаний.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
+          "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
         }
       ],
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "MANUAL-L134-A",
@@ -2242,7 +2450,7 @@
       "acceptance": "Две равнозначные карточки «Текстовая инициатива» и «Мемы» дают все пять осей за 3–5 секунд чтения, без технических кодов в главном слое и без перехода по пяти вкладкам.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
@@ -2251,6 +2459,22 @@
           "observation": "726736ee, O1+O2+O3+O4: обе карточки («Текстовая инициатива» и «Мемы») строятся из одного блока пяти осей; «Разрешено» читает только configuration.enabled (null → «неизвестно»), «Сейчас» — readiness с одной главной причиной, время — только при серверном штампе и названном основании; в кулдауне карточка мемов показывает «Разрешено: ВКЛ», а не «выключено». Внутренние коды идут с русской подписью («код: …»). Все пять осей видны без перехода по вкладкам.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "Кадр прода: две равнозначные карточки, пять осей в каждой, без перехода по вкладкам.",
+          "observation": "Кадр прода 1280x950: «Обзор» = две равнозначные карточки «Текстовая инициатива» и «Мемы», в каждой все пять осей подряд (Разрешено / Сейчас / Дальше / Последняя проверка / Последняя попытка / Последняя отправка / Дневная квота / Кто может изменить); переход по пяти вкладкам не нужен, технических кодов в главном слое нет — код причины только в скобках при человеческой формулировке.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Кадр прода 1280x950: «Обзор» = две равнозначные карточки «Текстовая инициатива» и «Мемы», в каждой все пять осей подряд (Разрешено / Сейчас / Дальше / Последняя проверка / Последняя попытка / Последняя отправка / Дневная квота / Кто может изменить); переход по пяти вкладкам не нужен, технических кодов в главном слое нет — код причины только в скобках при человеческой формулировке.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
+          "artifact_sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a"
         }
       ],
       "covered_by": [
@@ -2258,7 +2482,7 @@
         "MAC-S6-309"
       ],
       "delta": "Две карточки с effective ON/OFF, кулдауном, квотой и причиной ожидания уже требовались; добавляются пять независимых осей и запрет подмены готовности выключенностью.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "L00008",
@@ -2272,7 +2496,7 @@
       "acceptance": "«Включено» означает только разрешение настройками. Кулдаун, нехватка сообщений, квота, тихие часы, проигрыш жребия, ожидание тика и координация публикации не переводят механизм в «выключено»; ready=false неэквивалентно enabled=false ни в backend, ни в UI.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
@@ -2289,11 +2513,27 @@
           "observation": "O1+O2: ready=false ни в одном ожидании не рисуется «выключено» — показывается «Разрешено: ВКЛ» плюс объяснение ожидания (кулдаун, квота, тихие часы, нехватка сообщений, жребий, тик, координация); «Разрешено» читает только configuration.enabled, null → «неизвестно», а не «выкл».",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "На проде configuration и readiness — разные поля: enabled=true + waiting по четырём причинам, enabled=false только от явной настройки.",
+          "observation": "Один ответ на чат несёт одновременно `configuration.enabled` и `readiness.state`: enabled=true + waiting при квоте, кулдауне, нехватке сообщений и при `not_group`; enabled=false встретилось только от явной настройки (`disabled_by_setting`, чат 5885953495). ready=false нигде не превращено в enabled=false — ни в payload, ни в кадре (карточка «ВКЛ» + «ждёт»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "Один ответ на чат несёт одновременно `configuration.enabled` и `readiness.state`: enabled=true + waiting при квоте, кулдауне, нехватке сообщений и при `not_group`; enabled=false встретилось только от явной настройки (`disabled_by_setting`, чат 5885953495). ready=false нигде не превращено в enabled=false — ни в payload, ни в кадре (карточка «ВКЛ» + «ждёт»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/live-diagnostics-2.58.191.json",
+          "artifact_sha256": "0a882ea4d57649b37e26928db0e4f86bd39eeecc713b88fc4e8c10f5fe63a77f"
         }
       ],
       "covered_by": [],
       "delta": "Новое: именно эта путаница — подтверждённый дефект (web/app.js, initiativeTextCard/initiativeMemeCard на c087253d присваивают effective=false при block.ready === false).",
-      "pending_reason": "Обе половины существуют: backend доказан на 4c59a483, UI — на 726736ee (O1/O2). Строка в REVIEW, а не VERIFIED, потому что кандидат не задеплоен. Строка остаётся за S1-AXES: S3-OV поставил только UI-половину, двойного счёта нет."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "L00009",
@@ -2548,7 +2788,7 @@
       "acceptance": "Дефект устранён: при block.ready === false карточка не показывает «выключено». В кулдауне карточка мемов показывает «Разрешено: ВКЛ · Сейчас: ждёт кулдаун N мин», а причины not_enough_messages, квота, тихие часы и недоступность image-провайдера отображаются своими формулировками и не меняют значение «Разрешено».",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
@@ -2557,11 +2797,27 @@
           "observation": "O1+O2 на 726736ee: ready=false ни в одном ожидании (кулдаун, квота, тихие часы, нехватка сообщений, промах жребия, ожидание тика, ожидание координации публикации) не рисуется как «выключено» — карточка показывает «Разрешено: ВКЛ» плюс объяснение ожидания; «Разрешено» берётся только из configuration, enabled=null → «неизвестно», а не «выкл». Дефект D1 (прежние web/app.js:8280-8282/8381-8383) закрыт.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
           "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "live",
+          "ref": "enabled=true + ready=false на реальных чатах даёт «ВКЛ» + «ждёт», а не «выключено».",
+          "observation": "На проде три разных ожидания при `enabled=true` отрисованы «ВКЛ» + «ждёт: …»: мемы чата −1004482340693 — исчерпан суточный лимит (`daily_quota_reached`), мемы −1002661910336 — кулдаун (`cooldown_active`), текст −1002661910336 — мало сообщений (`not_enough_messages`). Ни в одном случае «Разрешено» не стало «ВЫКЛ».",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+          "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc"
+        },
+        {
+          "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+          "type": "production",
+          "ref": "Сырой снимок того же прода (ось/кадр), на который опирается вывод.",
+          "observation": "На проде три разных ожидания при `enabled=true` отрисованы «ВКЛ» + «ждёт: …»: мемы чата −1004482340693 — исчерпан суточный лимит (`daily_quota_reached`), мемы −1002661910336 — кулдаун (`cooldown_active`), текст −1002661910336 — мало сообщений (`not_enough_messages`). Ни в одном случае «Разрешено» не стало «ВЫКЛ».",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258191/live-diagnostics-2.58.191.json",
+          "artifact_sha256": "0a882ea4d57649b37e26928db0e4f86bd39eeecc713b88fc4e8c10f5fe63a77f"
         }
       ],
       "covered_by": [],
       "delta": "Новое: прямое исправление наблюдаемого дефекта в initiativeTextCard/initiativeMemeCard.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "binding_258191": "VERIFIED on deployed a6884ad7 with live production evidence (binding-258191.md §4.1)"
     },
     {
       "source_id": "L00035",
@@ -2680,7 +2936,8 @@
         "MAC-S6-333"
       ],
       "delta": "Независимость чатов и разведение сущностей уже требовались; добавляется обязанность показать причину по каждому чату.",
-      "pending_reason": "Одобрено Reviewer на 726736ee (два независимых прохода), но НЕ задеплоено: продакшен остаётся на c087253d, поэтому VERIFIED запрещён. Живого браузерного прохода в последнем раунде не было — только замеры Playwright в существующем стенде. Закрывается выкладочной проверкой на этом же кандидате."
+      "pending_reason": "Живой кадр снят только в режиме «Этот чат»: «Другой чат»/«Сравнить чаты» на реальных чатах не открывались, поэтому подача разницы как двух подписанных колонок по проду не подтверждена (причины по чатам в payload есть: квота, кулдаун, мало сообщений, not_group).",
+      "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
       "source_id": "L00040",
@@ -3211,7 +3468,7 @@
       "API отдаёт выбранный чат (X-Chat-Id эхом как chat_id); без заголовка 422 и master-only фолбэк — утечки нет"
     ]
   },
-  "candidate_note": "candidate_commit — последний одобренный и НЕ задеплоенный кандидат линии (init/meme-axes, база c087253d): 726736ee (S3-OV, обзор на пяти осях + переключатель чатов). Строки ранних срезов держат собственный candidate_commit в evidence (S1-AXES/S2-ID — 4c59a483; R0-INV — production-наблюдение без кандидата). Для review/release другого среза карты это поле заменяется его кандидатом.",
+  "candidate_note": "candidate_commit — выложенный релизный коммит 2.58.191 (a6884ad7): база 7c3c01b2 + одобренный корректива 726736ee (init/meme-axes) + инструментальный 10ab50b5 + пины версии. Идентичность одобренному коду доказана побайтово телами патчей (binding-258191.md §2), поэтому вердикты Reviewer на 726736ee и 4c59a483 относятся к выложенному коду. Старые candidate-bound записи (726736ee, 4c59a483) сохранены в evidence как история и не переписаны — для review/release другого среза карты это поле по-прежнему заменяется его кандидатом.",
   "residual_windows": [
     {
       "id": "RW-D4-BOTH-WRITE-FAIL",
@@ -3232,10 +3489,10 @@
     }
   ],
   "slice_progress": {
-    "S1-AXES": "backend принят на 4c59a483; P0IM-AX-SERVER и P0IM-BAN-ENABLED теперь имеют ОБЕ половины (backend 4c59a483 + UI 726736ee) и стоят в REVIEW до выкладки — не VERIFIED; P0IM-BAN-CONFLATE остаётся PENDING (вторая половина «considered не считается публикацией» показывает S4-TRACE: P0IM-PB-VOCAB, P0IM-PB-COUNT); P0IM-BAN-NOETA остаётся PENDING: services/meme_initiative.py по-прежнему подставляет now в next_check_ts и отдаёт его строкой «Следующая проверка» на вкладке диагностики мемов.",
+    "S1-AXES": "backend принят на 4c59a483; на выложенном 2.58.191 (a6884ad7) P0IM-BAN-ENABLED и P0IM-AX-SERVER переведены в VERIFIED живыми осями (configuration и readiness — разные поля; enabled=false только от явной настройки; пять осей одним ответом на чат). P0IM-BAN-CONFLATE остаётся PENDING (вторая половина «considered не считается публикацией» показывает S4-TRACE: P0IM-PB-VOCAB, P0IM-PB-COUNT), P0IM-BAN-NOETA остаётся PENDING: исправление a590e3b2 → 0bca3d16 ждёт вердикта и в 2.58.191 не выложено.",
     "S2-ID": "принят на 4c59a483 по идентичности, режиму, historical и child-call; P0IM-ID-FINISH держится открытым остаточным окном RW-D4-BOTH-WRITE-FAIL, P0IM-ID-CONC ждёт S7-ACCEPT/targeted probe",
     "S3-OV": {
-      "state": "APPROVED ON 726736ee, NOT DEPLOYED — строки S3-OV стоят в REVIEW, ни одна не VERIFIED",
+      "state": "DEPLOYED IN 2.58.191 (a6884ad7): 10 строк VERIFIED по живым осям и кадру прода; 11 строк REVIEW с названным недобором",
       "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
       "base_commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
       "slice_commits": [
@@ -3267,13 +3524,43 @@
       ],
       "evidence_artifact": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
       "accepted_observations": "Наблюдения O1–O9 двух независимых проходов Reviewer (дословно и с привязкой в binding-726736ee.md): ожидания не рисуются выключенностью; configuration — только из оси, null = неизвестно; время только по названному основанию; три состояния доставки и message_id=0 = отсутствует; guard смены чата проверен мутацией; истёкший manual priority не показывается; «Показать попытку» адресна; переключатель «Этот чат / Другой чат / Сравнить чаты» без третьего набора и без победителя; геометрия 390x844 и 1536x960 без hScroll.",
-      "limits": [
-        "Живого браузерного прохода (Browser Use) в последнем раунде не было: геометрия и отсутствие переполнения подтверждены только замерами Playwright в существующем стенде (O9).",
-        "«Сравнить чаты» читает второй чат существующим эндпоинтом со своим X-Chat-Id; новых эндпоинтов, серверного агрегата и усреднения нет (O8 + O11)."
+      "weakest_binding": "P0IM-OV-LIST и P0IM-OV-L3: живой кадр показывает пустой журнал и расхождение подписи времени — до объяснения строки остаются в REVIEW.",
+      "accounting_note": "S3 закрыл UI-половины P0IM-BAN-ENABLED и P0IM-AX-SERVER (обе строки теперь REVIEW и остаются за S1-AXES) и обзорную половину P0IM-BAN-NOETA; сама NOETA осталась PENDING. Строки S1 в S3 не дублируются — работа одна.",
+      "deployed_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+      "deployed_version": "2.58.191",
+      "binding_artifact": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+      "binding_artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc",
+      "verified_req_ids": [
+        "P0IM-OV-CARDS",
+        "P0IM-OV-FALSEOFF",
+        "P0IM-OV-FRESH",
+        "P0IM-OV-HEADER",
+        "P0IM-OV-L1",
+        "P0IM-OV-L2",
+        "P0IM-OV-NODUMP"
       ],
-      "weakest_binding": "P0IM-OV-SAMPLE — дословная форма образца из ТЗ в переданной выжимке отдельным наблюдением не зафиксирована; P0IM-OV-LIST — не зафиксировано количество строк (5–10) и метка manual/auto. Оба пункта входят в одобренный объём среза и остаются на выкладочную проверку того же кандидата.",
-      "accounting_note": "S3 закрыл UI-половины P0IM-BAN-ENABLED и P0IM-AX-SERVER (обе строки теперь REVIEW и остаются за S1-AXES) и обзорную половину P0IM-BAN-NOETA; сама NOETA осталась PENDING. Строки S1 в S3 не дублируются — работа одна."
-    }
+      "review_req_ids": [
+        "P0IM-OV-PERCHAT-CAUSE",
+        "P0IM-OV-L3",
+        "P0IM-OV-ACT",
+        "P0IM-OV-COORD",
+        "P0IM-OV-LIST",
+        "P0IM-OV-SAMPLE",
+        "P0IM-OV-SILENT"
+      ],
+      "live_finding": "Исходная жалоба снята на проде: enabled=true + ready=false рисуется как «ждёт: <причина>», а не «отключено» (квота, кулдаун, мало сообщений; отдельно enabled=false только от явной настройки).",
+      "live_gaps": [
+        "«Другой чат»/«Сравнить чаты» на реальных чатах не открывались (P0IM-OV-PERCHAT-CAUSE).",
+        "«Последние попытки» в живом кадре пусты («Последних действий в журнале нет») при наличии попытки 16:42 в карточке (P0IM-OV-LIST).",
+        "Время «последней попытки» в кадре 16:42 UTC против `last_attempt.at`=16:27:40Z в payload той же выборки — расхождение не объяснено (P0IM-OV-L3).",
+        "«Показать попытку»/«Настройки», состояние отложенной отправки после готового изображения и молчание текста живьём не наблюдались."
+      ],
+      "limits": [
+        "Живой браузерный проход по отданной сборке выполнен (2026-11-11); узкая ширина 390x844/360x740 подтверждена замерами Playwright на том же коде.",
+        "«Сравнить чаты» читает второй чат существующим эндпоинтом со своим X-Chat-Id; на проде этот режим не открывался."
+      ]
+    },
+    "S4-TRACE": "Одобрен Reviewer на a1fae849 (цепочка 430703be → 4b5d0169 → 03061d57 → a1fae849), НЕ выложен: 2.58.191 его не содержит, кандидат едет следующим релизом. Строки P0IM-PB-* намеренно оставлены PENDING: привязка к a1fae849 требует артефактов `evidence/S4-TRACE/*` с этого кандидата, которых нет в текущем checkout — это следующий шаг PM, а не выкладка."
   },
   "binding_log": [
     {
@@ -3341,38 +3628,137 @@
       "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
       "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132",
       "note": "Одобрено, но не задеплоено: 21 строка S3-OV переведена в REVIEW, ни одна не VERIFIED — продакшен остаётся на c087253d. Дополнительно обновлены строки S1-AXES: P0IM-BAN-ENABLED и P0IM-AX-SERVER → REVIEW (обе половины существуют), P0IM-BAN-NOETA остаётся PENDING с названным остатком (подстановка now в services/meme_initiative.py). Два ограничения записаны в recorded_limits: нет живого браузерного прохода; режим сравнения читает второй чат существующим эндпоинтом с X-Chat-Id."
+    },
+    {
+      "date": "2026-11-12",
+      "slice_ids": [
+        "S3-OV",
+        "S1-AXES"
+      ],
+      "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+      "deployed_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+      "deployed_version": "2.58.191",
+      "rows_touched": 25,
+      "verified_req_ids": [
+        "P0IM-OV-CARDS",
+        "P0IM-OV-FALSEOFF",
+        "P0IM-OV-FRESH",
+        "P0IM-OV-HEADER",
+        "P0IM-OV-L1",
+        "P0IM-OV-L2",
+        "P0IM-OV-NODUMP",
+        "P0IM-BAN-ENABLED",
+        "P0IM-AX-SERVER"
+      ],
+      "review_req_ids": [
+        "P0IM-OV-PERCHAT-CAUSE",
+        "P0IM-OV-L3",
+        "P0IM-OV-ACT",
+        "P0IM-OV-COORD",
+        "P0IM-OV-LIST",
+        "P0IM-OV-SAMPLE",
+        "P0IM-OV-SILENT"
+      ],
+      "rows_verified": 14,
+      "rows_kept_review": 11,
+      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+      "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc",
+      "note": "Привязка к выложенному a6884ad7, не «зелёной серией»: каждая из 14 строк закрыта живым наблюдением прода (оси API и кадр отданной сборки), каждая из 11 оставленных называет точный недобор. Идентичность выложенного кода одобренному 726736ee пересчитана заново (54 файла дельты, побайтовое совпадение тел патчей app.js/index.html, одна строка версии в settings.py, routes.py и пять других файлов байт-в-байт)."
     }
   ],
   "recorded_limits": [
     {
-      "id": "S3OV-NO-LIVE-BROWSER",
+      "id": "S3OV-LIVE-BROWSER-DONE-MOBILE-VIA-PLAYWRIGHT",
       "slice": "S3-OV",
-      "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
-      "statement": "В последнем раунде живой браузерный проход (Browser Use) не выполнялся. Геометрия и отсутствие переполнения подтверждены только замерами Playwright в существующем стенде: 390x844 и 1536x960, hScroll=0, scrollWidth равен ширине экрана, ноль обрезаний, ноль элементов за экраном.",
-      "consequence": "Строки S3-OV не VERIFIED. Живая браузерная проверка обязательна при выкладке и выполняется агентом, не владельцем."
+      "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+      "statement": "Живой браузерный проход по отданной сборке выполнен 2026-11-11 (реальный прод, кадр 1280x950 в release-258191/). Узкая ширина (390x844, 360x740) по-прежнему подтверждена замерами Playwright на том же коде, а не живым проходом.",
+      "consequence": "Строки о геометрии (P0IM-OV-NODUMP) VERIFIED, поскольку выложенный app.js байт-в-байт равен одобренному, а index.html/app.css отличаются только подстановкой версии."
     },
     {
       "id": "S3OV-COMPARE-READS-OTHER-CHAT",
       "slice": "S3-OV",
-      "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
-      "statement": "Режим «Сравнить чаты» читает второй чат существующим эндпоинтом со своим X-Chat-Id; серверного агрегата, третьего вычисленного набора и усреднения нет.",
-      "consequence": "Новых контрактов и эндпоинтов срез не добавил; при выкладке проверяется, что второй запрос уходит с X-Chat-Id второго чата и не подменяет снимок первого."
+      "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+      "statement": "Режим «Сравнить чаты» читает второй чат существующим эндпоинтом со своим X-Chat-Id; серверного агрегата, третьего вычисленного набора и усреднения нет. На проде этот режим не открывался — снят только «Этот чат».",
+      "consequence": "P0IM-OV-PERCHAT-CAUSE остаётся REVIEW: подача разницы как двух подписанных колонок по реальным чатам не подтверждена."
     }
   ],
   "next_release_note": {
-    "wave": "следующая выкладка",
+    "wave": "следующий релиз (после 2.58.191)",
     "candidates": [
       {
-        "commit": "10ab50b5",
-        "scope": "область инструмента ремонта (repair tool scope)",
-        "state": "одобрено, не задеплоено"
+        "commit": "a1fae8496f447d9ad7460bb94ed9687af7f1fd92",
+        "scope": "S4-TRACE — связная трасса попытки в «Публикациях»/«Диагностике»",
+        "chain": [
+          "430703be",
+          "4b5d0169",
+          "03061d57",
+          "a1fae849"
+        ],
+        "state": "одобрено Reviewer, НЕ выложено",
+        "note": "в a1fae849 найден и исправлен реальный узкий дефект вёрстки (строка журнала и шапка трассы обрезались: scrollWidth 516 при clientWidth 340 на 390 px, 310 на 360 px), с замерами и регрессионным утверждением run_row_wrap"
       },
+      {
+        "commit": "0bca3d16",
+        "scope": "P0IM-BAN-NOETA — вычисленная граница больше не выдаётся за расписание",
+        "supersedes": "a590e3b2",
+        "state": "ждёт вердикта Reviewer",
+        "note": "первый ревью нашёл утечку квотного пути: SKIP_QUOTA писал время сброса с подписью «кулдаун»; 0bca3d16 это исправляет и ещё не приговорён"
+      }
+    ],
+    "deployed_in_current_release": [
       {
         "commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
         "scope": "P0-INIT-MEME-UX-DIAG / S3-OV — обзор на пяти осях и переключатель чатов",
-        "state": "одобрено Reviewer на 726736ee, не задеплоено"
+        "state": "выложено в 2.58.191"
+      },
+      {
+        "commit": "10ab50b5",
+        "scope": "только инструменты (scope области ремонта)",
+        "state": "выложено в 2.58.191"
       }
     ],
-    "note": "Отдельная релизная задача не создаётся: это заметка для DevOps и оркестратора."
+    "note": "S4 и NOETA едут следующим релизом; 2.58.191 их не содержит. Отдельная релизная задача не создаётся: заметка для DevOps и оркестратора."
+  },
+  "candidate_history": [
+    {
+      "commit": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+      "role": "base candidates for S1-AXES / S2-ID (backend half)",
+      "state": "approved, ancestor of the release commit"
+    },
+    {
+      "commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
+      "role": "approved corrective candidate (S3-OV, init/meme-axes)",
+      "state": "superseded by the reconstructed release commit a6884ad7 which carries the same reviewed content (patch-body identity, see binding-258191.md §2)"
+    }
+  ],
+  "deployed_version": "2.58.191",
+  "deployed_branch": "release/2.58.191",
+  "deployed_at_utc": "2026-11-11T16:23:41Z",
+  "deployed_evidence": [
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258191/deploy.md",
+      "sha256": "4eeec95e48ead06f1b7e11e180e905aeba9fb6c44201b9348e4038991af4dc4a",
+      "what": "отчёт выкладки: привязка кандидата, аддитивность слияния, преддеплойные прогоны, постдеплой, откат"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258191/live-diagnostics-2.58.191.json",
+      "sha256": "0a882ea4d57649b37e26928db0e4f86bd39eeecc713b88fc4e8c10f5fe63a77f",
+      "what": "сырые оси пяти осей по трём чатам из реального ответа API"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
+      "sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a",
+      "what": "кадр «Обзора» отданной сборки для чата с квотой"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
+      "sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc",
+      "what": "эта привязка: решение по каждой строке и названный недобор"
+    }
+  ],
+  "production_baseline_previous": {
+    "release": "2.58.188",
+    "commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+    "branch": "release/2.58.188"
   }
 }
