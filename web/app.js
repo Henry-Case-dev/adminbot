@@ -22932,7 +22932,10 @@
       },
       // Новейшая РЕАЛЬНАЯ попытка из УЖЕ загруженного снимка диагностики (тот
       // же ответ, что у карточек ниже): ось `last_attempt` двух механизмов.
-      // Пусто в снимке или снимка нет → «нет данных», а не «нет действий».
+      // `isNoData` блока НЕ отменяет уже записанную попытку: недоступность
+      // механизма — не отсутствие строки в журнале, и карточка рядом ту же
+      // попытку показывает. Пустой/нулевой штамп у ОБОИХ механизмов →
+      // «нет данных» (времени не выдумываем и не подменяем границей срока).
       initiativeLastActionFact: function () {
         var view = this.memeDiagView;
         if (!view) return { kind: 'unknown', text: INI_NO_DATA };
@@ -22941,7 +22944,7 @@
         [['text', 'Текстовая инициатива'], ['meme', 'Мемы']]
           .forEach(function (pair) {
             var block = view[pair[0]] || null;
-            if (!block || block.isNoData) return;
+            if (!block) return;
             var ax = block.axes || {};
             var at = Number(ax.attemptAt);
             if (ax.attemptAt == null || !isFinite(at) || at <= 0) return;

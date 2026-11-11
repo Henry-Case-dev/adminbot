@@ -75,12 +75,12 @@ const FALSE_EMPTY = 'Последних действий в журнале не�
 
 function diagPayload(opts) {
   const o = opts || {};
-  return {
+  const payload = {
     chat_id: CHAT,
     generated_at: 1794415330,
     text_initiative: {
       mechanism: 'text_initiative',
-      available: true,
+      available: o.textAvailable !== false,
       configuration: { enabled: true, source: 'chat' },
       health: { state: 'ok', dependencies: [] },
       readiness: {
@@ -116,6 +116,14 @@ function diagPayload(opts) {
       last_check_ts: TS_CHECK,
     },
   };
+  if (o.noAttempts) {
+    payload.text_initiative.last_attempt = {};
+    payload.meme.last_attempt = {};
+    payload.text_initiative.available = false;
+    payload.meme.available = false;
+  }
+  if (o.memeNoAttempt) payload.meme.last_attempt = {};
+  return payload;
 }
 
 // Контекст «как на странице»: снимок диагностики строится тем же computed, что
@@ -152,6 +160,44 @@ function viewCtx(payload) {
     'известный факт показан как «нет данных»: ' + line);
   const state = methods.moduleLastEventState.call(rows, { id: 'mod_initiative' });
   assert.strictEqual(state.kind, 'event', 'вид состояния: ' + state.kind);
+
+  // (а2) Механизм НЕДОСТУПЕН (`available:false`), но попытка записана, а у
+  //      второго механизма попытки нет: карточка рядом показывает эту же
+  //      попытку, поэтому шапка обязана назвать действие, а не «нет данных».
+  //      Недоступность ≠ пустой журнал.
+  const unavailable = viewCtx(diagPayload({
+    textAvailable: false, memeNoAttempt: true,
+  }));
+  const unavailableLine = methods.moduleLastEventLine.call(unavailable,
+    { id: 'mod_initiative' });
+  assert.ok(unavailableLine.indexOf('16:27') >= 0,
+    'недоступный механизм с записанной попыткой не назвал действие: '
+    + unavailableLine);
+  assert.ok(unavailableLine.indexOf('Текстовая инициатива') >= 0,
+    'назван не тот механизм: ' + unavailableLine);
+  assert.strictEqual(unavailableLine.indexOf('нет данных'), -1,
+    'записанная попытка спрятана за «нет данных»: ' + unavailableLine);
+  // Та же попытка в карточке того же ответа — поверхности не расходятся.
+  const unavailableCard = computed.initiativeTextCard.call({
+    iniViewMode: 'self',
+    memeDiagView: unavailable.memeDiagView,
+    iniOverviewTimezone: '',
+    canEditConfig: function () { return true; },
+    memeSettingsView: null,
+    accessChats: [],
+    activeChatId: CHAT,
+  });
+  assert.ok(unavailableCard.attemptText.indexOf('11.11 16:27 UTC') === 0,
+    'карточка потеряла попытку недоступного механизма: '
+    + unavailableCard.attemptText);
+
+  // (а3) Попыток нет НИ У ОДНОГО механизма → честное «нет данных»:
+  //      времени не выдумываем и не подменяем границей срока.
+  const noAttempts = viewCtx(diagPayload({ noAttempts: true }));
+  const noAttemptsLine = methods.moduleLastEventLine.call(noAttempts,
+    { id: 'mod_initiative' });
+  assert.strictEqual(noAttemptsLine, 'нет данных',
+    'при отсутствии попыток названо что-то ещё: ' + noAttemptsLine);
 
   // (б) Источник молчит (снимка диагностики нет) → честное «неизвестно»:
   //     ни «нет действий», ни пустая строка.
