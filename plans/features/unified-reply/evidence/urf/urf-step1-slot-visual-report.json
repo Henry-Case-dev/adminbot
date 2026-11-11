@@ -1,0 +1,200 @@
+{
+ "inspector-desktop-1440": {
+  "ok": true,
+  "stages": {
+   "l1": true,
+   "tools": true,
+   "writer": true,
+   "delivery": true
+  },
+  "l1Action": " Действие: ответить (reply)  · модель: test-model-8b",
+  "clockLine": " Время хода: Europe/Moscow · местное время 06.11 15:00 (+03:00) · UTC 2026-11-06T12:00:00+00:00 · источник: настройки чата · часы на этапах: L1, инструменты, ответ",
+  "toolRow": "web_search · выполнен (success) · источников: 3 · символов: 800",
+  "completion": " Завершение: модель закончила ответ (stop) ",
+  "opRow": "разбивка на части Telegram (telegram_chunk) ×1 · без изменений · 420 симв.",
+  "deliveryLine": "доставлен как написан (digest совпал)",
+  "turnButtons": 4,
+  "traceId": " Ход: corr-urf-1 · код хода (служебный, по нему собрана трасса)  · Direct · триггер: обращение ключевым словом (force_keyword)",
+  "hasToolWord": true,
+  "hasWriterWord": true,
+  "deliveredAsWritten": true,
+  "vw": 1440,
+  "hScroll": false
+ },
+ "inspector3-desktop-1440": {
+  "ok": true,
+  "titles": [
+   "Планирование (L1)",
+   "Инструменты и поиск",
+   "Что видел ответ",
+   "Операции и доставка"
+  ],
+  "cardRects": [
+   {
+    "left": 249,
+    "top": -301,
+    "width": 575
+   },
+   {
+    "left": 832,
+    "top": -301,
+    "width": 575
+   },
+   {
+    "left": 249,
+    "top": 80,
+    "width": 575
+   },
+   {
+    "left": 832,
+    "top": 80,
+    "width": 575
+   }
+  ],
+  "sourceLine": "отвечал: Анна (сообщение 987654321012, 17.10 12:38)в ответ на: Борис (сообщение 987654321000, 17.10 12:30)",
+  "clockLine": "Время хода: Europe/Moscow · местное время 06.11 15:00 (+03:00) · UTC 2026-11-06T12:00:00+00:00 · источник: настройки чата · часы на этапах: L1, инструменты, ответ",
+  "clockStages": "часы поданы на этапах: L1, инструменты, ответ",
+  "modelL1": "L1: модель test-model-8b · слот: выделенный планировщик (l1_slot) · fallback: test-model-8b-fallback · запас на ответ 12 800",
+  "modelL2": "L2: api.example / test-model-8b · слот запроса: основной ответ (direct.primary) · fallback: test-model-8b-fallback · отправлено max output tokens: 4 096",
+  "blockSummaries": [
+   "конспект до 15.10 10:40 · диапазон: 14.10 20:46 — 15.10 10:40 · единого id источника у конспекта нет"
+  ],
+  "budget": "окно модели 128 000 (из справочника моделей) · запас на ответ 12 800 · вошло 5 400 из бюджета 16 000 · режим: динамический",
+  "counts": "доступно сообщений 25 · вошло в запрос 12 · в окне 40",
+  "truncNote": "запись сокращена — блоки: показаны 7, часть записей сокращена при сохранении трассы; потерянные: показаны первые 2 из 9; свои реплики: показаны 1, часть записей сокращена при сохранении трассы",
+  "blockRows": 5,
+  "blockFirst": "свежие сообщения даты: 17.10 12:20 — 17.10 12:38≈800 токенов приоритет вытеснения: вытесняется последним вошло: сообщение 987654321012, сообщение 987654321013",
+  "dropped": [
+   "не вошло, потому что:",
+   "• не поместилось в окно модели · подобранные сообщения · 3 шт.",
+   "• повтор уже показанного · ветка ответов · 1 шт."
+  ],
+  "selfOutputs": [
+   "свои реплики в истории разговора (не образец стиля):",
+   "• сообщение 4242 · 17.10 12:36"
+  ],
+  "searchDecision": "поиск обязателен (required)",
+  "searchAction": "поиск выполнялся · итог: источники найдены · источников в выдаче: 5",
+  "linkRows": 3,
+  "linkFirst": "Длинный заголовок источника выдачи→ https://example.test/very/long/path/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaопубликовано 01.11.2026",
+  "styleHead": "правила применены · откуда: настройки чата · версия правил: sp-2026-11-06",
+  "styleCounts": "нарушений нет: 4 · исправлено: 2",
+  "ruleRows": 4,
+  "ruleFirst": "сработало правило: тире · итог: исправлено · причина: тире заменено (dash_replaced)",
+  "unexplained": [],
+  "clipped": [],
+  "truncateClass": 0,
+  "hScroll": false,
+  "vw": 1440,
+  "collapsedByDefault": true,
+  "moreButtons": 3,
+  "hasUnknownFallback": true,
+  "afterExpand": {
+   "blocks": 7,
+   "links": 4,
+   "rules": 6,
+   "buttonsLeft": 0,
+   "hScroll": false
+  }
+ },
+ "inspector-mobile-390": {
+  "ok": true,
+  "stages": {
+   "l1": true,
+   "tools": true,
+   "writer": true,
+   "delivery": true
+  },
+  "l1Action": " Действие: ответить (reply)  · модель: test-model-8b",
+  "clockLine": " Время хода: Europe/Moscow · местное время 06.11 15:00 (+03:00) · UTC 2026-11-06T12:00:00+00:00 · источник: настройки чата · часы на этапах: L1, инструменты, ответ",
+  "toolRow": "web_search · выполнен (success) · источников: 3 · символов: 800",
+  "completion": " Завершение: модель закончила ответ (stop) ",
+  "opRow": "разбивка на части Telegram (telegram_chunk) ×1 · без изменений · 420 симв.",
+  "deliveryLine": "доставлен как написан (digest совпал)",
+  "turnButtons": 4,
+  "traceId": " Ход: corr-urf-1 · код хода (служебный, по нему собрана трасса)  · Direct · триггер: обращение ключевым словом (force_keyword)",
+  "hasToolWord": true,
+  "hasWriterWord": true,
+  "deliveredAsWritten": true,
+  "vw": 390,
+  "hScroll": false
+ },
+ "inspector3-mobile-390": {
+  "ok": true,
+  "titles": [
+   "Планирование (L1)",
+   "Инструменты и поиск",
+   "Что видел ответ",
+   "Операции и доставка"
+  ],
+  "cardRects": [
+   {
+    "left": 25,
+    "top": -1250,
+    "width": 340
+   },
+   {
+    "left": 25,
+    "top": -1037,
+    "width": 340
+   },
+   {
+    "left": 25,
+    "top": -608,
+    "width": 340
+   },
+   {
+    "left": 25,
+    "top": 352,
+    "width": 340
+   }
+  ],
+  "sourceLine": "отвечал: Анна (сообщение 987654321012, 17.10 12:38)в ответ на: Борис (сообщение 987654321000, 17.10 12:30)",
+  "clockLine": "Время хода: Europe/Moscow · местное время 06.11 15:00 (+03:00) · UTC 2026-11-06T12:00:00+00:00 · источник: настройки чата · часы на этапах: L1, инструменты, ответ",
+  "clockStages": "часы поданы на этапах: L1, инструменты, ответ",
+  "modelL1": "L1: модель test-model-8b · слот: выделенный планировщик (l1_slot) · fallback: test-model-8b-fallback · запас на ответ 12 800",
+  "modelL2": "L2: api.example / test-model-8b · слот запроса: основной ответ (direct.primary) · fallback: test-model-8b-fallback · отправлено max output tokens: 4 096",
+  "blockSummaries": [
+   "конспект до 15.10 10:40 · диапазон: 14.10 20:46 — 15.10 10:40 · единого id источника у конспекта нет"
+  ],
+  "budget": "окно модели 128 000 (из справочника моделей) · запас на ответ 12 800 · вошло 5 400 из бюджета 16 000 · режим: динамический",
+  "counts": "доступно сообщений 25 · вошло в запрос 12 · в окне 40",
+  "truncNote": "запись сокращена — блоки: показаны 7, часть записей сокращена при сохранении трассы; потерянные: показаны первые 2 из 9; свои реплики: показаны 1, часть записей сокращена при сохранении трассы",
+  "blockRows": 5,
+  "blockFirst": "свежие сообщения даты: 17.10 12:20 — 17.10 12:38≈800 токенов приоритет вытеснения: вытесняется последним вошло: сообщение 987654321012, сообщение 987654321013",
+  "dropped": [
+   "не вошло, потому что:",
+   "• не поместилось в окно модели · подобранные сообщения · 3 шт.",
+   "• повтор уже показанного · ветка ответов · 1 шт."
+  ],
+  "selfOutputs": [
+   "свои реплики в истории разговора (не образец стиля):",
+   "• сообщение 4242 · 17.10 12:36"
+  ],
+  "searchDecision": "поиск обязателен (required)",
+  "searchAction": "поиск выполнялся · итог: источники найдены · источников в выдаче: 5",
+  "linkRows": 3,
+  "linkFirst": "Длинный заголовок источника выдачи→ https://example.test/very/long/path/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaопубликовано 01.11.2026",
+  "styleHead": "правила применены · откуда: настройки чата · версия правил: sp-2026-11-06",
+  "styleCounts": "нарушений нет: 4 · исправлено: 2",
+  "ruleRows": 4,
+  "ruleFirst": "сработало правило: тире · итог: исправлено · причина: тире заменено (dash_replaced)",
+  "unexplained": [],
+  "clipped": [],
+  "truncateClass": 0,
+  "hScroll": false,
+  "vw": 390,
+  "collapsedByDefault": true,
+  "moreButtons": 3,
+  "hasUnknownFallback": true,
+  "afterExpand": {
+   "blocks": 7,
+   "links": 4,
+   "rules": 6,
+   "buttonsLeft": 0,
+   "hScroll": false
+  }
+ },
+ "console_errors": [],
+ "console_error_count": 0
+}
