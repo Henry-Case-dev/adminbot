@@ -2436,10 +2436,22 @@
       "slice": "S5b",
       "acceptance": "Автоматический мем, у которого изображение уже оплачено и получено, не выбрасывается при publish_blocked/publisher_not_bound: отказ связывания либо восстанавливается существующим durable механизмом брони/отложенной публикации, либо завершается явным исходом «не доставлено» с этой причиной; байты результата не теряются молча, новый планировщик или очередь не вводятся.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "delta": "Новое: под-срез S5b введён по результату R0-INV; в исходном источнике строка 120 (запрет отмены готовых изображений) ранее не имела владельца этого класса отказов."
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
+          "type": "test",
+          "ref": "Независимая проверка Reviewer кандидата e92cdcd5 (фейковый отправитель, одноразовый worktree) + статическая перепроверка дельты при привязке.",
+          "observation": "Носитель: отложенная доставка через существующие defer_generated_meme + deliver_deferred_all на том же тике инициативы. Подтверждены строка queued, равенство байтов и sha256, journal preserved=true и delivery=not_sent, ветка preserved=false с причиной, восстановление после перезапуска (ровно одна отправка теми же байтами) и истечение срока (cancelled, файл удалён, ноль отправок). Живого случая на проде не было.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-e92cdcd5.md",
+          "artifact_sha256": "c331601bc943c5ad3cc95a1570d0957d52a74b6c09801b122b1ad330f9833eeb"
+        }
+      ],
+      "delta": "Новое: под-срез S5b введён по результату R0-INV; в исходном источнике строка 120 (запрет отмены готовых изображений) ранее не имела владельца этого класса отказов.",
+      "pending_reason": "Инженерная половина доказана на e92cdcd5 (фейковый отправитель, одноразовый worktree): строка памяти очереди queued, байты файла побайтово равны оплаченным, sha256 payload совпадает, publication.artifact.preserved=true, delivery=not_sent; ветка без durable-пути даёт preserved=false с причиной и строки не создаёт; перезапуск оставляет queued и доставляет ровно один раз; истечение срока даёт cancelled без отправок. Живая половина не наблюдалась: реального publisher_not_bound → deferred → delivered в проде не было, и причина (событийный тик без привязанного бота) не устранена.",
+      "live_obligation": "Один реальный автоматический мем на проде: терминальная строка журнала попытки с publisher_not_bound и publication.artifact.preserved=true плюс непустой deferred_job_id, строка task_jobs (owner=deferred) в queued с живым result_ref на файл, чьи байты совпадают с оплаченными, и затем ровно одна доставка того же чата (completed, outcome=published, delivery=sent, непустой message_id). Наблюдается агентами по журналу попыток и task_jobs.",
+      "binding_e92cdcd5": "Одобрено Reviewer 2026-11-12; не выложено. READY_FOR_LIVE: инженерная половина доказана на кандидате, живая половина (postdeploy) не наблюдалась."
     },
     {
       "source_id": "MANUAL-L027-S5B",
@@ -2451,11 +2463,23 @@
       "req_id": "P0IM-S5B-DELIVERY-FACT",
       "slice": "S5b",
       "acceptance": "Для попытки мема, закрытой без отправки, read-model/API отдаёт last_delivery = «не доставлено» с точным кодом причины (в том числе publisher_not_bound), а не пустоту и не «опубликовано»; число изображений и число подтверждённых отправок в одной попытке различаются.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "delta": "Новое: отделяет ось доставки от оси попытки для отказов publisher_not_bound."
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
+          "type": "test",
+          "ref": "Независимая проверка Reviewer кандидата e92cdcd5 (фейковый отправитель, одноразовый worktree) + статическая перепроверка дельты при привязке.",
+          "observation": "Факт доставки отделён от факта попытки: not_delivered несёт точный код причины, набор полей совпадает с LAST_DELIVERY_FIELDS, подтверждённая отправка приоритетнее позднего отказа. Проверено на кандидате, не на живом носителе.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-e92cdcd5.md",
+          "artifact_sha256": "c331601bc943c5ad3cc95a1570d0957d52a74b6c09801b122b1ad330f9833eeb"
+        }
+      ],
+      "delta": "Новое: отделяет ось доставки от оси попытки для отказов publisher_not_bound.",
+      "pending_reason": "Инженерная половина доказана на e92cdcd5: для закрытой без отправки попытки пишется not_delivered с reason_code=publisher_not_bound, временем, destination, message_id=null и ровно набором LAST_DELIVERY_FIELDS, а подтверждённая отправка (4242) не перезаписывается более поздним «не доставлено». Живая половина не наблюдалась: ни одной реальной попытки мема с publisher_not_bound после изменения не было.",
+      "live_obligation": "На реальной попытке мема с publisher_not_bound read-model отдаёт last_delivery.status=not_delivered с reason_code=publisher_not_bound, временем и destination, message_id=null; после реальной поздней доставки того же чата последняя подтверждённая отправка показывает непустой message_id и более поздним отказом не стирается. Проверяется по журналу попыток и полям task_jobs, без ручного участия владельца.",
+      "binding_e92cdcd5": "Одобрено Reviewer 2026-11-12; не выложено. READY_FOR_LIVE: инженерная половина доказана на кандидате, живая половина (postdeploy) не наблюдалась."
     },
     {
       "source_id": "MANUAL-L083-S5B",
@@ -2467,11 +2491,23 @@
       "req_id": "P0IM-S5B-QUOTA",
       "slice": "S5b",
       "acceptance": "Суточная автоматическая квота мемов согласована с фактами доставки: слот, израсходованный под попытку без доставки, либо не списывается, либо показывается как «израсходован без отправки» с причиной; счётчики попытки, изображения и подтверждённой отправки не смешиваются.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "delta": "Новое: связывает квоту с фактом доставки; не дублирует P0IM-OV-L3 (показ) и P0IM-PB-COUNT (счётчики в трассе)."
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
+          "type": "test",
+          "ref": "Независимая проверка Reviewer кандидата e92cdcd5 (фейковый отправитель, одноразовый worktree) + статическая перепроверка дельты при привязке.",
+          "observation": "Квота разведена с фактом доставки: «израсходован без отправки» виден с причиной, а не выглядит как реальная публикация; списание не возвращается, потому что провайдер уже оплачен. Проверено на кандидате, живые счётчики не снимались.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-e92cdcd5.md",
+          "artifact_sha256": "c331601bc943c5ad3cc95a1570d0957d52a74b6c09801b122b1ad330f9833eeb"
+        }
+      ],
+      "delta": "Новое: связывает квоту с фактом доставки; не дублирует P0IM-OV-L3 (показ) и P0IM-PB-COUNT (счётчики в трассе).",
+      "pending_reason": "Инженерная половина доказана на e92cdcd5: spent=1, remaining=2, delivered=0, not_delivered=1, not_delivered_reasons={publisher_not_bound:1} в данных и в представлении; после поздней доставки delivered=1, not_delivered=0, spent без изменений. Слот сознательно не возвращается: вызов провайдера уже оплачен. Контр-попытка Reviewer («успешная отправка не должна попасть в списано-без-отправки») дала spent=1, delivered=1, not_delivered=0. Живая половина не наблюдалась: реальных счётчиков после такого случая на проде нет.",
+      "live_obligation": "На проде после одного реального случая publisher_not_bound → deferred → delivered: spent не уменьшился, delivered вырос, not_delivered и not_delivered_reasons сохранили publisher_not_bound, и те же числа читаются в представлении и в API для этого чата. Наблюдается агентами по read-model и журналу, не владельцем.",
+      "binding_e92cdcd5": "Одобрено Reviewer 2026-11-12; не выложено. READY_FOR_LIVE: инженерная половина доказана на кандидате, живая половина (postdeploy) не наблюдалась."
     }
   ],
   "items": [
@@ -3773,7 +3809,8 @@
       "binding_artifact_sha256": "53fb03106231ebaa841b49c14f723a2c203ae2f9b0bcda2bae0bbed0a18c5f02",
       "weakest_binding": "P0IM-PB-VOCAB и P0IM-PB-COUNT: в продукте нет состояния «данные устарели» и нет отдельных счётчиков LLM-вызовов/изображений — это не вопрос доказательств, а недоделанные пункты acceptance.",
       "accounting_note": "S4 не переписывает строки S1/S3; P0IM-BAN-CONFLATE по-прежнему ждёт S4 (PB-COUNT). Строки PB-* двух исходных указателей (L00045/L00047/L00041 и MANUAL-L100/L102/L104/L106/L108) обновлены синхронно."
-    }
+    },
+    "S5b": "Одобрено на e92cdcd5 (ветка init/meme-s5b, база 1dcbebca), НЕ выложено и НЕ VERIFIED: три строки READY_FOR_LIVE. Инженерно доказано на фейковом отправителе: оплаченные байты не выбрасываются (queued/preserved=true/not_sent, ветка preserved=false, восстановление после перезапуска, истечение срока), факт not_delivered с reason_code пишется и не перезаписывает подтверждённую отправку, квота показывает «израсходован без отправки» и слот не возвращает. Живая половина — один реальный publisher_not_bound → deferred → delivered, наблюдаемый по журналу и task_jobs. Причина sender=None в событийном тике не устранена (BL-S5B-EVENT-TICK-SENDER)."
   },
   "binding_log": [
     {
@@ -3924,6 +3961,31 @@
         "PMDOC": "2d04c5295bc7064700d5c2f6737205ffc16e81101bd7814256ce7b5256826a62"
       },
       "note": "Ни одна строка не повышена «за зелёную серию»: PB-* поднимались только там, где живой прод-проход прямо показывает acceptance, иначе назван конкретный недобор. Старые якоря преддеплойных кандидатов не переписаны — release-гейт показывает этот разрыв отдельно."
+    },
+    {
+      "date": "2026-11-12",
+      "slice_ids": [
+        "S5b"
+      ],
+      "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
+      "base_commit": "1dcbebcaca7a91f79295cf6f4e6d913cf007eb8f",
+      "branch": "init/meme-s5b",
+      "approved_req_ids": [
+        "P0IM-S5B-NODISCARD",
+        "P0IM-S5B-DELIVERY-FACT",
+        "P0IM-S5B-QUOTA"
+      ],
+      "verified_req_ids": [],
+      "ready_for_live_req_ids": [
+        "P0IM-S5B-NODISCARD",
+        "P0IM-S5B-DELIVERY-FACT",
+        "P0IM-S5B-QUOTA"
+      ],
+      "rows_touched": 3,
+      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-e92cdcd5.md",
+      "artifact_sha256": "c331601bc943c5ad3cc95a1570d0957d52a74b6c09801b122b1ad330f9833eeb",
+      "write_scope_amendment": "services/initiative_diagnostics.py + web/app.js (обоснование Reviewer: требование пользовательское, не JSON-only); запись в write_scope_amendments и в slice-graph.json#S5b",
+      "note": "Ни одна строка не повышена до VERIFIED: инженерная половина доказана на кандидате, живая половина (один реальный publisher_not_bound → deferred → delivered) не наблюдалась. Причина дефекта (sender=None в событийном тике) не устранена и вынесена одной строкой бэклога."
     }
   ],
   "recorded_limits": [
@@ -4149,14 +4211,16 @@
     "required_rows": 112,
     "unique_req_ids": 75,
     "by_status": {
+      "PENDING": 44,
       "VERIFIED": 54,
       "REVIEW": 11,
-      "PENDING": 47
+      "READY_FOR_LIVE": 3
     },
     "by_status_unique": {
-      "PENDING": 35,
+      "PENDING": 32,
       "VERIFIED": 33,
-      "REVIEW": 7
+      "REVIEW": 7,
+      "READY_FOR_LIVE": 3
     },
     "by_slice": {
       "A0-ARCH": {
@@ -4172,8 +4236,8 @@
       "S1-AXES": {
         "rows": 24,
         "unique": 10,
-        "PENDING": 3,
-        "VERIFIED": 21
+        "VERIFIED": 21,
+        "PENDING": 3
       },
       "S2-ID": {
         "rows": 11,
@@ -4184,8 +4248,8 @@
       "S3-OV": {
         "rows": 21,
         "unique": 14,
-        "REVIEW": 11,
-        "VERIFIED": 10
+        "VERIFIED": 10,
+        "REVIEW": 11
       },
       "S4-TRACE": {
         "rows": 14,
@@ -4201,7 +4265,7 @@
       "S5b": {
         "rows": 3,
         "unique": 3,
-        "PENDING": 3
+        "READY_FOR_LIVE": 3
       },
       "S6-FRESH": {
         "rows": 6,
@@ -4235,14 +4299,18 @@
       "with_bcc090a3": 10
     },
     "bound_in_this_pass": {
-      "rows": 10,
+      "slice": "S5b",
+      "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
+      "rows": 3,
+      "status": "READY_FOR_LIVE",
       "unique_req_ids": [
-        "P0IM-PB-TRACE",
-        "P0IM-PB-ROW",
-        "P0IM-PB-NOTRUN",
-        "P0IM-PB-CODES",
-        "P0IM-BAN-NOETA"
-      ]
+        "P0IM-S5B-NODISCARD",
+        "P0IM-S5B-DELIVERY-FACT",
+        "P0IM-S5B-QUOTA"
+      ],
+      "live_obligation": "Один реальный publisher_not_bound → deferred → delivered на проде, наблюдаемый по журналу попыток и task_jobs.",
+      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-e92cdcd5.md",
+      "artifact_sha256": "c331601bc943c5ad3cc95a1570d0957d52a74b6c09801b122b1ad330f9833eeb"
     },
     "epic_done": false,
     "epic_done_blockers": [
@@ -4251,8 +4319,59 @@
       "S1-AXES: P0IM-BAN-CONFLATE (3 строки)",
       "S2-ID: P0IM-ID-FINISH (2 строки, остаточное окно RW-D4-BOTH-WRITE-FAIL) и P0IM-ID-CONC",
       "S3-OV: 11 строк REVIEW, включая две живые несогласованности LF-258192-01/02",
-      "release-гейт не зелёный: 44 VERIFIED строки держат якоря преддеплойных кандидатов"
+      "release-гейт не зелёный: 44 VERIFIED строки держат якоря преддеплойных кандидатов",
+      "S5b: 3 строки READY_FOR_LIVE — инженерно доказаны на e92cdcd5, но живого publisher_not_bound → deferred → delivered не было; причина sender=None в событийном тике не устранена (BL-S5B-EVENT-TICK-SENDER)."
     ],
     "note": "Это снимок карты, а не глобальный progress_scope.json: общий прогресс проекта считает Orchestrator. Эпик НЕ завершён."
-  }
+  },
+  "write_scope_amendments": [
+    {
+      "slice": "S5b",
+      "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
+      "declared_write_scope": [
+        "services/publication_coordination.py",
+        "services/meme_initiative.py",
+        "tests/test_publication_binding_delivery.py"
+      ],
+      "added_paths": [
+        "services/initiative_diagnostics.py",
+        "web/app.js"
+      ],
+      "also_touched": [
+        "tests/js/initiative_ui_rework_test.js",
+        "plans/features/p0-init-meme-ux-diag/evidence/s5b/"
+      ],
+      "approved_by": "Reviewer (независимая проверка кандидата e92cdcd5): расширение признано обоснованным, потому что требование S5b пользовательское, а не только про JSON.",
+      "reason": "Факт доставки и квота обязаны быть видны в осях механизма (services/initiative_diagnostics.py) и в карточке обзора (web/app.js); правка только серверного JSON оставила бы требование невидимым для пользователя, то есть невыполненным.",
+      "graph_sync": "slice-graph.json -> slices[id=S5b].write_scope_amendments (та же запись); объявленный write_scope графа не переписан, чтобы не создавать ложных рёбер и ложных release-гейтов.",
+      "concurrency_constraint": "S4-TRACE пишет тот же web/app.js и ещё не начат: его правки должны идти поверх версии app.js из e92cdcd5, параллельная работа двух писателей по web/app.js недопустима. S6-FRESH уже зависит от S5b, поэтому с ним конфликта нет.",
+      "residual_risk": "tests/js/initiative_ui_rework_test.js формально принадлежит S3-OV; дельта S5b добавляет туда кейсы доставки, не меняя существующих утверждений."
+    }
+  ],
+  "backlog_findings": [
+    {
+      "id": "BL-S5B-ALREADY-PENDING-PRESERVED",
+      "slice": "S5b",
+      "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
+      "location": "services/meme_initiative.py::defer_generated_meme, ветка already_pending (строка 2375 кандидата; 2266 базы); потребитель — ветка sender is None в consider_chat (pub_facts[artifact].preserved = bool(deferred))",
+      "statement": "При гонке already_pending свежий файл удаляется через remove_deferred_bytes, но вызывающий код пишет publication.artifact.preserved=true: это ссылка на байты ДРУГОЙ, уже стоящей в очереди задачи, а не на удалённые. В нормальном потоке недостижимо (в чате одна отложенная строка на чат, и она же доставляется), но семантически неточно.",
+      "impact": "low: только точность диагностики; потери байтов нет, отправок не добавляет и не отнимает.",
+      "relation_to_active_task": "Найдено при ревью S5b; acceptance P0IM-S5B-NODISCARD не нарушает, потому что удаляемый дубль не является оплаченным результатом, который теряется молча.",
+      "next_action": "При следующем касании diagnostics различать preserved_already_pending (durable-строка уже есть, этот файл удалён) вместо preserved=true.",
+      "backlog_ref": "plans/backlog.md, раздел «Добавлено 2026-11-12 (S5b: привязка e92cdcd5)»",
+      "task_created": false
+    },
+    {
+      "id": "BL-S5B-EVENT-TICK-SENDER",
+      "slice": "S5b",
+      "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
+      "location": "services/initiative_observer.py::_meme_sender (2095-2098: bot is None -> None) и вызов meme.on_initiative_cycle(sender=self._meme_sender()) (2027-2033); файл в дельту S5b не входит",
+      "statement": "Событийный тик инициативы по-прежнему передаёт sender=None, когда бот не привязан, поэтому каждый такой проход продолжает тратить оплаченный слот суточной квоты; S5b меняет только судьбу байтов (откладываются вместо потери), корневая причина не устранена.",
+      "impact": "medium: расход квоты без отправки продолжается; теперь он виден как not_delivered с причиной publisher_not_bound, а не как тихая потеря.",
+      "relation_to_active_task": "Осознанно вне S5b: привязка бота к событийному тику — отдельное изменение с другим риском (кто именно отправляет в событийном тике). Отдельная задача не заводилась, чтобы не раздувать очередь.",
+      "next_action": "Отдельная задача следующего шага: либо привязать бота к событийному тику, либо не расходовать слот до появления отправителя; после этого живая половина S5b закроется естественным случаем.",
+      "backlog_ref": "plans/backlog.md, раздел «Добавлено 2026-11-12 (S5b: привязка e92cdcd5)»",
+      "task_created": false
+    }
+  ]
 }
